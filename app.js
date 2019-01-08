@@ -168,6 +168,23 @@ Arrow.update = function(){
 // DEBUG
 var DEBUG = true;
 
+// USERS
+var USERS = {
+  // username:password
+}
+
+var isValidPassword = function(data){
+  return USERS[data.username] === data.password;
+}
+
+var isUsernameTaken = function(data){
+  return USERS[data.username];
+}
+
+var addUser = function(data){
+  USERS[data.username] = data.password;
+}
+
 // SERVER
 var io = require('socket.io')(serv,{});
 io.sockets.on('connection', function(socket){
@@ -175,7 +192,23 @@ io.sockets.on('connection', function(socket){
   SOCKET_LIST[socket.id] = socket;
   console.log('Socket connected: ' + socket.id);
 
-  Player.onConnect(socket);
+  socket.on('signIn',function(data){
+    if(isValidPassword(data)){
+      Player.onConnect(socket);
+      socket.emit('signInResponse',{success:true});
+    } else {
+      socket.emit('signInResponse',{success:false});
+    }
+  });
+
+  socket.on('signUp',function(data){
+    if(isUsernameTaken(data)){
+      socket.emit('signUpResponse',{success:false});
+    } else {
+      addUser(data);
+      socket.emit('signUpResponse',{success:true});
+    }
+  });
 
   socket.on('disconnect',function(){
     delete SOCKET_LIST[socket.id];
