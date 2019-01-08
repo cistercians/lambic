@@ -40,12 +40,24 @@ var Player = function(id){
   self.pressingLeft = false;
   self.pressingUp = false;
   self.pressingDown = false;
+  self.pressingAttack = false;
+  self.mouseAngle = 0;
   self.maxSpd = 6;
 
   var super_update = self.update;
   self.update = function(){
     self.updateSpd();
     super_update();
+
+    if(self.pressingAttack){
+      self.shootArrow(self.mouseAngle);
+    }
+  }
+
+  self.shootArrow = function(angle){
+    var a = Arrow(angle);
+    a.x = self.x;
+    a.y = self.y;
   }
 
   self.updateSpd = function(){
@@ -80,6 +92,10 @@ Player.onConnect = function(socket){
       player.pressingUp = data.state;
     else if(data.inputId === 'down')
       player.pressingDown = data.state;
+    else if(data.inputId === 'attack')
+      player.pressingAttack = data.state;
+    else if(data.inputId === 'mouseAngle')
+      player.mouseAngle = data.state;
   });
 }
 
@@ -101,6 +117,44 @@ Player.update = function(){
   return pack;
 }
 
+// ARROWS
+var Arrow = function(angle){
+  var self = Entity();
+  self.id = Math.random();
+  self.spdX = Math.cos(angle/180*Math.PI) * 10;
+  self.spdY = Math.sin(angle/180*Math.PI) * 10;
+
+  self.timer = 0;
+  self.toRemove = false;
+  var super_update = self.update;
+  self.update = function(){
+    if(self.timer++ > 100)
+      self.toRemove = true;
+    super_update();
+  }
+  Arrow.list[self.id] = self;
+  return self;
+}
+
+Arrow.list = {};
+
+Arrow.update = function(){
+  var pack = [];
+  for(var i in Arrow.list){
+    var arrow = Arrow.list[i];
+    arrow.update();
+    pack.push({
+      x:arrow.x,
+      y:arrow.y,
+    });
+  }
+  return pack;
+}
+
+// DEBUG
+var DEBUG = true;
+
+// SERVER
 var io = require('socket.io')(serv,{});
 io.sockets.on('connection', function(socket){
   socket.id = Math.random();
@@ -108,17 +162,34 @@ io.sockets.on('connection', function(socket){
   console.log('Socket connected: ' + socket.id);
 
   Player.onConnect(socket);
-  
+
   socket.on('disconnect',function(){
     delete SOCKET_LIST[socket.id];
     Player.onDisconnect(socket);
     console.log('Socket disconnected: ' + socket.id);
   });
+
+  socket.on('sendMsgToServer',function(data){
+    var playerName = ("" + socket.id).slice(2,7);
+    for(var i in SOCKET_LIST){
+      SOCKET_LIST[i].emit('addToChat',playerName + ': ' + data);
+    }
+  });
+
+  socket.on('evalServer',function(data){
+    if(!DEBUG)
+      return;
+    var res = eval(data);
+    socket.emit('evalAnswer',res);
+  });
 });
 
-//UPDATE PLAYER POSITIONS
+//UPDATE GAME STATE
 setInterval(function(){
-  var pack =  Player.update();
+  var pack =  {
+    player:Player.update(),
+    arrow:Arrow.update()
+  }
 
   for(var i in SOCKET_LIST){
     var socket = SOCKET_LIST[i];
