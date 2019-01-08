@@ -28,6 +28,10 @@ var Entity = function(){
     self.x += self.spdX;
     self.y += self.spdY;
   }
+
+  self.getDistance = function(pt){
+    return Math.sqrt(Math.pow(self.x-pt.x,2) + Math.pow(self.y-pt.y,2));
+  }
   return self;
 }
 
@@ -55,7 +59,7 @@ var Player = function(id){
   }
 
   self.shootArrow = function(angle){
-    var a = Arrow(angle);
+    var a = Arrow(self.id,angle);
     a.x = self.x;
     a.y = self.y;
   }
@@ -118,12 +122,12 @@ Player.update = function(){
 }
 
 // ARROWS
-var Arrow = function(angle){
+var Arrow = function(parent,angle){
   var self = Entity();
   self.id = Math.random();
   self.spdX = Math.cos(angle/180*Math.PI) * 10;
   self.spdY = Math.sin(angle/180*Math.PI) * 10;
-
+  self.parent = parent;
   self.timer = 0;
   self.toRemove = false;
   var super_update = self.update;
@@ -131,6 +135,13 @@ var Arrow = function(angle){
     if(self.timer++ > 100)
       self.toRemove = true;
     super_update();
+
+    for(var i in Player.list){
+      var p = Player.list[i];
+      if(self.getDistance(p) < 32 && self.parent !== p.id){
+        self.toRemove = true;
+      }
+    }
   }
   Arrow.list[self.id] = self;
   return self;
@@ -143,10 +154,13 @@ Arrow.update = function(){
   for(var i in Arrow.list){
     var arrow = Arrow.list[i];
     arrow.update();
-    pack.push({
-      x:arrow.x,
-      y:arrow.y,
-    });
+    if(arrow.toRemove)
+      delete Arrow.list[i];
+    else
+      pack.push({
+        x:arrow.x,
+        y:arrow.y,
+      });
   }
   return pack;
 }
