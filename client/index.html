@@ -51,24 +51,11 @@
       alert('Sign-up failed.')
   });
 
-  // GAME
+  // CHAT & COMMANDS
   var chatText = document.getElementById('chat-text');
   var chatInput = document.getElementById('chat-input');
   var chatForm = document.getElementById('chat-form');
-  var ctx = document.getElementById('ctx').getContext('2d');
-  ctx.font = '30px Arial';
 
-  socket.on('newPositions',function(data) {
-    ctx.clearRect(0,0,500,500);
-    // DRAW PLAYERS
-    for(var i = 0; i < data.player.length; i++)
-      ctx.fillText(data.player[i].number,data.player[i].x,data.player[i].y);
-    // DRAW ARROWS
-    for(var i = 0; i < data.arrow.length; i++)
-      ctx.fillRect(data.arrow[i].x-5,data.arrow[i].y-5,10,10);
-  });
-
-  // CHAT & COMMANDS
   socket.on('addToChat',function(data){
     chatText.innerHTML += '<div>' + data + '</div>';
   });
@@ -86,6 +73,26 @@
       socket.emit('sendMsgToServer',chatInput.value);
     chatInput.value = '';
   }
+
+  // GAME
+  var ctx = document.getElementById('ctx').getContext('2d');
+  ctx.font = '30px Arial';
+
+  // INIT
+
+  // UPDATE
+
+  // REMOVE
+
+  socket.on('newPositions',function(data) {
+    ctx.clearRect(0,0,500,500);
+    // DRAW PLAYERS
+    for(var i = 0; i < data.player.length; i++)
+      ctx.fillText(data.player[i].number,data.player[i].x,data.player[i].y);
+    // DRAW ARROWS
+    for(var i = 0; i < data.arrow.length; i++)
+      ctx.fillRect(data.arrow[i].x-5,data.arrow[i].y-5,10,10);
+  });
 
   // CONTROLS
   document.onkeydown = function(event){

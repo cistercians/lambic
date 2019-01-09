@@ -1,3 +1,8 @@
+// DATABASE
+var mongojs = require('mongojs');
+var db = mongojs('localhost:27017/myGame',['account','progress']);
+
+// NETWORKING
 var express = require('express');
 var app = express();
 var serv = require('http').Server(app);
@@ -168,21 +173,28 @@ Arrow.update = function(){
 // DEBUG
 var DEBUG = true;
 
-// USERS
-var USERS = {
-  // username:password
+var isValidPassword = function(data,cb){
+  db.account.find({username:data.username,password:data.password},function(err,res){
+    if(res.length > 0)
+      cb(true);
+    else
+      cb(false);
+  });
 }
 
-var isValidPassword = function(data){
-  return USERS[data.username] === data.password;
+var isUsernameTaken = function(data,cb){
+  db.account.find({username:data.username},function(err,res){
+    if(res.length > 0)
+      cb(true);
+    else
+      cb(false);
+  });
 }
 
-var isUsernameTaken = function(data){
-  return USERS[data.username];
-}
-
-var addUser = function(data){
-  USERS[data.username] = data.password;
+var addUser = function(data,cb){
+  db.account.insert({username:data.username,password:data.password},function(err){
+    cb();
+  });
 }
 
 // SERVER
@@ -193,21 +205,28 @@ io.sockets.on('connection', function(socket){
   console.log('Socket connected: ' + socket.id);
 
   socket.on('signIn',function(data){
-    if(isValidPassword(data)){
-      Player.onConnect(socket);
-      socket.emit('signInResponse',{success:true});
-    } else {
-      socket.emit('signInResponse',{success:false});
-    }
+    isValidPassword(data,function(res){
+      if(res){
+        Player.onConnect(socket);
+        socket.emit('signInResponse',{success:true});
+        console.log(data.username + ' signed in.');
+      } else {
+        socket.emit('signInResponse',{success:false});
+      }
+    })
   });
 
   socket.on('signUp',function(data){
-    if(isUsernameTaken(data)){
-      socket.emit('signUpResponse',{success:false});
-    } else {
-      addUser(data);
-      socket.emit('signUpResponse',{success:true});
-    }
+    isUsernameTaken(data,function(res){
+      if(res){
+        socket.emit('signUpResponse',{success:false});
+      } else {
+        addUser(data,function(){
+          socket.emit('signUpResponse',{success:true});
+          console.log(data.username + ' signed up.');
+        });
+      }
+    })
   });
 
   socket.on('disconnect',function(){
