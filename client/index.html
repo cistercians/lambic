@@ -84,6 +84,19 @@
     self.number = initPack.number;
     self.x = initPack.x;
     self.y = initPack.y;
+    self.hp = initPack.hp;
+    self.hpMax = initPack.hpMax;
+    self.mana = initPack.mana;
+    self.manaMax = initPack.manaMax;
+
+    self.draw = function(){
+      var hpWidth = 30 * self.hp / self.hpMax;
+      var manaWidth = 30 * self.mana / self.manaMax;
+      ctx.fillRect(self.x - hpWidth/2,self.y - 50,hpWidth,4);
+      ctx.fillRect(self.x - manaWidth/2,self.y - 40,manaWidth,4);
+      ctx.fillText(self.number,self.x,self.y);
+    }
+
     Player.list[self.id] = self;
     return self;
   }
@@ -95,6 +108,11 @@
     self.number = initPack.number;
     self.x = initPack.x;
     self.y = initPack.y;
+
+    self.draw = function(){
+      ctx.fillRect(self.x-5,self.y-5,10,10);
+    }
+
     Bullet.list[self.id] = self;
     return self;
   }
@@ -122,6 +140,14 @@
           p.x = pack.x;
         if(pack.y !== undefined)
           p.y = pack.y;
+        if(pack.hp !== undefined)
+          p.hp = pack.hp;
+        if(pack.hpMax !== undefined)
+          p.hpMax = pack.hpMax;
+        if(pack.mana !== undefined)
+          p.mana = pack.mana;
+        if(pack.manaMax !== undefined)
+          p.manaMax = pack.manaMax;
       }
     }
     for(var i = 0 ; i < data.bullet.length; i++){
@@ -151,9 +177,9 @@
   setInterval(function(){
     ctx.clearRect(0,0,500,500);
     for(var i in Player.list)
-      ctx.fillText(Player.list[i].number,Player.list[i].x,Player.list[i].y);
+      Player.list[i].draw();
     for(var i in Bullet.list)
-      ctx.fillRect(Bullet.list[i].x-5,Bullet.list[i].y-5,10,10);
+      Bullet.list[i].draw();
   },40);
 
   // CONTROLS

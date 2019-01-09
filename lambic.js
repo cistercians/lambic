@@ -17,6 +17,9 @@ console.log("Server online.");
 
 var SOCKET_LIST = {};
 
+// DEBUG - change to false when deploying to public
+var DEBUG = true;
+
 //ENTITY
 var Entity = function(){
   var self = {
@@ -52,6 +55,12 @@ var Player = function(id){
   self.pressingAttack = false;
   self.mouseAngle = 0;
   self.maxSpd = 6;
+  self.hp = 100;
+  self.hpMax = 100;
+  self.hpNat = 100;
+  self.mana = 100;
+  self.manaMax = 100;
+  self.manaNat = 100;
 
   var super_update = self.update;
   self.update = function(){
@@ -84,13 +93,35 @@ var Player = function(id){
     else
       self.spdY = 0;
   }
+
+  self.getInitPack = function(){
+    return {
+      id:self.id,
+      x:self.x,
+      y:self.y,
+      number:self.number,
+      hp:self.hp,
+      hpMax:self.hpMax,
+      mana:self.mana,
+      manaMax:self.manaMax
+    };
+  }
+
+  self.getUpdatePack = function(){
+    return {
+      id:self.id,
+      x:self.x,
+      y:self.y,
+      hp:self.hp,
+      hpMax:self.hpMax,
+      mana:self.mana,
+      manaMax:self.manaMax
+    }
+  }
+
   Player.list[id] = self;
-  initPack.player.push({
-    id:self.id,
-    x:self.x,
-    y:self.y,
-    number:self.number
-  });
+
+  initPack.player.push(self.getInitPack());
   return self;
 }
 
@@ -112,6 +143,18 @@ Player.onConnect = function(socket){
     else if(data.inputId === 'mouseAngle')
       player.mouseAngle = data.state;
   });
+
+  socket.emit('init',{
+    player:Player.getAllInitPack(),
+    bullet:Bullet.getAllInitPack()
+  })
+}
+
+Player.getAllInitPack = function(){
+  var players = [];
+  for(var i in Player.list)
+    players.push(Player.list[i].getInitPack());
+  return players;
 }
 
 Player.onDisconnect = function(socket){
@@ -124,11 +167,7 @@ Player.update = function(){
   for(var i in Player.list){
     var player = Player.list[i];
     player.update();
-    pack.push({
-      id:player.id,
-      x:player.x,
-      y:player.y
-    });
+    pack.push(player.getUpdatePack());
   }
   return pack;
 }
@@ -151,16 +190,38 @@ var Bullet = function(parent,angle){
     for(var i in Player.list){
       var p = Player.list[i];
       if(self.getDistance(p) < 32 && self.parent !== p.id){
+        p.hp -= 5;
+        // DEFINES SHOOTER
+        var shooter = Player.list[self.parent];
+        // PLAYER DEATH & RESPAWN
+        if(p.hp <= 0){
+          p.hp = p.hpMax;
+          p.x = Math.random() * 500;
+          p.y = Math.random() * 500;
+        }
         self.toRemove = true;
       }
     }
   }
+
+  self.getInitPack = function(){
+    return {
+      id:self.id,
+      x:self.x,
+      y:self.y
+    };
+  }
+
+  self.getUpdatePack = function(){
+    return {
+      id:self.id,
+      x:self.x,
+      y:self.y
+    }
+  }
+
   Bullet.list[self.id] = self;
-  initPack.bullet.push({
-    id:self.id,
-    x:self.x,
-    y:self.y
-  });
+  initPack.bullet.push(self.getInitPack());
   return self;
 }
 
@@ -175,18 +236,19 @@ Bullet.update = function(){
       delete Bullet.list[i];
       removePack.bullet.push(bullet.id);
     } else
-      pack.push({
-        id:bullet.id,
-        x:bullet.x,
-        y:bullet.y
-      });
+      pack.push(bullet.getUpdatePack());
   }
   return pack;
 }
 
-// DEBUG
-var DEBUG = true;
+Bullet.getAllInitPack = function(){
+  var bullets = [];
+  for(var i in Bullet.list)
+    bullets.push(Bullet.list[i].getInitPack());
+  return bullets;
+}
 
+// SERVER
 var isValidPassword = function(data,cb){
   db.account.find({username:data.username,password:data.password},function(err,res){
     if(res.length > 0)
@@ -211,7 +273,6 @@ var addUser = function(data,cb){
   });
 }
 
-// SERVER
 var io = require('socket.io')(serv,{});
 io.sockets.on('connection', function(socket){
   socket.id = Math.random();
@@ -223,7 +284,7 @@ io.sockets.on('connection', function(socket){
       if(res){
         Player.onConnect(socket);
         socket.emit('signInResponse',{success:true});
-        console.log(data.username + ' signed in.');
+        console.log(data.username + ' logged in.');
       } else {
         socket.emit('signInResponse',{success:false});
       }
