@@ -1,3 +1,10 @@
+var fs = require('fs');
+
+// BUILD MAP
+var genesis = require('./server/js/genesis');
+var mapFile = genesis.map;
+console.log(mapFile);
+
 // DATABASE
 var mongojs = require('mongojs');
 var db = mongojs('localhost:27017/myGame',['account','progress']);

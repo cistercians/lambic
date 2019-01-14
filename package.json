@@ -9,6 +9,7 @@
   },
   "description": "",
   "dependencies": {
+    "canvas": "^2.3.0",
     "express": "^4.16.4",
     "mongojs": "^2.6.0",
     "simplex-noise": "^2.4.0",
