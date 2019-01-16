@@ -2,8 +2,35 @@ var fs = require('fs');
 
 // BUILD MAP
 var genesis = require('./server/js/genesis');
-var mapFile = genesis.map;
-console.log(mapFile);
+var world = genesis.map;
+var tileSize = 32;
+var mapSize = world[0].length;
+
+// MAP TOOLS
+// get tile type from (c,r)
+var getTile = function(col,row){
+  return mapData[col][row];
+};
+// get random tile + its (c,r)
+var randomTile = function(){
+  min = 0;
+  max = mapSize;
+  var col = Math.floor(Math.random() * (max - min + 1)) + min;
+  var row = Math.floor(Math.random() * (max - min + 1)) + min;
+  return [world[col][row],col,row];
+};
+
+// save map file?
+var saveMap = false;
+
+if(saveMap){
+  fs.writeFile("./mapFiles/map.txt", world, function(err){
+    if(err){
+      return console.log(err);
+    }
+    console.log("Map file saved to '/mapfiles' folder.");
+  });
+};
 
 // DATABASE
 var mongojs = require('mongojs');
@@ -27,11 +54,12 @@ var SOCKET_LIST = {};
 // DEBUG - change to false when deploying to public
 var DEBUG = true;
 
-//ENTITY
-var Entity = function(){
+// ENTITY
+var Entity = function(c,r){
   var self = {
-    x:250,
-    y:250,
+    x:288,
+    y:288,
+    loc:[c,r],
     spdX:0,
     spdY:0,
     id:""
@@ -50,9 +78,24 @@ var Entity = function(){
   return self;
 }
 
-//PLAYER
+var firstSpawn = function(){
+  var times = [1,1,1,1,1,1,1];
+  var selection = [];
+  times.forEach(function(i){
+    var rtile = randomTile();
+    if(rtile[0] !== 0 && rtile[0] !== 1 && rtile[0] !== 5){
+      selection.push(rtile);
+    }
+  });
+  var spawn = selection[Math.floor(Math.random() * selection.length)];
+  console.log(spawn);
+  return spawn;
+}
+
+// PLAYER
 var Player = function(id){
-  var self = Entity();
+  // spawns at random tile
+  var self = Entity(firstSpawn()[1],randomTile()[2]);
   self.id = id;
   self.number = Math.floor(10 * Math.random());
   self.pressingRight = false;
@@ -61,7 +104,7 @@ var Player = function(id){
   self.pressingDown = false;
   self.pressingAttack = false;
   self.mouseAngle = 0;
-  self.maxSpd = 6;
+  self.maxSpd = 20;
   self.hp = 100;
   self.hpMax = 100;
   self.hpNat = 100;
@@ -86,19 +129,25 @@ var Player = function(id){
   }
 
   self.updateSpd = function(){
-    if(self.pressingRight)
+    if(self.pressingRight){
       self.spdX = self.maxSpd;
-    else if(self.pressingLeft)
+      self.loc[0] += 1;
+    } else if(self.pressingLeft){
       self.spdX = -self.maxSpd;
-    else
+      self.loc[0] -= 1;
+    } else {
       self.spdX = 0;
+    }
 
-    if(self.pressingUp)
+    if(self.pressingUp){
       self.spdY = -self.maxSpd;
-    else if(self.pressingDown)
+      self.loc[1] -= 1;
+    } else if(self.pressingDown){
       self.spdY = self.maxSpd;
-    else
+      self.loc[1] += 1;
+    } else {
       self.spdY = 0;
+    }
   }
 
   self.getInitPack = function(){
@@ -106,6 +155,7 @@ var Player = function(id){
       id:self.id,
       x:self.x,
       y:self.y,
+      loc:self.loc,
       number:self.number,
       hp:self.hp,
       hpMax:self.hpMax,
@@ -119,6 +169,7 @@ var Player = function(id){
       id:self.id,
       x:self.x,
       y:self.y,
+      loc:self.loc,
       hp:self.hp,
       hpMax:self.hpMax,
       mana:self.mana,
@@ -136,6 +187,7 @@ Player.list = {};
 
 Player.onConnect = function(socket){
   var player = Player(socket.id);
+  // player control inputs
   socket.on('keyPress',function(data){
     if(data.inputId === 'left')
       player.pressingLeft = data.state;
@@ -151,7 +203,15 @@ Player.onConnect = function(socket){
       player.mouseAngle = data.state;
   });
 
+  // send map data
+  socket.emit('mapData',{
+    world: world,
+    tileSize: tileSize,
+    mapSize: mapSize
+  })
+
   socket.emit('init',{
+    selfId:socket.id,
     player:Player.getAllInitPack(),
     bullet:Bullet.getAllInitPack()
   })
@@ -198,9 +258,9 @@ var Bullet = function(parent,angle){
       var p = Player.list[i];
       if(self.getDistance(p) < 32 && self.parent !== p.id){
         p.hp -= 5;
-        // DEFINES SHOOTER
+        // defines shooter
         var shooter = Player.list[self.parent];
-        // PLAYER DEATH & RESPAWN
+        // player death & respawn
         if(p.hp <= 0){
           p.hp = p.hpMax;
           p.x = Math.random() * 500;
@@ -333,7 +393,6 @@ io.sockets.on('connection', function(socket){
 });
 
 // GAME STATE
-
 var initPack = {player:[],bullet:[]};
 var removePack = {player:[],bullet:[]};
 

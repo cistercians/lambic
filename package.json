@@ -13,6 +13,7 @@
     "express": "^4.16.4",
     "mongojs": "^2.6.0",
     "simplex-noise": "^2.4.0",
-    "socket.io": "^2.2.0"
+    "socket.io": "^2.2.0",
+    "toolbox": "^0.1.1"
   }
 }

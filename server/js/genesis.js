@@ -5,7 +5,7 @@ var fs = require('fs');
 function genesis(){
   // smaller tiles for bigger map
   // should be a factor of canvas width/height (default: 256)
-  var tile = 4;
+  var tile = 2;
 
   var simplex = new SimplexNoise(),
       canvas = Canvas.createCanvas(256,256),
@@ -68,12 +68,15 @@ function genesis(){
     for(var x = 0; x < width; x += tileWidth){
       var set = [];
       for(var y = 0; y < height; y += tileHeight){
-        // 0: water, 1: heavyforest, 2: forest, 3: brush, 4: mountains
+        // 0: water, 1: heavy forest, 2: forest, 3: brush, 4: mountain base, 5: mountain
         if (source[i][0] > 0.48){
           set.push(0);
           i++;
         } else {
-          if (source[i][1] == 1){
+          if (source[i][1] > 0.97){
+            set.push(5);
+            i++;
+          } else if (source[i][1] > 0.86){
             set.push(4);
             i++;
           } else if (source[i][0] <= 0.26){
@@ -97,9 +100,9 @@ function genesis(){
   for (var x = 0; x < 256; x++) {
     for (var y = 0; y < 256; y++) {
       var r = simplex.noise2D(x / 160, y / 120) * 1 + 0.5;
-      var g = simplex.noise2D(x / 64, y / 64) * 0.5 + 0.25;
+      var g = simplex.noise2D(x / 40, y / 32) * 0.5 + 0.25;
       data[(x + y * 256) * 4 + 0] = r * 125;
-      data[(x + y * 256) * 4 + 1] = (r + g) * 180;
+      data[(x + y * 256) * 4 + 1] = (r + g) * 160;
       data[(x + y * 256) * 4 + 2] = 70;
       data[(x + y * 256) * 4 + 3] = 255;
     }
