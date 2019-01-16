@@ -68,7 +68,7 @@ function genesis(){
     for(var x = 0; x < width; x += tileWidth){
       var set = [];
       for(var y = 0; y < height; y += tileHeight){
-        // 0: water, 1: heavy forest, 2: forest, 3: brush, 4: mountain base, 5: mountain
+        // 0: water, 1: heavy forest, 2: forest, 3: brush, 4: rocks, 5: mountain
         if (source[i][0] > 0.48){
           set.push(0);
           i++;
