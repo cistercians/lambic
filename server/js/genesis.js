@@ -99,10 +99,11 @@ function genesis(){
   // generate noise
   for (var x = 0; x < 256; x++) {
     for (var y = 0; y < 256; y++) {
-      var r = simplex.noise2D(x / 160, y / 120) * 1 + 0.5;
-      var g = simplex.noise2D(x / 40, y / 32) * 0.5 + 0.25;
+      var r = simplex.noise2D(x / 160, y / 120) * 1.25 + 0.25;
+      var g = simplex.noise2D(x / 32, y / 32) * 0.5 + 0.25;
+      var b = simplex.noise2D(x / 16, y / 16) * 0.15;
       data[(x + y * 256) * 4 + 0] = r * 125;
-      data[(x + y * 256) * 4 + 1] = (r + g) * 160;
+      data[(x + y * 256) * 4 + 1] = (r + g + b) * 160;
       data[(x + y * 256) * 4 + 2] = 70;
       data[(x + y * 256) * 4 + 3] = 255;
     }

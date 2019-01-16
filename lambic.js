@@ -3,7 +3,7 @@ var fs = require('fs');
 // BUILD MAP
 var genesis = require('./server/js/genesis');
 var world = genesis.map;
-var tileSize = 32;
+var tileSize = 64;
 var mapSize = world[0].length;
 
 // MAP TOOLS
@@ -104,7 +104,7 @@ var Player = function(id){
   self.pressingDown = false;
   self.pressingAttack = false;
   self.mouseAngle = 0;
-  self.maxSpd = 20;
+  self.maxSpd = 50;
   self.hp = 100;
   self.hpMax = 100;
   self.hpNat = 100;
