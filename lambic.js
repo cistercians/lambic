@@ -14,6 +14,7 @@ var cycle = ['XII.a','I.a','II.a','III.a','IV.a','V.a','VI.a','VII.a','VIII.a','
 var tick = 1;
 
 // MAP TOOLS
+
 // get tile type from (c,r)
 var getTile = function(col,row){
   return mapData[col][row];
@@ -92,7 +93,7 @@ var firstSpawn = function(){
   var selection = [];
   times.forEach(function(i){
     var rtile = randomTile();
-    if(rtile[0] !== 0 && rtile[0] !== 1 && rtile[0] !== 5){
+    if(rtile[0] !== 0 && rtile[0] !== 1){
       selection.push(rtile);
     }
   });
@@ -104,7 +105,7 @@ var firstSpawn = function(){
 // PLAYER
 var Player = function(id){
   // spawns at random tile
-  var self = Entity(firstSpawn()[1],randomTile()[2]);
+  var self = Entity(firstSpawn()[1],firstSpawn()[2]); // occasionally throws error (?)
   self.id = id;
   self.number = Math.floor(10 * Math.random());
   self.pressingRight = false;
@@ -354,6 +355,9 @@ io.sockets.on('connection', function(socket){
   socket.id = Math.random();
   SOCKET_LIST[socket.id] = socket;
   console.log('Socket connected: ' + socket.id);
+  //socket.emit('tempus',{
+    //tempus:tempus
+  //})
 
   socket.on('signIn',function(data){
     isValidPassword(data,function(res){
@@ -399,28 +403,27 @@ io.sockets.on('connection', function(socket){
     var res = eval(data);
     socket.emit('evalAnswer',res);
   });
-
-  // dayNight cycle
-  var dayNight = function(){
-    tempus = cycle[tick];
-    socket.emit('tempus',{
-      tempus:tempus
-    })
-    console.log(tempus);
-    if(tick < 23){
-      tick++;
-    } else {
-      tick = 0
-    };
-  };
-
-  // initiate dayNight cycle
-  setInterval(dayNight, 3600000/period);
-  console.log(tempus);
-
 });
 
 // GAME STATE
+
+// day/night cycle
+var dayNight = function(){
+  tempus = cycle[tick];
+  io.emit('tempus',{
+    tempus:tempus
+  })
+  console.log(tempus);
+  if(tick < 23){
+    tick++;
+  } else {
+    tick = 0
+  };
+};
+
+// initiate dayNight cycle
+setInterval(dayNight, 3600000/period);
+console.log(tempus);
 
 var initPack = {player:[],bullet:[]};
 var removePack = {player:[],bullet:[]};
