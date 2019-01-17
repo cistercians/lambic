@@ -1,29 +1,17 @@
 var fs = require('fs');
 
-// WORLD SYSTEMS
-
-// day/night cycle
-var tempus = 'XIIa';
-var cycle = ['XIIa','Ia','IIa','IIIa','IVa','Va','VIa','VIIa','VIIIa','IXa','Xa','XIa',
-            'XIIp','Ip','IIp','IIIp','IVp','Vp','VIp','VIIp','VIIIp','IXp','Xp','XIp'];
-var period = 60; // 1: 1hr, 2: 30m, 4: 15m, 12: 5m, 60: 1m.
-var i = 1;
-
-var dayNight = function(){
-  tempus = cycle[i];
-  console.log(tempus);
-  if(i < 23){
-    i++;
-  } else {
-    i = 0
-  };
-};
-
 // BUILD MAP
 var genesis = require('./server/js/genesis');
 var world = genesis.map;
-var tileSize = 64;
+var tileSize = 16;
 var mapSize = world[0].length;
+
+// dayNight cycle
+var tempus = 'XII.a';
+var period = 360; // 1: 1hr, 2: 30m, 4: 15m, 12: 5m, 60: 1m, 360: 10s
+var cycle = ['XII.a','I.a','II.a','III.a','IV.a','V.a','VI.a','VII.a','VIII.a','IX.a','X.a','XI.a',
+            'XII.p','I.p','II.p','III.p','IV.p','V.p','VI.p','VII.p','VIII.p','IX.p','X.p','XI.p'];
+var tick = 1;
 
 // MAP TOOLS
 // get tile type from (c,r)
@@ -69,10 +57,6 @@ app.use('/client',express.static(__dirname + '/client'));
 
 serv.listen(2000);
 console.log("Server online.");
-
-// initiate dayNight cycle
-setInterval(dayNight, 3600000/period);
-console.log(tempus);
 
 var SOCKET_LIST = {};
 
@@ -370,6 +354,9 @@ io.sockets.on('connection', function(socket){
   socket.id = Math.random();
   SOCKET_LIST[socket.id] = socket;
   console.log('Socket connected: ' + socket.id);
+  //socket.emit('tempus',{
+    //tempus:tempus
+  //})
 
   socket.on('signIn',function(data){
     isValidPassword(data,function(res){
@@ -415,9 +402,29 @@ io.sockets.on('connection', function(socket){
     var res = eval(data);
     socket.emit('evalAnswer',res);
   });
+
+  // day/night cycle
+  var dayNight = function(){
+    tempus = cycle[tick];
+    socket.emit('tempus',{
+      tempus:tempus
+    })
+    console.log(tempus);
+    if(tick < 23){
+      tick++;
+    } else {
+      tick = 0
+    };
+  };
+
+  // initiate dayNight cycle
+  setInterval(dayNight, 3600000/period);
+  console.log(tempus);
+
 });
 
 // GAME STATE
+
 var initPack = {player:[],bullet:[]};
 var removePack = {player:[],bullet:[]};
 
