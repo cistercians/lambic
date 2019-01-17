@@ -8,7 +8,7 @@ function genesis(){
   var tile = 2;
 
   var simplex = new SimplexNoise(),
-      canvas = Canvas.createCanvas(256,256),
+      canvas = Canvas.createCanvas(512,512),
       ctx = canvas.getContext('2d'),
       imgdata = ctx.getImageData(0, 0, canvas.width, canvas.height),
       data = imgdata.data;
@@ -97,15 +97,15 @@ function genesis(){
   };
 
   // generate noise
-  for (var x = 0; x < 256; x++) {
-    for (var y = 0; y < 256; y++) {
+  for (var x = 0; x < 512; x++) {
+    for (var y = 0; y < 512; y++) {
       var r = simplex.noise2D(x / 160, y / 120) * 1.25 + 0.25;
       var g = simplex.noise2D(x / 32, y / 32) * 0.5 + 0.25;
       var b = simplex.noise2D(x / 16, y / 16) * 0.15;
-      data[(x + y * 256) * 4 + 0] = r * 125;
-      data[(x + y * 256) * 4 + 1] = (r + g + b) * 160;
-      data[(x + y * 256) * 4 + 2] = 70;
-      data[(x + y * 256) * 4 + 3] = 255;
+      data[(x + y * 512) * 4 + 0] = r * 125;
+      data[(x + y * 512) * 4 + 1] = (r + g + b) * 160;
+      data[(x + y * 512) * 4 + 2] = 70;
+      data[(x + y * 512) * 4 + 3] = 255;
     }
   };
 

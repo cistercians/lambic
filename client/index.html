@@ -24,7 +24,7 @@
   </div>
 </div>
 
-<script src="https://cdn.socket.io/socket.io-1.4.5.js"></script>
+<script src="/client/socket.js"></script>
 
 <script>
   var WIDTH = 576;
@@ -117,6 +117,8 @@
   // characters
 
   // objects
+  Img.arrow = new Image();
+  Img.arrow.src = '/client/img/bullets/arrow.png';
 
   var ctx = document.getElementById('ctx').getContext('2d');
   var lighting = document.getElementById('lighting').getContext('2d');
@@ -130,6 +132,7 @@
     self.x = initPack.x;
     self.y = initPack.y;
     self.loc = initPack.loc;
+    self.z = initPack.z;
     self.hp = initPack.hp;
     self.hpMax = initPack.hpMax;
     self.mana = initPack.mana;
@@ -169,6 +172,7 @@
     self.number = initPack.number;
     self.x = initPack.x;
     self.y = initPack.y;
+    self.z = initPack.z;
 
     self.draw = function(){
       //var width = Img.bullet.width/2;
@@ -212,10 +216,12 @@
           p.x = pack.x;
         if(pack.y !== undefined)
           p.y = pack.y;
-        if(pack.hp !== undefined)
-          p.hp = pack.hp;
         if(pack.loc !== undefined)
           p.loc = pack.loc;
+        if(pack.z !== undefined)
+          p.z = pack.z;
+        if(pack.hp !== undefined)
+          p.hp = pack.hp;
         if(pack.hpMax !== undefined)
           p.hpMax = pack.hpMax;
         if(pack.mana !== undefined)
@@ -232,6 +238,8 @@
           b.x = pack.x;
         if(pack.y !== undefined)
           b.y = pack.y;
+        if(pack.z !== undefined)
+          b.z = pack.z;
       }
     }
   });
@@ -255,8 +263,6 @@
   setInterval(function(){
     if(!selfId)
       return;
-    viewport.update(Player.list[selfId].loc[0],Player.list[selfId].loc[1]);
-    console.log(Player.list[selfId].loc);
     ctx.clearRect(0,0,WIDTH,HEIGHT);
     renderMap();
     renderLighting();
@@ -268,7 +274,10 @@
       w = 0;
     } else {
       w++;
+      console.log(w);
     }
+    viewport.update(Player.list[selfId].loc[0],Player.list[selfId].loc[1]);
+    console.log(Player.list[selfId].loc);
   },40);
 
   // RENDER MAP
@@ -294,6 +303,7 @@
   });
 
   // viewport
+
   var viewport = {
     screen: [WIDTH,HEIGHT],
     startTile: [0,0],
@@ -301,8 +311,8 @@
     offset: [0,0],
     // takes player's loc as argument
     update: function(c,r){
-      this.offset[0] = Math.floor((this.screen[0]/2) - c);
-      this.offset[1] = Math.floor((this.screen[1]/2) - r);
+      //this.offset[0] = Math.floor((this.screen[0]/2) - c);
+      //this.offset[1] = Math.floor((this.screen[1]/2) - r);
 
       var tile = [Math.floor(c/tileSize),Math.floor(r/tileSize)];
 
@@ -414,19 +424,19 @@
   var renderLighting = function(){
     if(tempus === 'IX.p' || tempus === 'X.p' || tempus === 'XI.p' || tempus === 'XII.a' || tempus === 'I.a' || tempus === 'II.a' || tempus === 'III.a'){
       lighting.clearRect(0,0,WIDTH,HEIGHT);
-      lighting.fillStyle = "rgba(5, 5, 30, 0.75)"; // night
+      lighting.fillStyle = "rgba(5, 5, 30, 0.9)"; // night
       lighting.fillRect(0,0,WIDTH,HEIGHT);
     } else if(tempus === 'IV.a'){
       lighting.clearRect(0,0,WIDTH,HEIGHT);
-      lighting.fillStyle = "rgba(5, 5, 30, 0.65)"; // early hours
+      lighting.fillStyle = "rgba(5, 5, 30, 0.85)"; // early hours
       lighting.fillRect(0,0,WIDTH,HEIGHT);
     } else if(tempus === 'V.a'){
       lighting.clearRect(0,0,WIDTH,HEIGHT);
-      lighting.fillStyle = "rgba(5, 5, 30, 0.4)"; // early morning
+      lighting.fillStyle = "rgba(5, 5, 30, 0.75)"; // early morning
       lighting.fillRect(0,0,WIDTH,HEIGHT);
     } else if(tempus === 'VI.a'){
       lighting.clearRect(0,0,WIDTH,HEIGHT);
-      lighting.fillStyle = "rgba(244, 214, 65, 0.07)"; // sunrise
+      lighting.fillStyle = "rgba(244, 214, 65, 0.15)"; // sunrise
       lighting.fillRect(0,0,WIDTH,HEIGHT);
     } else if(tempus === 'VII.a'){
       lighting.clearRect(0,0,WIDTH,HEIGHT); // morning / daytime
@@ -444,7 +454,7 @@
       lighting.fillRect(0,0,WIDTH,HEIGHT);
     } else if(tempus === 'VII.p'){
       lighting.clearRect(0,0,WIDTH,HEIGHT);
-      lighting.fillStyle = "rgba(5, 5, 30, 0.3)"; // twilight
+      lighting.fillStyle = "rgba(5, 5, 30, 0.4)"; // twilight
       lighting.fillRect(0,0,WIDTH,HEIGHT);
     } else if(tempus === 'VIII.p'){
       lighting.clearRect(0,0,WIDTH,HEIGHT);

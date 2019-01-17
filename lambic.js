@@ -65,14 +65,27 @@ var SOCKET_LIST = {};
 var DEBUG = true;
 
 // ENTITY
-var Entity = function(c,r){
+var Entity = function(param){
   var self = {
     x:288,
     y:288,
-    loc:[c,r],
+    loc:[0,0],
+    z:0,
     spdX:0,
     spdY:0,
     id:""
+  }
+  if(param){
+    if(param.x)
+      self.x = param.x;
+    if(param.y)
+      self.y = param.y;
+    if(param.loc)
+      self.loc = param.loc;
+    if(param.z)
+      self.z = param.z;
+    if(param.id)
+      self.id = param.id;
   }
   self.update = function(){
     self.updatePosition();
@@ -98,15 +111,14 @@ var firstSpawn = function(){
     }
   });
   var spawn = selection[Math.floor(Math.random() * selection.length)];
-  console.log(spawn);
+  console.log('Spawned at x: ' + spawn[1] + ' y: ' + spawn[2] + ' z: 0');
   return spawn;
 }
 
 // PLAYER
-var Player = function(id){
+var Player = function(param){
   // spawns at random tile
-  var self = Entity(firstSpawn()[1],firstSpawn()[2]); // occasionally throws error (?)
-  self.id = id;
+  var self = Entity(param);
   self.number = Math.floor(10 * Math.random());
   self.pressingRight = false;
   self.pressingLeft = false;
@@ -133,9 +145,12 @@ var Player = function(id){
   }
 
   self.shootBullet = function(angle){
-    var a = Bullet(self.id,angle);
-    a.x = self.x;
-    a.y = self.y;
+    Bullet({
+      parent:self.id,
+      angle:angle,
+      x:self.x,
+      y:self.y
+    });
   }
 
   self.updateSpd = function(){
@@ -166,6 +181,7 @@ var Player = function(id){
       x:self.x,
       y:self.y,
       loc:self.loc,
+      z:self.z,
       number:self.number,
       hp:self.hp,
       hpMax:self.hpMax,
@@ -180,6 +196,7 @@ var Player = function(id){
       x:self.x,
       y:self.y,
       loc:self.loc,
+      z:self.z,
       hp:self.hp,
       hpMax:self.hpMax,
       mana:self.mana,
@@ -187,7 +204,7 @@ var Player = function(id){
     }
   }
 
-  Player.list[id] = self;
+  Player.list[self.id] = self;
 
   initPack.player.push(self.getInitPack());
   return self;
@@ -196,7 +213,9 @@ var Player = function(id){
 Player.list = {};
 
 Player.onConnect = function(socket){
-  var player = Player(socket.id);
+  var player = Player({
+    id:socket.id
+  });
   // player control inputs
   socket.on('keyPress',function(data){
     if(data.inputId === 'left')
@@ -250,12 +269,13 @@ Player.update = function(){
 }
 
 // BULLETS
-var Bullet = function(parent,angle){
-  var self = Entity();
+var Bullet = function(param){
+  var self = Entity(param);
   self.id = Math.random();
-  self.spdX = Math.cos(angle/180*Math.PI) * 10;
-  self.spdY = Math.sin(angle/180*Math.PI) * 10;
-  self.parent = parent;
+  self.angle = param.angle;
+  self.spdX = Math.cos(param.angle/180*Math.PI) * 10;
+  self.spdY = Math.sin(param.angle/180*Math.PI) * 10;
+  self.parent = param.parent;
   self.timer = 0;
   self.toRemove = false;
   var super_update = self.update;
@@ -266,15 +286,15 @@ var Bullet = function(parent,angle){
 
     for(var i in Player.list){
       var p = Player.list[i];
-      if(self.getDistance(p) < 32 && self.parent !== p.id){
+      if(self.getDistance(p) < 32 && self.z === p.z && self.parent !== p.id){
         p.hp -= 5;
         // defines shooter
         var shooter = Player.list[self.parent];
         // player death & respawn
         if(p.hp <= 0){
           p.hp = p.hpMax;
-          p.x = Math.random() * 500;
-          p.y = Math.random() * 500;
+          p.x = Math.random() * 500; // replace this
+          p.y = Math.random() * 500; // replace this
         }
         self.toRemove = true;
       }
@@ -285,7 +305,8 @@ var Bullet = function(parent,angle){
     return {
       id:self.id,
       x:self.x,
-      y:self.y
+      y:self.y,
+      z:self.z
     };
   }
 
@@ -355,9 +376,6 @@ io.sockets.on('connection', function(socket){
   socket.id = Math.random();
   SOCKET_LIST[socket.id] = socket;
   console.log('Socket connected: ' + socket.id);
-  //socket.emit('tempus',{
-    //tempus:tempus
-  //})
 
   socket.on('signIn',function(data){
     isValidPassword(data,function(res){
