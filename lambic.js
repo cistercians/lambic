@@ -1,5 +1,24 @@
 var fs = require('fs');
 
+// WORLD SYSTEMS
+
+// day/night cycle
+var tempus = 'XIIa';
+var cycle = ['XIIa','Ia','IIa','IIIa','IVa','Va','VIa','VIIa','VIIIa','IXa','Xa','XIa',
+            'XIIp','Ip','IIp','IIIp','IVp','Vp','VIp','VIIp','VIIIp','IXp','Xp','XIp'];
+var period = 60; // 1: 1hr, 2: 30m, 4: 15m, 12: 5m, 60: 1m.
+var i = 1;
+
+var dayNight = function(){
+  tempus = cycle[i];
+  console.log(tempus);
+  if(i < 23){
+    i++;
+  } else {
+    i = 0
+  };
+};
+
 // BUILD MAP
 var genesis = require('./server/js/genesis');
 var world = genesis.map;
@@ -32,6 +51,8 @@ if(saveMap){
   });
 };
 
+// weather
+
 // DATABASE
 var mongojs = require('mongojs');
 var db = mongojs('localhost:27017/myGame',['account','progress']);
@@ -48,6 +69,10 @@ app.use('/client',express.static(__dirname + '/client'));
 
 serv.listen(2000);
 console.log("Server online.");
+
+// initiate dayNight cycle
+setInterval(dayNight, 3600000/period);
+console.log(tempus);
 
 var SOCKET_LIST = {};
 
