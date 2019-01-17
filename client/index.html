@@ -329,8 +329,8 @@
     ctx.rect(0,0,WIDTH,HEIGHT);
     ctx.fillStyle = base;
     ctx.fill();
-    for (var c = viewport.startTile[1]; c < viewport.endTile[1]; c++) {
-      for (var r = viewport.startTile[0]; r < viewport.endTile[0]; r++) {
+    for (var c = viewport.startTile[0]; c < viewport.endTile[0]; c++) {
+      for (var r = viewport.startTile[1]; r < viewport.endTile[1]; r++) {
         var tile = getTile(c, r);
         if(tile === 0){
           if(w < 33){

@@ -354,9 +354,6 @@ io.sockets.on('connection', function(socket){
   socket.id = Math.random();
   SOCKET_LIST[socket.id] = socket;
   console.log('Socket connected: ' + socket.id);
-  //socket.emit('tempus',{
-    //tempus:tempus
-  //})
 
   socket.on('signIn',function(data){
     isValidPassword(data,function(res){
@@ -403,7 +400,7 @@ io.sockets.on('connection', function(socket){
     socket.emit('evalAnswer',res);
   });
 
-  // day/night cycle
+  // dayNight cycle
   var dayNight = function(){
     tempus = cycle[tick];
     socket.emit('tempus',{
