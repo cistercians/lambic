@@ -129,6 +129,7 @@ var Player = function(param){
   self.pressingUp = false;
   self.pressingDown = false;
   self.pressingAttack = false;
+  self.facing = 'down';
   self.mouseAngle = 0;
   self.maxSpd = 50;
   self.hp = 100;
@@ -161,9 +162,11 @@ var Player = function(param){
     if(self.pressingRight){
       self.spdX = self.maxSpd;
       self.loc[0] += 1;
+      self.facing = 'right';
     } else if(self.pressingLeft){
       self.spdX = -self.maxSpd;
       self.loc[0] -= 1;
+      self.facing = 'left';
     } else {
       self.spdX = 0;
     }
@@ -171,9 +174,11 @@ var Player = function(param){
     if(self.pressingUp){
       self.spdY = -self.maxSpd;
       self.loc[1] -= 1;
+      self.facing = 'up';
     } else if(self.pressingDown){
       self.spdY = self.maxSpd;
       self.loc[1] += 1;
+      self.facing = 'down';
     } else {
       self.spdY = 0;
     }
@@ -201,6 +206,7 @@ var Player = function(param){
       y:self.y,
       loc:self.loc,
       z:self.z,
+      facing:self.facing,
       hp:self.hp,
       hpMax:self.hpMax,
       mana:self.mana,

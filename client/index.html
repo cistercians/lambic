@@ -1,3 +1,4 @@
+
 <div id="screen">
   <div id="signDiv">
     <h1>Lambic Engine 🍾</h1>
@@ -133,6 +134,7 @@
     self.y = initPack.y;
     self.loc = initPack.loc;
     self.z = initPack.z;
+    self.facing = 'down';
     self.hp = initPack.hp;
     self.hpMax = initPack.hpMax;
     self.mana = initPack.mana;
@@ -220,6 +222,8 @@
           p.loc = pack.loc;
         if(pack.z !== undefined)
           p.z = pack.z;
+        if(pack.facing !== undefined)
+          p.facing = pack.facing;
         if(pack.hp !== undefined)
           p.hp = pack.hp;
         if(pack.hpMax !== undefined)
@@ -464,7 +468,7 @@
       lighting.fillRect(0,0,WIDTH,HEIGHT);
     } else if(tempus === 'VIII.p'){
       lighting.clearRect(0,0,WIDTH,HEIGHT);
-      lighting.fillStyle = "rgba(5, 5, 30, 0.65)"; // evening
+      lighting.fillStyle = "rgba(5, 5, 30, 0.7)"; // evening
       lighting.fillRect(0,0,WIDTH,HEIGHT);
     }
   }
@@ -501,5 +505,9 @@
     var y = -250 + event.clientY - 8;
     var angle = Math.atan2(y,x) / Math.PI * 180;
     socket.emit('keyPress',{inputId:'mouseAngle',state:angle});
+  }
+
+  document.oncontextmenu = function(event){
+    //event.preventDefault();
   }
 </script>
