@@ -6,26 +6,19 @@ var world = genesis.map;
 var tileSize = 16;
 var mapSize = world[0].length;
 
-// dayNight cycle
-var tempus = 'XII.a';
-var period = 360; // 1: 1hr, 2: 30m, 4: 15m, 12: 5m, 60: 1m, 360: 10s
-var cycle = ['XII.a','I.a','II.a','III.a','IV.a','V.a','VI.a','VII.a','VIII.a','IX.a','X.a','XI.a',
-            'XII.p','I.p','II.p','III.p','IV.p','V.p','VI.p','VII.p','VIII.p','IX.p','X.p','XI.p'];
-var tick = 1;
-
 // MAP TOOLS
 
 // get tile type from (c,r)
-var getTile = function(col,row){
-  return mapData[col][row];
+var getTile = function(c,r){
+  return world[c][r];
 };
 // get random tile + its (c,r)
 var randomTile = function(){
   min = 0;
   max = mapSize;
-  var col = Math.floor(Math.random() * (max - min + 1)) + min;
-  var row = Math.floor(Math.random() * (max - min + 1)) + min;
-  return [world[col][row],col,row];
+  var c = Math.floor(Math.random() * (max - min + 1)) + min;
+  var r = Math.floor(Math.random() * (max - min + 1)) + min;
+  return [world[c][r],c,r];
 };
 
 // save map file?
@@ -39,6 +32,13 @@ if(saveMap){
     console.log("Map file saved to '/mapfiles' folder.");
   });
 };
+
+// dayNight cycle
+var tempus = 'XII.a';
+var period = 360; // 1: 1hr, 2: 30m, 4: 15m, 12: 5m, 60: 1m, 360: 10s
+var cycle = ['XII.a','I.a','II.a','III.a','IV.a','V.a','VI.a','VII.a','VIII.a','IX.a','X.a','XI.a',
+            'XII.p','I.p','II.p','III.p','IV.p','V.p','VI.p','VII.p','VIII.p','IX.p','X.p','XI.p'];
+var tick = 1;
 
 // weather
 
@@ -101,18 +101,22 @@ var Entity = function(param){
   return self;
 }
 
-var firstSpawn = function(){
-  var times = [1,1,1,1,1,1,1];
-  var selection = [];
-  times.forEach(function(i){
-    var rtile = randomTile();
-    if(rtile[0] !== 0 && rtile[0] !== 1){
-      selection.push(rtile);
+// RANDOM SPAWNER
+var randomSpawn = function(){
+  var spawn = [];
+  var select = [];
+
+  for(var i = 0; i < 7; i++){
+    select.push(randomTile());
+  }
+  for(var n = 0; n < 7; n++){
+    if(select[n][0] !== 0 && select[n][0] !== 1){
+      spawn.push([select[n][1],select[n][2]]);
+    } else {
+      continue;
     }
-  });
-  var spawn = selection[Math.floor(Math.random() * selection.length)];
-  console.log('Spawned at x: ' + spawn[1] + ' y: ' + spawn[2] + ' z: 0');
-  return spawn;
+  }
+  return spawn[0];
 }
 
 // PLAYER
@@ -214,8 +218,10 @@ Player.list = {};
 
 Player.onConnect = function(socket){
   var player = Player({
-    id:socket.id
+    id:socket.id,
+    loc:randomSpawn()
   });
+  console.log(player.id + ' spawned at : ' + player.loc + ' z: 0')
   // player control inputs
   socket.on('keyPress',function(data){
     if(data.inputId === 'left')
@@ -240,7 +246,7 @@ Player.onConnect = function(socket){
   })
 
   socket.emit('init',{
-    selfId:socket.id,
+    selfId:player.id,
     player:Player.getAllInitPack(),
     bullet:Bullet.getAllInitPack()
   })

@@ -127,7 +127,7 @@
   // PLAYER
   var Player = function(initPack){
     var self = {};
-    self.id = initPack.id;
+    self.id = initPack.selfId;
     self.number = initPack.number;
     self.x = initPack.x;
     self.y = initPack.y;
@@ -160,7 +160,7 @@
       ctx.fillText(self.number,x, y);
     }
 
-    Player.list[self.id] = self;
+    Player.list[selfId] = self;
     return self;
   }
   Player.list = {};
@@ -259,23 +259,26 @@
 
   //cyclical animation counter
   var w = 0;
+  setInterval(function(){
+    if(w === 2){
+      w = 0;
+    } else {
+      w++;
+    }
+  },600);
 
   setInterval(function(){
-    if(!selfId)
+    if(!selfId) // check that player is signed in
       return;
     ctx.clearRect(0,0,WIDTH,HEIGHT);
     renderMap();
-    renderLighting();
+    if(Player.list[selfId].z === 0){ //check if player is outside
+      renderLighting();
+    };
     for(var i in Player.list)
       Player.list[i].draw();
     for(var i in Bullet.list)
       Bullet.list[i].draw();
-    if(w === 99){
-      w = 0;
-    } else {
-      w++;
-      console.log(w);
-    }
     viewport.update(Player.list[selfId].loc[0],Player.list[selfId].loc[1]);
     console.log(Player.list[selfId].loc);
   },40);
@@ -289,8 +292,6 @@
     mapSize = data.mapSize;
   });
 
-  var tileRes = WIDTH/tileSize;
-
   var getTile = function(c,r){
     return world[c][r];
   };
@@ -303,6 +304,7 @@
   });
 
   // viewport
+  var tileRes = WIDTH/tileSize; //start fixing here !!!
 
   var viewport = {
     screen: [WIDTH,HEIGHT],
@@ -319,8 +321,8 @@
       this.startTile[0] = tile[0] - 1 - Math.ceil((this.screen[0]/2) / tileSize);
       this.startTile[1] = tile[1] - 1 - Math.ceil((this.screen[1]/2) / tileSize);
 
-      if(this.startTile[0] < 0){this.startTile[0] = 0;}
-      if(this.startTile[1] < 0){this.startTile[1] = 0;}
+      //if(this.startTile[0] < 0){this.startTile[0] = 0;}
+      //if(this.startTile[1] < 0){this.startTile[1] = 0;}
 
       this.endTile[0] = tile[0] + 1 + Math.ceil((this.screen[0]/2) / tileSize);
       this.endTile[1] = tile[1] + 1 + Math.ceil((this.screen[1]/2) / tileSize);
@@ -341,79 +343,83 @@
     ctx.fill();
     for (var c = viewport.startTile[0]; c < viewport.endTile[0]; c++) {
       for (var r = viewport.startTile[1]; r < viewport.endTile[1]; r++) {
-        var tile = getTile(c, r);
-        if(tile === 0){
-          if(w < 33){
+        if(c < 0){
+          continue;
+        } else {
+          var tile = getTile(c, r);
+          if(tile === 0){
+            if(w === 0){
+              ctx.drawImage(
+              Img.water1, // image
+              x * tileSize, // target x
+              y * tileSize, // target y
+              tileSize, // target width
+              tileSize // target height
+              );
+            } else if(w === 1){
+              ctx.drawImage(
+              Img.water2, // image
+              x * tileSize, // target x
+              y * tileSize, // target y
+              tileSize, // target width
+              tileSize // target height
+              );
+            } else {
+              ctx.drawImage(
+              Img.water3, // image
+              x * tileSize, // target x
+              y * tileSize, // target y
+              tileSize, // target width
+              tileSize // target height
+              );
+            }
+            y++;
+          } else if(tile === 1){ // NEEDS OFFSET !!!
             ctx.drawImage(
-            Img.water1, // image
+            Img.hforest, // image
             x * tileSize, // target x
             y * tileSize, // target y
             tileSize, // target width
             tileSize // target height
             );
-          } else if(w > 66){
+            y++;
+          } else if(tile === 2){
             ctx.drawImage(
-            Img.water3, // image
+            Img.forest, // image
             x * tileSize, // target x
             y * tileSize, // target y
             tileSize, // target width
             tileSize // target height
             );
-          } else {
+            y++;
+          } else if(tile === 3){
             ctx.drawImage(
-            Img.water2, // image
+            Img.brush, // image
             x * tileSize, // target x
             y * tileSize, // target y
             tileSize, // target width
             tileSize // target height
             );
+            y++;
+          } else if(tile === 4){
+            ctx.drawImage(
+            Img.rocks, // image
+            x * tileSize, // target x
+            y * tileSize, // target y
+            tileSize, // target width
+            tileSize // target height
+            );
+            y++;
+          } else if(tile === 5){
+            ctx.drawImage(
+            Img.mountain, // image
+            x * tileSize, // target x
+            y * tileSize, // target y
+            tileSize, // target width
+            tileSize // target height
+            );
+            y++;
           }
-          y++;
-        } else if(tile === 1){ // NEEDS OFFSET !!!
-          ctx.drawImage(
-          Img.hforest, // image
-          x * tileSize, // target x
-          y * tileSize, // target y
-          tileSize, // target width
-          tileSize // target height
-          );
-          y++;
-        } else if(tile === 2){
-          ctx.drawImage(
-          Img.forest, // image
-          x * tileSize, // target x
-          y * tileSize, // target y
-          tileSize, // target width
-          tileSize // target height
-          );
-          y++;
-        } else if(tile === 3){
-          ctx.drawImage(
-          Img.brush, // image
-          x * tileSize, // target x
-          y * tileSize, // target y
-          tileSize, // target width
-          tileSize // target height
-          );
-          y++;
-        } else if(tile === 4){
-          ctx.drawImage(
-          Img.rocks, // image
-          x * tileSize, // target x
-          y * tileSize, // target y
-          tileSize, // target width
-          tileSize // target height
-          );
-          y++;
-        } else if(tile === 5){
-          ctx.drawImage(
-          Img.mountain, // image
-          x * tileSize, // target x
-          y * tileSize, // target y
-          tileSize, // target width
-          tileSize // target height
-          );
-          y++;
         }
       }
       y = [];
@@ -424,19 +430,19 @@
   var renderLighting = function(){
     if(tempus === 'IX.p' || tempus === 'X.p' || tempus === 'XI.p' || tempus === 'XII.a' || tempus === 'I.a' || tempus === 'II.a' || tempus === 'III.a'){
       lighting.clearRect(0,0,WIDTH,HEIGHT);
-      lighting.fillStyle = "rgba(5, 5, 30, 0.9)"; // night
+      lighting.fillStyle = "rgba(5, 5, 30, 0.85)"; // night
       lighting.fillRect(0,0,WIDTH,HEIGHT);
     } else if(tempus === 'IV.a'){
       lighting.clearRect(0,0,WIDTH,HEIGHT);
-      lighting.fillStyle = "rgba(5, 5, 30, 0.85)"; // early hours
+      lighting.fillStyle = "rgba(5, 5, 30, 0.8)"; // early hours
       lighting.fillRect(0,0,WIDTH,HEIGHT);
     } else if(tempus === 'V.a'){
       lighting.clearRect(0,0,WIDTH,HEIGHT);
-      lighting.fillStyle = "rgba(5, 5, 30, 0.75)"; // early morning
+      lighting.fillStyle = "rgba(5, 5, 30, 0.6)"; // early morning
       lighting.fillRect(0,0,WIDTH,HEIGHT);
     } else if(tempus === 'VI.a'){
       lighting.clearRect(0,0,WIDTH,HEIGHT);
-      lighting.fillStyle = "rgba(244, 214, 65, 0.15)"; // sunrise
+      lighting.fillStyle = "rgba(244, 214, 65, 0.1)"; // sunrise
       lighting.fillRect(0,0,WIDTH,HEIGHT);
     } else if(tempus === 'VII.a'){
       lighting.clearRect(0,0,WIDTH,HEIGHT); // morning / daytime
