@@ -1,3 +1,17 @@
+/////////////////////////////////////////////////////////////////////////
+//                                                                     //
+//               ((🔥))   S T R O N G H O D L   ((🔥))                  //
+//                 \\                            //                    //
+//                                                                     //
+//  ☩  A   S O L I S   O R T V   V S Q V E   A D   O C C A S V M  ☩   //
+//                                                                     //
+//          A game by Johan Argyne of Templar Ventures.                //
+//                                                                     //
+/////////////////////////////////////////////////////////////////////////
+
+// "The only way to prove anything to anybody is actually do something."
+//  - Paul T.
+
 var fs = require('fs');
 
 // BUILD MAP
@@ -244,14 +258,6 @@ Player.onConnect = function(socket){
       player.mouseAngle = data.state;
   });
 
-  // send map data
-  socket.emit('mapData',{
-    world: world,
-    tileSize: tileSize,
-    mapSize: mapSize,
-    tempus: tempus
-  })
-
   socket.emit('init',{
     selfId:player.id,
     player:Player.getAllInitPack(),
@@ -396,7 +402,13 @@ io.sockets.on('connection', function(socket){
     isValidPassword(data,function(res){
       if(res){
         Player.onConnect(socket);
-        socket.emit('signInResponse',{success:true});
+        socket.emit('signInResponse',{
+          success:true,
+          world: world,
+          tileSize: tileSize,
+          mapSize: mapSize,
+          tempus: tempus
+        });
         console.log(data.username + ' logged in.');
       } else {
         socket.emit('signInResponse',{success:false});
