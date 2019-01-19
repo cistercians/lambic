@@ -118,8 +118,22 @@
   // characters
 
   // objects
-  Img.arrow = new Image();
-  Img.arrow.src = '/client/img/bullets/arrow.png';
+  Img.arrow1 = new Image();
+  Img.arrow1.src = '/client/img/bullets/arrow1.png';
+  Img.arrow2 = new Image();
+  Img.arrow2.src = '/client/img/bullets/arrow2.png';
+  Img.arrow3 = new Image();
+  Img.arrow3.src = '/client/img/bullets/arrow3.png';
+  Img.arrow4 = new Image();
+  Img.arrow4.src = '/client/img/bullets/arrow4.png';
+  Img.arrow5 = new Image();
+  Img.arrow5.src = '/client/img/bullets/arrow5.png';
+  Img.arrow6 = new Image();
+  Img.arrow6.src = '/client/img/bullets/arrow6.png';
+  Img.arrow7 = new Image();
+  Img.arrow7.src = '/client/img/bullets/arrow7.png';
+  Img.arrow8 = new Image();
+  Img.arrow8.src = '/client/img/bullets/arrow8.png';
 
   var ctx = document.getElementById('ctx').getContext('2d');
   var lighting = document.getElementById('lighting').getContext('2d');
@@ -171,19 +185,36 @@
   var Bullet = function(initPack){
     var self = {};
     self.id = initPack.id;
+    self.angle = initPack.angle;
     self.number = initPack.number;
     self.x = initPack.x;
     self.y = initPack.y;
     self.z = initPack.z;
 
     self.draw = function(){
-      //var width = Img.bullet.width/2;
-      //var height = Img.bullet.height/2;
+      function drawArrow(angle){
+        var x = self.x - Player.list[selfId].x + WIDTH/2;
+        var y = self.y - Player.list[selfId].y + HEIGHT/2;
 
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
-
-      ctx.fillRect(x-5,y-5,10,10); // switch to image soon
+        if(angle >= -120 && angle < -60){
+          ctx.drawImage(Img.arrow1, x, y, tileSize, tileSize);
+        } else if(angle >= -60 && angle < -30){
+          ctx.drawImage(Img.arrow2, x, y, tileSize, tileSize);
+        } else if(angle >= -30 && angle < 30){
+          ctx.drawImage(Img.arrow3, x, y, tileSize, tileSize);
+        } else if(angle >= 30 && angle < 60){
+          ctx.drawImage(Img.arrow4, x, y, tileSize, tileSize);
+        } else if(angle >= 60 && angle < 120){
+          ctx.drawImage(Img.arrow5, x, y, tileSize, tileSize);
+        } else if(angle >= 120 && angle < 150){
+          ctx.drawImage(Img.arrow6, x, y, tileSize, tileSize);
+        } else if(angle >= 150 && angle > -150){
+          ctx.drawImage(Img.arrow7, x, y, tileSize, tileSize);
+        } else {
+          ctx.drawImage(Img.arrow8, x, y, tileSize, tileSize);
+        }
+      }
+      drawArrow(self.angle);
     }
 
     Bullet.list[self.id] = self;
@@ -294,6 +325,7 @@
     world = data.world;
     tileSize = data.tileSize;
     mapSize = data.mapSize;
+    tempus = data.tempus;
   });
 
   var getTile = function(c,r){

@@ -248,7 +248,8 @@ Player.onConnect = function(socket){
   socket.emit('mapData',{
     world: world,
     tileSize: tileSize,
-    mapSize: mapSize
+    mapSize: mapSize,
+    tempus: tempus
   })
 
   socket.emit('init',{
@@ -288,6 +289,7 @@ var Bullet = function(param){
   self.spdX = Math.cos(param.angle/180*Math.PI) * 10;
   self.spdY = Math.sin(param.angle/180*Math.PI) * 10;
   self.parent = param.parent;
+
   self.timer = 0;
   self.toRemove = false;
   var super_update = self.update;
@@ -316,6 +318,7 @@ var Bullet = function(param){
   self.getInitPack = function(){
     return {
       id:self.id,
+      angle:self.angle,
       x:self.x,
       y:self.y,
       z:self.z
