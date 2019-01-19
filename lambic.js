@@ -3,7 +3,7 @@
 //                 ((🔥))   S T R O N G H O D L   ((🔥))               //
 //                   \\                            //                  //
 //                                                                     //
-//   ☩  A   S O L I S   O R T V   V S Q V E   A D   O C C A S V M  ☩  //
+//   ☩  A   S O L I S   O R T V   V S Q V E   A D   O C C A S V M  ☩   //
 //                                                                     //
 //            A game by Johan Argyne of Templar Ventures.              //
 //                                                                     //
