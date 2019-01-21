@@ -18,21 +18,21 @@ var fs = require('fs');
 var genesis = require('./server/js/genesis');
 var world = genesis.map;
 var tileSize = 16;
-var mapSize = world[0].length;
+var mapSize = world[0][0].length;
 
 // MAP TOOLS
 
 // get tile type from (c,r)
-var getTile = function(c,r){
-  return world[c][r];
+var getTile = function(z,c,r){
+  return world[l][c][r];
 };
-// get random tile + its (c,r)
-var randomTile = function(){
+// get random tile + its (l,c,r)
+var randomTile = function(l){
   min = 0;
   max = mapSize;
   var c = Math.floor(Math.random() * (max - min + 1)) + min;
   var r = Math.floor(Math.random() * (max - min + 1)) + min;
-  return [world[c][r],c,r];
+  return [world[l][c][r],l,c,r];
 };
 
 // save map file?
@@ -49,7 +49,7 @@ if(saveMap){
 
 // dayNight cycle
 var tempus = 'XII.a';
-var period = 360; // 1: 1hr, 2: 30m, 4: 15m, 12: 5m, 60: 1m, 360: 10s
+var period = 60; // 1: 1hr, 2: 30m, 4: 15m, 12: 5m, 60: 1m, 360: 10s
 var cycle = ['XII.a','I.a','II.a','III.a','IV.a','V.a','VI.a','VII.a','VIII.a','IX.a','X.a','XI.a',
             'XII.p','I.p','II.p','III.p','IV.p','V.p','VI.p','VII.p','VIII.p','IX.p','X.p','XI.p'];
 var tick = 1;
@@ -121,7 +121,7 @@ var randomSpawn = function(){
   var select = [];
 
   for(var i = 0; i < 7; i++){
-    select.push(randomTile());
+    select.push(randomTile(0));
   }
   for(var n = 0; n < 7; n++){
     if(select[n][0] !== 0 && select[n][0] !== 1){
@@ -145,7 +145,7 @@ var Player = function(param){
   self.pressingAttack = false;
   self.facing = 'down';
   self.mouseAngle = 0;
-  self.maxSpd = 50;
+  self.maxSpd = 10;
   self.hp = 100;
   self.hpMax = 100;
   self.hpNat = 100;
