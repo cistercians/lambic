@@ -127,7 +127,7 @@ function genesis(){
 
     for(x = 0; x < mapTiles; x++){
       for(y = 0; y < mapTiles; y++){
-        underworldTiles[x][y] = 0;
+        underworldTiles[x][y] = 1;
         buildTiles[x][y] = 0;
       }
     };
@@ -165,13 +165,15 @@ function genesis(){
     }
     //randomly select 2/3 of them
     var entrances = [];
-    for(i = 0; i < Math.ceil(result.length * 0.66); i++){
+    cut = Math.ceil(result.length * 0.66);
+    for(i = 0; i < cut; i++){
       var n = Math.floor(Math.random() * result.length);
       entrances.push(result[n]);
       result.splice(n,n);
     }
     for(i = 0; i < entrances.length; i++){
       worldMaps[0][entrances[i][0]][entrances[i][1]] = 6;
+      worldMaps[1][entrances[i][0]][entrances[i][1]+1] = 2;
     }
     return entrances;
   };
@@ -187,36 +189,34 @@ function genesis(){
         randomDirection; // next turn/direction - holds a value from directions
 
     map[currentRow][currentColumn] = 0;
-    currentRow++;
+    currentColumn--;
 
     while (maxTunnels && dimensions && maxLength) {
       do {
         randomDirection = directions[Math.floor(Math.random() * directions.length)];
       } while ((randomDirection[0] === -lastDirection[0] && randomDirection[1] === -lastDirection[1]) || (randomDirection[0] === lastDirection[0] && randomDirection[1] === lastDirection[1]));
 
-      var randomLength = Math.ceil(Math.random() * maxLength), // length the next tunnel will be (max of maxLength)
-          tunnelLength = 0; // current length of tunnel being created
+      var randomLength = Math.ceil(Math.random() * maxLength),
+          tunnelLength = 0;
 
-  		// lets loop until our tunnel is long enough or until we hit an edge
       while (tunnelLength < randomLength) {
 
-          //break the loop if it is going out of the map
         if (((currentRow === 0) && (randomDirection[0] === -1)) ||
             ((currentColumn === 0) && (randomDirection[1] === -1)) ||
             ((currentRow === map.length - 1) && (randomDirection[0] === 1)) ||
             ((currentColumn === map.length - 1) && (randomDirection[1] === 1))) {
           break;
         } else {
-          map[currentRow][currentColumn] = 0; //set the value of the index in map to 0 (a tunnel, making it one longer)
-          currentRow += randomDirection[0]; //add the value from randomDirection to row and col (-1, 0, or 1) to update our location
+          map[currentRow][currentColumn] = 0;
+          currentRow += randomDirection[0];
           currentColumn += randomDirection[1];
-          tunnelLength++; //the tunnel is now one longer, so lets increment that variable
+          tunnelLength++;
         }
       }
 
-      if (tunnelLength) { // update our variables unless our last loop broke before we made any part of a tunnel
-        lastDirection = randomDirection; //set lastDirection, so we can remember what way we went
-        maxTunnels--; // we created a whole tunnel so lets decrement how many we have left to create
+      if (tunnelLength) {
+        lastDirection = randomDirection;
+        maxTunnels--;
       }
     }
   };

@@ -5,7 +5,7 @@
 //                                                                     //
 //   ☩  A   S O L I S   O R T V   V S Q V E   A D   O C C A S V M  ☩   //
 //                                                                     //
-//            A game by Johan Argyne of Templar Ventures.              //
+//            A game by Johan Argyne / Templar Ventures.               //
 //                                                                     //
 /////////////////////////////////////////////////////////////////////////
 
@@ -17,13 +17,14 @@ var fs = require('fs');
 // BUILD MAP
 var genesis = require('./server/js/genesis');
 var world = genesis.map;
-var tileSize = 16;
-var mapSize = world[0][0].length;
+var tileSize = 64;
+var mapSize = world[0].length;
 
 // MAP TOOLS
 
-// get tile type from (c,r)
-var getTile = function(z,c,r){
+// get tile type from (l,c,r)
+// l === 'layer' 0: Overworld, 1: Underworld,  2: Underwater, 3: Buildings
+var getTile = function(l,c,r){
   return world[l][c][r];
 };
 // get random tile + its (l,c,r)
@@ -32,7 +33,43 @@ var randomTile = function(l){
   max = mapSize;
   var c = Math.floor(Math.random() * (max - min + 1)) + min;
   var r = Math.floor(Math.random() * (max - min + 1)) + min;
-  return [world[l][c][r],l,c,r];
+  return [world[l][c][r],c,r];
+};
+
+// get loc from (x,y)
+var getLoc = function(x,y){
+  var loc = [Math.floor(x/tileSize),Math.floor(y/tileSize)];
+  return loc;
+}
+
+// get (x,y) coords of center of tile from loc
+var getCoords = function(c,r){
+  var coords = [];
+  var x = (c * tileSize) + (tileSize / 2);
+  var y = (r * tileSize) + (tileSize / 2);
+  coords.push(x);
+  coords.push(y);
+
+  return coords;
+};
+
+// random spawner
+var randomSpawn = function(){
+  var spawn = [];
+  var select = [];
+
+  for(var i = 0; i < 7; i++){
+    select.push(randomTile(0));
+  }
+  for(var n = 0; n < 7; n++){
+    var target = select[n];
+    if(target[0] !== 0 && target[0] !== 1){
+      var point = getCoords(target[1],target[2]);
+      return point;
+    } else {
+      continue;
+    }
+  }
 };
 
 // save map file?
@@ -81,8 +118,8 @@ var DEBUG = true;
 // ENTITY
 var Entity = function(param){
   var self = {
-    x:288,
-    y:288,
+    x:0,
+    y:0,
     loc:[0,0],
     z:0,
     spdX:0,
@@ -107,31 +144,14 @@ var Entity = function(param){
   self.updatePosition = function(){
     self.x += self.spdX;
     self.y += self.spdY;
+    self.loc = getLoc(self.x,self.y);
   }
 
   self.getDistance = function(pt){
     return Math.sqrt(Math.pow(self.x-pt.x,2) + Math.pow(self.y-pt.y,2));
   }
   return self;
-}
-
-// RANDOM SPAWNER
-var randomSpawn = function(){
-  var spawn = [];
-  var select = [];
-
-  for(var i = 0; i < 7; i++){
-    select.push(randomTile(0));
-  }
-  for(var n = 0; n < 7; n++){
-    if(select[n][0] !== 0 && select[n][0] !== 1){
-      spawn.push([select[n][1],select[n][2]]);
-    } else {
-      continue;
-    }
-  }
-  return spawn[0];
-}
+};
 
 // PLAYER
 var Player = function(param){
@@ -172,14 +192,13 @@ var Player = function(param){
     });
   }
 
+  // x,y movement
   self.updateSpd = function(){
     if(self.pressingRight){
       self.spdX = self.maxSpd;
-      self.loc[0] += 1;
       self.facing = 'right';
     } else if(self.pressingLeft){
       self.spdX = -self.maxSpd;
-      self.loc[0] -= 1;
       self.facing = 'left';
     } else {
       self.spdX = 0;
@@ -187,15 +206,21 @@ var Player = function(param){
 
     if(self.pressingUp){
       self.spdY = -self.maxSpd;
-      self.loc[1] -= 1;
       self.facing = 'up';
     } else if(self.pressingDown){
       self.spdY = self.maxSpd;
-      self.loc[1] += 1;
       self.facing = 'down';
     } else {
       self.spdY = 0;
     }
+
+    // z movement
+    if(self.z === 0 && getTile(0,self.loc[0],self.loc[1] === 6)){
+      self.z = -1;
+      console.log('fire');
+    } else if(self.z === -1 && getTile(1,self.loc[0],self.loc[1] === 2)){
+      self.z = 0;
+    } else {console.log('c: ' + self.loc[0] + ' r: ' + self.loc[1]);}
   }
 
   self.getInitPack = function(){
@@ -236,10 +261,13 @@ var Player = function(param){
 
 Player.list = {};
 
+var spawn = randomSpawn();
 Player.onConnect = function(socket){
   var player = Player({
     id:socket.id,
-    loc:randomSpawn()
+    x: spawn[0],
+    y: spawn[1],
+    loc: getLoc(spawn[0],spawn[1])
   });
   console.log(player.id + ' spawned at : ' + player.loc + ' z: 0')
   // player control inputs
@@ -263,6 +291,7 @@ Player.onConnect = function(socket){
     player:Player.getAllInitPack(),
     bullet:Bullet.getAllInitPack()
   })
+  console.log('player id: ' + player.id);
 }
 
 Player.getAllInitPack = function(){
@@ -292,8 +321,8 @@ var Bullet = function(param){
   var self = Entity(param);
   self.id = Math.random();
   self.angle = param.angle;
-  self.spdX = Math.cos(param.angle/180*Math.PI) * 10;
-  self.spdY = Math.sin(param.angle/180*Math.PI) * 10;
+  self.spdX = Math.cos(param.angle/180*Math.PI) * 30;
+  self.spdY = Math.sin(param.angle/180*Math.PI) * 30;
   self.parent = param.parent;
 
   self.timer = 0;
@@ -335,7 +364,8 @@ var Bullet = function(param){
     return {
       id:self.id,
       x:self.x,
-      y:self.y
+      y:self.y,
+      z:self.z
     }
   }
 
