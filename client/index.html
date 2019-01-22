@@ -161,7 +161,7 @@
   // PLAYER
   var Player = function(initPack){
     var self = {};
-    self.id = initPack.selfId;
+    self.id = initPack.id;
     self.number = initPack.number;
     self.x = initPack.x;
     self.y = initPack.y;
@@ -192,10 +192,10 @@
       ctx.fillStyle = 'black';
 
       // character sprite
-      ctx.fillText(self.number,x, y);
+      ctx.fillText(self.number, x, y);
     }
 
-    Player.list[selfId] = self;
+    Player.list[self.id] = self;
     return self;
   }
   Player.list = {};
@@ -247,7 +247,7 @@
   // init
   socket.on('init',function(data){
     if(data.selfId)
-      selfId = String(data.selfId);
+      selfId = data.selfId;
     // { player : [{id:123,number:'1',x:0,y:0},{id:1,x:0,y:0}] bullet: []}
     for(var i = 0 ; i < data.player.length; i++){
       new Player(data.player[i]);
@@ -351,9 +351,9 @@
       if(tempus === 'IX.p' || tempus === 'X.p' || tempus === 'XI.p' || tempus === 'XII.a' || tempus === 'I.a' || tempus === 'II.a' || tempus === 'III.a' || tempus === 'IV.a' || tempus === 'V.a'){
         renderLightSources();
       }
-    } //else if(Player.list[selfId].z === -1){
-    //  renderLightSources();
-    //}
+    } else if(Player.list[selfId].z === -1){
+      renderLightSources();
+    }
     for(var i in Player.list) // EDIT: only players in viewport
       Player.list[i].draw();
     for(var i in Bullet.list) // EDIT: ony bullets in viewport

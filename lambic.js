@@ -27,12 +27,11 @@ var mapSize = world[0].length;
 var getTile = function(l,c,r){
   return world[l][c][r];
 };
-// get random tile + its (l,c,r)
+// get random tile + its loc
 var randomTile = function(l){
-  min = 0;
   max = mapSize;
-  var c = Math.floor(Math.random() * (max - min + 1)) + min;
-  var r = Math.floor(Math.random() * (max - min + 1)) + min;
+  var c = Math.floor(Math.random() * max);
+  var r = Math.floor(Math.random() * max);
   return [world[l][c][r],c,r];
 };
 
@@ -44,12 +43,7 @@ var getLoc = function(x,y){
 
 // get (x,y) coords of center of tile from loc
 var getCoords = function(c,r){
-  var coords = [];
-  var x = (c * tileSize) + (tileSize / 2);
-  var y = (r * tileSize) + (tileSize / 2);
-  coords.push(x);
-  coords.push(y);
-
+  var coords = [c * tileSize, r * tileSize];
   return coords;
 };
 
@@ -63,6 +57,7 @@ var randomSpawn = function(){
   }
   for(var n = 0; n < 7; n++){
     var target = select[n];
+    // skips over water and heavy forest
     if(target[0] !== 0 && target[0] !== 1){
       var point = getCoords(target[1],target[2]);
       return point;
@@ -108,7 +103,7 @@ app.get('/',function(req, res) {
 app.use('/client',express.static(__dirname + '/client'));
 
 serv.listen(2000);
-console.log("Server online.");
+console.log("A SOLIS ORTV VSQVE AD OCCASVM");
 
 var SOCKET_LIST = {};
 
@@ -155,7 +150,6 @@ var Entity = function(param){
 
 // PLAYER
 var Player = function(param){
-  // spawns at random tile
   var self = Entity(param);
   self.number = Math.floor(10 * Math.random());
   self.pressingRight = false;
@@ -179,7 +173,7 @@ var Player = function(param){
     super_update();
 
     if(self.pressingAttack){
-      self.shootBullet(self.mouseAngle);
+      self.shootBullet(self.mouseAngle); // EDIT to use attack of weapon type
     }
   }
 
@@ -218,9 +212,11 @@ var Player = function(param){
     if(self.z === 0 && getTile(0,self.loc[0],self.loc[1] === 6)){
       self.z = -1;
       console.log('fire');
-    } else if(self.z === -1 && getTile(1,self.loc[0],self.loc[1] === 2)){
+    }
+    if(self.z === -1 && getTile(1,self.loc[0],self.loc[1] === 2)){
       self.z = 0;
-    } else {console.log('c: ' + self.loc[0] + ' r: ' + self.loc[1]);}
+      console.log('fire');
+    }
   }
 
   self.getInitPack = function(){
@@ -261,15 +257,15 @@ var Player = function(param){
 
 Player.list = {};
 
-var spawn = randomSpawn();
 Player.onConnect = function(socket){
+  var spawn = randomSpawn();
   var player = Player({
     id:socket.id,
     x: spawn[0],
     y: spawn[1],
     loc: getLoc(spawn[0],spawn[1])
   });
-  console.log(player.id + ' spawned at : ' + player.loc + ' z: 0')
+  console.log(player.id + ' spawned at : ' + spawn + ' z: 0')
   // player control inputs
   socket.on('keyPress',function(data){
     if(data.inputId === 'left')
@@ -291,7 +287,7 @@ Player.onConnect = function(socket){
     player:Player.getAllInitPack(),
     bullet:Bullet.getAllInitPack()
   })
-  console.log('player id: ' + player.id);
+  console.log('init player id: ' + player.id);
 }
 
 Player.getAllInitPack = function(){
