@@ -23,8 +23,6 @@ function genesis(){
   var canvasSize = 512;
   var mapTiles = canvasSize / tile;
 
-
-
   // OVERWORLD
   var simplex = new SimplexNoise(),
       canvas = Canvas.createCanvas(canvasSize,canvasSize),
@@ -123,25 +121,30 @@ function genesis(){
       underwaterTiles.push(uSet);
     }
     var underworldTiles = createArray(mapTiles,mapTiles);
-    var buildTiles = createArray(mapTiles,mapTiles);
+    var buildI = createArray(mapTiles,mapTiles);
+    var buildII = createArray(mapTiles,mapTiles);
 
     for(x = 0; x < mapTiles; x++){
       for(y = 0; y < mapTiles; y++){
         underworldTiles[x][y] = 1;
-        buildTiles[x][y] = 0;
+        buildI[x][y] = 0;
+        buildII[x][y] = 0;
       }
     };
 
     allTileMaps.push(overworldTiles);
     allTileMaps.push(underworldTiles);
     allTileMaps.push(underwaterTiles);
-    allTileMaps.push(buildTiles);
+    allTileMaps.push(buildI);
+    allTileMaps.push(buildII);
 
     return allTileMaps;
   };
 
   // UNDERWORLD
   //identifies potential cave entrances
+  var entrances = [];
+
   function idEntrances(){
     var subsection = Math.floor(mapTiles / 3);
     var trueLength = subsection * 3
@@ -151,8 +154,8 @@ function genesis(){
         var selection = [];
         for(c = x; c < x + subsection; c++){
           for(r = y; r < y + subsection; r++){
-            var tile = worldMaps[0][c][r];
-            var tileBelow = worldMaps[0][c][r+1];
+            var tile = worldMaps[0][r][c];
+            var tileBelow = worldMaps[0][r+1][c];
             if(tile === 5 && tileBelow !== 5 && r !== 0){
               selection.push([c,r]);
             } else {
@@ -163,19 +166,13 @@ function genesis(){
         result.push(selection[Math.floor(Math.random() * selection.length)]);
       }
     }
-    //randomly select 2/3 of them
-    var entrances = [];
-    cut = Math.ceil(result.length * 0.66);
+    //randomly select 3/4 of them
+    cut = Math.ceil(result.length * 0.75);
     for(i = 0; i < cut; i++){
       var n = Math.floor(Math.random() * result.length);
       entrances.push(result[n]);
       result.splice(n,n);
     }
-    for(i = 0; i < entrances.length; i++){
-      worldMaps[0][entrances[i][0]][entrances[i][1]] = 6;
-      worldMaps[1][entrances[i][0]][entrances[i][1]+1] = 2;
-    }
-    return entrances;
   };
 
   function geoform(map,c,r) {
@@ -246,18 +243,23 @@ function genesis(){
   var worldMaps = terraform(hvData, canvas.width, canvas.height, tile, tile);
 
   // edit underworld
-  var caveEntrances = idEntrances();
-  console.log(caveEntrances);
+  idEntrances();
+  console.log(entrances); // for admin testing
 
   // random walk caves
-  for(i = 0; i < caveEntrances.length; i++){
-    geoform(worldMaps[1],caveEntrances[i][0],caveEntrances[i][1]);
+  for(i = 0; i < entrances.length; i++){
+    geoform(worldMaps[1],entrances[i][1],entrances[i][0]);
   };
+
+  // add entrance/exit tiles
+  for(i = 0; i < entrances.length; i++){
+    worldMaps[0][entrances[i][1]][entrances[i][0]] = 6;
+    worldMaps[1][entrances[i][1]+1][entrances[i][0]] = 2;
+  }
 
   // "...And God saw that it was good."
   return worldMaps;
 };
-
 
 module.exports = {
   map: genesis()

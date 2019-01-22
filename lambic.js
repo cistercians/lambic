@@ -24,15 +24,15 @@ var mapSize = world[0].length;
 
 // get tile type from (l,c,r)
 // l === 'layer' 0: Overworld, 1: Underworld,  2: Underwater, 3: Buildings
-var getTile = function(l,c,r){
-  return world[l][c][r];
+var getTile = function(l,r,c){
+  return world[l][r][c];
 };
 // get random tile + its loc
 var randomTile = function(l){
   max = mapSize;
   var c = Math.floor(Math.random() * max);
   var r = Math.floor(Math.random() * max);
-  return [world[l][c][r],c,r];
+  return [world[l][r][c],c,r];
 };
 
 // get loc from (x,y)
@@ -41,7 +41,7 @@ var getLoc = function(x,y){
   return loc;
 }
 
-// get (x,y) coords of center of tile from loc
+// get (x,y) coords of tile from loc
 var getCoords = function(c,r){
   var coords = [c * tileSize, r * tileSize];
   return coords;
@@ -81,7 +81,7 @@ if(saveMap){
 
 // dayNight cycle
 var tempus = 'XII.a';
-var period = 60; // 1: 1hr, 2: 30m, 4: 15m, 12: 5m, 60: 1m, 360: 10s
+var period = 360; // 1: 1hr, 2: 30m, 4: 15m, 12: 5m, 60: 1m, 360: 10s
 var cycle = ['XII.a','I.a','II.a','III.a','IV.a','V.a','VI.a','VII.a','VIII.a','IX.a','X.a','XI.a',
             'XII.p','I.p','II.p','III.p','IV.p','V.p','VI.p','VII.p','VIII.p','IX.p','X.p','XI.p'];
 var tick = 1;
@@ -103,7 +103,13 @@ app.get('/',function(req, res) {
 app.use('/client',express.static(__dirname + '/client'));
 
 serv.listen(2000);
-console.log("A SOLIS ORTV VSQVE AD OCCASVM");
+console.log("###################################");
+console.log("");
+console.log("        S T R O N G H O D L");
+console.log("");
+console.log("   A SOLIS ORTV VSQVE AD OCCASVM");
+console.log("");
+console.log("###################################");
 
 var SOCKET_LIST = {};
 
@@ -115,31 +121,30 @@ var Entity = function(param){
   var self = {
     x:0,
     y:0,
-    loc:[0,0],
     z:0,
     spdX:0,
     spdY:0,
-    id:""
+    id:"",
   }
+
   if(param){
     if(param.x)
       self.x = param.x;
     if(param.y)
       self.y = param.y;
-    if(param.loc)
-      self.loc = param.loc;
     if(param.z)
       self.z = param.z;
     if(param.id)
       self.id = param.id;
   }
+
   self.update = function(){
     self.updatePosition();
   }
+
   self.updatePosition = function(){
     self.x += self.spdX;
     self.y += self.spdY;
-    self.loc = getLoc(self.x,self.y);
   }
 
   self.getDistance = function(pt){
@@ -209,13 +214,12 @@ var Player = function(param){
     }
 
     // z movement
-    if(self.z === 0 && getTile(0,self.loc[0],self.loc[1] === 6)){
+    var loc = getLoc(self.x, self.y);
+    if(self.z === 0 && getTile(0,loc[1],loc[0]) === 6){
       self.z = -1;
-      console.log('fire');
     }
-    if(self.z === -1 && getTile(1,self.loc[0],self.loc[1] === 2)){
+    if(self.z === -1 && getTile(1,loc[1],loc[0]) === 2){
       self.z = 0;
-      console.log('fire');
     }
   }
 
@@ -224,7 +228,6 @@ var Player = function(param){
       id:self.id,
       x:self.x,
       y:self.y,
-      loc:self.loc,
       z:self.z,
       number:self.number,
       hp:self.hp,
@@ -239,7 +242,6 @@ var Player = function(param){
       id:self.id,
       x:self.x,
       y:self.y,
-      loc:self.loc,
       z:self.z,
       facing:self.facing,
       hp:self.hp,
@@ -263,7 +265,6 @@ Player.onConnect = function(socket){
     id:socket.id,
     x: spawn[0],
     y: spawn[1],
-    loc: getLoc(spawn[0],spawn[1])
   });
   console.log(player.id + ' spawned at : ' + spawn + ' z: 0')
   // player control inputs

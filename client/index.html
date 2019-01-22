@@ -165,7 +165,6 @@
     self.number = initPack.number;
     self.x = initPack.x;
     self.y = initPack.y;
-    self.loc = initPack.loc;
     self.z = initPack.z;
     self.facing = 'down';
     self.hp = initPack.hp;
@@ -268,8 +267,6 @@
           p.x = pack.x;
         if(pack.y !== undefined)
           p.y = pack.y;
-        if(pack.loc !== undefined)
-          p.loc = pack.loc;
         if(pack.z !== undefined)
           p.z = pack.z;
         if(pack.facing !== undefined)
@@ -348,24 +345,43 @@
     renderMap();
     renderLighting();
     if(Player.list[selfId].z === 0){
-      if(tempus === 'IX.p' || tempus === 'X.p' || tempus === 'XI.p' || tempus === 'XII.a' || tempus === 'I.a' || tempus === 'II.a' || tempus === 'III.a' || tempus === 'IV.a' || tempus === 'V.a'){
-        renderLightSources();
+      if(tempus === 'IX.p' || tempus === 'X.p' || tempus === 'XI.p' || tempus === 'XII.a' || tempus === 'I.a' || tempus === 'II.a' || tempus === 'III.a'){
+        renderLightSources(1);
+      } else if(tempus === 'VIII.p' || tempus === 'IV.a'){
+        renderLightSources(0.75);
+      } else if(tempus === 'VII.p' || tempus === 'V.a'){
+        renderLightSources(0.55);
+      } else {
+        renderLightSources(0.3);
       }
     } else if(Player.list[selfId].z === -1){
-      renderLightSources();
+      renderLightSources(1.5);
     }
     for(var i in Player.list) // EDIT: only players in viewport
       Player.list[i].draw();
     for(var i in Bullet.list) // EDIT: ony bullets in viewport
       Bullet.list[i].draw();
     viewport.update(Player.list[selfId].x,Player.list[selfId].y);
-    console.log(Player.list[selfId].loc + ' z: ' + Player.list[selfId].z);
+    console.log(getLoc(Player.list[selfId].x,Player.list[selfId].y));
   },40);
 
   // RENDER MAP
 
+  // MAP TOOLS
   var getTile = function(l,c,r){
-    return world[l][c][r];
+    return world[l][r][c];
+  };
+
+  // get loc from (x,y)
+  var getLoc = function(x,y){
+    var loc = [Math.floor(x/tileSize),Math.floor(y/tileSize)];
+    return loc;
+  }
+
+  // get (x,y) coords of tile from loc
+  var getCoords = function(c,r){
+    var coords = [c * tileSize, r * tileSize];
+    return coords;
   };
 
   // update environment
@@ -530,8 +546,13 @@
       }
       x++;
     } else if(z === -1){
+      var morecave = ctx.createPattern(Img.cavefloor, "repeat");
       ctx.rect(0,0,WIDTH,HEIGHT);
-      ctx.fillStyle = "black";
+      ctx.fillStyle = morecave;
+      ctx.fill();
+      var evenmorecave = ctx.createPattern(Img.cavewall, "repeat");
+      ctx.rect(0,0,WIDTH,HEIGHT);
+      ctx.fillStyle = evenmorecave;
       ctx.fill();
       for (var c = viewport.startTile[0]; c < viewport.endTile[0]; c++) {
         for (var r = viewport.startTile[1]; r < viewport.endTile[1]; r++) {
@@ -588,7 +609,7 @@
 
   //lighting and light sources
   // [z,x,y,radius]
-  var lightSources = [[0,WIDTH/2,HEIGHT/2,150]];
+  var lightSources = [[-1,WIDTH/2,HEIGHT/2,150],[0,WIDTH/2,HEIGHT/2,150]];
 
   var flickerRange = [0.4,0.65,0.7,0.75,0.75,0.8,0.8,0.85,0.9,0.95,1,1.5];
   var flicker = 0;
@@ -599,7 +620,7 @@
   var illuminate = function(x, y, radius){
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    var rnd = (0.05 * Math.sin(1.1 * Date.now() / 300) * flicker);
+    var rnd = (0.05 * Math.sin(1.1 * Date.now() / 200) * flicker);
     radius = (radius * (1 + rnd));
     var radialGradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
     radialGradient.addColorStop(0.0, '#BB9');
@@ -616,16 +637,16 @@
     lighting.save();
     lighting.globalCompositeOperation = 'destination-out';
     lighting.beginPath();
-    lighting.arc(x, y, radius * 1.01, 0, 2 * Math.PI, false);
+    lighting.arc(x, y, radius * 0.9, 0, 2 * Math.PI, false);
     lighting.fill();
     lighting.restore();
   }
 
-  var renderLightSources = function(){
+  var renderLightSources = function(str){
     for(i = 0; i < lightSources.length; i++){
       var light = lightSources[i];
       if(lightSources[i][0] === Player.list[selfId].z){
-        illuminate(light[1],light[2],light[3]);
+        illuminate(light[1],light[2],light[3] * str);
       }
     }
   }
@@ -649,7 +670,7 @@
         lighting.clearRect(0,0,WIDTH,HEIGHT);
         lighting.fillStyle = "rgba(244, 214, 65, 0.1)"; // sunrise
         lighting.fillRect(0,0,WIDTH,HEIGHT);
-      } else if(tempus === 'VII.a'){
+      } else if(tempus === 'VII.a' || tempus === 'VIII.a' || tempus === 'IX.a'|| tempus === 'X.a' || tempus === 'XI.a' || tempus === 'XII.p' || tempus === 'I.p' || tempus === 'II.p' || tempus === 'III.p'){
         lighting.clearRect(0,0,WIDTH,HEIGHT); // morning + daytime
       } else if(tempus === 'IV.p'){
         lighting.clearRect(0,0,WIDTH,HEIGHT);
@@ -674,7 +695,7 @@
       }
     } else if(z === -1){
       lighting.clearRect(0,0,WIDTH,HEIGHT);
-      lighting.fillStyle = "rgba(0, 0, 0, 0.9)"; // cave darkness
+      lighting.fillStyle = "rgba(0, 0, 0, 0.8)"; // cave darkness
       lighting.fillRect(0,0,WIDTH,HEIGHT);
     }
   }
