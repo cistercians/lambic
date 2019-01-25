@@ -19,27 +19,40 @@ var genesis = require('./server/js/genesis');
 var world = genesis.map;
 var tileSize = 64;
 var mapSize = world[0].length;
+var mapPx = mapSize * tileSize;
 
 // MAP TOOLS
 
 // get tile type from (l,c,r)
 // l === 'layer' 0: Overworld, 1: Underworld,  2: Underwater, 3: Buildings
-var getTile = function(l,r,c){
-  return world[l][r][c];
-};
-// get random tile + its loc
-var randomTile = function(l){
-  max = mapSize;
-  var c = Math.floor(Math.random() * max);
-  var r = Math.floor(Math.random() * max);
-  return [world[l][r][c],c,r];
+var getTile = function(l,c,r){
+  if(r >= 0 && r <= mapSize && c >= 0 && c <= mapSize){
+    return world[l][r][c];
+  } else {
+    return;
+  }
 };
 
 // get loc from (x,y)
 var getLoc = function(x,y){
   var loc = [Math.floor(x/tileSize),Math.floor(y/tileSize)];
   return loc;
-}
+};
+
+var getLocTile = function(l,x,y){
+  if(x >= 0 && x <= mapPx && y >= 0 && y <= mapPx){
+    var loc = getLoc(x,y);
+    return world[l][loc[1]][loc[0]];
+  }
+};
+
+// get random tile + its loc
+var randomTile = function(l){
+  var max = mapSize;
+  var c = Math.floor(Math.random() * max);
+  var r = Math.floor(Math.random() * max);
+  return [world[l][r][c],c,r];
+};
 
 // get (x,y) coords of tile from loc
 var getCoords = function(c,r){
@@ -61,6 +74,7 @@ var randomSpawn = function(){
     if(target[0] !== 0 && target[0] !== 1){
       var point = getCoords(target[1],target[2]);
       return point;
+      console.log(point);
     } else {
       continue;
     }
@@ -85,6 +99,7 @@ var period = 360; // 1: 1hr, 2: 30m, 4: 15m, 12: 5m, 60: 1m, 360: 10s
 var cycle = ['XII.a','I.a','II.a','III.a','IV.a','V.a','VI.a','VII.a','VIII.a','IX.a','X.a','XI.a',
             'XII.p','I.p','II.p','III.p','IV.p','V.p','VI.p','VII.p','VIII.p','IX.p','X.p','XI.p'];
 var tick = 1;
+var days = 0;
 
 // weather
 
@@ -124,7 +139,7 @@ var Entity = function(param){
     z:0,
     spdX:0,
     spdY:0,
-    id:"",
+    id:Math.random()
   }
 
   if(param){
@@ -153,23 +168,48 @@ var Entity = function(param){
   return self;
 };
 
+// CHARACTER
+var Character = function(param){
+  var self = Entity(param);
+  self.gear = {
+    head:null,
+    body:null,
+    weapon:null,
+    offhand:null,
+    trinket1:null,
+    trinket2:null
+  }
+  self.inventory = {
+    torch:10
+  }
+  self.facing = 'down';
+  self.baseSpd = 10;
+  self.maxSpd = 10;
+  self.actionCooldown = 0;
+  self.attackCooldown = 0;
+  self.hp = 100;
+  self.hpMax = 100;
+  self.mana = 100;
+  self.manaMax = 100;
+  self.dexterity = 1;
+
+  return self;
+}
+
 // PLAYER
 var Player = function(param){
-  var self = Entity(param);
+  var self = Character(param);
   self.number = Math.floor(10 * Math.random());
   self.pressingRight = false;
   self.pressingLeft = false;
   self.pressingUp = false;
   self.pressingDown = false;
   self.pressingAttack = false;
-  self.facing = 'down';
+  self.pressing1 = false;
+  self.pressing2 = false;
+  self.pressing3 = false;
   self.mouseAngle = 0;
-  self.maxSpd = 10;
-  self.hp = 100;
-  self.hpMax = 100;
   self.hpNat = 100;
-  self.mana = 100;
-  self.manaMax = 100;
   self.manaNat = 100;
 
   var super_update = self.update;
@@ -177,18 +217,47 @@ var Player = function(param){
     self.updateSpd();
     super_update();
 
-    if(self.pressingAttack){
-      self.shootBullet(self.mouseAngle); // EDIT to use attack of weapon type
+    if(self.actionCooldown > 0){
+      self.actionCooldown--;
+    }
+
+    if(self.attackCooldown > 0){
+      self.attackCooldown--;
+    }
+
+    if(self.pressingAttack && self.attackCooldown === 0){ // EDIT to use attack of weapon type
+      self.shootArrow(self.mouseAngle);
+      self.attackCooldown = 50/self.dexterity;
+    }
+
+    // ADMIN TOOL ONLY, REMOVE!
+    if(self.pressing1 && self.inventory.torch > 0 && self.actionCooldown === 0){
+      self.lightTorch();
+      self.actionCooldown = 10;
     }
   }
 
-  self.shootBullet = function(angle){
-    Bullet({
+  self.shootArrow = function(angle){
+    Arrow({
       parent:self.id,
       angle:angle,
       x:self.x,
-      y:self.y
+      y:self.y,
+      z:self.z
     });
+  }
+
+  self.lightTorch = function(){
+    Torch({
+      itemId:0,
+      parent:self.id,
+      x:self.x,
+      y:self.y,
+      z:self.z,
+      canPickup:false
+    })
+    self.inventory.torch--;
+    console.log(self.inventory.torch);
   }
 
   // x,y movement
@@ -215,10 +284,10 @@ var Player = function(param){
 
     // z movement
     var loc = getLoc(self.x, self.y);
-    if(self.z === 0 && getTile(0,loc[1],loc[0]) === 6){
+    if(self.z === 0 && getTile(0,loc[0],loc[1]) === 6){
       self.z = -1;
     }
-    if(self.z === -1 && getTile(1,loc[1],loc[0]) === 2){
+    if(self.z === -1 && getTile(1,loc[0],loc[1]) === 2){
       self.z = 0;
     }
   }
@@ -244,6 +313,7 @@ var Player = function(param){
       y:self.y,
       z:self.z,
       facing:self.facing,
+      attackCooldown:self.attackCooldown,
       hp:self.hp,
       hpMax:self.hpMax,
       mana:self.mana,
@@ -263,8 +333,9 @@ Player.onConnect = function(socket){
   var spawn = randomSpawn();
   var player = Player({
     id:socket.id,
+    z: 0,
     x: spawn[0],
-    y: spawn[1],
+    y: spawn[1]
   });
   console.log(player.id + ' spawned at : ' + spawn + ' z: 0')
   // player control inputs
@@ -279,6 +350,12 @@ Player.onConnect = function(socket){
       player.pressingDown = data.state;
     else if(data.inputId === 'attack')
       player.pressingAttack = data.state;
+    else if(data.inputId === '1')
+      player.pressing1 = data.state;
+    else if(data.inputId === '2')
+      player.pressing1 = data.state;
+    else if(data.inputId === '3')
+      player.pressing1 = data.state;
     else if(data.inputId === 'mouseAngle')
       player.mouseAngle = data.state;
   });
@@ -286,7 +363,9 @@ Player.onConnect = function(socket){
   socket.emit('init',{
     selfId:player.id,
     player:Player.getAllInitPack(),
-    bullet:Bullet.getAllInitPack()
+    arrow:Arrow.getAllInitPack(),
+    item:Item.getAllInitPack(),
+    light:Light.getAllInitPack()
   })
   console.log('init player id: ' + player.id);
 }
@@ -313,21 +392,21 @@ Player.update = function(){
   return pack;
 }
 
-// BULLETS
-var Bullet = function(param){
+// ARROWS
+var Arrow = function(param){
   var self = Entity(param);
-  self.id = Math.random();
   self.angle = param.angle;
-  self.spdX = Math.cos(param.angle/180*Math.PI) * 30;
-  self.spdY = Math.sin(param.angle/180*Math.PI) * 30;
+  self.spdX = Math.cos(param.angle/180*Math.PI) * 50;
+  self.spdY = Math.sin(param.angle/180*Math.PI) * 50;
   self.parent = param.parent;
 
   self.timer = 0;
   self.toRemove = false;
   var super_update = self.update;
   self.update = function(){
-    if(self.timer++ > 100)
+    if(self.timer++ > 100){
       self.toRemove = true;
+    }
     super_update();
 
     for(var i in Player.list){
@@ -339,9 +418,18 @@ var Bullet = function(param){
         // player death & respawn
         if(p.hp <= 0){
           p.hp = p.hpMax;
-          p.x = Math.random() * 500; // replace this
-          p.y = Math.random() * 500; // replace this
+          var spawn = randomSpawn;
+          p.x = spawn[0]; // replace this
+          p.y = spawm[1]; // replace this
         }
+        self.toRemove = true;
+      } else if(self.x === 0 || self.x === mapPx || self.y === 0 || self.y === mapPx){
+        self.toRemove = true;
+      } else if(self.z === 0 && getLocTile(0,self.x,self.y) === 5 && getLocTile(0,Player.list[self.parent].x,Player.list[self.parent].y) !== 5){
+        self.toRemove = true;
+      } else if(self.z === 0 && getLocTile(0,self.x,self.y) === 1 && getLocTile(0,Player.list[self.parent].x,Player.list[self.parent].y) !== 1){
+        self.toRemove = true;
+      } else if(self.z === -1 && getLocTile(1,self.x,self.y) === 1){
         self.toRemove = true;
       }
     }
@@ -366,32 +454,188 @@ var Bullet = function(param){
     }
   }
 
-  Bullet.list[self.id] = self;
-  initPack.bullet.push(self.getInitPack());
+  Arrow.list[self.id] = self;
+  initPack.arrow.push(self.getInitPack());
   return self;
 }
 
-Bullet.list = {};
+Arrow.list = {};
 
-Bullet.update = function(){
+Arrow.update = function(){
   var pack = [];
-  for(var i in Bullet.list){
-    var bullet = Bullet.list[i];
-    bullet.update();
-    if(bullet.toRemove){
-      delete Bullet.list[i];
-      removePack.bullet.push(bullet.id);
+  for(var i in Arrow.list){
+    var arrow = Arrow.list[i];
+    arrow.update();
+    if(arrow.toRemove){
+      delete Arrow.list[i];
+      removePack.arrow.push(arrow.id);
     } else
-      pack.push(bullet.getUpdatePack());
+      pack.push(arrow.getUpdatePack());
   }
   return pack;
 }
 
-Bullet.getAllInitPack = function(){
-  var bullets = [];
-  for(var i in Bullet.list)
-    bullets.push(Bullet.list[i].getInitPack());
-  return bullets;
+Arrow.getAllInitPack = function(){
+  var arrows = [];
+  for(var i in Arrow.list)
+    arrows.push(Arrow.list[i].getInitPack());
+  return arrows;
+}
+
+// itemId list:
+// 0: Torch,
+
+// ITEM
+var Item = function(param){
+  var self = Entity(param);
+  self.x = param.x;
+  self.y = param.y;
+  self.z = param.z;
+  self.itemId = param.itemId;
+  self.parent = param.parent;
+  self.canPickup = param.canPickup;
+  self.toRemove = false;
+
+  self.getInitPack = function(){
+    return {
+      id:self.id,
+      parent:self.parent,
+      itemId:self.itemId,
+      x:self.x,
+      y:self.y,
+      z:self.z,
+      canPickup:self.canPickup
+    };
+  }
+
+  self.getUpdatePack = function(){
+    return{
+      id:self.id,
+      x:self.x,
+      y:self.y,
+      z:self.z
+    }
+  }
+  return self;
+}
+
+Item.list = {};
+
+Item.update = function(){
+  var pack = [];
+  for(var i in Item.list){
+    var item = Item.list[i];
+    item.update();
+    if(item.toRemove){
+      delete Item.list[i];
+      removePack.item.push(item.id);
+    } else
+      pack.push(item.getUpdatePack());
+  }
+  return pack;
+}
+
+Item.getAllInitPack = function(){
+  var items = [];
+  for(var i in Item.list)
+    items.push(Item.list[i].getInitPack());
+  return items;
+}
+
+// TORCH
+var Torch = function(param){
+  var self = Item(param);
+  self.timer = 0;
+  var super_update = self.update;
+  self.update = function(){
+    if(Player.list[self.parent]){
+      self.x = Player.list[self.parent].x;
+      self.y = Player.list[self.parent].y;
+      self.z = Player.list[self.parent].z;
+    } else {
+      self.toRemove = true;
+    }
+    if(self.timer++ > 3000){
+      self.toRemove = true;
+    }
+    super_update();
+  }
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  Light({
+    parent:self.id,
+    radius:100,
+    x:self.x,
+    y:self.y,
+    z:self.z
+  });
+  return self;
+}
+
+// LIGHT SOURCE
+var Light = function(param){
+  var self = Entity(param);
+  self.parent = param.parent;
+  self.radius = param.radius;
+  self.toRemove = false;
+  var super_update = self.update;
+  self.update = function(){
+    if(Item.list[self.parent]){
+      self.x = Item.list[self.parent].x;
+      self.y = Item.list[self.parent].y;
+      self.z = Item.list[self.parent].z;
+    }
+    else {
+      self.toRemove = true;
+    }
+    super_update();
+  }
+
+  self.getInitPack = function(){
+    return {
+      id:self.id,
+      x:self.x,
+      y:self.y,
+      z:self.z,
+      radius:self.radius
+    };
+  }
+
+  self.getUpdatePack = function(){
+    return {
+      id:self.id,
+      x:self.x,
+      y:self.y,
+      z:self.z
+    }
+  }
+
+  Light.list[self.id] = self;
+  initPack.light.push(self.getInitPack());
+  return self;
+}
+
+Light.list = {};
+
+Light.update = function(){
+  var pack = [];
+  for(var i in Light.list){
+    var light = Light.list[i];
+    light.update();
+    if(light.toRemove){
+      delete Light.list[i];
+      removePack.light.push(light.id);
+    } else
+      pack.push(light.getUpdatePack());
+  }
+  return pack;
+}
+
+Light.getAllInitPack = function(){
+  var lights = [];
+  for(var i in Light.list)
+    lights.push(Light.list[i].getInitPack());
+  return lights;
 }
 
 // SERVER
@@ -482,6 +726,9 @@ io.sockets.on('connection', function(socket){
 // day/night cycle
 var dayNight = function(){
   tempus = cycle[tick];
+  if(tempus === 'XII.a'){
+    days++;
+  }
   io.emit('tempus',{
     tempus:tempus
   })
@@ -497,13 +744,15 @@ var dayNight = function(){
 setInterval(dayNight, 3600000/period);
 console.log(tempus);
 
-var initPack = {player:[],bullet:[]};
-var removePack = {player:[],bullet:[]};
+var initPack = {player:[],arrow:[],item:[], light:[]};
+var removePack = {player:[],arrow:[],item:[], light:[]};
 
 setInterval(function(){
   var pack =  {
     player:Player.update(),
-    bullet:Bullet.update()
+    arrow:Arrow.update(),
+    item:Item.update(),
+    light:Light.update()
   }
 
   for(var i in SOCKET_LIST){
@@ -514,8 +763,12 @@ setInterval(function(){
   }
 
   initPack.player = [];
-  initPack.bullet = [];
+  initPack.arrow = [];
+  initPack.item = [];
+  initPack.light = [];
   removePack.player = [];
-  removePack.bullet = [];
+  removePack.arrow = [];
+  removePack.item = [];
+  removePack.light = [];
 
 },1000/25);

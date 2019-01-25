@@ -166,7 +166,7 @@ function genesis(){
         result.push(selection[Math.floor(Math.random() * selection.length)]);
       }
     }
-    //randomly select 3/4 of them
+    //randomly select 75% of them
     cut = Math.ceil(result.length * 0.75);
     for(i = 0; i < cut; i++){
       var n = Math.floor(Math.random() * result.length);
@@ -176,9 +176,9 @@ function genesis(){
   };
 
   function geoform(map,c,r) {
-    let dimensions = 100, // width and height of the map // current best: // 5500:12
-        maxTunnels = 200, // max number of tunnels possible ===
-        maxLength = 12, // max length each tunnel can have ===
+    let dimensions = 100, // width and height of the map
+        maxTunnels = 200, // max number of tunnels possible
+        maxLength = 12, // max length each tunnel can have
         currentRow = c, // our current row - start at a random spot
         currentColumn = r, // our current column - start at a random spot
         directions = [[-1, 0], [1, 0], [0, -1], [0, 1]], // array to get a random direction from (left,right,up,down)
