@@ -183,8 +183,10 @@ var Character = function(param){
     torch:10
   }
   self.facing = 'down';
-  self.baseSpd = 10;
-  self.maxSpd = 10;
+  self.inTrees = false;
+  self.onMtn = false;
+  self.baseSpd = 6;
+  self.maxSpd = 6;
   self.actionCooldown = 0;
   self.attackCooldown = 0;
   self.hp = 100;
@@ -262,33 +264,91 @@ var Player = function(param){
 
   // x,y movement
   self.updateSpd = function(){
-    if(self.pressingRight){
+    var loc = getLoc(self.x, self.y);
+    var rightBlocked = false;
+    var leftBlocked = false;
+    var upBlocked = false;
+    var downBlocked = false;
+
+    // collision in caves
+    if(self.z === -1 && getLocTile(1,self.x+(tileSize/2),self.y) === 1){
+      rightBlocked = true;
+    }
+    if(self.z === -1 && getLocTile(1,self.x-(tileSize/2),self.y) === 1){
+      leftBlocked = true;
+    }
+    if(self.z === -1 && getLocTile(1,self.x,self.y-(tileSize/2)) === 1){
+      upBlocked = true;
+    }
+    if(self.z === -1 && getLocTile(1,self.x,self.y+(tileSize/2)) === 1){
+      downBlocked = true;
+    }
+
+    if(self.pressingRight && !rightBlocked){
       self.spdX = self.maxSpd;
       self.facing = 'right';
-    } else if(self.pressingLeft){
+    } else if(self.pressingLeft && !leftBlocked){
       self.spdX = -self.maxSpd;
       self.facing = 'left';
     } else {
       self.spdX = 0;
     }
 
-    if(self.pressingUp){
+    if(self.pressingUp && !upBlocked){
       self.spdY = -self.maxSpd;
       self.facing = 'up';
-    } else if(self.pressingDown){
+    } else if(self.pressingDown && !downBlocked){
       self.spdY = self.maxSpd;
       self.facing = 'down';
     } else {
       self.spdY = 0;
     }
 
-    // z movement
-    var loc = getLoc(self.x, self.y);
-    if(self.z === 0 && getTile(0,loc[0],loc[1]) === 6){
-      self.z = -1;
+    // terrain effects and z movement
+    if(self.z === 0){
+      if(getTile(0,loc[0],loc[1]) === 6){
+        self.z = -1;
+        self.inTrees = false;
+        self.onMtn = false;
+        self.maxSpd = self.baseSpd;
+      } else if(getTile(0,loc[0],loc[1]) === 1){
+        self.inTrees = true;
+        self.onMtn = false;
+        self.maxSpd = self.baseSpd * 0.35;
+      } else if(getTile(0,loc[0],loc[1]) === 2){
+        self.inTrees = false;
+        self.onMtn = false;
+        self.maxSpd = self.baseSpd * 0.75;
+      } else if(getTile(0,loc[0],loc[1]) === 3){
+        self.inTrees = false;
+        self.onMtn = false;
+        self.maxSpd = self.baseSpd * 0.85;
+      } else if(getTile(0,loc[0],loc[1]) === 4){
+        self.inTrees = false;
+        self.onMtn = false;
+        self.maxSpd = self.baseSpd * 0.5;
+      } else if(getTile(0,loc[0],loc[1]) === 5 && !self.onMtn){
+        self.inTrees = false;
+        self.maxSpd = self.baseSpd * 0.1;
+        setTimeout(function(){
+          if(getTile(0,loc[0],loc[1]) === 5 && !self.onMtn){
+            self.maxSpd = 0.5;
+            self.onMtn = true;
+          }
+        },3000);
+      } else if(getTile(0,loc[0],loc[1]) === 5 && self.onMtn){
+        self.maxSpd = self.baseSpd * 0.5;
+      } else {
+        self.maxSpd = self.baseSpd;
+      }
     }
-    if(self.z === -1 && getTile(1,loc[0],loc[1]) === 2){
-      self.z = 0;
+
+    if(self.z === -1){
+      if(getTile(1,loc[0],loc[1]) === 2){
+        self.z = 0;
+        self.inTrees = false;
+        self.onMtn = false;
+      }
     }
   }
 
@@ -298,6 +358,7 @@ var Player = function(param){
       x:self.x,
       y:self.y,
       z:self.z,
+      inTrees:self.inTrees,
       number:self.number,
       hp:self.hp,
       hpMax:self.hpMax,
@@ -312,6 +373,7 @@ var Player = function(param){
       x:self.x,
       y:self.y,
       z:self.z,
+      inTrees:self.inTrees,
       facing:self.facing,
       attackCooldown:self.attackCooldown,
       hp:self.hp,

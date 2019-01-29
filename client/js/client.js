@@ -67,9 +67,19 @@ chatForm.onsubmit = function(e){
 // GAME
 
 // IMAGES
+// walking animation
+var wlk = 0;
+setInterval(function(){
+  if(wlk === 1){
+    wlk = 0;
+  } else {
+    wlk = 1;
+  }
+},400);
+
 var Img = {};
 
-// tiles
+// TILES
 Img.grassland = new Image();
 Img.grassland.src = '/client/img/tiles/grassland.png';
 Img.water1 = new Image();
@@ -103,18 +113,310 @@ Img.cavewall.src = '/client/img/tiles/cavewall.png';
 Img.cavefloor = new Image();
 Img.cavefloor.src = '/client/img/tiles/cavefloor.png';
 
+// CHARACTERS
 
-// characters
+// male serf
+// stand
+Img.maleserfstandd = new Image();
+Img.maleserfstandd.src = '/client/img/chars/serf/male/standd.png';
+Img.maleserfstandu = new Image();
+Img.maleserfstandu.src = '/client/img/chars/serf/male/standu.png';
+Img.maleserfstandl = new Image();
+Img.maleserfstandl.src = '/client/img/chars/serf/male/standl.png';
+Img.maleserfstandr = new Image();
+Img.maleserfstandr.src = '/client/img/chars/serf/male/standr.png';
 
-// items
+// walk
+Img.maleserfwalkd1 = new Image();
+Img.maleserfwalkd1.src = '/client/img/chars/serf/male/walkd1.png';
+Img.maleserfwalkd2 = new Image();
+Img.maleserfwalkd2.src = '/client/img/chars/serf/male/walkd2.png';
+Img.maleserfwalku1 = new Image();
+Img.maleserfwalku1.src = '/client/img/chars/serf/male/walku1.png';
+Img.maleserfwalku2 = new Image();
+Img.maleserfwalku2.src = '/client/img/chars/serf/male/walku2.png';
+Img.maleserfwalkl1 = new Image();
+Img.maleserfwalkl1.src = '/client/img/chars/serf/male/walkl1.png';
+Img.maleserfwalkl2 = new Image();
+Img.maleserfwalkl2.src = '/client/img/chars/serf/male/walkl2.png';
+Img.maleserfwalkr1 = new Image();
+Img.maleserfwalkr1.src = '/client/img/chars/serf/male/walkr1.png';
+Img.maleserfwalkr2 = new Image();
+Img.maleserfwalkr2.src = '/client/img/chars/serf/male/walkr2.png';
+
+var maleserfwalkd = [Img.maleserfwalkd1,Img.maleserfwalkd2];
+var maleserfwalku = [Img.maleserfwalku1,Img.maleserfwalku2];
+var maleserfwalkl = [Img.maleserfwalkl1,Img.maleserfwalkl2];
+var maleserfwalkr = [Img.maleserfwalkr1,Img.maleserfwalkr2];
+
+// attack
+Img.maleserfattackds = new Image();
+Img.maleserfattackds.src = '/client/img/chars/serf/male/attackds.png';
+Img.maleserfattackus = new Image();
+Img.maleserfattackus.src = '/client/img/chars/serf/male/attackus.png';
+Img.maleserfattackls = new Image();
+Img.maleserfattackls.src = '/client/img/chars/serf/male/attackls.png';
+Img.maleserfattackrs = new Image();
+Img.maleserfattackrs.src = '/client/img/chars/serf/male/attackrs.png';
+Img.maleserfattackdb = new Image();
+Img.maleserfattackdb.src = '/client/img/chars/serf/male/attackdb.png';
+Img.maleserfattackub = new Image();
+Img.maleserfattackub.src = '/client/img/chars/serf/male/attackub.png';
+Img.maleserfattacklb = new Image();
+Img.maleserfattacklb.src = '/client/img/chars/serf/male/attacklb.png';
+Img.maleserfattackrb = new Image();
+Img.maleserfattackrb.src = '/client/img/chars/serf/male/attackrb.png';
+
+var maleserf = {
+  facedown: Img.maleserfstandd,
+  faceup: Img.maleserfstandu,
+  faceleft: Img.maleserfstandl,
+  faceright: Img.maleserfstandr,
+  walkdown: maleserfwalkd,
+  walkup: maleserfwalku,
+  walkleft: maleserfwalkl,
+  walkright: maleserfwalkr,
+  attackds: Img.maleserfattackds,
+  attackus: Img.maleserfattackus,
+  attackls: Img.maleserfattackls,
+  attackrs: Img.maleserfattackrs,
+  attackdb: Img.maleserfattackdb,
+  attackub: Img.maleserfattackub,
+  attacklb: Img.maleserfattacklb,
+  attackrb: Img.maleserfattackrb
+};
+
+// female serf
+//stand
+Img.femaleserfstandd = new Image();
+Img.femaleserfstandd.src = '/client/img/chars/serf/female/standd.png';
+Img.femaleserfstandu = new Image();
+Img.femaleserfstandu.src = '/client/img/chars/serf/female/standu.png';
+Img.femaleserfstandl = new Image();
+Img.femaleserfstandl.src = '/client/img/chars/serf/female/standl.png';
+Img.femaleserfstandr = new Image();
+Img.femaleserfstandr.src = '/client/img/chars/serf/female/standr.png';
+
+// walk
+Img.femaleserfwalkd1 = new Image();
+Img.femaleserfwalkd1.src = '/client/img/chars/serf/female/walkd1.png';
+Img.femaleserfwalkd2 = new Image();
+Img.femaleserfwalkd2.src = '/client/img/chars/serf/female/walkd2.png';
+Img.femaleserfwalku1 = new Image();
+Img.femaleserfwalku1.src = '/client/img/chars/serf/female/walku1.png';
+Img.femaleserfwalku2 = new Image();
+Img.femaleserfwalku2.src = '/client/img/chars/serf/female/walku2.png';
+Img.femaleserfwalkl1 = new Image();
+Img.femaleserfwalkl1.src = '/client/img/chars/serf/female/walkl1.png';
+Img.femaleserfwalkl2 = new Image();
+Img.femaleserfwalkl2.src = '/client/img/chars/serf/female/walkl2.png';
+Img.femaleserfwalkr1 = new Image();
+Img.femaleserfwalkr1.src = '/client/img/chars/serf/female/walkr1.png';
+Img.femaleserfwalkr2 = new Image();
+Img.femaleserfwalkr2.src = '/client/img/chars/serf/female/walkr2.png';
+
+var femaleserfwalkd = [Img.femaleserfwalkd1,Img.femaleserfwalkd2];
+var femaleserfwalku = [Img.femaleserfwalku1,Img.femaleserfwalku2];
+var femaleserfwalkl = [Img.femaleserfwalkl1,Img.femaleserfwalkl2];
+var femaleserfwalkr = [Img.femaleserfwalkr1,Img.femaleserfwalkr2];
+
+// attack
+Img.femaleserfattackds = new Image();
+Img.femaleserfattackds.src = '/client/img/chars/serf/female/attackds.png';
+Img.femaleserfattackus = new Image();
+Img.femaleserfattackus.src = '/client/img/chars/serf/female/attackus.png';
+Img.femaleserfattackls = new Image();
+Img.femaleserfattackls.src = '/client/img/chars/serf/female/attackls.png';
+Img.femaleserfattackrs = new Image();
+Img.femaleserfattackrs.src = '/client/img/chars/serf/female/attackrs.png';
+Img.femaleserfattackdb = new Image();
+Img.femaleserfattackdb.src = '/client/img/chars/serf/female/attackdb.png';
+Img.femaleserfattackub = new Image();
+Img.femaleserfattackub.src = '/client/img/chars/serf/female/attackub.png';
+Img.femaleserfattacklb = new Image();
+Img.femaleserfattacklb.src = '/client/img/chars/serf/female/attacklb.png';
+Img.femaleserfattackrb = new Image();
+Img.femaleserfattackrb.src = '/client/img/chars/serf/female/attackrb.png';
+
+var femaleserf = {
+  facedown: Img.femaleserfstandd,
+  faceup: Img.femaleserfstandu,
+  faceleft: Img.femaleserfstandl,
+  faceright: Img.femaleserfstandr,
+  walkdown: femaleserfwalkd,
+  walkup: femaleserfwalku,
+  walkleft: femaleserfwalkl,
+  walkright: femaleserfwalkr,
+  attackds: Img.femaleserfattackds,
+  attackus: Img.femaleserfattackus,
+  attackls: Img.femaleserfattackls,
+  attackrs: Img.femaleserfattackrs,
+  attackdb: Img.femaleserfattackdb,
+  attackub: Img.femaleserfattackub,
+  attacklb: Img.femaleserfattacklb,
+  attackrb: Img.femaleserfattackrb
+};
+
+// male villager
+// stand
+Img.malevillagerstandd = new Image();
+Img.malevillagerstandd.src = '/client/img/chars/villager/male/standd.png';
+Img.malevillagerstandu = new Image();
+Img.malevillagerstandu.src = '/client/img/chars/villager/male/standu.png';
+Img.malevillagerstandl = new Image();
+Img.malevillagerstandl.src = '/client/img/chars/villager/male/standl.png';
+Img.malevillagerstandr = new Image();
+Img.malevillagerstandr.src = '/client/img/chars/villager/male/standr.png';
+
+// walk
+Img.malevillagerwalkd1 = new Image();
+Img.malevillagerwalkd1.src = '/client/img/chars/villager/male/walkd1.png';
+Img.malevillagerwalkd2 = new Image();
+Img.malevillagerwalkd2.src = '/client/img/chars/villager/male/walkd2.png';
+Img.malevillagerwalku1 = new Image();
+Img.malevillagerwalku1.src = '/client/img/chars/villager/male/walku1.png';
+Img.malevillagerwalku2 = new Image();
+Img.malevillagerwalku2.src = '/client/img/chars/villager/male/walku2.png';
+Img.malevillagerwalkl1 = new Image();
+Img.malevillagerwalkl1.src = '/client/img/chars/villager/male/walkl1.png';
+Img.malevillagerwalkl2 = new Image();
+Img.malevillagerwalkl2.src = '/client/img/chars/villager/male/walkl2.png';
+Img.malevillagerwalkr1 = new Image();
+Img.malevillagerwalkr1.src = '/client/img/chars/villager/male/walkr1.png';
+Img.malevillagerwalkr2 = new Image();
+Img.malevillagerwalkr2.src = '/client/img/chars/villager/male/walkr2.png';
+
+var malevillagerwalkd = [Img.malevillagerwalkd1,Img.malevillagerwalkd2];
+var malevillagerwalku = [Img.malevillagerwalku1,Img.malevillagerwalku2];
+var malevillagerwalkl = [Img.malevillagerwalkl1,Img.malevillagerwalkl2];
+var malevillagerwalkr = [Img.malevillagerwalkr1,Img.malevillagerwalkr2];
+
+// attack
+Img.malevillagerattackds = new Image();
+Img.malevillagerattackds.src = '/client/img/chars/villager/male/attackds.png';
+Img.malevillagerattackus = new Image();
+Img.malevillagerattackus.src = '/client/img/chars/villager/male/attackus.png';
+Img.malevillagerattackls = new Image();
+Img.malevillagerattackls.src = '/client/img/chars/villager/male/attackls.png';
+Img.malevillagerattackrs = new Image();
+Img.malevillagerattackrs.src = '/client/img/chars/villager/male/attackrs.png';
+Img.malevillagerattackdb = new Image();
+Img.malevillagerattackdb.src = '/client/img/chars/villager/male/attackdb.png';
+Img.malevillagerattackub = new Image();
+Img.malevillagerattackub.src = '/client/img/chars/villager/male/attackub.png';
+Img.malevillagerattacklb = new Image();
+Img.malevillagerattacklb.src = '/client/img/chars/villager/male/attacklb.png';
+Img.malevillagerattackrb = new Image();
+Img.malevillagerattackrb.src = '/client/img/chars/villager/male/attackrb.png';
+
+var malevillager = {
+  facedown: Img.malevillagerstandd,
+  faceup: Img.malevillagerstandu,
+  faceleft: Img.malevillagerstandl,
+  faceright: Img.malevillagerstandr,
+  walkdown: malevillagerwalkd,
+  walkup: malevillagerwalku,
+  walkleft: malevillagerwalkl,
+  walkright: malevillagerwalkr,
+  attackds: Img.malevillagerattackds,
+  attackus: Img.malevillagerattackus,
+  attackls: Img.malevillagerattackls,
+  attackrs: Img.malevillagerattackrs,
+  attackdb: Img.malevillagerattackdb,
+  attackub: Img.malevillagerattackub,
+  attacklb: Img.malevillagerattacklb,
+  attackrb: Img.malevillagerattackrb
+}
+
+// female villager
+// stand
+Img.femalevillagerstandd = new Image();
+Img.femalevillagerstandd.src = '/client/img/chars/villager/female/standd.png';
+Img.femalevillagerstandu = new Image();
+Img.femalevillagerstandu.src = '/client/img/chars/villager/female/standu.png';
+Img.femalevillagerstandl = new Image();
+Img.femalevillagerstandl.src = '/client/img/chars/villager/female/standl.png';
+Img.femalevillagerstandr = new Image();
+Img.femalevillagerstandr.src = '/client/img/chars/villager/female/standr.png';
+
+// walk
+Img.femalevillagerwalkd1 = new Image();
+Img.femalevillagerwalkd1.src = '/client/img/chars/villager/female/walkd1.png';
+Img.femalevillagerwalkd2 = new Image();
+Img.femalevillagerwalkd2.src = '/client/img/chars/villager/female/walkd2.png';
+Img.femalevillagerwalku1 = new Image();
+Img.femalevillagerwalku1.src = '/client/img/chars/villager/female/walku1.png';
+Img.femalevillagerwalku2 = new Image();
+Img.femalevillagerwalku2.src = '/client/img/chars/villager/female/walku2.png';
+Img.femalevillagerwalkl1 = new Image();
+Img.femalevillagerwalkl1.src = '/client/img/chars/villager/female/walkl1.png';
+Img.femalevillagerwalkl2 = new Image();
+Img.femalevillagerwalkl2.src = '/client/img/chars/villager/female/walkl2.png';
+Img.femalevillagerwalkr1 = new Image();
+Img.femalevillagerwalkr1.src = '/client/img/chars/villager/female/walkr1.png';
+Img.femalevillagerwalkr2 = new Image();
+Img.femalevillagerwalkr2.src = '/client/img/chars/villager/female/walkr2.png';
+
+var femalevillagerwalkd = [Img.femalevillagerwalkd1,Img.femalevillagerwalkd2];
+var femalevillagerwalku = [Img.femalevillagerwalku1,Img.femalevillagerwalku2];
+var femalevillagerwalkl = [Img.femalevillagerwalkl1,Img.femalevillagerwalkl2];
+var femalevillagerwalkr = [Img.femalevillagerwalkr1,Img.femalevillagerwalkr2];
+
+// attack
+Img.femalevillagerattackds = new Image();
+Img.femalevillagerattackds.src = '/client/img/chars/villager/female/attackds.png';
+Img.femalevillagerattackus = new Image();
+Img.femalevillagerattackus.src = '/client/img/chars/villager/female/attackus.png';
+Img.femalevillagerattackls = new Image();
+Img.femalevillagerattackls.src = '/client/img/chars/villager/female/attackls.png';
+Img.femalevillagerattackrs = new Image();
+Img.femalevillagerattackrs.src = '/client/img/chars/villager/female/attackrs.png';
+Img.femalevillagerattackdb = new Image();
+Img.femalevillagerattackdb.src = '/client/img/chars/villager/female/attackdb.png';
+Img.femalevillagerattackub = new Image();
+Img.femalevillagerattackub.src = '/client/img/chars/villager/female/attackub.png';
+Img.femalevillagerattacklb = new Image();
+Img.femalevillagerattacklb.src = '/client/img/chars/villager/female/attacklb.png';
+Img.femalevillagerattackrb = new Image();
+Img.femalevillagerattackrb.src = '/client/img/chars/villager/female/attackrb.png';
+
+var femalevillager = {
+  facedown: Img.femalevillagerstandd,
+  faceup: Img.femalevillagerstandu,
+  faceleft: Img.femalevillagerstandl,
+  faceright: Img.femalevillagerstandr,
+  walkdown: femalevillagerwalkd,
+  walkup: femalevillagerwalku,
+  walkleft: femalevillagerwalkl,
+  walkright: femalevillagerwalkr,
+  attackds: Img.femalevillagerattackds,
+  attackus: Img.femalevillagerattackus,
+  attackls: Img.femalevillagerattackls,
+  attackrs: Img.femalevillagerattackrs,
+  attackdb: Img.femalevillagerattackdb,
+  attackub: Img.femalevillagerattackub,
+  attacklb: Img.femalevillagerattacklb,
+  attackrb: Img.femalevillagerattackrb
+}
+
+// ITEMS
 Img.torch1 = new Image();
 Img.torch1.src = '/client/img/items/torch1.png';
 Img.torch2 = new Image();
 Img.torch2.src = '/client/img/items/torch2.png';
 Img.torch3 = new Image();
 Img.torch3.src = '/client/img/items/torch3.png';
+var trc = 0; // torch
+var torchFlame = [Img.torch1,Img.torch2,Img.torch3];
+setInterval(function(){
+  if(trc === 2){
+    trc = 0;
+  } else {
+    trc++;
+  }
+},300);
 
-// arrows
+// ARROWS
 Img.arrow1 = new Image();
 Img.arrow1.src = '/client/img/bullets/arrow1.png';
 Img.arrow2 = new Image();
@@ -145,31 +447,135 @@ var Player = function(initPack){
   self.y = initPack.y;
   self.z = initPack.z;
   self.facing = 'down';
+  self.angle = 0;
+  self.pressingDown = false;
+  self.pressingUp = false;
+  self.pressingLeft = false;
+  self.pressingRight = false;
+  self.pressingAttack = false;
+  self.inTrees = initPack.inTrees;
   self.hp = initPack.hp;
   self.hpMax = initPack.hpMax;
   self.mana = initPack.mana;
   self.manaMax = initPack.manaMax;
+  self.sprite = maleserf;
 
   self.draw = function(){
-    var x = self.x - Player.list[selfId].x + WIDTH/2;
-    var y = self.y - Player.list[selfId].y + HEIGHT/2;
+    var x = (self.x - (tileSize/2)) - Player.list[selfId].x + WIDTH/2;
+    var y = (self.y - (tileSize/2)) - Player.list[selfId].y + HEIGHT/2;
 
     // hp and mana bars
     var hpWidth = 60 * self.hp / self.hpMax;
     var manaWidth = 60 * self.mana / self.manaMax;
 
     ctx.fillStyle = 'red';
-    ctx.fillRect(x - 30,y - 50,60,8);
+    ctx.fillRect(x,y - 50,60,8);
     ctx.fillStyle = 'green';
-    ctx.fillRect(x - hpWidth/2,y - 50,hpWidth,8);
+    ctx.fillRect(x,y - 50,hpWidth,8);
     ctx.fillStyle = 'red';
-    ctx.fillRect(x - 30,y - 40,60,5);
+    ctx.fillRect(x,y - 40,60,5);
     ctx.fillStyle = 'blue';
-    ctx.fillRect(x - manaWidth/2,y - 40,manaWidth,5);
+    ctx.fillRect(x,y - 40,manaWidth,5);
     ctx.fillStyle = 'black';
 
     // character sprite
-    ctx.fillText(self.number, x, y);
+    if(self.angle > 45 && self.angle <= 115 && self.pressingAttack){
+      ctx.drawImage(
+        self.sprite.attackdb,
+        x,
+        y,
+        tileSize,
+        tileSize
+      );
+    } else if(self.angle > -135 && self.angle <= -15 && self.pressingAttack){
+      ctx.drawImage(
+        self.sprite.attackub,
+        x,
+        y,
+        tileSize,
+        tileSize
+      );
+    } else if((self.angle > 115 || self.angle <= -135) && self.pressingAttack){
+      ctx.drawImage(
+        self.sprite.attacklb,
+        x,
+        y,
+        tileSize,
+        tileSize
+      );
+    } else if((self.angle > -15 || self.angle <= 45) && self.pressingAttack){
+      ctx.drawImage(
+        self.sprite.attackrb,
+        x,
+        y,
+        tileSize,
+        tileSize
+      );
+    } else if(self.facing === 'down' && !self.pressingDown){
+      ctx.drawImage(
+        self.sprite.facedown,
+        x,
+        y,
+        tileSize,
+        tileSize
+      );
+    } else if(self.pressingDown){
+      ctx.drawImage(
+        self.sprite.walkdown[wlk],
+        x,
+        y,
+        tileSize,
+        tileSize
+      );
+    } else if(self.facing === 'up' && !self.pressingUp){
+      ctx.drawImage(
+        self.sprite.faceup,
+        x,
+        y,
+        tileSize,
+        tileSize
+      );
+    } else if(self.pressingUp){
+      ctx.drawImage(
+        self.sprite.walkup[wlk],
+        x,
+        y,
+        tileSize,
+        tileSize
+      );
+    } else if(self.facing === 'left' && !self.pressingLeft){
+      ctx.drawImage(
+        self.sprite.faceleft,
+        x,
+        y,
+        tileSize,
+        tileSize
+      );
+    } else if(self.pressingLeft){
+      ctx.drawImage(
+        self.sprite.walkleft[wlk],
+        x,
+        y,
+        tileSize,
+        tileSize
+      );
+    } else if(self.facing === 'right' && !self.pressingRight){
+      ctx.drawImage(
+        self.sprite.faceright,
+        x,
+        y,
+        tileSize,
+        tileSize
+      );
+    } else if(self.pressingRight){
+      ctx.drawImage(
+        self.sprite.walkright[wlk],
+        x,
+        y,
+        tileSize,
+        tileSize
+      );
+    }
   }
 
   Player.list[self.id] = self;
@@ -377,16 +783,6 @@ setInterval(function(){
   }
 },1200);
 
-var trc = 0; // torch
-var torchFlame = [Img.torch1,Img.torch2,Img.torch3];
-setInterval(function(){
-  if(trc === 2){
-    trc = 0;
-  } else {
-    trc++;
-  }
-},300);
-
 var cld = 0; // clouds
 var clouds = [Img.clouds1,Img.clouds2,Img.clouds3];
 setInterval(function(){
@@ -448,7 +844,7 @@ setInterval(function(){
       renderLightSources(0.3);
     }
   } else if(Player.list[selfId].z === -1){
-    renderLightSources(1.5);
+    renderLightSources(2);
   }
   viewport.update(Player.list[selfId].x,Player.list[selfId].y);
   console.log(getLoc(Player.list[selfId].x,Player.list[selfId].y));
@@ -792,16 +1188,26 @@ var renderLighting = function(){
 
 // CONTROLS
 document.onkeydown = function(event){
-  if(event.keyCode === 68) // d
+  if(event.keyCode === 68){ // d
     socket.emit('keyPress',{inputId:'right',state:true});
-  else if(event.keyCode === 83) // s
+    Player.list[selfId].pressingRight = true;
+  }
+  else if(event.keyCode === 83){ // s
     socket.emit('keyPress',{inputId:'down',state:true});
-  else if(event.keyCode === 65) // a
+    Player.list[selfId].pressingDown = true;
+  }
+  else if(event.keyCode === 65){ // a
     socket.emit('keyPress',{inputId:'left',state:true});
-  else if(event.keyCode === 87) // w
+    Player.list[selfId].pressingLeft = true;
+  }
+  else if(event.keyCode === 87){ // w
     socket.emit('keyPress',{inputId:'up',state:true});
-  else if(event.keyCode === 32) // space
+    Player.list[selfId].pressingUp = true;
+  }
+  else if(event.keyCode === 32){ // space
     socket.emit('keyPress',{inputId:'attack',state:true});
+    Player.list[selfId].pressingAttack = true;
+  }
   else if(event.keyCode === 49) // 1
     socket.emit('keyPress',{inputId:'1',state:true});
   else if(event.keyCode === 50) // 2
@@ -811,16 +1217,26 @@ document.onkeydown = function(event){
 }
 
 document.onkeyup = function(event){
-  if(event.keyCode === 68) // d
+  if(event.keyCode === 68){ // d
     socket.emit('keyPress',{inputId:'right',state:false});
-  else if(event.keyCode === 83) // s
+    Player.list[selfId].pressingRight = false;
+  }
+  else if(event.keyCode === 83){ // s
     socket.emit('keyPress',{inputId:'down',state:false});
-  else if(event.keyCode === 65) // a
+    Player.list[selfId].pressingDown = false;
+  }
+  else if(event.keyCode === 65){ // a
     socket.emit('keyPress',{inputId:'left',state:false});
-  else if(event.keyCode === 87) // w
+    Player.list[selfId].pressingLeft = false;
+  }
+  else if(event.keyCode === 87){ // w
     socket.emit('keyPress',{inputId:'up',state:false});
-  else if(event.keyCode === 32) // space
+    Player.list[selfId].pressingUp = false;
+  }
+  else if(event.keyCode === 32){ // space
     socket.emit('keyPress',{inputId:'attack',state:false});
+    Player.list[selfId].pressingAttack = false;
+  }
   else if(event.keyCode === 49) // 1
     socket.emit('keyPress',{inputId:'1',state:false});
   else if(event.keyCode === 50) // 2
@@ -830,10 +1246,13 @@ document.onkeyup = function(event){
 }
 
 document.onmousemove = function(event){
-  var x = -250 + event.clientX - 8;
-  var y = -250 + event.clientY - 8;
-  var angle = Math.atan2(y,x) / Math.PI * 180;
-  socket.emit('keyPress',{inputId:'mouseAngle',state:angle});
+  if(selfId){
+    var x = -250 + event.clientX - 8;
+    var y = -250 + event.clientY - 8;
+    var angle = Math.atan2(y,x) / Math.PI * 180;
+    socket.emit('keyPress',{inputId:'mouseAngle',state:angle});
+    Player.list[selfId].angle = angle;
+  }
 }
 
 document.oncontextmenu = function(event){
