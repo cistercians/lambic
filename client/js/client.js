@@ -1196,7 +1196,7 @@ var renderLighting = function(){
   if(z === 0){
     if(tempus === 'IX.p' || tempus === 'X.p' || tempus === 'XI.p' || tempus === 'XII.a' || tempus === 'I.a' || tempus === 'II.a' || tempus === 'III.a'){
       lighting.clearRect(0,0,WIDTH,HEIGHT);
-      lighting.fillStyle = "rgba(5, 5, 30, 0.85)"; // night
+      lighting.fillStyle = "rgba(5, 5, 30, 0.9)"; // night
       lighting.fillRect(0,0,WIDTH,HEIGHT);
     } else if(tempus === 'IV.a'){
       lighting.clearRect(0,0,WIDTH,HEIGHT);
