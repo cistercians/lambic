@@ -65,7 +65,7 @@ var randomSpawn = function(){
   var spawn = [];
   var select = [];
 
-  for(var i = 0; i < 7; i++){
+  for(var i = 0; i < 20; i++){
     select.push(randomTile(0));
   }
   for(var n = 0; n < 7; n++){
@@ -232,7 +232,6 @@ var Player = function(param){
       self.attackCooldown = 50/self.dexterity;
     }
 
-    // ADMIN TOOL ONLY, REMOVE!
     if(self.pressing1 && self.inventory.torch > 0 && self.actionCooldown === 0){
       self.lightTorch();
       self.actionCooldown = 10;
@@ -269,6 +268,8 @@ var Player = function(param){
     var leftBlocked = false;
     var upBlocked = false;
     var downBlocked = false;
+
+    // building collisions
 
     // collision in caves
     if(self.z === -1 && getLocTile(1,self.x+(tileSize/2),self.y) === 1){
@@ -311,22 +312,22 @@ var Player = function(param){
         self.inTrees = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd;
-      } else if(getTile(0,loc[0],loc[1]) === 1){
+      } else if(getTile(0,loc[0],loc[1]) === 1 || getTile(0,loc[0],loc[1]) === 21 || getTile(0,loc[0],loc[1]) === 12){
         self.inTrees = true;
         self.onMtn = false;
-        self.maxSpd = self.baseSpd * 0.35;
+        self.maxSpd = self.baseSpd * 0.3;
       } else if(getTile(0,loc[0],loc[1]) === 2){
         self.inTrees = false;
         self.onMtn = false;
-        self.maxSpd = self.baseSpd * 0.75;
+        self.maxSpd = self.baseSpd * 0.4;
       } else if(getTile(0,loc[0],loc[1]) === 3){
         self.inTrees = false;
         self.onMtn = false;
-        self.maxSpd = self.baseSpd * 0.85;
+        self.maxSpd = self.baseSpd * 0.5;
       } else if(getTile(0,loc[0],loc[1]) === 4){
         self.inTrees = false;
         self.onMtn = false;
-        self.maxSpd = self.baseSpd * 0.5;
+        self.maxSpd = self.baseSpd * 0.75;
       } else if(getTile(0,loc[0],loc[1]) === 5 && !self.onMtn){
         self.inTrees = false;
         self.maxSpd = self.baseSpd * 0.1;
@@ -341,15 +342,13 @@ var Player = function(param){
       } else {
         self.maxSpd = self.baseSpd;
       }
-    }
-
-    if(self.z === -1){
+    } else if(self.z === -1){
       if(getTile(1,loc[0],loc[1]) === 2){
         self.z = 0;
         self.inTrees = false;
         self.onMtn = false;
       }
-    }
+    } // else if other z values...
   }
 
   self.getInitPack = function(){
@@ -611,8 +610,8 @@ var Torch = function(param){
   var super_update = self.update;
   self.update = function(){
     if(Player.list[self.parent]){
-      self.x = Player.list[self.parent].x;
-      self.y = Player.list[self.parent].y;
+      self.x = Player.list[self.parent].x - (tileSize * 0.75);
+      self.y = Player.list[self.parent].y - (tileSize * 0.75);
       self.z = Player.list[self.parent].z;
     } else {
       self.toRemove = true;
@@ -626,7 +625,7 @@ var Torch = function(param){
   initPack.item.push(self.getInitPack());
   Light({
     parent:self.id,
-    radius:100,
+    radius:150,
     x:self.x,
     y:self.y,
     z:self.z
@@ -643,7 +642,7 @@ var Light = function(param){
   var super_update = self.update;
   self.update = function(){
     if(Item.list[self.parent]){
-      self.x = Item.list[self.parent].x;
+      self.x = Item.list[self.parent].x + (tileSize * 0.25);
       self.y = Item.list[self.parent].y;
       self.z = Item.list[self.parent].z;
     }

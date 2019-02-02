@@ -19,7 +19,7 @@ function genesis(){
   // map dimensions
   // smaller tiles for bigger map
   // should be a factor of canvas width/height
-  var tile = 2;
+  var tile = 1;
   var canvasSize = 512;
   var mapTiles = canvasSize / tile;
 
@@ -123,12 +123,16 @@ function genesis(){
     var underworldTiles = createArray(mapTiles,mapTiles);
     var buildI = createArray(mapTiles,mapTiles);
     var buildII = createArray(mapTiles,mapTiles);
+    var resI = createArray(mapTiles,mapTiles);
+    var resII = createArray(mapTiles,mapTiles);
 
     for(x = 0; x < mapTiles; x++){
       for(y = 0; y < mapTiles; y++){
-        underworldTiles[x][y] = 1;
-        buildI[x][y] = 0;
-        buildII[x][y] = 0;
+        underworldTiles[y][x] = 1;
+        buildI[y][x] = 0;
+        buildII[y][x] = 0;
+        resI[y][x] = 0;
+        resII[y][x] = 0;
       }
     };
 
@@ -137,6 +141,8 @@ function genesis(){
     allTileMaps.push(underwaterTiles);
     allTileMaps.push(buildI);
     allTileMaps.push(buildII);
+    allTileMaps.push(resI);
+    allTileMaps.push(resII);
 
     return allTileMaps;
   };
@@ -164,6 +170,7 @@ function genesis(){
           }
         }
         result.push(selection[Math.floor(Math.random() * selection.length)]);
+        selection = [];
       }
     }
     //randomly select 75% of them
@@ -176,8 +183,8 @@ function genesis(){
   };
 
   function geoform(map,c,r) {
-    let dimensions = 100, // width and height of the map
-        maxTunnels = 200, // max number of tunnels possible
+    let dimensions = 400, // width and height of the map
+        maxTunnels = 600, // max number of tunnels possible
         maxLength = 12, // max length each tunnel can have
         currentRow = c, // our current row - start at a random spot
         currentColumn = r, // our current column - start at a random spot
@@ -239,7 +246,7 @@ function genesis(){
   var hvData = getHv(ctx, canvas.width, canvas.height, tile, tile);
 
   // generate map set
-  // [0]: Overworld, [1]: Underworld, [2]: Underwater, [3]: Build I, [4]: Build II
+  // [0]: Overworld, [1]: Underworld, [2]: Underwater, [3]: Build I, [4]: Build II ,[5]: Resources I, [6]: Resources II
   var worldMaps = terraform(hvData, canvas.width, canvas.height, tile, tile);
 
   // edit underworld
@@ -255,6 +262,39 @@ function genesis(){
   for(i = 0; i < entrances.length; i++){
     worldMaps[0][entrances[i][1]][entrances[i][0]] = 6;
     worldMaps[1][entrances[i][1]+1][entrances[i][0]] = 2;
+  }
+
+  // add resources to Overworld and fix forest edges
+  for(x = 0; x < mapTiles; x++){
+    for(y = 0; y < mapTiles; y++){
+      if(worldMaps[0][y][x] === 1 && worldMaps[0][y][x-1] !== 1 && worldMaps[0][y][x-1] !== 21 && worldMaps[0][y][x+1] !== 1 && worldMaps[0][y][x+1] !== 12){
+        worldMaps[0][y][x] = 2;
+      } else if(worldMaps[0][y][x] === 1 && worldMaps[0][y][x-1] !== 1 && worldMaps[0][y][x-1] !== 21){
+        worldMaps[0][y][x] = 21;
+      } else if(worldMaps[0][y][x] === 1 && worldMaps[0][y][x+1] !== 1 && worldMaps[0][y][x+1] !== 12){
+        worldMaps[0][y][x] = 12;
+      }
+      if(worldMaps[0][y][x] === 2 || worldMaps[0][y][x] === 21 || worldMaps[0][y][x] === 12 || worldMaps[0][y][x] === 4){
+        worldMaps[5][y][x] = 250;
+      } else if(worldMaps[0][y][x] === 1 || worldMaps[0][y][x] === 5){
+        worldMaps[5][y][x] = 1000;
+      } else {
+        continue;
+      }
+    }
+  }
+
+  // add resources to Underworld
+  for(x = 1; x < (mapTiles - 1); x++){
+    for(y = 1; y < (mapTiles - 1); y++){
+      roll = Math.random();
+      if(worldMaps[1][y][x] === 1 && roll < 0.2 && (worldMaps[1][y+1][x] === 0 || worldMaps[1][y-1][x] === 0 || worldMaps[1][y][x+1] === 0 || worldMaps[1][y][x-1] === 0)){
+        worldMaps[1][y][x] = 3;
+        worldMaps[6][y][x] = 250;
+      } else {
+        continue;
+      }
+    }
   }
 
   // "...And God saw that it was good."
