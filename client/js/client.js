@@ -863,7 +863,7 @@ setInterval(function(){
       renderLightSources(0.3);
     }
   } else if(Player.list[selfId].z === -1){
-    renderLightSources(2);
+    renderLightSources(1.5);
   }
   viewport.update(Player.list[selfId].x,Player.list[selfId].y);
   console.log(getLoc(Player.list[selfId].x,Player.list[selfId].y));
