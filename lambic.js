@@ -185,6 +185,7 @@ var Character = function(param){
   self.facing = 'down';
   self.inTrees = false;
   self.onMtn = false;
+  self.working = false;
   self.baseSpd = 6;
   self.maxSpd = 6;
   self.actionCooldown = 0;
@@ -201,12 +202,13 @@ var Character = function(param){
 // PLAYER
 var Player = function(param){
   var self = Character(param);
-  self.number = Math.floor(10 * Math.random());
   self.pressingRight = false;
   self.pressingLeft = false;
   self.pressingUp = false;
   self.pressingDown = false;
   self.pressingAttack = false;
+  self.pressingT = false;
+  self.pressingG = false;
   self.pressing1 = false;
   self.pressing2 = false;
   self.pressing3 = false;
@@ -232,9 +234,15 @@ var Player = function(param){
       self.attackCooldown = 50/self.dexterity;
     }
 
-    if(self.pressing1 && self.inventory.torch > 0 && self.actionCooldown === 0){
+    if(self.pressingT && self.inventory.torch > 0 && self.actionCooldown === 0){
       self.lightTorch();
       self.actionCooldown = 10;
+    }
+
+    if(self.pressingG && self.actionCooldown === 0){
+      self.working = true;
+      self.actionCooldown = 10;
+      console.log('working...');
     }
   }
 
@@ -270,27 +278,41 @@ var Player = function(param){
     var downBlocked = false;
 
     // building collisions
-
-    // collision in caves
-    if(self.z === -1 && getLocTile(1,self.x+(tileSize/2),self.y) === 1){
+    if(self.z === 0 && getLocTile(1,self.x+(tileSize/2),self.y) === 8){
       rightBlocked = true;
     }
-    if(self.z === -1 && getLocTile(1,self.x-(tileSize/2),self.y) === 1){
+    if(self.z === 0 && getLocTile(1,self.x-(tileSize/2),self.y) === 8){
       leftBlocked = true;
     }
-    if(self.z === -1 && getLocTile(1,self.x,self.y-(tileSize/2)) === 1){
+    if(self.z === 0 && getLocTile(1,self.x,self.y-(tileSize/2)) === 8){
       upBlocked = true;
     }
-    if(self.z === -1 && getLocTile(1,self.x,self.y+(tileSize/2)) === 1){
+    if(self.z === 0 && getLocTile(1,self.x,self.y+(tileSize/2)) === 8){
+      downBlocked = true;
+    }
+
+    // collision in caves
+    if(self.z === -1 && (getLocTile(1,self.x+(tileSize/2),self.y) === 1 || getLocTile(1,self.x+(tileSize/2),self.y) === 8)){
+      rightBlocked = true;
+    }
+    if(self.z === -1 && (getLocTile(1,self.x-(tileSize/2),self.y) === 1 || getLocTile(1,self.x-(tileSize/2),self.y) === 8)){
+      leftBlocked = true;
+    }
+    if(self.z === -1 && (getLocTile(1,self.x,self.y-(tileSize/2)) === 1 || getLocTile(1,self.x,self.y-(tileSize/2)) === 8)){
+      upBlocked = true;
+    }
+    if(self.z === -1 && (getLocTile(1,self.x,self.y+(tileSize/2)) === 1 || getLocTile(1,self.x,self.y+(tileSize/2)) === 8)){
       downBlocked = true;
     }
 
     if(self.pressingRight && !rightBlocked){
       self.spdX = self.maxSpd;
       self.facing = 'right';
+      self.working = false;
     } else if(self.pressingLeft && !leftBlocked){
       self.spdX = -self.maxSpd;
       self.facing = 'left';
+      self.working = false;
     } else {
       self.spdX = 0;
     }
@@ -298,9 +320,11 @@ var Player = function(param){
     if(self.pressingUp && !upBlocked){
       self.spdY = -self.maxSpd;
       self.facing = 'up';
+      self.working = false;
     } else if(self.pressingDown && !downBlocked){
       self.spdY = self.maxSpd;
       self.facing = 'down';
+      self.working = false;
     } else {
       self.spdY = 0;
     }
@@ -358,7 +382,7 @@ var Player = function(param){
       y:self.y,
       z:self.z,
       inTrees:self.inTrees,
-      number:self.number,
+      facing:self.facing,
       hp:self.hp,
       hpMax:self.hpMax,
       mana:self.mana,
@@ -374,7 +398,12 @@ var Player = function(param){
       z:self.z,
       inTrees:self.inTrees,
       facing:self.facing,
-      attackCooldown:self.attackCooldown,
+      pressingUp:self.pressingUp,
+      pressingDown:self.pressingDown,
+      pressingLeft:self.pressingLeft,
+      pressingRight:self.pressingRight,
+      pressingAttack:self.pressingAttack,
+      angle:self.mouseAngle,
       hp:self.hp,
       hpMax:self.hpMax,
       mana:self.mana,
@@ -401,24 +430,29 @@ Player.onConnect = function(socket){
   console.log(player.id + ' spawned at : ' + spawn + ' z: 0')
   // player control inputs
   socket.on('keyPress',function(data){
-    if(data.inputId === 'left')
+    if(data.inputId === 'left'){
       player.pressingLeft = data.state;
-    else if(data.inputId === 'right')
+    } else if(data.inputId === 'right'){
       player.pressingRight = data.state;
-    else if(data.inputId === 'up')
+    } else if(data.inputId === 'up'){
       player.pressingUp = data.state;
-    else if(data.inputId === 'down')
+    } else if(data.inputId === 'down'){
       player.pressingDown = data.state;
-    else if(data.inputId === 'attack')
+    } else if(data.inputId === 'attack'){
       player.pressingAttack = data.state;
-    else if(data.inputId === '1')
+    } else if(data.inputId === 't'){
+      player.pressingT = data.state;
+    } else if(data.inputId === 'g'){
+      player.pressingG = data.state;
+    } else if(data.inputId === '1'){
       player.pressing1 = data.state;
-    else if(data.inputId === '2')
-      player.pressing1 = data.state;
-    else if(data.inputId === '3')
-      player.pressing1 = data.state;
-    else if(data.inputId === 'mouseAngle')
+    } else if(data.inputId === '2'){
+      player.pressing2 = data.state;
+    } else if(data.inputId === '3'){
+      player.pressing3 = data.state;
+    } else if(data.inputId === 'mouseAngle'){
       player.mouseAngle = data.state;
+    }
   });
 
   socket.emit('init',{

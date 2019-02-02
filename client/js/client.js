@@ -448,7 +448,6 @@ ctx.font = '30px Arial';
 var Player = function(initPack){
   var self = {};
   self.id = initPack.id;
-  self.number = initPack.number;
   self.x = initPack.x;
   self.y = initPack.y;
   self.z = initPack.z;
@@ -711,6 +710,20 @@ socket.on('update',function(data){
         p.z = pack.z;
       if(pack.facing !== undefined)
         p.facing = pack.facing;
+      if(pack.pressingUp !== undefined)
+        p.pressingUp = pack.pressingUp;
+      if(pack.pressingDown !== undefined)
+        p.pressingDown = pack.pressingDown;
+      if(pack.pressingLeft !== undefined)
+        p.pressingLeft = pack.pressingLeft;
+      if(pack.pressingRight !== undefined)
+        p.pressingRight = pack.pressingRight;
+      if(pack.pressingAttack !== undefined)
+        p.pressingAttack = pack.pressingAttack;
+      if(pack.angle !== undefined)
+        p.angle = pack.angle;
+      if(pack.pressingUp !== undefined)
+        p.pressingUp = pack.pressingUp;
       if(pack.hp !== undefined)
         p.hp = pack.hp;
       if(pack.hpMax !== undefined)
@@ -1245,28 +1258,27 @@ document.onkeydown = function(event){
   if(event.keyCode === 68){ // d
     socket.emit('keyPress',{inputId:'right',state:true});
     Player.list[selfId].pressingRight = true;
-  }
-  else if(event.keyCode === 83){ // s
+  } else if(event.keyCode === 83){ // s
     socket.emit('keyPress',{inputId:'down',state:true});
     Player.list[selfId].pressingDown = true;
-  }
-  else if(event.keyCode === 65){ // a
+  } else if(event.keyCode === 65){ // a
     socket.emit('keyPress',{inputId:'left',state:true});
     Player.list[selfId].pressingLeft = true;
-  }
-  else if(event.keyCode === 87){ // w
+  } else if(event.keyCode === 87){ // w
     socket.emit('keyPress',{inputId:'up',state:true});
     Player.list[selfId].pressingUp = true;
-  }
-  else if(event.keyCode === 32){ // space
+  } else if(event.keyCode === 32){ // space
     socket.emit('keyPress',{inputId:'attack',state:true});
     Player.list[selfId].pressingAttack = true;
-  }
-  else if(event.keyCode === 49) // 1
+  } else if(event.keyCode === 84){ // t
+    socket.emit('keyPress',{inputId:'t',state:true});
+  } else if(event.keyCode === 71){ // g
+    socket.emit('keyPress',{inputId:'g',state:true});
+  } else if(event.keyCode === 49){ // 1
     socket.emit('keyPress',{inputId:'1',state:true});
-  else if(event.keyCode === 50) // 2
+  } else if(event.keyCode === 50){ // 2
     socket.emit('keyPress',{inputId:'2',state:true});
-  else if(event.keyCode === 51) // 3
+  } else if(event.keyCode === 51) // 3
     socket.emit('keyPress',{inputId:'3',state:true});
 }
 
@@ -1274,29 +1286,29 @@ document.onkeyup = function(event){
   if(event.keyCode === 68){ // d
     socket.emit('keyPress',{inputId:'right',state:false});
     Player.list[selfId].pressingRight = false;
-  }
-  else if(event.keyCode === 83){ // s
+  } else if(event.keyCode === 83){ // s
     socket.emit('keyPress',{inputId:'down',state:false});
     Player.list[selfId].pressingDown = false;
-  }
-  else if(event.keyCode === 65){ // a
+  } else if(event.keyCode === 65){ // a
     socket.emit('keyPress',{inputId:'left',state:false});
     Player.list[selfId].pressingLeft = false;
-  }
-  else if(event.keyCode === 87){ // w
+  } else if(event.keyCode === 87){ // w
     socket.emit('keyPress',{inputId:'up',state:false});
     Player.list[selfId].pressingUp = false;
-  }
-  else if(event.keyCode === 32){ // space
+  } else if(event.keyCode === 32){ // space
     socket.emit('keyPress',{inputId:'attack',state:false});
     Player.list[selfId].pressingAttack = false;
-  }
-  else if(event.keyCode === 49) // 1
+  } else if(event.keyCode === 84){ // t
+    socket.emit('keyPress',{inputId:'t',state:false});
+  } else if(event.keyCode === 71){ // g
+    socket.emit('keyPress',{inputId:'g',state:false});
+  } else if(event.keyCode === 49){ // 1
     socket.emit('keyPress',{inputId:'1',state:false});
-  else if(event.keyCode === 50) // 2
+  } else if(event.keyCode === 50){ // 2
     socket.emit('keyPress',{inputId:'2',state:false});
-  else if(event.keyCode === 51) // 3
+  } else if(event.keyCode === 51){ // 3
     socket.emit('keyPress',{inputId:'3',state:false});
+  }
 }
 
 document.onmousemove = function(event){
@@ -1305,7 +1317,6 @@ document.onmousemove = function(event){
     var y = -250 + event.clientY - 8;
     var angle = Math.atan2(y,x) / Math.PI * 180;
     socket.emit('keyPress',{inputId:'mouseAngle',state:angle});
-    Player.list[selfId].angle = angle;
   }
 }
 
