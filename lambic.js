@@ -39,6 +39,7 @@ var getLoc = function(x,y){
   return loc;
 };
 
+// get tile type from (l,x,y)
 var getLocTile = function(l,x,y){
   if(x >= 0 && x <= mapPx && y >= 0 && y <= mapPx){
     var loc = getLoc(x,y);
@@ -180,6 +181,8 @@ var Character = function(param){
     trinket2:null
   }
   self.inventory = {
+    wood:0,
+    stone:0,
     torch:10
   }
   self.facing = 'down';
@@ -194,6 +197,7 @@ var Character = function(param){
   self.hpMax = 100;
   self.mana = 100;
   self.manaMax = 100;
+  self.strength = 1;
   self.dexterity = 1;
 
   return self;
@@ -202,11 +206,13 @@ var Character = function(param){
 // PLAYER
 var Player = function(param){
   var self = Character(param);
+  self.username = param.username;
   self.pressingRight = false;
   self.pressingLeft = false;
   self.pressingUp = false;
   self.pressingDown = false;
   self.pressingAttack = false;
+  self.pressingC = false;
   self.pressingT = false;
   self.pressingG = false;
   self.pressing1 = false;
@@ -234,15 +240,80 @@ var Player = function(param){
       self.attackCooldown = 50/self.dexterity;
     }
 
+    if(self.pressingC && self.actionCooldown === 0){
+      self.clearBrush();
+      self.actionCooldown = 10;
+    }
+
     if(self.pressingT && self.inventory.torch > 0 && self.actionCooldown === 0){
       self.lightTorch();
       self.actionCooldown = 10;
     }
 
     if(self.pressingG && self.actionCooldown === 0){
+      var loc = getLoc(self.x,self.y);
+      if(self.z === 0 && (getTile(0,loc[0],loc[1]) === 1 || getTile(0,loc[0],loc[1]) === 2)){
+        var res = world[5][loc[1]][loc[0]];
+        self.working = true;
+        self.actionCooldown = 10;
+        setTimeout(function(){
+          if(self.working && res > 0){
+            world[5][loc[1]][loc[0]] -= 1;
+            self.inventory.wood += 1;
+            self.working = false;
+          } else {
+            return;
+          }
+        },10000/self.strength);
+      } else if(self.z === 0 && (getTile(0,loc[0],loc[1]) === 4 || getTile(0,loc[0],loc[1]) === 5)){
+        var res = world[5][loc[1]][loc[0]];
+        self.working = true;
+        self.actionCooldown = 10;
+        setTimeout(function(){
+          if(self.working){
+            world[5][loc[1]][loc[0]] -= 1;
+            self.inventory.stone += 1;
+            self.working = false;
+          } else {
+            return;
+          }
+        },10000/self.strength);
+      } else if(self.z === -1 && getTile(0,loc[0],loc[1]) === 3){
+        var res = world[6][loc[1]][loc[0]];
+        self.working = true;
+        self.actionCooldown = 10;
+        setTimeout(function(){
+          if(self.working){
+            world[6][loc[1]][loc[0]] -= 1;
+            self.inventory.stone += 1;
+            console.log(self.inventory.stone);
+            console.log(world[6][loc[1]][loc[0]]);
+            self.working = false;
+          } else {
+            return;
+          }
+        },10000/self.strength);
+      } else {
+        return;
+      }
+    }
+  }
+
+  self.clearBrush = function(){
+    var loc = getLoc(self.x,self.y);
+    if(self.z === 0 && getTile(0,loc[0],loc[1]) === 3){
       self.working = true;
-      self.actionCooldown = 10;
-      console.log('working...');
+      setTimeout(function(){
+        if(self.working){
+          world[0][loc[1]][loc[0]] = 7;
+          io.emit('mapEdit',world);
+          self.working = false;
+        } else {
+          return;
+        }
+      },4000);
+    } else {
+      return;
     }
   }
 
@@ -278,30 +349,30 @@ var Player = function(param){
     var downBlocked = false;
 
     // building collisions
-    if(self.z === 0 && getLocTile(1,self.x+(tileSize/2),self.y) === 8){
+    if(self.z === 0 && getLocTile(1,self.x+(tileSize/2),self.y) === 10){
       rightBlocked = true;
     }
-    if(self.z === 0 && getLocTile(1,self.x-(tileSize/2),self.y) === 8){
+    if(self.z === 0 && getLocTile(1,self.x-(tileSize/2),self.y) === 10){
       leftBlocked = true;
     }
-    if(self.z === 0 && getLocTile(1,self.x,self.y-(tileSize/2)) === 8){
+    if(self.z === 0 && getLocTile(1,self.x,self.y-(tileSize/2)) === 10){
       upBlocked = true;
     }
-    if(self.z === 0 && getLocTile(1,self.x,self.y+(tileSize/2)) === 8){
+    if(self.z === 0 && getLocTile(1,self.x,self.y+(tileSize/2)) === 10){
       downBlocked = true;
     }
 
     // collision in caves
-    if(self.z === -1 && (getLocTile(1,self.x+(tileSize/2),self.y) === 1 || getLocTile(1,self.x+(tileSize/2),self.y) === 8)){
+    if(self.z === -1 && (getLocTile(1,self.x+(tileSize/2),self.y) === 1 || getLocTile(1,self.x+(tileSize/2),self.y) === 10)){
       rightBlocked = true;
     }
-    if(self.z === -1 && (getLocTile(1,self.x-(tileSize/2),self.y) === 1 || getLocTile(1,self.x-(tileSize/2),self.y) === 8)){
+    if(self.z === -1 && (getLocTile(1,self.x-(tileSize/2),self.y) === 1 || getLocTile(1,self.x-(tileSize/2),self.y) === 10)){
       leftBlocked = true;
     }
-    if(self.z === -1 && (getLocTile(1,self.x,self.y-(tileSize/2)) === 1 || getLocTile(1,self.x,self.y-(tileSize/2)) === 8)){
+    if(self.z === -1 && (getLocTile(1,self.x,self.y-(tileSize/2)) === 1 || getLocTile(1,self.x,self.y-(tileSize/2)) === 10)){
       upBlocked = true;
     }
-    if(self.z === -1 && (getLocTile(1,self.x,self.y+(tileSize/2)) === 1 || getLocTile(1,self.x,self.y+(tileSize/2)) === 8)){
+    if(self.z === -1 && (getLocTile(1,self.x,self.y+(tileSize/2)) === 1 || getLocTile(1,self.x,self.y+(tileSize/2)) === 10)){
       downBlocked = true;
     }
 
@@ -377,6 +448,7 @@ var Player = function(param){
 
   self.getInitPack = function(){
     return {
+      username:self.username,
       id:self.id,
       x:self.x,
       y:self.y,
@@ -419,9 +491,10 @@ var Player = function(param){
 
 Player.list = {};
 
-Player.onConnect = function(socket){
+Player.onConnect = function(socket,username){
   var spawn = randomSpawn();
   var player = Player({
+    username:username,
     id:socket.id,
     z: 0,
     x: spawn[0],
@@ -440,6 +513,8 @@ Player.onConnect = function(socket){
       player.pressingDown = data.state;
     } else if(data.inputId === 'attack'){
       player.pressingAttack = data.state;
+    } else if(data.inputId === 'c'){
+      player.pressingC = data.state;
     } else if(data.inputId === 't'){
       player.pressingT = data.state;
     } else if(data.inputId === 'g'){
@@ -767,7 +842,7 @@ io.sockets.on('connection', function(socket){
   socket.on('signIn',function(data){
     isValidPassword(data,function(res){
       if(res){
-        Player.onConnect(socket);
+        Player.onConnect(socket, data.username);
         socket.emit('signInResponse',{
           success:true,
           world: world,
@@ -802,9 +877,8 @@ io.sockets.on('connection', function(socket){
   });
 
   socket.on('sendMsgToServer',function(data){
-    var playerName = ("" + socket.id).slice(2,7);
     for(var i in SOCKET_LIST){
-      SOCKET_LIST[i].emit('addToChat',playerName + ': ' + data);
+      SOCKET_LIST[i].emit('addToChat',data.username + ': ' + data.message);
     }
   });
 

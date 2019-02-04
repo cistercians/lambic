@@ -55,12 +55,19 @@ socket.on('evalAnswer',function(data){
   console.log(data);
 });
 
+socket.on('mapEdit',function(data){
+  world = data;
+});
+
 chatForm.onsubmit = function(e){
   e.preventDefault();
   if(chatInput.value[0] === '/')
     socket.emit('evalServer',chatInput.value.slice(1));
   else
-    socket.emit('sendMsgToServer',chatInput.value);
+    socket.emit('sendMsgToServer',{
+      username:Player.list[selfId].username,
+      message:chatInput.value
+    });
   chatInput.value = '';
 }
 
@@ -447,6 +454,7 @@ ctx.font = '30px Arial';
 // PLAYER
 var Player = function(initPack){
   var self = {};
+  self.username = initPack.username;
   self.id = initPack.id;
   self.x = initPack.x;
   self.y = initPack.y;
@@ -474,14 +482,20 @@ var Player = function(initPack){
     var manaWidth = 60 * self.mana / self.manaMax;
 
     ctx.fillStyle = 'red';
-    ctx.fillRect(x,y - 50,60,8);
+    ctx.fillRect(x,y - 30,60,8);
     ctx.fillStyle = 'green';
-    ctx.fillRect(x,y - 50,hpWidth,8);
+    ctx.fillRect(x,y - 30,hpWidth,8);
     ctx.fillStyle = 'red';
-    ctx.fillRect(x,y - 40,60,5);
+    ctx.fillRect(x,y - 20,60,5);
     ctx.fillStyle = 'blue';
-    ctx.fillRect(x,y - 40,manaWidth,5);
+    ctx.fillRect(x,y - 20,manaWidth,5);
     ctx.fillStyle = 'black';
+
+    // username
+    ctx.fillStyle = 'white';
+    ctx.font = '15px minion web';
+    ctx.textAlign = 'center';
+    ctx.fillText(self.username,x + 30,y - 40,100);
 
     // character sprite
     if(self.angle > 45 && self.angle <= 115 && self.pressingAttack){
@@ -1077,6 +1091,15 @@ var renderMap = function(){
             tileSize // target height
           );
           y++;
+        } else if(tile === 7){
+          ctx.drawImage(
+            Img.grassland, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+          y++;
         }
       }
     }
@@ -1270,6 +1293,8 @@ document.onkeydown = function(event){
   } else if(event.keyCode === 32){ // space
     socket.emit('keyPress',{inputId:'attack',state:true});
     Player.list[selfId].pressingAttack = true;
+  } else if(event.keyCode === 67){ // c
+    socket.emit('keyPress',{inputId:'c',state:true});
   } else if(event.keyCode === 84){ // t
     socket.emit('keyPress',{inputId:'t',state:true});
   } else if(event.keyCode === 71){ // g
@@ -1298,6 +1323,8 @@ document.onkeyup = function(event){
   } else if(event.keyCode === 32){ // space
     socket.emit('keyPress',{inputId:'attack',state:false});
     Player.list[selfId].pressingAttack = false;
+  } else if(event.keyCode === 67){ // c
+    socket.emit('keyPress',{inputId:'c',state:false});
   } else if(event.keyCode === 84){ // t
     socket.emit('keyPress',{inputId:'t',state:false});
   } else if(event.keyCode === 71){ // g
