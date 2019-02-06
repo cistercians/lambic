@@ -9,9 +9,6 @@
 //                                                                     //
 /////////////////////////////////////////////////////////////////////////
 
-// "The only way to prove anything to anybody is actually do something."
-//  - Paul T.
-
 var fs = require('fs');
 
 // BUILD MAP
