@@ -61,13 +61,20 @@ socket.on('mapEdit',function(data){
 
 chatForm.onsubmit = function(e){
   e.preventDefault();
-  if(chatInput.value[0] === '/')
+  if(chatInput.value[0] === '/'){
     socket.emit('evalServer',chatInput.value.slice(1));
-  else
+  } else if(chatInput.value[0] === '@'){
+    //@recip message
+    socket.emit('sendPmToServer',{
+      recip:chatInput.value.slice(1,chatInput.value.indexOf(' ')),
+      message:chatInput.value.slice(chatInput.value.indexOf(' ') + 1)
+    });
+  } else {
     socket.emit('sendMsgToServer',{
       username:Player.list[selfId].username,
       message:chatInput.value
     });
+  }
   chatInput.value = '';
 }
 
