@@ -35,6 +35,27 @@ Entity = function(param){
   return self;
 };
 
+// BUILDING
+Building = function(param){
+  var self = Entity(param);
+  self.owner = param.owner;
+  self.type = param.type;
+  self.dimension = param.dimension;
+  self.plot = param.plot;
+  self.mats = param.mats;
+  self.hp = param.hp;
+
+  Building.list[self.id] = self;
+  buildingCount++;
+  buildingId.push(self.id);
+
+  return self;
+}
+
+buildingCount = 0;
+buildingId = [];
+Building.list = {}
+
 // CHARACTER
 Character = function(param){
   var self = Entity(param);
@@ -49,6 +70,7 @@ Character = function(param){
   self.inventory = {
     wood:0,
     stone:0,
+    grain:0,
     torch:10
   }
   self.facing = 'down';
@@ -116,10 +138,11 @@ Player = function(param){
       self.actionCooldown = 10;
     }
 
+    // GATHERING
     if(self.pressingG && self.actionCooldown === 0){
       var loc = getLoc(self.x,self.y);
+      // wood
       if(self.z === 0 && (getTile(0,loc[0],loc[1]) === 1 || getTile(0,loc[0],loc[1]) === 2)){
-        var res = world[5][loc[1]][loc[0]];
         self.working = true;
         self.actionCooldown = 10;
         setTimeout(function(){
@@ -131,8 +154,8 @@ Player = function(param){
             return;
           }
         },10000/self.strength);
+        // stone
       } else if(self.z === 0 && (getTile(0,loc[0],loc[1]) === 4 || getTile(0,loc[0],loc[1]) === 5)){
-        var res = world[5][loc[1]][loc[0]];
         self.working = true;
         self.actionCooldown = 10;
         setTimeout(function(){
@@ -144,16 +167,91 @@ Player = function(param){
             return;
           }
         },10000/self.strength);
+        // farm
+      } else if(self.z === 0 && getTile(0,loc[0],loc[1]) === 8){
+        var f = getBuilding(0, self.x,self.y);
+        self.working = true;
+        self.actionCooldown = 10;
+        setTimeout(function(){
+          if(self.working && world[5][loc[1]][loc[0]] < 25){
+            world[5][loc[1]][loc[0]] += 25;
+            io.emit('mapEdit',world);
+            self.working = false;
+            var count = 0;
+            var plot = Building.list[f].plot;
+            for(i in plot){
+              var n = plot[i];
+              console.log(world[5][n[1]][n[0]]);
+              if(world[5][n[1]][n[0]] === 25){
+                count++;
+              } else {
+                continue;
+              }
+            }
+            console.log(count);
+            if(count === 9){
+              for(i in plot){
+                var n = plot[i];
+                world[0][n[1]][n[0]] = 9;
+              }
+            }
+            io.emit('mapEdit',world);
+          } else {
+            return;
+          }
+        },10000/self.strength);
+      } else if(self.z === 0 && getTile(0,loc[0],loc[1]) === 9){
+        var f = getBuilding(0, self.x,self.y);
+        self.working = true;
+        self.actionCooldown = 10;
+        setTimeout(function(){
+          if(self.working && world[5][loc[1]][loc[0]] < 50){
+            world[5][loc[1]][loc[0]] += 25;
+            io.emit('mapEdit',world);
+            self.working = false;
+            var count = 0;
+            var plot = Building.list[f].plot;
+            for(i in plot){
+              if(world[5][plot[i][1]][plot[i][0]] === 50){
+                count++;
+              } else {
+                continue;
+              }
+            }
+            if(count === 9){
+              for(i in plot){
+                world[0][plot[i][1]][plot[i][0]] = 10;
+              }
+            }
+            io.emit('mapEdit',world);
+          } else {
+            return;
+          }
+        },10000/self.strength);
+      } else if(self.z === 0 && getTile(0,loc[0],loc[1]) === 10){
+        var f = getBuilding(0,self.x,self.y);
+        self.working = true;
+        self.actionCooldown = 10;
+        setTimeout(function(){
+          if(self.working){
+            world[5][loc[1]][loc[0]] -= 10;
+            self.inventory.grain += 10;
+            self.working = false;
+            if(world[5][loc[1]][loc[0]] === 0){
+              world[0][loc[1]][loc[0]] = 8;
+              io.emit('mapEdit', world);
+            }
+          } else {
+            return;
+          }
+        },10000/self.strength);
       } else if(self.z === -1 && getTile(0,loc[0],loc[1]) === 3){
-        var res = world[6][loc[1]][loc[0]];
         self.working = true;
         self.actionCooldown = 10;
         setTimeout(function(){
           if(self.working){
             world[6][loc[1]][loc[0]] -= 1;
             self.inventory.stone += 1;
-            console.log(self.inventory.stone);
-            console.log(world[6][loc[1]][loc[0]]);
             self.working = false;
           } else {
             return;
@@ -215,30 +313,30 @@ Player = function(param){
     var downBlocked = false;
 
     // building collisions
-    if(self.z === 0 && (getLocTile(0,self.x+(tileSize/2),self.y) === 10 || (self.x + 10) > (mapPx - tileSize))){
+    if(self.z === 0 && (getLocTile(0,self.x+(tileSize/2),self.y) === 13 || (self.x + 10) > (mapPx - tileSize))){
       rightBlocked = true;
     }
-    if(self.z === 0 && (getLocTile(0,self.x-(tileSize/2),self.y) === 10 || (self.x - 10) < 0)){
+    if(self.z === 0 && (getLocTile(0,self.x-(tileSize/2),self.y) === 13 || (self.x - 10) < 0)){
       leftBlocked = true;
     }
-    if(self.z === 0 && (getLocTile(0,self.x,self.y-(tileSize/2)) === 10 || (self.y - 10) < 0)){
+    if(self.z === 0 && (getLocTile(0,self.x,self.y-(tileSize/2)) === 13 || (self.y - 10) < 0)){
       upBlocked = true;
     }
-    if(self.z === 0 && (getLocTile(0,self.x,self.y+(tileSize/2)) === 10 || (self.y + 10) > (mapPx - tileSize))){
+    if(self.z === 0 && (getLocTile(0,self.x,self.y+(tileSize/2)) === 13 || (self.y + 10) > (mapPx - tileSize))){
       downBlocked = true;
     }
 
     // collision in caves
-    if(self.z === -1 && (getLocTile(1,self.x+(tileSize/2),self.y) === 1 || getLocTile(1,self.x+(tileSize/2),self.y) === 10 || (self.x + 10) > (mapPx - tileSize))){
+    if(self.z === -1 && (getLocTile(1,self.x+(tileSize/2),self.y) === 1 || getLocTile(1,self.x+(tileSize/2),self.y) === 13 || (self.x + 10) > (mapPx - tileSize))){
       rightBlocked = true;
     }
-    if(self.z === -1 && (getLocTile(1,self.x-(tileSize/2),self.y) === 1 || getLocTile(1,self.x-(tileSize/2),self.y) === 10 || (self.x - 10) < 0)){
+    if(self.z === -1 && (getLocTile(1,self.x-(tileSize/2),self.y) === 1 || getLocTile(1,self.x-(tileSize/2),self.y) === 13 || (self.x - 10) < 0)){
       leftBlocked = true;
     }
-    if(self.z === -1 && (getLocTile(1,self.x,self.y-(tileSize/2)) === 1 || getLocTile(1,self.x,self.y-(tileSize/2)) === 10 (self.y - 10) < 0)){
+    if(self.z === -1 && (getLocTile(1,self.x,self.y-(tileSize/2)) === 1 || getLocTile(1,self.x,self.y-(tileSize/2)) === 13 || (self.y - 10) < 0)){
       upBlocked = true;
     }
-    if(self.z === -1 && (getLocTile(1,self.x,self.y+(tileSize/2)) === 1 || getLocTile(1,self.x,self.y+(tileSize/2)) === 10 || (self.y + 10) > (mapPx - tileSize))){
+    if(self.z === -1 && (getLocTile(1,self.x,self.y+(tileSize/2)) === 1 || getLocTile(1,self.x,self.y+(tileSize/2)) === 13 || (self.y + 10) > (mapPx - tileSize))){
       downBlocked = true;
     }
 
@@ -342,6 +440,7 @@ Player = function(param){
       pressingRight:self.pressingRight,
       pressingAttack:self.pressingAttack,
       angle:self.mouseAngle,
+      working:self.working,
       hp:self.hp,
       hpMax:self.hpMax,
       mana:self.mana,
@@ -485,6 +584,8 @@ Arrow = function(param){
       } else if(self.z === 0 && getLocTile(0,self.x,self.y) === 5 && getLocTile(0,Player.list[self.parent].x,Player.list[self.parent].y) !== 5){
         self.toRemove = true;
       } else if(self.z === 0 && getLocTile(0,self.x,self.y) === 1 && getLocTile(0,Player.list[self.parent].x,Player.list[self.parent].y) !== 1){
+        self.toRemove = true;
+      } else if((self.z === 0 && getLocTile(0,self.x,self.y) === 11) || (self.z === -1 && getLocTile(0,self.x,self.y) === 11)){
         self.toRemove = true;
       } else if(self.z === -1 && getLocTile(1,self.x,self.y) === 1){
         self.toRemove = true;

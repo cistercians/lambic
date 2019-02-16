@@ -50,26 +50,23 @@ socket.on('addToChat',function(data){
   chatText.innerHTML += '<div>' + data + '</div>';
 });
 
-socket.on('evalAnswer',function(data){
-  chatText.innerHTML += '<div>' + data + '</div>';
-  console.log(data);
-});
-
 socket.on('mapEdit',function(data){
   world = data;
 });
 
 chatForm.onsubmit = function(e){
   e.preventDefault();
-  if(chatInput.value[0] === '/'){
-    socket.emit('evalServer',chatInput.value.slice(1));
-  } else if(chatInput.value[0] === '@'){
-    //@recip message
+  if(chatInput.value[0] === '/'){ // command
+    socket.emit('evalCmd',{
+      id:selfId,
+      cmd:chatInput.value.slice(1)
+    });
+  } else if(chatInput.value[0] === '@'){ // private message
     socket.emit('sendPmToServer',{
       recip:chatInput.value.slice(1,chatInput.value.indexOf(' ')),
       message:chatInput.value.slice(chatInput.value.indexOf(' ') + 1)
     });
-  } else {
+  } else { // chat
     socket.emit('sendMsgToServer',{
       username:Player.list[selfId].username,
       message:chatInput.value
@@ -79,6 +76,18 @@ chatForm.onsubmit = function(e){
 }
 
 // GAME
+
+// ICONS
+// working
+var workingIcon = ['⌛️','⏳'];
+var wrk = 0;
+setInterval(function(){
+  if(wrk === 1){
+    wrk = 0;
+  } else {
+    wrk = 1;
+  }
+},800);
 
 // IMAGES
 // walking animation
@@ -132,6 +141,12 @@ Img.cavefloor = new Image();
 Img.cavefloor.src = '/client/img/tiles/cavefloor.png';
 Img.caverocks = new Image();
 Img.caverocks.src = '/client/img/tiles/caverocks.png';
+Img.farm1 = new Image();
+Img.farm1.src = '/client/img/tiles/farm1.png';
+Img.farm2 = new Image();
+Img.farm2.src = '/client/img/tiles/farm2.png';
+Img.farm3 = new Image();
+Img.farm3.src = '/client/img/tiles/farm3.png';
 
 // CHARACTERS
 
@@ -474,6 +489,7 @@ var Player = function(initPack){
   self.pressingRight = false;
   self.pressingAttack = false;
   self.inTrees = initPack.inTrees;
+  self.working = false;
   self.hp = initPack.hp;
   self.hpMax = initPack.hpMax;
   self.mana = initPack.mana;
@@ -503,6 +519,11 @@ var Player = function(initPack){
     ctx.font = '15px minion web';
     ctx.textAlign = 'center';
     ctx.fillText(self.username,x + 30,y - 40,100);
+
+    // status
+    if(self.working){
+      ctx.fillText(workingIcon[wrk], x + 80, y - 20)
+    }
 
     // character sprite
     if(self.angle > 45 && self.angle <= 115 && self.pressingAttack){
@@ -745,6 +766,8 @@ socket.on('update',function(data){
         p.angle = pack.angle;
       if(pack.pressingUp !== undefined)
         p.pressingUp = pack.pressingUp;
+      if(pack.working !== undefined)
+        p.working = pack.working;
       if(pack.hp !== undefined)
         p.hp = pack.hp;
       if(pack.hpMax !== undefined)
@@ -1101,6 +1124,33 @@ var renderMap = function(){
         } else if(tile === 7){
           ctx.drawImage(
             Img.grassland, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+          y++;
+        } else if(tile === 8){
+          ctx.drawImage(
+            Img.farm1, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+          y++;
+        } else if(tile === 9){
+          ctx.drawImage(
+            Img.farm2, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+          y++;
+        } else if(tile === 10){
+          ctx.drawImage(
+            Img.farm3, // image
             xOffset, // target x
             yOffset, // target y
             tileSize, // target width

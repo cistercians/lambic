@@ -72,6 +72,25 @@ getLocTile = function(l,x,y){
   }
 };
 
+// get building id from (z,x,y)
+getBuilding = function(z,x,y){
+  var loc = getLoc(x,y);
+  for(i = 0; i < buildingCount; i++){
+    var b = Building.list[buildingId[i]];
+    if(b.z === z){
+      for(n = 0; n < b.plot.length; n++){
+        if(b.plot[n][0] === loc[0] && b.plot[n][1] === loc[1]){
+          return b.id;
+        } else {
+          continue;
+        }
+      }
+    } else {
+      continue;
+    }
+  }
+}
+
 // get random tile + its loc
 var randomTile = function(l){
   var max = mapSize;
@@ -129,6 +148,7 @@ var mongojs = require('mongojs');
 var db = mongojs('localhost:27017/myGame',['account','progress']);
 
 require('./server/js/Entity');
+require('./server/js/Commands');
 
 // NETWORKING
 var express = require('express');
@@ -219,11 +239,8 @@ io.sockets.on('connection', function(socket){
     console.log('Socket disconnected: ' + socket.id);
   });
 
-  socket.on('evalServer',function(data){
-    if(!DEBUG)
-      return;
-    var res = eval(data);
-    socket.emit('evalAnswer',res);
+  socket.on('evalCmd',function(data){
+    EvalCmd(data);
   });
 });
 
