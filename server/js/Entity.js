@@ -174,7 +174,7 @@ Player = function(param){
         self.actionCooldown = 10;
         setTimeout(function(){
           if(self.working && world[5][loc[1]][loc[0]] < 25){
-            world[5][loc[1]][loc[0]] += 25;
+            world[5][loc[1]][loc[0]] += 1;
             io.emit('mapEdit',world);
             self.working = false;
             var count = 0;
@@ -206,7 +206,7 @@ Player = function(param){
         self.actionCooldown = 10;
         setTimeout(function(){
           if(self.working && world[5][loc[1]][loc[0]] < 50){
-            world[5][loc[1]][loc[0]] += 25;
+            world[5][loc[1]][loc[0]] += 5;
             io.emit('mapEdit',world);
             self.working = false;
             var count = 0;
@@ -234,8 +234,8 @@ Player = function(param){
         self.actionCooldown = 10;
         setTimeout(function(){
           if(self.working){
-            world[5][loc[1]][loc[0]] -= 10;
-            self.inventory.grain += 10;
+            world[5][loc[1]][loc[0]] -= 1;
+            self.inventory.grain += 1;
             self.working = false;
             if(world[5][loc[1]][loc[0]] === 0){
               world[0][loc[1]][loc[0]] = 8;

@@ -267,17 +267,10 @@ function genesis(){
   // add resources to Overworld and fix forest edges
   for(x = 0; x < mapTiles; x++){
     for(y = 0; y < mapTiles; y++){
-      if(worldMaps[0][y][x] === 1 && worldMaps[0][y][x-1] !== 1 && worldMaps[0][y][x-1] !== 21 && worldMaps[0][y][x+1] !== 1 && worldMaps[0][y][x+1] !== 12){
-        worldMaps[0][y][x] = 2;
-      } else if(worldMaps[0][y][x] === 1 && worldMaps[0][y][x-1] !== 1 && worldMaps[0][y][x-1] !== 21){
-        worldMaps[0][y][x] = 21;
-      } else if(worldMaps[0][y][x] === 1 && worldMaps[0][y][x+1] !== 1 && worldMaps[0][y][x+1] !== 12){
-        worldMaps[0][y][x] = 12;
-      }
-      if(worldMaps[0][y][x] === 2 || worldMaps[0][y][x] === 21 || worldMaps[0][y][x] === 12 || worldMaps[0][y][x] === 4){
-        worldMaps[5][y][x] = 250;
+      if(worldMaps[0][y][x] === 2 || worldMaps[0][y][x] === 4){
+        worldMaps[5][y][x] = 150;
       } else if(worldMaps[0][y][x] === 1 || worldMaps[0][y][x] === 5){
-        worldMaps[5][y][x] = 1000;
+        worldMaps[5][y][x] = 300;
       } else {
         continue;
       }
@@ -290,7 +283,7 @@ function genesis(){
       roll = Math.random();
       if(worldMaps[1][y][x] === 1 && roll < 0.2 && (worldMaps[1][y+1][x] === 0 || worldMaps[1][y-1][x] === 0 || worldMaps[1][y][x+1] === 0 || worldMaps[1][y][x-1] === 0)){
         worldMaps[1][y][x] = 3;
-        worldMaps[6][y][x] = 250;
+        worldMaps[6][y][x] = 150;
       } else {
         continue;
       }

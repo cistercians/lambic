@@ -113,10 +113,6 @@ Img.water3 = new Image();
 Img.water3.src = '/client/img/tiles/water3.png';
 Img.hforest = new Image();
 Img.hforest.src = '/client/img/tiles/hforest.png';
-Img.hforest21 = new Image();
-Img.hforest21.src = '/client/img/tiles/hforest21.png';
-Img.hforest12 = new Image();
-Img.hforest12.src = '/client/img/tiles/hforest12.png';
 Img.forest = new Image();
 Img.forest.src = '/client/img/tiles/forest.png';
 Img.brush = new Image();
@@ -1004,41 +1000,9 @@ var renderMap = function(){
           ctx.drawImage(
             Img.hforest, // image
             xOffset, // target x
-            yOffset, // target y
+            yOffset - (tileSize/2), // target y
             tileSize, // target width
-            tileSize // target height
-          );
-          y++;
-        } else if(tile === 21){
-          ctx.drawImage(
-            Img.grassland, // image
-            xOffset, // target x
-            yOffset, // target y
-            tileSize, // target width
-            tileSize // target height
-          );
-          ctx.drawImage(
-            Img.hforest21, // image
-            xOffset, // target x
-            yOffset, // target y
-            tileSize, // target width
-            tileSize // target height
-          );
-          y++;
-        } else if(tile === 12){
-          ctx.drawImage(
-            Img.grassland, // image
-            xOffset, // target x
-            yOffset, // target y
-            tileSize, // target width
-            tileSize // target height
-          );
-          ctx.drawImage(
-            Img.hforest12, // image
-            xOffset, // target x
-            yOffset, // target y
-            tileSize, // target width
-            tileSize // target height
+            tileSize * 1.5 // target height
           );
           y++;
         } else if(tile === 2){
