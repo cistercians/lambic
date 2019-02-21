@@ -103,8 +103,8 @@ setInterval(function(){
 var Img = {};
 
 // TILES
-Img.grassland = new Image();
-Img.grassland.src = '/client/img/tiles/grassland.png';
+Img.grass = new Image();
+Img.grass.src = '/client/img/tiles/grass.png';
 Img.water1 = new Image();
 Img.water1.src = '/client/img/tiles/water1.png';
 Img.water2 = new Image();
@@ -135,14 +135,26 @@ Img.cavewall = new Image();
 Img.cavewall.src = '/client/img/tiles/cavewall.png';
 Img.cavefloor = new Image();
 Img.cavefloor.src = '/client/img/tiles/cavefloor.png';
-Img.caverocks = new Image();
-Img.caverocks.src = '/client/img/tiles/caverocks.png';
 Img.farm1 = new Image();
 Img.farm1.src = '/client/img/tiles/farm1.png';
 Img.farm2 = new Image();
 Img.farm2.src = '/client/img/tiles/farm2.png';
 Img.farm3 = new Image();
 Img.farm3.src = '/client/img/tiles/farm3.png';
+Img.build1 = new Image();
+Img.build1.src = '/client/img/tiles/build1.png';
+Img.build2 = new Image();
+Img.build2.src = '/client/img/tiles/build2.png';
+
+// BUILDINGS
+Img.hut0 = new Image();
+Img.hut0.src = '/client/img/buildings/hut0.png';
+Img.hut1 = new Image();
+Img.hut1.src = '/client/img/buildings/hut1.png';
+Img.hut2 = new Image();
+Img.hut2.src = '/client/img/buildings/hut2.png';
+Img.hut3 = new Image();
+Img.hut3.src = '/client/img/buildings/hut3.png';
 
 // CHARACTERS
 
@@ -991,7 +1003,7 @@ var renderMap = function(){
           y++;
         } else if(tile === 1){
           ctx.drawImage(
-            Img.grassland, // image
+            Img.grass, // image
             xOffset, // target x
             yOffset, // target y
             tileSize, // target width
@@ -1007,7 +1019,7 @@ var renderMap = function(){
           y++;
         } else if(tile === 2){
           ctx.drawImage(
-            Img.grassland, // image
+            Img.grass, // image
             xOffset, // target x
             yOffset, // target y
             tileSize, // target width
@@ -1023,7 +1035,7 @@ var renderMap = function(){
           y++;
         } else if(tile === 3){
           ctx.drawImage(
-            Img.grassland, // image
+            Img.grass, // image
             xOffset, // target x
             yOffset, // target y
             tileSize, // target width
@@ -1039,7 +1051,7 @@ var renderMap = function(){
           y++;
         } else if(tile === 4){
           ctx.drawImage(
-            Img.grassland, // image
+            Img.grass, // image
             xOffset, // target x
             yOffset, // target y
             tileSize, // target width
@@ -1055,7 +1067,7 @@ var renderMap = function(){
           y++;
         } else if(tile === 5){
           ctx.drawImage(
-            Img.grassland, // image
+            Img.grass, // image
             xOffset, // target x
             yOffset, // target y
             tileSize, // target width
@@ -1071,7 +1083,7 @@ var renderMap = function(){
           y++;
         } else if(tile === 6){
           ctx.drawImage(
-            Img.grassland, // image
+            Img.grass, // image
             xOffset, // target x
             yOffset, // target y
             tileSize, // target width
@@ -1087,7 +1099,7 @@ var renderMap = function(){
           y++;
         } else if(tile === 7){
           ctx.drawImage(
-            Img.grassland, // image
+            Img.grass, // image
             xOffset, // target x
             yOffset, // target y
             tileSize, // target width
@@ -1121,6 +1133,80 @@ var renderMap = function(){
             tileSize // target height
           );
           y++;
+        } else if(tile === 11){
+          ctx.drawImage(
+            Img.grass, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+          ctx.drawImage(
+            Img.build1, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+          y++;
+        } else if(tile === 12){
+          ctx.drawImage(
+            Img.grass, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+          ctx.drawImage(
+            Img.build2, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+          y++;
+        } else if(tile === 13 || tile === 14){
+          var bTile = getTile(3,c,r);
+          ctx.drawImage(
+            Img.grass, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+          if(bTile === 'hut0'){
+            ctx.drawImage(
+              Img.hut0, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'hut1'){
+            ctx.drawImage(
+              Img.hut1, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'hut2'){
+            ctx.drawImage(
+              Img.hut2, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'hut3'){
+            ctx.drawImage(
+              Img.hut3, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          }
         }
       }
     }
@@ -1189,7 +1275,7 @@ var renderMap = function(){
             tileSize // target height
           );
           ctx.drawImage(
-            Img.caverocks, // image
+            Img.rocks, // image
             xOffset, // target x
             yOffset, // target y
             tileSize, // target width
@@ -1243,7 +1329,7 @@ var renderLightSources = function(env){
     var y = light.y - Player.list[selfId].y + HEIGHT/2;
     if(light.z === Player.list[selfId].z){
       illuminate(x,y,light.radius * env);
-      illuminate(x,y,(light.radius/6) * env);
+      illuminate(x,y,(light.radius/8) * env);
     }
   }
 }
@@ -1299,33 +1385,34 @@ var renderLighting = function(){
 
 // CONTROLS
 document.onkeydown = function(event){
-  if(event.keyCode === 68){ // d
-    socket.emit('keyPress',{inputId:'right',state:true});
-    Player.list[selfId].pressingRight = true;
-  } else if(event.keyCode === 83){ // s
-    socket.emit('keyPress',{inputId:'down',state:true});
-    Player.list[selfId].pressingDown = true;
-  } else if(event.keyCode === 65){ // a
-    socket.emit('keyPress',{inputId:'left',state:true});
-    Player.list[selfId].pressingLeft = true;
-  } else if(event.keyCode === 87){ // w
-    socket.emit('keyPress',{inputId:'up',state:true});
-    Player.list[selfId].pressingUp = true;
-  } else if(event.keyCode === 32){ // space
-    socket.emit('keyPress',{inputId:'attack',state:true});
-    Player.list[selfId].pressingAttack = true;
-  } else if(event.keyCode === 67){ // c
-    socket.emit('keyPress',{inputId:'c',state:true});
-  } else if(event.keyCode === 84){ // t
-    socket.emit('keyPress',{inputId:'t',state:true});
-  } else if(event.keyCode === 71){ // g
-    socket.emit('keyPress',{inputId:'g',state:true});
-  } else if(event.keyCode === 49){ // 1
-    socket.emit('keyPress',{inputId:'1',state:true});
-  } else if(event.keyCode === 50){ // 2
-    socket.emit('keyPress',{inputId:'2',state:true});
-  } else if(event.keyCode === 51) // 3
-    socket.emit('keyPress',{inputId:'3',state:true});
+  var chatFocus = (document.activeElement === chatInput);
+  if(!chatFocus){
+    if(event.keyCode === 68){ // d
+      socket.emit('keyPress',{inputId:'right',state:true});
+      Player.list[selfId].pressingRight = true;
+    } else if(event.keyCode === 83){ // s
+      socket.emit('keyPress',{inputId:'down',state:true});
+      Player.list[selfId].pressingDown = true;
+    } else if(event.keyCode === 65){ // a
+      socket.emit('keyPress',{inputId:'left',state:true});
+      Player.list[selfId].pressingLeft = true;
+    } else if(event.keyCode === 87){ // w
+      socket.emit('keyPress',{inputId:'up',state:true});
+      Player.list[selfId].pressingUp = true;
+    } else if(event.keyCode === 32){ // space
+      socket.emit('keyPress',{inputId:'attack',state:true});
+      Player.list[selfId].pressingAttack = true;
+    } else if(event.keyCode === 84){ // t
+      socket.emit('keyPress',{inputId:'t',state:true});
+    } else if(event.keyCode === 69){ // e
+       socket.emit('keyPress',{inputId:'e',state:true});
+    } else if(event.keyCode === 49){ // 1
+      socket.emit('keyPress',{inputId:'1',state:true});
+    } else if(event.keyCode === 50){ // 2
+      socket.emit('keyPress',{inputId:'2',state:true});
+    } else if(event.keyCode === 51) // 3
+      socket.emit('keyPress',{inputId:'3',state:true});
+  }
 }
 
 document.onkeyup = function(event){
@@ -1344,12 +1431,10 @@ document.onkeyup = function(event){
   } else if(event.keyCode === 32){ // space
     socket.emit('keyPress',{inputId:'attack',state:false});
     Player.list[selfId].pressingAttack = false;
-  } else if(event.keyCode === 67){ // c
-    socket.emit('keyPress',{inputId:'c',state:false});
   } else if(event.keyCode === 84){ // t
     socket.emit('keyPress',{inputId:'t',state:false});
-  } else if(event.keyCode === 71){ // g
-    socket.emit('keyPress',{inputId:'g',state:false});
+  } else if(event.keyCode === 69){ // e
+    socket.emit('keyPress',{inputId:'e',state:false});
   } else if(event.keyCode === 49){ // 1
     socket.emit('keyPress',{inputId:'1',state:false});
   } else if(event.keyCode === 50){ // 2

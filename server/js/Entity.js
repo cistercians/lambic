@@ -43,6 +43,7 @@ Building = function(param){
   self.dimension = param.dimension;
   self.plot = param.plot;
   self.mats = param.mats;
+  self.req = param.req;
   self.hp = param.hp;
 
   Building.list[self.id] = self;
@@ -100,9 +101,8 @@ Player = function(param){
   self.pressingUp = false;
   self.pressingDown = false;
   self.pressingAttack = false;
-  self.pressingC = false;
   self.pressingT = false;
-  self.pressingG = false;
+  self.pressingE = false;
   self.pressing1 = false;
   self.pressing2 = false;
   self.pressing3 = false;
@@ -128,20 +128,28 @@ Player = function(param){
       self.attackCooldown = 50/self.dexterity;
     }
 
-    if(self.pressingC && self.actionCooldown === 0){
-      self.clearBrush();
-      self.actionCooldown = 10;
-    }
-
     if(self.pressingT && self.inventory.torch > 0 && self.actionCooldown === 0){
       self.lightTorch();
       self.actionCooldown = 10;
     }
 
-    // GATHERING
-    if(self.pressingG && self.actionCooldown === 0){
+    // ACTIONS
+    if(self.pressingE && self.actionCooldown === 0 && !self.working){
       var loc = getLoc(self.x,self.y);
-      // wood
+      // clear brush
+      if(self.z === 0 && getTile(0,loc[0],loc[1]) === 3){
+        self.working = true;
+        setTimeout(function(){
+          if(self.working){
+            world[0][loc[1]][loc[0]] = 7;
+            io.emit('mapEdit',world);
+            self.working = false;
+          } else {
+            return;
+          }
+        },3000);
+      }
+      // gather wood
       if(self.z === 0 && (getTile(0,loc[0],loc[1]) === 1 || getTile(0,loc[0],loc[1]) === 2)){
         self.working = true;
         self.actionCooldown = 10;
@@ -154,7 +162,7 @@ Player = function(param){
             return;
           }
         },10000/self.strength);
-        // stone
+        // gather stone
       } else if(self.z === 0 && (getTile(0,loc[0],loc[1]) === 4 || getTile(0,loc[0],loc[1]) === 5)){
         self.working = true;
         self.actionCooldown = 10;
@@ -167,7 +175,19 @@ Player = function(param){
             return;
           }
         },10000/self.strength);
-        // farm
+      } else if(self.z === -1 && getTile(0,loc[0],loc[1]) === 3){
+        self.working = true;
+        self.actionCooldown = 10;
+        setTimeout(function(){
+          if(self.working){
+            world[6][loc[1]][loc[0]] -= 1;
+            self.inventory.stone += 1;
+            self.working = false;
+          } else {
+            return;
+          }
+        },10000/self.strength);
+          // farm
       } else if(self.z === 0 && getTile(0,loc[0],loc[1]) === 8){
         var f = getBuilding(0, self.x,self.y);
         self.working = true;
@@ -194,14 +214,14 @@ Player = function(param){
                 var n = plot[i];
                 world[0][n[1]][n[0]] = 9;
               }
+              io.emit('mapEdit',world);
             }
-            io.emit('mapEdit',world);
           } else {
             return;
           }
-        },10000/self.strength);
+        },10000);
       } else if(self.z === 0 && getTile(0,loc[0],loc[1]) === 9){
-        var f = getBuilding(0, self.x,self.y);
+        var f = Building.list[getBuilding(0, self.x,self.y)];
         self.working = true;
         self.actionCooldown = 10;
         setTimeout(function(){
@@ -210,7 +230,7 @@ Player = function(param){
             io.emit('mapEdit',world);
             self.working = false;
             var count = 0;
-            var plot = Building.list[f].plot;
+            var plot = f.plot;
             for(i in plot){
               if(world[5][plot[i][1]][plot[i][0]] === 50){
                 count++;
@@ -222,12 +242,12 @@ Player = function(param){
               for(i in plot){
                 world[0][plot[i][1]][plot[i][0]] = 10;
               }
+              io.emit('mapEdit',world);
             }
-            io.emit('mapEdit',world);
           } else {
             return;
           }
-        },10000/self.strength);
+        },10000);
       } else if(self.z === 0 && getTile(0,loc[0],loc[1]) === 10){
         var f = getBuilding(0,self.x,self.y);
         self.working = true;
@@ -244,40 +264,45 @@ Player = function(param){
           } else {
             return;
           }
-        },10000/self.strength);
-      } else if(self.z === -1 && getTile(0,loc[0],loc[1]) === 3){
+        },10000);
+      } else if(self.z === 0 && getTile(0,loc[0],loc[1]) === 11){
         self.working = true;
         self.actionCooldown = 10;
+        var b = Building.list[getBuilding(0,self.x,self.y)];
         setTimeout(function(){
           if(self.working){
-            world[6][loc[1]][loc[0]] -= 1;
-            self.inventory.stone += 1;
+            world[5][loc[1]][loc[0]] += 5;
             self.working = false;
-          } else {
-            return;
+            var count = 0;
+            var plot = b.plot;
+            if(world[5][loc[1]][loc[0]] === b.req){
+              world[0][loc[1]][loc[0]] = 12;
+              io.emit('mapEdit',world);
+            }
+            for(i in plot){
+              if(world[5][plot[i][1]][plot[i][0]] === b.req){
+                count++;
+              } else {
+                continue;
+              }
+            }
+            if(count === plot.length){
+              for(i in plot){
+                world[0][plot[i][1]][plot[i][0]] = 13;
+                world[3][plot[i][1]][plot[i][0]] = String('hut' + i);
+                if(i === 1){
+                  world[0][plot[i][1]][plot[i][0]] = 14;
+                } else {
+                  continue;
+                }
+              }
+              io.emit('mapEdit',world);
+            }
           }
         },10000/self.strength);
       } else {
         return;
       }
-    }
-  }
-
-  self.clearBrush = function(){
-    var loc = getLoc(self.x,self.y);
-    if(self.z === 0 && getTile(0,loc[0],loc[1]) === 3){
-      self.working = true;
-      setTimeout(function(){
-        if(self.working){
-          world[0][loc[1]][loc[0]] = 7;
-          io.emit('mapEdit',world);
-          self.working = false;
-        } else {
-          return;
-        }
-      },3000);
-    } else {
-      return;
     }
   }
 
@@ -371,7 +396,7 @@ Player = function(param){
         self.inTrees = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd;
-      } else if(getTile(0,loc[0],loc[1]) === 1 || getTile(0,loc[0],loc[1]) === 21 || getTile(0,loc[0],loc[1]) === 12){
+      } else if(getTile(0,loc[0],loc[1]) === 1){
         self.inTrees = true;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * 0.3;
@@ -478,12 +503,10 @@ Player.onConnect = function(socket,username){
       player.pressingDown = data.state;
     } else if(data.inputId === 'attack'){
       player.pressingAttack = data.state;
-    } else if(data.inputId === 'c'){
-      player.pressingC = data.state;
     } else if(data.inputId === 't'){
       player.pressingT = data.state;
-    } else if(data.inputId === 'g'){
-      player.pressingG = data.state;
+    } else if(data.inputId === 'e'){
+      player.pressingE = data.state;
     } else if(data.inputId === '1'){
       player.pressing1 = data.state;
     } else if(data.inputId === '2'){

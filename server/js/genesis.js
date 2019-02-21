@@ -264,13 +264,13 @@ function genesis(){
     worldMaps[1][entrances[i][1]+1][entrances[i][0]] = 2;
   }
 
-  // add resources to Overworld and fix forest edges
+  // add resources to Overworld
   for(x = 0; x < mapTiles; x++){
     for(y = 0; y < mapTiles; y++){
       if(worldMaps[0][y][x] === 2 || worldMaps[0][y][x] === 4){
-        worldMaps[5][y][x] = 150;
+        worldMaps[5][y][x] = 50;
       } else if(worldMaps[0][y][x] === 1 || worldMaps[0][y][x] === 5){
-        worldMaps[5][y][x] = 300;
+        worldMaps[5][y][x] = 100;
       } else {
         continue;
       }
