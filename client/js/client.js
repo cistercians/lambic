@@ -50,6 +50,14 @@ socket.on('addToChat',function(data){
   chatText.innerHTML += '<div>' + data + '</div>';
 });
 
+socket.on('pmToChat',function(data){
+  chatText.innerHTML += '<div><i>' + data + '</i></div>';
+});
+
+socket.on('urgentChat',function(data){
+  chatText.innerHTML += '<div><b>' + data + '</b></div>';
+});
+
 socket.on('mapEdit',function(data){
   world = data;
 });
@@ -145,6 +153,22 @@ Img.build1 = new Image();
 Img.build1.src = '/client/img/tiles/build1.png';
 Img.build2 = new Image();
 Img.build2.src = '/client/img/tiles/build2.png';
+Img.void = new Image();
+Img.void.src = '/client/img/tiles/void.png';
+Img.woodfloor = new Image();
+Img.woodfloor.src = '/client/img/tiles/woodfloor.png';
+Img.woodexit = new Image();
+Img.woodexit.src = '/client/img/tiles/woodexit.png';
+Img.woodwall = new Image();
+Img.woodwall.src = '/client/img/tiles/woodwall.png';
+Img.stonefloor = new Image();
+Img.stonefloor.src = '/client/img/tiles/stonefloor.png';
+Img.stoneexit = new Image();
+Img.stoneexit.src = '/client/img/tiles/stoneexit.png';
+Img.stonewall = new Image();
+Img.stonewall.src = '/client/img/tiles/stonewall.png';
+Img.carpet = new Image();
+Img.carpet.src = '/client/img/tiles/carpet.png';
 
 // BUILDINGS
 Img.hut0 = new Image();
@@ -155,6 +179,37 @@ Img.hut2 = new Image();
 Img.hut2.src = '/client/img/buildings/hut2.png';
 Img.hut3 = new Image();
 Img.hut3.src = '/client/img/buildings/hut3.png';
+Img.house0 = new Image();
+Img.house0.src = '/client/img/buildings/house0.png';
+Img.house1 = new Image();
+Img.house1.src = '/client/img/buildings/house1.png';
+Img.house2 = new Image();
+Img.house2.src = '/client/img/buildings/house2.png';
+Img.house3 = new Image();
+Img.house3.src = '/client/img/buildings/house3.png';
+Img.house4 = new Image();
+Img.house4.src = '/client/img/buildings/house4.png';
+Img.house5 = new Image();
+Img.house5.src = '/client/img/buildings/house5.png';
+Img.house6 = new Image();
+Img.house6.src = '/client/img/buildings/house6.png';
+Img.house7 = new Image();
+Img.house7.src = '/client/img/buildings/house7.png';
+Img.house8 = new Image();
+Img.house8.src = '/client/img/buildings/house8.png';
+Img.wwallc = new Image();
+Img.wwallc.src = '/client/img/buildings/wwallc.png';
+Img.wwalllr = new Image();
+Img.wwalllr.src = '/client/img/buildings/wwalllr.png';
+Img.wwallud = new Image();
+Img.wwallud.src = '/client/img/buildings/wwallud.png';
+Img.swallc = new Image();
+Img.swallc.src = '/client/img/buildings/swallc.png';
+Img.swalllr = new Image();
+Img.swalllr.src = '/client/img/buildings/swalllr.png';
+Img.swallud = new Image();
+Img.swallud.src = '/client/img/buildings/swallud.png';
+
 
 // CHARACTERS
 
@@ -906,16 +961,16 @@ setInterval(function(){
   }
   if(Player.list[selfId].z === 0){
     if(tempus === 'IX.p' || tempus === 'X.p' || tempus === 'XI.p' || tempus === 'XII.a' || tempus === 'I.a' || tempus === 'II.a' || tempus === 'III.a'){
-      renderLightSources(1);
+      renderLightSources(3);
     } else if(tempus === 'VIII.p' || tempus === 'IV.a'){
-      renderLightSources(0.8);
-    } else if(tempus === 'VII.p' || tempus === 'V.a'){
-      renderLightSources(0.55);
+      renderLightSources(2);
     } else {
-      renderLightSources(0.3);
+      renderLightSources(1);
     }
   } else if(Player.list[selfId].z === -1){
-    renderLightSources(1.5);
+    renderLightSources(4);
+  } else if(Player.list[selfId].z === 1 || Player.list[selfId].z === 2){
+    renderLightSources(1);
   }
   viewport.update(Player.list[selfId].x,Player.list[selfId].y);
   console.log(getLoc(Player.list[selfId].x,Player.list[selfId].y));
@@ -987,8 +1042,8 @@ var renderMap = function(){
     ctx.fillStyle = cloudscape;
     ctx.fill();
 
-    for (var c = viewport.startTile[0]; c < viewport.endTile[0]; c++) {
-      for (var r = viewport.startTile[1]; r < viewport.endTile[1]; r++) {
+    for (var c = viewport.startTile[0]; c < viewport.endTile[0]; c++){
+      for (var r = viewport.startTile[1]; r < viewport.endTile[1]; r++){
         var xOffset = viewport.offset[0] + (c * tileSize);
         var yOffset = viewport.offset[1] + (r * tileSize);
         var tile = getTile(0, c, r);
@@ -1000,7 +1055,6 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-          y++;
         } else if(tile === 1){
           ctx.drawImage(
             Img.grass, // image
@@ -1016,7 +1070,6 @@ var renderMap = function(){
             tileSize, // target width
             tileSize * 1.5 // target height
           );
-          y++;
         } else if(tile === 2){
           ctx.drawImage(
             Img.grass, // image
@@ -1032,7 +1085,6 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-          y++;
         } else if(tile === 3){
           ctx.drawImage(
             Img.grass, // image
@@ -1048,7 +1100,6 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-          y++;
         } else if(tile === 4){
           ctx.drawImage(
             Img.grass, // image
@@ -1064,7 +1115,6 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-          y++;
         } else if(tile === 5){
           ctx.drawImage(
             Img.grass, // image
@@ -1080,7 +1130,6 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );;
-          y++;
         } else if(tile === 6){
           ctx.drawImage(
             Img.grass, // image
@@ -1096,7 +1145,6 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-          y++;
         } else if(tile === 7){
           ctx.drawImage(
             Img.grass, // image
@@ -1105,7 +1153,6 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-          y++;
         } else if(tile === 8){
           ctx.drawImage(
             Img.farm1, // image
@@ -1114,7 +1161,6 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-          y++;
         } else if(tile === 9){
           ctx.drawImage(
             Img.farm2, // image
@@ -1123,7 +1169,6 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-          y++;
         } else if(tile === 10){
           ctx.drawImage(
             Img.farm3, // image
@@ -1132,7 +1177,6 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-          y++;
         } else if(tile === 11){
           ctx.drawImage(
             Img.grass, // image
@@ -1148,7 +1192,6 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-          y++;
         } else if(tile === 12){
           ctx.drawImage(
             Img.grass, // image
@@ -1164,8 +1207,7 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-          y++;
-        } else if(tile === 13 || tile === 14){
+        } else if(tile === 13 || tile === 14 || tile === 15 || tile === 16 || tile === 17 || tile === 18 || tile === 19){
           var bTile = getTile(3,c,r);
           ctx.drawImage(
             Img.grass, // image
@@ -1206,11 +1248,182 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
+          } else if(bTile === 'house0'){
+            ctx.drawImage(
+              Img.house0, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'house1'){
+            ctx.drawImage(
+              Img.house1, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'house2'){
+            ctx.drawImage(
+              Img.house2, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          }  else if(bTile === 'house3'){
+            ctx.drawImage(
+              Img.house3, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'house4'){
+            ctx.drawImage(
+              Img.house4, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'house5'){
+            ctx.drawImage(
+              Img.house5, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'house6'){
+            ctx.drawImage(
+              Img.house6, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'house7'){
+            ctx.drawImage(
+              Img.house7, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'house8'){
+            ctx.drawImage(
+              Img.house8, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'wwall'){
+            var l = getTile(3,c-1,r);
+            var rr = getTile(3,c+1,r);
+            var u = getTile(3,c,r-1);
+            var d = getTile(3,c,r+1);
+            ctx.drawImage(
+              Img.grass, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+            if((l !== 'wwall' && rr !== 'wwall' && u !== 'wwall' && d !== 'wwall') ||
+            (l === 'wwall' && rr === 'wwall' && u === 'wwall' && d === 'wwall') ||
+            (l === 'wwall' && rr !== 'wwall' && u !== 'wwall' && d !== 'wwall') ||
+            (l !== 'wwall' && rr === 'wwall' && u !== 'wwall' && d !== 'wwall') ||
+            (l !== 'wwall' && rr !== 'wwall' && u === 'wwall' && d !== 'wwall') ||
+            (l !== 'wwall' && rr !== 'wwall' && u !== 'wwall' && d === 'wwall') ||
+            (l !== 'wwall' && rr === 'wwall' && u !== 'wwall' && d === 'wwall') ||
+            (l === 'wwall' && rr !== 'wwall' && u !== 'wwall' && d === 'wwall') ||
+            (l === 'wwall' && rr !== 'wwall' && u === 'wwall' && d !== 'wwall') ||
+            (l !== 'wwall' && rr === 'wwall' && u === 'wwall' && d !== 'wwall') ||
+            (l !== 'wwall' && rr === 'wwall' && u === 'wwall' && d === 'wwall') ||
+            (l === 'wwall' && rr === 'wwall' && u !== 'wwall' && d === 'wwall') ||
+            (l === 'wwall' && rr !== 'wwall' && u === 'wwall' && d === 'wwall') ||
+            (l === 'wwall' && rr === 'wwall' && u === 'wwall' && d !== 'wwall')){
+              ctx.drawImage(
+                Img.wwallc, // image
+                xOffset, // target x
+                yOffset - (tileSize/2), // target y
+                tileSize, // target width
+                tileSize * 1.5 // target height
+              );
+            } else if(l === 'wwall' && rr === 'wwall' && u !== 'wwall' && d !== 'wwall'){
+              ctx.drawImage(
+                Img.wwalllr, // image
+                xOffset, // target x
+                yOffset, // target y
+                tileSize, // target width
+                tileSize // target height
+              );
+            } else if(l !== 'wwall' && rr !== 'wwall' && u === 'wwall' && d === 'wwall'){
+              ctx.drawImage(
+                Img.wwallud, // image
+                xOffset, // target x
+                yOffset - (tileSize/2), // target y
+                tileSize, // target width
+                tileSize * 2 // target height
+              );
+            }
+          } else if(bTile === 'swall'){
+            var l = getTile(3,c-1,r);
+            var rr = getTile(3,c+1,r);
+            var u = getTile(3,c,r-1);
+            var d = getTile(3,c,r+1);
+            ctx.drawImage(
+              Img.grass, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+            if((l !== 'swall' && rr !== 'swall' && u !== 'swall' && d !== 'swall') ||
+            (l === 'swall' && rr === 'swall' && u === 'swall' && d === 'swall') ||
+            (l === 'swall' && rr !== 'swall' && u !== 'swall' && d !== 'swall') ||
+            (l !== 'swall' && rr === 'swall' && u !== 'swall' && d !== 'swall') ||
+            (l !== 'swall' && rr !== 'swall' && u === 'swall' && d !== 'swall') ||
+            (l !== 'swall' && rr !== 'swall' && u !== 'swall' && d === 'swall') ||
+            (l !== 'swall' && rr === 'swall' && u !== 'swall' && d === 'swall') ||
+            (l === 'swall' && rr !== 'swall' && u !== 'swall' && d === 'swall') ||
+            (l === 'swall' && rr !== 'swall' && u === 'swall' && d !== 'swall') ||
+            (l !== 'swall' && rr === 'swall' && u === 'swall' && d !== 'swall') ||
+            (l !== 'swall' && rr === 'swall' && u === 'swall' && d === 'swall') ||
+            (l === 'swall' && rr === 'swall' && u !== 'swall' && d === 'swall') ||
+            (l === 'swall' && rr !== 'swall' && u === 'swall' && d === 'swall') ||
+            (l === 'swall' && rr === 'swall' && u === 'swall' && d !== 'swall')){
+              ctx.drawImage(
+                Img.swallc, // image
+                xOffset, // target x
+                yOffset - (tileSize/2), // target y
+                tileSize, // target width
+                tileSize * 1.5 // target height
+              );
+            } else if(l === 'swall' && rr === 'swall' && u !== 'swall' && d !== 'swall'){
+              ctx.drawImage(
+                Img.swalllr, // image
+                xOffset, // target x
+                yOffset, // target y
+                tileSize, // target width
+                tileSize // target height
+              );
+            } else if(l !== 'swall' && rr !== 'swall' && u === 'swall' && d === 'swall'){
+              ctx.drawImage(
+                Img.swallud, // image
+                xOffset, // target x
+                yOffset - (tileSize/2), // target y
+                tileSize, // target width
+                tileSize * 2 // target height
+              );
+            }
           }
         }
       }
     }
-    x++;
   } else if(z === -1){
     var morecave = ctx.createPattern(Img.cavefloor, "repeat");
     ctx.rect(0,0,WIDTH,HEIGHT);
@@ -1220,8 +1433,8 @@ var renderMap = function(){
     ctx.rect(0,0,WIDTH,HEIGHT);
     ctx.fillStyle = evenmorecave;
     ctx.fill();
-    for (var c = viewport.startTile[0]; c < viewport.endTile[0]; c++) {
-      for (var r = viewport.startTile[1]; r < viewport.endTile[1]; r++) {
+    for (var c = viewport.startTile[0]; c < viewport.endTile[0]; c++){
+      for (var r = viewport.startTile[1]; r < viewport.endTile[1]; r++){
         var tile = getTile(1, c, r);
         var xOffset = viewport.offset[0] + (c * tileSize);
         var yOffset = viewport.offset[1] + (r * tileSize);
@@ -1233,7 +1446,6 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-          y++;
         } else if(tile === 1){
           ctx.drawImage(
             Img.cavefloor, // image
@@ -1249,7 +1461,6 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-          y++;
         } else if(tile === 2){
           ctx.drawImage(
             Img.cavefloor, // image
@@ -1265,7 +1476,6 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-          y++;
         } else if(tile === 3){
           ctx.drawImage(
             Img.cavefloor, // image
@@ -1281,12 +1491,88 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-          y++;
         }
       }
     }
-    x++;
-  } // add indoors here
+  } else if(z === 1){
+    var dark = ctx.createPattern(Img.void, "repeat");
+    ctx.rect(0,0,WIDTH,HEIGHT);
+    ctx.fillStyle = dark;
+    ctx.fill();
+    for (var c = viewport.startTile[0]; c < viewport.endTile[0]; c++){
+      for (var r = viewport.startTile[1]; r < viewport.endTile[1]; r++){
+        var xOffset = viewport.offset[0] + (c * tileSize);
+        var yOffset = viewport.offset[1] + (r * tileSize);
+        var tile = getTile(0, c, r);
+        var wtile = getTile(4, c, r);
+        if(tile === 13){
+          ctx.drawImage(
+            Img.woodfloor, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile === 14){
+          ctx.drawImage(
+            Img.woodexit, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(wtile === 1){
+          ctx.drawImage(
+            Img.woodwall, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile === 15){
+          ctx.drawImage(
+            Img.stonefloor, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile === 16){
+          ctx.drawImage(
+            Img.stoneexit, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(wtile === 2){
+          ctx.drawImage(
+            Img.stonewall, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile === 17){
+          ctx.drawImage(
+            Img.carpet, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile === 19){
+          ctx.drawImage(
+            Img.stoneexit, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        }
+      }
+    }
+  }
 };
 
 //lighting and light sources
@@ -1297,7 +1583,7 @@ setInterval(function(){
   flicker = flickerRange[Math.floor(Math.random() * flickerRange.length)];
 }, 50);
 
-var illuminate = function(x, y, radius){
+var illuminate = function(x, y, radius, env){
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   var rnd = (0.05 * Math.sin(1.1 * Date.now() / 200) * flicker);
@@ -1313,30 +1599,31 @@ var illuminate = function(x, y, radius){
   ctx.arc(x, y, radius, 0, 2 * Math.PI);
   ctx.fill();
   ctx.restore();
-  //remove darkness layer
-  lighting.save();
-  lighting.globalCompositeOperation = 'destination-out';
-  lighting.beginPath();
-  lighting.arc(x, y, radius * 0.9, 0, 2 * Math.PI, false);
-  lighting.fill();
-  lighting.restore();
 }
 
 var renderLightSources = function(env){
   for(i in Light.list){
     var light = Light.list[i];
+    var rnd = (0.05 * Math.sin(1.1 * Date.now() / 200) * flicker);
     var x = light.x - Player.list[selfId].x + WIDTH/2;
     var y = light.y - Player.list[selfId].y + HEIGHT/2;
     if(light.z === Player.list[selfId].z){
-      illuminate(x,y,light.radius * env);
-      illuminate(x,y,(light.radius/8) * env);
+      illuminate(x,y,45,env);
+      illuminate(x,y,7,env);
+      //remove darkness layer
+      lighting.save();
+      lighting.globalCompositeOperation = 'destination-out';
+      lighting.beginPath();
+      lighting.arc(x, y, (45 * (1 + rnd)) * env, 0, 2 * Math.PI, false);
+      lighting.fill();
+      lighting.restore();
     }
   }
 }
 
 var renderLighting = function(){
   var z = Player.list[selfId].z;
-  if(z === 0){
+  if(z === 0 || z === 1 || z === 2){
     if(tempus === 'IX.p' || tempus === 'X.p' || tempus === 'XI.p' || tempus === 'XII.a' || tempus === 'I.a' || tempus === 'II.a' || tempus === 'III.a'){
       lighting.clearRect(0,0,WIDTH,HEIGHT);
       lighting.fillStyle = "rgba(5, 5, 30, 0.9)"; // night

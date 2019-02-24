@@ -5,7 +5,7 @@
 //                                                                     //
 //   ☩  A   S O L I S   O R T V   V S Q V E   A D   O C C A S V M  ☩   //
 //                                                                     //
-//            A game by Johan Argyne / Templar Ventures.               //
+//            A game by Johan Argyne, Cistercian Capital               //
 //                                                                     //
 /////////////////////////////////////////////////////////////////////////
 
@@ -72,22 +72,32 @@ getLocTile = function(l,x,y){
   }
 };
 
-// get building id from (z,x,y)
-getBuilding = function(z,x,y){
+// get building id from (x,y)
+getBuilding = function(x,y){
   var loc = getLoc(x,y);
   for(i = 0; i < buildingCount; i++){
     var b = Building.list[buildingId[i]];
-    if(b.z === z){
-      for(n = 0; n < b.plot.length; n++){
-        if(b.plot[n][0] === loc[0] && b.plot[n][1] === loc[1]){
-          return b.id;
-        } else {
-          continue;
-        }
+    for(n = 0; n < b.plot.length; n++){
+      if(b.plot[n][0] === loc[0] && b.plot[n][1] === loc[1]){
+        return b.id;
+      } else {
+        continue;
       }
+    }
+  }
+}
+
+// check if player has key to door from (x,y,player.id)
+keyCheck = function(x,y,p){
+  var key = getBuilding(x,y);
+  var pKeys = Player.list[p].inventory.keys;
+  for(i in pKeys){
+    if(pKeys[i] === key){
+      return true;
     } else {
       continue;
     }
+    return false;
   }
 }
 
@@ -135,7 +145,7 @@ if(saveMap){
 
 // dayNight cycle
 var tempus = 'XII.a';
-var period = 360; // 1: 1hr, 2: 30m, 4: 15m, 12: 5m, 60: 1m, 360: 10s
+var period = 360; // 1=1hr, 2=30m, 4=15m, 12=5m, 60=1m, 360=10s
 var cycle = ['XII.a','I.a','II.a','III.a','IV.a','V.a','VI.a','VII.a','VIII.a','IX.a','X.a','XI.a',
             'XII.p','I.p','II.p','III.p','IV.p','V.p','VI.p','VII.p','VIII.p','IX.p','X.p','XI.p'];
 var tick = 1;
@@ -163,7 +173,7 @@ app.use('/client',express.static(__dirname + '/client'));
 serv.listen(2000);
 console.log("###################################");
 console.log("");
-console.log("        S T R O N G H O D L");
+console.log("     ♜  S T R O N G H O D L ♜");
 console.log("");
 console.log("   A SOLIS ORTV VSQVE AD OCCASVM");
 console.log("");
