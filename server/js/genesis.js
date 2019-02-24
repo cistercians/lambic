@@ -168,16 +168,9 @@ function genesis(){
             }
           }
         }
-        result.push(selection[Math.floor(Math.random() * selection.length)]);
+        entrances.push(selection[Math.floor(Math.random() * selection.length)]);
         selection = [];
       }
-    }
-    //randomly select 75% of them
-    cut = Math.ceil(result.length * 0.75);
-    for(i = 0; i < cut; i++){
-      var n = Math.floor(Math.random() * result.length);
-      entrances.push(result[n]);
-      result.splice(n,n);
     }
   };
 

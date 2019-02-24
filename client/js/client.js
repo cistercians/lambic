@@ -50,14 +50,6 @@ socket.on('addToChat',function(data){
   chatText.innerHTML += '<div>' + data + '</div>';
 });
 
-socket.on('pmToChat',function(data){
-  chatText.innerHTML += '<div><i>' + data + '</i></div>';
-});
-
-socket.on('urgentChat',function(data){
-  chatText.innerHTML += '<div><b>' + data + '</b></div>';
-});
-
 socket.on('mapEdit',function(data){
   world = data;
 });
@@ -514,23 +506,23 @@ setInterval(function(){
   }
 },300);
 
-// ARROWS
+// EFFECTS
 Img.arrow1 = new Image();
-Img.arrow1.src = '/client/img/bullets/arrow1.png';
+Img.arrow1.src = '/client/img/effects/arrow1.png';
 Img.arrow2 = new Image();
-Img.arrow2.src = '/client/img/bullets/arrow2.png';
+Img.arrow2.src = '/client/img/effects/arrow2.png';
 Img.arrow3 = new Image();
-Img.arrow3.src = '/client/img/bullets/arrow3.png';
+Img.arrow3.src = '/client/img/effects/arrow3.png';
 Img.arrow4 = new Image();
-Img.arrow4.src = '/client/img/bullets/arrow4.png';
+Img.arrow4.src = '/client/img/effects/arrow4.png';
 Img.arrow5 = new Image();
-Img.arrow5.src = '/client/img/bullets/arrow5.png';
+Img.arrow5.src = '/client/img/effects/arrow5.png';
 Img.arrow6 = new Image();
-Img.arrow6.src = '/client/img/bullets/arrow6.png';
+Img.arrow6.src = '/client/img/effects/arrow6.png';
 Img.arrow7 = new Image();
-Img.arrow7.src = '/client/img/bullets/arrow7.png';
+Img.arrow7.src = '/client/img/effects/arrow7.png';
 Img.arrow8 = new Image();
-Img.arrow8.src = '/client/img/bullets/arrow8.png';
+Img.arrow8.src = '/client/img/effects/arrow8.png';
 
 var ctx = document.getElementById('ctx').getContext('2d');
 var lighting = document.getElementById('lighting').getContext('2d');
@@ -776,7 +768,15 @@ var Light = function(initPack){
   Light.list[self.id] = self;
   return self;
 }
-Light.list = {};
+Light.list = {
+  antilag:{
+    id:null,
+    x:-100,
+    y:-100,
+    z:99,
+    radius:0
+  }
+};
 
 // player's id
 var selfId = null;
@@ -960,15 +960,13 @@ setInterval(function(){
     }
   }
   if(Player.list[selfId].z === 0){
-    if(tempus === 'IX.p' || tempus === 'X.p' || tempus === 'XI.p' || tempus === 'XII.a' || tempus === 'I.a' || tempus === 'II.a' || tempus === 'III.a'){
-      renderLightSources(3);
-    } else if(tempus === 'VIII.p' || tempus === 'IV.a'){
+    if(tempus === 'VIII.p' || tempus === 'IX.p' || tempus === 'X.p' || tempus === 'XI.p' || tempus === 'XII.a' || tempus === 'I.a' || tempus === 'II.a' || tempus === 'III.a' || tempus === 'IV.a'){
       renderLightSources(2);
     } else {
       renderLightSources(1);
     }
   } else if(Player.list[selfId].z === -1){
-    renderLightSources(4);
+    renderLightSources(2);
   } else if(Player.list[selfId].z === 1 || Player.list[selfId].z === 2){
     renderLightSources(1);
   }
@@ -1607,7 +1605,7 @@ var renderLightSources = function(env){
     var rnd = (0.05 * Math.sin(1.1 * Date.now() / 200) * flicker);
     var x = light.x - Player.list[selfId].x + WIDTH/2;
     var y = light.y - Player.list[selfId].y + HEIGHT/2;
-    if(light.z === Player.list[selfId].z){
+    if(light.z === Player.list[selfId].z || light.z ===  99){
       illuminate(x,y,45,env);
       illuminate(x,y,7,env);
       //remove darkness layer
