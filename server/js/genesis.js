@@ -122,6 +122,7 @@ function genesis(){
     var underworldTiles = createArray(mapTiles,mapTiles);
     var buildI = createArray(mapTiles,mapTiles);
     var buildII = createArray(mapTiles,mapTiles);
+    var buildIII = createArray(mapTiles,mapTiles);
     var resI = createArray(mapTiles,mapTiles);
     var resII = createArray(mapTiles,mapTiles);
 
@@ -130,6 +131,7 @@ function genesis(){
         underworldTiles[y][x] = 1;
         buildI[y][x] = 0;
         buildII[y][x] = 0;
+        buildIII[y][x] = 0;
         resI[y][x] = 0;
         resII[y][x] = 0;
       }
@@ -140,6 +142,7 @@ function genesis(){
     allTileMaps.push(underwaterTiles);
     allTileMaps.push(buildI);
     allTileMaps.push(buildII);
+    allTileMaps.push(buildIII);
     allTileMaps.push(resI);
     allTileMaps.push(resII);
 
@@ -260,9 +263,9 @@ function genesis(){
   for(x = 0; x < mapTiles; x++){
     for(y = 0; y < mapTiles; y++){
       if(worldMaps[0][y][x] === 2 || worldMaps[0][y][x] === 4){
-        worldMaps[5][y][x] = 50;
+        worldMaps[6][y][x] = 50;
       } else if(worldMaps[0][y][x] === 1 || worldMaps[0][y][x] === 5){
-        worldMaps[5][y][x] = 100;
+        worldMaps[6][y][x] = 100;
       } else {
         continue;
       }
@@ -275,7 +278,7 @@ function genesis(){
       roll = Math.random();
       if(worldMaps[1][y][x] === 1 && roll < 0.2 && (worldMaps[1][y+1][x] === 0 || worldMaps[1][y-1][x] === 0 || worldMaps[1][y][x+1] === 0 || worldMaps[1][y][x-1] === 0)){
         worldMaps[1][y][x] = 3;
-        worldMaps[6][y][x] = 150;
+        worldMaps[7][y][x] = 150;
       } else {
         continue;
       }

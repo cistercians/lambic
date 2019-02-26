@@ -39,8 +39,12 @@ Entity = function(param){
 Building = function(param){
   var self = Entity(param);
   self.owner = param.owner;
+  self.house = param.house;
+  self.kingdom = param.kingdom;
   self.type = param.type;
   self.plot = param.plot;
+  self.walls = param.walls;
+  self.topPlot = param.topPlot;
   self.mats = param.mats;
   self.req = param.req;
   self.hp = param.hp;
@@ -68,6 +72,7 @@ Character = function(param){
     trinket2:null
   }
   self.inventory = {
+    gold:0,
     keys:[],
     wood:0,
     stone:0,
@@ -86,7 +91,7 @@ Character = function(param){
   self.hpMax = 100;
   self.mana = 100;
   self.manaMax = 100;
-  self.strength = 1;
+  self.strength = 10;
   self.dexterity = 1;
 
   return self;
@@ -158,8 +163,8 @@ Player = function(param){
         self.working = true;
         self.actionCooldown = 10;
         setTimeout(function(){
-          if(self.working && res > 0){
-            world[5][loc[1]][loc[0]] -= 1;
+          if(self.working){
+            world[6][loc[1]][loc[0]] -= 1;
             self.inventory.wood += 1;
             self.working = false;
           } else {
@@ -172,7 +177,7 @@ Player = function(param){
         self.actionCooldown = 10;
         setTimeout(function(){
           if(self.working){
-            world[5][loc[1]][loc[0]] -= 1;
+            world[6][loc[1]][loc[0]] -= 1;
             self.inventory.stone += 1;
             self.working = false;
           } else {
@@ -184,7 +189,7 @@ Player = function(param){
         self.actionCooldown = 10;
         setTimeout(function(){
           if(self.working){
-            world[6][loc[1]][loc[0]] -= 1;
+            world[7][loc[1]][loc[0]] -= 1;
             self.inventory.stone += 1;
             self.working = false;
           } else {
@@ -197,16 +202,16 @@ Player = function(param){
         self.working = true;
         self.actionCooldown = 10;
         setTimeout(function(){
-          if(self.working && world[5][loc[1]][loc[0]] < 25){
-            world[5][loc[1]][loc[0]] += 1;
+          if(self.working && world[6][loc[1]][loc[0]] < 25){
+            world[6][loc[1]][loc[0]] += 1;
             io.emit('mapEdit',world);
             self.working = false;
             var count = 0;
             var plot = Building.list[f].plot;
             for(i in plot){
               var n = plot[i];
-              console.log(world[5][n[1]][n[0]]);
-              if(world[5][n[1]][n[0]] === 25){
+              console.log(world[6][n[1]][n[0]]);
+              if(world[6][n[1]][n[0]] === 25){
                 count++;
               } else {
                 continue;
@@ -229,14 +234,14 @@ Player = function(param){
         self.working = true;
         self.actionCooldown = 10;
         setTimeout(function(){
-          if(self.working && world[5][loc[1]][loc[0]] < 50){
-            world[5][loc[1]][loc[0]] += 5;
+          if(self.working && world[6][loc[1]][loc[0]] < 50){
+            world[6][loc[1]][loc[0]] += 5;
             io.emit('mapEdit',world);
             self.working = false;
             var count = 0;
             var plot = f.plot;
             for(i in plot){
-              if(world[5][plot[i][1]][plot[i][0]] === 50){
+              if(world[6][plot[i][1]][plot[i][0]] === 50){
                 count++;
               } else {
                 continue;
@@ -258,10 +263,10 @@ Player = function(param){
         self.actionCooldown = 10;
         setTimeout(function(){
           if(self.working){
-            world[5][loc[1]][loc[0]] -= 1;
+            world[6][loc[1]][loc[0]] -= 1;
             self.inventory.grain += 1;
             self.working = false;
-            if(world[5][loc[1]][loc[0]] === 0){
+            if(world[6][loc[1]][loc[0]] === 0){
               world[0][loc[1]][loc[0]] = 8;
               io.emit('mapEdit', world);
             }
@@ -276,43 +281,95 @@ Player = function(param){
         var b = Building.list[getBuilding(self.x,self.y)];
         setTimeout(function(){
           if(self.working){
-            world[5][loc[1]][loc[0]] += 5;
+            world[6][loc[1]][loc[0]] += 10;
             self.working = false;
             var count = 0;
             var plot = b.plot;
-            if(world[5][loc[1]][loc[0]] >= b.req){
+            var walls = b.walls;
+            var top = b.topPlot;
+            if(world[6][loc[1]][loc[0]] >= b.req){
               world[0][loc[1]][loc[0]] = 12;
               io.emit('mapEdit',world);
             }
             for(i in plot){
-              if(world[5][plot[i][1]][plot[i][0]] >= b.req){
+              if(world[6][plot[i][1]][plot[i][0]] >= b.req){
                 count++;
               } else {
                 continue;
               }
             }
             if(count === plot.length){
-              for(i in plot){
-                if(b.type === 'hut'){
+              if(b.type === 'hut'){
+                for(i in plot){
                   world[0][plot[i][1]][plot[i][0]] = 13;
                   world[3][plot[i][1]][plot[i][0]] = String('hut' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'hut1'){
                     world[0][plot[i][1]][plot[i][0]] = 14;
                   }
-                } else if(b.type === 'house'){
+                }
+                for(i in walls){
+                  var n = walls[i];
+                  world[4][n[1]][n[0]] = 1;
+                }
+              } else if(b.type === 'house'){
+                for(i in plot){
                   world[0][plot[i][1]][plot[i][0]] = 15;
                   world[3][plot[i][1]][plot[i][0]] = String('house' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'house1'){
                     world[0][plot[i][1]][plot[i][0]] = 19;
+                  } else if(world[3][plot[i][1]][plot[i][0]] === 'house4'){
+                    world[0][plot[i][1]][plot[i][0]] = 17;
                   }
-                  Player.list[b.owner].inventory.keys.push(b.id);
-                } else if(b.type === 'wwall'){
-                  world[0][plot[i][1]][plot[i][0]] = 18;
-                  world[3][plot[i][1]][plot[i][0]] = 'wwall';
-                } else if(b.type === 'swall'){
-                  world[0][plot[i][1]][plot[i][0]] = 18;
-                  world[3][plot[i][1]][plot[i][0]] = 'swall';
                 }
+                for(i in walls){
+                  var n = walls[i];
+                  world[4][n[1]][n[0]] = 2;
+                }
+                Player.list[b.owner].inventory.keys.push(b.id);
+              } else if(b.type === 'fort'){
+                world[0][plot[0][1]][plot[0][0]] = 18;
+                world[3][plot[0][1]][plot[0][0]] = 'fort';
+              } else if(b.type === 'wall'){
+                world[0][plot[0][1]][plot[0][0]] = 18;
+                world[3][plot[0][1]][plot[0][0]] = 'wall';
+              } else if(b.type === 'outpost'){
+                world[0][plot[0][1]][plot[0][0]] = 18;
+                world[3][plot[0][1]][plot[0][0]] = 'outpost0';
+                world[5][top[0][1]][top[0][0]] = 'outpost1';
+              } else if(b.type === 'gtower'){
+                for(i in plot){
+                  world[0][plot[i][1]][plot[i][0]] = 18;
+                  world[3][top[i][1]][top[i][0]] = String('gtower' + i);
+                }
+                world[5][top[0][1]][top[0][0]] = 'gtower4';
+                world[5][top[1][1]][top[1][0]] = 'gtower5';
+              } else if(b.type === 'tower'){
+                for(i in plot){
+                  world[3][plot[i][1]][plot[i][0]] = String('tower' + i);
+                  if(world[3][plot[i][1]][plot[i][0]] === 'tower0'){
+                    world[0][plot[i][1]][plot[i][0]] = 19;
+                    world[5][plot[i][1]][plot[i][0]] = 19;
+                  } else if(world[3][plot[i][1]][plot[i][0]] === 'tower1' || world[3][plot[i][1]][plot[i][0]] === 'tower3' || world[3][plot[i][1]][plot[i][0]] === 'tower4'){
+                    world[0][plot[i][1]][plot[i][0]] = 17;
+                    world[5][plot[i][1]][plot[i][0]] = 17;
+                  } else {
+                    world[0][plot[i][1]][plot[i][0]] = 15;
+                    world[5][plot[i][1]][plot[i][0]] = 15;
+                  }
+                }
+                var ii = 9;
+                for(i in top){
+                  var n = top[i];
+                  world[5][n[1]][n[0]] = String('tower' + ii)
+                  world[4][n[1]][n[0]] = 2;
+                  if(world[5][n[1]][n[0]] === 'tower10'){
+                    world[4][n[1]][n[0]] = 3;
+                  } else if(world[5][n[1]][n[0]] === 'tower12' || world[5][n[1]][n[0]] === 'tower13' || world[5][n[1]][n[0]] === 'tower14'){
+                    world[4][n[1]][n[0]] = 0;
+                  }
+                  ii++;
+                }
+                Player.list[b.owner].inventory.keys.push(b.id);
               }
               io.emit('mapEdit',world);
             }
@@ -356,16 +413,16 @@ Player = function(param){
     var downBlocked = false;
 
     // outdoor collisions
-    if(self.z === 0 && (getLocTile(0,self.x+(tileSize/2),self.y) === 13 || getLocTile(0,self.x+(tileSize/2),self.y) === 15 || getLocTile(0,self.x+(tileSize/2),self.y) === 18 || (self.x + 10) > (mapPx - tileSize))){
+    if(self.z === 0 && (getLocTile(0,self.x+(tileSize/2),self.y) === 13 || getLocTile(0,self.x+(tileSize/2),self.y) === 15 || getLocTile(0,self.x+(tileSize/2),self.y) === 17 || getLocTile(0,self.x+(tileSize/2),self.y) === 18 || (self.x + 10) > (mapPx - tileSize))){
       rightBlocked = true;
     }
-    if(self.z === 0 && (getLocTile(0,self.x-(tileSize/2),self.y) === 13 || getLocTile(0,self.x-(tileSize/2),self.y) === 15 || getLocTile(0,self.x-(tileSize/2),self.y) === 18 || (self.x - 10) < 0)){
+    if(self.z === 0 && (getLocTile(0,self.x-(tileSize/2),self.y) === 13 || getLocTile(0,self.x-(tileSize/2),self.y) === 15 || getLocTile(0,self.x-(tileSize/2),self.y) === 17 || getLocTile(0,self.x-(tileSize/2),self.y) === 18 || (self.x - 10) < 0)){
       leftBlocked = true;
     }
-    if(self.z === 0 && (getLocTile(0,self.x,self.y-(tileSize/2)) === 13 || getLocTile(0,self.x,self.y-(tileSize/2)) === 15 || getLocTile(0,self.x,self.y-(tileSize/2)) === 18 || (getLocTile(0,self.x,self.y-(tileSize/2)) === 19 && !keyCheck(self.x,self.y-(tileSize/2),self.id)) || (self.y - 10) < 0)){
+    if(self.z === 0 && (getLocTile(0,self.x,self.y-(tileSize/2)) === 13 || getLocTile(0,self.x,self.y-(tileSize/2)) === 15 || getLocTile(0,self.x,self.y-(tileSize/2)) === 17 || getLocTile(0,self.x,self.y-(tileSize/2)) === 18 || (getLocTile(0,self.x,self.y-(tileSize/2)) === 19 && !keyCheck(self.x,self.y-(tileSize/2),self.id)) || (self.y - 10) < 0)){
       upBlocked = true;
     }
-    if(self.z === 0 && (getLocTile(0,self.x,self.y+(tileSize/2)) === 13 || getLocTile(0,self.x,self.y+(tileSize/2)) === 15 || getLocTile(0,self.x,self.y+(tileSize/2)) === 18 || (self.y + 10) > (mapPx - tileSize))){
+    if(self.z === 0 && (getLocTile(0,self.x,self.y+(tileSize*0.75)) === 13 || getLocTile(0,self.x,self.y+(tileSize*0.75)) === 15 || getLocTile(0,self.x,self.y+(tileSize*0.75)) === 17 || getLocTile(0,self.x,self.y+(tileSize*0.75)) === 18 || (self.y + 10) > (mapPx - tileSize))){
       downBlocked = true;
     }
 
@@ -379,11 +436,11 @@ Player = function(param){
     if(self.z === -1 && (getLocTile(1,self.x,self.y-(tileSize/4)) === 1 || (self.y - 10) < 0)){
       upBlocked = true;
     }
-    if(self.z === -1 && (getLocTile(1,self.x,self.y+(tileSize/2)) === 1 || (self.y + 10) > (mapPx - tileSize))){
+    if(self.z === -1 && (getLocTile(1,self.x,self.y+(tileSize*0.75)) === 1 || (self.y + 10) > (mapPx - tileSize))){
       downBlocked = true;
     }
 
-    // indoor collisions
+    // indoor1 collisions
     if(self.z === 1 && getLocTile(3,self.x+(tileSize/2),self.y) === 0){
       rightBlocked = true;
     }
@@ -393,7 +450,21 @@ Player = function(param){
     if(self.z === 1 && (getLocTile(4,self.x,self.y-(tileSize/6)) === 1 || getLocTile(4,self.x,self.y-(tileSize/6)) === 2)){
       upBlocked = true;
     }
-    if(self.z === 1 && getLocTile(0,self.x,self.y) !== 14 && getLocTile(0,self.x,self.y) !== 16 && getLocTile(0,self.x,self.y) !== 19 && getLocTile(3,self.x,self.y+(tileSize/2)) === 0){
+    if(self.z === 1 && getLocTile(0,self.x,self.y) !== 14 && getLocTile(0,self.x,self.y) !== 16 && getLocTile(0,self.x,self.y) !== 19 && getLocTile(3,self.x,self.y+(tileSize*0.75)) === 0){
+      downBlocked = true;
+    }
+
+    // indoor2 collisions
+    if(self.z === 2 && getLocTile(3,self.x+(tileSize/2),self.y) === 0){
+      rightBlocked = true;
+    }
+    if(self.z === 2 && getLocTile(3,self.x-(tileSize/2),self.y) === 0){
+      leftBlocked = true;
+    }
+    if(self.z === 2 && (getLocTile(4,self.x,self.y-(tileSize/6)) === 2)){
+      upBlocked = true;
+    }
+    if(self.z === 2 && getLocTile(3,self.x,self.y+(tileSize*0.75)) === 0){
       downBlocked = true;
     }
 
@@ -467,6 +538,16 @@ Player = function(param){
     } else if(self.z === 1){
       if(getTile(0,loc[0],loc[1] - 1) === 14 || getTile(0,loc[0],loc[1] - 1) === 16  || getTile(0,loc[0],loc[1] - 1) === 19){
         self.z = 0;
+      } else if(getTile(4,loc[0],loc[1]) === 3){
+        self.z = 2;
+        self.y += tileSize;
+        self.facing = 'down'
+      }
+    } else if(self.z === 2){
+      if(getTile(4,loc[0],loc[1]) === 3){
+        self.z = 1;
+        self.y += tileSize;
+        self.facing = 'down'
       }
     }
   }
@@ -556,7 +637,7 @@ Player.onConnect = function(socket,username){
 
   socket.on('sendMsgToServer',function(data){
     for(var i in SOCKET_LIST){
-      SOCKET_LIST[i].emit('addToChat',data.username + ': ' + data.message);
+      SOCKET_LIST[i].emit('addToChat','<b>' + data.username + ':</b> ' + data.message);
     }
   });
 
@@ -570,7 +651,7 @@ Player.onConnect = function(socket,username){
     if(recipient === null){
       socket.emit('addToChat','DM: ' + data.recip + ' is not online.');
     } else {
-      recipient.emit('addToChat','@' + player.username + ' whispers: <i>' + data.message + '</i>');
+      recipient.emit('addToChat','<b>@' + player.username + '</b> whispers: <i>' + data.message + '</i>');
       SOCKET_LIST[player.id].emit('addToChat','To ' + data.recip + ': <i>' + data.message + '</i>');
     }
   });

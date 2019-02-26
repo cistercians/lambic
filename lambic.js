@@ -273,7 +273,7 @@ var dayNight = function(){
   };
 };
 
-// initiate dayNight cycle
+// initiate day/night cycle
 setInterval(dayNight, 3600000/period);
 console.log(tempus);
 
