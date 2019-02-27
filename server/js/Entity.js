@@ -53,6 +53,12 @@ Building = function(param){
   buildingCount++;
   buildingId.push(self.id);
 
+  io.emit('newBuilding',{
+    bCount:buildingCount,
+    bId:buildingId,
+    bList:Building.list
+  });
+
   return self;
 }
 
@@ -156,7 +162,7 @@ Player = function(param){
           } else {
             return;
           }
-        },3000);
+        },3000/self.strength);
       }
       // gather wood
       if(self.z === 0 && (getTile(0,loc[0],loc[1]) === 1 || getTile(0,loc[0],loc[1]) === 2)){
@@ -348,10 +354,10 @@ Player = function(param){
                   world[3][plot[i][1]][plot[i][0]] = String('tower' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'tower0'){
                     world[0][plot[i][1]][plot[i][0]] = 19;
-                    world[5][plot[i][1]][plot[i][0]] = 19;
+                    world[5][plot[i][1]][plot[i][0]] = 15;
                   } else if(world[3][plot[i][1]][plot[i][0]] === 'tower1' || world[3][plot[i][1]][plot[i][0]] === 'tower3' || world[3][plot[i][1]][plot[i][0]] === 'tower4'){
                     world[0][plot[i][1]][plot[i][0]] = 17;
-                    world[5][plot[i][1]][plot[i][0]] = 17;
+                    world[5][plot[i][1]][plot[i][0]] = 15;
                   } else {
                     world[0][plot[i][1]][plot[i][0]] = 15;
                     world[5][plot[i][1]][plot[i][0]] = 15;
@@ -360,16 +366,90 @@ Player = function(param){
                 var ii = 9;
                 for(i in top){
                   var n = top[i];
-                  world[5][n[1]][n[0]] = String('tower' + ii)
+                  world[5][n[1]][n[0]] = String('tower' + ii);
                   world[4][n[1]][n[0]] = 2;
                   if(world[5][n[1]][n[0]] === 'tower10'){
-                    world[4][n[1]][n[0]] = 3;
+                    world[4][n[1]][n[0]] = 4;
                   } else if(world[5][n[1]][n[0]] === 'tower12' || world[5][n[1]][n[0]] === 'tower13' || world[5][n[1]][n[0]] === 'tower14'){
                     world[4][n[1]][n[0]] = 0;
                   }
                   ii++;
                 }
                 Player.list[b.owner].inventory.keys.push(b.id);
+              } else if(b.type === 'tavern'){
+                for(i in plot){
+                  world[3][plot[i][1]][plot[i][0]] = String('tavern' + i);
+                  if(world[3][plot[i][1]][plot[i][0]] === 'tavern1'){
+                    world[0][plot[i][1]][plot[i][0]] = 14;
+                    world[5][plot[i][1]][plot[i][0]] = 14;
+                  } else {
+                    world[0][plot[i][1]][plot[i][0]] = 13;
+                    world[5][plot[i][1]][plot[i][0]] = 13;
+                  }
+                }
+                var ii = 17;
+                for(i in top){
+                  var n = top[i];
+                  world[5][n[1]][n[0]] = String('tavern' + ii);
+                  ii++;
+                }
+                for(i in walls){
+                  var n = walls[i];
+                  world[4][n[1]][n[0]] = 1;
+                }
+                world[4][walls[4][1]][walls[4][0]] = 3;
+              } else if(b.type === 'monastery'){
+                for(i in plot){
+                  world[3][plot[i][1]][plot[i][0]] = String('monastery' + i);
+                  if(world[3][plot[i][1]][plot[i][0]] === 'monastery0'){
+                    world[0][plot[i][1]][plot[i][0]] = 16;
+                  } else if(world[3][plot[i][1]][plot[i][0]] === 'monastery1' || world[3][plot[i][1]][plot[i][0]] === 'monastery2' || world[3][plot[i][1]][plot[i][0]] === 'monastery4' || world[3][plot[i][1]][plot[i][0]] === 'monastery5' || world[3][plot[i][1]][plot[i][0]] === 'monastery6'){
+                    world[0][plot[i][1]][plot[i][0]] = 17;
+                  } else if(world[3][plot[i][1]][plot[i][0]] === 'monastery3' || world[3][plot[i][1]][plot[i][0]] === 'monastery7'){
+                    world[0][plot[i][1]][plot[i][0]] = 15;
+                  } else if(world[3][plot[i][1]][plot[i][0]] === 'monastery12' || world[3][plot[i][1]][plot[i][0]] === 'monastery13'){
+                    world[0][plot[i][1]][plot[i][0]] = 15;
+                    world[5][plot[i][1]][plot[i][0]] = 17;
+                  } else {
+                    world[0][plot[i][1]][plot[i][0]] = 15;
+                    world[5][plot[i][1]][plot[i][0]] = 15;
+                  }
+                }
+                var ii = 14;
+                for(i in top){
+                  var n = top[i];
+                  world[5][n[1]][n[0]] = String('monastery' + ii);
+                  ii++;
+                }
+                for(i in walls){
+                  var n = walls[i];
+                  world[4][n[1]][n[0]] = 2;
+                }
+                world[4][walls[1][1]][walls[1][0]] = 4;
+              } else if(b.type === 'market'){
+                for(i in plot){
+                  world[3][plot[i][1]][plot[i][0]] = String('market' + i);
+                  if(world[3][plot[i][1]][plot[i][0]] === 'market0' || world[3][plot[i][1]][plot[i][0]] === 'market1' || world[3][plot[i][1]][plot[i][0]] === 'market2'){
+                    world[0][plot[i][1]][plot[i][0]] = 14;
+                  } else {
+                    world[0][plot[i][1]][plot[i][0]] = 13;
+                    world[5][plot[i][1]][plot[i][0]] = 13;
+                  }
+                }
+                var ii = 12;
+                for(i in top){
+                  var n = top[i];
+                  world[5][n[1]][n[0]] = String('market' + ii);
+                  ii++;
+                }
+                for(i in walls){
+                  var n = walls[i];
+                  if(world[5][n[1]][n[0]] === 'market12'){
+                    world[4][n[1]][n[0]] = 3;
+                  } else {
+                    world[4][n[1]][n[0]] = 1;
+                  }
+                }
               }
               io.emit('mapEdit',world);
             }
@@ -393,12 +473,10 @@ Player = function(param){
 
   self.lightTorch = function(){
     Torch({
-      itemId:0,
       parent:self.id,
       x:self.x,
       y:self.y,
       z:self.z,
-      canPickup:false
     })
     self.inventory.torch--;
     console.log(self.inventory.torch);
@@ -461,10 +539,10 @@ Player = function(param){
     if(self.z === 2 && getLocTile(3,self.x-(tileSize/2),self.y) === 0){
       leftBlocked = true;
     }
-    if(self.z === 2 && (getLocTile(4,self.x,self.y-(tileSize/6)) === 2)){
+    if(self.z === 2 && (getLocTile(4,self.x,self.y-(tileSize/6)) === 1 || getLocTile(4,self.x,self.y-(tileSize/6)) === 2)){
       upBlocked = true;
     }
-    if(self.z === 2 && getLocTile(3,self.x,self.y+(tileSize*0.75)) === 0){
+    if(self.z === 2 && getLocTile(5,self.x,self.y+(tileSize*0.75)) === 0){
       downBlocked = true;
     }
 
@@ -522,7 +600,12 @@ Player = function(param){
       } else if(getTile(0,loc[0],loc[1]) === 5 && self.onMtn){
         self.maxSpd = self.baseSpd * 0.5;
       } else if(getTile(0,loc[0],loc[1]) === 14 || getTile(0,loc[0],loc[1]) === 16 || getTile(0,loc[0],loc[1]) === 19){
-        self.z = 1;
+        if(getTile(0,loc[0],loc[1]) === 19){
+          self.z = 1;
+          SOCKET_LIST[self.id].emit('addToChat','<i>You unlock the door.</i>');
+        } else {
+          self.z = 1;
+        }
         self.inTrees = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd;
@@ -538,15 +621,15 @@ Player = function(param){
     } else if(self.z === 1){
       if(getTile(0,loc[0],loc[1] - 1) === 14 || getTile(0,loc[0],loc[1] - 1) === 16  || getTile(0,loc[0],loc[1] - 1) === 19){
         self.z = 0;
-      } else if(getTile(4,loc[0],loc[1]) === 3){
+      } else if(getTile(4,loc[0],loc[1]) === 3 || getTile(4,loc[0],loc[1]) === 4){
         self.z = 2;
-        self.y += tileSize;
+        self.y += (tileSize/2);
         self.facing = 'down'
       }
     } else if(self.z === 2){
-      if(getTile(4,loc[0],loc[1]) === 3){
+      if(getTile(4,loc[0],loc[1]) === 3 || getTile(4,loc[0],loc[1]) === 4){
         self.z = 1;
-        self.y += tileSize;
+        self.y += (tileSize/2);
         self.facing = 'down'
       }
     }
@@ -729,6 +812,10 @@ Arrow = function(param){
         self.toRemove = true;
       } else if(self.z === -1 && getLocTile(1,self.x,self.y) === 1){
         self.toRemove = true;
+      } else if(self.z === 1 && (getLocTile(3,self.x,self.y) === 0 || getLocTile(4,self.x,self.y) !== 0)){
+        self.toRemove = true;
+      } else if(self.z === 2 && (getLocTile(5,self.x,self.y) === 0 || getLocTile(4,self.x,self.y) !== 0)){
+        self.toRemove = true;
       }
     }
   }
@@ -780,29 +867,26 @@ Arrow.getAllInitPack = function(){
   return arrows;
 }
 
-// itemId list:
-// 0: Torch,
-
 // ITEM
 Item = function(param){
   var self = Entity(param);
   self.x = param.x;
   self.y = param.y;
   self.z = param.z;
-  self.itemId = param.itemId;
+  self.type = null;
+  self.rank = null;
   self.parent = param.parent;
-  self.canPickup = param.canPickup;
+  self.canPickup = true;
   self.toRemove = false;
 
   self.getInitPack = function(){
     return {
       id:self.id,
       parent:self.parent,
-      itemId:self.itemId,
+      type:self.type,
       x:self.x,
       y:self.y,
       z:self.z,
-      canPickup:self.canPickup
     };
   }
 
@@ -843,6 +927,9 @@ Item.getAllInitPack = function(){
 // TORCH
 Torch = function(param){
   var self = Item(param);
+  self.type = 'torch';
+  self.rank = 0;
+  self.canPickup = false;
   self.timer = 0;
   var super_update = self.update;
   self.update = function(){

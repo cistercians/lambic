@@ -346,6 +346,181 @@ EvalCmd = function(data){
               stone:125
             },
             req:10,
+            hp:2000
+          });
+        } else {
+          socket.emit('addToChat','<b>DM: You cannot build that there.</b>');
+        }
+      } else {
+        socket.emit('addToChat','<b>DM: You cannot build that there.</b>');
+      }
+    } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) === 'tavern' && z === 0){
+      var plot = [[c+1,r],[c+2,r],[c+3,r],[c,r-1],[c+1,r-1],[c+2,r-1],[c+3,r-1],[c+4,r-1],[c,r-2],[c+1,r-2],[c+2,r-2],[c+3,r-2],[c+4,r-2],[c,r-3],[c+1,r-3],[c+2,r-3],[c+3,r-3]];
+      var walls = [[c,r-4],[c+1,r-4],[c+2,r-4],[c+3,r-4],[c+4,r-3]];
+      var topPlot = [[c+1,r-4],[c+2,r-4],[c+3,r-4]];
+      var perim = [[c+1,r-4],[c+2,r-4],[c+3,r-4],[c+4,r-4],[c-1,r-3],[c-1,r-2],[c-1,r-1],[c,r],[c+1,r+1],[c+2,r+1],[c+3,r+1],[c+4,r],[c+4,r-3],[c+5,r-3],[c+5,r-2],[c+5,r-1]];
+      var count = 0;
+      for(i in plot){
+        var n = plot[i];
+        if(getTile(0,n[0],n[1]) === 7){
+          count++;
+        }
+      }
+      if(count === 17){
+        count = 0;
+        for(i in perim){
+          var n = perim[i];
+          if(getTile(0,n[0],n[1]) !== 11 &&
+          getTile(0,n[0],n[1]) !== 12 &&
+          getTile(0,n[0],n[1]) !== 13 &&
+          getTile(0,n[0],n[1]) !== 14 &&
+          getTile(0,n[0],n[1]) !== 15 &&
+          getTile(0,n[0],n[1]) !== 16 &&
+          getTile(0,n[0],n[1]) !== 17 &&
+          getTile(0,n[0],n[1]) !== 19 &&
+          getTile(5,n[0],n[1]) === 0){
+            count++;
+          }
+        }
+        if(count === 16){
+          for(i in plot){
+            var n = plot[i];
+            world[0][n[1]][n[0]] = 11;
+          }
+          io.emit('mapEdit',world);
+          Building({
+            owner:player.id,
+            house:player.house,
+            kingdom:player.kingdom,
+            x:player.x,
+            y:player.y,
+            z:0,
+            type:'tavern',
+            plot:plot,
+            walls:walls,
+            topPlot:topPlot,
+            mats:{
+              wood:125,
+              stone:0
+            },
+            req:10,
+            hp:1000
+          });
+        } else {
+          socket.emit('addToChat','<b>DM: You cannot build that there.</b>');
+        }
+      } else {
+        socket.emit('addToChat','<b>DM: You cannot build that there.</b>');
+      }
+    } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) === 'monastery' && z === 0){
+      var plot = [[c,r],[c+1,r],[c+2,r],[c+3,r],[c,r-1],[c+1,r-1],[c+2,r-1],[c+3,r-1],[c,r-2],[c+1,r-2],[c+2,r-2],[c+3,r-2],[c,r-3],[c+1,r-3]];
+      var walls = [[c+2,r-3],[c+3,r-3],[c,r-4],[c+1,r-4]];
+      var topPlot = [[c+2,r-3],[c,r-4],[c+1,r-4]];
+      var perim = [[c,r-4],[c+1,r-4],[c+2,r-3],[c+2,r-4],[c+3,r-3],[c-1,r-4],[c-1,r-3],[c-1,r-2],[c-1,r-1],[c-1,r],[c,r+1],[c+1,r+1],[c+2,r+1],[c+3,r+1],[c+4,r-3],[c+4,r-2],[c+4,r-1],[c+4,r]];
+      var count = 0;
+      for(i in plot){
+        var n = plot[i];
+        if(getTile(0,n[0],n[1]) === 7 || getTile(0,n[0],n[1]) === 4 || getTile(0,n[0],n[1]) === 5){
+          count++;
+        }
+      }
+      if(count === 14){
+        count = 0;
+        for(i in perim){
+          var n = perim[i];
+          if(getTile(0,n[0],n[1]) !== 11 &&
+          getTile(0,n[0],n[1]) !== 12 &&
+          getTile(0,n[0],n[1]) !== 13 &&
+          getTile(0,n[0],n[1]) !== 14 &&
+          getTile(0,n[0],n[1]) !== 15 &&
+          getTile(0,n[0],n[1]) !== 16 &&
+          getTile(0,n[0],n[1]) !== 17 &&
+          getTile(0,n[0],n[1]) !== 19 &&
+          getTile(5,n[0],n[1]) === 0){
+            count++;
+          }
+        }
+        if(count === 18){
+          for(i in plot){
+            var n = plot[i];
+            world[0][n[1]][n[0]] = 11;
+            world[6][n[1]][n[0]] = 0;
+          }
+          io.emit('mapEdit',world);
+          Building({
+            owner:player.id,
+            house:player.house,
+            kingdom:player.kingdom,
+            x:player.x,
+            y:player.y,
+            z:0,
+            type:'monastery',
+            plot:plot,
+            walls:walls,
+            topPlot:topPlot,
+            mats:{
+              wood:0,
+              stone:125
+            },
+            req:10,
+            hp:1500
+          });
+        } else {
+          socket.emit('addToChat','<b>DM: You cannot build that there.</b>');
+        }
+      } else {
+        socket.emit('addToChat','<b>DM: You cannot build that there.</b>');
+      }
+    } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) === 'market' && z === 0){
+      var plot = [[c+1,r],[c+2,r],[c+3,r],[c,r-1],[c+1,r-1],[c+2,r-1],[c+3,r-1],[c+4,r-1],[c,r-2],[c+1,r-2],[c+2,r-2],[c+3,r-2]];
+      var walls = [[c+4,r-2],[c,r-3],[c+1,r-3],[c+2,r-3],[c+3,r-3]];
+      var topPlot = [[c+4,r-2],[c,r-3],[c+1,r-3],[c+2,r-3],[c+3,r-3]];
+      var perim = [[c,r-4],[c+1,r-4],[c+2,r-3],[c+2,r-4],[c+3,r-4],[c+4,r-4],[c-1,r-3],[c-1,r-2],[c-1,r-1],[c-1,r],[c,r],[c+1,r+1],[c+2,r+1],[c+3,r+1],[c+4,r],[c+4,r-3],[c+5,r-2],[c+5,r-1]];
+      var count = 0;
+      for(i in plot){
+        var n = plot[i];
+        if(getTile(0,n[0],n[1]) === 7){
+          count++;
+        }
+      }
+      if(count === 12){
+        count = 0;
+        for(i in perim){
+          var n = perim[i];
+          if(getTile(0,n[0],n[1]) !== 11 &&
+          getTile(0,n[0],n[1]) !== 12 &&
+          getTile(0,n[0],n[1]) !== 13 &&
+          getTile(0,n[0],n[1]) !== 14 &&
+          getTile(0,n[0],n[1]) !== 15 &&
+          getTile(0,n[0],n[1]) !== 16 &&
+          getTile(0,n[0],n[1]) !== 17 &&
+          getTile(0,n[0],n[1]) !== 19 &&
+          getTile(5,n[0],n[1]) === 0){
+            count++;
+          }
+        }
+        if(count === 18){
+          for(i in plot){
+            var n = plot[i];
+            world[0][n[1]][n[0]] = 11;
+          }
+          io.emit('mapEdit',world);
+          Building({
+            owner:player.id,
+            house:player.house,
+            kingdom:player.kingdom,
+            x:player.x,
+            y:player.y,
+            z:0,
+            type:'market',
+            plot:plot,
+            walls:walls,
+            topPlot:topPlot,
+            mats:{
+              wood:125,
+              stone:0
+            },
+            req:10,
             hp:1000
           });
         } else {
