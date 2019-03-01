@@ -630,7 +630,7 @@ Player = function(param){
       } else if(getTile(0,loc[0],loc[1]) === 14 || getTile(0,loc[0],loc[1]) === 16 || getTile(0,loc[0],loc[1]) === 19){
         if(getTile(0,loc[0],loc[1]) === 19){
           self.z = 1;
-          SOCKET_LIST[self.id].emit('addToChat','<i>You unlock the door.</i>');
+          SOCKET_LIST[self.id].emit('addToChat','<i>You unlock this door.</i>');
         } else {
           self.z = 1;
         }

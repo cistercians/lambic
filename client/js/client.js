@@ -1164,7 +1164,7 @@ setInterval(function(){
       renderLightSources(1);
     }
   } else if(Player.list[selfId].z === -1){
-    renderLightSources(2);
+    renderLightSources(3);
   } else if(Player.list[selfId].z === 1 || Player.list[selfId].z === 2){
     renderLightSources(1);
   }
@@ -2869,6 +2869,8 @@ var renderLighting = function(){
       lighting.fillRect(0,0,WIDTH,HEIGHT);
     }
   } else if(z === -1){
+    ctx.fillStyle = "rgba(244, 214, 65, 0.2)";
+    ctx.fillRect(0,0,WIDTH,HEIGHT);
     lighting.clearRect(0,0,WIDTH,HEIGHT);
     lighting.fillStyle = "rgba(0, 0, 0, 0.9)"; // cave darkness
     lighting.fillRect(0,0,WIDTH,HEIGHT);
