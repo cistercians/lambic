@@ -112,7 +112,7 @@ EvalCmd = function(data){
       var count = 0;
       for(i in plot){
         var n = plot[i];
-        if(getTile(0,n[0],n[1]) === 7 || getTile(0,n[0],n[1]) === 4){
+        if(getTile(0,n[0],n[1]) === 7 || getTile(0,n[0],n[1]) === 4 || getTile(0,n[0],n[1]) === 18){
           count++;
         }
       }
@@ -165,7 +165,7 @@ EvalCmd = function(data){
       }
     } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) === 'fort' && z === 0){
       var plot = [[c,r]];
-      if(getTile(0,c,r) === 7){
+      if(getTile(0,c,r) === 7 || getTile(0,n[0],n[1]) === 18){
         if(getTile(0,c,r-1) === 14 || getTile(c,r-1) === 16){
           socket.emit('addToChat','<b>DM: You cannot build that there.</b>');
         } else {
@@ -193,7 +193,7 @@ EvalCmd = function(data){
       }
     } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) === 'wall' && z === 0){
       var plot = [[c,r]];
-      if(getTile(0,c,r) === 7 || getTile(0,c,r) === 4){
+      if(getTile(0,c,r) === 7 || getTile(0,c,r) === 4 || getTile(0,n[0],n[1]) === 18){
         if(getTile(0,c,r-1) === 14 || getTile(c,r-1) === 16 || getTile(c,r-1) === 19){
           socket.emit('addToChat','<b>DM: You cannot build that there.</b>');
         } else {
@@ -303,7 +303,7 @@ EvalCmd = function(data){
       var count = 0;
       for(i in plot){
         var n = plot[i];
-        if(getTile(0,n[0],n[1]) === 7 || getTile(0,n[0],n[1]) === 4 || getTile(0,n[0],n[1]) === 5){
+        if(getTile(0,n[0],n[1]) === 7 || getTile(0,n[0],n[1]) === 4 || getTile(0,n[0],n[1]) === 5 || getTile(0,n[0],n[1]) === 18){
           count++;
         }
       }
@@ -362,7 +362,7 @@ EvalCmd = function(data){
       var count = 0;
       for(i in plot){
         var n = plot[i];
-        if(getTile(0,n[0],n[1]) === 7){
+        if(getTile(0,n[0],n[1]) === 7 || getTile(0,n[0],n[1]) === 18){
           count++;
         }
       }
@@ -420,7 +420,7 @@ EvalCmd = function(data){
       var count = 0;
       for(i in plot){
         var n = plot[i];
-        if(getTile(0,n[0],n[1]) === 7 || getTile(0,n[0],n[1]) === 4 || getTile(0,n[0],n[1]) === 5){
+        if(getTile(0,n[0],n[1]) === 7 || getTile(0,n[0],n[1]) === 4 || getTile(0,n[0],n[1]) === 5 || getTile(0,n[0],n[1]) === 18){
           count++;
         }
       }
@@ -479,7 +479,7 @@ EvalCmd = function(data){
       var count = 0;
       for(i in plot){
         var n = plot[i];
-        if(getTile(0,n[0],n[1]) === 7){
+        if(getTile(0,n[0],n[1]) === 7 || getTile(0,n[0],n[1]) === 18){
           count++;
         }
       }
@@ -518,6 +518,83 @@ EvalCmd = function(data){
             topPlot:topPlot,
             mats:{
               wood:125,
+              stone:0
+            },
+            req:10,
+            hp:1000
+          });
+        } else {
+          socket.emit('addToChat','<b>DM: You cannot build that there.</b>');
+        }
+      } else {
+        socket.emit('addToChat','<b>DM: You cannot build that there.</b>');
+      }
+    } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) === 'dock' && z === 0){
+      var plot = [];
+      var topPlot = [];
+      var perim = [];
+      if(player.facing === 'up' && getTile(0,c,r-1) === 0 && getTile(0,c,r-3) === 0){
+        plot = [[c-1,r],[c,r],[c+1,r],[c-1,r-1],[c,r-1],[c+1,r-1]];
+        topPlot = [[c-1,r-2],[c,r-2],[c+1,r-2]];
+        perim = [[c-2,r-3],[c-1,r-3],[c,r-3],[c+1,r-3],[c+2,r-3],[c-2,r-2],[c-2,r-1],[c-2,r],[c-2,r+1],[c-1,r+1],[c,r+1],[c+1,r+1],[c+2,r+1],[c+2,r-2],[c+2,r-1],[c+2,r]];
+      } else if(player.facing === 'left' && getTile(0,c-1,r) === 0 && getTile(0,c-3,r) === 0){
+        plot = [[c-2,r],[c-1,r],[c,r],[c-2,r-1],[c-1,r-1][c,r-1]];
+        topPlot = [[c-2,r-2],[c-1,r-2],[c,r-2]];
+        perim = [[c-3,r-3],[c-2,r-3],[c-1,r-3],[c,r-3],[c+1,r-3],[c-3,r-2],[c-3,r-1],[c-3,r],[c-3,r+1],[c-2,r+1],[c-1,r+1],[c,r+1],[c+1,r+1],[c+1,r-2],[c+1,r-1],[c+1,r]];
+      } else if(player.facing === 'right' && getTile(0,c+1,r) === 0 && getTile(0,c+3,r) === 0){
+        plot = [[c,r],[c+1,r],[c+2,r],[c,r-1],[c+1,r-1],[c+2,r-1]];
+        topPlot = [[c,r-2],[c+1,r-2],[c+2,r-2]];
+        perim = [[c-1,r-3],[c,r-3],[c+1,r-3],[c+2,r-3],[c+3,r-3],[c-1,r-2],[c-1,r-1],[c-1,r],[c-1,r+1],[c,r+1],[c+1,r+1],[c+2,r+1],[c+3,r+1],[c+3,r-2],[c+3,r-1],[c+3,r]];
+      } else if(player.facing === 'down' && getTile(0,c,r+1) === 0 && getTile(0,c,r+2) === 0){
+        plot = [[c-1,r+1],[c,r+1],[c+1,r+1],[c-1,r],[c,r],[c+1,r]];
+        topPlot = [[c-1,r-1],[c,r-1],[c+1,r-1]];
+        perim = [[c-2,r-2],[c-1,r-2],[c,r-2],[c+1,r-2],[c+2,r-2],[c-2,r-1],[c-2,r],[c-2,r+1],[c-2,r+2],[c-1,r+2],[c,r+2],[c+1,r+2],[c+2,r+2],[c+2,r-1],[c+2,r],[c+2,r-1]];
+      } else {
+        socket.emit('addToChat','<b>DM: You cannot build that there.</b>');
+      }
+      var count = 0;
+      for(i in plot){
+        var n = plot[i];
+        if(getTile(0,n[0],n[1]) === 7 || getTile(0,n[0],n[1]) === 0 || getTile(0,n[0],n[1]) === 18){
+          count++;
+        }
+      }
+      if(count === 6){
+        count = 0;
+        for(i in perim){
+          var n = perim[i];
+          if(getTile(0,n[0],n[1]) !== 11 &&
+          getTile(0,n[0],n[1]) !== 12 &&
+          getTile(0,n[0],n[1]) !== 13 &&
+          getTile(0,n[0],n[1]) !== 14 &&
+          getTile(0,n[0],n[1]) !== 15 &&
+          getTile(0,n[0],n[1]) !== 16 &&
+          getTile(0,n[0],n[1]) !== 17 &&
+          getTile(0,n[0],n[1]) !== 19 &&
+          getTile(5,n[0],n[1]) === 0){
+            count++;
+          }
+        }
+        if(count === 16){
+          for(i in plot){
+            var n = plot[i];
+            world[0][n[1]][n[0]] = 11.5;
+            world[6][n[1]][n[0]] = 0;
+          }
+          io.emit('mapEdit',world);
+          Building({
+            owner:player.id,
+            house:player.house,
+            kingdom:player.kingdom,
+            x:player.x,
+            y:player.y,
+            z:0,
+            type:'dock',
+            plot:plot,
+            walls:null,
+            topPlot:topPlot,
+            mats:{
+              wood:100,
               stone:0
             },
             req:10,

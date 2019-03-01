@@ -143,6 +143,8 @@ Img.farm3 = new Image();
 Img.farm3.src = '/client/img/tiles/farm3.png';
 Img.build1 = new Image();
 Img.build1.src = '/client/img/tiles/build1.png';
+Img.build1w = new Image();
+Img.build1w.src = '/client/img/tiles/build1w.png';
 Img.build2 = new Image();
 Img.build2.src = '/client/img/tiles/build2.png';
 Img.void = new Image();
@@ -363,6 +365,24 @@ Img.market15 = new Image();
 Img.market15.src = '/client/img/buildings/market15.png';
 Img.market16 = new Image();
 Img.market16.src = '/client/img/buildings/market16.png';
+Img.dock0 = new Image();
+Img.dock0.src = '/client/img/buildings/dock0.png';
+Img.dock1 = new Image();
+Img.dock1.src = '/client/img/buildings/dock1.png';
+Img.dock2 = new Image();
+Img.dock2.src = '/client/img/buildings/dock2.png';
+Img.dock3 = new Image();
+Img.dock3.src = '/client/img/buildings/dock3.png';
+Img.dock4 = new Image();
+Img.dock4.src = '/client/img/buildings/dock4.png';
+Img.dock5 = new Image();
+Img.dock5.src = '/client/img/buildings/dock5.png';
+Img.dock6 = new Image();
+Img.dock6.src = '/client/img/buildings/dock6.png';
+Img.dock7 = new Image();
+Img.dock7.src = '/client/img/buildings/dock7.png';
+Img.dock8 = new Image();
+Img.dock8.src = '/client/img/buildings/dock8.png';
 
 // CHARACTERS
 
@@ -702,6 +722,7 @@ var Player = function(initPack){
   self.x = initPack.x;
   self.y = initPack.y;
   self.z = initPack.z;
+  self.gear = initPack.gear;
   self.facing = 'down';
   self.angle = 0;
   self.pressingDown = false;
@@ -978,6 +999,8 @@ socket.on('update',function(data){
         p.y = pack.y;
       if(pack.z !== undefined)
         p.z = pack.z;
+      if(pack.gear !== undefined)
+        p.gear = pack.gear;
       if(pack.facing !== undefined)
         p.facing = pack.facing;
       if(pack.pressingUp !== undefined)
@@ -1375,6 +1398,21 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
+        } else if(tile === 11.5){
+          ctx.drawImage(
+            waterTiles[wtr], // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+          ctx.drawImage(
+            Img.build1w, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
         } else if(tile === 12){
           ctx.drawImage(
             Img.grass, // image
@@ -1390,7 +1428,22 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 13 || tile === 14 || tile === 15 || tile === 16 || tile === 17 || tile === 18 || tile === 19){
+        } else if(tile === 12.5){
+          ctx.drawImage(
+            waterTiles[wtr], // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+          ctx.drawImage(
+            Img.build2, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile === 13 || tile === 14 || tile === 15 || tile === 16 || tile === 17 || tile === 19 || tile === 20){
           var bTile = getTile(3,c,r);
           ctx.drawImage(
             Img.grass, // image
@@ -2059,6 +2112,96 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
+          } else if(bTile === 'dock0'){
+            ctx.drawImage(
+              waterTiles[wtr], // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+            ctx.drawImage(
+              Img.dock0, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'dock1'){
+            ctx.drawImage(
+              waterTiles[wtr], // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+            ctx.drawImage(
+              Img.dock1, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'dock2'){
+            ctx.drawImage(
+              waterTiles[wtr], // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+            ctx.drawImage(
+              Img.dock2, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'dock3'){
+            ctx.drawImage(
+              waterTiles[wtr], // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+            ctx.drawImage(
+              Img.dock3, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'dock4'){
+            ctx.drawImage(
+              waterTiles[wtr], // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+            ctx.drawImage(
+              Img.dock4, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'dock5'){
+            ctx.drawImage(
+              waterTiles[wtr], // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+            ctx.drawImage(
+              Img.dock5, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
           }
         }
       }
@@ -2485,6 +2628,30 @@ var renderTops = function(){
         } else if(tile === 'market16'){
           ctx.drawImage(
             Img.market16, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile === 'dock6'){
+          ctx.drawImage(
+            Img.dock6, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile === 'dock7'){
+          ctx.drawImage(
+            Img.dock7, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile === 'dock8'){
+          ctx.drawImage(
+            Img.dock8, // image
             xOffset, // target x
             yOffset, // target y
             tileSize, // target width

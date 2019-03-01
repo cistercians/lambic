@@ -97,8 +97,6 @@ keyCheck = function(x,y,p){
     } else {
       continue;
     }
-    Player.list[p].y += (tileSize/2);
-    SOCKET_LIST[p].emit('addToChat','<b>DM: You do not have the key to this door.</b>');
     return false;
   }
 }
@@ -283,7 +281,7 @@ initPack = {player:[],arrow:[],item:[], light:[]};
 removePack = {player:[],arrow:[],item:[], light:[]};
 
 setInterval(function(){
-  var pack =  {
+  var pack = {
     player:Player.update(),
     arrow:Arrow.update(),
     item:Item.update(),
