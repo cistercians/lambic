@@ -113,6 +113,12 @@ Img.water3 = new Image();
 Img.water3.src = '/client/img/tiles/water3.png';
 Img.hforest = new Image();
 Img.hforest.src = '/client/img/tiles/hforest.png';
+Img.hforest40 = new Image();
+Img.hforest40.src = '/client/img/tiles/hforest40.png';
+Img.hforest60 = new Image();
+Img.hforest60.src = '/client/img/tiles/hforest60.png';
+Img.hforest80 = new Image();
+Img.hforest80.src = '/client/img/tiles/hforest80.png';
 Img.forest = new Image();
 Img.forest.src = '/client/img/tiles/forest.png';
 Img.brush = new Image();
@@ -1013,6 +1019,8 @@ socket.on('update',function(data){
         p.pressingRight = pack.pressingRight;
       if(pack.pressingAttack !== undefined)
         p.pressingAttack = pack.pressingAttack;
+      if(pack.inTrees !== undefined)
+        p.inTrees = pack.inTrees;
       if(pack.angle !== undefined)
         p.angle = pack.angle;
       if(pack.pressingUp !== undefined)
@@ -1147,6 +1155,7 @@ setInterval(function(){
       continue;
     }
   }
+  renderForest();
   renderTops();
   if(Player.list[selfId].z === 0){
     if(tempus === 'VIII.p' || tempus === 'IX.p' || tempus === 'X.p' || tempus === 'XI.p' || tempus === 'XII.a' || tempus === 'I.a' || tempus === 'II.a' || tempus === 'III.a' || tempus === 'IV.a'){
@@ -1241,6 +1250,7 @@ var viewport = {
 var renderMap = function(){
   var z = Player.list[selfId].z;
 
+
   // overworld
   if(z === 0){
     var cloudscape = ctx.createPattern(clouds[cld], "repeat");
@@ -1268,13 +1278,6 @@ var renderMap = function(){
             yOffset, // target y
             tileSize, // target width
             tileSize // target height
-          );
-          ctx.drawImage(
-            Img.hforest, // image
-            xOffset, // target x
-            yOffset - (tileSize/2), // target y
-            tileSize, // target width
-            tileSize * 1.5 // target height
           );
         } else if(tile === 2){
           ctx.drawImage(
@@ -2657,6 +2660,120 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
+        }
+      }
+    }
+  }
+};
+
+var renderForest = function(){
+  var pLoc = getLoc(Player.list[selfId].x,Player.list[selfId].y);
+  var pc = pLoc[0];
+  var pr = pLoc[1];
+
+  if(Player.list[selfId].z === 0){
+    for (var c = viewport.startTile[0]; c < viewport.endTile[0]; c++){
+      for (var r = viewport.startTile[1]; r < viewport.endTile[1]; r++){
+        var xOffset = viewport.offset[0] + (c * tileSize);
+        var yOffset = viewport.offset[1] + (r * tileSize);
+        var dist =  function(){
+          if((c === pc-1 && r === pr-1) ||
+          (c === pc && r === pr-1) ||
+          (c === pc+1 && r === pr-1) ||
+          (c === pc-1 && r === pr) ||
+          (c === pc && r === pr) ||
+          (c === pc+1 && r === pr) ||
+          (c === pc-1 && r === pr+1) ||
+          (c === pc && r === pr+1) ||
+          (c === pc+1 && r === pr+1)){
+            return 40;
+          } else if((c === pc-1 && r === pr-2) ||
+          (c === pc && r === pr-2) ||
+          (c === pc+1 && r === pr-2) ||
+          (c === pc-2 && r === pr-1) ||
+          (c === pc-2 && r === pr) ||
+          (c === pc-2 && r === pr+1) ||
+          (c === pc-1 && r === pr+2) ||
+          (c === pc && r === pr+2) ||
+          (c === pc+1 && r === pr+2) ||
+          (c === pc+2 && r === pr-1) ||
+          (c === pc+2 && r === pr) ||
+          (c === pc+2 && r === pr+1)){
+            return 60;
+          } else if((c === pc-2 && r === pr-3) ||
+          (c === pc-1 && r === pr-3) ||
+          (c === pc && r === pr-3) ||
+          (c === pc+1 && r === pr-3) ||
+          (c === pc+2 && r === pr-3) ||
+          (c === pc+2 && r === pr-2) ||
+          (c === pc+3 && r === pr-2) ||
+          (c === pc+3 && r === pr-1) ||
+          (c === pc+3 && r === pr) ||
+          (c === pc+3 && r === pr+1) ||
+          (c === pc+3 && r === pr+2) ||
+          (c === pc+2 && r === pr+2) ||
+          (c === pc+2 && r === pr+3) ||
+          (c === pc+1 && r === pr+3) ||
+          (c === pc && r === pr+3) ||
+          (c === pc-1 && r === pr+3) ||
+          (c === pc-2 && r === pr+3) ||
+          (c === pc-2 && r === pr+2) ||
+          (c === pc-3 && r === pr+2) ||
+          (c === pc-3 && r === pr+1) ||
+          (c === pc-3 && r === pr) ||
+          (c === pc-3 && r === pr-1) ||
+          (c === pc-3 && r === pr-2) ||
+          (c === pc-2 && r === pr-2)){
+            return 80;
+          } else {
+            return;
+          }
+        }
+        var tile = getTile(0, c, r);
+        if(tile === 1){
+          if(Player.list[selfId].inTrees){
+            if(dist() === 40){
+              ctx.drawImage(
+                Img.hforest40, // image
+                xOffset, // target x
+                yOffset - (tileSize/2), // target y
+                tileSize, // target width
+                tileSize * 1.5 // target height
+              );
+            } else if(dist() === 60){
+              ctx.drawImage(
+                Img.hforest60, // image
+                xOffset, // target x
+                yOffset - (tileSize/2), // target y
+                tileSize, // target width
+                tileSize * 1.5 // target height
+              );
+            } else if(dist() === 80){
+              ctx.drawImage(
+                Img.hforest80, // image
+                xOffset, // target x
+                yOffset - (tileSize/2), // target y
+                tileSize, // target width
+                tileSize * 1.5 // target height
+              );
+            } else {
+              ctx.drawImage(
+                Img.hforest, // image
+                xOffset, // target x
+                yOffset - (tileSize/2), // target y
+                tileSize, // target width
+                tileSize * 1.5 // target height
+              );
+            }
+          } else {
+            ctx.drawImage(
+              Img.hforest, // image
+              xOffset, // target x
+              yOffset - (tileSize/2), // target y
+              tileSize, // target width
+              tileSize * 1.5 // target height
+            );
+          }
         }
       }
     }
