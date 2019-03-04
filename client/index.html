@@ -1,21 +1,35 @@
+<style>
+  body {background-color:black;}
+  h1 {color:grey;text-align:center;}
+  h3 {color:grey;text-align:center;}
+  p {color:grey;text-align:center;}
+  input {background-color:black;color:grey;}
+  button {background-color:black;color:grey;}
+</style>
 
 <div id="screen">
   <div id="signDiv">
-    <h1>🍾 Lambic Engine</h1>
-    Username: <input id="signDiv-username" type="text"></input><br>
-    Password: <input id="signDiv-password" type="text"></input>
-    <button id="signDiv-signIn">Sign In</button>
-    <button id="signDiv-signUp">Sign Up</button>
+    <br>
+    <br>
+    <h1>♜ S T R O N G H O D L ♜</h1>
+    <h3>A  SOLIS ORTV VSQVE AD OCCASVM</h3>
+    <br>
+    <p>USERNAME: </p><center><input id="signDiv-username" type="text"></input></center>
+    <p>PASSWORD: </p><center><input id="signDiv-password" type="text"></input></center>
+    <br>
+    <center><button id="signDiv-signIn">SIGN IN</button></center>
+    <br>
+    <center><button id="signDiv-signUp">SIGN UP</button></center>
   </div>
 
   <div id="gameDiv" style="display:none;">
-    <canvas id="ctx" width="768" height="768" style="border:1px solid #D3D3D3; position: absolute; left: 10; top: 10; z-index: 0;"></canvas>
-    <canvas id="lighting" width="768" height="768" style ="position: absolute; left: 10; top: 10; z-index: 1;"></canvas>
+    <canvas id="ctx" width="768" height="768" style="position: absolute; left: 10; top: 10; z-index: 0;"></canvas>
+    <canvas id="lighting" width="768" height="768" style="position: absolute; left: 10; top: 10; z-index: 1;"></canvas>
   </div>
 
   <div id="UI" style="height:576px;display:none; position: absolute; left: 788; top: 10;">
     <div id="chat">
-      <div id="chat-text" style="width:288px;height:550px;overflow-y:scroll;border:1px solid #D3D3D3;">
+      <div id="chat-text" style="color:grey;width:288px;height:550px;overflow-y:scroll;">
       </div>
 
       <form id="chat-form">
@@ -26,5 +40,7 @@
 </div>
 
 <script src="/client/js/socket.js"></script>
+
+<script src="/client/js/imgloader.js"></script>
 
 <script src="/client/js/client.js"></script>

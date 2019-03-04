@@ -125,6 +125,8 @@ function genesis(){
     var buildIII = createArray(mapTiles,mapTiles);
     var resI = createArray(mapTiles,mapTiles);
     var resII = createArray(mapTiles,mapTiles);
+    var buildIV = createArray(mapTiles,mapTiles);
+    var itemLayer = createArray(mapTiles,mapTiles);
 
     for(x = 0; x < mapTiles; x++){
       for(y = 0; y < mapTiles; y++){
@@ -134,6 +136,8 @@ function genesis(){
         buildIII[y][x] = 0;
         resI[y][x] = 0;
         resII[y][x] = 0;
+        buildIV[y][x] = 0;
+        itemLayer[y][x] = [0,0,0,0,0]; // 0=Overworld, 1=Underworld, 2=Underwater, 3=BuildIII, 4=BuildIV
       }
     };
 
@@ -145,6 +149,8 @@ function genesis(){
     allTileMaps.push(buildIII);
     allTileMaps.push(resI);
     allTileMaps.push(resII);
+    allTileMaps.push(buildIV);
+    allTileMaps.push(itemLayer);
 
     return allTileMaps;
   };
@@ -183,7 +189,7 @@ function genesis(){
         maxLength = 12, // max length each tunnel can have
         currentRow = c, // our current row - start at a random spot
         currentColumn = r, // our current column - start at a random spot
-        directions = [[-1, 0], [1, 0], [0, -1], [0, 1]], // array to get a random direction from (left,right,up,down)
+        directions = [[-1, 0],[1, 0],[0, -1],[0, 1]], // array to get a random direction from (left,right,up,down)
         lastDirection = [], // save the last direction we went
         randomDirection; // next turn/direction - holds a value from directions
 

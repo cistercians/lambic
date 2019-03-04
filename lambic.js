@@ -101,6 +101,21 @@ keyCheck = function(x,y,p){
   }
 }
 
+// check if player can pass through closed gate
+gateCheck = function(x,y,h,k){
+  var gateH = Building.list[getBuilding(x,y)].house;
+  var gateK = Building.list[getBuilding(x,y)].kingdom;
+  if(k && k === gateK){
+    return true;
+  } else {
+    if(h && h === gateH){
+      return true;
+    } else {
+      return false;
+    }
+  }
+}
+
 // get random tile + its loc
 var randomTile = function(l){
   var max = mapSize;
@@ -159,6 +174,7 @@ var db = mongojs('localhost:27017/myGame',['account','progress']);
 
 require('./server/js/Entity');
 require('./server/js/Commands');
+require('./server/js/entropy');
 
 // NETWORKING
 var express = require('express');
@@ -261,6 +277,7 @@ var dayNight = function(){
   tempus = cycle[tick];
   if(tempus === 'XII.a'){
     days++;
+    entropy();
   }
   io.emit('tempus',{
     tempus:tempus
@@ -270,7 +287,7 @@ var dayNight = function(){
     tick++;
   } else {
     tick = 0
-  };
+  }
 };
 
 // initiate day/night cycle
