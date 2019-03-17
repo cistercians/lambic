@@ -504,7 +504,7 @@ Player = function(param){
                     world[4][n[1]][n[0]] = 2;
                   }
                 }
-              } else if(b.type === 'bsmith'){
+              } else if(b.type === 'blacksmith'){
                 for(i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('bsmith' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'bsmith1'){
@@ -527,6 +527,52 @@ Player = function(param){
                   }
                   ii++;
                 }
+              } else if(b.type === 'stronghold'){
+                for(i in plot){
+                  world[3][plot[i][1]][plot[i][0]] = String('stronghold' + i);
+                  if(world[3][plot[i][1]][plot[i][0]] === 'stronghold1' || world[3][plot[i][1]][plot[i][0]] === 'stronghold2'){
+                    world[0][plot[i][1]][plot[i][0]] = 16;
+                  } else if(world[3][plot[i][1]][plot[i][0]] === 'stronghold0' || world[3][plot[i][1]][plot[i][0]] === 'stronghold3'){
+                    world[0][plot[i][1]][plot[i][0]] = 15;
+                  } else if(world[3][plot[i][1]][plot[i][0]] === 'stronghold7' ||
+                  world[3][plot[i][1]][plot[i][0]] === 'stronghold8' ||
+                  world[3][plot[i][1]][plot[i][0]] === 'stronghold15' ||
+                  world[3][plot[i][1]][plot[i][0]] === 'stronghold16' ||
+                  world[3][plot[i][1]][plot[i][0]] === 'stronghold23' ||
+                  world[3][plot[i][1]][plot[i][0]] === 'stronghold24' ||
+                  world[3][plot[i][1]][plot[i][0]] === 'stronghold31' ||
+                  world[3][plot[i][1]][plot[i][0]] === 'stronghold32' ||
+                  world[3][plot[i][1]][plot[i][0]] === 'stronghold39' ||
+                  world[3][plot[i][1]][plot[i][0]] === 'stronghold40' ||
+                  world[3][plot[i][1]][plot[i][0]] === 'stronghold46' ||
+                  world[3][plot[i][1]][plot[i][0]] === 'stronghold47' ||
+                  world[3][plot[i][1]][plot[i][0]] === 'stronghold53' ||
+                  world[3][plot[i][1]][plot[i][0]] === 'stronghold54'){
+                    world[0][plot[i][1]][plot[i][0]] = 17;
+                    world[5][plot[i][1]][plot[i][0]] = 15;
+                    world[8][plot[i][1]][plot[i][0]] = 1;
+                  } else {
+                    world[0][plot[i][1]][plot[i][0]] = 15;
+                    world[5][plot[i][1]][plot[i][0]] = 15;
+                    world[8][plot[i][1]][plot[i][0]] = 1;
+                  }
+                }
+                var ii = 58;
+                for(i in top){
+                  var n = top[i];
+                  world[5][n[1]][n[0]] = String('stronghold' + ii);
+                  ii++;
+                }
+                for(i in walls){
+                  var n = walls[i];
+                  if(world[5][n[1]][n[0]] === 'stronghold58' || world[5][n[1]][n[0]] === 'stronghold62'){
+                    world[4][n[1]][n[0]] = 4;
+                  } else {
+                    world[4][n[1]][n[0]] = 2;
+                  }
+                }
+                world[4][plot[36][1]-1][plot[36][0]] = 6;
+                world[8][plot[36][1]-1][plot[36][0]] = 5;
               }
               io.emit('mapEdit',world);
             }
@@ -639,6 +685,20 @@ Player = function(param){
       downBlocked = true;
     }
 
+    // cellar/dungeon collisions
+    if(self.z === -2 && getLocTile(8,self.x+(tileSize/2),self.y) === 0){
+      rightBlocked = true;
+    }
+    if(self.z === -2 && getLocTile(8,self.x-(tileSize/2),self.y) === 0){
+      leftBlocked = true;
+    }
+    if(self.z === -2 && getLocTile(8,self.x,self.y-(tileSize/6)) === 0){
+      upBlocked = true;
+    }
+    if(self.z === -2 && getLocTile(8,self.x,self.y+(tileSize*0.75)) === 0){
+      downBlocked = true;
+    }
+
     if(self.pressingRight && !rightBlocked){
       self.spdX = self.maxSpd;
       self.facing = 'right';
@@ -706,12 +766,16 @@ Player = function(param){
         self.inTrees = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd;
+      } else if(getTile(0,loc[0],loc[1]) === 13 || getTile(0,loc[0],loc[1]) === 15 || getTile(0,loc[0],loc[1]) === 17){
+        self.z = 1;
       } else if(getTile(0,loc[0],loc[1]) === 0){
         self.z = -3;
         self.inTrees = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * 0.1;
       } else {
+        self.inTrees = false;
+        self.onMtn = false;
         self.maxSpd = self.baseSpd;
       }
     } else if(self.z === -1){
@@ -719,6 +783,12 @@ Player = function(param){
         self.z = 0;
         self.inTrees = false;
         self.onMtn = false;
+      }
+    } else if(self.z === -2){
+      if(getTile(8,loc[0],loc[1]) === 5){
+        self.z = 1;
+        self.y += (tileSize/2);
+        self.facing = 'down';
       }
     } else if(self.z === -3){
       if(getTile(0,loc[0],loc[1]) !== 0){
@@ -731,12 +801,16 @@ Player = function(param){
         self.z = 2;
         self.y += (tileSize/2);
         self.facing = 'down'
+      } else if(getTile(4,loc[0],loc[1]) === 5 || getTile(4,loc[0],loc[1]) === 6){
+        self.z = -2;
+        self.y += (tileSize/2);
+        self.facing = 'down';
       }
     } else if(self.z === 2){
       if(getTile(4,loc[0],loc[1]) === 3 || getTile(4,loc[0],loc[1]) === 4){
         self.z = 1;
         self.y += (tileSize/2);
-        self.facing = 'down'
+        self.facing = 'down';
       }
     }
   }
@@ -920,6 +994,8 @@ Arrow = function(param){
         self.toRemove = true;
       } else if(self.z === -1 && getLocTile(1,self.x,self.y) === 1){
         self.toRemove = true;
+      } else if(self.z === -2 && getLocTile(8,self.x,self.y) === 0){
+        self.toRemove = true;
       } else if(self.z === 1 && (getLocTile(3,self.x,self.y) === 0 || getLocTile(4,self.x,self.y) !== 0)){
         self.toRemove = true;
       } else if(self.z === 2 && (getLocTile(5,self.x,self.y) === 0 || getLocTile(4,self.x,self.y) !== 0)){
@@ -1068,6 +1144,32 @@ Torch = function(param){
   return self;
 }
 
+// FIRE
+Fire = function(param){
+  var self = Item(param);
+  self.type = 'fire';
+  self.rank = 0;
+  self.canPickup = false;
+  self.timer = 0;
+  var super_update = self.update;
+  self.update = function(){
+    if(self.timer++ > 8000){
+      self.toRemove = true;
+    }
+    super_update();
+  }
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  Light({
+    parent:self.id,
+    radius:1.5,
+    x:self.x + (tileSize/2),
+    y:self.y + (tileSize/2),
+    z:self.z
+  });
+  return self;
+}
+
 // LIGHT SOURCE
 Light = function(param){
   var self = Entity(param);
@@ -1075,16 +1177,24 @@ Light = function(param){
   self.radius = param.radius;
   self.toRemove = false;
   var super_update = self.update;
-  self.update = function(){
-    if(Item.list[self.parent]){
-      self.x = Item.list[self.parent].x + (tileSize * 0.25);
-      self.y = Item.list[self.parent].y;
-      self.z = Item.list[self.parent].z;
+  if(Item.list[self.parent].type === 'torch'){
+    self.update = function(){
+      if(Item.list[self.parent]){
+        self.x = Item.list[self.parent].x + (tileSize * 0.25);
+        self.y = Item.list[self.parent].y;
+        self.z = Item.list[self.parent].z;
+      } else {
+        self.toRemove = true;
+      }
+      super_update();
     }
-    else {
-      self.toRemove = true;
+  } else {
+    self.update = function(){
+      if(!Item.list[self.parent]){
+        self.toRemove = true;
+      }
+      super_update();
     }
-    super_update();
   }
 
   self.getInitPack = function(){

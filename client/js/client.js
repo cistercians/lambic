@@ -323,13 +323,23 @@ var Item = function(initPack){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
-      torchFlame[trc],
+      torchFlame[flm],
       x,
       y,
       tileSize,
       tileSize
       );
-    } // add more items here...
+    } else if(self.type === 'fire'){
+      var x = self.x - Player.list[selfId].x + WIDTH/2;
+      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      ctx.drawImage(
+      fireFlame[flm],
+      x,
+      y,
+      tileSize,
+      tileSize
+      );
+    }
   }
 
   Item.list[self.id] = self;
@@ -517,29 +527,59 @@ var inView = function(z,x,y){
   }
 }
 
+var hasFire = function(z,x,y){
+  for(i in Light.list){
+    var light = Light.list[i];
+    if(light.z === z && (getBuilding(light.x,light.y) === getBuilding(x,y) || getBuilding(light.x,light.y+tileSize) === getBuilding(x,y)) && light.radius > 1){
+      return true;
+    } else {
+      continue;
+    }
+  }
+  return false;
+}
+
 setInterval(function(){
   if(!selfId) // check that player is signed in
     return;
   ctx.clearRect(0,0,WIDTH,HEIGHT);
   renderMap();
   renderLighting();
+  for(var i in Item.list){
+    if(inView(Item.list[i].z,Item.list[i].x,Item.list[i].y)){
+      if((Player.list[selfId].z === 1 || Player.list[selfId].z === 2) && (getBuilding(Item.list[i].x,Item.list[i].y) === getBuilding(Player.list[selfId].x,Player.list[selfId].y))){
+        Item.list[i].draw();
+      } else if(Player.list[selfId].z !== 1 && Player.list[selfId].z !== 2){
+        Item.list[i].draw();
+      } else {
+        continue;
+      }
+    } else {
+      continue;
+    }
+  }
   for(var i in Player.list){
     if(inView(Player.list[i].z,Player.list[i].x,Player.list[i].y)){
-      Player.list[i].draw();
+      if((Player.list[selfId].z === 1 || Player.list[selfId].z === 2) && (getBuilding(Player.list[i].x,Player.list[i].y) === getBuilding(Player.list[selfId].x,Player.list[selfId].y))){
+        Player.list[i].draw();
+      } else if(Player.list[selfId].z !== 1 && Player.list[selfId].z !== 2){
+        Player.list[i].draw();
+      } else {
+        continue;
+      }
     } else {
       continue;
     }
   }
   for(var i in Arrow.list){
     if(inView(Arrow.list[i].z,Arrow.list[i].x,Arrow.list[i].y)){
-      Arrow.list[i].draw();
-    } else {
-      continue;
-    }
-  }
-  for(var i in Item.list){
-    if(inView(Item.list[i].z,Item.list[i].x,Item.list[i].y)){
-      Item.list[i].draw();
+      if((Player.list[selfId].z === 1 || Player.list[selfId].z === 2) && (getBuilding(Item.list[i].x,Item.list[i].y) === getBuilding(Arrow.list[selfId].x,Arrow.list[selfId].y))){
+        Arrow.list[i].draw();
+      } else if(Player.list[selfId].z !== 1 && Player.list[selfId].z !== 2){
+        Arrow.list[i].draw();
+      } else {
+        continue;
+      }
     } else {
       continue;
     }
@@ -647,8 +687,8 @@ var renderMap = function(){
     ctx.fillStyle = cloudscape;
     ctx.fill();
 
-    for (var c = viewport.startTile[0]; c < viewport.endTile[0]; c++){
-      for (var r = viewport.startTile[1]; r < viewport.endTile[1]; r++){
+    for(var c = viewport.startTile[0]; c < viewport.endTile[0]; c++){
+      for(var r = viewport.startTile[1]; r < viewport.endTile[1]; r++){
         var xOffset = viewport.offset[0] + (c * tileSize);
         var yOffset = viewport.offset[1] + (r * tileSize);
         var tile = getTile(0, c, r);
@@ -1746,6 +1786,470 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
+          } else if(bTile === 'stronghold0'){
+            ctx.drawImage(
+              Img.stronghold0, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold1'){
+            ctx.drawImage(
+              Img.stronghold1, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold2'){
+            ctx.drawImage(
+              Img.stronghold2, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold3'){
+            ctx.drawImage(
+              Img.stronghold3, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold4'){
+            ctx.drawImage(
+              Img.stronghold4, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold5'){
+            ctx.drawImage(
+              Img.stronghold5, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold6'){
+            ctx.drawImage(
+              Img.stronghold6, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold7'){
+            ctx.drawImage(
+              Img.stronghold7, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold8'){
+            ctx.drawImage(
+              Img.stronghold8, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold9'){
+            ctx.drawImage(
+              Img.stronghold9, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold10'){
+            ctx.drawImage(
+              Img.stronghold10, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold11'){
+            ctx.drawImage(
+              Img.stronghold11, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold12'){
+            ctx.drawImage(
+              Img.stronghold12, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold13'){
+            ctx.drawImage(
+              Img.stronghold13, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold14'){
+            ctx.drawImage(
+              Img.stronghold14, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold15'){
+            ctx.drawImage(
+              Img.stronghold15, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold16'){
+            ctx.drawImage(
+              Img.stronghold16, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold17'){
+            ctx.drawImage(
+              Img.stronghold17, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold18'){
+            ctx.drawImage(
+              Img.stronghold18, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold19'){
+            ctx.drawImage(
+              Img.stronghold19, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold20'){
+            ctx.drawImage(
+              Img.stronghold20, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold21'){
+            ctx.drawImage(
+              Img.stronghold21, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold22'){
+            ctx.drawImage(
+              Img.stronghold22, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold23'){
+            ctx.drawImage(
+              Img.stronghold23, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold24'){
+            ctx.drawImage(
+              Img.stronghold24, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold25'){
+            ctx.drawImage(
+              Img.stronghold25, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold26'){
+            ctx.drawImage(
+              Img.stronghold26, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold27'){
+            ctx.drawImage(
+              Img.stronghold27, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold28'){
+            ctx.drawImage(
+              Img.stronghold28, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold29'){
+            ctx.drawImage(
+              Img.stronghold29, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold30'){
+            ctx.drawImage(
+              Img.stronghold30, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold31'){
+            ctx.drawImage(
+              Img.stronghold31, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold32'){
+            ctx.drawImage(
+              Img.stronghold32, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold33'){
+            ctx.drawImage(
+              Img.stronghold33, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold34'){
+            ctx.drawImage(
+              Img.stronghold34, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold35'){
+            ctx.drawImage(
+              Img.stronghold35, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold36'){
+            ctx.drawImage(
+              Img.stronghold36, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold37'){
+            ctx.drawImage(
+              Img.stronghold37, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold38'){
+            ctx.drawImage(
+              Img.stronghold38, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold39'){
+            ctx.drawImage(
+              Img.stronghold39, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold40'){
+            ctx.drawImage(
+              Img.stronghold40, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold41'){
+            ctx.drawImage(
+              Img.stronghold41, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold42'){
+            ctx.drawImage(
+              Img.stronghold42, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold43'){
+            ctx.drawImage(
+              Img.stronghold43, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold44'){
+            ctx.drawImage(
+              Img.stronghold44, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold45'){
+            ctx.drawImage(
+              Img.stronghold45, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold46'){
+            ctx.drawImage(
+              Img.stronghold46, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold47'){
+            ctx.drawImage(
+              Img.stronghold47, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold48'){
+            ctx.drawImage(
+              Img.stronghold48, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold49'){
+            ctx.drawImage(
+              Img.stronghold49, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold50'){
+            ctx.drawImage(
+              Img.stronghold50, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold51'){
+            ctx.drawImage(
+              Img.stronghold51, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold52'){
+            ctx.drawImage(
+              Img.stronghold52, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold53'){
+            ctx.drawImage(
+              Img.stronghold53, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold54'){
+            ctx.drawImage(
+              Img.stronghold54, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold55'){
+            ctx.drawImage(
+              Img.stronghold55, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold56'){
+            ctx.drawImage(
+              Img.stronghold56, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stronghold57'){
+            ctx.drawImage(
+              Img.stronghold57, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
           }
         }
       }
@@ -1759,8 +2263,8 @@ var renderMap = function(){
     ctx.rect(0,0,WIDTH,HEIGHT);
     ctx.fillStyle = evenmorecave;
     ctx.fill();
-    for (var c = viewport.startTile[0]; c < viewport.endTile[0]; c++){
-      for (var r = viewport.startTile[1]; r < viewport.endTile[1]; r++){
+    for(var c = viewport.startTile[0]; c < viewport.endTile[0]; c++){
+      for(var r = viewport.startTile[1]; r < viewport.endTile[1]; r++){
         var tile = getTile(1, c, r);
         var xOffset = viewport.offset[0] + (c * tileSize);
         var yOffset = viewport.offset[1] + (r * tileSize);
@@ -1820,13 +2324,66 @@ var renderMap = function(){
         }
       }
     }
+  } else if(z === -2){
+    var dark = ctx.createPattern(Img.void, "repeat");
+    ctx.rect(0,0,WIDTH,HEIGHT);
+    ctx.fillStyle = dark;
+    ctx.fill();
+    for(var c = viewport.startTile[0]; c < viewport.endTile[0]; c++){
+      for(var r = viewport.startTile[1]; r < viewport.endTile[1]; r++){
+        var xOffset = viewport.offset[0] + (c * tileSize);
+        var yOffset = viewport.offset[1] + (r * tileSize);
+        var tile = getTile(8, c, r);
+        var below = getTile(8,c,r+1);
+        if(tile === 1){
+          ctx.drawImage(
+            Img.stonefloor, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile === 0 && below === 1){
+          ctx.drawImage(
+            Img.stonewall, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile === 5){
+          ctx.drawImage(
+            Img.sstairsu, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else {
+          ctx.drawImage(
+            Img.cavefloor, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+          ctx.drawImage(
+            Img.cavewall, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        }
+      }
+    }
   } else if(z === -3){
     var dark = ctx.createPattern(Img.void, "repeat");
     ctx.rect(0,0,WIDTH,HEIGHT);
     ctx.fillStyle = dark;
     ctx.fill();
-    for (var c = viewport.startTile[0]; c < viewport.endTile[0]; c++){
-      for (var r = viewport.startTile[1]; r < viewport.endTile[1]; r++){
+    for(var c = viewport.startTile[0]; c < viewport.endTile[0]; c++){
+      for(var r = viewport.startTile[1]; r < viewport.endTile[1]; r++){
         var xOffset = viewport.offset[0] + (c * tileSize);
         var yOffset = viewport.offset[1] + (r * tileSize);
         var tile = getTile(0, c, r);
@@ -1848,8 +2405,8 @@ var renderMap = function(){
     ctx.rect(0,0,WIDTH,HEIGHT);
     ctx.fillStyle = dark;
     ctx.fill();
-    for (var c = viewport.startTile[0]; c < viewport.endTile[0]; c++){
-      for (var r = viewport.startTile[1]; r < viewport.endTile[1]; r++){
+    for(var c = viewport.startTile[0]; c < viewport.endTile[0]; c++){
+      for(var r = viewport.startTile[1]; r < viewport.endTile[1]; r++){
         var xOffset = viewport.offset[0] + (c * tileSize);
         var yOffset = viewport.offset[1] + (r * tileSize);
         var tile = getTile(0, c, r);
@@ -1886,6 +2443,22 @@ var renderMap = function(){
           } else if(wtile === 4){
             ctx.drawImage(
               Img.sstairsu, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(wtile === 5){
+            ctx.drawImage(
+              Img.wstairsd, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(wtile === 6){
+            ctx.drawImage(
+              Img.sstairsd, // image
               xOffset, // target x
               yOffset, // target y
               tileSize, // target width
@@ -2299,6 +2872,78 @@ var renderTops = function(){
               tileSize // target height
             );
           }
+        } else if(tile === 'stronghold58'){
+          ctx.drawImage(
+            Img.stronghold58, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile === 'stronghold59'){
+          ctx.drawImage(
+            Img.stronghold59, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile === 'stronghold60'){
+          ctx.drawImage(
+            Img.stronghold60, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile === 'stronghold61'){
+          ctx.drawImage(
+            Img.stronghold61, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile === 'stronghold62'){
+          ctx.drawImage(
+            Img.stronghold62, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile === 'stronghold63'){
+          ctx.drawImage(
+            Img.stronghold63, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile === 'stronghold64'){
+          ctx.drawImage(
+            Img.stronghold64, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile === 'stronghold65'){
+          ctx.drawImage(
+            Img.stronghold65, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile === 'stronghold66'){
+          ctx.drawImage(
+            Img.stronghold66, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
         }
       }
     }
@@ -2452,22 +3097,24 @@ var renderLightSources = function(env){
     var x = light.x - Player.list[selfId].x + WIDTH/2;
     var y = light.y - Player.list[selfId].y + HEIGHT/2;
     if(light.z === Player.list[selfId].z || light.z ===  99){
-      illuminate(x,y,45,env);
+      illuminate(x,y,(45 * light.radius),env);
       illuminate(x,y,7,env);
       //remove darkness layer
-      lighting.save();
-      lighting.globalCompositeOperation = 'destination-out';
-      lighting.beginPath();
-      lighting.arc(x, y, (45 * (1 + rnd)) * env, 0, 2 * Math.PI, false);
-      lighting.fill();
-      lighting.restore();
+      if(light.z !== 1 && light.z !== 2 || ((light.z === 1 || light.z === 2) && !hasFire(light.z,light.x,light.y))){
+        lighting.save();
+        lighting.globalCompositeOperation = 'destination-out';
+        lighting.beginPath();
+        lighting.arc(x, y, ((45 * light.radius) * (1 + rnd)) * env, 0, 2 * Math.PI, false);
+        lighting.fill();
+        lighting.restore();
+      }
     }
   }
 }
 
 var renderLighting = function(){
   var z = Player.list[selfId].z;
-  if(z === 0 || z === 1 || z === 2){
+  if(z === 0){
     if(tempus === 'IX.p' || tempus === 'X.p' || tempus === 'XI.p' || tempus === 'XII.a' || tempus === 'I.a' || tempus === 'II.a' || tempus === 'III.a'){
       lighting.clearRect(0,0,WIDTH,HEIGHT);
       lighting.fillStyle = "rgba(5, 5, 30, 0.9)"; // night
@@ -2507,12 +3154,85 @@ var renderLighting = function(){
       lighting.fillStyle = "rgba(5, 5, 30, 0.7)"; // evening
       lighting.fillRect(0,0,WIDTH,HEIGHT);
     }
+  } else if(z === 1 || z === 2){
+    var player = Player.list[selfId];
+    if(tempus === 'IX.p' || tempus === 'X.p' || tempus === 'XI.p' || tempus === 'XII.a' || tempus === 'I.a' || tempus === 'II.a' || tempus === 'III.a'){
+      if(hasFire(player.z,player.x,player.y)){
+        lighting.clearRect(0,0,WIDTH,HEIGHT);
+        lighting.fillStyle = "rgba(232, 141, 13, 0.3)"; // fire
+        lighting.fillRect(0,0,WIDTH,HEIGHT);
+      } else {
+        lighting.clearRect(0,0,WIDTH,HEIGHT);
+        lighting.fillStyle = "rgba(5, 5, 30, 0.9)"; // night
+        lighting.fillRect(0,0,WIDTH,HEIGHT);
+      }
+    } else if(tempus === 'IV.a'){
+      if(hasFire(player.z,player.x,player.y)){
+        lighting.clearRect(0,0,WIDTH,HEIGHT);
+        lighting.fillStyle = "rgba(232, 141, 13, 0.3)"; // fire
+        lighting.fillRect(0,0,WIDTH,HEIGHT);
+      } else {
+        lighting.clearRect(0,0,WIDTH,HEIGHT);
+        lighting.fillStyle = "rgba(5, 5, 30, 0.8)"; // early hours
+        lighting.fillRect(0,0,WIDTH,HEIGHT);
+      }
+    } else if(tempus === 'V.a'){
+      if(hasFire(player.z,player.x,player.y)){
+        lighting.clearRect(0,0,WIDTH,HEIGHT);
+        lighting.fillStyle = "rgba(232, 141, 13, 0.3)"; // fire
+        lighting.fillRect(0,0,WIDTH,HEIGHT);
+      } else {
+        lighting.clearRect(0,0,WIDTH,HEIGHT);
+        lighting.fillStyle = "rgba(5, 5, 30, 0.6)"; // early morning
+        lighting.fillRect(0,0,WIDTH,HEIGHT);
+      }
+    } else if(tempus === 'VI.a'){
+      lighting.clearRect(0,0,WIDTH,HEIGHT);
+      lighting.fillStyle = "rgba(244, 214, 65, 0.1)"; // sunrise
+      lighting.fillRect(0,0,WIDTH,HEIGHT);
+    } else if(tempus === 'VII.a' || tempus === 'VIII.a' || tempus === 'IX.a'|| tempus === 'X.a' || tempus === 'XI.a' || tempus === 'XII.p' || tempus === 'I.p' || tempus === 'II.p' || tempus === 'III.p'){
+      lighting.clearRect(0,0,WIDTH,HEIGHT); // morning + daytime
+    } else if(tempus === 'IV.p'){
+      lighting.clearRect(0,0,WIDTH,HEIGHT);
+      lighting.fillStyle = "rgba(255, 204, 22, 0.07)"; // afternoon
+      lighting.fillRect(0,0,WIDTH,HEIGHT);
+    } else if(tempus === 'V.p'){
+      lighting.clearRect(0,0,WIDTH,HEIGHT);
+      lighting.fillStyle = "rgba(255, 204, 22, 0.1)"; // late afternoon
+      lighting.fillRect(0,0,WIDTH,HEIGHT);
+    } else if(tempus === 'VI.p'){
+      lighting.clearRect(0,0,WIDTH,HEIGHT);
+      lighting.fillStyle = "rgba(232, 112, 0, 0.25)"; // sunset
+      lighting.fillRect(0,0,WIDTH,HEIGHT);
+    } else if(tempus === 'VII.p'){
+      if(hasFire(player.z,player.x,player.y)){
+        lighting.clearRect(0,0,WIDTH,HEIGHT);
+        lighting.fillStyle = "rgba(232, 141, 13, 0.3)"; // fire
+        lighting.fillRect(0,0,WIDTH,HEIGHT);
+      } else {
+        lighting.clearRect(0,0,WIDTH,HEIGHT);
+        lighting.fillStyle = "rgba(5, 5, 30, 0.4)"; // twilight
+        lighting.fillRect(0,0,WIDTH,HEIGHT);
+      }
+    } else if(tempus === 'VIII.p'){
+      if(hasFire(player.z,player.x,player.y)){
+        lighting.clearRect(0,0,WIDTH,HEIGHT);
+        lighting.fillStyle = "rgba(232, 141, 13, 0.3)"; // fire
+        lighting.fillRect(0,0,WIDTH,HEIGHT);
+      } else {
+        lighting.clearRect(0,0,WIDTH,HEIGHT);
+        lighting.fillStyle = "rgba(5, 5, 30, 0.7)"; // evening
+        lighting.fillRect(0,0,WIDTH,HEIGHT);
+      }
+    }
   } else if(z === -1){
     ctx.fillStyle = "rgba(232, 141, 13, 0.3)"; // light layer
     ctx.fillRect(0,0,WIDTH,HEIGHT);
     lighting.clearRect(0,0,WIDTH,HEIGHT);
     lighting.fillStyle = "rgba(0, 0, 0, 0.9)"; // cave darkness
     lighting.fillRect(0,0,WIDTH,HEIGHT);
+  } else if(z === -2){
+    //
   } else if(z === -3){
     lighting.clearRect(0,0,WIDTH,HEIGHT);
     lighting.fillStyle = "rgba(0, 48, 99, 0.9)"; // underwater

@@ -247,16 +247,20 @@ io.sockets.on('connection', function(socket){
   });
 
   socket.on('signUp',function(data){
-    isUsernameTaken(data,function(res){
-      if(res){
-        socket.emit('signUpResponse',{success:false});
-      } else {
-        addUser(data,function(){
-          socket.emit('signUpResponse',{success:true});
-          console.log(data.username + ' signed up.');
-        });
-      }
-    })
+    if(data.username.length > 0){
+      isUsernameTaken(data,function(res){
+        if(res){
+          socket.emit('signUpResponse',{success:false});
+        } else {
+          addUser(data,function(){
+            socket.emit('signUpResponse',{success:true});
+            console.log(data.username + ' signed up.');
+          });
+        }
+      })
+    } else {
+      socket.emit('signUpResponse',{success:false});
+    }
   });
 
   socket.on('disconnect',function(){

@@ -1,13 +1,13 @@
 EvalCmd = function(data){
   var socket = SOCKET_LIST[data.id];
   var player = Player.list[data.id];
+  var loc = getLoc(player.x,player.y);
+  var z = player.z;
+  var c = loc[0];
+  var r = loc[1];
 
   // BUILDING
   if(data.cmd[0] === 'b' && data.cmd[1] === ' '){
-    var loc = getLoc(player.x,player.y);
-    var z = player.z;
-    var c = loc[0];
-    var r = loc[1];
     // farm
     if(data.cmd.slice(data.cmd.indexOf(' ') + 1) === 'farm' && z === 0){
       var plot = [[c,r],[c+1,r],[c+2,r],[c,r-1],[c+1,r-1],[c+2,r-1],[c,r-2],[c+1,r-2],[c+2,r-2]];
@@ -665,7 +665,7 @@ EvalCmd = function(data){
       } else {
         socket.emit('addToChat','<b>DM: You cannot build that there.</b>');
       }
-    } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) === 'bsmith' && z === 0){
+    } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) === 'blacksmith' && z === 0){
       var plot = [[c,r],[c+1,r],[c+2,r],[c,r-1],[c+1,r-1],[c+2,r-1]];
       var walls = [[c,r-2],[c+1,r-2],[c+2,r-2]];
       var perim = [[c-1,r-3],[c,r-3],[c+1,r-3],[c+2,r-3],[c+3,r-3],[c-1,r-2],[c-1,r-1],[c-1,r],[c-1,r-1],[c,r-1],[c+1,r-1],[c+2,r-1],[c+3,r-1],[c+3,r-2],[c+3,r-1],[c+3,r]];
@@ -706,7 +706,7 @@ EvalCmd = function(data){
             x:player.x,
             y:player.y,
             z:0,
-            type:'bsmith',
+            type:'blacksmith',
             plot:plot,
             walls:walls,
             topPlot:null,
@@ -780,6 +780,129 @@ EvalCmd = function(data){
       } else {
         socket.emit('addToChat','<b>DM: You cannot build that there.</b>');
       }
+    } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) === 'stronghold' && z === 0){
+      var plot = [[c+2,r],[c+3,r],[c+4,r],[c+5,r],
+      [c,r-1],[c+1,r-1],[c+2,r-1],[c+3,r-1],[c+4,r-1],[c+5,r-1],[c+6,r-1],[c+7,r-1],
+    [c,r-2],[c+1,r-2],[c+2,r-2],[c+3,r-2],[c+4,r-2],[c+5,r-2],[c+6,r-2],[c+7,r-2],
+    [c,r-3],[c+1,r-3],[c+2,r-3],[c+3,r-3],[c+4,r-3],[c+5,r-3],[c+6,r-3],[c+7,r-3],
+    [c,r-4],[c+1,r-4],[c+2,r-4],[c+3,r-4],[c+4,r-4],[c+5,r-4],[c+6,r-4],[c+7,r-4],
+    [c,r-5],[c+1,r-5],[c+2,r-5],[c+3,r-5],[c+4,r-5],[c+5,r-5],[c+6,r-5],[c+7,r-5],
+    [c+1,r-6],[c+2,r-6],[c+3,r-6],[c+4,r-6],[c+5,r-6],[c+6,r-6],[c+7,r-6],
+    [c+1,r-7],[c+2,r-7],[c+3,r-7],[c+4,r-7],[c+5,r-7],[c+6,r-7],[c+7,r-7]];
+      var walls = [[c,r-6],[c+1,r-8],[c+2,r-8],[c+3,r-8],[c+4,r-8],[c+5,r-8],[c+6,r-8],[c+7,r-8]];
+      var topPlot = [[c+1,r-8],[c+2,r-8],[c+3,r-8],[c+4,r-8],[c+6,r-8],[c+7,r-8],[c+2,r-9],[c+3,r-9],[c+4,r-9]];
+      var perim = [[c-1,r-10],[c,r-10],[c+1,r-10],[c+2,r-10],[c+3,r-10],[c+4,r-10],[c+5,r-10],[c+6,r-10],[c+7,r-10],[c+8,r-10],
+      [c-1,r-9],[c-1,r-8],[c-1,r-7],[c-1,r-6],[c-1,r-5],[c-1,r-4],[c-1,r-3],[c-1,r-2],[c-1,r-1],[c-1,r],
+      [c,r],[c+1,r],[c+1,r+1],[c+2,r+1],[c+3,r+1],[c+4,r+1],[c+5,r+1],[c+6,r+1],[c+6,r],[c+7,r],[c+8,r],
+      [c+8,r-9],[c+8,r-8],[c+8,r-7],[c+8,r-6],[c+8,r-5],[c+8,r-4],[c+8,r-3],[c+8,r-2],[c+8,r-1]];
+      var count = 0;
+      for(i in plot){
+        var n = plot[i];
+        if(getTile(0,n[0],n[1]) === 7 || getTile(0,n[0],n[1]) === 4 || getTile(0,n[0],n[1]) === 5 || getTile(0,n[0],n[1]) === 18){
+          count++;
+        }
+      }
+      if(count === 58){
+        count = 0;
+        for(i in perim){
+          var n = perim[i];
+          if(getTile(0,n[0],n[1]) !== 11 &&
+          getTile(0,n[0],n[1]) !== 12 &&
+          getTile(0,n[0],n[1]) !== 13 &&
+          getTile(0,n[0],n[1]) !== 14 &&
+          getTile(0,n[0],n[1]) !== 15 &&
+          getTile(0,n[0],n[1]) !== 16 &&
+          getTile(0,n[0],n[1]) !== 17 &&
+          getTile(0,n[0],n[1]) !== 19 &&
+          getTile(5,n[0],n[1]) === 0){
+            count++;
+          }
+        }
+        if(count === 40){
+          for(i in plot){
+            var n = plot[i];
+            world[0][n[1]][n[0]] = 11;
+            //world[6][n[1]][n[0]] = 0;
+          }
+          io.emit('mapEdit',world);
+          Building({
+            owner:player.id,
+            house:player.house,
+            kingdom:player.kingdom,
+            x:player.x,
+            y:player.y,
+            z:0,
+            type:'stronghold',
+            plot:plot,
+            walls:walls,
+            topPlot:topPlot,
+            mats:{
+              wood:0,
+              stone:500
+            },
+            req:10,
+            hp:4000
+          });
+        } else {
+          socket.emit('addToChat','<b>DM: You cannot build that there.</b>');
+        }
+      } else {
+        socket.emit('addToChat','<b>DM: You cannot build that there.</b>');
+      }
+    }
+  } else if(data.cmd === 'fire'){
+    if(player.z !== -3){
+      if(player.facing === 'left'){
+        if((player.z === 1 || player.z === 2) && getTile(4,loc[0]-1,loc[1]) !== 0){
+          socket.emit('addToChat','<b>DM: You cannot put that there.</b>');
+        } else {
+          var p = getCoords(loc[0]-1,loc[1]);
+          Fire({
+            parent:player.id,
+            x:p[0],
+            y:p[1],
+            z:player.z
+          });
+        }
+      } else if(player.facing === 'right'){
+        if((player.z === 1 || player.z === 2) && getTile(4,loc[0]+1,loc[1]) !== 0){
+          socket.emit('addToChat','<b>DM: You cannot put that there.</b>');
+        } else {
+          var p = getCoords(loc[0]+1,loc[1]);
+          Fire({
+            parent:player.id,
+            x:p[0],
+            y:p[1],
+            z:player.z
+          });
+        }
+      } else if(player.facing === 'up'){
+        if((player.z === 1 || player.z === 2) && getTile(4,loc[0],loc[1]-1) !== 0){
+          socket.emit('addToChat','<b>DM: You cannot put that there.</b>');
+        } else {
+          var p = getCoords(loc[0],loc[1]-1);
+          Fire({
+            parent:player.id,
+            x:p[0],
+            y:p[1],
+            z:player.z
+          });
+        }
+      } else if(player.facing === 'down'){
+        if((player.z === 1 || player.z === 2) && getTile(4,loc[0],loc[1]+1) !== 0){
+          socket.emit('addToChat','<b>DM: You cannot put that there.</b>');
+        } else {
+          var p = getCoords(loc[0],loc[1]+1);
+          Fire({
+            parent:player.id,
+            x:p[0],
+            y:p[1],
+            z:player.z
+          });
+        }
+      }
+    } else {
+      socket.emit('addToChat','<b>DM: You cannot put that there.</b>');
     }
   } else {
     socket.emit('addToChat','<b>DM: Invalid command.</b>');

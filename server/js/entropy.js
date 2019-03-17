@@ -33,7 +33,6 @@ entropy = function(){
       }
     }
   }
-  console.log('added res');
 
   for(i in toHF){
     world[0][toHF[i][1]][toHF[i][0]] = 1;
@@ -50,5 +49,4 @@ entropy = function(){
     }
   }
   io.emit('mapEdit',world);
-  console.log('finished');
 };
