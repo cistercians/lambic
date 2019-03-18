@@ -463,6 +463,17 @@ Player = function(param){
                     world[4][n[1]][n[0]] = 1;
                   }
                 }
+              } else if(b.type === 'stable'){
+                for(i in plot){
+                  world[3][plot[i][1]][plot[i][0]] = String('stable' + i);
+                  world[0][plot[i][1]][plot[i][0]] = 13;
+                }
+                var ii = 8;
+                for(i in top){
+                  var n = top[i];
+                  world[5][n[1]][n[0]] = String('stable' + ii);
+                  ii++;
+                }
               } else if(b.type === 'dock'){
                 for(i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('dock' + i);
@@ -618,13 +629,13 @@ Player = function(param){
     getLocTile(0,self.x+(tileSize/2),self.y) === 15 ||
     getLocTile(0,self.x+(tileSize/2),self.y) === 17 ||
     (getLocTile(0,self.x+(tileSize/2),self.y) === 19 && !keyCheck(self.x+(tileSize/2),self.y,self.id)) ||
-    (self.x + 10) > (mapPx - tileSize))){
+    (self.x + 10) > (mapPx - tileSize)) && (getLocTile(0,self.x,self.y) !== 13 && getLocTile(0,self.x,self.y) !== 15 && getLocTile(0,self.x,self.y) !== 17)){
       rightBlocked = true;
     }
     if(self.z === 0 && (getLocTile(0,self.x-(tileSize/2),self.y) === 13 ||
     getLocTile(0,self.x-(tileSize/2),self.y) === 15 ||
     getLocTile(0,self.x-(tileSize/2),self.y) === 17 ||
-    (self.x - 10) < 0)){
+    (self.x - 10) < 0) && (getLocTile(0,self.x,self.y) !== 13 && getLocTile(0,self.x,self.y) !== 15 && getLocTile(0,self.x,self.y) !== 17)){
       leftBlocked = true;
     }
     if(self.z === 0 && (getLocTile(0,self.x,self.y-(tileSize/2)) === 13 ||
@@ -632,14 +643,14 @@ Player = function(param){
     getLocTile(0,self.x,self.y-(tileSize/2)) === 17 ||
     (getLocTile(0,self.x,self.y-(tileSize/2)) === 19 && !keyCheck(self.x,self.y-(tileSize/2),self.id)) ||
     (getLocTile(5,self.x,self.y-(tileSize/2)) === 'gatec' && !gateCheck(self.x,self.y-(tileSize/2),self.house,self.kingdom)) ||
-    (self.y - 10) < 0)){
+    (self.y - 10) < 0) && (getLocTile(0,self.x,self.y) !== 13 && getLocTile(0,self.x,self.y) !== 15 && getLocTile(0,self.x,self.y) !== 17)){
       upBlocked = true;
     }
     if(self.z === 0 && (getLocTile(0,self.x,self.y+(tileSize*0.75)) === 13 ||
     getLocTile(0,self.x,self.y+(tileSize*0.75)) === 15 ||
     getLocTile(0,self.x,self.y+(tileSize*0.75)) === 17 ||
     (getLocTile(5,self.x,self.y+(tileSize*0.75)) === 'gatec' && !gateCheck(self.x,self.y+(tileSize*0.75),self.house,self.kingdom)) ||
-    (self.y + 10) > (mapPx - tileSize))){
+    (self.y + 10) > (mapPx - tileSize)) && (getLocTile(0,self.x,self.y) !== 13 && getLocTile(0,self.x,self.y) !== 15 && getLocTile(0,self.x,self.y) !== 17)){
       downBlocked = true;
     }
 
@@ -766,8 +777,6 @@ Player = function(param){
         self.inTrees = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd;
-      } else if(getTile(0,loc[0],loc[1]) === 13 || getTile(0,loc[0],loc[1]) === 15 || getTile(0,loc[0],loc[1]) === 17){
-        self.z = 1;
       } else if(getTile(0,loc[0],loc[1]) === 0){
         self.z = -3;
         self.inTrees = false;

@@ -529,6 +529,63 @@ EvalCmd = function(data){
       } else {
         socket.emit('addToChat','<b>DM: You cannot build that there.</b>');
       }
+    } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) === 'stable' && z === 0){
+      var plot = [[c,r],[c+1,r],[c+2,r],[c+3,r],[c,r-1],[c+1,r-1],[c+2,r-1],[c+3,r-1]];
+      var topPlot = [[c,r-2],[c+1,r-2],[c+2,r-2],[c+3,r-2]];
+      var perim = [[c-1,r-2],[c-1,r-1],[c-1,r],[c,r+1],[c+1,r+1],[c+2,r+1],[c+3,r+1],[c+4,r-2],[c+4,r-1],[c+4,r],[c,r-3],[c+1,r-3],[c+2,r-3],[c+3,r-3]];
+      var count = 0;
+      for(i in plot){
+        var n = plot[i];
+        if(getTile(0,n[0],n[1]) === 7 || getTile(0,n[0],n[1]) === 18){
+          count++;
+        }
+      }
+      if(count === 8){
+        count = 0;
+        for(i in perim){
+          var n = perim[i];
+          if(getTile(0,n[0],n[1]) !== 11 &&
+          getTile(0,n[0],n[1]) !== 12 &&
+          getTile(0,n[0],n[1]) !== 13 &&
+          getTile(0,n[0],n[1]) !== 14 &&
+          getTile(0,n[0],n[1]) !== 15 &&
+          getTile(0,n[0],n[1]) !== 16 &&
+          getTile(0,n[0],n[1]) !== 17 &&
+          getTile(0,n[0],n[1]) !== 19 &&
+          getTile(5,n[0],n[1]) === 0){
+            count++;
+          }
+        }
+        if(count === 14){
+          for(i in plot){
+            var n = plot[i];
+            world[0][n[1]][n[0]] = 11;
+          }
+          io.emit('mapEdit',world);
+          Building({
+            owner:player.id,
+            house:player.house,
+            kingdom:player.kingdom,
+            x:player.x,
+            y:player.y,
+            z:0,
+            type:'stable',
+            plot:plot,
+            walls:null,
+            topPlot:topPlot,
+            mats:{
+              wood:100,
+              stone:0
+            },
+            req:5,
+            hp:500
+          });
+        } else {
+          socket.emit('addToChat','<b>DM: You cannot build that there.</b>');
+        }
+      } else {
+        socket.emit('addToChat','<b>DM: You cannot build that there.</b>');
+      }
     } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) === 'dock' && z === 0){
       var plot = [];
       var topPlot = [];

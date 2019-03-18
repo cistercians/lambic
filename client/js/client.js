@@ -1552,6 +1552,70 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
+          } else if(bTile === 'stable0'){
+            ctx.drawImage(
+              Img.stable0, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stable1'){
+            ctx.drawImage(
+              Img.stable1, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stable2'){
+            ctx.drawImage(
+              Img.stable2, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stable3'){
+            ctx.drawImage(
+              Img.stable3, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stable4'){
+            ctx.drawImage(
+              Img.stable4, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stable5'){
+            ctx.drawImage(
+              Img.stable5, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stable6'){
+            ctx.drawImage(
+              Img.stable6, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stable7'){
+            ctx.drawImage(
+              Img.stable7, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
           } else if(bTile === 'dock0'){
             ctx.drawImage(
               waterTiles[wtr], // image
@@ -2767,6 +2831,38 @@ var renderTops = function(){
         } else if(tile === 'market16'){
           ctx.drawImage(
             Img.market16, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile === 'stable8'){
+          ctx.drawImage(
+            Img.stable8, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile === 'stable9'){
+          ctx.drawImage(
+            Img.stable9, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile === 'stable10'){
+          ctx.drawImage(
+            Img.stable10, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile === 'stable11'){
+          ctx.drawImage(
+            Img.stable11, // image
             xOffset, // target x
             yOffset, // target y
             tileSize, // target width
