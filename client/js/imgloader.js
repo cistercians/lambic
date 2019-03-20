@@ -80,6 +80,18 @@ Img.road.src = '/client/img/tiles/road.png';
 
 // BUILDINGS
 // allied
+Img.mill0 = new Image();
+Img.mill0.src = '/client/img/buildings/mill0.png';
+Img.mill1 = new Image();
+Img.mill1.src = '/client/img/buildings/mill1.png';
+Img.mill2 = new Image();
+Img.mill2.src = '/client/img/buildings/mill2.png';
+Img.mill3 = new Image();
+Img.mill3.src = '/client/img/buildings/mill3.png';
+Img.mill4 = new Image();
+Img.mill4.src = '/client/img/buildings/mill4.png';
+Img.mill5 = new Image();
+Img.mill5.src = '/client/img/buildings/mill5.png';
 Img.hut0 = new Image();
 Img.hut0.src = '/client/img/buildings/hut0.png';
 Img.hut1 = new Image();

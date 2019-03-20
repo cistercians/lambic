@@ -547,7 +547,7 @@ setInterval(function(){
   renderLighting();
   for(var i in Item.list){
     if(inView(Item.list[i].z,Item.list[i].x,Item.list[i].y)){
-      if((Player.list[selfId].z === 1 || Player.list[selfId].z === 2) && (getBuilding(Item.list[i].x,Item.list[i].y) === getBuilding(Player.list[selfId].x,Player.list[selfId].y))){
+      if((Player.list[selfId].z === 1 || Player.list[selfId].z === 2) && (getBuilding(Item.list[i].x,Item.list[i].y) === getBuilding(Player.list[selfId].x,Player.list[selfId].y) || getBuilding(Item.list[i].x,Item.list[i].y+(tileSize * 1.1)) === getBuilding(Player.list[selfId].x,Player.list[selfId].y))){
         Item.list[i].draw();
       } else if(Player.list[selfId].z !== 1 && Player.list[selfId].z !== 2){
         Item.list[i].draw();
@@ -919,6 +919,38 @@ var renderMap = function(){
           } else if(bTile === 'hut3'){
             ctx.drawImage(
               Img.hut3, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'mill0'){
+            ctx.drawImage(
+              Img.mill0, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'mill1'){
+            ctx.drawImage(
+              Img.mill1, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'mill2'){
+            ctx.drawImage(
+              Img.mill2, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'mill3'){
+            ctx.drawImage(
+              Img.mill3, // image
               xOffset, // target x
               yOffset, // target y
               tileSize, // target width
@@ -2676,7 +2708,23 @@ var renderTops = function(){
         var xOffset = viewport.offset[0] + (c * tileSize);
         var yOffset = viewport.offset[1] + (r * tileSize);
         var tile = getTile(5, c, r);
-        if(tile === 'outpost1'){
+        if(tile === 'mill4'){
+          ctx.drawImage(
+            Img.mill4, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile === 'mill5'){
+          ctx.drawImage(
+            Img.mill5, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile === 'outpost1'){
           ctx.drawImage(
             Img.outpost1, // image
             xOffset, // target x

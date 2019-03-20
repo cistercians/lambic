@@ -330,6 +330,13 @@ Player = function(param){
                   var n = walls[i];
                   world[4][n[1]][n[0]] = 1;
                 }
+              } else if(b.type === 'mill'){
+                for(i in plot){
+                  world[0][plot[i][1]][plot[i][0]] = 13;
+                  world[3][plot[i][1]][plot[i][0]] = String('mill' + i);
+                }
+                world[5][top[0][1]][top[0][0]] = 'mill4';
+                world[5][top[1][1]][top[1][0]] = 'mill5';
               } else if(b.type === 'house'){
                 for(i in plot){
                   world[0][plot[i][1]][plot[i][0]] = 15;
