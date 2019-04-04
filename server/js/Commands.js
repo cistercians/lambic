@@ -222,7 +222,7 @@ EvalCmd = function(data){
       }
     } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) === 'fort' && z === 0){
       var plot = [[c,r]];
-      if(getTile(0,c,r) === 7 || getTile(0,n[0],n[1]) === 18){
+      if(getTile(0,c,r) === 7 || getTile(0,c,r) === 18){
         if(getTile(0,c,r-1) === 14 || getTile(c,r-1) === 16){
           socket.emit('addToChat','<b>DM:</b> You cannot build that there.');
         } else {
@@ -250,7 +250,7 @@ EvalCmd = function(data){
       }
     } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) === 'wall' && z === 0){
       var plot = [[c,r]];
-      if(getTile(0,c,r) === 7 || getTile(0,c,r) === 4 || getTile(0,n[0],n[1]) === 18){
+      if(getTile(0,c,r) === 7 || getTile(0,c,r) === 4 || getTile(0,c,r) === 18){
         if(getTile(0,c,r-1) === 14 || getTile(c,r-1) === 16 || getTile(c,r-1) === 19){
           socket.emit('addToChat','<b>DM:</b> You cannot build that there.');
         } else {
@@ -652,7 +652,7 @@ EvalCmd = function(data){
         topPlot = [[c-1,r-2],[c,r-2],[c+1,r-2]];
         perim = [[c-2,r-3],[c-1,r-3],[c,r-3],[c+1,r-3],[c+2,r-3],[c-2,r-2],[c-2,r-1],[c-2,r],[c-2,r+1],[c-1,r+1],[c,r+1],[c+1,r+1],[c+2,r+1],[c+2,r-2],[c+2,r-1],[c+2,r]];
       } else if(player.facing === 'left' && getTile(0,c-1,r) === 0 && getTile(0,c-3,r) === 0){
-        plot = [[c-2,r],[c-1,r],[c,r],[c-2,r-1],[c-1,r-1][c,r-1]];
+        plot = [[c-2,r],[c-1,r],[c,r],[c-2,r-1],[c-1,r-1],[c,r-1]];
         topPlot = [[c-2,r-2],[c-1,r-2],[c,r-2]];
         perim = [[c-3,r-3],[c-2,r-3],[c-1,r-3],[c,r-3],[c+1,r-3],[c-3,r-2],[c-3,r-1],[c-3,r],[c-3,r+1],[c-2,r+1],[c-1,r+1],[c,r+1],[c+1,r+1],[c+1,r-2],[c+1,r-1],[c+1,r]];
       } else if(player.facing === 'right' && getTile(0,c+1,r) === 0 && getTile(0,c+3,r) === 0){
@@ -936,7 +936,7 @@ EvalCmd = function(data){
           for(i in plot){
             var n = plot[i];
             world[0][n[1]][n[0]] = 11;
-            //world[6][n[1]][n[0]] = 0;
+            //world[6][n[1]][n[0]] = 0; // ALPHA
           }
           io.emit('mapEdit',world);
           Building({
@@ -975,7 +975,8 @@ EvalCmd = function(data){
             parent:player.id,
             x:p[0],
             y:p[1],
-            z:player.z
+            z:player.z,
+            qty:1
           });
         }
       } else if(player.facing === 'right'){
@@ -987,7 +988,8 @@ EvalCmd = function(data){
             parent:player.id,
             x:p[0],
             y:p[1],
-            z:player.z
+            z:player.z,
+            qty:1
           });
         }
       } else if(player.facing === 'up'){
@@ -999,7 +1001,8 @@ EvalCmd = function(data){
             parent:player.id,
             x:p[0],
             y:p[1],
-            z:player.z
+            z:player.z,
+            qty:1
           });
         }
       } else if(player.facing === 'down'){
@@ -1011,7 +1014,8 @@ EvalCmd = function(data){
             parent:player.id,
             x:p[0],
             y:p[1],
-            z:player.z
+            z:player.z,
+            qty:1
           });
         }
       }

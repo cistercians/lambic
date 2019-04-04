@@ -70,24 +70,75 @@ Building.list = {}
 Character = function(param){
   var self = Entity(param);
   self.home = null; // [z,x,y] (must own building if player)
-  self.gear = {
-    head:null,
-    body:null,
-    weapon:null,
-    trinket1:null,
-    trinket2:null
-  }
   self.inventory = {
-    gold:0,
     keys:[],
     wood:0,
     stone:0,
     grain:0,
-    torch:10
+    flour:0,
+    dough:0,
+    ironore:0,
+    ironbar:0,
+    steelbar:0,
+    boarhide:0,
+    leather:0,
+    silverore:0,
+    silver:0,
+    goldore:0,
+    gold:0,
+    diamond:0,
+    ironsword:0,
+    steelsword:0,
+    morallta:0,
+    tyrfing:0,
+    bow:0,
+    longbow:0,
+    mercenarybow:0,
+    ironlance:0,
+    steellance:0,
+    rusticlance:0,
+    grandmasterlance:0,
+    tunic:0,
+    brigandine:0,
+    lamellar:0,
+    ironmail:0,
+    steelmail:0,
+    brynja:0,
+    cuirass:0,
+    steelplate:0,
+    greenwichplate:0,
+    gothicplate:0,
+    clericrobe:0,
+    druidrobe:0,
+    monkrobe:0,
+    warlockrobe:0,
+    tome:0,
+    runicscroll:0,
+    sacredtext:0,
+    stoneaxe:0,
+    ironaxe:0,
+    steelaxe:0,
+    stonepickaxe:0,
+    ironpickaxe:0,
+    steelpickaxe:0,
+    torch:10,
+    bread:0,
+    fish:0,
+    lamb:0,
+    boar:0,
+    venison:0,
+    poachedfish:0,
+    lambchop:0,
+    boarshank:0,
+    venisonloin:0,
+    saison:0,
+    gose:0,
+    lambic:0
   }
   self.facing = 'down';
   self.inTrees = false;
   self.onMtn = false;
+  self.hasTorch = false;
   self.working = false;
   self.baseSpd = 4;
   self.maxSpd = 4;
@@ -95,10 +146,6 @@ Character = function(param){
   self.attackCooldown = 0;
   self.hp = 100;
   self.hpMax = 100;
-  self.mana = 100;
-  self.manaMax = 100;
-  self.strength = 10;
-  self.dexterity = 1;
 
   return self;
 }
@@ -109,6 +156,11 @@ Player = function(param){
   self.username = param.username;
   self.house = null;
   self.kingdom = null;
+  self.gear = {
+    armor:null,
+    weapon:null,
+    accessory:null
+  }
   self.title = '';
   self.pressingRight = false;
   self.pressingLeft = false;
@@ -123,6 +175,10 @@ Player = function(param){
   self.mouseAngle = 0;
   self.hpNat = 100;
   self.manaNat = 100;
+  self.mana = 100;
+  self.manaMax = 100;
+  self.strength = 10;
+  self.dexterity = 1;
 
   var super_update = self.update;
   self.update = function(){
@@ -142,8 +198,8 @@ Player = function(param){
       self.attackCooldown = 50/self.dexterity;
     }
 
-    if(self.pressingT && self.inventory.torch > 0 && self.actionCooldown === 0 && self.z !== -3){
-      self.lightTorch();
+    if(self.pressingT && self.actionCooldown === 0){
+      self.lightTorch(Math.random());
       self.actionCooldown = 10;
     }
 
@@ -330,6 +386,14 @@ Player = function(param){
                   var n = walls[i];
                   world[4][n[1]][n[0]] = 1;
                 }
+                var fp = getCoords(walls[1][0],walls[1][1]);
+                Fireplace({
+                  x:fp[0],
+                  y:fp[1],
+                  z:1,
+                  qty:1,
+                  parent:b.id
+                });
               } else if(b.type === 'mill'){
                 for(i in plot){
                   world[0][plot[i][1]][plot[i][0]] = 13;
@@ -351,6 +415,14 @@ Player = function(param){
                   var n = walls[i];
                   world[4][n[1]][n[0]] = 2;
                 }
+                var fp = getCoords(walls[1][0],walls[1][1]);
+                Fireplace({
+                  x:fp[0],
+                  y:fp[1],
+                  z:1,
+                  qty:1,
+                  parent:b.id
+                });
                 Player.list[b.owner].inventory.keys.push(b.id);
               } else if(b.type === 'fort'){
                 world[0][plot[0][1]][plot[0][0]] = 13;
@@ -395,16 +467,26 @@ Player = function(param){
                   }
                   ii++;
                 }
+                var fp = getCoords(walls[2][0],walls[2][1]);
+                Fireplace({
+                  x:fp[0],
+                  y:fp[1],
+                  z:1,
+                  qty:1,
+                  parent:b.id
+                });
                 Player.list[b.owner].inventory.keys.push(b.id);
               } else if(b.type === 'tavern'){
                 for(i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('tavern' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'tavern1'){
                     world[0][plot[i][1]][plot[i][0]] = 14;
-                    world[5][plot[i][1]][plot[i][0]] = 14;
+                  } else if(world[3][plot[i][1]][plot[i][0]] === 'tavern0' || world[3][plot[i][1]][plot[i][0]] === 'tavern2'){
+                    world[0][plot[i][1]][plot[i][0]] = 13;
                   } else {
                     world[0][plot[i][1]][plot[i][0]] = 13;
                     world[5][plot[i][1]][plot[i][0]] = 13;
+                    world[8][plot[i][1]][plot[i][0]] = 1;
                   }
                 }
                 var ii = 17;
@@ -417,7 +499,163 @@ Player = function(param){
                   var n = walls[i];
                   world[4][n[1]][n[0]] = 1;
                 }
+                world[4][walls[0][1]][walls[0][0]] = 5;
+                world[8][walls[0][1]][walls[0][0]] = 5;
                 world[4][walls[4][1]][walls[4][0]] = 3;
+                var fp = getCoords(walls[2][0],walls[2][1]);
+                var sh = getCoords(walls[3][0],walls[3][1]);
+                var b1 = getCoords(plot[0][0],plot[0][1]);
+                var b2 = getCoords(plot[2][0],plot[2][1]);
+                var b3 = getCoords(plot[3][0],plot[3][1]);
+                var b4 = getCoords(plot[7][0],plot[7][1]);
+                var b5 = getCoords(plot[8][0],plot[8][1]);
+                var bd = getCoords(walls[0][0],walls[0][1]);
+                var ch = getCoords(plot[16][0],plot[16][1]);
+                var wt = getCoords(walls[1][0],walls[1][1])
+                var b6 = getCoords(plot[4][0],plot[4][1]);
+                var cr = getCoords(plot[5][0],plot[5][1]);
+                var b7 = getCoords(plot[6][0],plot[6][1]);
+                var b8 = getCoords(plot[12][0],plot[12][1]);
+                Fireplace({
+                  x:fp[0],
+                  y:fp[1],
+                  z:1,
+                  qty:1,
+                  parent:b.id
+                });
+                StagHead({
+                  x:sh[0],
+                  y:sh[1],
+                  z:1,
+                  qty:1,
+                  parent:b.id
+                });
+                Barrel({
+                  x:b1[0],
+                  y:b1[1],
+                  z:1,
+                  qty:1,
+                  parent:b.id
+                });
+                Barrel({
+                  x:b2[0],
+                  y:b2[1],
+                  z:1,
+                  qty:1,
+                  parent:b.id
+                });
+                Barrel({
+                  x:b3[0],
+                  y:b3[1],
+                  z:1,
+                  qty:1,
+                  parent:b.id
+                });
+                Barrel({
+                  x:b4[0],
+                  y:b4[1],
+                  z:1,
+                  qty:1,
+                  parent:b.id
+                });
+                Barrel({
+                  x:b5[0],
+                  y:b5[1],
+                  z:1,
+                  qty:1,
+                  parent:b.id
+                });
+                Bed({
+                  x:bd[0],
+                  y:bd[1],
+                  z:2,
+                  qty:1,
+                  parent:b.id
+                });
+                Fireplace({
+                  x:fp[0],
+                  y:fp[1],
+                  z:2,
+                  qty:1,
+                  parent:b.id
+                });
+                Barrel({
+                  x:b3[0],
+                  y:b3[1],
+                  z:2,
+                  qty:1,
+                  parent:b.id
+                });
+                Barrel({
+                  x:b4[0],
+                  y:b4[1],
+                  z:2,
+                  qty:1,
+                  parent:b.id
+                });
+                Chest({
+                  x:ch[0],
+                  y:ch[1],
+                  z:2,
+                  qty:1,
+                  parent:b.id
+                });
+                Wtorch({
+                  x:wt[0],
+                  y:wt[1],
+                  z:-2,
+                  qty:1,
+                  parent:b.id
+                });
+                Barrel({
+                  x:b3[0],
+                  y:b3[1],
+                  z:-2,
+                  qty:1,
+                  parent:b.id
+                });
+                Barrel({
+                  x:b6[0],
+                  y:b6[1],
+                  z:-2,
+                  qty:1,
+                  parent:b.id
+                });
+                Crates({
+                  x:cr[0],
+                  y:cr[1],
+                  z:-2,
+                  qty:1,
+                  parent:b.id
+                });
+                Barrel({
+                  x:b7[0],
+                  y:b7[1],
+                  z:-2,
+                  qty:1,
+                  parent:b.id
+                });
+                Barrel({
+                  x:b4[0],
+                  y:b4[1],
+                  z:-2,
+                  qty:1,
+                  parent:b.id
+                });
+                Barrel({
+                  x:b5[0],
+                  y:b5[1],
+                  z:-2,
+                  qty:1,
+                  parent:b.id
+                });
+                Barrel({
+                  x:b8[0],
+                  y:b8[1],
+                  z:-2,
+                  qty:1,
+                  parent:b.id
+                });
               } else if(b.type === 'monastery'){
                 for(i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('monastery' + i);
@@ -446,6 +684,37 @@ Player = function(param){
                   world[4][n[1]][n[0]] = 2;
                 }
                 world[4][walls[1][1]][walls[1][0]] = 4;
+                var wt = getCoords(walls[0][0],walls[0][1]);
+                var cr = getCoords(walls[2][0],walls[2][1]);
+                var bs = getCoords(walls[3][0],walls[3][1]);
+                Wtorch({
+                  x:wt[0],
+                  y:wt[1],
+                  z:1,
+                  qty:1,
+                  parent:b.id
+                });
+                Cross({
+                  x:cr[0],
+                  y:cr[1],
+                  z:1,
+                  qty:1,
+                  parent:b.id
+                });
+                Bookshelf({
+                  x:cr[0],
+                  y:cr[1],
+                  z:2,
+                  qty:1,
+                  parent:b.id
+                });
+                Bookshelf({
+                  x:bs[0],
+                  y:bs[1],
+                  z:2,
+                  qty:1,
+                  parent:b.id
+                });
               } else if(b.type === 'market'){
                 for(i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('market' + i);
@@ -470,6 +739,106 @@ Player = function(param){
                     world[4][n[1]][n[0]] = 1;
                   }
                 }
+                var g1 = getCoords(walls[1][0],walls[1][1]);
+                var g2 = getCoords(walls[2][0],walls[2][1]);
+                var g3 = getCoords(walls[3][0],walls[3][1]);
+                var g4 = getCoords(walls[4][0],walls[4][1]);
+                var fp = getCoords(plot[3][0],plot[3][1]);
+                var cr1 = getCoords(plot[8][0],plot[8][1]);
+                var d1 = getCoords(plot[9][0],plot[9][1]);
+                var d2 = getCoords(plot[10][0],plot[10][1]);
+                var cr2 = getCoords(plot[11][0],plot[11][1]);
+                Goods1({
+                  x:g1[0],
+                  y:g1[1],
+                  z:1,
+                  qty:1,
+                  parent:b.id
+                });
+                Goods2({
+                  x:g2[0],
+                  y:g2[1],
+                  z:1,
+                  qty:1,
+                  parent:b.id
+                });
+                Goods3({
+                  x:g3[0],
+                  y:g3[1],
+                  z:1,
+                  qty:1,
+                  parent:b.id
+                });
+                Goods4({
+                  x:g4[0],
+                  y:g4[1],
+                  z:1,
+                  qty:1,
+                  parent:b.id
+                });
+                Firepit({
+                  x:fp[0],
+                  y:fp[1],
+                  z:1,
+                  qty:1,
+                  parent:b.id
+                });
+                Wtorch({
+                  x:g1[0],
+                  y:g1[1],
+                  z:2,
+                  qty:1,
+                  parent:b.id
+                });
+                Stash1({
+                  x:g2[0],
+                  y:g2[1],
+                  z:2,
+                  qty:1,
+                  parent:b.id
+                });
+                Stash2({
+                  x:g3[0],
+                  y:g3[1],
+                  z:2,
+                  qty:1,
+                  parent:b.id
+                });
+                Wtorch({
+                  x:g4[0],
+                  y:g4[1],
+                  z:2,
+                  qty:1,
+                  parent:b.id
+                });
+                Crates({
+                  x:cr1[0],
+                  y:cr1[1],
+                  z:2,
+                  qty:1,
+                  parent:b.id
+                });
+                Desk({
+                  x:d1[0],
+                  y:d1[1],
+                  z:2,
+                  qty:1,
+                  parent:b.id
+                });
+                Desk({
+                  x:d2[0],
+                  y:d2[1],
+                  z:2,
+                  qty:1,
+                  parent:b.id
+                });
+                Crates({
+                  x:cr2[0],
+                  y:cr2[1],
+                  z:2,
+                  qty:1,
+                  parent:b.id
+                });
               } else if(b.type === 'stable'){
                 for(i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('stable' + i);
@@ -522,13 +891,96 @@ Player = function(param){
                     world[4][n[1]][n[0]] = 2;
                   }
                 }
+                var sa = getCoords(walls[0][0],walls[0][1]);
+                var sr1 = getCoords(walls[2][0],walls[2][1]);
+                var sr2 = getCoords(walls[3][0],walls[3][1]);
+                var fp = getCoords(plot[1][0],plot[1][1]);
+                var d1 = getCoords(plot[2][0],plot[2][1]);
+                var d2 = getCoords(plot[3][0],plot[3][1]);
+                var d3 = getCoords(plot[6][0],plot[6][1]);
+                var d4 = getCoords(plot[7][0],plot[7][1]);
+                SuitArmor({
+                  x:sa[0],
+                  y:sa[1],
+                  z:1,
+                  qty:1,
+                  parent:b.id
+                });
+                Swordrack({
+                  x:sr1[0],
+                  y:sr1[1],
+                  z:1,
+                  qty:1,
+                  parent:b.id
+                });
+                Swordrack({
+                  x:sr2[0],
+                  y:sr2[1],
+                  z:1,
+                  qty:1,
+                  parent:b.id
+                });
+                Firepit({
+                  x:fp[0],
+                  y:fp[1],
+                  z:1,
+                  qty:1,
+                  parent:b.id
+                });
+                Dummy({
+                  x:d1[0],
+                  y:d1[1],
+                  z:1,
+                  qty:1,
+                  parent:b.id
+                });
+                Dummy({
+                  x:d2[0],
+                  y:d2[1],
+                  z:1,
+                  qty:1,
+                  parent:b.id
+                });
+                Wtorch({
+                  x:sa[0],
+                  y:sa[1],
+                  z:2,
+                  qty:1,
+                  parent:b.id
+                });
+                Swordrack({
+                  x:sr1[0],
+                  y:sr1[1],
+                  z:2,
+                  qty:1,
+                  parent:b.id
+                });
+                Swordrack({
+                  x:sr2[0],
+                  y:sr2[1],
+                  z:2,
+                  qty:1,
+                  parent:b.id
+                });
+                Dummy({
+                  x:d3[0],
+                  y:d3[1],
+                  z:2,
+                  qty:1,
+                  parent:b.id
+                });
+                Dummy({
+                  x:d4[0],
+                  y:d4[1],
+                  z:2,
+                  qty:1,
+                  parent:b.id
+                });
               } else if(b.type === 'blacksmith'){
                 for(i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('bsmith' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'bsmith1'){
                     world[0][plot[i][1]][plot[i][0]] = 14;
-                  } else if(world[3][plot[i][1]][plot[i][0]] === 'bsmith4' || world[3][plot[i][1]][plot[i][0]] === 'bsmith5'){
-                    world[0][plot[i][1]][plot[i][0]] = 15;
                   } else {
                     world[0][plot[i][1]][plot[i][0]] = 13;
                   }
@@ -545,6 +997,30 @@ Player = function(param){
                   }
                   ii++;
                 }
+                var fg = getCoords(walls[1][0],walls[1][1]);
+                var br = getCoords(plot[3][0],plot[3][1]);
+                var anv = getCoords(plot[5][0],plot[5][1]);
+                Forge({
+                  x:fg[0],
+                  y:fg[1],
+                  z:1,
+                  qty:1,
+                  parent:b.id
+                });
+                Barrel({
+                  x:br[0],
+                  y:br[1],
+                  z:1,
+                  qty:1,
+                  parent:b.id
+                });
+                Anvil({
+                  x:anv[0],
+                  y:anv[1],
+                  z:1,
+                  qty:1,
+                  parent:b.id
+                });
               } else if(b.type === 'stronghold'){
                 for(i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('stronghold' + i);
@@ -589,8 +1065,223 @@ Player = function(param){
                     world[4][n[1]][n[0]] = 2;
                   }
                 }
-                world[4][plot[36][1]-1][plot[36][0]] = 6;
-                world[8][plot[36][1]-1][plot[36][0]] = 5;
+                world[4][walls[0][1]][walls[0][0]] = 6;
+                world[8][walls[0][1]][walls[0][0]] = 5;
+                var sa1 = getCoords(walls[2][0],walls[2][1]);
+                var thr = getCoords(walls[3][0],walls[3][1]);
+                var b2 = getCoords(walls[4][0],walls[4][1]);
+                var sa2 = getCoords(walls[5][0],walls[5][1]);
+                var sr = getCoords(walls[7][0],walls[7][1]);
+                var fp1 = getCoords(plot[0][0],plot[0][1]);
+                var fp2 = getCoords(plot[3][0],plot[3][1]);
+                var fp3 = getCoords(plot[22][0],plot[22][1]);
+                var fp4 = getCoords(plot[25][0],plot[25][1]);
+                var fp5 = getCoords(plot[45][0],plot[45][1]);
+                var fp6 = getCoords(plot[48][0],plot[48][1]);
+                var ch2 = getCoords(walls[4][0],walls[4][1]);
+                var ch3 = getCoords(walls[6][0],walls[6][1]);
+                var fp7 = getCoords(plot[24][0],plot[24][1]);
+                var j1 = getCoords(plot[44][0],plot[44][1]);
+                var j3 = getCoords(plot[46][0],plot[46][1]);
+                var j4 = getCoords(plot[47][0],plot[47][1]);
+                var j6 = getCoords(plot[49][0],plot[49][1]);
+                var j7 = getCoords(plot[50][0],plot[50][1]);
+                SuitArmor({
+                  x:sa1[0],
+                  y:sa1[1],
+                  z:1,
+                  qty:1,
+                  parent:b.id
+                });
+                Banner({
+                  x:thr[0],
+                  y:thr[1],
+                  z:1,
+                  qty:1,
+                  parent:b.id
+                });
+                Banner({
+                  x:b2[0],
+                  y:b2[1],
+                  z:1,
+                  qty:1,
+                  parent:b.id
+                });
+                Throne({
+                  x:thr[0],
+                  y:thr[1],
+                  z:1,
+                  qty:1,
+                  parent:b.id
+                });
+                SuitArmor({
+                  x:sa2[0],
+                  y:sa2[1],
+                  z:1,
+                  qty:1,
+                  parent:b.id
+                });
+                Swordrack({
+                  x:sr[0],
+                  y:sr[1],
+                  z:1,
+                  qty:1,
+                  parent:b.id
+                });
+                Firepit({
+                  x:fp1[0],
+                  y:fp1[1],
+                  z:1,
+                  qty:1,
+                  parent:b.id
+                });
+                Firepit({
+                  x:fp2[0],
+                  y:fp2[1],
+                  z:1,
+                  qty:1,
+                  parent:b.id
+                });
+                Firepit({
+                  x:fp3[0],
+                  y:fp3[1],
+                  z:1,
+                  qty:1,
+                  parent:b.id
+                });
+                Firepit({
+                  x:fp4[0],
+                  y:fp4[1],
+                  z:1,
+                  qty:1,
+                  parent:b.id
+                });
+                Firepit({
+                  x:fp5[0],
+                  y:fp5[1],
+                  z:1,
+                  qty:1,
+                  parent:b.id
+                });
+                Firepit({
+                  x:fp6[0],
+                  y:fp6[1],
+                  z:1,
+                  qty:1,
+                  parent:b.id
+                });
+                Wtorch({
+                  x:sa1[0],
+                  y:sa1[1],
+                  z:2,
+                  qty:1,
+                  parent:b.id
+                });
+                Bed({
+                  x:thr[0],
+                  y:thr[1],
+                  z:2,
+                  qty:1,
+                  parent:b.id
+                });
+                Wtorch({
+                  x:sa2[0],
+                  y:sa2[1],
+                  z:2,
+                  qty:1,
+                  parent:b.id
+                });
+                Chains({
+                  x:sa1[0],
+                  y:sa1[1],
+                  z:-2,
+                  qty:1,
+                  parent:b.id
+                });
+                Chains({
+                  x:ch2[0],
+                  y:ch2[1],
+                  z:-2,
+                  qty:1,
+                  parent:b.id
+                });
+                Chains({
+                  x:ch3[0],
+                  y:ch3[1],
+                  z:-2,
+                  qty:1,
+                  parent:b.id
+                });
+                Jail({
+                  x:j1[0],
+                  y:j1[1],
+                  z:-2,
+                  qty:1,
+                  parent:b.id
+                });
+                Jail({
+                  x:fp5[0],
+                  y:fp5[1],
+                  z:-2,
+                  qty:1,
+                  parent:b.id
+                });
+                Jail({
+                  x:j3[0],
+                  y:j3[1],
+                  z:-2,
+                  qty:1,
+                  parent:b.id
+                });
+                Wtorch({
+                  x:j3[0],
+                  y:j3[1],
+                  z:-2,
+                  qty:1,
+                  parent:b.id
+                });
+                JailDoor({
+                  x:j4[0],
+                  y:j4[1],
+                  z:-2,
+                  qty:1,
+                  parent:b.id
+                });
+                Jail({
+                  x:fp6[0],
+                  y:fp6[1],
+                  z:-2,
+                  qty:1,
+                  parent:b.id
+                });
+                Wtorch({
+                  x:fp6[0],
+                  y:fp6[1],
+                  z:-2,
+                  qty:1,
+                  parent:b.id
+                });
+                Jail({
+                  x:j6[0],
+                  y:j6[1],
+                  z:-2,
+                  qty:1,
+                  parent:b.id
+                });
+                Jail({
+                  x:j7[0],
+                  y:j7[1],
+                  z:-2,
+                  qty:1,
+                  parent:b.id
+                });
+                Firepit({
+                  x:fp7[0],
+                  y:fp7[1],
+                  z:-2,
+                  qty:1,
+                  parent:b.id
+                });
               }
               io.emit('mapEdit',world);
             }
@@ -612,15 +1303,28 @@ Player = function(param){
     });
   }
 
-  self.lightTorch = function(){
-    Torch({
-      parent:self.id,
-      x:self.x,
-      y:self.y,
-      z:self.z,
-    })
-    self.inventory.torch--;
-    console.log(self.inventory.torch);
+  self.lightTorch = function(torchId){
+    if(self.hasTorch){
+      Item.list[self.hasTorch].toRemove = true;
+      self.hasTorch = false;
+    } else if(self.inventory.torch > 0){
+      if(self.z !== -3){
+        LitTorch({
+          id:torchId,
+          parent:self.id,
+          x:self.x,
+          y:self.y,
+          z:self.z,
+          qty:1
+        })
+        self.inventory.torch--;
+        self.hasTorch = torchId;
+      } else {
+        SOCKET_LIST[self.id].emit('addToChat','<b>DM:</b> You cannot do that here.');
+      }
+    } else {
+      SOCKET_LIST[self.id].emit('addToChat','<b>DM:</b> You have no torches.');
+    }
   }
 
   // x,y movement
@@ -690,13 +1394,13 @@ Player = function(param){
     }
 
     // indoor2 collisions
-    if(self.z === 2 && getLocTile(3,self.x+(tileSize/2),self.y) === 0){
+    if(self.z === 2 && (getLocTile(3,self.x+(tileSize/2),self.y) === 0 || getLocTile(4,self.x+(tileSize/2),self.y) === 5 || getLocTile(4,self.x+(tileSize/2),self.y) === 6)){
       rightBlocked = true;
     }
-    if(self.z === 2 && getLocTile(3,self.x-(tileSize/2),self.y) === 0){
+    if(self.z === 2 && (getLocTile(3,self.x-(tileSize/2),self.y) === 0 || getLocTile(4,self.x-(tileSize/2),self.y) === 5 || getLocTile(4,self.x-(tileSize/2),self.y) === 6)){
       leftBlocked = true;
     }
-    if(self.z === 2 && (getLocTile(4,self.x,self.y-(tileSize/6)) === 1 || getLocTile(4,self.x,self.y-(tileSize/6)) === 2)){
+    if(self.z === 2 && (getLocTile(4,self.x,self.y-(tileSize/6)) === 1 || getLocTile(4,self.x,self.y-(tileSize/6)) === 2 || getLocTile(4,self.x,self.y-(tileSize/6)) === 5 || getLocTile(4,self.x,self.y-(tileSize/6)) === 6)){
       upBlocked = true;
     }
     if(self.z === 2 && getLocTile(5,self.x,self.y+(tileSize*0.75)) === 0){
@@ -717,26 +1421,42 @@ Player = function(param){
       downBlocked = true;
     }
 
-    if(self.pressingRight && !rightBlocked){
-      self.spdX = self.maxSpd;
+    if(self.pressingRight){
       self.facing = 'right';
       self.working = false;
-    } else if(self.pressingLeft && !leftBlocked){
-      self.spdX = -self.maxSpd;
+      if(!rightBlocked){
+        self.spdX = self.maxSpd;
+      } else {
+        self.spdX = 0;
+      }
+    } else if(self.pressingLeft){
       self.facing = 'left';
       self.working = false;
+      if(!leftBlocked){
+        self.spdX = -self.maxSpd;
+      } else {
+        self.spdX = 0;
+      }
     } else {
       self.spdX = 0;
     }
 
-    if(self.pressingUp && !upBlocked){
-      self.spdY = -self.maxSpd;
+    if(self.pressingUp){
       self.facing = 'up';
       self.working = false;
-    } else if(self.pressingDown && !downBlocked){
-      self.spdY = self.maxSpd;
+      if(!upBlocked){
+        self.spdY = -self.maxSpd;
+      } else {
+        self.spdY = 0;
+      }
+    } else if(self.pressingDown){
       self.facing = 'down';
       self.working = false;
+      if(!downBlocked){
+        self.spdY = self.maxSpd;
+      } else {
+        self.spdY = 0;
+      }
     } else {
       self.spdY = 0;
     }
@@ -1073,8 +1793,10 @@ Item = function(param){
   self.x = param.x;
   self.y = param.y;
   self.z = param.z;
+  self.qty = param.qty;
   self.type = null;
-  self.rank = null;
+  self.class = null;
+  self.rank = null; // 0 = common, 1 = rare, 2 = lore, 3 = mythic, 4 = relic
   self.parent = param.parent;
   self.canPickup = true;
   self.toRemove = false;
@@ -1087,6 +1809,7 @@ Item = function(param){
       x:self.x,
       y:self.y,
       z:self.z,
+      qty:self.qty
     };
   }
 
@@ -1124,10 +1847,621 @@ Item.getAllInitPack = function(){
   return items;
 }
 
+// WOOD
+Wood = function(param){
+  var self = Item(param);
+  self.type = 'wood';
+  self.class = 'resource';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// STONE
+Stone = function(param){
+  var self = Item(param);
+  self.type = 'stone';
+  self.class = 'resource';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// GRAIN
+Grain = function(param){
+  var self = Item(param);
+  self.type = 'grain';
+  self.class = 'resource';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// FLOUR
+Flour = function(param){
+  var self = Item(param);
+  self.type = 'flour';
+  self.class = 'resource';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// DOUGH
+Dough = function(param){
+  var self = Item(param);
+  self.type = 'dough';
+  self.class = 'resource';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// IRON ORE
+IronOre = function(param){
+  var self = Item(param);
+  self.type = 'iron ore';
+  self.class = 'resource';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// IRON BAR
+IronBar = function(param){
+  var self = Item(param);
+  self.type = 'iron bar';
+  self.class = 'resource';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// STEEL BAR
+SteelBar = function(param){
+  var self = Item(param);
+  self.type = 'steel bar';
+  self.class = 'resource';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// BOAR HIDE
+BoarHide = function(param){
+  var self = Item(param);
+  self.type = 'boar hide';
+  self.class = 'resource';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// LEATHER
+Leather = function(param){
+  var self = Item(param);
+  self.type = 'leather';
+  self.class = 'resource';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// SILVER ORE
+SilverOre = function(param){
+  var self = Item(param);
+  self.type = 'silver ore';
+  self.class = 'resource';
+  self.rank = 1;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// SILVER
+Silver = function(param){
+  var self = Item(param);
+  self.type = 'silver';
+  self.class = 'resource';
+  self.rank = 1;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// GOLD ORE
+GoldOre = function(param){
+  var self = Item(param);
+  self.type = 'gold ore';
+  self.class = 'resource';
+  self.rank = 1;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// GOLD
+Gold = function(param){
+  var self = Item(param);
+  self.type = 'gold';
+  self.class = 'resource';
+  self.rank = 1;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// DIAMOND
+Diamond = function(param){
+  var self = Item(param);
+  self.type = 'diamond';
+  self.class = 'resource';
+  self.rank = 2;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// IRON SWORD
+IronSword = function(param){
+  var self = Item(param);
+  self.type = 'iron sword';
+  self.class = 'sword';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// STEEL SWORD
+SteelSword = function(param){
+  var self = Item(param);
+  self.type = 'steel sword';
+  self.class = 'sword';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// MORALLTA
+Morallta = function(param){
+  var self = Item(param);
+  self.type = 'morallta';
+  self.class = 'sword';
+  self.rank = 3;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// TYRFING
+Tyrfing = function(param){
+  var self = Item(param);
+  self.type = 'tyrfing';
+  self.class = 'sword';
+  self.rank = 3;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// BOW
+Bow = function(param){
+  var self = Item(param);
+  self.type = 'bow';
+  self.class = 'bow';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// LONGBOW
+Longbow = function(param){
+  var self = Item(param);
+  self.type = 'longbow';
+  self.class = 'bow';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// MERCENARY BOW
+MercenaryBow = function(param){
+  var self = Item(param);
+  self.type = 'mercenary bow';
+  self.class = 'bow';
+  self.rank = 2;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// IRON LANCE
+IronLance = function(param){
+  var self = Item(param);
+  self.type = 'iron lance';
+  self.class = 'lance';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+// STEEL LANCE
+SteelLance = function(param){
+  var self = Item(param);
+  self.type = 'steel lance';
+  self.class = 'lance';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// RUSTIC LANCE
+RusticLance = function(param){
+  var self = Item(param);
+  self.type = 'rustic lance';
+  self.class = 'lance';
+  self.rank = 1;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// GRANDMASTER LANCE
+GrandmasterLance = function(param){
+  var self = Item(param);
+  self.type = 'grandmaster lance';
+  self.class = 'lance';
+  self.rank = 2;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// TUNIC
+Tunic = function(param){
+  var self = Item(param);
+  self.type = 'tunic';
+  self.class = 'cloth';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// BRIGANDINE
+Brigandine = function(param){
+  var self = Item(param);
+  self.type = 'brigandine';
+  self.class = 'leather';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// LAMELLAR
+Lamellar = function(param){
+  var self = Item(param);
+  self.type = 'lamellar';
+  self.class = 'leather';
+  self.rank = 1;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// IRON MAIL
+IronMail = function(param){
+  var self = Item(param);
+  self.type = 'iron mail';
+  self.class = 'chainmail';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// STEEL MAIL
+SteelMail = function(param){
+  var self = Item(param);
+  self.type = 'steel mail';
+  self.class = 'chainmail';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// BRYNJA
+Brynja = function(param){
+  var self = Item(param);
+  self.type = 'brynja';
+  self.class = 'chainmail';
+  self.rank = 1;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// CUIRASS
+Cuirass = function(param){
+  var self = Item(param);
+  self.type = 'cuirass';
+  self.class = 'plate';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// STEEL PLATE
+SteelPlate = function(param){
+  var self = Item(param);
+  self.type = 'steel plate';
+  self.class = 'plate';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// GREENWICH PLATE
+GreenwichPlate = function(param){
+  var self = Item(param);
+  self.type = 'greenwich plate';
+  self.class = 'plate';
+  self.rank = 2;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// GOTHIC PLATE
+GothicPlate = function(param){
+  var self = Item(param);
+  self.type = 'gothic plate';
+  self.class = 'plate';
+  self.rank = 3;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// CLERIC ROBE
+ClericRobe = function(param){
+  var self = Item(param);
+  self.type = 'cleric robe';
+  self.class = 'robe';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// DRUID ROBE
+DruidRobe = function(param){
+  var self = Item(param);
+  self.type = 'druid robe';
+  self.class = 'robe';
+  self.rank = 1;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// MONK ROBE
+MonkRobe = function(param){
+  var self = Item(param);
+  self.type = 'monk robe';
+  self.class = 'robe';
+  self.rank = 1;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// WARLOCK ROBE
+WarlockRobe = function(param){
+  var self = Item(param);
+  self.type = 'warlock robe';
+  self.class = 'robe';
+  self.rank = 1;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// TOME
+Tome = function(param){
+  var self = Item(param);
+  self.type = 'tome';
+  self.class = 'text';
+  self.rank = 1;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// RUNIC SCROLL
+RunicScroll = function(param){
+  var self = Item(param);
+  self.type = 'runic scroll';
+  self.class = 'text';
+  self.rank = 1;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// SACRED TEXT
+SacredText = function(param){
+  var self = Item(param);
+  self.type = 'sacred text';
+  self.class = 'text';
+  self.rank = 1;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// STONE AXE
+StoneAxe = function(param){
+  var self = Item(param);
+  self.type = 'stone axe';
+  self.class = 'tool';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// IRON AXE
+IronAxe = function(param){
+  var self = Item(param);
+  self.type = 'iron axe';
+  self.class = 'tool';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// STEEL AXE
+SteelAxe = function(param){
+  var self = Item(param);
+  self.type = 'steel axe';
+  self.class = 'tool';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// STONE PICKAXE
+StonePickaxe = function(param){
+  var self = Item(param);
+  self.type = 'stone pickaxe';
+  self.class = 'tool';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// IRON PICKAXE
+IronPickaxe = function(param){
+  var self = Item(param);
+  self.type = 'iron pickaxe';
+  self.class = 'tool';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// STEEL PICKAXE
+SteelPickaxe = function(param){
+  var self = Item(param);
+  self.type = 'steel pickaxe';
+  self.class = 'tool';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// KEY
+Key = function(param){
+  var self = Item(param);
+  self.type = 'key';
+  self.class = 'tool';
+  self.rank = 1;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
 // TORCH
 Torch = function(param){
   var self = Item(param);
   self.type = 'torch';
+  self.class = 'tool';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// LIT TORCH
+LitTorch = function(param){
+  var self = Item(param);
+  self.type = 'lit torch';
   self.rank = 0;
   self.canPickup = false;
   self.timer = 0;
@@ -1139,12 +2473,15 @@ Torch = function(param){
       self.z = Player.list[self.parent].z;
     } else {
       self.toRemove = true;
+      Player.list[self.parent].hasTorch = false;
     }
     if(self.timer++ > 3000){
       self.toRemove = true;
+      Player.list[self.parent].hasTorch = false;
     }
     if(self.z === -3){
       self.toRemove = true;
+      Player.list[self.parent].hasTorch = false;
     }
     super_update();
   }
@@ -1154,6 +2491,25 @@ Torch = function(param){
     parent:self.id,
     radius:1,
     x:self.x,
+    y:self.y,
+    z:self.z
+  });
+  return self;
+}
+
+// WALL TORCH
+Wtorch = function(param){
+  var self = Item(param);
+  self.type = 'wtorch';
+  self.class = 'tool';
+  self.rank = 0;
+  self.canPickup = false;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  Light({
+    parent:self.id,
+    radius:1.01,
+    x:self.x + (tileSize/2),
     y:self.y,
     z:self.z
   });
@@ -1178,11 +2534,596 @@ Fire = function(param){
   initPack.item.push(self.getInitPack());
   Light({
     parent:self.id,
-    radius:1.5,
+    radius:1.2,
     x:self.x + (tileSize/2),
     y:self.y + (tileSize/2),
     z:self.z
   });
+  return self;
+}
+
+// FIREPIT
+Firepit = function(param){
+  var self = Item(param);
+  self.type = 'firepit';
+  self.class = 'tool';
+  self.rank = 0;
+  self.canPickup = false;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  Light({
+    parent:self.id,
+    radius:1.2,
+    x:self.x + (tileSize/2),
+    y:self.y + (tileSize/2),
+    z:self.z
+  });
+  return self;
+}
+
+// FIREPLACE
+Fireplace = function(param){
+  var self = Item(param);
+  self.type = 'fireplace';
+  self.class = 'environment';
+  self.rank = 0;
+  self.canPickup = false;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  Light({
+    parent:self.id,
+    radius:1.01,
+    x:self.x + (tileSize/2),
+    y:self.y + (tileSize/1.5),
+    z:self.z
+  });
+  return self;
+}
+
+// FORGE
+Forge = function(param){
+  var self = Item(param);
+  self.type = 'forge';
+  self.class = 'environment';
+  self.rank = 0;
+  self.canPickup = false;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  Light({
+    parent:self.id,
+    radius:1.01,
+    x:self.x + (tileSize/2),
+    y:self.y + (tileSize * 0.75),
+    z:self.z
+  });
+  return self;
+}
+
+// BARREL
+Barrel = function(param){
+  var self = Item(param);
+  self.type = 'barrel';
+  self.class = 'environment';
+  self.rank = 0;
+  self.canPickup = false;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// CRATES
+Crates = function(param){
+  var self = Item(param);
+  self.type = 'crates';
+  self.class = 'environment';
+  self.rank = 0;
+  self.canPickup = false;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// BOOKSHELF
+Bookshelf = function(param){
+  var self = Item(param);
+  self.type = 'bookshelf';
+  self.class = 'environment';
+  self.rank = 0;
+  self.canPickup = false;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// SUIT OF ARMOR
+SuitArmor = function(param){
+  var self = Item(param);
+  self.type = 'suit armor';
+  self.class = 'environment';
+  self.rank = 0;
+  self.canPickup = false;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// ANVIL
+Anvil = function(param){
+  var self = Item(param);
+  self.type = 'anvil';
+  self.class = 'environment';
+  self.rank = 0;
+  self.canPickup = false;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// RUNESTONE
+Runestone = function(param){
+  var self = Item(param);
+  self.type = 'runestone';
+  self.class = 'environment';
+  self.rank = 0;
+  self.canPickup = false;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// DUMMY
+Dummy = function(param){
+  var self = Item(param);
+  self.type = 'dummy';
+  self.class = 'environment';
+  self.rank = 0;
+  self.canPickup = false;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// CROSS
+Cross = function(param){
+  var self = Item(param);
+  self.type = 'cross';
+  self.class = 'environment';
+  self.rank = 0;
+  self.canPickup = false;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// TENT1
+Tent1 = function(param){
+  var self = Item(param);
+  self.type = 'tent1';
+  self.class = 'environment';
+  self.rank = 0;
+  self.canPickup = false;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// TENT2
+Tent2 = function(param){
+  var self = Item(param);
+  self.type = 'tent2';
+  self.class = 'environment';
+  self.rank = 0;
+  self.canPickup = false;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// TENT3
+Tent3 = function(param){
+  var self = Item(param);
+  self.type = 'tent3';
+  self.class = 'environment';
+  self.rank = 0;
+  self.canPickup = false;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// SKELETON1
+Skeleton1 = function(param){
+  var self = Item(param);
+  self.type = 'skeleton1';
+  self.class = 'environment';
+  self.rank = 0;
+  self.canPickup = false;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// SKELETON2
+Skeleton2 = function(param){
+  var self = Item(param);
+  self.type = 'skeleton2';
+  self.class = 'environment';
+  self.rank = 0;
+  self.canPickup = false;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// SKELETON3
+Skeleton3 = function(param){
+  var self = Item(param);
+  self.type = 'skeleton3';
+  self.class = 'environment';
+  self.rank = 0;
+  self.canPickup = false;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// SKELETON4
+Skeleton4 = function(param){
+  var self = Item(param);
+  self.type = 'skeleton4';
+  self.class = 'environment';
+  self.rank = 0;
+  self.canPickup = false;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// GOODS1
+Goods1 = function(param){
+  var self = Item(param);
+  self.type = 'goods1';
+  self.class = 'environment';
+  self.rank = 0;
+  self.canPickup = false;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// GOODS2
+Goods2 = function(param){
+  var self = Item(param);
+  self.type = 'goods2';
+  self.class = 'environment';
+  self.rank = 0;
+  self.canPickup = false;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// GOODS3
+Goods3 = function(param){
+  var self = Item(param);
+  self.type = 'goods3';
+  self.class = 'environment';
+  self.rank = 0;
+  self.canPickup = false;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// GOODS4
+Goods4 = function(param){
+  var self = Item(param);
+  self.type = 'goods4';
+  self.class = 'environment';
+  self.rank = 0;
+  self.canPickup = false;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// STASH1
+Stash1 = function(param){
+  var self = Item(param);
+  self.type = 'stash1';
+  self.class = 'environment';
+  self.rank = 0;
+  self.canPickup = false;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// STASH2
+Stash2 = function(param){
+  var self = Item(param);
+  self.type = 'stash2';
+  self.class = 'environment';
+  self.rank = 0;
+  self.canPickup = false;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// DESK
+Desk = function(param){
+  var self = Item(param);
+  self.type = 'desk';
+  self.class = 'environment';
+  self.rank = 0;
+  self.canPickup = false;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// SWORDRACK
+Swordrack = function(param){
+  var self = Item(param);
+  self.type = 'swordrack';
+  self.class = 'environment';
+  self.rank = 0;
+  self.canPickup = false;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// BED
+Bed = function(param){
+  var self = Item(param);
+  self.type = 'bed';
+  self.class = 'environment';
+  self.rank = 0;
+  self.canPickup = false;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// JAIL
+Jail = function(param){
+  var self = Item(param);
+  self.type = 'jail';
+  self.class = 'environment';
+  self.rank = 0;
+  self.canPickup = false;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// JAIL
+JailDoor = function(param){
+  var self = Item(param);
+  self.type = 'jaildoor';
+  self.class = 'environment';
+  self.rank = 0;
+  self.canPickup = false;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// CHAINS
+Chains = function(param){
+  var self = Item(param);
+  self.type = 'chains';
+  self.class = 'environment';
+  self.rank = 0;
+  self.canPickup = false;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// THRONE
+Throne = function(param){
+  var self = Item(param);
+  self.type = 'throne';
+  self.class = 'environment';
+  self.rank = 0;
+  self.canPickup = false;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// THRONE
+Banner = function(param){
+  var self = Item(param);
+  self.type = 'banner';
+  self.class = 'environment';
+  self.rank = 0;
+  self.canPickup = false;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// STAG HEAD
+StagHead = function(param){
+  var self = Item(param);
+  self.type = 'stag head';
+  self.class = 'environment';
+  self.rank = 1;
+  self.canPickup = false;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// CHEST
+Chest = function(param){
+  var self = Item(param);
+  self.type = 'chest';
+  self.class = 'tool';
+  self.rank = 0;
+  self.canPickup = false;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// LOCKED CHEST
+LockedChest = function(param){
+  var self = Item(param);
+  self.type = 'locked chest';
+  self.class = 'tool';
+  self.rank = 0;
+  self.canPickup = false;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// BREAD
+Bread = function(param){
+  var self = Item(param);
+  self.type = 'bread';
+  self.class = 'consumable';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// FISH
+Fish = function(param){
+  var self = Item(param);
+  self.type = 'fish';
+  self.class = 'consumable';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// RAW LAMB
+Lamb = function(param){
+  var self = Item(param);
+  self.type = 'lamb';
+  self.class = 'resource';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// RAW BOAR
+Boar = function(param){
+  var self = Item(param);
+  self.type = 'boar';
+  self.class = 'resource';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// RAW VENISON
+Venison = function(param){
+  var self = Item(param);
+  self.type = 'venison';
+  self.class = 'resource';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// POACHED FISH
+PoachedFish = function(param){
+  var self = Item(param);
+  self.type = 'poached fish';
+  self.class = 'consumable';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// LAMB CHOP
+LambChop = function(param){
+  var self = Item(param);
+  self.type = 'lamb chop';
+  self.class = 'consumable';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// BOAR SHANK
+BoarShank = function(param){
+  var self = Item(param);
+  self.type = 'boar shank';
+  self.class = 'consumable';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// VENISON LOIN
+VenisonLoin = function(param){
+  var self = Item(param);
+  self.type = 'venison loin';
+  self.class = 'consumable';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// SAISON
+Saison = function(param){
+  var self = Item(param);
+  self.type = 'saison';
+  self.class = 'consumable';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// GOSE
+Gose = function(param){
+  var self = Item(param);
+  self.type = 'gose';
+  self.class = 'consumable';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// LAMBIC
+Lambic = function(param){
+  var self = Item(param);
+  self.type = 'lambic';
+  self.class = 'consumable';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
   return self;
 }
 
@@ -1193,7 +3134,7 @@ Light = function(param){
   self.radius = param.radius;
   self.toRemove = false;
   var super_update = self.update;
-  if(Item.list[self.parent].type === 'torch'){
+  if(Item.list[self.parent].type === 'lit torch'){
     self.update = function(){
       if(Item.list[self.parent]){
         self.x = Item.list[self.parent].x + (tileSize * 0.25);
