@@ -10,6 +10,7 @@
 /////////////////////////////////////////////////////////////////////////
 
 var fs = require('fs');
+var PF = require('pathfinding');
 
 // BUILD MAP
 var genesis = require('./server/js/genesis');
@@ -49,7 +50,7 @@ for(x = 0; x < mapSize; x++){
 
 // get tile type from (l,c,r)
 // l === 'layer'
-// 0: Overworld, 1: Underworld,  2: Underwater, 3: Buildings
+// 0: Overworld, 1: Underworld,  2: Underwater, 3: BuildI, 4: BuildII, 5: BuildIII, 6: resI, 7: resII, 8: BuildIV
 getTile = function(l,c,r){
   if(r >= 0 && r <= mapSize && c >= 0 && c <= mapSize){
     return world[l][r][c];
@@ -71,6 +72,23 @@ getLocTile = function(l,x,y){
     return world[l][loc[1]][loc[0]];
   }
 };
+
+// get item from (l,c,r): 0=Overworld, 1=Underworld, 2=Underwater, 3=BuildIII, 4=BuildIV
+getItem = function(l,c,r){
+  if(r >= 0 && r <= mapSize && c >= 0 && c <= mapSize){
+    return world[9][r][c][l];
+  } else {
+    return;
+  }
+};
+
+// get item from (l,x,y): 0=Overworld, 1=Underworld, 2=Underwater, 3=BuildIII, 4=BuildIV
+getLocItem = function(l,x,y){
+  if(x >= 0 && x <= mapPx && y >= 0 && y <= mapPx){
+    var loc = getLoc(x,y);
+    return world[9][loc[1]][loc[0]][l];
+  }
+}
 
 // get building id from (x,y)
 getBuilding = function(x,y){
@@ -160,7 +178,7 @@ if(saveMap){
 
 // dayNight cycle
 var tempus = 'XII.a';
-var period = 360; // 1=1hr, 2=30m, 4=15m, 12=5m, 60=1m, 360=10s
+var period = 120; // 1=1hr, 2=30m, 4=15m, 12=5m, 60=1m, 120=30s, 360=10s
 var cycle = ['XII.a','I.a','II.a','III.a','IV.a','V.a','VI.a','VII.a','VIII.a','IX.a','X.a','XI.a',
             'XII.p','I.p','II.p','III.p','IV.p','V.p','VI.p','VII.p','VIII.p','IX.p','X.p','XI.p'];
 var tick = 1;
@@ -199,7 +217,7 @@ SOCKET_LIST = {};
 
 // SERVER
 var isValidPassword = function(data,cb){
-  db.account.find({username:data.username,password:data.password},function(err,res){
+  db.account.find({username:data.name,password:data.password},function(err,res){
     if(res.length > 0)
       cb(true);
     else
@@ -208,7 +226,7 @@ var isValidPassword = function(data,cb){
 }
 
 var isUsernameTaken = function(data,cb){
-  db.account.find({username:data.username},function(err,res){
+  db.account.find({username:data.name},function(err,res){
     if(res.length > 0)
       cb(true);
     else
@@ -217,7 +235,7 @@ var isUsernameTaken = function(data,cb){
 }
 
 var addUser = function(data,cb){
-  db.account.insert({username:data.username,password:data.password},function(err){
+  db.account.insert({username:data.name,password:data.password},function(err){
     cb();
   });
 }
@@ -231,7 +249,7 @@ io.sockets.on('connection', function(socket){
   socket.on('signIn',function(data){
     isValidPassword(data,function(res){
       if(res){
-        Player.onConnect(socket, data.username);
+        Player.onConnect(socket, data.name);
         socket.emit('signInResponse',{
           success:true,
           world: world,
@@ -239,7 +257,7 @@ io.sockets.on('connection', function(socket){
           mapSize: mapSize,
           tempus: tempus
         });
-        console.log(data.username + ' logged in.');
+        console.log(data.name + ' logged in.');
       } else {
         socket.emit('signInResponse',{success:false});
       }
@@ -247,14 +265,14 @@ io.sockets.on('connection', function(socket){
   });
 
   socket.on('signUp',function(data){
-    if(data.username.length > 0){
+    if(data.name.length > 0){
       isUsernameTaken(data,function(res){
         if(res){
           socket.emit('signUpResponse',{success:false});
         } else {
           addUser(data,function(){
             socket.emit('signUpResponse',{success:true});
-            console.log(data.username + ' signed up.');
+            console.log(data.name + ' signed up.');
           });
         }
       })

@@ -14,11 +14,11 @@ var signDivSignIn = document.getElementById('signDiv-signIn');
 var signDivSignUp = document.getElementById('signDiv-signUp');
 
 signDivSignIn.onclick = function(){
-  socket.emit('signIn',{username:signDivUsername.value,password:signDivPassword.value});
+  socket.emit('signIn',{name:signDivUsername.value,password:signDivPassword.value});
 }
 
 signDivSignUp.onclick = function(){
-  socket.emit('signUp',{username:signDivUsername.value,password:signDivPassword.value});
+  socket.emit('signUp',{name:signDivUsername.value,password:signDivPassword.value});
 }
 
 socket.on('signInResponse',function(data){
@@ -68,7 +68,7 @@ chatForm.onsubmit = function(e){
     });
   } else { // chat
     socket.emit('sendMsgToServer',{
-      username:Player.list[selfId].username,
+      name:Player.list[selfId].name,
       message:chatInput.value
     });
   }
@@ -112,7 +112,7 @@ buildingList = {}
 // PLAYER
 var Player = function(initPack){
   var self = {};
-  self.username = initPack.username;
+  self.name = initPack.name;
   self.id = initPack.id;
   self.x = initPack.x;
   self.y = initPack.y;
@@ -155,7 +155,7 @@ var Player = function(initPack){
     ctx.fillStyle = 'white';
     ctx.font = '15px minion web';
     ctx.textAlign = 'center';
-    ctx.fillText(self.username,x + 30,y - 40,100);
+    ctx.fillText(self.name,x + 30,y - 40,100);
 
     // status
     if(self.working){
@@ -798,7 +798,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'grandmaster lance'){
+    } else if(self.type === 'teutonic lance'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -4729,7 +4729,13 @@ var renderLighting = function(){
         lighting.fillRect(0,0,WIDTH,HEIGHT);
       }
     }
-  } else if(z === -1 || z === -2){
+  } else if(z === -1){
+    ctx.fillStyle = "rgba(224, 104, 0, 0.3)"; // light layer
+    ctx.fillRect(0,0,WIDTH,HEIGHT);
+    lighting.clearRect(0,0,WIDTH,HEIGHT);
+    lighting.fillStyle = "rgba(0, 0, 0, 0.9)"; // darkness
+    lighting.fillRect(0,0,WIDTH,HEIGHT);
+  } else if(z === -2){
     ctx.fillStyle = "rgba(224, 104, 0, 0.3)"; // light layer
     ctx.fillRect(0,0,WIDTH,HEIGHT);
     lighting.clearRect(0,0,WIDTH,HEIGHT);

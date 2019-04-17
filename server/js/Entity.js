@@ -69,7 +69,10 @@ Building.list = {}
 // CHARACTER
 Character = function(param){
   var self = Entity(param);
+  self.name = null;
   self.home = null; // [z,x,y] (must own building if player)
+  self.class = null;
+  self.rank = null;
   self.inventory = {
     keys:[],
     wood:0,
@@ -150,10 +153,410 @@ Character = function(param){
   return self;
 }
 
+// FAUNA
+
+Sheep = function(param){
+  var self = Character(param);
+  self.name = 'Sheep';
+  self.class = 'sheep';
+}
+
+Deer = function(param){
+  var self = Character(param);
+  self.class = 'Deer';
+  self.class = 'deer';
+}
+
+WildBoar = function(param){
+  var self = Character(param);
+  self.class = 'Wild Boar';
+  self.class = 'wild boar';
+}
+
+Wolf = function(param){
+  var self = Character(param);
+  self.class = 'Wolf';
+  self.class = 'wolf';
+}
+
+CaveWolf = function(param){
+  var self = Character(param);
+  self.name = 'Cave Wolf';
+  self.class = 'cave wolf';
+}
+
+// UNITS
+
+Serf = function(param){
+  var self = Character(param);
+  self.class = 'serf';
+  self.name = param.name;
+  self.house = param.house;
+  self.kingdom = param.kingdom;
+}
+
+Villager = function(param){
+  var self = Character(param);
+  self.class = 'villager';
+  self.name = param.name;
+  self.house = param.house;
+  self.kingdom = param.kingdom;
+}
+
+Brewmaster = function(param){
+  var self = Character(param);
+  self.class = 'brewmaster';
+  self.name = param.name;
+  self.house = param.house;
+  self.kingdom = param.kingdom;
+}
+
+Monk = function(param){
+  var self = Character(param);
+  self.class = 'monk';
+  self.name = param.name;
+  self.house = param.house;
+  self.kingdom = param.kingdom;
+}
+
+Bishop = function(param){
+  var self = Character(param);
+  self.class = 'bishop';
+  self.rank = '♝';
+  self.name = param.name;
+  self.house = param.house;
+  self.kingdom = param.kingdom;
+}
+
+Friar = function(param){
+  var self = Character(param);
+  self.class = 'friar';
+  self.name = param.name;
+  self.house = param.house;
+  self.kingdom = param.kingdom;
+}
+
+Conscript = function(param){
+  var self = Character(param);
+  self.name = 'Conscript';
+  self.class = 'conscript';
+  self.house = param.house;
+  self.kingdom = param.kingdom;
+}
+
+Skirmisher = function(param){
+  var self = Character(param);
+  self.name = 'Skirmisher';
+  self.class = 'skirmisher';
+  self.house = param.house;
+  self.kingdom = param.kingdom;
+}
+
+Chevalier = function(param){
+  var self = Character(param);
+  self.name = 'Chevalier';
+  self.class = 'chevalier';
+  self.rank = '♞';
+  self.house = param.house;
+  self.kingdom = param.kingdom;
+}
+
+General = function(param){
+  var self = Character(param);
+  self.class = 'general';
+  self.rank = '♜';
+  self.name = param.name;
+  self.house = param.house;
+  self.kingdom = param.kingdom;
+}
+
+Trebuchet = function(param){
+  var self = Character(param);
+  self.name = 'Trebuchet';
+  self.class = 'trebuchet';
+  self.house = param.house;
+  self.kingdom = param.kingdom;
+}
+
+TradeCart = function(param){
+  var self = Character(param);
+  self.name = 'Trade Cart';
+  self.class = 'trade cart';
+  self.house = param.house;
+  self.kingdom = param.kingdom;
+}
+
+Merchant = function(param){
+  var self = Character(param);
+  self.class = 'merchant';
+  self.name = param.name;
+  self.house = param.house;
+  self.kingdom = param.kingdom;
+}
+
+FishingBoat = function(param){
+  var self = Character(param);
+  self.class = 'fishing boat';
+  self.house = param.house;
+  self.kingdom = param.kingdom;
+}
+
+CargoShip = function(param){
+  var self = Character(param);
+  self.name = 'Cargo Ship';
+  self.class = 'cargo ship';
+  self.house = param.house;
+  self.kingdom = param.kingdom;
+}
+
+Longship = function(param){
+  var self = Character(param);
+  self.name = 'Longship';
+  self.class = 'longship';
+  self.house = param.house;
+  self.kingdom = param.kingdom;
+}
+
+// ENEMIES
+
+Brother = function(param){
+  var self = Character(param);
+  self.name = 'Brother';
+  self.class = 'brother';
+  self.house = 'brotherhood';
+}
+
+Oathkeeper = function(param){
+  var self = Character(param);
+  self.name = 'Oathkeeper';
+  self.class = 'oathkeeper';
+  self.rank = '♝';
+  self.house = 'brotherhood';
+}
+
+Infected = function(param){
+  var self = Character(param);
+  self.name = 'Infected';
+  self.class = 'infected';
+  self.house = 'brotherhood';
+}
+
+DarkEntity = function(param){
+  var self = Character(param);
+  self.name = 'Dark Entity';
+  self.class = 'dark entity';
+  self.house = 'brotherhood';
+}
+
+AcolyteM = function(param){
+  var self = Character(param);
+  self.name = 'Acolyte';
+  self.class = 'acolyte m';
+  self.house = 'sun cult';
+}
+
+AcolyteF = function(param){
+  var self = Character(param);
+  self.name = 'Acolyte';
+  self.class = 'acolyte f';
+  self.house = 'sun cult';
+}
+
+Magus = function(param){
+  var self = Character(param);
+  self.name = 'Magus';
+  self.class = 'magus';
+  self.rank = '♝';
+  self.house = 'sun cult';
+}
+
+Magister = function(param){
+  var self = Character(param);
+  self.name = 'Magister';
+  self.class = 'magister';
+  self.rank = '♜';
+  self.house = 'sun cult';
+}
+
+Mastema = function(param){
+  var self = Character(param);
+  self.name = 'MASTEMA';
+  self.class = 'mastema';
+  self.rank = '♚';
+  self.house = 'sun cult';
+}
+
+Norseman = function(param){
+  var self = Character(param);
+  self.name = 'Norseman';
+  self.class = 'norseman';
+  self.house = 'norsemen';
+}
+
+Huskarl = function(param){
+  var self = Character(param);
+  self.name = 'Huskarl';
+  self.class = 'huskarl';
+  self.rank = '♞';
+  self.house = 'norsemen';
+}
+
+Jarl = function(param){
+  var self = Character(param);
+  self.name = 'Jarl';
+  self.class = 'jarl';
+  self.rank = '♜';
+  self.house = 'norsemen';
+}
+
+PaganAxe = function(param){
+  var self = Character(param);
+  self.name = 'Pagan';
+  self.class = 'pagan axe';
+  self.house = 'pagans';
+}
+
+PaganSpear = function(param){
+  var self = Character(param);
+  self.name = 'Pagan';
+  self.class = 'pagan spear';
+  self.house = 'pagans';
+}
+
+PaganSword = function(param){
+  var self = Character(param);
+  self.name = 'Pagan';
+  self.class = 'pagan sword';
+  self.house = 'pagans';
+}
+
+Cataphract = function(param){
+  var self = Character(param);
+  self.name = 'Cataphract';
+  self.class = 'cataphract';
+  self.rank = '♞';
+  self.house = 'pagans';
+}
+
+Champion = function(param){
+  var self = Character(param);
+  self.name = 'Champion';
+  self.class = 'champion';
+  self.rank = '♜';
+  self.house = 'pagans';
+}
+
+CeltAxe = function(param){
+  var self = Character(param);
+  self.name = 'Celt';
+  self.class = 'celt axe';
+  self.house = 'celts';
+}
+
+CeltSpear = function(param){
+  var self = Character(param);
+  self.name = 'Celt';
+  self.class = 'celt spear';
+  self.house = 'celts';
+}
+
+Headhunter = function(param){
+  var self = Character(param);
+  self.name = 'Headhunter';
+  self.class = 'headhunter';
+  self.rank = '♞';
+  self.house = 'celts';
+}
+
+Druid = function(param){
+  var self = Character(param);
+  self.name = 'Druid';
+  self.class = 'druid';
+  self.rank = '♝';
+  self.house = 'celts';
+}
+
+IronMaiden = function(param){
+  var self = Character(param);
+  self.name = 'Iron Maiden';
+  self.class = 'iron maiden';
+  self.rank = '♜';
+  self.house = 'celts';
+}
+
+Gwenllian = function(param){
+  var self = Character(param);
+  self.name = 'Gwenllian';
+  self.class = 'gwenllian';
+  self.rank = '♛';
+  self.house = 'celts';
+}
+
+Teuton = function(param){
+  var self = Character(param);
+  self.name = 'Teuton';
+  self.class = 'teuton';
+  self.house = 'teutons';
+}
+
+TeutonicKnight = function(param){
+  var self = Character(param);
+  self.name = 'Teutonic Knight';
+  self.class = 'teutonic knight';
+  self.rank = '♞';
+  self.house = 'teutons';
+}
+
+Orderly = function(param){
+  var self = Character(param);
+  self.name = 'Orderly';
+  self.class = 'orderly';
+  self.rank = '♝';
+  self.house = 'teutons';
+}
+
+Hochmeister = function(param){
+  var self = Character(param);
+  self.name = 'Hochmeister';
+  self.class = 'hochmeister';
+  self.rank = '♜';
+  self.house = 'teutons';
+}
+
+Lothair = function(param){
+  var self = Character(param);
+  self.name = 'Lothair II';
+  self.class = 'lothair';
+  self.rank = '♚';
+  self.house = 'teutons';
+}
+
+Brigand = function(param){
+  var self = Character(param);
+  self.name = 'Brigand';
+  self.class = 'brigand';
+  self.house = 'bandits';
+}
+
+Strongman = function(param){
+  var self = Character(param);
+  self.name = 'Strongman';
+  self.class = 'strongman';
+  self.house = 'bandits';
+}
+
+Chieftain = function(param){
+  var self = Character(param);
+  self.name = 'Chieftain';
+  self.class = 'chieftain';
+  self.rank = '♞';
+  self.house = 'bandits';
+}
+
 // PLAYER
 Player = function(param){
   var self = Character(param);
-  self.username = param.username;
+  self.name = param.name;
   self.house = null;
   self.kingdom = null;
   self.gear = {
@@ -899,6 +1302,7 @@ Player = function(param){
                 var d2 = getCoords(plot[3][0],plot[3][1]);
                 var d3 = getCoords(plot[6][0],plot[6][1]);
                 var d4 = getCoords(plot[7][0],plot[7][1]);
+                var dk = getCoords(plot[8][0],plot[8][1]);
                 SuitArmor({
                   x:sa[0],
                   y:sa[1],
@@ -972,6 +1376,13 @@ Player = function(param){
                 Dummy({
                   x:d4[0],
                   y:d4[1],
+                  z:2,
+                  qty:1,
+                  parent:b.id
+                });
+                Desk({
+                  x:dk[0],
+                  y:dk[1],
                   z:2,
                   qty:1,
                   parent:b.id
@@ -1336,88 +1747,108 @@ Player = function(param){
     var downBlocked = false;
 
     // outdoor collisions
-    if(self.z === 0 && (getLocTile(0,self.x+(tileSize/2),self.y) === 13 ||
-    getLocTile(0,self.x+(tileSize/2),self.y) === 15 ||
-    getLocTile(0,self.x+(tileSize/2),self.y) === 17 ||
-    (getLocTile(0,self.x+(tileSize/2),self.y) === 19 && !keyCheck(self.x+(tileSize/2),self.y,self.id)) ||
+    if(self.z === 0 && (getLocTile(0,self.x+(tileSize/6),self.y) === 13 ||
+    getLocTile(0,self.x+(tileSize/6),self.y) === 15 ||
+    getLocTile(0,self.x+(tileSize/6),self.y) === 17 ||
+    (getLocTile(0,self.x+(tileSize/6),self.y) === 19 && !keyCheck(self.x+(tileSize/2),self.y,self.id)) ||
+    getLocItem(0,self.x+(tileSize/6),self.y) !== 0 ||
     (self.x + 10) > (mapPx - tileSize)) && (getLocTile(0,self.x,self.y) !== 13 && getLocTile(0,self.x,self.y) !== 15 && getLocTile(0,self.x,self.y) !== 17)){
       rightBlocked = true;
     }
-    if(self.z === 0 && (getLocTile(0,self.x-(tileSize/2),self.y) === 13 ||
-    getLocTile(0,self.x-(tileSize/2),self.y) === 15 ||
-    getLocTile(0,self.x-(tileSize/2),self.y) === 17 ||
+    if(self.z === 0 && (getLocTile(0,self.x-(tileSize/6),self.y) === 13 ||
+    getLocTile(0,self.x-(tileSize/6),self.y) === 15 ||
+    getLocTile(0,self.x-(tileSize/6),self.y) === 17 ||
+    getLocItem(0,self.x-(tileSize/6),self.y) !== 0 ||
     (self.x - 10) < 0) && (getLocTile(0,self.x,self.y) !== 13 && getLocTile(0,self.x,self.y) !== 15 && getLocTile(0,self.x,self.y) !== 17)){
       leftBlocked = true;
     }
     if(self.z === 0 && (getLocTile(0,self.x,self.y-(tileSize/2)) === 13 ||
-    getLocTile(0,self.x,self.y-(tileSize/2)) === 15 ||
-    getLocTile(0,self.x,self.y-(tileSize/2)) === 17 ||
-    (getLocTile(0,self.x,self.y-(tileSize/2)) === 19 && !keyCheck(self.x,self.y-(tileSize/2),self.id)) ||
-    (getLocTile(5,self.x,self.y-(tileSize/2)) === 'gatec' && !gateCheck(self.x,self.y-(tileSize/2),self.house,self.kingdom)) ||
+    getLocTile(0,self.x,self.y-(tileSize/6)) === 15 ||
+    getLocTile(0,self.x,self.y-(tileSize/6)) === 17 ||
+    (getLocTile(0,self.x,self.y-(tileSize/6)) === 19 && !keyCheck(self.x,self.y-(tileSize/2),self.id)) ||
+    getLocItem(0,self.x,self.y-(tileSize/6)) !== 0 ||
+    (getLocTile(5,self.x,self.y-(tileSize/6)) === 'gatec' && !gateCheck(self.x,self.y-(tileSize/2),self.house,self.kingdom)) ||
     (self.y - 10) < 0) && (getLocTile(0,self.x,self.y) !== 13 && getLocTile(0,self.x,self.y) !== 15 && getLocTile(0,self.x,self.y) !== 17)){
       upBlocked = true;
     }
     if(self.z === 0 && (getLocTile(0,self.x,self.y+(tileSize*0.75)) === 13 ||
     getLocTile(0,self.x,self.y+(tileSize*0.75)) === 15 ||
     getLocTile(0,self.x,self.y+(tileSize*0.75)) === 17 ||
+    getLocItem(0,self.x,self.y+(tileSize*0.75)) !== 0 ||
     (getLocTile(5,self.x,self.y+(tileSize*0.75)) === 'gatec' && !gateCheck(self.x,self.y+(tileSize*0.75),self.house,self.kingdom)) ||
     (self.y + 10) > (mapPx - tileSize)) && (getLocTile(0,self.x,self.y) !== 13 && getLocTile(0,self.x,self.y) !== 15 && getLocTile(0,self.x,self.y) !== 17)){
       downBlocked = true;
     }
 
     // collision in caves
-    if(self.z === -1 && (getLocTile(1,self.x+(tileSize/2),self.y) === 1 || (self.x + 10) > (mapPx - tileSize))){
+    if(self.z === -1 && (getLocTile(1,self.x+(tileSize/6),self.y) === 1 || getLocItem(1,self.x+(tileSize/6),self.y) !== 0 || (self.x + 10) > (mapPx - tileSize))){
       rightBlocked = true;
     }
-    if(self.z === -1 && (getLocTile(1,self.x-(tileSize/2),self.y) === 1 || (self.x - 10) < 0)){
+    if(self.z === -1 && (getLocTile(1,self.x-(tileSize/6),self.y) === 1 || getLocItem(1,self.x-(tileSize/6),self.y) !== 0 || (self.x - 10) < 0)){
       leftBlocked = true;
     }
-    if(self.z === -1 && (getLocTile(1,self.x,self.y-(tileSize/4)) === 1 || (self.y - 10) < 0)){
+    if(self.z === -1 && (getLocTile(1,self.x,self.y-(tileSize/6)) === 1 || getLocItem(1,self.x,self.y-(tileSize/6)) !== 0 || (self.y - 10) < 0)){
       upBlocked = true;
     }
-    if(self.z === -1 && (getLocTile(1,self.x,self.y+(tileSize*0.75)) === 1 || (self.y + 10) > (mapPx - tileSize))){
+    if(self.z === -1 && (getLocTile(1,self.x,self.y+(tileSize/4)) === 1 || getLocItem(1,self.x,self.y+(tileSize/4)) !== 0 || (self.y + 10) > (mapPx - tileSize))){
       downBlocked = true;
     }
 
     // indoor1 collisions
-    if(self.z === 1 && getLocTile(3,self.x+(tileSize/2),self.y) === 0){
-      rightBlocked = true;
-    }
-    if(self.z === 1 && getLocTile(3,self.x-(tileSize/2),self.y) === 0){
-      leftBlocked = true;
-    }
-    if(self.z === 1 && (getLocTile(4,self.x,self.y-(tileSize/6)) === 1 || getLocTile(4,self.x,self.y-(tileSize/6)) === 2)){
-      upBlocked = true;
-    }
-    if(self.z === 1 && getLocTile(0,self.x,self.y) !== 14 && getLocTile(0,self.x,self.y) !== 16 && getLocTile(0,self.x,self.y) !== 19 && getLocTile(3,self.x,self.y+(tileSize*0.75)) === 0){
-      downBlocked = true;
+    if(self.z === 1){
+      if(getLocTile(3,self.x+(tileSize/6),self.y) === 0 || getLocItem(0,self.x+(tileSize/6),self.y) !== 0){
+        rightBlocked = true;
+      }
+      if(getLocTile(3,self.x-(tileSize/6),self.y) === 0 || getLocItem(0,self.x-(tileSize/6),self.y) !== 0){
+        leftBlocked = true;
+      }
+      if(getLocTile(4,self.x,self.y-(tileSize/6)) === 1 || getLocTile(4,self.x,self.y-(tileSize/6)) === 2 || getLocItem(0,self.x,self.y-(tileSize/6)) !== 0){
+        upBlocked = true;
+      }
+      if((getLocTile(0,self.x,self.y) !== 14 && getLocTile(0,self.x,self.y) !== 16 && getLocTile(0,self.x,self.y) !== 19 && getLocTile(3,self.x,self.y+(tileSize/4)) === 0) || getLocItem(0,self.x,self.y+(tileSize/4)) !== 0){
+        downBlocked = true;
+      }
     }
 
     // indoor2 collisions
-    if(self.z === 2 && (getLocTile(3,self.x+(tileSize/2),self.y) === 0 || getLocTile(4,self.x+(tileSize/2),self.y) === 5 || getLocTile(4,self.x+(tileSize/2),self.y) === 6)){
+    if(self.z === 2 && (getLocTile(3,self.x+(tileSize/2),self.y) === 0 || getLocTile(4,self.x+(tileSize/2),self.y) === 5 || getLocTile(4,self.x+(tileSize/2),self.y) === 6 || getLocItem(3,self.x+(tileSize/2),self.y) !== 0)){
       rightBlocked = true;
     }
-    if(self.z === 2 && (getLocTile(3,self.x-(tileSize/2),self.y) === 0 || getLocTile(4,self.x-(tileSize/2),self.y) === 5 || getLocTile(4,self.x-(tileSize/2),self.y) === 6)){
+    if(self.z === 2 && (getLocTile(3,self.x-(tileSize/2),self.y) === 0 || getLocTile(4,self.x-(tileSize/2),self.y) === 5 || getLocTile(4,self.x-(tileSize/2),self.y) === 6 || getLocItem(3,self.x-(tileSize/2),self.y) !== 0)){
       leftBlocked = true;
     }
-    if(self.z === 2 && (getLocTile(4,self.x,self.y-(tileSize/6)) === 1 || getLocTile(4,self.x,self.y-(tileSize/6)) === 2 || getLocTile(4,self.x,self.y-(tileSize/6)) === 5 || getLocTile(4,self.x,self.y-(tileSize/6)) === 6)){
+    if(self.z === 2 && (getLocTile(4,self.x,self.y-(tileSize/6)) === 1 || getLocTile(4,self.x,self.y-(tileSize/6)) === 2 || getLocTile(4,self.x,self.y-(tileSize/6)) === 5 || getLocTile(4,self.x,self.y-(tileSize/6)) === 6 || getLocItem(3,self.x,self.y-(tileSize/6)) !== 0)){
       upBlocked = true;
     }
-    if(self.z === 2 && getLocTile(5,self.x,self.y+(tileSize*0.75)) === 0){
+    if(self.z === 2 && (getLocTile(5,self.x,self.y+(tileSize/4)) === 0 || getLocItem(3,self.x,self.y+(tileSize/4)) !== 0)){
       downBlocked = true;
     }
 
     // cellar/dungeon collisions
-    if(self.z === -2 && getLocTile(8,self.x+(tileSize/2),self.y) === 0){
+    if(self.z === -2 && (getLocTile(8,self.x+(tileSize/2),self.y) === 0 || getLocItem(4,self.x+(tileSize/2),self.y) !== 0)){
       rightBlocked = true;
     }
-    if(self.z === -2 && getLocTile(8,self.x-(tileSize/2),self.y) === 0){
+    if(self.z === -2 && (getLocTile(8,self.x-(tileSize/2),self.y) === 0 || getLocItem(4,self.x-(tileSize/2),self.y) !== 0)){
       leftBlocked = true;
     }
-    if(self.z === -2 && getLocTile(8,self.x,self.y-(tileSize/6)) === 0){
+    if(self.z === -2 && (getLocTile(8,self.x,self.y-(tileSize/6)) === 0 || getLocItem(4,self.x,self.y-(tileSize/6)) !== 0)){
       upBlocked = true;
     }
-    if(self.z === -2 && getLocTile(8,self.x,self.y+(tileSize*0.75)) === 0){
+    if(self.z === -2 && (getLocTile(8,self.x,self.y+(tileSize/4)) === 0 || getLocItem(4,self.x,self.y+(tileSize/4)) !== 0)){
+      downBlocked = true;
+    }
+
+    // underwater collisions
+    if(self.z === -3 && getLocItem(2,self.x+(tileSize/2),self.y) !== 0){
+      rightBlocked = true;
+    }
+    if(self.z === -3 && getLocItem(2,self.x-(tileSize/2),self.y) !== 0){
+      leftBlocked = true;
+    }
+    if(self.z === -3 && getLocItem(2,self.x,self.y-(tileSize/6)) !== 0){
+      upBlocked = true;
+    }
+    if(self.z === -3 && getLocItem(2,self.x,self.y+(tileSize/4)) !== 0){
       downBlocked = true;
     }
 
@@ -1553,7 +1984,7 @@ Player = function(param){
 
   self.getInitPack = function(){
     return {
-      username:self.username,
+      name:self.name,
       id:self.id,
       x:self.x,
       y:self.y,
@@ -1599,10 +2030,10 @@ Player = function(param){
 
 Player.list = {};
 
-Player.onConnect = function(socket,username){
+Player.onConnect = function(socket,name){
   var spawn = randomSpawnO();
   var player = Player({
-    username:username,
+    name:name,
     id:socket.id,
     z: 0,
     x: spawn[0],
@@ -1638,21 +2069,21 @@ Player.onConnect = function(socket,username){
 
   socket.on('sendMsgToServer',function(data){
     for(var i in SOCKET_LIST){
-      SOCKET_LIST[i].emit('addToChat','<b>' + data.username + ':</b> ' + data.message);
+      SOCKET_LIST[i].emit('addToChat','<b>' + data.name + ':</b> ' + data.message);
     }
   });
 
   socket.on('sendPmToServer',function(data){
     var recipient = null;
     for(var i in Player.list){
-      if(Player.list[i].username === data.recip){
+      if(Player.list[i].name === data.recip){
         recipient = SOCKET_LIST[i];
       }
     }
     if(recipient === null){
       socket.emit('addToChat','DM: ' + data.recip + ' is not online.');
     } else {
-      recipient.emit('addToChat','<b>@' + player.username + '</b> whispers: <i>' + data.message + '</i>');
+      recipient.emit('addToChat','<b>@' + player.name + '</b> whispers: <i>' + data.message + '</i>');
       SOCKET_LIST[player.id].emit('addToChat','To ' + data.recip + ': <i>' + data.message + '</i>');
     }
   });
@@ -1800,6 +2231,21 @@ Item = function(param){
   self.parent = param.parent;
   self.canPickup = true;
   self.toRemove = false;
+
+  self.blocker = function(n){
+    var loc = getLoc(self.x,self.y);
+    if(self.z === 0 || self.z === 1){
+      world[9][loc[1]][loc[0]][0] = n;
+    } else if(self.z === 2){
+      world[9][loc[1]][loc[0]][3] = n;
+    } else if(self.z === -1){
+      world[9][loc[1]][loc[0]][1] = n;
+    } else if(self.z === -2){
+      world[9][loc[1]][loc[0]][4] = n;
+    } else if(self.z === -3){
+      world[9][loc[1]][loc[0]][2] = n;
+    }
+  }
 
   self.getInitPack = function(){
     return {
@@ -2147,9 +2593,9 @@ RusticLance = function(param){
 }
 
 // GRANDMASTER LANCE
-GrandmasterLance = function(param){
+TeutonicLance = function(param){
   var self = Item(param);
-  self.type = 'grandmaster lance';
+  self.type = 'teutonic lance';
   self.class = 'lance';
   self.rank = 2;
   self.canPickup = true;
@@ -2473,7 +2919,7 @@ LitTorch = function(param){
       self.z = Player.list[self.parent].z;
     } else {
       self.toRemove = true;
-      Player.list[self.parent].hasTorch = false;
+      //Player.list[self.parent].hasTorch = false;
     }
     if(self.timer++ > 3000){
       self.toRemove = true;
@@ -2558,6 +3004,7 @@ Firepit = function(param){
     y:self.y + (tileSize/2),
     z:self.z
   });
+  self.blocker(2);
   return self;
 }
 
@@ -2608,6 +3055,7 @@ Barrel = function(param){
   self.canPickup = false;
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
+  self.blocker(2);
   return self;
 }
 
@@ -2620,6 +3068,7 @@ Crates = function(param){
   self.canPickup = false;
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
+  self.blocker(2);
   return self;
 }
 
@@ -2656,6 +3105,7 @@ Anvil = function(param){
   self.canPickup = false;
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
+  self.blocker(self.type);
   return self;
 }
 
@@ -2668,6 +3118,7 @@ Runestone = function(param){
   self.canPickup = false;
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
+  self.blocker(2);
   return self;
 }
 
@@ -2680,6 +3131,7 @@ Dummy = function(param){
   self.canPickup = false;
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
+  self.blocker(2);
   return self;
 }
 
@@ -2704,6 +3156,7 @@ Tent1 = function(param){
   self.canPickup = false;
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
+  self.blocker(2);
   return self;
 }
 
@@ -2716,6 +3169,7 @@ Tent2 = function(param){
   self.canPickup = false;
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
+  self.blocker(2);
   return self;
 }
 
@@ -2728,6 +3182,7 @@ Tent3 = function(param){
   self.canPickup = false;
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
+  self.blocker(2);
   return self;
 }
 
@@ -2860,6 +3315,7 @@ Desk = function(param){
   self.canPickup = false;
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
+  self.blocker(self.type);
   return self;
 }
 
@@ -2896,6 +3352,7 @@ Jail = function(param){
   self.canPickup = false;
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
+  self.blocker(2);
   return self;
 }
 
@@ -2908,6 +3365,7 @@ JailDoor = function(param){
   self.canPickup = false;
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
+  self.blocker(self.type);
   return self;
 }
 
@@ -2968,6 +3426,7 @@ Chest = function(param){
   self.canPickup = false;
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
+  self.blocker(self.type);
   return self;
 }
 
@@ -2980,6 +3439,7 @@ LockedChest = function(param){
   self.canPickup = false;
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
+  self.blocker(self.type);
   return self;
 }
 
