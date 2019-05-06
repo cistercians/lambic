@@ -3,7 +3,7 @@
 //                 ((🔥))   S T R O N G H O D L   ((🔥))               //
 //                   \\                            //                  //
 //                                                                     //
-//   ☩  A   S O L I S   O R T V   V S Q V E   A D   O C C A S V M  ☩   //
+//      A   S O L I S   O R T V   V S Q V E   A D   O C C A S V M      //
 //                                                                     //
 //            A game by Johan Argyne, Cistercian Capital               //
 //                                                                     //
@@ -11,6 +11,11 @@
 
 var fs = require('fs');
 var PF = require('pathfinding');
+require('./server/js/pathfinder');
+require('./server/js/Entity');
+require('./server/js/commands');
+require('./server/js/flora');
+require('./server/js/fauna');
 
 // BUILD MAP
 var genesis = require('./server/js/genesis');
@@ -19,31 +24,118 @@ tileSize = 64;
 mapSize = world[0].length;
 mapPx = mapSize * tileSize;
 
-// MAP TOOLS
-// spawn points (Overworld)
-spawnPointsO = [];
+// pathfinding
+matrixO = pathfinder(0);
+matrixU = pathfinder(-1);
+matrixB1 = pathfinder();
+matrixB2 = pathfinder();
+matrixB3 = pathfinder();
+matrixS = pathfinder(3);
+
+gridO = new PF.Grid(matrixO); // z = 0
+gridU = new PF.Grid(matrixU); // z = -1
+gridB1 = new PF.Grid(matrixB1); // z = 1
+gridB2 = new PF.Grid(matrixB2); // z = 2
+gridB3 = new PF.Grid(matrixB3); // z = -2
+gridS = new PF.Grid(matrixS); // ships
+
+finder = new PF.AStarFinder();
+
+// biome levels
+biomes = {
+  water:0,
+  forest:0,
+  hForest:0,
+  brush:0,
+  rocks:0,
+  mtn:0
+}
+
+// spawn points
+spawnPointsO = []; // overworld
+spawnPointsU = []; // underworld
+waterSpawns = [];
+hForestSpawns = [];
+mtnSpawns = [];
 
 for(x = 0; x < mapSize; x++){
   for(y = 0; y < mapSize; y++){
     var tile = world[0][y][x];
+    var uTile = world[1][y][x];
     if(tile !== 0){
       spawnPointsO.push([x,y]);
+      if(tile === 1){
+        biomes.hForest++;
+        hForestSpawns.push([x,y]);
+      } else if(tile === 2){
+        biomes.forest++;
+      } else if(tile === 3){
+        biomes.brush++;
+      } else if(tile === 4){
+        biomes.rocks++;
+      } else if(tile === 5){
+        biomes.mtn++;
+        mtnSpawns.push([x,y]);
+      } else if(tile === 6){
+        biomes.mtn++;
+      }
+    } else {
+      biomes.water++;
+      waterSpawns.push([x,y]);
+    }
+    if(uTile === 0){
+      spawnPointsU.push([x,y]);
     } else {
       continue;
     }
   }
 }
 
-// spawn points (Underworld)
-spawnPointsU = [];
+console.log('#############');
+console.log('Terrain Data:');
+console.log('#############');
+console.log('');
+console.log(Number((biomes.water/(mapSize*mapSize))*100).toFixed() + '% Water');
+console.log(Number((biomes.hForest/(mapSize*mapSize))*100).toFixed() + '% Heavy Forest');
+console.log(Number((biomes.forest/(mapSize*mapSize))*100).toFixed() + '% Light Forest');
+console.log(Number((biomes.brush/(mapSize*mapSize))*100).toFixed() + '% Brush');
+console.log(Number((biomes.rocks/(mapSize*mapSize))*100).toFixed() + '% Rocks');
+console.log(Number((biomes.mtn/(mapSize*mapSize))*100).toFixed() + '% Mountains');
+console.log('');
 
-for(x = 0; x < mapSize; x++){
-  for(y = 0; y < mapSize; y++){
-    var tile = world[1][y][x];
-    if(tile === 0){
-      spawnPointsU.push([x,y]);
+// MAP TOOLS
+
+// get tile walkable status
+isWalkable = function(z, c, r){
+  if(z === 0){
+    if(matrixO[r][c] === 0){
+      return true;
     } else {
-      continue;
+      return false;
+    }
+  } else if(z === -1){
+    if(matrixU[r][c] === 0){
+      return true;
+    } else {
+      return false;
+    }
+  } else if(z === 1){
+    if(matrixB1[r][c] === 0){
+      return true;
+    } else {
+      return false;
+    }
+  } else if(z === 2){
+    if(matrixB2[r][c] === 0){
+      return true;
+    } else {
+      return false;
+    }
+  } else if(z === -2){
+    if(matrixB3[r][c] === 0){
+      return true;
+    } else {
+      return false;
     }
   }
 }
@@ -148,19 +240,33 @@ getCoords = function(c,r){
   return coords;
 };
 
+// get (x,y) coords of tile from loc
+getCenter = function(c,r){
+  var coords = [(c * tileSize) + (tileSize/2), (r * tileSize) + (tileSize/2)];
+  return coords;
+};
+
 // random spawner (Overworld)
 randomSpawnO = function(){
-  var rand = Math.floor(Math.random() * (spawnPointsO.length - 1));
+  var rand = Math.floor(Math.random() * spawnPointsO.length);
   var point = spawnPointsO[rand];
-  var spawn = getCoords(point[0],point[1]);
+  var spawn = getCenter(point[0],point[1]);
+  return spawn;
+};
+
+// random spawner (HForest)
+randomSpawnHF = function(){
+  var rand = Math.floor(Math.random() * hForestSpawns.length);
+  var point = hForestSpawns[rand];
+  var spawn = getCenter(point[0],point[1]);
   return spawn;
 };
 
 // random spawner (Underworld)
 randomSpawnU = function(){
-  var rand = Math.floor(Math.random() * (spawnPointsU.length - 1));
+  var rand = Math.floor(Math.random() * spawnPointsU.length);
   var point = spawnPointsU[rand];
-  var spawn = getCoords(point[0],point[1]);
+  var spawn = getCenter(point[0],point[1]);
   return spawn;
 };
 
@@ -176,23 +282,19 @@ if(saveMap){
   });
 };
 
-// dayNight cycle
+// day/night cycle
 var tempus = 'XII.a';
 var period = 120; // 1=1hr, 2=30m, 4=15m, 12=5m, 60=1m, 120=30s, 360=10s
 var cycle = ['XII.a','I.a','II.a','III.a','IV.a','V.a','VI.a','VII.a','VIII.a','IX.a','X.a','XI.a',
             'XII.p','I.p','II.p','III.p','IV.p','V.p','VI.p','VII.p','VIII.p','IX.p','X.p','XI.p'];
 var tick = 1;
-var days = 0;
+day = 0;
 
 // weather
 
 // DATABASE
 var mongojs = require('mongojs');
 var db = mongojs('localhost:27017/myGame',['account','progress']);
-
-require('./server/js/Entity');
-require('./server/js/Commands');
-require('./server/js/entropy');
 
 // NETWORKING
 var express = require('express');
@@ -298,8 +400,12 @@ io.sockets.on('connection', function(socket){
 var dayNight = function(){
   tempus = cycle[tick];
   if(tempus === 'XII.a'){
-    days++;
-    entropy();
+    day++;
+    flora();
+    fauna();
+    console.log('');
+    console.log('Day ' + day);
+    console.log('');
   }
   io.emit('tempus',{
     tempus:tempus
@@ -314,6 +420,9 @@ var dayNight = function(){
 
 // initiate day/night cycle
 setInterval(dayNight, 3600000/period);
+console.log('');
+console.log('Day ' + day);
+console.log('');
 console.log(tempus);
 
 initPack = {player:[],arrow:[],item:[], light:[]};
@@ -343,4 +452,7 @@ setInterval(function(){
   removePack.item = [];
   removePack.light = [];
 
-},1000/25);
+},40);
+
+// spawn fauna
+fauna();

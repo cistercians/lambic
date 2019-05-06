@@ -6,7 +6,7 @@ var mapSize = 0;
 
 var socket = io();
 
-//SIGN IN
+// SIGN IN
 var signDiv = document.getElementById('signDiv');
 var signDivUsername = document.getElementById('signDiv-username');
 var signDivPassword = document.getElementById('signDiv-password');
@@ -117,7 +117,8 @@ var Player = function(initPack){
   self.x = initPack.x;
   self.y = initPack.y;
   self.z = initPack.z;
-  self.gear = initPack.gear;
+  self.class = initPack.class;
+  self.rank = initPack.rank;
   self.facing = 'down';
   self.angle = 0;
   self.pressingDown = false;
@@ -139,16 +140,21 @@ var Player = function(initPack){
 
     // hp and mana bars
     var hpWidth = 60 * self.hp / self.hpMax;
-    var manaWidth = 60 * self.mana / self.manaMax;
+    var manaWidth = null;
+    if(self.mana){
+      manaWidth = 60 * self.mana / self.manaMax;
+    }
 
     ctx.fillStyle = 'red';
     ctx.fillRect(x,y - 30,60,8);
     ctx.fillStyle = 'green';
     ctx.fillRect(x,y - 30,hpWidth,8);
-    ctx.fillStyle = 'red';
-    ctx.fillRect(x,y - 20,60,5);
-    ctx.fillStyle = 'blue';
-    ctx.fillRect(x,y - 20,manaWidth,5);
+    if(self.mana){
+      ctx.fillStyle = 'red';
+      ctx.fillRect(x,y - 20,60,5);
+      ctx.fillStyle = 'blue';
+      ctx.fillRect(x,y - 20,manaWidth,5);
+    }
     ctx.fillStyle = 'black';
 
     // username
@@ -803,16 +809,6 @@ var Item = function(initPack){
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
       Img.lance2,
-      x,
-      y,
-      tileSize,
-      tileSize
-      );
-    } else if(self.type === 'tunic'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
-      ctx.drawImage(
-      Img.tunic,
       x,
       y,
       tileSize,
@@ -1993,7 +1989,6 @@ var viewport = {
   startTile: [0,0],
   endTile: [0,0],
   offset: [0,0],
-  // takes player's loc as argument
   update: function(c,r){
     this.offset[0] = Math.floor((this.screen[0]/2) - c);
     this.offset[1] = Math.floor((this.screen[1]/2) - r);
@@ -2003,21 +1998,28 @@ var viewport = {
     this.startTile[0] = tile[0] - 1 - Math.ceil((this.screen[0]/2) / tileSize);
     this.startTile[1] = tile[1] - 1 - Math.ceil((this.screen[1]/2) / tileSize);
 
-    if(this.startTile[0] < 0){this.startTile[0] = 0;}
-    if(this.startTile[1] < 0){this.startTile[1] = 0;}
+    if(this.startTile[0] < 0){
+      this.startTile[0] = 0;
+    }
+    if(this.startTile[1] < 0){
+      this.startTile[1] = 0;
+    }
 
     this.endTile[0] = tile[0] + 1 + Math.ceil((this.screen[0]/2) / tileSize);
     this.endTile[1] = tile[1] + 1 + Math.ceil((this.screen[1]/2) / tileSize);
 
-    if(this.endTile[0] >= mapSize){this.endTile[0] = mapSize - 1;}
-    if(this.endTile[1] >= mapSize){this.endTile[1] = mapSize - 1;}
+    if(this.endTile[0] >= mapSize){
+      this.endTile[0] = mapSize;
+    }
+    if(this.endTile[1] >= mapSize){
+      this.endTile[1] = mapSize;
+    }
   }
 };
 
 // renderer
 var renderMap = function(){
   var z = Player.list[selfId].z;
-
 
   // overworld
   if(z === 0){
@@ -3822,7 +3824,6 @@ var renderMap = function(){
         var xOffset = viewport.offset[0] + (c * tileSize);
         var yOffset = viewport.offset[1] + (r * tileSize);
         var tile = getTile(0, c, r);
-        var above = getTile(0,c,r-1);
         if(tile !== 0){
           ctx.drawImage(
             Img.cavewall, // image

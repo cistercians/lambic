@@ -70,7 +70,7 @@ Building.list = {}
 Character = function(param){
   var self = Entity(param);
   self.name = null;
-  self.home = null; // [z,x,y] (must own building if player)
+  self.home = param.home; // [z,x,y] (must own building if player)
   self.class = null;
   self.rank = null;
   self.inventory = {
@@ -145,11 +145,156 @@ Character = function(param){
   self.working = false;
   self.baseSpd = 4;
   self.maxSpd = 4;
+  self.idleTime = 0;
+  self.idleRange = 1000;
   self.actionCooldown = 0;
   self.attackCooldown = 0;
   self.hp = 100;
   self.hpMax = 100;
+  self.mana = null;
+  self.manaMax = null;
 
+  // idle = walk around
+  // patrol = walk between targets
+  // escort = follow and protect target
+  // raid = attack all enemies en route to target
+  self.mode = 'idle';
+
+  // combat = eliminate target
+  // retreat = disengage and return home
+  // return = return to previous location and activity
+  self.action = null;
+
+  self.path = null;
+  self.pathCount = 0;
+
+  self.update = function(){
+    if(self.mode === 'idle' && !self.path && self.idleTime === 0){
+      var loc = getLoc(self.x,self.y);
+      var col = loc[0];
+      var row = loc[1];
+      var select = [[col,row-1],[col-1,row],[col,row+1],[col+1,row]];
+      var target = select[Math.floor(Math.random() * 4)];
+      if(target[0] < mapSize && target[0] > -1 && target[1] < mapSize && target[1] > -1){
+        if(isWalkable(self.z,target[0],target[1])){
+          self.path = [target];
+          self.idleTime += Math.floor(Math.random() * self.idleRange);
+        }
+      }
+    }
+
+    if(self.idleTime > 0){
+      self.idleTime--;
+    }
+
+    self.updatePosition();
+  }
+
+  self.getPath = function(c,r){
+    var start = getLoc(self.x,self.y);
+    if(self.z === 0 && getLocTile(0,self.x,self.y) === 0){
+      var gridSb = gridS.clone();
+      var path = finder.findPath(start[0], start[1], c, r, gridSb);
+      self.path = path;
+    } else if(self.z === 0){
+      var gridOb = gridO.clone();
+      var path = finder.findPath(start[0], start[1], c, r, gridOb);
+      self.path = path;
+    } else if(self.z === -1){
+      var gridUb = gridU.clone();
+      var path = finder.findPath(start[0], start[1], c, r, gridUb);
+      self.path = path;
+    } else if(self.z === -2){
+      var gridB3b = gridB3.clone();
+      var path = finder.findPath(start[0], start[1], c, r, gridB3b);
+      self.path = path;
+    } else if(self.z === 1){
+      var gridB1b = gridB1.clone();
+      var path = finder.findPath(start[0], start[1], c, r, gridB1b);
+      self.path = path;
+    } else if(self.z === 2){
+      var gridB2b = gridB2.clone();
+      var path = finder.findPath(start[0], start[1], c, r, gridB2b);
+      self.path = path;
+    }
+  }
+  self.updatePosition = function(){
+    if(self.path){
+      var len = self.path.length;
+      if(self.pathCount < len){
+        var dest = getCenter(self.path[self.pathCount][0],self.path[self.pathCount][1]);
+        var dx = dest[0];
+        var dy = dest[1];
+        var diffX = dx - self.x;
+        var diffY = dy - self.y;
+
+        if(diffX >= self.maxSpd){
+          self.x += self.maxSpd;
+        } else if(diffX <= (0-self.maxSpd)){
+          self.x -= self.maxSpd;
+        }
+        if(diffY >= self.maxSpd){
+          self.y += self.maxSpd;
+        } else if(diffY <= (0-self.maxSpd)){
+          self.y -= self.maxSpd;
+        }
+        if((diffX < self.maxSpd && diffX > (0-self.maxSpd)) && (diffY < self.maxSpd && diffY > (0-self.maxSpd))){
+          self.pathCount += 1;
+        }
+      } else {
+        self.path = null;
+        self.pathCount = 0;
+      }
+    } else {
+      return;
+    }
+  }
+
+  self.getInitPack = function(){
+    return {
+      name:self.name,
+      id:self.id,
+      x:self.x,
+      y:self.y,
+      z:self.z,
+      class:self.class,
+      rank:self.rank,
+      inTrees:self.inTrees,
+      facing:self.facing,
+      hp:self.hp,
+      hpMax:self.hpMax,
+      mana:self.mana,
+      manaMax:self.manaMax
+    };
+  }
+
+  self.getUpdatePack = function(){
+    return {
+      id:self.id,
+      x:self.x,
+      y:self.y,
+      z:self.z,
+      class:self.class,
+      rank:self.rank,
+      inTrees:self.inTrees,
+      facing:self.facing,
+      pressingUp:self.pressingUp,
+      pressingDown:self.pressingDown,
+      pressingLeft:self.pressingLeft,
+      pressingRight:self.pressingRight,
+      pressingAttack:self.pressingAttack,
+      angle:self.mouseAngle,
+      working:self.working,
+      hp:self.hp,
+      hpMax:self.hpMax,
+      mana:self.mana,
+      manaMax:self.manaMax
+    }
+  }
+
+  Player.list[self.id] = self;
+
+  initPack.player.push(self.getInitPack());
   return self;
 }
 
@@ -163,19 +308,19 @@ Sheep = function(param){
 
 Deer = function(param){
   var self = Character(param);
-  self.class = 'Deer';
+  self.name = 'Deer';
   self.class = 'deer';
 }
 
 WildBoar = function(param){
   var self = Character(param);
-  self.class = 'Wild Boar';
+  self.name = 'Wild Boar';
   self.class = 'wild boar';
 }
 
 Wolf = function(param){
   var self = Character(param);
-  self.class = 'Wolf';
+  self.name = 'Wolf';
   self.class = 'wolf';
 }
 
@@ -190,14 +335,6 @@ CaveWolf = function(param){
 Serf = function(param){
   var self = Character(param);
   self.class = 'serf';
-  self.name = param.name;
-  self.house = param.house;
-  self.kingdom = param.kingdom;
-}
-
-Villager = function(param){
-  var self = Character(param);
-  self.class = 'villager';
   self.name = param.name;
   self.house = param.house;
   self.kingdom = param.kingdom;
@@ -382,7 +519,6 @@ Mastema = function(param){
   var self = Character(param);
   self.name = 'MASTEMA';
   self.class = 'mastema';
-  self.rank = '♚';
   self.house = 'sun cult';
 }
 
@@ -583,10 +719,8 @@ Player = function(param){
   self.strength = 10;
   self.dexterity = 1;
 
-  var super_update = self.update;
   self.update = function(){
     self.updateSpd();
-    super_update();
 
     if(self.actionCooldown > 0){
       self.actionCooldown--;
@@ -633,10 +767,20 @@ Player = function(param){
             self.working = false;
             if(getTile(0,loc[0],loc[1]) === 1 && getTile(6,loc[0],loc[1]) < 101){
               world[0][loc[1]][loc[0]] = 2;
+              for(i in hForestSpawns){
+                if(hForestSpawns[i] === loc){
+                  biomes.hForest--;
+                  hForestSpawns.splice(i,1);
+                  return;
+                } else {
+                  continue;
+                }
+              }
+              io.emit('mapEdit',world);
             } else if(getTile(0,loc[0],loc[1]) === 2 && getTile(6,loc[0],loc[1]) <= 0){
               world[0][loc[1]][loc[0]] = 7;
+              io.emit('mapEdit',world);
             }
-            io.emit('mapEdit',world);
           } else {
             return;
           }
@@ -652,8 +796,8 @@ Player = function(param){
             self.working = false;
             if(getTile(0,loc[0],loc[1]) === 4 && getTile(6,loc[0],loc[1]) <= 0){
               world[0][loc[1]][loc[0]] = 7;
+              io.emit('mapEdit',world);
             }
-            io.emit('mapEdit',world);
           } else {
             return;
           }
@@ -670,7 +814,7 @@ Player = function(param){
             return;
           }
         },10000/self.strength);
-          // farm
+        // farm
       } else if(self.z === 0 && getTile(0,loc[0],loc[1]) === 8){
         var f = getBuilding(self.x,self.y);
         self.working = true;
@@ -1790,7 +1934,7 @@ Player = function(param){
     if(self.z === -1 && (getLocTile(1,self.x,self.y-(tileSize/6)) === 1 || getLocItem(1,self.x,self.y-(tileSize/6)) !== 0 || (self.y - 10) < 0)){
       upBlocked = true;
     }
-    if(self.z === -1 && (getLocTile(1,self.x,self.y+(tileSize/4)) === 1 || getLocItem(1,self.x,self.y+(tileSize/4)) !== 0 || (self.y + 10) > (mapPx - tileSize))){
+    if(self.z === -1 && (getLocTile(1,self.x,self.y+(tileSize/2)) === 1 || getLocItem(1,self.x,self.y+(tileSize/2)) !== 0 || (self.y + 10) > (mapPx - tileSize))){
       downBlocked = true;
     }
 
@@ -1805,7 +1949,7 @@ Player = function(param){
       if(getLocTile(4,self.x,self.y-(tileSize/6)) === 1 || getLocTile(4,self.x,self.y-(tileSize/6)) === 2 || getLocItem(0,self.x,self.y-(tileSize/6)) !== 0){
         upBlocked = true;
       }
-      if((getLocTile(0,self.x,self.y) !== 14 && getLocTile(0,self.x,self.y) !== 16 && getLocTile(0,self.x,self.y) !== 19 && getLocTile(3,self.x,self.y+(tileSize/4)) === 0) || getLocItem(0,self.x,self.y+(tileSize/4)) !== 0){
+      if((getLocTile(0,self.x,self.y) !== 14 && getLocTile(0,self.x,self.y) !== 16 && getLocTile(0,self.x,self.y) !== 19 && getLocTile(3,self.x,self.y+(tileSize/2)) === 0) || getLocItem(0,self.x,self.y+(tileSize/2)) !== 0){
         downBlocked = true;
       }
     }
@@ -1820,7 +1964,7 @@ Player = function(param){
     if(self.z === 2 && (getLocTile(4,self.x,self.y-(tileSize/6)) === 1 || getLocTile(4,self.x,self.y-(tileSize/6)) === 2 || getLocTile(4,self.x,self.y-(tileSize/6)) === 5 || getLocTile(4,self.x,self.y-(tileSize/6)) === 6 || getLocItem(3,self.x,self.y-(tileSize/6)) !== 0)){
       upBlocked = true;
     }
-    if(self.z === 2 && (getLocTile(5,self.x,self.y+(tileSize/4)) === 0 || getLocItem(3,self.x,self.y+(tileSize/4)) !== 0)){
+    if(self.z === 2 && (getLocTile(5,self.x,self.y+(tileSize/2)) === 0 || getLocItem(3,self.x,self.y+(tileSize/2)) !== 0)){
       downBlocked = true;
     }
 
@@ -1834,7 +1978,7 @@ Player = function(param){
     if(self.z === -2 && (getLocTile(8,self.x,self.y-(tileSize/6)) === 0 || getLocItem(4,self.x,self.y-(tileSize/6)) !== 0)){
       upBlocked = true;
     }
-    if(self.z === -2 && (getLocTile(8,self.x,self.y+(tileSize/4)) === 0 || getLocItem(4,self.x,self.y+(tileSize/4)) !== 0)){
+    if(self.z === -2 && (getLocTile(8,self.x,self.y+(tileSize/2)) === 0 || getLocItem(4,self.x,self.y+(tileSize/2)) !== 0)){
       downBlocked = true;
     }
 
@@ -1848,7 +1992,7 @@ Player = function(param){
     if(self.z === -3 && getLocItem(2,self.x,self.y-(tileSize/6)) !== 0){
       upBlocked = true;
     }
-    if(self.z === -3 && getLocItem(2,self.x,self.y+(tileSize/4)) !== 0){
+    if(self.z === -3 && getLocItem(2,self.x,self.y+(tileSize/2)) !== 0){
       downBlocked = true;
     }
 
@@ -1856,40 +2000,28 @@ Player = function(param){
       self.facing = 'right';
       self.working = false;
       if(!rightBlocked){
-        self.spdX = self.maxSpd;
-      } else {
-        self.spdX = 0;
+        self.x += self.maxSpd;
       }
     } else if(self.pressingLeft){
       self.facing = 'left';
       self.working = false;
       if(!leftBlocked){
-        self.spdX = -self.maxSpd;
-      } else {
-        self.spdX = 0;
+        self.x -= self.maxSpd;
       }
-    } else {
-      self.spdX = 0;
     }
 
     if(self.pressingUp){
       self.facing = 'up';
       self.working = false;
       if(!upBlocked){
-        self.spdY = -self.maxSpd;
-      } else {
-        self.spdY = 0;
+        self.y -= self.maxSpd;
       }
     } else if(self.pressingDown){
       self.facing = 'down';
       self.working = false;
       if(!downBlocked){
-        self.spdY = self.maxSpd;
-      } else {
-        self.spdY = 0;
+        self.y += self.maxSpd;
       }
-    } else {
-      self.spdY = 0;
     }
 
     // terrain effects and z movement
@@ -1989,7 +2121,8 @@ Player = function(param){
       x:self.x,
       y:self.y,
       z:self.z,
-      gear:self.gear,
+      class:self.class,
+      rank:self.rank,
       inTrees:self.inTrees,
       facing:self.facing,
       hp:self.hp,
@@ -2005,7 +2138,8 @@ Player = function(param){
       x:self.x,
       y:self.y,
       z:self.z,
-      gear:self.gear,
+      class:self.class,
+      rank:self.rank,
       inTrees:self.inTrees,
       facing:self.facing,
       pressingUp:self.pressingUp,
@@ -2604,18 +2738,6 @@ TeutonicLance = function(param){
   return self;
 }
 
-// TUNIC
-Tunic = function(param){
-  var self = Item(param);
-  self.type = 'tunic';
-  self.class = 'cloth';
-  self.rank = 0;
-  self.canPickup = true;
-  Item.list[self.id] = self;
-  initPack.item.push(self.getInitPack());
-  return self;
-}
-
 // BRIGANDINE
 Brigandine = function(param){
   var self = Item(param);
@@ -2728,7 +2850,7 @@ GothicPlate = function(param){
 ClericRobe = function(param){
   var self = Item(param);
   self.type = 'cleric robe';
-  self.class = 'robe';
+  self.class = 'cloth';
   self.rank = 0;
   self.canPickup = true;
   Item.list[self.id] = self;
@@ -2740,7 +2862,7 @@ ClericRobe = function(param){
 DruidRobe = function(param){
   var self = Item(param);
   self.type = 'druid robe';
-  self.class = 'robe';
+  self.class = 'cloth';
   self.rank = 1;
   self.canPickup = true;
   Item.list[self.id] = self;
@@ -2752,7 +2874,7 @@ DruidRobe = function(param){
 MonkRobe = function(param){
   var self = Item(param);
   self.type = 'monk robe';
-  self.class = 'robe';
+  self.class = 'cloth';
   self.rank = 1;
   self.canPickup = true;
   Item.list[self.id] = self;
@@ -2764,7 +2886,7 @@ MonkRobe = function(param){
 WarlockRobe = function(param){
   var self = Item(param);
   self.type = 'warlock robe';
-  self.class = 'robe';
+  self.class = 'cloth';
   self.rank = 1;
   self.canPickup = true;
   Item.list[self.id] = self;
@@ -2919,7 +3041,6 @@ LitTorch = function(param){
       self.z = Player.list[self.parent].z;
     } else {
       self.toRemove = true;
-      //Player.list[self.parent].hasTorch = false;
     }
     if(self.timer++ > 3000){
       self.toRemove = true;
