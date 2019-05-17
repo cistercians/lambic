@@ -64,14 +64,17 @@ Building = function(param){
 
 buildingCount = 0;
 buildingId = [];
-Building.list = {}
+Building.list = {};
 
 // CHARACTER
 Character = function(param){
   var self = Entity(param);
+  self.type = 'npc';
   self.name = null;
+  self.house = param.house;
+  self.kingdom = param.kingdom;
   self.home = param.home; // [z,x,y] (must own building if player)
-  self.class = null;
+  self.class = 'serf';
   self.rank = null;
   self.inventory = {
     keys:[],
@@ -100,8 +103,7 @@ Character = function(param){
     ironlance:0,
     steellance:0,
     rusticlance:0,
-    grandmasterlance:0,
-    tunic:0,
+    teutoniclance:0,
     brigandine:0,
     lamellar:0,
     ironmail:0,
@@ -138,7 +140,14 @@ Character = function(param){
     gose:0,
     lambic:0
   }
+  self.mounted = false;
+  self.spriteSize = tileSize;
   self.facing = 'down';
+  self.pressingRight = false;
+  self.pressingLeft = false;
+  self.pressingUp = false;
+  self.pressingDown = false;
+  self.pressingAttack = false;
   self.inTrees = false;
   self.onMtn = false;
   self.hasTorch = false;
@@ -218,6 +227,7 @@ Character = function(param){
       self.path = path;
     }
   }
+
   self.updatePosition = function(){
     if(self.path){
       var len = self.path.length;
@@ -230,15 +240,27 @@ Character = function(param){
 
         if(diffX >= self.maxSpd){
           self.x += self.maxSpd;
+          self.pressingRight = true;
+          self.facing = 'right';
         } else if(diffX <= (0-self.maxSpd)){
           self.x -= self.maxSpd;
+          self.pressingLeft = true;
+          self.facing = 'left';
         }
         if(diffY >= self.maxSpd){
           self.y += self.maxSpd;
+          self.pressingDown = true;
+          self.facing = 'down';
         } else if(diffY <= (0-self.maxSpd)){
           self.y -= self.maxSpd;
+          self.pressingUp = true;
+          self.facing = 'up';
         }
         if((diffX < self.maxSpd && diffX > (0-self.maxSpd)) && (diffY < self.maxSpd && diffY > (0-self.maxSpd))){
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
           self.pathCount += 1;
         }
       } else {
@@ -252,6 +274,7 @@ Character = function(param){
 
   self.getInitPack = function(){
     return {
+      type:self.type,
       name:self.name,
       id:self.id,
       x:self.x,
@@ -259,6 +282,7 @@ Character = function(param){
       z:self.z,
       class:self.class,
       rank:self.rank,
+      spriteSize:self.spriteSize,
       inTrees:self.inTrees,
       facing:self.facing,
       hp:self.hp,
@@ -283,7 +307,6 @@ Character = function(param){
       pressingLeft:self.pressingLeft,
       pressingRight:self.pressingRight,
       pressingAttack:self.pressingAttack,
-      angle:self.mouseAngle,
       working:self.working,
       hp:self.hp,
       hpMax:self.hpMax,
@@ -302,47 +325,47 @@ Character = function(param){
 
 Sheep = function(param){
   var self = Character(param);
-  self.name = 'Sheep';
   self.class = 'sheep';
 }
 
 Deer = function(param){
   var self = Character(param);
-  self.name = 'Deer';
   self.class = 'deer';
 }
 
-WildBoar = function(param){
+Boar = function(param){
   var self = Character(param);
-  self.name = 'Wild Boar';
-  self.class = 'wild boar';
+  self.class = 'boar';
 }
 
 Wolf = function(param){
   var self = Character(param);
-  self.name = 'Wolf';
   self.class = 'wolf';
-}
-
-CaveWolf = function(param){
-  var self = Character(param);
-  self.name = 'Cave Wolf';
-  self.class = 'cave wolf';
 }
 
 // UNITS
 
-Serf = function(param){
+SerfM = function(param){
   var self = Character(param);
-  self.class = 'serf';
+  self.class = 'serf m';
+  self.spriteSize = tileSize*1.5;
   self.name = param.name;
   self.house = param.house;
   self.kingdom = param.kingdom;
 }
 
-Brewmaster = function(param){
+SerfF = function(param){
   var self = Character(param);
-  self.class = 'brewmaster';
+  self.class = 'serf f';
+  self.spriteSize = tileSize*1.5;
+  self.name = param.name;
+  self.house = param.house;
+  self.kingdom = param.kingdom;
+}
+
+Innkeeper = function(param){
+  var self = Character(param);
+  self.class = 'innkeeper';
   self.name = param.name;
   self.house = param.house;
   self.kingdom = param.kingdom;
@@ -370,7 +393,7 @@ Friar = function(param){
   self.class = 'friar';
   self.name = param.name;
   self.house = param.house;
-  self.kingdom = param.kingdom;
+  self.spriteSize = tileSize*1.5;
 }
 
 Conscript = function(param){
@@ -387,24 +410,29 @@ Skirmisher = function(param){
   self.class = 'skirmisher';
   self.house = param.house;
   self.kingdom = param.kingdom;
+  self.spriteSize = tileSize*1.5;
 }
 
-Chevalier = function(param){
+Cavalier = function(param){
   var self = Character(param);
-  self.name = 'Chevalier';
-  self.class = 'chevalier';
+  self.name = 'Cavalier';
+  self.class = 'cavalier';
   self.rank = '♞';
+  self.spriteSize = tileSize*2;
   self.house = param.house;
   self.kingdom = param.kingdom;
+  self.spriteSize = tileSize*1.5;
 }
 
 General = function(param){
   var self = Character(param);
   self.class = 'general';
   self.rank = '♜';
+  self.spriteSize = tileSize*2;
   self.name = param.name;
   self.house = param.house;
   self.kingdom = param.kingdom;
+  self.spriteSize = tileSize*2;
 }
 
 Trebuchet = function(param){
@@ -489,22 +517,22 @@ AcolyteM = function(param){
   var self = Character(param);
   self.name = 'Acolyte';
   self.class = 'acolyte m';
-  self.house = 'sun cult';
+  self.house = 'occult';
 }
 
 AcolyteF = function(param){
   var self = Character(param);
   self.name = 'Acolyte';
   self.class = 'acolyte f';
-  self.house = 'sun cult';
+  self.house = 'occult';
 }
 
-Magus = function(param){
+Priestess = function(param){
   var self = Character(param);
-  self.name = 'Magus';
-  self.class = 'magus';
+  self.name = 'Priestess';
+  self.class = 'priestess';
   self.rank = '♝';
-  self.house = 'sun cult';
+  self.house = 'occult';
 }
 
 Magister = function(param){
@@ -512,14 +540,14 @@ Magister = function(param){
   self.name = 'Magister';
   self.class = 'magister';
   self.rank = '♜';
-  self.house = 'sun cult';
+  self.house = 'occult';
 }
 
 Mastema = function(param){
   var self = Character(param);
   self.name = 'MASTEMA';
   self.class = 'mastema';
-  self.house = 'sun cult';
+  self.house = 'occult';
 }
 
 Norseman = function(param){
@@ -692,20 +720,17 @@ Chieftain = function(param){
 // PLAYER
 Player = function(param){
   var self = Character(param);
+  self.type = 'player';
   self.name = param.name;
-  self.house = null;
-  self.kingdom = null;
   self.gear = {
     armor:null,
     weapon:null,
     accessory:null
   }
+  self.spriteSize = tileSize*1.5;
+  self.blessed = false;
   self.title = '';
-  self.pressingRight = false;
-  self.pressingLeft = false;
-  self.pressingUp = false;
-  self.pressingDown = false;
-  self.pressingAttack = false;
+  self.crafting = false;
   self.pressingT = false;
   self.pressingE = false;
   self.pressing1 = false;
@@ -730,9 +755,15 @@ Player = function(param){
       self.attackCooldown--;
     }
 
-    if(self.pressingAttack && self.attackCooldown === 0 && self.z !== -3){ // EDIT to use attack of weapon type
-      self.shootArrow(self.mouseAngle);
-      self.attackCooldown = 50/self.dexterity;
+    if(self.pressingAttack && self.gear.weapon && self.attackCooldown === 0 && self.z !== -3){
+      if(self.gear.weapon[1] === 'bow'){
+        self.shootArrow(self.mouseAngle);
+        self.attackCooldown = 50/self.dexterity;
+      } else {
+        if(self.facing === 'down'){
+
+        }
+      }
     }
 
     if(self.pressingT && self.actionCooldown === 0){
@@ -1846,6 +1877,21 @@ Player = function(param){
         return;
       }
     }
+
+    // CLASS
+
+  }
+
+  self.attack = function(dir){
+    if(dir === 'down'){
+
+    } else if(dir === 'up'){
+
+    } else if(dir === 'left'){
+
+    } else if(dir === 'right'){
+
+    }
   }
 
   self.shootArrow = function(angle){
@@ -2116,6 +2162,7 @@ Player = function(param){
 
   self.getInitPack = function(){
     return {
+      type:self.type,
       name:self.name,
       id:self.id,
       x:self.x,
@@ -2123,6 +2170,8 @@ Player = function(param){
       z:self.z,
       class:self.class,
       rank:self.rank,
+      gear:self.gear,
+      spriteSize:self.spriteSize,
       inTrees:self.inTrees,
       facing:self.facing,
       hp:self.hp,
@@ -2140,6 +2189,8 @@ Player = function(param){
       z:self.z,
       class:self.class,
       rank:self.rank,
+      gear:self.gear,
+      spriteSize:self.spriteSize,
       inTrees:self.inTrees,
       facing:self.facing,
       pressingUp:self.pressingUp,
@@ -2149,6 +2200,7 @@ Player = function(param){
       pressingAttack:self.pressingAttack,
       angle:self.mouseAngle,
       working:self.working,
+      crafting:self.crafting,
       hp:self.hp,
       hpMax:self.hpMax,
       mana:self.mana,
@@ -3531,7 +3583,7 @@ StagHead = function(param){
   var self = Item(param);
   self.type = 'stag head';
   self.class = 'environment';
-  self.rank = 1;
+  self.rank = 0;
   self.canPickup = false;
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
@@ -3588,7 +3640,7 @@ Fish = function(param){
   return self;
 }
 
-// RAW LAMB
+// LAMB
 Lamb = function(param){
   var self = Item(param);
   self.type = 'lamb';
@@ -3600,10 +3652,10 @@ Lamb = function(param){
   return self;
 }
 
-// RAW BOAR
-Boar = function(param){
+// BOAR MEAT
+BoarMeat = function(param){
   var self = Item(param);
-  self.type = 'boar';
+  self.type = 'boar meat';
   self.class = 'resource';
   self.rank = 0;
   self.canPickup = true;
@@ -3612,7 +3664,7 @@ Boar = function(param){
   return self;
 }
 
-// RAW VENISON
+// VENISON
 Venison = function(param){
   var self = Item(param);
   self.type = 'venison';

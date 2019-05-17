@@ -100,6 +100,16 @@ setInterval(function(){
   }
 },400);
 
+// working animation
+var wrk = 0;
+setInterval(function(){
+  if(wrk === 1){
+    wrk = 0;
+  } else {
+    wrk = 1;
+  }
+},800);
+
 var ctx = document.getElementById('ctx').getContext('2d');
 var lighting = document.getElementById('lighting').getContext('2d');
 ctx.font = '30px Arial';
@@ -112,6 +122,7 @@ buildingList = {}
 // PLAYER
 var Player = function(initPack){
   var self = {};
+  self.type = initPack.type;
   self.name = initPack.name;
   self.id = initPack.id;
   self.x = initPack.x;
@@ -119,6 +130,7 @@ var Player = function(initPack){
   self.z = initPack.z;
   self.class = initPack.class;
   self.rank = initPack.rank;
+  self.gear = initPack.gear;
   self.facing = 'down';
   self.angle = 0;
   self.pressingDown = false;
@@ -128,17 +140,34 @@ var Player = function(initPack){
   self.pressingAttack = false;
   self.inTrees = initPack.inTrees;
   self.working = false;
+  self.crafting = false;
   self.hp = initPack.hp;
   self.hpMax = initPack.hpMax;
   self.mana = initPack.mana;
   self.manaMax = initPack.manaMax;
   self.sprite = maleserf;
+  self.spriteSize = initPack.spriteSize;
 
   self.draw = function(){
-    var x = (self.x - (tileSize/2)) - Player.list[selfId].x + WIDTH/2;
-    var y = (self.y - (tileSize/2)) - Player.list[selfId].y + HEIGHT/2;
+
+    var x = 0;
+    var y = 0;
+
+    if(self.spriteSize === tileSize * 1.5){
+      x = (self.x - (tileSize*0.75)) - Player.list[selfId].x + WIDTH/2;
+      y = (self.y - (tileSize*0.75)) - Player.list[selfId].y + HEIGHT/2;
+    } else if(self.spriteSize === tileSize * 2){
+      x = (self.x - tileSize) - Player.list[selfId].x + WIDTH/2;
+      y = (self.y - tileSize) - Player.list[selfId].y + HEIGHT/2;
+    } else {
+      x = (self.x - (tileSize/2)) - Player.list[selfId].x + WIDTH/2;
+      y = (self.y - (tileSize/2)) - Player.list[selfId].y + HEIGHT/2;
+    }
 
     // hp and mana bars
+    var barX = (self.x - (tileSize/2)) - Player.list[selfId].x + WIDTH/2;
+    var barY = (self.y - (tileSize/2)) - Player.list[selfId].y + HEIGHT/2;
+
     var hpWidth = 60 * self.hp / self.hpMax;
     var manaWidth = null;
     if(self.mana){
@@ -146,124 +175,199 @@ var Player = function(initPack){
     }
 
     ctx.fillStyle = 'red';
-    ctx.fillRect(x,y - 30,60,8);
+    ctx.fillRect(barX,barY - 30,60,6);
     ctx.fillStyle = 'green';
-    ctx.fillRect(x,y - 30,hpWidth,8);
+    ctx.fillRect(barX,barY - 30,hpWidth,6);
     if(self.mana){
       ctx.fillStyle = 'red';
-      ctx.fillRect(x,y - 20,60,5);
+      ctx.fillRect(barX,barY - 20,60,4);
       ctx.fillStyle = 'blue';
-      ctx.fillRect(x,y - 20,manaWidth,5);
+      ctx.fillRect(barX,barY - 20,manaWidth,4);
     }
-    ctx.fillStyle = 'black';
 
     // username
-    ctx.fillStyle = 'white';
-    ctx.font = '15px minion web';
-    ctx.textAlign = 'center';
-    ctx.fillText(self.name,x + 30,y - 40,100);
+    if(self.name){
+      ctx.fillStyle = 'white';
+      ctx.font = '15px minion web';
+      ctx.textAlign = 'center';
+      ctx.fillText(self.name,barX + 30,barY - 40,100);
+    }
 
     // status
     if(self.working){
-      ctx.fillText(workingIcon[wrk], x + 80, y - 20)
+      ctx.fillText(workingIcon[wrk], barX + 80, barY - 20);
     }
 
     // character sprite
-    if(self.angle > 45 && self.angle <= 115 && self.pressingAttack){
-      ctx.drawImage(
-        self.sprite.attackdb,
-        x,
-        y,
-        tileSize,
-        tileSize
-      );
-    } else if(self.angle > -135 && self.angle <= -15 && self.pressingAttack){
-      ctx.drawImage(
-        self.sprite.attackub,
-        x,
-        y,
-        tileSize,
-        tileSize
-      );
-    } else if((self.angle > 115 || self.angle <= -135) && self.pressingAttack){
-      ctx.drawImage(
-        self.sprite.attacklb,
-        x,
-        y,
-        tileSize,
-        tileSize
-      );
-    } else if((self.angle > -15 || self.angle <= 45) && self.pressingAttack){
-      ctx.drawImage(
-        self.sprite.attackrb,
-        x,
-        y,
-        tileSize,
-        tileSize
-      );
+    if(self.pressingAttack){
+      if(self.type === 'player' && self.gear.weapon){
+        if(self.gear.weapon[1] === 'bow'){
+          if(self.angle > 45 && self.angle <= 115){
+            ctx.drawImage(
+              self.sprite.attackdb,
+              x,
+              y,
+              self.spriteSize,
+              self.spriteSize
+            );
+          } else if(self.angle > -135 && self.angle <= -15){
+            ctx.drawImage(
+              self.sprite.attackub,
+              x,
+              y,
+              self.spriteSize,
+              self.spriteSize
+            );
+          } else if(self.angle > 115 || self.angle <= -135){
+            ctx.drawImage(
+              self.sprite.attacklb,
+              x,
+              y,
+              self.spriteSize,
+              self.spriteSize
+            );
+          } else if(self.angle > -15 || self.angle <= 45){
+            ctx.drawImage(
+              self.sprite.attackrb,
+              x,
+              y,
+              self.spriteSize,
+              self.spriteSize
+            );
+          }
+        } else {
+          if(self.facing === 'down'){
+            ctx.drawImage(
+              self.sprite.attackd,
+              x,
+              y,
+              self.spriteSize,
+              self.spriteSize
+            );
+          } else if(self.facing === 'up'){
+            ctx.drawImage(
+              self.sprite.attacku,
+              x,
+              y,
+              self.spriteSize,
+              self.spriteSize
+            );
+          } else if(self.facing === 'left'){
+            ctx.drawImage(
+              self.sprite.attackl,
+              x,
+              y,
+              self.spriteSize,
+              self.spriteSize
+            );
+          } else if(self.facing === 'right'){
+            ctx.drawImage(
+              self.sprite.attackr,
+              x,
+              y,
+              self.spriteSize,
+              self.spriteSize
+            );
+          }
+        }
+      } else if(self.type === 'npc'){
+        if(self.facing === 'down'){
+          ctx.drawImage(
+            self.sprite.attackd,
+            x,
+            y,
+            self.spriteSize,
+            self.spriteSize
+          );
+        } else if(self.facing === 'up'){
+          ctx.drawImage(
+            self.sprite.attacku,
+            x,
+            y,
+            self.spriteSize,
+            self.spriteSize
+          );
+        } else if(self.facing === 'left'){
+          ctx.drawImage(
+            self.sprite.attackl,
+            x,
+            y,
+            self.spriteSize,
+            self.spriteSize
+          );
+        } else if(self.facing === 'right'){
+          ctx.drawImage(
+            self.sprite.attackr,
+            x,
+            y,
+            self.spriteSize,
+            self.spriteSize
+          );
+        }
+      }
     } else if(self.facing === 'down' && !self.pressingDown){
       ctx.drawImage(
         self.sprite.facedown,
         x,
         y,
-        tileSize,
-        tileSize
+        self.spriteSize,
+        self.spriteSize
       );
     } else if(self.pressingDown){
       ctx.drawImage(
         self.sprite.walkdown[wlk],
         x,
         y,
-        tileSize,
-        tileSize
+        self.spriteSize,
+        self.spriteSize
       );
     } else if(self.facing === 'up' && !self.pressingUp){
       ctx.drawImage(
         self.sprite.faceup,
         x,
         y,
-        tileSize,
-        tileSize
+        self.spriteSize,
+        self.spriteSize
       );
     } else if(self.pressingUp){
       ctx.drawImage(
         self.sprite.walkup[wlk],
         x,
         y,
-        tileSize,
-        tileSize
+        self.spriteSize,
+        self.spriteSize
       );
     } else if(self.facing === 'left' && !self.pressingLeft){
       ctx.drawImage(
         self.sprite.faceleft,
         x,
         y,
-        tileSize,
-        tileSize
+        self.spriteSize,
+        self.spriteSize
       );
     } else if(self.pressingLeft){
       ctx.drawImage(
         self.sprite.walkleft[wlk],
         x,
         y,
-        tileSize,
-        tileSize
+        self.spriteSize,
+        self.spriteSize
       );
     } else if(self.facing === 'right' && !self.pressingRight){
       ctx.drawImage(
         self.sprite.faceright,
         x,
         y,
-        tileSize,
-        tileSize
+        self.spriteSize,
+        self.spriteSize
       );
     } else if(self.pressingRight){
       ctx.drawImage(
         self.sprite.walkright[wlk],
         x,
         y,
-        tileSize,
-        tileSize
+        self.spriteSize,
+        self.spriteSize
       );
     }
   }
@@ -1494,7 +1598,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'boar'){
+    } else if(self.type === 'boar meat'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 4){
@@ -1739,8 +1843,14 @@ socket.on('update',function(data){
         p.y = pack.y;
       if(pack.z !== undefined)
         p.z = pack.z;
+      if(pack.class !== undefined)
+        p.class = pack.class;
+      if(pack.rank !== undefined)
+        p.rank = pack.rank;
       if(pack.gear !== undefined)
         p.gear = pack.gear;
+      if(pack.spriteSize !== undefined)
+        p.spriteSize = pack.spriteSize;
       if(pack.facing !== undefined)
         p.facing = pack.facing;
       if(pack.pressingUp !== undefined)
@@ -1761,6 +1871,8 @@ socket.on('update',function(data){
         p.pressingUp = pack.pressingUp;
       if(pack.working !== undefined)
         p.working = pack.working;
+      if(pack.crafting !== undefined)
+        p.crafting = pack.crafting;
       if(pack.hp !== undefined)
         p.hp = pack.hp;
       if(pack.hpMax !== undefined)
@@ -1769,6 +1881,38 @@ socket.on('update',function(data){
         p.mana = pack.mana;
       if(pack.manaMax !== undefined)
         p.manaMax = pack.manaMax;
+
+      if(p.class === 'sheep'){
+        p.sprite = sheep;
+      } else if(p.class === 'deer'){
+        p.sprite = deer;
+      } else if(p.class === 'boar'){
+        p.sprite = boar;
+      } else if(p.class === 'wolf'){
+        p.sprite = wolf;
+      } else if(p.class === 'serf'){
+        p.sprite = maleserf;
+      } else if(p.class === 'serf m'){
+        p.sprite = maleserf;
+      } else if(p.class === 'serf f'){
+        p.sprite = femaleserf;
+      } else if(p.class === 'innkeeper'){
+        p.sprite = innkeeper;
+      } else if(p.class === 'monk'){
+        p.sprite = monk;
+      } else if(p.class === 'bishop'){
+        p.sprite = bishop;
+      } else if(p.class === 'friar'){
+        p.sprite = friar;
+      } else if(p.class === 'conscript'){
+        p.sprite = conscript;
+      } else if(p.class === 'skirmisher'){
+        p.sprite = skirmisher;
+      } else if(p.class === 'cavalier'){
+        p.sprite = cavalier;
+      } else if(p.class === 'general'){
+        p.sprite = general;
+      }
     }
   }
   for(var i = 0 ; i < data.arrow.length; i++){
@@ -1982,6 +2126,55 @@ socket.on('newBuilding',function(data){
   buildingId = data.bId;
   buildingList = data.bList;
 })
+
+// update sprite
+socket.on('sprite',function(data){
+  if(data === 'serf'){
+    Player.list[selfId].sprite = maleserf;
+  } else if(data === 'rogue'){
+    Player.list[selfId].sprite = rogue;
+  } else if(data === 'rogue s'){
+    Player.list[selfId].sprite = rogueS;
+  } else if(data === 'hunter'){
+    Player.list[selfId].sprite = hunter;
+  } else if(data === 'hunter s'){
+    Player.list[selfId].sprite = hunterS;
+  } else if(data === 'scout'){
+    Player.list[selfId].sprite = scout;
+  } else if(data === 'ranger'){
+    Player.list[selfId].sprite = ranger;
+  } else if(data === 'swordsman'){
+    Player.list[selfId].sprite = swordsman;
+  } else if(data === 'archer'){
+    Player.list[selfId].sprite = archer;
+  } else if(data === 'scout'){
+    Player.list[selfId].sprite = scout;
+  } else if(data === 'horseman'){
+    Player.list[selfId].sprite = horseman;
+  } else if(data === 'mounted archer'){
+    Player.list[selfId].sprite = mountedArcher;
+  } else if(data === 'hero'){
+    Player.list[selfId].sprite = hero;
+  } else if(data === 'templar'){
+    Player.list[selfId].sprite = templar;
+  } else if(data === 'cavalry'){
+    Player.list[selfId].sprite = cavalry;
+  } else if(data === 'knight'){
+    Player.list[selfId].sprite = knight;
+  } else if(data === 'lancer'){
+    Player.list[selfId].sprite = lancer;
+  } else if(data === 'crusader'){
+    Player.list[selfId].sprite = crusader;
+  } else if(data === 'priest'){
+    Player.list[selfId].sprite = monk;
+  } else if(data === 'high priest'){
+    Player.list[selfId].sprite = highPriest;
+  } else if(data === 'mage'){
+    Player.list[selfId].sprite = mage;
+  } else if(data === 'warlock'){
+    Player.list[selfId].sprite = warlock;
+  }
+});
 
 // viewport
 var viewport = {

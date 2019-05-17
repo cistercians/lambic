@@ -58,6 +58,8 @@ waterSpawns = [];
 hForestSpawns = [];
 mtnSpawns = [];
 
+caveEntrances = [];
+
 for(x = 0; x < mapSize; x++){
   for(y = 0; y < mapSize; y++){
     var tile = world[0][y][x];
@@ -78,6 +80,7 @@ for(x = 0; x < mapSize; x++){
         mtnSpawns.push([x,y]);
       } else if(tile === 6){
         biomes.mtn++;
+        caveEntrances.push([x,y]);
       }
     } else {
       biomes.water++;

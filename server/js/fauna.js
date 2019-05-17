@@ -42,7 +42,7 @@ fauna = function(){
     }
     for(var i = 0; i < num; i++){
       var sp = randomSpawnHF();
-      WildBoar({
+      Boar({
         x:sp[0],
         y:sp[1],
         z:0
