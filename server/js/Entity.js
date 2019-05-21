@@ -116,7 +116,7 @@ Character = function(param){
     clericrobe:0,
     druidrobe:0,
     monkrobe:0,
-    warlockrobe:0,
+    blackrobe:0,
     tome:0,
     runicscroll:0,
     sacredtext:0,
@@ -176,6 +176,66 @@ Character = function(param){
 
   self.path = null;
   self.pathCount = 0;
+
+  self.attack = function(dir){
+    if(dir === 'down'){
+      for(i in Player.list){
+        var p = Player.list[i];
+        if(Math.sqrt(Math.pow(self.x-p.x,2) + Math.pow((self.y + tileSize)-p.y,2)) < 32){
+          p.hp -= 5;
+          // player death & respawn
+          if(p.hp <= 0){
+            p.hp = p.hpMax;
+            var spawn = randomSpawn;
+            p.x = spawn[0]; // replace this
+            p.y = spawm[1]; // replace this
+          }
+        };
+      }
+    } else if(dir === 'up'){
+      for(i in Player.list){
+        var p = Player.list[i];
+        if(Math.sqrt(Math.pow(self.x-p.x,2) + Math.pow((self.y - tileSize)-p.y,2)) < 32){
+          p.hp -= 5;
+          // player death & respawn
+          if(p.hp <= 0){
+            p.hp = p.hpMax;
+            var spawn = randomSpawn;
+            p.x = spawn[0]; // replace this
+            p.y = spawm[1]; // replace this
+          }
+        };
+      }
+    } else if(dir === 'left'){
+      for(i in Player.list){
+        var p = Player.list[i];
+        if(Math.sqrt(Math.pow((self.x - tileSize)-p.x,2) + Math.pow((self.y)-p.y,2)) < 32){
+          p.hp -= 5;
+          // player death & respawn
+          if(p.hp <= 0){
+            p.hp = p.hpMax;
+            var spawn = randomSpawn;
+            p.x = spawn[0]; // replace this
+            p.y = spawm[1]; // replace this
+          }
+        };
+      }
+    } else if(dir === 'right'){
+      for(i in Player.list){
+        var p = Player.list[i];
+        if(Math.sqrt(Math.pow((self.x + tileSize)-p.x,2) + Math.pow((self.y)-p.y,2)) < 32){
+          p.hp -= 5;
+          // player death & respawn
+          if(p.hp <= 0){
+            p.hp = p.hpMax;
+            var spawn = randomSpawn;
+            p.x = spawn[0]; // replace this
+            p.y = spawm[1]; // replace this
+          }
+        };
+      }
+    }
+  }
 
   self.update = function(){
     if(self.mode === 'idle' && !self.path && self.idleTime === 0){
@@ -760,9 +820,7 @@ Player = function(param){
         self.shootArrow(self.mouseAngle);
         self.attackCooldown = 50/self.dexterity;
       } else {
-        if(self.facing === 'down'){
-
-        }
+        self.attack(self.facing);
       }
     }
 
@@ -1882,18 +1940,6 @@ Player = function(param){
 
   }
 
-  self.attack = function(dir){
-    if(dir === 'down'){
-
-    } else if(dir === 'up'){
-
-    } else if(dir === 'left'){
-
-    } else if(dir === 'right'){
-
-    }
-  }
-
   self.shootArrow = function(angle){
     Arrow({
       parent:self.id,
@@ -1937,27 +1983,27 @@ Player = function(param){
     var downBlocked = false;
 
     // outdoor collisions
-    if(self.z === 0 && (getLocTile(0,self.x+(tileSize/6),self.y) === 13 ||
-    getLocTile(0,self.x+(tileSize/6),self.y) === 15 ||
-    getLocTile(0,self.x+(tileSize/6),self.y) === 17 ||
-    (getLocTile(0,self.x+(tileSize/6),self.y) === 19 && !keyCheck(self.x+(tileSize/2),self.y,self.id)) ||
-    getLocItem(0,self.x+(tileSize/6),self.y) !== 0 ||
+    if(self.z === 0 && (getLocTile(0,self.x+(tileSize/8),self.y) === 13 ||
+    getLocTile(0,self.x+(tileSize/8),self.y) === 15 ||
+    getLocTile(0,self.x+(tileSize/8),self.y) === 17 ||
+    (getLocTile(0,self.x+(tileSize/8),self.y) === 19 && !keyCheck(self.x+(tileSize/2),self.y,self.id)) ||
+    getLocItem(0,self.x+(tileSize/8),self.y) !== 0 ||
     (self.x + 10) > (mapPx - tileSize)) && (getLocTile(0,self.x,self.y) !== 13 && getLocTile(0,self.x,self.y) !== 15 && getLocTile(0,self.x,self.y) !== 17)){
       rightBlocked = true;
     }
-    if(self.z === 0 && (getLocTile(0,self.x-(tileSize/6),self.y) === 13 ||
-    getLocTile(0,self.x-(tileSize/6),self.y) === 15 ||
-    getLocTile(0,self.x-(tileSize/6),self.y) === 17 ||
-    getLocItem(0,self.x-(tileSize/6),self.y) !== 0 ||
+    if(self.z === 0 && (getLocTile(0,self.x-(tileSize/8),self.y) === 13 ||
+    getLocTile(0,self.x-(tileSize/8),self.y) === 15 ||
+    getLocTile(0,self.x-(tileSize/8),self.y) === 17 ||
+    getLocItem(0,self.x-(tileSize/8),self.y) !== 0 ||
     (self.x - 10) < 0) && (getLocTile(0,self.x,self.y) !== 13 && getLocTile(0,self.x,self.y) !== 15 && getLocTile(0,self.x,self.y) !== 17)){
       leftBlocked = true;
     }
     if(self.z === 0 && (getLocTile(0,self.x,self.y-(tileSize/2)) === 13 ||
-    getLocTile(0,self.x,self.y-(tileSize/6)) === 15 ||
-    getLocTile(0,self.x,self.y-(tileSize/6)) === 17 ||
-    (getLocTile(0,self.x,self.y-(tileSize/6)) === 19 && !keyCheck(self.x,self.y-(tileSize/2),self.id)) ||
-    getLocItem(0,self.x,self.y-(tileSize/6)) !== 0 ||
-    (getLocTile(5,self.x,self.y-(tileSize/6)) === 'gatec' && !gateCheck(self.x,self.y-(tileSize/2),self.house,self.kingdom)) ||
+    getLocTile(0,self.x,self.y-(tileSize/8)) === 15 ||
+    getLocTile(0,self.x,self.y-(tileSize/8)) === 17 ||
+    (getLocTile(0,self.x,self.y-(tileSize/8)) === 19 && !keyCheck(self.x,self.y-(tileSize/2),self.id)) ||
+    getLocItem(0,self.x,self.y-(tileSize/8)) !== 0 ||
+    (getLocTile(5,self.x,self.y-(tileSize/8)) === 'gatec' && !gateCheck(self.x,self.y-(tileSize/2),self.house,self.kingdom)) ||
     (self.y - 10) < 0) && (getLocTile(0,self.x,self.y) !== 13 && getLocTile(0,self.x,self.y) !== 15 && getLocTile(0,self.x,self.y) !== 17)){
       upBlocked = true;
     }
@@ -1971,13 +2017,13 @@ Player = function(param){
     }
 
     // collision in caves
-    if(self.z === -1 && (getLocTile(1,self.x+(tileSize/6),self.y) === 1 || getLocItem(1,self.x+(tileSize/6),self.y) !== 0 || (self.x + 10) > (mapPx - tileSize))){
+    if(self.z === -1 && (getLocTile(1,self.x+(tileSize/8),self.y) === 1 || getLocItem(1,self.x+(tileSize/8),self.y) !== 0 || (self.x + 10) > (mapPx - tileSize))){
       rightBlocked = true;
     }
-    if(self.z === -1 && (getLocTile(1,self.x-(tileSize/6),self.y) === 1 || getLocItem(1,self.x-(tileSize/6),self.y) !== 0 || (self.x - 10) < 0)){
+    if(self.z === -1 && (getLocTile(1,self.x-(tileSize/8),self.y) === 1 || getLocItem(1,self.x-(tileSize/8),self.y) !== 0 || (self.x - 10) < 0)){
       leftBlocked = true;
     }
-    if(self.z === -1 && (getLocTile(1,self.x,self.y-(tileSize/6)) === 1 || getLocItem(1,self.x,self.y-(tileSize/6)) !== 0 || (self.y - 10) < 0)){
+    if(self.z === -1 && (getLocTile(1,self.x,self.y-(tileSize/8)) === 1 || getLocItem(1,self.x,self.y-(tileSize/8)) !== 0 || (self.y - 10) < 0)){
       upBlocked = true;
     }
     if(self.z === -1 && (getLocTile(1,self.x,self.y+(tileSize/2)) === 1 || getLocItem(1,self.x,self.y+(tileSize/2)) !== 0 || (self.y + 10) > (mapPx - tileSize))){
@@ -1986,13 +2032,13 @@ Player = function(param){
 
     // indoor1 collisions
     if(self.z === 1){
-      if(getLocTile(3,self.x+(tileSize/6),self.y) === 0 || getLocItem(0,self.x+(tileSize/6),self.y) !== 0){
+      if(getLocTile(3,self.x+(tileSize/8),self.y) === 0 || getLocItem(0,self.x+(tileSize/8),self.y) !== 0){
         rightBlocked = true;
       }
-      if(getLocTile(3,self.x-(tileSize/6),self.y) === 0 || getLocItem(0,self.x-(tileSize/6),self.y) !== 0){
+      if(getLocTile(3,self.x-(tileSize/8),self.y) === 0 || getLocItem(0,self.x-(tileSize/8),self.y) !== 0){
         leftBlocked = true;
       }
-      if(getLocTile(4,self.x,self.y-(tileSize/6)) === 1 || getLocTile(4,self.x,self.y-(tileSize/6)) === 2 || getLocItem(0,self.x,self.y-(tileSize/6)) !== 0){
+      if(getLocTile(4,self.x,self.y-(tileSize/8)) === 1 || getLocTile(4,self.x,self.y-(tileSize/8)) === 2 || getLocItem(0,self.x,self.y-(tileSize/8)) !== 0){
         upBlocked = true;
       }
       if((getLocTile(0,self.x,self.y) !== 14 && getLocTile(0,self.x,self.y) !== 16 && getLocTile(0,self.x,self.y) !== 19 && getLocTile(3,self.x,self.y+(tileSize/2)) === 0) || getLocItem(0,self.x,self.y+(tileSize/2)) !== 0){
@@ -2001,13 +2047,13 @@ Player = function(param){
     }
 
     // indoor2 collisions
-    if(self.z === 2 && (getLocTile(3,self.x+(tileSize/2),self.y) === 0 || getLocTile(4,self.x+(tileSize/2),self.y) === 5 || getLocTile(4,self.x+(tileSize/2),self.y) === 6 || getLocItem(3,self.x+(tileSize/2),self.y) !== 0)){
+    if(self.z === 2 && (getLocTile(3,self.x+(tileSize/8),self.y) === 0 || getLocTile(4,self.x+(tileSize/8),self.y) === 5 || getLocTile(4,self.x+(tileSize/8),self.y) === 6 || getLocItem(3,self.x+(tileSize/8),self.y) !== 0)){
       rightBlocked = true;
     }
-    if(self.z === 2 && (getLocTile(3,self.x-(tileSize/2),self.y) === 0 || getLocTile(4,self.x-(tileSize/2),self.y) === 5 || getLocTile(4,self.x-(tileSize/2),self.y) === 6 || getLocItem(3,self.x-(tileSize/2),self.y) !== 0)){
+    if(self.z === 2 && (getLocTile(3,self.x-(tileSize/8),self.y) === 0 || getLocTile(4,self.x-(tileSize/8),self.y) === 5 || getLocTile(4,self.x-(tileSize/8),self.y) === 6 || getLocItem(3,self.x-(tileSize/8),self.y) !== 0)){
       leftBlocked = true;
     }
-    if(self.z === 2 && (getLocTile(4,self.x,self.y-(tileSize/6)) === 1 || getLocTile(4,self.x,self.y-(tileSize/6)) === 2 || getLocTile(4,self.x,self.y-(tileSize/6)) === 5 || getLocTile(4,self.x,self.y-(tileSize/6)) === 6 || getLocItem(3,self.x,self.y-(tileSize/6)) !== 0)){
+    if(self.z === 2 && (getLocTile(4,self.x,self.y-(tileSize/8)) === 1 || getLocTile(4,self.x,self.y-(tileSize/8)) === 2 || getLocTile(4,self.x,self.y-(tileSize/8)) === 5 || getLocTile(4,self.x,self.y-(tileSize/8)) === 6 || getLocItem(3,self.x,self.y-(tileSize/8)) !== 0)){
       upBlocked = true;
     }
     if(self.z === 2 && (getLocTile(5,self.x,self.y+(tileSize/2)) === 0 || getLocItem(3,self.x,self.y+(tileSize/2)) !== 0)){
@@ -2015,13 +2061,13 @@ Player = function(param){
     }
 
     // cellar/dungeon collisions
-    if(self.z === -2 && (getLocTile(8,self.x+(tileSize/2),self.y) === 0 || getLocItem(4,self.x+(tileSize/2),self.y) !== 0)){
+    if(self.z === -2 && (getLocTile(8,self.x+(tileSize/8),self.y) === 0 || getLocItem(4,self.x+(tileSize/8),self.y) !== 0)){
       rightBlocked = true;
     }
-    if(self.z === -2 && (getLocTile(8,self.x-(tileSize/2),self.y) === 0 || getLocItem(4,self.x-(tileSize/2),self.y) !== 0)){
+    if(self.z === -2 && (getLocTile(8,self.x-(tileSize/8),self.y) === 0 || getLocItem(4,self.x-(tileSize/8),self.y) !== 0)){
       leftBlocked = true;
     }
-    if(self.z === -2 && (getLocTile(8,self.x,self.y-(tileSize/6)) === 0 || getLocItem(4,self.x,self.y-(tileSize/6)) !== 0)){
+    if(self.z === -2 && (getLocTile(8,self.x,self.y-(tileSize/8)) === 0 || getLocItem(4,self.x,self.y-(tileSize/8)) !== 0)){
       upBlocked = true;
     }
     if(self.z === -2 && (getLocTile(8,self.x,self.y+(tileSize/2)) === 0 || getLocItem(4,self.x,self.y+(tileSize/2)) !== 0)){
@@ -2029,13 +2075,13 @@ Player = function(param){
     }
 
     // underwater collisions
-    if(self.z === -3 && getLocItem(2,self.x+(tileSize/2),self.y) !== 0){
+    if(self.z === -3 && getLocItem(2,self.x+(tileSize/8),self.y) !== 0){
       rightBlocked = true;
     }
-    if(self.z === -3 && getLocItem(2,self.x-(tileSize/2),self.y) !== 0){
+    if(self.z === -3 && getLocItem(2,self.x-(tileSize/8),self.y) !== 0){
       leftBlocked = true;
     }
-    if(self.z === -3 && getLocItem(2,self.x,self.y-(tileSize/6)) !== 0){
+    if(self.z === -3 && getLocItem(2,self.x,self.y-(tileSize/8)) !== 0){
       upBlocked = true;
     }
     if(self.z === -3 && getLocItem(2,self.x,self.y+(tileSize/2)) !== 0){
@@ -2934,10 +2980,10 @@ MonkRobe = function(param){
   return self;
 }
 
-// WARLOCK ROBE
-WarlockRobe = function(param){
+// BLACK ROBE
+BlackRobe = function(param){
   var self = Item(param);
-  self.type = 'warlock robe';
+  self.type = 'black robe';
   self.class = 'cloth';
   self.rank = 1;
   self.canPickup = true;

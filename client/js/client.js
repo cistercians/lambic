@@ -199,78 +199,42 @@ var Player = function(initPack){
     }
 
     // character sprite
-    if(self.pressingAttack){
-      if(self.type === 'player' && self.gear.weapon){
-        if(self.gear.weapon[1] === 'bow'){
-          if(self.angle > 45 && self.angle <= 115){
-            ctx.drawImage(
-              self.sprite.attackdb,
-              x,
-              y,
-              self.spriteSize,
-              self.spriteSize
-            );
-          } else if(self.angle > -135 && self.angle <= -15){
-            ctx.drawImage(
-              self.sprite.attackub,
-              x,
-              y,
-              self.spriteSize,
-              self.spriteSize
-            );
-          } else if(self.angle > 115 || self.angle <= -135){
-            ctx.drawImage(
-              self.sprite.attacklb,
-              x,
-              y,
-              self.spriteSize,
-              self.spriteSize
-            );
-          } else if(self.angle > -15 || self.angle <= 45){
-            ctx.drawImage(
-              self.sprite.attackrb,
-              x,
-              y,
-              self.spriteSize,
-              self.spriteSize
-            );
-          }
-        } else {
-          if(self.facing === 'down'){
-            ctx.drawImage(
-              self.sprite.attackd,
-              x,
-              y,
-              self.spriteSize,
-              self.spriteSize
-            );
-          } else if(self.facing === 'up'){
-            ctx.drawImage(
-              self.sprite.attacku,
-              x,
-              y,
-              self.spriteSize,
-              self.spriteSize
-            );
-          } else if(self.facing === 'left'){
-            ctx.drawImage(
-              self.sprite.attackl,
-              x,
-              y,
-              self.spriteSize,
-              self.spriteSize
-            );
-          } else if(self.facing === 'right'){
-            ctx.drawImage(
-              self.sprite.attackr,
-              x,
-              y,
-              self.spriteSize,
-              self.spriteSize
-            );
-          }
+    if(self.pressingAttack && self.type === 'player' && self.gear.weapon){
+      if(self.gear.weapon[1] === 'bow'){
+        if(self.angle > 45 && self.angle <= 115){
+          ctx.drawImage(
+            self.sprite.attackdb,
+            x,
+            y,
+            self.spriteSize,
+            self.spriteSize
+          );
+        } else if(self.angle > -135 && self.angle <= -15){
+          ctx.drawImage(
+            self.sprite.attackub,
+            x,
+            y,
+            self.spriteSize,
+            self.spriteSize
+          );
+        } else if(self.angle > 115 || self.angle <= -135){
+          ctx.drawImage(
+            self.sprite.attacklb,
+            x,
+            y,
+            self.spriteSize,
+            self.spriteSize
+          );
+        } else if(self.angle > -15 || self.angle <= 45){
+          ctx.drawImage(
+            self.sprite.attackrb,
+            x,
+            y,
+            self.spriteSize,
+            self.spriteSize
+          );
         }
-      } else if(self.type === 'npc'){
+      } else {
         if(self.facing === 'down'){
           ctx.drawImage(
             self.sprite.attackd,
@@ -304,6 +268,40 @@ var Player = function(initPack){
             self.spriteSize
           );
         }
+      }
+    } else if(self.pressingAttack && self.type === 'npc'){
+      if(self.facing === 'down'){
+        ctx.drawImage(
+          self.sprite.attackd,
+          x,
+          y,
+          self.spriteSize,
+          self.spriteSize
+        );
+      } else if(self.facing === 'up'){
+        ctx.drawImage(
+          self.sprite.attacku,
+          x,
+          y,
+          self.spriteSize,
+          self.spriteSize
+        );
+      } else if(self.facing === 'left'){
+        ctx.drawImage(
+          self.sprite.attackl,
+          x,
+          y,
+          self.spriteSize,
+          self.spriteSize
+        );
+      } else if(self.facing === 'right'){
+        ctx.drawImage(
+          self.sprite.attackr,
+          x,
+          y,
+          self.spriteSize,
+          self.spriteSize
+        );
       }
     } else if(self.facing === 'down' && !self.pressingDown){
       ctx.drawImage(
@@ -1038,7 +1036,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'warlock robe'){
+    } else if(self.type === 'black robe'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(

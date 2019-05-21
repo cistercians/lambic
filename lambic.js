@@ -287,7 +287,7 @@ if(saveMap){
 
 // day/night cycle
 var tempus = 'XII.a';
-var period = 120; // 1=1hr, 2=30m, 4=15m, 12=5m, 60=1m, 120=30s, 360=10s
+var period = 360; // 1=1hr, 2=30m, 4=15m, 12=5m, 60=1m, 120=30s, 360=10s
 var cycle = ['XII.a','I.a','II.a','III.a','IV.a','V.a','VI.a','VII.a','VIII.a','IX.a','X.a','XI.a',
             'XII.p','I.p','II.p','III.p','IV.p','V.p','VI.p','VII.p','VIII.p','IX.p','X.p','XI.p'];
 var tick = 1;

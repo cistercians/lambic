@@ -1,7 +1,7 @@
 fauna = function(){
-  var deerRatio = Math.floor(biomes.hForest/100);
-  var boarRatio = Math.floor(biomes.hForest/400);
-  var wolfRatio = Math.floor(biomes.hForest/200);
+  var deerRatio = Math.floor(biomes.hForest/200);
+  var boarRatio = Math.floor(biomes.hForest/800);
+  var wolfRatio = Math.floor(biomes.hForest/400);
 
   var deerPop = 0;
   var boarPop = 0;
@@ -11,7 +11,7 @@ fauna = function(){
     var cl = Player.list[i].class;
     if(cl === 'deer'){
       deerPop++;
-    } else if(cl === 'wild boar'){
+    } else if(cl === 'boar'){
       boarPop++;
     } else if(cl === 'wolf'){
       wolfPop++;
