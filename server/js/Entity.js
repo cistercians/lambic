@@ -103,7 +103,7 @@ Character = function(param){
     ironlance:0,
     steellance:0,
     rusticlance:0,
-    teutoniclance:0,
+    paladinlance:0,
     brigandine:0,
     lamellar:0,
     ironmail:0,
@@ -138,9 +138,12 @@ Character = function(param){
     venisonloin:0,
     saison:0,
     gose:0,
-    lambic:0
+    lambic:0,
+    relic:0
   }
   self.mounted = false;
+  self.stealthed = false;
+  self.visible = false;
   self.spriteSize = tileSize;
   self.facing = 'down';
   self.pressingRight = false;
@@ -345,6 +348,8 @@ Character = function(param){
       spriteSize:self.spriteSize,
       inTrees:self.inTrees,
       facing:self.facing,
+      stealthed:self.stealthed,
+      visible:self.visible,
       hp:self.hp,
       hpMax:self.hpMax,
       mana:self.mana,
@@ -354,6 +359,7 @@ Character = function(param){
 
   self.getUpdatePack = function(){
     return {
+      name:self.name,
       id:self.id,
       x:self.x,
       y:self.y,
@@ -362,6 +368,8 @@ Character = function(param){
       rank:self.rank,
       inTrees:self.inTrees,
       facing:self.facing,
+      stealthed:self.stealthed,
+      visible:self.visible,
       pressingUp:self.pressingUp,
       pressingDown:self.pressingDown,
       pressingLeft:self.pressingLeft,
@@ -407,51 +415,51 @@ Wolf = function(param){
 
 SerfM = function(param){
   var self = Character(param);
-  self.class = 'serf m';
-  self.spriteSize = tileSize*1.5;
   self.name = param.name;
+  self.class = 'serf m';
   self.house = param.house;
   self.kingdom = param.kingdom;
+  self.spriteSize = tileSize*1.5;
 }
 
 SerfF = function(param){
   var self = Character(param);
-  self.class = 'serf f';
-  self.spriteSize = tileSize*1.5;
   self.name = param.name;
+  self.class = 'serf f';
   self.house = param.house;
   self.kingdom = param.kingdom;
+  self.spriteSize = tileSize*1.5;
 }
 
 Innkeeper = function(param){
   var self = Character(param);
-  self.class = 'innkeeper';
   self.name = param.name;
+  self.class = 'innkeeper';
   self.house = param.house;
   self.kingdom = param.kingdom;
 }
 
 Monk = function(param){
   var self = Character(param);
-  self.class = 'monk';
   self.name = param.name;
+  self.class = 'monk';
   self.house = param.house;
   self.kingdom = param.kingdom;
 }
 
 Bishop = function(param){
   var self = Character(param);
-  self.class = 'bishop';
-  self.rank = '♝';
   self.name = param.name;
+  self.class = 'bishop';
+  self.rank = '♝ ';
   self.house = param.house;
   self.kingdom = param.kingdom;
 }
 
 Friar = function(param){
   var self = Character(param);
-  self.class = 'friar';
   self.name = param.name;
+  self.class = 'friar';
   self.house = param.house;
   self.spriteSize = tileSize*1.5;
 }
@@ -477,8 +485,7 @@ Cavalier = function(param){
   var self = Character(param);
   self.name = 'Cavalier';
   self.class = 'cavalier';
-  self.rank = '♞';
-  self.spriteSize = tileSize*2;
+  self.rank = '♞ ';
   self.house = param.house;
   self.kingdom = param.kingdom;
   self.spriteSize = tileSize*1.5;
@@ -486,10 +493,9 @@ Cavalier = function(param){
 
 General = function(param){
   var self = Character(param);
-  self.class = 'general';
-  self.rank = '♜';
-  self.spriteSize = tileSize*2;
   self.name = param.name;
+  self.class = 'general';
+  self.rank = '♜ ';
   self.house = param.house;
   self.kingdom = param.kingdom;
   self.spriteSize = tileSize*2;
@@ -497,7 +503,6 @@ General = function(param){
 
 Trebuchet = function(param){
   var self = Character(param);
-  self.name = 'Trebuchet';
   self.class = 'trebuchet';
   self.house = param.house;
   self.kingdom = param.kingdom;
@@ -505,7 +510,6 @@ Trebuchet = function(param){
 
 TradeCart = function(param){
   var self = Character(param);
-  self.name = 'Trade Cart';
   self.class = 'trade cart';
   self.house = param.house;
   self.kingdom = param.kingdom;
@@ -528,7 +532,6 @@ FishingBoat = function(param){
 
 CargoShip = function(param){
   var self = Character(param);
-  self.name = 'Cargo Ship';
   self.class = 'cargo ship';
   self.house = param.house;
   self.kingdom = param.kingdom;
@@ -536,7 +539,6 @@ CargoShip = function(param){
 
 Longship = function(param){
   var self = Character(param);
-  self.name = 'Longship';
   self.class = 'longship';
   self.house = param.house;
   self.kingdom = param.kingdom;
@@ -555,7 +557,7 @@ Oathkeeper = function(param){
   var self = Character(param);
   self.name = 'Oathkeeper';
   self.class = 'oathkeeper';
-  self.rank = '♝';
+  self.rank = '♝ ';
   self.house = 'brotherhood';
 }
 
@@ -573,17 +575,10 @@ DarkEntity = function(param){
   self.house = 'brotherhood';
 }
 
-AcolyteM = function(param){
+Acolyte = function(param){
   var self = Character(param);
   self.name = 'Acolyte';
-  self.class = 'acolyte m';
-  self.house = 'occult';
-}
-
-AcolyteF = function(param){
-  var self = Character(param);
-  self.name = 'Acolyte';
-  self.class = 'acolyte f';
+  self.class = 'acolyte';
   self.house = 'occult';
 }
 
@@ -591,7 +586,7 @@ Priestess = function(param){
   var self = Character(param);
   self.name = 'Priestess';
   self.class = 'priestess';
-  self.rank = '♝';
+  self.rank = '♝ ';
   self.house = 'occult';
 }
 
@@ -599,7 +594,7 @@ Magister = function(param){
   var self = Character(param);
   self.name = 'Magister';
   self.class = 'magister';
-  self.rank = '♜';
+  self.rank = '♜ ';
   self.house = 'occult';
 }
 
@@ -621,7 +616,7 @@ Huskarl = function(param){
   var self = Character(param);
   self.name = 'Huskarl';
   self.class = 'huskarl';
-  self.rank = '♞';
+  self.rank = '♞ ';
   self.house = 'norsemen';
 }
 
@@ -629,7 +624,7 @@ Jarl = function(param){
   var self = Character(param);
   self.name = 'Jarl';
   self.class = 'jarl';
-  self.rank = '♜';
+  self.rank = '♜ ';
   self.house = 'norsemen';
 }
 
@@ -658,7 +653,7 @@ Cataphract = function(param){
   var self = Character(param);
   self.name = 'Cataphract';
   self.class = 'cataphract';
-  self.rank = '♞';
+  self.rank = '♞ ';
   self.house = 'pagans';
 }
 
@@ -666,7 +661,7 @@ Champion = function(param){
   var self = Character(param);
   self.name = 'Champion';
   self.class = 'champion';
-  self.rank = '♜';
+  self.rank = '♜ ';
   self.house = 'pagans';
 }
 
@@ -688,7 +683,7 @@ Headhunter = function(param){
   var self = Character(param);
   self.name = 'Headhunter';
   self.class = 'headhunter';
-  self.rank = '♞';
+  self.rank = '♞ ';
   self.house = 'celts';
 }
 
@@ -696,7 +691,7 @@ Druid = function(param){
   var self = Character(param);
   self.name = 'Druid';
   self.class = 'druid';
-  self.rank = '♝';
+  self.rank = '♝ ';
   self.house = 'celts';
 }
 
@@ -704,7 +699,7 @@ IronMaiden = function(param){
   var self = Character(param);
   self.name = 'Iron Maiden';
   self.class = 'iron maiden';
-  self.rank = '♜';
+  self.rank = '♜ ';
   self.house = 'celts';
 }
 
@@ -712,7 +707,7 @@ Gwenllian = function(param){
   var self = Character(param);
   self.name = 'Gwenllian';
   self.class = 'gwenllian';
-  self.rank = '♛';
+  self.rank = '♛ ';
   self.house = 'celts';
 }
 
@@ -727,7 +722,7 @@ TeutonicKnight = function(param){
   var self = Character(param);
   self.name = 'Teutonic Knight';
   self.class = 'teutonic knight';
-  self.rank = '♞';
+  self.rank = '♞ ';
   self.house = 'teutons';
 }
 
@@ -735,7 +730,7 @@ Orderly = function(param){
   var self = Character(param);
   self.name = 'Orderly';
   self.class = 'orderly';
-  self.rank = '♝';
+  self.rank = '♝ ';
   self.house = 'teutons';
 }
 
@@ -743,7 +738,7 @@ Hochmeister = function(param){
   var self = Character(param);
   self.name = 'Hochmeister';
   self.class = 'hochmeister';
-  self.rank = '♜';
+  self.rank = '♜ ';
   self.house = 'teutons';
 }
 
@@ -751,7 +746,7 @@ Lothair = function(param){
   var self = Character(param);
   self.name = 'Lothair II';
   self.class = 'lothair';
-  self.rank = '♚';
+  self.rank = '♚ ';
   self.house = 'teutons';
 }
 
@@ -773,7 +768,7 @@ Chieftain = function(param){
   var self = Character(param);
   self.name = 'Chieftain';
   self.class = 'chieftain';
-  self.rank = '♞';
+  self.rank = '♞ ';
   self.house = 'bandits';
 }
 
@@ -787,8 +782,9 @@ Player = function(param){
     weapon:null,
     accessory:null
   }
+  self.horse = false;
   self.spriteSize = tileSize*1.5;
-  self.blessed = false;
+  self.knighted = false;
   self.title = '';
   self.crafting = false;
   self.pressingT = false;
@@ -816,7 +812,7 @@ Player = function(param){
     }
 
     if(self.pressingAttack && self.gear.weapon && self.attackCooldown === 0 && self.z !== -3){
-      if(self.gear.weapon[1] === 'bow'){
+      if(self.gear.weapon.type === 'bow'){
         self.shootArrow(self.mouseAngle);
         self.attackCooldown = 50/self.dexterity;
       } else {
@@ -891,7 +887,7 @@ Player = function(param){
             return;
           }
         },10000/self.strength);
-      } else if(self.z === -1 && getTile(0,loc[0],loc[1]) === 3){
+      } else if(self.z === -1 && getTile(1,loc[0],loc[1]) === 3){
         self.working = true;
         self.actionCooldown = 10;
         setTimeout(function(){
@@ -1012,10 +1008,14 @@ Player = function(param){
             if(count === plot.length){
               if(b.type === 'hut'){
                 for(i in plot){
+                  matrixO[plot[i][1]][plot[i][0]] = 1;
+                  matrixB1[plot[i][1]][plot[i][0]] = 0;
                   world[0][plot[i][1]][plot[i][0]] = 13;
                   world[3][plot[i][1]][plot[i][0]] = String('hut' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'hut1'){
                     world[0][plot[i][1]][plot[i][0]] = 14;
+                    matrixO[plot[i][1]][plot[i][0]] = 0;
+                    matrixB1[plot[i][1]+1][plot[i][0]] = 0;
                   }
                 }
                 for(i in walls){
@@ -1039,9 +1039,14 @@ Player = function(param){
                 world[5][top[1][1]][top[1][0]] = 'mill5';
               } else if(b.type === 'house'){
                 for(i in plot){
+                  matrixO[plot[i][1]][plot[i][0]] = 1;
+                  matrixB1[plot[i][1]][plot[i][0]] = 0;
                   world[0][plot[i][1]][plot[i][0]] = 15;
                   world[3][plot[i][1]][plot[i][0]] = String('house' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'house1'){
+                    matrixO[plot[i][1]][plot[i][0]] = 0;
+                    matrixB1[plot[i][1]][plot[i][0]] = 0;
+                    matrixB1[plot[i][1]+1][plot[i][0]] = 0;
                     world[0][plot[i][1]][plot[i][0]] = 19;
                   } else if(world[3][plot[i][1]][plot[i][0]] === 'house4'){
                     world[0][plot[i][1]][plot[i][0]] = 17;
@@ -1081,12 +1086,21 @@ Player = function(param){
                 for(i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('tower' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'tower0'){
+                    matrixB1[plot[i][1]][plot[i][0]] = 0;
+                    matrixB2[plot[i][1]][plot[i][0]] = 0;
+                    matrixB1[plot[i][1]+1][plot[i][0]] = 0;
                     world[0][plot[i][1]][plot[i][0]] = 19;
                     world[5][plot[i][1]][plot[i][0]] = 15;
                   } else if(world[3][plot[i][1]][plot[i][0]] === 'tower1' || world[3][plot[i][1]][plot[i][0]] === 'tower3' || world[3][plot[i][1]][plot[i][0]] === 'tower4'){
+                    matrixO[plot[i][1]][plot[i][0]] = 1;
+                    matrixB1[plot[i][1]][plot[i][0]] = 0;
+                    matrixB2[plot[i][1]][plot[i][0]] = 0;
                     world[0][plot[i][1]][plot[i][0]] = 17;
                     world[5][plot[i][1]][plot[i][0]] = 15;
                   } else {
+                    matrixO[plot[i][1]][plot[i][0]] = 1;
+                    matrixB1[plot[i][1]][plot[i][0]] = 0;
+                    matrixB2[plot[i][1]][plot[i][0]] = 0;
                     world[0][plot[i][1]][plot[i][0]] = 15;
                     world[5][plot[i][1]][plot[i][0]] = 15;
                   }
@@ -1116,10 +1130,18 @@ Player = function(param){
                 for(i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('tavern' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'tavern1'){
+                    matrixO[plot[i][1]][plot[i][0]] = 0;
+                    matrixB1[plot[i][1]+1][plot[i][0]] = 0;
                     world[0][plot[i][1]][plot[i][0]] = 14;
                   } else if(world[3][plot[i][1]][plot[i][0]] === 'tavern0' || world[3][plot[i][1]][plot[i][0]] === 'tavern2'){
+                    matrixO[plot[i][1]][plot[i][0]] = 1;
+                    matrixB1[plot[i][1]][plot[i][0]] = 0;
                     world[0][plot[i][1]][plot[i][0]] = 13;
                   } else {
+                    matrixO[plot[i][1]][plot[i][0]] = 1;
+                    matrixB1[plot[i][1]][plot[i][0]] = 0;
+                    matrixB2[plot[i][1]][plot[i][0]] = 0;
+                    matrixB3[plot[i][1]][plot[i][0]] = 0;
                     world[0][plot[i][1]][plot[i][0]] = 13;
                     world[5][plot[i][1]][plot[i][0]] = 13;
                     world[8][plot[i][1]][plot[i][0]] = 1;
@@ -1152,6 +1174,7 @@ Player = function(param){
                 var cr = getCoords(plot[5][0],plot[5][1]);
                 var b7 = getCoords(plot[6][0],plot[6][1]);
                 var b8 = getCoords(plot[12][0],plot[12][1]);
+                var sp1 = getCenter(plot[16][0],plot[16][1]);
                 Fireplace({
                   x:fp[0],
                   y:fp[1],
@@ -1292,19 +1315,39 @@ Player = function(param){
                   qty:1,
                   parent:b.id
                 });
+                Innkeeper({
+                  x:sp1[0],
+                  y:sp1[1],
+                  z:1,
+                  name:'Innkeeper ' + randomName('m'),
+                  house:self.house,
+                  kingdom:self.kingdom
+                });
               } else if(b.type === 'monastery'){
                 for(i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('monastery' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'monastery0'){
+                    matrixB1[plot[i][1]][plot[i][0]] = 0;
+                    matrixB1[plot[i][1]+1][plot[i][0]] = 0;
                     world[0][plot[i][1]][plot[i][0]] = 16;
                   } else if(world[3][plot[i][1]][plot[i][0]] === 'monastery1' || world[3][plot[i][1]][plot[i][0]] === 'monastery2' || world[3][plot[i][1]][plot[i][0]] === 'monastery4' || world[3][plot[i][1]][plot[i][0]] === 'monastery5' || world[3][plot[i][1]][plot[i][0]] === 'monastery6'){
+                    matrixO[plot[i][1]][plot[i][0]] = 1;
+                    matrixB1[plot[i][1]][plot[i][0]] = 0;
                     world[0][plot[i][1]][plot[i][0]] = 17;
                   } else if(world[3][plot[i][1]][plot[i][0]] === 'monastery3' || world[3][plot[i][1]][plot[i][0]] === 'monastery7'){
+                    matrixO[plot[i][1]][plot[i][0]] = 1;
+                    matrixB1[plot[i][1]][plot[i][0]] = 0;
                     world[0][plot[i][1]][plot[i][0]] = 15;
                   } else if(world[3][plot[i][1]][plot[i][0]] === 'monastery12' || world[3][plot[i][1]][plot[i][0]] === 'monastery13'){
+                    matrixO[plot[i][1]][plot[i][0]] = 1;
+                    matrixB1[plot[i][1]][plot[i][0]] = 0;
+                    matrixB2[plot[i][1]][plot[i][0]] = 0;
                     world[0][plot[i][1]][plot[i][0]] = 15;
                     world[5][plot[i][1]][plot[i][0]] = 17;
                   } else {
+                    matrixO[plot[i][1]][plot[i][0]] = 1;
+                    matrixB1[plot[i][1]][plot[i][0]] = 0;
+                    matrixB2[plot[i][1]][plot[i][0]] = 0;
                     world[0][plot[i][1]][plot[i][0]] = 15;
                     world[5][plot[i][1]][plot[i][0]] = 15;
                   }
@@ -1323,6 +1366,7 @@ Player = function(param){
                 var wt = getCoords(walls[0][0],walls[0][1]);
                 var cr = getCoords(walls[2][0],walls[2][1]);
                 var bs = getCoords(walls[3][0],walls[3][1]);
+                var sp1 = getCenter(plot[13][0],plot[13][1]);
                 Wtorch({
                   x:wt[0],
                   y:wt[1],
@@ -1351,12 +1395,25 @@ Player = function(param){
                   qty:1,
                   parent:b.id
                 });
+                Bishop({
+                  x:sp1[0],
+                  y:sp1[1],
+                  z:1,
+                  name:'Father ' + randomName(),
+                  house:self.house,
+                  kingdom:self.kingdom
+                })
               } else if(b.type === 'market'){
                 for(i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('market' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'market0' || world[3][plot[i][1]][plot[i][0]] === 'market1' || world[3][plot[i][1]][plot[i][0]] === 'market2'){
+                    matrixB1[plot[i][1]][plot[i][0]] = 0;
+                    matrixB1[plot[i][1]+1][plot[i][0]] = 0;
                     world[0][plot[i][1]][plot[i][0]] = 14;
                   } else {
+                    matrixO[plot[i][1]][plot[i][0]] = 1;
+                    matrixB1[plot[i][1]][plot[i][0]] = 0;
+                    matrixB2[plot[i][1]][plot[i][0]] = 0;
                     world[0][plot[i][1]][plot[i][0]] = 13;
                     world[5][plot[i][1]][plot[i][0]] = 13;
                   }
@@ -1505,10 +1562,17 @@ Player = function(param){
                 for(i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('garrison' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'garrison0'){
+                    matrixB1[plot[i][1]][plot[i][0]] = 0;
+                    matrixB1[plot[i][1]+1][plot[i][0]] = 0;
                     world[0][plot[i][1]][plot[i][0]] = 16;
                   } else if(world[3][plot[i][1]][plot[i][0]] === 'garrison1' || world[3][plot[i][1]][plot[i][0]] === 'garrison2' || world[3][plot[i][1]][plot[i][0]] === 'garrison3'){
+                    matrixO[plot[i][1]][plot[i][0]] = 1;
+                    matrixB1[plot[i][1]][plot[i][0]] = 0;
                     world[0][plot[i][1]][plot[i][0]] = 15;
                   } else {
+                    matrixO[plot[i][1]][plot[i][0]] = 1;
+                    matrixB1[plot[i][1]][plot[i][0]] = 0;
+                    matrixB2[plot[i][1]][plot[i][0]] = 0;
                     world[0][plot[i][1]][plot[i][0]] = 15;
                     world[5][plot[i][1]][plot[i][0]] = 15;
                   }
@@ -1624,8 +1688,12 @@ Player = function(param){
                 for(i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('bsmith' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'bsmith1'){
+                    matrixB1[plot[i][1]][plot[i][0]] = 0;
+                    matrixB1[plot[i][1]+1][plot[i][0]] = 0;
                     world[0][plot[i][1]][plot[i][0]] = 14;
                   } else {
+                    matrixO[plot[i][1]][plot[i][0]] = 1;
+                    matrixB1[plot[i][1]][plot[i][0]] = 0;
                     world[0][plot[i][1]][plot[i][0]] = 13;
                   }
                 }
@@ -1669,8 +1737,12 @@ Player = function(param){
                 for(i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('stronghold' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'stronghold1' || world[3][plot[i][1]][plot[i][0]] === 'stronghold2'){
+                    matrixB1[plot[i][1]][plot[i][0]] = 0;
+                    matrixB1[plot[i][1]+1][plot[i][0]] = 0;
                     world[0][plot[i][1]][plot[i][0]] = 16;
                   } else if(world[3][plot[i][1]][plot[i][0]] === 'stronghold0' || world[3][plot[i][1]][plot[i][0]] === 'stronghold3'){
+                    matrixO[plot[i][1]][plot[i][0]] = 1;
+                    matrixB1[plot[i][1]][plot[i][0]] = 0;
                     world[0][plot[i][1]][plot[i][0]] = 15;
                   } else if(world[3][plot[i][1]][plot[i][0]] === 'stronghold7' ||
                   world[3][plot[i][1]][plot[i][0]] === 'stronghold8' ||
@@ -1686,10 +1758,18 @@ Player = function(param){
                   world[3][plot[i][1]][plot[i][0]] === 'stronghold47' ||
                   world[3][plot[i][1]][plot[i][0]] === 'stronghold53' ||
                   world[3][plot[i][1]][plot[i][0]] === 'stronghold54'){
+                    matrixO[plot[i][1]][plot[i][0]] = 1;
+                    matrixB1[plot[i][1]][plot[i][0]] = 0;
+                    matrixB2[plot[i][1]][plot[i][0]] = 0;
+                    matrixB3[plot[i][1]][plot[i][0]] = 0;
                     world[0][plot[i][1]][plot[i][0]] = 17;
                     world[5][plot[i][1]][plot[i][0]] = 15;
                     world[8][plot[i][1]][plot[i][0]] = 1;
                   } else {
+                    matrixO[plot[i][1]][plot[i][0]] = 1;
+                    matrixB1[plot[i][1]][plot[i][0]] = 0;
+                    matrixB2[plot[i][1]][plot[i][0]] = 0;
+                    matrixB3[plot[i][1]][plot[i][0]] = 0;
                     world[0][plot[i][1]][plot[i][0]] = 15;
                     world[5][plot[i][1]][plot[i][0]] = 15;
                     world[8][plot[i][1]][plot[i][0]] = 1;
@@ -1937,7 +2017,97 @@ Player = function(param){
     }
 
     // CLASS
-
+    if(self.gear.armor){
+      if(self.gear.armor.type === 'leather'){
+        if(self.mounted){
+          if(self.gear.weapon.type === 'bow'){
+            self.class = 'ranger';
+            self.spriteSize = tileSize * 2;
+          } else {
+            self.class = 'scout';
+            self.spriteSize = tileSize * 2;
+          }
+        } else {
+          if(self.stealthed){
+            if(self.gear.weapon.type === 'bow'){
+              self.class = 'st hunter';
+              self.spriteSize = tileSize * 1.5;
+            } else {
+              self.class = 'st rogue';
+              self.spriteSize = tileSize * 1.5;
+            }
+          } else {
+            if(self.gear.weapon.type === 'bow'){
+              self.class = 'hunter';
+              self.spriteSize = tileSize * 1.5;
+            } else {
+              self.class = 'rogue';
+              self.spriteSize = tileSize * 1.5;
+            }
+          }
+        }
+      } else if(self.gear.armor.type === 'chainmail'){
+        if(self.mounted){
+          if(self.gear.weapon.type === 'bow'){
+            self.class = 'mounted archer';
+            self.spriteSize = tileSize * 2;
+          } else {
+            self.class = 'horseman';
+            self.spriteSize = tileSize * 2;
+          }
+        } else {
+          if(self.gear.weapon.type === 'bow'){
+            self.class = 'archer';
+            self.spriteSize = tileSize * 1.5;
+          } else {
+            self.class = 'swordsman';
+            self.spriteSize = tileSize * 1.5;
+          }
+        }
+      } else if(self.gear.armor.type === 'plate'){
+        if(self.knighted){
+          if(self.mounted){
+            if(self.gear.weapon.type === 'lance'){
+              self.class = 'crusader';
+              self.spriteSize = tileSize * 3;
+            } else {
+              self.class = 'knight';
+              self.spriteSize = tileSize * 2;
+            }
+          } else {
+            self.class = 'templar';
+            self.spriteSize = tileSize * 1.5;
+          }
+        } else {
+          if(self.mounted){
+            if(self.gear.weapon.type === 'lance'){
+              self.class = 'lancer';
+              self.spriteSize = tileSize * 3;
+            } else {
+              self.class = 'cavalry';
+              self.spriteSize = tileSize * 2;
+            }
+          } else {
+            self.class = 'hero';
+            self.spriteSize = tileSize * 1.5;
+          }
+        }
+      } else if(self.gear.armor.type === 'cloth'){
+        if(self.gear.armor.type === 'monk robe'){
+          self.class = 'mage';
+          self.spriteSize = tileSize * 1.5;
+        } else if(self.gear.armor.type === 'black robe'){
+          self.class = 'warlock';
+          self.spriteSize = tileSize * 1.5;
+        } else {
+          self.class = 'priest';
+          self.spriteSize = tileSize * 1.5;
+        }
+      }
+    } else {
+      self.class = 'serf';
+      self.spriteSize = tileSize * 1.5;
+    }
   }
 
   self.shootArrow = function(angle){
@@ -1967,10 +2137,10 @@ Player = function(param){
         self.inventory.torch--;
         self.hasTorch = torchId;
       } else {
-        SOCKET_LIST[self.id].emit('addToChat','<b>DM:</b> You cannot do that here.');
+        SOCKET_LIST[self.id].emit('addToChat','<i>You cannot do that here.</i>');
       }
     } else {
-      SOCKET_LIST[self.id].emit('addToChat','<b>DM:</b> You have no torches.');
+      SOCKET_LIST[self.id].emit('addToChat','<i>You have no torches.</i>');
     }
   }
 
@@ -2220,6 +2390,8 @@ Player = function(param){
       spriteSize:self.spriteSize,
       inTrees:self.inTrees,
       facing:self.facing,
+      stealthed:self.stealthed,
+      visible:self.visible,
       hp:self.hp,
       hpMax:self.hpMax,
       mana:self.mana,
@@ -2239,6 +2411,8 @@ Player = function(param){
       spriteSize:self.spriteSize,
       inTrees:self.inTrees,
       facing:self.facing,
+      stealthed:self.stealthed,
+      visible:self.visible,
       pressingUp:self.pressingUp,
       pressingDown:self.pressingDown,
       pressingLeft:self.pressingLeft,
@@ -2313,7 +2487,7 @@ Player.onConnect = function(socket,name){
       }
     }
     if(recipient === null){
-      socket.emit('addToChat','DM: ' + data.recip + ' is not online.');
+      socket.emit('addToChat','<i>' + data.recip + ' is not online.</i>');
     } else {
       recipient.emit('addToChat','<b>@' + player.name + '</b> whispers: <i>' + data.message + '</i>');
       SOCKET_LIST[player.id].emit('addToChat','To ' + data.recip + ': <i>' + data.message + '</i>');
@@ -2825,9 +2999,9 @@ RusticLance = function(param){
 }
 
 // GRANDMASTER LANCE
-TeutonicLance = function(param){
+PaladinLance = function(param){
   var self = Item(param);
-  self.type = 'teutonic lance';
+  self.type = 'paladin lance';
   self.class = 'lance';
   self.rank = 2;
   self.canPickup = true;
@@ -3800,6 +3974,18 @@ Lambic = function(param){
   self.type = 'lambic';
   self.class = 'consumable';
   self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// RELIC
+Relic = function(param){
+  var self = Item(param);
+  self.type = 'relic';
+  self.class = 'relic';
+  self.rank = 4;
   self.canPickup = true;
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());

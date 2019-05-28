@@ -94,6 +94,46 @@ for(x = 0; x < mapSize; x++){
   }
 }
 
+// RANDOM NAME GENERATOR
+
+maleNames = [];
+femaleNames = [];
+surnames = [];
+
+fs.readFile('./malenames.txt', function(err, data){
+  if(err) throw err;
+  var lines = data.toString().split("\n");
+  for(i in lines){
+    maleNames.push(lines[i]);
+  }
+});
+
+fs.readFile('./femalenames.txt', function(err, data){
+  if(err) throw err;
+  var lines = data.toString().split("\n");
+  for(i in lines){
+    femaleNames.push(lines[i]);
+  }
+});
+
+fs.readFile('./surnames.txt', function(err, data){
+  if(err) throw err;
+  var lines = data.toString().split("\n");
+  for(i in lines){
+    surnames.push(lines[i]);
+  }
+});
+
+randomName = function(x){
+  if(x === 'm'){
+    return maleNames[Math.floor(Math.random()*maleNames.length)];
+  } else if(x === 'f'){
+    return femaleNames[Math.floor(Math.random()*femaleNames.length)];
+  } else {
+    return surnames[Math.floor(Math.random()*surnames.length)];
+  }
+};
+
 console.log('#############');
 console.log('Terrain Data:');
 console.log('#############');
@@ -287,7 +327,7 @@ if(saveMap){
 
 // day/night cycle
 var tempus = 'XII.a';
-var period = 360; // 1=1hr, 2=30m, 4=15m, 12=5m, 60=1m, 120=30s, 360=10s
+var period = 360; // 1=1hr, 2=30m, 4=15m, 12=5m, 60=1m, 120=30s, 360=10s (number of game days per 24 hours)
 var cycle = ['XII.a','I.a','II.a','III.a','IV.a','V.a','VI.a','VII.a','VIII.a','IX.a','X.a','XI.a',
             'XII.p','I.p','II.p','III.p','IV.p','V.p','VI.p','VII.p','VIII.p','IX.p','X.p','XI.p'];
 var tick = 1;
@@ -424,7 +464,7 @@ var dayNight = function(){
 // initiate day/night cycle
 setInterval(dayNight, 3600000/period);
 console.log('');
-console.log('Day ' + day);
+console.log('Day ' + day + ' (' + period + 'x)');
 console.log('');
 console.log(tempus);
 

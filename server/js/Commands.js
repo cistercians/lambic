@@ -46,7 +46,7 @@ EvalCmd = function(data){
           }
         },10000/player.strength);
       } else {
-        socket.emit('addToChat','<b>DM:</b> You cannot build that there.');
+        socket.emit('addToChat','<i>You cannot build that there.</i>');
       }
     } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) === 'mill' && z === 0){
       var plot = [[c,r],[c+1,r],[c,r-1],[c+1,r-1]];
@@ -100,10 +100,10 @@ EvalCmd = function(data){
             hp:150
           });
         } else {
-          socket.emit('addToChat','<b>DM:</b> You cannot build that there.');
+          socket.emit('addToChat','<i>You cannot build that there.</i>');
         }
       } else {
-        socket.emit('addToChat','<b>DM:</b> You cannot build that there.');
+        socket.emit('addToChat','<i>You cannot build that there.</i>');
       }
     } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) === 'hut' && z === 0){
       var plot = [[c,r],[c+1,r],[c,r-1],[c+1,r-1]];
@@ -157,10 +157,10 @@ EvalCmd = function(data){
             hp:150
           });
         } else {
-          socket.emit('addToChat','<b>DM:</b> You cannot build that there.');
+          socket.emit('addToChat','<i>You cannot build that there.</i>');
         }
       } else {
-        socket.emit('addToChat','<b>DM:</b> You cannot build that there.');
+        socket.emit('addToChat','<i>You cannot build that there.</i>');
       }
     } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) === 'house' && z === 0){
       var plot = [[c,r],[c+1,r],[c+2,r],[c,r-1],[c+1,r-1],[c+2,r-1],[c,r-2],[c+1,r-2],[c+2,r-2]];
@@ -215,16 +215,16 @@ EvalCmd = function(data){
             hp:300
           });
         } else {
-          socket.emit('addToChat','<b>DM:</b> You cannot build that there.');
+          socket.emit('addToChat','<i>You cannot build that there.</i>');
         }
       } else {
-        socket.emit('addToChat','<b>DM:</b> You cannot build that there.');
+        socket.emit('addToChat','<i>You cannot build that there.</i>');
       }
     } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) === 'fort' && z === 0){
       var plot = [[c,r]];
       if(getTile(0,c,r) === 7 || getTile(0,c,r) === 18){
         if(getTile(0,c,r-1) === 14 || getTile(c,r-1) === 16){
-          socket.emit('addToChat','<b>DM:</b> You cannot build that there.');
+          socket.emit('addToChat','<i>You cannot build that there.</i>');
         } else {
           world[0][r][c] = 11;
           io.emit('mapEdit',world);
@@ -252,7 +252,7 @@ EvalCmd = function(data){
       var plot = [[c,r]];
       if(getTile(0,c,r) === 7 || getTile(0,c,r) === 4 || getTile(0,c,r) === 18){
         if(getTile(0,c,r-1) === 14 || getTile(c,r-1) === 16 || getTile(c,r-1) === 19){
-          socket.emit('addToChat','<b>DM:</b> You cannot build that there.');
+          socket.emit('addToChat','<i>You cannot build that there.</i>');
         } else {
           world[0][r][c] = 11;
           world[6][r][c] = 0;
@@ -277,14 +277,14 @@ EvalCmd = function(data){
           });
         }
       } else {
-        socket.emit('addToChat','<b>DM:</b> You cannot build that there.');
+        socket.emit('addToChat','<i>You cannot build that there.</i>');
       }
     } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) === 'outpost' && z === 0){
       var plot = [[c,r]];
       var topPlot = [[c,r-1]];
       if(getTile(0,c,r) === 7){
         if(getTile(0,c,r-1) === 14 || getTile(0,c,r-1) === 16 || getTile(0,c,r-1) === 19 || getTile(5,c,r-1) !== 0){
-          socket.emit('addToChat','<b>DM:</b> You cannot build that there.');
+          socket.emit('addToChat','<i>You cannot build that there.</i>');
         } else {
           world[0][r][c] = 11;
           io.emit('mapEdit',world);
@@ -308,7 +308,7 @@ EvalCmd = function(data){
           });
         }
       } else {
-        socket.emit('addToChat','<b>DM:</b> You cannot build that there.');
+        socket.emit('addToChat','<i>You cannot build that there.</i>');
       }
     } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) === 'gtower' && z === 0){
       var plot = [[c,r],[c+1,r],[c,r-1],[c+1,r-1]];
@@ -322,7 +322,7 @@ EvalCmd = function(data){
       }
       if(count === 4){
         if(getTile(0,c,r-2) === 14 || getTile(0,c,r-2) === 16 || getTile(0,c,r-2) === 19 || getTile(5,c,r-2) !== 0 || getTile(0,c+1,r-2) === 14 || getTile(0,c+1,r-2) === 16 || getTile(0,c+1,r-2) === 19 || getTile(5,c+1,r-2) !== 0){
-          socket.emit('addToChat','<b>DM:</b> You cannot build that there.');
+          socket.emit('addToChat','<i>You cannot build that there.</i>');
         } else {
           for(i in plot){
             var n = plot[i];
@@ -350,7 +350,7 @@ EvalCmd = function(data){
           });
         }
       } else {
-        socket.emit('addToChat','<b>DM:</b> You cannot build that there.');
+        socket.emit('addToChat','<i>You cannot build that there.</i>');
       }
     } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) === 'tower' && z === 0){
       var plot = [[c,r],[c+1,r],[c+2,r],[c,r-1],[c+1,r-1],[c+2,r-1],[c,r-2],[c+1,r-2],[c+2,r-2]];
@@ -406,10 +406,10 @@ EvalCmd = function(data){
             hp:2000
           });
         } else {
-          socket.emit('addToChat','<b>DM:</b> You cannot build that there.');
+          socket.emit('addToChat','<i>You cannot build that there.</i>');
         }
       } else {
-        socket.emit('addToChat','<b>DM:</b> You cannot build that there.');
+        socket.emit('addToChat','<i>You cannot build that there.</i>');
       }
     } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) === 'tavern' && z === 0){
       var plot = [[c+1,r],[c+2,r],[c+3,r],[c,r-1],[c+1,r-1],[c+2,r-1],[c+3,r-1],[c+4,r-1],[c,r-2],[c+1,r-2],[c+2,r-2],[c+3,r-2],[c+4,r-2],[c,r-3],[c+1,r-3],[c+2,r-3],[c+3,r-3]];
@@ -464,10 +464,10 @@ EvalCmd = function(data){
             hp:750
           });
         } else {
-          socket.emit('addToChat','<b>DM:</b> You cannot build that there.');
+          socket.emit('addToChat','<i>You cannot build that there.</i>');
         }
       } else {
-        socket.emit('addToChat','<b>DM:</b> You cannot build that there.');
+        socket.emit('addToChat','<i>You cannot build that there.</i>');
       }
     } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) === 'monastery' && z === 0){
       var plot = [[c,r],[c+1,r],[c+2,r],[c+3,r],[c,r-1],[c+1,r-1],[c+2,r-1],[c+3,r-1],[c,r-2],[c+1,r-2],[c+2,r-2],[c+3,r-2],[c,r-3],[c+1,r-3]];
@@ -523,10 +523,10 @@ EvalCmd = function(data){
             hp:1000
           });
         } else {
-          socket.emit('addToChat','<b>DM:</b> You cannot build that there.');
+          socket.emit('addToChat','<i>You cannot build that there.</i>');
         }
       } else {
-        socket.emit('addToChat','<b>DM:</b> You cannot build that there.');
+        socket.emit('addToChat','<i>You cannot build that there.</i>');
       }
     } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) === 'market' && z === 0){
       var plot = [[c+1,r],[c+2,r],[c+3,r],[c,r-1],[c+1,r-1],[c+2,r-1],[c+3,r-1],[c+4,r-1],[c,r-2],[c+1,r-2],[c+2,r-2],[c+3,r-2]];
@@ -581,10 +581,10 @@ EvalCmd = function(data){
             hp:750
           });
         } else {
-          socket.emit('addToChat','<b>DM:</b> You cannot build that there.');
+          socket.emit('addToChat','<i>You cannot build that there.</i>');
         }
       } else {
-        socket.emit('addToChat','<b>DM:</b> You cannot build that there.');
+        socket.emit('addToChat','<i>You cannot build that there.</i>');
       }
     } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) === 'stable' && z === 0){
       var plot = [[c,r],[c+1,r],[c+2,r],[c+3,r],[c,r-1],[c+1,r-1],[c+2,r-1],[c+3,r-1]];
@@ -638,10 +638,10 @@ EvalCmd = function(data){
             hp:500
           });
         } else {
-          socket.emit('addToChat','<b>DM:</b> You cannot build that there.');
+          socket.emit('addToChat','<i>You cannot build that there.</i>');
         }
       } else {
-        socket.emit('addToChat','<b>DM:</b> You cannot build that there.');
+        socket.emit('addToChat','<i>You cannot build that there.</i>');
       }
     } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) === 'dock' && z === 0){
       var plot = [];
@@ -664,7 +664,7 @@ EvalCmd = function(data){
         topPlot = [[c-1,r-1],[c,r-1],[c+1,r-1]];
         perim = [[c-2,r-2],[c-1,r-2],[c,r-2],[c+1,r-2],[c+2,r-2],[c-2,r-1],[c-2,r],[c-2,r+1],[c-2,r+2],[c-1,r+2],[c,r+2],[c+1,r+2],[c+2,r+2],[c+2,r-1],[c+2,r],[c+2,r-1]];
       } else {
-        socket.emit('addToChat','<b>DM:</b> You cannot build that there.');
+        socket.emit('addToChat','<i>You cannot build that there.</i>');
       }
       var count = 0;
       for(i in plot){
@@ -715,10 +715,10 @@ EvalCmd = function(data){
             hp:750
           });
         } else {
-          socket.emit('addToChat','<b>DM:</b> You cannot build that there.');
+          socket.emit('addToChat','<i>You cannot build that there.</i>');
         }
       } else {
-        socket.emit('addToChat','<b>DM:</b> You cannot build that there.');
+        socket.emit('addToChat','<i>You cannot build that there.</i>');
       }
     } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) === 'garrison' && z === 0){
       var plot = [[c,r],[c+1,r],[c+2,r],[c+3,r],[c,r-1],[c+1,r-1],[c+2,r-1],[c+3,r-1],[c,r-2],[c+1,r-2],[c+2,r-2],[c+3,r-2]];
@@ -774,10 +774,10 @@ EvalCmd = function(data){
             hp:1000
           });
         } else {
-          socket.emit('addToChat','<b>DM:</b> You cannot build that there.');
+          socket.emit('addToChat','<i>You cannot build that there.</i>');
         }
       } else {
-        socket.emit('addToChat','<b>DM:</b> You cannot build that there.');
+        socket.emit('addToChat','<i>You cannot build that there.</i>');
       }
     } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) === 'blacksmith' && z === 0){
       var plot = [[c,r],[c+1,r],[c+2,r],[c,r-1],[c+1,r-1],[c+2,r-1]];
@@ -832,10 +832,10 @@ EvalCmd = function(data){
             hp:500
           });
         } else {
-          socket.emit('addToChat','<b>DM:</b> You cannot build that there.');
+          socket.emit('addToChat','<i>You cannot build that there.</i>');
         }
       } else {
-        socket.emit('addToChat','<b>DM:</b> You cannot build that there.');
+        socket.emit('addToChat','<i>You cannot build that there.</i>');
       }
     } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) === 'gate' && z === 0){
       var plot = [[c,r],[c+1,r]];
@@ -872,10 +872,10 @@ EvalCmd = function(data){
             hp:null
           });
         } else {
-          socket.emit('addToChat','<b>DM:</b> You cannot build that there.');
+          socket.emit('addToChat','<i>You cannot build that there.</i>');
         }
       } else {
-        socket.emit('addToChat','<b>DM:</b> You cannot build that there.');
+        socket.emit('addToChat','<i>You cannot build that there.</i>');
       }
     } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) === 'road' && z === 0){
       if(getTile(0,c,r) === 7 || getTile(0,c,r) === 4 || getTile(0,c,r) === 5){
@@ -892,7 +892,7 @@ EvalCmd = function(data){
           }
         },10000/player.strength);
       } else {
-        socket.emit('addToChat','<b>DM:</b> You cannot build that there.');
+        socket.emit('addToChat','<i>You cannot build that there.</i>');
       }
     } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) === 'stronghold' && z === 0){
       var plot = [[c+2,r],[c+3,r],[c+4,r],[c+5,r],
@@ -958,17 +958,17 @@ EvalCmd = function(data){
             hp:4000
           });
         } else {
-          socket.emit('addToChat','<b>DM:</b> You cannot build that there.');
+          socket.emit('addToChat','<i>You cannot build that there.</i>');
         }
       } else {
-        socket.emit('addToChat','<b>DM:</b> You cannot build that there.');
+        socket.emit('addToChat','<i>You cannot build that there.</i>');
       }
     }
   } else if(data.cmd === 'fire'){
     if(player.z !== -3){
       if(player.facing === 'left'){
         if((player.z === 1 || player.z === 2) && getTile(4,loc[0]-1,loc[1]) !== 0){
-          socket.emit('addToChat','<b>DM:</b> You cannot put that there.');
+          socket.emit('addToChat','<i>You cannot put that there.</i>');
         } else {
           var p = getCoords(loc[0]-1,loc[1]);
           Fire({
@@ -981,7 +981,7 @@ EvalCmd = function(data){
         }
       } else if(player.facing === 'right'){
         if((player.z === 1 || player.z === 2) && getTile(4,loc[0]+1,loc[1]) !== 0){
-          socket.emit('addToChat','<b>DM:</b> You cannot put that there.');
+          socket.emit('addToChat','<i>You cannot put that there.</i>');
         } else {
           var p = getCoords(loc[0]+1,loc[1]);
           Fire({
@@ -994,7 +994,7 @@ EvalCmd = function(data){
         }
       } else if(player.facing === 'up'){
         if((player.z === 1 || player.z === 2) && getTile(4,loc[0],loc[1]-1) !== 0){
-          socket.emit('addToChat','<b>DM:</b> You cannot put that there.');
+          socket.emit('addToChat','<i>You cannot put that there.</i>');
         } else {
           var p = getCoords(loc[0],loc[1]-1);
           Fire({
@@ -1007,7 +1007,7 @@ EvalCmd = function(data){
         }
       } else if(player.facing === 'down'){
         if((player.z === 1 || player.z === 2) && getTile(4,loc[0],loc[1]+1) !== 0){
-          socket.emit('addToChat','<b>DM:</b> You cannot put that there.');
+          socket.emit('addToChat','<i>You cannot put that there.</i>');
         } else {
           var p = getCoords(loc[0],loc[1]+1);
           Fire({
@@ -1020,9 +1020,9 @@ EvalCmd = function(data){
         }
       }
     } else {
-      socket.emit('addToChat','<b>DM:</b> You cannot put that there.');
+      socket.emit('addToChat','<i>You cannot put that there.</i>');
     }
   } else {
-    socket.emit('addToChat','<b>DM:</b> Invalid command.');
+    socket.emit('addToChat','<i>Invalid command.</i>');
   }
 }

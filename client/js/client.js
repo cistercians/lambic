@@ -78,18 +78,6 @@ chatForm.onsubmit = function(e){
 // GAME
 
 // ICONS
-// working
-var workingIcon = ['⌛️','⏳'];
-var wrk = 0;
-setInterval(function(){
-  if(wrk === 1){
-    wrk = 0;
-  } else {
-    wrk = 1;
-  }
-},800);
-
-// IMAGES
 // walking animation
 var wlk = 0;
 setInterval(function(){
@@ -100,7 +88,8 @@ setInterval(function(){
   }
 },400);
 
-// working animation
+// working
+var workingIcon = ['⌛️','⏳'];
 var wrk = 0;
 setInterval(function(){
   if(wrk === 1){
@@ -132,6 +121,8 @@ var Player = function(initPack){
   self.rank = initPack.rank;
   self.gear = initPack.gear;
   self.facing = 'down';
+  self.stealthed = initPack.stealthed;
+  self.visible = initPack.visible;
   self.angle = 0;
   self.pressingDown = false;
   self.pressingUp = false;
@@ -159,6 +150,9 @@ var Player = function(initPack){
     } else if(self.spriteSize === tileSize * 2){
       x = (self.x - tileSize) - Player.list[selfId].x + WIDTH/2;
       y = (self.y - tileSize) - Player.list[selfId].y + HEIGHT/2;
+    } else if(self.spriteSize === tileSize * 3){
+      x = (self.x - (tileSize*1.5)) - Player.list[selfId].x + WIDTH/2;
+      y = (self.y - (tileSize*1.5)) - Player.list[selfId].y + HEIGHT/2;
     } else {
       x = (self.x - (tileSize/2)) - Player.list[selfId].x + WIDTH/2;
       y = (self.y - (tileSize/2)) - Player.list[selfId].y + HEIGHT/2;
@@ -186,7 +180,12 @@ var Player = function(initPack){
     }
 
     // username
-    if(self.name){
+    if(self.rank && self.name){
+      ctx.fillStyle = 'white';
+      ctx.font = '15px minion web';
+      ctx.textAlign = 'center';
+      ctx.fillText(self.rank + self.name,barX + 30,barY - 40,100);
+    } else if(self.name){
       ctx.fillStyle = 'white';
       ctx.font = '15px minion web';
       ctx.textAlign = 'center';
@@ -906,7 +905,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'teutonic lance'){
+    } else if(self.type === 'paladin lance'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1016,7 +1015,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'druid robe'){
+    } else if(self.type === 'monk robe'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1026,21 +1025,11 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'monk robe'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
-      ctx.drawImage(
-      Img.robe3,
-      x,
-      y,
-      tileSize,
-      tileSize
-      );
     } else if(self.type === 'black robe'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
-      Img.robe4,
+      Img.robe3,
       x,
       y,
       tileSize,
@@ -1291,9 +1280,9 @@ var Item = function(initPack){
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
       Img.cross,
-      x + (tileSize/2),
+      x,
       y,
-      tileSize,
+      tileSize * 2,
       tileSize * 1.5
       );
     } else if(self.type === 'tent1'){
@@ -1776,6 +1765,16 @@ var Item = function(initPack){
         tileSize
         );
       }
+    } else if(self.type === 'relic'){
+      var x = self.x - Player.list[selfId].x + WIDTH/2;
+      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      ctx.drawImage(
+      Img.relic,
+      x,
+      y,
+      tileSize,
+      tileSize
+      );
     }
   }
 
@@ -1835,6 +1834,8 @@ socket.on('update',function(data){
     var pack = data.player[i];
     var p = Player.list[pack.id];
     if(p){
+      if(pack.name !== undefined)
+        p.name = pack.name;
       if(pack.x !== undefined)
         p.x = pack.x;
       if(pack.y !== undefined)
@@ -1851,6 +1852,10 @@ socket.on('update',function(data){
         p.spriteSize = pack.spriteSize;
       if(pack.facing !== undefined)
         p.facing = pack.facing;
+      if(pack.stealthed !== undefined)
+        p.stealthed = pack.stealthed;
+      if(pack.visible !== undefined)
+        p.visible = pack.visible;
       if(pack.pressingUp !== undefined)
         p.pressingUp = pack.pressingUp;
       if(pack.pressingDown !== undefined)
@@ -1890,6 +1895,40 @@ socket.on('update',function(data){
         p.sprite = wolf;
       } else if(p.class === 'serf'){
         p.sprite = maleserf;
+      } else if(p.class === 'rogue'){
+        p.sprite = rogue;
+      } else if(p.class === 'hunter'){
+        p.sprite = hunter;
+      } else if(p.class === 'scout'){
+        p.sprite = scout;
+      } else if(p.class === 'ranger'){
+        p.sprite = ranger;
+      } else if(p.class === 'swordsman'){
+        p.sprite = swordsman;
+      } else if(p.class === 'archer'){
+        p.sprite = archer;
+      } else if(p.class === 'horseman'){
+        p.sprite = horseman;
+      } else if(p.class === 'mounted archer'){
+        p.sprite = mountedarcher;
+      } else if(p.class === 'hero'){
+        p.sprite = hero;
+      } else if(p.class === 'templar'){
+        p.sprite = templar;
+      } else if(p.class === 'cavalry'){
+        p.sprite = cavalry;
+      } else if(p.class === 'knight'){
+        p.sprite = knight;
+      } else if(p.class === 'lancer'){
+        p.sprite = lancer;
+      } else if(p.class === 'crusader'){
+        p.sprite = crusader;
+      } else if(p.class === 'priest'){
+        p.sprite = monk;
+      } else if(p.class === 'mage'){
+        p.sprite = mage;
+      } else if(p.class === 'warlock'){
+        p.sprite = warlock;
       } else if(p.class === 'serf m'){
         p.sprite = maleserf;
       } else if(p.class === 'serf f'){
@@ -2131,12 +2170,8 @@ socket.on('sprite',function(data){
     Player.list[selfId].sprite = maleserf;
   } else if(data === 'rogue'){
     Player.list[selfId].sprite = rogue;
-  } else if(data === 'rogue s'){
-    Player.list[selfId].sprite = rogueS;
   } else if(data === 'hunter'){
     Player.list[selfId].sprite = hunter;
-  } else if(data === 'hunter s'){
-    Player.list[selfId].sprite = hunterS;
   } else if(data === 'scout'){
     Player.list[selfId].sprite = scout;
   } else if(data === 'ranger'){
@@ -2150,7 +2185,7 @@ socket.on('sprite',function(data){
   } else if(data === 'horseman'){
     Player.list[selfId].sprite = horseman;
   } else if(data === 'mounted archer'){
-    Player.list[selfId].sprite = mountedArcher;
+    Player.list[selfId].sprite = mountedarcher;
   } else if(data === 'hero'){
     Player.list[selfId].sprite = hero;
   } else if(data === 'templar'){
@@ -2165,8 +2200,6 @@ socket.on('sprite',function(data){
     Player.list[selfId].sprite = crusader;
   } else if(data === 'priest'){
     Player.list[selfId].sprite = monk;
-  } else if(data === 'high priest'){
-    Player.list[selfId].sprite = highPriest;
   } else if(data === 'mage'){
     Player.list[selfId].sprite = mage;
   } else if(data === 'warlock'){
@@ -4925,7 +4958,7 @@ var renderLighting = function(){
     ctx.fillStyle = "rgba(224, 104, 0, 0.3)"; // light layer
     ctx.fillRect(0,0,WIDTH,HEIGHT);
     lighting.clearRect(0,0,WIDTH,HEIGHT);
-    lighting.fillStyle = "rgba(0, 0, 0, 0.9)"; // darkness
+    lighting.fillStyle = "rgba(0, 0, 0, 0.95)"; // darkness
     lighting.fillRect(0,0,WIDTH,HEIGHT);
   } else if(z === -2){
     ctx.fillStyle = "rgba(224, 104, 0, 0.3)"; // light layer

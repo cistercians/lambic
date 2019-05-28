@@ -7,10 +7,10 @@ flora = function(){
     for(var r = 0; r < mapSize; r++){
       if(world[0][r][c] === 1){
         if(world[6][r][c] < 300){
-          world[6][r][c] += 5;
+          world[6][r][c] += Math.floor(Math.random() * 6);
         }
       } else if(world[0][r][c] === 2){
-        world[6][r][c] += 5;
+        world[6][r][c] += Math.floor(Math.random() * 6);
         if(world[6][r][c] > 100){
           toHF.push([c,r]);
         }
