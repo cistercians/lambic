@@ -2016,6 +2016,65 @@ var conscript = {
   attackr: Img.conscriptattackr
 };
 
+// footsoldier
+//stand
+Img.footsoldierstandd = new Image();
+Img.footsoldierstandd.src = '/client/img/chars/footsoldier/standd.png';
+Img.footsoldierstandu = new Image();
+Img.footsoldierstandu.src = '/client/img/chars/footsoldier/standu.png';
+Img.footsoldierstandl = new Image();
+Img.footsoldierstandl.src = '/client/img/chars/footsoldier/standl.png';
+Img.footsoldierstandr = new Image();
+Img.footsoldierstandr.src = '/client/img/chars/footsoldier/standr.png';
+
+// walk
+Img.footsoldierwalkd1 = new Image();
+Img.footsoldierwalkd1.src = '/client/img/chars/footsoldier/walkd1.png';
+Img.footsoldierwalkd2 = new Image();
+Img.footsoldierwalkd2.src = '/client/img/chars/footsoldier/walkd2.png';
+Img.footsoldierwalku1 = new Image();
+Img.footsoldierwalku1.src = '/client/img/chars/footsoldier/walku1.png';
+Img.footsoldierwalku2 = new Image();
+Img.footsoldierwalku2.src = '/client/img/chars/footsoldier/walku2.png';
+Img.footsoldierwalkl1 = new Image();
+Img.footsoldierwalkl1.src = '/client/img/chars/footsoldier/walkl1.png';
+Img.footsoldierwalkl2 = new Image();
+Img.footsoldierwalkl2.src = '/client/img/chars/footsoldier/walkl2.png';
+Img.footsoldierwalkr1 = new Image();
+Img.footsoldierwalkr1.src = '/client/img/chars/footsoldier/walkr1.png';
+Img.footsoldierwalkr2 = new Image();
+Img.footsoldierwalkr2.src = '/client/img/chars/footsoldier/walkr2.png';
+
+var footsoldierwalkd = [Img.footsoldierwalkd1,Img.footsoldierwalkd2];
+var footsoldierwalku = [Img.footsoldierwalku1,Img.footsoldierwalku2];
+var footsoldierwalkl = [Img.footsoldierwalkl1,Img.footsoldierwalkl2];
+var footsoldierwalkr = [Img.footsoldierwalkr1,Img.footsoldierwalkr2];
+
+// attack
+Img.footsoldierattackd = new Image();
+Img.footsoldierattackd.src = '/client/img/chars/footsoldier/attackd.png';
+Img.footsoldierattacku = new Image();
+Img.footsoldierattacku.src = '/client/img/chars/footsoldier/attacku.png';
+Img.footsoldierattackl = new Image();
+Img.footsoldierattackl.src = '/client/img/chars/footsoldier/attackl.png';
+Img.footsoldierattackr = new Image();
+Img.footsoldierattackr.src = '/client/img/chars/footsoldier/attackr.png';
+
+var footsoldier = {
+  facedown: Img.footsoldierstandd,
+  faceup: Img.footsoldierstandu,
+  faceleft: Img.footsoldierstandl,
+  faceright: Img.footsoldierstandr,
+  walkdown: footsoldierwalkd,
+  walkup: footsoldierwalku,
+  walkleft: footsoldierwalkl,
+  walkright: footsoldierwalkr,
+  attackd: Img.footsoldierattackd,
+  attacku: Img.footsoldierattacku,
+  attackl: Img.footsoldierattackl,
+  attackr: Img.footsoldierattackr
+};
+
 // skirmisher
 //stand
 Img.skirmisherstandd = new Image();
@@ -2484,6 +2543,12 @@ Img.diamond = new Image();
 Img.diamond.src = '/client/img/items/diamond.png';
 Img.diamonds = new Image();
 Img.diamonds.src = '/client/img/items/diamonds.png';
+Img.dagger1 = new Image();
+Img.dagger1.src = '/client/img/items/dagger1.png';
+Img.dagger2 = new Image();
+Img.dagger2.src = '/client/img/items/dagger2.png';
+Img.dagger3 = new Image();
+Img.dagger3.src = '/client/img/items/dagger3.png';
 Img.sword1 = new Image();
 Img.sword1.src = '/client/img/items/sword1.png';
 Img.sword2 = new Image();
@@ -2588,10 +2653,6 @@ Img.skeleton1 = new Image();
 Img.skeleton1.src = '/client/img/items/skeleton1.png';
 Img.skeleton2 = new Image();
 Img.skeleton2.src = '/client/img/items/skeleton2.png';
-Img.skeleton3 = new Image();
-Img.skeleton3.src = '/client/img/items/skeleton3.png';
-Img.skeleton4 = new Image();
-Img.skeleton4.src = '/client/img/items/skeleton4.png';
 Img.goods1 = new Image();
 Img.goods1.src = '/client/img/items/goods1.png';
 Img.goods2 = new Image();
@@ -2644,18 +2705,18 @@ Img.cookedmeat = new Image();
 Img.cookedmeat.src = '/client/img/items/cookedmeat.png';
 Img.cookedmeats = new Image();
 Img.cookedmeats.src = '/client/img/items/cookedmeats.png';
-Img.saison = new Image();
-Img.saison.src = '/client/img/items/saison.png';
-Img.saisons = new Image();
-Img.saisons.src = '/client/img/items/saisons.png';
-Img.gose = new Image();
-Img.gose.src = '/client/img/items/gose.png';
-Img.goses = new Image();
-Img.goses.src = '/client/img/items/goses.png';
-Img.lambic = new Image();
-Img.lambic.src = '/client/img/items/lambic.png';
-Img.lambics = new Image();
-Img.lambics.src = '/client/img/items/lambics.png';
+Img.beer = new Image();
+Img.beer.src = '/client/img/items/beer.png';
+Img.beers = new Image();
+Img.beers.src = '/client/img/items/beers.png';
+Img.bottle1 = new Image();
+Img.bottle1.src = '/client/img/items/bottle1.png';
+Img.bottles1 = new Image();
+Img.bottles1.src = '/client/img/items/bottles1.png';
+Img.bottle2 = new Image();
+Img.bottle2.src = '/client/img/items/bottle2.png';
+Img.bottles2 = new Image();
+Img.bottles2.src = '/client/img/items/bottles2.png';
 
 var flm = 0; // flame counter
 setInterval(function(){
@@ -2690,3 +2751,11 @@ Img.arrow7 = new Image();
 Img.arrow7.src = '/client/img/effects/arrow7.png';
 Img.arrow8 = new Image();
 Img.arrow8.src = '/client/img/effects/arrow8.png';
+Img.blood = new Image();
+Img.blood.src = '/client/img/effects/blood.png';
+
+// ICONS
+Img.alber = new Image();
+Img.alber.src = '/client/img/icons/alber.png';
+Img.albercd = new Image();
+Img.albercd.src = '/client/img/icons/albercd.png';

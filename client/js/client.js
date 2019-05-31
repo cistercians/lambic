@@ -805,7 +805,47 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'iron sword'){
+    } else if(self.type === 'hunting knife'){
+      var x = self.x - Player.list[selfId].x + WIDTH/2;
+      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      ctx.drawImage(
+      Img.dagger1,
+      x,
+      y,
+      tileSize,
+      tileSize
+      );
+    }else if(self.type === 'dague'){
+      var x = self.x - Player.list[selfId].x + WIDTH/2;
+      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      ctx.drawImage(
+      Img.dagger2,
+      x,
+      y,
+      tileSize,
+      tileSize
+      );
+    } else if(self.type === 'baselard'){
+      var x = self.x - Player.list[selfId].x + WIDTH/2;
+      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      ctx.drawImage(
+      Img.dagger2,
+      x,
+      y,
+      tileSize,
+      tileSize
+      );
+    } else if(self.type === 'misericorde'){
+      var x = self.x - Player.list[selfId].x + WIDTH/2;
+      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      ctx.drawImage(
+      Img.dagger3,
+      x,
+      y,
+      tileSize,
+      tileSize
+      );
+    } else if(self.type === 'bastard sword'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -815,7 +855,17 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'steel sword'){
+    } else if(self.type === 'longsword'){
+      var x = self.x - Player.list[selfId].x + WIDTH/2;
+      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      ctx.drawImage(
+      Img.sword2,
+      x,
+      y,
+      tileSize,
+      tileSize
+      );
+    } else if(self.type === 'zweihander'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -835,16 +885,6 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'tyrfing'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
-      ctx.drawImage(
-      Img.sword4,
-      x,
-      y,
-      tileSize,
-      tileSize
-      );
     } else if(self.type === 'bow'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
@@ -855,7 +895,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'longbow'){
+    } else if(self.type === 'welsh longbow'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -865,27 +905,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'mercenary bow'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
-      ctx.drawImage(
-      Img.longbow,
-      x,
-      y,
-      tileSize,
-      tileSize
-      );
-    } else if(self.type === 'iron lance'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
-      ctx.drawImage(
-      Img.lance1,
-      x,
-      y,
-      tileSize,
-      tileSize
-      );
-    } else if(self.type === 'steel lance'){
+    } else if(self.type === 'knight lance'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -935,7 +955,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'iron mail'){
+    } else if(self.type === 'maille'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -945,7 +965,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'steel mail'){
+    } else if(self.type === 'hauberk'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1335,26 +1355,6 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'skeleton3'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
-      ctx.drawImage(
-      Img.skeleton3,
-      x,
-      y,
-      tileSize,
-      tileSize
-      );
-    } else if(self.type === 'skeleton4'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
-      ctx.drawImage(
-      Img.skeleton4,
-      x,
-      y,
-      tileSize,
-      tileSize
-      );
     } else if(self.type === 'goods1'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
@@ -1500,6 +1500,16 @@ var Item = function(initPack){
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
       Img.staghead,
+      x,
+      y,
+      tileSize,
+      tileSize
+      );
+    } else if(self.type === 'blood'){ // MUST ONLY SEE WITH TRACKER SKILL !!!
+      var x = self.x - Player.list[selfId].x + WIDTH/2;
+      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      ctx.drawImage(
+      Img.blood,
       x,
       y,
       tileSize,
@@ -1705,12 +1715,12 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'saison'){
+    } else if(self.type === 'mead' || self.type === 'saison'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 2){
         ctx.drawImage(
-        Img.saisons,
+        Img.beers,
         x,
         y,
         tileSize,
@@ -1718,19 +1728,19 @@ var Item = function(initPack){
         );
       } else {
         ctx.drawImage(
-        Img.saison,
+        Img.beer,
         x,
         y,
         tileSize,
         tileSize
         );
       }
-    } else if(self.type === 'gose'){
+    } else if(self.type === 'flanders red ale' || self.type === 'biere de garde'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 2){
         ctx.drawImage(
-        Img.goses,
+        Img.bottles1,
         x,
         y,
         tileSize,
@@ -1738,19 +1748,19 @@ var Item = function(initPack){
         );
       } else {
         ctx.drawImage(
-        Img.gose,
+        Img.bottle1,
         x,
         y,
         tileSize,
         tileSize
         );
       }
-    } else if(self.type === 'lambic'){
+    } else if(self.type === 'bordeaux' || self.type === 'bourgogne' || self.type === 'chianti'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 2){
         ctx.drawImage(
-        Img.lambics,
+        Img.bottles2,
         x,
         y,
         tileSize,
@@ -1758,7 +1768,7 @@ var Item = function(initPack){
         );
       } else {
         ctx.drawImage(
-        Img.lambic,
+        Img.bottle2,
         x,
         y,
         tileSize,

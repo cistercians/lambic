@@ -4,39 +4,43 @@
 
 equip = {
   // weapons
-  ironsword:{
-    name: 'iron sword',
+  huntingknife:{
+    name: 'hunting knife',
+    type: 'dagger'
+  },
+  dague:{
+    name: 'dague',
+    type: 'dagger'
+  },
+  baselard:{
+    name: 'baselard',
+    type: 'dagger'
+  },
+  misericorde:{
+    name: 'misericorde',
+    type: 'dagger'
+  },
+  longsword:{
+    name: 'steel sword',
     type: 'sword'
   },
-  steelsword:{
-    name: 'steel sword',
+  zweihander:{
+    name: 'zweihander',
     type: 'sword'
   },
   morallta:{
     name: 'morallta',
     type: 'sword'
   },
-  tyrfing:{
-    name: 'tyrfing',
-    type: 'sword'
-  },
   bow:{
     name: 'bow',
     type: 'bow'
   },
-  longbow:{
+  welshlongbow:{
     name: 'longbow',
     type: 'bow'
   },
-  mercenarybow:{
-    name: 'mercenary',
-    type: 'bow'
-  },
-  ironlance:{
-    name: 'iron lance',
-    type: 'lance'
-  },
-  steellance:{
+  knightlance:{
     name: 'steel lance',
     type: 'lance'
   },
@@ -58,11 +62,11 @@ equip = {
     name: 'brigandine',
     type: 'leather'
   },
-  ironmail:{
+  maille:{
     name: 'iron mail',
     type: 'chainmail'
   },
-  steelmail:{
+  hauberk:{
     name: 'steel mail',
     type: 'chainmail'
   },
@@ -90,10 +94,6 @@ equip = {
     name: 'cleric robe',
     type: 'cloth'
   },
-  druidrobe:{
-    name: 'druid robe',
-    type: 'cloth'
-  },
   monkrobe:{
     name: 'monk robe',
     type: 'cloth'
@@ -102,6 +102,6 @@ equip = {
     name: 'black robe',
     type: 'cloth'
   }
-  
+
   // trinkets
 }
