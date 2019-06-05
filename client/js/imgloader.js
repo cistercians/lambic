@@ -520,6 +520,14 @@ Img.stronghold66 = new Image();
 Img.stronghold66.src = '/client/img/buildings/stronghold66.png';
 
 // enemy
+Img.paganhut0 = new Image();
+Img.paganhut0.src = '/client/img/buildings/paganhut0.png';
+Img.paganhut1 = new Image();
+Img.paganhut1.src = '/client/img/buildings/paganhut1.png';
+Img.paganhut2 = new Image();
+Img.paganhut2.src = '/client/img/buildings/paganhut2.png';
+Img.paganhut3 = new Image();
+Img.paganhut3.src = '/client/img/buildings/paganhut3.png';
 Img.teutower0 = new Image();
 Img.teutower0.src = '/client/img/buildings/teutower0.png';
 Img.teutower1 = new Image();
@@ -2555,8 +2563,6 @@ Img.sword2 = new Image();
 Img.sword2.src = '/client/img/items/sword2.png';
 Img.sword3 = new Image();
 Img.sword3.src = '/client/img/items/sword3.png';
-Img.sword4 = new Image();
-Img.sword4.src = '/client/img/items/sword4.png';
 Img.bow = new Image();
 Img.bow.src = '/client/img/items/bow.png';
 Img.longbow = new Image();
@@ -2643,12 +2649,6 @@ Img.dummy = new Image();
 Img.dummy.src = '/client/img/items/dummy.png';
 Img.cross = new Image();
 Img.cross.src = '/client/img/items/cross.png';
-Img.tent1 = new Image();
-Img.tent1.src = '/client/img/items/tent1.png';
-Img.tent2 = new Image();
-Img.tent2.src = '/client/img/items/tent2.png';
-Img.tent3 = new Image();
-Img.tent3.src = '/client/img/items/tent3.png';
 Img.skeleton1 = new Image();
 Img.skeleton1.src = '/client/img/items/skeleton1.png';
 Img.skeleton2 = new Image();
@@ -2717,6 +2717,14 @@ Img.bottle2 = new Image();
 Img.bottle2.src = '/client/img/items/bottle2.png';
 Img.bottles2 = new Image();
 Img.bottles2.src = '/client/img/items/bottles2.png';
+Img.crown = new Image();
+Img.crown.src = '/client/img/items/crown.png';
+Img.arrows = new Image();
+Img.arrows.src = '/client/img/items/arrows.png';
+Img.map = new Image();
+Img.map.src = '/client/img/items/map.png';
+Img.relic = new Image();
+Img.relic.src = '/client/img/items/relic.png';
 
 var flm = 0; // flame counter
 setInterval(function(){
@@ -2755,7 +2763,16 @@ Img.blood = new Image();
 Img.blood.src = '/client/img/effects/blood.png';
 
 // ICONS
+Img.agnusdei = new Image();
+Img.agnusdei.src = '/client/img/icons/agnusdei.png';
+Img.agnusdeicd = new Image();
+Img.agnusdeicd.src = '/client/img/icons/agnusdeicd.png';
 Img.alber = new Image();
 Img.alber.src = '/client/img/icons/alber.png';
 Img.albercd = new Image();
 Img.albercd.src = '/client/img/icons/albercd.png';
+
+Img.anoint = new Image();
+Img.anoint.src = '/client/img/icons/anoint.png';
+Img.anointcd = new Image();
+Img.anointcd.src = '/client/img/icons/anointcd.png';

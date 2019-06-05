@@ -1,4 +1,4 @@
-pathfinder = function(z){
+pathing = function(z){
   function createArray(length){
     var arr = new Array(length || 0),
         i = length;
@@ -40,6 +40,12 @@ pathfinder = function(z){
         } else {
           grid[y][x] = 1;
         }
+      }
+    }
+  } else if(z === -3){
+    for(x = 0; x < mapSize; x++){
+      for(y = 0; y < mapSize; y++){
+        grid[y][x] = 0;
       }
     }
   } else {

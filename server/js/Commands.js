@@ -169,7 +169,7 @@ EvalCmd = function(data){
       var count = 0;
       for(i in plot){
         var n = plot[i];
-        if(getTile(0,n[0],n[1]) === 7 || getTile(0,n[0],n[1]) === 4 || getTile(0,n[0],n[1]) === 18){
+        if(getTile(0,n[0],n[1]) === 7 || (getTile(0,n[0],n[1]) >= 4 && getTile(0,n[0],n[1]) < 5) || getTile(0,n[0],n[1]) === 18){
           count++;
         }
       }
@@ -250,7 +250,7 @@ EvalCmd = function(data){
       }
     } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) === 'wall' && z === 0){
       var plot = [[c,r]];
-      if(getTile(0,c,r) === 7 || getTile(0,c,r) === 4 || getTile(0,c,r) === 18){
+      if(getTile(0,c,r) === 7 || (getTile(0,c,r) >= 4 && getTile(0,c,r) < 6) || getTile(0,c,r) === 18){
         if(getTile(0,c,r-1) === 14 || getTile(c,r-1) === 16 || getTile(c,r-1) === 19){
           socket.emit('addToChat','<i>You cannot build that there.</i>');
         } else {
@@ -310,13 +310,13 @@ EvalCmd = function(data){
       } else {
         socket.emit('addToChat','<i>You cannot build that there.</i>');
       }
-    } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) === 'gtower' && z === 0){
+    } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) === 'guardtower' && z === 0){
       var plot = [[c,r],[c+1,r],[c,r-1],[c+1,r-1]];
       var topPlot = [[c,r-2],[c+1,r-2]];
       var count = 0;
       for(i in plot){
         var n = plot[i];
-        if(getTile(0,c,r) === 7 || getTile(0,c,r) === 4){
+        if(getTile(0,c,r) === 7 || (getTile(0,c,r) >= 4 && getTile(0,c,r) < 6)){
           count++;
         }
       }
@@ -337,7 +337,7 @@ EvalCmd = function(data){
             x:player.x,
             y:player.y,
             z:0,
-            type:'gtower',
+            type:'guardtower',
             plot:plot,
             walls:null,
             topPlot:topPlot,
@@ -360,7 +360,7 @@ EvalCmd = function(data){
       var count = 0;
       for(i in plot){
         var n = plot[i];
-        if(getTile(0,n[0],n[1]) === 7 || getTile(0,n[0],n[1]) === 4 || getTile(0,n[0],n[1]) === 5 || getTile(0,n[0],n[1]) === 18){
+        if(getTile(0,n[0],n[1]) === 7 || (getTile(0,n[0],n[1]) >= 4 && getTile(0,n[0],n[1]) < 6) || getTile(0,n[0],n[1]) === 18){
           count++;
         }
       }
@@ -477,7 +477,7 @@ EvalCmd = function(data){
       var count = 0;
       for(i in plot){
         var n = plot[i];
-        if(getTile(0,n[0],n[1]) === 7 || getTile(0,n[0],n[1]) === 4 || getTile(0,n[0],n[1]) === 5 || getTile(0,n[0],n[1]) === 18){
+        if(getTile(0,n[0],n[1]) === 7 || (getTile(0,n[0],n[1]) >= 4 && getTile(0,n[0],n[1]) < 6) || getTile(0,n[0],n[1]) === 18){
           count++;
         }
       }
@@ -728,7 +728,7 @@ EvalCmd = function(data){
       var count = 0;
       for(i in plot){
         var n = plot[i];
-        if(getTile(0,n[0],n[1]) === 7 || getTile(0,n[0],n[1]) === 4 || getTile(0,n[0],n[1]) === 18){
+        if(getTile(0,n[0],n[1]) === 7 || (getTile(0,n[0],n[1]) >= 4 && getTile(0,n[0],n[1]) < 6) || getTile(0,n[0],n[1]) === 18){
           count++;
         }
       }
@@ -786,7 +786,7 @@ EvalCmd = function(data){
       var count = 0;
       for(i in plot){
         var n = plot[i];
-        if(getTile(0,n[0],n[1]) === 7 || getTile(0,n[0],n[1]) === 4 || getTile(0,n[0],n[1]) === 18){
+        if(getTile(0,n[0],n[1]) === 7 || getTile(0,n[0],n[1]) === 18){
           count++;
         }
       }
@@ -844,7 +844,7 @@ EvalCmd = function(data){
         var count = 0;
         for(i in plot){
           var n = plot[i];
-          if((getTile(0,n[0],n[1]) === 7 || getTile(0,n[0],n[1]) === 4 || getTile(0,n[0],n[1]) === 18) && getTile(5,n[0],n[1]-1) === 0){
+          if((getTile(0,n[0],n[1]) === 7 || (getTile(0,n[0],n[1]) >= 4 && getTile(0,n[0],n[1]) < 6) || getTile(0,n[0],n[1]) === 18) && getTile(5,n[0],n[1]-1) === 0){
             count++;
           }
         }
@@ -878,7 +878,7 @@ EvalCmd = function(data){
         socket.emit('addToChat','<i>You cannot build that there.</i>');
       }
     } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) === 'road' && z === 0){
-      if(getTile(0,c,r) === 7 || getTile(0,c,r) === 4 || getTile(0,c,r) === 5){
+      if(getTile(0,c,r) === 7 || (getTile(0,c,r) >= 4 && getTile(0,c,r) < 6)){
         player.working = true;
         player.actionCooldown = 10;
         setTimeout(function(){
@@ -912,7 +912,7 @@ EvalCmd = function(data){
       var count = 0;
       for(i in plot){
         var n = plot[i];
-        if(getTile(0,n[0],n[1]) === 7 || getTile(0,n[0],n[1]) === 4 || getTile(0,n[0],n[1]) === 5 || getTile(0,n[0],n[1]) === 18){
+        if(getTile(0,n[0],n[1]) === 7 || (getTile(0,n[0],n[1]) >= 4 && getTile(0,n[0],n[1]) < 6) || getTile(0,n[0],n[1]) === 18){
           count++;
         }
       }

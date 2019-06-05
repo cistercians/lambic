@@ -93,23 +93,23 @@ function genesis(){
           i++;
         } else {
           if (source[i][1] > 0.97){
-            oSet.push(5);
+            oSet.push(5 + Number((Math.random()*0.9).toFixed(2)));
             uSet.push(0);
             i++;
           } else if (source[i][1] > 0.86){
-            oSet.push(4);
+            oSet.push(4 + Number((Math.random()*0.9).toFixed(2)));
             uSet.push(0);
             i++;
           } else if (source[i][0] <= 0.26){
-            oSet.push(3);
+            oSet.push(3 + Number((Math.random()*0.9).toFixed(2)));
             uSet.push(0);
             i++;
           } else if (source[i][0] < 0.31){
-            oSet.push(2);
+            oSet.push(2 + Number((Math.random()*0.9).toFixed(2)));
             uSet.push(0);
             i++;
           } else {
-            oSet.push(1);
+            oSet.push(1 + Number((Math.random()*0.9).toFixed(2)));
             uSet.push(0);
             i++;
           }
@@ -125,7 +125,6 @@ function genesis(){
     var resI = createArray(mapTiles,mapTiles);
     var resII = createArray(mapTiles,mapTiles);
     var buildIV = createArray(mapTiles,mapTiles);
-    var itemLayer = createArray(mapTiles,mapTiles);
 
     for(x = 0; x < mapTiles; x++){
       for(y = 0; y < mapTiles; y++){
@@ -136,7 +135,6 @@ function genesis(){
         resI[y][x] = 0;
         resII[y][x] = 0;
         buildIV[y][x] = 0;
-        itemLayer[y][x] = [0,0,0,0,0]; // 0=Overworld, 1=Underworld, 2=Underwater, 3=BuildIII, 4=BuildIV
       }
     };
 
@@ -149,7 +147,6 @@ function genesis(){
     allTileMaps.push(resI);
     allTileMaps.push(resII);
     allTileMaps.push(buildIV);
-    allTileMaps.push(itemLayer);
 
     return allTileMaps;
   };
@@ -169,7 +166,7 @@ function genesis(){
           for(r = y; r < y + subsection; r++){
             var tile = worldMaps[0][r][c];
             var tileBelow = worldMaps[0][r+1][c];
-            if(tile === 5 && tileBelow !== 5 && r !== 0){
+            if(tile >= 5 && tile < 6 && (tileBelow < 5 || tileBelow >= 6) && r !== 0){
               selection.push([c,r]);
             } else {
               continue;
@@ -267,9 +264,9 @@ function genesis(){
   // add resources to Overworld
   for(x = 0; x < mapTiles; x++){
     for(y = 0; y < mapTiles; y++){
-      if(worldMaps[0][y][x] === 2 || worldMaps[0][y][x] === 4){
+      if((worldMaps[0][y][x] >= 2 && worldMaps[0][y][x] < 3) || (worldMaps[0][y][x] >= 4 && worldMaps[0][y][x] < 5)){
         worldMaps[6][y][x] = 50;
-      } else if(worldMaps[0][y][x] === 1 || worldMaps[0][y][x] === 5){
+      } else if((worldMaps[0][y][x] >= 1 && worldMaps[0][y][x] < 2) || (worldMaps[0][y][x] >= 5 && worldMaps[0][y][x] < 6)){
         worldMaps[6][y][x] = 100;
       } else {
         continue;
@@ -281,8 +278,8 @@ function genesis(){
   for(x = 1; x < (mapTiles - 1); x++){
     for(y = 1; y < (mapTiles - 1); y++){
       roll = Math.random();
-      if(worldMaps[1][y][x] === 1 && roll < 0.2 && (worldMaps[1][y+1][x] === 0 || worldMaps[1][y-1][x] === 0 || worldMaps[1][y][x+1] === 0 || worldMaps[1][y][x-1] === 0)){
-        worldMaps[1][y][x] = 3;
+      if(worldMaps[1][y][x] === 1 && roll < 0.1 && (worldMaps[1][y+1][x] === 0 || worldMaps[1][y-1][x] === 0 || worldMaps[1][y][x+1] === 0 || worldMaps[1][y][x-1] === 0)){
+        worldMaps[1][y][x] = 3 + Number((Math.random()*0.9).toFixed(2));
         worldMaps[7][y][x] = 150;
       } else {
         continue;

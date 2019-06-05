@@ -1085,7 +1085,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'stone axe'){
+    } else if(self.type === 'stone axe' || self.type === 'iron axe'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1095,47 +1095,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'iron axe'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
-      ctx.drawImage(
-      Img.axe,
-      x,
-      y,
-      tileSize,
-      tileSize
-      );
-    } else if(self.type === 'steel axe'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
-      ctx.drawImage(
-      Img.axe,
-      x,
-      y,
-      tileSize,
-      tileSize
-      );
-    } else if(self.type === 'stone pickaxe'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
-      ctx.drawImage(
-      Img.pickaxe,
-      x,
-      y,
-      tileSize,
-      tileSize
-      );
-    } else if(self.type === 'iron pickaxe'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
-      ctx.drawImage(
-      Img.pickaxe,
-      x,
-      y,
-      tileSize,
-      tileSize
-      );
-    } else if(self.type === 'steel pickaxe'){
+    } else if(self.type === 'pickaxe'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1303,36 +1263,6 @@ var Item = function(initPack){
       x,
       y,
       tileSize * 2,
-      tileSize * 1.5
-      );
-    } else if(self.type === 'tent1'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
-      ctx.drawImage(
-      Img.tent1,
-      x - (tileSize/4),
-      y - (tileSize/4),
-      tileSize * 1.5,
-      tileSize * 1.5
-      );
-    } else if(self.type === 'tent2'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
-      ctx.drawImage(
-      Img.tent2,
-      x - (tileSize/4),
-      y - (tileSize/4),
-      tileSize * 1.5,
-      tileSize * 1.5
-      );
-    } else if(self.type === 'tent3'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
-      ctx.drawImage(
-      Img.tent3,
-      x - (tileSize/4),
-      y - (tileSize/4),
-      tileSize * 1.5,
       tileSize * 1.5
       );
     } else if(self.type === 'skeleton1'){
@@ -1775,6 +1705,36 @@ var Item = function(initPack){
         tileSize
         );
       }
+    } else if(self.type === 'crown'){
+      var x = self.x - Player.list[selfId].x + WIDTH/2;
+      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      ctx.drawImage(
+      Img.crown,
+      x,
+      y,
+      tileSize,
+      tileSize
+      );
+    } else if(self.type === 'arrows'){
+      var x = self.x - Player.list[selfId].x + WIDTH/2;
+      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      ctx.drawImage(
+      Img.arrows,
+      x,
+      y,
+      tileSize,
+      tileSize
+      );
+    } else if(self.type === 'world map'){
+      var x = self.x - Player.list[selfId].x + WIDTH/2;
+      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      ctx.drawImage(
+      Img.map,
+      x,
+      y,
+      tileSize,
+      tileSize
+      );
     } else if(self.type === 'relic'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
@@ -1953,6 +1913,8 @@ socket.on('update',function(data){
         p.sprite = friar;
       } else if(p.class === 'conscript'){
         p.sprite = conscript;
+      } else if(p.class === 'footsoldier'){
+        p.sprite = footsoldier;
       } else if(p.class === 'skirmisher'){
         p.sprite = skirmisher;
       } else if(p.class === 'cavalier'){
@@ -2242,11 +2204,11 @@ var viewport = {
     this.endTile[0] = tile[0] + 1 + Math.ceil((this.screen[0]/2) / tileSize);
     this.endTile[1] = tile[1] + 1 + Math.ceil((this.screen[1]/2) / tileSize);
 
-    if(this.endTile[0] >= mapSize){
-      this.endTile[0] = mapSize;
+    if(this.endTile[0] >= mapSize+1){
+      this.endTile[0] = mapSize+1;
     }
-    if(this.endTile[1] >= mapSize){
-      this.endTile[1] = mapSize;
+    if(this.endTile[1] >= mapSize+1){
+      this.endTile[1] = mapSize+1;
     }
   }
 };
@@ -2275,7 +2237,7 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 1){
+        } else if(tile >= 1 && tile < 2){
           ctx.drawImage(
             Img.grass, // image
             xOffset, // target x
@@ -2283,7 +2245,37 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 2){
+        } else if(tile >= 2 && tile < 2.3){
+          ctx.drawImage(
+            Img.grass, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+          ctx.drawImage(
+            Img.forest, // image
+            xOffset - (tileSize/4), // target x
+            yOffset - (tileSize/3), // target y
+            tileSize, // target width
+            tileSize * 1.25 // target height
+          );
+        } else if(tile >= 2 && tile < 2.6){
+          ctx.drawImage(
+            Img.grass, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+          ctx.drawImage(
+            Img.forest, // image
+            xOffset - (tileSize/3), // target x
+            yOffset - (tileSize/4), // target y
+            tileSize, // target width
+            tileSize * 1.25 // target height
+          );
+        } else if(tile >= 2 && tile < 3){
           ctx.drawImage(
             Img.grass, // image
             xOffset, // target x
@@ -2298,7 +2290,37 @@ var renderMap = function(){
             tileSize, // target width
             tileSize * 1.25 // target height
           );
-        } else if(tile === 3){
+        } else if(tile >= 3 && tile < 3.3){
+          ctx.drawImage(
+            Img.grass, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+          ctx.drawImage(
+            Img.brush, // image
+            xOffset - (tileSize/4), // target x
+            yOffset - (tileSize/3), // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile >= 3 && tile < 3.6){
+          ctx.drawImage(
+            Img.grass, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+          ctx.drawImage(
+            Img.brush, // image
+            xOffset - (tileSize/3), // target x
+            yOffset - (tileSize/4), // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile >= 3 && tile < 4){
           ctx.drawImage(
             Img.grass, // image
             xOffset, // target x
@@ -2313,7 +2335,37 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 4){
+        } else if(tile >= 4 && tile < 4.3){
+          ctx.drawImage(
+            Img.grass, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+          ctx.drawImage(
+            Img.rocks, // image
+            xOffset - (tileSize/4), // target x
+            yOffset - (tileSize/3), // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile >= 4 && tile < 4.6){
+          ctx.drawImage(
+            Img.grass, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+          ctx.drawImage(
+            Img.rocks, // image
+            xOffset - (tileSize/3), // target x
+            yOffset - (tileSize/4), // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile >= 4 && tile < 5){
           ctx.drawImage(
             Img.grass, // image
             xOffset, // target x
@@ -2328,7 +2380,37 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 5){
+        } else if(tile >= 5 && tile < 5.3){
+          ctx.drawImage(
+            Img.grass, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+          ctx.drawImage(
+            Img.mountain, // image
+            xOffset - (tileSize/4), // target x
+            yOffset - (tileSize/3), // target y
+            tileSize, // target width
+            tileSize // target height
+          );;
+        } else if(tile >= 5 && tile < 5.6){
+          ctx.drawImage(
+            Img.grass, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+          ctx.drawImage(
+            Img.mountain, // image
+            xOffset - (tileSize/3), // target x
+            yOffset - (tileSize/4), // target y
+            tileSize, // target width
+            tileSize // target height
+          );;
+        } else if(tile >= 5 && tile < 6){
           ctx.drawImage(
             Img.grass, // image
             xOffset, // target x
@@ -3977,7 +4059,37 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 3){
+        } else if(tile >= 3 && tile < 3.3){
+          ctx.drawImage(
+            Img.cavefloor, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+          ctx.drawImage(
+            Img.rocks, // image
+            xOffset - (tileSize/4), // target x
+            yOffset - (tileSize/3), // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile >= 3 && tile < 3.6){
+          ctx.drawImage(
+            Img.cavefloor, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+          ctx.drawImage(
+            Img.rocks, // image
+            xOffset - (tileSize/3), // target x
+            yOffset - (tileSize/4), // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile >= 3 && tile < 4){
           ctx.drawImage(
             Img.cavefloor, // image
             xOffset, // target x
@@ -4752,7 +4864,95 @@ var renderForest = function(){
           }
         }
         var tile = getTile(0, c, r);
-        if(tile === 1){
+        if(tile >= 1 && tile < 1.3){
+          if(Player.list[selfId].inTrees){
+            if(dist() === 40){
+              ctx.drawImage(
+                Img.hforest40, // image
+                xOffset - (tileSize/4), // target x
+                yOffset - (tileSize/1.75), // target y
+                tileSize, // target width
+                tileSize * 1.5 // target height
+              );
+            } else if(dist() === 60){
+              ctx.drawImage(
+                Img.hforest60, // image
+                xOffset - (tileSize/4), // target x
+                yOffset - (tileSize/1.75), // target y
+                tileSize, // target width
+                tileSize * 1.5 // target height
+              );
+            } else if(dist() === 80){
+              ctx.drawImage(
+                Img.hforest80, // image
+                xOffset - (tileSize/4), // target x
+                yOffset - (tileSize/1.75), // target y
+                tileSize, // target width
+                tileSize * 1.5 // target height
+              );
+            } else {
+              ctx.drawImage(
+                Img.hforest, // image
+                xOffset - (tileSize/4), // target x
+                yOffset - (tileSize/1.75), // target y
+                tileSize, // target width
+                tileSize * 1.5 // target height
+              );
+            }
+          } else {
+            ctx.drawImage(
+              Img.hforest, // image
+              xOffset - (tileSize/4), // target x
+              yOffset - (tileSize/1.75), // target y
+              tileSize, // target width
+              tileSize * 1.5 // target height
+            );
+          }
+        } else if(tile >= 1 && tile < 1.6){
+          if(Player.list[selfId].inTrees){
+            if(dist() === 40){
+              ctx.drawImage(
+                Img.hforest40, // image
+                xOffset, // target x
+                yOffset - (tileSize/1.25), // target y
+                tileSize, // target width
+                tileSize * 1.5 // target height
+              );
+            } else if(dist() === 60){
+              ctx.drawImage(
+                Img.hforest60, // image
+                xOffset, // target x
+                yOffset - (tileSize/1.25), // target y
+                tileSize, // target width
+                tileSize * 1.5 // target height
+              );
+            } else if(dist() === 80){
+              ctx.drawImage(
+                Img.hforest80, // image
+                xOffset, // target x
+                yOffset - (tileSize/1.25), // target y
+                tileSize, // target width
+                tileSize * 1.5 // target height
+              );
+            } else {
+              ctx.drawImage(
+                Img.hforest, // image
+                xOffset, // target x
+                yOffset - (tileSize/1.25), // target y
+                tileSize, // target width
+                tileSize * 1.5 // target height
+              );
+            }
+          } else {
+            ctx.drawImage(
+              Img.hforest, // image
+              xOffset, // target x
+              yOffset - (tileSize/1.25), // target y
+              tileSize, // target width
+              tileSize * 1.5 // target height
+            );
+          }
+        } else if(tile >= 1 && tile < 2){
           if(Player.list[selfId].inTrees){
             if(dist() === 40){
               ctx.drawImage(

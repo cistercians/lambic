@@ -1,7 +1,3 @@
-// weapon format: [0: 'item name', 1:'type', 2:, 3:, 4:]
-// armor format: [0:'item name', 1:'type', 2:, 3:, 4:]
-// trinket format: []
-
 equip = {
   // weapons
   huntingknife:{
@@ -101,7 +97,11 @@ equip = {
   blackrobe:{
     name: 'black robe',
     type: 'cloth'
-  }
+  },
 
   // trinkets
+  crown:{
+    name: 'crown',
+    type: 'trinket'
+  }
 }

@@ -123,10 +123,7 @@ Character = function(param){
     sacredtext:0,
     stoneaxe:0,
     ironaxe:0,
-    steelaxe:0,
-    stonepickaxe:0,
-    ironpickaxe:0,
-    steelpickaxe:0,
+    pickaxe:0,
     torch:10,
     bread:0,
     fish:0,
@@ -144,6 +141,9 @@ Character = function(param){
     bordeaux:0,
     bourgogne:0,
     chianti:0,
+    crown:0,
+    arrows:0,
+    worldmap:0,
     relic:0
   }
   self.mounted = false;
@@ -515,9 +515,33 @@ General = function(param){
   self.spriteSize = tileSize*2;
 }
 
+SwissGuard = function(param){
+  var self = Character(param);
+  self.name = 'Swiss Guard';
+  self.class = 'swiss guard';
+  self.house = param.house;
+  self.kingdom = 'Papal States';
+}
+
+ImperialKnight = function(param){
+  var self = Character(param);
+  self.name = 'Imperial Knight';
+  self.class = 'imperial knight';
+  self.rank = '♞ ';
+  self.house = param.house;
+  self.kingdom = 'Papal States';
+}
+
 Trebuchet = function(param){
   var self = Character(param);
   self.class = 'trebuchet';
+  self.house = param.house;
+  self.kingdom = param.kingdom;
+}
+
+BombardCannon = function(param){
+  var self = Character(param);
+  self.class = 'bombard cannon';
   self.house = param.house;
   self.kingdom = param.kingdom;
 }
@@ -533,8 +557,6 @@ Merchant = function(param){
   var self = Character(param);
   self.class = 'merchant';
   self.name = param.name;
-  self.house = param.house;
-  self.kingdom = param.kingdom;
 }
 
 FishingBoat = function(param){
@@ -604,18 +626,18 @@ Priestess = function(param){
   self.house = 'occult';
 }
 
-Magister = function(param){
+Archmage = function(param){
   var self = Character(param);
-  self.name = 'Magister';
-  self.class = 'magister';
+  self.name = 'Archmage';
+  self.class = 'archmage';
   self.rank = '♜ ';
   self.house = 'occult';
 }
 
-Mastema = function(param){
+Apollyon = function(param){
   var self = Character(param);
-  self.name = 'MASTEMA';
-  self.class = 'mastema';
+  self.name = 'APOLLYON';
+  self.class = 'apollyon';
   self.house = 'occult';
 }
 
@@ -656,18 +678,10 @@ PaganSpear = function(param){
   self.house = 'pagans';
 }
 
-PaganSword = function(param){
+Centurion = function(param){
   var self = Character(param);
-  self.name = 'Pagan';
-  self.class = 'pagan sword';
-  self.house = 'pagans';
-}
-
-Cataphract = function(param){
-  var self = Character(param);
-  self.name = 'Cataphract';
-  self.class = 'cataphract';
-  self.rank = '♞ ';
+  self.name = 'Centurion';
+  self.class = 'centurion';
   self.house = 'pagans';
 }
 
@@ -740,10 +754,10 @@ TeutonicKnight = function(param){
   self.house = 'teutons';
 }
 
-Orderly = function(param){
+Prior = function(param){
   var self = Character(param);
-  self.name = 'Orderly';
-  self.class = 'orderly';
+  self.name = 'Prior';
+  self.class = 'prior';
   self.rank = '♝ ';
   self.house = 'teutons';
 }
@@ -764,26 +778,56 @@ Lothair = function(param){
   self.house = 'teutons';
 }
 
-Brigand = function(param){
+Trapper = function(param){
   var self = Character(param);
-  self.name = 'Brigand';
-  self.class = 'brigand';
-  self.house = 'bandits';
+  self.name = 'Trapper';
+  self.class = 'trapper';
+  self.house = 'outlaws';
+}
+
+Outlaw = function(param){
+  var self = Character(param);
+  self.name = 'Outlaw';
+  self.class = 'outlaw';
+  self.house = 'outlaws';
+}
+
+Poacher = function(param){
+  var self = Character(param);
+  self.name = 'Poacher';
+  self.class = 'poacher';
+  self.rank = '♞ ';
+  self.house = 'outlaws';
+}
+
+Cutthroat = function(param){
+  var self = Character(param);
+  self.name = 'Cutthroat';
+  self.class = 'cutthroat';
+  self.house = 'mercenaries';
 }
 
 Strongman = function(param){
   var self = Character(param);
   self.name = 'Strongman';
   self.class = 'strongman';
-  self.house = 'bandits';
+  self.house = 'mercenaries';
 }
 
-Chieftain = function(param){
+Marauder = function(param){
   var self = Character(param);
-  self.name = 'Chieftain';
-  self.class = 'chieftain';
+  self.name = 'Marauder';
+  self.class = 'marauder';
   self.rank = '♞ ';
-  self.house = 'bandits';
+  self.house = 'mercenaries';
+}
+
+Condottiere = function(param){
+  var self = Character(param);
+  self.name = 'Condottiere';
+  self.class = 'condottiere';
+  self.rank = '♜ ';
+  self.house = 'mercenaries';
 }
 
 // PLAYER
@@ -796,7 +840,7 @@ Player = function(param){
     weapon:null,
     accessory:null
   }
-  self.horse = false;
+  self.hasHorse = false;
   self.spriteSize = tileSize*1.5;
   self.knighted = false;
   self.title = '';
@@ -813,6 +857,16 @@ Player = function(param){
   self.manaMax = 100;
   self.strength = 10;
   self.dexterity = 1;
+
+  self.stores = {
+    grain:0,
+    wood:0,
+    stone:0,
+    iron:0
+  }
+
+  self.allies = [];
+  self.enemies = [];
 
   self.update = function(){
     self.updateSpd();
@@ -842,8 +896,9 @@ Player = function(param){
     // ACTIONS
     if(self.pressingE && self.actionCooldown === 0 && !self.working){
       var loc = getLoc(self.x,self.y);
+      var socket = SOCKET_LIST[self.id];
       // clear brush
-      if(self.z === 0 && getTile(0,loc[0],loc[1]) === 3){
+      if(self.z === 0 && getTile(0,loc[0],loc[1]) >= 3 && getTile(0,loc[0],loc[1]) < 4){
         self.working = true;
         setTimeout(function(){
           if(self.working){
@@ -856,7 +911,7 @@ Player = function(param){
         },3000/self.strength);
       }
       // gather wood
-      if(self.z === 0 && (getTile(0,loc[0],loc[1]) === 1 || getTile(0,loc[0],loc[1]) === 2)){
+      if(self.z === 0 && (getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 3)){
         self.working = true;
         self.actionCooldown = 10;
         setTimeout(function(){
@@ -864,8 +919,8 @@ Player = function(param){
             world[6][loc[1]][loc[0]] -= 50; // ALPHA
             self.inventory.wood += 50; // ALPHA
             self.working = false;
-            if(getTile(0,loc[0],loc[1]) === 1 && getTile(6,loc[0],loc[1]) < 101){
-              world[0][loc[1]][loc[0]] = 2;
+            if(getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 2 && getTile(6,loc[0],loc[1]) < 101){
+              world[0][loc[1]][loc[0]] += 1;
               for(i in hForestSpawns){
                 if(hForestSpawns[i] === loc){
                   biomes.hForest--;
@@ -876,7 +931,7 @@ Player = function(param){
                 }
               }
               io.emit('mapEdit',world);
-            } else if(getTile(0,loc[0],loc[1]) === 2 && getTile(6,loc[0],loc[1]) <= 0){
+            } else if(getTile(0,loc[0],loc[1]) >= 2 && getTile(0,loc[0],loc[1]) < 3 && getTile(6,loc[0],loc[1]) <= 0){
               world[0][loc[1]][loc[0]] = 7;
               io.emit('mapEdit',world);
             }
@@ -885,7 +940,7 @@ Player = function(param){
           }
         },6000/self.strength);
         // gather stone
-      } else if(self.z === 0 && (getTile(0,loc[0],loc[1]) === 4 || getTile(0,loc[0],loc[1]) === 5)){
+      } else if(self.z === 0 && getTile(0,loc[0],loc[1]) >= 4 && getTile(0,loc[0],loc[1]) < 6){
         self.working = true;
         self.actionCooldown = 10;
         setTimeout(function(){
@@ -893,7 +948,7 @@ Player = function(param){
             world[6][loc[1]][loc[0]] -= 50; // ALPHA
             self.inventory.stone += 50; // ALPHA
             self.working = false;
-            if(getTile(0,loc[0],loc[1]) === 4 && getTile(6,loc[0],loc[1]) <= 0){
+            if(getTile(0,loc[0],loc[1]) >= 4 && getTile(0,loc[0],loc[1]) < 5 && getTile(6,loc[0],loc[1]) <= 0){
               world[0][loc[1]][loc[0]] = 7;
               io.emit('mapEdit',world);
             }
@@ -901,7 +956,7 @@ Player = function(param){
             return;
           }
         },10000/self.strength);
-      } else if(self.z === -1 && getTile(1,loc[0],loc[1]) === 3){
+      } else if(self.z === -1 && getTile(1,loc[0],loc[1]) >= 3 && getTile(1,loc[0],loc[1]) < 4){
         self.working = true;
         self.actionCooldown = 10;
         setTimeout(function(){
@@ -915,65 +970,79 @@ Player = function(param){
         },10000/self.strength);
         // farm
       } else if(self.z === 0 && getTile(0,loc[0],loc[1]) === 8){
-        var f = getBuilding(self.x,self.y);
-        self.working = true;
-        self.actionCooldown = 10;
-        setTimeout(function(){
-          if(self.working && world[6][loc[1]][loc[0]] < 25){
-            world[6][loc[1]][loc[0]] += 1;
-            io.emit('mapEdit',world);
-            self.working = false;
-            var count = 0;
-            var plot = Building.list[f].plot;
-            for(i in plot){
-              var n = plot[i];
-              console.log(world[6][n[1]][n[0]]);
-              if(world[6][n[1]][n[0]] === 25){
-                count++;
-              } else {
-                continue;
-              }
-            }
-            console.log(count);
-            if(count === 9){
+        if(tempus === 'V.a' || tempus === 'VI.a' || tempus === 'VII.a' ||
+        tempus === 'VIII.a' || tempus === 'IX.a' || tempus === 'X.a' ||
+        tempus === 'XI.a' || tempus === 'XII.p' || tempus === 'I.p' ||
+        tempus === 'II.p' || tempus === 'III.p' || tempus === 'IV.p' ||
+        tempus === 'V.p' || tempus === 'VI.p'){
+          var f = getBuilding(self.x,self.y);
+          self.working = true;
+          self.actionCooldown = 10;
+          setTimeout(function(){
+            if(self.working && world[6][loc[1]][loc[0]] < 25){
+              world[6][loc[1]][loc[0]] += 25; // ALPHA, default:1
+              //io.emit('mapEdit',world);
+              self.working = false;
+              var count = 0;
+              var plot = Building.list[f].plot;
               for(i in plot){
                 var n = plot[i];
-                world[0][n[1]][n[0]] = 9;
+                if(world[6][n[1]][n[0]] >= 25){
+                  count++;
+                } else {
+                  continue;
+                }
               }
-              io.emit('mapEdit',world);
+              if(count === 9){
+                for(i in plot){
+                  var n = plot[i];
+                  world[0][n[1]][n[0]] = 9;
+                }
+                io.emit('mapEdit',world);
+              }
+            } else {
+              return;
             }
-          } else {
-            return;
-          }
-        },10000);
+          },10000);
+        } else {
+          socket.emit('addToChat','<i>Farmwork is done during daylight hours.</i>');
+        }
       } else if(self.z === 0 && getTile(0,loc[0],loc[1]) === 9){
-        var f = Building.list[getBuilding(self.x,self.y)];
-        self.working = true;
-        self.actionCooldown = 10;
-        setTimeout(function(){
-          if(self.working && world[6][loc[1]][loc[0]] < 50){
-            world[6][loc[1]][loc[0]] += 5;
-            io.emit('mapEdit',world);
-            self.working = false;
-            var count = 0;
-            var plot = f.plot;
-            for(i in plot){
-              if(world[6][plot[i][1]][plot[i][0]] === 50){
-                count++;
-              } else {
-                continue;
-              }
-            }
-            if(count === 9){
+        if(tempus === 'V.a' || tempus === 'VI.a' || tempus === 'VII.a' ||
+        tempus === 'VIII.a' || tempus === 'IX.a' || tempus === 'X.a' ||
+        tempus === 'XI.a' || tempus === 'XII.p' || tempus === 'I.p' ||
+        tempus === 'II.p' || tempus === 'III.p' || tempus === 'IV.p' ||
+        tempus === 'V.p' || tempus === 'VI.p'){
+          var f = Building.list[getBuilding(self.x,self.y)];
+          self.working = true;
+          self.actionCooldown = 10;
+          setTimeout(function(){
+            if(self.working && world[6][loc[1]][loc[0]] < 50){
+              world[6][loc[1]][loc[0]] += 25; // ALPHA, default:5
+              //io.emit('mapEdit',world);
+              self.working = false;
+              var count = 0;
+              var plot = f.plot;
               for(i in plot){
-                world[0][plot[i][1]][plot[i][0]] = 10;
+                if(world[6][plot[i][1]][plot[i][0]] >= 50){
+                  count++;
+                } else {
+                  continue;
+                }
               }
-              io.emit('mapEdit',world);
+              if(count === 9){
+                for(i in plot){
+                  world[0][plot[i][1]][plot[i][0]] = 10;
+                }
+                io.emit('mapEdit',world);
+              }
+            } else {
+              return;
             }
-          } else {
-            return;
-          }
-        },10000);
+          },10000);
+        } else {
+          socket.emit('addToChat','<i>Farmwork is done during daylight hours.</i>');
+        }
       } else if(self.z === 0 && getTile(0,loc[0],loc[1]) === 10){
         var f = getBuilding(self.x,self.y);
         self.working = true;
@@ -983,7 +1052,7 @@ Player = function(param){
             world[6][loc[1]][loc[0]] -= 1;
             self.inventory.grain += 1;
             self.working = false;
-            if(world[6][loc[1]][loc[0]] === 0){
+            if(world[6][loc[1]][loc[0]] <= 0){
               world[0][loc[1]][loc[0]] = 8;
               io.emit('mapEdit', world);
             }
@@ -998,7 +1067,7 @@ Player = function(param){
         var b = Building.list[getBuilding(self.x,self.y)];
         setTimeout(function(){
           if(self.working){
-            world[6][loc[1]][loc[0]] += 10;
+            world[6][loc[1]][loc[0]] += 10; // ALPHA, default:1
             self.working = false;
             var count = 0;
             var plot = b.plot;
@@ -1023,13 +1092,17 @@ Player = function(param){
               if(b.type === 'hut'){
                 for(i in plot){
                   matrixO[plot[i][1]][plot[i][0]] = 1;
+                  gridO.setWalkableAt(plot[i][0],plot[i][1],false);
                   matrixB1[plot[i][1]][plot[i][0]] = 0;
+                  gridO.setWalkableAt(plot[i][0],plot[i][1],true);
                   world[0][plot[i][1]][plot[i][0]] = 13;
                   world[3][plot[i][1]][plot[i][0]] = String('hut' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'hut1'){
                     world[0][plot[i][1]][plot[i][0]] = 14;
                     matrixO[plot[i][1]][plot[i][0]] = 0;
+                    gridO.setWalkableAt(plot[i][0],plot[i][1],true);
                     matrixB1[plot[i][1]+1][plot[i][0]] = 0;
+                    gridB1.setWalkableAt(plot[i][1],plot[i][0]+1,true);
                   }
                 }
                 for(i in walls){
@@ -1048,22 +1121,25 @@ Player = function(param){
                 for(i in plot){
                   world[0][plot[i][1]][plot[i][0]] = 13;
                   world[3][plot[i][1]][plot[i][0]] = String('mill' + i);
+                  matrixO[plot[i][1]][plot[i][0]] = 1;
+                  gridO.setWalkableAt(plot[i][0],plot[i][1],false);
                 }
                 world[5][top[0][1]][top[0][0]] = 'mill4';
                 world[5][top[1][1]][top[1][0]] = 'mill5';
               } else if(b.type === 'house'){
                 for(i in plot){
                   matrixO[plot[i][1]][plot[i][0]] = 1;
+                  gridO.setWalkableAt(plot[i][0],plot[i][1],false);
                   matrixB1[plot[i][1]][plot[i][0]] = 0;
+                  gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
                   world[0][plot[i][1]][plot[i][0]] = 15;
                   world[3][plot[i][1]][plot[i][0]] = String('house' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'house1'){
                     matrixO[plot[i][1]][plot[i][0]] = 0;
-                    matrixB1[plot[i][1]][plot[i][0]] = 0;
+                    gridO.setWalkableAt(plot[i][0],plot[i][1],true);
                     matrixB1[plot[i][1]+1][plot[i][0]] = 0;
+                    gridB1.setWalkableAt(plot[i][0],plot[i][1]+1,true);
                     world[0][plot[i][1]][plot[i][0]] = 19;
-                  } else if(world[3][plot[i][1]][plot[i][0]] === 'house4'){
-                    world[0][plot[i][1]][plot[i][0]] = 17;
                   }
                 }
                 for(i in walls){
@@ -1081,17 +1157,25 @@ Player = function(param){
                 Player.list[b.owner].inventory.keys.push(b.id);
               } else if(b.type === 'fort'){
                 world[0][plot[0][1]][plot[0][0]] = 13;
+                matrixO[plot[0][1]][plot[0][0]] = 1;
+                gridO.setWalkableAt(plot[0][0],plot[0][1],false);
                 world[3][plot[0][1]][plot[0][0]] = 'fort';
               } else if(b.type === 'wall'){
                 world[0][plot[0][1]][plot[0][0]] = 15;
+                matrixO[plot[0][1]][plot[0][0]] = 1;
+                gridO.setWalkableAt(plot[0][0],plot[0][1],false);
                 world[3][plot[0][1]][plot[0][0]] = 'wall';
               } else if(b.type === 'outpost'){
                 world[0][plot[0][1]][plot[0][0]] = 13;
+                matrixO[plot[0][1]][plot[0][0]] = 1;
+                gridO.setWalkableAt(plot[0][0],plot[0][1],false);
                 world[3][plot[0][1]][plot[0][0]] = 'outpost0';
                 world[5][top[0][1]][top[0][0]] = 'outpost1';
-              } else if(b.type === 'gtower'){
+              } else if(b.type === 'guardtower'){
                 for(i in plot){
                   world[0][plot[i][1]][plot[i][0]] = 15;
+                  matrixO[plot[i][1]][plot[i][0]] = 1;
+                  gridO.setWalkableAt(plot[i][0],plot[i][1],false);
                   world[3][plot[i][1]][plot[i][0]] = String('gtower' + i);
                 }
                 world[5][top[0][1]][top[0][0]] = 'gtower4';
@@ -1101,20 +1185,20 @@ Player = function(param){
                   world[3][plot[i][1]][plot[i][0]] = String('tower' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'tower0'){
                     matrixB1[plot[i][1]][plot[i][0]] = 0;
+                    gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
                     matrixB2[plot[i][1]][plot[i][0]] = 0;
+                    gridB2.setWalkableAt(plot[i][0],plot[i][1],true);
                     matrixB1[plot[i][1]+1][plot[i][0]] = 0;
+                    gridB1.setWalkableAt(plot[i][0],plot[i][1]+1,true);
                     world[0][plot[i][1]][plot[i][0]] = 19;
-                    world[5][plot[i][1]][plot[i][0]] = 15;
-                  } else if(world[3][plot[i][1]][plot[i][0]] === 'tower1' || world[3][plot[i][1]][plot[i][0]] === 'tower3' || world[3][plot[i][1]][plot[i][0]] === 'tower4'){
-                    matrixO[plot[i][1]][plot[i][0]] = 1;
-                    matrixB1[plot[i][1]][plot[i][0]] = 0;
-                    matrixB2[plot[i][1]][plot[i][0]] = 0;
-                    world[0][plot[i][1]][plot[i][0]] = 17;
                     world[5][plot[i][1]][plot[i][0]] = 15;
                   } else {
                     matrixO[plot[i][1]][plot[i][0]] = 1;
+                    gridO.setWalkableAt(plot[i][0],plot[i][1],false);
                     matrixB1[plot[i][1]][plot[i][0]] = 0;
+                    gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
                     matrixB2[plot[i][1]][plot[i][0]] = 0;
+                    gridB2.setWalkableAt(plot[i][0],plot[i][1],true);
                     world[0][plot[i][1]][plot[i][0]] = 15;
                     world[5][plot[i][1]][plot[i][0]] = 15;
                   }
@@ -1126,6 +1210,10 @@ Player = function(param){
                   world[4][n[1]][n[0]] = 2;
                   if(world[5][n[1]][n[0]] === 'tower10'){
                     world[4][n[1]][n[0]] = 4;
+                    matrixB1[n[1]][n[0]] = 0;
+                    gridB1.setWalkableAt(n[0],n[1],true);
+                    matrixB2[n[1]][n[0]] = 0;
+                    gridB2.setWalkableAt(n[0],n[1],true);
                   } else if(world[5][n[1]][n[0]] === 'tower12' || world[5][n[1]][n[0]] === 'tower13' || world[5][n[1]][n[0]] === 'tower14'){
                     world[4][n[1]][n[0]] = 0;
                   }
@@ -1145,17 +1233,25 @@ Player = function(param){
                   world[3][plot[i][1]][plot[i][0]] = String('tavern' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'tavern1'){
                     matrixO[plot[i][1]][plot[i][0]] = 0;
+                    gridO.setWalkableAt(plot[i][0],plot[i][1],true);
                     matrixB1[plot[i][1]+1][plot[i][0]] = 0;
+                    gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
                     world[0][plot[i][1]][plot[i][0]] = 14;
                   } else if(world[3][plot[i][1]][plot[i][0]] === 'tavern0' || world[3][plot[i][1]][plot[i][0]] === 'tavern2'){
                     matrixO[plot[i][1]][plot[i][0]] = 1;
+                    gridO.setWalkableAt(plot[i][0],plot[i][1],false);
                     matrixB1[plot[i][1]][plot[i][0]] = 0;
+                    gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
                     world[0][plot[i][1]][plot[i][0]] = 13;
                   } else {
                     matrixO[plot[i][1]][plot[i][0]] = 1;
+                    gridO.setWalkableAt(plot[i][0],plot[i][1],false);
                     matrixB1[plot[i][1]][plot[i][0]] = 0;
+                    gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
                     matrixB2[plot[i][1]][plot[i][0]] = 0;
+                    gridB2.setWalkableAt(plot[i][0],plot[i][1],true);
                     matrixB3[plot[i][1]][plot[i][0]] = 0;
+                    gridB3.setWalkableAt(plot[i][0],plot[i][1],true);
                     world[0][plot[i][1]][plot[i][0]] = 13;
                     world[5][plot[i][1]][plot[i][0]] = 13;
                     world[8][plot[i][1]][plot[i][0]] = 1;
@@ -1172,8 +1268,16 @@ Player = function(param){
                   world[4][n[1]][n[0]] = 1;
                 }
                 world[4][walls[0][1]][walls[0][0]] = 5;
+                matrixB1[walls[0][1]][walls[0][0]] = 0;
+                gridB1.setWalkableAt(walls[0][0],walls[0][1],true);
                 world[8][walls[0][1]][walls[0][0]] = 5;
+                matrixB3[walls[0][1]][walls[0][0]] = 0;
+                gridB3.setWalkableAt(walls[0][0],walls[0][1],true);
                 world[4][walls[4][1]][walls[4][0]] = 3;
+                matrixB1[walls[4][1]][walls[4][0]] = 0;
+                gridB1.setWalkableAt(walls[4][0],walls[4][1],true);
+                matrixB2[walls[4][1]][walls[4][0]] = 0;
+                gridB2.setWalkableAt(walls[4][0],walls[4][1],true);
                 var fp = getCoords(walls[2][0],walls[2][1]);
                 var sh = getCoords(walls[3][0],walls[3][1]);
                 var b1 = getCoords(plot[0][0],plot[0][1]);
@@ -1342,26 +1446,23 @@ Player = function(param){
                   world[3][plot[i][1]][plot[i][0]] = String('monastery' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'monastery0'){
                     matrixB1[plot[i][1]][plot[i][0]] = 0;
+                    gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
                     matrixB1[plot[i][1]+1][plot[i][0]] = 0;
+                    gridB1.setWalkableAt(plot[i][0],plot[i][1]+1,true);
                     world[0][plot[i][1]][plot[i][0]] = 16;
-                  } else if(world[3][plot[i][1]][plot[i][0]] === 'monastery1' || world[3][plot[i][1]][plot[i][0]] === 'monastery2' || world[3][plot[i][1]][plot[i][0]] === 'monastery4' || world[3][plot[i][1]][plot[i][0]] === 'monastery5' || world[3][plot[i][1]][plot[i][0]] === 'monastery6'){
+                  } else if(world[3][plot[i][1]][plot[i][0]] === 'monastery1' || world[3][plot[i][1]][plot[i][0]] === 'monastery2' || world[3][plot[i][1]][plot[i][0]] === 'monastery3' || world[3][plot[i][1]][plot[i][0]] === 'monastery4' || world[3][plot[i][1]][plot[i][0]] === 'monastery5' || world[3][plot[i][1]][plot[i][0]] === 'monastery6' || world[3][plot[i][1]][plot[i][0]] === 'monastery7'){
                     matrixO[plot[i][1]][plot[i][0]] = 1;
+                    gridO.setWalkableAt(plot[i][0],plot[i][1],false);
                     matrixB1[plot[i][1]][plot[i][0]] = 0;
-                    world[0][plot[i][1]][plot[i][0]] = 17;
-                  } else if(world[3][plot[i][1]][plot[i][0]] === 'monastery3' || world[3][plot[i][1]][plot[i][0]] === 'monastery7'){
-                    matrixO[plot[i][1]][plot[i][0]] = 1;
-                    matrixB1[plot[i][1]][plot[i][0]] = 0;
+                    gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
                     world[0][plot[i][1]][plot[i][0]] = 15;
-                  } else if(world[3][plot[i][1]][plot[i][0]] === 'monastery12' || world[3][plot[i][1]][plot[i][0]] === 'monastery13'){
-                    matrixO[plot[i][1]][plot[i][0]] = 1;
-                    matrixB1[plot[i][1]][plot[i][0]] = 0;
-                    matrixB2[plot[i][1]][plot[i][0]] = 0;
-                    world[0][plot[i][1]][plot[i][0]] = 15;
-                    world[5][plot[i][1]][plot[i][0]] = 17;
                   } else {
                     matrixO[plot[i][1]][plot[i][0]] = 1;
+                    gridO.setWalkableAt(plot[i][0],plot[i][1],false);
                     matrixB1[plot[i][1]][plot[i][0]] = 0;
+                    gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
                     matrixB2[plot[i][1]][plot[i][0]] = 0;
+                    gridB2.setWalkableAt(plot[i][0],plot[i][1],true);
                     world[0][plot[i][1]][plot[i][0]] = 15;
                     world[5][plot[i][1]][plot[i][0]] = 15;
                   }
@@ -1376,7 +1477,11 @@ Player = function(param){
                   var n = walls[i];
                   world[4][n[1]][n[0]] = 2;
                 }
-                world[4][walls[1][1]][walls[1][0]] = 4;
+                world[4][n[1]][n[0]] = 4;
+                matrixB1[n[1]][n[0]] === 0;
+                gridB1.setWalkableAt(n[0],n[1],true);
+                matrixB2[n[1]][n[0]] === 0;
+                gridB2.setWalkableAt(n[0],n[1],true);
                 var wt = getCoords(walls[0][0],walls[0][1]);
                 var cr = getCoords(walls[2][0],walls[2][1]);
                 var bs = getCoords(walls[3][0],walls[3][1]);
@@ -1422,12 +1527,17 @@ Player = function(param){
                   world[3][plot[i][1]][plot[i][0]] = String('market' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'market0' || world[3][plot[i][1]][plot[i][0]] === 'market1' || world[3][plot[i][1]][plot[i][0]] === 'market2'){
                     matrixB1[plot[i][1]][plot[i][0]] = 0;
+                    gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
                     matrixB1[plot[i][1]+1][plot[i][0]] = 0;
+                    gridB1.setWalkableAt(plot[i][0],plot[i][1]+1,true);
                     world[0][plot[i][1]][plot[i][0]] = 14;
                   } else {
                     matrixO[plot[i][1]][plot[i][0]] = 1;
+                    gridO.setWalkableAt(plot[i][0],plot[i][1],false);
                     matrixB1[plot[i][1]][plot[i][0]] = 0;
+                    gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
                     matrixB2[plot[i][1]][plot[i][0]] = 0;
+                    gridB2.setWalkableAt(plot[i][0],plot[i][1],true);
                     world[0][plot[i][1]][plot[i][0]] = 13;
                     world[5][plot[i][1]][plot[i][0]] = 13;
                   }
@@ -1442,6 +1552,10 @@ Player = function(param){
                   var n = walls[i];
                   if(world[5][n[1]][n[0]] === 'market12'){
                     world[4][n[1]][n[0]] = 3;
+                    matrixB1[n[1]][n[0]] === 0;
+                    gridB1.setWalkableAt(n[0],n[1],true);
+                    matrixB2[n[1]][n[0]] === 0;
+                    gridB2.setWalkableAt(n[0],n[1],true);
                   } else {
                     world[4][n[1]][n[0]] = 1;
                   }
@@ -1550,6 +1664,8 @@ Player = function(param){
                 for(i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('stable' + i);
                   world[0][plot[i][1]][plot[i][0]] = 13;
+                  matrixO[plot[i][1]][plot[i][0]] = 1;
+                  gridO.setWalkableAt(plot[i][0],plot[i][1],false);
                 }
                 var ii = 8;
                 for(i in top){
@@ -1562,8 +1678,16 @@ Player = function(param){
                   world[3][plot[i][1]][plot[i][0]] = String('dock' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'dock4'){
                     world[0][plot[i][1]][plot[i][0]] = 13;
+                    matrixO[plot[i][1]][plot[i][0]] = 1;
+                    gridO.setWalkableAt(plot[i][0],plot[i][1],false);
+                    matrixW[plot[i][1]][plot[i][0]] = 1;
+                    gridW.setWalkableAt(plot[i][0],plot[i][1],false);
+                    matrixS[plot[i][1]][plot[i][0]] = 1;
+                    gridS.setWalkableAt(plot[i][0],plot[i][1],false);
                   } else {
                     world[0][plot[i][1]][plot[i][0]] = 20;
+                    matrixS[plot[i][1]][plot[i][0]] = 1;
+                    gridS.setWalkableAt(plot[i][0],plot[i][1],false);
                   }
                 }
                 var ii = 6;
@@ -1577,16 +1701,23 @@ Player = function(param){
                   world[3][plot[i][1]][plot[i][0]] = String('garrison' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'garrison0'){
                     matrixB1[plot[i][1]][plot[i][0]] = 0;
+                    gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
                     matrixB1[plot[i][1]+1][plot[i][0]] = 0;
+                    gridB1.setWalkableAt(plot[i][0],plot[i][1]+1,true);
                     world[0][plot[i][1]][plot[i][0]] = 16;
                   } else if(world[3][plot[i][1]][plot[i][0]] === 'garrison1' || world[3][plot[i][1]][plot[i][0]] === 'garrison2' || world[3][plot[i][1]][plot[i][0]] === 'garrison3'){
                     matrixO[plot[i][1]][plot[i][0]] = 1;
+                    gridO.setWalkableAt(plot[i][0],plot[i][1],false);
                     matrixB1[plot[i][1]][plot[i][0]] = 0;
+                    gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
                     world[0][plot[i][1]][plot[i][0]] = 15;
                   } else {
                     matrixO[plot[i][1]][plot[i][0]] = 1;
+                    gridO.setWalkableAt(plot[i][0],plot[i][1],false);
                     matrixB1[plot[i][1]][plot[i][0]] = 0;
+                    gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
                     matrixB2[plot[i][1]][plot[i][0]] = 0;
+                    gridB2.setWalkableAt(plot[i][0],plot[i][1],true);
                     world[0][plot[i][1]][plot[i][0]] = 15;
                     world[5][plot[i][1]][plot[i][0]] = 15;
                   }
@@ -1601,6 +1732,10 @@ Player = function(param){
                   var n = walls[i];
                   if(world[5][n[1]][n[0]] === 'garrison12'){
                     world[4][n[1]][n[0]] = 4;
+                    matrixB1[n[1]][n[0]] === 0;
+                    gridB1.setWalkableAt(n[0],n[1],true);
+                    matrixB2[n[1]][n[0]] === 0;
+                    gridB2.setWalkableAt(n[0],n[1],true);
                   } else {
                     world[4][n[1]][n[0]] = 2;
                   }
@@ -1703,11 +1838,15 @@ Player = function(param){
                   world[3][plot[i][1]][plot[i][0]] = String('bsmith' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'bsmith1'){
                     matrixB1[plot[i][1]][plot[i][0]] = 0;
+                    gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
                     matrixB1[plot[i][1]+1][plot[i][0]] = 0;
+                    gridB1.setWalkableAt(plot[i][0],plot[i][1]+1,true);
                     world[0][plot[i][1]][plot[i][0]] = 14;
                   } else {
                     matrixO[plot[i][1]][plot[i][0]] = 1;
+                    gridO.setWalkableAt(plot[i][0],plot[i][1],false);
                     matrixB1[plot[i][1]][plot[i][0]] = 0;
+                    gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
                     world[0][plot[i][1]][plot[i][0]] = 13;
                   }
                 }
@@ -1752,11 +1891,15 @@ Player = function(param){
                   world[3][plot[i][1]][plot[i][0]] = String('stronghold' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'stronghold1' || world[3][plot[i][1]][plot[i][0]] === 'stronghold2'){
                     matrixB1[plot[i][1]][plot[i][0]] = 0;
+                    gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
                     matrixB1[plot[i][1]+1][plot[i][0]] = 0;
+                    gridB1.setWalkableAt(plot[i][0],plot[i][1]+1,true);
                     world[0][plot[i][1]][plot[i][0]] = 16;
                   } else if(world[3][plot[i][1]][plot[i][0]] === 'stronghold0' || world[3][plot[i][1]][plot[i][0]] === 'stronghold3'){
                     matrixO[plot[i][1]][plot[i][0]] = 1;
+                    gridO.setWalkableAt(plot[i][0],plot[i][1],false);
                     matrixB1[plot[i][1]][plot[i][0]] = 0;
+                    gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
                     world[0][plot[i][1]][plot[i][0]] = 15;
                   } else if(world[3][plot[i][1]][plot[i][0]] === 'stronghold7' ||
                   world[3][plot[i][1]][plot[i][0]] === 'stronghold8' ||
@@ -1773,17 +1916,25 @@ Player = function(param){
                   world[3][plot[i][1]][plot[i][0]] === 'stronghold53' ||
                   world[3][plot[i][1]][plot[i][0]] === 'stronghold54'){
                     matrixO[plot[i][1]][plot[i][0]] = 1;
+                    gridO.setWalkableAt(plot[i][0],plot[i][1],false);
                     matrixB1[plot[i][1]][plot[i][0]] = 0;
+                    gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
                     matrixB2[plot[i][1]][plot[i][0]] = 0;
+                    gridB2.setWalkableAt(plot[i][0],plot[i][1],true);
                     matrixB3[plot[i][1]][plot[i][0]] = 0;
+                    gridB3.setWalkableAt(plot[i][0],plot[i][1],true);
                     world[0][plot[i][1]][plot[i][0]] = 17;
                     world[5][plot[i][1]][plot[i][0]] = 15;
                     world[8][plot[i][1]][plot[i][0]] = 1;
                   } else {
                     matrixO[plot[i][1]][plot[i][0]] = 1;
+                    gridO.setWalkableAt(plot[i][0],plot[i][1],false);
                     matrixB1[plot[i][1]][plot[i][0]] = 0;
+                    gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
                     matrixB2[plot[i][1]][plot[i][0]] = 0;
+                    gridB2.setWalkableAt(plot[i][0],plot[i][1],true);
                     matrixB3[plot[i][1]][plot[i][0]] = 0;
+                    gridB3.setWalkableAt(plot[i][0],plot[i][1],true);
                     world[0][plot[i][1]][plot[i][0]] = 15;
                     world[5][plot[i][1]][plot[i][0]] = 15;
                     world[8][plot[i][1]][plot[i][0]] = 1;
@@ -1799,10 +1950,18 @@ Player = function(param){
                   var n = walls[i];
                   if(world[5][n[1]][n[0]] === 'stronghold58' || world[5][n[1]][n[0]] === 'stronghold62'){
                     world[4][n[1]][n[0]] = 4;
+                    matrixB1[n[1]][n[0]] = 0;
+                    gridB1.setWalkableAt(n[0],n[1],true);
+                    matrixB2[n[1]][n[0]] = 0;
+                    gridB2.setWalkableAt(n[0],n[1],true);
                   } else {
                     world[4][n[1]][n[0]] = 2;
                   }
                 }
+                matrixB1[walls[0][1]][walls[0][0]] = 0;
+                gridB1.setWalkableAt(walls[0][0],walls[0][1],true);
+                matrixB3[walls[0][1]][walls[0][0]] = 0;
+                gridB3.setWalkableAt(walls[0][0],walls[0][1],true);
                 world[4][walls[0][1]][walls[0][0]] = 6;
                 world[8][walls[0][1]][walls[0][0]] = 5;
                 var sa1 = getCoords(walls[2][0],walls[2][1]);
@@ -2161,115 +2320,100 @@ Player = function(param){
   // x,y movement
   self.updateSpd = function(){
     var loc = getLoc(self.x, self.y);
+    var rLoc = getLoc(self.x + (tileSize/8), self.y);
+    var lLoc = getLoc(self.x - (tileSize/8), self.y);
+    var uLoc = getLoc(self.x, self.y - (tileSize/8));
+    var dLoc = getLoc(self.x, self.y + (tileSize*0.75));
     var rightBlocked = false;
     var leftBlocked = false;
     var upBlocked = false;
     var downBlocked = false;
 
     // outdoor collisions
-    if(self.z === 0 && (getLocTile(0,self.x+(tileSize/8),self.y) === 13 ||
-    getLocTile(0,self.x+(tileSize/8),self.y) === 15 ||
-    getLocTile(0,self.x+(tileSize/8),self.y) === 17 ||
-    (getLocTile(0,self.x+(tileSize/8),self.y) === 19 && !keyCheck(self.x+(tileSize/2),self.y,self.id)) ||
-    getLocItem(0,self.x+(tileSize/8),self.y) !== 0 ||
-    (self.x + 10) > (mapPx - tileSize)) && (getLocTile(0,self.x,self.y) !== 13 && getLocTile(0,self.x,self.y) !== 15 && getLocTile(0,self.x,self.y) !== 17)){
-      rightBlocked = true;
-    }
-    if(self.z === 0 && (getLocTile(0,self.x-(tileSize/8),self.y) === 13 ||
-    getLocTile(0,self.x-(tileSize/8),self.y) === 15 ||
-    getLocTile(0,self.x-(tileSize/8),self.y) === 17 ||
-    getLocItem(0,self.x-(tileSize/8),self.y) !== 0 ||
-    (self.x - 10) < 0) && (getLocTile(0,self.x,self.y) !== 13 && getLocTile(0,self.x,self.y) !== 15 && getLocTile(0,self.x,self.y) !== 17)){
-      leftBlocked = true;
-    }
-    if(self.z === 0 && (getLocTile(0,self.x,self.y-(tileSize/2)) === 13 ||
-    getLocTile(0,self.x,self.y-(tileSize/8)) === 15 ||
-    getLocTile(0,self.x,self.y-(tileSize/8)) === 17 ||
-    (getLocTile(0,self.x,self.y-(tileSize/8)) === 19 && !keyCheck(self.x,self.y-(tileSize/2),self.id)) ||
-    getLocItem(0,self.x,self.y-(tileSize/8)) !== 0 ||
-    (getLocTile(5,self.x,self.y-(tileSize/8)) === 'gatec' && !gateCheck(self.x,self.y-(tileSize/2),self.house,self.kingdom)) ||
-    (self.y - 10) < 0) && (getLocTile(0,self.x,self.y) !== 13 && getLocTile(0,self.x,self.y) !== 15 && getLocTile(0,self.x,self.y) !== 17)){
-      upBlocked = true;
-    }
-    if(self.z === 0 && (getLocTile(0,self.x,self.y+(tileSize*0.75)) === 13 ||
-    getLocTile(0,self.x,self.y+(tileSize*0.75)) === 15 ||
-    getLocTile(0,self.x,self.y+(tileSize*0.75)) === 17 ||
-    getLocItem(0,self.x,self.y+(tileSize*0.75)) !== 0 ||
-    (getLocTile(5,self.x,self.y+(tileSize*0.75)) === 'gatec' && !gateCheck(self.x,self.y+(tileSize*0.75),self.house,self.kingdom)) ||
-    (self.y + 10) > (mapPx - tileSize)) && (getLocTile(0,self.x,self.y) !== 13 && getLocTile(0,self.x,self.y) !== 15 && getLocTile(0,self.x,self.y) !== 17)){
-      downBlocked = true;
+    if(self.z === 0){
+      if(((getLocTile(0,self.x+(tileSize/8),self.y) === 19 && !keyCheck(self.x+(tileSize/2),self.y,self.id)) ||
+      !isWalkable(0,rLoc[0],rLoc[1]) ||
+      (self.x + 10) > (mapPx - tileSize)) && isWalkable(0,loc[0],loc[1])){
+        rightBlocked = true;
+      }
+      if((!isWalkable(0,lLoc[0],lLoc[1]) ||
+      (self.x - 10) < 0) && isWalkable(0,loc[0],loc[1])){
+        leftBlocked = true;
+      }
+      if((!isWalkable(0,uLoc[0],uLoc[1]) ||
+      (getLocTile(5,self.x,self.y-(tileSize/8)) === 'gatec' && !gateCheck(self.x,self.y-(tileSize/2),self.house,self.kingdom)) ||
+      (self.y - 10) < 0) && isWalkable(0,loc[0],loc[1])){
+        upBlocked = true;
+      }
+      if((!isWalkable(0,dLoc[0],dLoc[1]) ||
+      (getLocTile(5,self.x,self.y+(tileSize*0.75)) === 'gatec' && !gateCheck(self.x,self.y+(tileSize*0.75),self.house,self.kingdom)) ||
+      (self.y + 10) > (mapPx - tileSize)) && isWalkable(0,loc[0],loc[1])){
+        downBlocked = true;
+      }
     }
 
     // collision in caves
-    if(self.z === -1 && (getLocTile(1,self.x+(tileSize/8),self.y) === 1 || getLocItem(1,self.x+(tileSize/8),self.y) !== 0 || (self.x + 10) > (mapPx - tileSize))){
-      rightBlocked = true;
-    }
-    if(self.z === -1 && (getLocTile(1,self.x-(tileSize/8),self.y) === 1 || getLocItem(1,self.x-(tileSize/8),self.y) !== 0 || (self.x - 10) < 0)){
-      leftBlocked = true;
-    }
-    if(self.z === -1 && (getLocTile(1,self.x,self.y-(tileSize/8)) === 1 || getLocItem(1,self.x,self.y-(tileSize/8)) !== 0 || (self.y - 10) < 0)){
-      upBlocked = true;
-    }
-    if(self.z === -1 && (getLocTile(1,self.x,self.y+(tileSize/2)) === 1 || getLocItem(1,self.x,self.y+(tileSize/2)) !== 0 || (self.y + 10) > (mapPx - tileSize))){
-      downBlocked = true;
+    if(self.z === -1){
+      if(!isWalkable(-1,rLoc[0],rLoc[1]) || (self.x + 10) > (mapPx - tileSize)){
+        rightBlocked = true;
+      }
+      if(!isWalkable(-1,lLoc[0],lLoc[1]) || (self.x - 10) < 0){
+        leftBlocked = true;
+      }
+      if(!isWalkable(-1,uLoc[0],uLoc[1]) || (self.y - 10) < 0){
+        upBlocked = true;
+      }
+      if(!isWalkable(-1,dLoc[0],dLoc[1]) || (self.y + 10) > (mapPx - tileSize)){
+        downBlocked = true;
+      }
     }
 
     // indoor1 collisions
     if(self.z === 1){
-      if(getLocTile(3,self.x+(tileSize/8),self.y) === 0 || getLocItem(0,self.x+(tileSize/8),self.y) !== 0){
+      if(!isWalkable(1,rLoc[0],rLoc[1])){
         rightBlocked = true;
       }
-      if(getLocTile(3,self.x-(tileSize/8),self.y) === 0 || getLocItem(0,self.x-(tileSize/8),self.y) !== 0){
+      if(!isWalkable(1,lLoc[0],lLoc[1])){
         leftBlocked = true;
       }
-      if(getLocTile(4,self.x,self.y-(tileSize/8)) === 1 || getLocTile(4,self.x,self.y-(tileSize/8)) === 2 || getLocItem(0,self.x,self.y-(tileSize/8)) !== 0){
+      if(!isWalkable(1,uLoc[0],uLoc[1])){
         upBlocked = true;
       }
-      if((getLocTile(0,self.x,self.y) !== 14 && getLocTile(0,self.x,self.y) !== 16 && getLocTile(0,self.x,self.y) !== 19 && getLocTile(3,self.x,self.y+(tileSize/2)) === 0) || getLocItem(0,self.x,self.y+(tileSize/2)) !== 0){
+      if(!isWalkable(1,dLoc[0],dLoc[1])){
         downBlocked = true;
       }
     }
 
     // indoor2 collisions
-    if(self.z === 2 && (getLocTile(3,self.x+(tileSize/8),self.y) === 0 || getLocTile(4,self.x+(tileSize/8),self.y) === 5 || getLocTile(4,self.x+(tileSize/8),self.y) === 6 || getLocItem(3,self.x+(tileSize/8),self.y) !== 0)){
-      rightBlocked = true;
-    }
-    if(self.z === 2 && (getLocTile(3,self.x-(tileSize/8),self.y) === 0 || getLocTile(4,self.x-(tileSize/8),self.y) === 5 || getLocTile(4,self.x-(tileSize/8),self.y) === 6 || getLocItem(3,self.x-(tileSize/8),self.y) !== 0)){
-      leftBlocked = true;
-    }
-    if(self.z === 2 && (getLocTile(4,self.x,self.y-(tileSize/8)) === 1 || getLocTile(4,self.x,self.y-(tileSize/8)) === 2 || getLocTile(4,self.x,self.y-(tileSize/8)) === 5 || getLocTile(4,self.x,self.y-(tileSize/8)) === 6 || getLocItem(3,self.x,self.y-(tileSize/8)) !== 0)){
-      upBlocked = true;
-    }
-    if(self.z === 2 && (getLocTile(5,self.x,self.y+(tileSize/2)) === 0 || getLocItem(3,self.x,self.y+(tileSize/2)) !== 0)){
-      downBlocked = true;
+    if(self.z === 2){
+      if(!isWalkable(2,rLoc[0],rLoc[1])){
+        rightBlocked = true;
+      }
+      if(!isWalkable(2,lLoc[0],lLoc[1])){
+        leftBlocked = true;
+      }
+      if(!isWalkable(2,uLoc[0],uLoc[1])){
+        upBlocked = true;
+      }
+      if(!isWalkable(2,dLoc[0],dLoc[1])){
+        downBlocked = true;
+      }
     }
 
     // cellar/dungeon collisions
-    if(self.z === -2 && (getLocTile(8,self.x+(tileSize/8),self.y) === 0 || getLocItem(4,self.x+(tileSize/8),self.y) !== 0)){
-      rightBlocked = true;
-    }
-    if(self.z === -2 && (getLocTile(8,self.x-(tileSize/8),self.y) === 0 || getLocItem(4,self.x-(tileSize/8),self.y) !== 0)){
-      leftBlocked = true;
-    }
-    if(self.z === -2 && (getLocTile(8,self.x,self.y-(tileSize/8)) === 0 || getLocItem(4,self.x,self.y-(tileSize/8)) !== 0)){
-      upBlocked = true;
-    }
-    if(self.z === -2 && (getLocTile(8,self.x,self.y+(tileSize/2)) === 0 || getLocItem(4,self.x,self.y+(tileSize/2)) !== 0)){
-      downBlocked = true;
-    }
-
-    // underwater collisions
-    if(self.z === -3 && getLocItem(2,self.x+(tileSize/8),self.y) !== 0){
-      rightBlocked = true;
-    }
-    if(self.z === -3 && getLocItem(2,self.x-(tileSize/8),self.y) !== 0){
-      leftBlocked = true;
-    }
-    if(self.z === -3 && getLocItem(2,self.x,self.y-(tileSize/8)) !== 0){
-      upBlocked = true;
-    }
-    if(self.z === -3 && getLocItem(2,self.x,self.y+(tileSize/2)) !== 0){
-      downBlocked = true;
+    if(self.z === -2){
+      if(!isWalkable(-2,rLoc[0],rLoc[1])){
+        rightBlocked = true;
+      }
+      if(!isWalkable(-2,lLoc[0],lLoc[1])){
+        leftBlocked = true;
+      }
+      if(!isWalkable(-2,uLoc[0],uLoc[1])){
+        upBlocked = true;
+      }
+      if(!isWalkable(-2,dLoc[0],dLoc[1])){
+        downBlocked = true;
+      }
     }
 
     if(self.pressingRight){
@@ -2307,27 +2451,27 @@ Player = function(param){
         self.inTrees = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd;
-      } else if(getTile(0,loc[0],loc[1]) === 1){
+      } else if(getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 2){
         self.inTrees = true;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * 0.3;
-      } else if(getTile(0,loc[0],loc[1]) === 2 || getTile(0,loc[0],loc[1]) === 3){
+      } else if(getTile(0,loc[0],loc[1]) >= 2 && getTile(0,loc[0],loc[1]) < 4){
         self.inTrees = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * 0.5;
-      } else if(getTile(0,loc[0],loc[1]) === 4){
+      } else if(getTile(0,loc[0],loc[1]) >= 4 && getTile(0,loc[0],loc[1]) < 5){
         self.inTrees = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * 0.75;
-      } else if(getTile(0,loc[0],loc[1]) === 5 && !self.onMtn){
+      } else if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6 && !self.onMtn){
         self.inTrees = false;
         self.maxSpd = self.baseSpd * 0.2;
         setTimeout(function(){
-          if(getTile(0,loc[0],loc[1]) === 5){
+          if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6){
             self.onMtn = true;
           }
         },2000);
-      } else if(getTile(0,loc[0],loc[1]) === 5 && self.onMtn){
+      } else if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6 && self.onMtn){
         self.maxSpd = self.baseSpd * 0.5;
       } else if(getTile(0,loc[0],loc[1]) === 18){
         self.inTrees = false;
@@ -2654,16 +2798,23 @@ Item = function(param){
 
   self.blocker = function(n){
     var loc = getLoc(self.x,self.y);
-    if(self.z === 0 || self.z === 1){
-      world[9][loc[1]][loc[0]][0] = n;
+    if(self.z === 0){
+      matrixO[loc[1]][loc[0]] = n;
+      gridO.setWalkableAt(loc[1],loc[0],false);
+    } else if(self.z === 1){
+      matrixB1[loc[1]][loc[0]] = n;
+      gridB1.setWalkableAt(loc[1],loc[0],false);
     } else if(self.z === 2){
-      world[9][loc[1]][loc[0]][3] = n;
+      matrixB2[loc[1]][loc[0]] = n;
+      gridB2.setWalkableAt(loc[1],loc[0],false);
     } else if(self.z === -1){
-      world[9][loc[1]][loc[0]][1] = n;
+      matrixU[loc[1]][loc[0]] = n;
+      gridU.setWalkableAt(loc[1],loc[0],false);
     } else if(self.z === -2){
-      world[9][loc[1]][loc[0]][4] = n;
+      matrixB3[loc[1]][loc[0]] = n;
+      gridB3.setWalkableAt(loc[1],loc[0],false);
     } else if(self.z === -3){
-      world[9][loc[1]][loc[0]][2] = n;
+      matrixW[loc[1]][loc[0]] = n;
     }
   }
 
@@ -3262,46 +3413,10 @@ IronAxe = function(param){
   return self;
 }
 
-// STEEL AXE
-SteelAxe = function(param){
-  var self = Item(param);
-  self.type = 'steel axe';
-  self.class = 'tool';
-  self.rank = 0;
-  self.canPickup = true;
-  Item.list[self.id] = self;
-  initPack.item.push(self.getInitPack());
-  return self;
-}
-
-// STONE PICKAXE
-StonePickaxe = function(param){
-  var self = Item(param);
-  self.type = 'stone pickaxe';
-  self.class = 'tool';
-  self.rank = 0;
-  self.canPickup = true;
-  Item.list[self.id] = self;
-  initPack.item.push(self.getInitPack());
-  return self;
-}
-
 // IRON PICKAXE
-IronPickaxe = function(param){
+Pickaxe = function(param){
   var self = Item(param);
-  self.type = 'iron pickaxe';
-  self.class = 'tool';
-  self.rank = 0;
-  self.canPickup = true;
-  Item.list[self.id] = self;
-  initPack.item.push(self.getInitPack());
-  return self;
-}
-
-// STEEL PICKAXE
-SteelPickaxe = function(param){
-  var self = Item(param);
-  self.type = 'steel pickaxe';
+  self.type = 'pickaxe';
   self.class = 'tool';
   self.rank = 0;
   self.canPickup = true;
@@ -3434,7 +3549,7 @@ Firepit = function(param){
     y:self.y + (tileSize/2),
     z:self.z
   });
-  self.blocker(2);
+  self.blocker(1);
   return self;
 }
 
@@ -3473,6 +3588,7 @@ Forge = function(param){
     y:self.y + (tileSize * 0.75),
     z:self.z
   });
+  self.blocker(self.type);
   return self;
 }
 
@@ -3485,7 +3601,7 @@ Barrel = function(param){
   self.canPickup = false;
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
-  self.blocker(2);
+  self.blocker(self.type);
   return self;
 }
 
@@ -3498,7 +3614,7 @@ Crates = function(param){
   self.canPickup = false;
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
-  self.blocker(2);
+  self.blocker(self.type);
   return self;
 }
 
@@ -3511,6 +3627,7 @@ Bookshelf = function(param){
   self.canPickup = false;
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
+  self.blocker(self.type);
   return self;
 }
 
@@ -3548,7 +3665,7 @@ Runestone = function(param){
   self.canPickup = false;
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
-  self.blocker(2);
+  self.blocker(1);
   return self;
 }
 
@@ -3561,7 +3678,7 @@ Dummy = function(param){
   self.canPickup = false;
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
-  self.blocker(2);
+  self.blocker(self.type);
   return self;
 }
 
@@ -3574,45 +3691,6 @@ Cross = function(param){
   self.canPickup = false;
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
-  return self;
-}
-
-// TENT1
-Tent1 = function(param){
-  var self = Item(param);
-  self.type = 'tent1';
-  self.class = 'environment';
-  self.rank = 0;
-  self.canPickup = false;
-  Item.list[self.id] = self;
-  initPack.item.push(self.getInitPack());
-  self.blocker(2);
-  return self;
-}
-
-// TENT2
-Tent2 = function(param){
-  var self = Item(param);
-  self.type = 'tent2';
-  self.class = 'environment';
-  self.rank = 0;
-  self.canPickup = false;
-  Item.list[self.id] = self;
-  initPack.item.push(self.getInitPack());
-  self.blocker(2);
-  return self;
-}
-
-// TENT3
-Tent3 = function(param){
-  var self = Item(param);
-  self.type = 'tent3';
-  self.class = 'environment';
-  self.rank = 0;
-  self.canPickup = false;
-  Item.list[self.id] = self;
-  initPack.item.push(self.getInitPack());
-  self.blocker(2);
   return self;
 }
 
@@ -3673,6 +3751,7 @@ Goods1 = function(param){
   self.canPickup = false;
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
+  self.blocker(self.type);
   return self;
 }
 
@@ -3685,6 +3764,7 @@ Goods2 = function(param){
   self.canPickup = false;
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
+  self.blocker(self.type);
   return self;
 }
 
@@ -3697,6 +3777,7 @@ Goods3 = function(param){
   self.canPickup = false;
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
+  self.blocker(self.type);
   return self;
 }
 
@@ -3709,6 +3790,7 @@ Goods4 = function(param){
   self.canPickup = false;
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
+  self.blocker(self.type);
   return self;
 }
 
@@ -3721,6 +3803,7 @@ Stash1 = function(param){
   self.canPickup = false;
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
+  self.blocker(1);
   return self;
 }
 
@@ -3733,6 +3816,7 @@ Stash2 = function(param){
   self.canPickup = false;
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
+  self.blocker(1);
   return self;
 }
 
@@ -3782,7 +3866,7 @@ Jail = function(param){
   self.canPickup = false;
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
-  self.blocker(2);
+  self.blocker(1);
   return self;
 }
 
@@ -4077,6 +4161,42 @@ Chianti = function(param){
   var self = Item(param);
   self.type = 'chianti';
   self.class = 'consumable';
+  self.rank = 1;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// CROWN
+Crown = function(param){
+  var self = Item(param);
+  self.type = 'crown';
+  self.class = 'trinket';
+  self.rank = 3;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// ARROWS
+Arrows = function(param){
+  var self = Item(param);
+  self.type = 'arrows';
+  self.class = 'tool';
+  self.rank = 0;
+  self.canPickup = true;
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
+
+// MAP
+WorldMap = function(param){
+  var self = Item(param);
+  self.type = 'world map';
+  self.class = 'tool';
   self.rank = 1;
   self.canPickup = true;
   Item.list[self.id] = self;

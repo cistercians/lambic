@@ -11,32 +11,35 @@
 
 var fs = require('fs');
 var PF = require('pathfinding');
-require('./server/js/pathfinder');
+require('./server/js/Pathing');
 require('./server/js/Entity');
-require('./server/js/commands');
-require('./server/js/flora');
-require('./server/js/fauna');
+require('./server/js/Commands');
+require('./server/js/Entropy');
+require('./server/js/Equip');
+require('./server/js/Houses');
 
 // BUILD MAP
-var genesis = require('./server/js/genesis');
+var genesis = require('./server/js/Genesis');
 world = genesis.map;
 tileSize = 64;
 mapSize = world[0].length;
 mapPx = mapSize * tileSize;
 
 // pathfinding
-matrixO = pathfinder(0);
-matrixU = pathfinder(-1);
-matrixB1 = pathfinder();
-matrixB2 = pathfinder();
-matrixB3 = pathfinder();
-matrixS = pathfinder(3);
+matrixO = pathing(0); // overworld
+matrixU = pathing(-1); // underworld
+matrixB1 = pathing(); // first floor buildings
+matrixB2 = pathing(); // second floor buildings
+matrixB3 = pathing(); // dungeons/cellars
+matrixW = pathing(-3); // underwater
+matrixS = pathing(3); // ships
 
 gridO = new PF.Grid(matrixO); // z = 0
 gridU = new PF.Grid(matrixU); // z = -1
 gridB1 = new PF.Grid(matrixB1); // z = 1
 gridB2 = new PF.Grid(matrixB2); // z = 2
 gridB3 = new PF.Grid(matrixB3); // z = -2
+gridW = new PF.Grid(matrixW); // z = -3
 gridS = new PF.Grid(matrixS); // ships
 
 finder = new PF.AStarFinder();
@@ -66,16 +69,16 @@ for(x = 0; x < mapSize; x++){
     var uTile = world[1][y][x];
     if(tile !== 0){
       spawnPointsO.push([x,y]);
-      if(tile === 1){
+      if(tile >= 1 && tile < 2){
         biomes.hForest++;
         hForestSpawns.push([x,y]);
-      } else if(tile === 2){
+      } else if(tile >= 2 && tile < 3){
         biomes.forest++;
-      } else if(tile === 3){
+      } else if(tile >= 3 && tile < 4){
         biomes.brush++;
-      } else if(tile === 4){
+      } else if(tile >= 4 && tile < 5){
         biomes.rocks++;
-      } else if(tile === 5){
+      } else if(tile >= 5 && tile < 6){
         biomes.mtn++;
         mtnSpawns.push([x,y]);
       } else if(tile === 6){
@@ -150,35 +153,39 @@ console.log('');
 
 // get tile walkable status
 isWalkable = function(z, c, r){
-  if(z === 0){
-    if(matrixO[r][c] === 0){
-      return true;
-    } else {
-      return false;
-    }
-  } else if(z === -1){
-    if(matrixU[r][c] === 0){
-      return true;
-    } else {
-      return false;
-    }
-  } else if(z === 1){
-    if(matrixB1[r][c] === 0){
-      return true;
-    } else {
-      return false;
-    }
-  } else if(z === 2){
-    if(matrixB2[r][c] === 0){
-      return true;
-    } else {
-      return false;
-    }
-  } else if(z === -2){
-    if(matrixB3[r][c] === 0){
-      return true;
-    } else {
-      return false;
+  if(c < 0 || c > mapSize || r < 0 || r > mapSize){
+    return false;
+  } else {
+    if(z === 0){
+      if(matrixO[r][c] === 0){
+        return true;
+      } else {
+        return false;
+      }
+    } else if(z === -1){
+      if(matrixU[r][c] === 0){
+        return true;
+      } else {
+        return false;
+      }
+    } else if(z === 1){
+      if(matrixB1[r][c] === 0){
+        return true;
+      } else {
+        return false;
+      }
+    } else if(z === 2){
+      if(matrixB2[r][c] === 0){
+        return true;
+      } else {
+        return false;
+      }
+    } else if(z === -2){
+      if(matrixB3[r][c] === 0){
+        return true;
+      } else {
+        return false;
+      }
     }
   }
 }
@@ -187,7 +194,7 @@ isWalkable = function(z, c, r){
 // l === 'layer'
 // 0: Overworld, 1: Underworld,  2: Underwater, 3: BuildI, 4: BuildII, 5: BuildIII, 6: resI, 7: resII, 8: BuildIV
 getTile = function(l,c,r){
-  if(r >= 0 && r <= mapSize && c >= 0 && c <= mapSize){
+  if(r >= 0 && r < mapSize && c >= 0 && c < mapSize){
     return world[l][r][c];
   } else {
     return;
@@ -207,23 +214,6 @@ getLocTile = function(l,x,y){
     return world[l][loc[1]][loc[0]];
   }
 };
-
-// get item from (l,c,r): 0=Overworld, 1=Underworld, 2=Underwater, 3=BuildIII, 4=BuildIV
-getItem = function(l,c,r){
-  if(r >= 0 && r <= mapSize && c >= 0 && c <= mapSize){
-    return world[9][r][c][l];
-  } else {
-    return;
-  }
-};
-
-// get item from (l,x,y): 0=Overworld, 1=Underworld, 2=Underwater, 3=BuildIII, 4=BuildIV
-getLocItem = function(l,x,y){
-  if(x >= 0 && x <= mapPx && y >= 0 && y <= mapPx){
-    var loc = getLoc(x,y);
-    return world[9][loc[1]][loc[0]][l];
-  }
-}
 
 // get building id from (x,y)
 getBuilding = function(x,y){
@@ -271,7 +261,7 @@ gateCheck = function(x,y,h,k){
 
 // get random tile + its loc
 var randomTile = function(l){
-  var max = mapSize;
+  var max = mapSize-1;
   var c = Math.floor(Math.random() * max);
   var r = Math.floor(Math.random() * max);
   return [world[l][r][c],c,r];
@@ -326,8 +316,8 @@ if(saveMap){
 };
 
 // day/night cycle
-var tempus = 'XII.a';
-var period = 360; // 1=1hr, 2=30m, 4=15m, 12=5m, 60=1m, 120=30s, 360=10s (number of game days per 24 hours)
+tempus = 'XII.a';
+var period = 60; // 1=1hr, 2=30m, 4=15m, 12=5m, 60=1m, 120=30s, 360=10s (number of game days per 24 hours)
 var cycle = ['XII.a','I.a','II.a','III.a','IV.a','V.a','VI.a','VII.a','VIII.a','IX.a','X.a','XI.a',
             'XII.p','I.p','II.p','III.p','IV.p','V.p','VI.p','VII.p','VIII.p','IX.p','X.p','XI.p'];
 var tick = 1;
@@ -444,8 +434,7 @@ var dayNight = function(){
   tempus = cycle[tick];
   if(tempus === 'XII.a'){
     day++;
-    flora();
-    fauna();
+    entropy();
     console.log('');
     console.log('Day ' + day);
     console.log('');
@@ -498,4 +487,9 @@ setInterval(function(){
 },40);
 
 // spawn fauna
-fauna();
+entropy();
+
+// create Papal States faction
+House({
+
+});
