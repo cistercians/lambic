@@ -77,6 +77,15 @@ chatForm.onsubmit = function(e){
 
 // GAME
 
+var fly = 0
+setInterval(function(){
+  if(fly === 6){
+    fly = 0;
+  } else {
+    fly += 1;
+  }
+},600);
+
 // ICONS
 // walking animation
 var wlk = 0;
@@ -153,6 +162,9 @@ var Player = function(initPack){
     } else if(self.spriteSize === tileSize * 3){
       x = (self.x - (tileSize*1.5)) - Player.list[selfId].x + WIDTH/2;
       y = (self.y - (tileSize*1.5)) - Player.list[selfId].y + HEIGHT/2;
+    } else if(self.spriteSize === tileSize * 7){
+      x = (self.x - (tileSize*3.5)) - Player.list[selfId].x + WIDTH/2;
+      y = (self.y - (tileSize*3.5)) - Player.list[selfId].y + HEIGHT/2;
     } else {
       x = (self.x - (tileSize/2)) - Player.list[selfId].x + WIDTH/2;
       y = (self.y - (tileSize/2)) - Player.list[selfId].y + HEIGHT/2;
@@ -168,10 +180,12 @@ var Player = function(initPack){
       manaWidth = 60 * self.mana / self.manaMax;
     }
 
-    ctx.fillStyle = 'red';
-    ctx.fillRect(barX,barY - 30,60,6);
-    ctx.fillStyle = 'green';
-    ctx.fillRect(barX,barY - 30,hpWidth,6);
+    if(self.hp){
+      ctx.fillStyle = 'red';
+      ctx.fillRect(barX,barY - 30,60,6);
+      ctx.fillStyle = 'green';
+      ctx.fillRect(barX,barY - 30,hpWidth,6);
+    }
     if(self.mana){
       ctx.fillStyle = 'red';
       ctx.fillRect(barX,barY - 20,60,4);
@@ -180,16 +194,40 @@ var Player = function(initPack){
     }
 
     // username
-    if(self.rank && self.name){
-      ctx.fillStyle = 'white';
-      ctx.font = '15px minion web';
-      ctx.textAlign = 'center';
-      ctx.fillText(self.rank + self.name,barX + 30,barY - 40,100);
+    if(self.rank){
+      if(self.kingdom){
+        ctx.fillStyle = 'white';
+        ctx.font = '15px minion web';
+        ctx.textAlign = 'center';
+        ctx.fillText(Kingdom.list[self.kingdom].flag + ' ' + self.rank + self.name,barX + 30,barY - 40,100);
+      } else if(self.house){
+        ctx.fillStyle = 'white';
+        ctx.font = '15px minion web';
+        ctx.textAlign = 'center';
+        ctx.fillText(House.list[self.house].flag + ' ' + self.rank + self.name,barX + 30,barY - 40,100);
+      } else {
+        ctx.fillStyle = 'white';
+        ctx.font = '15px minion web';
+        ctx.textAlign = 'center';
+        ctx.fillText(self.rank + self.name,barX + 30,barY - 40,100);
+      }
     } else if(self.name){
-      ctx.fillStyle = 'white';
-      ctx.font = '15px minion web';
-      ctx.textAlign = 'center';
-      ctx.fillText(self.name,barX + 30,barY - 40,100);
+      if(self.kingdom){
+        ctx.fillStyle = 'white';
+        ctx.font = '15px minion web';
+        ctx.textAlign = 'center';
+        ctx.fillText(Kingdom.list[self.kingdom].flag + ' ' + self.name,barX + 30,barY - 40,100);
+      } else if(self.house){
+        ctx.fillStyle = 'white';
+        ctx.font = '15px minion web';
+        ctx.textAlign = 'center';
+        ctx.fillText(House.list[self.house].flag + ' ' + self.name,barX + 30,barY - 40,100);
+      } else {
+        ctx.fillStyle = 'white';
+        ctx.font = '15px minion web';
+        ctx.textAlign = 'center';
+        ctx.fillText(self.name,barX + 30,barY - 40,100);
+      }
     }
 
     // status
@@ -1863,6 +1901,8 @@ socket.on('update',function(data){
         p.sprite = boar;
       } else if(p.class === 'wolf'){
         p.sprite = wolf;
+      } else if(p.class === 'falcon'){
+        p.sprite = falcon;
       } else if(p.class === 'serf'){
         p.sprite = maleserf;
       } else if(p.class === 'rogue'){
@@ -2204,11 +2244,11 @@ var viewport = {
     this.endTile[0] = tile[0] + 1 + Math.ceil((this.screen[0]/2) / tileSize);
     this.endTile[1] = tile[1] + 1 + Math.ceil((this.screen[1]/2) / tileSize);
 
-    if(this.endTile[0] >= mapSize+1){
-      this.endTile[0] = mapSize+1;
+    if(this.endTile[0] >= mapSize){
+      this.endTile[0] = mapSize;
     }
-    if(this.endTile[1] >= mapSize+1){
-      this.endTile[1] = mapSize+1;
+    if(this.endTile[1] >= mapSize){
+      this.endTile[1] = mapSize;
     }
   }
 };

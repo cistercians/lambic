@@ -16,9 +16,33 @@ House = function(param){
     stone:0,
     iron:0
   }
+  House.list[self.id] = self;
+  return self;
+}
+
+Kingdom = function(param){
+  var self = Entity(param);
+  self.name = param.name;
+  self.flag = param.flag;
+  self.hq = param.hq;
+  self.king = param.king;
+  self.houses = param.houses;
+  self.mode = 'peaceful'; // 'hostile' = attacks neutral players/units
+  self.allies = [];
+  self.enemies = [];
+
+  self.stores = {
+    grain:0,
+    wood:0,
+    stone:0,
+    iron:0
+  }
+  Kingdom.list[self.id] = self;
+  return self;
 }
 
 House.list = {};
+Kingdom.list = {};
 
 flags = [
   ['🇦🇽',0], // 0

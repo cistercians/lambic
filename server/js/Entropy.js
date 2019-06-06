@@ -64,10 +64,12 @@ entropy = function(){
   var deerRatio = Math.floor(biomes.hForest/200);
   var boarRatio = Math.floor(biomes.hForest/800);
   var wolfRatio = Math.floor(biomes.hForest/400);
+  var falconRatio = Math.floor(biomes.hForest/100);
 
   var deerPop = 0;
   var boarPop = 0;
   var wolfPop = 0;
+  var falconPop = 0;
 
   for(i in Player.list){
     var cl = Player.list[i].class;
@@ -77,6 +79,8 @@ entropy = function(){
       boarPop++;
     } else if(cl === 'wolf'){
       wolfPop++;
+    } else if(cl === 'falcon'){
+      falconPop++;
     }
   }
   if(deerPop < deerRatio){
@@ -121,6 +125,22 @@ entropy = function(){
     for(var i = 0; i < num; i++){
       var sp = randomSpawnHF();
       Wolf({
+        x:sp[0],
+        y:sp[1],
+        z:0
+      });
+    }
+  }
+  if(falconPop < falconRatio){
+    var num = 0;
+    if(day === 0){
+      num = Math.floor(falconRatio * 0.75);
+    } else {
+      num = Math.floor((falconRatio - falconPop)/4);
+    }
+    for(var i = 0; i < num; i++){
+      var sp = randomSpawnHF();
+      Falcon({
         x:sp[0],
         y:sp[1],
         z:0

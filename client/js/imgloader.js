@@ -2470,6 +2470,39 @@ var wolf = {
   attackr: Img.wolfattackr
 };
 
+// falcon
+// fly
+Img.falconflyd = new Image();
+Img.falconflyd.src = '/client/img/chars/falcon/flyd.png';
+Img.falconflyu1 = new Image();
+Img.falconflyu1.src = '/client/img/chars/falcon/flyu1.png';
+Img.falconflyu2 = new Image();
+Img.falconflyu2.src = '/client/img/chars/falcon/flyu2.png';
+Img.falconflyl = new Image();
+Img.falconflyl.src = '/client/img/chars/falcon/flyl.png';
+Img.falconflyr = new Image();
+Img.falconflyr.src = '/client/img/chars/falcon/flyr.png';
+
+var falconflyd = [Img.falconflyd,Img.falconflyd];
+var falconflyu = [Img.falconflyu1,Img.falconflyu2];
+var falconflyl = [Img.falconflyl,Img.falconflyl];
+var falconflyr = [Img.falconflyr,Img.falconflyr];
+
+var falcon = {
+  facedown: falconflyd,
+  faceup: falconflyu,
+  faceleft: falconflyl,
+  faceright: falconflyr,
+  walkdown: falconflyd,
+  walkup: falconflyu,
+  walkleft: falconflyl,
+  walkright: falconflyr,
+  attackd:null,
+  attacku:null,
+  attackl:null,
+  attackr:null
+};
+
 // enemies
 
 

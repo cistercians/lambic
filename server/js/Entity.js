@@ -125,13 +125,13 @@ Character = function(param){
     ironaxe:0,
     pickaxe:0,
     torch:10,
-    bread:0,
+    bread:1,
     fish:0,
     lamb:0,
     boar:0,
     venison:0,
     poachedfish:0,
-    lambchop:1,
+    lambchop:0,
     boarshank:0,
     venisonloin:0,
     mead:0,
@@ -198,7 +198,7 @@ Character = function(param){
             p.x = spawn[0]; // replace this
             p.y = spawm[1]; // replace this
           }
-        };
+        }
       }
     } else if(dir === 'up'){
       for(i in Player.list){
@@ -212,7 +212,7 @@ Character = function(param){
             p.x = spawn[0]; // replace this
             p.y = spawm[1]; // replace this
           }
-        };
+        }
       }
     } else if(dir === 'left'){
       for(i in Player.list){
@@ -226,7 +226,7 @@ Character = function(param){
             p.x = spawn[0]; // replace this
             p.y = spawm[1]; // replace this
           }
-        };
+        }
       }
     } else if(dir === 'right'){
       for(i in Player.list){
@@ -240,7 +240,7 @@ Character = function(param){
             p.x = spawn[0]; // replace this
             p.y = spawm[1]; // replace this
           }
-        };
+        }
       }
     }
   }
@@ -359,7 +359,7 @@ Character = function(param){
       hpMax:self.hpMax,
       mana:self.mana,
       manaMax:self.manaMax
-    };
+    }
   }
 
   self.getUpdatePack = function(){
@@ -414,6 +414,80 @@ Boar = function(param){
 Wolf = function(param){
   var self = Character(param);
   self.class = 'wolf';
+}
+
+Falcon = function(param){
+  var self = Character(param);
+  self.class = 'falcon';
+  self.hp = null;
+  self.maxSpd = 0.25;
+  self.maxSpdL = 0;
+  self.maxSpdR = 0;
+  self.maxSpdU = 0;
+  self.maxSpdD = 0;
+  self.spriteSize = tileSize*7;
+  self.update = function(){
+    if(tempus === 'V.a' || tempus === 'VI.a' || tempus === 'VII.a' ||
+    tempus === 'VIII.a' || tempus === 'IX.a' || tempus === 'X.a' ||
+    tempus === 'XI.a' || tempus === 'XII.p' || tempus === 'I.p' ||
+    tempus === 'II.p' || tempus === 'III.p' || tempus === 'IV.p' ||
+    tempus === 'V.p' || tempus === 'VI.p'){
+      if(!self.path){
+        var select = randomSpawnO();
+        self.path = [select];
+      } else {
+        var coords = getCenter(self.path[0][0],self.path[0][1]);
+        var x = coords[0];
+        var y = coords[1];
+        if(x >= self.x || self.maxSpdR > 0){
+          self.x += self.maxSpdR;
+          self.pressingRight = true;
+          if(self.maxSpdR < 4){
+            self.maxSpdR += 0.25;
+            self.facing = 'right';
+          }
+          if(self.maxSpdL > 0){
+            self.maxSpdL -= 0.1;
+          }
+        } else if(x <= self.x || self.maxSpdL > 0){
+          self.x -= self.maxSpdL
+          self.pressingLeft = true;
+          if(self.maxSpdL < 4){
+            self.maxSpdL += 0.25;
+            self.facing = 'left';
+          }
+          if(self.maxSpdR > 0){
+            self.maxSpdR -= 0.1;
+          }
+        }
+        if(y >= self.y || self.maxSpdD > 0){
+          self.y += self.maxSpdD;
+          self.pressingDown = true;
+          if(self.maxSpdD < 4){
+            self.maxSpdD += 0.25;
+            self.facing = 'down';
+          }
+          if(self.maxSpdU > 0){
+            self.maxSpdU -= 0.1;
+          }
+        } else if(y <= self.y || self.maxSpdU > 0){
+          self.y -= self.maxSpdU;
+          self.pressingUp = true;
+          if(self.maxSpdU < 4){
+            self.maxSpdU += 0.25;
+            self.facing = 'up';
+          }
+          if(self.maxSpdD > 0){
+            self.maxSpdD -= 0.1;
+          }
+        }
+        if((self.x - x > -192 || self.x - x < 192) && (self.y - y > -192 || self.y - y < 192)){
+          var select = randomSpawnO();
+          self.path = [select];
+        }
+      }
+    }
+  }
 }
 
 // UNITS

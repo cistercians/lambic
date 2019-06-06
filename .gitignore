@@ -16,3 +16,4 @@ client/img/chars/.DS_Store
 client/img/chars/villager/.DS_Store
 client/img/chars/villager/female/.DS_Store
 client/img/chars/villager/male/.DS_Store
+node_modules/

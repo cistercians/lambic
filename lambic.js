@@ -457,8 +457,8 @@ console.log('Day ' + day + ' (' + period + 'x)');
 console.log('');
 console.log(tempus);
 
-initPack = {player:[],arrow:[],item:[], light:[]};
-removePack = {player:[],arrow:[],item:[], light:[]};
+initPack = {player:[],arrow:[],item:[],light:[]};
+removePack = {player:[],arrow:[],item:[],light:[]};
 
 setInterval(function(){
   var pack = {
@@ -489,7 +489,9 @@ setInterval(function(){
 // spawn fauna
 entropy();
 
-// create Papal States faction
-House({
-
+// create Papal States kingdom
+Kingdom({
+  id:'Papal States',
+  name:'Papal States',
+  flag:'🇻🇦'
 });
