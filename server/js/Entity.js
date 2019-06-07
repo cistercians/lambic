@@ -431,27 +431,100 @@ Falcon = function(param){
       var diffX = dx - self.x;
       var diffY = dy - self.y;
 
-      if(diffX > self.maxSpd || diffX < (0-self.maxSpd) || diffY > self.maxSpd || diffY < (0-self.maxSpd)){
-        if(diffX > self.maxSpd){
-          self.x += self.maxSpd;
+      if(diffX >= self.maxSpd && diffY >= self.maxSpd){
+        self.x += self.maxSpd;
+        self.y += self.maxSpd;
+        if(diffX > diffY){
           self.pressingRight = true;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
           self.facing = 'right';
-        } else if(diffX < (0-self.maxSpd)){
-          self.x -= self.maxSpd;
-          self.pressingLeft = true;
-          self.facing = 'left';
-        }
-        if(diffY > self.maxSpd){
-          self.y += self.maxSpd;
+        } else {
+          self.pressingRight = false;
+          self.pressingLeft = false;
           self.pressingDown = true;
+          self.pressingUp = false;
           self.facing = 'down';
-        } else if(diffY < (0-self.maxSpd)){
-          self.y -= self.maxSpd;
+        }
+      } else if(diffX >= self.maxSpd && diffY <= (0-self.maxSpd)){
+        self.x += self.maxSpd;
+        self.y -= self.maxSpd;
+        if(diffX > diffY*(-1)){
+          self.pressingRight = true;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
+          self.facing = 'right';
+        } else {
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
           self.pressingUp = true;
           self.facing = 'up';
-        } else {
-          self.path = randomSpawnO();
         }
+      } else if(diffX <= (0-self.maxSpd) && diffY >= self.maxSpd){
+        self.x -= self.maxSpd;
+        self.y += self.maxSpd;
+        if(diffX*(-1) > diffY){
+          self.pressingRight = false;
+          self.pressingLeft = true;
+          self.pressingDown = false;
+          self.pressingUp = false;
+          self.facing = 'left';
+        } else {
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = true;
+          self.pressingUp = false;
+          self.facing = 'down';
+        }
+      } else if(diffX <= (0-self.maxSpd) && diffY <= (0-self.maxSpd)){
+        self.x -= self.maxSpd;
+        self.y -= self.maxSpd;
+        if(diffX < diffY){
+          self.pressingRight = false;
+          self.pressingLeft = true;
+          self.pressingDown = false;
+          self.pressingUp = false;
+          self.facing = 'left';
+        } else {
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = true;
+          self.facing = 'up';
+        }
+      } else if(diffX >= self.maxSpd){
+        self.x += self.maxSpd;
+        self.pressingRight = true;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
+        self.facing = 'right';
+      } else if(diffX <= (0-self.maxSpd)){
+        self.x -= self.maxSpd;
+        self.pressingRight = false;
+        self.pressingLeft = true;
+        self.pressingDown = false;
+        self.pressingUp = false;
+        self.facing = 'left';
+      } else if(diffY >= self.maxSpd){
+        self.y += self.maxSpd;
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = true;
+        self.pressingUp = false;
+        self.facing = 'down';
+      } else if(diffY <= (0-self.maxSpd)){
+        self.y -= self.maxSpd;
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = true;
+        self.facing = 'up';
+      } else {
+        self.path = randomSpawnO();
       }
     }
   }
