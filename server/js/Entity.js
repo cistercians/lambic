@@ -97,6 +97,7 @@ Character = function(param){
     dague:0,
     baselard:0,
     misericorde:0,
+    bastardsword:0,
     longsword:0,
     zweihander:0,
     morallta:0,
@@ -124,8 +125,8 @@ Character = function(param){
     stoneaxe:0,
     ironaxe:0,
     pickaxe:0,
-    torch:10,
-    bread:1,
+    torch:0,
+    bread:0,
     fish:0,
     lamb:0,
     boar:0,
@@ -135,7 +136,7 @@ Character = function(param){
     boarshank:0,
     venisonloin:0,
     mead:0,
-    saison:1,
+    saison:0,
     flandersredale:0,
     bieredegarde:0,
     bordeaux:0,
@@ -160,6 +161,11 @@ Character = function(param){
   self.onMtn = false;
   self.hasTorch = false;
   self.working = false;
+  self.chopping = false;
+  self.mining = false;
+  self.farming = false;
+  self.building = false;
+  self.fishing = false;
   self.baseSpd = 4;
   self.maxSpd = 4;
   self.idleTime = 0;
@@ -170,6 +176,7 @@ Character = function(param){
   self.hpMax = 100;
   self.mana = null;
   self.manaMax = null;
+  self.dmg = null;
 
   // idle = walk around
   // patrol = walk between targets
@@ -186,11 +193,21 @@ Character = function(param){
   self.pathCount = 0;
 
   self.attack = function(dir){
+    self.working = false;
+    self.chopping = false;
+    self.mining = false;
+    self.farming = false;
+    self.building = false;
+    self.fishing = false;
+    var dmg = self.dmg;
+    if(self.type === 'player'){
+      dmg = self.gear.weapon.dmg;
+    }
     if(dir === 'down'){
       for(i in Player.list){
         var p = Player.list[i];
         if(Math.sqrt(Math.pow(self.x-p.x,2) + Math.pow((self.y + tileSize)-p.y,2)) < 32){
-          p.hp -= 5;
+          p.hp -= dmg;
           // player death & respawn
           if(p.hp <= 0){
             p.hp = p.hpMax;
@@ -204,7 +221,7 @@ Character = function(param){
       for(i in Player.list){
         var p = Player.list[i];
         if(Math.sqrt(Math.pow(self.x-p.x,2) + Math.pow((self.y - tileSize)-p.y,2)) < 32){
-          p.hp -= 5;
+          p.hp -= dmg;
           // player death & respawn
           if(p.hp <= 0){
             p.hp = p.hpMax;
@@ -218,7 +235,7 @@ Character = function(param){
       for(i in Player.list){
         var p = Player.list[i];
         if(Math.sqrt(Math.pow((self.x - tileSize)-p.x,2) + Math.pow((self.y)-p.y,2)) < 32){
-          p.hp -= 5;
+          p.hp -= dmg;
           // player death & respawn
           if(p.hp <= 0){
             p.hp = p.hpMax;
@@ -232,7 +249,7 @@ Character = function(param){
       for(i in Player.list){
         var p = Player.list[i];
         if(Math.sqrt(Math.pow((self.x + tileSize)-p.x,2) + Math.pow((self.y)-p.y,2)) < 32){
-          p.hp -= 5;
+          p.hp -= dmg;
           // player death & respawn
           if(p.hp <= 0){
             p.hp = p.hpMax;
@@ -381,6 +398,11 @@ Character = function(param){
       pressingRight:self.pressingRight,
       pressingAttack:self.pressingAttack,
       working:self.working,
+      chopping:self.chopping,
+      mining:self.mining,
+      farming:self.farming,
+      building:self.building,
+      fishing:self.fishing,
       hp:self.hp,
       hpMax:self.hpMax,
       mana:self.mana,
@@ -958,7 +980,6 @@ Player = function(param){
   self.spriteSize = tileSize*1.5;
   self.knighted = false;
   self.title = '';
-  self.crafting = false;
   self.pressingT = false;
   self.pressingE = false;
   self.pressing1 = false;
@@ -969,6 +990,8 @@ Player = function(param){
   self.manaNat = 100;
   self.mana = 100;
   self.manaMax = 100;
+  self.breath = 100;
+  self.breathMax = 100;
   self.strength = 10;
   self.dexterity = 1;
 
@@ -1027,12 +1050,16 @@ Player = function(param){
       // gather wood
       if(self.z === 0 && (getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 3)){
         self.working = true;
+        if(self.inventory.stoneaxe > 0 || self.inventory.ironaxe > 0){
+          self.chopping = true;
+        }
         self.actionCooldown = 10;
         setTimeout(function(){
           if(self.working){
             world[6][loc[1]][loc[0]] -= 50; // ALPHA
             self.inventory.wood += 50; // ALPHA
             self.working = false;
+            self.chopping = false;
             if(getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 2 && getTile(6,loc[0],loc[1]) < 101){
               world[0][loc[1]][loc[0]] += 1;
               for(i in hForestSpawns){
@@ -1056,12 +1083,16 @@ Player = function(param){
         // gather stone
       } else if(self.z === 0 && getTile(0,loc[0],loc[1]) >= 4 && getTile(0,loc[0],loc[1]) < 6){
         self.working = true;
+        if(self.inventory.pickaxe > 0){
+          self.mining = true;
+        }
         self.actionCooldown = 10;
         setTimeout(function(){
           if(self.working){
             world[6][loc[1]][loc[0]] -= 50; // ALPHA
             self.inventory.stone += 50; // ALPHA
             self.working = false;
+            self.mining = false;
             if(getTile(0,loc[0],loc[1]) >= 4 && getTile(0,loc[0],loc[1]) < 5 && getTile(6,loc[0],loc[1]) <= 0){
               world[0][loc[1]][loc[0]] = 7;
               io.emit('mapEdit',world);
@@ -1070,14 +1101,19 @@ Player = function(param){
             return;
           }
         },10000/self.strength);
+        // mine metal
       } else if(self.z === -1 && getTile(1,loc[0],loc[1]) >= 3 && getTile(1,loc[0],loc[1]) < 4){
         self.working = true;
+        if(self.inventory.pickaxe > 0){
+          self.mining = true;
+        }
         self.actionCooldown = 10;
         setTimeout(function(){
           if(self.working){
             world[7][loc[1]][loc[0]] -= 1;
             self.inventory.stone += 1;
             self.working = false;
+            self.mining = false;
           } else {
             return;
           }
@@ -1091,12 +1127,14 @@ Player = function(param){
         tempus === 'V.p' || tempus === 'VI.p'){
           var f = getBuilding(self.x,self.y);
           self.working = true;
+          self.farming = true;
           self.actionCooldown = 10;
           setTimeout(function(){
             if(self.working && world[6][loc[1]][loc[0]] < 25){
               world[6][loc[1]][loc[0]] += 25; // ALPHA, default:5
               //io.emit('mapEdit',world);
               self.working = false;
+              self.farming = false;
               var count = 0;
               var plot = Building.list[f].plot;
               for(i in plot){
@@ -1129,12 +1167,14 @@ Player = function(param){
         tempus === 'V.p' || tempus === 'VI.p'){
           var f = Building.list[getBuilding(self.x,self.y)];
           self.working = true;
+          self.farming = true;
           self.actionCooldown = 10;
           setTimeout(function(){
             if(self.working && world[6][loc[1]][loc[0]] < 50){
               world[6][loc[1]][loc[0]] += 25; // ALPHA, default:1
               //io.emit('mapEdit',world);
               self.working = false;
+              self.farming = false;
               var count = 0;
               var plot = f.plot;
               for(i in plot){
@@ -1160,12 +1200,14 @@ Player = function(param){
       } else if(self.z === 0 && getTile(0,loc[0],loc[1]) === 10){
         var f = getBuilding(self.x,self.y);
         self.working = true;
+        self.farming = true;
         self.actionCooldown = 10;
         setTimeout(function(){
           if(self.working){
             world[6][loc[1]][loc[0]] -= 1;
             self.inventory.grain += 1;
             self.working = false;
+            self.farming = false;
             if(world[6][loc[1]][loc[0]] <= 0){
               world[0][loc[1]][loc[0]] = 8;
               io.emit('mapEdit', world);
@@ -1177,12 +1219,14 @@ Player = function(param){
         // build
       } else if(self.z === 0 && (getTile(0,loc[0],loc[1]) === 11 || getTile(0,loc[0],loc[1]) === 11.5)){
         self.working = true;
+        self.building = true;
         self.actionCooldown = 10;
         var b = Building.list[getBuilding(self.x,self.y)];
         setTimeout(function(){
           if(self.working){
             world[6][loc[1]][loc[0]] += 10; // ALPHA, default:1
             self.working = false;
+            self.building = false;
             var count = 0;
             var plot = b.plot;
             var walls = b.walls;
@@ -2065,7 +2109,7 @@ Player = function(param){
                 for(i in walls){
                   var n = walls[i];
                   if(world[5][n[1]][n[0]] === 'stronghold58' || world[5][n[1]][n[0]] === 'stronghold62'){
-                    world[4][n[1]][n[0]] = 4;
+                    world[4][n[1]][n[0]] = 7;
                     matrixB1[n[1]][n[0]] = 0;
                     gridB1.setWalkableAt(n[0],n[1],true);
                     matrixB2[n[1]][n[0]] = 0;
@@ -2439,7 +2483,8 @@ Player = function(param){
     var rLoc = getLoc(self.x + (tileSize/8), self.y);
     var lLoc = getLoc(self.x - (tileSize/8), self.y);
     var uLoc = getLoc(self.x, self.y - (tileSize/8));
-    var dLoc = getLoc(self.x, self.y + (tileSize*0.75));
+    var dLoc = getLoc(self.x, self.y + (tileSize/2));
+    var b = getBuilding(self.x,self.y);
     var rightBlocked = false;
     var leftBlocked = false;
     var upBlocked = false;
@@ -2447,22 +2492,22 @@ Player = function(param){
 
     // outdoor collisions
     if(self.z === 0){
-      if(((getLocTile(0,self.x+(tileSize/8),self.y) === 19 && !keyCheck(self.x+(tileSize/2),self.y,self.id)) ||
-      (!isWalkable(0,rLoc[0],rLoc[1]) && getTile(0,rLoc[0],rLoc[1]) !== 0) ||
+      if(((getTile(0,rLoc[0],rLoc[1]) === 19 && !keyCheck(self.x+(tileSize/2),self.y,self.id)) ||
+      (!isWalkable(0,rLoc[0],rLoc[1]) && getTile(0,rLoc[0],rLoc[1]) !== 0 && getTile(0,rLoc[0],rLoc[1]) !== 11.5 && getTile(0,rLoc[0],rLoc[1]) !== 12.5) ||
       (self.x + 10) > (mapPx - tileSize)) && isWalkable(0,loc[0],loc[1])){
         rightBlocked = true;
       }
-      if(((!isWalkable(0,lLoc[0],lLoc[1]) && getTile(0,lLoc[0],lLoc[1]) !== 0) ||
+      if(((getTile(0,lLoc[0],lLoc[1]) === 19 && !keyCheck(self.x-(tileSize/2),self.y,self.id)) || (!isWalkable(0,lLoc[0],lLoc[1]) && getTile(0,lLoc[0],lLoc[1]) !== 0 && getTile(0,lLoc[0],lLoc[1]) !== 11.5 && getTile(0,lLoc[0],lLoc[1]) !== 12.5) ||
       (self.x - 10) < 0) && isWalkable(0,loc[0],loc[1])){
         leftBlocked = true;
       }
-      if(((!isWalkable(0,uLoc[0],uLoc[1]) && getTile(0,uLoc[0],uLoc[1]) !== 0) ||
-      (getLocTile(5,self.x,self.y-(tileSize/8)) === 'gatec' && !gateCheck(self.x,self.y-(tileSize/2),self.house,self.kingdom)) ||
+      if(((getTile(0,uLoc[0],uLoc[1]) === 19 && !keyCheck(self.x,self.y-(tileSize/2),self.id)) || (!isWalkable(0,uLoc[0],uLoc[1]) && getTile(0,uLoc[0],uLoc[1]) !== 0 && getTile(0,uLoc[0],uLoc[1]) !== 11.5 && getTile(0,uLoc[0],uLoc[1]) !== 12.5) ||
+      (getTile(5,uLoc,uLoc[1]) === 'gatec' && !gateCheck(self.x,self.y-(tileSize/2),self.house,self.kingdom)) ||
       (self.y - 10) < 0) && isWalkable(0,loc[0],loc[1])){
         upBlocked = true;
       }
-      if(((!isWalkable(0,dLoc[0],dLoc[1]) && getTile(0,dLoc[0],dLoc[1]) !== 0) ||
-      (getLocTile(5,self.x,self.y+(tileSize*0.75)) === 'gatec' && !gateCheck(self.x,self.y+(tileSize*0.75),self.house,self.kingdom)) ||
+      if(((getTile(0,dLoc[0],dLoc[1]) === 19 && !keyCheck(self.x,self.y+(tileSize/2),self.id)) || (!isWalkable(0,dLoc[0],dLoc[1]) && getTile(0,dLoc[0],dLoc[1]) !== 0 && getTile(0,dLoc[0],dLoc[1]) !== 11.5 && getTile(0,dLoc[0],dLoc[1]) !== 12.5) ||
+      (getTile(5,dLoc[0],dLoc[1]) === 'gatec' && !gateCheck(self.x,self.y+(tileSize/2),self.house,self.kingdom)) ||
       (self.y + 10) > (mapPx - tileSize)) && isWalkable(0,loc[0],loc[1])){
         downBlocked = true;
       }
@@ -2492,7 +2537,8 @@ Player = function(param){
       if(!isWalkable(1,lLoc[0],lLoc[1])){
         leftBlocked = true;
       }
-      if(!isWalkable(1,uLoc[0],uLoc[1])){
+      if(!isWalkable(1,uLoc[0],uLoc[1]) || (getTile(4,uLoc[0],uLoc[1]) === 7 && !self.rank &&
+      (Building.list[b].house === self.house || Building.list[b].kingdom === self.kingdom))){
         upBlocked = true;
       }
       if(!isWalkable(1,dLoc[0],dLoc[1])){
@@ -2535,12 +2581,22 @@ Player = function(param){
     if(self.pressingRight){
       self.facing = 'right';
       self.working = false;
+      self.chopping = false;
+      self.mining = false;
+      self.farming = false;
+      self.building = false;
+      self.fishing = false;
       if(!rightBlocked){
         self.x += self.maxSpd;
       }
     } else if(self.pressingLeft){
       self.facing = 'left';
       self.working = false;
+      self.chopping = false;
+      self.mining = false;
+      self.farming = false;
+      self.building = false;
+      self.fishing = false;
       if(!leftBlocked){
         self.x -= self.maxSpd;
       }
@@ -2549,12 +2605,22 @@ Player = function(param){
     if(self.pressingUp){
       self.facing = 'up';
       self.working = false;
+      self.chopping = false;
+      self.mining = false;
+      self.farming = false;
+      self.building = false;
+      self.fishing = false;
       if(!upBlocked){
         self.y -= self.maxSpd;
       }
     } else if(self.pressingDown){
       self.facing = 'down';
       self.working = false;
+      self.chopping = false;
+      self.mining = false;
+      self.farming = false;
+      self.building = false;
+      self.fishing = false;
       if(!downBlocked){
         self.y += self.maxSpd;
       }
@@ -2594,12 +2660,13 @@ Player = function(param){
         self.onMtn = false;
         self.maxSpd = self.baseSpd * 1.1;
       } else if(getTile(0,loc[0],loc[1]) === 14 || getTile(0,loc[0],loc[1]) === 16 || getTile(0,loc[0],loc[1]) === 19){
-        if(getTile(0,loc[0],loc[1]) === 19){
-          self.z = 1;
-          SOCKET_LIST[self.id].emit('addToChat','<i>🗝 You unlock the door.</i>');
-        } else {
-          self.z = 1;
-        }
+        self.z = 1;
+        self.inTrees = false;
+        self.onMtn = false;
+        self.maxSpd = self.baseSpd;
+      } else if(getTile(0,loc[0],loc[1]) === 19){
+        self.z = 1;
+        SOCKET_LIST[self.id].emit('addToChat','<i>🗝 You unlock the door.</i>');
         self.inTrees = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd;
@@ -2626,8 +2693,14 @@ Player = function(param){
         self.facing = 'down';
       }
     } else if(self.z === -3){
+      if(self.breath > 0){
+        self.breath -= 0.25;
+      } else {
+        self.hp -= 0.5;
+      }
       if(getTile(0,loc[0],loc[1]) !== 0){
         self.z = 0;
+        self.breath = self.breathMax;
       }
     } else if(self.z === 1){
       if(getTile(0,loc[0],loc[1] - 1) === 14 || getTile(0,loc[0],loc[1] - 1) === 16  || getTile(0,loc[0],loc[1] - 1) === 19){
@@ -2640,6 +2713,10 @@ Player = function(param){
         self.z = -2;
         self.y += (tileSize/2);
         self.facing = 'down';
+      } else if(getTile(4,loc[0],loc[1]) === 7){
+        self.z = 2;
+        self.y += (tileSize/2);
+        self.facing = 'down'
       }
     } else if(self.z === 2){
       if(getTile(4,loc[0],loc[1]) === 3 || getTile(4,loc[0],loc[1]) === 4){
@@ -2669,7 +2746,9 @@ Player = function(param){
       hp:self.hp,
       hpMax:self.hpMax,
       mana:self.mana,
-      manaMax:self.manaMax
+      manaMax:self.manaMax,
+      breath:self.breath,
+      breathMax:self.breathMax
     };
   }
 
@@ -2694,11 +2773,16 @@ Player = function(param){
       pressingAttack:self.pressingAttack,
       angle:self.mouseAngle,
       working:self.working,
-      crafting:self.crafting,
+      chopping:self.chopping,
+      mining:self.mining,
+      farming:self.farming,
+      fishing:self.fishing,
       hp:self.hp,
       hpMax:self.hpMax,
       mana:self.mana,
-      manaMax:self.manaMax
+      manaMax:self.manaMax,
+      breath:self.breath,
+      breathMax:self.breathMax
     }
   }
 
@@ -3205,7 +3289,7 @@ Misericorde = function(param){
   return self;
 }
 
-// IRON SWORD
+// BASTARD SWORD
 BastardSword = function(param){
   var self = Item(param);
   self.type = 'bastard sword';

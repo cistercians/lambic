@@ -2,35 +2,47 @@ equip = {
   // weapons
   huntingknife:{
     name: 'hunting knife',
-    type: 'dagger'
+    type: 'dagger',
+    dmg:15
   },
   dague:{
     name: 'dague',
-    type: 'dagger'
+    type: 'dagger',
+    dmg:20
   },
   baselard:{
     name: 'baselard',
-    type: 'dagger'
+    type: 'dagger',
+    dmg:25
   },
   misericorde:{
     name: 'misericorde',
-    type: 'dagger'
+    type: 'dagger',
+    dmg:40
+  },
+  bastardsword:{
+    name: 'bastard sword',
+    type: 'sword',
+    dmg:45
   },
   longsword:{
-    name: 'steel sword',
-    type: 'sword'
+    name: 'longsword',
+    type: 'sword',
+    dmg:50
   },
   zweihander:{
     name: 'zweihander',
-    type: 'sword'
+    type: 'sword',
+    dmg:55
   },
   morallta:{
     name: 'morallta',
-    type: 'sword'
+    type: 'sword',
+    dmg:70
   },
   bow:{
     name: 'bow',
-    type: 'bow'
+    type: 'bow',
   },
   welshlongbow:{
     name: 'longbow',
@@ -38,15 +50,18 @@ equip = {
   },
   knightlance:{
     name: 'steel lance',
-    type: 'lance'
+    type: 'lance',
+    dmg:75
   },
   rusticlance:{
     name: 'rustic lance',
-    type: 'lance'
+    type: 'lance',
+    dmg:75
   },
   paladinlance:{
     name: 'paladin lance',
-    type: 'lance'
+    type: 'lance',
+    dmg:100
   },
 
   // armor

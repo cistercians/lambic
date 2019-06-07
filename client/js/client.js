@@ -140,7 +140,10 @@ var Player = function(initPack){
   self.pressingAttack = false;
   self.inTrees = initPack.inTrees;
   self.working = false;
-  self.crafting = false;
+  self.chopping = false;
+  self.mining = false;
+  self.farming = false;
+  self.fishing = false;
   self.hp = initPack.hp;
   self.hpMax = initPack.hpMax;
   self.mana = initPack.mana;
@@ -176,6 +179,7 @@ var Player = function(initPack){
 
     var hpWidth = 60 * self.hp / self.hpMax;
     var manaWidth = null;
+    var brWidth = 60 * self.breath / self.breathMax;
     if(self.mana){
       manaWidth = 60 * self.mana / self.manaMax;
     }
@@ -183,14 +187,18 @@ var Player = function(initPack){
     if(self.hp){
       ctx.fillStyle = 'red';
       ctx.fillRect(barX,barY - 30,60,6);
-      ctx.fillStyle = 'green';
+      ctx.fillStyle = 'limegreen';
       ctx.fillRect(barX,barY - 30,hpWidth,6);
     }
     if(self.mana){
       ctx.fillStyle = 'red';
       ctx.fillRect(barX,barY - 20,60,4);
-      ctx.fillStyle = 'blue';
+      ctx.fillStyle = 'royalblue';
       ctx.fillRect(barX,barY - 20,manaWidth,4);
+    }
+    if(self.z === -3){
+      ctx.fillStyle = 'azure';
+      ctx.fillRect(barX,barY - 30,brWidth,6);
     }
 
     // username
@@ -305,6 +313,72 @@ var Player = function(initPack){
             self.spriteSize
           );
         }
+      }
+    } else if(self.chopping){
+      ctx.drawImage(
+        self.sprite.chopping[wrk],
+        x,
+        y,
+        self.spriteSize,
+        self.spriteSize
+      );
+    } else if(self.mining){
+      ctx.drawImage(
+        self.sprite.mining[wrk],
+        x,
+        y,
+        self.spriteSize,
+        self.spriteSize
+      );
+    } else if(self.farming){
+      ctx.drawImage(
+        self.sprite.farming[wrk],
+        x,
+        y,
+        self.spriteSize,
+        self.spriteSize
+      );
+    } else if(self.building){
+      ctx.drawImage(
+        self.sprite.building[wrk],
+        x,
+        y,
+        self.spriteSize,
+        self.spriteSize
+      );
+    } else if(self.fishing){
+      if(self.facing === 'down'){
+        ctx.drawImage(
+          self.sprite.fishingd,
+          x,
+          y,
+          self.spriteSize,
+          self.spriteSize
+        );
+      } else if(self.facing === 'up'){
+        ctx.drawImage(
+          self.sprite.fishingu,
+          x,
+          y,
+          self.spriteSize,
+          self.spriteSize
+        );
+      } else if(self.facing === 'left'){
+        ctx.drawImage(
+          self.sprite.fishingl,
+          x,
+          y,
+          self.spriteSize,
+          self.spriteSize
+        );
+      } else if(self.facing === 'right'){
+        ctx.drawImage(
+          self.sprite.fishingr,
+          x,
+          y,
+          self.spriteSize,
+          self.spriteSize
+        );
       }
     } else if(self.pressingAttack && self.type === 'npc'){
       if(self.facing === 'down'){
@@ -1878,12 +1952,16 @@ socket.on('update',function(data){
         p.inTrees = pack.inTrees;
       if(pack.angle !== undefined)
         p.angle = pack.angle;
-      if(pack.pressingUp !== undefined)
-        p.pressingUp = pack.pressingUp;
       if(pack.working !== undefined)
         p.working = pack.working;
-      if(pack.crafting !== undefined)
-        p.crafting = pack.crafting;
+      if(pack.chopping !== undefined)
+        p.chopping = pack.chopping;
+      if(pack.mining !== undefined)
+        p.mining = pack.mining;
+      if(pack.farming !== undefined)
+        p.farming = pack.farming;
+      if(pack.fishing !== undefined)
+        p.fishing = pack.fishing;
       if(pack.hp !== undefined)
         p.hp = pack.hp;
       if(pack.hpMax !== undefined)
@@ -1892,6 +1970,10 @@ socket.on('update',function(data){
         p.mana = pack.mana;
       if(pack.manaMax !== undefined)
         p.manaMax = pack.manaMax;
+      if(pack.breath !== undefined)
+        p.breath = pack.breath;
+      if(pack.breathMax !== undefined)
+        p.breathMax = pack.breathMax;
 
       if(p.class === 'sheep'){
         p.sprite = sheep;
@@ -4295,6 +4377,14 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
+          } else if(wtile === 7){
+            ctx.drawImage(
+              Img.lstairsu, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
           } else if(tile === 13){
             ctx.drawImage(
               Img.woodfloor, // image
@@ -4419,6 +4509,16 @@ var renderMap = function(){
             if(below !== 0){
               ctx.drawImage(
                 Img.stonewall, // image
+                xOffset, // target x
+                yOffset, // target y
+                tileSize, // target width
+                tileSize // target height
+              );
+            }
+          } else if(wtile === 7){
+            if(below !== 0){
+              ctx.drawImage(
+                Img.sstairsd, // image
                 xOffset, // target x
                 yOffset, // target y
                 tileSize, // target width
