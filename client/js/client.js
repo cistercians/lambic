@@ -2086,16 +2086,18 @@ setInterval(function(){
     }
   }
   for(var i in Player.list){
-    if(inView(Player.list[i].z,Player.list[i].x,Player.list[i].y)){
-      if((Player.list[selfId].z === 1 || Player.list[selfId].z === 2) && (getBuilding(Player.list[i].x,Player.list[i].y) === getBuilding(Player.list[selfId].x,Player.list[selfId].y))){
-        Player.list[i].draw();
-      } else if(Player.list[selfId].z !== 1 && Player.list[selfId].z !== 2){
-        Player.list[i].draw();
+    if(Player.list[i].class !== 'falcon'){
+      if(inView(Player.list[i].z,Player.list[i].x,Player.list[i].y)){
+        if((Player.list[selfId].z === 1 || Player.list[selfId].z === 2) && (getBuilding(Player.list[i].x,Player.list[i].y) === getBuilding(Player.list[selfId].x,Player.list[selfId].y))){
+          Player.list[i].draw();
+        } else if(Player.list[selfId].z !== 1 && Player.list[selfId].z !== 2){
+          Player.list[i].draw();
+        } else {
+          continue;
+        }
       } else {
         continue;
       }
-    } else {
-      continue;
     }
   }
   for(var i in Arrow.list){
@@ -2113,6 +2115,13 @@ setInterval(function(){
   }
   renderForest();
   renderTops();
+  for(var i in Player.list){
+    if(Player.list[i].class === 'falcon'){
+      if(inView(Player.list[i].z,Player.list[i].x,Player.list[i].y)){
+        Player.list[i].draw();
+      }
+    }
+  }
   renderLighting();
   if(Player.list[selfId].z === 0){
     if(tempus === 'VIII.p' || tempus === 'IX.p' || tempus === 'X.p' || tempus === 'XI.p' || tempus === 'XII.a' || tempus === 'I.a' || tempus === 'II.a' || tempus === 'III.a' || tempus === 'IV.a'){

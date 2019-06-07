@@ -420,70 +420,37 @@ Falcon = function(param){
   var self = Character(param);
   self.class = 'falcon';
   self.hp = null;
-  self.maxSpd = 0.25;
-  self.maxSpdL = 0;
-  self.maxSpdR = 0;
-  self.maxSpdU = 0;
-  self.maxSpdD = 0;
+  self.maxSpd = 2;
   self.spriteSize = tileSize*7;
   self.update = function(){
-    if(tempus === 'V.a' || tempus === 'VI.a' || tempus === 'VII.a' ||
-    tempus === 'VIII.a' || tempus === 'IX.a' || tempus === 'X.a' ||
-    tempus === 'XI.a' || tempus === 'XII.p' || tempus === 'I.p' ||
-    tempus === 'II.p' || tempus === 'III.p' || tempus === 'IV.p' ||
-    tempus === 'V.p' || tempus === 'VI.p'){
-      if(!self.path){
-        var select = randomSpawnO();
-        self.path = [select];
-      } else {
-        var coords = getCenter(self.path[0][0],self.path[0][1]);
-        var x = coords[0];
-        var y = coords[1];
-        if(x >= self.x || self.maxSpdR > 0){
-          self.x += self.maxSpdR;
+    if(!self.path){
+      self.path = randomSpawnO();
+    } else {
+      var dx = self.path[0];
+      var dy = self.path[1];
+      var diffX = dx - self.x;
+      var diffY = dy - self.y;
+
+      if(diffX > self.maxSpd || diffX < (0-self.maxSpd) || diffY > self.maxSpd || diffY < (0-self.maxSpd)){
+        if(diffX > self.maxSpd){
+          self.x += self.maxSpd;
           self.pressingRight = true;
-          if(self.maxSpdR < 4){
-            self.maxSpdR += 0.25;
-            self.facing = 'right';
-          }
-          if(self.maxSpdL > 0){
-            self.maxSpdL -= 0.1;
-          }
-        } else if(x <= self.x || self.maxSpdL > 0){
-          self.x -= self.maxSpdL
+          self.facing = 'right';
+        } else if(diffX < (0-self.maxSpd)){
+          self.x -= self.maxSpd;
           self.pressingLeft = true;
-          if(self.maxSpdL < 4){
-            self.maxSpdL += 0.25;
-            self.facing = 'left';
-          }
-          if(self.maxSpdR > 0){
-            self.maxSpdR -= 0.1;
-          }
+          self.facing = 'left';
         }
-        if(y >= self.y || self.maxSpdD > 0){
-          self.y += self.maxSpdD;
+        if(diffY > self.maxSpd){
+          self.y += self.maxSpd;
           self.pressingDown = true;
-          if(self.maxSpdD < 4){
-            self.maxSpdD += 0.25;
-            self.facing = 'down';
-          }
-          if(self.maxSpdU > 0){
-            self.maxSpdU -= 0.1;
-          }
-        } else if(y <= self.y || self.maxSpdU > 0){
-          self.y -= self.maxSpdU;
+          self.facing = 'down';
+        } else if(diffY < (0-self.maxSpd)){
+          self.y -= self.maxSpd;
           self.pressingUp = true;
-          if(self.maxSpdU < 4){
-            self.maxSpdU += 0.25;
-            self.facing = 'up';
-          }
-          if(self.maxSpdD > 0){
-            self.maxSpdD -= 0.1;
-          }
-        }
-        if((self.x - x > -192 || self.x - x < 192) && (self.y - y > -192 || self.y - y < 192)){
-          var select = randomSpawnO();
-          self.path = [select];
+          self.facing = 'up';
+        } else {
+          self.path = randomSpawnO();
         }
       }
     }
@@ -1054,7 +1021,7 @@ Player = function(param){
           self.actionCooldown = 10;
           setTimeout(function(){
             if(self.working && world[6][loc[1]][loc[0]] < 25){
-              world[6][loc[1]][loc[0]] += 25; // ALPHA, default:1
+              world[6][loc[1]][loc[0]] += 25; // ALPHA, default:5
               //io.emit('mapEdit',world);
               self.working = false;
               var count = 0;
@@ -1092,7 +1059,7 @@ Player = function(param){
           self.actionCooldown = 10;
           setTimeout(function(){
             if(self.working && world[6][loc[1]][loc[0]] < 50){
-              world[6][loc[1]][loc[0]] += 25; // ALPHA, default:5
+              world[6][loc[1]][loc[0]] += 25; // ALPHA, default:1
               //io.emit('mapEdit',world);
               self.working = false;
               var count = 0;
@@ -1308,8 +1275,10 @@ Player = function(param){
                   if(world[3][plot[i][1]][plot[i][0]] === 'tavern1'){
                     matrixO[plot[i][1]][plot[i][0]] = 0;
                     gridO.setWalkableAt(plot[i][0],plot[i][1],true);
-                    matrixB1[plot[i][1]+1][plot[i][0]] = 0;
+                    matrixB1[plot[i][1]][plot[i][0]] = 0;
                     gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
+                    matrixB1[plot[i][1]+1][plot[i][0]] = 0;
+                    gridB1.setWalkableAt(plot[i][0],plot[i][1]+1,true);
                     world[0][plot[i][1]][plot[i][0]] = 14;
                   } else if(world[3][plot[i][1]][plot[i][0]] === 'tavern0' || world[3][plot[i][1]][plot[i][0]] === 'tavern2'){
                     matrixO[plot[i][1]][plot[i][0]] = 1;
@@ -1552,9 +1521,9 @@ Player = function(param){
                   world[4][n[1]][n[0]] = 2;
                 }
                 world[4][n[1]][n[0]] = 4;
-                matrixB1[n[1]][n[0]] === 0;
+                matrixB1[n[1]][n[0]] = 0;
                 gridB1.setWalkableAt(n[0],n[1],true);
-                matrixB2[n[1]][n[0]] === 0;
+                matrixB2[n[1]][n[0]] = 0;
                 gridB2.setWalkableAt(n[0],n[1],true);
                 var wt = getCoords(walls[0][0],walls[0][1]);
                 var cr = getCoords(walls[2][0],walls[2][1]);
@@ -1626,9 +1595,9 @@ Player = function(param){
                   var n = walls[i];
                   if(world[5][n[1]][n[0]] === 'market12'){
                     world[4][n[1]][n[0]] = 3;
-                    matrixB1[n[1]][n[0]] === 0;
+                    matrixB1[n[1]][n[0]] = 0;
                     gridB1.setWalkableAt(n[0],n[1],true);
-                    matrixB2[n[1]][n[0]] === 0;
+                    matrixB2[n[1]][n[0]] = 0;
                     gridB2.setWalkableAt(n[0],n[1],true);
                   } else {
                     world[4][n[1]][n[0]] = 1;
@@ -1806,9 +1775,9 @@ Player = function(param){
                   var n = walls[i];
                   if(world[5][n[1]][n[0]] === 'garrison12'){
                     world[4][n[1]][n[0]] = 4;
-                    matrixB1[n[1]][n[0]] === 0;
+                    matrixB1[n[1]][n[0]] = 0;
                     gridB1.setWalkableAt(n[0],n[1],true);
-                    matrixB2[n[1]][n[0]] === 0;
+                    matrixB2[n[1]][n[0]] = 0;
                     gridB2.setWalkableAt(n[0],n[1],true);
                   } else {
                     world[4][n[1]][n[0]] = 2;
@@ -2406,20 +2375,20 @@ Player = function(param){
     // outdoor collisions
     if(self.z === 0){
       if(((getLocTile(0,self.x+(tileSize/8),self.y) === 19 && !keyCheck(self.x+(tileSize/2),self.y,self.id)) ||
-      !isWalkable(0,rLoc[0],rLoc[1]) ||
+      (!isWalkable(0,rLoc[0],rLoc[1]) && getTile(0,rLoc[0],rLoc[1]) !== 0) ||
       (self.x + 10) > (mapPx - tileSize)) && isWalkable(0,loc[0],loc[1])){
         rightBlocked = true;
       }
-      if((!isWalkable(0,lLoc[0],lLoc[1]) ||
+      if(((!isWalkable(0,lLoc[0],lLoc[1]) && getTile(0,lLoc[0],lLoc[1]) !== 0) ||
       (self.x - 10) < 0) && isWalkable(0,loc[0],loc[1])){
         leftBlocked = true;
       }
-      if((!isWalkable(0,uLoc[0],uLoc[1]) ||
+      if(((!isWalkable(0,uLoc[0],uLoc[1]) && getTile(0,uLoc[0],uLoc[1]) !== 0) ||
       (getLocTile(5,self.x,self.y-(tileSize/8)) === 'gatec' && !gateCheck(self.x,self.y-(tileSize/2),self.house,self.kingdom)) ||
       (self.y - 10) < 0) && isWalkable(0,loc[0],loc[1])){
         upBlocked = true;
       }
-      if((!isWalkable(0,dLoc[0],dLoc[1]) ||
+      if(((!isWalkable(0,dLoc[0],dLoc[1]) && getTile(0,dLoc[0],dLoc[1]) !== 0) ||
       (getLocTile(5,self.x,self.y+(tileSize*0.75)) === 'gatec' && !gateCheck(self.x,self.y+(tileSize*0.75),self.house,self.kingdom)) ||
       (self.y + 10) > (mapPx - tileSize)) && isWalkable(0,loc[0],loc[1])){
         downBlocked = true;

@@ -2474,25 +2474,23 @@ var wolf = {
 // fly
 Img.falconflyd = new Image();
 Img.falconflyd.src = '/client/img/chars/falcon/flyd.png';
-Img.falconflyu1 = new Image();
-Img.falconflyu1.src = '/client/img/chars/falcon/flyu1.png';
-Img.falconflyu2 = new Image();
-Img.falconflyu2.src = '/client/img/chars/falcon/flyu2.png';
+Img.falconflyu = new Image();
+Img.falconflyu.src = '/client/img/chars/falcon/flyu.png';
 Img.falconflyl = new Image();
 Img.falconflyl.src = '/client/img/chars/falcon/flyl.png';
 Img.falconflyr = new Image();
 Img.falconflyr.src = '/client/img/chars/falcon/flyr.png';
 
 var falconflyd = [Img.falconflyd,Img.falconflyd];
-var falconflyu = [Img.falconflyu1,Img.falconflyu2];
+var falconflyu = [Img.falconflyu,Img.falconflyu];
 var falconflyl = [Img.falconflyl,Img.falconflyl];
 var falconflyr = [Img.falconflyr,Img.falconflyr];
 
 var falcon = {
-  facedown: falconflyd,
-  faceup: falconflyu,
-  faceleft: falconflyl,
-  faceright: falconflyr,
+  facedown: Img.falconflyd,
+  faceup: Img.falconflyu,
+  faceleft: Img.falconflyl,
+  faceright: Img.falconflyr,
   walkdown: falconflyd,
   walkup: falconflyu,
   walkleft: falconflyl,
