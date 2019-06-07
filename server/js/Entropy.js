@@ -64,7 +64,7 @@ entropy = function(){
   var deerRatio = Math.floor(biomes.hForest/200);
   var boarRatio = Math.floor(biomes.hForest/800);
   var wolfRatio = Math.floor(biomes.hForest/400);
-  var falconRatio = Math.floor(biomes.hForest/100);
+  var falconRatio = Math.floor(biomes.hForest/1000);
 
   var deerPop = 0;
   var boarPop = 0;
