@@ -153,7 +153,7 @@ console.log('');
 
 // get tile walkable status
 isWalkable = function(z, c, r){
-  if(c < 0 || c > mapSize || r < 0 || r > mapSize){
+  if(c < 0 || c > mapSize-1 || r < 0 || r > mapSize-1){
     return false;
   } else {
     if(z === 0){
@@ -215,6 +215,23 @@ getLocTile = function(l,x,y){
   }
 };
 
+// get item type from (z,c,r)
+getItem = function(z,c,r){
+  if(z === 0){
+    return matrixO[r][c];
+  } else if(z === -1){
+    return matrixU[r][c];
+  } else if(z === 1){
+    return matrixB1[r][c];
+  } else if(z === 2){
+    return matrixB2[r][c];
+  } else if(z === -2){
+    return matrixB3[r][c];
+  } else if(z === -3){
+    return matrixW[r][c];
+  }
+}
+
 // get building id from (x,y)
 getBuilding = function(x,y){
   var loc = getLoc(x,y);
@@ -242,6 +259,29 @@ keyCheck = function(x,y,p){
     }
     return false;
   }
+}
+
+// returns chest id if player can access it from (z,x,y,player.id)
+chestCheck = function(z,x,y,p){
+  var player = Player.list[p];
+  for(var i in Item.list){
+    var itm = Item.list[i];
+    if(itm.type === 'LockedChest' && itm.z === z && itm.x === x && itm.y === y){
+      for(var k in player.inventory.keys){
+        var key = player.inventory.keys[k];
+        if(itm.id === key){
+          return itm.id;
+        } else {
+          continue;
+        }
+      }
+    } else if(itm.type === 'Chest' && itm.z === z && itm.x === x && itm.y === y){
+      return itm.id;
+    } else {
+      continue;
+    }
+  }
+  return false;
 }
 
 // check if player can pass through closed gate

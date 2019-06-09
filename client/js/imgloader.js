@@ -79,6 +79,8 @@ Img.lstairsu = new Image();
 Img.lstairsu.src = '/client/img/tiles/lstairsu.png';
 Img.road = new Image();
 Img.road.src = '/client/img/tiles/road.png';
+Img.sand = new Image();
+Img.sand.src = '/client/img/tiles/sand.png';
 
 // BUILDINGS
 // allied
@@ -999,6 +1001,124 @@ var hunter = {
   attackrst2: Img.hunterst2attackr,
 };
 
+// scout
+// stand
+Img.scoutstandd = new Image();
+Img.scoutstandd.src = '/client/img/chars/scout/standd.png';
+Img.scoutstandu = new Image();
+Img.scoutstandu.src = '/client/img/chars/scout/standu.png';
+Img.scoutstandl = new Image();
+Img.scoutstandl.src = '/client/img/chars/scout/standl.png';
+Img.scoutstandr = new Image();
+Img.scoutstandr.src = '/client/img/chars/scout/standr.png';
+
+// walk
+Img.scoutwalkd1 = new Image();
+Img.scoutwalkd1.src = '/client/img/chars/scout/walkd1.png';
+Img.scoutwalkd2 = new Image();
+Img.scoutwalkd2.src = '/client/img/chars/scout/walkd2.png';
+Img.scoutwalku1 = new Image();
+Img.scoutwalku1.src = '/client/img/chars/scout/walku1.png';
+Img.scoutwalku2 = new Image();
+Img.scoutwalku2.src = '/client/img/chars/scout/walku2.png';
+Img.scoutwalkl1 = new Image();
+Img.scoutwalkl1.src = '/client/img/chars/scout/walkl1.png';
+Img.scoutwalkl2 = new Image();
+Img.scoutwalkl2.src = '/client/img/chars/scout/walkl2.png';
+Img.scoutwalkr1 = new Image();
+Img.scoutwalkr1.src = '/client/img/chars/scout/walkr1.png';
+Img.scoutwalkr2 = new Image();
+Img.scoutwalkr2.src = '/client/img/chars/scout/walkr2.png';
+
+var scoutwalkd = [Img.scoutwalkd1,Img.scoutwalkd2];
+var scoutwalku = [Img.scoutwalku1,Img.scoutwalku2];
+var scoutwalkl = [Img.scoutwalkl1,Img.scoutwalkl2];
+var scoutwalkr = [Img.scoutwalkr1,Img.scoutwalkr2];
+
+// attack
+Img.scoutattackd = new Image();
+Img.scoutattackd.src = '/client/img/chars/scout/attackd.png';
+Img.scoutattacku = new Image();
+Img.scoutattacku.src = '/client/img/chars/scout/attacku.png';
+Img.scoutattackl = new Image();
+Img.scoutattackl.src = '/client/img/chars/scout/attackl.png';
+Img.scoutattackr = new Image();
+Img.scoutattackr.src = '/client/img/chars/scout/attackr.png';
+
+var scout = {
+  facedown: Img.scoutstandd,
+  faceup: Img.scoutstandu,
+  faceleft: Img.scoutstandl,
+  faceright: Img.scoutstandr,
+  walkdown: scoutwalkd,
+  walkup: scoutwalku,
+  walkleft: scoutwalkl,
+  walkright: scoutwalkr,
+  attackd: Img.scoutattackd,
+  attacku: Img.scoutattacku,
+  attackl: Img.scoutattackl,
+  attackr: Img.scoutattackr
+};
+
+// ranger
+// stand
+Img.rangerstandd = new Image();
+Img.rangerstandd.src = '/client/img/chars/ranger/standd.png';
+Img.rangerstandu = new Image();
+Img.rangerstandu.src = '/client/img/chars/ranger/standu.png';
+Img.rangerstandl = new Image();
+Img.rangerstandl.src = '/client/img/chars/ranger/standl.png';
+Img.rangerstandr = new Image();
+Img.rangerstandr.src = '/client/img/chars/ranger/standr.png';
+
+// walk
+Img.rangerwalkd1 = new Image();
+Img.rangerwalkd1.src = '/client/img/chars/ranger/walkd1.png';
+Img.rangerwalkd2 = new Image();
+Img.rangerwalkd2.src = '/client/img/chars/ranger/walkd2.png';
+Img.rangerwalku1 = new Image();
+Img.rangerwalku1.src = '/client/img/chars/ranger/walku1.png';
+Img.rangerwalku2 = new Image();
+Img.rangerwalku2.src = '/client/img/chars/ranger/walku2.png';
+Img.rangerwalkl1 = new Image();
+Img.rangerwalkl1.src = '/client/img/chars/ranger/walkl1.png';
+Img.rangerwalkl2 = new Image();
+Img.rangerwalkl2.src = '/client/img/chars/ranger/walkl2.png';
+Img.rangerwalkr1 = new Image();
+Img.rangerwalkr1.src = '/client/img/chars/ranger/walkr1.png';
+Img.rangerwalkr2 = new Image();
+Img.rangerwalkr2.src = '/client/img/chars/ranger/walkr2.png';
+
+var rangerwalkd = [Img.rangerwalkd1,Img.rangerwalkd2];
+var rangerwalku = [Img.rangerwalku1,Img.rangerwalku2];
+var rangerwalkl = [Img.rangerwalkl1,Img.rangerwalkl2];
+var rangerwalkr = [Img.rangerwalkr1,Img.rangerwalkr2];
+
+// attack
+Img.rangerattackd = new Image();
+Img.rangerattackd.src = '/client/img/chars/ranger/attackd.png';
+Img.rangerattacku = new Image();
+Img.rangerattacku.src = '/client/img/chars/ranger/attacku.png';
+Img.rangerattackl = new Image();
+Img.rangerattackl.src = '/client/img/chars/ranger/attackl.png';
+Img.rangerattackr = new Image();
+Img.rangerattackr.src = '/client/img/chars/ranger/attackr.png';
+
+var ranger = {
+  facedown: Img.rangerstandd,
+  faceup: Img.rangerstandu,
+  faceleft: Img.rangerstandl,
+  faceright: Img.rangerstandr,
+  walkdown: rangerwalkd,
+  walkup: rangerwalku,
+  walkleft: rangerwalkl,
+  walkright: rangerwalkr,
+  attackdb: Img.rangerattackd,
+  attackub: Img.rangerattacku,
+  attacklb: Img.rangerattackl,
+  attackrb: Img.rangerattackr
+};
+
 // swordsman
 // stand
 Img.swordsmanstandd = new Image();
@@ -1111,10 +1231,128 @@ var archer = {
   walkup: archerwalku,
   walkleft: archerwalkl,
   walkright: archerwalkr,
-  attackd: Img.archerattackd,
-  attacku: Img.archerattacku,
-  attackl: Img.archerattackl,
-  attackr: Img.archerattackr
+  attackdb: Img.archerattackd,
+  attackub: Img.archerattacku,
+  attacklb: Img.archerattackl,
+  attackrb: Img.archerattackr
+};
+
+// horseman
+// stand
+Img.horsemanstandd = new Image();
+Img.horsemanstandd.src = '/client/img/chars/horseman/standd.png';
+Img.horsemanstandu = new Image();
+Img.horsemanstandu.src = '/client/img/chars/horseman/standu.png';
+Img.horsemanstandl = new Image();
+Img.horsemanstandl.src = '/client/img/chars/horseman/standl.png';
+Img.horsemanstandr = new Image();
+Img.horsemanstandr.src = '/client/img/chars/horseman/standr.png';
+
+// walk
+Img.horsemanwalkd1 = new Image();
+Img.horsemanwalkd1.src = '/client/img/chars/horseman/walkd1.png';
+Img.horsemanwalkd2 = new Image();
+Img.horsemanwalkd2.src = '/client/img/chars/horseman/walkd2.png';
+Img.horsemanwalku1 = new Image();
+Img.horsemanwalku1.src = '/client/img/chars/horseman/walku1.png';
+Img.horsemanwalku2 = new Image();
+Img.horsemanwalku2.src = '/client/img/chars/horseman/walku2.png';
+Img.horsemanwalkl1 = new Image();
+Img.horsemanwalkl1.src = '/client/img/chars/horseman/walkl1.png';
+Img.horsemanwalkl2 = new Image();
+Img.horsemanwalkl2.src = '/client/img/chars/horseman/walkl2.png';
+Img.horsemanwalkr1 = new Image();
+Img.horsemanwalkr1.src = '/client/img/chars/horseman/walkr1.png';
+Img.horsemanwalkr2 = new Image();
+Img.horsemanwalkr2.src = '/client/img/chars/horseman/walkr2.png';
+
+var horsemanwalkd = [Img.horsemanwalkd1,Img.horsemanwalkd2];
+var horsemanwalku = [Img.horsemanwalku1,Img.horsemanwalku2];
+var horsemanwalkl = [Img.horsemanwalkl1,Img.horsemanwalkl2];
+var horsemanwalkr = [Img.horsemanwalkr1,Img.horsemanwalkr2];
+
+// attack
+Img.horsemanattackd = new Image();
+Img.horsemanattackd.src = '/client/img/chars/horseman/attackd.png';
+Img.horsemanattacku = new Image();
+Img.horsemanattacku.src = '/client/img/chars/horseman/attacku.png';
+Img.horsemanattackl = new Image();
+Img.horsemanattackl.src = '/client/img/chars/horseman/attackl.png';
+Img.horsemanattackr = new Image();
+Img.horsemanattackr.src = '/client/img/chars/horseman/attackr.png';
+
+var horseman = {
+  facedown: Img.horsemanstandd,
+  faceup: Img.horsemanstandu,
+  faceleft: Img.horsemanstandl,
+  faceright: Img.horsemanstandr,
+  walkdown: horsemanwalkd,
+  walkup: horsemanwalku,
+  walkleft: horsemanwalkl,
+  walkright: horsemanwalkr,
+  attackd: Img.horsemanattackd,
+  attacku: Img.horsemanattacku,
+  attackl: Img.horsemanattackl,
+  attackr: Img.horsemanattackr
+};
+
+// mountedarcher
+// stand
+Img.mountedarcherstandd = new Image();
+Img.mountedarcherstandd.src = '/client/img/chars/mountedarcher/standd.png';
+Img.mountedarcherstandu = new Image();
+Img.mountedarcherstandu.src = '/client/img/chars/mountedarcher/standu.png';
+Img.mountedarcherstandl = new Image();
+Img.mountedarcherstandl.src = '/client/img/chars/mountedarcher/standl.png';
+Img.mountedarcherstandr = new Image();
+Img.mountedarcherstandr.src = '/client/img/chars/mountedarcher/standr.png';
+
+// walk
+Img.mountedarcherwalkd1 = new Image();
+Img.mountedarcherwalkd1.src = '/client/img/chars/mountedarcher/walkd1.png';
+Img.mountedarcherwalkd2 = new Image();
+Img.mountedarcherwalkd2.src = '/client/img/chars/mountedarcher/walkd2.png';
+Img.mountedarcherwalku1 = new Image();
+Img.mountedarcherwalku1.src = '/client/img/chars/mountedarcher/walku1.png';
+Img.mountedarcherwalku2 = new Image();
+Img.mountedarcherwalku2.src = '/client/img/chars/mountedarcher/walku2.png';
+Img.mountedarcherwalkl1 = new Image();
+Img.mountedarcherwalkl1.src = '/client/img/chars/mountedarcher/walkl1.png';
+Img.mountedarcherwalkl2 = new Image();
+Img.mountedarcherwalkl2.src = '/client/img/chars/mountedarcher/walkl2.png';
+Img.mountedarcherwalkr1 = new Image();
+Img.mountedarcherwalkr1.src = '/client/img/chars/mountedarcher/walkr1.png';
+Img.mountedarcherwalkr2 = new Image();
+Img.mountedarcherwalkr2.src = '/client/img/chars/mountedarcher/walkr2.png';
+
+var mountedarcherwalkd = [Img.mountedarcherwalkd1,Img.mountedarcherwalkd2];
+var mountedarcherwalku = [Img.mountedarcherwalku1,Img.mountedarcherwalku2];
+var mountedarcherwalkl = [Img.mountedarcherwalkl1,Img.mountedarcherwalkl2];
+var mountedarcherwalkr = [Img.mountedarcherwalkr1,Img.mountedarcherwalkr2];
+
+// attack
+Img.mountedarcherattackd = new Image();
+Img.mountedarcherattackd.src = '/client/img/chars/mountedarcher/attackd.png';
+Img.mountedarcherattacku = new Image();
+Img.mountedarcherattacku.src = '/client/img/chars/mountedarcher/attacku.png';
+Img.mountedarcherattackl = new Image();
+Img.mountedarcherattackl.src = '/client/img/chars/mountedarcher/attackl.png';
+Img.mountedarcherattackr = new Image();
+Img.mountedarcherattackr.src = '/client/img/chars/mountedarcher/attackr.png';
+
+var mountedarcher = {
+  facedown: Img.mountedarcherstandd,
+  faceup: Img.mountedarcherstandu,
+  faceleft: Img.mountedarcherstandl,
+  faceright: Img.mountedarcherstandr,
+  walkdown: mountedarcherwalkd,
+  walkup: mountedarcherwalku,
+  walkleft: mountedarcherwalkl,
+  walkright: mountedarcherwalkr,
+  attackdb: Img.mountedarcherattackd,
+  attackub: Img.mountedarcherattacku,
+  attacklb: Img.mountedarcherattackl,
+  attackrb: Img.mountedarcherattackr
 };
 
 // hero
@@ -1233,124 +1471,6 @@ var templar = {
   attacku: Img.templarattacku,
   attackl: Img.templarattackl,
   attackr: Img.templarattackr
-};
-
-// scout
-// stand
-Img.scoutstandd = new Image();
-Img.scoutstandd.src = '/client/img/chars/scout/standd.png';
-Img.scoutstandu = new Image();
-Img.scoutstandu.src = '/client/img/chars/scout/standu.png';
-Img.scoutstandl = new Image();
-Img.scoutstandl.src = '/client/img/chars/scout/standl.png';
-Img.scoutstandr = new Image();
-Img.scoutstandr.src = '/client/img/chars/scout/standr.png';
-
-// walk
-Img.scoutwalkd1 = new Image();
-Img.scoutwalkd1.src = '/client/img/chars/scout/walkd1.png';
-Img.scoutwalkd2 = new Image();
-Img.scoutwalkd2.src = '/client/img/chars/scout/walkd2.png';
-Img.scoutwalku1 = new Image();
-Img.scoutwalku1.src = '/client/img/chars/scout/walku1.png';
-Img.scoutwalku2 = new Image();
-Img.scoutwalku2.src = '/client/img/chars/scout/walku2.png';
-Img.scoutwalkl1 = new Image();
-Img.scoutwalkl1.src = '/client/img/chars/scout/walkl1.png';
-Img.scoutwalkl2 = new Image();
-Img.scoutwalkl2.src = '/client/img/chars/scout/walkl2.png';
-Img.scoutwalkr1 = new Image();
-Img.scoutwalkr1.src = '/client/img/chars/scout/walkr1.png';
-Img.scoutwalkr2 = new Image();
-Img.scoutwalkr2.src = '/client/img/chars/scout/walkr2.png';
-
-var scoutwalkd = [Img.scoutwalkd1,Img.scoutwalkd2];
-var scoutwalku = [Img.scoutwalku1,Img.scoutwalku2];
-var scoutwalkl = [Img.scoutwalkl1,Img.scoutwalkl2];
-var scoutwalkr = [Img.scoutwalkr1,Img.scoutwalkr2];
-
-// attack
-Img.scoutattackd = new Image();
-Img.scoutattackd.src = '/client/img/chars/scout/attackd.png';
-Img.scoutattacku = new Image();
-Img.scoutattacku.src = '/client/img/chars/scout/attacku.png';
-Img.scoutattackl = new Image();
-Img.scoutattackl.src = '/client/img/chars/scout/attackl.png';
-Img.scoutattackr = new Image();
-Img.scoutattackr.src = '/client/img/chars/scout/attackr.png';
-
-var scout = {
-  facedown: Img.scoutstandd,
-  faceup: Img.scoutstandu,
-  faceleft: Img.scoutstandl,
-  faceright: Img.scoutstandr,
-  walkdown: scoutwalkd,
-  walkup: scoutwalku,
-  walkleft: scoutwalkl,
-  walkright: scoutwalkr,
-  attackd: Img.scoutattackd,
-  attacku: Img.scoutattacku,
-  attackl: Img.scoutattackl,
-  attackr: Img.scoutattackr
-};
-
-// mountedarcher
-// stand
-Img.mountedarcherstandd = new Image();
-Img.mountedarcherstandd.src = '/client/img/chars/mountedarcher/standd.png';
-Img.mountedarcherstandu = new Image();
-Img.mountedarcherstandu.src = '/client/img/chars/mountedarcher/standu.png';
-Img.mountedarcherstandl = new Image();
-Img.mountedarcherstandl.src = '/client/img/chars/mountedarcher/standl.png';
-Img.mountedarcherstandr = new Image();
-Img.mountedarcherstandr.src = '/client/img/chars/mountedarcher/standr.png';
-
-// walk
-Img.mountedarcherwalkd1 = new Image();
-Img.mountedarcherwalkd1.src = '/client/img/chars/mountedarcher/walkd1.png';
-Img.mountedarcherwalkd2 = new Image();
-Img.mountedarcherwalkd2.src = '/client/img/chars/mountedarcher/walkd2.png';
-Img.mountedarcherwalku1 = new Image();
-Img.mountedarcherwalku1.src = '/client/img/chars/mountedarcher/walku1.png';
-Img.mountedarcherwalku2 = new Image();
-Img.mountedarcherwalku2.src = '/client/img/chars/mountedarcher/walku2.png';
-Img.mountedarcherwalkl1 = new Image();
-Img.mountedarcherwalkl1.src = '/client/img/chars/mountedarcher/walkl1.png';
-Img.mountedarcherwalkl2 = new Image();
-Img.mountedarcherwalkl2.src = '/client/img/chars/mountedarcher/walkl2.png';
-Img.mountedarcherwalkr1 = new Image();
-Img.mountedarcherwalkr1.src = '/client/img/chars/mountedarcher/walkr1.png';
-Img.mountedarcherwalkr2 = new Image();
-Img.mountedarcherwalkr2.src = '/client/img/chars/mountedarcher/walkr2.png';
-
-var mountedarcherwalkd = [Img.mountedarcherwalkd1,Img.mountedarcherwalkd2];
-var mountedarcherwalku = [Img.mountedarcherwalku1,Img.mountedarcherwalku2];
-var mountedarcherwalkl = [Img.mountedarcherwalkl1,Img.mountedarcherwalkl2];
-var mountedarcherwalkr = [Img.mountedarcherwalkr1,Img.mountedarcherwalkr2];
-
-// attack
-Img.mountedarcherattackd = new Image();
-Img.mountedarcherattackd.src = '/client/img/chars/mountedarcher/attackd.png';
-Img.mountedarcherattacku = new Image();
-Img.mountedarcherattacku.src = '/client/img/chars/mountedarcher/attacku.png';
-Img.mountedarcherattackl = new Image();
-Img.mountedarcherattackl.src = '/client/img/chars/mountedarcher/attackl.png';
-Img.mountedarcherattackr = new Image();
-Img.mountedarcherattackr.src = '/client/img/chars/mountedarcher/attackr.png';
-
-var mountedarcher = {
-  facedown: Img.mountedarcherstandd,
-  faceup: Img.mountedarcherstandu,
-  faceleft: Img.mountedarcherstandl,
-  faceright: Img.mountedarcherstandr,
-  walkdown: mountedarcherwalkd,
-  walkup: mountedarcherwalku,
-  walkleft: mountedarcherwalkl,
-  walkright: mountedarcherwalkr,
-  attackdb: Img.mountedarcherattackd,
-  attackub: Img.mountedarcherattacku,
-  attacklb: Img.mountedarcherattackl,
-  attackrb: Img.mountedarcherattackr
 };
 
 // cavalry

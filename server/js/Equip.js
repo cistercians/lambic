@@ -1,122 +1,203 @@
 equip = {
   // weapons
   huntingknife:{
-    name: 'hunting knife',
+    name: 'HuntingKnife',
     type: 'dagger',
-    dmg:15
+    dmg:15,
+    unequip:function(id){
+      Player.list[i].gear.
+      Player.list[id].inventory.huntingknife++;
+    }
   },
   dague:{
-    name: 'dague',
+    name: 'Dague',
     type: 'dagger',
-    dmg:20
+    dmg:20,
+    unequip:function(id){
+      Player.list[id].inventory.dague++;
+    }
   },
-  baselard:{
-    name: 'baselard',
+  rondel:{
+    name: 'Rondel',
     type: 'dagger',
-    dmg:25
+    dmg:25,
+    unequip:function(id){
+      Player.list[id].inventory.rondel++;
+    }
   },
   misericorde:{
-    name: 'misericorde',
+    name: 'Misericorde',
     type: 'dagger',
-    dmg:40
+    dmg:40,
+    unequip:function(id){
+      Player.list[id].inventory.misericorde++;
+    }
   },
   bastardsword:{
-    name: 'bastard sword',
+    name: 'BastardSword',
     type: 'sword',
-    dmg:45
+    dmg:45,
+    unequip:function(id){
+      Player.list[id].inventory.bastardsword++;
+    }
   },
   longsword:{
-    name: 'longsword',
+    name: 'Longsword',
     type: 'sword',
-    dmg:50
+    dmg:50,
+    unequip:function(id){
+      Player.list[id].inventory.longsword++;
+    }
   },
   zweihander:{
-    name: 'zweihander',
+    name: 'Zweihander',
     type: 'sword',
-    dmg:55
+    dmg:55,
+    unequip:function(id){
+      Player.list[id].inventory.zweihander++;
+    }
   },
   morallta:{
-    name: 'morallta',
+    name: 'Morallta',
     type: 'sword',
-    dmg:70
+    dmg:70,
+    unequip:function(id){
+      Player.list[id].inventory.morallta++;
+    }
   },
   bow:{
-    name: 'bow',
+    name: 'Bow',
     type: 'bow',
+    unequip:function(id){
+      Player.list[id].inventory.bow++;
+    }
   },
   welshlongbow:{
-    name: 'longbow',
-    type: 'bow'
+    name: 'WelshLongbow',
+    type: 'bow',
+    unequip:function(id){
+      Player.list[id].inventory.welshlongbow++;
+    }
   },
   knightlance:{
-    name: 'steel lance',
+    name: 'KnightLance',
     type: 'lance',
-    dmg:75
+    dmg:75,
+    unequip:function(id){
+      Player.list[id].inventory.knightlance++;
+    }
   },
   rusticlance:{
-    name: 'rustic lance',
+    name: 'RusticLance',
     type: 'lance',
-    dmg:75
+    dmg:75,
+    unequip:function(id){
+      Player.list[id].inventory.rusticlance++;
+    }
   },
   paladinlance:{
-    name: 'paladin lance',
+    name: 'PaladinLance',
     type: 'lance',
-    dmg:100
+    dmg:100,
+    unequip:function(id){
+      Player.list[id].inventory.paladinlance++;
+    }
   },
 
   // armor
   brigandine:{
-    name: 'brigandine',
-    type: 'leather'
+    name: 'Brigandine',
+    type: 'leather',
+    unequip:function(id){
+      Player.list[id].inventory.brigandine++;
+    }
   },
   lamellar:{
-    name: 'brigandine',
-    type: 'leather'
+    name: 'Lamellar',
+    type: 'leather',
+    unequip:function(id){
+      Player.list[id].inventory.lamellar++;
+    }
   },
   maille:{
-    name: 'iron mail',
-    type: 'chainmail'
+    name: 'Maille',
+    type: 'chainmail',
+    unequip:function(id){
+      Player.list[id].inventory.maille++;
+    }
   },
   hauberk:{
-    name: 'steel mail',
-    type: 'chainmail'
+    name: 'Hauberk',
+    type: 'chainmail',
+    unequip:function(id){
+      Player.list[id].inventory.hauberk++;
+    }
   },
   brynja:{
-    name: 'brynja',
-    type: 'chainmail'
+    name: 'Brynja',
+    type: 'chainmail',
+    unequip:function(id){
+      Player.list[id].inventory.brynja++;
+    }
   },
   cuirass:{
-    name: 'cuirass',
-    type: 'plate'
+    name: 'Cuirass',
+    type: 'plate',
+    unequip:function(id){
+      Player.list[id].inventory.cuirass++;
+    }
   },
   steelplate:{
-    name: 'steel plate',
-    type: 'plate'
-  },
-  gothicplate:{
-    name: 'gothic plate',
-    type: 'plate'
+    name: 'SteelPlate',
+    type: 'plate',
+    unequip:function(id){
+      Player.list[id].inventory.steelplate++;
+    }
   },
   greenwichplate:{
-    name: 'greenwich',
-    type: 'plate'
+    name: 'GreenwichPlate',
+    type: 'plate',
+    unequip:function(id){
+      Player.list[id].inventory.greenwichplate++;
+    }
+  },
+  gothicplate:{
+    name: 'GothicPlate',
+    type: 'plate',
+    unequip:function(id){
+      Player.list[id].inventory.gothicplate++;
+    }
   },
   clericrobe:{
-    name: 'cleric robe',
-    type: 'cloth'
+    name: 'ClericRobe',
+    type: 'cloth',
+    unequip:function(id){
+      Player.list[id].inventory.clericrobe++;
+    }
   },
-  monkrobe:{
-    name: 'monk robe',
-    type: 'cloth'
+  monkcowl:{
+    name: 'MonkCowl',
+    type: 'cloth',
+    unequip:function(id){
+      Player.list[id].inventory.monkcowl++;
+    }
   },
-  blackrobe:{
-    name: 'black robe',
-    type: 'cloth'
+  blackcloak:{
+    name: 'BlackCloak',
+    type: 'cloth',
+    unequip:function(id){
+      Player.list[id].inventory.blackcloak++;
+    }
   },
 
-  // trinkets
+  // head
   crown:{
-    name: 'crown',
-    type: 'trinket'
+    name: 'Crown',
+    type: 'head',
+    unequip:function(id){
+      Player.list[id].inventory.crown++;
+    }
   }
+
+  // accessories
 }

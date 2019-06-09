@@ -129,6 +129,7 @@ var Player = function(initPack){
   self.class = initPack.class;
   self.rank = initPack.rank;
   self.gear = initPack.gear;
+  self.inventory = initPack.inventory;
   self.facing = 'down';
   self.stealthed = initPack.stealthed;
   self.visible = initPack.visible;
@@ -143,6 +144,7 @@ var Player = function(initPack){
   self.chopping = false;
   self.mining = false;
   self.farming = false;
+  self.building = false;
   self.fishing = false;
   self.hp = initPack.hp;
   self.hpMax = initPack.hpMax;
@@ -245,39 +247,41 @@ var Player = function(initPack){
 
     // character sprite
     if(self.pressingAttack && self.type === 'player' && self.gear.weapon){
-      if(self.gear.weapon[1] === 'bow'){
-        if(self.angle > 45 && self.angle <= 115){
-          ctx.drawImage(
-            self.sprite.attackdb,
-            x,
-            y,
-            self.spriteSize,
-            self.spriteSize
-          );
-        } else if(self.angle > -135 && self.angle <= -15){
-          ctx.drawImage(
-            self.sprite.attackub,
-            x,
-            y,
-            self.spriteSize,
-            self.spriteSize
-          );
-        } else if(self.angle > 115 || self.angle <= -135){
-          ctx.drawImage(
-            self.sprite.attacklb,
-            x,
-            y,
-            self.spriteSize,
-            self.spriteSize
-          );
-        } else if(self.angle > -15 || self.angle <= 45){
-          ctx.drawImage(
-            self.sprite.attackrb,
-            x,
-            y,
-            self.spriteSize,
-            self.spriteSize
-          );
+      if(self.gear.weapon.type === 'bow'){
+        if(self.inventory.arrows > 0){
+          if(self.angle > 45 && self.angle <= 115){
+            ctx.drawImage(
+              self.sprite.attackdb,
+              x,
+              y,
+              self.spriteSize,
+              self.spriteSize
+            );
+          } else if(self.angle > -135 && self.angle <= -15){
+            ctx.drawImage(
+              self.sprite.attackub,
+              x,
+              y,
+              self.spriteSize,
+              self.spriteSize
+            );
+          } else if(self.angle > 115 || self.angle <= -135){
+            ctx.drawImage(
+              self.sprite.attacklb,
+              x,
+              y,
+              self.spriteSize,
+              self.spriteSize
+            );
+          } else if(self.angle > -15 || self.angle <= 45){
+            ctx.drawImage(
+              self.sprite.attackrb,
+              x,
+              y,
+              self.spriteSize,
+              self.spriteSize
+            );
+          }
         }
       } else {
         if(self.facing === 'down'){
@@ -539,7 +543,7 @@ var Item = function(initPack){
   self.qty = initPack.qty;
 
   self.draw = function(){
-    if(self.type === 'wood'){
+    if(self.type === 'Wood'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 9){
@@ -567,7 +571,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'stone'){
+    } else if(self.type === 'Stone'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 9){
@@ -587,7 +591,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'grain'){
+    } else if(self.type === 'Grain'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 9){
@@ -615,7 +619,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'flour'){
+    } else if(self.type === 'Flour'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -625,7 +629,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'dough'){
+    } else if(self.type === 'Dough'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -635,7 +639,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'iron ore'){
+    } else if(self.type === 'IronOre'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -645,7 +649,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'iron bar'){
+    } else if(self.type === 'IronBar'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 4){
@@ -665,7 +669,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'steel bar'){
+    } else if(self.type === 'SteelBar'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 4){
@@ -685,7 +689,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'boar hide'){
+    } else if(self.type === 'BoarHide'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 4){
@@ -705,7 +709,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'leather'){
+    } else if(self.type === 'Leather'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 4){
@@ -725,7 +729,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'silver ore'){
+    } else if(self.type === 'SilverOre'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -735,7 +739,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'silver'){
+    } else if(self.type === 'Silver'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 999){
@@ -811,7 +815,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'gold ore'){
+    } else if(self.type === 'GoldOre'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -821,7 +825,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'gold'){
+    } else if(self.type === 'Gold'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 999){
@@ -897,7 +901,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'diamond'){
+    } else if(self.type === 'Diamond'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 2){
@@ -917,7 +921,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'hunting knife'){
+    } else if(self.type === 'HuntingKnife'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -927,7 +931,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    }else if(self.type === 'dague'){
+    }else if(self.type === 'Dague'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -937,7 +941,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'baselard'){
+    } else if(self.type === 'Rondel'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -947,7 +951,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'misericorde'){
+    } else if(self.type === 'Misericorde'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -957,7 +961,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'bastard sword'){
+    } else if(self.type === 'BastardSword'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -967,7 +971,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'longsword'){
+    } else if(self.type === 'Longsword'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -977,7 +981,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'zweihander'){
+    } else if(self.type === 'Zweihander'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -987,7 +991,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'morallta'){
+    } else if(self.type === 'Morallta'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -997,7 +1001,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'bow'){
+    } else if(self.type === 'Bow'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1007,7 +1011,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'welsh longbow'){
+    } else if(self.type === 'WelshLongbow'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1017,7 +1021,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'knight lance'){
+    } else if(self.type === 'KnightLance'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1027,7 +1031,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'rustic lance'){
+    } else if(self.type === 'RusticLance'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1037,7 +1041,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'paladin lance'){
+    } else if(self.type === 'PaladinLance'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1047,7 +1051,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'brigandine'){
+    } else if(self.type === 'Brigandine'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1057,7 +1061,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'lamellar'){
+    } else if(self.type === 'Lamellar'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1067,7 +1071,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'maille'){
+    } else if(self.type === 'Maille'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1077,7 +1081,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'hauberk'){
+    } else if(self.type === 'Hauberk'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1087,7 +1091,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'brynja'){
+    } else if(self.type === 'Brynja'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1097,7 +1101,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'cuirass'){
+    } else if(self.type === 'Cuirass'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1107,7 +1111,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'steel plate'){
+    } else if(self.type === 'SteelPlate'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1117,7 +1121,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'greenwich plate'){
+    } else if(self.type === 'GreenwichPlate'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1127,7 +1131,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'gothic plate'){
+    } else if(self.type === 'GothicPlate'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1137,7 +1141,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'cleric robe'){
+    } else if(self.type === 'ClericRobe'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1147,7 +1151,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'monk robe'){
+    } else if(self.type === 'MonkCowl'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1157,7 +1161,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'black robe'){
+    } else if(self.type === 'BlackCloak'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1167,7 +1171,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'tome'){
+    } else if(self.type === 'Tome'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1177,7 +1181,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'runic scroll'){
+    } else if(self.type === 'RunicScroll'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1187,7 +1191,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'sacred text'){
+    } else if(self.type === 'SacredText'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1197,7 +1201,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'stone axe' || self.type === 'iron axe'){
+    } else if(self.type === 'Stoneaxe' || self.type === 'IronAxe'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1207,7 +1211,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'pickaxe'){
+    } else if(self.type === 'Pickaxe'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1217,7 +1221,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'key'){
+    } else if(self.type === 'Key'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1227,7 +1231,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'torch'){
+    } else if(self.type === 'Torch'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1237,7 +1241,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'lit torch'){
+    } else if(self.type === 'LitTorch'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1247,7 +1251,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'wtorch'){
+    } else if(self.type === 'WallTorch'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1257,7 +1261,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'fire'){
+    } else if(self.type === 'CampFire'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1267,7 +1271,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'firepit'){
+    } else if(self.type === 'Firepit'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1277,7 +1281,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'fireplace'){
+    } else if(self.type === 'Fireplace'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1287,7 +1291,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'forge'){
+    } else if(self.type === 'Forge'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1297,7 +1301,7 @@ var Item = function(initPack){
       tileSize,
       tileSize * 1.5
       );
-    } else if(self.type === 'barrel'){
+    } else if(self.type === 'Barrel'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1307,7 +1311,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'crates'){
+    } else if(self.type === 'Crates'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1317,7 +1321,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'bookshelf'){
+    } else if(self.type === 'Bookshelf'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1327,7 +1331,7 @@ var Item = function(initPack){
       tileSize,
       tileSize * 1.5
       );
-    } else if(self.type === 'suit armor'){
+    } else if(self.type === 'SuitArmor'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1337,7 +1341,7 @@ var Item = function(initPack){
       tileSize,
       tileSize * 1.5
       );
-    } else if(self.type === 'anvil'){
+    } else if(self.type === 'Anvil'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1347,7 +1351,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'runestone'){
+    } else if(self.type === 'Runestone'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1357,7 +1361,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'dummy'){
+    } else if(self.type === 'Dummy'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1367,7 +1371,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'cross'){
+    } else if(self.type === 'Cross'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1377,7 +1381,7 @@ var Item = function(initPack){
       tileSize * 2,
       tileSize * 1.5
       );
-    } else if(self.type === 'skeleton1'){
+    } else if(self.type === 'Skeleton1'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1387,7 +1391,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'skeleton2'){
+    } else if(self.type === 'Skeleton2'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1397,7 +1401,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'goods1'){
+    } else if(self.type === 'Goods1'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1407,7 +1411,7 @@ var Item = function(initPack){
       tileSize,
       tileSize * 1.5
       );
-    } else if(self.type === 'goods2'){
+    } else if(self.type === 'Goods2'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1417,7 +1421,7 @@ var Item = function(initPack){
       tileSize,
       tileSize * 1.5
       );
-    } else if(self.type === 'goods3'){
+    } else if(self.type === 'Goods3'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1427,7 +1431,7 @@ var Item = function(initPack){
       tileSize,
       tileSize * 1.5
       );
-    } else if(self.type === 'goods4'){
+    } else if(self.type === 'Goods4'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1437,7 +1441,7 @@ var Item = function(initPack){
       tileSize,
       tileSize * 1.5
       );
-    } else if(self.type === 'stash1'){
+    } else if(self.type === 'Stash1'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1447,7 +1451,7 @@ var Item = function(initPack){
       tileSize,
       tileSize * 1.5
       );
-    } else if(self.type === 'stash2'){
+    } else if(self.type === 'Stash2'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1457,7 +1461,7 @@ var Item = function(initPack){
       tileSize,
       tileSize * 1.5
       );
-    } else if(self.type === 'desk'){
+    } else if(self.type === 'Desk'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1467,7 +1471,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'swordrack'){
+    } else if(self.type === 'Swordrack'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1477,7 +1481,7 @@ var Item = function(initPack){
       tileSize,
       tileSize * 1.5
       );
-    } else if(self.type === 'bed'){
+    } else if(self.type === 'Bed'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1487,7 +1491,7 @@ var Item = function(initPack){
       tileSize * 2,
       tileSize * 2
       );
-    } else if(self.type === 'jail'){
+    } else if(self.type === 'Jail'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1497,7 +1501,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'jaildoor'){
+    } else if(self.type === 'JailDoor'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1507,7 +1511,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'chains'){
+    } else if(self.type === 'Chains'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1517,7 +1521,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'throne'){
+    } else if(self.type === 'Throne'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1527,7 +1531,7 @@ var Item = function(initPack){
       tileSize,
       tileSize * 1.5
       );
-    } else if(self.type === 'banner'){
+    } else if(self.type === 'Banner'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1537,7 +1541,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'stag head'){
+    } else if(self.type === 'StagHead'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1547,7 +1551,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'blood'){ // MUST ONLY SEE WITH TRACKER SKILL !!!
+    } else if(self.type === 'Blood'){ // MUST ONLY SEE WITH TRACKER SKILL !!!
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1557,7 +1561,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'chest'){
+    } else if(self.type === 'Chest'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1567,7 +1571,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'locked chest'){
+    } else if(self.type === 'LockedChest'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1577,7 +1581,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'bread'){
+    } else if(self.type === 'Bread'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 4){
@@ -1597,7 +1601,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'fish'){
+    } else if(self.type === 'Fish'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 4){
@@ -1617,7 +1621,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'lamb'){
+    } else if(self.type === 'Lamb'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 4){
@@ -1637,7 +1641,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'boar meat'){
+    } else if(self.type === 'BoarMeat'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 4){
@@ -1657,7 +1661,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'venison'){
+    } else if(self.type === 'Venison'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 4){
@@ -1677,7 +1681,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'poached fish'){
+    } else if(self.type === 'PoachedFish'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 4){
@@ -1697,7 +1701,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'lamb chop'){
+    } else if(self.type === 'LambChop'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 4){
@@ -1717,7 +1721,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'boar shank'){
+    } else if(self.type === 'BoarShank'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 4){
@@ -1737,7 +1741,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'venison loin'){
+    } else if(self.type === 'VenisonLoin'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 4){
@@ -1757,7 +1761,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'mead' || self.type === 'saison'){
+    } else if(self.type === 'Mead' || self.type === 'Saison'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 2){
@@ -1777,7 +1781,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'flanders red ale' || self.type === 'biere de garde'){
+    } else if(self.type === 'FlandersRedAle' || self.type === 'BiereDeGarde'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 2){
@@ -1797,7 +1801,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'bordeaux' || self.type === 'bourgogne' || self.type === 'chianti'){
+    } else if(self.type === 'Bordeaux' || self.type === 'Bourgogne' || self.type === 'Chianti'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 2){
@@ -1817,7 +1821,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'crown'){
+    } else if(self.type === 'Crown'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1827,7 +1831,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'arrows'){
+    } else if(self.type === 'Arrows'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1837,7 +1841,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'world map'){
+    } else if(self.type === 'WorldMap'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1847,7 +1851,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'relic'){
+    } else if(self.type === 'Relic'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1930,6 +1934,8 @@ socket.on('update',function(data){
         p.rank = pack.rank;
       if(pack.gear !== undefined)
         p.gear = pack.gear;
+      if(pack.inventory !== undefined)
+        p.inventory = pack.inventory;
       if(pack.spriteSize !== undefined)
         p.spriteSize = pack.spriteSize;
       if(pack.facing !== undefined)
@@ -1960,6 +1966,8 @@ socket.on('update',function(data){
         p.mining = pack.mining;
       if(pack.farming !== undefined)
         p.farming = pack.farming;
+      if(pack.building !== undefined)
+        p.building = pack.building;
       if(pack.fishing !== undefined)
         p.fishing = pack.fishing;
       if(pack.hp !== undefined)
@@ -1975,73 +1983,73 @@ socket.on('update',function(data){
       if(pack.breathMax !== undefined)
         p.breathMax = pack.breathMax;
 
-      if(p.class === 'sheep'){
+      if(p.class === 'Sheep'){
         p.sprite = sheep;
-      } else if(p.class === 'deer'){
+      } else if(p.class === 'Deer'){
         p.sprite = deer;
-      } else if(p.class === 'boar'){
+      } else if(p.class === 'Boar'){
         p.sprite = boar;
-      } else if(p.class === 'wolf'){
+      } else if(p.class === 'Wolf'){
         p.sprite = wolf;
-      } else if(p.class === 'falcon'){
+      } else if(p.class === 'Falcon'){
         p.sprite = falcon;
-      } else if(p.class === 'serf'){
+      } else if(p.class === 'Serf'){
         p.sprite = maleserf;
-      } else if(p.class === 'rogue'){
+      } else if(p.class === 'Rogue'){
         p.sprite = rogue;
-      } else if(p.class === 'hunter'){
+      } else if(p.class === 'Hunter'){
         p.sprite = hunter;
-      } else if(p.class === 'scout'){
+      } else if(p.class === 'Scout'){
         p.sprite = scout;
-      } else if(p.class === 'ranger'){
+      } else if(p.class === 'Ranger'){
         p.sprite = ranger;
-      } else if(p.class === 'swordsman'){
+      } else if(p.class === 'Swordsman'){
         p.sprite = swordsman;
-      } else if(p.class === 'archer'){
+      } else if(p.class === 'Archer'){
         p.sprite = archer;
-      } else if(p.class === 'horseman'){
+      } else if(p.class === 'Horseman'){
         p.sprite = horseman;
-      } else if(p.class === 'mounted archer'){
+      } else if(p.class === 'MountedArcher'){
         p.sprite = mountedarcher;
-      } else if(p.class === 'hero'){
+      } else if(p.class === 'Hero'){
         p.sprite = hero;
-      } else if(p.class === 'templar'){
+      } else if(p.class === 'Templar'){
         p.sprite = templar;
-      } else if(p.class === 'cavalry'){
+      } else if(p.class === 'Cavalry'){
         p.sprite = cavalry;
-      } else if(p.class === 'knight'){
+      } else if(p.class === 'Knight'){
         p.sprite = knight;
-      } else if(p.class === 'lancer'){
+      } else if(p.class === 'Lancer'){
         p.sprite = lancer;
-      } else if(p.class === 'crusader'){
+      } else if(p.class === 'Crusader'){
         p.sprite = crusader;
-      } else if(p.class === 'priest'){
+      } else if(p.class === 'Priest'){
         p.sprite = monk;
-      } else if(p.class === 'mage'){
+      } else if(p.class === 'Mage'){
         p.sprite = mage;
-      } else if(p.class === 'warlock'){
+      } else if(p.class === 'Warlock'){
         p.sprite = warlock;
-      } else if(p.class === 'serf m'){
+      } else if(p.class === 'SerfM'){
         p.sprite = maleserf;
-      } else if(p.class === 'serf f'){
+      } else if(p.class === 'SerfF'){
         p.sprite = femaleserf;
-      } else if(p.class === 'innkeeper'){
+      } else if(p.class === 'Innkeeper'){
         p.sprite = innkeeper;
-      } else if(p.class === 'monk'){
+      } else if(p.class === 'Monk'){
         p.sprite = monk;
-      } else if(p.class === 'bishop'){
+      } else if(p.class === 'Bishop'){
         p.sprite = bishop;
-      } else if(p.class === 'friar'){
+      } else if(p.class === 'Friar'){
         p.sprite = friar;
-      } else if(p.class === 'conscript'){
+      } else if(p.class === 'Conscript'){
         p.sprite = conscript;
-      } else if(p.class === 'footsoldier'){
+      } else if(p.class === 'Footsoldier'){
         p.sprite = footsoldier;
-      } else if(p.class === 'skirmisher'){
+      } else if(p.class === 'Skirmisher'){
         p.sprite = skirmisher;
-      } else if(p.class === 'cavalier'){
+      } else if(p.class === 'Cavalier'){
         p.sprite = cavalier;
-      } else if(p.class === 'general'){
+      } else if(p.class === 'General'){
         p.sprite = general;
       }
     }
@@ -2271,41 +2279,41 @@ socket.on('newBuilding',function(data){
 socket.on('sprite',function(data){
   if(data === 'serf'){
     Player.list[selfId].sprite = maleserf;
-  } else if(data === 'rogue'){
+  } else if(data === 'Rogue'){
     Player.list[selfId].sprite = rogue;
-  } else if(data === 'hunter'){
+  } else if(data === 'Hunter'){
     Player.list[selfId].sprite = hunter;
-  } else if(data === 'scout'){
+  } else if(data === 'Scout'){
     Player.list[selfId].sprite = scout;
-  } else if(data === 'ranger'){
+  } else if(data === 'Ranger'){
     Player.list[selfId].sprite = ranger;
-  } else if(data === 'swordsman'){
+  } else if(data === 'Swordsman'){
     Player.list[selfId].sprite = swordsman;
-  } else if(data === 'archer'){
+  } else if(data === 'Archer'){
     Player.list[selfId].sprite = archer;
-  } else if(data === 'scout'){
+  } else if(data === 'Scout'){
     Player.list[selfId].sprite = scout;
-  } else if(data === 'horseman'){
+  } else if(data === 'Horseman'){
     Player.list[selfId].sprite = horseman;
-  } else if(data === 'mounted archer'){
+  } else if(data === 'MountedArcher'){
     Player.list[selfId].sprite = mountedarcher;
-  } else if(data === 'hero'){
+  } else if(data === 'Hero'){
     Player.list[selfId].sprite = hero;
-  } else if(data === 'templar'){
+  } else if(data === 'Templar'){
     Player.list[selfId].sprite = templar;
-  } else if(data === 'cavalry'){
+  } else if(data === 'Cavalry'){
     Player.list[selfId].sprite = cavalry;
-  } else if(data === 'knight'){
+  } else if(data === 'Knight'){
     Player.list[selfId].sprite = knight;
-  } else if(data === 'lancer'){
+  } else if(data === 'Lancer'){
     Player.list[selfId].sprite = lancer;
-  } else if(data === 'crusader'){
+  } else if(data === 'Crusader'){
     Player.list[selfId].sprite = crusader;
-  } else if(data === 'priest'){
+  } else if(data === 'Priest'){
     Player.list[selfId].sprite = monk;
-  } else if(data === 'mage'){
+  } else if(data === 'Mage'){
     Player.list[selfId].sprite = mage;
-  } else if(data === 'warlock'){
+  } else if(data === 'Warlock'){
     Player.list[selfId].sprite = warlock;
   }
 });
@@ -4301,7 +4309,23 @@ var renderMap = function(){
         var xOffset = viewport.offset[0] + (c * tileSize);
         var yOffset = viewport.offset[1] + (r * tileSize);
         var tile = getTile(0, c, r);
-        if(tile !== 0){
+        if(tile === 20){
+          ctx.drawImage(
+            Img.woodfloor, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile === 0){
+          ctx.drawImage(
+            Img.sand, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else {
           ctx.drawImage(
             Img.cavewall, // image
             xOffset, // target x
@@ -5351,16 +5375,53 @@ document.onkeydown = function(event){
     } else if(event.keyCode === 32){ // space
       socket.emit('keyPress',{inputId:'attack',state:true});
       Player.list[selfId].pressingAttack = true;
-    } else if(event.keyCode === 84){ // t
-      socket.emit('keyPress',{inputId:'t',state:true});
     } else if(event.keyCode === 69){ // e
        socket.emit('keyPress',{inputId:'e',state:true});
+    } else if(event.keyCode === 84){ // t
+      socket.emit('keyPress',{inputId:'t',state:true});
+    } else if(event.keyCode === 73){ // i
+      socket.emit('keyPress',{inputId:'i',state:true});
+    } else if(event.keyCode === 80){ // p
+      socket.emit('keyPress',{inputId:'p',state:true});
+    } else if(event.keyCode === 70){ // f
+      socket.emit('keyPress',{inputId:'f',state:true});
+    } else if(event.keyCode === 72){ // h
+      socket.emit('keyPress',{inputId:'h',state:true});
+    } else if(event.keyCode === 75){ // k
+      socket.emit('keyPress',{inputId:'k',state:true});
+    } else if(event.keyCode === 76){ // l
+      socket.emit('keyPress',{inputId:'l',state:true});
+    } else if(event.keyCode === 88){ // x
+      socket.emit('keyPress',{inputId:'x',state:true});
+    } else if(event.keyCode === 67){ // c
+      socket.emit('keyPress',{inputId:'c',state:true});
+    } else if(event.keyCode === 66){ // b
+      socket.emit('keyPress',{inputId:'b',state:true});
+    } else if(event.keyCode === 78){ // n
+      socket.emit('keyPress',{inputId:'n',state:true});
+    } else if(event.keyCode === 77){ // m
+      socket.emit('keyPress',{inputId:'m',state:true});
     } else if(event.keyCode === 49){ // 1
       socket.emit('keyPress',{inputId:'1',state:true});
     } else if(event.keyCode === 50){ // 2
       socket.emit('keyPress',{inputId:'2',state:true});
-    } else if(event.keyCode === 51) // 3
+    } else if(event.keyCode === 51){ // 3
       socket.emit('keyPress',{inputId:'3',state:true});
+    } else if(event.keyCode === 52){ // 4
+      socket.emit('keyPress',{inputId:'4',state:true});
+    } else if(event.keyCode === 53){ // 5
+      socket.emit('keyPress',{inputId:'5',state:true});
+    } else if(event.keyCode === 54){ // 6
+      socket.emit('keyPress',{inputId:'6',state:true});
+    } else if(event.keyCode === 55){ // 7
+      socket.emit('keyPress',{inputId:'7',state:true});
+    } else if(event.keyCode === 56){ // 8
+      socket.emit('keyPress',{inputId:'8',state:true});
+    } else if(event.keyCode === 57){ // 9
+      socket.emit('keyPress',{inputId:'9',state:true});
+    } else if(event.keyCode === 48){ // 0
+      socket.emit('keyPress',{inputId:'0',state:true});
+    }
   }
 }
 
@@ -5380,16 +5441,52 @@ document.onkeyup = function(event){
   } else if(event.keyCode === 32){ // space
     socket.emit('keyPress',{inputId:'attack',state:false});
     Player.list[selfId].pressingAttack = false;
-  } else if(event.keyCode === 84){ // t
-    socket.emit('keyPress',{inputId:'t',state:false});
   } else if(event.keyCode === 69){ // e
     socket.emit('keyPress',{inputId:'e',state:false});
+  } else if(event.keyCode === 84){ // t
+    socket.emit('keyPress',{inputId:'t',state:false});
+  } else if(event.keyCode === 73){ // i
+    socket.emit('keyPress',{inputId:'i',state:false});
+  } else if(event.keyCode === 80){ // p
+    socket.emit('keyPress',{inputId:'p',state:false});
+  } else if(event.keyCode === 70){ // f
+    socket.emit('keyPress',{inputId:'f',state:false});
+  } else if(event.keyCode === 72){ // h
+    socket.emit('keyPress',{inputId:'h',state:false});
+  } else if(event.keyCode === 75){ // k
+    socket.emit('keyPress',{inputId:'k',state:false});
+  } else if(event.keyCode === 76){ // l
+    socket.emit('keyPress',{inputId:'l',state:false});
+  } else if(event.keyCode === 88){ // x
+    socket.emit('keyPress',{inputId:'x',state:false});
+  } else if(event.keyCode === 67){ // c
+    socket.emit('keyPress',{inputId:'c',state:false});
+  } else if(event.keyCode === 66){ // b
+    socket.emit('keyPress',{inputId:'b',state:false});
+  } else if(event.keyCode === 78){ // n
+    socket.emit('keyPress',{inputId:'n',state:false});
+  } else if(event.keyCode === 77){ // m
+    socket.emit('keyPress',{inputId:'m',state:false});
   } else if(event.keyCode === 49){ // 1
     socket.emit('keyPress',{inputId:'1',state:false});
   } else if(event.keyCode === 50){ // 2
     socket.emit('keyPress',{inputId:'2',state:false});
   } else if(event.keyCode === 51){ // 3
     socket.emit('keyPress',{inputId:'3',state:false});
+  } else if(event.keyCode === 52){ // 4
+    socket.emit('keyPress',{inputId:'4',state:false});
+  } else if(event.keyCode === 53){ // 5
+    socket.emit('keyPress',{inputId:'5',state:false});
+  } else if(event.keyCode === 54){ // 6
+    socket.emit('keyPress',{inputId:'6',state:false});
+  } else if(event.keyCode === 55){ // 7
+    socket.emit('keyPress',{inputId:'7',state:false});
+  } else if(event.keyCode === 56){ // 8
+    socket.emit('keyPress',{inputId:'8',state:false});
+  } else if(event.keyCode === 57){ // 9
+    socket.emit('keyPress',{inputId:'9',state:false});
+  } else if(event.keyCode === 48){ // 0
+    socket.emit('keyPress',{inputId:'0',state:false});
   }
 }
 

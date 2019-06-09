@@ -95,7 +95,7 @@ Character = function(param){
     diamond:0,
     huntingknife:0,
     dague:0,
-    baselard:0,
+    rondel:0,
     misericorde:0,
     bastardsword:0,
     longsword:0,
@@ -116,9 +116,8 @@ Character = function(param){
     greenwichplate:0,
     gothicplate:0,
     clericrobe:0,
-    druidrobe:0,
-    monkrobe:0,
-    blackrobe:0,
+    monkcowl:0,
+    blackcloak:0,
     tome:0,
     runicscroll:0,
     sacredtext:0,
@@ -129,7 +128,7 @@ Character = function(param){
     bread:0,
     fish:0,
     lamb:0,
-    boar:0,
+    boarmeat:0,
     venison:0,
     poachedfish:0,
     lambchop:0,
@@ -211,9 +210,9 @@ Character = function(param){
           // player death & respawn
           if(p.hp <= 0){
             p.hp = p.hpMax;
-            var spawn = randomSpawn;
+            var spawn = randomSpawnO();
             p.x = spawn[0]; // replace this
-            p.y = spawm[1]; // replace this
+            p.y = spawn[1]; // replace this
           }
         }
       }
@@ -225,9 +224,9 @@ Character = function(param){
           // player death & respawn
           if(p.hp <= 0){
             p.hp = p.hpMax;
-            var spawn = randomSpawn;
+            var spawn = randomSpawnO();
             p.x = spawn[0]; // replace this
-            p.y = spawm[1]; // replace this
+            p.y = spawn[1]; // replace this
           }
         }
       }
@@ -239,9 +238,9 @@ Character = function(param){
           // player death & respawn
           if(p.hp <= 0){
             p.hp = p.hpMax;
-            var spawn = randomSpawn;
+            var spawn = randomSpawnO();
             p.x = spawn[0]; // replace this
-            p.y = spawm[1]; // replace this
+            p.y = spawn[1]; // replace this
           }
         }
       }
@@ -253,13 +252,23 @@ Character = function(param){
           // player death & respawn
           if(p.hp <= 0){
             p.hp = p.hpMax;
-            var spawn = randomSpawn;
+            var spawn = randomSpawnO();
             p.x = spawn[0]; // replace this
-            p.y = spawm[1]; // replace this
+            p.y = spawn[1]; // replace this
           }
         }
       }
     }
+  }
+
+  self.shootArrow = function(angle){
+    Arrow({
+      parent:self.id,
+      angle:angle,
+      x:self.x,
+      y:self.y,
+      z:self.z
+    });
   }
 
   self.update = function(){
@@ -420,33 +429,36 @@ Character = function(param){
 
 Sheep = function(param){
   var self = Character(param);
-  self.class = 'sheep';
+  self.class = 'Sheep';
 }
 
 Deer = function(param){
   var self = Character(param);
-  self.class = 'deer';
+  self.class = 'Deer';
 }
 
 Boar = function(param){
   var self = Character(param);
-  self.class = 'boar';
+  self.class = 'Boar';
 }
 
 Wolf = function(param){
   var self = Character(param);
-  self.class = 'wolf';
+  self.class = 'Wolf';
 }
 
 Falcon = function(param){
   var self = Character(param);
-  self.class = 'falcon';
+  self.class = 'Falcon';
+  self.falconry = param.falconry;
   self.hp = null;
-  self.maxSpd = 2;
+  self.maxSpd = 3;
   self.spriteSize = tileSize*7;
   self.update = function(){
     if(!self.path){
-      self.path = randomSpawnO();
+      if(!self.falconry){
+        self.path = randomSpawnO();
+      }
     } else {
       var dx = self.path[0];
       var dy = self.path[1];
@@ -546,7 +558,9 @@ Falcon = function(param){
         self.pressingUp = true;
         self.facing = 'up';
       } else {
-        self.path = randomSpawnO();
+        if(!self.falconry){
+          self.path = randomSpawnO();
+        }
       }
     }
   }
@@ -557,7 +571,7 @@ Falcon = function(param){
 SerfM = function(param){
   var self = Character(param);
   self.name = param.name;
-  self.class = 'serf m';
+  self.class = 'SerfM';
   self.house = param.house;
   self.kingdom = param.kingdom;
   self.spriteSize = tileSize*1.5;
@@ -566,7 +580,7 @@ SerfM = function(param){
 SerfF = function(param){
   var self = Character(param);
   self.name = param.name;
-  self.class = 'serf f';
+  self.class = 'SerfF';
   self.house = param.house;
   self.kingdom = param.kingdom;
   self.spriteSize = tileSize*1.5;
@@ -575,7 +589,7 @@ SerfF = function(param){
 Innkeeper = function(param){
   var self = Character(param);
   self.name = param.name;
-  self.class = 'innkeeper';
+  self.class = 'Innkeeper';
   self.house = param.house;
   self.kingdom = param.kingdom;
 }
@@ -583,7 +597,7 @@ Innkeeper = function(param){
 Monk = function(param){
   var self = Character(param);
   self.name = param.name;
-  self.class = 'monk';
+  self.class = 'Monk';
   self.house = param.house;
   self.kingdom = param.kingdom;
 }
@@ -591,7 +605,7 @@ Monk = function(param){
 Bishop = function(param){
   var self = Character(param);
   self.name = param.name;
-  self.class = 'bishop';
+  self.class = 'Bishop';
   self.rank = '♝ ';
   self.house = param.house;
   self.kingdom = param.kingdom;
@@ -600,15 +614,16 @@ Bishop = function(param){
 Friar = function(param){
   var self = Character(param);
   self.name = param.name;
-  self.class = 'friar';
+  self.class = 'Friar';
   self.house = param.house;
   self.spriteSize = tileSize*1.5;
+  self.mounted = true;
 }
 
 Conscript = function(param){
   var self = Character(param);
   self.name = 'Conscript';
-  self.class = 'conscript';
+  self.class = 'Conscript';
   self.house = param.house;
   self.kingdom = param.kingdom;
 }
@@ -616,7 +631,7 @@ Conscript = function(param){
 Footsoldier = function(param){
   var self = Character(param);
   self.name = 'Footsoldier';
-  self.class = 'footsoldier';
+  self.class = 'Footsoldier';
   self.house = param.house;
   self.kingdom = param.kingdom;
   self.spriteSize = tileSize*1.5;
@@ -625,7 +640,7 @@ Footsoldier = function(param){
 Skirmisher = function(param){
   var self = Character(param);
   self.name = 'Skirmisher';
-  self.class = 'skirmisher';
+  self.class = 'Skirmisher';
   self.house = param.house;
   self.kingdom = param.kingdom;
   self.spriteSize = tileSize*1.5;
@@ -634,27 +649,38 @@ Skirmisher = function(param){
 Cavalier = function(param){
   var self = Character(param);
   self.name = 'Cavalier';
-  self.class = 'cavalier';
+  self.class = 'Cavalier';
   self.rank = '♞ ';
   self.house = param.house;
   self.kingdom = param.kingdom;
   self.spriteSize = tileSize*1.5;
+  self.mounted = true;
 }
 
 General = function(param){
   var self = Character(param);
   self.name = param.name;
-  self.class = 'general';
+  self.class = 'General';
   self.rank = '♜ ';
   self.house = param.house;
   self.kingdom = param.kingdom;
   self.spriteSize = tileSize*2;
+  self.mounted = true;
 }
 
 SwissGuard = function(param){
   var self = Character(param);
   self.name = 'Swiss Guard';
-  self.class = 'swiss guard';
+  self.class = 'SwissGuard';
+  self.house = param.house;
+  self.kingdom = 'Papal States';
+}
+
+Hospitaller = function(param){
+  var self = Character(param);
+  self.name = 'Hospitaller';
+  self.class = 'Hospitaller';
+  self.rank = '♞ ';
   self.house = param.house;
   self.kingdom = 'Papal States';
 }
@@ -662,56 +688,58 @@ SwissGuard = function(param){
 ImperialKnight = function(param){
   var self = Character(param);
   self.name = 'Imperial Knight';
-  self.class = 'imperial knight';
+  self.class = 'ImperialKnight';
   self.rank = '♞ ';
   self.house = param.house;
   self.kingdom = 'Papal States';
+  self.mounted = true;
 }
 
 Trebuchet = function(param){
   var self = Character(param);
-  self.class = 'trebuchet';
+  self.class = 'Trebuchet';
   self.house = param.house;
   self.kingdom = param.kingdom;
 }
 
 BombardCannon = function(param){
   var self = Character(param);
-  self.class = 'bombard cannon';
+  self.class = 'BombardCannon';
   self.house = param.house;
   self.kingdom = param.kingdom;
 }
 
 TradeCart = function(param){
   var self = Character(param);
-  self.class = 'trade cart';
+  self.class = 'TradeCart';
   self.house = param.house;
   self.kingdom = param.kingdom;
+  self.mounted = true;
 }
 
 Merchant = function(param){
   var self = Character(param);
-  self.class = 'merchant';
+  self.class = 'Merchant';
   self.name = param.name;
 }
 
 FishingBoat = function(param){
   var self = Character(param);
-  self.class = 'fishing boat';
+  self.class = 'FishingBoat';
   self.house = param.house;
   self.kingdom = param.kingdom;
 }
 
 CargoShip = function(param){
   var self = Character(param);
-  self.class = 'cargo ship';
+  self.class = 'CargoShip';
   self.house = param.house;
   self.kingdom = param.kingdom;
 }
 
 Longship = function(param){
   var self = Character(param);
-  self.class = 'longship';
+  self.class = 'Longship';
   self.house = param.house;
   self.kingdom = param.kingdom;
 }
@@ -721,43 +749,36 @@ Longship = function(param){
 Brother = function(param){
   var self = Character(param);
   self.name = 'Brother';
-  self.class = 'brother';
+  self.class = 'Brother';
   self.house = 'brotherhood';
 }
 
 Oathkeeper = function(param){
   var self = Character(param);
   self.name = 'Oathkeeper';
-  self.class = 'oathkeeper';
+  self.class = 'Oathkeeper';
   self.rank = '♝ ';
-  self.house = 'brotherhood';
-}
-
-Infected = function(param){
-  var self = Character(param);
-  self.name = 'Infected';
-  self.class = 'infected';
   self.house = 'brotherhood';
 }
 
 DarkEntity = function(param){
   var self = Character(param);
   self.name = 'Dark Entity';
-  self.class = 'dark entity';
+  self.class = 'DarkEntity';
   self.house = 'brotherhood';
 }
 
 Acolyte = function(param){
   var self = Character(param);
   self.name = 'Acolyte';
-  self.class = 'acolyte';
+  self.class = 'Acolyte';
   self.house = 'occult';
 }
 
 Priestess = function(param){
   var self = Character(param);
   self.name = 'Priestess';
-  self.class = 'priestess';
+  self.class = 'Priestess';
   self.rank = '♝ ';
   self.house = 'occult';
 }
@@ -765,7 +786,7 @@ Priestess = function(param){
 Archmage = function(param){
   var self = Character(param);
   self.name = 'Archmage';
-  self.class = 'archmage';
+  self.class = 'Archmage';
   self.rank = '♜ ';
   self.house = 'occult';
 }
@@ -773,58 +794,50 @@ Archmage = function(param){
 Apollyon = function(param){
   var self = Character(param);
   self.name = 'APOLLYON';
-  self.class = 'apollyon';
+  self.class = 'Apollyon';
   self.house = 'occult';
 }
 
 Norseman = function(param){
   var self = Character(param);
   self.name = 'Norseman';
-  self.class = 'norseman';
+  self.class = 'Norseman';
   self.house = 'norsemen';
 }
 
 Huskarl = function(param){
   var self = Character(param);
   self.name = 'Huskarl';
-  self.class = 'huskarl';
+  self.class = 'Huskarl';
   self.rank = '♞ ';
-  self.house = 'norsemen';
-}
-
-Jarl = function(param){
-  var self = Character(param);
-  self.name = 'Jarl';
-  self.class = 'jarl';
-  self.rank = '♜ ';
   self.house = 'norsemen';
 }
 
 PaganAxe = function(param){
   var self = Character(param);
   self.name = 'Pagan';
-  self.class = 'pagan axe';
+  self.class = 'PaganAxe';
   self.house = 'pagans';
 }
 
 PaganSpear = function(param){
   var self = Character(param);
   self.name = 'Pagan';
-  self.class = 'pagan spear';
+  self.class = 'PaganSpear';
   self.house = 'pagans';
 }
 
 Centurion = function(param){
   var self = Character(param);
   self.name = 'Centurion';
-  self.class = 'centurion';
+  self.class = 'Centurion';
   self.house = 'pagans';
 }
 
 Champion = function(param){
   var self = Character(param);
   self.name = 'Champion';
-  self.class = 'champion';
+  self.class = 'Champion';
   self.rank = '♜ ';
   self.house = 'pagans';
 }
@@ -832,29 +845,30 @@ Champion = function(param){
 CeltAxe = function(param){
   var self = Character(param);
   self.name = 'Celt';
-  self.class = 'celt axe';
+  self.class = 'CeltAxe';
   self.house = 'celts';
 }
 
 CeltSpear = function(param){
   var self = Character(param);
   self.name = 'Celt';
-  self.class = 'celt spear';
+  self.class = 'CeltSpear';
   self.house = 'celts';
 }
 
 Headhunter = function(param){
   var self = Character(param);
   self.name = 'Headhunter';
-  self.class = 'headhunter';
+  self.class = 'Headhunter';
   self.rank = '♞ ';
   self.house = 'celts';
+  self.mounted = true;
 }
 
 Druid = function(param){
   var self = Character(param);
   self.name = 'Druid';
-  self.class = 'druid';
+  self.class = 'Druid';
   self.rank = '♝ ';
   self.house = 'celts';
 }
@@ -862,15 +876,16 @@ Druid = function(param){
 IronMaiden = function(param){
   var self = Character(param);
   self.name = 'Iron Maiden';
-  self.class = 'iron maiden';
+  self.class = 'IronMaiden';
   self.rank = '♜ ';
   self.house = 'celts';
+  self.mounted = true;
 }
 
 Gwenllian = function(param){
   var self = Character(param);
   self.name = 'Gwenllian';
-  self.class = 'gwenllian';
+  self.class = 'Gwenllian';
   self.rank = '♛ ';
   self.house = 'celts';
 }
@@ -878,22 +893,23 @@ Gwenllian = function(param){
 Teuton = function(param){
   var self = Character(param);
   self.name = 'Teuton';
-  self.class = 'teuton';
+  self.class = 'Teuton';
   self.house = 'teutons';
 }
 
 TeutonicKnight = function(param){
   var self = Character(param);
   self.name = 'Teutonic Knight';
-  self.class = 'teutonic knight';
+  self.class = 'TeutonicKnight';
   self.rank = '♞ ';
   self.house = 'teutons';
+  self.mounted = true;
 }
 
 Prior = function(param){
   var self = Character(param);
   self.name = 'Prior';
-  self.class = 'prior';
+  self.class = 'Prior';
   self.rank = '♝ ';
   self.house = 'teutons';
 }
@@ -901,7 +917,7 @@ Prior = function(param){
 Hochmeister = function(param){
   var self = Character(param);
   self.name = 'Hochmeister';
-  self.class = 'hochmeister';
+  self.class = 'Hochmeister';
   self.rank = '♜ ';
   self.house = 'teutons';
 }
@@ -909,7 +925,7 @@ Hochmeister = function(param){
 Lothair = function(param){
   var self = Character(param);
   self.name = 'Lothair II';
-  self.class = 'lothair';
+  self.class = 'Lothair';
   self.rank = '♚ ';
   self.house = 'teutons';
 }
@@ -917,53 +933,56 @@ Lothair = function(param){
 Trapper = function(param){
   var self = Character(param);
   self.name = 'Trapper';
-  self.class = 'trapper';
+  self.class = 'Trapper';
   self.house = 'outlaws';
 }
 
 Outlaw = function(param){
   var self = Character(param);
   self.name = 'Outlaw';
-  self.class = 'outlaw';
+  self.class = 'Outlaw';
   self.house = 'outlaws';
 }
 
 Poacher = function(param){
   var self = Character(param);
   self.name = 'Poacher';
-  self.class = 'poacher';
+  self.class = 'Poacher';
   self.rank = '♞ ';
   self.house = 'outlaws';
+  self.mounted = true;
 }
 
 Cutthroat = function(param){
   var self = Character(param);
   self.name = 'Cutthroat';
-  self.class = 'cutthroat';
+  self.class = 'Cutthroat';
   self.house = 'mercenaries';
 }
 
 Strongman = function(param){
   var self = Character(param);
   self.name = 'Strongman';
-  self.class = 'strongman';
+  self.class = 'Strongman';
   self.house = 'mercenaries';
 }
 
 Marauder = function(param){
   var self = Character(param);
   self.name = 'Marauder';
-  self.class = 'marauder';
+  self.class = 'Marauder';
   self.rank = '♞ ';
   self.house = 'mercenaries';
+  self.mounted = true;
 }
 
 Condottiere = function(param){
   var self = Character(param);
   self.name = 'Condottiere';
-  self.class = 'condottiere';
+  self.class = 'Condottiere';
   self.rank = '♜ ';
   self.house = 'mercenaries';
+  self.mounted = true;
 }
 
 // PLAYER
@@ -972,20 +991,42 @@ Player = function(param){
   self.type = 'player';
   self.name = param.name;
   self.gear = {
+    head:null,
     armor:null,
     weapon:null,
+    weapon2:null,
     accessory:null
   }
   self.hasHorse = false;
   self.spriteSize = tileSize*1.5;
   self.knighted = false;
   self.title = '';
-  self.pressingT = false;
   self.pressingE = false;
+  self.pressingT = false;
+  self.pressingI = false;
+  self.pressingP = false;
+  self.pressingF = false;
+  self.pressingH = false;
+  self.pressingK = false;
+  self.pressingL = false;
+  self.pressingX = false;
+  self.pressingC = false;
+  self.pressingB = false;
+  self.pressingN = false;
+  self.pressingM = false;
   self.pressing1 = false;
   self.pressing2 = false;
   self.pressing3 = false;
+  self.pressing4 = false;
+  self.pressing5 = false;
+  self.pressing6 = false;
+  self.pressing7 = false;
+  self.pressing8 = false;
+  self.pressing9 = false;
+  self.pressing0 = false;
   self.mouseAngle = 0;
+  self.mountCooldown = 0;
+  self.switchCooldown = 0;
   self.hpNat = 100;
   self.manaNat = 100;
   self.mana = 100;
@@ -999,7 +1040,9 @@ Player = function(param){
     grain:0,
     wood:0,
     stone:0,
-    iron:0
+    iron:0,
+    silver:0,
+    gold:0
   }
 
   self.allies = [];
@@ -1016,6 +1059,14 @@ Player = function(param){
       self.attackCooldown--;
     }
 
+    if(self.mountCooldown > 0){
+      self.mountCooldown--;
+    }
+
+    if(self.switchCooldown > 0){
+      self.switchCooldown--;
+    }
+
     if(self.pressingAttack && self.gear.weapon && self.attackCooldown === 0 && self.z !== -3){
       if(self.gear.weapon.type === 'bow'){
         self.shootArrow(self.mouseAngle);
@@ -1025,9 +1076,63 @@ Player = function(param){
       }
     }
 
+    // TORCH
     if(self.pressingT && self.actionCooldown === 0){
       self.lightTorch(Math.random());
       self.actionCooldown = 10;
+    }
+
+    // INSPECT
+
+    // PICKUP
+
+    // HORSE
+    if(self.pressingH && self.actionCooldown === 0 && !self.working){
+      var socket = SOCKET_LIST[self.id];
+      if(self.hasHorse){
+        if(self.mounted){
+          self.actionCooldown = 10;
+          self.mounted = false;
+          self.baseSpd -= 3;
+          self.mountCooldown = 200;
+        } else {
+          if(self.gear.armor && self.gear.armor.type !== 'cloth'){
+            if(self.mountCooldown === 0){
+              self.actionCooldown = 10;
+              self.mounted = true;
+              self.baseSpd += 3;
+            } else {
+              socket.emit('addToChat','<i>Try again shortly.</i>');
+            }
+          } else {
+            socket.emit('addToChat','<i>You are not wearing any riding gear.</i>');
+          }
+        }
+      } else {
+        socket.emit('addToChat','<i>You do not own a horse.</i>');
+      }
+    }
+
+    // SWITCH WEAPONS
+    if(self.pressingX && self.actionCooldown === 0 && !self.working){
+      var socket = SOCKET_LIST[self.id];
+      if(self.switchCooldown === 0){
+        if(self.gear.weapon){
+          if(self.gear.weapon2){
+            var switchwep = self.gear.weapon2;
+            self.gear.weapon2 = self.gear.weapon;
+            self.gear.weapon = switchwep;
+            self.actionCooldown = 10;
+            socket.emit('addToChat','<i>You switch weapons to </i><b>' + self.gear.weapon.name + '</b>.');
+          } else {
+            socket.emit('addToChat','<i>You have no secondary weapon equipped.</i>');
+          }
+        } else {
+          socket.emit('addToChat','<i>You have no weapons equipped.</i>');
+        }
+      } else {
+        socket.emit('addToChat','<i>Try again shortly.</i>');
+      }
     }
 
     // ACTIONS
@@ -1537,7 +1642,7 @@ Player = function(param){
                   qty:1,
                   parent:b.id
                 });
-                Wtorch({
+                WallTorch({
                   x:wt[0],
                   y:wt[1],
                   z:-2,
@@ -1646,7 +1751,7 @@ Player = function(param){
                 var cr = getCoords(walls[2][0],walls[2][1]);
                 var bs = getCoords(walls[3][0],walls[3][1]);
                 var sp1 = getCenter(plot[13][0],plot[13][1]);
-                Wtorch({
+                WallTorch({
                   x:wt[0],
                   y:wt[1],
                   z:1,
@@ -1764,7 +1869,7 @@ Player = function(param){
                   qty:1,
                   parent:b.id
                 });
-                Wtorch({
+                WallTorch({
                   x:g1[0],
                   y:g1[1],
                   z:2,
@@ -1785,7 +1890,7 @@ Player = function(param){
                   qty:1,
                   parent:b.id
                 });
-                Wtorch({
+                WallTorch({
                   x:g4[0],
                   y:g4[1],
                   z:2,
@@ -1951,7 +2056,7 @@ Player = function(param){
                   qty:1,
                   parent:b.id
                 });
-                Wtorch({
+                WallTorch({
                   x:sa[0],
                   y:sa[1],
                   z:2,
@@ -2227,7 +2332,7 @@ Player = function(param){
                   qty:1,
                   parent:b.id
                 });
-                Wtorch({
+                WallTorch({
                   x:sa1[0],
                   y:sa1[1],
                   z:2,
@@ -2241,7 +2346,7 @@ Player = function(param){
                   qty:1,
                   parent:b.id
                 });
-                Wtorch({
+                WallTorch({
                   x:sa2[0],
                   y:sa2[1],
                   z:2,
@@ -2290,7 +2395,7 @@ Player = function(param){
                   qty:1,
                   parent:b.id
                 });
-                Wtorch({
+                WallTorch({
                   x:j3[0],
                   y:j3[1],
                   z:-2,
@@ -2311,7 +2416,7 @@ Player = function(param){
                   qty:1,
                   parent:b.id
                 });
-                Wtorch({
+                WallTorch({
                   x:fp6[0],
                   y:fp6[1],
                   z:-2,
@@ -2352,105 +2457,113 @@ Player = function(param){
     // CLASS
     if(self.gear.armor){
       if(self.gear.armor.type === 'leather'){
-        if(self.mounted){
+        if(self.mounted && self.gear.weapon){
           if(self.gear.weapon.type === 'bow'){
-            self.class = 'ranger';
+            self.class = 'Ranger';
             self.spriteSize = tileSize * 2;
           } else {
-            self.class = 'scout';
+            self.class = 'Scout';
             self.spriteSize = tileSize * 2;
           }
+        } else if(self.mounted){
+          self.class = 'Scout';
+          self.spriteSize = tileSize * 2;
         } else {
-          if(self.stealthed){
+          if(self.stealthed && self.gear.weapon){
             if(self.gear.weapon.type === 'bow'){
-              self.class = 'st hunter';
+              self.class = 'StHunter';
               self.spriteSize = tileSize * 1.5;
             } else {
-              self.class = 'st rogue';
+              self.class = 'StRogue';
+              self.spriteSize = tileSize * 1.5;
+            }
+          } else if(self.gear.weapon){
+            if(self.gear.weapon.type === 'bow'){
+              self.class = 'Hunter';
+              self.spriteSize = tileSize * 1.5;
+            } else {
+              self.class = 'Rogue';
               self.spriteSize = tileSize * 1.5;
             }
           } else {
-            if(self.gear.weapon.type === 'bow'){
-              self.class = 'hunter';
-              self.spriteSize = tileSize * 1.5;
-            } else {
-              self.class = 'rogue';
-              self.spriteSize = tileSize * 1.5;
-            }
+            self.class = 'Rogue';
+            self.spriteSize = tileSize * 1.5;
           }
         }
       } else if(self.gear.armor.type === 'chainmail'){
-        if(self.mounted){
+        if(self.mounted && self.gear.weapon){
           if(self.gear.weapon.type === 'bow'){
-            self.class = 'mounted archer';
+            self.class = 'MountedArcher';
             self.spriteSize = tileSize * 2;
           } else {
-            self.class = 'horseman';
+            self.class = 'Horseman';
             self.spriteSize = tileSize * 2;
+          }
+        } else if(self.mounted){
+          self.class = 'Horseman';
+          self.spriteSize = tileSize * 2;
+        } else if(self.gear.weapon){
+          if(self.gear.weapon.type === 'bow'){
+            self.class = 'Archer';
+            self.spriteSize = tileSize * 1.5;
+          } else {
+            self.class = 'Swordsman';
+            self.spriteSize = tileSize * 1.5;
           }
         } else {
-          if(self.gear.weapon.type === 'bow'){
-            self.class = 'archer';
-            self.spriteSize = tileSize * 1.5;
-          } else {
-            self.class = 'swordsman';
-            self.spriteSize = tileSize * 1.5;
-          }
+          self.class = 'Swordsman';
+          self.spriteSize = tileSize * 1.5;
         }
       } else if(self.gear.armor.type === 'plate'){
         if(self.knighted){
-          if(self.mounted){
+          if(self.mounted && self.gear.weapon){
             if(self.gear.weapon.type === 'lance'){
-              self.class = 'crusader';
+              self.class = 'Crusader';
               self.spriteSize = tileSize * 3;
             } else {
-              self.class = 'knight';
+              self.class = 'Knight';
               self.spriteSize = tileSize * 2;
             }
+          } else if(self.mounted){
+            self.class = 'Knight';
+            self.spriteSize = tileSize * 2;
           } else {
-            self.class = 'templar';
+            self.class = 'Templar';
             self.spriteSize = tileSize * 1.5;
           }
         } else {
-          if(self.mounted){
+          if(self.mounted && self.gear.weapon){
             if(self.gear.weapon.type === 'lance'){
-              self.class = 'lancer';
+              self.class = 'Lancer';
               self.spriteSize = tileSize * 3;
             } else {
-              self.class = 'cavalry';
+              self.class = 'Cavalry';
               self.spriteSize = tileSize * 2;
             }
+          } else if(self.mounted){
+            self.class = 'Cavalry';
+            self.spriteSize = tileSize * 2;
           } else {
-            self.class = 'hero';
+            self.class = 'Hero';
             self.spriteSize = tileSize * 1.5;
           }
         }
       } else if(self.gear.armor.type === 'cloth'){
-        if(self.gear.armor.type === 'monk robe'){
-          self.class = 'mage';
+        if(self.gear.armor.name === 'MonkCowl'){
+          self.class = 'Mage';
           self.spriteSize = tileSize * 1.5;
-        } else if(self.gear.armor.type === 'black robe'){
-          self.class = 'warlock';
+        } else if(self.gear.armor.name === 'BlackCloak'){
+          self.class = 'Warlock';
           self.spriteSize = tileSize * 1.5;
         } else {
-          self.class = 'priest';
-          self.spriteSize = tileSize * 1.5;
+          self.class = 'Priest';
+          self.spriteSize = tileSize;
         }
       }
     } else {
-      self.class = 'serf';
+      self.class = 'Serf';
       self.spriteSize = tileSize * 1.5;
     }
-  }
-
-  self.shootArrow = function(angle){
-    Arrow({
-      parent:self.id,
-      angle:angle,
-      x:self.x,
-      y:self.y,
-      z:self.z
-    });
   }
 
   self.lightTorch = function(torchId){
@@ -2506,22 +2619,22 @@ Player = function(param){
       (self.y - 10) < 0) && isWalkable(0,loc[0],loc[1])){
         upBlocked = true;
       }
-      if(((getTile(0,dLoc[0],dLoc[1]) === 19 && !keyCheck(self.x,self.y+(tileSize/2),self.id)) || (!isWalkable(0,dLoc[0],dLoc[1]) && getTile(0,dLoc[0],dLoc[1]) !== 0 && getTile(0,dLoc[0],dLoc[1]) !== 11.5 && getTile(0,dLoc[0],dLoc[1]) !== 12.5) ||
+      if((getTile(0,dLoc[0],dLoc[1]) === 6 || (getTile(0,dLoc[0],dLoc[1]) === 19 && !keyCheck(self.x,self.y+(tileSize/2),self.id)) || (!isWalkable(0,dLoc[0],dLoc[1]) && getTile(0,dLoc[0],dLoc[1]) !== 0 && getTile(0,dLoc[0],dLoc[1]) !== 11.5 && getTile(0,dLoc[0],dLoc[1]) !== 12.5) ||
       (getTile(5,dLoc[0],dLoc[1]) === 'gatec' && !gateCheck(self.x,self.y+(tileSize/2),self.house,self.kingdom)) ||
       (self.y + 10) > (mapPx - tileSize)) && isWalkable(0,loc[0],loc[1])){
         downBlocked = true;
       }
     }
 
-    // collision in caves
+    // cave collisions
     if(self.z === -1){
-      if(!isWalkable(-1,rLoc[0],rLoc[1]) || (self.x + 10) > (mapPx - tileSize)){
+      if(!isWalkable(-1,rLoc[0],rLoc[1]) || getTile(1,rLoc[0],rLoc[1]) === 2 || (self.x + 10) > (mapPx - tileSize)){
         rightBlocked = true;
       }
-      if(!isWalkable(-1,lLoc[0],lLoc[1]) || (self.x - 10) < 0){
+      if(!isWalkable(-1,lLoc[0],lLoc[1]) || getTile(1,lLoc[0],lLoc[1]) === 2 || (self.x - 10) < 0){
         leftBlocked = true;
       }
-      if(!isWalkable(-1,uLoc[0],uLoc[1]) || (self.y - 10) < 0){
+      if(!isWalkable(-1,uLoc[0],uLoc[1]) || getTile(1,uLoc[0],uLoc[1]) === 2 || (self.y - 10) < 0){
         upBlocked = true;
       }
       if(!isWalkable(-1,dLoc[0],dLoc[1]) || (self.y + 10) > (mapPx - tileSize)){
@@ -2644,7 +2757,7 @@ Player = function(param){
       } else if(getTile(0,loc[0],loc[1]) >= 4 && getTile(0,loc[0],loc[1]) < 5){
         self.inTrees = false;
         self.onMtn = false;
-        self.maxSpd = self.baseSpd * 0.75;
+        self.maxSpd = self.baseSpd * 0.6;
       } else if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6 && !self.onMtn){
         self.inTrees = false;
         self.maxSpd = self.baseSpd * 0.2;
@@ -2685,6 +2798,7 @@ Player = function(param){
         self.z = 0;
         self.inTrees = false;
         self.onMtn = false;
+        self.maxSpd = self.baseSpd * 0.9;
       }
     } else if(self.z === -2){
       if(getTile(8,loc[0],loc[1]) === 5){
@@ -2738,6 +2852,9 @@ Player = function(param){
       class:self.class,
       rank:self.rank,
       gear:self.gear,
+      inventory:{
+        arrows:self.inventory.arrows
+      },
       spriteSize:self.spriteSize,
       inTrees:self.inTrees,
       facing:self.facing,
@@ -2761,6 +2878,9 @@ Player = function(param){
       class:self.class,
       rank:self.rank,
       gear:self.gear,
+      inventory:{
+        arrows:self.inventory.arrows
+      },
       spriteSize:self.spriteSize,
       inTrees:self.inTrees,
       facing:self.facing,
@@ -2776,6 +2896,7 @@ Player = function(param){
       chopping:self.chopping,
       mining:self.mining,
       farming:self.farming,
+      building:self.building,
       fishing:self.fishing,
       hp:self.hp,
       hpMax:self.hpMax,
@@ -2785,6 +2906,14 @@ Player = function(param){
       breathMax:self.breathMax
     }
   }
+
+  // !!! ALPHA HAX !!!
+  for(var i in self.inventory){
+    self.inventory[i] += 10;
+  }
+  self.hasHorse = true;
+  self.knighted = true;
+  // !!! ALPHA HAX !!!
 
   Player.list[self.id] = self;
 
@@ -2816,16 +2945,52 @@ Player.onConnect = function(socket,name){
       player.pressingDown = data.state;
     } else if(data.inputId === 'attack'){
       player.pressingAttack = data.state;
-    } else if(data.inputId === 't'){
-      player.pressingT = data.state;
     } else if(data.inputId === 'e'){
       player.pressingE = data.state;
+    } else if(data.inputId === 't'){
+      player.pressingT = data.state;
+    } else if(data.inputId === 'i'){
+      player.pressingI = data.state;
+    } else if(data.inputId === 'p'){
+      player.pressingP = data.state;
+    } else if(data.inputId === 'f'){
+      player.pressingF = data.state;
+    } else if(data.inputId === 'h'){
+      player.pressingH = data.state;
+    } else if(data.inputId === 'k'){
+      player.pressingK = data.state;
+    } else if(data.inputId === 'l'){
+      player.pressingL = data.state;
+    } else if(data.inputId === 'x'){
+      player.pressingX = data.state;
+    } else if(data.inputId === 'c'){
+      player.pressingC = data.state;
+    } else if(data.inputId === 'b'){
+      player.pressingB = data.state;
+    } else if(data.inputId === 'n'){
+      player.pressingN = data.state;
+    } else if(data.inputId === 'm'){
+      player.pressingM = data.state;
     } else if(data.inputId === '1'){
       player.pressing1 = data.state;
     } else if(data.inputId === '2'){
       player.pressing2 = data.state;
     } else if(data.inputId === '3'){
       player.pressing3 = data.state;
+    } else if(data.inputId === '4'){
+      player.pressing4 = data.state;
+    } else if(data.inputId === '5'){
+      player.pressing5 = data.state;
+    } else if(data.inputId === '6'){
+      player.pressing6 = data.state;
+    } else if(data.inputId === '7'){
+      player.pressing7 = data.state;
+    } else if(data.inputId === '8'){
+      player.pressing8 = data.state;
+    } else if(data.inputId === '9'){
+      player.pressing9 = data.state;
+    } else if(data.inputId === '0'){
+      player.pressing0 = data.state;
     } else if(data.inputId === 'mouseAngle'){
       player.mouseAngle = data.state;
     }
@@ -3067,7 +3232,7 @@ Item.getAllInitPack = function(){
 // WOOD
 Wood = function(param){
   var self = Item(param);
-  self.type = 'wood';
+  self.type = 'Wood';
   self.class = 'resource';
   self.rank = 0;
   self.canPickup = true;
@@ -3079,7 +3244,7 @@ Wood = function(param){
 // STONE
 Stone = function(param){
   var self = Item(param);
-  self.type = 'stone';
+  self.type = 'Stone';
   self.class = 'resource';
   self.rank = 0;
   self.canPickup = true;
@@ -3091,7 +3256,7 @@ Stone = function(param){
 // GRAIN
 Grain = function(param){
   var self = Item(param);
-  self.type = 'grain';
+  self.type = 'Grain';
   self.class = 'resource';
   self.rank = 0;
   self.canPickup = true;
@@ -3103,7 +3268,7 @@ Grain = function(param){
 // FLOUR
 Flour = function(param){
   var self = Item(param);
-  self.type = 'flour';
+  self.type = 'Flour';
   self.class = 'resource';
   self.rank = 0;
   self.canPickup = true;
@@ -3115,7 +3280,7 @@ Flour = function(param){
 // DOUGH
 Dough = function(param){
   var self = Item(param);
-  self.type = 'dough';
+  self.type = 'Dough';
   self.class = 'resource';
   self.rank = 0;
   self.canPickup = true;
@@ -3127,7 +3292,7 @@ Dough = function(param){
 // IRON ORE
 IronOre = function(param){
   var self = Item(param);
-  self.type = 'iron ore';
+  self.type = 'IronOre';
   self.class = 'resource';
   self.rank = 0;
   self.canPickup = true;
@@ -3139,7 +3304,7 @@ IronOre = function(param){
 // IRON BAR
 IronBar = function(param){
   var self = Item(param);
-  self.type = 'iron bar';
+  self.type = 'IronBar';
   self.class = 'resource';
   self.rank = 0;
   self.canPickup = true;
@@ -3151,7 +3316,7 @@ IronBar = function(param){
 // STEEL BAR
 SteelBar = function(param){
   var self = Item(param);
-  self.type = 'steel bar';
+  self.type = 'SteelBar';
   self.class = 'resource';
   self.rank = 0;
   self.canPickup = true;
@@ -3163,7 +3328,7 @@ SteelBar = function(param){
 // BOAR HIDE
 BoarHide = function(param){
   var self = Item(param);
-  self.type = 'boar hide';
+  self.type = 'BoarHide';
   self.class = 'resource';
   self.rank = 0;
   self.canPickup = true;
@@ -3175,7 +3340,7 @@ BoarHide = function(param){
 // LEATHER
 Leather = function(param){
   var self = Item(param);
-  self.type = 'leather';
+  self.type = 'Leather';
   self.class = 'resource';
   self.rank = 0;
   self.canPickup = true;
@@ -3187,7 +3352,7 @@ Leather = function(param){
 // SILVER ORE
 SilverOre = function(param){
   var self = Item(param);
-  self.type = 'silver ore';
+  self.type = 'SilverOre';
   self.class = 'resource';
   self.rank = 1;
   self.canPickup = true;
@@ -3199,7 +3364,7 @@ SilverOre = function(param){
 // SILVER
 Silver = function(param){
   var self = Item(param);
-  self.type = 'silver';
+  self.type = 'Silver';
   self.class = 'resource';
   self.rank = 1;
   self.canPickup = true;
@@ -3211,7 +3376,7 @@ Silver = function(param){
 // GOLD ORE
 GoldOre = function(param){
   var self = Item(param);
-  self.type = 'gold ore';
+  self.type = 'Goldore';
   self.class = 'resource';
   self.rank = 1;
   self.canPickup = true;
@@ -3223,7 +3388,7 @@ GoldOre = function(param){
 // GOLD
 Gold = function(param){
   var self = Item(param);
-  self.type = 'gold';
+  self.type = 'Gold';
   self.class = 'resource';
   self.rank = 1;
   self.canPickup = true;
@@ -3235,7 +3400,7 @@ Gold = function(param){
 // DIAMOND
 Diamond = function(param){
   var self = Item(param);
-  self.type = 'diamond';
+  self.type = 'Diamond';
   self.class = 'resource';
   self.rank = 2;
   self.canPickup = true;
@@ -3247,7 +3412,7 @@ Diamond = function(param){
 // HUNTING KNIFE
 HuntingKnife = function(param){
   var self = Item(param);
-  self.type = 'hunting knife';
+  self.type = 'HuntingKnife';
   self.class = 'dagger';
   self.rank = 0;
   self.canPickup = true;
@@ -3258,7 +3423,7 @@ HuntingKnife = function(param){
 
 Dague = function(param){
   var self = Item(param);
-  self.type = 'dague';
+  self.type = 'Dague';
   self.class = 'dagger';
   self.rank = 0;
   self.canPickup = true;
@@ -3267,9 +3432,9 @@ Dague = function(param){
   return self;
 }
 
-Baselard = function(param){
+Rondel = function(param){
   var self = Item(param);
-  self.type = 'baselard';
+  self.type = 'Rondel';
   self.class = 'dagger';
   self.rank = 1;
   self.canPickup = true;
@@ -3280,7 +3445,7 @@ Baselard = function(param){
 
 Misericorde = function(param){
   var self = Item(param);
-  self.type = 'misericorde';
+  self.type = 'Misericorde';
   self.class = 'dagger';
   self.rank = 2;
   self.canPickup = true;
@@ -3292,7 +3457,7 @@ Misericorde = function(param){
 // BASTARD SWORD
 BastardSword = function(param){
   var self = Item(param);
-  self.type = 'bastard sword';
+  self.type = 'BastardSword';
   self.class = 'sword';
   self.rank = 0;
   self.canPickup = true;
@@ -3304,7 +3469,7 @@ BastardSword = function(param){
 // LONGSWORD
 Longsword = function(param){
   var self = Item(param);
-  self.type = 'longsword';
+  self.type = 'Longsword';
   self.class = 'sword';
   self.rank = 0;
   self.canPickup = true;
@@ -3316,7 +3481,7 @@ Longsword = function(param){
 // ZWEIHANDER
 Zweihander = function(param){
   var self = Item(param);
-  self.type = 'zweihander';
+  self.type = 'Zweihander';
   self.class = 'sword';
   self.rank = 1;
   self.canPickup = true;
@@ -3328,7 +3493,7 @@ Zweihander = function(param){
 // MORALLTA
 Morallta = function(param){
   var self = Item(param);
-  self.type = 'morallta';
+  self.type = 'Morallta';
   self.class = 'sword';
   self.rank = 3;
   self.canPickup = true;
@@ -3340,7 +3505,7 @@ Morallta = function(param){
 // BOW
 Bow = function(param){
   var self = Item(param);
-  self.type = 'bow';
+  self.type = 'Bow';
   self.class = 'bow';
   self.rank = 0;
   self.canPickup = true;
@@ -3352,7 +3517,7 @@ Bow = function(param){
 // WELSH LONGBOW
 WelshLongbow = function(param){
   var self = Item(param);
-  self.type = 'welsh longbow';
+  self.type = 'WelshLongbow';
   self.class = 'bow';
   self.rank = 2;
   self.canPickup = true;
@@ -3364,7 +3529,7 @@ WelshLongbow = function(param){
 // KNIGHT LANCE
 KnightLance = function(param){
   var self = Item(param);
-  self.type = 'steel lance';
+  self.type = 'KnightLance';
   self.class = 'lance';
   self.rank = 0;
   self.canPickup = true;
@@ -3376,7 +3541,7 @@ KnightLance = function(param){
 // RUSTIC LANCE
 RusticLance = function(param){
   var self = Item(param);
-  self.type = 'rustic lance';
+  self.type = 'RusticLance';
   self.class = 'lance';
   self.rank = 1;
   self.canPickup = true;
@@ -3388,7 +3553,7 @@ RusticLance = function(param){
 // PALADIN LANCE
 PaladinLance = function(param){
   var self = Item(param);
-  self.type = 'paladin lance';
+  self.type = 'PaladinLance';
   self.class = 'lance';
   self.rank = 2;
   self.canPickup = true;
@@ -3400,7 +3565,7 @@ PaladinLance = function(param){
 // BRIGANDINE
 Brigandine = function(param){
   var self = Item(param);
-  self.type = 'brigandine';
+  self.type = 'Brigandine';
   self.class = 'leather';
   self.rank = 0;
   self.canPickup = true;
@@ -3412,7 +3577,7 @@ Brigandine = function(param){
 // LAMELLAR
 Lamellar = function(param){
   var self = Item(param);
-  self.type = 'lamellar';
+  self.type = 'Lamellar';
   self.class = 'leather';
   self.rank = 1;
   self.canPickup = true;
@@ -3424,7 +3589,7 @@ Lamellar = function(param){
 // IRON MAIL
 Maille = function(param){
   var self = Item(param);
-  self.type = 'maille';
+  self.type = 'Maille';
   self.class = 'chainmail';
   self.rank = 0;
   self.canPickup = true;
@@ -3436,7 +3601,7 @@ Maille = function(param){
 // STEEL MAIL
 Hauberk = function(param){
   var self = Item(param);
-  self.type = 'hauberk';
+  self.type = 'Hauberk';
   self.class = 'chainmail';
   self.rank = 0;
   self.canPickup = true;
@@ -3448,7 +3613,7 @@ Hauberk = function(param){
 // BRYNJA
 Brynja = function(param){
   var self = Item(param);
-  self.type = 'brynja';
+  self.type = 'Brynja';
   self.class = 'chainmail';
   self.rank = 1;
   self.canPickup = true;
@@ -3460,7 +3625,7 @@ Brynja = function(param){
 // CUIRASS
 Cuirass = function(param){
   var self = Item(param);
-  self.type = 'cuirass';
+  self.type = 'Cuirass';
   self.class = 'plate';
   self.rank = 0;
   self.canPickup = true;
@@ -3472,7 +3637,7 @@ Cuirass = function(param){
 // STEEL PLATE
 SteelPlate = function(param){
   var self = Item(param);
-  self.type = 'steel plate';
+  self.type = 'SteelPlate';
   self.class = 'plate';
   self.rank = 0;
   self.canPickup = true;
@@ -3484,7 +3649,7 @@ SteelPlate = function(param){
 // GREENWICH PLATE
 GreenwichPlate = function(param){
   var self = Item(param);
-  self.type = 'greenwich plate';
+  self.type = 'GreenwichPlate';
   self.class = 'plate';
   self.rank = 2;
   self.canPickup = true;
@@ -3496,7 +3661,7 @@ GreenwichPlate = function(param){
 // GOTHIC PLATE
 GothicPlate = function(param){
   var self = Item(param);
-  self.type = 'gothic plate';
+  self.type = 'GothicPlate';
   self.class = 'plate';
   self.rank = 3;
   self.canPickup = true;
@@ -3508,7 +3673,7 @@ GothicPlate = function(param){
 // CLERIC ROBE
 ClericRobe = function(param){
   var self = Item(param);
-  self.type = 'cleric robe';
+  self.type = 'ClericRobe';
   self.class = 'cloth';
   self.rank = 0;
   self.canPickup = true;
@@ -3517,10 +3682,10 @@ ClericRobe = function(param){
   return self;
 }
 
-// DRUID ROBE
-DruidRobe = function(param){
+// MONK COWL
+MonkCowl = function(param){
   var self = Item(param);
-  self.type = 'druid robe';
+  self.type = 'MonkCowl';
   self.class = 'cloth';
   self.rank = 1;
   self.canPickup = true;
@@ -3529,22 +3694,10 @@ DruidRobe = function(param){
   return self;
 }
 
-// MONK ROBE
-MonkRobe = function(param){
+// BLACK CLOAK
+BlackCloak = function(param){
   var self = Item(param);
-  self.type = 'monk robe';
-  self.class = 'cloth';
-  self.rank = 1;
-  self.canPickup = true;
-  Item.list[self.id] = self;
-  initPack.item.push(self.getInitPack());
-  return self;
-}
-
-// BLACK ROBE
-BlackRobe = function(param){
-  var self = Item(param);
-  self.type = 'black robe';
+  self.type = 'BlackCloak';
   self.class = 'cloth';
   self.rank = 1;
   self.canPickup = true;
@@ -3556,7 +3709,7 @@ BlackRobe = function(param){
 // TOME
 Tome = function(param){
   var self = Item(param);
-  self.type = 'tome';
+  self.type = 'Tome';
   self.class = 'text';
   self.rank = 1;
   self.canPickup = true;
@@ -3568,7 +3721,7 @@ Tome = function(param){
 // RUNIC SCROLL
 RunicScroll = function(param){
   var self = Item(param);
-  self.type = 'runic scroll';
+  self.type = 'RunicScroll';
   self.class = 'text';
   self.rank = 1;
   self.canPickup = true;
@@ -3580,7 +3733,7 @@ RunicScroll = function(param){
 // SACRED TEXT
 SacredText = function(param){
   var self = Item(param);
-  self.type = 'sacred text';
+  self.type = 'SacredText';
   self.class = 'text';
   self.rank = 1;
   self.canPickup = true;
@@ -3592,7 +3745,7 @@ SacredText = function(param){
 // STONE AXE
 StoneAxe = function(param){
   var self = Item(param);
-  self.type = 'stone axe';
+  self.type = 'StoneAxe';
   self.class = 'tool';
   self.rank = 0;
   self.canPickup = true;
@@ -3604,7 +3757,7 @@ StoneAxe = function(param){
 // IRON AXE
 IronAxe = function(param){
   var self = Item(param);
-  self.type = 'iron axe';
+  self.type = 'IronAxe';
   self.class = 'tool';
   self.rank = 0;
   self.canPickup = true;
@@ -3616,7 +3769,7 @@ IronAxe = function(param){
 // IRON PICKAXE
 Pickaxe = function(param){
   var self = Item(param);
-  self.type = 'pickaxe';
+  self.type = 'Pickaxe';
   self.class = 'tool';
   self.rank = 0;
   self.canPickup = true;
@@ -3628,7 +3781,7 @@ Pickaxe = function(param){
 // KEY
 Key = function(param){
   var self = Item(param);
-  self.type = 'key';
+  self.type = 'Key';
   self.class = 'tool';
   self.rank = 1;
   self.canPickup = true;
@@ -3640,7 +3793,7 @@ Key = function(param){
 // TORCH
 Torch = function(param){
   var self = Item(param);
-  self.type = 'torch';
+  self.type = 'Torch';
   self.class = 'tool';
   self.rank = 0;
   self.canPickup = true;
@@ -3652,7 +3805,7 @@ Torch = function(param){
 // LIT TORCH
 LitTorch = function(param){
   var self = Item(param);
-  self.type = 'lit torch';
+  self.type = 'LitTorch';
   self.rank = 0;
   self.canPickup = false;
   self.timer = 0;
@@ -3688,9 +3841,9 @@ LitTorch = function(param){
 }
 
 // WALL TORCH
-Wtorch = function(param){
+WallTorch = function(param){
   var self = Item(param);
-  self.type = 'wtorch';
+  self.type = 'WallTorch';
   self.class = 'tool';
   self.rank = 0;
   self.canPickup = false;
@@ -3706,10 +3859,10 @@ Wtorch = function(param){
   return self;
 }
 
-// FIRE
-Fire = function(param){
+//CAMPFIRE
+Campfire = function(param){
   var self = Item(param);
-  self.type = 'fire';
+  self.type = 'Campfire';
   self.class = 'tool';
   self.rank = 0;
   self.canPickup = false;
@@ -3736,7 +3889,7 @@ Fire = function(param){
 // FIREPIT
 Firepit = function(param){
   var self = Item(param);
-  self.type = 'firepit';
+  self.type = 'Firepit';
   self.class = 'tool';
   self.rank = 0;
   self.canPickup = false;
@@ -3756,7 +3909,7 @@ Firepit = function(param){
 // FIREPLACE
 Fireplace = function(param){
   var self = Item(param);
-  self.type = 'fireplace';
+  self.type = 'Fireplace';
   self.class = 'environment';
   self.rank = 0;
   self.canPickup = false;
@@ -3775,7 +3928,7 @@ Fireplace = function(param){
 // FORGE
 Forge = function(param){
   var self = Item(param);
-  self.type = 'forge';
+  self.type = 'Forge';
   self.class = 'environment';
   self.rank = 0;
   self.canPickup = false;
@@ -3795,7 +3948,7 @@ Forge = function(param){
 // BARREL
 Barrel = function(param){
   var self = Item(param);
-  self.type = 'barrel';
+  self.type = 'Barrel';
   self.class = 'environment';
   self.rank = 0;
   self.canPickup = false;
@@ -3808,7 +3961,7 @@ Barrel = function(param){
 // CRATES
 Crates = function(param){
   var self = Item(param);
-  self.type = 'crates';
+  self.type = 'Crates';
   self.class = 'environment';
   self.rank = 0;
   self.canPickup = false;
@@ -3821,7 +3974,7 @@ Crates = function(param){
 // BOOKSHELF
 Bookshelf = function(param){
   var self = Item(param);
-  self.type = 'bookshelf';
+  self.type = 'Bookshelf';
   self.class = 'environment';
   self.rank = 0;
   self.canPickup = false;
@@ -3834,7 +3987,7 @@ Bookshelf = function(param){
 // SUIT OF ARMOR
 SuitArmor = function(param){
   var self = Item(param);
-  self.type = 'suit armor';
+  self.type = 'SuitArmor';
   self.class = 'environment';
   self.rank = 0;
   self.canPickup = false;
@@ -3846,7 +3999,7 @@ SuitArmor = function(param){
 // ANVIL
 Anvil = function(param){
   var self = Item(param);
-  self.type = 'anvil';
+  self.type = 'Anvil';
   self.class = 'environment';
   self.rank = 0;
   self.canPickup = false;
@@ -3859,7 +4012,7 @@ Anvil = function(param){
 // RUNESTONE
 Runestone = function(param){
   var self = Item(param);
-  self.type = 'runestone';
+  self.type = 'Runestone';
   self.class = 'environment';
   self.rank = 0;
   self.canPickup = false;
@@ -3872,7 +4025,7 @@ Runestone = function(param){
 // DUMMY
 Dummy = function(param){
   var self = Item(param);
-  self.type = 'dummy';
+  self.type = 'Dummy';
   self.class = 'environment';
   self.rank = 0;
   self.canPickup = false;
@@ -3885,7 +4038,7 @@ Dummy = function(param){
 // CROSS
 Cross = function(param){
   var self = Item(param);
-  self.type = 'cross';
+  self.type = 'Cross';
   self.class = 'environment';
   self.rank = 0;
   self.canPickup = false;
@@ -3897,7 +4050,7 @@ Cross = function(param){
 // SKELETON1
 Skeleton1 = function(param){
   var self = Item(param);
-  self.type = 'skeleton1';
+  self.type = 'Skeleton1';
   self.class = 'environment';
   self.rank = 0;
   self.canPickup = false;
@@ -3909,31 +4062,7 @@ Skeleton1 = function(param){
 // SKELETON2
 Skeleton2 = function(param){
   var self = Item(param);
-  self.type = 'skeleton2';
-  self.class = 'environment';
-  self.rank = 0;
-  self.canPickup = false;
-  Item.list[self.id] = self;
-  initPack.item.push(self.getInitPack());
-  return self;
-}
-
-// SKELETON3
-Skeleton3 = function(param){
-  var self = Item(param);
-  self.type = 'skeleton3';
-  self.class = 'environment';
-  self.rank = 0;
-  self.canPickup = false;
-  Item.list[self.id] = self;
-  initPack.item.push(self.getInitPack());
-  return self;
-}
-
-// SKELETON4
-Skeleton4 = function(param){
-  var self = Item(param);
-  self.type = 'skeleton4';
+  self.type = 'Skeleton2';
   self.class = 'environment';
   self.rank = 0;
   self.canPickup = false;
@@ -3945,7 +4074,7 @@ Skeleton4 = function(param){
 // GOODS1
 Goods1 = function(param){
   var self = Item(param);
-  self.type = 'goods1';
+  self.type = 'Goods1';
   self.class = 'environment';
   self.rank = 0;
   self.canPickup = false;
@@ -3958,7 +4087,7 @@ Goods1 = function(param){
 // GOODS2
 Goods2 = function(param){
   var self = Item(param);
-  self.type = 'goods2';
+  self.type = 'Goods2';
   self.class = 'environment';
   self.rank = 0;
   self.canPickup = false;
@@ -3971,7 +4100,7 @@ Goods2 = function(param){
 // GOODS3
 Goods3 = function(param){
   var self = Item(param);
-  self.type = 'goods3';
+  self.type = 'Goods3';
   self.class = 'environment';
   self.rank = 0;
   self.canPickup = false;
@@ -3984,7 +4113,7 @@ Goods3 = function(param){
 // GOODS4
 Goods4 = function(param){
   var self = Item(param);
-  self.type = 'goods4';
+  self.type = 'Goods4';
   self.class = 'environment';
   self.rank = 0;
   self.canPickup = false;
@@ -3997,7 +4126,7 @@ Goods4 = function(param){
 // STASH1
 Stash1 = function(param){
   var self = Item(param);
-  self.type = 'stash1';
+  self.type = 'Stash1';
   self.class = 'environment';
   self.rank = 0;
   self.canPickup = false;
@@ -4010,7 +4139,7 @@ Stash1 = function(param){
 // STASH2
 Stash2 = function(param){
   var self = Item(param);
-  self.type = 'stash2';
+  self.type = 'Stash2';
   self.class = 'environment';
   self.rank = 0;
   self.canPickup = false;
@@ -4023,7 +4152,7 @@ Stash2 = function(param){
 // DESK
 Desk = function(param){
   var self = Item(param);
-  self.type = 'desk';
+  self.type = 'Desk';
   self.class = 'environment';
   self.rank = 0;
   self.canPickup = false;
@@ -4036,7 +4165,7 @@ Desk = function(param){
 // SWORDRACK
 Swordrack = function(param){
   var self = Item(param);
-  self.type = 'swordrack';
+  self.type = 'Swordrack';
   self.class = 'environment';
   self.rank = 0;
   self.canPickup = false;
@@ -4048,7 +4177,7 @@ Swordrack = function(param){
 // BED
 Bed = function(param){
   var self = Item(param);
-  self.type = 'bed';
+  self.type = 'Bed';
   self.class = 'environment';
   self.rank = 0;
   self.canPickup = false;
@@ -4060,7 +4189,7 @@ Bed = function(param){
 // JAIL
 Jail = function(param){
   var self = Item(param);
-  self.type = 'jail';
+  self.type = 'Jail';
   self.class = 'environment';
   self.rank = 0;
   self.canPickup = false;
@@ -4073,7 +4202,7 @@ Jail = function(param){
 // JAIL
 JailDoor = function(param){
   var self = Item(param);
-  self.type = 'jaildoor';
+  self.type = 'JailDoor';
   self.class = 'environment';
   self.rank = 0;
   self.canPickup = false;
@@ -4086,7 +4215,7 @@ JailDoor = function(param){
 // CHAINS
 Chains = function(param){
   var self = Item(param);
-  self.type = 'chains';
+  self.type = 'Chains';
   self.class = 'environment';
   self.rank = 0;
   self.canPickup = false;
@@ -4098,7 +4227,7 @@ Chains = function(param){
 // THRONE
 Throne = function(param){
   var self = Item(param);
-  self.type = 'throne';
+  self.type = 'Throne';
   self.class = 'environment';
   self.rank = 0;
   self.canPickup = false;
@@ -4110,7 +4239,7 @@ Throne = function(param){
 // THRONE
 Banner = function(param){
   var self = Item(param);
-  self.type = 'banner';
+  self.type = 'Banner';
   self.class = 'environment';
   self.rank = 0;
   self.canPickup = false;
@@ -4122,7 +4251,7 @@ Banner = function(param){
 // STAG HEAD
 StagHead = function(param){
   var self = Item(param);
-  self.type = 'stag head';
+  self.type = 'StagHead';
   self.class = 'environment';
   self.rank = 0;
   self.canPickup = false;
@@ -4134,7 +4263,7 @@ StagHead = function(param){
 // BLOOD
 Blood = function(param){
   var self = Item(param);
-  self.type = 'blood';
+  self.type = 'Blood';
   self.class = 'environment';
   self.rank = 0;
   self.canPickup = false;
@@ -4153,10 +4282,79 @@ Blood = function(param){
 // CHEST
 Chest = function(param){
   var self = Item(param);
-  self.type = 'chest';
+  self.type = 'Chest';
   self.class = 'tool';
   self.rank = 0;
   self.canPickup = false;
+  self.inventory = {
+    wood:0,
+    stone:0,
+    grain:0,
+    flour:0,
+    dough:0,
+    ironore:0,
+    ironbar:0,
+    steelbar:0,
+    boarhide:0,
+    leather:0,
+    silverore:0,
+    silver:0,
+    goldore:0,
+    gold:0,
+    diamond:0,
+    huntingknife:0,
+    dague:0,
+    rondel:0,
+    misericorde:0,
+    bastardsword:0,
+    longsword:0,
+    zweihander:0,
+    morallta:0,
+    bow:0,
+    welshlongbow:0,
+    knightlance:0,
+    rusticlance:0,
+    paladinlance:0,
+    brigandine:0,
+    lamellar:0,
+    maille:0,
+    hauberk:0,
+    brynja:0,
+    cuirass:0,
+    steelplate:0,
+    greenwichplate:0,
+    gothicplate:0,
+    clericrobe:0,
+    monkcowl:0,
+    blackcloak:0,
+    tome:0,
+    runicscroll:0,
+    sacredtext:0,
+    stoneaxe:0,
+    ironaxe:0,
+    pickaxe:0,
+    torch:0,
+    bread:0,
+    fish:0,
+    lamb:0,
+    boarmeat:0,
+    venison:0,
+    poachedfish:0,
+    lambchop:0,
+    boarshank:0,
+    venisonloin:0,
+    mead:0,
+    saison:0,
+    flandersredale:0,
+    bieredegarde:0,
+    bordeaux:0,
+    bourgogne:0,
+    chianti:0,
+    crown:0,
+    arrows:0,
+    worldmap:0,
+    relic:0
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   self.blocker(self.type);
@@ -4166,10 +4364,79 @@ Chest = function(param){
 // LOCKED CHEST
 LockedChest = function(param){
   var self = Item(param);
-  self.type = 'locked chest';
+  self.type = 'LockedChest';
   self.class = 'tool';
   self.rank = 0;
   self.canPickup = false;
+  self.inventory = {
+    wood:0,
+    stone:0,
+    grain:0,
+    flour:0,
+    dough:0,
+    ironore:0,
+    ironbar:0,
+    steelbar:0,
+    boarhide:0,
+    leather:0,
+    silverore:0,
+    silver:0,
+    goldore:0,
+    gold:0,
+    diamond:0,
+    huntingknife:0,
+    dague:0,
+    rondel:0,
+    misericorde:0,
+    bastardsword:0,
+    longsword:0,
+    zweihander:0,
+    morallta:0,
+    bow:0,
+    welshlongbow:0,
+    knightlance:0,
+    rusticlance:0,
+    paladinlance:0,
+    brigandine:0,
+    lamellar:0,
+    maille:0,
+    hauberk:0,
+    brynja:0,
+    cuirass:0,
+    steelplate:0,
+    greenwichplate:0,
+    gothicplate:0,
+    clericrobe:0,
+    monkcowl:0,
+    blackcloak:0,
+    tome:0,
+    runicscroll:0,
+    sacredtext:0,
+    stoneaxe:0,
+    ironaxe:0,
+    pickaxe:0,
+    torch:0,
+    bread:0,
+    fish:0,
+    lamb:0,
+    boarmeat:0,
+    venison:0,
+    poachedfish:0,
+    lambchop:0,
+    boarshank:0,
+    venisonloin:0,
+    mead:0,
+    saison:0,
+    flandersredale:0,
+    bieredegarde:0,
+    bordeaux:0,
+    bourgogne:0,
+    chianti:0,
+    crown:0,
+    arrows:0,
+    worldmap:0,
+    relic:0
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   self.blocker(self.type);
@@ -4179,7 +4446,7 @@ LockedChest = function(param){
 // BREAD
 Bread = function(param){
   var self = Item(param);
-  self.type = 'bread';
+  self.type = 'Bread';
   self.class = 'consumable';
   self.rank = 0;
   self.canPickup = true;
@@ -4191,7 +4458,7 @@ Bread = function(param){
 // FISH
 Fish = function(param){
   var self = Item(param);
-  self.type = 'fish';
+  self.type = 'Fish';
   self.class = 'consumable';
   self.rank = 0;
   self.canPickup = true;
@@ -4203,7 +4470,7 @@ Fish = function(param){
 // LAMB
 Lamb = function(param){
   var self = Item(param);
-  self.type = 'lamb';
+  self.type = 'Lamb';
   self.class = 'resource';
   self.rank = 0;
   self.canPickup = true;
@@ -4215,7 +4482,7 @@ Lamb = function(param){
 // BOAR MEAT
 BoarMeat = function(param){
   var self = Item(param);
-  self.type = 'boar meat';
+  self.type = 'BoarMeat';
   self.class = 'resource';
   self.rank = 0;
   self.canPickup = true;
@@ -4227,7 +4494,7 @@ BoarMeat = function(param){
 // VENISON
 Venison = function(param){
   var self = Item(param);
-  self.type = 'venison';
+  self.type = 'Venison';
   self.class = 'resource';
   self.rank = 0;
   self.canPickup = true;
@@ -4239,7 +4506,7 @@ Venison = function(param){
 // POACHED FISH
 PoachedFish = function(param){
   var self = Item(param);
-  self.type = 'poached fish';
+  self.type = 'PoachedFish';
   self.class = 'consumable';
   self.rank = 0;
   self.canPickup = true;
@@ -4251,7 +4518,7 @@ PoachedFish = function(param){
 // LAMB CHOP
 LambChop = function(param){
   var self = Item(param);
-  self.type = 'lamb chop';
+  self.type = 'LambChop';
   self.class = 'consumable';
   self.rank = 0;
   self.canPickup = true;
@@ -4263,7 +4530,7 @@ LambChop = function(param){
 // BOAR SHANK
 BoarShank = function(param){
   var self = Item(param);
-  self.type = 'boar shank';
+  self.type = 'BoarShank';
   self.class = 'consumable';
   self.rank = 0;
   self.canPickup = true;
@@ -4275,7 +4542,7 @@ BoarShank = function(param){
 // VENISON LOIN
 VenisonLoin = function(param){
   var self = Item(param);
-  self.type = 'venison loin';
+  self.type = 'VenisonLoin';
   self.class = 'consumable';
   self.rank = 0;
   self.canPickup = true;
@@ -4287,7 +4554,7 @@ VenisonLoin = function(param){
 // MEAD
 Mead = function(param){
   var self = Item(param);
-  self.type = 'mead';
+  self.type = 'Mead';
   self.class = 'consumable';
   self.rank = 0;
   self.canPickup = true;
@@ -4299,7 +4566,7 @@ Mead = function(param){
 // SAISON
 Saison = function(param){
   var self = Item(param);
-  self.type = 'saison';
+  self.type = 'Saison';
   self.class = 'consumable';
   self.rank = 0;
   self.canPickup = true;
@@ -4311,7 +4578,7 @@ Saison = function(param){
 // FLANDERS
 FlandersRedAle = function(param){
   var self = Item(param);
-  self.type = 'flanders red ale';
+  self.type = 'FlandersRedAle';
   self.class = 'consumable';
   self.rank = 0;
   self.canPickup = true;
@@ -4323,7 +4590,7 @@ FlandersRedAle = function(param){
 // BIERE DE GARDE
 BiereDeGarde = function(param){
   var self = Item(param);
-  self.type = 'biere de garde';
+  self.type = 'BiereDeGarde';
   self.class = 'consumable';
   self.rank = 1;
   self.canPickup = true;
@@ -4335,7 +4602,7 @@ BiereDeGarde = function(param){
 // BORDEAUX
 Bordeaux = function(param){
   var self = Item(param);
-  self.type = 'bordeaux';
+  self.type = 'Bordeaux';
   self.class = 'consumable';
   self.rank = 0;
   self.canPickup = true;
@@ -4347,7 +4614,7 @@ Bordeaux = function(param){
 // BOURGOGNE
 Bourgogne = function(param){
   var self = Item(param);
-  self.type = 'bourgogne';
+  self.type = 'Bourgogne';
   self.class = 'consumable';
   self.rank = 0;
   self.canPickup = true;
@@ -4359,7 +4626,7 @@ Bourgogne = function(param){
 // CHIANTI
 Chianti = function(param){
   var self = Item(param);
-  self.type = 'chianti';
+  self.type = 'Chianti';
   self.class = 'consumable';
   self.rank = 1;
   self.canPickup = true;
@@ -4371,8 +4638,8 @@ Chianti = function(param){
 // CROWN
 Crown = function(param){
   var self = Item(param);
-  self.type = 'crown';
-  self.class = 'trinket';
+  self.type = 'Crown';
+  self.class = 'head';
   self.rank = 3;
   self.canPickup = true;
   Item.list[self.id] = self;
@@ -4383,7 +4650,7 @@ Crown = function(param){
 // ARROWS
 Arrows = function(param){
   var self = Item(param);
-  self.type = 'arrows';
+  self.type = 'Arrows';
   self.class = 'tool';
   self.rank = 0;
   self.canPickup = true;
@@ -4395,7 +4662,7 @@ Arrows = function(param){
 // MAP
 WorldMap = function(param){
   var self = Item(param);
-  self.type = 'world map';
+  self.type = 'WorldMap';
   self.class = 'tool';
   self.rank = 1;
   self.canPickup = true;
@@ -4407,7 +4674,7 @@ WorldMap = function(param){
 // RELIC
 Relic = function(param){
   var self = Item(param);
-  self.type = 'relic';
+  self.type = 'Relic';
   self.class = 'relic';
   self.rank = 4;
   self.canPickup = true;
@@ -4423,7 +4690,7 @@ Light = function(param){
   self.radius = param.radius;
   self.toRemove = false;
   var super_update = self.update;
-  if(Item.list[self.parent].type === 'lit torch'){
+  if(Item.list[self.parent].type === 'LitTorch'){
     self.update = function(){
       if(Item.list[self.parent]){
         self.x = Item.list[self.parent].x + (tileSize * 0.25);

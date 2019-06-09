@@ -27,7 +27,9 @@ entropy = function(){
         (check[2] >= 1 || check[2] < 3 && check[3] > 49) ||
         (check[4] >= 1 || check[4] < 3 && check[5] > 49) ||
         (check[6] >= 1 || check[6] < 3 && check[7] > 49)){
-          toF.push([c,r]);
+          if(Math.random < 0.1){
+            toF.push([c,r]);
+          }
         }
       } else if(world[0][r][c] === 7 && c > 0 && c < mapSize && r > 0 && r < mapSize && day > 0){
         var check = [getTile(0,c,r-1),getTile(0,c,r+1),getTile(0,c-1,r),getTile(0,c+1,r)];
@@ -35,7 +37,9 @@ entropy = function(){
         (check[1] >= 1 && check[1] < 4) ||
         (check[2] >= 1 && check[2] < 4) ||
         (check[3] >= 1 && check[3] < 4)){
-          toB.push([c,r]);
+          if(Math.random < 0.15){
+            toB.push([c,r]);
+          }
         }
       }
     }
@@ -47,17 +51,13 @@ entropy = function(){
     hForestSpawns.push(toHF[i]);
   }
   for(i in toF){
-    if(Math.random() < 0.3){
-      world[0][toF[i][1]][toF[i][0]] -= 1;
-      world[6][toF[i][1]][toF[i][0]] = 50;
-      //biomes.forest++;
-    }
+    world[0][toF[i][1]][toF[i][0]] -= 1;
+    world[6][toF[i][1]][toF[i][0]] = 50;
+    //biomes.forest++;
   }
   for(i in toB){
-    if(Math.random() < 0.1){
-      world[0][toB[i][1]][toB[i][0]] = 3 + Number((Math.random()*0.9).toFixed(2));
-      //biomes.brush++;
-    }
+    world[0][toB[i][1]][toB[i][0]] = 3 + Number((Math.random()*0.9).toFixed(2));
+    //biomes.brush++;
   }
 
   // FAUNA
@@ -143,7 +143,8 @@ entropy = function(){
       Falcon({
         x:sp[0],
         y:sp[1],
-        z:0
+        z:0,
+        falconry:false
       });
     }
   }

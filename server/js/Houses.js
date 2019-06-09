@@ -14,7 +14,9 @@ House = function(param){
     grain:0,
     wood:0,
     stone:0,
-    iron:0
+    iron:0,
+    silver:0,
+    gold:0
   }
   House.list[self.id] = self;
   return self;
@@ -35,7 +37,9 @@ Kingdom = function(param){
     grain:0,
     wood:0,
     stone:0,
-    iron:0
+    iron:0,
+    silver:0,
+    gold:0
   }
   Kingdom.list[self.id] = self;
   return self;
