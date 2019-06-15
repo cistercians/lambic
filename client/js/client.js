@@ -619,26 +619,6 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'Flour'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
-      ctx.drawImage(
-      Img.flour,
-      x,
-      y,
-      tileSize,
-      tileSize
-      );
-    } else if(self.type === 'Dough'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
-      ctx.drawImage(
-      Img.dough,
-      x,
-      y,
-      tileSize,
-      tileSize
-      );
     } else if(self.type === 'IronOre'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
@@ -1261,7 +1241,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'CampFire'){
+    } else if(self.type === 'Campfire'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -2176,7 +2156,7 @@ setInterval(function(){
     }
   }
   for(var i in Player.list){
-    if(Player.list[i].class !== 'falcon'){
+    if(Player.list[i].class !== 'Falcon'){
       if(inView(Player.list[i].z,Player.list[i].x,Player.list[i].y)){
         if((Player.list[selfId].z === 1 || Player.list[selfId].z === 2) && (getBuilding(Player.list[i].x,Player.list[i].y) === getBuilding(Player.list[selfId].x,Player.list[selfId].y))){
           Player.list[i].draw();
@@ -2206,7 +2186,7 @@ setInterval(function(){
   renderForest();
   renderTops();
   for(var i in Player.list){
-    if(Player.list[i].class === 'falcon'){
+    if(Player.list[i].class === 'Falcon'){
       if(inView(Player.list[i].z,Player.list[i].x,Player.list[i].y)){
         Player.list[i].draw();
       }

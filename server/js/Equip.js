@@ -28,7 +28,7 @@ equip = {
   misericorde:{
     name: 'Misericorde',
     type: 'dagger',
-    dmg:40,
+    dmg:30,
     unequip:function(id){
       Player.list[id].inventory.misericorde++;
     }

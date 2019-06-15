@@ -76,13 +76,11 @@ Character = function(param){
   self.home = param.home; // [z,x,y] (must own building if player)
   self.class = 'serf';
   self.rank = null;
+  self.keys = [];
   self.inventory = {
-    keys:[],
     wood:0,
     stone:0,
     grain:0,
-    flour:0,
-    dough:0,
     ironore:0,
     ironbar:0,
     steelbar:0,
@@ -192,6 +190,7 @@ Character = function(param){
   self.pathCount = 0;
 
   self.attack = function(dir){
+    self.pressingAttack = true;
     self.working = false;
     self.chopping = false;
     self.mining = false;
@@ -1073,6 +1072,7 @@ Player = function(param){
         self.attackCooldown = 50/self.dexterity;
       } else {
         self.attack(self.facing);
+        self.attackCooldown = 50/self.dexterity;
       }
     }
 
@@ -1085,6 +1085,21 @@ Player = function(param){
     // INSPECT
 
     // PICKUP
+    if(self.pressingP && self.actionCooldown === 0 && !self.working){
+      var socket = SOCKET_LIST[self.id];
+      self.actionCooldown = 10;
+      for(var i in Item.list){
+        var item = Item.list[i];
+        var dist = item.getDistance({x:self.x,y:self.y});
+        if(dist < tileSize && item.canPickup && dist > -tileSize){
+          Item.list[i].pickup(self.id);
+          return;
+        } else {
+          continue;
+        }
+      }
+      socket.emit('addToChat','<i>There is nothing to pick up.</i>');
+    }
 
     // HORSE
     if(self.pressingH && self.actionCooldown === 0 && !self.working){
@@ -1114,7 +1129,7 @@ Player = function(param){
     }
 
     // SWITCH WEAPONS
-    if(self.pressingX && self.actionCooldown === 0 && !self.working){
+    if(self.pressingX && self.actionCooldown === 0){
       var socket = SOCKET_LIST[self.id];
       if(self.switchCooldown === 0){
         if(self.gear.weapon){
@@ -1132,6 +1147,282 @@ Player = function(param){
         }
       } else {
         socket.emit('addToChat','<i>Try again shortly.</i>');
+      }
+    }
+
+    // BAG
+    if(self.pressingB && self.actionCooldown === 0){
+      self.actionCooldown += 10;
+      var socket = SOCKET_LIST[self.id];
+      var all = '';
+      if(self.keys.length > 0){
+        var keys = '<b>Keys</b>: ' + self.keys.length + '<br>';
+        all += keys;
+      }
+      if(self.inventory.wood > 0){
+        var wood = '<b>Wood</b>: ' + self.inventory.wood + '<br>';
+        all += wood;
+      }
+      if(self.inventory.stone > 0){
+        var stone = '<b>Stone</b>: ' + self.inventory.wood + '<br>';
+        all += stone;
+      }
+      if(self.inventory.grain > 0){
+        var grain = '<b>Grain</b>: ' + self.inventory.grain + '<br>';
+        all += grain;
+      }
+      if(self.inventory.ironore > 0){
+        var ironore = '<b>IronOre</b>: ' + self.inventory.ironore + '<br>';
+        all += ironore;
+      }
+      if(self.inventory.ironbar > 0){
+        var ironbar = '<b>IronBar</b>: ' + self.inventory.ironbar + '<br>';
+        all += ironbar;
+      }
+      if(self.inventory.steelbar > 0){
+        var steelbar = '<b>SteelBar</b>: ' + self.inventory.steelbar + '<br>';
+        all += steelbar;
+      }
+      if(self.inventory.boarhide > 0){
+        var boarhide = '<b>BoarHide</b>: ' + self.inventory.boarhide + '<br>';
+        all += boarhide;
+      }
+      if(self.inventory.leather > 0){
+        var leather = '<b>Leather</b>: ' + self.inventory.leather + '<br>';
+        all += leather;
+      }
+      if(self.inventory.silverore > 0){
+        var silverore = '<b>SilverOre</b>: ' + self.inventory.silverore + '<br>';
+        all += silverore;
+      }
+      if(self.inventory.silver > 0){
+        var silver = '<b>Silver</b>: ' + self.inventory.silver + '<br>';
+        all += silver;
+      }
+      if(self.inventory.goldore > 0){
+        var goldore = '<b>GoldOre</b>: ' + self.inventory.goldore + '<br>';
+        all += goldore;
+      }
+      if(self.inventory.gold > 0){
+        var gold = '<b>Gold</b>: ' + self.inventory.gold + '<br>';
+        all += gold;
+      }
+      if(self.inventory.diamond > 0){
+        var diamond = '<b>Diamond</b>: ' + self.inventory.diamond + '<br>';
+        all += diamond;
+      }
+      if(self.inventory.huntingknife > 0){
+        var huntingknife = '<b>HuntingKnife</b>: ' + self.inventory.huntingknife + '<br>';
+        all += huntingknife;
+      }
+      if(self.inventory.dague > 0){
+        var dague = '<b>Dague</b>: ' + self.inventory.dague + '<br>';
+        all += dague;
+      }
+      if(self.inventory.rondel > 0){
+        var rondel = '<b>Rondel</b>: ' + self.inventory.rondel + '<br>';
+        all += rondel;
+      }
+      if(self.inventory.misericorde > 0){
+        var misericorde = '<b>Misericorde</b>: ' + self.inventory.misericorde + '<br>';
+        all += misericorde;
+      }
+      if(self.inventory.bastardsword > 0){
+        var bastardsword = '<b>BastardSword</b>: ' + self.inventory.bastardsword + '<br>';
+        all += bastardsword;
+      }
+      if(self.inventory.longsword > 0){
+        var longsword = '<b>Longsword</b>: ' + self.inventory.longsword + '<br>';
+        all += longsword;
+      }
+      if(self.inventory.zweihander > 0){
+        var zweihander = '<b>Zweihander</b>: ' + self.inventory.zweihander + '<br>';
+        all += zweihander;
+      }
+      if(self.inventory.morallta > 0){
+        var morallta = '<b>Morallta</b>: ' + self.inventory.morallta + '<br>';
+        all += morallta;
+      }
+      if(self.inventory.bow > 0){
+        var bow = '<b>Bow</b>: ' + self.inventory.bow + '<br>';
+        all += bow;
+      }
+      if(self.inventory.welshlongbow > 0){
+        var welshlongbow = '<b>WelshLongbow</b>: ' + self.inventory.welshlongbow + '<br>';
+        all += welshlongbow;
+      }
+      if(self.inventory.knightlance > 0){
+        var knightlance = '<b>KnightLance</b>: ' + self.inventory.knightlance + '<br>';
+        all += knightlance;
+      }
+      if(self.inventory.rusticlance > 0){
+        var rusticlance = '<b>RusticLance</b>: ' + self.inventory.rusticlance + '<br>';
+        all += rusticlance;
+      }
+      if(self.inventory.paladinlance > 0){
+        var paladinlance = '<b>PaladinLance</b>: ' + self.inventory.paladinlance + '<br>';
+        all += paladinlance;
+      }
+      if(self.inventory.brigandine > 0){
+        var brigandine = '<b>Brigandine</b>: ' + self.inventory.brigandine + '<br>';
+        all += brigandine;
+      }
+      if(self.inventory.lamellar > 0){
+        var lamellar = '<b>Lamellar</b>: ' + self.inventory.lamellar + '<br>';
+        all += lamellar;
+      }
+      if(self.inventory.maille > 0){
+        var maille = '<b>Maille</b>: ' + self.inventory.maille + '<br>';
+        all += maille;
+      }
+      if(self.inventory.hauberk > 0){
+        var hauberk = '<b>Hauberk</b>: ' + self.inventory.hauberk + '<br>';
+        all += hauberk;
+      }
+      if(self.inventory.brynja > 0){
+        var brynja = '<b>Brynja</b>: ' + self.inventory.brynja + '<br>';
+        all += brynja;
+      }
+      if(self.inventory.cuirass > 0){
+        var cuirass = '<b>Cuirass</b>: ' + self.inventory.cuirass + '<br>';
+        all += cuirass;
+      }
+      if(self.inventory.steelplate > 0){
+        var steelplate = '<b>SteelPlate</b>: ' + self.inventory.steelplate + '<br>';
+        all += steelplate;
+      }
+      if(self.inventory.greenwichplate > 0){
+        var greenwichplate = '<b>GreenwichPlate</b>: ' + self.inventory.greenwichplate + '<br>';
+        all += greenwichplate;
+      }
+      if(self.inventory.gothicplate > 0){
+        var gothicplate = '<b>GothicPlate</b>: ' + self.inventory.gothicplate + '<br>';
+        all += gothicplate;
+      }
+      if(self.inventory.clericrobe > 0){
+        var clericrobe = '<b>ClericRobe</b>: ' + self.inventory.clericrobe + '<br>';
+        all += clericrobe;
+      }
+      if(self.inventory.monkcowl > 0){
+        var monkcowl = '<b>MonkCowl</b>: ' + self.inventory.monkcowl + '<br>';
+        all += monkcowl;
+      }
+      if(self.inventory.blackcloak > 0){
+        var blackcloak = '<b>BlackCloak</b>: ' + self.inventory.blackcloak + '<br>';
+        all += blackcloak;
+      }
+      if(self.inventory.tome > 0){
+        var tome = '<b>Tome</b>: ' + self.inventory.tome + '<br>';
+        all += tome;
+      }
+      if(self.inventory.runicscroll > 0){
+        var runicscroll = '<b>RunicScroll</b>: ' + self.inventory.runicscroll + '<br>';
+        all += runicscroll;
+      }
+      if(self.inventory.sacredtext > 0){
+        var sacredtext = '<b>SacredText</b>: ' + self.inventory.sacredtext + '<br>';
+        all += sacredtext;
+      }
+      if(self.inventory.stoneaxe > 0){
+        var stoneaxe = '<b>StoneAxe</b>: ' + self.inventory.stoneaxe + '<br>';
+        all += stoneaxe;
+      }
+      if(self.inventory.ironaxe > 0){
+        var ironaxe = '<b>IronAxe</b>: ' + self.inventory.ironaxe + '<br>';
+        all += ironaxe;
+      }
+      if(self.inventory.pickaxe > 0){
+        var pickaxe = '<b>PickAxe</b>: ' + self.inventory.pickaxe + '<br>';
+        all += pickaxe;
+      }
+      if(self.inventory.torch > 0){
+        var torch = '<b>Torch</b>: ' + self.inventory.torch + '<br>';
+        all += torch;
+      }
+      if(self.inventory.bread > 0){
+        var bread = '<b>Bread</b>: ' + self.inventory.bread + '<br>';
+        all += bread;
+      }
+      if(self.inventory.fish > 0){
+        var fish = '<b>Fish</b>: ' + self.inventory.fish + '<br>';
+        all += fish;
+      }
+      if(self.inventory.lamb > 0){
+        var lamb = '<b>Lamb</b>: ' + self.inventory.lamb + '<br>';
+        all += lamb;
+      }
+      if(self.inventory.boarmeat > 0){
+        var boarmeat = '<b>BoarMeat</b>: ' + self.inventory.boarmeat + '<br>';
+        all += boarmeat;
+      }
+      if(self.inventory.venison > 0){
+        var venison = '<b>Venison</b>: ' + self.inventory.venison + '<br>';
+        all += venison;
+      }
+      if(self.inventory.poachedfish > 0){
+        var poachedfish = '<b>PoachedFish</b>: ' + self.inventory.poachedfish + '<br>';
+        all += poachedfish;
+      }
+      if(self.inventory.lambchop > 0){
+        var lambchop = '<b>LambChop</b>: ' + self.inventory.lambchop + '<br>';
+        all += lambchop;
+      }
+      if(self.inventory.boarshank > 0){
+        var boarshank = '<b>BoarShank</b>: ' + self.inventory.boarshank + '<br>';
+        all += boarshank;
+      }
+      if(self.inventory.venisonloin > 0){
+        var venisonloin = '<b>VenisonLoin</b>: ' + self.inventory.venisonloin + '<br>';
+        all += venisonloin;
+      }
+      if(self.inventory.mead > 0){
+        var mead = '<b>Mead</b>: ' + self.inventory.mead + '<br>';
+        all += mead;
+      }
+      if(self.inventory.saison > 0){
+        var saison = '<b>Saison</b>: ' + self.inventory.saison + '<br>';
+        all += saison;
+      }
+      if(self.inventory.flandersredale > 0){
+        var flandersredale = '<b>FlandersRedAle</b>: ' + self.inventory.flandersredale + '<br>';
+        all += flandersredale;
+      }
+      if(self.inventory.bieredegarde > 0){
+        var bieredegarde = '<b>BiereDeGarde</b>: ' + self.inventory.bieredegarde + '<br>';
+        all += bieredegarde;
+      }
+      if(self.inventory.bordeaux > 0){
+        var bordeaux = '<b>Bordeaux</b>: ' + self.inventory.bordeaux + '<br>';
+        all += bordeaux;
+      }
+      if(self.inventory.bourgogne > 0){
+        var bourgogne = '<b>Bourgogne</b>: ' + self.inventory.bourgogne + '<br>';
+        all += bourgogne;
+      }
+      if(self.inventory.chianti > 0){
+        var chianti = '<b>Chianti</b>: ' + self.inventory.chianti + '<br>';
+        all += chianti;
+      }
+      if(self.inventory.crown > 0){
+        var crown = '<b>Crown</b>: ' + self.inventory.crown + '<br>';
+        all += crown;
+      }
+      if(self.inventory.worldmap > 0){
+        var worldmap = '<b>WorldMap</b>: ' + self.inventory.worldmap + '<br>';
+        all += worldmap;
+      }
+      if(self.inventory.arrows > 0){
+        var arrows = '<b>Arrows</b>: ' + self.inventory.arrows + '<br>';
+        all += arrows;
+      }
+      if(self.inventory.relic > 0){
+        var relic = '<b>Relic</b>: ' + self.inventory.relic + '<br>';
+        all += relic;
+      }
+      if(all === ''){
+        socket.emit('addToChat','<i>You have nothing in your bag.</i>');
+      } else {
+        socket.emit('addToChat','<p>'+all+'</p>');
       }
     }
 
@@ -1417,7 +1708,7 @@ Player = function(param){
                   qty:1,
                   parent:b.id
                 });
-                Player.list[b.owner].inventory.keys.push(b.id);
+                Player.list[b.owner].keys.push(b.id);
               } else if(b.type === 'fort'){
                 world[0][plot[0][1]][plot[0][0]] = 13;
                 matrixO[plot[0][1]][plot[0][0]] = 1;
@@ -1490,7 +1781,7 @@ Player = function(param){
                   qty:1,
                   parent:b.id
                 });
-                Player.list[b.owner].inventory.keys.push(b.id);
+                Player.list[b.owner].keys.push(b.id);
               } else if(b.type === 'tavern'){
                 for(i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('tavern' + i);
@@ -2606,20 +2897,20 @@ Player = function(param){
     // outdoor collisions
     if(self.z === 0){
       if(((getTile(0,rLoc[0],rLoc[1]) === 19 && !keyCheck(self.x+(tileSize/2),self.y,self.id)) ||
-      (!isWalkable(0,rLoc[0],rLoc[1]) && getTile(0,rLoc[0],rLoc[1]) !== 0 && getTile(0,rLoc[0],rLoc[1]) !== 11.5 && getTile(0,rLoc[0],rLoc[1]) !== 12.5) ||
+      (!isWalkable(0,rLoc[0],rLoc[1]) && getTile(0,rLoc[0],rLoc[1]) !== 0 && getTile(0,rLoc[0],rLoc[1]) !== 11.5 && getTile(0,rLoc[0],rLoc[1]) !== 12.5 && getTile(0,rLoc[0],rLoc[1]) !== 20) ||
       (self.x + 10) > (mapPx - tileSize)) && isWalkable(0,loc[0],loc[1])){
         rightBlocked = true;
       }
-      if(((getTile(0,lLoc[0],lLoc[1]) === 19 && !keyCheck(self.x-(tileSize/2),self.y,self.id)) || (!isWalkable(0,lLoc[0],lLoc[1]) && getTile(0,lLoc[0],lLoc[1]) !== 0 && getTile(0,lLoc[0],lLoc[1]) !== 11.5 && getTile(0,lLoc[0],lLoc[1]) !== 12.5) ||
+      if(((getTile(0,lLoc[0],lLoc[1]) === 19 && !keyCheck(self.x-(tileSize/2),self.y,self.id)) || (!isWalkable(0,lLoc[0],lLoc[1]) && getTile(0,lLoc[0],lLoc[1]) !== 0 && getTile(0,lLoc[0],lLoc[1]) !== 11.5 && getTile(0,lLoc[0],lLoc[1]) !== 12.5 && getTile(0,lLoc[0],lLoc[1]) !== 20) ||
       (self.x - 10) < 0) && isWalkable(0,loc[0],loc[1])){
         leftBlocked = true;
       }
-      if(((getTile(0,uLoc[0],uLoc[1]) === 19 && !keyCheck(self.x,self.y-(tileSize/2),self.id)) || (!isWalkable(0,uLoc[0],uLoc[1]) && getTile(0,uLoc[0],uLoc[1]) !== 0 && getTile(0,uLoc[0],uLoc[1]) !== 11.5 && getTile(0,uLoc[0],uLoc[1]) !== 12.5) ||
+      if(((getTile(0,uLoc[0],uLoc[1]) === 19 && !keyCheck(self.x,self.y-(tileSize/2),self.id)) || (!isWalkable(0,uLoc[0],uLoc[1]) && getTile(0,uLoc[0],uLoc[1]) !== 0 && getTile(0,uLoc[0],uLoc[1]) !== 11.5 && getTile(0,uLoc[0],uLoc[1]) !== 12.5 && getTile(0,rLoc[0],rLoc[1]) !== 20) ||
       (getTile(5,uLoc,uLoc[1]) === 'gatec' && !gateCheck(self.x,self.y-(tileSize/2),self.house,self.kingdom)) ||
       (self.y - 10) < 0) && isWalkable(0,loc[0],loc[1])){
         upBlocked = true;
       }
-      if((getTile(0,dLoc[0],dLoc[1]) === 6 || (getTile(0,dLoc[0],dLoc[1]) === 19 && !keyCheck(self.x,self.y+(tileSize/2),self.id)) || (!isWalkable(0,dLoc[0],dLoc[1]) && getTile(0,dLoc[0],dLoc[1]) !== 0 && getTile(0,dLoc[0],dLoc[1]) !== 11.5 && getTile(0,dLoc[0],dLoc[1]) !== 12.5) ||
+      if((getTile(0,dLoc[0],dLoc[1]) === 6 || (getTile(0,dLoc[0],dLoc[1]) === 19 && !keyCheck(self.x,self.y+(tileSize/2),self.id)) || (!isWalkable(0,dLoc[0],dLoc[1]) && getTile(0,dLoc[0],dLoc[1]) !== 0 && getTile(0,dLoc[0],dLoc[1]) !== 11.5 && getTile(0,dLoc[0],dLoc[1]) !== 12.5 && getTile(0,rLoc[0],rLoc[1]) !== 20) ||
       (getTile(5,dLoc[0],dLoc[1]) === 'gatec' && !gateCheck(self.x,self.y+(tileSize/2),self.house,self.kingdom)) ||
       (self.y + 10) > (mapPx - tileSize)) && isWalkable(0,loc[0],loc[1])){
         downBlocked = true;
@@ -3075,7 +3366,7 @@ Arrow = function(param){
         // player death & respawn
         if(p.hp <= 0){
           p.hp = p.hpMax;
-          var spawn = randomSpawn;
+          var spawn = randomSpawnO();
           p.x = spawn[0]; // replace this
           p.y = spawm[1]; // replace this
         }
@@ -3236,6 +3527,22 @@ Wood = function(param){
   self.class = 'resource';
   self.rank = 0;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.wood > 9){
+      socket.emit('addToChat','<i>You are already carrying too much</i> <b>Wood</b>.');
+    } else if(player.inventory.wood + self.qty > 10){
+      var q = 10 - player.inventory.wood;
+      self.qty -= q;
+      Player.list[id].inventory.wood += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Wood</b>.');
+    } else {
+      Player.list[id].inventory.wood += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Wood</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3248,6 +3555,22 @@ Stone = function(param){
   self.class = 'resource';
   self.rank = 0;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.stone > 10){
+      socket.emit('addToChat','<i>You are already carrying too much</i> <b>Stone</b>.');
+    } else if(player.inventory.stone + self.qty > 10){
+      var q = 10 - player.inventory.stone;
+      self.qty -= q;
+      Player.list[id].inventory.stone += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Stone</b>.');
+    } else {
+      Player.list[id].inventory.stone += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Stone</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3260,30 +3583,9 @@ Grain = function(param){
   self.class = 'resource';
   self.rank = 0;
   self.canPickup = true;
-  Item.list[self.id] = self;
-  initPack.item.push(self.getInitPack());
-  return self;
-}
-
-// FLOUR
-Flour = function(param){
-  var self = Item(param);
-  self.type = 'Flour';
-  self.class = 'resource';
-  self.rank = 0;
-  self.canPickup = true;
-  Item.list[self.id] = self;
-  initPack.item.push(self.getInitPack());
-  return self;
-}
-
-// DOUGH
-Dough = function(param){
-  var self = Item(param);
-  self.type = 'Dough';
-  self.class = 'resource';
-  self.rank = 0;
-  self.canPickup = true;
+  self.pickup = function(id){
+    return;
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3296,6 +3598,22 @@ IronOre = function(param){
   self.class = 'resource';
   self.rank = 0;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.ironore > 10){
+      socket.emit('addToChat','<i>You are already carrying too much</i> <b>IronOre</b>.');
+    } else if(player.inventory.ironore + self.qty > 10){
+      var q = 10 - player.inventory.ironore;
+      self.qty -= q;
+      Player.list[id].inventory.ironore += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>IronOre</b>.');
+    } else {
+      Player.list[id].inventory.ironore += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>IronOre</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3308,6 +3626,22 @@ IronBar = function(param){
   self.class = 'resource';
   self.rank = 0;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.ironbar > 10){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>IronBar</b>.');
+    } else if(player.inventory.ironbar + self.qty > 10){
+      var q = 10 - player.inventory.ironbar;
+      self.qty -= q;
+      Player.list[id].inventory.ironbar += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>IronBar</b>.');
+    } else {
+      Player.list[id].inventory.ironbar += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>IronBar</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3320,6 +3654,22 @@ SteelBar = function(param){
   self.class = 'resource';
   self.rank = 0;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.steelbar > 10){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>SteelBar</b>.');
+    } else if(player.inventory.steelbar + self.qty > 10){
+      var q = 10 - player.inventory.steelbar;
+      self.qty -= q;
+      Player.list[id].inventory.steelbar += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>SteelBar</b>.');
+    } else {
+      Player.list[id].inventory.steelbar += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>SteelBar</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3332,6 +3682,22 @@ BoarHide = function(param){
   self.class = 'resource';
   self.rank = 0;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.boarhide > 25){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>BoarHide</b>.');
+    } else if(player.inventory.boarhide + self.qty > 25){
+      var q = 25 - player.inventory.boarhide;
+      self.qty -= q;
+      Player.list[id].inventory.boarhide += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>BoarHide</b>.');
+    } else {
+      Player.list[id].inventory.boarhide += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>BoarHide</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3344,6 +3710,22 @@ Leather = function(param){
   self.class = 'resource';
   self.rank = 0;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.leather > 25){
+      socket.emit('addToChat','<i>You are already carrying too much</i> <b>Leather</b>.');
+    } else if(player.inventory.leather + self.qty > 25){
+      var q = 25 - player.inventory.leather;
+      self.qty -= q;
+      Player.list[id].inventory.leather += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Leather</b>.');
+    } else {
+      Player.list[id].inventory.leather += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Leather</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3356,6 +3738,22 @@ SilverOre = function(param){
   self.class = 'resource';
   self.rank = 1;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.silverore > 10){
+      socket.emit('addToChat','<i>You are already carrying too much</i> <b>SilverOre</b>.');
+    } else if(player.inventory.silverore + self.qty > 10){
+      var q = 10 - player.inventory.silverore;
+      self.qty -= q;
+      Player.list[id].inventory.silverore += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>SilverOre</b>.');
+    } else {
+      Player.list[id].inventory.silverore += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>SilverOre</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3368,6 +3766,13 @@ Silver = function(param){
   self.class = 'resource';
   self.rank = 1;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    Player.list[id].inventory.silver += self.qty;
+    socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Silver</b>.');
+    self.toRemove = true;
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3380,6 +3785,22 @@ GoldOre = function(param){
   self.class = 'resource';
   self.rank = 1;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.goldore > 10){
+      socket.emit('addToChat','<i>You are already carrying too much</i> <b>GoldOre</b>.');
+    } else if(player.inventory.goldore + self.qty > 10){
+      var q = 10 - player.inventory.goldore;
+      self.qty -= q;
+      Player.list[id].inventory.goldore += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>GoldOre</b>.');
+    } else {
+      Player.list[id].inventory.goldore += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>GoldOre</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3392,6 +3813,13 @@ Gold = function(param){
   self.class = 'resource';
   self.rank = 1;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    Player.list[id].inventory.gold += self.qty;
+    socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Gold</b>.');
+    self.toRemove = true;
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3404,6 +3832,13 @@ Diamond = function(param){
   self.class = 'resource';
   self.rank = 2;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    Player.list[id].inventory.diamond += self.qty;
+    socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Diamond</b>.');
+    self.toRemove = true;
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3416,6 +3851,22 @@ HuntingKnife = function(param){
   self.class = 'dagger';
   self.rank = 0;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.huntingknife > 10){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>HuntingKnife</b>.');
+    } else if(player.inventory.huntingknife + self.qty > 10){
+      var q = 10 - player.inventory.huntingknife;
+      self.qty -= q;
+      Player.list[id].inventory.huntingknife += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>HuntingKnife</b>.');
+    } else {
+      Player.list[id].inventory.huntingknife += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>HuntingKnife</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3427,6 +3878,22 @@ Dague = function(param){
   self.class = 'dagger';
   self.rank = 0;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.dague > 10){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Dague</b>.');
+    } else if(player.inventory.dague + self.qty > 10){
+      var q = 10 - player.inventory.dague;
+      self.qty -= q;
+      Player.list[id].inventory.dague += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Dague</b>.');
+    } else {
+      Player.list[id].inventory.dague += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Dague</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3438,6 +3905,22 @@ Rondel = function(param){
   self.class = 'dagger';
   self.rank = 1;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.rondel > 10){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Rondel</b>.');
+    } else if(player.inventory.rondel + self.qty > 10){
+      var q = 10 - player.inventory.rondel;
+      self.qty -= q;
+      Player.list[id].inventory.rondel += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Rondel</b>.');
+    } else {
+      Player.list[id].inventory.rondel += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Rondel</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3449,6 +3932,22 @@ Misericorde = function(param){
   self.class = 'dagger';
   self.rank = 2;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.misericorde > 10){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Misericorde</b>.');
+    } else if(player.inventory.misericorde + self.qty > 10){
+      var q = 10 - player.inventory.misericorde;
+      self.qty -= q;
+      Player.list[id].inventory.misericorde += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Misericorde</b>.');
+    } else {
+      Player.list[id].inventory.misericorde += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Misericorde</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3461,6 +3960,22 @@ BastardSword = function(param){
   self.class = 'sword';
   self.rank = 0;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.bastardsword > 10){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>BastardSword</b>.');
+    } else if(player.inventory.bastardsword + self.qty > 10){
+      var q = 10 - player.inventory.bastardsword;
+      self.qty -= q;
+      Player.list[id].inventory.bastardsword += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>BastardSword</b>.');
+    } else {
+      Player.list[id].inventory. bastardsword += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>BastardSword</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3473,6 +3988,22 @@ Longsword = function(param){
   self.class = 'sword';
   self.rank = 0;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.longsword > 10){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Longsword</b>.');
+    } else if(player.inventory.longsword + self.qty > 10){
+      var q = 10 - player.inventory.longsword;
+      self.qty -= q;
+      Player.list[id].inventory.longsword += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Longsword</b>.');
+    } else {
+      Player.list[id].inventory.longsword += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Longsword</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3485,6 +4016,22 @@ Zweihander = function(param){
   self.class = 'sword';
   self.rank = 1;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.zweihander > 10){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Zweihander</b>.');
+    } else if(player.inventory.zweihander + self.qty > 10){
+      var q = 10 - player.inventory.zweihander;
+      self.qty -= q;
+      Player.list[id].inventory.zweihander += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Zweihander</b>.');
+    } else {
+      Player.list[id].inventory.zweihander += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Zweihander</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3497,6 +4044,22 @@ Morallta = function(param){
   self.class = 'sword';
   self.rank = 3;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.morallta > 10){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Morallta</b>.');
+    } else if(player.inventory.morallta + self.qty > 10){
+      var q = 10 - player.inventory.morallta;
+      self.qty -= q;
+      Player.list[id].inventory.morallta += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Morallta</b>.');
+    } else {
+      Player.list[id].inventory.morallta += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Morallta</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3509,6 +4072,22 @@ Bow = function(param){
   self.class = 'bow';
   self.rank = 0;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.bow > 10){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Bow</b>.');
+    } else if(player.inventory.bow + self.qty > 10){
+      var q = 10 - player.inventory.bow;
+      self.qty -= q;
+      Player.list[id].inventory.bow += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Bow</b>.');
+    } else {
+      Player.list[id].inventory.bow += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Bow</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3521,6 +4100,22 @@ WelshLongbow = function(param){
   self.class = 'bow';
   self.rank = 2;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.welshlongbow > 10){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>WelshLongbow</b>.');
+    } else if(player.inventory.welshlongbow + self.qty > 10){
+      var q = 10 - player.inventory.welshlongbow;
+      self.qty -= q;
+      Player.list[id].inventory.welshlongbow += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>WelshLongbow</b>.');
+    } else {
+      Player.list[id].inventory.welshlongbow += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>WelshLongbow</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3533,6 +4128,22 @@ KnightLance = function(param){
   self.class = 'lance';
   self.rank = 0;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.knightlance > 10){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>KnightLance</b>.');
+    } else if(player.inventory.knightlance + self.qty > 10){
+      var q = 10 - player.inventory.knightlance;
+      self.qty -= q;
+      Player.list[id].inventory.knightlance += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>KnightLance</b>.');
+    } else {
+      Player.list[id].inventory.knightlance += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>KnightLance</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3545,6 +4156,22 @@ RusticLance = function(param){
   self.class = 'lance';
   self.rank = 1;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.rusticlance > 10){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>RusticLance</b>.');
+    } else if(player.inventory.rusticlance + self.qty > 10){
+      var q = 10 - player.inventory.rusticlance;
+      self.qty -= q;
+      Player.list[id].inventory.rusticlance += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>RusticLance</b>.');
+    } else {
+      Player.list[id].inventory.rusticlance += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>RusticLance</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3557,6 +4184,22 @@ PaladinLance = function(param){
   self.class = 'lance';
   self.rank = 2;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.paladinlance > 10){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>PaladinLance</b>.');
+    } else if(player.inventory.paladinlance + self.qty > 10){
+      var q = 10 - player.inventory.paladinlance;
+      self.qty -= q;
+      Player.list[id].inventory.paladinlance += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>PaladinLance</b>.');
+    } else {
+      Player.list[id].inventory.paladinlance += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>PaladinLance</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3569,6 +4212,22 @@ Brigandine = function(param){
   self.class = 'leather';
   self.rank = 0;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.brigandine > 10){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Brigandine</b>.');
+    } else if(player.inventory.brigandine + self.qty > 10){
+      var q = 10 - player.inventory.brigandine;
+      self.qty -= q;
+      Player.list[id].inventory.brigandine += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Brigandine</b>.');
+    } else {
+      Player.list[id].inventory.brigandine += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Brigandine</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3581,6 +4240,22 @@ Lamellar = function(param){
   self.class = 'leather';
   self.rank = 1;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.lamellar > 10){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Lamellar</b>.');
+    } else if(player.inventory.lamellar + self.qty > 10){
+      var q = 10 - player.inventory.lamellar;
+      self.qty -= q;
+      Player.list[id].inventory.lamellar += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Lamellar</b>.');
+    } else {
+      Player.list[id].inventory.lamellar += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Lamellar</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3593,6 +4268,22 @@ Maille = function(param){
   self.class = 'chainmail';
   self.rank = 0;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.maille > 10){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Maille</b>.');
+    } else if(player.inventory.maille + self.qty > 10){
+      var q = 10 - player.inventory.maille;
+      self.qty -= q;
+      Player.list[id].inventory.maille += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Maille</b>.');
+    } else {
+      Player.list[id].inventory.maille += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Maille</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3606,6 +4297,22 @@ Hauberk = function(param){
   self.rank = 0;
   self.canPickup = true;
   Item.list[self.id] = self;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.hauberk > 10){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Hauberk</b>.');
+    } else if(player.inventory.hauberk + self.qty > 10){
+      var q = 10 - player.inventory.hauberk;
+      self.qty -= q;
+      Player.list[id].inventory.hauberk += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Hauberk</b>.');
+    } else {
+      Player.list[id].inventory.hauberk += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Hauberk</b>.');
+      self.toRemove = true;
+    }
+  }
   initPack.item.push(self.getInitPack());
   return self;
 }
@@ -3617,6 +4324,22 @@ Brynja = function(param){
   self.class = 'chainmail';
   self.rank = 1;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.brynja > 10){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Brynja</b>.');
+    } else if(player.inventory.brynja + self.qty > 10){
+      var q = 10 - player.inventory.brynja;
+      self.qty -= q;
+      Player.list[id].inventory.brynja += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Brynja</b>.');
+    } else {
+      Player.list[id].inventory.brynja += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Brynja</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3629,6 +4352,22 @@ Cuirass = function(param){
   self.class = 'plate';
   self.rank = 0;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.cuirass > 10){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Cuirass</b>.');
+    } else if(player.inventory.cuirass + self.qty > 10){
+      var q = 10 - player.inventory.cuirass;
+      self.qty -= q;
+      Player.list[id].inventory.cuirass += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Cuirass</b>.');
+    } else {
+      Player.list[id].inventory.cuirass += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Cuirass</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3641,6 +4380,22 @@ SteelPlate = function(param){
   self.class = 'plate';
   self.rank = 0;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.steelplate > 10){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>SteelPlate</b>.');
+    } else if(player.inventory.steelplate + self.qty > 10){
+      var q = 10 - player.inventory.steelplate;
+      self.qty -= q;
+      Player.list[id].inventory.steelplate += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>SteelPlate</b>.');
+    } else {
+      Player.list[id].inventory.steelplate += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>SteelPlate</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3653,6 +4408,22 @@ GreenwichPlate = function(param){
   self.class = 'plate';
   self.rank = 2;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.greenwichplate > 10){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>GreenwichPlate</b>.');
+    } else if(player.inventory.greenwichplate + self.qty > 10){
+      var q = 10 - player.inventory.greenwichplate;
+      self.qty -= q;
+      Player.list[id].inventory.greenwichplate += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>GreenwichPlate</b>.');
+    } else {
+      Player.list[id].inventory.greenwichplate += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>GreenwichPlate</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3665,6 +4436,22 @@ GothicPlate = function(param){
   self.class = 'plate';
   self.rank = 3;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.gothicplate > 10){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>GothicPlate</b>.');
+    } else if(player.inventory.gothicplate + self.qty > 10){
+      var q = 10 - player.inventory.gothicplate;
+      self.qty -= q;
+      Player.list[id].inventory.gothicplate += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>GothicPlate</b>.');
+    } else {
+      Player.list[id].inventory.gothicplate += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>GothicPlate</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3677,6 +4464,22 @@ ClericRobe = function(param){
   self.class = 'cloth';
   self.rank = 0;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.clericrobe > 10){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>ClericRobe</b>.');
+    } else if(player.inventory.clericrobe + self.qty > 10){
+      var q = 10 - player.inventory.clericrobe;
+      self.qty -= q;
+      Player.list[id].inventory.clericrobe += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>ClericRobe</b>.');
+    } else {
+      Player.list[id].inventory.clericrobe += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>ClericRobe</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3689,6 +4492,22 @@ MonkCowl = function(param){
   self.class = 'cloth';
   self.rank = 1;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.monkcowl > 10){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>MonkCowl</b>.');
+    } else if(player.inventory.monkcowl + self.qty > 10){
+      var q = 10 - player.inventory.monkcowl;
+      self.qty -= q;
+      Player.list[id].inventory.monkcowl += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>MonkCowl</b>.');
+    } else {
+      Player.list[id].inventory.monkcowl += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>MonkCowl</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3701,6 +4520,22 @@ BlackCloak = function(param){
   self.class = 'cloth';
   self.rank = 1;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.blackcloak > 10){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>BlackCloak</b>.');
+    } else if(player.inventory.blackcloak + self.qty > 10){
+      var q = 10 - player.inventory.blackcloak;
+      self.qty -= q;
+      Player.list[id].inventory.blackcloak += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>BlackCloak</b>.');
+    } else {
+      Player.list[id].inventory.blackcloak += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>BlackCloak</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3713,6 +4548,22 @@ Tome = function(param){
   self.class = 'text';
   self.rank = 1;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.tome > 10){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Tome</b>.');
+    } else if(player.inventory.tome + self.qty > 10){
+      var q = 10 - player.inventory.tome;
+      self.qty -= q;
+      Player.list[id].inventory.tome += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Tome</b>.');
+    } else {
+      Player.list[id].inventory.tome += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Tome</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3725,6 +4576,22 @@ RunicScroll = function(param){
   self.class = 'text';
   self.rank = 1;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.runicscroll > 10){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>RunicScroll</b>.');
+    } else if(player.inventory.runicscroll + self.qty > 10){
+      var q = 10 - player.inventory.runicscroll;
+      self.qty -= q;
+      Player.list[id].inventory.runicscroll += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>RunicScroll</b>.');
+    } else {
+      Player.list[id].inventory.runicscroll += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>RunicScroll</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3737,6 +4604,22 @@ SacredText = function(param){
   self.class = 'text';
   self.rank = 1;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.sacredtext > 10){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>SacredText</b>.');
+    } else if(player.inventory.sacredtext + self.qty > 10){
+      var q = 10 - player.inventory.sacredtext;
+      self.qty -= q;
+      Player.list[id].inventory.sacredtext += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>SacredText</b>.');
+    } else {
+      Player.list[id].inventory.sacredtext += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>SacredText</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3749,6 +4632,22 @@ StoneAxe = function(param){
   self.class = 'tool';
   self.rank = 0;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.stoneaxe > 10){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>StoneAxe</b>.');
+    } else if(player.inventory.stoneaxe + self.qty > 10){
+      var q = 10 - player.inventory.stoneaxe;
+      self.qty -= q;
+      Player.list[id].inventory.stoneaxe += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>StoneAxe</b>.');
+    } else {
+      Player.list[id].inventory.stoneaxe += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>StoneAxe</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3761,18 +4660,50 @@ IronAxe = function(param){
   self.class = 'tool';
   self.rank = 0;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.ironaxe > 10){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>IronAxe</b>.');
+    } else if(player.inventory.ironaxe + self.qty > 10){
+      var q = 10 - player.inventory.ironaxe;
+      self.qty -= q;
+      Player.list[id].inventory.ironaxe += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>IronAxe</b>.');
+    } else {
+      Player.list[id].inventory.ironaxe += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>IronAxe</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
 }
 
-// IRON PICKAXE
+// PICKAXE
 Pickaxe = function(param){
   var self = Item(param);
   self.type = 'Pickaxe';
   self.class = 'tool';
   self.rank = 0;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.pickaxe > 10){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>PickAxe</b>.');
+    } else if(player.inventory.pickaxe + self.qty > 10){
+      var q = 10 - player.inventory.pickaxe;
+      self.qty -= q;
+      Player.list[id].inventory.pickaxe += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Pickaxe</b>.');
+    } else {
+      Player.list[id].inventory.pickaxe += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Pickaxe</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -3797,6 +4728,22 @@ Torch = function(param){
   self.class = 'tool';
   self.rank = 0;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.torch > 25){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Torch</b>.');
+    } else if(player.inventory.torch + self.qty > 25){
+      var q = 25 - player.inventory.torch;
+      self.qty -= q;
+      Player.list[id].inventory.torch += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Torch</b>.');
+    } else {
+      Player.list[id].inventory.torch += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Torch</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -4290,8 +5237,6 @@ Chest = function(param){
     wood:0,
     stone:0,
     grain:0,
-    flour:0,
-    dough:0,
     ironore:0,
     ironbar:0,
     steelbar:0,
@@ -4372,8 +5317,6 @@ LockedChest = function(param){
     wood:0,
     stone:0,
     grain:0,
-    flour:0,
-    dough:0,
     ironore:0,
     ironbar:0,
     steelbar:0,
@@ -4450,6 +5393,22 @@ Bread = function(param){
   self.class = 'consumable';
   self.rank = 0;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.bread > 25){
+      socket.emit('addToChat','<i>You are already carrying too much</i> <b>Bread</b>.');
+    } else if(player.inventory.bread + self.qty > 25){
+      var q = 25 - player.inventory.bread;
+      self.qty -= q;
+      Player.list[id].inventory.bread += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Bread</b>.');
+    } else {
+      Player.list[id].inventory.bread += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Bread</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -4462,6 +5421,22 @@ Fish = function(param){
   self.class = 'consumable';
   self.rank = 0;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.fish > 25){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Fish</b>.');
+    } else if(player.inventory.fish + self.qty > 25){
+      var q = 25 - player.inventory.fish;
+      self.qty -= q;
+      Player.list[id].inventory.fish += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Fish</b>.');
+    } else {
+      Player.list[id].inventory.fish += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Fish</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -4474,6 +5449,22 @@ Lamb = function(param){
   self.class = 'resource';
   self.rank = 0;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.lamb > 25){
+      socket.emit('addToChat','<i>You are already carrying too much</i> <b>Lamb</b>.');
+    } else if(player.inventory.lamb + self.qty > 25){
+      var q = 25 - player.inventory.lamb;
+      self.qty -= q;
+      Player.list[id].inventory.lamb += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Lamb</b>.');
+    } else {
+      Player.list[id].inventory.lamb += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Lamb</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -4486,6 +5477,22 @@ BoarMeat = function(param){
   self.class = 'resource';
   self.rank = 0;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.boarmeat > 25){
+      socket.emit('addToChat','<i>You are already carrying too much</i> <b>BoarMeat</b>.');
+    } else if(player.inventory.boarmeat + self.qty > 25){
+      var q = 25 - player.inventory.boarmeat;
+      self.qty -= q;
+      Player.list[id].inventory.boarmeat += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>BoarMeat</b>.');
+    } else {
+      Player.list[id].inventory.boarmeat += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>BoarMeat</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -4498,6 +5505,22 @@ Venison = function(param){
   self.class = 'resource';
   self.rank = 0;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.venison > 25){
+      socket.emit('addToChat','<i>You are already carrying too much</i> <b>Venison</b>.');
+    } else if(player.inventory.venison + self.qty > 25){
+      var q = 25 - player.inventory.venison;
+      self.qty -= q;
+      Player.list[id].inventory.venison += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Venison</b>.');
+    } else {
+      Player.list[id].inventory.venison += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Venison</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -4510,6 +5533,22 @@ PoachedFish = function(param){
   self.class = 'consumable';
   self.rank = 0;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.poachedfish > 25){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>PoachedFish</b>.');
+    } else if(player.inventory.poachedfish + self.qty > 25){
+      var q = 25 - player.inventory.poachedfish;
+      self.qty -= q;
+      Player.list[id].inventory.poachedfish += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>PoachedFish</b>.');
+    } else {
+      Player.list[id].inventory.poachedfish += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>PoachedFish</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -4522,6 +5561,22 @@ LambChop = function(param){
   self.class = 'consumable';
   self.rank = 0;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.lambchop > 25){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>LambChop</b>.');
+    } else if(player.inventory.lambchop + self.qty > 25){
+      var q = 25 - player.inventory.lambchop;
+      self.qty -= q;
+      Player.list[id].inventory.lambchop += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>LambChop</b>.');
+    } else {
+      Player.list[id].inventory.lambchop += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>LambChop</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -4534,6 +5589,22 @@ BoarShank = function(param){
   self.class = 'consumable';
   self.rank = 0;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.boarshank > 25){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>BoarShank</b>.');
+    } else if(player.inventory.boarshank + self.qty > 25){
+      var q = 25 - player.inventory.boarshank;
+      self.qty -= q;
+      Player.list[id].inventory.boarshank += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>BoarShank</b>.');
+    } else {
+      Player.list[id].inventory.boarshank += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>BoarShank</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -4546,6 +5617,22 @@ VenisonLoin = function(param){
   self.class = 'consumable';
   self.rank = 0;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.venisonloin > 25){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>VenisonLoin</b>.');
+    } else if(player.inventory.venisonloin + self.qty > 25){
+      var q = 25 - player.inventory.venisonloin;
+      self.qty -= q;
+      Player.list[id].inventory.venisonloin += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>VenisonLoin</b>.');
+    } else {
+      Player.list[id].inventory.venisonloin += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>VenisonLoin</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -4558,6 +5645,22 @@ Mead = function(param){
   self.class = 'consumable';
   self.rank = 0;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.mead > 25){
+      socket.emit('addToChat','<i>You are already carrying too much</i> <b>Mead</b>.');
+    } else if(player.inventory.mead + self.qty > 25){
+      var q = 25 - player.inventory.mead;
+      self.qty -= q;
+      Player.list[id].inventory.mead += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Mead</b>.');
+    } else {
+      Player.list[id].inventory.mead += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Mead</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -4570,6 +5673,22 @@ Saison = function(param){
   self.class = 'consumable';
   self.rank = 0;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.saison > 25){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Saison</b>.');
+    } else if(player.inventory.saison + self.qty > 25){
+      var q = 25 - player.inventory.saison;
+      self.qty -= q;
+      Player.list[id].inventory.saison += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Saison</b>.');
+    } else {
+      Player.list[id].inventory.saison += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Saison</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -4582,6 +5701,22 @@ FlandersRedAle = function(param){
   self.class = 'consumable';
   self.rank = 0;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.flandersredale > 25){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>FlandersRedAle</b>.');
+    } else if(player.inventory.flandersredale + self.qty > 25){
+      var q = 25 - player.inventory.flandersredale;
+      self.qty -= q;
+      Player.list[id].inventory.flandersredale += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>FlandersRedAle</b>.');
+    } else {
+      Player.list[id].inventory.flandersredale += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>FlandersRedAle</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -4594,6 +5729,22 @@ BiereDeGarde = function(param){
   self.class = 'consumable';
   self.rank = 1;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.bieredegarde > 25){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>BiereDeGarde</b>.');
+    } else if(player.inventory.bieredegarde + self.qty > 25){
+      var q = 25 - player.inventory.bieredegarde;
+      self.qty -= q;
+      Player.list[id].inventory.bieredegarde += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>BiereDeGarde</b>.');
+    } else {
+      Player.list[id].inventory.bieredegarde += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>BiereDeGarde</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -4606,6 +5757,22 @@ Bordeaux = function(param){
   self.class = 'consumable';
   self.rank = 0;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.bordeaux > 25){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Bordeaux</b>.');
+    } else if(player.inventory.bordeaux + self.qty > 25){
+      var q = 25 - player.inventory.bordeaux;
+      self.qty -= q;
+      Player.list[id].inventory.bordeaux += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Bordeaux</b>.');
+    } else {
+      Player.list[id].inventory.bordeaux += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Bordeaux</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -4618,6 +5785,22 @@ Bourgogne = function(param){
   self.class = 'consumable';
   self.rank = 0;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.bourgogne > 25){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Bourgogne</b>.');
+    } else if(player.inventory.bourgogne + self.qty > 25){
+      var q = 25 - player.inventory.bourgogne;
+      self.qty -= q;
+      Player.list[id].inventory.bourgogne += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Bourgogne</b>.');
+    } else {
+      Player.list[id].inventory.bourgogne += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Bourgogne</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -4630,6 +5813,22 @@ Chianti = function(param){
   self.class = 'consumable';
   self.rank = 1;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.chianti > 25){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Chianti</b>.');
+    } else if(player.inventory.chianti + self.qty > 25){
+      var q = 25 - player.inventory.chianti;
+      self.qty -= q;
+      Player.list[id].inventory.chianti += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Chianti</b>.');
+    } else {
+      Player.list[id].inventory.chianti += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Chianti</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -4642,6 +5841,22 @@ Crown = function(param){
   self.class = 'head';
   self.rank = 3;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.crown > 10){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Crown</b>.');
+    } else if(player.inventory.crown + self.qty > 10){
+      var q = 10 - player.inventory.crown;
+      self.qty -= q;
+      Player.list[id].inventory.crown += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Crown</b>.');
+    } else {
+      Player.list[id].inventory.crown += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Crown</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -4654,6 +5869,22 @@ Arrows = function(param){
   self.class = 'tool';
   self.rank = 0;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.arrows > 50){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Arrows</b>.');
+    } else if(player.inventory.arrows + self.qty > 50){
+      var q = 50 - player.inventory.arrows;
+      self.qty -= q;
+      Player.list[id].inventory.arrows += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Arrows</b>.');
+    } else {
+      Player.list[id].inventory.arrows += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Arrows</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -4666,6 +5897,22 @@ WorldMap = function(param){
   self.class = 'tool';
   self.rank = 1;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.worldmap > 25){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>WorldMap</b>.');
+    } else if(player.inventory.worldmap + self.qty > 25){
+      var q = 25 - player.inventory.worldmap;
+      self.qty -= q;
+      Player.list[id].inventory.worldmap += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>WorldMap</b>.');
+    } else {
+      Player.list[id].inventory.worldmap += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>WorldMap</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -4678,6 +5925,17 @@ Relic = function(param){
   self.class = 'relic';
   self.rank = 4;
   self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.relic > 0){
+      socket.emit('addToChat','<i>You are already carrying a</i> <b>Relic</b>.');
+    } else {
+      Player.list[id].inventory.relic += self.qty;
+      socket.emit('addToChat','<i>You picked up the</i> <b>Relic</b>.');
+      self.toRemove = true;
+    }
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;

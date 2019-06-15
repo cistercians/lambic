@@ -250,7 +250,7 @@ getBuilding = function(x,y){
 // check if player has key to door from (x,y,player.id)
 keyCheck = function(x,y,p){
   var key = getBuilding(x,y);
-  var pKeys = Player.list[p].inventory.keys;
+  var pKeys = Player.list[p].keys;
   for(i in pKeys){
     if(pKeys[i] === key){
       return true;
