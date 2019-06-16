@@ -4289,7 +4289,7 @@ var renderMap = function(){
         var xOffset = viewport.offset[0] + (c * tileSize);
         var yOffset = viewport.offset[1] + (r * tileSize);
         var tile = getTile(0, c, r);
-        if(tile === 20){
+        if(tile === 11.5 || tile === 12.5 || tile === 20){
           ctx.drawImage(
             Img.woodfloor, // image
             xOffset, // target x

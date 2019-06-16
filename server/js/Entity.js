@@ -2242,8 +2242,8 @@ Player = function(param){
                     gridS.setWalkableAt(plot[i][0],plot[i][1],false);
                   } else {
                     world[0][plot[i][1]][plot[i][0]] = 20;
-                    matrixS[plot[i][1]][plot[i][0]] = 1;
-                    gridS.setWalkableAt(plot[i][0],plot[i][1],false);
+                    matrixO[plot[i][1]][plot[i][0]] = 0;
+                    gridO.setWalkableAt(plot[i][0],plot[i][1],true);
                   }
                 }
                 var ii = 6;
@@ -2897,20 +2897,20 @@ Player = function(param){
     // outdoor collisions
     if(self.z === 0){
       if(((getTile(0,rLoc[0],rLoc[1]) === 19 && !keyCheck(self.x+(tileSize/2),self.y,self.id)) ||
-      (!isWalkable(0,rLoc[0],rLoc[1]) && getTile(0,rLoc[0],rLoc[1]) !== 0 && getTile(0,rLoc[0],rLoc[1]) !== 11.5 && getTile(0,rLoc[0],rLoc[1]) !== 12.5 && getTile(0,rLoc[0],rLoc[1]) !== 20) ||
+      (!isWalkable(0,rLoc[0],rLoc[1]) && getTile(0,rLoc[0],rLoc[1]) !== 0 && getTile(0,rLoc[0],rLoc[1]) !== 11.5 && getTile(0,rLoc[0],rLoc[1]) !== 12.5) ||
       (self.x + 10) > (mapPx - tileSize)) && isWalkable(0,loc[0],loc[1])){
         rightBlocked = true;
       }
-      if(((getTile(0,lLoc[0],lLoc[1]) === 19 && !keyCheck(self.x-(tileSize/2),self.y,self.id)) || (!isWalkable(0,lLoc[0],lLoc[1]) && getTile(0,lLoc[0],lLoc[1]) !== 0 && getTile(0,lLoc[0],lLoc[1]) !== 11.5 && getTile(0,lLoc[0],lLoc[1]) !== 12.5 && getTile(0,lLoc[0],lLoc[1]) !== 20) ||
+      if(((getTile(0,lLoc[0],lLoc[1]) === 19 && !keyCheck(self.x-(tileSize/2),self.y,self.id)) || (!isWalkable(0,lLoc[0],lLoc[1]) && getTile(0,lLoc[0],lLoc[1]) !== 0 && getTile(0,lLoc[0],lLoc[1]) !== 11.5 && getTile(0,lLoc[0],lLoc[1]) !== 12.5) ||
       (self.x - 10) < 0) && isWalkable(0,loc[0],loc[1])){
         leftBlocked = true;
       }
-      if(((getTile(0,uLoc[0],uLoc[1]) === 19 && !keyCheck(self.x,self.y-(tileSize/2),self.id)) || (!isWalkable(0,uLoc[0],uLoc[1]) && getTile(0,uLoc[0],uLoc[1]) !== 0 && getTile(0,uLoc[0],uLoc[1]) !== 11.5 && getTile(0,uLoc[0],uLoc[1]) !== 12.5 && getTile(0,rLoc[0],rLoc[1]) !== 20) ||
+      if(((getTile(0,uLoc[0],uLoc[1]) === 19 && !keyCheck(self.x,self.y-(tileSize/2),self.id)) || (!isWalkable(0,uLoc[0],uLoc[1]) && getTile(0,uLoc[0],uLoc[1]) !== 0 && getTile(0,uLoc[0],uLoc[1]) !== 11.5 && getTile(0,uLoc[0],uLoc[1]) !== 12.5) ||
       (getTile(5,uLoc,uLoc[1]) === 'gatec' && !gateCheck(self.x,self.y-(tileSize/2),self.house,self.kingdom)) ||
       (self.y - 10) < 0) && isWalkable(0,loc[0],loc[1])){
         upBlocked = true;
       }
-      if((getTile(0,dLoc[0],dLoc[1]) === 6 || (getTile(0,dLoc[0],dLoc[1]) === 19 && !keyCheck(self.x,self.y+(tileSize/2),self.id)) || (!isWalkable(0,dLoc[0],dLoc[1]) && getTile(0,dLoc[0],dLoc[1]) !== 0 && getTile(0,dLoc[0],dLoc[1]) !== 11.5 && getTile(0,dLoc[0],dLoc[1]) !== 12.5 && getTile(0,rLoc[0],rLoc[1]) !== 20) ||
+      if((getTile(0,dLoc[0],dLoc[1]) === 6 || (getTile(0,dLoc[0],dLoc[1]) === 19 && !keyCheck(self.x,self.y+(tileSize/2),self.id)) || (!isWalkable(0,dLoc[0],dLoc[1]) && getTile(0,dLoc[0],dLoc[1]) !== 0 && getTile(0,dLoc[0],dLoc[1]) !== 11.5 && getTile(0,dLoc[0],dLoc[1]) !== 12.5) ||
       (getTile(5,dLoc[0],dLoc[1]) === 'gatec' && !gateCheck(self.x,self.y+(tileSize/2),self.house,self.kingdom)) ||
       (self.y + 10) > (mapPx - tileSize)) && isWalkable(0,loc[0],loc[1])){
         downBlocked = true;
