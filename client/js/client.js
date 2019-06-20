@@ -2183,7 +2183,9 @@ setInterval(function(){
       continue;
     }
   }
-  renderForest();
+  if(Player.list[selfId].inTrees){
+    renderForest();
+  }
   renderTops();
   for(var i in Player.list){
     if(Player.list[i].class === 'Falcon'){
@@ -2245,6 +2247,9 @@ getBuilding = function(x,y){
 // update environment
 tempus = null;
 
+houseList = null;
+kingdomList = null;
+
 socket.on('tempus',function(data){
   tempus = data.tempus;
 });
@@ -2253,6 +2258,11 @@ socket.on('newBuilding',function(data){
   buildingCount = data.bCount;
   buildingId = data.bId;
   buildingList = data.bList;
+});
+
+socket.on('newFaction',function(data){
+  houseList = data.houseList;
+  kingdomList = data.kingdomlist;
 })
 
 // update sprite
@@ -2364,6 +2374,33 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
+          if(!Player.list[selfId].inTrees){
+            if(tile >= 1 && tile < 1.3){
+              ctx.drawImage(
+                Img.hforest, // image
+                xOffset - (tileSize/4), // target x
+                yOffset - (tileSize/1.75), // target y
+                tileSize, // target width
+                tileSize * 1.5 // target height
+              );
+            } else if(tile >= 1 && tile < 1.6){
+              ctx.drawImage(
+                Img.hforest, // image
+                xOffset, // target x
+                yOffset - (tileSize/1.25), // target y
+                tileSize, // target width
+                tileSize * 1.5 // target height
+              );
+            } else {
+              ctx.drawImage(
+                Img.hforest, // image
+                xOffset, // target x
+                yOffset - (tileSize/2), // target y
+                tileSize, // target width
+                tileSize * 1.5 // target height
+              );
+            }
+          }
         } else if(tile >= 2 && tile < 2.3){
           ctx.drawImage(
             Img.grass, // image
@@ -5018,40 +5055,30 @@ var renderForest = function(){
         }
         var tile = getTile(0, c, r);
         if(tile >= 1 && tile < 1.3){
-          if(Player.list[selfId].inTrees){
-            if(dist() === 40){
-              ctx.drawImage(
-                Img.hforest40, // image
-                xOffset - (tileSize/4), // target x
-                yOffset - (tileSize/1.75), // target y
-                tileSize, // target width
-                tileSize * 1.5 // target height
-              );
-            } else if(dist() === 60){
-              ctx.drawImage(
-                Img.hforest60, // image
-                xOffset - (tileSize/4), // target x
-                yOffset - (tileSize/1.75), // target y
-                tileSize, // target width
-                tileSize * 1.5 // target height
-              );
-            } else if(dist() === 80){
-              ctx.drawImage(
-                Img.hforest80, // image
-                xOffset - (tileSize/4), // target x
-                yOffset - (tileSize/1.75), // target y
-                tileSize, // target width
-                tileSize * 1.5 // target height
-              );
-            } else {
-              ctx.drawImage(
-                Img.hforest, // image
-                xOffset - (tileSize/4), // target x
-                yOffset - (tileSize/1.75), // target y
-                tileSize, // target width
-                tileSize * 1.5 // target height
-              );
-            }
+          if(dist() === 40){
+            ctx.drawImage(
+              Img.hforest40, // image
+              xOffset - (tileSize/4), // target x
+              yOffset - (tileSize/1.75), // target y
+              tileSize, // target width
+              tileSize * 1.5 // target height
+            );
+          } else if(dist() === 60){
+            ctx.drawImage(
+              Img.hforest60, // image
+              xOffset - (tileSize/4), // target x
+              yOffset - (tileSize/1.75), // target y
+              tileSize, // target width
+              tileSize * 1.5 // target height
+            );
+          } else if(dist() === 80){
+            ctx.drawImage(
+              Img.hforest80, // image
+              xOffset - (tileSize/4), // target x
+              yOffset - (tileSize/1.75), // target y
+              tileSize, // target width
+              tileSize * 1.5 // target height
+            );
           } else {
             ctx.drawImage(
               Img.hforest, // image
@@ -5062,40 +5089,30 @@ var renderForest = function(){
             );
           }
         } else if(tile >= 1 && tile < 1.6){
-          if(Player.list[selfId].inTrees){
-            if(dist() === 40){
-              ctx.drawImage(
-                Img.hforest40, // image
-                xOffset, // target x
-                yOffset - (tileSize/1.25), // target y
-                tileSize, // target width
-                tileSize * 1.5 // target height
-              );
-            } else if(dist() === 60){
-              ctx.drawImage(
-                Img.hforest60, // image
-                xOffset, // target x
-                yOffset - (tileSize/1.25), // target y
-                tileSize, // target width
-                tileSize * 1.5 // target height
-              );
-            } else if(dist() === 80){
-              ctx.drawImage(
-                Img.hforest80, // image
-                xOffset, // target x
-                yOffset - (tileSize/1.25), // target y
-                tileSize, // target width
-                tileSize * 1.5 // target height
-              );
-            } else {
-              ctx.drawImage(
-                Img.hforest, // image
-                xOffset, // target x
-                yOffset - (tileSize/1.25), // target y
-                tileSize, // target width
-                tileSize * 1.5 // target height
-              );
-            }
+          if(dist() === 40){
+            ctx.drawImage(
+              Img.hforest40, // image
+              xOffset, // target x
+              yOffset - (tileSize/1.25), // target y
+              tileSize, // target width
+              tileSize * 1.5 // target height
+            );
+          } else if(dist() === 60){
+            ctx.drawImage(
+              Img.hforest60, // image
+              xOffset, // target x
+              yOffset - (tileSize/1.25), // target y
+              tileSize, // target width
+              tileSize * 1.5 // target height
+            );
+          } else if(dist() === 80){
+            ctx.drawImage(
+              Img.hforest80, // image
+              xOffset, // target x
+              yOffset - (tileSize/1.25), // target y
+              tileSize, // target width
+              tileSize * 1.5 // target height
+            );
           } else {
             ctx.drawImage(
               Img.hforest, // image
@@ -5106,40 +5123,30 @@ var renderForest = function(){
             );
           }
         } else if(tile >= 1 && tile < 2){
-          if(Player.list[selfId].inTrees){
-            if(dist() === 40){
-              ctx.drawImage(
-                Img.hforest40, // image
-                xOffset, // target x
-                yOffset - (tileSize/2), // target y
-                tileSize, // target width
-                tileSize * 1.5 // target height
-              );
-            } else if(dist() === 60){
-              ctx.drawImage(
-                Img.hforest60, // image
-                xOffset, // target x
-                yOffset - (tileSize/2), // target y
-                tileSize, // target width
-                tileSize * 1.5 // target height
-              );
-            } else if(dist() === 80){
-              ctx.drawImage(
-                Img.hforest80, // image
-                xOffset, // target x
-                yOffset - (tileSize/2), // target y
-                tileSize, // target width
-                tileSize * 1.5 // target height
-              );
-            } else {
-              ctx.drawImage(
-                Img.hforest, // image
-                xOffset, // target x
-                yOffset - (tileSize/2), // target y
-                tileSize, // target width
-                tileSize * 1.5 // target height
-              );
-            }
+          if(dist() === 40){
+            ctx.drawImage(
+              Img.hforest40, // image
+              xOffset, // target x
+              yOffset - (tileSize/2), // target y
+              tileSize, // target width
+              tileSize * 1.5 // target height
+            );
+          } else if(dist() === 60){
+            ctx.drawImage(
+              Img.hforest60, // image
+              xOffset, // target x
+              yOffset - (tileSize/2), // target y
+              tileSize, // target width
+              tileSize * 1.5 // target height
+            );
+          } else if(dist() === 80){
+            ctx.drawImage(
+              Img.hforest80, // image
+              xOffset, // target x
+              yOffset - (tileSize/2), // target y
+              tileSize, // target width
+              tileSize * 1.5 // target height
+            );
           } else {
             ctx.drawImage(
               Img.hforest, // image

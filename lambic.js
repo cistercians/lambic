@@ -106,7 +106,7 @@ surnames = [];
 fs.readFile('./malenames.txt', function(err, data){
   if(err) throw err;
   var lines = data.toString().split("\n");
-  for(i in lines){
+  for(var i in lines){
     maleNames.push(lines[i]);
   }
 });
@@ -114,7 +114,7 @@ fs.readFile('./malenames.txt', function(err, data){
 fs.readFile('./femalenames.txt', function(err, data){
   if(err) throw err;
   var lines = data.toString().split("\n");
-  for(i in lines){
+  for(var i in lines){
     femaleNames.push(lines[i]);
   }
 });
@@ -122,7 +122,7 @@ fs.readFile('./femalenames.txt', function(err, data){
 fs.readFile('./surnames.txt', function(err, data){
   if(err) throw err;
   var lines = data.toString().split("\n");
-  for(i in lines){
+  for(var i in lines){
     surnames.push(lines[i]);
   }
 });
@@ -235,7 +235,7 @@ getItem = function(z,c,r){
 // get building id from (x,y)
 getBuilding = function(x,y){
   var loc = getLoc(x,y);
-  for(i = 0; i < buildingCount; i++){
+  for(var i = 0; i < buildingCount; i++){
     var b = Building.list[buildingId[i]];
     for(n = 0; n < b.plot.length; n++){
       if(b.plot[n][0] === loc[0] && b.plot[n][1] === loc[1]){
@@ -251,7 +251,7 @@ getBuilding = function(x,y){
 keyCheck = function(x,y,p){
   var key = getBuilding(x,y);
   var pKeys = Player.list[p].keys;
-  for(i in pKeys){
+  for(var i in pKeys){
     if(pKeys[i] === key){
       return true;
     } else {
@@ -343,6 +343,44 @@ randomSpawnU = function(){
   return spawn;
 };
 
+// faction spawner
+factionSpawn = function(id){
+  if(id === 'Brotherhood'){
+    var select = [];
+    for(var i in spawnPointsU){
+      var count = 0;
+      var c = spawnPointsU[i][0];
+      var r = spawnPointsU[i][1];
+      var grid = [[c,r],[c+1,r],[c+2,r],[c+3,r],
+      [c,r+1],[c+1,r+1],[c+2,r+1],[c+3,r+1],
+      [c,r+2],[c+1,r+2],[c+2,r+2],[c+3,r+2],
+      [c,r+3],[c+1,r+3],[c+2,r+3],[c+3,r+3]];
+      for(var n in grid){
+        var tile = grid[n];
+        if(getTile(1,tile[0],tile[1]) === 0){
+          count++;
+        }
+      }
+      if(count === grid.length){
+        var r = Math.random();
+        if(r < 0.25){
+          select.push(grid[5]);
+        } else if(r < 0.5){
+          select.push(grid[6]);
+        } else if (r < 0.75){
+          select.push(grid[9]);
+        } else {
+          select.push(grid[10]);
+        }
+      }
+    }
+    var rand = Math.floor(Math.random() * select.length);
+    return select[rand];
+  } else if(id === 'Occult'){
+
+  }
+}
+
 // save map file?
 var saveMap = false;
 
@@ -358,8 +396,8 @@ if(saveMap){
 // day/night cycle
 tempus = 'XII.a';
 var period = 60; // 1=1hr, 2=30m, 4=15m, 12=5m, 60=1m, 120=30s, 360=10s (number of game days per 24 hours)
-var cycle = ['XII.a','I.a','II.a','III.a','IV.a','V.a','VI.a','VII.a','VIII.a','IX.a','X.a','XI.a',
-            'XII.p','I.p','II.p','III.p','IV.p','V.p','VI.p','VII.p','VIII.p','IX.p','X.p','XI.p'];
+var cycle = ['XII.a','I.a','II.a','III.a','IV.a','V.a','VI.a','VII.a','VIII.a','IX.a','X.a','XI.a'
+            ,'XII.p','I.p','II.p','III.p','IV.p','V.p','VI.p','VII.p','VIII.p','IX.p','X.p','XI.p'];
 var tick = 1;
 day = 0;
 
@@ -529,7 +567,71 @@ setInterval(function(){
 // spawn fauna
 entropy();
 
-// create Papal States kingdom
+// create NPC factions
+Brotherhood({
+  id:'Brotherhood',
+  type:'npc',
+  name:'Brotherhood',
+  flag:'',
+  mode:'hostile'
+});
+
+Goths({
+  id:'Goths',
+  type:'npc',
+  name:'Goths',
+  flag:'',
+  mode:'hostile'
+});
+
+Norsemen({
+  id:'Norsemen',
+  type:'npc',
+  name:'Norsemen',
+  flag:'',
+  mode:'hostile'
+});
+
+Franks({
+  id:'Franks',
+  type:'npc',
+  name:'Franks',
+  flag:'',
+  mode:'hostile'
+});
+
+Celts({
+  id:'Celts',
+  type:'npc',
+  name:'Celts',
+  flag:'',
+  mode:'hostile'
+});
+
+Teutons({
+  id:'Teutons',
+  type:'npc',
+  name:'Teutons',
+  flag:'',
+  mode:'hostile'
+});
+
+Outlaws({
+  id:'Outlaws',
+  type:'npc',
+  name:'Outlaws',
+  flag:'',
+  mode:'hostile'
+});
+
+Mercenaries({
+  id:'Mercenaries',
+  type:'npc',
+  name:'Mercenaries',
+  flag:'',
+  mode:'hostile'
+});
+
 Kingdom({
   id:'Papal States',
   name:'Papal States',

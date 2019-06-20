@@ -1,11 +1,12 @@
 House = function(param){
   var self = Entity(param);
+  self.type = param.type;
   self.name = param.name;
   self.flag = param.flag;
   self.hq = param.hq;
   self.leader = param.leader;
   self.kingdom = param.kingdom;
-  self.mode = 'peaceful'; // 'hostile' = attacks neutral players/units
+  self.mode = param.mode; // 'hostile' = attacks neutral players/units
   self.underAttack = false;
   self.allies = [];
   self.enemies = [];
@@ -19,7 +20,69 @@ House = function(param){
     gold:0
   }
   House.list[self.id] = self;
+
+  io.emit('newFaction',{
+    houseList:House.list,
+    kingdomList:Kingdom.list
+  })
+
   return self;
+}
+
+Brotherhood = function(param){
+  var self = House(param);
+  self.update = function(){
+
+  }
+}
+
+Goths = function(param){
+  var self = House(param);
+  self.update = function(){
+
+  }
+}
+
+Norsemen = function(param){
+  var self = House(param);
+  self.update = function(){
+
+  }
+}
+
+Franks = function(param){
+  var self = House(param);
+  self.update = function(){
+
+  }
+}
+
+Celts = function(param){
+  var self = House(param);
+  self.update = function(){
+
+  }
+}
+
+Teutons = function(param){
+  var self = House(param);
+  self.update = function(){
+
+  }
+}
+
+Outlaws = function(param){
+  var self = House(param);
+  self.update = function(){
+
+  }
+}
+
+Mercenaries = function(param){
+  var self = House(param);
+  self.update = function(){
+
+  }
 }
 
 Kingdom = function(param){
@@ -42,6 +105,12 @@ Kingdom = function(param){
     gold:0
   }
   Kingdom.list[self.id] = self;
+
+  io.emit('newFaction',{
+    houseList:House.list,
+    kingdomList:Kingdom.list
+  })
+
   return self;
 }
 

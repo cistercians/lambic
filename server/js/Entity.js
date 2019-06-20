@@ -42,6 +42,7 @@ Building = function(param){
   self.house = param.house;
   self.kingdom = param.kingdom;
   self.type = param.type;
+  self.built = param.built;
   self.plot = param.plot;
   self.walls = param.walls;
   self.topPlot = param.topPlot;
@@ -202,7 +203,7 @@ Character = function(param){
       dmg = self.gear.weapon.dmg;
     }
     if(dir === 'down'){
-      for(i in Player.list){
+      for(var i in Player.list){
         var p = Player.list[i];
         if(Math.sqrt(Math.pow(self.x-p.x,2) + Math.pow((self.y + tileSize)-p.y,2)) < 32){
           p.hp -= dmg;
@@ -216,7 +217,7 @@ Character = function(param){
         }
       }
     } else if(dir === 'up'){
-      for(i in Player.list){
+      for(var i in Player.list){
         var p = Player.list[i];
         if(Math.sqrt(Math.pow(self.x-p.x,2) + Math.pow((self.y - tileSize)-p.y,2)) < 32){
           p.hp -= dmg;
@@ -230,7 +231,7 @@ Character = function(param){
         }
       }
     } else if(dir === 'left'){
-      for(i in Player.list){
+      for(var i in Player.list){
         var p = Player.list[i];
         if(Math.sqrt(Math.pow((self.x - tileSize)-p.x,2) + Math.pow((self.y)-p.y,2)) < 32){
           p.hp -= dmg;
@@ -244,7 +245,7 @@ Character = function(param){
         }
       }
     } else if(dir === 'right'){
-      for(i in Player.list){
+      for(var i in Player.list){
         var p = Player.list[i];
         if(Math.sqrt(Math.pow((self.x + tileSize)-p.x,2) + Math.pow((self.y)-p.y,2)) < 32){
           p.hp -= dmg;
@@ -749,7 +750,7 @@ Brother = function(param){
   var self = Character(param);
   self.name = 'Brother';
   self.class = 'Brother';
-  self.house = 'brotherhood';
+  self.house = 'Brotherhood';
 }
 
 Oathkeeper = function(param){
@@ -757,21 +758,28 @@ Oathkeeper = function(param){
   self.name = 'Oathkeeper';
   self.class = 'Oathkeeper';
   self.rank = '♝ ';
-  self.house = 'brotherhood';
+  self.house = 'Brotherhood';
 }
 
 DarkEntity = function(param){
   var self = Character(param);
   self.name = 'Dark Entity';
   self.class = 'DarkEntity';
-  self.house = 'brotherhood';
+  self.house = 'Brotherhood';
 }
 
 Acolyte = function(param){
   var self = Character(param);
   self.name = 'Acolyte';
   self.class = 'Acolyte';
-  self.house = 'occult';
+  self.house = 'Goths';
+}
+
+Centurion = function(param){
+  var self = Character(param);
+  self.name = 'Centurion';
+  self.class = 'Centurion';
+  self.house = 'Goths';
 }
 
 Priestess = function(param){
@@ -779,29 +787,30 @@ Priestess = function(param){
   self.name = 'Priestess';
   self.class = 'Priestess';
   self.rank = '♝ ';
-  self.house = 'occult';
+  self.house = 'Goths';
 }
 
 Archmage = function(param){
   var self = Character(param);
   self.name = 'Archmage';
   self.class = 'Archmage';
-  self.rank = '♜ ';
-  self.house = 'occult';
+  self.rank = '♝ ';
+  self.house = 'Goths';
 }
 
 Apollyon = function(param){
   var self = Character(param);
   self.name = 'APOLLYON';
   self.class = 'Apollyon';
-  self.house = 'occult';
+  self.rank = '♚ ';
+  self.house = 'Goths';
 }
 
 Norseman = function(param){
   var self = Character(param);
   self.name = 'Norseman';
   self.class = 'Norseman';
-  self.house = 'norsemen';
+  self.house = 'Norsemen';
 }
 
 Huskarl = function(param){
@@ -809,50 +818,35 @@ Huskarl = function(param){
   self.name = 'Huskarl';
   self.class = 'Huskarl';
   self.rank = '♞ ';
-  self.house = 'norsemen';
+  self.house = 'Norsemen';
 }
 
-PaganAxe = function(param){
+FrankAxe = function(param){
   var self = Character(param);
-  self.name = 'Pagan';
-  self.class = 'PaganAxe';
-  self.house = 'pagans';
+  self.name = 'Frank';
+  self.class = 'FrankAxe';
+  self.house = 'Franks';
 }
 
-PaganSpear = function(param){
+FrankSpear = function(param){
   var self = Character(param);
-  self.name = 'Pagan';
-  self.class = 'PaganSpear';
-  self.house = 'pagans';
-}
-
-Centurion = function(param){
-  var self = Character(param);
-  self.name = 'Centurion';
-  self.class = 'Centurion';
-  self.house = 'pagans';
-}
-
-Champion = function(param){
-  var self = Character(param);
-  self.name = 'Champion';
-  self.class = 'Champion';
-  self.rank = '♜ ';
-  self.house = 'pagans';
+  self.name = 'Frank';
+  self.class = 'FrankSpear';
+  self.house = 'Franks';
 }
 
 CeltAxe = function(param){
   var self = Character(param);
   self.name = 'Celt';
   self.class = 'CeltAxe';
-  self.house = 'celts';
+  self.house = 'Celts';
 }
 
 CeltSpear = function(param){
   var self = Character(param);
   self.name = 'Celt';
   self.class = 'CeltSpear';
-  self.house = 'celts';
+  self.house = 'Celts';
 }
 
 Headhunter = function(param){
@@ -860,7 +854,7 @@ Headhunter = function(param){
   self.name = 'Headhunter';
   self.class = 'Headhunter';
   self.rank = '♞ ';
-  self.house = 'celts';
+  self.house = 'Celts';
   self.mounted = true;
 }
 
@@ -869,7 +863,7 @@ Druid = function(param){
   self.name = 'Druid';
   self.class = 'Druid';
   self.rank = '♝ ';
-  self.house = 'celts';
+  self.house = 'Celts';
 }
 
 IronMaiden = function(param){
@@ -877,7 +871,7 @@ IronMaiden = function(param){
   self.name = 'Iron Maiden';
   self.class = 'IronMaiden';
   self.rank = '♜ ';
-  self.house = 'celts';
+  self.house = 'Celts';
   self.mounted = true;
 }
 
@@ -886,14 +880,14 @@ Gwenllian = function(param){
   self.name = 'Gwenllian';
   self.class = 'Gwenllian';
   self.rank = '♛ ';
-  self.house = 'celts';
+  self.house = 'Celts';
 }
 
 Teuton = function(param){
   var self = Character(param);
   self.name = 'Teuton';
   self.class = 'Teuton';
-  self.house = 'teutons';
+  self.house = 'Teutons';
 }
 
 TeutonicKnight = function(param){
@@ -901,7 +895,7 @@ TeutonicKnight = function(param){
   self.name = 'Teutonic Knight';
   self.class = 'TeutonicKnight';
   self.rank = '♞ ';
-  self.house = 'teutons';
+  self.house = 'Teutons';
   self.mounted = true;
 }
 
@@ -910,7 +904,7 @@ Prior = function(param){
   self.name = 'Prior';
   self.class = 'Prior';
   self.rank = '♝ ';
-  self.house = 'teutons';
+  self.house = 'Teutons';
 }
 
 Hochmeister = function(param){
@@ -918,7 +912,7 @@ Hochmeister = function(param){
   self.name = 'Hochmeister';
   self.class = 'Hochmeister';
   self.rank = '♜ ';
-  self.house = 'teutons';
+  self.house = 'Teutons';
 }
 
 Lothair = function(param){
@@ -926,21 +920,21 @@ Lothair = function(param){
   self.name = 'Lothair II';
   self.class = 'Lothair';
   self.rank = '♚ ';
-  self.house = 'teutons';
+  self.house = 'Teutons';
 }
 
 Trapper = function(param){
   var self = Character(param);
   self.name = 'Trapper';
   self.class = 'Trapper';
-  self.house = 'outlaws';
+  self.house = 'Outlaws';
 }
 
 Outlaw = function(param){
   var self = Character(param);
   self.name = 'Outlaw';
   self.class = 'Outlaw';
-  self.house = 'outlaws';
+  self.house = 'Outlaws';
 }
 
 Poacher = function(param){
@@ -948,22 +942,30 @@ Poacher = function(param){
   self.name = 'Poacher';
   self.class = 'Poacher';
   self.rank = '♞ ';
-  self.house = 'outlaws';
+  self.house = 'Outlaws';
   self.mounted = true;
+}
+
+Champion = function(param){
+  var self = Character(param);
+  self.name = 'Champion';
+  self.class = 'Champion';
+  self.rank = '♜ ';
+  self.house = 'Outlaws';
 }
 
 Cutthroat = function(param){
   var self = Character(param);
   self.name = 'Cutthroat';
   self.class = 'Cutthroat';
-  self.house = 'mercenaries';
+  self.house = 'Mercenaries';
 }
 
 Strongman = function(param){
   var self = Character(param);
   self.name = 'Strongman';
   self.class = 'Strongman';
-  self.house = 'mercenaries';
+  self.house = 'Mercenaries';
 }
 
 Marauder = function(param){
@@ -971,7 +973,7 @@ Marauder = function(param){
   self.name = 'Marauder';
   self.class = 'Marauder';
   self.rank = '♞ ';
-  self.house = 'mercenaries';
+  self.house = 'Mercenaries';
   self.mounted = true;
 }
 
@@ -980,7 +982,7 @@ Condottiere = function(param){
   self.name = 'Condottiere';
   self.class = 'Condottiere';
   self.rank = '♜ ';
-  self.house = 'mercenaries';
+  self.house = 'Mercenaries';
   self.mounted = true;
 }
 
@@ -1032,7 +1034,7 @@ Player = function(param){
   self.manaMax = 100;
   self.breath = 100;
   self.breathMax = 100;
-  self.strength = 10;
+  self.strength = 10; // ALPHA
   self.dexterity = 1;
 
   self.stores = {
@@ -1164,7 +1166,7 @@ Player = function(param){
         all += wood;
       }
       if(self.inventory.stone > 0){
-        var stone = '<b>Stone</b>: ' + self.inventory.wood + '<br>';
+        var stone = '<b>Stone</b>: ' + self.inventory.stone + '<br>';
         all += stone;
       }
       if(self.inventory.grain > 0){
@@ -1458,7 +1460,7 @@ Player = function(param){
             self.chopping = false;
             if(getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 2 && getTile(6,loc[0],loc[1]) < 101){
               world[0][loc[1]][loc[0]] += 1;
-              for(i in hForestSpawns){
+              for(var i in hForestSpawns){
                 if(hForestSpawns[i] === loc){
                   biomes.hForest--;
                   hForestSpawns.splice(i,1);
@@ -1533,7 +1535,7 @@ Player = function(param){
               self.farming = false;
               var count = 0;
               var plot = Building.list[f].plot;
-              for(i in plot){
+              for(var i in plot){
                 var n = plot[i];
                 if(world[6][n[1]][n[0]] >= 25){
                   count++;
@@ -1542,7 +1544,7 @@ Player = function(param){
                 }
               }
               if(count === 9){
-                for(i in plot){
+                for(var i in plot){
                   var n = plot[i];
                   world[0][n[1]][n[0]] = 9;
                 }
@@ -1573,7 +1575,7 @@ Player = function(param){
               self.farming = false;
               var count = 0;
               var plot = f.plot;
-              for(i in plot){
+              for(var i in plot){
                 if(world[6][plot[i][1]][plot[i][0]] >= 50){
                   count++;
                 } else {
@@ -1581,7 +1583,7 @@ Player = function(param){
                 }
               }
               if(count === 9){
-                for(i in plot){
+                for(var i in plot){
                   world[0][plot[i][1]][plot[i][0]] = 10;
                 }
                 io.emit('mapEdit',world);
@@ -1635,7 +1637,7 @@ Player = function(param){
               }
               io.emit('mapEdit',world);
             }
-            for(i in plot){
+            for(var i in plot){
               if(world[6][plot[i][1]][plot[i][0]] >= b.req){
                 count++;
               } else {
@@ -1644,7 +1646,8 @@ Player = function(param){
             }
             if(count === plot.length){
               if(b.type === 'hut'){
-                for(i in plot){
+                Building.list[getBuilding(self.x,self.y)].built = true;
+                for(var i in plot){
                   matrixO[plot[i][1]][plot[i][0]] = 1;
                   gridO.setWalkableAt(plot[i][0],plot[i][1],false);
                   matrixB1[plot[i][1]][plot[i][0]] = 0;
@@ -1659,7 +1662,7 @@ Player = function(param){
                     gridB1.setWalkableAt(plot[i][1],plot[i][0]+1,true);
                   }
                 }
-                for(i in walls){
+                for(var i in walls){
                   var n = walls[i];
                   world[4][n[1]][n[0]] = 1;
                 }
@@ -1672,7 +1675,8 @@ Player = function(param){
                   parent:b.id
                 });
               } else if(b.type === 'mill'){
-                for(i in plot){
+                Building.list[getBuilding(self.x,self.y)].built = true;
+                for(var i in plot){
                   world[0][plot[i][1]][plot[i][0]] = 13;
                   world[3][plot[i][1]][plot[i][0]] = String('mill' + i);
                   matrixO[plot[i][1]][plot[i][0]] = 1;
@@ -1680,15 +1684,16 @@ Player = function(param){
                 }
                 world[5][top[0][1]][top[0][0]] = 'mill4';
                 world[5][top[1][1]][top[1][0]] = 'mill5';
-              } else if(b.type === 'house'){
-                for(i in plot){
+              } else if(b.type === 'cottage'){
+                Building.list[getBuilding(self.x,self.y)].built = true;
+                for(var i in plot){
                   matrixO[plot[i][1]][plot[i][0]] = 1;
                   gridO.setWalkableAt(plot[i][0],plot[i][1],false);
                   matrixB1[plot[i][1]][plot[i][0]] = 0;
                   gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
                   world[0][plot[i][1]][plot[i][0]] = 15;
-                  world[3][plot[i][1]][plot[i][0]] = String('house' + i);
-                  if(world[3][plot[i][1]][plot[i][0]] === 'house1'){
+                  world[3][plot[i][1]][plot[i][0]] = String('cottage' + i);
+                  if(world[3][plot[i][1]][plot[i][0]] === 'cottage1'){
                     matrixO[plot[i][1]][plot[i][0]] = 0;
                     gridO.setWalkableAt(plot[i][0],plot[i][1],true);
                     matrixB1[plot[i][1]+1][plot[i][0]] = 0;
@@ -1696,7 +1701,7 @@ Player = function(param){
                     world[0][plot[i][1]][plot[i][0]] = 19;
                   }
                 }
-                for(i in walls){
+                for(var i in walls){
                   var n = walls[i];
                   world[4][n[1]][n[0]] = 2;
                 }
@@ -1710,23 +1715,27 @@ Player = function(param){
                 });
                 Player.list[b.owner].keys.push(b.id);
               } else if(b.type === 'fort'){
+                Building.list[getBuilding(self.x,self.y)].built = true;
                 world[0][plot[0][1]][plot[0][0]] = 13;
                 matrixO[plot[0][1]][plot[0][0]] = 1;
                 gridO.setWalkableAt(plot[0][0],plot[0][1],false);
                 world[3][plot[0][1]][plot[0][0]] = 'fort';
               } else if(b.type === 'wall'){
+                Building.list[getBuilding(self.x,self.y)].built = true;
                 world[0][plot[0][1]][plot[0][0]] = 15;
                 matrixO[plot[0][1]][plot[0][0]] = 1;
                 gridO.setWalkableAt(plot[0][0],plot[0][1],false);
                 world[3][plot[0][1]][plot[0][0]] = 'wall';
               } else if(b.type === 'outpost'){
+                Building.list[getBuilding(self.x,self.y)].built = true;
                 world[0][plot[0][1]][plot[0][0]] = 13;
                 matrixO[plot[0][1]][plot[0][0]] = 1;
                 gridO.setWalkableAt(plot[0][0],plot[0][1],false);
                 world[3][plot[0][1]][plot[0][0]] = 'outpost0';
                 world[5][top[0][1]][top[0][0]] = 'outpost1';
               } else if(b.type === 'guardtower'){
-                for(i in plot){
+                Building.list[getBuilding(self.x,self.y)].built = true;
+                for(var i in plot){
                   world[0][plot[i][1]][plot[i][0]] = 15;
                   matrixO[plot[i][1]][plot[i][0]] = 1;
                   gridO.setWalkableAt(plot[i][0],plot[i][1],false);
@@ -1734,8 +1743,17 @@ Player = function(param){
                 }
                 world[5][top[0][1]][top[0][0]] = 'gtower4';
                 world[5][top[1][1]][top[1][0]] = 'gtower5';
+                var fp = getCoords(plot[1][0],plot[1][1]);
+                Firepit({
+                  x:fp[0],
+                  y:fp[1],
+                  z:0,
+                  qty:1,
+                  parent:b.id
+                })
               } else if(b.type === 'tower'){
-                for(i in plot){
+                Building.list[getBuilding(self.x,self.y)].built = true;
+                for(var i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('tower' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'tower0'){
                     matrixB1[plot[i][1]][plot[i][0]] = 0;
@@ -1758,7 +1776,7 @@ Player = function(param){
                   }
                 }
                 var ii = 9;
-                for(i in top){
+                for(var i in top){
                   var n = top[i];
                   world[5][n[1]][n[0]] = String('tower' + ii);
                   world[4][n[1]][n[0]] = 2;
@@ -1783,7 +1801,8 @@ Player = function(param){
                 });
                 Player.list[b.owner].keys.push(b.id);
               } else if(b.type === 'tavern'){
-                for(i in plot){
+                Building.list[getBuilding(self.x,self.y)].built = true;
+                for(var i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('tavern' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'tavern1'){
                     matrixO[plot[i][1]][plot[i][0]] = 0;
@@ -1814,12 +1833,12 @@ Player = function(param){
                   }
                 }
                 var ii = 17;
-                for(i in top){
+                for(var i in top){
                   var n = top[i];
                   world[5][n[1]][n[0]] = String('tavern' + ii);
                   ii++;
                 }
-                for(i in walls){
+                for(var i in walls){
                   var n = walls[i];
                   world[4][n[1]][n[0]] = 1;
                 }
@@ -1863,10 +1882,24 @@ Player = function(param){
                   qty:1,
                   parent:b.id
                 });
+                Firepit({
+                  x:b1[0],
+                  y:b1[1],
+                  z:0,
+                  qty:1,
+                  parent:b.id
+                });
                 Barrel({
                   x:b1[0],
                   y:b1[1],
                   z:1,
+                  qty:1,
+                  parent:b.id
+                });
+                Firepit({
+                  x:b2[0],
+                  y:b2[1],
+                  z:0,
                   qty:1,
                   parent:b.id
                 });
@@ -1998,7 +2031,8 @@ Player = function(param){
                   kingdom:self.kingdom
                 });
               } else if(b.type === 'monastery'){
-                for(i in plot){
+                Building.list[getBuilding(self.x,self.y)].built = true;
+                for(var i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('monastery' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'monastery0'){
                     matrixB1[plot[i][1]][plot[i][0]] = 0;
@@ -2024,12 +2058,12 @@ Player = function(param){
                   }
                 }
                 var ii = 14;
-                for(i in top){
+                for(var i in top){
                   var n = top[i];
                   world[5][n[1]][n[0]] = String('monastery' + ii);
                   ii++;
                 }
-                for(i in walls){
+                for(var i in walls){
                   var n = walls[i];
                   world[4][n[1]][n[0]] = 2;
                 }
@@ -2079,7 +2113,8 @@ Player = function(param){
                   kingdom:self.kingdom
                 })
               } else if(b.type === 'market'){
-                for(i in plot){
+                Building.list[getBuilding(self.x,self.y)].built = true;
+                for(var i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('market' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'market0' || world[3][plot[i][1]][plot[i][0]] === 'market1' || world[3][plot[i][1]][plot[i][0]] === 'market2'){
                     matrixB1[plot[i][1]][plot[i][0]] = 0;
@@ -2099,12 +2134,12 @@ Player = function(param){
                   }
                 }
                 var ii = 12;
-                for(i in top){
+                for(var i in top){
                   var n = top[i];
                   world[5][n[1]][n[0]] = String('market' + ii);
                   ii++;
                 }
-                for(i in walls){
+                for(var i in walls){
                   var n = walls[i];
                   if(world[5][n[1]][n[0]] === 'market12'){
                     world[4][n[1]][n[0]] = 3;
@@ -2120,11 +2155,19 @@ Player = function(param){
                 var g2 = getCoords(walls[2][0],walls[2][1]);
                 var g3 = getCoords(walls[3][0],walls[3][1]);
                 var g4 = getCoords(walls[4][0],walls[4][1]);
-                var fp = getCoords(plot[3][0],plot[3][1]);
+                var fp1 = getCoords(plot[3][0],plot[3][1]+1);
+                var fp2 = getCoords(plot[7][0],plot[7][1]+1);
                 var cr1 = getCoords(plot[8][0],plot[8][1]);
                 var d1 = getCoords(plot[9][0],plot[9][1]);
                 var d2 = getCoords(plot[10][0],plot[10][1]);
                 var cr2 = getCoords(plot[11][0],plot[11][1]);
+                WallTorch({
+                  x:g1[0],
+                  y:g1[1],
+                  z:1,
+                  qty:1,
+                  parent:b.id
+                });
                 Goods1({
                   x:g1[0],
                   y:g1[1],
@@ -2146,6 +2189,13 @@ Player = function(param){
                   qty:1,
                   parent:b.id
                 });
+                WallTorch({
+                  x:g4[0],
+                  y:g4[1],
+                  z:1,
+                  qty:1,
+                  parent:b.id
+                });
                 Goods4({
                   x:g4[0],
                   y:g4[1],
@@ -2154,9 +2204,16 @@ Player = function(param){
                   parent:b.id
                 });
                 Firepit({
-                  x:fp[0],
-                  y:fp[1],
-                  z:1,
+                  x:fp1[0],
+                  y:fp1[1],
+                  z:0,
+                  qty:1,
+                  parent:b.id
+                });
+                Firepit({
+                  x:fp2[0],
+                  y:fp2[1],
+                  z:0,
                   qty:1,
                   parent:b.id
                 });
@@ -2217,20 +2274,22 @@ Player = function(param){
                   parent:b.id
                 });
               } else if(b.type === 'stable'){
-                for(i in plot){
+                Building.list[getBuilding(self.x,self.y)].built = true;
+                for(var i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('stable' + i);
                   world[0][plot[i][1]][plot[i][0]] = 13;
                   matrixO[plot[i][1]][plot[i][0]] = 1;
                   gridO.setWalkableAt(plot[i][0],plot[i][1],false);
                 }
                 var ii = 8;
-                for(i in top){
+                for(var i in top){
                   var n = top[i];
                   world[5][n[1]][n[0]] = String('stable' + ii);
                   ii++;
                 }
               } else if(b.type === 'dock'){
-                for(i in plot){
+                Building.list[getBuilding(self.x,self.y)].built = true;
+                for(var i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('dock' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'dock4'){
                     world[0][plot[i][1]][plot[i][0]] = 13;
@@ -2247,13 +2306,22 @@ Player = function(param){
                   }
                 }
                 var ii = 6;
-                for(i in top){
+                for(var i in top){
                   var n = top[i];
                   world[5][n[1]][n[0]] = String('dock' + ii);
                   ii++;
                 }
+                var wt = getCoords(plot[4][0],plot[4][1]);
+                WallTorch({
+                  x:wt[0],
+                  y:wt[1],
+                  z:0,
+                  qty:1,
+                  parent:b.id
+                })
               } else if(b.type === 'garrison'){
-                for(i in plot){
+                Building.list[getBuilding(self.x,self.y)].built = true;
+                for(var i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('garrison' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'garrison0'){
                     matrixB1[plot[i][1]][plot[i][0]] = 0;
@@ -2279,12 +2347,12 @@ Player = function(param){
                   }
                 }
                 var ii = 12;
-                for(i in top){
+                for(var i in top){
                   var n = top[i];
                   world[5][n[1]][n[0]] = String('garrison' + ii);
                   ii++;
                 }
-                for(i in walls){
+                for(var i in walls){
                   var n = walls[i];
                   if(world[5][n[1]][n[0]] === 'garrison12'){
                     world[4][n[1]][n[0]] = 4;
@@ -2323,6 +2391,13 @@ Player = function(param){
                   x:sr2[0],
                   y:sr2[1],
                   z:1,
+                  qty:1,
+                  parent:b.id
+                });
+                Firepit({
+                  x:fp[0],
+                  y:fp[1],
+                  z:0,
                   qty:1,
                   parent:b.id
                 });
@@ -2390,7 +2465,8 @@ Player = function(param){
                   parent:b.id
                 });
               } else if(b.type === 'blacksmith'){
-                for(i in plot){
+                Building.list[getBuilding(self.x,self.y)].built = true;
+                for(var i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('bsmith' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'bsmith1'){
                     matrixB1[plot[i][1]][plot[i][0]] = 0;
@@ -2407,7 +2483,7 @@ Player = function(param){
                   }
                 }
                 var ii = 5;
-                for(i in walls){
+                for(var i in walls){
                   var n = walls[i];
                   world[5][n[1]][n[0]] = String('bsmith' + ii);
                   if(world[5][n[1]][n[0]] === 'bsmith5'){
@@ -2443,7 +2519,8 @@ Player = function(param){
                   parent:b.id
                 });
               } else if(b.type === 'stronghold'){
-                for(i in plot){
+                Building.list[getBuilding(self.x,self.y)].built = true;
+                for(var i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('stronghold' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'stronghold1' || world[3][plot[i][1]][plot[i][0]] === 'stronghold2'){
                     matrixB1[plot[i][1]][plot[i][0]] = 0;
@@ -2497,12 +2574,12 @@ Player = function(param){
                   }
                 }
                 var ii = 58;
-                for(i in top){
+                for(var i in top){
                   var n = top[i];
                   world[5][n[1]][n[0]] = String('stronghold' + ii);
                   ii++;
                 }
-                for(i in walls){
+                for(var i in walls){
                   var n = walls[i];
                   if(world[5][n[1]][n[0]] === 'stronghold58' || world[5][n[1]][n[0]] === 'stronghold62'){
                     world[4][n[1]][n[0]] = 7;
@@ -2584,7 +2661,21 @@ Player = function(param){
                 Firepit({
                   x:fp1[0],
                   y:fp1[1],
+                  z:0,
+                  qty:1,
+                  parent:b.id
+                });
+                Firepit({
+                  x:fp1[0],
+                  y:fp1[1],
                   z:1,
+                  qty:1,
+                  parent:b.id
+                });
+                Firepit({
+                  x:fp2[0],
+                  y:fp2[1],
+                  z:0,
                   qty:1,
                   parent:b.id
                 });
@@ -3219,6 +3310,7 @@ Player.onConnect = function(socket,name){
   var player = Player({
     name:name,
     id:socket.id,
+    house:socket.id,
     z: 0,
     x: spawn[0],
     y: spawn[1]
@@ -3308,6 +3400,17 @@ Player.onConnect = function(socket,name){
     }
   });
 
+  socket.emit('newBuilding',{
+    bCount:buildingCount,
+    bId:buildingId,
+    bList:Building.list
+  })
+
+  socket.emit('newFaction',{
+    houseList:House.list,
+    kingdomList:Kingdom.list
+  })
+
   socket.emit('init',{
     selfId:player.id,
     player:Player.getAllInitPack(),
@@ -3368,7 +3471,7 @@ Arrow = function(param){
           p.hp = p.hpMax;
           var spawn = randomSpawnO();
           p.x = spawn[0]; // replace this
-          p.y = spawm[1]; // replace this
+          p.y = spawn[1]; // replace this
         }
         self.toRemove = true;
       } else if(self.x === 0 || self.x === mapPx || self.y === 0 || self.y === mapPx){
@@ -3558,7 +3661,7 @@ Stone = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.stone > 10){
+    if(player.inventory.stone > 9){
       socket.emit('addToChat','<i>You are already carrying too much</i> <b>Stone</b>.');
     } else if(player.inventory.stone + self.qty > 10){
       var q = 10 - player.inventory.stone;
@@ -3601,7 +3704,7 @@ IronOre = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.ironore > 10){
+    if(player.inventory.ironore > 9){
       socket.emit('addToChat','<i>You are already carrying too much</i> <b>IronOre</b>.');
     } else if(player.inventory.ironore + self.qty > 10){
       var q = 10 - player.inventory.ironore;
@@ -3629,7 +3732,7 @@ IronBar = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.ironbar > 10){
+    if(player.inventory.ironbar > 9){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>IronBar</b>.');
     } else if(player.inventory.ironbar + self.qty > 10){
       var q = 10 - player.inventory.ironbar;
@@ -3657,7 +3760,7 @@ SteelBar = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.steelbar > 10){
+    if(player.inventory.steelbar > 9){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>SteelBar</b>.');
     } else if(player.inventory.steelbar + self.qty > 10){
       var q = 10 - player.inventory.steelbar;
@@ -3685,7 +3788,7 @@ BoarHide = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.boarhide > 25){
+    if(player.inventory.boarhide > 24){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>BoarHide</b>.');
     } else if(player.inventory.boarhide + self.qty > 25){
       var q = 25 - player.inventory.boarhide;
@@ -3713,7 +3816,7 @@ Leather = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.leather > 25){
+    if(player.inventory.leather > 24){
       socket.emit('addToChat','<i>You are already carrying too much</i> <b>Leather</b>.');
     } else if(player.inventory.leather + self.qty > 25){
       var q = 25 - player.inventory.leather;
@@ -3741,7 +3844,7 @@ SilverOre = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.silverore > 10){
+    if(player.inventory.silverore > 9){
       socket.emit('addToChat','<i>You are already carrying too much</i> <b>SilverOre</b>.');
     } else if(player.inventory.silverore + self.qty > 10){
       var q = 10 - player.inventory.silverore;
@@ -3788,7 +3891,7 @@ GoldOre = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.goldore > 10){
+    if(player.inventory.goldore > 9){
       socket.emit('addToChat','<i>You are already carrying too much</i> <b>GoldOre</b>.');
     } else if(player.inventory.goldore + self.qty > 10){
       var q = 10 - player.inventory.goldore;
@@ -3854,7 +3957,7 @@ HuntingKnife = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.huntingknife > 10){
+    if(player.inventory.huntingknife > 9){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>HuntingKnife</b>.');
     } else if(player.inventory.huntingknife + self.qty > 10){
       var q = 10 - player.inventory.huntingknife;
@@ -3881,7 +3984,7 @@ Dague = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.dague > 10){
+    if(player.inventory.dague > 9){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>Dague</b>.');
     } else if(player.inventory.dague + self.qty > 10){
       var q = 10 - player.inventory.dague;
@@ -3908,7 +4011,7 @@ Rondel = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.rondel > 10){
+    if(player.inventory.rondel > 9){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>Rondel</b>.');
     } else if(player.inventory.rondel + self.qty > 10){
       var q = 10 - player.inventory.rondel;
@@ -3935,7 +4038,7 @@ Misericorde = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.misericorde > 10){
+    if(player.inventory.misericorde > 9){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>Misericorde</b>.');
     } else if(player.inventory.misericorde + self.qty > 10){
       var q = 10 - player.inventory.misericorde;
@@ -3963,7 +4066,7 @@ BastardSword = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.bastardsword > 10){
+    if(player.inventory.bastardsword > 9){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>BastardSword</b>.');
     } else if(player.inventory.bastardsword + self.qty > 10){
       var q = 10 - player.inventory.bastardsword;
@@ -3991,7 +4094,7 @@ Longsword = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.longsword > 10){
+    if(player.inventory.longsword > 9){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>Longsword</b>.');
     } else if(player.inventory.longsword + self.qty > 10){
       var q = 10 - player.inventory.longsword;
@@ -4019,7 +4122,7 @@ Zweihander = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.zweihander > 10){
+    if(player.inventory.zweihander > 9){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>Zweihander</b>.');
     } else if(player.inventory.zweihander + self.qty > 10){
       var q = 10 - player.inventory.zweihander;
@@ -4047,7 +4150,7 @@ Morallta = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.morallta > 10){
+    if(player.inventory.morallta > 9){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>Morallta</b>.');
     } else if(player.inventory.morallta + self.qty > 10){
       var q = 10 - player.inventory.morallta;
@@ -4075,7 +4178,7 @@ Bow = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.bow > 10){
+    if(player.inventory.bow > 9){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>Bow</b>.');
     } else if(player.inventory.bow + self.qty > 10){
       var q = 10 - player.inventory.bow;
@@ -4103,7 +4206,7 @@ WelshLongbow = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.welshlongbow > 10){
+    if(player.inventory.welshlongbow > 9){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>WelshLongbow</b>.');
     } else if(player.inventory.welshlongbow + self.qty > 10){
       var q = 10 - player.inventory.welshlongbow;
@@ -4131,7 +4234,7 @@ KnightLance = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.knightlance > 10){
+    if(player.inventory.knightlance > 9){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>KnightLance</b>.');
     } else if(player.inventory.knightlance + self.qty > 10){
       var q = 10 - player.inventory.knightlance;
@@ -4159,7 +4262,7 @@ RusticLance = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.rusticlance > 10){
+    if(player.inventory.rusticlance > 9){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>RusticLance</b>.');
     } else if(player.inventory.rusticlance + self.qty > 10){
       var q = 10 - player.inventory.rusticlance;
@@ -4187,7 +4290,7 @@ PaladinLance = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.paladinlance > 10){
+    if(player.inventory.paladinlance > 9){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>PaladinLance</b>.');
     } else if(player.inventory.paladinlance + self.qty > 10){
       var q = 10 - player.inventory.paladinlance;
@@ -4215,7 +4318,7 @@ Brigandine = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.brigandine > 10){
+    if(player.inventory.brigandine > 9){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>Brigandine</b>.');
     } else if(player.inventory.brigandine + self.qty > 10){
       var q = 10 - player.inventory.brigandine;
@@ -4243,7 +4346,7 @@ Lamellar = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.lamellar > 10){
+    if(player.inventory.lamellar > 9){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>Lamellar</b>.');
     } else if(player.inventory.lamellar + self.qty > 10){
       var q = 10 - player.inventory.lamellar;
@@ -4271,7 +4374,7 @@ Maille = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.maille > 10){
+    if(player.inventory.maille > 9){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>Maille</b>.');
     } else if(player.inventory.maille + self.qty > 10){
       var q = 10 - player.inventory.maille;
@@ -4300,7 +4403,7 @@ Hauberk = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.hauberk > 10){
+    if(player.inventory.hauberk > 9){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>Hauberk</b>.');
     } else if(player.inventory.hauberk + self.qty > 10){
       var q = 10 - player.inventory.hauberk;
@@ -4327,7 +4430,7 @@ Brynja = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.brynja > 10){
+    if(player.inventory.brynja > 9){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>Brynja</b>.');
     } else if(player.inventory.brynja + self.qty > 10){
       var q = 10 - player.inventory.brynja;
@@ -4355,7 +4458,7 @@ Cuirass = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.cuirass > 10){
+    if(player.inventory.cuirass > 9){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>Cuirass</b>.');
     } else if(player.inventory.cuirass + self.qty > 10){
       var q = 10 - player.inventory.cuirass;
@@ -4383,7 +4486,7 @@ SteelPlate = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.steelplate > 10){
+    if(player.inventory.steelplate > 9){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>SteelPlate</b>.');
     } else if(player.inventory.steelplate + self.qty > 10){
       var q = 10 - player.inventory.steelplate;
@@ -4411,7 +4514,7 @@ GreenwichPlate = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.greenwichplate > 10){
+    if(player.inventory.greenwichplate > 9){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>GreenwichPlate</b>.');
     } else if(player.inventory.greenwichplate + self.qty > 10){
       var q = 10 - player.inventory.greenwichplate;
@@ -4439,7 +4542,7 @@ GothicPlate = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.gothicplate > 10){
+    if(player.inventory.gothicplate > 9){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>GothicPlate</b>.');
     } else if(player.inventory.gothicplate + self.qty > 10){
       var q = 10 - player.inventory.gothicplate;
@@ -4467,7 +4570,7 @@ ClericRobe = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.clericrobe > 10){
+    if(player.inventory.clericrobe > 9){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>ClericRobe</b>.');
     } else if(player.inventory.clericrobe + self.qty > 10){
       var q = 10 - player.inventory.clericrobe;
@@ -4495,7 +4598,7 @@ MonkCowl = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.monkcowl > 10){
+    if(player.inventory.monkcowl > 9){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>MonkCowl</b>.');
     } else if(player.inventory.monkcowl + self.qty > 10){
       var q = 10 - player.inventory.monkcowl;
@@ -4523,7 +4626,7 @@ BlackCloak = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.blackcloak > 10){
+    if(player.inventory.blackcloak > 9){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>BlackCloak</b>.');
     } else if(player.inventory.blackcloak + self.qty > 10){
       var q = 10 - player.inventory.blackcloak;
@@ -4551,7 +4654,7 @@ Tome = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.tome > 10){
+    if(player.inventory.tome > 9){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>Tome</b>.');
     } else if(player.inventory.tome + self.qty > 10){
       var q = 10 - player.inventory.tome;
@@ -4579,7 +4682,7 @@ RunicScroll = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.runicscroll > 10){
+    if(player.inventory.runicscroll > 9){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>RunicScroll</b>.');
     } else if(player.inventory.runicscroll + self.qty > 10){
       var q = 10 - player.inventory.runicscroll;
@@ -4607,7 +4710,7 @@ SacredText = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.sacredtext > 10){
+    if(player.inventory.sacredtext > 9){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>SacredText</b>.');
     } else if(player.inventory.sacredtext + self.qty > 10){
       var q = 10 - player.inventory.sacredtext;
@@ -4635,7 +4738,7 @@ StoneAxe = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.stoneaxe > 10){
+    if(player.inventory.stoneaxe > 9){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>StoneAxe</b>.');
     } else if(player.inventory.stoneaxe + self.qty > 10){
       var q = 10 - player.inventory.stoneaxe;
@@ -4663,7 +4766,7 @@ IronAxe = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.ironaxe > 10){
+    if(player.inventory.ironaxe > 9){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>IronAxe</b>.');
     } else if(player.inventory.ironaxe + self.qty > 10){
       var q = 10 - player.inventory.ironaxe;
@@ -4691,7 +4794,7 @@ Pickaxe = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.pickaxe > 10){
+    if(player.inventory.pickaxe > 9){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>PickAxe</b>.');
     } else if(player.inventory.pickaxe + self.qty > 10){
       var q = 10 - player.inventory.pickaxe;
@@ -4731,7 +4834,7 @@ Torch = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.torch > 25){
+    if(player.inventory.torch > 24){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>Torch</b>.');
     } else if(player.inventory.torch + self.qty > 25){
       var q = 25 - player.inventory.torch;
@@ -5396,7 +5499,7 @@ Bread = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.bread > 25){
+    if(player.inventory.bread > 24){
       socket.emit('addToChat','<i>You are already carrying too much</i> <b>Bread</b>.');
     } else if(player.inventory.bread + self.qty > 25){
       var q = 25 - player.inventory.bread;
@@ -5424,7 +5527,7 @@ Fish = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.fish > 25){
+    if(player.inventory.fish > 24){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>Fish</b>.');
     } else if(player.inventory.fish + self.qty > 25){
       var q = 25 - player.inventory.fish;
@@ -5452,7 +5555,7 @@ Lamb = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.lamb > 25){
+    if(player.inventory.lamb > 24){
       socket.emit('addToChat','<i>You are already carrying too much</i> <b>Lamb</b>.');
     } else if(player.inventory.lamb + self.qty > 25){
       var q = 25 - player.inventory.lamb;
@@ -5480,7 +5583,7 @@ BoarMeat = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.boarmeat > 25){
+    if(player.inventory.boarmeat > 24){
       socket.emit('addToChat','<i>You are already carrying too much</i> <b>BoarMeat</b>.');
     } else if(player.inventory.boarmeat + self.qty > 25){
       var q = 25 - player.inventory.boarmeat;
@@ -5508,7 +5611,7 @@ Venison = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.venison > 25){
+    if(player.inventory.venison > 24){
       socket.emit('addToChat','<i>You are already carrying too much</i> <b>Venison</b>.');
     } else if(player.inventory.venison + self.qty > 25){
       var q = 25 - player.inventory.venison;
@@ -5536,7 +5639,7 @@ PoachedFish = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.poachedfish > 25){
+    if(player.inventory.poachedfish > 24){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>PoachedFish</b>.');
     } else if(player.inventory.poachedfish + self.qty > 25){
       var q = 25 - player.inventory.poachedfish;
@@ -5564,7 +5667,7 @@ LambChop = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.lambchop > 25){
+    if(player.inventory.lambchop > 24){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>LambChop</b>.');
     } else if(player.inventory.lambchop + self.qty > 25){
       var q = 25 - player.inventory.lambchop;
@@ -5592,7 +5695,7 @@ BoarShank = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.boarshank > 25){
+    if(player.inventory.boarshank > 24){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>BoarShank</b>.');
     } else if(player.inventory.boarshank + self.qty > 25){
       var q = 25 - player.inventory.boarshank;
@@ -5620,7 +5723,7 @@ VenisonLoin = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.venisonloin > 25){
+    if(player.inventory.venisonloin > 24){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>VenisonLoin</b>.');
     } else if(player.inventory.venisonloin + self.qty > 25){
       var q = 25 - player.inventory.venisonloin;
@@ -5648,7 +5751,7 @@ Mead = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.mead > 25){
+    if(player.inventory.mead > 24){
       socket.emit('addToChat','<i>You are already carrying too much</i> <b>Mead</b>.');
     } else if(player.inventory.mead + self.qty > 25){
       var q = 25 - player.inventory.mead;
@@ -5676,7 +5779,7 @@ Saison = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.saison > 25){
+    if(player.inventory.saison > 24){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>Saison</b>.');
     } else if(player.inventory.saison + self.qty > 25){
       var q = 25 - player.inventory.saison;
@@ -5704,7 +5807,7 @@ FlandersRedAle = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.flandersredale > 25){
+    if(player.inventory.flandersredale > 24){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>FlandersRedAle</b>.');
     } else if(player.inventory.flandersredale + self.qty > 25){
       var q = 25 - player.inventory.flandersredale;
@@ -5732,7 +5835,7 @@ BiereDeGarde = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.bieredegarde > 25){
+    if(player.inventory.bieredegarde > 24){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>BiereDeGarde</b>.');
     } else if(player.inventory.bieredegarde + self.qty > 25){
       var q = 25 - player.inventory.bieredegarde;
@@ -5760,7 +5863,7 @@ Bordeaux = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.bordeaux > 25){
+    if(player.inventory.bordeaux > 24){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>Bordeaux</b>.');
     } else if(player.inventory.bordeaux + self.qty > 25){
       var q = 25 - player.inventory.bordeaux;
@@ -5788,7 +5891,7 @@ Bourgogne = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.bourgogne > 25){
+    if(player.inventory.bourgogne > 24){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>Bourgogne</b>.');
     } else if(player.inventory.bourgogne + self.qty > 25){
       var q = 25 - player.inventory.bourgogne;
@@ -5816,7 +5919,7 @@ Chianti = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.chianti > 25){
+    if(player.inventory.chianti > 24){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>Chianti</b>.');
     } else if(player.inventory.chianti + self.qty > 25){
       var q = 25 - player.inventory.chianti;
@@ -5844,7 +5947,7 @@ Crown = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.crown > 10){
+    if(player.inventory.crown > 9){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>Crown</b>.');
     } else if(player.inventory.crown + self.qty > 10){
       var q = 10 - player.inventory.crown;
@@ -5872,7 +5975,7 @@ Arrows = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.arrows > 50){
+    if(player.inventory.arrows > 49){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>Arrows</b>.');
     } else if(player.inventory.arrows + self.qty > 50){
       var q = 50 - player.inventory.arrows;
@@ -5900,10 +6003,10 @@ WorldMap = function(param){
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.worldmap > 25){
+    if(player.inventory.worldmap > 9){
       socket.emit('addToChat','<i>You are already carrying too many</i> <b>WorldMap</b>.');
-    } else if(player.inventory.worldmap + self.qty > 25){
-      var q = 25 - player.inventory.worldmap;
+    } else if(player.inventory.worldmap + self.qty > 10){
+      var q = 10 - player.inventory.worldmap;
       self.qty -= q;
       Player.list[id].inventory.worldmap += q;
       socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>WorldMap</b>.');

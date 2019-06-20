@@ -16,11 +16,11 @@ EvalCmd = function(data){
       var garrison = 0;
       var stronghold = 0;
 
-      var all = '<b><u>TIER I</u><br>Farm</b>: /build farm<br><b>LumberCamp</b>: /build lumbercamp<br><b>MiningCamp</b>: /build miningcamp<br><b>Hut</b>: /build hut<br><b>House</b>: /build house<br><b>Tavern</b>: /build tavern<br><b>Tower</b>: /build tower<br><b>Blacksmith</b>: /build blacksmith<br><b>Fort</b>: /build fort<br><b>Outpost</b>: /build outpost<br><b>Monastery</b>: /build monastery<br><b>Road</b>: /build road<br>';
+      var all = '<b><u>TIER I</u><br>Farm</b>: /build farm<br><b>LumberCamp</b>: /build lumbercamp<br><b>MiningCamp</b>: /build miningcamp<br><b>Hut</b>: /build hut<br><b>Cottage</b>: /build cottage<br><b>Tavern</b>: /build tavern<br><b>Tower</b>: /build tower<br><b>Blacksmith</b>: /build blacksmith<br><b>Fort</b>: /build fort<br><b>Outpost</b>: /build outpost<br><b>Monastery</b>: /build monastery<br><b>Road</b>: /build road<br>';
 
       for(var i in Building.list){
         var b = Building.list[i];
-        if(b.owner === player.id){
+        if(b.owner === player.id && b.built){
           if(b.type === 'farm'){
             farm++;
           } else if(b.type === 'tavern'){
@@ -60,7 +60,7 @@ EvalCmd = function(data){
       if(data.cmd.slice(data.cmd.indexOf(' ') + 1) === 'farm' && z === 0){
         var plot = [[c,r],[c+1,r],[c+2,r],[c,r-1],[c+1,r-1],[c+2,r-1],[c,r-2],[c+1,r-2],[c+2,r-2]];
         var count = 0;
-        for(i in plot){
+        for(var i in plot){
           var n = plot[i];
           if(getTile(0,n[0],n[1]) === 7){
             count++;
@@ -70,7 +70,7 @@ EvalCmd = function(data){
           player.working = true;
           setTimeout(function(){
             if(player.working){
-              for(i in plot){
+              for(var i in plot){
                 var n = plot[i];
                 world[0][n[1]][n[0]] = 8;
               }
@@ -84,6 +84,7 @@ EvalCmd = function(data){
                 y:player.y,
                 z:0,
                 type:'farm',
+                built:true,
                 plot:plot,
                 walls:null,
                 topPlot:null,
@@ -101,7 +102,7 @@ EvalCmd = function(data){
         var topPlot = [[c,r-2],[c+1,r-2]];
         var perim = [[c-1,r-2],[c-1,r-1],[c-1,r],[c,r+1],[c+1,r+1],[c+2,r-2],[c+2,r-1],[c+2,r],[c,r-3],[c+1,r-3]];
         count = 0;
-        for(i in plot){
+        for(var i in plot){
           var n = plot[i];
           if(getTile(0,n[0],n[1]) === 7){
             count++;
@@ -109,7 +110,7 @@ EvalCmd = function(data){
         }
         if(count === 4){
           count = 0;
-          for(i in perim){
+          for(var i in perim){
             var n = perim[i];
             if(getTile(0,n[0],n[1]) !== 11 &&
             getTile(0,n[0],n[1]) !== 12 &&
@@ -124,7 +125,7 @@ EvalCmd = function(data){
             }
           }
           if(count === 10){
-            for(i in plot){
+            for(var i in plot){
               var n = plot[i];
               world[0][n[1]][n[0]] = 11;
             }
@@ -137,6 +138,7 @@ EvalCmd = function(data){
               y:player.y,
               z:0,
               type:'mill',
+              built:false,
               plot:plot,
               walls:null,
               topPlot:topPlot,
@@ -158,7 +160,7 @@ EvalCmd = function(data){
         var walls = [[c,r-2],[c+1,r-2]];
         var perim = [[c,r-2],[c+1,r-2],[c-1,r-1],[c-1,r],[c,r+1],[c+1,r+1],[c+2,r-1],[c+2,r]];
         var count = 0;
-        for(i in plot){
+        for(var i in plot){
           var n = plot[i];
           if(getTile(0,n[0],n[1]) === 7){
             count++;
@@ -166,7 +168,7 @@ EvalCmd = function(data){
         }
         if(count === 4){
           count = 0;
-          for(i in perim){
+          for(var i in perim){
             var n = perim[i];
             if(getTile(0,n[0],n[1]) !== 11 &&
             getTile(0,n[0],n[1]) !== 12 &&
@@ -181,7 +183,7 @@ EvalCmd = function(data){
             }
           }
           if(count === 8){
-            for(i in plot){
+            for(var i in plot){
               var n = plot[i];
               world[0][n[1]][n[0]] = 11;
             }
@@ -194,6 +196,7 @@ EvalCmd = function(data){
               y:player.y,
               z:0,
               type:'hut',
+              built:false,
               plot:plot,
               walls:walls,
               topPlot:null,
@@ -210,12 +213,12 @@ EvalCmd = function(data){
         } else {
           socket.emit('addToChat','<i>You cannot build that there.</i>');
         }
-      } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) === 'house' && z === 0){
+      } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) === 'cottage' && z === 0){
         var plot = [[c,r],[c+1,r],[c+2,r],[c,r-1],[c+1,r-1],[c+2,r-1],[c,r-2],[c+1,r-2],[c+2,r-2]];
         var walls = [[c,r-3],[c+1,r-3],[c+2,r-3]];
         var perim = [[c,r-3],[c+1,r-3],[c+2,r-3],[c-1,r-2],[c-1,r-1],[c-1,r],[c,r+1],[c+1,r+1],[c+2,r+1],[c+3,r-2],[c+3,r-1],[c+3,r]]
         var count = 0;
-        for(i in plot){
+        for(var i in plot){
           var n = plot[i];
           if(getTile(0,n[0],n[1]) === 7 || (getTile(0,n[0],n[1]) >= 4 && getTile(0,n[0],n[1]) < 5) || getTile(0,n[0],n[1]) === 18){
             count++;
@@ -223,7 +226,7 @@ EvalCmd = function(data){
         }
         if(count === 9){
           count = 0;
-          for(i in perim){
+          for(var i in perim){
             var n = perim[i];
             if(getTile(0,n[0],n[1]) !== 11 &&
             getTile(0,n[0],n[1]) !== 12 &&
@@ -238,7 +241,7 @@ EvalCmd = function(data){
             }
           }
           if(count === 12){
-            for(i in plot){
+            for(var i in plot){
               var n = plot[i];
               world[0][n[1]][n[0]] = 11;
               world[6][n[1]][n[0]] = 0;
@@ -251,7 +254,8 @@ EvalCmd = function(data){
               x:player.x,
               y:player.y,
               z:0,
-              type:'house',
+              type:'cottage',
+              built:false,
               plot:plot,
               walls:walls,
               topPlot:null,
@@ -284,6 +288,7 @@ EvalCmd = function(data){
               y:player.y,
               z:0,
               type:'fort',
+              built:false,
               plot:plot,
               walls:null,
               topPlot:null,
@@ -313,6 +318,7 @@ EvalCmd = function(data){
               y:player.y,
               z:0,
               type:'wall',
+              built:false,
               plot:plot,
               walls:null,
               topPlot:null,
@@ -344,6 +350,7 @@ EvalCmd = function(data){
               y:player.y,
               z:0,
               type:'outpost',
+              built:false,
               plot:plot,
               walls:null,
               topPlot:topPlot,
@@ -362,7 +369,7 @@ EvalCmd = function(data){
         var plot = [[c,r],[c+1,r],[c,r-1],[c+1,r-1]];
         var topPlot = [[c,r-2],[c+1,r-2]];
         var count = 0;
-        for(i in plot){
+        for(var i in plot){
           var n = plot[i];
           if(getTile(0,c,r) === 7 || (getTile(0,c,r) >= 4 && getTile(0,c,r) < 6)){
             count++;
@@ -372,7 +379,7 @@ EvalCmd = function(data){
           if(getTile(0,c,r-2) === 14 || getTile(0,c,r-2) === 16 || getTile(0,c,r-2) === 19 || getTile(5,c,r-2) !== 0 || getTile(0,c+1,r-2) === 14 || getTile(0,c+1,r-2) === 16 || getTile(0,c+1,r-2) === 19 || getTile(5,c+1,r-2) !== 0){
             socket.emit('addToChat','<i>You cannot build that there.</i>');
           } else {
-            for(i in plot){
+            for(var i in plot){
               var n = plot[i];
               world[0][n[1]][n[0]] = 11;
               world[6][n[1]][n[0]] = 0;
@@ -386,6 +393,7 @@ EvalCmd = function(data){
               y:player.y,
               z:0,
               type:'guardtower',
+              built:false,
               plot:plot,
               walls:null,
               topPlot:topPlot,
@@ -406,7 +414,7 @@ EvalCmd = function(data){
         var topPlot = [[c,r-3],[c+1,r-3],[c+2,r-3],[c,r-4],[c+1,r-4],[c+2,r-4]];
         var perim = [[c,r-3],[c+1,r-3],[c+2,r-3],[c,r-4],[c+1,r-4],[c+2,r-4],[c-1,r-2],[c-1,r-1],[c-1,r],[c,r+1],[c+1,r+1],[c+2,r+1],[c+3,r-2],[c+3,r-1],[c+3,r]]
         var count = 0;
-        for(i in plot){
+        for(var i in plot){
           var n = plot[i];
           if(getTile(0,n[0],n[1]) === 7 || (getTile(0,n[0],n[1]) >= 4 && getTile(0,n[0],n[1]) < 6) || getTile(0,n[0],n[1]) === 18){
             count++;
@@ -414,7 +422,7 @@ EvalCmd = function(data){
         }
         if(count === 9){
           count = 0;
-          for(i in perim){
+          for(var i in perim){
             var n = perim[i];
             if(getTile(0,n[0],n[1]) !== 11 &&
             getTile(0,n[0],n[1]) !== 12 &&
@@ -429,7 +437,7 @@ EvalCmd = function(data){
             }
           }
           if(count === 15){
-            for(i in plot){
+            for(var i in plot){
               var n = plot[i];
               world[0][n[1]][n[0]] = 11;
               world[6][n[1]][n[0]] = 0;
@@ -443,6 +451,7 @@ EvalCmd = function(data){
               y:player.y,
               z:0,
               type:'tower',
+              built:false,
               plot:plot,
               walls:walls,
               topPlot:topPlot,
@@ -465,7 +474,7 @@ EvalCmd = function(data){
         var topPlot = [[c+1,r-4],[c+2,r-4],[c+3,r-4]];
         var perim = [[c+1,r-4],[c+2,r-4],[c+3,r-4],[c+4,r-4],[c-1,r-3],[c-1,r-2],[c-1,r-1],[c,r],[c+1,r+1],[c+2,r+1],[c+3,r+1],[c+4,r],[c+4,r-3],[c+5,r-3],[c+5,r-2],[c+5,r-1]];
         var count = 0;
-        for(i in plot){
+        for(var i in plot){
           var n = plot[i];
           if(getTile(0,n[0],n[1]) === 7 || getTile(0,n[0],n[1]) === 18){
             count++;
@@ -473,7 +482,7 @@ EvalCmd = function(data){
         }
         if(count === 17){
           count = 0;
-          for(i in perim){
+          for(var i in perim){
             var n = perim[i];
             if(getTile(0,n[0],n[1]) !== 11 &&
             getTile(0,n[0],n[1]) !== 12 &&
@@ -488,7 +497,7 @@ EvalCmd = function(data){
             }
           }
           if(count === 16){
-            for(i in plot){
+            for(var i in plot){
               var n = plot[i];
               world[0][n[1]][n[0]] = 11;
             }
@@ -501,6 +510,7 @@ EvalCmd = function(data){
               y:player.y,
               z:0,
               type:'tavern',
+              built:false,
               plot:plot,
               walls:walls,
               topPlot:topPlot,
@@ -523,7 +533,7 @@ EvalCmd = function(data){
         var topPlot = [[c+2,r-3],[c,r-4],[c+1,r-4]];
         var perim = [[c,r-4],[c+1,r-4],[c+2,r-3],[c+2,r-4],[c+3,r-3],[c-1,r-4],[c-1,r-3],[c-1,r-2],[c-1,r-1],[c-1,r],[c,r+1],[c+1,r+1],[c+2,r+1],[c+3,r+1],[c+4,r-3],[c+4,r-2],[c+4,r-1],[c+4,r]];
         var count = 0;
-        for(i in plot){
+        for(var i in plot){
           var n = plot[i];
           if(getTile(0,n[0],n[1]) === 7 || (getTile(0,n[0],n[1]) >= 4 && getTile(0,n[0],n[1]) < 6) || getTile(0,n[0],n[1]) === 18){
             count++;
@@ -531,7 +541,7 @@ EvalCmd = function(data){
         }
         if(count === 14){
           count = 0;
-          for(i in perim){
+          for(var i in perim){
             var n = perim[i];
             if(getTile(0,n[0],n[1]) !== 11 &&
             getTile(0,n[0],n[1]) !== 12 &&
@@ -546,7 +556,7 @@ EvalCmd = function(data){
             }
           }
           if(count === 18){
-            for(i in plot){
+            for(var i in plot){
               var n = plot[i];
               world[0][n[1]][n[0]] = 11;
               world[6][n[1]][n[0]] = 0;
@@ -560,6 +570,7 @@ EvalCmd = function(data){
               y:player.y,
               z:0,
               type:'monastery',
+              built:false,
               plot:plot,
               walls:walls,
               topPlot:topPlot,
@@ -582,7 +593,7 @@ EvalCmd = function(data){
         var topPlot = [[c+4,r-2],[c,r-3],[c+1,r-3],[c+2,r-3],[c+3,r-3]];
         var perim = [[c,r-4],[c+1,r-4],[c+2,r-3],[c+2,r-4],[c+3,r-4],[c+4,r-4],[c-1,r-3],[c-1,r-2],[c-1,r-1],[c-1,r],[c,r],[c+1,r+1],[c+2,r+1],[c+3,r+1],[c+4,r],[c+4,r-3],[c+5,r-2],[c+5,r-1]];
         var count = 0;
-        for(i in plot){
+        for(var i in plot){
           var n = plot[i];
           if(getTile(0,n[0],n[1]) === 7 || getTile(0,n[0],n[1]) === 18){
             count++;
@@ -590,7 +601,7 @@ EvalCmd = function(data){
         }
         if(count === 12){
           count = 0;
-          for(i in perim){
+          for(var i in perim){
             var n = perim[i];
             if(getTile(0,n[0],n[1]) !== 11 &&
             getTile(0,n[0],n[1]) !== 12 &&
@@ -605,7 +616,7 @@ EvalCmd = function(data){
             }
           }
           if(count === 18){
-            for(i in plot){
+            for(var i in plot){
               var n = plot[i];
               world[0][n[1]][n[0]] = 11;
             }
@@ -618,6 +629,7 @@ EvalCmd = function(data){
               y:player.y,
               z:0,
               type:'market',
+              built:false,
               plot:plot,
               walls:walls,
               topPlot:topPlot,
@@ -639,7 +651,7 @@ EvalCmd = function(data){
         var topPlot = [[c,r-2],[c+1,r-2],[c+2,r-2],[c+3,r-2]];
         var perim = [[c-1,r-2],[c-1,r-1],[c-1,r],[c,r+1],[c+1,r+1],[c+2,r+1],[c+3,r+1],[c+4,r-2],[c+4,r-1],[c+4,r],[c,r-3],[c+1,r-3],[c+2,r-3],[c+3,r-3]];
         var count = 0;
-        for(i in plot){
+        for(var i in plot){
           var n = plot[i];
           if(getTile(0,n[0],n[1]) === 7 || getTile(0,n[0],n[1]) === 18){
             count++;
@@ -647,7 +659,7 @@ EvalCmd = function(data){
         }
         if(count === 8){
           count = 0;
-          for(i in perim){
+          for(var i in perim){
             var n = perim[i];
             if(getTile(0,n[0],n[1]) !== 11 &&
             getTile(0,n[0],n[1]) !== 12 &&
@@ -662,7 +674,7 @@ EvalCmd = function(data){
             }
           }
           if(count === 14){
-            for(i in plot){
+            for(var i in plot){
               var n = plot[i];
               world[0][n[1]][n[0]] = 11;
             }
@@ -675,6 +687,7 @@ EvalCmd = function(data){
               y:player.y,
               z:0,
               type:'stable',
+              built:false,
               plot:plot,
               walls:null,
               topPlot:topPlot,
@@ -715,7 +728,7 @@ EvalCmd = function(data){
           socket.emit('addToChat','<i>You cannot build that there.</i>');
         }
         var count = 0;
-        for(i in plot){
+        for(var i in plot){
           var n = plot[i];
           if(getTile(0,n[0],n[1]) === 7 || getTile(0,n[0],n[1]) === 0 || getTile(0,n[0],n[1]) === 18){
             count++;
@@ -723,7 +736,7 @@ EvalCmd = function(data){
         }
         if(count === 6){
           count = 0;
-          for(i in perim){
+          for(var i in perim){
             var n = perim[i];
             if(getTile(0,n[0],n[1]) !== 11 &&
             getTile(0,n[0],n[1]) !== 12 &&
@@ -738,7 +751,7 @@ EvalCmd = function(data){
             }
           }
           if(count === 16){
-            for(i in plot){
+            for(var i in plot){
               var n = plot[i];
               world[0][n[1]][n[0]] = 11.5;
               world[6][n[1]][n[0]] = 0;
@@ -752,6 +765,7 @@ EvalCmd = function(data){
               y:player.y,
               z:0,
               type:'dock',
+              built:false,
               plot:plot,
               walls:null,
               topPlot:topPlot,
@@ -774,7 +788,7 @@ EvalCmd = function(data){
         var topPlot = [[c+1,r-3],[c+2,r-3],[c+3,r-3]];
         var perim = [[c-1,r-4],[c,r-4],[c+1,r-4],[c+2,r-4],[c+3,r-4],[c+4,r-4],[c-1,r-3],[c-1,r-2],[c-1,r-1],[c-1,r],[c-1,r+1],[c,r+1],[c+1,r+1],[c+2,r+1],[c+3,r+1],[c+4,r+1],[c+4,r-3],[c+4,r-2],[c+4,r-1],[c+4,r]];
         var count = 0;
-        for(i in plot){
+        for(var i in plot){
           var n = plot[i];
           if(getTile(0,n[0],n[1]) === 7 || (getTile(0,n[0],n[1]) >= 4 && getTile(0,n[0],n[1]) < 6) || getTile(0,n[0],n[1]) === 18){
             count++;
@@ -782,7 +796,7 @@ EvalCmd = function(data){
         }
         if(count === 12){
           count = 0;
-          for(i in perim){
+          for(var i in perim){
             var n = perim[i];
             if(getTile(0,n[0],n[1]) !== 11 &&
             getTile(0,n[0],n[1]) !== 12 &&
@@ -797,7 +811,7 @@ EvalCmd = function(data){
             }
           }
           if(count === 20){
-            for(i in plot){
+            for(var i in plot){
               var n = plot[i];
               world[0][n[1]][n[0]] = 11;
               world[6][n[1]][n[0]] = 0;
@@ -811,6 +825,7 @@ EvalCmd = function(data){
               y:player.y,
               z:0,
               type:'garrison',
+              built:false,
               plot:plot,
               walls:walls,
               topPlot:topPlot,
@@ -832,7 +847,7 @@ EvalCmd = function(data){
         var walls = [[c,r-2],[c+1,r-2],[c+2,r-2]];
         var perim = [[c-1,r-3],[c,r-3],[c+1,r-3],[c+2,r-3],[c+3,r-3],[c-1,r-2],[c-1,r-1],[c-1,r],[c-1,r-1],[c,r-1],[c+1,r-1],[c+2,r-1],[c+3,r-1],[c+3,r-2],[c+3,r-1],[c+3,r]];
         var count = 0;
-        for(i in plot){
+        for(var i in plot){
           var n = plot[i];
           if(getTile(0,n[0],n[1]) === 7 || getTile(0,n[0],n[1]) === 18){
             count++;
@@ -840,7 +855,7 @@ EvalCmd = function(data){
         }
         if(count === 6){
           count = 0;
-          for(i in perim){
+          for(var i in perim){
             var n = perim[i];
             if(getTile(0,n[0],n[1]) !== 11 &&
             getTile(0,n[0],n[1]) !== 12 &&
@@ -855,7 +870,7 @@ EvalCmd = function(data){
             }
           }
           if(count === 16){
-            for(i in plot){
+            for(var i in plot){
               var n = plot[i];
               world[0][n[1]][n[0]] = 11;
               world[6][n[1]][n[0]] = 0;
@@ -869,6 +884,7 @@ EvalCmd = function(data){
               y:player.y,
               z:0,
               type:'blacksmith',
+              built:false,
               plot:plot,
               walls:walls,
               topPlot:null,
@@ -890,14 +906,14 @@ EvalCmd = function(data){
         var sides = [[c-1,r],[c+2,r]];
         if(getTile(3,sides[0][0],sides[0][1]) === 'wall' && getTile(3,sides[1][0],sides[1][1]) === 'wall'){
           var count = 0;
-          for(i in plot){
+          for(var i in plot){
             var n = plot[i];
             if((getTile(0,n[0],n[1]) === 7 || (getTile(0,n[0],n[1]) >= 4 && getTile(0,n[0],n[1]) < 6) || getTile(0,n[0],n[1]) === 18) && getTile(5,n[0],n[1]-1) === 0){
               count++;
             }
           }
           if(count === 2){
-            for(i in plot){
+            for(var i in plot){
               world[5][plot[i][1]][plot[i][0]] = String('gateo');
             }
             io.emit('mapEdit',world);
@@ -909,6 +925,7 @@ EvalCmd = function(data){
               y:player.y,
               z:0,
               type:'gate',
+              built:false,
               plot:plot,
               walls:null,
               topPlot:null,
@@ -958,7 +975,7 @@ EvalCmd = function(data){
         [c,r],[c+1,r],[c+1,r+1],[c+2,r+1],[c+3,r+1],[c+4,r+1],[c+5,r+1],[c+6,r+1],[c+6,r],[c+7,r],[c+8,r],
         [c+8,r-9],[c+8,r-8],[c+8,r-7],[c+8,r-6],[c+8,r-5],[c+8,r-4],[c+8,r-3],[c+8,r-2],[c+8,r-1]];
         var count = 0;
-        for(i in plot){
+        for(var i in plot){
           var n = plot[i];
           if(getTile(0,n[0],n[1]) === 7 || (getTile(0,n[0],n[1]) >= 4 && getTile(0,n[0],n[1]) < 6) || getTile(0,n[0],n[1]) === 18){
             count++;
@@ -966,7 +983,7 @@ EvalCmd = function(data){
         }
         if(count === 58){
           count = 0;
-          for(i in perim){
+          for(var i in perim){
             var n = perim[i];
             if(getTile(0,n[0],n[1]) !== 11 &&
             getTile(0,n[0],n[1]) !== 12 &&
@@ -981,7 +998,7 @@ EvalCmd = function(data){
             }
           }
           if(count === 40){
-            for(i in plot){
+            for(var i in plot){
               var n = plot[i];
               world[0][n[1]][n[0]] = 11;
               //world[6][n[1]][n[0]] = 0; // ALPHA
@@ -995,6 +1012,7 @@ EvalCmd = function(data){
               y:player.y,
               z:0,
               type:'stronghold',
+              built:false,
               plot:plot,
               walls:walls,
               topPlot:topPlot,
@@ -1591,6 +1609,11 @@ EvalCmd = function(data){
         }
       } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() === 'armor'){
         if(player.gear.armor){
+          if(player.mounted){
+            self.mounted = false;
+            self.baseSpd -= 3;
+            self.mountCooldown = 200;
+          }
           player.gear.armor.unequip(player.id);
           socket.emit('addToChat','<i>You unequip </i><b>' + player.gear.armor.name + '</b>.');
           player.gear.armor = null;
