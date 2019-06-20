@@ -117,6 +117,17 @@ Kingdom = function(param){
 House.list = {};
 Kingdom.list = {};
 
+House.update = function(){
+  var pack = null;
+  for(var i in House.list){
+    var house = House.list[i];
+    if(house.update){
+      house.update();
+    }
+  }
+  return pack;
+}
+
 flags = [
   ['🇦🇽',0], // 0
   ['🇦🇱',0], // 1

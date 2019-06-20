@@ -139,7 +139,7 @@ var Player = function(initPack){
   self.pressingLeft = false;
   self.pressingRight = false;
   self.pressingAttack = false;
-  self.inTrees = initPack.inTrees;
+  self.innaWoods = initPack.innaWoods;
   self.working = false;
   self.chopping = false;
   self.mining = false;
@@ -499,6 +499,7 @@ var Arrow = function(initPack){
   self.x = initPack.x;
   self.y = initPack.y;
   self.z = initPack.z;
+  self.innaWoods = initPack.innaWoods;
 
   self.draw = function(){
     function drawArrow(angle){
@@ -541,6 +542,7 @@ var Item = function(initPack){
   self.y = initPack.y;
   self.z = initPack.z;
   self.qty = initPack.qty;
+  self.innaWoods = initPack.innaWoods;
 
   self.draw = function(){
     if(self.type === 'Wood'){
@@ -1934,8 +1936,8 @@ socket.on('update',function(data){
         p.pressingRight = pack.pressingRight;
       if(pack.pressingAttack !== undefined)
         p.pressingAttack = pack.pressingAttack;
-      if(pack.inTrees !== undefined)
-        p.inTrees = pack.inTrees;
+      if(pack.innaWoods !== undefined)
+        p.innaWoods = pack.innaWoods;
       if(pack.angle !== undefined)
         p.angle = pack.angle;
       if(pack.working !== undefined)
@@ -2112,14 +2114,18 @@ setInterval(function(){
   }
 },4000);
 
-var inView = function(z,x,y){
+var inView = function(z,x,y,innaWoods){
   var top = (viewport.startTile[1] - 1) * tileSize;
   var left = (viewport.startTile[0] - 1) * tileSize;
   var right = (viewport.endTile[0] + 2) * tileSize;
   var bottom = (viewport.endTile[1] + 2) * tileSize;
 
   if(z === Player.list[selfId].z && x > left && x < right && y > top && y < bottom){
-    return true;
+    if(z === 0 && innaWoods && !Player.list[selfId].innaWoods){
+      return false;
+    } else {
+      return true;
+    }
   } else {
     return false;
   }
@@ -2143,7 +2149,7 @@ setInterval(function(){
   ctx.clearRect(0,0,WIDTH,HEIGHT);
   renderMap();
   for(var i in Item.list){
-    if(inView(Item.list[i].z,Item.list[i].x,Item.list[i].y)){
+    if(inView(Item.list[i].z,Item.list[i].x,Item.list[i].y,Item.list[i].innaWoods)){
       if((Player.list[selfId].z === 1 || Player.list[selfId].z === 2) && (getBuilding(Item.list[i].x,Item.list[i].y) === getBuilding(Player.list[selfId].x,Player.list[selfId].y) || getBuilding(Item.list[i].x,Item.list[i].y+(tileSize * 1.1)) === getBuilding(Player.list[selfId].x,Player.list[selfId].y))){
         Item.list[i].draw();
       } else if(Player.list[selfId].z !== 1 && Player.list[selfId].z !== 2){
@@ -2157,7 +2163,7 @@ setInterval(function(){
   }
   for(var i in Player.list){
     if(Player.list[i].class !== 'Falcon'){
-      if(inView(Player.list[i].z,Player.list[i].x,Player.list[i].y)){
+      if(inView(Player.list[i].z,Player.list[i].x,Player.list[i].y,Player.list[i].innaWoods)){
         if((Player.list[selfId].z === 1 || Player.list[selfId].z === 2) && (getBuilding(Player.list[i].x,Player.list[i].y) === getBuilding(Player.list[selfId].x,Player.list[selfId].y))){
           Player.list[i].draw();
         } else if(Player.list[selfId].z !== 1 && Player.list[selfId].z !== 2){
@@ -2171,7 +2177,7 @@ setInterval(function(){
     }
   }
   for(var i in Arrow.list){
-    if(inView(Arrow.list[i].z,Arrow.list[i].x,Arrow.list[i].y)){
+    if(inView(Arrow.list[i].z,Arrow.list[i].x,Arrow.list[i].y,Arrow.list[i].innaWoods)){
       if((Player.list[selfId].z === 1 || Player.list[selfId].z === 2) && (getBuilding(Item.list[i].x,Item.list[i].y) === getBuilding(Arrow.list[selfId].x,Arrow.list[selfId].y))){
         Arrow.list[i].draw();
       } else if(Player.list[selfId].z !== 1 && Player.list[selfId].z !== 2){
@@ -2183,13 +2189,13 @@ setInterval(function(){
       continue;
     }
   }
-  if(Player.list[selfId].inTrees){
+  if(Player.list[selfId].innaWoods){
     renderForest();
   }
   renderTops();
   for(var i in Player.list){
     if(Player.list[i].class === 'Falcon'){
-      if(inView(Player.list[i].z,Player.list[i].x,Player.list[i].y)){
+      if(inView(Player.list[i].z,Player.list[i].x,Player.list[i].y,false)){
         Player.list[i].draw();
       }
     }
@@ -2374,7 +2380,7 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-          if(!Player.list[selfId].inTrees){
+          if(!Player.list[selfId].innaWoods){
             if(tile >= 1 && tile < 1.3){
               ctx.drawImage(
                 Img.hforest, // image

@@ -543,7 +543,9 @@ setInterval(function(){
     player:Player.update(),
     arrow:Arrow.update(),
     item:Item.update(),
-    light:Light.update()
+    light:Light.update(),
+    building:Building.update(),
+    house:House.update()
   }
 
   for(var i in SOCKET_LIST){

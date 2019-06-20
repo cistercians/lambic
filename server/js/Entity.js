@@ -67,6 +67,17 @@ buildingCount = 0;
 buildingId = [];
 Building.list = {};
 
+Building.update = function(){
+  var pack = null;
+  for(var i in Building.list){
+    var building = Building.list[i];
+    if(building.update){
+      building.update();
+    }
+  }
+  return pack;
+}
+
 // CHARACTER
 Character = function(param){
   var self = Entity(param);
@@ -75,7 +86,7 @@ Character = function(param){
   self.house = param.house;
   self.kingdom = param.kingdom;
   self.home = param.home; // [z,x,y] (must own building if player)
-  self.class = 'serf';
+  self.class = null;
   self.rank = null;
   self.keys = [];
   self.inventory = {
@@ -155,7 +166,7 @@ Character = function(param){
   self.pressingUp = false;
   self.pressingDown = false;
   self.pressingAttack = false;
-  self.inTrees = false;
+  self.innaWoods = false;
   self.onMtn = false;
   self.hasTorch = false;
   self.working = false;
@@ -272,6 +283,107 @@ Character = function(param){
   }
 
   self.update = function(){
+    var loc = getLoc(self.x, self.y);
+    if(self.z === 0){
+      if(getTile(0,loc[0],loc[1]) === 6){
+        self.z = -1;
+        self.innaWoods = false;
+        self.onMtn = false;
+        self.maxSpd = self.baseSpd;
+      } else if(getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 2){
+        self.innaWoods = true;
+        self.onMtn = false;
+        self.maxSpd = self.baseSpd * 0.3;
+      } else if(getTile(0,loc[0],loc[1]) >= 2 && getTile(0,loc[0],loc[1]) < 4){
+        self.innaWoods = false;
+        self.onMtn = false;
+        self.maxSpd = self.baseSpd * 0.5;
+      } else if(getTile(0,loc[0],loc[1]) >= 4 && getTile(0,loc[0],loc[1]) < 5){
+        self.innaWoods = false;
+        self.onMtn = false;
+        self.maxSpd = self.baseSpd * 0.6;
+      } else if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6 && !self.onMtn){
+        self.innaWoods = false;
+        self.maxSpd = self.baseSpd * 0.2;
+        setTimeout(function(){
+          if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6){
+            self.onMtn = true;
+          }
+        },2000);
+      } else if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6 && self.onMtn){
+        self.maxSpd = self.baseSpd * 0.5;
+      } else if(getTile(0,loc[0],loc[1]) === 18){
+        self.innaWoods = false;
+        self.onMtn = false;
+        self.maxSpd = self.baseSpd * 1.1;
+      } else if(getTile(0,loc[0],loc[1]) === 14 || getTile(0,loc[0],loc[1]) === 16 || getTile(0,loc[0],loc[1]) === 19){
+        self.z = 1;
+        self.innaWoods = false;
+        self.onMtn = false;
+        self.maxSpd = self.baseSpd;
+      } else if(getTile(0,loc[0],loc[1]) === 19){
+        self.z = 1;
+        SOCKET_LIST[self.id].emit('addToChat','<i>🗝 You unlock the door.</i>');
+        self.innaWoods = false;
+        self.onMtn = false;
+        self.maxSpd = self.baseSpd;
+      } else if(getTile(0,loc[0],loc[1]) === 0){
+        self.z = -3;
+        self.innaWoods = false;
+        self.onMtn = false;
+        self.maxSpd = self.baseSpd * 0.1;
+      } else {
+        self.innaWoods = false;
+        self.onMtn = false;
+        self.maxSpd = self.baseSpd;
+      }
+    } else if(self.z === -1){
+      if(getTile(1,loc[0],loc[1]) === 2){
+        self.z = 0;
+        self.innaWoods = false;
+        self.onMtn = false;
+        self.maxSpd = self.baseSpd * 0.9;
+      }
+    } else if(self.z === -2){
+      if(getTile(8,loc[0],loc[1]) === 5){
+        self.z = 1;
+        self.y += (tileSize/2);
+        self.facing = 'down';
+      }
+    } else if(self.z === -3){
+      if(self.breath > 0){
+        self.breath -= 0.25;
+      } else {
+        self.hp -= 0.5;
+      }
+      if(getTile(0,loc[0],loc[1]) !== 0){
+        self.z = 0;
+        self.breath = self.breathMax;
+      }
+    } else if(self.z === 1){
+      if(getTile(0,loc[0],loc[1] - 1) === 14 || getTile(0,loc[0],loc[1] - 1) === 16  || getTile(0,loc[0],loc[1] - 1) === 19){
+        self.z = 0;
+      } else if(getTile(4,loc[0],loc[1]) === 3 || getTile(4,loc[0],loc[1]) === 4){
+        self.z = 2;
+        self.y += (tileSize/2);
+        self.facing = 'down'
+      } else if(getTile(4,loc[0],loc[1]) === 5 || getTile(4,loc[0],loc[1]) === 6){
+        self.z = -2;
+        self.y += (tileSize/2);
+        self.facing = 'down';
+      } else if(getTile(4,loc[0],loc[1]) === 7){
+        self.z = 2;
+        self.y += (tileSize/2);
+        self.facing = 'down'
+      }
+    } else if(self.z === 2){
+      if(getTile(4,loc[0],loc[1]) === 3 || getTile(4,loc[0],loc[1]) === 4){
+        self.z = 1;
+        self.y += (tileSize/2);
+        self.facing = 'down';
+      }
+    }
+    // behavior modes
     if(self.mode === 'idle' && !self.path && self.idleTime === 0){
       var loc = getLoc(self.x,self.y);
       var col = loc[0];
@@ -377,7 +489,7 @@ Character = function(param){
       class:self.class,
       rank:self.rank,
       spriteSize:self.spriteSize,
-      inTrees:self.inTrees,
+      innaWoods:self.innaWoods,
       facing:self.facing,
       stealthed:self.stealthed,
       visible:self.visible,
@@ -397,7 +509,7 @@ Character = function(param){
       z:self.z,
       class:self.class,
       rank:self.rank,
-      inTrees:self.inTrees,
+      innaWoods:self.innaWoods,
       facing:self.facing,
       stealthed:self.stealthed,
       visible:self.visible,
@@ -3149,23 +3261,23 @@ Player = function(param){
     if(self.z === 0){
       if(getTile(0,loc[0],loc[1]) === 6){
         self.z = -1;
-        self.inTrees = false;
+        self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd;
       } else if(getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 2){
-        self.inTrees = true;
+        self.innaWoods = true;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * 0.3;
       } else if(getTile(0,loc[0],loc[1]) >= 2 && getTile(0,loc[0],loc[1]) < 4){
-        self.inTrees = false;
+        self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * 0.5;
       } else if(getTile(0,loc[0],loc[1]) >= 4 && getTile(0,loc[0],loc[1]) < 5){
-        self.inTrees = false;
+        self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * 0.6;
       } else if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6 && !self.onMtn){
-        self.inTrees = false;
+        self.innaWoods = false;
         self.maxSpd = self.baseSpd * 0.2;
         setTimeout(function(){
           if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6){
@@ -3175,34 +3287,34 @@ Player = function(param){
       } else if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6 && self.onMtn){
         self.maxSpd = self.baseSpd * 0.5;
       } else if(getTile(0,loc[0],loc[1]) === 18){
-        self.inTrees = false;
+        self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * 1.1;
       } else if(getTile(0,loc[0],loc[1]) === 14 || getTile(0,loc[0],loc[1]) === 16 || getTile(0,loc[0],loc[1]) === 19){
         self.z = 1;
-        self.inTrees = false;
+        self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd;
       } else if(getTile(0,loc[0],loc[1]) === 19){
         self.z = 1;
         SOCKET_LIST[self.id].emit('addToChat','<i>🗝 You unlock the door.</i>');
-        self.inTrees = false;
+        self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd;
       } else if(getTile(0,loc[0],loc[1]) === 0){
         self.z = -3;
-        self.inTrees = false;
+        self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * 0.1;
       } else {
-        self.inTrees = false;
+        self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd;
       }
     } else if(self.z === -1){
       if(getTile(1,loc[0],loc[1]) === 2){
         self.z = 0;
-        self.inTrees = false;
+        self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * 0.9;
       }
@@ -3262,7 +3374,7 @@ Player = function(param){
         arrows:self.inventory.arrows
       },
       spriteSize:self.spriteSize,
-      inTrees:self.inTrees,
+      innaWoods:self.innaWoods,
       facing:self.facing,
       stealthed:self.stealthed,
       visible:self.visible,
@@ -3288,7 +3400,7 @@ Player = function(param){
         arrows:self.inventory.arrows
       },
       spriteSize:self.spriteSize,
-      inTrees:self.inTrees,
+      innaWoods:self.innaWoods,
       facing:self.facing,
       stealthed:self.stealthed,
       visible:self.visible,
@@ -3474,11 +3586,17 @@ Arrow = function(param){
   self.spdX = Math.cos(param.angle/180*Math.PI) * 50;
   self.spdY = Math.sin(param.angle/180*Math.PI) * 50;
   self.parent = param.parent;
+  self.innaWoods = false;
 
   self.timer = 0;
   self.toRemove = false;
   var super_update = self.update;
   self.update = function(){
+    if(self.z === 0 && getLocTile(0,self.x,self.y) >= 1 && getLocTile(0,self.x,self.y) < 2){
+      self.innaWoods = true;
+    } else {
+      self.innaWoods = false;
+    }
     if(self.timer++ > 100){
       self.toRemove = true;
     }
@@ -3524,7 +3642,8 @@ Arrow = function(param){
       angle:self.angle,
       x:self.x,
       y:self.y,
-      z:self.z
+      z:self.z,
+      innaWoods:self.innaWoods
     };
   }
 
@@ -3533,7 +3652,8 @@ Arrow = function(param){
       id:self.id,
       x:self.x,
       y:self.y,
-      z:self.z
+      z:self.z,
+      innaWoods:self.innaWoods
     }
   }
 
@@ -3578,6 +3698,10 @@ Item = function(param){
   self.parent = param.parent;
   self.canPickup = true;
   self.toRemove = false;
+  self.innaWoods = false;
+  if(self.z === 0 && getLocTile(0,self.x,self.y) >= 1 && getLocTile(0,self.x,self.y) < 2){
+    self.innaWoods = true;
+  }
 
   self.blocker = function(n){
     var loc = getLoc(self.x,self.y);
@@ -3609,7 +3733,8 @@ Item = function(param){
       x:self.x,
       y:self.y,
       z:self.z,
-      qty:self.qty
+      qty:self.qty,
+      innaWoods:self.innaWoods
     };
   }
 
@@ -3618,7 +3743,8 @@ Item = function(param){
       id:self.id,
       x:self.x,
       y:self.y,
-      z:self.z
+      z:self.z,
+      innaWoods:self.innaWoods
     }
   }
   return self;
@@ -4885,6 +5011,11 @@ LitTorch = function(param){
   self.timer = 0;
   var super_update = self.update;
   self.update = function(){
+    if(self.z === 0 && getLocTile(0,self.x,self.y) >= 1 && getLocTile(0,self.x,self.y) < 2){
+      self.innaWoods = true;
+    } else {
+      self.innaWoods = false;
+    }
     if(Player.list[self.parent]){
       self.x = Player.list[self.parent].x - (tileSize * 0.75);
       self.y = Player.list[self.parent].y - (tileSize * 0.75);
