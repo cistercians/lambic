@@ -252,7 +252,9 @@ function genesis(){
 
   // random walk caves
   for(i = 0; i < entrances.length; i++){
-    geoform(worldMaps[1],entrances[i][1],entrances[i][0]);
+    if(entrances[i]){
+      geoform(worldMaps[1],entrances[i][1],entrances[i][0]);
+    }
   };
 
   // add entrance/exit tiles
