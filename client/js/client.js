@@ -3461,6 +3461,38 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
+          } else if(bTile === 'stable8'){
+            ctx.drawImage(
+              Img.stable8, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stable9'){
+            ctx.drawImage(
+              Img.stable9, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stable10'){
+            ctx.drawImage(
+              Img.stable10, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile === 'stable11'){
+            ctx.drawImage(
+              Img.stable11, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
           } else if(bTile === 'dock0'){
             ctx.drawImage(
               waterTiles[wtr], // image
@@ -4780,33 +4812,25 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'stable8'){
+        } else if(tile === 'stable12'){
           ctx.drawImage(
-            Img.stable8, // image
+            Img.stable12, // image
             xOffset, // target x
             yOffset, // target y
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'stable9'){
+        } else if(tile === 'stable13'){
           ctx.drawImage(
-            Img.stable9, // image
+            Img.stable13, // image
             xOffset, // target x
             yOffset, // target y
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'stable10'){
+        } else if(tile === 'stable14'){
           ctx.drawImage(
-            Img.stable10, // image
-            xOffset, // target x
-            yOffset, // target y
-            tileSize, // target width
-            tileSize // target height
-          );
-        } else if(tile === 'stable11'){
-          ctx.drawImage(
-            Img.stable11, // image
+            Img.stable14, // image
             xOffset, // target x
             yOffset, // target y
             tileSize, // target width

@@ -25,7 +25,7 @@ EvalCmd = function(data){
             farm++;
           } else if(b.type === 'tavern'){
             tavern++;
-          } else if(b.type === 'blackmsith'){
+          } else if(b.type === 'blacksmith'){
             blacksmith++;
           } else if(b.type === 'monastery'){
             monastery++;
@@ -647,9 +647,9 @@ EvalCmd = function(data){
           socket.emit('addToChat','<i>You cannot build that there.</i>');
         }
       } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) === 'stable' && z === 0){
-        var plot = [[c,r],[c+1,r],[c+2,r],[c+3,r],[c,r-1],[c+1,r-1],[c+2,r-1],[c+3,r-1]];
-        var topPlot = [[c,r-2],[c+1,r-2],[c+2,r-2],[c+3,r-2]];
-        var perim = [[c-1,r-2],[c-1,r-1],[c-1,r],[c,r+1],[c+1,r+1],[c+2,r+1],[c+3,r+1],[c+4,r-2],[c+4,r-1],[c+4,r],[c,r-3],[c+1,r-3],[c+2,r-3],[c+3,r-3]];
+        var plot = [[c,r],[c+1,r],[c+2,r],[c+3,r],[c,r-1],[c+1,r-1],[c+2,r-1],[c+3,r-1],[c,r-2],[c+1,r-2],[c+2,r-2],[c+3,r-2]];
+        var topPlot = [[c+1,r-3],[c+2,r-3],[c+3,r-3]];
+        var perim = [[c-1,r-3],[c-1,r-2],[c-1,r-1],[c-1,r],[c,r+1],[c+1,r+1],[c+2,r+1],[c+3,r+1],[c+4,r-3],[c+4,r-2],[c+4,r-1],[c+4,r],[c,r-4],[c+1,r-4],[c+2,r-4],[c+3,r-4]];
         var count = 0;
         for(var i in plot){
           var n = plot[i];
@@ -657,7 +657,7 @@ EvalCmd = function(data){
             count++;
           }
         }
-        if(count === 8){
+        if(count === 12){
           count = 0;
           for(var i in perim){
             var n = perim[i];
@@ -673,7 +673,7 @@ EvalCmd = function(data){
               count++;
             }
           }
-          if(count === 14){
+          if(count === 16){
             for(var i in plot){
               var n = plot[i];
               world[0][n[1]][n[0]] = 11;

@@ -2067,11 +2067,11 @@ Player = function(param){
                   var n = walls[i];
                   world[4][n[1]][n[0]] = 2;
                 }
-                world[4][n[1]][n[0]] = 4;
-                matrixB1[n[1]][n[0]] = 0;
-                gridB1.setWalkableAt(n[0],n[1],true);
-                matrixB2[n[1]][n[0]] = 0;
-                gridB2.setWalkableAt(n[0],n[1],true);
+                world[4][walls[1][1]][walls[1][0]] = 4;
+                matrixB1[walls[1][1]][walls[1][0]] = 0;
+                gridB1.setWalkableAt(walls[1][0],walls[1][1],true);
+                matrixB2[walls[1][1]][walls[1][0]] = 0;
+                gridB2.setWalkableAt(walls[1][0],walls[1][1],true);
                 var wt = getCoords(walls[0][0],walls[0][1]);
                 var cr = getCoords(walls[2][0],walls[2][1]);
                 var bs = getCoords(walls[3][0],walls[3][1]);
@@ -2279,14 +2279,30 @@ Player = function(param){
                   world[3][plot[i][1]][plot[i][0]] = String('stable' + i);
                   world[0][plot[i][1]][plot[i][0]] = 13;
                   matrixO[plot[i][1]][plot[i][0]] = 1;
+                  if(world[3][plot[i][1]][plot[i][0]] === 'stable0' ||
+                  world[3][plot[i][1]][plot[i][0]] === 'stable1' ||
+                  world[3][plot[i][1]][plot[i][0]] === 'stable2' ||
+                  world[3][plot[i][1]][plot[i][0]] === 'stable3'){
+                    matrixO[plot[i][1]][plot[i][0]] = 'stable';
+                  } else {
+                    matrixO[plot[i][1]][plot[i][0]] = 1;
+                  }
                   gridO.setWalkableAt(plot[i][0],plot[i][1],false);
                 }
-                var ii = 8;
+                var ii = 12;
                 for(var i in top){
                   var n = top[i];
                   world[5][n[1]][n[0]] = String('stable' + ii);
                   ii++;
                 }
+                var wt = getCoords(plot[1][0],plot[1][1]);
+                WallTorch({
+                  x:wt[0],
+                  y:wt[1],
+                  z:0,
+                  qty:1,
+                  parent:b.id
+                });
               } else if(b.type === 'dock'){
                 Building.list[getBuilding(self.x,self.y)].built = true;
                 for(var i in plot){
@@ -2495,12 +2511,20 @@ Player = function(param){
                   ii++;
                 }
                 var fg = getCoords(walls[1][0],walls[1][1]);
+                var fp = getCoords(plot[0][0],plot[0][1]);
                 var br = getCoords(plot[3][0],plot[3][1]);
                 var anv = getCoords(plot[5][0],plot[5][1]);
                 Forge({
                   x:fg[0],
                   y:fg[1],
                   z:1,
+                  qty:1,
+                  parent:b.id
+                });
+                Firepit({
+                  x:fp[0],
+                  y:fp[1],
+                  z:0,
                   qty:1,
                   parent:b.id
                 });
