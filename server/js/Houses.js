@@ -7,7 +7,9 @@ House = function(param){
   self.leader = param.leader;
   self.kingdom = param.kingdom;
   self.mode = param.mode; // 'hostile' = attacks neutral players/units
+  self.campaign = 0;
   self.underAttack = false;
+  self.population = 1;
   self.allies = [];
   self.enemies = [];
 
@@ -25,19 +27,51 @@ House = function(param){
     houseList:House.list,
     kingdomList:Kingdom.list
   })
-
   return self;
 }
 
 Brotherhood = function(param){
   var self = House(param);
-  self.update = function(){
+  self.scene = {
+    // objects
+    fire:null,
 
+    // characters
+    brothersmax:0,
+    brothers:0,
+    oathkeepersmax:0,
+    oathkeepers:0,
+    apollyon:0
+  }
+
+  self.update = function(){
+    if(self.campaign === 0){
+      if(!self.scene.fire){
+        var fireId = Math.random();
+        var coords = getCoords(self.hq[0],self.hq[1]);
+        InfiniteFire({
+          id:fireId,
+          parent:self.id,
+          x:coords[0],
+          y:coords[1],
+          z:-1,
+          qty:1
+        });
+        self.scene.fire = fireId;
+      }
+    }
   }
 }
 
 Goths = function(param){
   var self = House(param);
+  self.scene = {
+    // objects
+    fire:null
+
+    // characters
+  }
+
   self.update = function(){
 
   }
@@ -45,6 +79,14 @@ Goths = function(param){
 
 Norsemen = function(param){
   var self = House(param);
+  self.scene = {
+    // objects
+    runestone:null,
+    fire:null
+
+    // characters
+  }
+
   self.update = function(){
 
   }
@@ -52,6 +94,13 @@ Norsemen = function(param){
 
 Franks = function(param){
   var self = House(param);
+  self.scene = {
+    // objects
+    fire:null
+
+    // characters
+  }
+
   self.update = function(){
 
   }
@@ -59,6 +108,13 @@ Franks = function(param){
 
 Celts = function(param){
   var self = House(param);
+  self.scene = {
+    // objects
+    fire:null
+
+    // characters
+  }
+
   self.update = function(){
 
   }
@@ -66,6 +122,13 @@ Celts = function(param){
 
 Teutons = function(param){
   var self = House(param);
+  self.scene = {
+    // objects
+    fire:null
+
+    // characters
+  }
+
   self.update = function(){
 
   }
@@ -73,6 +136,13 @@ Teutons = function(param){
 
 Outlaws = function(param){
   var self = House(param);
+  self.scene = {
+    // objects
+    fire:null
+
+    // characters
+  }
+
   self.update = function(){
 
   }
@@ -80,6 +150,18 @@ Outlaws = function(param){
 
 Mercenaries = function(param){
   var self = House(param);
+  self.scene = {
+    // objects
+    fire:null,
+    barrel1:null,
+    chest:null,
+    crates:null,
+    swordrack1:null,
+    swordrack2:null
+
+    // characters
+  }
+
   self.update = function(){
 
   }

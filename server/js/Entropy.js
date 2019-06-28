@@ -6,7 +6,7 @@ entropy = function(){
   var toB = [];
   for(var c = 0; c < mapSize; c++){
     for(var r = 0; r < mapSize; r++){
-      if(world[0][r][c] === 0){
+      if(getTile(0,c,r) === 0){
         if(Math.random() < 0.25){
           world[6][r][c] = Math.ceil(Math.random() * 10);
         } else {

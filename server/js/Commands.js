@@ -755,6 +755,8 @@ EvalCmd = function(data){
               var n = plot[i];
               world[0][n[1]][n[0]] = 11.5;
               world[6][n[1]][n[0]] = 0;
+              matrixO[n[1]][n[0]] = 0;
+              gridO.setWalkableAt(n[0],n[1],true);
             }
             io.emit('mapEdit',world);
             Building({
@@ -1097,7 +1099,7 @@ EvalCmd = function(data){
       if(player.mode !== 'combat'){
         if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() === 'huntingknife'){
           if(player.inventory.huntingknife > 0){
-            if(!player.mounted && (!player.gear.armor || player.gear.armor.type === 'leather')){
+            if(!player.mounted && (!player.gear.armor || player.gear.armor.type === 'leather' || (player.gear.armor.type === 'cloth' && player.gear.armor.name !== 'ClericRobe'))){
               if(!player.gear.weapon){
                 player.gear.weapon = equip.huntingknife;
                 player.inventory.huntingknife--;
@@ -1118,7 +1120,7 @@ EvalCmd = function(data){
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() === 'dague'){
           if(player.inventory.dague > 0){
-            if(!player.mounted && (!player.gear.armor || player.gear.armor.type === 'leather')){
+            if(!player.mounted && (!player.gear.armor || player.gear.armor.type === 'leather' || (player.gear.armor.type === 'cloth' && player.gear.armor.name !== 'ClericRobe'))){
               if(!player.gear.weapon){
                 player.gear.weapon = equip.dague;
                 player.inventory.dague--;
@@ -1139,7 +1141,7 @@ EvalCmd = function(data){
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() === 'rondel'){
           if(player.inventory.rondel > 0){
-            if(!player.mounted && (!player.gear.armor || player.gear.armor.type === 'leather')){
+            if(!player.mounted && (!player.gear.armor || player.gear.armor.type === 'leather' || (player.gear.armor.type === 'cloth' && player.gear.armor.name !== 'ClericRobe'))){
               if(!player.gear.weapon){
                 player.gear.weapon = equip.rondel;
                 player.inventory.rondel--;
@@ -1160,7 +1162,7 @@ EvalCmd = function(data){
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() === 'misericorde'){
           if(player.inventory.misericorde > 0){
-            if(!player.mounted && (!player.gear.armor || player.gear.armor.type === 'leather')){
+            if(!player.mounted && (!player.gear.armor || player.gear.armor.type === 'leather' || (player.gear.armor.type === 'cloth' && player.gear.armor.name !== 'ClericRobe'))){
               if(!player.gear.weapon){
                 player.gear.weapon = equip.misericorde;
                 player.inventory.misericorde--;
@@ -1527,7 +1529,7 @@ EvalCmd = function(data){
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() === 'monkcowl'){
           if(player.inventory.monkcowl > 0){
-            if(!player.mounted && !player.gear.weapon){
+            if(!player.mounted && (!player.gear.weapon || player.gear.weapon.type === 'dagger')){
               if(player.gear.armor){
                 player.gear.armor.unequip(player.id);
               }
@@ -1535,14 +1537,14 @@ EvalCmd = function(data){
               player.inventory.monkcowl--;
               socket.emit('addToChat','<i>You equipped </i><b>MonkCowl</b>.');
             } else {
-              socket.emit('addToChat','<i>Must not be mounted or have a weapon equipped.</i>');
+              socket.emit('addToChat','<i>Must not be mounted and may only carry a dagger.</i>');
             }
           } else {
             socket.emit('addToChat','<i>You are not carrying </i><b>MonkCowl</b>.');
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() === 'blackcloak'){
           if(player.inventory.blackcloak > 0){
-            if(!player.mounted && !player.gear.weapon){
+            if(!player.mounted && (!player.gear.weapon || player.gear.weapon.type === 'dagger')){
               if(player.gear.armor){
                 player.gear.armor.unequip(player.id);
               }
@@ -1550,7 +1552,7 @@ EvalCmd = function(data){
               player.inventory.blackcloak--;
               socket.emit('addToChat','<i>You equipped </i><b>BlackCloak</b>.');
             } else {
-              socket.emit('addToChat','<i>Must not be mounted or have a weapon equipped.</i>');
+              socket.emit('addToChat','<i>Must not be mounted and may only carry a dagger.</i>');
             }
           } else {
             socket.emit('addToChat','<i>You are not carrying </i><b>BlackCloak</b>.');

@@ -170,6 +170,12 @@ var Player = function(initPack){
     } else if(self.spriteSize === tileSize * 7){
       x = (self.x - (tileSize*3.5)) - Player.list[selfId].x + WIDTH/2;
       y = (self.y - (tileSize*3.5)) - Player.list[selfId].y + HEIGHT/2;
+    } else if(self.spriteSize === tileSize * 10){
+      x = (self.x - (tileSize*5)) - Player.list[selfId].x + WIDTH/2;
+      y = (self.y - (tileSize*5)) - Player.list[selfId].y + HEIGHT/2;
+    } else if(self.spriteSize === tileSize * 12){
+      x = (self.x - (tileSize*6)) - Player.list[selfId].x + WIDTH/2;
+      y = (self.y - (tileSize*6)) - Player.list[selfId].y + HEIGHT/2;
     } else {
       x = (self.x - (tileSize/2)) - Player.list[selfId].x + WIDTH/2;
       y = (self.y - (tileSize/2)) - Player.list[selfId].y + HEIGHT/2;
@@ -1975,15 +1981,15 @@ socket.on('update',function(data){
         p.sprite = wolf;
       } else if(p.class === 'Falcon'){
         p.sprite = falcon;
-      } else if(p.class === 'Serf'){
+      } else if(p.class === 'Serf' || p.class === 'SerfM'){
         p.sprite = maleserf;
-      } else if(p.class === 'Rogue'){
+      } else if(p.class === 'Rogue' || p.class === 'Trapper' || p.class === 'Cutthroat'){
         p.sprite = rogue;
       } else if(p.class === 'Hunter'){
         p.sprite = hunter;
       } else if(p.class === 'Scout'){
         p.sprite = scout;
-      } else if(p.class === 'Ranger'){
+      } else if(p.class === 'Ranger' || p.class === 'Warden'){
         p.sprite = ranger;
       } else if(p.class === 'Swordsman'){
         p.sprite = swordsman;
@@ -1995,7 +2001,7 @@ socket.on('update',function(data){
         p.sprite = mountedarcher;
       } else if(p.class === 'Hero'){
         p.sprite = hero;
-      } else if(p.class === 'Templar'){
+      } else if(p.class === 'Templar' || p.class === 'Hospitaller' || p.class === 'Hochmeister'){
         p.sprite = templar;
       } else if(p.class === 'Cavalry'){
         p.sprite = cavalry;
@@ -2005,26 +2011,22 @@ socket.on('update',function(data){
         p.sprite = lancer;
       } else if(p.class === 'Crusader'){
         p.sprite = crusader;
-      } else if(p.class === 'Priest'){
+      } else if(p.class === 'Priest' || p.class === 'Monk' || p.class === 'Prior'){
         p.sprite = monk;
-      } else if(p.class === 'Mage'){
+      } else if(p.class === 'Mage' || p.class === 'Acolyte'){
         p.sprite = mage;
-      } else if(p.class === 'Warlock'){
+      } else if(p.class === 'Warlock' || p.class === 'Brother'){
         p.sprite = warlock;
-      } else if(p.class === 'SerfM'){
-        p.sprite = maleserf;
+      } else if(p.class === 'King' || p.class === 'Lothair'){
+        p.sprite = king;
       } else if(p.class === 'SerfF'){
         p.sprite = femaleserf;
-      } else if(p.class === 'Innkeeper'){
+      } else if(p.class === 'Innkeeper' || p.class === 'Shipwright'){
         p.sprite = innkeeper;
-      } else if(p.class === 'Monk'){
-        p.sprite = monk;
       } else if(p.class === 'Bishop'){
         p.sprite = bishop;
       } else if(p.class === 'Friar'){
         p.sprite = friar;
-      } else if(p.class === 'Conscript'){
-        p.sprite = conscript;
       } else if(p.class === 'Footsoldier'){
         p.sprite = footsoldier;
       } else if(p.class === 'Skirmisher'){
@@ -2033,6 +2035,58 @@ socket.on('update',function(data){
         p.sprite = cavalier;
       } else if(p.class === 'General'){
         p.sprite = general;
+      } else if(p.class === 'ImperialKnight' || p.class == 'TeutonicKnight'){
+        p.sprite = teutonicknight;
+      } else if(p.class === 'Trebuchet'){
+        p.sprite = trebuchet;
+      } else if(p.class === 'Oathkeeper' || p.class === 'Inquisitor'){
+        p.sprite = inquisitor;
+      } else if(p.class === 'DarkEntity'){
+        p.sprite = darkentity;
+      } else if(p.class === 'Goth' || p.class === 'NorseSword'){
+        p.sprite = goth;
+      } else if(p.class === 'HighPriestess'){
+        p.sprite = highpriestess;
+      } else if(p.class === 'Cataphract' || p.class === 'Carolingian' || p.class === 'Marauder'){
+        p.sprite = marauder;
+      } else if(p.class === 'NorseSpear'){
+        p.sprite = norsespear;
+      } else if(p.class === 'Huskarl'){
+        p.sprite = huskarl;
+      } else if(p.class === 'FrankSword'){
+        p.sprite = franksword;
+      } else if(p.class === 'FrankSpear'){
+        p.sprite = frankspear;
+      } else if(p.class === 'FrankBow' || p.class === 'Outlaw'){
+        p.sprite = frankbow;
+      } else if(p.class === 'Mangonel'){
+        p.sprite = mangonel;
+      } else if(p.class === 'Malvoisin'){
+        p.sprite = malvoisin;
+      } else if(p.class === 'CeltAxe'){
+        p.sprite = celtaxe;
+      } else if(p.class === 'CeltSpear'){
+        p.sprite = celtspear;
+      } else if(p.class === 'Headhunter'){
+        p.sprite = headhunter;
+      } else if(p.class === 'Druid'){
+        p.sprite = druid;
+      } else if(p.class === 'Morrigan'){
+        p.sprite = morrigan;
+      } else if(p.class === 'Gwenllian'){
+        p.sprite = gwenllian;
+      } else if(p.class === 'TeutonPike'){
+        p.sprite = teutonpike;
+      } else if(p.class === 'TeutonBow'){
+        p.sprite = teutonbow;
+      } else if(p.class === 'TeutonicKnight'){
+        p.sprite = teutonicknight;
+      } else if(p.class === 'Poacher'){
+        p.sprite = poacher;
+      } else if(p.class === 'Strongman'){
+        p.sprite = strongman;
+      } else if(p.class === 'Condottiere'){
+        p.sprite = condottiere;
       }
     }
   }

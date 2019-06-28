@@ -1715,6 +1715,56 @@ var crusader = {
   attackr: Img.crusaderattackr
 };
 
+// monk
+//stand
+Img.monkstandd = new Image();
+Img.monkstandd.src = '/client/img/chars/monk/standd.png';
+Img.monkstandu = new Image();
+Img.monkstandu.src = '/client/img/chars/monk/standu.png';
+Img.monkstandl = new Image();
+Img.monkstandl.src = '/client/img/chars/monk/standl.png';
+Img.monkstandr = new Image();
+Img.monkstandr.src = '/client/img/chars/monk/standr.png';
+
+// walk
+Img.monkwalkd1 = new Image();
+Img.monkwalkd1.src = '/client/img/chars/monk/walkd1.png';
+Img.monkwalkd2 = new Image();
+Img.monkwalkd2.src = '/client/img/chars/monk/walkd2.png';
+Img.monkwalku1 = new Image();
+Img.monkwalku1.src = '/client/img/chars/monk/walku1.png';
+Img.monkwalku2 = new Image();
+Img.monkwalku2.src = '/client/img/chars/monk/walku2.png';
+Img.monkwalkl1 = new Image();
+Img.monkwalkl1.src = '/client/img/chars/monk/walkl1.png';
+Img.monkwalkl2 = new Image();
+Img.monkwalkl2.src = '/client/img/chars/monk/walkl2.png';
+Img.monkwalkr1 = new Image();
+Img.monkwalkr1.src = '/client/img/chars/monk/walkr1.png';
+Img.monkwalkr2 = new Image();
+Img.monkwalkr2.src = '/client/img/chars/monk/walkr2.png';
+
+// actions
+Img.monkcast = new Image();
+Img.monkcast.src = '/client/img/chars/monk/cast.png';
+
+var monkwalkd = [Img.monkwalkd1,Img.monkwalkd2];
+var monkwalku = [Img.monkwalku1,Img.monkwalku2];
+var monkwalkl = [Img.monkwalkl1,Img.monkwalkl2];
+var monkwalkr = [Img.monkwalkr1,Img.monkwalkr2];
+
+var monk = {
+  facedown: Img.monkstandd,
+  faceup: Img.monkstandu,
+  faceleft: Img.monkstandl,
+  faceright: Img.monkstandr,
+  walkdown: monkwalkd,
+  walkup: monkwalku,
+  walkleft: monkwalkl,
+  walkright: monkwalkr,
+  cast: Img.monkcast
+};
+
 // mage
 //stand
 Img.magestandd = new Image();
@@ -1753,6 +1803,16 @@ var magewalku = [Img.magewalku1,Img.magewalku2];
 var magewalkl = [Img.magewalkl1,Img.magewalkl2];
 var magewalkr = [Img.magewalkr1,Img.magewalkr2];
 
+// attack
+Img.mageattackd = new Image();
+Img.mageattackd.src = '/client/img/chars/mage/attackd.png';
+Img.mageattacku = new Image();
+Img.mageattacku.src = '/client/img/chars/mage/attacku.png';
+Img.mageattackl = new Image();
+Img.mageattackl.src = '/client/img/chars/mage/attackl.png';
+Img.mageattackr = new Image();
+Img.mageattackr.src = '/client/img/chars/mage/attackr.png';
+
 var mage = {
   facedown: Img.magestandd,
   faceup: Img.magestandu,
@@ -1762,6 +1822,10 @@ var mage = {
   walkup: magewalku,
   walkleft: magewalkl,
   walkright: magewalkr,
+  attackd: Img.mageattackd,
+  attacku: Img.mageattacku,
+  attackl: Img.mageattackl,
+  attackr: Img.mageattackr,
   cast: Img.magecast
 };
 
@@ -1803,6 +1867,16 @@ var warlockwalku = [Img.warlockwalku1,Img.warlockwalku2];
 var warlockwalkl = [Img.warlockwalkl1,Img.warlockwalkl2];
 var warlockwalkr = [Img.warlockwalkr1,Img.warlockwalkr2];
 
+// attack
+Img.warlockattackd = new Image();
+Img.warlockattackd.src = '/client/img/chars/warlock/attackd.png';
+Img.warlockattacku = new Image();
+Img.warlockattacku.src = '/client/img/chars/warlock/attacku.png';
+Img.warlockattackl = new Image();
+Img.warlockattackl.src = '/client/img/chars/warlock/attackl.png';
+Img.warlockattackr = new Image();
+Img.warlockattackr.src = '/client/img/chars/warlock/attackr.png';
+
 var warlock = {
   facedown: Img.warlockstandd,
   faceup: Img.warlockstandu,
@@ -1812,7 +1886,56 @@ var warlock = {
   walkup: warlockwalku,
   walkleft: warlockwalkl,
   walkright: warlockwalkr,
+  attackd: Img.warlockattackd,
+  attacku: Img.warlockattacku,
+  attackl: Img.warlockattackl,
+  attackr: Img.warlockattackr,
   cast: Img.warlockcast
+};
+
+// king
+//stand
+Img.kingstandd = new Image();
+Img.kingstandd.src = '/client/img/chars/king/standd.png';
+Img.kingstandu = new Image();
+Img.kingstandu.src = '/client/img/chars/king/standu.png';
+Img.kingstandl = new Image();
+Img.kingstandl.src = '/client/img/chars/king/standl.png';
+Img.kingstandr = new Image();
+Img.kingstandr.src = '/client/img/chars/king/standr.png';
+
+// walk
+Img.kingwalkd1 = new Image();
+Img.kingwalkd1.src = '/client/img/chars/king/walkd1.png';
+Img.kingwalkd2 = new Image();
+Img.kingwalkd2.src = '/client/img/chars/king/walkd2.png';
+Img.kingwalku1 = new Image();
+Img.kingwalku1.src = '/client/img/chars/king/walku1.png';
+Img.kingwalku2 = new Image();
+Img.kingwalku2.src = '/client/img/chars/king/walku2.png';
+Img.kingwalkl1 = new Image();
+Img.kingwalkl1.src = '/client/img/chars/king/walkl1.png';
+Img.kingwalkl2 = new Image();
+Img.kingwalkl2.src = '/client/img/chars/king/walkl2.png';
+Img.kingwalkr1 = new Image();
+Img.kingwalkr1.src = '/client/img/chars/king/walkr1.png';
+Img.kingwalkr2 = new Image();
+Img.kingwalkr2.src = '/client/img/chars/king/walkr2.png';
+
+var kingwalkd = [Img.kingwalkd1,Img.kingwalkd2];
+var kingwalku = [Img.kingwalku1,Img.kingwalku2];
+var kingwalkl = [Img.kingwalkl1,Img.kingwalkl2];
+var kingwalkr = [Img.kingwalkr1,Img.kingwalkr2];
+
+var king = {
+  facedown: Img.kingstandd,
+  faceup: Img.kingstandu,
+  faceleft: Img.kingstandl,
+  faceright: Img.kingstandr,
+  walkdown: kingwalkd,
+  walkup: kingwalku,
+  walkleft: kingwalkl,
+  walkright: kingwalkr
 };
 
 // units
@@ -1946,56 +2069,6 @@ var innkeeper = {
   walkright: innkeeperwalkr
 };
 
-// monk
-//stand
-Img.monkstandd = new Image();
-Img.monkstandd.src = '/client/img/chars/monk/standd.png';
-Img.monkstandu = new Image();
-Img.monkstandu.src = '/client/img/chars/monk/standu.png';
-Img.monkstandl = new Image();
-Img.monkstandl.src = '/client/img/chars/monk/standl.png';
-Img.monkstandr = new Image();
-Img.monkstandr.src = '/client/img/chars/monk/standr.png';
-
-// walk
-Img.monkwalkd1 = new Image();
-Img.monkwalkd1.src = '/client/img/chars/monk/walkd1.png';
-Img.monkwalkd2 = new Image();
-Img.monkwalkd2.src = '/client/img/chars/monk/walkd2.png';
-Img.monkwalku1 = new Image();
-Img.monkwalku1.src = '/client/img/chars/monk/walku1.png';
-Img.monkwalku2 = new Image();
-Img.monkwalku2.src = '/client/img/chars/monk/walku2.png';
-Img.monkwalkl1 = new Image();
-Img.monkwalkl1.src = '/client/img/chars/monk/walkl1.png';
-Img.monkwalkl2 = new Image();
-Img.monkwalkl2.src = '/client/img/chars/monk/walkl2.png';
-Img.monkwalkr1 = new Image();
-Img.monkwalkr1.src = '/client/img/chars/monk/walkr1.png';
-Img.monkwalkr2 = new Image();
-Img.monkwalkr2.src = '/client/img/chars/monk/walkr2.png';
-
-// actions
-Img.monkcast = new Image();
-Img.monkcast.src = '/client/img/chars/monk/cast.png';
-
-var monkwalkd = [Img.monkwalkd1,Img.monkwalkd2];
-var monkwalku = [Img.monkwalku1,Img.monkwalku2];
-var monkwalkl = [Img.monkwalkl1,Img.monkwalkl2];
-var monkwalkr = [Img.monkwalkr1,Img.monkwalkr2];
-
-var monk = {
-  facedown: Img.monkstandd,
-  faceup: Img.monkstandu,
-  faceleft: Img.monkstandl,
-  faceright: Img.monkstandr,
-  walkdown: monkwalkd,
-  walkup: monkwalku,
-  walkleft: monkwalkl,
-  walkright: monkwalkr,
-  cast: Img.monkcast
-};
-
 // bishop
 //stand
 Img.bishopstandd = new Image();
@@ -2089,65 +2162,6 @@ var friar = {
   walkleft: friarwalkl,
   walkright: friarwalkr,
   cast: Img.friarcast
-};
-
-// conscript
-//stand
-Img.conscriptstandd = new Image();
-Img.conscriptstandd.src = '/client/img/chars/conscript/standd.png';
-Img.conscriptstandu = new Image();
-Img.conscriptstandu.src = '/client/img/chars/conscript/standu.png';
-Img.conscriptstandl = new Image();
-Img.conscriptstandl.src = '/client/img/chars/conscript/standl.png';
-Img.conscriptstandr = new Image();
-Img.conscriptstandr.src = '/client/img/chars/conscript/standr.png';
-
-// walk
-Img.conscriptwalkd1 = new Image();
-Img.conscriptwalkd1.src = '/client/img/chars/conscript/walkd1.png';
-Img.conscriptwalkd2 = new Image();
-Img.conscriptwalkd2.src = '/client/img/chars/conscript/walkd2.png';
-Img.conscriptwalku1 = new Image();
-Img.conscriptwalku1.src = '/client/img/chars/conscript/walku1.png';
-Img.conscriptwalku2 = new Image();
-Img.conscriptwalku2.src = '/client/img/chars/conscript/walku2.png';
-Img.conscriptwalkl1 = new Image();
-Img.conscriptwalkl1.src = '/client/img/chars/conscript/walkl1.png';
-Img.conscriptwalkl2 = new Image();
-Img.conscriptwalkl2.src = '/client/img/chars/conscript/walkl2.png';
-Img.conscriptwalkr1 = new Image();
-Img.conscriptwalkr1.src = '/client/img/chars/conscript/walkr1.png';
-Img.conscriptwalkr2 = new Image();
-Img.conscriptwalkr2.src = '/client/img/chars/conscript/walkr2.png';
-
-var conscriptwalkd = [Img.conscriptwalkd1,Img.conscriptwalkd2];
-var conscriptwalku = [Img.conscriptwalku1,Img.conscriptwalku2];
-var conscriptwalkl = [Img.conscriptwalkl1,Img.conscriptwalkl2];
-var conscriptwalkr = [Img.conscriptwalkr1,Img.conscriptwalkr2];
-
-// attack
-Img.conscriptattackd = new Image();
-Img.conscriptattackd.src = '/client/img/chars/conscript/attackd.png';
-Img.conscriptattacku = new Image();
-Img.conscriptattacku.src = '/client/img/chars/conscript/attacku.png';
-Img.conscriptattackl = new Image();
-Img.conscriptattackl.src = '/client/img/chars/conscript/attackl.png';
-Img.conscriptattackr = new Image();
-Img.conscriptattackr.src = '/client/img/chars/conscript/attackr.png';
-
-var conscript = {
-  facedown: Img.conscriptstandd,
-  faceup: Img.conscriptstandu,
-  faceleft: Img.conscriptstandl,
-  faceright: Img.conscriptstandr,
-  walkdown: conscriptwalkd,
-  walkup: conscriptwalku,
-  walkleft: conscriptwalkl,
-  walkright: conscriptwalkr,
-  attackd: Img.conscriptattackd,
-  attacku: Img.conscriptattacku,
-  attackl: Img.conscriptattackl,
-  attackr: Img.conscriptattackr
 };
 
 // footsoldier
@@ -2384,6 +2398,38 @@ var general = {
   attacku: Img.generalattacku,
   attackl: Img.generalattackl,
   attackr: Img.generalattackr
+};
+
+// trebuchet
+//stand
+Img.trebuchetstandd = new Image();
+Img.trebuchetstandd.src = '/client/img/chars/trebuchet/standd.png';
+Img.trebuchetstandu = new Image();
+Img.trebuchetstandu.src = '/client/img/chars/trebuchet/standu.png';
+Img.trebuchetstandl = new Image();
+Img.trebuchetstandl.src = '/client/img/chars/trebuchet/standl.png';
+Img.trebuchetstandr = new Image();
+Img.trebuchetstandr.src = '/client/img/chars/trebuchet/standr.png';
+
+// attack
+Img.trebuchetattackd = new Image();
+Img.trebuchetattackd.src = '/client/img/chars/trebuchet/attackd.png';
+Img.trebuchetattacku = new Image();
+Img.trebuchetattacku.src = '/client/img/chars/trebuchet/attacku.png';
+Img.trebuchetattackl = new Image();
+Img.trebuchetattackl.src = '/client/img/chars/trebuchet/attackl.png';
+Img.trebuchetattackr = new Image();
+Img.trebuchetattackr.src = '/client/img/chars/trebuchet/attackr.png';
+
+var trebuchet = {
+  facedown: Img.trebuchetstandd,
+  faceup: Img.trebuchetstandu,
+  faceleft: Img.trebuchetstandl,
+  faceright: Img.trebuchetstandr,
+  attackd: Img.trebuchetattackd,
+  attacku: Img.trebuchetattacku,
+  attackl: Img.trebuchetattackl,
+  attackr: Img.trebuchetattackr
 };
 
 // fauna
@@ -2628,8 +2674,1226 @@ var falcon = {
 };
 
 // enemies
+// inquisitor
+//stand
+Img.inquisitorstandd = new Image();
+Img.inquisitorstandd.src = '/client/img/chars/inquisitor/standd.png';
+Img.inquisitorstandu = new Image();
+Img.inquisitorstandu.src = '/client/img/chars/inquisitor/standu.png';
+Img.inquisitorstandl = new Image();
+Img.inquisitorstandl.src = '/client/img/chars/inquisitor/standl.png';
+Img.inquisitorstandr = new Image();
+Img.inquisitorstandr.src = '/client/img/chars/inquisitor/standr.png';
 
+// walk
+Img.inquisitorwalkd1 = new Image();
+Img.inquisitorwalkd1.src = '/client/img/chars/inquisitor/walkd1.png';
+Img.inquisitorwalkd2 = new Image();
+Img.inquisitorwalkd2.src = '/client/img/chars/inquisitor/walkd2.png';
+Img.inquisitorwalku1 = new Image();
+Img.inquisitorwalku1.src = '/client/img/chars/inquisitor/walku1.png';
+Img.inquisitorwalku2 = new Image();
+Img.inquisitorwalku2.src = '/client/img/chars/inquisitor/walku2.png';
+Img.inquisitorwalkl1 = new Image();
+Img.inquisitorwalkl1.src = '/client/img/chars/inquisitor/walkl1.png';
+Img.inquisitorwalkl2 = new Image();
+Img.inquisitorwalkl2.src = '/client/img/chars/inquisitor/walkl2.png';
+Img.inquisitorwalkr1 = new Image();
+Img.inquisitorwalkr1.src = '/client/img/chars/inquisitor/walkr1.png';
+Img.inquisitorwalkr2 = new Image();
+Img.inquisitorwalkr2.src = '/client/img/chars/inquisitor/walkr2.png';
 
+// actions
+Img.inquisitorcast = new Image();
+Img.inquisitorcast.src = '/client/img/chars/inquisitor/cast.png';
+
+var inquisitorwalkd = [Img.inquisitorwalkd1,Img.inquisitorwalkd2];
+var inquisitorwalku = [Img.inquisitorwalku1,Img.inquisitorwalku2];
+var inquisitorwalkl = [Img.inquisitorwalkl1,Img.inquisitorwalkl2];
+var inquisitorwalkr = [Img.inquisitorwalkr1,Img.inquisitorwalkr2];
+
+var inquisitor = {
+  facedown: Img.inquisitorstandd,
+  faceup: Img.inquisitorstandu,
+  faceleft: Img.inquisitorstandl,
+  faceright: Img.inquisitorstandr,
+  walkdown: inquisitorwalkd,
+  walkup: inquisitorwalku,
+  walkleft: inquisitorwalkl,
+  walkright: inquisitorwalkr,
+  cast: Img.inquisitorcast
+};
+
+// darkentity
+//stand
+Img.darkentitystandd = new Image();
+Img.darkentitystandd.src = '/client/img/chars/darkentity/standd.png';
+Img.darkentitystandu = new Image();
+Img.darkentitystandu.src = '/client/img/chars/darkentity/standu.png';
+Img.darkentitystandl = new Image();
+Img.darkentitystandl.src = '/client/img/chars/darkentity/standl.png';
+Img.darkentitystandr = new Image();
+Img.darkentitystandr.src = '/client/img/chars/darkentity/standr.png';
+
+var darkentitywalkd = [Img.darkentitystandd,Img.darkentitystandd];
+var darkentitywalku = [Img.darkentitystandu,Img.darkentitystandu];
+var darkentitywalkl = [Img.darkentitystandl,Img.darkentitystandl];
+var darkentitywalkr = [Img.darkentitystandr,Img.darkentitystandr];
+
+// attack
+Img.darkentityattackd = new Image();
+Img.darkentityattackd.src = '/client/img/chars/darkentity/attackd.png';
+Img.darkentityattacku = new Image();
+Img.darkentityattacku.src = '/client/img/chars/darkentity/attacku.png';
+Img.darkentityattackl = new Image();
+Img.darkentityattackl.src = '/client/img/chars/darkentity/attackl.png';
+Img.darkentityattackr = new Image();
+Img.darkentityattackr.src = '/client/img/chars/darkentity/attackr.png';
+
+var darkentity = {
+  facedown: Img.darkentitystandd,
+  faceup: Img.darkentitystandu,
+  faceleft: Img.darkentitystandl,
+  faceright: Img.darkentitystandr,
+  walkdown: darkentitywalkd,
+  walkup: darkentitywalku,
+  walkleft: darkentitywalkl,
+  walkright: darkentitywalkr,
+  attackd: Img.darkentityattackd,
+  attacku: Img.darkentityattacku,
+  attackl: Img.darkentityattackl,
+  attackr: Img.darkentityattackr
+};
+
+// goth
+//stand
+Img.gothstandd = new Image();
+Img.gothstandd.src = '/client/img/chars/goth/standd.png';
+Img.gothstandu = new Image();
+Img.gothstandu.src = '/client/img/chars/goth/standu.png';
+Img.gothstandl = new Image();
+Img.gothstandl.src = '/client/img/chars/goth/standl.png';
+Img.gothstandr = new Image();
+Img.gothstandr.src = '/client/img/chars/goth/standr.png';
+
+// walk
+Img.gothwalkd1 = new Image();
+Img.gothwalkd1.src = '/client/img/chars/goth/walkd1.png';
+Img.gothwalkd2 = new Image();
+Img.gothwalkd2.src = '/client/img/chars/goth/walkd2.png';
+Img.gothwalku1 = new Image();
+Img.gothwalku1.src = '/client/img/chars/goth/walku1.png';
+Img.gothwalku2 = new Image();
+Img.gothwalku2.src = '/client/img/chars/goth/walku2.png';
+Img.gothwalkl1 = new Image();
+Img.gothwalkl1.src = '/client/img/chars/goth/walkl1.png';
+Img.gothwalkl2 = new Image();
+Img.gothwalkl2.src = '/client/img/chars/goth/walkl2.png';
+Img.gothwalkr1 = new Image();
+Img.gothwalkr1.src = '/client/img/chars/goth/walkr1.png';
+Img.gothwalkr2 = new Image();
+Img.gothwalkr2.src = '/client/img/chars/goth/walkr2.png';
+
+var gothwalkd = [Img.gothwalkd1,Img.gothwalkd2];
+var gothwalku = [Img.gothwalku1,Img.gothwalku2];
+var gothwalkl = [Img.gothwalkl1,Img.gothwalkl2];
+var gothwalkr = [Img.gothwalkr1,Img.gothwalkr2];
+
+// attack
+Img.gothattackd = new Image();
+Img.gothattackd.src = '/client/img/chars/goth/attackd.png';
+Img.gothattacku = new Image();
+Img.gothattacku.src = '/client/img/chars/goth/attacku.png';
+Img.gothattackl = new Image();
+Img.gothattackl.src = '/client/img/chars/goth/attackl.png';
+Img.gothattackr = new Image();
+Img.gothattackr.src = '/client/img/chars/goth/attackr.png';
+
+var goth = {
+  facedown: Img.gothstandd,
+  faceup: Img.gothstandu,
+  faceleft: Img.gothstandl,
+  faceright: Img.gothstandr,
+  walkdown: gothwalkd,
+  walkup: gothwalku,
+  walkleft: gothwalkl,
+  walkright: gothwalkr,
+  attackd: Img.gothattackd,
+  attacku: Img.gothattacku,
+  attackl: Img.gothattackl,
+  attackr: Img.gothattackr
+};
+
+// norsespear
+//stand
+Img.norsespearstandd = new Image();
+Img.norsespearstandd.src = '/client/img/chars/norsespear/standd.png';
+Img.norsespearstandu = new Image();
+Img.norsespearstandu.src = '/client/img/chars/norsespear/standu.png';
+Img.norsespearstandl = new Image();
+Img.norsespearstandl.src = '/client/img/chars/norsespear/standl.png';
+Img.norsespearstandr = new Image();
+Img.norsespearstandr.src = '/client/img/chars/norsespear/standr.png';
+
+// walk
+Img.norsespearwalkd1 = new Image();
+Img.norsespearwalkd1.src = '/client/img/chars/norsespear/walkd1.png';
+Img.norsespearwalkd2 = new Image();
+Img.norsespearwalkd2.src = '/client/img/chars/norsespear/walkd2.png';
+Img.norsespearwalku1 = new Image();
+Img.norsespearwalku1.src = '/client/img/chars/norsespear/walku1.png';
+Img.norsespearwalku2 = new Image();
+Img.norsespearwalku2.src = '/client/img/chars/norsespear/walku2.png';
+Img.norsespearwalkl1 = new Image();
+Img.norsespearwalkl1.src = '/client/img/chars/norsespear/walkl1.png';
+Img.norsespearwalkl2 = new Image();
+Img.norsespearwalkl2.src = '/client/img/chars/norsespear/walkl2.png';
+Img.norsespearwalkr1 = new Image();
+Img.norsespearwalkr1.src = '/client/img/chars/norsespear/walkr1.png';
+Img.norsespearwalkr2 = new Image();
+Img.norsespearwalkr2.src = '/client/img/chars/norsespear/walkr2.png';
+
+var norsespearwalkd = [Img.norsespearwalkd1,Img.norsespearwalkd2];
+var norsespearwalku = [Img.norsespearwalku1,Img.norsespearwalku2];
+var norsespearwalkl = [Img.norsespearwalkl1,Img.norsespearwalkl2];
+var norsespearwalkr = [Img.norsespearwalkr1,Img.norsespearwalkr2];
+
+// attack
+Img.norsespearattackd = new Image();
+Img.norsespearattackd.src = '/client/img/chars/norsespear/attackd.png';
+Img.norsespearattacku = new Image();
+Img.norsespearattacku.src = '/client/img/chars/norsespear/attacku.png';
+Img.norsespearattackl = new Image();
+Img.norsespearattackl.src = '/client/img/chars/norsespear/attackl.png';
+Img.norsespearattackr = new Image();
+Img.norsespearattackr.src = '/client/img/chars/norsespear/attackr.png';
+
+var norsespear = {
+  facedown: Img.norsespearstandd,
+  faceup: Img.norsespearstandu,
+  faceleft: Img.norsespearstandl,
+  faceright: Img.norsespearstandr,
+  walkdown: norsespearwalkd,
+  walkup: norsespearwalku,
+  walkleft: norsespearwalkl,
+  walkright: norsespearwalkr,
+  attackd: Img.norsespearattackd,
+  attacku: Img.norsespearattacku,
+  attackl: Img.norsespearattackl,
+  attackr: Img.norsespearattackr
+};
+
+// huskarl
+//stand
+Img.huskarlstandd = new Image();
+Img.huskarlstandd.src = '/client/img/chars/huskarl/standd.png';
+Img.huskarlstandu = new Image();
+Img.huskarlstandu.src = '/client/img/chars/huskarl/standu.png';
+Img.huskarlstandl = new Image();
+Img.huskarlstandl.src = '/client/img/chars/huskarl/standl.png';
+Img.huskarlstandr = new Image();
+Img.huskarlstandr.src = '/client/img/chars/huskarl/standr.png';
+
+// walk
+Img.huskarlwalkd1 = new Image();
+Img.huskarlwalkd1.src = '/client/img/chars/huskarl/walkd1.png';
+Img.huskarlwalkd2 = new Image();
+Img.huskarlwalkd2.src = '/client/img/chars/huskarl/walkd2.png';
+Img.huskarlwalku1 = new Image();
+Img.huskarlwalku1.src = '/client/img/chars/huskarl/walku1.png';
+Img.huskarlwalku2 = new Image();
+Img.huskarlwalku2.src = '/client/img/chars/huskarl/walku2.png';
+Img.huskarlwalkl1 = new Image();
+Img.huskarlwalkl1.src = '/client/img/chars/huskarl/walkl1.png';
+Img.huskarlwalkl2 = new Image();
+Img.huskarlwalkl2.src = '/client/img/chars/huskarl/walkl2.png';
+Img.huskarlwalkr1 = new Image();
+Img.huskarlwalkr1.src = '/client/img/chars/huskarl/walkr1.png';
+Img.huskarlwalkr2 = new Image();
+Img.huskarlwalkr2.src = '/client/img/chars/huskarl/walkr2.png';
+
+var huskarlwalkd = [Img.huskarlwalkd1,Img.huskarlwalkd2];
+var huskarlwalku = [Img.huskarlwalku1,Img.huskarlwalku2];
+var huskarlwalkl = [Img.huskarlwalkl1,Img.huskarlwalkl2];
+var huskarlwalkr = [Img.huskarlwalkr1,Img.huskarlwalkr2];
+
+// attack
+Img.huskarlattackd = new Image();
+Img.huskarlattackd.src = '/client/img/chars/huskarl/attackd.png';
+Img.huskarlattacku = new Image();
+Img.huskarlattacku.src = '/client/img/chars/huskarl/attacku.png';
+Img.huskarlattackl = new Image();
+Img.huskarlattackl.src = '/client/img/chars/huskarl/attackl.png';
+Img.huskarlattackr = new Image();
+Img.huskarlattackr.src = '/client/img/chars/huskarl/attackr.png';
+
+var huskarl = {
+  facedown: Img.huskarlstandd,
+  faceup: Img.huskarlstandu,
+  faceleft: Img.huskarlstandl,
+  faceright: Img.huskarlstandr,
+  walkdown: huskarlwalkd,
+  walkup: huskarlwalku,
+  walkleft: huskarlwalkl,
+  walkright: huskarlwalkr,
+  attackd: Img.huskarlattackd,
+  attacku: Img.huskarlattacku,
+  attackl: Img.huskarlattackl,
+  attackr: Img.huskarlattackr
+};
+
+// franksword
+//stand
+Img.frankswordstandd = new Image();
+Img.frankswordstandd.src = '/client/img/chars/franksword/standd.png';
+Img.frankswordstandu = new Image();
+Img.frankswordstandu.src = '/client/img/chars/franksword/standu.png';
+Img.frankswordstandl = new Image();
+Img.frankswordstandl.src = '/client/img/chars/franksword/standl.png';
+Img.frankswordstandr = new Image();
+Img.frankswordstandr.src = '/client/img/chars/franksword/standr.png';
+
+// walk
+Img.frankswordwalkd1 = new Image();
+Img.frankswordwalkd1.src = '/client/img/chars/franksword/walkd1.png';
+Img.frankswordwalkd2 = new Image();
+Img.frankswordwalkd2.src = '/client/img/chars/franksword/walkd2.png';
+Img.frankswordwalku1 = new Image();
+Img.frankswordwalku1.src = '/client/img/chars/franksword/walku1.png';
+Img.frankswordwalku2 = new Image();
+Img.frankswordwalku2.src = '/client/img/chars/franksword/walku2.png';
+Img.frankswordwalkl1 = new Image();
+Img.frankswordwalkl1.src = '/client/img/chars/franksword/walkl1.png';
+Img.frankswordwalkl2 = new Image();
+Img.frankswordwalkl2.src = '/client/img/chars/franksword/walkl2.png';
+Img.frankswordwalkr1 = new Image();
+Img.frankswordwalkr1.src = '/client/img/chars/franksword/walkr1.png';
+Img.frankswordwalkr2 = new Image();
+Img.frankswordwalkr2.src = '/client/img/chars/franksword/walkr2.png';
+
+var frankswordwalkd = [Img.frankswordwalkd1,Img.frankswordwalkd2];
+var frankswordwalku = [Img.frankswordwalku1,Img.frankswordwalku2];
+var frankswordwalkl = [Img.frankswordwalkl1,Img.frankswordwalkl2];
+var frankswordwalkr = [Img.frankswordwalkr1,Img.frankswordwalkr2];
+
+// attack
+Img.frankswordattackd = new Image();
+Img.frankswordattackd.src = '/client/img/chars/franksword/attackd.png';
+Img.frankswordattacku = new Image();
+Img.frankswordattacku.src = '/client/img/chars/franksword/attacku.png';
+Img.frankswordattackl = new Image();
+Img.frankswordattackl.src = '/client/img/chars/franksword/attackl.png';
+Img.frankswordattackr = new Image();
+Img.frankswordattackr.src = '/client/img/chars/franksword/attackr.png';
+
+var franksword = {
+  facedown: Img.frankswordstandd,
+  faceup: Img.frankswordstandu,
+  faceleft: Img.frankswordstandl,
+  faceright: Img.frankswordstandr,
+  walkdown: frankswordwalkd,
+  walkup: frankswordwalku,
+  walkleft: frankswordwalkl,
+  walkright: frankswordwalkr,
+  attackd: Img.frankswordattackd,
+  attacku: Img.frankswordattacku,
+  attackl: Img.frankswordattackl,
+  attackr: Img.frankswordattackr
+};
+
+// frankspear
+//stand
+Img.frankspearstandd = new Image();
+Img.frankspearstandd.src = '/client/img/chars/frankspear/standd.png';
+Img.frankspearstandu = new Image();
+Img.frankspearstandu.src = '/client/img/chars/frankspear/standu.png';
+Img.frankspearstandl = new Image();
+Img.frankspearstandl.src = '/client/img/chars/frankspear/standl.png';
+Img.frankspearstandr = new Image();
+Img.frankspearstandr.src = '/client/img/chars/frankspear/standr.png';
+
+// walk
+Img.frankspearwalkd1 = new Image();
+Img.frankspearwalkd1.src = '/client/img/chars/frankspear/walkd1.png';
+Img.frankspearwalkd2 = new Image();
+Img.frankspearwalkd2.src = '/client/img/chars/frankspear/walkd2.png';
+Img.frankspearwalku1 = new Image();
+Img.frankspearwalku1.src = '/client/img/chars/frankspear/walku1.png';
+Img.frankspearwalku2 = new Image();
+Img.frankspearwalku2.src = '/client/img/chars/frankspear/walku2.png';
+Img.frankspearwalkl1 = new Image();
+Img.frankspearwalkl1.src = '/client/img/chars/frankspear/walkl1.png';
+Img.frankspearwalkl2 = new Image();
+Img.frankspearwalkl2.src = '/client/img/chars/frankspear/walkl2.png';
+Img.frankspearwalkr1 = new Image();
+Img.frankspearwalkr1.src = '/client/img/chars/frankspear/walkr1.png';
+Img.frankspearwalkr2 = new Image();
+Img.frankspearwalkr2.src = '/client/img/chars/frankspear/walkr2.png';
+
+var frankspearwalkd = [Img.frankspearwalkd1,Img.frankspearwalkd2];
+var frankspearwalku = [Img.frankspearwalku1,Img.frankspearwalku2];
+var frankspearwalkl = [Img.frankspearwalkl1,Img.frankspearwalkl2];
+var frankspearwalkr = [Img.frankspearwalkr1,Img.frankspearwalkr2];
+
+// attack
+Img.frankspearattackd = new Image();
+Img.frankspearattackd.src = '/client/img/chars/frankspear/attackd.png';
+Img.frankspearattacku = new Image();
+Img.frankspearattacku.src = '/client/img/chars/frankspear/attacku.png';
+Img.frankspearattackl = new Image();
+Img.frankspearattackl.src = '/client/img/chars/frankspear/attackl.png';
+Img.frankspearattackr = new Image();
+Img.frankspearattackr.src = '/client/img/chars/frankspear/attackr.png';
+
+var frankspear = {
+  facedown: Img.frankspearstandd,
+  faceup: Img.frankspearstandu,
+  faceleft: Img.frankspearstandl,
+  faceright: Img.frankspearstandr,
+  walkdown: frankspearwalkd,
+  walkup: frankspearwalku,
+  walkleft: frankspearwalkl,
+  walkright: frankspearwalkr,
+  attackd: Img.frankspearattackd,
+  attacku: Img.frankspearattacku,
+  attackl: Img.frankspearattackl,
+  attackr: Img.frankspearattackr
+};
+
+// frankbow
+//stand
+Img.frankbowstandd = new Image();
+Img.frankbowstandd.src = '/client/img/chars/frankbow/standd.png';
+Img.frankbowstandu = new Image();
+Img.frankbowstandu.src = '/client/img/chars/frankbow/standu.png';
+Img.frankbowstandl = new Image();
+Img.frankbowstandl.src = '/client/img/chars/frankbow/standl.png';
+Img.frankbowstandr = new Image();
+Img.frankbowstandr.src = '/client/img/chars/frankbow/standr.png';
+
+// walk
+Img.frankbowwalkd1 = new Image();
+Img.frankbowwalkd1.src = '/client/img/chars/frankbow/walkd1.png';
+Img.frankbowwalkd2 = new Image();
+Img.frankbowwalkd2.src = '/client/img/chars/frankbow/walkd2.png';
+Img.frankbowwalku1 = new Image();
+Img.frankbowwalku1.src = '/client/img/chars/frankbow/walku1.png';
+Img.frankbowwalku2 = new Image();
+Img.frankbowwalku2.src = '/client/img/chars/frankbow/walku2.png';
+Img.frankbowwalkl1 = new Image();
+Img.frankbowwalkl1.src = '/client/img/chars/frankbow/walkl1.png';
+Img.frankbowwalkl2 = new Image();
+Img.frankbowwalkl2.src = '/client/img/chars/frankbow/walkl2.png';
+Img.frankbowwalkr1 = new Image();
+Img.frankbowwalkr1.src = '/client/img/chars/frankbow/walkr1.png';
+Img.frankbowwalkr2 = new Image();
+Img.frankbowwalkr2.src = '/client/img/chars/frankbow/walkr2.png';
+
+var frankbowwalkd = [Img.frankbowwalkd1,Img.frankbowwalkd2];
+var frankbowwalku = [Img.frankbowwalku1,Img.frankbowwalku2];
+var frankbowwalkl = [Img.frankbowwalkl1,Img.frankbowwalkl2];
+var frankbowwalkr = [Img.frankbowwalkr1,Img.frankbowwalkr2];
+
+// attack
+Img.frankbowattackd = new Image();
+Img.frankbowattackd.src = '/client/img/chars/frankbow/attackd.png';
+Img.frankbowattacku = new Image();
+Img.frankbowattacku.src = '/client/img/chars/frankbow/attacku.png';
+Img.frankbowattackl = new Image();
+Img.frankbowattackl.src = '/client/img/chars/frankbow/attackl.png';
+Img.frankbowattackr = new Image();
+Img.frankbowattackr.src = '/client/img/chars/frankbow/attackr.png';
+
+var frankbow = {
+  facedown: Img.frankbowstandd,
+  faceup: Img.frankbowstandu,
+  faceleft: Img.frankbowstandl,
+  faceright: Img.frankbowstandr,
+  walkdown: frankbowwalkd,
+  walkup: frankbowwalku,
+  walkleft: frankbowwalkl,
+  walkright: frankbowwalkr,
+  attackdb: Img.frankbowattackd,
+  attackub: Img.frankbowattacku,
+  attacklb: Img.frankbowattackl,
+  attackrb: Img.frankbowattackr
+};
+
+// mangonel
+//stand
+Img.mangonelstandd = new Image();
+Img.mangonelstandd.src = '/client/img/chars/mangonel/standd.png';
+Img.mangonelstandu = new Image();
+Img.mangonelstandu.src = '/client/img/chars/mangonel/standu.png';
+Img.mangonelstandl = new Image();
+Img.mangonelstandl.src = '/client/img/chars/mangonel/standl.png';
+Img.mangonelstandr = new Image();
+Img.mangonelstandr.src = '/client/img/chars/mangonel/standr.png';
+
+// walk
+Img.mangonelwalkd1 = new Image();
+Img.mangonelwalkd1.src = '/client/img/chars/mangonel/walkd1.png';
+Img.mangonelwalkd2 = new Image();
+Img.mangonelwalkd2.src = '/client/img/chars/mangonel/walkd2.png';
+Img.mangonelwalku1 = new Image();
+Img.mangonelwalku1.src = '/client/img/chars/mangonel/walku1.png';
+Img.mangonelwalku2 = new Image();
+Img.mangonelwalku2.src = '/client/img/chars/mangonel/walku2.png';
+Img.mangonelwalkl1 = new Image();
+Img.mangonelwalkl1.src = '/client/img/chars/mangonel/walkl1.png';
+Img.mangonelwalkl2 = new Image();
+Img.mangonelwalkl2.src = '/client/img/chars/mangonel/walkl2.png';
+Img.mangonelwalkr1 = new Image();
+Img.mangonelwalkr1.src = '/client/img/chars/mangonel/walkr1.png';
+Img.mangonelwalkr2 = new Image();
+Img.mangonelwalkr2.src = '/client/img/chars/mangonel/walkr2.png';
+
+var mangonelwalkd = [Img.mangonelwalkd1,Img.mangonelwalkd2];
+var mangonelwalku = [Img.mangonelwalku1,Img.mangonelwalku2];
+var mangonelwalkl = [Img.mangonelwalkl1,Img.mangonelwalkl2];
+var mangonelwalkr = [Img.mangonelwalkr1,Img.mangonelwalkr2];
+
+// attack
+Img.mangonelattackd = new Image();
+Img.mangonelattackd.src = '/client/img/chars/mangonel/attackd.png';
+Img.mangonelattacku = new Image();
+Img.mangonelattacku.src = '/client/img/chars/mangonel/attacku.png';
+Img.mangonelattackl = new Image();
+Img.mangonelattackl.src = '/client/img/chars/mangonel/attackl.png';
+Img.mangonelattackr = new Image();
+Img.mangonelattackr.src = '/client/img/chars/mangonel/attackr.png';
+
+var mangonel = {
+  facedown: Img.mangonelstandd,
+  faceup: Img.mangonelstandu,
+  faceleft: Img.mangonelstandl,
+  faceright: Img.mangonelstandr,
+  walkdown: mangonelwalkd,
+  walkup: mangonelwalku,
+  walkleft: mangonelwalkl,
+  walkright: mangonelwalkr,
+  attackd: Img.mangonelattackd,
+  attacku: Img.mangonelattacku,
+  attackl: Img.mangonelattackl,
+  attackr: Img.mangonelattackr
+};
+
+// malvoisin
+//stand
+Img.malvoisinstandd = new Image();
+Img.malvoisinstandd.src = '/client/img/chars/malvoisin/standd.png';
+Img.malvoisinstandu = new Image();
+Img.malvoisinstandu.src = '/client/img/chars/malvoisin/standu.png';
+Img.malvoisinstandl = new Image();
+Img.malvoisinstandl.src = '/client/img/chars/malvoisin/standl.png';
+Img.malvoisinstandr = new Image();
+Img.malvoisinstandr.src = '/client/img/chars/malvoisin/standr.png';
+
+// attack
+Img.malvoisinattackd = new Image();
+Img.malvoisinattackd.src = '/client/img/chars/malvoisin/attackd.png';
+Img.malvoisinattacku = new Image();
+Img.malvoisinattacku.src = '/client/img/chars/malvoisin/attacku.png';
+Img.malvoisinattackl = new Image();
+Img.malvoisinattackl.src = '/client/img/chars/malvoisin/attackl.png';
+Img.malvoisinattackr = new Image();
+Img.malvoisinattackr.src = '/client/img/chars/malvoisin/attackr.png';
+
+var malvoisin = {
+  facedown: Img.malvoisinstandd,
+  faceup: Img.malvoisinstandu,
+  faceleft: Img.malvoisinstandl,
+  faceright: Img.malvoisinstandr,
+  attackd: Img.malvoisinattackd,
+  attacku: Img.malvoisinattacku,
+  attackl: Img.malvoisinattackl,
+  attackr: Img.malvoisinattackr
+};
+
+// celtaxe
+//stand
+Img.celtaxestandd = new Image();
+Img.celtaxestandd.src = '/client/img/chars/celtaxe/standd.png';
+Img.celtaxestandu = new Image();
+Img.celtaxestandu.src = '/client/img/chars/celtaxe/standu.png';
+Img.celtaxestandl = new Image();
+Img.celtaxestandl.src = '/client/img/chars/celtaxe/standl.png';
+Img.celtaxestandr = new Image();
+Img.celtaxestandr.src = '/client/img/chars/celtaxe/standr.png';
+
+// walk
+Img.celtaxewalkd1 = new Image();
+Img.celtaxewalkd1.src = '/client/img/chars/celtaxe/walkd1.png';
+Img.celtaxewalkd2 = new Image();
+Img.celtaxewalkd2.src = '/client/img/chars/celtaxe/walkd2.png';
+Img.celtaxewalku1 = new Image();
+Img.celtaxewalku1.src = '/client/img/chars/celtaxe/walku1.png';
+Img.celtaxewalku2 = new Image();
+Img.celtaxewalku2.src = '/client/img/chars/celtaxe/walku2.png';
+Img.celtaxewalkl1 = new Image();
+Img.celtaxewalkl1.src = '/client/img/chars/celtaxe/walkl1.png';
+Img.celtaxewalkl2 = new Image();
+Img.celtaxewalkl2.src = '/client/img/chars/celtaxe/walkl2.png';
+Img.celtaxewalkr1 = new Image();
+Img.celtaxewalkr1.src = '/client/img/chars/celtaxe/walkr1.png';
+Img.celtaxewalkr2 = new Image();
+Img.celtaxewalkr2.src = '/client/img/chars/celtaxe/walkr2.png';
+
+var celtaxewalkd = [Img.celtaxewalkd1,Img.celtaxewalkd2];
+var celtaxewalku = [Img.celtaxewalku1,Img.celtaxewalku2];
+var celtaxewalkl = [Img.celtaxewalkl1,Img.celtaxewalkl2];
+var celtaxewalkr = [Img.celtaxewalkr1,Img.celtaxewalkr2];
+
+// attack
+Img.celtaxeattackd = new Image();
+Img.celtaxeattackd.src = '/client/img/chars/celtaxe/attackd.png';
+Img.celtaxeattacku = new Image();
+Img.celtaxeattacku.src = '/client/img/chars/celtaxe/attacku.png';
+Img.celtaxeattackl = new Image();
+Img.celtaxeattackl.src = '/client/img/chars/celtaxe/attackl.png';
+Img.celtaxeattackr = new Image();
+Img.celtaxeattackr.src = '/client/img/chars/celtaxe/attackr.png';
+
+var celtaxe = {
+  facedown: Img.celtaxestandd,
+  faceup: Img.celtaxestandu,
+  faceleft: Img.celtaxestandl,
+  faceright: Img.celtaxestandr,
+  walkdown: celtaxewalkd,
+  walkup: celtaxewalku,
+  walkleft: celtaxewalkl,
+  walkright: celtaxewalkr,
+  attackd: Img.celtaxeattackd,
+  attacku: Img.celtaxeattacku,
+  attackl: Img.celtaxeattackl,
+  attackr: Img.celtaxeattackr
+};
+
+// celtspear
+//stand
+Img.celtspearstandd = new Image();
+Img.celtspearstandd.src = '/client/img/chars/celtspear/standd.png';
+Img.celtspearstandu = new Image();
+Img.celtspearstandu.src = '/client/img/chars/celtspear/standu.png';
+Img.celtspearstandl = new Image();
+Img.celtspearstandl.src = '/client/img/chars/celtspear/standl.png';
+Img.celtspearstandr = new Image();
+Img.celtspearstandr.src = '/client/img/chars/celtspear/standr.png';
+
+// walk
+Img.celtspearwalkd1 = new Image();
+Img.celtspearwalkd1.src = '/client/img/chars/celtspear/walkd1.png';
+Img.celtspearwalkd2 = new Image();
+Img.celtspearwalkd2.src = '/client/img/chars/celtspear/walkd2.png';
+Img.celtspearwalku1 = new Image();
+Img.celtspearwalku1.src = '/client/img/chars/celtspear/walku1.png';
+Img.celtspearwalku2 = new Image();
+Img.celtspearwalku2.src = '/client/img/chars/celtspear/walku2.png';
+Img.celtspearwalkl1 = new Image();
+Img.celtspearwalkl1.src = '/client/img/chars/celtspear/walkl1.png';
+Img.celtspearwalkl2 = new Image();
+Img.celtspearwalkl2.src = '/client/img/chars/celtspear/walkl2.png';
+Img.celtspearwalkr1 = new Image();
+Img.celtspearwalkr1.src = '/client/img/chars/celtspear/walkr1.png';
+Img.celtspearwalkr2 = new Image();
+Img.celtspearwalkr2.src = '/client/img/chars/celtspear/walkr2.png';
+
+var celtspearwalkd = [Img.celtspearwalkd1,Img.celtspearwalkd2];
+var celtspearwalku = [Img.celtspearwalku1,Img.celtspearwalku2];
+var celtspearwalkl = [Img.celtspearwalkl1,Img.celtspearwalkl2];
+var celtspearwalkr = [Img.celtspearwalkr1,Img.celtspearwalkr2];
+
+// attack
+Img.celtspearattackd = new Image();
+Img.celtspearattackd.src = '/client/img/chars/celtspear/attackd.png';
+Img.celtspearattacku = new Image();
+Img.celtspearattacku.src = '/client/img/chars/celtspear/attacku.png';
+Img.celtspearattackl = new Image();
+Img.celtspearattackl.src = '/client/img/chars/celtspear/attackl.png';
+Img.celtspearattackr = new Image();
+Img.celtspearattackr.src = '/client/img/chars/celtspear/attackr.png';
+
+var celtspear = {
+  facedown: Img.celtspearstandd,
+  faceup: Img.celtspearstandu,
+  faceleft: Img.celtspearstandl,
+  faceright: Img.celtspearstandr,
+  walkdown: celtspearwalkd,
+  walkup: celtspearwalku,
+  walkleft: celtspearwalkl,
+  walkright: celtspearwalkr,
+  attackd: Img.celtspearattackd,
+  attacku: Img.celtspearattacku,
+  attackl: Img.celtspearattackl,
+  attackr: Img.celtspearattackr
+};
+
+// headhunter
+//stand
+Img.headhunterstandd = new Image();
+Img.headhunterstandd.src = '/client/img/chars/headhunter/standd.png';
+Img.headhunterstandu = new Image();
+Img.headhunterstandu.src = '/client/img/chars/headhunter/standu.png';
+Img.headhunterstandl = new Image();
+Img.headhunterstandl.src = '/client/img/chars/headhunter/standl.png';
+Img.headhunterstandr = new Image();
+Img.headhunterstandr.src = '/client/img/chars/headhunter/standr.png';
+
+// walk
+Img.headhunterwalkd1 = new Image();
+Img.headhunterwalkd1.src = '/client/img/chars/headhunter/walkd1.png';
+Img.headhunterwalkd2 = new Image();
+Img.headhunterwalkd2.src = '/client/img/chars/headhunter/walkd2.png';
+Img.headhunterwalku1 = new Image();
+Img.headhunterwalku1.src = '/client/img/chars/headhunter/walku1.png';
+Img.headhunterwalku2 = new Image();
+Img.headhunterwalku2.src = '/client/img/chars/headhunter/walku2.png';
+Img.headhunterwalkl1 = new Image();
+Img.headhunterwalkl1.src = '/client/img/chars/headhunter/walkl1.png';
+Img.headhunterwalkl2 = new Image();
+Img.headhunterwalkl2.src = '/client/img/chars/headhunter/walkl2.png';
+Img.headhunterwalkr1 = new Image();
+Img.headhunterwalkr1.src = '/client/img/chars/headhunter/walkr1.png';
+Img.headhunterwalkr2 = new Image();
+Img.headhunterwalkr2.src = '/client/img/chars/headhunter/walkr2.png';
+
+var headhunterwalkd = [Img.headhunterwalkd1,Img.headhunterwalkd2];
+var headhunterwalku = [Img.headhunterwalku1,Img.headhunterwalku2];
+var headhunterwalkl = [Img.headhunterwalkl1,Img.headhunterwalkl2];
+var headhunterwalkr = [Img.headhunterwalkr1,Img.headhunterwalkr2];
+
+// attack
+Img.headhunterattackd = new Image();
+Img.headhunterattackd.src = '/client/img/chars/headhunter/attackd.png';
+Img.headhunterattacku = new Image();
+Img.headhunterattacku.src = '/client/img/chars/headhunter/attacku.png';
+Img.headhunterattackl = new Image();
+Img.headhunterattackl.src = '/client/img/chars/headhunter/attackl.png';
+Img.headhunterattackr = new Image();
+Img.headhunterattackr.src = '/client/img/chars/headhunter/attackr.png';
+
+var headhunter = {
+  facedown: Img.headhunterstandd,
+  faceup: Img.headhunterstandu,
+  faceleft: Img.headhunterstandl,
+  faceright: Img.headhunterstandr,
+  walkdown: headhunterwalkd,
+  walkup: headhunterwalku,
+  walkleft: headhunterwalkl,
+  walkright: headhunterwalkr,
+  attackd: Img.headhunterattackd,
+  attacku: Img.headhunterattacku,
+  attackl: Img.headhunterattackl,
+  attackr: Img.headhunterattackr
+};
+
+// druid
+//stand
+Img.druidstandd = new Image();
+Img.druidstandd.src = '/client/img/chars/druid/standd.png';
+Img.druidstandu = new Image();
+Img.druidstandu.src = '/client/img/chars/druid/standu.png';
+Img.druidstandl = new Image();
+Img.druidstandl.src = '/client/img/chars/druid/standl.png';
+Img.druidstandr = new Image();
+Img.druidstandr.src = '/client/img/chars/druid/standr.png';
+
+// walk
+Img.druidwalkd1 = new Image();
+Img.druidwalkd1.src = '/client/img/chars/druid/walkd1.png';
+Img.druidwalkd2 = new Image();
+Img.druidwalkd2.src = '/client/img/chars/druid/walkd2.png';
+Img.druidwalku1 = new Image();
+Img.druidwalku1.src = '/client/img/chars/druid/walku1.png';
+Img.druidwalku2 = new Image();
+Img.druidwalku2.src = '/client/img/chars/druid/walku2.png';
+Img.druidwalkl1 = new Image();
+Img.druidwalkl1.src = '/client/img/chars/druid/walkl1.png';
+Img.druidwalkl2 = new Image();
+Img.druidwalkl2.src = '/client/img/chars/druid/walkl2.png';
+Img.druidwalkr1 = new Image();
+Img.druidwalkr1.src = '/client/img/chars/druid/walkr1.png';
+Img.druidwalkr2 = new Image();
+Img.druidwalkr2.src = '/client/img/chars/druid/walkr2.png';
+
+// actions
+Img.druidcast = new Image();
+Img.druidcast.src = '/client/img/chars/druid/cast.png';
+
+var druidwalkd = [Img.druidwalkd1,Img.druidwalkd2];
+var druidwalku = [Img.druidwalku1,Img.druidwalku2];
+var druidwalkl = [Img.druidwalkl1,Img.druidwalkl2];
+var druidwalkr = [Img.druidwalkr1,Img.druidwalkr2];
+
+var druid = {
+  facedown: Img.druidstandd,
+  faceup: Img.druidstandu,
+  faceleft: Img.druidstandl,
+  faceright: Img.druidstandr,
+  walkdown: druidwalkd,
+  walkup: druidwalku,
+  walkleft: druidwalkl,
+  walkright: druidwalkr,
+  cast: Img.druidcast
+};
+
+// morrigan
+//stand
+Img.morriganstandd = new Image();
+Img.morriganstandd.src = '/client/img/chars/morrigan/standd.png';
+Img.morriganstandu = new Image();
+Img.morriganstandu.src = '/client/img/chars/morrigan/standu.png';
+Img.morriganstandl = new Image();
+Img.morriganstandl.src = '/client/img/chars/morrigan/standl.png';
+Img.morriganstandr = new Image();
+Img.morriganstandr.src = '/client/img/chars/morrigan/standr.png';
+
+// walk
+Img.morriganwalkd1 = new Image();
+Img.morriganwalkd1.src = '/client/img/chars/morrigan/walkd1.png';
+Img.morriganwalkd2 = new Image();
+Img.morriganwalkd2.src = '/client/img/chars/morrigan/walkd2.png';
+Img.morriganwalku1 = new Image();
+Img.morriganwalku1.src = '/client/img/chars/morrigan/walku1.png';
+Img.morriganwalku2 = new Image();
+Img.morriganwalku2.src = '/client/img/chars/morrigan/walku2.png';
+Img.morriganwalkl1 = new Image();
+Img.morriganwalkl1.src = '/client/img/chars/morrigan/walkl1.png';
+Img.morriganwalkl2 = new Image();
+Img.morriganwalkl2.src = '/client/img/chars/morrigan/walkl2.png';
+Img.morriganwalkr1 = new Image();
+Img.morriganwalkr1.src = '/client/img/chars/morrigan/walkr1.png';
+Img.morriganwalkr2 = new Image();
+Img.morriganwalkr2.src = '/client/img/chars/morrigan/walkr2.png';
+
+var morriganwalkd = [Img.morriganwalkd1,Img.morriganwalkd2];
+var morriganwalku = [Img.morriganwalku1,Img.morriganwalku2];
+var morriganwalkl = [Img.morriganwalkl1,Img.morriganwalkl2];
+var morriganwalkr = [Img.morriganwalkr1,Img.morriganwalkr2];
+
+// attack
+Img.morriganattackd = new Image();
+Img.morriganattackd.src = '/client/img/chars/morrigan/attackd.png';
+Img.morriganattacku = new Image();
+Img.morriganattacku.src = '/client/img/chars/morrigan/attacku.png';
+Img.morriganattackl = new Image();
+Img.morriganattackl.src = '/client/img/chars/morrigan/attackl.png';
+Img.morriganattackr = new Image();
+Img.morriganattackr.src = '/client/img/chars/morrigan/attackr.png';
+
+var morrigan = {
+  facedown: Img.morriganstandd,
+  faceup: Img.morriganstandu,
+  faceleft: Img.morriganstandl,
+  faceright: Img.morriganstandr,
+  walkdown: morriganwalkd,
+  walkup: morriganwalku,
+  walkleft: morriganwalkl,
+  walkright: morriganwalkr,
+  attackd: Img.morriganattackd,
+  attacku: Img.morriganattacku,
+  attackl: Img.morriganattackl,
+  attackr: Img.morriganattackr
+};
+
+// gwenllian
+//stand
+Img.gwenllianstandd = new Image();
+Img.gwenllianstandd.src = '/client/img/chars/gwenllian/standd.png';
+Img.gwenllianstandu = new Image();
+Img.gwenllianstandu.src = '/client/img/chars/gwenllian/standu.png';
+Img.gwenllianstandl = new Image();
+Img.gwenllianstandl.src = '/client/img/chars/gwenllian/standl.png';
+Img.gwenllianstandr = new Image();
+Img.gwenllianstandr.src = '/client/img/chars/gwenllian/standr.png';
+
+// walk
+Img.gwenllianwalkd1 = new Image();
+Img.gwenllianwalkd1.src = '/client/img/chars/gwenllian/walkd1.png';
+Img.gwenllianwalkd2 = new Image();
+Img.gwenllianwalkd2.src = '/client/img/chars/gwenllian/walkd2.png';
+Img.gwenllianwalku1 = new Image();
+Img.gwenllianwalku1.src = '/client/img/chars/gwenllian/walku1.png';
+Img.gwenllianwalku2 = new Image();
+Img.gwenllianwalku2.src = '/client/img/chars/gwenllian/walku2.png';
+Img.gwenllianwalkl1 = new Image();
+Img.gwenllianwalkl1.src = '/client/img/chars/gwenllian/walkl1.png';
+Img.gwenllianwalkl2 = new Image();
+Img.gwenllianwalkl2.src = '/client/img/chars/gwenllian/walkl2.png';
+Img.gwenllianwalkr1 = new Image();
+Img.gwenllianwalkr1.src = '/client/img/chars/gwenllian/walkr1.png';
+Img.gwenllianwalkr2 = new Image();
+Img.gwenllianwalkr2.src = '/client/img/chars/gwenllian/walkr2.png';
+
+var gwenllianwalkd = [Img.gwenllianwalkd1,Img.gwenllianwalkd2];
+var gwenllianwalku = [Img.gwenllianwalku1,Img.gwenllianwalku2];
+var gwenllianwalkl = [Img.gwenllianwalkl1,Img.gwenllianwalkl2];
+var gwenllianwalkr = [Img.gwenllianwalkr1,Img.gwenllianwalkr2];
+
+var gwenllian = {
+  facedown: Img.gwenllianstandd,
+  faceup: Img.gwenllianstandu,
+  faceleft: Img.gwenllianstandl,
+  faceright: Img.gwenllianstandr,
+  walkdown: gwenllianwalkd,
+  walkup: gwenllianwalku,
+  walkleft: gwenllianwalkl,
+  walkright: gwenllianwalkr
+};
+
+// teutonpike
+//stand
+Img.teutonpikestandd = new Image();
+Img.teutonpikestandd.src = '/client/img/chars/teutonpike/standd.png';
+Img.teutonpikestandu = new Image();
+Img.teutonpikestandu.src = '/client/img/chars/teutonpike/standu.png';
+Img.teutonpikestandl = new Image();
+Img.teutonpikestandl.src = '/client/img/chars/teutonpike/standl.png';
+Img.teutonpikestandr = new Image();
+Img.teutonpikestandr.src = '/client/img/chars/teutonpike/standr.png';
+
+// walk
+Img.teutonpikewalkd1 = new Image();
+Img.teutonpikewalkd1.src = '/client/img/chars/teutonpike/walkd1.png';
+Img.teutonpikewalkd2 = new Image();
+Img.teutonpikewalkd2.src = '/client/img/chars/teutonpike/walkd2.png';
+Img.teutonpikewalku1 = new Image();
+Img.teutonpikewalku1.src = '/client/img/chars/teutonpike/walku1.png';
+Img.teutonpikewalku2 = new Image();
+Img.teutonpikewalku2.src = '/client/img/chars/teutonpike/walku2.png';
+Img.teutonpikewalkl1 = new Image();
+Img.teutonpikewalkl1.src = '/client/img/chars/teutonpike/walkl1.png';
+Img.teutonpikewalkl2 = new Image();
+Img.teutonpikewalkl2.src = '/client/img/chars/teutonpike/walkl2.png';
+Img.teutonpikewalkr1 = new Image();
+Img.teutonpikewalkr1.src = '/client/img/chars/teutonpike/walkr1.png';
+Img.teutonpikewalkr2 = new Image();
+Img.teutonpikewalkr2.src = '/client/img/chars/teutonpike/walkr2.png';
+
+var teutonpikewalkd = [Img.teutonpikewalkd1,Img.teutonpikewalkd2];
+var teutonpikewalku = [Img.teutonpikewalku1,Img.teutonpikewalku2];
+var teutonpikewalkl = [Img.teutonpikewalkl1,Img.teutonpikewalkl2];
+var teutonpikewalkr = [Img.teutonpikewalkr1,Img.teutonpikewalkr2];
+
+// attack
+Img.teutonpikeattackd = new Image();
+Img.teutonpikeattackd.src = '/client/img/chars/teutonpike/attackd.png';
+Img.teutonpikeattacku = new Image();
+Img.teutonpikeattacku.src = '/client/img/chars/teutonpike/attacku.png';
+Img.teutonpikeattackl = new Image();
+Img.teutonpikeattackl.src = '/client/img/chars/teutonpike/attackl.png';
+Img.teutonpikeattackr = new Image();
+Img.teutonpikeattackr.src = '/client/img/chars/teutonpike/attackr.png';
+
+var teutonpike = {
+  facedown: Img.teutonpikestandd,
+  faceup: Img.teutonpikestandu,
+  faceleft: Img.teutonpikestandl,
+  faceright: Img.teutonpikestandr,
+  walkdown: teutonpikewalkd,
+  walkup: teutonpikewalku,
+  walkleft: teutonpikewalkl,
+  walkright: teutonpikewalkr,
+  attackd: Img.teutonpikeattackd,
+  attacku: Img.teutonpikeattacku,
+  attackl: Img.teutonpikeattackl,
+  attackr: Img.teutonpikeattackr
+};
+
+// teutonbow
+//stand
+Img.teutonbowstandd = new Image();
+Img.teutonbowstandd.src = '/client/img/chars/teutonbow/standd.png';
+Img.teutonbowstandu = new Image();
+Img.teutonbowstandu.src = '/client/img/chars/teutonbow/standu.png';
+Img.teutonbowstandl = new Image();
+Img.teutonbowstandl.src = '/client/img/chars/teutonbow/standl.png';
+Img.teutonbowstandr = new Image();
+Img.teutonbowstandr.src = '/client/img/chars/teutonbow/standr.png';
+
+// walk
+Img.teutonbowwalkd1 = new Image();
+Img.teutonbowwalkd1.src = '/client/img/chars/teutonbow/walkd1.png';
+Img.teutonbowwalkd2 = new Image();
+Img.teutonbowwalkd2.src = '/client/img/chars/teutonbow/walkd2.png';
+Img.teutonbowwalku1 = new Image();
+Img.teutonbowwalku1.src = '/client/img/chars/teutonbow/walku1.png';
+Img.teutonbowwalku2 = new Image();
+Img.teutonbowwalku2.src = '/client/img/chars/teutonbow/walku2.png';
+Img.teutonbowwalkl1 = new Image();
+Img.teutonbowwalkl1.src = '/client/img/chars/teutonbow/walkl1.png';
+Img.teutonbowwalkl2 = new Image();
+Img.teutonbowwalkl2.src = '/client/img/chars/teutonbow/walkl2.png';
+Img.teutonbowwalkr1 = new Image();
+Img.teutonbowwalkr1.src = '/client/img/chars/teutonbow/walkr1.png';
+Img.teutonbowwalkr2 = new Image();
+Img.teutonbowwalkr2.src = '/client/img/chars/teutonbow/walkr2.png';
+
+var teutonbowwalkd = [Img.teutonbowwalkd1,Img.teutonbowwalkd2];
+var teutonbowwalku = [Img.teutonbowwalku1,Img.teutonbowwalku2];
+var teutonbowwalkl = [Img.teutonbowwalkl1,Img.teutonbowwalkl2];
+var teutonbowwalkr = [Img.teutonbowwalkr1,Img.teutonbowwalkr2];
+
+// attack
+Img.teutonbowattackd = new Image();
+Img.teutonbowattackd.src = '/client/img/chars/teutonbow/attackd.png';
+Img.teutonbowattacku = new Image();
+Img.teutonbowattacku.src = '/client/img/chars/teutonbow/attacku.png';
+Img.teutonbowattackl = new Image();
+Img.teutonbowattackl.src = '/client/img/chars/teutonbow/attackl.png';
+Img.teutonbowattackr = new Image();
+Img.teutonbowattackr.src = '/client/img/chars/teutonbow/attackr.png';
+
+var teutonbow = {
+  facedown: Img.teutonbowstandd,
+  faceup: Img.teutonbowstandu,
+  faceleft: Img.teutonbowstandl,
+  faceright: Img.teutonbowstandr,
+  walkdown: teutonbowwalkd,
+  walkup: teutonbowwalku,
+  walkleft: teutonbowwalkl,
+  walkright: teutonbowwalkr,
+  attackdb: Img.teutonbowattackd,
+  attackub: Img.teutonbowattacku,
+  attacklb: Img.teutonbowattackl,
+  attackrb: Img.teutonbowattackr
+};
+
+// teutonicknight
+//stand
+Img.teutonicknightstandd = new Image();
+Img.teutonicknightstandd.src = '/client/img/chars/teutonicknight/standd.png';
+Img.teutonicknightstandu = new Image();
+Img.teutonicknightstandu.src = '/client/img/chars/teutonicknight/standu.png';
+Img.teutonicknightstandl = new Image();
+Img.teutonicknightstandl.src = '/client/img/chars/teutonicknight/standl.png';
+Img.teutonicknightstandr = new Image();
+Img.teutonicknightstandr.src = '/client/img/chars/teutonicknight/standr.png';
+
+// walk
+Img.teutonicknightwalkd1 = new Image();
+Img.teutonicknightwalkd1.src = '/client/img/chars/teutonicknight/walkd1.png';
+Img.teutonicknightwalkd2 = new Image();
+Img.teutonicknightwalkd2.src = '/client/img/chars/teutonicknight/walkd2.png';
+Img.teutonicknightwalku1 = new Image();
+Img.teutonicknightwalku1.src = '/client/img/chars/teutonicknight/walku1.png';
+Img.teutonicknightwalku2 = new Image();
+Img.teutonicknightwalku2.src = '/client/img/chars/teutonicknight/walku2.png';
+Img.teutonicknightwalkl1 = new Image();
+Img.teutonicknightwalkl1.src = '/client/img/chars/teutonicknight/walkl1.png';
+Img.teutonicknightwalkl2 = new Image();
+Img.teutonicknightwalkl2.src = '/client/img/chars/teutonicknight/walkl2.png';
+Img.teutonicknightwalkr1 = new Image();
+Img.teutonicknightwalkr1.src = '/client/img/chars/teutonicknight/walkr1.png';
+Img.teutonicknightwalkr2 = new Image();
+Img.teutonicknightwalkr2.src = '/client/img/chars/teutonicknight/walkr2.png';
+
+var teutonicknightwalkd = [Img.teutonicknightwalkd1,Img.teutonicknightwalkd2];
+var teutonicknightwalku = [Img.teutonicknightwalku1,Img.teutonicknightwalku2];
+var teutonicknightwalkl = [Img.teutonicknightwalkl1,Img.teutonicknightwalkl2];
+var teutonicknightwalkr = [Img.teutonicknightwalkr1,Img.teutonicknightwalkr2];
+
+// attack
+Img.teutonicknightattackd = new Image();
+Img.teutonicknightattackd.src = '/client/img/chars/teutonicknight/attackd.png';
+Img.teutonicknightattacku = new Image();
+Img.teutonicknightattacku.src = '/client/img/chars/teutonicknight/attacku.png';
+Img.teutonicknightattackl = new Image();
+Img.teutonicknightattackl.src = '/client/img/chars/teutonicknight/attackl.png';
+Img.teutonicknightattackr = new Image();
+Img.teutonicknightattackr.src = '/client/img/chars/teutonicknight/attackr.png';
+
+var teutonicknight = {
+  facedown: Img.teutonicknightstandd,
+  faceup: Img.teutonicknightstandu,
+  faceleft: Img.teutonicknightstandl,
+  faceright: Img.teutonicknightstandr,
+  walkdown: teutonicknightwalkd,
+  walkup: teutonicknightwalku,
+  walkleft: teutonicknightwalkl,
+  walkright: teutonicknightwalkr,
+  attackd: Img.teutonicknightattackd,
+  attacku: Img.teutonicknightattacku,
+  attackl: Img.teutonicknightattackl,
+  attackr: Img.teutonicknightattackr
+};
+
+// poacher
+// stand
+Img.poacherstandd = new Image();
+Img.poacherstandd.src = '/client/img/chars/poacher/standd.png';
+Img.poacherstandu = new Image();
+Img.poacherstandu.src = '/client/img/chars/poacher/standu.png';
+Img.poacherstandl = new Image();
+Img.poacherstandl.src = '/client/img/chars/poacher/standl.png';
+Img.poacherstandr = new Image();
+Img.poacherstandr.src = '/client/img/chars/poacher/standr.png';
+
+// walk
+Img.poacherwalkd1 = new Image();
+Img.poacherwalkd1.src = '/client/img/chars/poacher/walkd1.png';
+Img.poacherwalkd2 = new Image();
+Img.poacherwalkd2.src = '/client/img/chars/poacher/walkd2.png';
+Img.poacherwalku1 = new Image();
+Img.poacherwalku1.src = '/client/img/chars/poacher/walku1.png';
+Img.poacherwalku2 = new Image();
+Img.poacherwalku2.src = '/client/img/chars/poacher/walku2.png';
+Img.poacherwalkl1 = new Image();
+Img.poacherwalkl1.src = '/client/img/chars/poacher/walkl1.png';
+Img.poacherwalkl2 = new Image();
+Img.poacherwalkl2.src = '/client/img/chars/poacher/walkl2.png';
+Img.poacherwalkr1 = new Image();
+Img.poacherwalkr1.src = '/client/img/chars/poacher/walkr1.png';
+Img.poacherwalkr2 = new Image();
+Img.poacherwalkr2.src = '/client/img/chars/poacher/walkr2.png';
+
+var poacherwalkd = [Img.poacherwalkd1,Img.poacherwalkd2];
+var poacherwalku = [Img.poacherwalku1,Img.poacherwalku2];
+var poacherwalkl = [Img.poacherwalkl1,Img.poacherwalkl2];
+var poacherwalkr = [Img.poacherwalkr1,Img.poacherwalkr2];
+
+// attack
+Img.poacherattackd = new Image();
+Img.poacherattackd.src = '/client/img/chars/poacher/attackd.png';
+Img.poacherattacku = new Image();
+Img.poacherattacku.src = '/client/img/chars/poacher/attacku.png';
+Img.poacherattackl = new Image();
+Img.poacherattackl.src = '/client/img/chars/poacher/attackl.png';
+Img.poacherattackr = new Image();
+Img.poacherattackr.src = '/client/img/chars/poacher/attackr.png';
+
+var poacher = {
+  facedown: Img.poacherstandd,
+  faceup: Img.poacherstandu,
+  faceleft: Img.poacherstandl,
+  faceright: Img.poacherstandr,
+  walkdown: poacherwalkd,
+  walkup: poacherwalku,
+  walkleft: poacherwalkl,
+  walkright: poacherwalkr,
+  attackdb: Img.poacherattackd,
+  attackub: Img.poacherattacku,
+  attacklb: Img.poacherattackl,
+  attackrb: Img.poacherattackr
+};
+
+// strongman
+//stand
+Img.strongmanstandd = new Image();
+Img.strongmanstandd.src = '/client/img/chars/strongman/standd.png';
+Img.strongmanstandu = new Image();
+Img.strongmanstandu.src = '/client/img/chars/strongman/standu.png';
+Img.strongmanstandl = new Image();
+Img.strongmanstandl.src = '/client/img/chars/strongman/standl.png';
+Img.strongmanstandr = new Image();
+Img.strongmanstandr.src = '/client/img/chars/strongman/standr.png';
+
+// walk
+Img.strongmanwalkd1 = new Image();
+Img.strongmanwalkd1.src = '/client/img/chars/strongman/walkd1.png';
+Img.strongmanwalkd2 = new Image();
+Img.strongmanwalkd2.src = '/client/img/chars/strongman/walkd2.png';
+Img.strongmanwalku1 = new Image();
+Img.strongmanwalku1.src = '/client/img/chars/strongman/walku1.png';
+Img.strongmanwalku2 = new Image();
+Img.strongmanwalku2.src = '/client/img/chars/strongman/walku2.png';
+Img.strongmanwalkl1 = new Image();
+Img.strongmanwalkl1.src = '/client/img/chars/strongman/walkl1.png';
+Img.strongmanwalkl2 = new Image();
+Img.strongmanwalkl2.src = '/client/img/chars/strongman/walkl2.png';
+Img.strongmanwalkr1 = new Image();
+Img.strongmanwalkr1.src = '/client/img/chars/strongman/walkr1.png';
+Img.strongmanwalkr2 = new Image();
+Img.strongmanwalkr2.src = '/client/img/chars/strongman/walkr2.png';
+
+var strongmanwalkd = [Img.strongmanwalkd1,Img.strongmanwalkd2];
+var strongmanwalku = [Img.strongmanwalku1,Img.strongmanwalku2];
+var strongmanwalkl = [Img.strongmanwalkl1,Img.strongmanwalkl2];
+var strongmanwalkr = [Img.strongmanwalkr1,Img.strongmanwalkr2];
+
+// attack
+Img.strongmanattackd = new Image();
+Img.strongmanattackd.src = '/client/img/chars/strongman/attackd.png';
+Img.strongmanattacku = new Image();
+Img.strongmanattacku.src = '/client/img/chars/strongman/attacku.png';
+Img.strongmanattackl = new Image();
+Img.strongmanattackl.src = '/client/img/chars/strongman/attackl.png';
+Img.strongmanattackr = new Image();
+Img.strongmanattackr.src = '/client/img/chars/strongman/attackr.png';
+
+var strongman = {
+  facedown: Img.strongmanstandd,
+  faceup: Img.strongmanstandu,
+  faceleft: Img.strongmanstandl,
+  faceright: Img.strongmanstandr,
+  walkdown: strongmanwalkd,
+  walkup: strongmanwalku,
+  walkleft: strongmanwalkl,
+  walkright: strongmanwalkr,
+  attackd: Img.strongmanattackd,
+  attacku: Img.strongmanattacku,
+  attackl: Img.strongmanattackl,
+  attackr: Img.strongmanattackr
+};
+
+// condottiere
+//stand
+Img.condottierestandd = new Image();
+Img.condottierestandd.src = '/client/img/chars/condottiere/standd.png';
+Img.condottierestandu = new Image();
+Img.condottierestandu.src = '/client/img/chars/condottiere/standu.png';
+Img.condottierestandl = new Image();
+Img.condottierestandl.src = '/client/img/chars/condottiere/standl.png';
+Img.condottierestandr = new Image();
+Img.condottierestandr.src = '/client/img/chars/condottiere/standr.png';
+
+// walk
+Img.condottierewalkd1 = new Image();
+Img.condottierewalkd1.src = '/client/img/chars/condottiere/walkd1.png';
+Img.condottierewalkd2 = new Image();
+Img.condottierewalkd2.src = '/client/img/chars/condottiere/walkd2.png';
+Img.condottierewalku1 = new Image();
+Img.condottierewalku1.src = '/client/img/chars/condottiere/walku1.png';
+Img.condottierewalku2 = new Image();
+Img.condottierewalku2.src = '/client/img/chars/condottiere/walku2.png';
+Img.condottierewalkl1 = new Image();
+Img.condottierewalkl1.src = '/client/img/chars/condottiere/walkl1.png';
+Img.condottierewalkl2 = new Image();
+Img.condottierewalkl2.src = '/client/img/chars/condottiere/walkl2.png';
+Img.condottierewalkr1 = new Image();
+Img.condottierewalkr1.src = '/client/img/chars/condottiere/walkr1.png';
+Img.condottierewalkr2 = new Image();
+Img.condottierewalkr2.src = '/client/img/chars/condottiere/walkr2.png';
+
+var condottierewalkd = [Img.condottierewalkd1,Img.condottierewalkd2];
+var condottierewalku = [Img.condottierewalku1,Img.condottierewalku2];
+var condottierewalkl = [Img.condottierewalkl1,Img.condottierewalkl2];
+var condottierewalkr = [Img.condottierewalkr1,Img.condottierewalkr2];
+
+// attack
+Img.condottiereattackd = new Image();
+Img.condottiereattackd.src = '/client/img/chars/condottiere/attackd.png';
+Img.condottiereattacku = new Image();
+Img.condottiereattacku.src = '/client/img/chars/condottiere/attacku.png';
+Img.condottiereattackl = new Image();
+Img.condottiereattackl.src = '/client/img/chars/condottiere/attackl.png';
+Img.condottiereattackr = new Image();
+Img.condottiereattackr.src = '/client/img/chars/condottiere/attackr.png';
+
+var condottiere = {
+  facedown: Img.condottierestandd,
+  faceup: Img.condottierestandu,
+  faceleft: Img.condottierestandl,
+  faceright: Img.condottierestandr,
+  walkdown: condottierewalkd,
+  walkup: condottierewalku,
+  walkleft: condottierewalkl,
+  walkright: condottierewalkr,
+  attackdb: Img.condottiereattackd,
+  attackub: Img.condottiereattacku,
+  attacklb: Img.condottiereattackl,
+  attackrb: Img.condottiereattackr
+};
 
 // ITEMS
 Img.wood1 = new Image();

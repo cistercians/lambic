@@ -282,6 +282,20 @@ Character = function(param){
     });
   }
 
+  self.lightTorch = function(torchId){
+    if(self.z !== -3){
+      LitTorch({
+        id:torchId,
+        parent:self.id,
+        x:self.x,
+        y:self.y,
+        z:self.z,
+        qty:1
+      })
+      self.hasTorch = torchId;
+    }
+  }
+
   self.update = function(){
     var loc = getLoc(self.x, self.y);
     if(self.z === 0){
@@ -547,6 +561,7 @@ Sheep = function(param){
 Deer = function(param){
   var self = Character(param);
   self.class = 'Deer';
+  self.baseSpd = 7;
 }
 
 Boar = function(param){
@@ -564,7 +579,7 @@ Falcon = function(param){
   self.class = 'Falcon';
   self.falconry = param.falconry;
   self.hp = null;
-  self.maxSpd = 3;
+  self.baseSpd = 3;
   self.spriteSize = tileSize*7;
   self.update = function(){
     if(!self.path){
@@ -704,6 +719,7 @@ Innkeeper = function(param){
   self.class = 'Innkeeper';
   self.house = param.house;
   self.kingdom = param.kingdom;
+  self.spriteSize = tileSize*1.5;
 }
 
 Monk = function(param){
@@ -727,17 +743,17 @@ Friar = function(param){
   var self = Character(param);
   self.name = param.name;
   self.class = 'Friar';
-  self.house = param.house;
   self.spriteSize = tileSize*1.5;
   self.mounted = true;
 }
 
-Conscript = function(param){
+Shipwright = function(param){
   var self = Character(param);
-  self.name = 'Conscript';
-  self.class = 'Conscript';
+  self.name = param.name;
+  self.class = 'Shipwright';
   self.house = param.house;
   self.kingdom = param.kingdom;
+  self.spriteSize = tileSize*1.5;
 }
 
 Footsoldier = function(param){
@@ -780,12 +796,24 @@ General = function(param){
   self.mounted = true;
 }
 
+Warden = function(param){
+  var self = Character(param);
+  self.name = 'Warden';
+  self.class = 'Warden';
+  self.rank = '♞ ';
+  self.house = param.house;
+  self.kingdom = param.kingdom;
+  self.spriteSize = tileSize*2;
+  self.mounted = true;
+}
+
 SwissGuard = function(param){
   var self = Character(param);
   self.name = 'Swiss Guard';
   self.class = 'SwissGuard';
   self.house = param.house;
   self.kingdom = 'Papal States';
+  self.spriteSize = tileSize*2;
 }
 
 Hospitaller = function(param){
@@ -795,6 +823,7 @@ Hospitaller = function(param){
   self.rank = '♞ ';
   self.house = param.house;
   self.kingdom = 'Papal States';
+  self.spriteSize = tileSize*1.5;
 }
 
 ImperialKnight = function(param){
@@ -805,6 +834,7 @@ ImperialKnight = function(param){
   self.house = param.house;
   self.kingdom = 'Papal States';
   self.mounted = true;
+  self.spriteSize = tileSize*3;
 }
 
 Trebuchet = function(param){
@@ -812,6 +842,7 @@ Trebuchet = function(param){
   self.class = 'Trebuchet';
   self.house = param.house;
   self.kingdom = param.kingdom;
+  self.spriteSize = tileSize*10;
 }
 
 BombardCannon = function(param){
@@ -819,6 +850,7 @@ BombardCannon = function(param){
   self.class = 'BombardCannon';
   self.house = param.house;
   self.kingdom = param.kingdom;
+  self.baseSpd = 2;
 }
 
 TradeCart = function(param){
@@ -852,6 +884,22 @@ CargoShip = function(param){
 Longship = function(param){
   var self = Character(param);
   self.class = 'Longship';
+  self.rank = '♞ ';
+  self.house = param.house;
+  self.kingdom = param.kingdom;
+}
+
+Caravel = function(param){
+  var self = Character(param);
+  self.class = 'Caravel';
+  self.house = param.house;
+  self.kingdom = param.kingdom;
+}
+
+Galleon = function(param){
+  var self = Character(param);
+  self.class = 'Galleon';
+  self.rank = '♜ ';
   self.house = param.house;
   self.kingdom = param.kingdom;
 }
@@ -863,6 +911,7 @@ Brother = function(param){
   self.name = 'Brother';
   self.class = 'Brother';
   self.house = 'Brotherhood';
+  self.spriteSize = tileSize*1.5;
 }
 
 Oathkeeper = function(param){
@@ -871,13 +920,40 @@ Oathkeeper = function(param){
   self.class = 'Oathkeeper';
   self.rank = '♝ ';
   self.house = 'Brotherhood';
+  self.spriteSize = tileSize*1.5;
 }
 
 DarkEntity = function(param){
   var self = Character(param);
-  self.name = 'Dark Entity';
   self.class = 'DarkEntity';
   self.house = 'Brotherhood';
+  self.spriteSize = tileSize*1.5;
+}
+
+Apollyon = function(param){
+  var self = Character(param);
+  self.name = 'APOLLYON';
+  self.class = 'Apollyon';
+  self.rank = '♚ ';
+  self.house = 'City of Destruction';
+}
+
+Goth = function(param){
+  var self = Character(param);
+  self.name = 'Goth';
+  self.class = 'Goth';
+  self.house = 'Goths';
+  self.spriteSize = tileSize*1.5;
+}
+
+Cataphract = function(param){
+  var self = Character(param);
+  self.name = 'Cataphract';
+  self.class = 'Cataphract';
+  self.rank = '♞ ';
+  self.house = 'Goths';
+  self.mounted = true;
+  self.spriteSize = tileSize*3;
 }
 
 Acolyte = function(param){
@@ -885,21 +961,16 @@ Acolyte = function(param){
   self.name = 'Acolyte';
   self.class = 'Acolyte';
   self.house = 'Goths';
+  self.spriteSize = tileSize*1.5;
 }
 
-Centurion = function(param){
+HighPriestess = function(param){
   var self = Character(param);
-  self.name = 'Centurion';
-  self.class = 'Centurion';
-  self.house = 'Goths';
-}
-
-Priestess = function(param){
-  var self = Character(param);
-  self.name = 'Priestess';
-  self.class = 'Priestess';
+  self.name = 'High Priestess';
+  self.class = 'HighPriestess';
   self.rank = '♝ ';
   self.house = 'Goths';
+  self.spriteSize = tileSize*1.5;
 }
 
 Archmage = function(param){
@@ -910,19 +981,27 @@ Archmage = function(param){
   self.house = 'Goths';
 }
 
-Apollyon = function(param){
+NorseShip = function(param){
   var self = Character(param);
-  self.name = 'APOLLYON';
-  self.class = 'Apollyon';
-  self.rank = '♚ ';
-  self.house = 'Goths';
+  self.name = 'Norse Longship';
+  self.class = 'NorseShip';
+  self.house = 'Norsemen';
 }
 
-Norseman = function(param){
+NorseSword = function(param){
   var self = Character(param);
   self.name = 'Norseman';
-  self.class = 'Norseman';
+  self.class = 'NorseSword';
   self.house = 'Norsemen';
+  self.spriteSize = tileSize*1.5;
+}
+
+NorseSpear = function(param){
+  var self = Character(param);
+  self.name = 'Norseman';
+  self.class = 'NorseSpear';
+  self.house = 'Norsemen';
+  self.spriteSize = tileSize*1.5;
 }
 
 Huskarl = function(param){
@@ -931,12 +1010,13 @@ Huskarl = function(param){
   self.class = 'Huskarl';
   self.rank = '♞ ';
   self.house = 'Norsemen';
+  self.spriteSize = tileSize*1.5;
 }
 
-FrankAxe = function(param){
+FrankSword = function(param){
   var self = Character(param);
   self.name = 'Frank';
-  self.class = 'FrankAxe';
+  self.class = 'FrankSword';
   self.house = 'Franks';
 }
 
@@ -945,6 +1025,42 @@ FrankSpear = function(param){
   self.name = 'Frank';
   self.class = 'FrankSpear';
   self.house = 'Franks';
+  self.spriteSize = tileSize*2;
+}
+
+FrankBow = function(param){
+  var self = Character(param);
+  self.name = 'Frank';
+  self.class = 'FrankBow';
+  self.house = 'Franks';
+}
+
+Mangonel = function(param){
+  var self = Character(param);
+  self.name = 'Mangonel';
+  self.class = 'Mangonel';
+  self.house = 'Franks';
+  self.baseSpd = 2;
+  self.spriteSize = tileSize*2;
+}
+
+Carolingian = function(param){
+  var self = Character(param);
+  self.name = 'Carolingian';
+  self.class = 'Carolingian';
+  self.rank = '♞ ';
+  self.house = 'Franks';
+  self.mounted = true;
+  self.spriteSize = tileSize*3;
+}
+
+Malvoisin = function(param){
+  var self = Character(param);
+  self.name = 'Malvoisin';
+  self.class = 'Malvoisin';
+  self.rank = '♜ ';
+  self.house = 'Franks';
+  self.spriteSize = tileSize*12;
 }
 
 CeltAxe = function(param){
@@ -952,6 +1068,7 @@ CeltAxe = function(param){
   self.name = 'Celt';
   self.class = 'CeltAxe';
   self.house = 'Celts';
+  self.spriteSize = tileSize*1.5;
 }
 
 CeltSpear = function(param){
@@ -959,6 +1076,7 @@ CeltSpear = function(param){
   self.name = 'Celt';
   self.class = 'CeltSpear';
   self.house = 'Celts';
+  self.spriteSize = tileSize*2;
 }
 
 Headhunter = function(param){
@@ -967,7 +1085,9 @@ Headhunter = function(param){
   self.class = 'Headhunter';
   self.rank = '♞ ';
   self.house = 'Celts';
+  self.baseSpd = 8;
   self.mounted = true;
+  self.spriteSize = tileSize*2;
 }
 
 Druid = function(param){
@@ -976,15 +1096,17 @@ Druid = function(param){
   self.class = 'Druid';
   self.rank = '♝ ';
   self.house = 'Celts';
+  self.spriteSize = tileSize*1.5;
 }
 
-IronMaiden = function(param){
+Morrigan = function(param){
   var self = Character(param);
-  self.name = 'Iron Maiden';
-  self.class = 'IronMaiden';
+  self.name = 'Morrigan';
+  self.class = 'Morrigan';
   self.rank = '♜ ';
   self.house = 'Celts';
   self.mounted = true;
+  self.spriteSize = tileSize*2;
 }
 
 Gwenllian = function(param){
@@ -995,11 +1117,20 @@ Gwenllian = function(param){
   self.house = 'Celts';
 }
 
-Teuton = function(param){
+TeutonPike = function(param){
   var self = Character(param);
   self.name = 'Teuton';
-  self.class = 'Teuton';
+  self.class = 'TeutonPike';
   self.house = 'Teutons';
+  self.spriteSize = tileSize*2;
+}
+
+TeutonBow = function(param){
+  var self = Character(param);
+  self.name = 'Teuton';
+  self.class = 'TeutonBow';
+  self.house = 'Teutons';
+  self.spriteSize = tileSize*1.5;
 }
 
 TeutonicKnight = function(param){
@@ -1009,14 +1140,23 @@ TeutonicKnight = function(param){
   self.rank = '♞ ';
   self.house = 'Teutons';
   self.mounted = true;
+  self.spriteSize = tileSize*3;
 }
 
 Prior = function(param){
   var self = Character(param);
   self.name = 'Prior';
   self.class = 'Prior';
+  self.house = 'Teutons';
+}
+
+Inquisitor = function(param){
+  var self = Character(param);
+  self.name = 'Inquisitor';
+  self.class = 'Inquisitor';
   self.rank = '♝ ';
   self.house = 'Teutons';
+  self.spriteSize = tileSize*1.5;
 }
 
 Hochmeister = function(param){
@@ -1025,6 +1165,7 @@ Hochmeister = function(param){
   self.class = 'Hochmeister';
   self.rank = '♜ ';
   self.house = 'Teutons';
+  self.spriteSize = tileSize*1.5;
 }
 
 Lothair = function(param){
@@ -1040,6 +1181,7 @@ Trapper = function(param){
   self.name = 'Trapper';
   self.class = 'Trapper';
   self.house = 'Outlaws';
+  self.spriteSize = tileSize*1.5;
 }
 
 Outlaw = function(param){
@@ -1047,6 +1189,7 @@ Outlaw = function(param){
   self.name = 'Outlaw';
   self.class = 'Outlaw';
   self.house = 'Outlaws';
+  self.spriteSize = tileSize*1.5;
 }
 
 Poacher = function(param){
@@ -1056,14 +1199,7 @@ Poacher = function(param){
   self.rank = '♞ ';
   self.house = 'Outlaws';
   self.mounted = true;
-}
-
-Champion = function(param){
-  var self = Character(param);
-  self.name = 'Champion';
-  self.class = 'Champion';
-  self.rank = '♜ ';
-  self.house = 'Outlaws';
+  self.spriteSize = tileSize*2;
 }
 
 Cutthroat = function(param){
@@ -1071,6 +1207,7 @@ Cutthroat = function(param){
   self.name = 'Cutthroat';
   self.class = 'Cutthroat';
   self.house = 'Mercenaries';
+  self.spriteSize = tileSize*1.5;
 }
 
 Strongman = function(param){
@@ -1078,6 +1215,7 @@ Strongman = function(param){
   self.name = 'Strongman';
   self.class = 'Strongman';
   self.house = 'Mercenaries';
+  self.spriteSize = tileSize*2;
 }
 
 Marauder = function(param){
@@ -1087,6 +1225,7 @@ Marauder = function(param){
   self.rank = '♞ ';
   self.house = 'Mercenaries';
   self.mounted = true;
+  self.spriteSize = tileSize*3;
 }
 
 Condottiere = function(param){
@@ -1096,6 +1235,7 @@ Condottiere = function(param){
   self.rank = '♜ ';
   self.house = 'Mercenaries';
   self.mounted = true;
+  self.spriteSize = tileSize*2;
 }
 
 // PLAYER
@@ -1113,6 +1253,7 @@ Player = function(param){
   self.hasHorse = false;
   self.spriteSize = tileSize*1.5;
   self.knighted = false;
+  self.crowned = false;
   self.title = '';
   self.pressingE = false;
   self.pressingT = false;
@@ -1205,7 +1346,7 @@ Player = function(param){
       for(var i in Item.list){
         var item = Item.list[i];
         var dist = item.getDistance({x:self.x,y:self.y});
-        if(dist < tileSize && item.canPickup && dist > -tileSize){
+        if(dist < tileSize && item.canPickup){
           Item.list[i].pickup(self.id);
           return;
         } else {
@@ -1540,12 +1681,81 @@ Player = function(param){
       }
     }
 
-    // ACTIONS
-    if(self.pressingE && self.actionCooldown === 0 && !self.working){
-      var loc = getLoc(self.x,self.y);
+    // INTERACTIONS
+
+
+
+    // WORK ACTIONS
+    if(self.pressingF && self.actionCooldown === 0 && !self.working){
       var socket = SOCKET_LIST[self.id];
-      // clear brush
-      if(self.z === 0 && getTile(0,loc[0],loc[1]) >= 3 && getTile(0,loc[0],loc[1]) < 4){
+      var loc = getLoc(self.x,self.y);
+      var uLoc = getLoc(self.x,self.y-tileSize);
+      var dLoc = getLoc(self.x,self.y+tileSize);
+      var lLoc = getLoc(self.x-tileSize,self.y);
+      var rLoc = getLoc(self.x+tileSize,self.y);
+      // fish
+      if(self.z === 0 && self.facing === 'up' && getTile(0,uLoc[0],uLoc[1]) === 0){
+        if(getTile(6,uLoc[0],uLoc[1]) > 0){
+          var rand = Math.floor(Math.random() * 1200);
+          self.working = true;
+          self.fishing = true;
+          setTimeout(function(){
+            self.working = false;
+            self.fishing = false;
+            self.inventory.fish++;
+            socket.emit('addToChat','<i>You caught a fish.</i>');
+          },rand);
+        } else {
+          self.working = true;
+          self.fishing = true;
+        }
+      } else if(self.z === 0 && self.facing === 'down' && getTile(0,dLoc[0],dLoc[1]) === 0){
+        if(getTile(6,dLoc[0],dLoc[1]) > 0){
+          var rand = Math.floor(Math.random() * 1200);
+          self.working = true;
+          self.fishing = true;
+          setTimeout(function(){
+            self.working = false;
+            self.fishing = false;
+            self.inventory.fish++;
+            socket.emit('addToChat','<i>You caught a fish.</i>');
+          },rand);
+        } else {
+          self.working = true;
+          self.fishing = true;
+        }
+      } else if(self.z === 0 && self.facing === 'left' && getTile(0,lLoc[0],lLoc[1]) === 0){
+        if(getTile(6,lLoc[0],lLoc[1]) > 0){
+          var rand = Math.floor(Math.random() * 1200);
+          self.working = true;
+          self.fishing = true;
+          setTimeout(function(){
+            self.working = false;
+            self.fishing = false;
+            self.inventory.fish++;
+            socket.emit('addToChat','<i>You caught a fish.</i>');
+          },rand);
+        } else {
+          self.working = true;
+          self.fishing = true;
+        }
+      } else if(self.z === 0 && self.facing === 'right' && getTile(0,rLoc[0],rLoc[1]) === 0){
+        if(getTile(6,rLoc[0],rLoc[1]) > 0){
+          var rand = Math.floor(Math.random() * 1200);
+          self.working = true;
+          self.fishing = true;
+          setTimeout(function(){
+            self.working = false;
+            self.fishing = false;
+            self.inventory.fish++;
+            socket.emit('addToChat','<i>You caught a fish.</i>');
+          },rand);
+        } else {
+          self.working = true;
+          self.fishing = true;
+        }
+        // clear brush
+      } else if(self.z === 0 && getTile(0,loc[0],loc[1]) >= 3 && getTile(0,loc[0],loc[1]) < 4){
         self.working = true;
         setTimeout(function(){
           if(self.working){
@@ -1556,9 +1766,8 @@ Player = function(param){
             return;
           }
         },3000/self.strength);
-      }
-      // gather wood
-      if(self.z === 0 && (getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 3)){
+        // gather wood
+      } else if(self.z === 0 && (getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 3)){
         self.working = true;
         if(self.inventory.stoneaxe > 0 || self.inventory.ironaxe > 0){
           self.chopping = true;
@@ -2431,6 +2640,8 @@ Player = function(param){
                     world[0][plot[i][1]][plot[i][0]] = 20;
                     matrixO[plot[i][1]][plot[i][0]] = 0;
                     gridO.setWalkableAt(plot[i][0],plot[i][1],true);
+                    matrixS[plot[i][1]][plot[i][0]] = 1;
+                    gridS.setWalkableAt(plot[i][0],plot[i][1],false);
                   }
                 }
                 var ii = 6;
@@ -2440,13 +2651,22 @@ Player = function(param){
                   ii++;
                 }
                 var wt = getCoords(plot[4][0],plot[4][1]);
+                var sp = getCenter(plot[1][0],plot[1][1]);
                 WallTorch({
                   x:wt[0],
                   y:wt[1],
                   z:0,
                   qty:1,
                   parent:b.id
-                })
+                });
+                Shipwright({
+                  x:sp[0],
+                  y:sp[1],
+                  z:0,
+                  name:'Shipwright ' + randomName('m'),
+                  house:self.house,
+                  kingdom:self.kingdom
+                });
               } else if(b.type === 'garrison'){
                 Building.list[getBuilding(self.x,self.y)].built = true;
                 for(var i in plot){
@@ -2973,7 +3193,10 @@ Player = function(param){
     }
 
     // CLASS
-    if(self.gear.armor){
+    if(self.gear.head && self.gear.head.name === 'crown' && self.crowned){
+      self.class = 'King';
+      self.spriteSize = tileSize;
+    } else if(self.gear.armor){
       if(self.gear.armor.type === 'leather'){
         if(self.mounted && self.gear.weapon){
           if(self.gear.weapon.type === 'bow'){
@@ -2987,15 +3210,7 @@ Player = function(param){
           self.class = 'Scout';
           self.spriteSize = tileSize * 2;
         } else {
-          if(self.stealthed && self.gear.weapon){
-            if(self.gear.weapon.type === 'bow'){
-              self.class = 'StHunter';
-              self.spriteSize = tileSize * 1.5;
-            } else {
-              self.class = 'StRogue';
-              self.spriteSize = tileSize * 1.5;
-            }
-          } else if(self.gear.weapon){
+          if(self.gear.weapon){
             if(self.gear.weapon.type === 'bow'){
               self.class = 'Hunter';
               self.spriteSize = tileSize * 1.5;
@@ -3124,20 +3339,20 @@ Player = function(param){
     // outdoor collisions
     if(self.z === 0){
       if(((getTile(0,rLoc[0],rLoc[1]) === 19 && !keyCheck(self.x+(tileSize/2),self.y,self.id)) ||
-      (!isWalkable(0,rLoc[0],rLoc[1]) && getTile(0,rLoc[0],rLoc[1]) !== 0 && getTile(0,rLoc[0],rLoc[1]) !== 11.5 && getTile(0,rLoc[0],rLoc[1]) !== 12.5) ||
+      (!isWalkable(0,rLoc[0],rLoc[1]) && getTile(0,rLoc[0],rLoc[1]) !== 0) ||
       (self.x + 10) > (mapPx - tileSize)) && isWalkable(0,loc[0],loc[1])){
         rightBlocked = true;
       }
-      if(((getTile(0,lLoc[0],lLoc[1]) === 19 && !keyCheck(self.x-(tileSize/2),self.y,self.id)) || (!isWalkable(0,lLoc[0],lLoc[1]) && getTile(0,lLoc[0],lLoc[1]) !== 0 && getTile(0,lLoc[0],lLoc[1]) !== 11.5 && getTile(0,lLoc[0],lLoc[1]) !== 12.5) ||
+      if(((getTile(0,lLoc[0],lLoc[1]) === 19 && !keyCheck(self.x-(tileSize/2),self.y,self.id)) || (!isWalkable(0,lLoc[0],lLoc[1]) && getTile(0,lLoc[0],lLoc[1]) !== 0) ||
       (self.x - 10) < 0) && isWalkable(0,loc[0],loc[1])){
         leftBlocked = true;
       }
-      if(((getTile(0,uLoc[0],uLoc[1]) === 19 && !keyCheck(self.x,self.y-(tileSize/2),self.id)) || (!isWalkable(0,uLoc[0],uLoc[1]) && getTile(0,uLoc[0],uLoc[1]) !== 0 && getTile(0,uLoc[0],uLoc[1]) !== 11.5 && getTile(0,uLoc[0],uLoc[1]) !== 12.5) ||
+      if(((getTile(0,uLoc[0],uLoc[1]) === 19 && !keyCheck(self.x,self.y-(tileSize/2),self.id)) || (!isWalkable(0,uLoc[0],uLoc[1]) && getTile(0,uLoc[0],uLoc[1]) !== 0) ||
       (getTile(5,uLoc,uLoc[1]) === 'gatec' && !gateCheck(self.x,self.y-(tileSize/2),self.house,self.kingdom)) ||
       (self.y - 10) < 0) && isWalkable(0,loc[0],loc[1])){
         upBlocked = true;
       }
-      if((getTile(0,dLoc[0],dLoc[1]) === 6 || (getTile(0,dLoc[0],dLoc[1]) === 19 && !keyCheck(self.x,self.y+(tileSize/2),self.id)) || (!isWalkable(0,dLoc[0],dLoc[1]) && getTile(0,dLoc[0],dLoc[1]) !== 0 && getTile(0,dLoc[0],dLoc[1]) !== 11.5 && getTile(0,dLoc[0],dLoc[1]) !== 12.5) ||
+      if((getTile(0,dLoc[0],dLoc[1]) === 6 || (getTile(0,dLoc[0],dLoc[1]) === 19 && !keyCheck(self.x,self.y+(tileSize/2),self.id)) || (!isWalkable(0,dLoc[0],dLoc[1]) && getTile(0,dLoc[0],dLoc[1]) !== 0) ||
       (getTile(5,dLoc[0],dLoc[1]) === 'gatec' && !gateCheck(self.x,self.y+(tileSize/2),self.house,self.kingdom)) ||
       (self.y + 10) > (mapPx - tileSize)) && isWalkable(0,loc[0],loc[1])){
         downBlocked = true;
@@ -5079,6 +5294,25 @@ Campfire = function(param){
     }
     super_update();
   }
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  Light({
+    parent:self.id,
+    radius:1.2,
+    x:self.x + (tileSize/2),
+    y:self.y + (tileSize/2),
+    z:self.z
+  });
+  return self;
+}
+
+//CAMPFIRE
+InfiniteFire = function(param){
+  var self = Item(param);
+  self.type = 'Campfire';
+  self.class = 'tool';
+  self.rank = 0;
+  self.canPickup = false;
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   Light({

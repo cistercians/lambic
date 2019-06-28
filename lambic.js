@@ -355,29 +355,220 @@ factionSpawn = function(id){
       [c,r+1],[c+1,r+1],[c+2,r+1],[c+3,r+1],
       [c,r+2],[c+1,r+2],[c+2,r+2],[c+3,r+2],
       [c,r+3],[c+1,r+3],[c+2,r+3],[c+3,r+3]];
-      for(var n in grid){
-        var tile = grid[n];
-        if(getTile(1,tile[0],tile[1]) === 0){
-          count++;
+      if(c < (mapSize-4) && r < (mapSize-4)){
+        for(var n in grid){
+          var tile = grid[n];
+          if(getTile(1,tile[0],tile[1]) === 0){
+            count++;
+          }
         }
-      }
-      if(count === grid.length){
-        var r = Math.random();
-        if(r < 0.25){
-          select.push(grid[5]);
-        } else if(r < 0.5){
-          select.push(grid[6]);
-        } else if (r < 0.75){
-          select.push(grid[9]);
-        } else {
-          select.push(grid[10]);
+        if(count === grid.length){
+          var r = Math.random();
+          if(r < 0.25){
+            select.push(grid[5]);
+          } else if(r < 0.5){
+            select.push(grid[6]);
+          } else if (r < 0.75){
+            select.push(grid[9]);
+          } else {
+            select.push(grid[10]);
+          }
         }
+      } else {
+        continue;
       }
     }
     var rand = Math.floor(Math.random() * select.length);
     return select[rand];
-  } else if(id === 'Occult'){
-
+  } else if(id === 'Goths'){
+    var select = [];
+    for(var i in mtnSpawns){
+      var count = 0;
+      var c = mtnSpawns[i][0];
+      var r = mtnSpawns[i][1];
+      var grid = [[c,r],[c+1,r],[c+2,r],[c+3,r],[c+4,r],
+      [c,r+1],[c+1,r+1],[c+2,r+1],[c+3,r+1],[c+4,r+1],
+      [c,r+2],[c+1,r+2],[c+2,r+2],[c+3,r+2],[c+4,r+2],
+      [c,r+3],[c+1,r+3],[c+2,r+3],[c+3,r+3],[c+4,r+3],
+      [c,r+4],[c+1,r+4],[c+2,r+4],[c+3,r+4],[c+4,r+4]];
+      if(c < (mapSize-4) && r < (mapSize-4)){
+        for(var n in grid){
+          var tile = grid[n];
+          if(getTile(0,tile[0],tile[1]) >= 5 && getTile(0,tile[0],tile[1]) < 6){
+            count++;
+          }
+        }
+        if(count === grid.length){
+          select.push(grid[12]);
+        }
+      } else {
+        continue;
+      }
+    }
+    var rand = Math.floor(Math.random() * select.length);
+    return select[rand];
+  } else if(id === 'Norsemen'){
+    var select = [];
+    for(var i in waterSpawns){
+      var count = 0;
+      var c = waterSpawns[i][0];
+      var r = waterSpawns[i][1];
+      var grid = [[c,r],[c+1,r],[c+2,r],[c+3,r],[c+4,r],
+      [c,r+1],[c+1,r+1],[c+2,r+1],[c+3,r+1],[c+4,r+1],
+      [c,r+2],[c+1,r+2],[c+2,r+2],[c+3,r+2],[c+4,r+2],
+      [c,r+3],[c+1,r+3],[c+2,r+3],[c+3,r+3],[c+4,r+3],
+      [c,r+4],[c+1,r+4],[c+2,r+4],[c+3,r+4],[c+4,r+4]];
+      if(c < (mapSize-4) && r < (mapSize-4)){
+        for(var n in grid){
+          var tile = grid[n];
+          if(getTile(0,tile[0],tile[1]) === 0){
+            count++;
+          }
+        }
+        if(count === grid.length){
+          select.push(grid[12]);
+        }
+      } else {
+        continue;
+      }
+    }
+    var rand = Math.floor(Math.random() * select.length);
+    return select[rand];
+  } else if(id === 'Franks'){
+    var select = [];
+    for(var i in spawnPointsO){
+      var count = 0;
+      var c = spawnPointsO[i][0];
+      var r = spawnPointsO[i][1];
+      var grid = [[c,r],[c+1,r],[c+2,r],[c+3,r],[c+4,r],
+      [c,r+1],[c+1,r+1],[c+2,r+1],[c+3,r+1],[c+4,r+1],
+      [c,r+2],[c+1,r+2],[c+2,r+2],[c+3,r+2],[c+4,r+2],
+      [c,r+3],[c+1,r+3],[c+2,r+3],[c+3,r+3],[c+4,r+3],
+      [c,r+4],[c+1,r+4],[c+2,r+4],[c+3,r+4],[c+4,r+4]];
+      if(c < (mapSize-4) && r < (mapSize-4)){
+        for(var n in grid){
+          var tile = grid[n];
+          if(getTile(0,tile[0],tile[1]) >= 2 && getTile(0,tile[0],tile[1]) < 4){
+            count++;
+          }
+        }
+        if(count === grid.length){
+          select.push(grid[12]);
+        }
+      } else {
+        continue;
+      }
+    }
+    var rand = Math.floor(Math.random() * select.length);
+    return select[rand];
+  } else if(id === 'Celts'){
+    var select = [];
+    for(var i in hForestSpawns){
+      var count = 0;
+      var c = hForestSpawns[i][0];
+      var r = hForestSpawns[i][1];
+      var grid = [[c,r],[c+1,r],[c+2,r],[c+3,r],[c+4,r],
+      [c,r+1],[c+1,r+1],[c+2,r+1],[c+3,r+1],[c+4,r+1],
+      [c,r+2],[c+1,r+2],[c+2,r+2],[c+3,r+2],[c+4,r+2],
+      [c,r+3],[c+1,r+3],[c+2,r+3],[c+3,r+3],[c+4,r+3],
+      [c,r+4],[c+1,r+4],[c+2,r+4],[c+3,r+4],[c+4,r+4]];
+      if(c < (mapSize-4) && r < (mapSize-4)){
+        for(var n in grid){
+          var tile = grid[n];
+          if(getTile(0,tile[0],tile[1]) >= 1 && getTile(0,tile[0],tile[1]) < 2){
+            count++;
+          }
+        }
+        if(count === grid.length){
+          select.push(grid[12]);
+        }
+      } else {
+        continue;
+      }
+    }
+    var rand = Math.floor(Math.random() * select.length);
+    return select[rand];
+  } else if(id === 'Teutons'){
+    var select = [];
+    for(var i in spawnPointsO){
+      var count = 0;
+      var c = spawnPointsO[i][0];
+      var r = spawnPointsO[i][1];
+      var grid = [[c,r],[c+1,r],[c+2,r],[c+3,r],[c+4,r],
+      [c,r+1],[c+1,r+1],[c+2,r+1],[c+3,r+1],[c+4,r+1],
+      [c,r+2],[c+1,r+2],[c+2,r+2],[c+3,r+2],[c+4,r+2],
+      [c,r+3],[c+1,r+3],[c+2,r+3],[c+3,r+3],[c+4,r+3],
+      [c,r+4],[c+1,r+4],[c+2,r+4],[c+3,r+4],[c+4,r+4]];
+      if(c < (mapSize-4) && r < (mapSize-4)){
+        for(var n in grid){
+          var tile = grid[n];
+          if(getTile(0,tile[0],tile[1]) >= 4 && getTile(0,tile[0],tile[1]) < 6){
+            count++;
+          }
+        }
+        if(count === grid.length){
+          select.push(grid[12]);
+        }
+      } else {
+        continue;
+      }
+    }
+    var rand = Math.floor(Math.random() * select.length);
+    return select[rand];
+  } else if(id === 'Outlaws'){
+    var select = [];
+    for(var i in hForestSpawns){
+      var count = 0;
+      var c = hForestSpawns[i][0];
+      var r = hForestSpawns[i][1];
+      var grid = [[c,r],[c+1,r],[c+2,r],[c+3,r],[c+4,r],
+      [c,r+1],[c+1,r+1],[c+2,r+1],[c+3,r+1],[c+4,r+1],
+      [c,r+2],[c+1,r+2],[c+2,r+2],[c+3,r+2],[c+4,r+2],
+      [c,r+3],[c+1,r+3],[c+2,r+3],[c+3,r+3],[c+4,r+3],
+      [c,r+4],[c+1,r+4],[c+2,r+4],[c+3,r+4],[c+4,r+4]];
+      if(c < (mapSize-4) && r < (mapSize-4)){
+        for(var n in grid){
+          var tile = grid[n];
+          if(getTile(0,tile[0],tile[1]) >= 1 && getTile(0,tile[0],tile[1]) < 2){
+            count++;
+          }
+        }
+        if(count === grid.length){
+          select.push(grid[12]);
+        }
+      } else {
+        continue;
+      }
+    }
+    var rand = Math.floor(Math.random() * select.length);
+    return select[rand];
+  } else if(id === 'Mercenaries'){
+    var select = [];
+    for(var i in spawnPointsU){
+      var count = 0;
+      var c = spawnPointsU[i][0];
+      var r = spawnPointsU[i][1];
+      var grid = [[c,r],[c+1,r],[c+2,r],[c+3,r],[c+4,r],
+      [c,r+1],[c+1,r+1],[c+2,r+1],[c+3,r+1],[c+4,r+1],
+      [c,r+2],[c+1,r+2],[c+2,r+2],[c+3,r+2],[c+4,r+2],
+      [c,r+3],[c+1,r+3],[c+2,r+3],[c+3,r+3],[c+4,r+3],
+      [c,r+4],[c+1,r+4],[c+2,r+4],[c+3,r+4],[c+4,r+4]];
+      if(c < (mapSize-4) && r < (mapSize-4)){
+        for(var n in grid){
+          var tile = grid[n];
+          if(getTile(0,tile[0],tile[1]) >= 1 && getTile(0,tile[0],tile[1]) < 2){
+            count++;
+          }
+        }
+        if(count === grid.length){
+          select.push(grid[12]);
+        }
+      } else {
+        continue;
+      }
+    }
+    var rand = Math.floor(Math.random() * select.length);
+    return select[rand];
   }
 }
 
@@ -575,6 +766,7 @@ Brotherhood({
   type:'npc',
   name:'Brotherhood',
   flag:'',
+  hq:factionSpawn('Brotherhood'),
   mode:'hostile'
 });
 
@@ -583,6 +775,7 @@ Goths({
   type:'npc',
   name:'Goths',
   flag:'',
+  hq:factionSpawn('Goths'),
   mode:'hostile'
 });
 
@@ -591,6 +784,7 @@ Norsemen({
   type:'npc',
   name:'Norsemen',
   flag:'',
+  hq:factionSpawn('Norsemen'),
   mode:'hostile'
 });
 
@@ -599,6 +793,7 @@ Franks({
   type:'npc',
   name:'Franks',
   flag:'',
+  hq:factionSpawn('Franks'),
   mode:'hostile'
 });
 
@@ -607,6 +802,7 @@ Celts({
   type:'npc',
   name:'Celts',
   flag:'',
+  hq:factionSpawn('Celts'),
   mode:'hostile'
 });
 
@@ -615,6 +811,7 @@ Teutons({
   type:'npc',
   name:'Teutons',
   flag:'',
+  hq:factionSpawn('Teutons'),
   mode:'hostile'
 });
 
@@ -623,6 +820,7 @@ Outlaws({
   type:'npc',
   name:'Outlaws',
   flag:'',
+  hq:factionSpawn('Outlaws'),
   mode:'hostile'
 });
 
@@ -631,6 +829,7 @@ Mercenaries({
   type:'npc',
   name:'Mercenaries',
   flag:'',
+  hq:factionSpawn('Mercenaries'),
   mode:'hostile'
 });
 
