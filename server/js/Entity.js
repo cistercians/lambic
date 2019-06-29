@@ -1696,14 +1696,19 @@ Player = function(param){
       // fish
       if(self.z === 0 && self.facing === 'up' && getTile(0,uLoc[0],uLoc[1]) === 0){
         if(getTile(6,uLoc[0],uLoc[1]) > 0){
-          var rand = Math.floor(Math.random() * 1200);
+          var rand = Math.floor(Math.random() * 6000);
           self.working = true;
           self.fishing = true;
           setTimeout(function(){
-            self.working = false;
-            self.fishing = false;
-            self.inventory.fish++;
-            socket.emit('addToChat','<i>You caught a fish.</i>');
+            if(self.working){
+              self.working = false;
+              self.fishing = false;
+              self.inventory.fish++;
+              world[6][uLoc[1]][uLoc[0]]--;
+              socket.emit('addToChat','<i>You caught a fish.</i>');
+            } else {
+              return;
+            }
           },rand);
         } else {
           self.working = true;
@@ -1711,14 +1716,19 @@ Player = function(param){
         }
       } else if(self.z === 0 && self.facing === 'down' && getTile(0,dLoc[0],dLoc[1]) === 0){
         if(getTile(6,dLoc[0],dLoc[1]) > 0){
-          var rand = Math.floor(Math.random() * 1200);
+          var rand = Math.floor(Math.random() * 6000);
           self.working = true;
           self.fishing = true;
           setTimeout(function(){
-            self.working = false;
-            self.fishing = false;
-            self.inventory.fish++;
-            socket.emit('addToChat','<i>You caught a fish.</i>');
+            if(self.working){
+              self.working = false;
+              self.fishing = false;
+              self.inventory.fish++;
+              world[6][dLoc[1]][dLoc[0]]--;
+              socket.emit('addToChat','<i>You caught a fish.</i>');
+            } else {
+              return;
+            }
           },rand);
         } else {
           self.working = true;
@@ -1726,14 +1736,19 @@ Player = function(param){
         }
       } else if(self.z === 0 && self.facing === 'left' && getTile(0,lLoc[0],lLoc[1]) === 0){
         if(getTile(6,lLoc[0],lLoc[1]) > 0){
-          var rand = Math.floor(Math.random() * 1200);
+          var rand = Math.floor(Math.random() * 6000);
           self.working = true;
           self.fishing = true;
           setTimeout(function(){
-            self.working = false;
-            self.fishing = false;
-            self.inventory.fish++;
-            socket.emit('addToChat','<i>You caught a fish.</i>');
+            if(self.working){
+              self.working = false;
+              self.fishing = false;
+              self.inventory.fish++;
+              world[6][lLoc[1]][lLoc[0]]--;
+              socket.emit('addToChat','<i>You caught a fish.</i>');
+            } else {
+              return;
+            }
           },rand);
         } else {
           self.working = true;
@@ -1741,14 +1756,19 @@ Player = function(param){
         }
       } else if(self.z === 0 && self.facing === 'right' && getTile(0,rLoc[0],rLoc[1]) === 0){
         if(getTile(6,rLoc[0],rLoc[1]) > 0){
-          var rand = Math.floor(Math.random() * 1200);
+          var rand = Math.floor(Math.random() * 6000);
           self.working = true;
           self.fishing = true;
           setTimeout(function(){
-            self.working = false;
-            self.fishing = false;
-            self.inventory.fish++;
-            socket.emit('addToChat','<i>You caught a fish.</i>');
+            if(self.working){
+              self.working = false;
+              self.fishing = false;
+              self.inventory.fish++;
+              world[6][rLoc[1]][rLoc[0]]--;
+              socket.emit('addToChat','<i>You caught a fish.</i>');
+            } else {
+              return;
+            }
           },rand);
         } else {
           self.working = true;
