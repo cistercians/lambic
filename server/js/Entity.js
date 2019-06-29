@@ -158,6 +158,7 @@ Character = function(param){
   }
   self.mounted = false;
   self.stealthed = false;
+  self.ranged = false;
   self.visible = false;
   self.spriteSize = tileSize;
   self.facing = 'down';
@@ -198,7 +199,11 @@ Character = function(param){
   // return = return to previous location and activity
   self.action = null;
 
-  self.path = null;
+  self.path = null; // z = 0
+  self.path1 = null; // z = 1
+  self.path2 = null; // z = 2
+  self.pathU = null; // z = -1
+  self.pathD = null; // z = -2
   self.pathCount = 0;
 
   self.attack = function(dir){
@@ -301,6 +306,8 @@ Character = function(param){
     if(self.z === 0){
       if(getTile(0,loc[0],loc[1]) === 6){
         self.z = -1;
+        self.path = null;
+        self.pathCount = 0;
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd;
@@ -332,17 +339,22 @@ Character = function(param){
         self.maxSpd = self.baseSpd * 1.1;
       } else if(getTile(0,loc[0],loc[1]) === 14 || getTile(0,loc[0],loc[1]) === 16 || getTile(0,loc[0],loc[1]) === 19){
         self.z = 1;
+        self.path = null;
+        self.pathCount = 0;
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd;
       } else if(getTile(0,loc[0],loc[1]) === 19){
         self.z = 1;
-        SOCKET_LIST[self.id].emit('addToChat','<i>🗝 You unlock the door.</i>');
+        self.path = null;
+        self.pathCount = 0;
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd;
       } else if(getTile(0,loc[0],loc[1]) === 0){
         self.z = -3;
+        self.path = null;
+        self.pathCount = 0;
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * 0.1;
@@ -354,6 +366,8 @@ Character = function(param){
     } else if(self.z === -1){
       if(getTile(1,loc[0],loc[1]) === 2){
         self.z = 0;
+        self.pathU = null;
+        self.pathCount = 0;
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * 0.9;
@@ -361,6 +375,8 @@ Character = function(param){
     } else if(self.z === -2){
       if(getTile(8,loc[0],loc[1]) === 5){
         self.z = 1;
+        self.pathD = null;
+        self.pathCount = 0;
         self.y += (tileSize/2);
         self.facing = 'down';
       }
@@ -377,22 +393,26 @@ Character = function(param){
     } else if(self.z === 1){
       if(getTile(0,loc[0],loc[1] - 1) === 14 || getTile(0,loc[0],loc[1] - 1) === 16  || getTile(0,loc[0],loc[1] - 1) === 19){
         self.z = 0;
-      } else if(getTile(4,loc[0],loc[1]) === 3 || getTile(4,loc[0],loc[1]) === 4){
+        self.path1 = null;
+        self.pathCount = 0;
+      } else if(getTile(4,loc[0],loc[1]) === 3 || getTile(4,loc[0],loc[1]) === 4 || getTile(4,loc[0],loc[1]) === 7){
         self.z = 2;
+        self.path1 = null;
+        self.pathCount = 0;
         self.y += (tileSize/2);
         self.facing = 'down'
       } else if(getTile(4,loc[0],loc[1]) === 5 || getTile(4,loc[0],loc[1]) === 6){
         self.z = -2;
+        self.path1 = null;
+        self.pathCount = 0;
         self.y += (tileSize/2);
         self.facing = 'down';
-      } else if(getTile(4,loc[0],loc[1]) === 7){
-        self.z = 2;
-        self.y += (tileSize/2);
-        self.facing = 'down'
       }
     } else if(self.z === 2){
       if(getTile(4,loc[0],loc[1]) === 3 || getTile(4,loc[0],loc[1]) === 4){
         self.z = 1;
+        self.path2 = null;
+        self.pathCount = 0;
         self.y += (tileSize/2);
         self.facing = 'down';
       }
@@ -506,6 +526,7 @@ Character = function(param){
       innaWoods:self.innaWoods,
       facing:self.facing,
       stealthed:self.stealthed,
+      ranged:self.ranged,
       visible:self.visible,
       hp:self.hp,
       hpMax:self.hpMax,
@@ -527,6 +548,7 @@ Character = function(param){
       innaWoods:self.innaWoods,
       facing:self.facing,
       stealthed:self.stealthed,
+      ranged:self.ranged,
       visible:self.visible,
       pressingUp:self.pressingUp,
       pressingDown:self.pressingDown,
@@ -806,6 +828,7 @@ Warden = function(param){
   self.kingdom = param.kingdom;
   self.spriteSize = tileSize*2;
   self.mounted = true;
+  self.ranged = true;
 }
 
 SwissGuard = function(param){
@@ -844,6 +867,7 @@ Trebuchet = function(param){
   self.house = param.house;
   self.kingdom = param.kingdom;
   self.spriteSize = tileSize*10;
+  self.ranged = true;
 }
 
 BombardCannon = function(param){
@@ -852,6 +876,7 @@ BombardCannon = function(param){
   self.house = param.house;
   self.kingdom = param.kingdom;
   self.baseSpd = 2;
+  self.ranged = true;
 }
 
 TradeCart = function(param){
@@ -888,6 +913,7 @@ Longship = function(param){
   self.rank = '♞ ';
   self.house = param.house;
   self.kingdom = param.kingdom;
+  self.ranged = true;
 }
 
 Caravel = function(param){
@@ -895,6 +921,7 @@ Caravel = function(param){
   self.class = 'Caravel';
   self.house = param.house;
   self.kingdom = param.kingdom;
+  self.ranged = true;
 }
 
 Galleon = function(param){
@@ -903,6 +930,7 @@ Galleon = function(param){
   self.rank = '♜ ';
   self.house = param.house;
   self.kingdom = param.kingdom;
+  self.ranged = true;
 }
 
 // ENEMIES
@@ -987,6 +1015,7 @@ NorseShip = function(param){
   self.name = 'Norse Longship';
   self.class = 'NorseShip';
   self.house = 'Norsemen';
+  self.ranged = true;
 }
 
 NorseSword = function(param){
@@ -1034,6 +1063,7 @@ FrankBow = function(param){
   self.name = 'Frank';
   self.class = 'FrankBow';
   self.house = 'Franks';
+  self.ranged = true;
 }
 
 Mangonel = function(param){
@@ -1043,6 +1073,7 @@ Mangonel = function(param){
   self.house = 'Franks';
   self.baseSpd = 2;
   self.spriteSize = tileSize*2;
+  self.ranged = true;
 }
 
 Carolingian = function(param){
@@ -1062,6 +1093,7 @@ Malvoisin = function(param){
   self.rank = '♜ ';
   self.house = 'Franks';
   self.spriteSize = tileSize*12;
+  self.ranged = true;
 }
 
 CeltAxe = function(param){
@@ -1132,6 +1164,7 @@ TeutonBow = function(param){
   self.class = 'TeutonBow';
   self.house = 'Teutons';
   self.spriteSize = tileSize*1.5;
+  self.ranged = true;
 }
 
 TeutonicKnight = function(param){
@@ -1191,6 +1224,7 @@ Outlaw = function(param){
   self.class = 'Outlaw';
   self.house = 'Outlaws';
   self.spriteSize = tileSize*1.5;
+  self.ranged = true;
 }
 
 Poacher = function(param){
@@ -1201,6 +1235,7 @@ Poacher = function(param){
   self.house = 'Outlaws';
   self.mounted = true;
   self.spriteSize = tileSize*2;
+  self.ranged = true;
 }
 
 Cutthroat = function(param){
@@ -1237,6 +1272,7 @@ Condottiere = function(param){
   self.house = 'Mercenaries';
   self.mounted = true;
   self.spriteSize = tileSize*2;
+  self.ranged = true;
 }
 
 // PLAYER
@@ -3573,7 +3609,7 @@ Player = function(param){
     } else if(self.z === 1){
       if(getTile(0,loc[0],loc[1] - 1) === 14 || getTile(0,loc[0],loc[1] - 1) === 16  || getTile(0,loc[0],loc[1] - 1) === 19){
         self.z = 0;
-      } else if(getTile(4,loc[0],loc[1]) === 3 || getTile(4,loc[0],loc[1]) === 4){
+      } else if(getTile(4,loc[0],loc[1]) === 3 || getTile(4,loc[0],loc[1]) === 4 || getTile(4,loc[0],loc[1]) === 7){
         self.z = 2;
         self.y += (tileSize/2);
         self.facing = 'down'
@@ -3581,10 +3617,6 @@ Player = function(param){
         self.z = -2;
         self.y += (tileSize/2);
         self.facing = 'down';
-      } else if(getTile(4,loc[0],loc[1]) === 7){
-        self.z = 2;
-        self.y += (tileSize/2);
-        self.facing = 'down'
       }
     } else if(self.z === 2){
       if(getTile(4,loc[0],loc[1]) === 3 || getTile(4,loc[0],loc[1]) === 4){

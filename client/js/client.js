@@ -252,9 +252,11 @@ var Player = function(initPack){
     }
 
     // character sprite
-    if(self.pressingAttack && self.type === 'player' && self.gear.weapon){
-      if(self.gear.weapon.type === 'bow'){
-        if(self.inventory.arrows > 0){
+    if(self.pressingAttack){
+      if((self.gear.weapon && self.gear.weapon.type === 'bow') || self.ranged){
+        if(self.type === 'player' && self.inventory.arrows < 1){
+          SOCKET_LIST[self.id].emit('addToChat','<i>You have no arrows.</i>');
+        } else {
           if(self.angle > 45 && self.angle <= 115){
             ctx.drawImage(
               self.sprite.attackdb,
