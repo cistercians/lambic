@@ -303,118 +303,124 @@ Character = function(param){
 
   self.update = function(){
     var loc = getLoc(self.x, self.y);
-    if(self.z === 0){
-      if(getTile(0,loc[0],loc[1]) === 6){
-        self.z = -1;
-        self.path = null;
-        self.pathCount = 0;
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = self.baseSpd;
-      } else if(getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 2){
-        self.innaWoods = true;
-        self.onMtn = false;
-        self.maxSpd = self.baseSpd * 0.3;
-      } else if(getTile(0,loc[0],loc[1]) >= 2 && getTile(0,loc[0],loc[1]) < 4){
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = self.baseSpd * 0.5;
-      } else if(getTile(0,loc[0],loc[1]) >= 4 && getTile(0,loc[0],loc[1]) < 5){
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = self.baseSpd * 0.6;
-      } else if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6 && !self.onMtn){
-        self.innaWoods = false;
-        self.maxSpd = self.baseSpd * 0.2;
-        setTimeout(function(){
-          if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6){
-            self.onMtn = true;
+    if(self.class !== 'Falcon'){
+      if(self.z === 0){
+        if(getTile(0,loc[0],loc[1]) === 6){
+          self.z = -1;
+          self.path = null;
+          self.pathCount = 0;
+          self.innaWoods = false;
+          self.onMtn = false;
+          self.maxSpd = self.baseSpd;
+        } else if(getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 2){
+          self.innaWoods = true;
+          self.onMtn = false;
+          if(self.class !== 'Deer' && self.class !== 'Boar' && self.class !== 'Wolf'){
+            self.maxSpd = self.baseSpd * 0.3;
           }
-        },2000);
-      } else if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6 && self.onMtn){
-        self.maxSpd = self.baseSpd * 0.5;
-      } else if(getTile(0,loc[0],loc[1]) === 18){
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = self.baseSpd * 1.1;
-      } else if(getTile(0,loc[0],loc[1]) === 14 || getTile(0,loc[0],loc[1]) === 16 || getTile(0,loc[0],loc[1]) === 19){
-        self.z = 1;
-        self.path = null;
-        self.pathCount = 0;
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = self.baseSpd;
-      } else if(getTile(0,loc[0],loc[1]) === 19){
-        self.z = 1;
-        self.path = null;
-        self.pathCount = 0;
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = self.baseSpd;
-      } else if(getTile(0,loc[0],loc[1]) === 0){
-        self.z = -3;
-        self.path = null;
-        self.pathCount = 0;
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = self.baseSpd * 0.1;
-      } else {
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = self.baseSpd;
-      }
-    } else if(self.z === -1){
-      if(getTile(1,loc[0],loc[1]) === 2){
-        self.z = 0;
-        self.pathU = null;
-        self.pathCount = 0;
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = self.baseSpd * 0.9;
-      }
-    } else if(self.z === -2){
-      if(getTile(8,loc[0],loc[1]) === 5){
-        self.z = 1;
-        self.pathD = null;
-        self.pathCount = 0;
-        self.y += (tileSize/2);
-        self.facing = 'down';
-      }
-    } else if(self.z === -3){
-      if(self.breath > 0){
-        self.breath -= 0.25;
-      } else {
-        self.hp -= 0.5;
-      }
-      if(getTile(0,loc[0],loc[1]) !== 0){
-        self.z = 0;
-        self.breath = self.breathMax;
-      }
-    } else if(self.z === 1){
-      if(getTile(0,loc[0],loc[1] - 1) === 14 || getTile(0,loc[0],loc[1] - 1) === 16  || getTile(0,loc[0],loc[1] - 1) === 19){
-        self.z = 0;
-        self.path1 = null;
-        self.pathCount = 0;
-      } else if(getTile(4,loc[0],loc[1]) === 3 || getTile(4,loc[0],loc[1]) === 4 || getTile(4,loc[0],loc[1]) === 7){
-        self.z = 2;
-        self.path1 = null;
-        self.pathCount = 0;
-        self.y += (tileSize/2);
-        self.facing = 'down'
-      } else if(getTile(4,loc[0],loc[1]) === 5 || getTile(4,loc[0],loc[1]) === 6){
-        self.z = -2;
-        self.path1 = null;
-        self.pathCount = 0;
-        self.y += (tileSize/2);
-        self.facing = 'down';
-      }
-    } else if(self.z === 2){
-      if(getTile(4,loc[0],loc[1]) === 3 || getTile(4,loc[0],loc[1]) === 4){
-        self.z = 1;
-        self.path2 = null;
-        self.pathCount = 0;
-        self.y += (tileSize/2);
-        self.facing = 'down';
+        } else if(getTile(0,loc[0],loc[1]) >= 2 && getTile(0,loc[0],loc[1]) < 4){
+          self.innaWoods = false;
+          self.onMtn = false;
+          if(self.class !== 'Deer' && self.class !== 'Boar' && self.class !== 'Wolf'){
+            self.maxSpd = self.baseSpd * 0.5;
+          }
+        } else if(getTile(0,loc[0],loc[1]) >= 4 && getTile(0,loc[0],loc[1]) < 5){
+          self.innaWoods = false;
+          self.onMtn = false;
+          self.maxSpd = self.baseSpd * 0.6;
+        } else if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6 && !self.onMtn){
+          self.innaWoods = false;
+          self.maxSpd = self.baseSpd * 0.2;
+          setTimeout(function(){
+            if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6){
+              self.onMtn = true;
+            }
+          },2000);
+        } else if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6 && self.onMtn){
+          self.maxSpd = self.baseSpd * 0.5;
+        } else if(getTile(0,loc[0],loc[1]) === 18){
+          self.innaWoods = false;
+          self.onMtn = false;
+          self.maxSpd = self.baseSpd * 1.1;
+        } else if(getTile(0,loc[0],loc[1]) === 14 || getTile(0,loc[0],loc[1]) === 16 || getTile(0,loc[0],loc[1]) === 19){
+          self.z = 1;
+          self.path = null;
+          self.pathCount = 0;
+          self.innaWoods = false;
+          self.onMtn = false;
+          self.maxSpd = self.baseSpd;
+        } else if(getTile(0,loc[0],loc[1]) === 19){
+          self.z = 1;
+          self.path = null;
+          self.pathCount = 0;
+          self.innaWoods = false;
+          self.onMtn = false;
+          self.maxSpd = self.baseSpd;
+        } else if(getTile(0,loc[0],loc[1]) === 0){
+          self.z = -3;
+          self.path = null;
+          self.pathCount = 0;
+          self.innaWoods = false;
+          self.onMtn = false;
+          self.maxSpd = self.baseSpd * 0.1;
+        } else {
+          self.innaWoods = false;
+          self.onMtn = false;
+          self.maxSpd = self.baseSpd;
+        }
+      } else if(self.z === -1){
+        if(getTile(1,loc[0],loc[1]) === 2){
+          self.z = 0;
+          self.pathU = null;
+          self.pathCount = 0;
+          self.innaWoods = false;
+          self.onMtn = false;
+          self.maxSpd = self.baseSpd * 0.9;
+        }
+      } else if(self.z === -2){
+        if(getTile(8,loc[0],loc[1]) === 5){
+          self.z = 1;
+          self.pathD = null;
+          self.pathCount = 0;
+          self.y += (tileSize/2);
+          self.facing = 'down';
+        }
+      } else if(self.z === -3){
+        if(self.breath > 0){
+          self.breath -= 0.25;
+        } else {
+          self.hp -= 0.5;
+        }
+        if(getTile(0,loc[0],loc[1]) !== 0){
+          self.z = 0;
+          self.breath = self.breathMax;
+        }
+      } else if(self.z === 1){
+        if(getTile(0,loc[0],loc[1] - 1) === 14 || getTile(0,loc[0],loc[1] - 1) === 16  || getTile(0,loc[0],loc[1] - 1) === 19){
+          self.z = 0;
+          self.path1 = null;
+          self.pathCount = 0;
+        } else if(getTile(4,loc[0],loc[1]) === 3 || getTile(4,loc[0],loc[1]) === 4 || getTile(4,loc[0],loc[1]) === 7){
+          self.z = 2;
+          self.path1 = null;
+          self.pathCount = 0;
+          self.y += (tileSize/2);
+          self.facing = 'down'
+        } else if(getTile(4,loc[0],loc[1]) === 5 || getTile(4,loc[0],loc[1]) === 6){
+          self.z = -2;
+          self.path1 = null;
+          self.pathCount = 0;
+          self.y += (tileSize/2);
+          self.facing = 'down';
+        }
+      } else if(self.z === 2){
+        if(getTile(4,loc[0],loc[1]) === 3 || getTile(4,loc[0],loc[1]) === 4){
+          self.z = 1;
+          self.path2 = null;
+          self.pathCount = 0;
+          self.y += (tileSize/2);
+          self.facing = 'down';
+        }
       }
     }
     // behavior modes
@@ -765,6 +771,7 @@ Falcon = function(param){
   self.falconry = param.falconry;
   self.hp = null;
   self.baseSpd = 3;
+  self.maxSpd = 3;
   self.spriteSize = tileSize*7;
   self.update = function(){
     if(!self.path){
