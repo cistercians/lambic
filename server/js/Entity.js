@@ -426,7 +426,17 @@ Character = function(param){
       var target = select[Math.floor(Math.random() * 4)];
       if(target[0] < mapSize && target[0] > -1 && target[1] < mapSize && target[1] > -1){
         if(isWalkable(self.z,target[0],target[1])){
-          self.path = [target];
+          if(self.z === 0){
+            self.path = [target];
+          } else if(self.z === 1){
+            self.path1 = [target];
+          } else if(self.z === 2){
+            self.path2 = [target];
+          } else if(self.z === -1){
+            self.pathU = [target];
+          } else if(self.z === -2){
+            self.pathD = [target];
+          }
           self.idleTime += Math.floor(Math.random() * self.idleRange);
         }
       }
@@ -439,7 +449,7 @@ Character = function(param){
     self.updatePosition();
   }
 
-  self.getPath = function(c,r){
+  self.getPath = function(c,r){ // add z consideration
     var start = getLoc(self.x,self.y);
     if(self.z === 0 && getLocTile(0,self.x,self.y) === 0){
       var gridSb = gridS.clone();
@@ -452,24 +462,24 @@ Character = function(param){
     } else if(self.z === -1){
       var gridUb = gridU.clone();
       var path = finder.findPath(start[0], start[1], c, r, gridUb);
-      self.path = path;
+      self.pathU = path;
     } else if(self.z === -2){
       var gridB3b = gridB3.clone();
       var path = finder.findPath(start[0], start[1], c, r, gridB3b);
-      self.path = path;
+      self.pathD = path;
     } else if(self.z === 1){
       var gridB1b = gridB1.clone();
       var path = finder.findPath(start[0], start[1], c, r, gridB1b);
-      self.path = path;
+      self.path1 = path;
     } else if(self.z === 2){
       var gridB2b = gridB2.clone();
       var path = finder.findPath(start[0], start[1], c, r, gridB2b);
-      self.path = path;
+      self.path2 = path;
     }
   }
 
   self.updatePosition = function(){
-    if(self.path){
+    if(self.z === 0 && self.path){
       var len = self.path.length;
       if(self.pathCount < len){
         var dest = getCenter(self.path[self.pathCount][0],self.path[self.pathCount][1]);
@@ -501,10 +511,162 @@ Character = function(param){
           self.pressingLeft = false;
           self.pressingDown = false;
           self.pressingUp = false;
-          self.pathCount += 1;
+          self.pathCount++;
         }
       } else {
         self.path = null;
+        self.pathCount = 0;
+      }
+    } else if(self.z === 1 && self.path1){
+      var len = self.path1.length;
+      if(self.pathCount < len){
+        var dest = getCenter(self.path1[self.pathCount][0],self.path1[self.pathCount][1]);
+        var dx = dest[0];
+        var dy = dest[1];
+        var diffX = dx - self.x;
+        var diffY = dy - self.y;
+
+        if(diffX >= self.maxSpd){
+          self.x += self.maxSpd;
+          self.pressingRight = true;
+          self.facing = 'right';
+        } else if(diffX <= (0-self.maxSpd)){
+          self.x -= self.maxSpd;
+          self.pressingLeft = true;
+          self.facing = 'left';
+        }
+        if(diffY >= self.maxSpd){
+          self.y += self.maxSpd;
+          self.pressingDown = true;
+          self.facing = 'down';
+        } else if(diffY <= (0-self.maxSpd)){
+          self.y -= self.maxSpd;
+          self.pressingUp = true;
+          self.facing = 'up';
+        }
+        if((diffX < self.maxSpd && diffX > (0-self.maxSpd)) && (diffY < self.maxSpd && diffY > (0-self.maxSpd))){
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
+          self.pathCount++;
+        }
+      } else {
+        self.path1 = null;
+        self.pathCount = 0;
+      }
+    } else if(self.z === 2 && self.path2){
+      var len = self.path2.length;
+      if(self.pathCount < len){
+        var dest = getCenter(self.path2[self.pathCount][0],self.path2[self.pathCount][1]);
+        var dx = dest[0];
+        var dy = dest[1];
+        var diffX = dx - self.x;
+        var diffY = dy - self.y;
+
+        if(diffX >= self.maxSpd){
+          self.x += self.maxSpd;
+          self.pressingRight = true;
+          self.facing = 'right';
+        } else if(diffX <= (0-self.maxSpd)){
+          self.x -= self.maxSpd;
+          self.pressingLeft = true;
+          self.facing = 'left';
+        }
+        if(diffY >= self.maxSpd){
+          self.y += self.maxSpd;
+          self.pressingDown = true;
+          self.facing = 'down';
+        } else if(diffY <= (0-self.maxSpd)){
+          self.y -= self.maxSpd;
+          self.pressingUp = true;
+          self.facing = 'up';
+        }
+        if((diffX < self.maxSpd && diffX > (0-self.maxSpd)) && (diffY < self.maxSpd && diffY > (0-self.maxSpd))){
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
+          self.pathCount++;
+        }
+      } else {
+        self.path2 = null;
+        self.pathCount = 0;
+      }
+    } else if(self.z === -1 && self.pathU){
+      var len = self.pathU.length;
+      if(self.pathCount < len){
+        var dest = getCenter(self.pathU[self.pathCount][0],self.pathU[self.pathCount][1]);
+        var dx = dest[0];
+        var dy = dest[1];
+        var diffX = dx - self.x;
+        var diffY = dy - self.y;
+
+        if(diffX >= self.maxSpd){
+          self.x += self.maxSpd;
+          self.pressingRight = true;
+          self.facing = 'right';
+        } else if(diffX <= (0-self.maxSpd)){
+          self.x -= self.maxSpd;
+          self.pressingLeft = true;
+          self.facing = 'left';
+        }
+        if(diffY >= self.maxSpd){
+          self.y += self.maxSpd;
+          self.pressingDown = true;
+          self.facing = 'down';
+        } else if(diffY <= (0-self.maxSpd)){
+          self.y -= self.maxSpd;
+          self.pressingUp = true;
+          self.facing = 'up';
+        }
+        if((diffX < self.maxSpd && diffX > (0-self.maxSpd)) && (diffY < self.maxSpd && diffY > (0-self.maxSpd))){
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
+          self.pathCount++;
+        }
+      } else {
+        self.pathU = null;
+        self.pathCount = 0;
+      }
+    } else if(self.z === -2 && self.pathD){
+      var len = self.pathD.length;
+      if(self.pathCount < len){
+        var dest = getCenter(self.pathD[self.pathCount][0],self.pathD[self.pathCount][1]);
+        var dx = dest[0];
+        var dy = dest[1];
+        var diffX = dx - self.x;
+        var diffY = dy - self.y;
+
+        if(diffX >= self.maxSpd){
+          self.x += self.maxSpd;
+          self.pressingRight = true;
+          self.facing = 'right';
+        } else if(diffX <= (0-self.maxSpd)){
+          self.x -= self.maxSpd;
+          self.pressingLeft = true;
+          self.facing = 'left';
+        }
+        if(diffY >= self.maxSpd){
+          self.y += self.maxSpd;
+          self.pressingDown = true;
+          self.facing = 'down';
+        } else if(diffY <= (0-self.maxSpd)){
+          self.y -= self.maxSpd;
+          self.pressingUp = true;
+          self.facing = 'up';
+        }
+        if((diffX < self.maxSpd && diffX > (0-self.maxSpd)) && (diffY < self.maxSpd && diffY > (0-self.maxSpd))){
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
+          self.pathCount++;
+        }
+      } else {
+        self.pathD = null;
         self.pathCount = 0;
       }
     } else {
