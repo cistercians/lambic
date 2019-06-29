@@ -2327,7 +2327,7 @@ socket.on('newFaction',function(data){
 
 // update sprite
 socket.on('sprite',function(data){
-  if(data === 'serf'){
+  if(data === 'Serf'){
     Player.list[selfId].sprite = maleserf;
   } else if(data === 'Rogue'){
     Player.list[selfId].sprite = rogue;

@@ -194,7 +194,7 @@ Character = function(param){
   self.mode = 'idle';
 
   // combat = eliminate target
-  // retreat = disengage and return home
+  // flee = disengage and escape from target
   // return = return to previous location and activity
   self.action = null;
 
@@ -523,6 +523,7 @@ Character = function(param){
       z:self.z,
       class:self.class,
       rank:self.rank,
+      spriteSize:self.spriteSize,
       innaWoods:self.innaWoods,
       facing:self.facing,
       stealthed:self.stealthed,
