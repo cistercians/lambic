@@ -199,6 +199,14 @@ Character = function(param){
   // return = return to previous location and activity
   self.action = null;
 
+  self.lastLoc = null;
+
+  self.combat = {
+    target:null,
+    targetDmg:0,
+    altDmg:0
+  }
+
   self.path = null; // z = 0
   self.path1 = null; // z = 1
   self.path2 = null; // z = 2
@@ -222,7 +230,9 @@ Character = function(param){
       for(var i in Player.list){
         var p = Player.list[i];
         if(Math.sqrt(Math.pow(self.x-p.x,2) + Math.pow((self.y + tileSize)-p.y,2)) < 32){
-          p.hp -= dmg;
+          if(allyCheck(self.id,p.id,p.house) < 1 || self.friendlyfire){
+            p.hp -= dmg;
+          }
           // player death & respawn
           if(p.hp <= 0){
             p.hp = p.hpMax;
@@ -236,7 +246,9 @@ Character = function(param){
       for(var i in Player.list){
         var p = Player.list[i];
         if(Math.sqrt(Math.pow(self.x-p.x,2) + Math.pow((self.y - tileSize)-p.y,2)) < 32){
-          p.hp -= dmg;
+          if(allyCheck(self.id,p.id,p.house) < 1 || self.friendlyfire){
+            p.hp -= dmg;
+          }
           // player death & respawn
           if(p.hp <= 0){
             p.hp = p.hpMax;
@@ -250,7 +262,9 @@ Character = function(param){
       for(var i in Player.list){
         var p = Player.list[i];
         if(Math.sqrt(Math.pow((self.x - tileSize)-p.x,2) + Math.pow((self.y)-p.y,2)) < 32){
-          p.hp -= dmg;
+          if(allyCheck(self.id,p.id,p.house) < 1 || self.friendlyfire){
+            p.hp -= dmg;
+          }
           // player death & respawn
           if(p.hp <= 0){
             p.hp = p.hpMax;
@@ -264,7 +278,9 @@ Character = function(param){
       for(var i in Player.list){
         var p = Player.list[i];
         if(Math.sqrt(Math.pow((self.x + tileSize)-p.x,2) + Math.pow((self.y)-p.y,2)) < 32){
-          p.hp -= dmg;
+          if(allyCheck(self.id,p.id,p.house) < 1 || self.friendlyfire){
+            p.hp -= dmg;
+          }
           // player death & respawn
           if(p.hp <= 0){
             p.hp = p.hpMax;
@@ -424,28 +440,62 @@ Character = function(param){
       }
     }
     // behavior modes
-    if(self.mode === 'idle' && !self.path && self.idleTime === 0){
-      var loc = getLoc(self.x,self.y);
-      var col = loc[0];
-      var row = loc[1];
-      var select = [[col,row-1],[col-1,row],[col,row+1],[col+1,row]];
-      var target = select[Math.floor(Math.random() * 4)];
-      if(target[0] < mapSize && target[0] > -1 && target[1] < mapSize && target[1] > -1){
-        if(isWalkable(self.z,target[0],target[1])){
-          if(self.z === 0){
-            self.path = [target];
-          } else if(self.z === 1){
-            self.path1 = [target];
-          } else if(self.z === 2){
-            self.path2 = [target];
-          } else if(self.z === -1){
-            self.pathU = [target];
-          } else if(self.z === -2){
-            self.pathD = [target];
+    if(self.mode === 'idle'){
+      if(!self.action){
+        for(var i in Player.list){
+          var p = Player.list[i];
+          if(self.house && House.list[self.house].hostile){
+            if(allyCheck(self.id,p.id,p.house) < 1){
+              self.combat.target = p.id;
+              self.action = 'combat';
+            }
+          } else {
+            if(allyCheck(self.id,p.id,p.house) < 0){
+              self.combat.target = p.id;
+              self.action = 'combat';
+            }
           }
-          self.idleTime += Math.floor(Math.random() * self.idleRange);
         }
       }
+      if(!self.action && !self.path && self.idleTime === 0){
+        var loc = getLoc(self.x,self.y);
+        var col = loc[0];
+        var row = loc[1];
+        var select = [[col,row-1],[col-1,row],[col,row+1],[col+1,row]];
+        var target = select[Math.floor(Math.random() * 4)];
+        if(target[0] < mapSize && target[0] > -1 && target[1] < mapSize && target[1] > -1){
+          if(isWalkable(self.z,target[0],target[1])){
+            if(self.z === 0){
+              self.path = [target];
+            } else if(self.z === 1){
+              self.path1 = [target];
+            } else if(self.z === 2){
+              self.path2 = [target];
+            } else if(self.z === -1){
+              self.pathU = [target];
+            } else if(self.z === -2){
+              self.pathD = [target];
+            }
+            self.idleTime += Math.floor(Math.random() * self.idleRange);
+          }
+        }
+      } else if(self.action === 'combat'){
+        if(self.ranged){
+
+        } else {
+
+        }
+      }
+    } else if(self.mode === 'patrol'){
+
+    } else if(self.mode === 'escort'){
+
+    } else if(self.mode === 'scout'){
+
+    } else if(self.mode === 'raid'){
+
+    } else if(self.mode === 'guard'){
+
     }
 
     if(self.idleTime > 0){
@@ -1461,6 +1511,7 @@ Player = function(param){
   self.knighted = false;
   self.crowned = false;
   self.title = '';
+  self.friendlyfire = false;
   self.pressingE = false;
   self.pressingT = false;
   self.pressingI = false;
@@ -2185,7 +2236,7 @@ Player = function(param){
               io.emit('mapEdit',world);
             }
             for(var i in plot){
-              if(world[6][plot[i][1]][plot[i][0]] >= b.req){
+              if(getTile(6,plot[i][0],plot[i][1]) >= b.req){
                 count++;
               } else {
                 continue;
@@ -2856,14 +2907,18 @@ Player = function(param){
                   world[3][plot[i][1]][plot[i][0]] = String('dock' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'dock4'){
                     world[0][plot[i][1]][plot[i][0]] = 13;
-                    matrixO[plot[i][1]][plot[i][0]] = 1;
+                    matrixO[plot[i][1]][plot[i][0]] = 'dock';
                     gridO.setWalkableAt(plot[i][0],plot[i][1],false);
                     matrixW[plot[i][1]][plot[i][0]] = 1;
                     gridW.setWalkableAt(plot[i][0],plot[i][1],false);
                     matrixS[plot[i][1]][plot[i][0]] = 1;
                     gridS.setWalkableAt(plot[i][0],plot[i][1],false);
                   } else {
-                    world[0][plot[i][1]][plot[i][0]] = 20;
+                    if(getTile(0,plot[i][0],plot[i][1]) === 12.5){
+                      world[0][plot[i][1]][plot[i][0]] = 20.5;
+                    } else {
+                      world[0][plot[i][1]][plot[i][0]] = 20;
+                    }
                     matrixO[plot[i][1]][plot[i][0]] = 0;
                     gridO.setWalkableAt(plot[i][0],plot[i][1],true);
                     matrixS[plot[i][1]][plot[i][0]] = 1;
@@ -3883,7 +3938,6 @@ Player.onConnect = function(socket,name){
   var player = Player({
     name:name,
     id:socket.id,
-    house:socket.id,
     z: 0,
     x: spawn[0],
     y: spawn[1]

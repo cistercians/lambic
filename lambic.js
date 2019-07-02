@@ -299,6 +299,63 @@ gateCheck = function(x,y,h,k){
   }
 }
 
+// check if ally(2/1), neutral(0), enemy(-1)
+allyCheck = function(p,id,house){
+  var player = Player.list[p];
+  if(house && player.house){
+    if(house === player.house){
+      return 2;
+    } else if(houseList[house].hostile){
+      return -1;
+    }
+    for(var i in houseList[player.house].allies){
+      var allies = houseList[player.house].allies;
+      if(allies[i] === house){
+        return 1;
+      }
+    }
+    for(var i in houseList[player.house].enemies){
+      var enemies = houseList[player.house].enemies;
+      if(enemies[i] === house){
+        return -1;
+      }
+    }
+    return 0;
+  } else if(house && !player.house){
+    if(houseList[house].hostile){
+      return -1;
+    }
+    for(var i in houseList[house].enemies){
+      var enemies = houseList[house].enemies;
+      if(enemies[i] === selfId){
+        return -1;
+      }
+    }
+    return 0;
+  } else if(!house && player.house){
+    for(var i in houseList[player.house].enemies){
+      var enemies = houseList[player.house].enemies;
+      if(enemies[i] === id){
+        return -1;
+      }
+    }
+    return 0;
+  } else {
+    for(var i in player.allies){
+      if(player.allies[i] === id){
+        return 1;
+      }
+    }
+    for(var i in player.enemies){
+      if(player.enemies[i] === id){
+        return -1;
+      }
+    }
+    return 0;
+  }
+}
+
+
 // get random tile + its loc
 var randomTile = function(l){
   var max = mapSize-1;
@@ -767,7 +824,8 @@ Brotherhood({
   name:'Brotherhood',
   flag:'',
   hq:factionSpawn('Brotherhood'),
-  mode:'hostile'
+  origin:true,
+  hostile:true
 });
 
 Goths({
@@ -776,7 +834,8 @@ Goths({
   name:'Goths',
   flag:'',
   hq:factionSpawn('Goths'),
-  mode:'hostile'
+  origin:true,
+  hostile:true
 });
 
 Norsemen({
@@ -785,7 +844,8 @@ Norsemen({
   name:'Norsemen',
   flag:'',
   hq:factionSpawn('Norsemen'),
-  mode:'hostile'
+  origin:true,
+  hostile:true
 });
 
 Franks({
@@ -794,7 +854,8 @@ Franks({
   name:'Franks',
   flag:'',
   hq:factionSpawn('Franks'),
-  mode:'hostile'
+  origin:true,
+  hostile:true
 });
 
 Celts({
@@ -803,7 +864,8 @@ Celts({
   name:'Celts',
   flag:'',
   hq:factionSpawn('Celts'),
-  mode:'hostile'
+  origin:true,
+  hostile:true
 });
 
 Teutons({
@@ -812,16 +874,18 @@ Teutons({
   name:'Teutons',
   flag:'',
   hq:factionSpawn('Teutons'),
-  mode:'hostile'
+  origin:true,
+  hostile:true
 });
 
 Outlaws({
   id:'Outlaws',
   type:'npc',
   name:'Outlaws',
-  flag:'',
+  flag:'☠️',
   hq:factionSpawn('Outlaws'),
-  mode:'hostile'
+  origin:true,
+  hostile:true
 });
 
 Mercenaries({
@@ -830,7 +894,8 @@ Mercenaries({
   name:'Mercenaries',
   flag:'',
   hq:factionSpawn('Mercenaries'),
-  mode:'hostile'
+  origin:true,
+  hostile:true
 });
 
 Kingdom({

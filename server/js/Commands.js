@@ -113,13 +113,16 @@ EvalCmd = function(data){
           for(var i in perim){
             var n = perim[i];
             if(getTile(0,n[0],n[1]) !== 11 &&
+            getTile(0,n[0],n[1]) !== 11.5 &&
             getTile(0,n[0],n[1]) !== 12 &&
+            getTile(0,n[0],n[1]) !== 12.5 &&
             getTile(0,n[0],n[1]) !== 13 &&
             getTile(0,n[0],n[1]) !== 14 &&
             getTile(0,n[0],n[1]) !== 15 &&
             getTile(0,n[0],n[1]) !== 16 &&
             getTile(0,n[0],n[1]) !== 17 &&
             getTile(0,n[0],n[1]) !== 19 &&
+            getTile(0,n[0],n[1]) !== 20 &&
             getTile(5,n[0],n[1]) === 0){
               count++;
             }
@@ -171,13 +174,16 @@ EvalCmd = function(data){
           for(var i in perim){
             var n = perim[i];
             if(getTile(0,n[0],n[1]) !== 11 &&
+            getTile(0,n[0],n[1]) !== 11.5 &&
             getTile(0,n[0],n[1]) !== 12 &&
+            getTile(0,n[0],n[1]) !== 12.5 &&
             getTile(0,n[0],n[1]) !== 13 &&
             getTile(0,n[0],n[1]) !== 14 &&
             getTile(0,n[0],n[1]) !== 15 &&
             getTile(0,n[0],n[1]) !== 16 &&
             getTile(0,n[0],n[1]) !== 17 &&
             getTile(0,n[0],n[1]) !== 19 &&
+            getTile(0,n[0],n[1]) !== 20 &&
             getTile(5,n[0],n[1]) === 0){
               count++;
             }
@@ -229,13 +235,16 @@ EvalCmd = function(data){
           for(var i in perim){
             var n = perim[i];
             if(getTile(0,n[0],n[1]) !== 11 &&
+            getTile(0,n[0],n[1]) !== 11.5 &&
             getTile(0,n[0],n[1]) !== 12 &&
+            getTile(0,n[0],n[1]) !== 12.5 &&
             getTile(0,n[0],n[1]) !== 13 &&
             getTile(0,n[0],n[1]) !== 14 &&
             getTile(0,n[0],n[1]) !== 15 &&
             getTile(0,n[0],n[1]) !== 16 &&
             getTile(0,n[0],n[1]) !== 17 &&
             getTile(0,n[0],n[1]) !== 19 &&
+            getTile(0,n[0],n[1]) !== 20 &&
             getTile(5,n[0],n[1]) === 0){
               count++;
             }
@@ -425,13 +434,17 @@ EvalCmd = function(data){
           for(var i in perim){
             var n = perim[i];
             if(getTile(0,n[0],n[1]) !== 11 &&
+            getTile(0,n[0],n[1]) !== 11.5 &&
             getTile(0,n[0],n[1]) !== 12 &&
+            getTile(0,n[0],n[1]) !== 12.5 &&
             getTile(0,n[0],n[1]) !== 13 &&
             getTile(0,n[0],n[1]) !== 14 &&
             getTile(0,n[0],n[1]) !== 15 &&
             getTile(0,n[0],n[1]) !== 16 &&
             getTile(0,n[0],n[1]) !== 17 &&
             getTile(0,n[0],n[1]) !== 19 &&
+            getTile(0,n[0],n[1]) !== 20 &&
+            getTile(0,n[0],n[1]) !== 20.5 &&
             getTile(5,n[0],n[1]) === 0){
               count++;
             }
@@ -485,13 +498,17 @@ EvalCmd = function(data){
           for(var i in perim){
             var n = perim[i];
             if(getTile(0,n[0],n[1]) !== 11 &&
+            getTile(0,n[0],n[1]) !== 11.5 &&
             getTile(0,n[0],n[1]) !== 12 &&
+            getTile(0,n[0],n[1]) !== 12.5 &&
             getTile(0,n[0],n[1]) !== 13 &&
             getTile(0,n[0],n[1]) !== 14 &&
             getTile(0,n[0],n[1]) !== 15 &&
             getTile(0,n[0],n[1]) !== 16 &&
             getTile(0,n[0],n[1]) !== 17 &&
             getTile(0,n[0],n[1]) !== 19 &&
+            getTile(0,n[0],n[1]) !== 20 &&
+            getTile(0,n[0],n[1]) !== 20.5 &&
             getTile(5,n[0],n[1]) === 0){
               count++;
             }
@@ -544,13 +561,17 @@ EvalCmd = function(data){
           for(var i in perim){
             var n = perim[i];
             if(getTile(0,n[0],n[1]) !== 11 &&
+            getTile(0,n[0],n[1]) !== 11.5 &&
             getTile(0,n[0],n[1]) !== 12 &&
+            getTile(0,n[0],n[1]) !== 12.5 &&
             getTile(0,n[0],n[1]) !== 13 &&
             getTile(0,n[0],n[1]) !== 14 &&
             getTile(0,n[0],n[1]) !== 15 &&
             getTile(0,n[0],n[1]) !== 16 &&
             getTile(0,n[0],n[1]) !== 17 &&
             getTile(0,n[0],n[1]) !== 19 &&
+            getTile(0,n[0],n[1]) !== 20 &&
+            getTile(0,n[0],n[1]) !== 20.5 &&
             getTile(5,n[0],n[1]) === 0){
               count++;
             }
@@ -604,13 +625,17 @@ EvalCmd = function(data){
           for(var i in perim){
             var n = perim[i];
             if(getTile(0,n[0],n[1]) !== 11 &&
+            getTile(0,n[0],n[1]) !== 11.5 &&
             getTile(0,n[0],n[1]) !== 12 &&
+            getTile(0,n[0],n[1]) !== 12.5 &&
             getTile(0,n[0],n[1]) !== 13 &&
             getTile(0,n[0],n[1]) !== 14 &&
             getTile(0,n[0],n[1]) !== 15 &&
             getTile(0,n[0],n[1]) !== 16 &&
             getTile(0,n[0],n[1]) !== 17 &&
             getTile(0,n[0],n[1]) !== 19 &&
+            getTile(0,n[0],n[1]) !== 20 &&
+            getTile(0,n[0],n[1]) !== 20.5 &&
             getTile(5,n[0],n[1]) === 0){
               count++;
             }
@@ -662,13 +687,17 @@ EvalCmd = function(data){
           for(var i in perim){
             var n = perim[i];
             if(getTile(0,n[0],n[1]) !== 11 &&
+            getTile(0,n[0],n[1]) !== 11.5 &&
             getTile(0,n[0],n[1]) !== 12 &&
+            getTile(0,n[0],n[1]) !== 12.5 &&
             getTile(0,n[0],n[1]) !== 13 &&
             getTile(0,n[0],n[1]) !== 14 &&
             getTile(0,n[0],n[1]) !== 15 &&
             getTile(0,n[0],n[1]) !== 16 &&
             getTile(0,n[0],n[1]) !== 17 &&
             getTile(0,n[0],n[1]) !== 19 &&
+            getTile(0,n[0],n[1]) !== 20 &&
+            getTile(0,n[0],n[1]) !== 20.5 &&
             getTile(5,n[0],n[1]) === 0){
               count++;
             }
@@ -739,13 +768,17 @@ EvalCmd = function(data){
           for(var i in perim){
             var n = perim[i];
             if(getTile(0,n[0],n[1]) !== 11 &&
+            getTile(0,n[0],n[1]) !== 11.5 &&
             getTile(0,n[0],n[1]) !== 12 &&
+            getTile(0,n[0],n[1]) !== 12.5 &&
             getTile(0,n[0],n[1]) !== 13 &&
             getTile(0,n[0],n[1]) !== 14 &&
             getTile(0,n[0],n[1]) !== 15 &&
             getTile(0,n[0],n[1]) !== 16 &&
             getTile(0,n[0],n[1]) !== 17 &&
             getTile(0,n[0],n[1]) !== 19 &&
+            getTile(0,n[0],n[1]) !== 20 &&
+            getTile(0,n[0],n[1]) !== 20.5 &&
             getTile(5,n[0],n[1]) === 0){
               count++;
             }
@@ -753,7 +786,11 @@ EvalCmd = function(data){
           if(count === 16){
             for(var i in plot){
               var n = plot[i];
-              world[0][n[1]][n[0]] = 11.5;
+              if(getTile(0,n[0],n[1]) !== 0){
+                world[0][n[1]][n[0]] = 11;
+              } else {
+                world[0][n[1]][n[0]] = 11.5;
+              }
               world[6][n[1]][n[0]] = 0;
               matrixO[n[1]][n[0]] = 0;
               gridO.setWalkableAt(n[0],n[1],true);
@@ -801,13 +838,17 @@ EvalCmd = function(data){
           for(var i in perim){
             var n = perim[i];
             if(getTile(0,n[0],n[1]) !== 11 &&
+            getTile(0,n[0],n[1]) !== 11.5 &&
             getTile(0,n[0],n[1]) !== 12 &&
+            getTile(0,n[0],n[1]) !== 12.5 &&
             getTile(0,n[0],n[1]) !== 13 &&
             getTile(0,n[0],n[1]) !== 14 &&
             getTile(0,n[0],n[1]) !== 15 &&
             getTile(0,n[0],n[1]) !== 16 &&
             getTile(0,n[0],n[1]) !== 17 &&
             getTile(0,n[0],n[1]) !== 19 &&
+            getTile(0,n[0],n[1]) !== 20 &&
+            getTile(0,n[0],n[1]) !== 20.5 &&
             getTile(5,n[0],n[1]) === 0){
               count++;
             }
@@ -860,13 +901,17 @@ EvalCmd = function(data){
           for(var i in perim){
             var n = perim[i];
             if(getTile(0,n[0],n[1]) !== 11 &&
+            getTile(0,n[0],n[1]) !== 11.5 &&
             getTile(0,n[0],n[1]) !== 12 &&
+            getTile(0,n[0],n[1]) !== 12.5 &&
             getTile(0,n[0],n[1]) !== 13 &&
             getTile(0,n[0],n[1]) !== 14 &&
             getTile(0,n[0],n[1]) !== 15 &&
             getTile(0,n[0],n[1]) !== 16 &&
             getTile(0,n[0],n[1]) !== 17 &&
             getTile(0,n[0],n[1]) !== 19 &&
+            getTile(0,n[0],n[1]) !== 20 &&
+            getTile(0,n[0],n[1]) !== 20.5 &&
             getTile(5,n[0],n[1]) === 0){
               count++;
             }
@@ -988,13 +1033,17 @@ EvalCmd = function(data){
           for(var i in perim){
             var n = perim[i];
             if(getTile(0,n[0],n[1]) !== 11 &&
+            getTile(0,n[0],n[1]) !== 11.5 &&
             getTile(0,n[0],n[1]) !== 12 &&
+            getTile(0,n[0],n[1]) !== 12.5 &&
             getTile(0,n[0],n[1]) !== 13 &&
             getTile(0,n[0],n[1]) !== 14 &&
             getTile(0,n[0],n[1]) !== 15 &&
             getTile(0,n[0],n[1]) !== 16 &&
             getTile(0,n[0],n[1]) !== 17 &&
             getTile(0,n[0],n[1]) !== 19 &&
+            getTile(0,n[0],n[1]) !== 20 &&
+            getTile(0,n[0],n[1]) !== 20.5 &&
             getTile(5,n[0],n[1]) === 0){
               count++;
             }

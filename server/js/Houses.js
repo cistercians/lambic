@@ -4,9 +4,10 @@ House = function(param){
   self.name = param.name;
   self.flag = param.flag;
   self.hq = param.hq;
+  self.origin = param.origin;
   self.leader = param.leader;
   self.kingdom = param.kingdom;
-  self.mode = param.mode; // 'hostile' = attacks neutral players/units
+  self.hostile = param.hostile; // true = attacks neutral players/units
   self.campaign = 0;
   self.underAttack = false;
   self.population = 1;
@@ -281,5 +282,4 @@ flags = [
   ['🇺🇦',0], // 67
   ['🇳🇴',0], // 68
   ['🇼🇫',0], // 69
-  ['🇻🇦',1] // 70
 ];

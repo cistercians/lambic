@@ -4,7 +4,7 @@ var world = [];
 var tileSize = 0;
 var mapSize = 0;
 
-var socket = io();
+var socket = io({transports: ['websocket'], upgrade: false});
 
 // SIGN IN
 var signDiv = document.getElementById('signDiv');
@@ -86,7 +86,6 @@ setInterval(function(){
   }
 },600);
 
-// ICONS
 // walking animation
 var wlk = 0;
 setInterval(function(){
@@ -193,13 +192,13 @@ var Player = function(initPack){
     }
 
     if(self.hp){
-      ctx.fillStyle = 'red';
+      ctx.fillStyle = 'orangered';
       ctx.fillRect(barX,barY - 30,60,6);
       ctx.fillStyle = 'limegreen';
       ctx.fillRect(barX,barY - 30,hpWidth,6);
     }
     if(self.mana){
-      ctx.fillStyle = 'red';
+      ctx.fillStyle = 'orangered';
       ctx.fillRect(barX,barY - 20,60,4);
       ctx.fillStyle = 'royalblue';
       ctx.fillRect(barX,barY - 20,manaWidth,4);
@@ -211,35 +210,85 @@ var Player = function(initPack){
 
     // username
     if(self.rank){
+      var allied = allyCheck(self.id,self.house);
       if(self.kingdom){
-        ctx.fillStyle = 'white';
+        if(allied === 2){
+          ctx.fillStyle = 'lightskyblue';
+        } else if(allied === 1){
+          ctx.fillStyle = 'palegreen';
+        } else if(allied === 0){
+          ctx.fillStyle = 'white';
+        } else if(allied === -1){
+          ctx.fillStyle = 'orangered';
+        }
         ctx.font = '15px minion web';
         ctx.textAlign = 'center';
-        ctx.fillText(Kingdom.list[self.kingdom].flag + ' ' + self.rank + self.name,barX + 30,barY - 40,100);
+        ctx.fillText(kingdomList[self.kingdom].flag + ' ' + self.rank + self.name,barX + 30,barY - 40,100);
       } else if(self.house){
-        ctx.fillStyle = 'white';
+        if(allied === 2){
+          ctx.fillStyle = 'lightskyblue';
+        } else if(allied === 1){
+          ctx.fillStyle = 'palegreen';
+        } else if(allied === 0){
+          ctx.fillStyle = 'white';
+        } else if(allied === -1){
+          ctx.fillStyle = 'orangered';
+        }
         ctx.font = '15px minion web';
         ctx.textAlign = 'center';
-        ctx.fillText(House.list[self.house].flag + ' ' + self.rank + self.name,barX + 30,barY - 40,100);
+        ctx.fillText(houseList[self.house].flag + ' ' + self.rank + self.name,barX + 30,barY - 40,100);
       } else {
-        ctx.fillStyle = 'white';
+        if(allied === 2){
+          ctx.fillStyle = 'lightskyblue';
+        } else if(allied === 1){
+          ctx.fillStyle = 'palegreen';
+        } else if(allied === 0){
+          ctx.fillStyle = 'white';
+        } else if(allied === -1){
+          ctx.fillStyle = 'orangered';
+        }
         ctx.font = '15px minion web';
         ctx.textAlign = 'center';
         ctx.fillText(self.rank + self.name,barX + 30,barY - 40,100);
       }
     } else if(self.name){
+      var allied = allyCheck(self.id,self.house);
       if(self.kingdom){
-        ctx.fillStyle = 'white';
+        if(allied === 2){
+          ctx.fillStyle = 'lightskyblue';
+        } else if(allied === 1){
+          ctx.fillStyle = 'palegreen';
+        } else if(allied === 0){
+          ctx.fillStyle = 'white';
+        } else if(allied === -1){
+          ctx.fillStyle = 'orangered';
+        }
         ctx.font = '15px minion web';
         ctx.textAlign = 'center';
-        ctx.fillText(Kingdom.list[self.kingdom].flag + ' ' + self.name,barX + 30,barY - 40,100);
+        ctx.fillText(kingdomList[self.kingdom].flag + ' ' + self.name,barX + 30,barY - 40,100);
       } else if(self.house){
-        ctx.fillStyle = 'white';
+        if(allied === 2){
+          ctx.fillStyle = 'lightskyblue';
+        } else if(allied === 1){
+          ctx.fillStyle = 'palegreen';
+        } else if(allied === 0){
+          ctx.fillStyle = 'white';
+        } else if(allied === -1){
+          ctx.fillStyle = 'orangered';
+        }
         ctx.font = '15px minion web';
         ctx.textAlign = 'center';
-        ctx.fillText(House.list[self.house].flag + ' ' + self.name,barX + 30,barY - 40,100);
+        ctx.fillText(houseList[self.house].flag + ' ' + self.name,barX + 30,barY - 40,100);
       } else {
-        ctx.fillStyle = 'white';
+        if(allied === 2){
+          ctx.fillStyle = 'lightskyblue';
+        } else if(allied === 1){
+          ctx.fillStyle = 'palegreen';
+        } else if(allied === 0){
+          ctx.fillStyle = 'white';
+        } else if(allied === -1){
+          ctx.fillStyle = 'orangered';
+        }
         ctx.font = '15px minion web';
         ctx.textAlign = 'center';
         ctx.fillText(self.name,barX + 30,barY - 40,100);
@@ -2306,6 +2355,62 @@ getBuilding = function(x,y){
   }
 }
 
+// check if ally(2/1), neutral(0), enemy(-1)
+var allyCheck = function(id,house){
+  var player = Player.list[selfId];
+  if(house && player.house){
+    if(house === player.house){
+      return 2;
+    } else if(houseList[house].hostile){
+      return -1;
+    }
+    for(var i in houseList[player.house].allies){
+      var allies = houseList[player.house].allies;
+      if(allies[i] === house){
+        return 1;
+      }
+    }
+    for(var i in houseList[player.house].enemies){
+      var enemies = houseList[player.house].enemies;
+      if(enemies[i] === house){
+        return -1;
+      }
+    }
+    return 0;
+  } else if(house && !player.house){
+    if(houseList[house].hostile){
+      return -1;
+    }
+    for(var i in houseList[house].enemies){
+      var enemies = houseList[house].enemies;
+      if(enemies[i] === selfId){
+        return -1;
+      }
+    }
+    return 0;
+  } else if(!house && player.house){
+    for(var i in houseList[player.house].enemies){
+      var enemies = houseList[player.house].enemies;
+      if(enemies[i] === id){
+        return -1;
+      }
+    }
+    return 0;
+  } else {
+    for(var i in player.allies){
+      if(player.allies[i] === id){
+        return 1;
+      }
+    }
+    for(var i in player.enemies){
+      if(player.enemies[i] === id){
+        return -1;
+      }
+    }
+    return 0;
+  }
+}
+
 // update environment
 tempus = null;
 
@@ -2758,7 +2863,7 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 13 || tile === 14 || tile === 15 || tile === 16 || tile === 17 || tile === 19 || tile === 20){
+        } else if(tile === 13 || tile === 14 || tile === 15 || tile === 16 || tile === 17 || tile === 19 || tile === 20 || tile === 20.5){
           var bTile = getTile(3,c,r);
           ctx.drawImage(
             Img.grass, // image
@@ -3556,13 +3661,23 @@ var renderMap = function(){
               tileSize // target height
             );
           } else if(bTile === 'dock0'){
-            ctx.drawImage(
-              waterTiles[wtr], // image
-              xOffset, // target x
-              yOffset, // target y
-              tileSize, // target width
-              tileSize // target height
-            );
+            if(tile === 20.5){
+              ctx.drawImage(
+                waterTiles[wtr], // image
+                xOffset, // target x
+                yOffset, // target y
+                tileSize, // target width
+                tileSize // target height
+              );
+            } else {
+              ctx.drawImage(
+                Img.grass, // image
+                xOffset, // target x
+                yOffset, // target y
+                tileSize, // target width
+                tileSize // target height
+              );
+            }
             ctx.drawImage(
               Img.dock0, // image
               xOffset, // target x
@@ -3571,13 +3686,23 @@ var renderMap = function(){
               tileSize // target height
             );
           } else if(bTile === 'dock1'){
-            ctx.drawImage(
-              waterTiles[wtr], // image
-              xOffset, // target x
-              yOffset, // target y
-              tileSize, // target width
-              tileSize // target height
-            );
+            if(tile === 20.5){
+              ctx.drawImage(
+                waterTiles[wtr], // image
+                xOffset, // target x
+                yOffset, // target y
+                tileSize, // target width
+                tileSize // target height
+              );
+            } else {
+              ctx.drawImage(
+                Img.grass, // image
+                xOffset, // target x
+                yOffset, // target y
+                tileSize, // target width
+                tileSize // target height
+              );
+            }
             ctx.drawImage(
               Img.dock1, // image
               xOffset, // target x
@@ -3586,13 +3711,23 @@ var renderMap = function(){
               tileSize // target height
             );
           } else if(bTile === 'dock2'){
-            ctx.drawImage(
-              waterTiles[wtr], // image
-              xOffset, // target x
-              yOffset, // target y
-              tileSize, // target width
-              tileSize // target height
-            );
+            if(tile === 20.5){
+              ctx.drawImage(
+                waterTiles[wtr], // image
+                xOffset, // target x
+                yOffset, // target y
+                tileSize, // target width
+                tileSize // target height
+              );
+            } else {
+              ctx.drawImage(
+                Img.grass, // image
+                xOffset, // target x
+                yOffset, // target y
+                tileSize, // target width
+                tileSize // target height
+              );
+            }
             ctx.drawImage(
               Img.dock2, // image
               xOffset, // target x
@@ -3601,13 +3736,23 @@ var renderMap = function(){
               tileSize // target height
             );
           } else if(bTile === 'dock3'){
-            ctx.drawImage(
-              waterTiles[wtr], // image
-              xOffset, // target x
-              yOffset, // target y
-              tileSize, // target width
-              tileSize // target height
-            );
+            if(tile === 20.5){
+              ctx.drawImage(
+                waterTiles[wtr], // image
+                xOffset, // target x
+                yOffset, // target y
+                tileSize, // target width
+                tileSize // target height
+              );
+            } else {
+              ctx.drawImage(
+                Img.grass, // image
+                xOffset, // target x
+                yOffset, // target y
+                tileSize, // target width
+                tileSize // target height
+              );
+            }
             ctx.drawImage(
               Img.dock3, // image
               xOffset, // target x
@@ -3616,13 +3761,23 @@ var renderMap = function(){
               tileSize // target height
             );
           } else if(bTile === 'dock4'){
-            ctx.drawImage(
-              waterTiles[wtr], // image
-              xOffset, // target x
-              yOffset, // target y
-              tileSize, // target width
-              tileSize // target height
-            );
+            if(tile === 20.5){
+              ctx.drawImage(
+                waterTiles[wtr], // image
+                xOffset, // target x
+                yOffset, // target y
+                tileSize, // target width
+                tileSize // target height
+              );
+            } else {
+              ctx.drawImage(
+                Img.grass, // image
+                xOffset, // target x
+                yOffset, // target y
+                tileSize, // target width
+                tileSize // target height
+              );
+            }
             ctx.drawImage(
               Img.dock4, // image
               xOffset, // target x
@@ -3631,13 +3786,23 @@ var renderMap = function(){
               tileSize // target height
             );
           } else if(bTile === 'dock5'){
-            ctx.drawImage(
-              waterTiles[wtr], // image
-              xOffset, // target x
-              yOffset, // target y
-              tileSize, // target width
-              tileSize // target height
-            );
+            if(tile === 20.5){
+              ctx.drawImage(
+                waterTiles[wtr], // image
+                xOffset, // target x
+                yOffset, // target y
+                tileSize, // target width
+                tileSize // target height
+              );
+            } else {
+              ctx.drawImage(
+                Img.grass, // image
+                xOffset, // target x
+                yOffset, // target y
+                tileSize, // target width
+                tileSize // target height
+              );
+            }
             ctx.drawImage(
               Img.dock5, // image
               xOffset, // target x
