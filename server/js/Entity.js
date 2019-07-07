@@ -82,6 +82,7 @@ Building.update = function(){
 // CHARACTER
 Character = function(param){
   var self = Entity(param);
+  self.zone = null;
   self.type = 'npc';
   self.name = null;
   self.house = param.house;
@@ -90,6 +91,13 @@ Character = function(param){
   self.class = null;
   self.rank = null;
   self.keys = [];
+  self.gear = {
+    head:null,
+    armor:null,
+    weapon:null,
+    weapon2:null,
+    accessory:null
+  }
   self.inventory = {
     wood:0,
     stone:0,
@@ -367,8 +375,8 @@ Character = function(param){
   self.upBlocked = false;
   self.downBlocked = false;
 
-  self.reposition = function(target){
-    var target = Player.list[target];
+  self.reposition = function(t){
+    var target = Player.list[t];
     var angle = self.getAngle(target.x,target.y);
     if(angle > 45 && angle <= 115){ // go up (or left/right)
       if(!self.upBlocked){
@@ -490,30 +498,70 @@ Character = function(param){
     return angle;
   }
 
+  self.zoneCheck = function(){
+    var loc = getLoc(self.x,self.y);
+    var z = self.zone;
+    var zc = Math.floor(loc[0]/8);
+    var zr = Math.floor(loc[1]/8);
+
+    if(!z){
+      self.zone = [zc,zr];
+      zones[zr][zc][self.id = self.id];
+    } else if(z !== [zc,zr]){
+      delete zones[z[1]][z[0]][self.id];
+      zones[zr][zc][self.id] = self.id;
+      self.zone = [zc,zr];
+    }
+  }
+
+  self.aggroCooldown = 500;
   self.checkAggro = function(){
-    for(var i in Player.list){
-      var p = Player.list[i];
-      var pDist = self.getDistance(p.x,p.y);
-      if(pDist < self.aggroRange){
-        if(allyCheck(self.id,p.id) < 0){
-          self.combat.target = p.id;
-          if(self.hp < (self.hpMax * 0.1) || self.class === 'Deer' || self.class === 'SerfM' || self.class === 'SerfF'){
-            self.action = 'flee';
-          } else {
-            self.action = 'combat';
-            if(!self.lastLoc){
-              self.lastLoc = loc;
+    var c = self.zone[0];
+    var r = self.zone[1];
+    var zGrid = [
+      [c-1,r-1],[c,r-1],[c+1,r-1],
+      [c-1,r],[c,r],[c+1,r],
+      [c-1,r+1],[c,r+1],[c+1,r+1]
+    ];
+
+    for(var i in zGrid){
+      var zc = zGrid[i][0];
+      var zr = zGrid[i][1];
+      if(zc < 64 && zc > -1 && zr < 64 && zr > -1){
+        for(var n in zones[zr][zc]){
+          var p = Player.list[zones[zr][zc][n]];
+          if(p){
+            var pDist = self.getDistance({
+              x:p.x,
+              y:p.y
+            });
+            if(pDist < self.aggroRange){
+              if(allyCheck(self.id,p.id) < 0){
+                self.combat.target = p.id;
+                if(self.hp < (self.hpMax * 0.1) || self.class === 'Deer' || self.class === 'SerfM' || self.class === 'SerfF'){
+                  self.action = 'flee';
+                } else {
+                  self.action = 'combat';
+                  if(!self.lastLoc){
+                    self.lastLoc = getLoc(self.x,self.y);
+                  }
+                }
+              }
             }
           }
         }
       }
     }
+    self.aggroCooldown += 500;
   }
 
   self.hardAggro = function(){
     for(var i in Player.list){
       var p = Player.list[i];
-      var pDist = self.getDistance(p.x,p.y);
+      var pDist = self.getDistance({
+        x:p.x,
+        y:p.y
+      });
       if(pDist < self.aggroRange){
         if(allyCheck(self.id,p.id) < 0){
           self.combat.target = p.id;
@@ -525,11 +573,16 @@ Character = function(param){
 
   self.update = function(){
     var loc = getLoc(self.x, self.y);
+    self.zoneCheck();
+
     if(self.idleTime > 0){
       self.idleTime--;
     }
     if(self.attackCooldown > 0){
       self.attackCooldown--;
+    }
+    if(self.aggroCooldown > 0){
+      self.aggroCooldown--;
     }
 
     if(self.z === 0){
@@ -658,7 +711,9 @@ Character = function(param){
     // IDLE
     if(self.mode === 'idle'){
       if(!self.action){
-        self.checkAggro();
+        if(self.aggroCooldown === 0){
+          self.checkAggro();
+        }
         var hDist = self.getDistance({
           x:self.home.x,
           y:self.home.y
@@ -706,7 +761,7 @@ Character = function(param){
           })
           if(self.attackCooldown > 0){
             if(dist < 256){
-              self.reposition(target);
+              self.reposition(target.id);
             }
           } else {
             if(dist > 256){
@@ -714,7 +769,7 @@ Character = function(param){
               self.shootArrow(angle);
               self.attackCooldown += self.attackRate/self.dexterity;
             } else {
-              self.reposition(target);
+              self.reposition(target.id);
             }
           }
         } else {
@@ -787,7 +842,9 @@ Character = function(param){
             }
           }
         }
-        self.checkAggro();
+        if(self.aggroCooldown === 0){
+          self.checkAggro();
+        }
       } else if(self.action === 'flee'){
         var target = Player.list[self.combat.target];
         var dist = self.getDistance({
@@ -797,7 +854,7 @@ Character = function(param){
         if(dist > self.aggroRange){
           self.action = null;
         } else {
-          self.reposition(target);
+          self.reposition(target.id);
         }
       }
       // PATROL
@@ -850,7 +907,7 @@ Character = function(param){
             })
             if(self.attackCooldown > 0){
               if(dist < 256){
-                self.reposition(target);
+                self.reposition(target.id);
               }
             } else {
               if(dist > 256){
@@ -858,7 +915,7 @@ Character = function(param){
                 self.shootArrow(angle);
                 self.attackCooldown += self.attackRate/self.dexterity;
               } else {
-                self.reposition(target);
+                self.reposition(target.id);
               }
             }
           } else {
@@ -964,7 +1021,7 @@ Character = function(param){
           })
           if(self.attackCooldown > 0){
             if(dist < 256){
-              self.reposition(target);
+              self.reposition(target.id);
             }
           } else {
             if(dist > 256){
@@ -972,7 +1029,7 @@ Character = function(param){
               self.shootArrow(angle);
               self.attackCooldown += self.attackRate/self.dexterity;
             } else {
-              self.reposition(target);
+              self.reposition(target.id);
             }
           }
         } else {
@@ -1111,7 +1168,7 @@ Character = function(param){
           })
           if(self.attackCooldown > 0){
             if(dist < 256){
-              self.reposition(target);
+              self.reposition(target.id);
             }
           } else {
             if(dist > 256){
@@ -1119,7 +1176,7 @@ Character = function(param){
               self.shootArrow(angle);
               self.attackCooldown += self.attackRate/self.dexterity;
             } else {
-              self.reposition(target);
+              self.reposition(target.id);
             }
           }
         } else {
@@ -1224,7 +1281,7 @@ Character = function(param){
           })
           if(self.attackCooldown > 0){
             if(dist < 256){
-              self.reposition(target);
+              self.reposition(target.id);
             }
           } else {
             if(dist > 256){
@@ -1232,7 +1289,7 @@ Character = function(param){
               self.shootArrow(angle);
               self.attackCooldown += self.attackRate/self.dexterity;
             } else {
-              self.reposition(target);
+              self.reposition(target.id);
             }
           }
         } else {
@@ -1542,6 +1599,7 @@ Character = function(param){
       z:self.z,
       class:self.class,
       rank:self.rank,
+      gear:self.gear,
       friends:self.friends,
       enemies:self.enemies,
       spriteSize:self.spriteSize,
@@ -2278,13 +2336,6 @@ Player = function(param){
   var self = Character(param);
   self.type = 'player';
   self.name = param.name;
-  self.gear = {
-    head:null,
-    armor:null,
-    weapon:null,
-    weapon2:null,
-    accessory:null
-  }
   self.hasHorse = false;
   self.spriteSize = tileSize*1.5;
   self.knighted = false;
@@ -2337,6 +2388,7 @@ Player = function(param){
 
   self.update = function(){
     self.updateSpd();
+    self.zoneCheck();
 
     if(self.actionCooldown > 0){
       self.actionCooldown--;

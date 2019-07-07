@@ -64,7 +64,7 @@ entropy = function(){
   var deerRatio = Math.floor(biomes.hForest/200);
   var boarRatio = Math.floor(biomes.hForest/800);
   var wolfRatio = Math.floor(biomes.hForest/400);
-  var falconRatio = Math.floor(biomes.hForest/1000);
+  var falconRatio = Math.floor(biomes.hForest/1200);
 
   var deerPop = 0;
   var boarPop = 0;
@@ -86,9 +86,9 @@ entropy = function(){
   if(deerPop < deerRatio){
     var num = 0;
     if(day === 0){
-      num = Math.floor(deerRatio * 0.75);
+      num = Math.floor(deerRatio * 0.5);
     } else {
-      num = Math.floor((deerRatio - deerPop)/4);
+      num = Math.floor((deerRatio - deerPop) * 0.05);
     }
     for(var i = 0; i < num; i++){
       var sp = randomSpawnHF();
@@ -108,9 +108,9 @@ entropy = function(){
   if(boarPop < boarRatio){
     var num = 0;
     if(day === 0){
-      num = Math.floor(boarRatio * 0.75);
+      num = Math.floor(boarRatio * 0.5);
     } else {
-      num = Math.floor((boarRatio - boarPop)/4);
+      num = Math.floor((boarRatio - boarPop) * 0.05);
     }
     for(var i = 0; i < num; i++){
       var sp = randomSpawnHF();
@@ -129,9 +129,9 @@ entropy = function(){
   if(wolfPop < wolfRatio){
     var num = 0;
     if(day === 0){
-      num = Math.floor(wolfRatio * 0.75);
+      num = Math.floor(wolfRatio * 0.5);
     } else {
-      num = Math.floor((wolfRatio - wolfPop)/4);
+      num = Math.floor((wolfRatio - wolfPop) * 0.05);
     }
     for(var i = 0; i < num; i++){
       var sp = randomSpawnHF();
@@ -150,9 +150,9 @@ entropy = function(){
   if(falconPop < falconRatio){
     var num = 0;
     if(day === 0){
-      num = Math.floor(falconRatio * 0.75);
+      num = Math.floor(falconRatio * 0.5);
     } else {
-      num = Math.floor((falconRatio - falconPop)/4);
+      num = Math.floor((falconRatio - falconPop) * 0.05);
     }
     for(var i = 0; i < num; i++){
       var sp = randomSpawnHF();

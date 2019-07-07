@@ -94,7 +94,27 @@ territories = {
   southeast:{
     contestants:[]
   }
-}
+};
+
+// create n-dimensional array
+function createArray(length){
+  var arr = new Array(length || 0),
+      i = length;
+
+  if(arguments.length > 1){
+      var args = Array.prototype.slice.call(arguments, 1);
+      while(i--) arr[length-1 - i] = createArray.apply(this, args);
+  }
+  return arr;
+};
+
+zones = createArray(64,64);
+
+for(x = 0; x < 64; x++){
+  for(y = 0; y < 64; y++){
+    zones[y][x] = {};
+  }
+};
 
 for(x = 0; x < mapSize; x++){
   for(y = 0; y < mapSize; y++){
@@ -873,11 +893,18 @@ var dayNight = function(){
     console.log('');
     console.log('Day ' + day);
     console.log('');
+
+    var count = 0;
+    for(var i in Player.list){
+      count++;
+    }
+    console.log('Population: ' + count);
   }
   io.emit('tempus',{
     tempus:tempus
   })
   console.log(tempus);
+
   if(tick < 23){
     tick++;
   } else {

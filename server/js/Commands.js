@@ -42,7 +42,7 @@ EvalCmd = function(data){
           all += '<b>Mill</b>: /build mill<br>';
         }
         if(tavern > 0){
-          all += '<b>Dock</b>: /build dock<br><b>Stable>/b>: /build stable<br><b>Market</b>: /build market<br>';
+          all += '<b>Dock</b>: /build dock<br><b>Stable</b>: /build stable<br><b>Market</b>: /build market<br>';
         }
         if(blacksmith > 0){
           all += '<b>Garrison</b>: /build garrison<br>';
@@ -73,6 +73,7 @@ EvalCmd = function(data){
               for(var i in plot){
                 var n = plot[i];
                 world[0][n[1]][n[0]] = 8;
+                world[6][n[1]][n[0]] = 0;
               }
               player.working = false;
               io.emit('mapEdit',world);
@@ -131,6 +132,7 @@ EvalCmd = function(data){
             for(var i in plot){
               var n = plot[i];
               world[0][n[1]][n[0]] = 11;
+              world[6][n[1]][n[0]] = 0;
             }
             io.emit('mapEdit',world);
             Building({
@@ -192,6 +194,7 @@ EvalCmd = function(data){
             for(var i in plot){
               var n = plot[i];
               world[0][n[1]][n[0]] = 11;
+              world[6][n[1]][n[0]] = 0;
             }
             io.emit('mapEdit',world);
             Building({
@@ -288,6 +291,7 @@ EvalCmd = function(data){
             socket.emit('addToChat','<i>You cannot build that there.</i>');
           } else {
             world[0][r][c] = 11;
+            world[6][r][c] = 0;
             io.emit('mapEdit',world);
             Building({
               owner:player.id,
@@ -350,6 +354,7 @@ EvalCmd = function(data){
             socket.emit('addToChat','<i>You cannot build that there.</i>');
           } else {
             world[0][r][c] = 11;
+            world[6][r][c] = 0;
             io.emit('mapEdit',world);
             Building({
               owner:player.id,
@@ -644,6 +649,7 @@ EvalCmd = function(data){
             for(var i in plot){
               var n = plot[i];
               world[0][n[1]][n[0]] = 11;
+              world[6][n[1]][n[0]] = 0;
             }
             io.emit('mapEdit',world);
             Building({
@@ -706,6 +712,7 @@ EvalCmd = function(data){
             for(var i in plot){
               var n = plot[i];
               world[0][n[1]][n[0]] = 11;
+              world[6][n[1]][n[0]] = 0;
             }
             io.emit('mapEdit',world);
             Building({
