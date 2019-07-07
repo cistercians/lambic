@@ -17,6 +17,8 @@ require('./server/js/Commands');
 require('./server/js/Entropy');
 require('./server/js/Equip');
 require('./server/js/Houses');
+require('./server/js/Dialogue');
+require('./server/js/Inspection');
 
 // BUILD MAP
 var genesis = require('./server/js/Genesis');
@@ -62,6 +64,37 @@ hForestSpawns = [];
 mtnSpawns = [];
 
 caveEntrances = [];
+
+// territories
+territories = {
+  northwest:{
+    contestants:[]
+  },
+  north:{
+    contestants:[]
+  },
+  northeast:{
+    contestants:[]
+  },
+  west:{
+    contestants:[]
+  },
+  midland:{
+    contestants:[]
+  },
+  east:{
+    contestants:[]
+  },
+  southwest:{
+    contestants:[]
+  },
+  south:{
+    contestants:[]
+  },
+  southeast:{
+    contestants:[]
+  }
+}
 
 for(x = 0; x < mapSize; x++){
   for(y = 0; y < mapSize; y++){
@@ -299,59 +332,98 @@ gateCheck = function(x,y,h,k){
   }
 }
 
-// check if ally(2/1), neutral(0), enemy(-1)
-allyCheck = function(p,id,house){
+// check if same faction(2), ally(1), neutral(0), enemy(-1)
+allyCheck = function(p,id){
   var player = Player.list[p];
-  if(house && player.house){
-    if(house === player.house){
-      return 2;
-    } else if(houseList[house].hostile){
-      return -1;
-    }
-    for(var i in houseList[player.house].allies){
-      var allies = houseList[player.house].allies;
-      if(allies[i] === house){
-        return 1;
-      }
-    }
-    for(var i in houseList[player.house].enemies){
-      var enemies = houseList[player.house].enemies;
-      if(enemies[i] === house){
+  var other = Player.list[id]
+  var pHouse = House.list[player.house];
+  var oHouse = House.list[other.house];
+
+  if(pHouse){
+    if(pHouse.hostile){
+      if(oHouse){
+        if(player.house === other.house){
+          return 2;
+        } else {
+          for(var i in pHouse.allies){
+            if(pHouse.allies[i] === other.house){
+              return 1;
+            } else {
+              continue;
+            }
+          }
+          return -1;
+        }
+      } else {
         return -1;
       }
-    }
-    return 0;
-  } else if(house && !player.house){
-    if(houseList[house].hostile){
-      return -1;
-    }
-    for(var i in houseList[house].enemies){
-      var enemies = houseList[house].enemies;
-      if(enemies[i] === selfId){
-        return -1;
+    } else {
+      if(oHouse){
+        if(player.house === other.house){
+          return 2;
+        } else {
+          for(var i in pHouse.allies){
+            if(pHouse.allies[i] === other.house){
+              return 1;
+            } else {
+              continue;
+            }
+          }
+          if(oHouse.hostile){
+            return -1;
+          } else {
+            for(var i in pHouse.enemies){
+              if(pHouse.enemies[i] === other.house){
+                return -1;
+              } else {
+                continue;
+              }
+            }
+          }
+          return 0;
+        }
+      } else {
+        for(var i in pHouse.enemies){
+          if(pHouse.enemies[i] === id){
+            return -1;
+          } else {
+            continue;
+          }
+        }
+        return 0;
       }
     }
-    return 0;
-  } else if(!house && player.house){
-    for(var i in houseList[player.house].enemies){
-      var enemies = houseList[player.house].enemies;
-      if(enemies[i] === id){
-        return -1;
-      }
-    }
-    return 0;
   } else {
-    for(var i in player.allies){
-      if(player.allies[i] === id){
-        return 1;
-      }
-    }
-    for(var i in player.enemies){
-      if(player.enemies[i] === id){
+    if(oHouse){
+      if(oHouse.hostile){
         return -1;
+      } else {
+        for(var i in oHouse.enemies){
+          if(oHouse.enemies[i] === p){
+            return -1;
+          } else {
+            continue;
+          }
+        }
+        return 0;
       }
+    } else {
+      for(var i in player.friends){
+        if(player.friends[i] === id){
+          return 1;
+        } else {
+          continue;
+        }
+      }
+      for(var i in player.enemies){
+        if(player.enemies[i] === id){
+          return -1;
+        } else {
+          continue;
+        }
+      }
+      return 0;
     }
-    return 0;
   }
 }
 
@@ -402,8 +474,9 @@ randomSpawnU = function(){
 
 // faction spawner
 factionSpawn = function(id){
-  if(id === 'Brotherhood'){
+  if(id === 1){
     var select = [];
+    var gridSelect = [];
     for(var i in spawnPointsU){
       var count = 0;
       var c = spawnPointsU[i][0];
@@ -423,12 +496,20 @@ factionSpawn = function(id){
           var r = Math.random();
           if(r < 0.25){
             select.push(grid[5]);
+            grid.splice(5,1);
+            gridSelect.push(grid);
           } else if(r < 0.5){
             select.push(grid[6]);
+            grid.splice(6,1);
+            gridSelect.push(grid);
           } else if (r < 0.75){
             select.push(grid[9]);
+            grid.splice(9,1);
+            gridSelect.push(grid);
           } else {
             select.push(grid[10]);
+            grid.splice(10,1);
+            gridSelect.push(grid);
           }
         }
       } else {
@@ -436,9 +517,11 @@ factionSpawn = function(id){
       }
     }
     var rand = Math.floor(Math.random() * select.length);
+    originGrids.brotherhood = gridSelect[rand];
     return select[rand];
-  } else if(id === 'Goths'){
+  } else if(id === 2){
     var select = [];
+    var gridSelect = [];
     for(var i in mtnSpawns){
       var count = 0;
       var c = mtnSpawns[i][0];
@@ -457,15 +540,19 @@ factionSpawn = function(id){
         }
         if(count === grid.length){
           select.push(grid[12]);
+          grid.splice(12,1);
+          gridSelect.push(grid);
         }
       } else {
         continue;
       }
     }
     var rand = Math.floor(Math.random() * select.length);
+    originGrids.goths = gridSelect[rand];
     return select[rand];
-  } else if(id === 'Norsemen'){
+  } else if(id === 3){
     var select = [];
+    var gridSelect = [];
     for(var i in waterSpawns){
       var count = 0;
       var c = waterSpawns[i][0];
@@ -484,15 +571,18 @@ factionSpawn = function(id){
         }
         if(count === grid.length){
           select.push(grid[12]);
+          gridSelect.push(grid);
         }
       } else {
         continue;
       }
     }
     var rand = Math.floor(Math.random() * select.length);
+    // originGrids.norsemen = gridSelect[rand];
     return select[rand];
-  } else if(id === 'Franks'){
+  } else if(id === 4){
     var select = [];
+    var gridSelect = [];
     for(var i in spawnPointsO){
       var count = 0;
       var c = spawnPointsO[i][0];
@@ -511,15 +601,19 @@ factionSpawn = function(id){
         }
         if(count === grid.length){
           select.push(grid[12]);
+          grid.splice(12,1);
+          gridSelect.push(grid);
         }
       } else {
         continue;
       }
     }
     var rand = Math.floor(Math.random() * select.length);
+    originGrids.franks = gridSelect[rand];
     return select[rand];
-  } else if(id === 'Celts'){
+  } else if(id === 5){
     var select = [];
+    var gridSelect = [];
     for(var i in hForestSpawns){
       var count = 0;
       var c = hForestSpawns[i][0];
@@ -538,15 +632,19 @@ factionSpawn = function(id){
         }
         if(count === grid.length){
           select.push(grid[12]);
+          grid.splice(12,1);
+          gridSelect.push(grid);
         }
       } else {
         continue;
       }
     }
     var rand = Math.floor(Math.random() * select.length);
+    originGrids.celts = gridSelect[rand];
     return select[rand];
-  } else if(id === 'Teutons'){
+  } else if(id === 6){
     var select = [];
+    var gridSelect = [];
     for(var i in spawnPointsO){
       var count = 0;
       var c = spawnPointsO[i][0];
@@ -565,15 +663,19 @@ factionSpawn = function(id){
         }
         if(count === grid.length){
           select.push(grid[12]);
+          grid.splice(12,1);
+          gridSelect.push(grid);
         }
       } else {
         continue;
       }
     }
     var rand = Math.floor(Math.random() * select.length);
+    originGrids.teutons = gridSelect[rand];
     return select[rand];
-  } else if(id === 'Outlaws'){
+  } else if(id === 7){
     var select = [];
+    var gridSelect = [];
     for(var i in hForestSpawns){
       var count = 0;
       var c = hForestSpawns[i][0];
@@ -592,15 +694,19 @@ factionSpawn = function(id){
         }
         if(count === grid.length){
           select.push(grid[12]);
+          grid.splice(12,1);
+          gridSelect.push(grid);
         }
       } else {
         continue;
       }
     }
     var rand = Math.floor(Math.random() * select.length);
+    originGrids.outlaws = gridSelect[rand];
     return select[rand];
-  } else if(id === 'Mercenaries'){
+  } else if(id === 8){
     var select = [];
+    var gridSelect = [];
     for(var i in spawnPointsU){
       var count = 0;
       var c = spawnPointsU[i][0];
@@ -613,18 +719,21 @@ factionSpawn = function(id){
       if(c < (mapSize-4) && r < (mapSize-4)){
         for(var n in grid){
           var tile = grid[n];
-          if(getTile(0,tile[0],tile[1]) >= 1 && getTile(0,tile[0],tile[1]) < 2){
+          if(getTile(1,tile[0],tile[1]) === 0){
             count++;
           }
         }
         if(count === grid.length){
           select.push(grid[12]);
+          grid.splice(12,1);
+          gridSelect.push(grid);
         }
       } else {
         continue;
       }
     }
     var rand = Math.floor(Math.random() * select.length);
+    originGrids.mercenaries = gridSelect[rand];
     return select[rand];
   }
 }
@@ -643,7 +752,7 @@ if(saveMap){
 
 // day/night cycle
 tempus = 'XII.a';
-var period = 60; // 1=1hr, 2=30m, 4=15m, 12=5m, 60=1m, 120=30s, 360=10s (number of game days per 24 hours)
+period = 60; // 1=1hr, 2=30m, 4=15m, 12=5m, 60=1m, 120=30s, 360=10s (number of game days per 24 hours)
 var cycle = ['XII.a','I.a','II.a','III.a','IV.a','V.a','VI.a','VII.a','VIII.a','IX.a','X.a','XI.a'
             ,'XII.p','I.p','II.p','III.p','IV.p','V.p','VI.p','VII.p','VIII.p','IX.p','X.p','XI.p'];
 var tick = 1;
@@ -819,87 +928,87 @@ entropy();
 
 // create NPC factions
 Brotherhood({
-  id:'Brotherhood',
+  id:1,
   type:'npc',
   name:'Brotherhood',
   flag:'',
-  hq:factionSpawn('Brotherhood'),
+  hq:factionSpawn(1),
   origin:true,
   hostile:true
 });
 
 Goths({
-  id:'Goths',
+  id:2,
   type:'npc',
   name:'Goths',
   flag:'',
-  hq:factionSpawn('Goths'),
+  hq:factionSpawn(2),
   origin:true,
   hostile:true
 });
 
 Norsemen({
-  id:'Norsemen',
+  id:3,
   type:'npc',
   name:'Norsemen',
   flag:'',
-  hq:factionSpawn('Norsemen'),
+  hq:factionSpawn(3),
   origin:true,
   hostile:true
 });
 
 Franks({
-  id:'Franks',
+  id:4,
   type:'npc',
   name:'Franks',
   flag:'',
-  hq:factionSpawn('Franks'),
+  hq:factionSpawn(4),
   origin:true,
   hostile:true
 });
 
 Celts({
-  id:'Celts',
+  id:5,
   type:'npc',
   name:'Celts',
   flag:'',
-  hq:factionSpawn('Celts'),
+  hq:factionSpawn(5),
   origin:true,
   hostile:true
 });
 
 Teutons({
-  id:'Teutons',
+  id:6,
   type:'npc',
   name:'Teutons',
   flag:'',
-  hq:factionSpawn('Teutons'),
+  hq:factionSpawn(6),
   origin:true,
   hostile:true
 });
 
 Outlaws({
-  id:'Outlaws',
+  id:7,
   type:'npc',
   name:'Outlaws',
   flag:'☠️',
-  hq:factionSpawn('Outlaws'),
+  hq:factionSpawn(7),
   origin:true,
   hostile:true
 });
 
 Mercenaries({
-  id:'Mercenaries',
+  id:8,
   type:'npc',
   name:'Mercenaries',
   flag:'',
-  hq:factionSpawn('Mercenaries'),
+  hq:factionSpawn(8),
   origin:true,
   hostile:true
 });
 
 Kingdom({
-  id:'Papal States',
+  id:1,
   name:'Papal States',
   flag:'🇻🇦'
 });

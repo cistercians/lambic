@@ -13397,6 +13397,22 @@ EvalCmd = function(data){
           }
         }
       }
+      // ALPHA HAX !!
+    } else if(data.cmd.slice(0,data.cmd.indexOf(' ')) === 'tport'){
+      var getZXY = data.cmd.slice(data.cmd.indexOf(' ')+1);
+      var getZ = getZXY.slice(0,getZXY.indexOf(','));
+      var getXY = getZXY.slice(getZXY.indexOf(',')+1);
+      var getX = getXY.slice(0,getXY.indexOf(','));
+      var getY = getXY.slice(getXY.indexOf(',')+1);
+      var coords = getCenter(Number(getX),Number(getY))
+      var z = Number(getZ);
+      var x = coords[0];
+      var y = coords[1];
+
+      Player.list[data.id].z = z;
+      Player.list[data.id].x = x;
+      Player.list[data.id].y = y;
+      // ALPHA HAX !!
     } else {
       socket.emit('addToChat','<i>Invalid command.</i>');
     }

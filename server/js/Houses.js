@@ -1,18 +1,38 @@
+originGrids = {
+  brotherhood:null,
+  goths:null,
+  norsemen:null,
+  franks:null,
+  celts:null,
+  teutons:null,
+  outlaws:null,
+  mercenaries:null
+}
+
 House = function(param){
   var self = Entity(param);
+  self.init = true;
   self.type = param.type;
   self.name = param.name;
   self.flag = param.flag;
   self.hq = param.hq;
+  self.grid = null;
+  self.patrolPoints = [];
   self.origin = param.origin;
   self.leader = param.leader;
   self.kingdom = param.kingdom;
   self.hostile = param.hostile; // true = attacks neutral players/units
   self.campaign = 0;
   self.underAttack = false;
-  self.population = 1;
   self.allies = [];
   self.enemies = [];
+
+  self.scene = {
+
+  }
+  self.spawnTimer = 0;
+  self.spawnRate = 3600000/period;
+  self.nextChapter = 0;
 
   self.stores = {
     grain:0,
@@ -22,6 +42,7 @@ House = function(param){
     silver:0,
     gold:0
   }
+
   House.list[self.id] = self;
 
   io.emit('newFaction',{
@@ -31,124 +52,718 @@ House = function(param){
   return self;
 }
 
+// BROTHERHOOD
 Brotherhood = function(param){
   var self = House(param);
   self.scene = {
     // objects
     fire:null,
-
     // characters
-    brothersmax:0,
-    brothers:0,
-    oathkeepersmax:0,
-    oathkeepers:0,
-    apollyon:0
+    pawns:0,
+    bishops:0,
+    king:false
   }
 
   self.update = function(){
-    if(self.campaign === 0){
-      if(!self.scene.fire){
-        var fireId = Math.random();
-        var coords = getCoords(self.hq[0],self.hq[1]);
-        InfiniteFire({
-          id:fireId,
-          parent:self.id,
-          x:coords[0],
-          y:coords[1],
+    var grid = self.grid;
+    if(self.init){
+      self.grid = originGrids.brotherhood;
+      grid = self.grid;
+      var point = [self.hq[0],self.hq[1]+1];
+      self.patrolPoints.push(point);
+      // fire
+      var fireId = Math.random();
+      var coords = getCoords(self.hq[0],self.hq[1]);
+      InfiniteFire({
+        id:fireId,
+        parent:self.id,
+        x:coords[0],
+        y:coords[1],
+        z:-1,
+        qty:1
+      });
+      self.scene.fire = fireId;
+      // pawns
+      for(var i = 0; i < 3; i++){
+        var rand = Math.floor(Math.random() * grid.length);
+        var select = grid[rand];
+        grid.splice(rand,1);
+        var sCoords = getCenter(select[0],select[1]);
+        Brother({
+          x:sCoords[0],
+          y:sCoords[1],
           z:-1,
-          qty:1
-        });
-        self.scene.fire = fireId;
+          house:self.id,
+          home:{
+            z:-1,
+            x:sCoords[0],
+            y:sCoords[1]
+          }
+        })
+        self.scene.pawns++;
+      }
+      self.spawnTimer += self.spawnRate;
+      self.init = false;
+    }
+    if(self.spawnTimer > 0){
+      self.spawnTimer--;
+    }
+    if(self.campaign === 0){
+      if(self.scene.pawns < 5 && self.spawnTimer === 0){
+        var rand = Math.floor(Math.random() * grid.length);
+        var select = grid[rand];
+        var sCoords = getCenter(select[0],select[1]);
+        Brother({
+          x:sCoords[0],
+          y:sCoords[1],
+          z:-1,
+          house:self.id,
+          home:{
+            z:-1,
+            x:sCoords[0],
+            y:sCoords[1]
+          }
+        })
+        self.spawnTimer += self.spawnRate;
+        self.scene.pawns++;
+      } else if(self.scene.pawns < 5){
+        self.nextChapter = 0;
+      } else if(self.spawnTimer === 0){
+        self.nextChapter++;
+      }
+      if(self.nextChapter === (3600000/period)*24){
+        self.nextChapter = 0;
+        self.campaign++;
       }
     }
   }
+  console.log('Brotherhood: ' + self.hq);
 }
 
+// GOTHS
 Goths = function(param){
   var self = House(param);
   self.scene = {
     // objects
-    fire:null
-
+    fire:null,
     // characters
+    pawns:0,
+    knights:0,
+    bishops:0,
+    rooks:0
+    // buildings
   }
 
   self.update = function(){
-
+    var grid = self.grid;
+    if(self.init){
+      self.grid = originGrids.goths;
+      grid = self.grid;
+      var point = [self.hq[0],self.hq[1]+1];
+      self.patrolPoints.push(point);
+      // fire
+      var fireId = Math.random();
+      var coords = getCoords(self.hq[0],self.hq[1]);
+      InfiniteFire({
+        id:fireId,
+        parent:self.id,
+        x:coords[0],
+        y:coords[1],
+        z:0,
+        qty:1
+      });
+      self.scene.fire = fireId;
+      // pawns
+      for(var i = 0; i < 4; i++){
+        var rand = Math.floor(Math.random() * grid.length);
+        var select = grid[rand];
+        grid.splice(rand,1);
+        var sCoords = getCenter(select[0],select[1]);
+        var flip = Math.random();
+        if(flip > 0.4){
+          Goth({
+            x:sCoords[0],
+            y:sCoords[1],
+            z:0,
+            house:self.id,
+            home:{
+              z:0,
+              x:sCoords[0],
+              y:sCoords[1]
+            }
+          })
+        } else {
+          Acolyte({
+            x:sCoords[0],
+            y:sCoords[1],
+            z:0,
+            house:self.id,
+            home:{
+              z:0,
+              x:sCoords[0],
+              y:sCoords[1]
+            }
+          })
+        }
+        self.scene.pawns++;
+      }
+      self.spawnTimer += self.spawnRate;
+      self.init = false;
+    }
+    if(self.spawnTimer > 0){
+      self.spawnTimer--;
+    }
+    if(self.campaign === 0){
+      if(self.scene.pawns < 6 && self.spawnTimer === 0){
+        var rand = Math.floor(Math.random() * grid.length);
+        var select = grid[rand];
+        var sCoords = getCenter(select[0],select[1]);
+        var flip = Math.random();
+        if(flip > 0.4){
+          Goth({
+            x:sCoords[0],
+            y:sCoords[1],
+            z:0,
+            house:self.id,
+            home:{
+              z:0,
+              x:sCoords[0],
+              y:sCoords[1]
+            }
+          })
+        } else {
+          Acolyte({
+            x:sCoords[0],
+            y:sCoords[1],
+            z:0,
+            house:self.id,
+            home:{
+              z:0,
+              x:sCoords[0],
+              y:sCoords[1]
+            }
+          })
+        }
+        self.spawnTimer += self.spawnRate;
+        self.scene.pawns++;
+      } else if(self.scene.pawns < 6){
+        self.nextChapter = 0;
+      } else if(self.spawnTimer === 0){
+        self.nextChapter++;
+      }
+      if(self.nextChapter === (3600000/period)*24){
+        self.nextChapter = 0;
+        self.campaign++;
+      }
+    }
   }
+  console.log('Goths: ' + self.hq);
 }
 
+// NORSEMEN
 Norsemen = function(param){
   var self = House(param);
   self.scene = {
     // objects
     runestone:null,
-    fire:null
-
+    fire:null,
     // characters
+    pawns:0,
+    knights:0
   }
 
   self.update = function(){
+    var grid = self.grid;
+    if(self.init){
+      self.grid = originGrids.norsemen;
+      grid = self.grid;
+      var point = [self.hq[0],self.hq[1]+1];
+      self.patrolPoints.push(point);
 
+    }
+    if(self.spawnTimer > 0){
+      self.spawnTimer--;
+    }
+    if(self.campaign === 0){
+    }
   }
 }
 
+// FRANKS
 Franks = function(param){
   var self = House(param);
   self.scene = {
     // objects
-    fire:null
-
+    fire:null,
     // characters
+    pawns:0,
+    knights:0,
+    rooks:0,
+    king:false
+    // buildings
   }
 
   self.update = function(){
-
+    var grid = self.grid;
+    if(self.init){
+      self.grid = originGrids.franks;
+      grid = self.grid;
+      var point = [self.hq[0],self.hq[1]+1];
+      self.patrolPoints.push(point);
+      // fire
+      var fireId = Math.random();
+      var coords = getCoords(self.hq[0],self.hq[1]);
+      InfiniteFire({
+        id:fireId,
+        parent:self.id,
+        x:coords[0],
+        y:coords[1],
+        z:0,
+        qty:1
+      });
+      self.scene.fire = fireId;
+      // pawns
+      for(var i = 0; i < 4; i++){
+        var rand = Math.floor(Math.random() * grid.length);
+        var select = grid[rand];
+        grid.splice(rand,1);
+        var sCoords = getCenter(select[0],select[1]);
+        var flip = Math.random();
+        if(flip < 0.25){
+          FrankSword({
+            x:sCoords[0],
+            y:sCoords[1],
+            z:0,
+            house:self.id,
+            home:{
+              z:0,
+              x:sCoords[0],
+              y:sCoords[1]
+            }
+          })
+        } else if(flip < 0.5){
+          FrankBow({
+            x:sCoords[0],
+            y:sCoords[1],
+            z:0,
+            house:self.id,
+            home:{
+              z:0,
+              x:sCoords[0],
+              y:sCoords[1]
+            }
+          })
+        } else {
+          FrankSpear({
+            x:sCoords[0],
+            y:sCoords[1],
+            z:0,
+            house:self.id,
+            home:{
+              z:0,
+              x:sCoords[0],
+              y:sCoords[1]
+            }
+          })
+        }
+        self.scene.pawns++;
+      }
+      self.spawnTimer += self.spawnRate;
+      self.init = false;
+    }
+    if(self.spawnTimer > 0){
+      self.spawnTimer--;
+    }
+    if(self.campaign === 0){
+      if(self.scene.pawns < 6 && self.spawnTimer === 0){
+        var rand = Math.floor(Math.random() * grid.length);
+        var select = grid[rand];
+        var sCoords = getCenter(select[0],select[1]);
+        var flip = Math.random();
+        if(flip < 0.25){
+          FrankSword({
+            x:sCoords[0],
+            y:sCoords[1],
+            z:0,
+            house:self.id,
+            home:{
+              z:0,
+              x:sCoords[0],
+              y:sCoords[1]
+            }
+          })
+        } else if(flip < 0.5){
+          FrankBow({
+            x:sCoords[0],
+            y:sCoords[1],
+            z:0,
+            house:self.id,
+            home:{
+              z:0,
+              x:sCoords[0],
+              y:sCoords[1]
+            }
+          })
+        } else {
+          FrankSpear({
+            x:sCoords[0],
+            y:sCoords[1],
+            z:0,
+            house:self.id,
+            home:{
+              z:0,
+              x:sCoords[0],
+              y:sCoords[1]
+            }
+          })
+        }
+        self.spawnTimer += self.spawnRate;
+        self.scene.pawns++;
+      } else if(self.scene.pawns < 6){
+        self.nextChapter = 0;
+      } else if(self.spawnTimer === 0){
+        self.nextChapter++;
+      }
+      if(self.nextChapter === (3600000/period)*24){
+        self.nextChapter = 0;
+        self.campaign++;
+      }
+    }
   }
+  console.log('Franks: ' + self.hq);
 }
 
+// CELTS
 Celts = function(param){
   var self = House(param);
   self.scene = {
     // objects
-    fire:null
-
+    fire:null,
     // characters
+    pawns:0,
+    knights:0,
+    bishops:0,
+    rooks:0,
+    queen:false
+    // buildings
   }
 
   self.update = function(){
-
+    var grid = self.grid;
+    if(self.init){
+      self.grid = originGrids.celts;
+      grid = self.grid;
+      var point = [self.hq[0],self.hq[1]+1];
+      self.patrolPoints.push(point);
+      // fire
+      var fireId = Math.random();
+      var coords = getCoords(self.hq[0],self.hq[1]);
+      InfiniteFire({
+        id:fireId,
+        parent:self.id,
+        x:coords[0],
+        y:coords[1],
+        z:0,
+        qty:1
+      });
+      self.scene.fire = fireId;
+      // pawns
+      for(var i = 0; i < 4; i++){
+        var rand = Math.floor(Math.random() * grid.length);
+        var select = grid[rand];
+        grid.splice(rand,1);
+        var sCoords = getCenter(select[0],select[1]);
+        var flip = Math.random();
+        if(flip > 0.4){
+          CeltAxe({
+            x:sCoords[0],
+            y:sCoords[1],
+            z:0,
+            house:self.id,
+            home:{
+              z:0,
+              x:sCoords[0],
+              y:sCoords[1]
+            }
+          })
+        } else {
+          CeltSpear({
+            x:sCoords[0],
+            y:sCoords[1],
+            z:0,
+            house:self.id,
+            home:{
+              z:0,
+              x:sCoords[0],
+              y:sCoords[1]
+            }
+          })
+        }
+        self.scene.pawns++;
+      }
+      self.spawnTimer += self.spawnRate;
+      self.init = false;
+    }
+    if(self.spawnTimer > 0){
+      self.spawnTimer--;
+    }
+    if(self.campaign === 0){
+      if(self.scene.pawns < 6 && self.spawnTimer === 0){
+        var rand = Math.floor(Math.random() * grid.length);
+        var select = grid[rand];
+        var sCoords = getCenter(select[0],select[1]);
+        var flip = Math.random();
+        if(flip > 0.4){
+          CeltAxe({
+            x:sCoords[0],
+            y:sCoords[1],
+            z:0,
+            house:self.id,
+            home:{
+              z:0,
+              x:sCoords[0],
+              y:sCoords[1]
+            }
+          })
+        } else {
+          CeltSpear({
+            x:sCoords[0],
+            y:sCoords[1],
+            z:0,
+            house:self.id,
+            home:{
+              z:0,
+              x:sCoords[0],
+              y:sCoords[1]
+            }
+          })
+        }
+        self.spawnTimer += self.spawnRate;
+        self.scene.pawns++;
+      } else if(self.scene.pawns < 6){
+        self.nextChapter = 0;
+      } else if(self.spawnTimer === 0){
+        self.nextChapter++;
+      }
+      if(self.nextChapter === (3600000/period)*24){
+        self.nextChapter = 0;
+        self.campaign++;
+      }
+    }
   }
+  console.log('Celts: ' + self.hq);
 }
 
+// TEUTONS
 Teutons = function(param){
   var self = House(param);
   self.scene = {
     // objects
-    fire:null
-
+    fire:null,
     // characters
+    pawns:0,
+    knights:0,
+    bishops:0,
+    rooks:0,
+    king:false
+    // buildings
   }
 
   self.update = function(){
-
+    var grid = self.grid;
+    if(self.init){
+      self.grid = originGrids.teutons;
+      grid = self.grid;
+      var point = [self.hq[0],self.hq[1]+1];
+      self.patrolPoints.push(point);
+      // fire
+      var fireId = Math.random();
+      var coords = getCoords(self.hq[0],self.hq[1]);
+      InfiniteFire({
+        id:fireId,
+        parent:self.id,
+        x:coords[0],
+        y:coords[1],
+        z:0,
+        qty:1
+      });
+      self.scene.fire = fireId;
+      // pawns
+      for(var i = 0; i < 3; i++){
+        var rand = Math.floor(Math.random() * grid.length);
+        var select = grid[rand];
+        grid.splice(rand,1);
+        var sCoords = getCenter(select[0],select[1]);
+        TeutonicKnight({
+          x:sCoords[0],
+          y:sCoords[1],
+          z:0,
+          house:self.id,
+          home:{
+            z:0,
+            x:sCoords[0],
+            y:sCoords[1]
+          }
+        })
+        self.scene.pawns++;
+      }
+      self.spawnTimer += self.spawnRate;
+      self.init = false;
+    }
+    if(self.spawnTimer > 0){
+      self.spawnTimer--;
+    }
+    if(self.campaign === 0){
+      if(self.scene.pawns < 4 && self.spawnTimer === 0){
+        var rand = Math.floor(Math.random() * grid.length);
+        var select = grid[rand];
+        var sCoords = getCenter(select[0],select[1]);
+        TeutonicKnight({
+          x:sCoords[0],
+          y:sCoords[1],
+          z:0,
+          house:self.id,
+          home:{
+            z:0,
+            x:sCoords[0],
+            y:sCoords[1]
+          }
+        })
+        self.spawnTimer += self.spawnRate;
+        self.scene.pawns++;
+      } else if(self.scene.pawns < 4){
+        self.nextChapter = 0;
+      } else if(self.spawnTimer === 0){
+        self.nextChapter++;
+      }
+      if(self.nextChapter === (3600000/period)*24){
+        self.nextChapter = 0;
+        self.campaign++;
+      }
+    }
   }
+  console.log('Teutons: ' + self.hq);
 }
 
+// OUTLAWS
 Outlaws = function(param){
   var self = House(param);
   self.scene = {
     // objects
-    fire:null
-
+    fire:null,
     // characters
+    pawns:0,
+    knights:0
+    // buildings
   }
 
   self.update = function(){
-
+    var grid = self.grid;
+    if(self.init){
+      self.grid = originGrids.outlaws;
+      grid = self.grid;
+      var point = [self.hq[0],self.hq[1]+1];
+      self.patrolPoints.push(point);
+      // fire
+      var fireId = Math.random();
+      var coords = getCoords(self.hq[0],self.hq[1]);
+      InfiniteFire({
+        id:fireId,
+        parent:self.id,
+        x:coords[0],
+        y:coords[1],
+        z:0,
+        qty:1
+      });
+      self.scene.fire = fireId;
+      // pawns
+      for(var i = 0; i < 3; i++){
+        var rand = Math.floor(Math.random() * grid.length);
+        var select = grid[rand];
+        grid.splice(rand,1);
+        var sCoords = getCenter(select[0],select[1]);
+        var flip = Math.random();
+        if(flip > 0.33){
+          Trapper({
+            x:sCoords[0],
+            y:sCoords[1],
+            z:0,
+            house:self.id,
+            home:{
+              z:0,
+              x:sCoords[0],
+              y:sCoords[1]
+            }
+          })
+        } else {
+          Outlaw({
+            x:sCoords[0],
+            y:sCoords[1],
+            z:0,
+            house:self.id,
+            home:{
+              z:0,
+              x:sCoords[0],
+              y:sCoords[1]
+            }
+          })
+        }
+        self.scene.pawns++;
+      }
+      self.spawnTimer += self.spawnRate;
+      self.init = false;
+    }
+    if(self.spawnTimer > 0){
+      self.spawnTimer--;
+    }
+    if(self.campaign === 0){
+      if(self.scene.pawns < 6 && self.spawnTimer === 0){
+        var rand = Math.floor(Math.random() * grid.length);
+        var select = grid[rand];
+        var sCoords = getCenter(select[0],select[1]);
+        var flip = Math.random();
+        if(flip > 0.33){
+          Trapper({
+            x:sCoords[0],
+            y:sCoords[1],
+            z:0,
+            house:self.id,
+            home:{
+              z:0,
+              x:sCoords[0],
+              y:sCoords[1]
+            }
+          })
+        } else {
+          Outlaw({
+            x:sCoords[0],
+            y:sCoords[1],
+            z:0,
+            house:self.id,
+            home:{
+              z:0,
+              x:sCoords[0],
+              y:sCoords[1]
+            }
+          })
+        }
+        self.spawnTimer += self.spawnRate;
+        self.scene.pawns++;
+      } else if(self.scene.pawns < 6){
+        self.nextChapter = 0;
+      } else if(self.spawnTimer === 0){
+        self.nextChapter++;
+      }
+      if(self.nextChapter === (3600000/period)*24){
+        self.nextChapter = 0;
+        self.campaign++;
+      }
+    }
   }
+  console.log('Outlaws: ' + self.hq);
 }
 
+// MERCENARIES
 Mercenaries = function(param){
   var self = House(param);
   self.scene = {
@@ -158,14 +773,117 @@ Mercenaries = function(param){
     chest:null,
     crates:null,
     swordrack1:null,
-    swordrack2:null
-
+    swordrack2:null,
     // characters
+    pawns:0,
+    knights:0,
+    rooks:0
   }
 
   self.update = function(){
-
+    var grid = self.grid;
+    if(self.init){
+      self.grid = originGrids.mercenaries;
+      grid = self.grid;
+      var point = [self.hq[0],self.hq[1]+1];
+      self.patrolPoints.push(point);
+      // fire
+      var fireId = Math.random();
+      var coords = getCoords(self.hq[0],self.hq[1]);
+      InfiniteFire({
+        id:fireId,
+        parent:self.id,
+        x:coords[0],
+        y:coords[1],
+        z:-1,
+        qty:1
+      });
+      self.scene.fire = fireId;
+      // pawns
+      for(var i = 0; i < 3; i++){
+        var rand = Math.floor(Math.random() * grid.length);
+        var select = grid[rand];
+        grid.splice(rand,1);
+        var sCoords = getCenter(select[0],select[1]);
+        var flip = Math.random();
+        if(flip > 0.33){
+          Cutthroat({
+            x:sCoords[0],
+            y:sCoords[1],
+            z:-1,
+            house:self.id,
+            home:{
+              z:-1,
+              x:sCoords[0],
+              y:sCoords[1]
+            }
+          })
+        } else {
+          Strongman({
+            x:sCoords[0],
+            y:sCoords[1],
+            z:-1,
+            house:self.id,
+            home:{
+              z:-1,
+              x:sCoords[0],
+              y:sCoords[1]
+            }
+          })
+        }
+        self.scene.pawns++;
+      }
+      self.spawnTimer += self.spawnRate;
+      self.init = false;
+    }
+    if(self.spawnTimer > 0){
+      self.spawnTimer--;
+    }
+    if(self.campaign === 0){
+      if(self.scene.pawns < 6 && self.spawnTimer === 0){
+        var rand = Math.floor(Math.random() * grid.length);
+        var select = grid[rand];
+        var sCoords = getCenter(select[0],select[1]);
+        var flip = Math.random();
+        if(flip > 0.33){
+          Cutthroat({
+            x:sCoords[0],
+            y:sCoords[1],
+            z:-1,
+            house:self.id,
+            home:{
+              z:-1,
+              x:sCoords[0],
+              y:sCoords[1]
+            }
+          })
+        } else {
+          Strongman({
+            x:sCoords[0],
+            y:sCoords[1],
+            z:-1,
+            house:self.id,
+            home:{
+              z:-1,
+              x:sCoords[0],
+              y:sCoords[1]
+            }
+          })
+        }
+        self.spawnTimer += self.spawnRate;
+        self.scene.pawns++;
+      } else if(self.scene.pawns < 6){
+        self.nextChapter = 0;
+      } else if(self.spawnTimer === 0){
+        self.nextChapter++;
+      }
+      if(self.nextChapter === (3600000/period)*24){
+        self.nextChapter = 0;
+        self.campaign++;
+      }
+    }
   }
+  console.log('Mercenaries: ' + self.hq);
 }
 
 Kingdom = function(param){

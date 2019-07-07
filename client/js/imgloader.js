@@ -104,24 +104,24 @@ Img.hut2 = new Image();
 Img.hut2.src = '/client/img/buildings/hut2.png';
 Img.hut3 = new Image();
 Img.hut3.src = '/client/img/buildings/hut3.png';
-Img.house0 = new Image();
-Img.house0.src = '/client/img/buildings/house0.png';
-Img.house1 = new Image();
-Img.house1.src = '/client/img/buildings/house1.png';
-Img.house2 = new Image();
-Img.house2.src = '/client/img/buildings/house2.png';
-Img.house3 = new Image();
-Img.house3.src = '/client/img/buildings/house3.png';
-Img.house4 = new Image();
-Img.house4.src = '/client/img/buildings/house4.png';
-Img.house5 = new Image();
-Img.house5.src = '/client/img/buildings/house5.png';
-Img.house6 = new Image();
-Img.house6.src = '/client/img/buildings/house6.png';
-Img.house7 = new Image();
-Img.house7.src = '/client/img/buildings/house7.png';
-Img.house8 = new Image();
-Img.house8.src = '/client/img/buildings/house8.png';
+Img.cottage0 = new Image();
+Img.cottage0.src = '/client/img/buildings/cottage0.png';
+Img.cottage1 = new Image();
+Img.cottage1.src = '/client/img/buildings/cottage1.png';
+Img.cottage2 = new Image();
+Img.cottage2.src = '/client/img/buildings/cottage2.png';
+Img.cottage3 = new Image();
+Img.cottage3.src = '/client/img/buildings/cottage3.png';
+Img.cottage4 = new Image();
+Img.cottage4.src = '/client/img/buildings/cottage4.png';
+Img.cottage5 = new Image();
+Img.cottage5.src = '/client/img/buildings/cottage5.png';
+Img.cottage6 = new Image();
+Img.cottage6.src = '/client/img/buildings/cottage6.png';
+Img.cottage7 = new Image();
+Img.cottage7.src = '/client/img/buildings/cottage7.png';
+Img.cottage8 = new Image();
+Img.cottage8.src = '/client/img/buildings/cottage8.png';
 Img.fortc = new Image();
 Img.fortc.src = '/client/img/buildings/fortc.png';
 Img.fortlr = new Image();
@@ -2674,54 +2674,54 @@ var falcon = {
 };
 
 // enemies
-// inquisitor
+// duke
 //stand
-Img.inquisitorstandd = new Image();
-Img.inquisitorstandd.src = '/client/img/chars/inquisitor/standd.png';
-Img.inquisitorstandu = new Image();
-Img.inquisitorstandu.src = '/client/img/chars/inquisitor/standu.png';
-Img.inquisitorstandl = new Image();
-Img.inquisitorstandl.src = '/client/img/chars/inquisitor/standl.png';
-Img.inquisitorstandr = new Image();
-Img.inquisitorstandr.src = '/client/img/chars/inquisitor/standr.png';
+Img.dukestandd = new Image();
+Img.dukestandd.src = '/client/img/chars/duke/standd.png';
+Img.dukestandu = new Image();
+Img.dukestandu.src = '/client/img/chars/duke/standu.png';
+Img.dukestandl = new Image();
+Img.dukestandl.src = '/client/img/chars/duke/standl.png';
+Img.dukestandr = new Image();
+Img.dukestandr.src = '/client/img/chars/duke/standr.png';
 
 // walk
-Img.inquisitorwalkd1 = new Image();
-Img.inquisitorwalkd1.src = '/client/img/chars/inquisitor/walkd1.png';
-Img.inquisitorwalkd2 = new Image();
-Img.inquisitorwalkd2.src = '/client/img/chars/inquisitor/walkd2.png';
-Img.inquisitorwalku1 = new Image();
-Img.inquisitorwalku1.src = '/client/img/chars/inquisitor/walku1.png';
-Img.inquisitorwalku2 = new Image();
-Img.inquisitorwalku2.src = '/client/img/chars/inquisitor/walku2.png';
-Img.inquisitorwalkl1 = new Image();
-Img.inquisitorwalkl1.src = '/client/img/chars/inquisitor/walkl1.png';
-Img.inquisitorwalkl2 = new Image();
-Img.inquisitorwalkl2.src = '/client/img/chars/inquisitor/walkl2.png';
-Img.inquisitorwalkr1 = new Image();
-Img.inquisitorwalkr1.src = '/client/img/chars/inquisitor/walkr1.png';
-Img.inquisitorwalkr2 = new Image();
-Img.inquisitorwalkr2.src = '/client/img/chars/inquisitor/walkr2.png';
+Img.dukewalkd1 = new Image();
+Img.dukewalkd1.src = '/client/img/chars/duke/walkd1.png';
+Img.dukewalkd2 = new Image();
+Img.dukewalkd2.src = '/client/img/chars/duke/walkd2.png';
+Img.dukewalku1 = new Image();
+Img.dukewalku1.src = '/client/img/chars/duke/walku1.png';
+Img.dukewalku2 = new Image();
+Img.dukewalku2.src = '/client/img/chars/duke/walku2.png';
+Img.dukewalkl1 = new Image();
+Img.dukewalkl1.src = '/client/img/chars/duke/walkl1.png';
+Img.dukewalkl2 = new Image();
+Img.dukewalkl2.src = '/client/img/chars/duke/walkl2.png';
+Img.dukewalkr1 = new Image();
+Img.dukewalkr1.src = '/client/img/chars/duke/walkr1.png';
+Img.dukewalkr2 = new Image();
+Img.dukewalkr2.src = '/client/img/chars/duke/walkr2.png';
 
 // actions
-Img.inquisitorcast = new Image();
-Img.inquisitorcast.src = '/client/img/chars/inquisitor/cast.png';
+Img.dukecast = new Image();
+Img.dukecast.src = '/client/img/chars/duke/cast.png';
 
-var inquisitorwalkd = [Img.inquisitorwalkd1,Img.inquisitorwalkd2];
-var inquisitorwalku = [Img.inquisitorwalku1,Img.inquisitorwalku2];
-var inquisitorwalkl = [Img.inquisitorwalkl1,Img.inquisitorwalkl2];
-var inquisitorwalkr = [Img.inquisitorwalkr1,Img.inquisitorwalkr2];
+var dukewalkd = [Img.dukewalkd1,Img.dukewalkd2];
+var dukewalku = [Img.dukewalku1,Img.dukewalku2];
+var dukewalkl = [Img.dukewalkl1,Img.dukewalkl2];
+var dukewalkr = [Img.dukewalkr1,Img.dukewalkr2];
 
-var inquisitor = {
-  facedown: Img.inquisitorstandd,
-  faceup: Img.inquisitorstandu,
-  faceleft: Img.inquisitorstandl,
-  faceright: Img.inquisitorstandr,
-  walkdown: inquisitorwalkd,
-  walkup: inquisitorwalku,
-  walkleft: inquisitorwalkl,
-  walkright: inquisitorwalkr,
-  cast: Img.inquisitorcast
+var duke = {
+  facedown: Img.dukestandd,
+  faceup: Img.dukestandu,
+  faceleft: Img.dukestandl,
+  faceright: Img.dukestandr,
+  walkdown: dukewalkd,
+  walkup: dukewalku,
+  walkleft: dukewalkl,
+  walkright: dukewalkr,
+  cast: Img.dukecast
 };
 
 // darkentity

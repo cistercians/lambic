@@ -4,6 +4,7 @@ equip = {
     name: 'HuntingKnife',
     type: 'dagger',
     dmg:15,
+    attackrate:500,
     unequip:function(id){
       Player.list[i].gear.
       Player.list[id].inventory.huntingknife++;
@@ -13,6 +14,7 @@ equip = {
     name: 'Dague',
     type: 'dagger',
     dmg:20,
+    attackrate:500,
     unequip:function(id){
       Player.list[id].inventory.dague++;
     }
@@ -21,6 +23,7 @@ equip = {
     name: 'Rondel',
     type: 'dagger',
     dmg:25,
+    attackrate:500,
     unequip:function(id){
       Player.list[id].inventory.rondel++;
     }
@@ -29,6 +32,7 @@ equip = {
     name: 'Misericorde',
     type: 'dagger',
     dmg:30,
+    attackrate:500,
     unequip:function(id){
       Player.list[id].inventory.misericorde++;
     }
@@ -37,6 +41,7 @@ equip = {
     name: 'BastardSword',
     type: 'sword',
     dmg:45,
+    attackrate:500,
     unequip:function(id){
       Player.list[id].inventory.bastardsword++;
     }
@@ -45,6 +50,7 @@ equip = {
     name: 'Longsword',
     type: 'sword',
     dmg:50,
+    attackrate:500,
     unequip:function(id){
       Player.list[id].inventory.longsword++;
     }
@@ -53,6 +59,7 @@ equip = {
     name: 'Zweihander',
     type: 'sword',
     dmg:55,
+    attackrate:500,
     unequip:function(id){
       Player.list[id].inventory.zweihander++;
     }
@@ -61,6 +68,7 @@ equip = {
     name: 'Morallta',
     type: 'sword',
     dmg:70,
+    attackrate:500,
     unequip:function(id){
       Player.list[id].inventory.morallta++;
     }
@@ -68,6 +76,7 @@ equip = {
   bow:{
     name: 'Bow',
     type: 'bow',
+    attackrate:500,
     unequip:function(id){
       Player.list[id].inventory.bow++;
     }
@@ -75,6 +84,7 @@ equip = {
   welshlongbow:{
     name: 'WelshLongbow',
     type: 'bow',
+    attackrate:500,
     unequip:function(id){
       Player.list[id].inventory.welshlongbow++;
     }
@@ -83,6 +93,7 @@ equip = {
     name: 'KnightLance',
     type: 'lance',
     dmg:75,
+    attackrate:500,
     unequip:function(id){
       Player.list[id].inventory.knightlance++;
     }
@@ -91,6 +102,7 @@ equip = {
     name: 'RusticLance',
     type: 'lance',
     dmg:75,
+    attackrate:500,
     unequip:function(id){
       Player.list[id].inventory.rusticlance++;
     }
@@ -99,6 +111,7 @@ equip = {
     name: 'PaladinLance',
     type: 'lance',
     dmg:100,
+    attackrate:500,
     unequip:function(id){
       Player.list[id].inventory.paladinlance++;
     }

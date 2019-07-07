@@ -121,12 +121,16 @@ var Player = function(initPack){
   var self = {};
   self.type = initPack.type;
   self.name = initPack.name;
+  self.house = initPack.house;
+  self.kingdom = initPack.kingdom;
   self.id = initPack.id;
   self.x = initPack.x;
   self.y = initPack.y;
   self.z = initPack.z;
   self.class = initPack.class;
   self.rank = initPack.rank;
+  self.friends = initPack.friends,
+  self.enemies = initPack.enemies,
   self.gear = initPack.gear;
   self.inventory = initPack.inventory;
   self.facing = 'down';
@@ -147,8 +151,8 @@ var Player = function(initPack){
   self.fishing = false;
   self.hp = initPack.hp;
   self.hpMax = initPack.hpMax;
-  self.mana = initPack.mana;
-  self.manaMax = initPack.manaMax;
+  self.spirit = initPack.spirit;
+  self.spiritMax = initPack.spiritMax;
   self.sprite = maleserf;
   self.spriteSize = initPack.spriteSize;
 
@@ -180,15 +184,15 @@ var Player = function(initPack){
       y = (self.y - (tileSize/2)) - Player.list[selfId].y + HEIGHT/2;
     }
 
-    // hp and mana bars
+    // hp and spirit bars
     var barX = (self.x - (tileSize/2)) - Player.list[selfId].x + WIDTH/2;
     var barY = (self.y - (tileSize/2)) - Player.list[selfId].y + HEIGHT/2;
 
     var hpWidth = 60 * self.hp / self.hpMax;
-    var manaWidth = null;
+    var spiritWidth = null;
     var brWidth = 60 * self.breath / self.breathMax;
-    if(self.mana){
-      manaWidth = 60 * self.mana / self.manaMax;
+    if(self.spirit){
+      spiritWidth = 60 * self.spirit / self.spiritMax;
     }
 
     if(self.hp){
@@ -197,11 +201,11 @@ var Player = function(initPack){
       ctx.fillStyle = 'limegreen';
       ctx.fillRect(barX,barY - 30,hpWidth,6);
     }
-    if(self.mana){
+    if(self.spirit){
       ctx.fillStyle = 'orangered';
       ctx.fillRect(barX,barY - 20,60,4);
       ctx.fillStyle = 'royalblue';
-      ctx.fillRect(barX,barY - 20,manaWidth,4);
+      ctx.fillRect(barX,barY - 20,spiritWidth,4);
     }
     if(self.z === -3){
       ctx.fillStyle = 'azure';
@@ -210,7 +214,7 @@ var Player = function(initPack){
 
     // username
     if(self.rank){
-      var allied = allyCheck(self.id,self.house);
+      var allied = allyCheck(self.id);
       if(self.kingdom){
         if(allied === 2){
           ctx.fillStyle = 'lightskyblue';
@@ -252,7 +256,7 @@ var Player = function(initPack){
         ctx.fillText(self.rank + self.name,barX + 30,barY - 40,100);
       }
     } else if(self.name){
-      var allied = allyCheck(self.id,self.house);
+      var allied = allyCheck(self.id);
       if(self.kingdom){
         if(allied === 2){
           ctx.fillStyle = 'lightskyblue';
@@ -1961,6 +1965,10 @@ socket.on('update',function(data){
     if(p){
       if(pack.name !== undefined)
         p.name = pack.name;
+      if(pack.house !== undefined)
+        p.house = pack.house;
+      if(pack.kingdom !== undefined)
+        p.kingdom = pack.kingdom;
       if(pack.x !== undefined)
         p.x = pack.x;
       if(pack.y !== undefined)
@@ -1971,6 +1979,10 @@ socket.on('update',function(data){
         p.class = pack.class;
       if(pack.rank !== undefined)
         p.rank = pack.rank;
+      if(pack.friends !== undefined)
+        p.friends = pack.friends;
+      if(pack.enemies !== undefined)
+        p.enemies = pack.enemies;
       if(pack.gear !== undefined)
         p.gear = pack.gear;
       if(pack.inventory !== undefined)
@@ -2013,10 +2025,10 @@ socket.on('update',function(data){
         p.hp = pack.hp;
       if(pack.hpMax !== undefined)
         p.hpMax = pack.hpMax;
-      if(pack.mana !== undefined)
-        p.mana = pack.mana;
-      if(pack.manaMax !== undefined)
-        p.manaMax = pack.manaMax;
+      if(pack.spirit !== undefined)
+        p.spirit = pack.spirit;
+      if(pack.spiritMax !== undefined)
+        p.spiritMax = pack.spiritMax;
       if(pack.breath !== undefined)
         p.breath = pack.breath;
       if(pack.breathMax !== undefined)
@@ -2058,7 +2070,7 @@ socket.on('update',function(data){
         p.sprite = cavalry;
       } else if(p.class === 'Knight'){
         p.sprite = knight;
-      } else if(p.class === 'Lancer'){
+      } else if(p.class === 'Lancer' || p.class === 'Charlemagne'){
         p.sprite = lancer;
       } else if(p.class === 'Crusader'){
         p.sprite = crusader;
@@ -2090,8 +2102,8 @@ socket.on('update',function(data){
         p.sprite = teutonicknight;
       } else if(p.class === 'Trebuchet'){
         p.sprite = trebuchet;
-      } else if(p.class === 'Oathkeeper' || p.class === 'Inquisitor'){
-        p.sprite = inquisitor;
+      } else if(p.class === 'Oathkeeper' || p.class === 'Duke'){
+        p.sprite = duke;
       } else if(p.class === 'DarkEntity'){
         p.sprite = darkentity;
       } else if(p.class === 'Goth' || p.class === 'NorseSword'){
@@ -2355,59 +2367,98 @@ getBuilding = function(x,y){
   }
 }
 
-// check if ally(2/1), neutral(0), enemy(-1)
-var allyCheck = function(id,house){
+// check if same faction(2), ally(1), neutral(0), enemy(-1)
+var allyCheck = function(id){
   var player = Player.list[selfId];
-  if(house && player.house){
-    if(house === player.house){
-      return 2;
-    } else if(houseList[house].hostile){
-      return -1;
-    }
-    for(var i in houseList[player.house].allies){
-      var allies = houseList[player.house].allies;
-      if(allies[i] === house){
-        return 1;
-      }
-    }
-    for(var i in houseList[player.house].enemies){
-      var enemies = houseList[player.house].enemies;
-      if(enemies[i] === house){
+  var other = Player.list[id];
+  var pHouse = houseList[player.house];
+  var oHouse = houseList[other.house];
+
+  if(pHouse){
+    if(pHouse.hostile){
+      if(oHouse){
+        if(player.house === other.house){
+          return 2;
+        } else {
+          for(var i in pHouse.allies){
+            if(pHouse.allies[i] === other.house){
+              return 1;
+            } else {
+              continue;
+            }
+          }
+          return -1;
+        }
+      } else {
         return -1;
       }
-    }
-    return 0;
-  } else if(house && !player.house){
-    if(houseList[house].hostile){
-      return -1;
-    }
-    for(var i in houseList[house].enemies){
-      var enemies = houseList[house].enemies;
-      if(enemies[i] === selfId){
-        return -1;
+    } else {
+      if(oHouse){
+        if(player.house === other.house){
+          return 2;
+        } else {
+          for(var i in pHouse.allies){
+            if(pHouse.allies[i] === other.house){
+              return 1;
+            } else {
+              continue;
+            }
+          }
+          if(oHouse.hostile){
+            return -1;
+          } else {
+            for(var i in pHouse.enemies){
+              if(pHouse.enemies[i] === other.house){
+                return -1;
+              } else {
+                continue;
+              }
+            }
+          }
+          return 0;
+        }
+      } else {
+        for(var i in pHouse.enemies){
+          if(pHouse.enemies[i] === id){
+            return -1;
+          } else {
+            continue;
+          }
+        }
+        return 0;
       }
     }
-    return 0;
-  } else if(!house && player.house){
-    for(var i in houseList[player.house].enemies){
-      var enemies = houseList[player.house].enemies;
-      if(enemies[i] === id){
-        return -1;
-      }
-    }
-    return 0;
   } else {
-    for(var i in player.allies){
-      if(player.allies[i] === id){
-        return 1;
-      }
-    }
-    for(var i in player.enemies){
-      if(player.enemies[i] === id){
+    if(oHouse){
+      if(oHouse.hostile){
         return -1;
+      } else {
+        for(var i in oHouse.enemies){
+          if(oHouse.enemies[i] === selfId){
+            return -1;
+          } else {
+            continue;
+          }
+        }
+        return 0;
       }
+    } else {
+      for(var i in player.friends){
+        if(player.friends[i] === id){
+          return 1;
+        } else {
+          continue;
+        }
+      }
+      for(var i in player.enemies){
+        if(player.enemies[i] === id){
+          return -1;
+        } else {
+          continue;
+        }
+      }
+      return 0;
     }
-    return 0;
   }
 }
 
@@ -2936,73 +2987,73 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'house0'){
+          } else if(bTile === 'cottage0'){
             ctx.drawImage(
-              Img.house0, // image
+              Img.cottage0, // image
               xOffset, // target x
               yOffset, // target y
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'house1'){
+          } else if(bTile === 'cottage1'){
             ctx.drawImage(
-              Img.house1, // image
+              Img.cottage1, // image
               xOffset, // target x
               yOffset, // target y
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'house2'){
+          } else if(bTile === 'cottage2'){
             ctx.drawImage(
-              Img.house2, // image
+              Img.cottage2, // image
               xOffset, // target x
               yOffset, // target y
               tileSize, // target width
               tileSize // target height
             );
-          }  else if(bTile === 'house3'){
+          }  else if(bTile === 'cottage3'){
             ctx.drawImage(
-              Img.house3, // image
+              Img.cottage3, // image
               xOffset, // target x
               yOffset, // target y
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'house4'){
+          } else if(bTile === 'cottage4'){
             ctx.drawImage(
-              Img.house4, // image
+              Img.cottage4, // image
               xOffset, // target x
               yOffset, // target y
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'house5'){
+          } else if(bTile === 'cottage5'){
             ctx.drawImage(
-              Img.house5, // image
+              Img.cottage5, // image
               xOffset, // target x
               yOffset, // target y
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'house6'){
+          } else if(bTile === 'cottage6'){
             ctx.drawImage(
-              Img.house6, // image
+              Img.cottage6, // image
               xOffset, // target x
               yOffset, // target y
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'house7'){
+          } else if(bTile === 'cottage7'){
             ctx.drawImage(
-              Img.house7, // image
+              Img.cottage7, // image
               xOffset, // target x
               yOffset, // target y
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'house8'){
+          } else if(bTile === 'cottage8'){
             ctx.drawImage(
-              Img.house8, // image
+              Img.cottage8, // image
               xOffset, // target x
               yOffset, // target y
               tileSize, // target width
