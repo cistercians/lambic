@@ -524,6 +524,7 @@ Character = function(param){
   }
 
   self.update = function(){
+    var loc = getLoc(self.x, self.y);
     if(self.idleTime > 0){
       self.idleTime--;
     }
@@ -531,7 +532,6 @@ Character = function(param){
       self.attackCooldown--;
     }
 
-    var loc = getLoc(self.x, self.y);
     if(self.z === 0){
       if(getTile(0,loc[0],loc[1]) === 6){
         self.z = -1;
@@ -657,11 +657,12 @@ Character = function(param){
 
     // IDLE
     if(self.mode === 'idle'){
-      var loc = getLoc(self.x,self.y);
-
       if(!self.action){
         self.checkAggro();
-        var hDist = self.getDistance(self.home.x,self.home.y);
+        var hDist = self.getDistance({
+          x:self.home.x,
+          y:self.home.y
+        });
         if(self.z === self.home.z && hDist > self.wanderRange){
           self.action === 'return';
         } else if(self.idleTime === 0){
@@ -676,6 +677,7 @@ Character = function(param){
             var target = select[Math.floor(Math.random() * 4)];
             if(target[0] < mapSize && target[0] > -1 && target[1] < mapSize && target[1] > -1){
               if(isWalkable(self.z,target[0],target[1])){
+                console.log(self.class);
                 if(self.z === 0){
                   self.path = [target];
                 } else if(self.z === 1){
@@ -693,16 +695,15 @@ Character = function(param){
           }
         }
       } else if(self.action === 'combat'){
-        var target = self.combat.target;
+        var target = Player.list[self.combat.target];
         if(!target){
           self.action = 'return';
-        } else if(self.hp < (self.hpMax * 0.1)){
+        } else if(self.hp < (self.hpMax * 0.1) || self.class === 'Deer' || self.class === 'SerfM' || self.class === 'SerfF'){
           self.action = 'flee';
-        }
-        if(self.ranged){
+        } else if(self.ranged){
           var dist = self.getDistance({
-            x:Player.list[target].x,
-            y:Player.list[target].y
+            x:target.x,
+            y:target.y
           })
           if(self.attackCooldown > 0){
             if(dist < 256){
@@ -710,7 +711,7 @@ Character = function(param){
             }
           } else {
             if(dist > 256){
-              var angle = self.getAngle(Player.list[target].x,Player.list[target].y);
+              var angle = self.getAngle(target.x,target.y);
               self.shootArrow(angle);
               self.attackCooldown += self.attackRate/self.dexterity;
             } else {
@@ -718,11 +719,11 @@ Character = function(param){
             }
           }
         } else {
-          var angle = self.getAngle(Player.list[target].x,Player.list[target].y);
-          var tLoc = getLoc(Player.list[target].x,Player.list[target].y);
+          var angle = self.getAngle(target.x,target.y);
+          var tLoc = getLoc(target.x,target.y);
 
           if(angle > 45 && angle <= 115){ // attack down
-            var uLoc = getLoc(Player.list[target].x,Player.list[target].y-tileSize);
+            var uLoc = getLoc(target.x,target.y-tileSize);
             if(loc[0] !== tLoc[0] || loc[1] < uLoc[1]){
               self.getPath(uLoc[0],uLoc[1]);
             } else {
@@ -731,7 +732,7 @@ Character = function(param){
               self.attackCooldown += self.attackrate/self.dexterity;
             }
           } else if(angle > -135 && angle <= -15){ // attack up
-            var dLoc = getLoc(Player.list[target].x,Player.list[target].y+tileSize);
+            var dLoc = getLoc(target.x,target.y+tileSize);
             if(loc[0] !== tLoc[0] || loc[1] > tLoc[1]){
               self.getPath(dLoc[0],dLoc[1]);
             } else {
@@ -740,7 +741,7 @@ Character = function(param){
               self.attackCooldown += self.attackrate/self.dexterity;
             }
           } else if(angle > 115 || angle <= -135){ // attack left
-            var rLoc = getLoc(Player.list[target].x+tileSize,Player.list[target].y);
+            var rLoc = getLoc(target.x+tileSize,target.y);
             if(loc[0] > tLoc[0] || loc[1] !== tLoc[1]){
               self.getPath(rLoc[0],rLoc[1]);
             } else {
@@ -749,7 +750,7 @@ Character = function(param){
               self.attackCooldown += self.attackrate/self.dexterity;
             }
           } else if(angle > -15 || angle <= 45){ // attack right
-            var lLoc = getLoc(Player.list[target].x-tileSize,Player.list[target].y);
+            var lLoc = getLoc(target.x-tileSize,target.y);
             if(loc[0] < tLoc[0] || loc[1] !== tLoc[1]){
               self.getPath(lLoc[0],lLoc[1]);
             } else {
@@ -789,10 +790,10 @@ Character = function(param){
         }
         self.checkAggro();
       } else if(self.action === 'flee'){
-        var target = self.combat.target;
+        var target = Player.list[self.combat.target];
         var dist = self.getDistance({
-          x:Player.list[target].x,
-          y:Player.list[target].y
+          x:target.x,
+          y:target.y
         })
         if(dist > self.aggroRange){
           self.action = null;
@@ -836,7 +837,7 @@ Character = function(param){
           }
           self.checkAggro();
         } else if(self.action === 'combat'){
-          var target = self.combat.target;
+          var target = Player.list[self.combat.target];
           var lastLoc = self.lastLoc;
           var lCoords = getCenter(lastLoc[0],lastLoc[1]);
           var lDist = self.getDistance(lCoords[0],lCoords[1]);
@@ -845,8 +846,8 @@ Character = function(param){
           }
           if(self.ranged){
             var dist = self.getDistance({
-              x:Player.list[target].x,
-              y:Player.list[target].y
+              x:target.x,
+              y:target.y
             })
             if(self.attackCooldown > 0){
               if(dist < 256){
@@ -854,7 +855,7 @@ Character = function(param){
               }
             } else {
               if(dist > 256){
-                var angle = self.getAngle(Player.list[target].x,Player.list[target].y);
+                var angle = self.getAngle(target.x,target.y);
                 self.shootArrow(angle);
                 self.attackCooldown += self.attackRate/self.dexterity;
               } else {
@@ -862,11 +863,11 @@ Character = function(param){
               }
             }
           } else {
-            var angle = self.getAngle(Player.list[target].x,Player.list[target].y);
-            var tLoc = getLoc(Player.list[target].x,Player.list[target].y);
+            var angle = self.getAngle(target.x,target.y);
+            var tLoc = getLoc(target.x,target.y);
 
             if(angle > 45 && angle <= 115){ // attack down
-              var uLoc = getLoc(Player.list[target].x,Player.list[target].y-tileSize);
+              var uLoc = getLoc(target.x,target.y-tileSize);
               if(loc[0] !== tLoc[0] || loc[1] < uLoc[1]){
                 self.getPath(uLoc[0],uLoc[1]);
               } else {
@@ -874,7 +875,7 @@ Character = function(param){
                 self.attackCooldown += self.attackrate/self.dexterity;
               }
             } else if(angle > -135 && angle <= -15){ // attack up
-              var dLoc = getLoc(Player.list[target].x,Player.list[target].y+tileSize);
+              var dLoc = getLoc(target.x,target.y+tileSize);
               if(loc[0] !== tLoc[0] || loc[1] > tLoc[1]){
                 self.getPath(dLoc[0],dLoc[1]);
               } else {
@@ -882,7 +883,7 @@ Character = function(param){
                 self.attackCooldown += self.attackrate/self.dexterity;
               }
             } else if(angle > 115 || angle <= -135){ // attack left
-              var rLoc = getLoc(Player.list[target].x+tileSize,Player.list[target].y);
+              var rLoc = getLoc(target.x+tileSize,target.y);
               if(loc[0] > tLoc[0] || loc[1] !== tLoc[1]){
                 self.getPath(rLoc[0],rLoc[1]);
               } else {
@@ -890,7 +891,7 @@ Character = function(param){
                 self.attackCooldown += self.attackrate/self.dexterity;
               }
             } else if(angle > -15 || angle <= 45){ // attack right
-              var lLoc = getLoc(Player.list[target].x-tileSize,Player.list[target].y);
+              var lLoc = getLoc(target.x-tileSize,target.y);
               if(loc[0] < tLoc[0] || loc[1] !== tLoc[1]){
                 self.getPath(lLoc[0],lLoc[1]);
               } else {
@@ -1100,14 +1101,14 @@ Character = function(param){
         }
         self.hardAggro();
       } else if(self.action === 'combat'){
-        var target = self.combat.target;
+        var target = Player.list[self.combat.target];
         if(!target || pDist > (self.aggroRange*1.5)){
           self.action = 'return';
         }
         if(self.ranged){
           var dist = self.getDistance({
-            x:Player.list[target].x,
-            y:Player.list[target].y
+            x:target.x,
+            y:target.y
           })
           if(self.attackCooldown > 0){
             if(dist < 256){
@@ -1115,7 +1116,7 @@ Character = function(param){
             }
           } else {
             if(dist > 256){
-              var angle = self.getAngle(Player.list[target].x,Player.list[target].y);
+              var angle = self.getAngle(target.x,target.y);
               self.shootArrow(angle);
               self.attackCooldown += self.attackRate/self.dexterity;
             } else {
@@ -1123,11 +1124,11 @@ Character = function(param){
             }
           }
         } else {
-          var angle = self.getAngle(Player.list[target].x,Player.list[target].y);
-          var tLoc = getLoc(Player.list[target].x,Player.list[target].y);
+          var angle = self.getAngle(target.x,target.y);
+          var tLoc = getLoc(target.x,target.y);
 
           if(angle > 45 && angle <= 115){ // attack down
-            var uLoc = getLoc(Player.list[target].x,Player.list[target].y-tileSize);
+            var uLoc = getLoc(target.x,target.y-tileSize);
             if(loc[0] !== tLoc[0] || loc[1] < uLoc[1]){
               self.getPath(uLoc[0],uLoc[1]);
             } else {
@@ -1135,7 +1136,7 @@ Character = function(param){
               self.attackCooldown += self.attackrate/self.dexterity;
             }
           } else if(angle > -135 && angle <= -15){ // attack up
-            var dLoc = getLoc(Player.list[target].x,Player.list[target].y+tileSize);
+            var dLoc = getLoc(target.x,target.y+tileSize);
             if(loc[0] !== tLoc[0] || loc[1] > tLoc[1]){
               self.getPath(dLoc[0],dLoc[1]);
             } else {
@@ -1143,7 +1144,7 @@ Character = function(param){
               self.attackCooldown += self.attackrate/self.dexterity;
             }
           } else if(angle > 115 || angle <= -135){ // attack left
-            var rLoc = getLoc(Player.list[target].x+tileSize,Player.list[target].y);
+            var rLoc = getLoc(target.x+tileSize,target.y);
             if(loc[0] > tLoc[0] || loc[1] !== tLoc[1]){
               self.getPath(rLoc[0],rLoc[1]);
             } else {
@@ -1151,7 +1152,7 @@ Character = function(param){
               self.attackCooldown += self.attackrate/self.dexterity;
             }
           } else if(angle > -15 || angle <= 45){ // attack right
-            var lLoc = getLoc(Player.list[target].x-tileSize,Player.list[target].y);
+            var lLoc = getLoc(target.x-tileSize,target.y);
             if(loc[0] < tLoc[0] || loc[1] !== tLoc[1]){
               self.getPath(lLoc[0],lLoc[1]);
             } else {
@@ -1210,7 +1211,7 @@ Character = function(param){
         }
         self.checkAggro();
       } else if(self.action === 'combat'){
-        var target = self.combat.target;
+        var target = Player.list[self.combat.target];
         var lastLoc = self.lastLoc;
         var lCoords = getCenter(lastLoc[0],lastLoc[1]);
         var lDist = self.getDistance(lCoords[0],lCoords[1]);
@@ -1219,8 +1220,8 @@ Character = function(param){
         }
         if(self.ranged){
           var dist = self.getDistance({
-            x:Player.list[target].x,
-            y:Player.list[target].y
+            x:target.x,
+            y:target.y
           })
           if(self.attackCooldown > 0){
             if(dist < 256){
@@ -1228,7 +1229,7 @@ Character = function(param){
             }
           } else {
             if(dist > 256){
-              var angle = self.getAngle(Player.list[target].x,Player.list[target].y);
+              var angle = self.getAngle(target.x,target.y);
               self.shootArrow(angle);
               self.attackCooldown += self.attackRate/self.dexterity;
             } else {
@@ -1236,11 +1237,11 @@ Character = function(param){
             }
           }
         } else {
-          var angle = self.getAngle(Player.list[target].x,Player.list[target].y);
-          var tLoc = getLoc(Player.list[target].x,Player.list[target].y);
+          var angle = self.getAngle(target.x,target.y);
+          var tLoc = getLoc(target.x,target.y);
 
           if(angle > 45 && angle <= 115){ // attack down
-            var uLoc = getLoc(Player.list[target].x,Player.list[target].y-tileSize);
+            var uLoc = getLoc(target.x,target.y-tileSize);
             if(loc[0] !== tLoc[0] || loc[1] < uLoc[1]){
               self.getPath(uLoc[0],uLoc[1]);
             } else {
@@ -1248,7 +1249,7 @@ Character = function(param){
               self.attackCooldown += self.attackrate/self.dexterity;
             }
           } else if(angle > -135 && angle <= -15){ // attack up
-            var dLoc = getLoc(Player.list[target].x,Player.list[target].y+tileSize);
+            var dLoc = getLoc(target.x,target.y+tileSize);
             if(loc[0] !== tLoc[0] || loc[1] > tLoc[1]){
               self.getPath(dLoc[0],dLoc[1]);
             } else {
@@ -1256,7 +1257,7 @@ Character = function(param){
               self.attackCooldown += self.attackrate/self.dexterity;
             }
           } else if(angle > 115 || angle <= -135){ // attack left
-            var rLoc = getLoc(Player.list[target].x+tileSize,Player.list[target].y);
+            var rLoc = getLoc(target.x+tileSize,target.y);
             if(loc[0] > tLoc[0] || loc[1] !== tLoc[1]){
               self.getPath(rLoc[0],rLoc[1]);
             } else {
@@ -1264,7 +1265,7 @@ Character = function(param){
               self.attackCooldown += self.attackrate/self.dexterity;
             }
           } else if(angle > -15 || angle <= 45){ // attack right
-            var lLoc = getLoc(Player.list[target].x-tileSize,Player.list[target].y);
+            var lLoc = getLoc(target.x-tileSize,target.y);
             if(loc[0] < tLoc[0] || loc[1] !== tLoc[1]){
               self.getPath(lLoc[0],lLoc[1]);
             } else {

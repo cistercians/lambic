@@ -99,8 +99,8 @@ entropy = function(){
         z:0,
         home:{
           z:0,
-          x:sCoords[0],
-          y:sCoords[1]
+          x:sp[0],
+          y:sp[1]
         }
       });
     }
@@ -114,15 +114,14 @@ entropy = function(){
     }
     for(var i = 0; i < num; i++){
       var sp = randomSpawnHF();
-      var sCoords = getCenter(sp[0],sp[1]);
       Boar({
         x:sp[0],
         y:sp[1],
         z:0,
         home:{
           z:0,
-          x:sCoords[0],
-          y:sCoords[1]
+          x:sp[0],
+          y:sp[1]
         }
       });
     }
@@ -136,15 +135,14 @@ entropy = function(){
     }
     for(var i = 0; i < num; i++){
       var sp = randomSpawnHF();
-      var sCoords = getCenter(sp[0],sp[1]);
       Wolf({
         x:sp[0],
         y:sp[1],
         z:0,
         home:{
           z:0,
-          x:sCoords[0],
-          y:sCoords[1]
+          x:sp[0],
+          y:sp[1]
         }
       });
     }
