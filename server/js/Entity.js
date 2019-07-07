@@ -677,7 +677,6 @@ Character = function(param){
             var target = select[Math.floor(Math.random() * 4)];
             if(target[0] < mapSize && target[0] > -1 && target[1] < mapSize && target[1] > -1){
               if(isWalkable(self.z,target[0],target[1])){
-                console.log(self.class);
                 if(self.z === 0){
                   self.path = [target];
                 } else if(self.z === 1){
