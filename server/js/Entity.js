@@ -85,6 +85,7 @@ Character = function(param){
   self.zone = null;
   self.type = 'npc';
   self.name = null;
+  self.sex = param.sex; // 'm' or 'f'
   self.house = param.house;
   self.kingdom = param.kingdom;
   self.home = param.home; // {z,x,y}
