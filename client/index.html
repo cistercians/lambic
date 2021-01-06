@@ -5,10 +5,14 @@
   p {color:darkgray;text-align:center;}
   input {background-color:black;color:darkgray;}
   button {background-color:black;color:darkgray;}
+  #enter {margin-top:25%;}
 </style>
 
 <div id="screen">
-  <div id="signDiv">
+  <div id="enterDiv">
+    <center><button id="enter">ENTER</button></center>
+  </div>
+  <div id="signDiv" style="display:none">
     <br>
     <center><img src='client/img/stronghold.png' height='225px' width='200px'></center>
     <br>
@@ -39,6 +43,8 @@
     </div>
   </div>
 </div>
+
+<script src="/client/js/audioloader.js"></script>
 
 <script src="/client/js/socket.js"></script>
 

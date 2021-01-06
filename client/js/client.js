@@ -7,19 +7,27 @@ var mapSize = 0;
 var socket = io({transports: ['websocket'], upgrade: false});
 
 // SIGN IN
+var enterDiv = document.getElementById('enterDiv');
+var enterButton = document.getElementById('enter');
 var signDiv = document.getElementById('signDiv');
 var signDivUsername = document.getElementById('signDiv-username');
 var signDivPassword = document.getElementById('signDiv-password');
 var signDivSignIn = document.getElementById('signDiv-signIn');
 var signDivSignUp = document.getElementById('signDiv-signUp');
 
+enterButton.onclick = function(){
+  bgmPlayer(title_bgm);
+  enterDiv.style.display = 'none';
+  signDiv.style.display = 'inline';
+};
+
 signDivSignIn.onclick = function(){
   socket.emit('signIn',{name:signDivUsername.value,password:signDivPassword.value});
-}
+};
 
 signDivSignUp.onclick = function(){
   socket.emit('signUp',{name:signDivUsername.value,password:signDivPassword.value});
-}
+};
 
 socket.on('signInResponse',function(data){
   if(data.success){
@@ -30,6 +38,7 @@ socket.on('signInResponse',function(data){
     signDiv.style.display = 'none';
     gameDiv.style.display = 'inline-block';
     UI.style.display = 'inline-block';
+    getBgm(Player.list[selfId].x,Player.list[selfId].y,Player.list[selfId].z);
   } else
     alert('Sign-in failed.')
 });
@@ -59,7 +68,8 @@ chatForm.onsubmit = function(e){
   if(chatInput.value[0] === '/'){ // command
     socket.emit('evalCmd',{
       id:selfId,
-      cmd:chatInput.value.slice(1)
+      cmd:chatInput.value.slice(1),
+      world:world
     });
   } else if(chatInput.value[0] === '@'){ // private message
     socket.emit('sendPmToServer',{
@@ -73,9 +83,80 @@ chatForm.onsubmit = function(e){
     });
   }
   chatInput.value = '';
-}
+};
 
 // GAME
+
+var soundscape = function(x,y,z){
+  console.log('getting AMB');
+  // outdoors
+  if(z == 0){
+    var tile = getLocTile(0,self.x,self.y);
+    if(tile >= 5 && tile < 6){
+      ambPlayer(Amb.mountains);
+    } else {
+      if(tempus == 'VII.p' || tempus == 'VIII.p' || tempus == 'IX.p' || tempus == 'X.p' || tempus == 'XI.p' || tempus == 'XII.a' || tempus == 'I.a' || tempus == 'II.a' || tempus == 'III.a' || tempus == 'IV.'){
+        ambPlayer(Amb.forest);
+      } else {
+        ambPlayer(Amb.nature);
+      }
+    }
+  } else if(z == -1){
+    ambPlayer(Amb.cave);
+  } else if(z == 1 || z == 2){
+    var b = getBuilding(x,y);
+    if(Building.list[b].type == 'monastery'){
+      ambPlayer(Amb.empty);
+    } else if(hasFire(z,x,y)){
+      ambPlayer(Amb.fire);
+    }
+  }
+};
+
+var getBgm = function(x,y,z){
+  console.log('getting BGM');
+  soundscape(x,y,z);
+  // outdoors
+  if(z == 0){
+    if(tempus === 'IV.a' || tempus === 'V.a' || tempus === 'VI.a' || tempus === 'VII.a' || tempus === 'VIII.a' || tempus === 'IX.a'){
+      // morning
+      bgmPlayer(overworld_morning_bgm);
+    } else if(tempus === 'X.a' || tempus === 'XI.a' || tempus === 'XII.p' || tempus === 'I.p' || tempus === 'II.p' || tempus === 'III.p' || tempus === 'IV.p' || tempus === 'V.p' || tempus === 'VI.p'){
+      // day
+      bgmPlayer(overworld_day_bgm);
+    } else {
+      // night
+      bgmPlayer(overworld_night_bgm);
+    }
+  } else if(z == -1){
+    // cave
+    bgmPlayer(cave_bgm);
+  } else {
+    // indoors
+    var b = getBuilding(x,y);
+    if(z == 1 || z == 2){
+      if(Building.list[b].type == 'stronghold'){
+        if(tempus == 'VI.p' || tempus == 'VII.p' || tempus == 'VIII.p' || tempus == 'IX.p' || tempus == 'X.p' || tempus == 'XI.p' || tempus == 'XII.a' || tempus == 'I.a' || tempus == 'II.a' || tempus == 'III.a'){
+          bgmPlayer(stronghold_night_bgm);
+        } else {
+          bgmPlayer(stronghold_day_bgm);
+        }
+      } else if(Building.list[b].type == 'tavern'){
+        bgmPlayer(tavern_bgm);
+      } else if(Building.list[b].type == 'monastery'){
+        bgmPlayer(monastery_bgm);
+      } else {
+        bgmPlayer(indoors_bgm);
+      }
+    } else if(z == -2){
+      if(Building.list[b].type == 'tavern'){
+        return;
+      } else {
+        bgmPlayer(dungeons_bgm);
+      }
+    }
+  }
+};
 
 var fly = 0
 setInterval(function(){
@@ -112,9 +193,13 @@ var lighting = document.getElementById('lighting').getContext('2d');
 ctx.font = '30px Arial';
 
 // BUILDINGS
-buildingCount = 0;
-buildingId = [];
-buildingList = {}
+var Building = function(initPack){
+  var self = {};
+  self.id = initPack.id;
+  self.type = initPack.type;
+  self.hp = initPack.hp;
+}
+Building.list = {};
 
 // PLAYER
 var Player = function(initPack){
@@ -2175,6 +2260,8 @@ socket.on('update',function(data){
         itm.y = pack.y;
       if(pack.z !== undefined)
         itm.z = pack.z;
+      if(pack.innaWoods !== undefined)
+        itm.innaWoods = pack.innaWoods;
     }
   }
   for(var i = 0 ; i < data.light.length; i++){
@@ -2344,7 +2431,15 @@ var getTile = function(l,c,r){
 var getLoc = function(x,y){
   var loc = [Math.floor(x/tileSize),Math.floor(y/tileSize)];
   return loc;
-}
+};
+
+// get tile type from (l,x,y)
+getLocTile = function(l,x,y){
+  if(x >= 0 && x <= mapPx && y >= 0 && y <= mapPx){
+    var loc = getLoc(x,y);
+    return world[l][loc[1]][loc[0]];
+  }
+};
 
 // get (x,y) coords of tile from loc
 var getCoords = function(c,r){
@@ -2355,8 +2450,8 @@ var getCoords = function(c,r){
 // get building id from (x,y)
 getBuilding = function(x,y){
   var loc = getLoc(x,y);
-  for(i = 0; i < buildingCount; i++){
-    var b = buildingList[buildingId[i]];
+  for(i in Building.list){
+    var b = Building.list[i];
     for(n = 0; n < b.plot.length; n++){
       if(b.plot[n][0] === loc[0] && b.plot[n][1] === loc[1]){
         return b.id;
@@ -2470,12 +2565,6 @@ kingdomList = null;
 
 socket.on('tempus',function(data){
   tempus = data.tempus;
-});
-
-socket.on('newBuilding',function(data){
-  buildingCount = data.bCount;
-  buildingId = data.bId;
-  buildingList = data.bList;
 });
 
 socket.on('newFaction',function(data){

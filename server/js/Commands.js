@@ -2,6 +2,7 @@ EvalCmd = function(data){
   if(Player.list[data.id]){
     var socket = SOCKET_LIST[data.id];
     var player = Player.list[data.id];
+    var world = data.world;
     var loc = getLoc(player.x,player.y);
     var z = player.z;
     var c = loc[0];
@@ -72,11 +73,11 @@ EvalCmd = function(data){
             if(player.working){
               for(var i in plot){
                 var n = plot[i];
-                world[0][n[1]][n[0]] = 8;
-                world[6][n[1]][n[0]] = 0;
+                tileChange(0,n[0],n[1],8);
+                tileChange(6,n[0],n[1],0);
               }
               player.working = false;
-              io.emit('mapEdit',world);
+              mapEdit();
               Building({
                 owner:player.id,
                 house:player.house,
@@ -131,10 +132,10 @@ EvalCmd = function(data){
           if(count === 10){
             for(var i in plot){
               var n = plot[i];
-              world[0][n[1]][n[0]] = 11;
-              world[6][n[1]][n[0]] = 0;
+              tileChange(0,n[0],n[1],11);
+              tileChange(6,n[0],n[1],0);
             }
-            io.emit('mapEdit',world);
+            mapEdit();
             Building({
               owner:player.id,
               house:player.house,
@@ -193,10 +194,10 @@ EvalCmd = function(data){
           if(count === 8){
             for(var i in plot){
               var n = plot[i];
-              world[0][n[1]][n[0]] = 11;
-              world[6][n[1]][n[0]] = 0;
+              tileChange(0,n[0],n[1],11);
+              tileChange(6,n[0],n[1],0);
             }
-            io.emit('mapEdit',world);
+            mapEdit();
             Building({
               owner:player.id,
               house:player.house,
@@ -255,10 +256,10 @@ EvalCmd = function(data){
           if(count === 12){
             for(var i in plot){
               var n = plot[i];
-              world[0][n[1]][n[0]] = 11;
-              world[6][n[1]][n[0]] = 0;
+              tileChange(0,n[0],n[1],11);
+              tileChange(6,n[0],n[1],0);
             }
-            io.emit('mapEdit',world);
+            mapEdit();
             Building({
               owner:player.id,
               house:player.house,
@@ -290,9 +291,9 @@ EvalCmd = function(data){
           if(getTile(0,c,r-1) === 14 || getTile(c,r-1) === 16){
             socket.emit('addToChat','<i>You cannot build that there.</i>');
           } else {
-            world[0][r][c] = 11;
-            world[6][r][c] = 0;
-            io.emit('mapEdit',world);
+            tileChange(0,c,r,11);
+            tileChange(6,c,r,0);
+            mapEdit();
             Building({
               owner:player.id,
               house:player.house,
@@ -320,9 +321,9 @@ EvalCmd = function(data){
           if(getTile(0,c,r-1) === 14 || getTile(c,r-1) === 16 || getTile(c,r-1) === 19){
             socket.emit('addToChat','<i>You cannot build that there.</i>');
           } else {
-            world[0][r][c] = 11;
-            world[6][r][c] = 0;
-            io.emit('mapEdit',world);
+            tileChange(0,c,r,11);
+            tileChange(6,c,r,0);
+            mapEdit();
             Building({
               owner:player.id,
               house:player.house,
@@ -353,9 +354,9 @@ EvalCmd = function(data){
           if(getTile(0,c,r-1) === 14 || getTile(0,c,r-1) === 16 || getTile(0,c,r-1) === 19 || getTile(5,c,r-1) !== 0){
             socket.emit('addToChat','<i>You cannot build that there.</i>');
           } else {
-            world[0][r][c] = 11;
-            world[6][r][c] = 0;
-            io.emit('mapEdit',world);
+            tileChange(0,c,r,11);
+            tileChange(6,c,r,0);
+            mapEdit();
             Building({
               owner:player.id,
               house:player.house,
@@ -395,10 +396,10 @@ EvalCmd = function(data){
           } else {
             for(var i in plot){
               var n = plot[i];
-              world[0][n[1]][n[0]] = 11;
-              world[6][n[1]][n[0]] = 0;
+              tileChange(0,n[0],n[1],11);
+              tileChange(6,n[0],n[1],0);
             }
-            io.emit('mapEdit',world);
+            mapEdit();
             Building({
               owner:player.id,
               house:player.house,
@@ -457,10 +458,10 @@ EvalCmd = function(data){
           if(count === 15){
             for(var i in plot){
               var n = plot[i];
-              world[0][n[1]][n[0]] = 11;
-              world[6][n[1]][n[0]] = 0;
+              tileChange(0,n[0],n[1],11);
+              tileChange(6,n[0],n[1],0);
             }
-            io.emit('mapEdit',world);
+            mapEdit();
             Building({
               owner:player.id,
               house:player.house,
@@ -521,9 +522,10 @@ EvalCmd = function(data){
           if(count === 16){
             for(var i in plot){
               var n = plot[i];
-              world[0][n[1]][n[0]] = 11;
+              tileChange(0,n[0],n[1],11);
+              tileChange(6,n[0],n[1],0);
             }
-            io.emit('mapEdit',world);
+            mapEdit();
             Building({
               owner:player.id,
               house:player.house,
@@ -584,10 +586,10 @@ EvalCmd = function(data){
           if(count === 18){
             for(var i in plot){
               var n = plot[i];
-              world[0][n[1]][n[0]] = 11;
-              world[6][n[1]][n[0]] = 0;
+              tileChange(0,n[0],n[1],11);
+              tileChange(6,n[0],n[1],0);
             }
-            io.emit('mapEdit',world);
+            mapEdit();
             Building({
               owner:player.id,
               house:player.house,
@@ -648,10 +650,10 @@ EvalCmd = function(data){
           if(count === 18){
             for(var i in plot){
               var n = plot[i];
-              world[0][n[1]][n[0]] = 11;
-              world[6][n[1]][n[0]] = 0;
+              tileChange(0,n[0],n[1],11);
+              tileChange(6,n[0],n[1],0);
             }
-            io.emit('mapEdit',world);
+            mapEdit();
             Building({
               owner:player.id,
               house:player.house,
@@ -711,10 +713,10 @@ EvalCmd = function(data){
           if(count === 16){
             for(var i in plot){
               var n = plot[i];
-              world[0][n[1]][n[0]] = 11;
-              world[6][n[1]][n[0]] = 0;
+              tileChange(0,n[0],n[1],11);
+              tileChange(6,n[0],n[1],0);
             }
-            io.emit('mapEdit',world);
+            mapEdit();
             Building({
               owner:player.id,
               house:player.house,
@@ -794,15 +796,14 @@ EvalCmd = function(data){
             for(var i in plot){
               var n = plot[i];
               if(getTile(0,n[0],n[1]) !== 0){
-                world[0][n[1]][n[0]] = 11;
+                tileChange(0,n[0],n[1],11);
               } else {
-                world[0][n[1]][n[0]] = 11.5;
+                tileChange(0,n[0],n[1],11.5);
               }
-              world[6][n[1]][n[0]] = 0;
-              matrixO[n[1]][n[0]] = 0;
-              gridO.setWalkableAt(n[0],n[1],true);
+              tileChange(6,n[0],n[1],0);
+              matrixChange(0,n[0],n[1],0);
             }
-            io.emit('mapEdit',world);
+            mapEdit();
             Building({
               owner:player.id,
               house:player.house,
@@ -863,10 +864,10 @@ EvalCmd = function(data){
           if(count === 20){
             for(var i in plot){
               var n = plot[i];
-              world[0][n[1]][n[0]] = 11;
-              world[6][n[1]][n[0]] = 0;
+              tileChange(0,n[0],n[1],11);
+              tileChange(6,n[0],n[1],0);
             }
-            io.emit('mapEdit',world);
+            mapEdit();
             Building({
               owner:player.id,
               house:player.house,
@@ -926,10 +927,10 @@ EvalCmd = function(data){
           if(count === 16){
             for(var i in plot){
               var n = plot[i];
-              world[0][n[1]][n[0]] = 11;
-              world[6][n[1]][n[0]] = 0;
+              tileChange(0,n[0],n[1],11);
+              tileChange(6,n[0],n[1],0);
             }
-            io.emit('mapEdit',world);
+            mapEdit();
             Building({
               owner:player.id,
               house:player.house,
@@ -968,9 +969,9 @@ EvalCmd = function(data){
           }
           if(count === 2){
             for(var i in plot){
-              world[5][plot[i][1]][plot[i][0]] = String('gateo');
+              tileChange(5,plot[i][0],plot[i][1],String('gateo'));
             }
-            io.emit('mapEdit',world);
+            mapEdit();
             Building({
               owner:player.id,
               house:player.house,
@@ -1002,10 +1003,10 @@ EvalCmd = function(data){
           player.actionCooldown = 10;
           setTimeout(function(){
             if(player.working){
-              world[0][r][c] = 18;
-              world[6][r][c] = 0;
+              tileChange(0,c,r,18);
+              tileChange(6,c,r,0);
               player.working = false;
-              io.emit('mapEdit',world);
+              mapEdit();
             } else {
               return;
             }
@@ -1058,10 +1059,10 @@ EvalCmd = function(data){
           if(count === 40){
             for(var i in plot){
               var n = plot[i];
-              world[0][n[1]][n[0]] = 11;
-              //world[6][n[1]][n[0]] = 0; // ALPHA
+              tileChange(0,n[0],n[1],11);
+              //tileChange(6,n[0],n[1],0); // ALPHA
             }
-            io.emit('mapEdit',world);
+            mapEdit();
             Building({
               owner:player.id,
               house:player.house,

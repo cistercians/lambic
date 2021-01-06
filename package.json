@@ -16,5 +16,6 @@
     "simplex-noise": "^2.4.0",
     "socket.io": "^2.2.0",
     "toolbox": "^0.1.1"
-  }
+  },
+  "devDependencies": {}
 }
