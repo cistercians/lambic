@@ -16,6 +16,7 @@ var signDivSignIn = document.getElementById('signDiv-signIn');
 var signDivSignUp = document.getElementById('signDiv-signUp');
 
 enterButton.onclick = function(){
+  ambPlayer(Amb.empty);
   bgmPlayer(title_bgm);
   enterDiv.style.display = 'none';
   signDiv.style.display = 'inline';

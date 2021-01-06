@@ -3786,6 +3786,7 @@ LitTorch = function(param){
       self.x = Player.list[self.parent].x - (tileSize * 0.75);
       self.y = Player.list[self.parent].y - (tileSize * 0.75);
       self.z = Player.list[self.parent].z;
+      self.innaWoods = Player.list[self.parent].innaWoods;
     } else {
       self.toRemove = true;
     }
@@ -3797,7 +3798,6 @@ LitTorch = function(param){
       self.toRemove = true;
       Player.list[self.parent].hasTorch = false;
     }
-    self.innaWoods = Player.list[self.parent].innaWoods;
     super_update();
   }
   Item.list[self.id] = self;
