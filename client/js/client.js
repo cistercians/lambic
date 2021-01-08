@@ -88,15 +88,18 @@ chatForm.onsubmit = function(e){
 
 // GAME
 
-var soundscape = function(x,y,z){
-  console.log('getting AMB');
+socket.on('bgm',function(data){
+  getBgm(data.x,data.y,data.z,data.b);
+});
+
+var soundscape = function(x,y,z,b){
   // outdoors
   if(z == 0){
     var tile = getLocTile(0,self.x,self.y);
     if(tile >= 5 && tile < 6){
       ambPlayer(Amb.mountains);
     } else {
-      if(tempus == 'VII.p' || tempus == 'VIII.p' || tempus == 'IX.p' || tempus == 'X.p' || tempus == 'XI.p' || tempus == 'XII.a' || tempus == 'I.a' || tempus == 'II.a' || tempus == 'III.a' || tempus == 'IV.'){
+      if(tempus == 'VII.p' || tempus == 'VIII.p' || tempus == 'IX.p' || tempus == 'X.p' || tempus == 'XI.p' || tempus == 'XII.a' || tempus == 'I.a' || tempus == 'II.a' || tempus == 'III.a' || tempus == 'IV.a'){
         ambPlayer(Amb.forest);
       } else {
         ambPlayer(Amb.nature);
@@ -105,8 +108,7 @@ var soundscape = function(x,y,z){
   } else if(z == -1){
     ambPlayer(Amb.cave);
   } else if(z == 1 || z == 2){
-    var b = getBuilding(x,y);
-    if(Building.list[b].type == 'monastery'){
+    if(b == 'monastery'){
       ambPlayer(Amb.empty);
     } else if(hasFire(z,x,y)){
       ambPlayer(Amb.fire);
@@ -114,9 +116,9 @@ var soundscape = function(x,y,z){
   }
 };
 
-var getBgm = function(x,y,z){
-  console.log('getting BGM');
-  soundscape(x,y,z);
+var getBgm = function(x,y,z,b){
+  console.log('z: ' + z);
+  soundscape(x,y,z,b);
   // outdoors
   if(z == 0){
     if(tempus === 'IV.a' || tempus === 'V.a' || tempus === 'VI.a' || tempus === 'VII.a' || tempus === 'VIII.a' || tempus === 'IX.a'){
@@ -134,23 +136,22 @@ var getBgm = function(x,y,z){
     bgmPlayer(cave_bgm);
   } else {
     // indoors
-    var b = getBuilding(x,y);
     if(z == 1 || z == 2){
-      if(Building.list[b].type == 'stronghold'){
+      if(b == 'stronghold'){
         if(tempus == 'VI.p' || tempus == 'VII.p' || tempus == 'VIII.p' || tempus == 'IX.p' || tempus == 'X.p' || tempus == 'XI.p' || tempus == 'XII.a' || tempus == 'I.a' || tempus == 'II.a' || tempus == 'III.a'){
           bgmPlayer(stronghold_night_bgm);
         } else {
           bgmPlayer(stronghold_day_bgm);
         }
-      } else if(Building.list[b].type == 'tavern'){
+      } else if(b == 'tavern'){
         bgmPlayer(tavern_bgm);
-      } else if(Building.list[b].type == 'monastery'){
+      } else if(b == 'monastery'){
         bgmPlayer(monastery_bgm);
       } else {
         bgmPlayer(indoors_bgm);
       }
     } else if(z == -2){
-      if(Building.list[b].type == 'tavern'){
+      if(b == 'tavern'){
         return;
       } else {
         bgmPlayer(dungeons_bgm);
@@ -2566,12 +2567,17 @@ kingdomList = null;
 
 socket.on('tempus',function(data){
   tempus = data.tempus;
+  if(Player.list[selfId].z == 0 && (tempus == 'IV.a' || tempus == 'V.a' || tempus == 'X.a' || tempus == 'VII.p')){
+    getBgm(Player.list[selfId].x,Player.list[selfId].y,Player.list[selfId].z);
+  } else if((Player.list[selfId].z == 1 || Player.list[selfId].z == 2) && (tempus == 'VI.p' || tempus == 'IV.a')){
+    getBgm(Player.list[selfId].x,Player.list[selfId].y,Player.list[selfId].z);
+  }
 });
 
 socket.on('newFaction',function(data){
   houseList = data.houseList;
   kingdomList = data.kingdomlist;
-})
+});
 
 // update sprite
 socket.on('sprite',function(data){

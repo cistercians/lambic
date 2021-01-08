@@ -375,6 +375,8 @@ var tavern_bgm = [
 
 var title_bgm = [
   Bgm.danca,
+  Bgm.danca,
+  Bgm.danca,
   Bgm.miri,
   Bgm.moriar,
   Bgm.tousjours,

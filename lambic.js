@@ -121,18 +121,21 @@ var entropy = function(){
   var toB = [];
   for(var c = 0; c < mapSize; c++){
     for(var r = 0; r < mapSize; r++){
+      // fish
       if(getTile(0,c,r) === 0){
-        if(Math.random() < 0.25){
+        if(Math.random() < 0.2){
           world[6][r][c] = Math.ceil(Math.random() * 10);
         } else {
           world[6][r][c] = 0;
         }
+        // tree growth
       } else if(world[0][r][c] >= 1 && world[0][r][c] < 2 && day > 0){
         if(world[6][r][c] < 300){
-          world[6][r][c] += Math.floor(Math.random() * 6);
+          world[6][r][c] += Math.floor(Math.random() * 4);
         }
+        // forest to heavy forest
       } else if(world[0][r][c] >= 2 && world[0][r][c] < 3 && day > 0){
-        world[6][r][c] += Math.floor(Math.random() * 6);
+        world[6][r][c] += Math.floor(Math.random() * 4);
         if(world[6][r][c] > 100){
           toHF.push([c,r]);
         }
@@ -203,7 +206,7 @@ var entropy = function(){
     if(day === 0){
       num = Math.floor(deerRatio * 0.5);
     } else {
-      num = Math.floor((deerRatio - deerPop) * 0.05);
+      num = Math.floor((deerRatio - deerPop) * 0.01);
     }
     for(var i = 0; i < num; i++){
       var sp = randomSpawnHF();
@@ -225,7 +228,7 @@ var entropy = function(){
     if(day === 0){
       num = Math.floor(boarRatio * 0.5);
     } else {
-      num = Math.floor((boarRatio - boarPop) * 0.05);
+      num = Math.floor((boarRatio - boarPop) * 0.01);
     }
     for(var i = 0; i < num; i++){
       var sp = randomSpawnHF();
@@ -246,7 +249,7 @@ var entropy = function(){
     if(day === 0){
       num = Math.floor(wolfRatio * 0.5);
     } else {
-      num = Math.floor((wolfRatio - wolfPop) * 0.05);
+      num = Math.floor((wolfRatio - wolfPop) * 0.01);
     }
     for(var i = 0; i < num; i++){
       var sp = randomSpawnHF();
@@ -267,7 +270,7 @@ var entropy = function(){
     if(day === 0){
       num = Math.floor(falconRatio * 0.5);
     } else {
-      num = Math.floor((falconRatio - falconPop) * 0.05);
+      num = Math.floor((falconRatio - falconPop) * 0.01);
     }
     for(var i = 0; i < num; i++){
       var sp = randomSpawnHF();
@@ -298,6 +301,7 @@ var spawnPointsU = []; // underworld
 var waterSpawns = [];
 var hForestSpawns = [];
 var mtnSpawns = [];
+
 var caveEntrances = [];
 
 // territories
@@ -1565,8 +1569,6 @@ Player = function(param){
     }
 
     // INTERACTIONS
-
-
 
     // WORK ACTIONS
     if(self.pressingF && self.actionCooldown === 0 && !self.working){
@@ -3276,6 +3278,7 @@ Player = function(param){
 
   // x,y movement
   self.updateSpd = function(){
+    var socket = SOCKET_LIST[self.id];
     var loc = getLoc(self.x, self.y);
     var rLoc = getLoc(self.x + (tileSize/8), self.y);
     var lLoc = getLoc(self.x - (tileSize/8), self.y);
@@ -3430,6 +3433,7 @@ Player = function(param){
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd;
+        socket.emit('bgm',{x:self.x,y:self.y,z:self.z,b:Building.list[getBuilding(self.x,self.y)].type});
       } else if(getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 2){
         self.innaWoods = true;
         self.onMtn = false;
@@ -3456,22 +3460,25 @@ Player = function(param){
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * 1.1;
-      } else if(getTile(0,loc[0],loc[1]) === 14 || getTile(0,loc[0],loc[1]) === 16 || getTile(0,loc[0],loc[1]) === 19){
+      } else if(getTile(0,loc[0],loc[1]) === 14 || getTile(0,loc[0],loc[1]) === 16){
         self.z = 1;
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd;
+        socket.emit('bgm',{x:self.x,y:self.y,z:self.z,b:Building.list[getBuilding(self.x,self.y)].type});
       } else if(getTile(0,loc[0],loc[1]) === 19){
         self.z = 1;
-        SOCKET_LIST[self.id].emit('addToChat','<i>🗝 You unlock the door.</i>');
+        socket.emit('addToChat','<i>🗝 You unlock the door.</i>');
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd;
+        socket.emit('bgm',{x:self.x,y:self.y,z:self.z,b:Building.list[getBuilding(self.x,self.y)].type});
       } else if(getTile(0,loc[0],loc[1]) === 0){
         self.z = -3;
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * 0.1;
+        socket.emit('bgm',{x:self.x,y:self.y,z:self.z});
       } else {
         self.innaWoods = false;
         self.onMtn = false;
@@ -3483,12 +3490,14 @@ Player = function(param){
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * 0.9;
+        socket.emit('bgm',{x:self.x,y:self.y,z:self.z});
       }
     } else if(self.z === -2){
       if(getTile(8,loc[0],loc[1]) === 5){
         self.z = 1;
         self.y += (tileSize/2);
         self.facing = 'down';
+        socket.emit('bgm',{x:self.x,y:self.y,z:self.z,b:Building.list[getBuilding(self.x,self.y)].type});
       }
     } else if(self.z === -3){
       if(self.breath > 0){
@@ -3499,24 +3508,29 @@ Player = function(param){
       if(getTile(0,loc[0],loc[1]) !== 0){
         self.z = 0;
         self.breath = self.breathMax;
+        socket.emit('bgm',{x:self.x,y:self.y,z:self.z});
       }
     } else if(self.z === 1){
       if(getTile(0,loc[0],loc[1] - 1) === 14 || getTile(0,loc[0],loc[1] - 1) === 16  || getTile(0,loc[0],loc[1] - 1) === 19){
         self.z = 0;
+        socket.emit('bgm',{x:self.x,y:self.y,z:self.z});
       } else if(getTile(4,loc[0],loc[1]) === 3 || getTile(4,loc[0],loc[1]) === 4 || getTile(4,loc[0],loc[1]) === 7){
         self.z = 2;
         self.y += (tileSize/2);
         self.facing = 'down'
+        socket.emit('bgm',{x:self.x,y:self.y,z:self.z,b:Building.list[getBuilding(self.x,self.y)].type});
       } else if(getTile(4,loc[0],loc[1]) === 5 || getTile(4,loc[0],loc[1]) === 6){
         self.z = -2;
         self.y += (tileSize/2);
         self.facing = 'down';
+        socket.emit('bgm',{x:self.x,y:self.y,z:self.z,b:Building.list[getBuilding(self.x,self.y)].type});
       }
     } else if(self.z === 2){
       if(getTile(4,loc[0],loc[1]) === 3 || getTile(4,loc[0],loc[1]) === 4){
         self.z = 1;
         self.y += (tileSize/2);
         self.facing = 'down';
+        socket.emit('bgm',{x:self.x,y:self.y,z:self.z,b:Building.list[getBuilding(self.x,self.y)].type});
       }
     }
   }

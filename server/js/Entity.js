@@ -648,13 +648,6 @@ Character = function(param){
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd;
-      } else if(getTile(0,loc[0],loc[1]) === 19){
-        self.z = 1;
-        self.path = null;
-        self.pathCount = 0;
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = self.baseSpd;
       } else if(getTile(0,loc[0],loc[1]) === 0){
         self.z = -3;
         self.path = null;
@@ -2477,22 +2470,17 @@ Item = function(param){
   self.blocker = function(n){
     var loc = getLoc(self.x,self.y);
     if(self.z === 0){
-      matrixO[loc[1]][loc[0]] = n;
-      gridO.setWalkableAt(loc[1],loc[0],false);
+      matrixChange(0,loc[0],loc[1],n);
     } else if(self.z === 1){
-      matrixB1[loc[1]][loc[0]] = n;
-      gridB1.setWalkableAt(loc[1],loc[0],false);
+      matrixChange(1,loc[0],loc[1],n);
     } else if(self.z === 2){
-      matrixB2[loc[1]][loc[0]] = n;
-      gridB2.setWalkableAt(loc[1],loc[0],false);
+      matrixChange(2,loc[0],loc[1],n);
     } else if(self.z === -1){
-      matrixU[loc[1]][loc[0]] = n;
-      gridU.setWalkableAt(loc[1],loc[0],false);
+      matrixChange(-1,loc[0],loc[1],n);
     } else if(self.z === -2){
-      matrixB3[loc[1]][loc[0]] = n;
-      gridB3.setWalkableAt(loc[1],loc[0],false);
+      matrixChange(-2,loc[0],loc[1],n);
     } else if(self.z === -3){
-      matrixW[loc[1]][loc[0]] = n;
+      matrixChange(-3,loc[0],loc[1],n);
     }
   }
 
