@@ -2457,6 +2457,11 @@ Item = function(param){
   } else {
     self.innaWoods = false;
   }
+  self.update = function(){
+    if(self.toRemove){
+      self.toUpdate = true;
+    }
+  }
 
   self.blocker = function(n){
     var loc = getLoc(self.x,self.y);
@@ -3762,6 +3767,7 @@ LitTorch = function(param){
   self.rank = 0;
   self.canPickup = false;
   self.timer = 0;
+  self.toUpdate = true;
   var super_update = self.update;
   self.update = function(){
     if(Player.list[self.parent]){
