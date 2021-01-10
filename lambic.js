@@ -3433,7 +3433,7 @@ Player = function(param){
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd;
-        socket.emit('bgm',{x:self.x,y:self.y,z:self.z,b:Building.list[getBuilding(self.x,self.y)].type});
+        socket.emit('bgm',{x:self.x,y:self.y,z:self.z});
       } else if(getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 2){
         self.innaWoods = true;
         self.onMtn = false;
