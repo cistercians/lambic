@@ -15,6 +15,8 @@ var bgmPlayer = function(playlist,next=false){
 var ambPlayer = function(src){
   if(src == AudioCtrl.amb.src){
     return;
+  } else if(!src){
+    AudioCtrl.amb.src = "";
   } else {
     AudioCtrl.amb.src = src;
     AudioCtrl.amb.loop = true;

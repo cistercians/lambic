@@ -82,6 +82,7 @@ Building.update = function(){
   for(var i in Building.list){
     var building = Building.list[i];
     if(building.toUpdate){
+      building.update();
       pack.push(building.getUpdatePack());
       Building.list[i].toUpdate = false;
     }
@@ -518,21 +519,20 @@ Character = function(param){
 
   self.zoneCheck = function(){
     var loc = getLoc(self.x,self.y);
-    var z = self.zone;
+    var zn = self.zone;
     var zc = Math.floor(loc[0]/8);
     var zr = Math.floor(loc[1]/8);
 
-    if(!z){
+    if(!zn){
       self.zone = [zc,zr];
       zones[zr][zc][self.id = self.id];
-    } else if(z !== [zc,zr]){
-      delete zones[z[1]][z[0]][self.id];
+    } else if(zn !== [zc,zr]){
+      delete zones[zn[1]][zn[0]][self.id];
       zones[zr][zc][self.id] = self.id;
       self.zone = [zc,zr];
     }
   }
 
-  self.aggroCooldown = 500;
   self.checkAggro = function(){
     var c = self.zone[0];
     var r = self.zone[1];
@@ -570,7 +570,6 @@ Character = function(param){
         }
       }
     }
-    self.aggroCooldown += 500;
   }
 
   self.hardAggro = function(){
@@ -598,9 +597,6 @@ Character = function(param){
     }
     if(self.attackCooldown > 0){
       self.attackCooldown--;
-    }
-    if(self.aggroCooldown > 0){
-      self.aggroCooldown--;
     }
 
     if(self.z === 0){
@@ -722,9 +718,6 @@ Character = function(param){
     // IDLE
     if(self.mode === 'idle'){
       if(!self.action){
-        if(self.aggroCooldown === 0){
-          self.checkAggro();
-        }
         var hDist = self.getDistance({
           x:self.home.x,
           y:self.home.y
@@ -853,9 +846,6 @@ Character = function(param){
             }
           }
         }
-        if(self.aggroCooldown === 0){
-          self.checkAggro();
-        }
       } else if(self.action === 'flee'){
         var target = Player.list[self.combat.target];
         var dist = self.getDistance({
@@ -902,7 +892,6 @@ Character = function(param){
               self.getPath(select[0],select[1]);
             }
           }
-          self.checkAggro();
         } else if(self.action === 'combat'){
           var target = Player.list[self.combat.target];
           var lastLoc = self.lastLoc;
@@ -980,7 +969,6 @@ Character = function(param){
               self.getPath(self.lastLoc[0],self.lastLoc[1]);
             }
           }
-          self.checkAggro();
         }
       }
       // ESCORT
@@ -1276,7 +1264,6 @@ Character = function(param){
             self.getPath(dest[0],dest[1]);
           }
         }
-        self.checkAggro();
       } else if(self.action === 'combat'){
         var target = Player.list[self.combat.target];
         var lastLoc = self.lastLoc;
@@ -1354,7 +1341,6 @@ Character = function(param){
             self.getPath(self.lastLoc[0],self.lastLoc[1]);
           }
         }
-        self.checkAggro();
       } else if(self.action === 'flee'){
         if((self.z === 0 && !self.path) ||
         (self.z === 1 && !self.path1) ||
@@ -1478,6 +1464,7 @@ Character = function(param){
       } else {
         self.path1 = null;
         self.pathCount = 0;
+        self.checkAggro();
       }
     } else if(self.z === 2 && self.path2){
       var len = self.path2.length;
@@ -1516,6 +1503,7 @@ Character = function(param){
       } else {
         self.path2 = null;
         self.pathCount = 0;
+        self.checkAggro();
       }
     } else if(self.z === -1 && self.pathU){
       var len = self.pathU.length;
@@ -1554,6 +1542,7 @@ Character = function(param){
       } else {
         self.pathU = null;
         self.pathCount = 0;
+        self.checkAggro();
       }
     } else if(self.z === -2 && self.pathD){
       var len = self.pathD.length;
@@ -1592,6 +1581,7 @@ Character = function(param){
       } else {
         self.pathD = null;
         self.pathCount = 0;
+        self.checkAggro();
       }
     } else {
       return;
@@ -2460,6 +2450,7 @@ Item = function(param){
   self.rank = null; // 0 = common, 1 = rare, 2 = lore, 3 = mythic, 4 = relic
   self.parent = param.parent;
   self.canPickup = true;
+  self.toUpdate = false;
   self.toRemove = false;
   if(self.z === 0 && getLocTile(0,self.x,self.y) >= 1 && getLocTile(0,self.x,self.y) < 2){
     self.innaWoods = true;
@@ -2515,12 +2506,15 @@ Item.update = function(){
   var pack = [];
   for(var i in Item.list){
     var item = Item.list[i];
-    item.update();
-    if(item.toRemove){
-      delete Item.list[i];
-      removePack.item.push(item.id);
-    } else
-      pack.push(item.getUpdatePack());
+    if(item.toUpdate){
+      item.update();
+      if(item.toRemove){
+        delete Item.list[i];
+        removePack.item.push(item.id);
+      } else {
+        pack.push(item.getUpdatePack());
+      }
+    }
   }
   return pack;
 }
@@ -4979,8 +4973,10 @@ Light = function(param){
   self.parent = param.parent;
   self.radius = param.radius;
   self.toRemove = false;
+  self.toUpdate = false;
   var super_update = self.update;
   if(Item.list[self.parent].type === 'LitTorch'){
+    self.toUpdate = true;
     self.update = function(){
       if(Item.list[self.parent]){
         self.x = Item.list[self.parent].x + (tileSize * 0.25);
@@ -5030,12 +5026,15 @@ Light.update = function(){
   var pack = [];
   for(var i in Light.list){
     var light = Light.list[i];
-    light.update();
-    if(light.toRemove){
-      delete Light.list[i];
-      removePack.light.push(light.id);
-    } else
-      pack.push(light.getUpdatePack());
+    if(light.toUpdate){
+      light.update();
+      if(light.toRemove){
+        delete Light.list[i];
+        removePack.light.push(light.id);
+      } else {
+        pack.push(light.getUpdatePack());
+      }
+    }
   }
   return pack;
 }

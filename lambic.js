@@ -179,10 +179,10 @@ var entropy = function(){
   }
 
   // FAUNA
-  var deerRatio = Math.floor(biomes.hForest/200);
-  var boarRatio = Math.floor(biomes.hForest/800);
-  var wolfRatio = Math.floor(biomes.hForest/400);
-  var falconRatio = Math.floor(biomes.hForest/1200);
+  var deerRatio = Math.floor(biomes.hForest/400);
+  var boarRatio = Math.floor(biomes.hForest/1600);
+  var wolfRatio = Math.floor(biomes.hForest/800);
+  var falconRatio = Math.floor(biomes.hForest/2400);
 
   var deerPop = 0;
   var boarPop = 0;

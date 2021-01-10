@@ -112,6 +112,8 @@ var soundscape = function(x,y,z,b){
       ambPlayer(Amb.empty);
     } else if(hasFire(z,x,y)){
       ambPlayer(Amb.fire);
+    } else {
+      ambPlayer();
     }
   }
 };
@@ -2567,10 +2569,12 @@ kingdomList = null;
 
 socket.on('tempus',function(data){
   tempus = data.tempus;
-  if(Player.list[selfId].z == 0 && (tempus == 'IV.a' || tempus == 'V.a' || tempus == 'X.a' || tempus == 'VII.p')){
-    getBgm(Player.list[selfId].x,Player.list[selfId].y,Player.list[selfId].z);
-  } else if((Player.list[selfId].z == 1 || Player.list[selfId].z == 2) && (tempus == 'VI.p' || tempus == 'IV.a')){
-    getBgm(Player.list[selfId].x,Player.list[selfId].y,Player.list[selfId].z);
+  if(Player.list[selfId]){
+    if(Player.list[selfId].z == 0 && (tempus == 'IV.a' || tempus == 'V.a' || tempus == 'X.a' || tempus == 'VII.p')){
+      getBgm(Player.list[selfId].x,Player.list[selfId].y,Player.list[selfId].z);
+    } else if((Player.list[selfId].z == 1 || Player.list[selfId].z == 2) && (tempus == 'VI.p' || tempus == 'IV.a')){
+      getBgm(Player.list[selfId].x,Player.list[selfId].y,Player.list[selfId].z);
+    }
   }
 });
 
