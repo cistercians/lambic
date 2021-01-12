@@ -22,17 +22,18 @@ House = function(param){
   self.leader = param.leader;
   self.kingdom = param.kingdom;
   self.hostile = param.hostile; // true = attacks neutral players/units
-  self.campaign = 0;
   self.underAttack = false;
   self.allies = [];
   self.enemies = [];
 
-  self.scene = {
-
-  }
   self.spawnTimer = 0;
   self.spawnRate = 3600000/period;
   self.nextChapter = 0;
+  self.campaign = 0;
+  self.campaignStats = {
+    maxPop: 5,
+    chapterCount: 24
+  }
 
   self.stores = {
     grain:0,
@@ -43,6 +44,10 @@ House = function(param){
     gold:0
   }
 
+  self.update = function(){
+
+  }
+
   House.list[self.id] = self;
 
   io.emit('newFaction',{
@@ -50,6 +55,17 @@ House = function(param){
     kingdomList:Kingdom.list
   })
   return self;
+}
+
+House.list = {};
+
+House.update = function(){
+  for(var i in House.list){
+    var house = House.list[i];
+    if(house.update){
+      house.update();
+    }
+  }
 }
 
 // BROTHERHOOD
@@ -131,7 +147,7 @@ Brotherhood = function(param){
       } else if(self.spawnTimer === 0){
         self.nextChapter++;
       }
-      if(self.nextChapter === (3600000/period)*24){
+      if(self.nextChapter === 24){
         self.nextChapter = 0;
         self.campaign++;
       }
@@ -915,19 +931,7 @@ Kingdom = function(param){
   return self;
 }
 
-House.list = {};
 Kingdom.list = {};
-
-House.update = function(){
-  var pack = null;
-  for(var i in House.list){
-    var house = House.list[i];
-    if(house.update){
-      house.update();
-    }
-  }
-  return pack;
-}
 
 flags = [
   ['🇦🇽',0], // 0

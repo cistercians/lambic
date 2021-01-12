@@ -119,7 +119,6 @@ var soundscape = function(x,y,z,b){
 };
 
 var getBgm = function(x,y,z,b){
-  console.log('z: ' + z);
   soundscape(x,y,z,b);
   // outdoors
   if(z == 0){
@@ -202,6 +201,10 @@ var Building = function(initPack){
   self.id = initPack.id;
   self.type = initPack.type;
   self.hp = initPack.hp;
+  self.plot = initPack.plot;
+
+  Building.list[self.id] = self;
+  return self;
 }
 Building.list = {};
 
@@ -2031,17 +2034,20 @@ socket.on('init',function(data){
   if(data.selfId)
     selfId = data.selfId;
   // { player : [{id:123,number:'1',x:0,y:0},{id:1,x:0,y:0}] arrow : []}
-  for(var i = 0 ; i < data.player.length; i++){
+  for(i in data.player){
     new Player(data.player[i]);
   }
-  for(var i = 0 ; i < data.arrow.length; i++){
+  for(i in data.arrow){
     new Arrow(data.arrow[i]);
   }
-  for(var i = 0 ; i < data.item.length; i++){
+  for(i in data.item){
     new Item(data.item[i]);
   }
-  for(var i = 0 ; i < data.light.length; i++){
+  for(i in data.light){
     new Light(data.light[i]);
+  }
+  for(i in data.building){
+    new Building(data.building[i]);
   }
 });
 

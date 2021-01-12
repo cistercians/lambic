@@ -58,7 +58,9 @@ Building = function(param){
   self.getInitPack = function(){
     return {
       id:self.id,
-      hp:self.hp
+      type:self.type,
+      hp:self.hp,
+      plot:self.plot
     };
   }
 
@@ -101,6 +103,7 @@ Building.getAllInitPack = function(){
 Character = function(param){
   var self = Entity(param);
   self.zone = null;
+  self.zGrid = null;
   self.type = 'npc';
   self.name = null;
   self.sex = param.sex; // 'm' or 'f'
@@ -526,25 +529,27 @@ Character = function(param){
     if(!zn){
       self.zone = [zc,zr];
       zones[zr][zc][self.id = self.id];
+      self.zGrid = [
+        [zc-1,zr-1],[zc,zr-1],[zc+1,zr-1],
+        [zc-1,zr],self.zone,[zc+1,zr],
+        [zc-1,zr+1],[zc,zr+1],[zc+1,zr+1]
+      ];
     } else if(zn !== [zc,zr]){
       delete zones[zn[1]][zn[0]][self.id];
       zones[zr][zc][self.id] = self.id;
       self.zone = [zc,zr];
+      self.zGrid = [
+        [zc-1,zr-1],[zc,zr-1],[zc+1,zr-1],
+        [zc-1,zr],self.zone,[zc+1,zr],
+        [zc-1,zr+1],[zc,zr+1],[zc+1,zr+1]
+      ];
     }
   }
 
   self.checkAggro = function(){
-    var c = self.zone[0];
-    var r = self.zone[1];
-    var zGrid = [
-      [c-1,r-1],[c,r-1],[c+1,r-1],
-      [c-1,r],[c,r],[c+1,r],
-      [c-1,r+1],[c,r+1],[c+1,r+1]
-    ];
-
-    for(var i in zGrid){
-      var zc = zGrid[i][0];
-      var zr = zGrid[i][1];
+    for(var i in self.zGrid){
+      var zc = self.zGrid[i][0];
+      var zr = self.zGrid[i][1];
       if(zc < 64 && zc > -1 && zr < 64 && zr > -1){
         for(var n in zones[zr][zc]){
           var p = Player.list[zones[zr][zc][n]];
@@ -556,6 +561,8 @@ Character = function(param){
             if(pDist < self.aggroRange){
               if(allyCheck(self.id,p.id) < 0){
                 self.combat.target = p.id;
+                Player.list[zones[zr][zc][n]].combat.target = self.id;
+                Player.list[zones[zr][zc][n]].action = 'combat';
                 if(self.hp < (self.hpMax * 0.1) || self.class === 'Deer' || self.class === 'SerfM' || self.class === 'SerfF'){
                   self.action = 'flee';
                 } else {

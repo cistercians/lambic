@@ -3835,6 +3835,9 @@ var dayNight = function(){
   })
   console.log(tempus);
 
+  House.update;
+  Kingdom.update;
+
   if(tick < 23){
     tick++;
   } else {
