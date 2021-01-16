@@ -302,7 +302,7 @@ var waterSpawns = [];
 var hForestSpawns = [];
 var mtnSpawns = [];
 
-var caveEntrances = [];
+caveEntrances = [];
 
 // territories
 var territories = {
@@ -544,6 +544,10 @@ isWalkable = function(z, c, r){
       }
     }
   }
+}
+
+getDistance = function(pt1,pt2){
+  return Math.sqrt(Math.pow(pt1.x-pt2.x,2) + Math.pow(pt1.y-pt2.y,2));
 }
 
 // get tile type from (l,c,r)
@@ -1845,7 +1849,7 @@ Player = function(param){
         self.working = true;
         self.building = true;
         self.actionCooldown = 10;
-        var b = Building.list[getBuilding(self.x,self.y)];
+        var b = getBuilding(self.x,self.y);
         setTimeout(function(){
           if(self.working){
             world[6][loc[1]][loc[0]] += 10; // ALPHA, default:1
@@ -1871,21 +1875,18 @@ Player = function(param){
               }
             }
             if(count === plot.length){
+              Building.list[b].built = true;
               if(b.type === 'hut'){
-                Building.list[getBuilding(self.x,self.y)].built = true;
                 for(var i in plot){
-                  matrixO[plot[i][1]][plot[i][0]] = 1;
-                  gridO.setWalkableAt(plot[i][0],plot[i][1],false);
-                  matrixB1[plot[i][1]][plot[i][0]] = 0;
-                  gridO.setWalkableAt(plot[i][0],plot[i][1],true);
+                  matrixChange(0,plot[i][0],plot[i][1],1);
+                  matrixChange(1,plot[i][0],plot[i][1],0);
                   world[0][plot[i][1]][plot[i][0]] = 13;
                   world[3][plot[i][1]][plot[i][0]] = String('hut' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'hut1'){
                     world[0][plot[i][1]][plot[i][0]] = 14;
-                    matrixO[plot[i][1]][plot[i][0]] = 0;
-                    gridO.setWalkableAt(plot[i][0],plot[i][1],true);
-                    matrixB1[plot[i][1]+1][plot[i][0]] = 0;
-                    gridB1.setWalkableAt(plot[i][1],plot[i][0]+1,true);
+                    matrixChange(0,plot[i][0],plot[i][1],0);
+                    matrixChange(1,plot[i][0],plot[i][1]+1,0);
+                    Building.list[b].entrance = [plot[i][0],plot[i][1]];
                   }
                 }
                 for(var i in walls){
@@ -1901,30 +1902,24 @@ Player = function(param){
                   parent:b.id
                 });
               } else if(b.type === 'mill'){
-                Building.list[getBuilding(self.x,self.y)].built = true;
                 for(var i in plot){
                   world[0][plot[i][1]][plot[i][0]] = 13;
                   world[3][plot[i][1]][plot[i][0]] = String('mill' + i);
-                  matrixO[plot[i][1]][plot[i][0]] = 1;
-                  gridO.setWalkableAt(plot[i][0],plot[i][1],false);
+                  matrixChange(0,plot[i][0],plot[i][1],1);
                 }
                 world[5][top[0][1]][top[0][0]] = 'mill4';
                 world[5][top[1][1]][top[1][0]] = 'mill5';
               } else if(b.type === 'cottage'){
-                Building.list[getBuilding(self.x,self.y)].built = true;
                 for(var i in plot){
-                  matrixO[plot[i][1]][plot[i][0]] = 1;
-                  gridO.setWalkableAt(plot[i][0],plot[i][1],false);
-                  matrixB1[plot[i][1]][plot[i][0]] = 0;
-                  gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
+                  matrixChange(0,plot[i][0],plot[i][1],1);
+                  matrixChange(1,plot[i][0],plot[i][1],0);
                   world[0][plot[i][1]][plot[i][0]] = 15;
                   world[3][plot[i][1]][plot[i][0]] = String('cottage' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'cottage1'){
-                    matrixO[plot[i][1]][plot[i][0]] = 0;
-                    gridO.setWalkableAt(plot[i][0],plot[i][1],true);
-                    matrixB1[plot[i][1]+1][plot[i][0]] = 0;
-                    gridB1.setWalkableAt(plot[i][0],plot[i][1]+1,true);
+                    matrixChange(0,plot[i][0],plot[i][1],0);
+                    matrixChange(1,plot[i][0],plot[i][1]+1,0);
                     world[0][plot[i][1]][plot[i][0]] = 19;
+                    Building.list[b].entrance = [plot[i][0],plot[i][1]];
                   }
                 }
                 for(var i in walls){
@@ -1941,30 +1936,18 @@ Player = function(param){
                 });
                 Player.list[b.owner].keys.push(b.id);
               } else if(b.type === 'fort'){
-                Building.list[getBuilding(self.x,self.y)].built = true;
-                world[0][plot[0][1]][plot[0][0]] = 13;
-                matrixO[plot[0][1]][plot[0][0]] = 1;
-                gridO.setWalkableAt(plot[0][0],plot[0][1],false);
+                matrixChange(0,plot[0][0],plot[0][1],1);
                 world[3][plot[0][1]][plot[0][0]] = 'fort';
               } else if(b.type === 'wall'){
-                Building.list[getBuilding(self.x,self.y)].built = true;
-                world[0][plot[0][1]][plot[0][0]] = 15;
-                matrixO[plot[0][1]][plot[0][0]] = 1;
-                gridO.setWalkableAt(plot[0][0],plot[0][1],false);
+                matrixChange(0,plot[0][0],plot[0][1],1);
                 world[3][plot[0][1]][plot[0][0]] = 'wall';
               } else if(b.type === 'outpost'){
-                Building.list[getBuilding(self.x,self.y)].built = true;
-                world[0][plot[0][1]][plot[0][0]] = 13;
-                matrixO[plot[0][1]][plot[0][0]] = 1;
-                gridO.setWalkableAt(plot[0][0],plot[0][1],false);
+                matrixChange(0,plot[0][0],plot[0][1],1);
                 world[3][plot[0][1]][plot[0][0]] = 'outpost0';
                 world[5][top[0][1]][top[0][0]] = 'outpost1';
               } else if(b.type === 'guardtower'){
-                Building.list[getBuilding(self.x,self.y)].built = true;
                 for(var i in plot){
-                  world[0][plot[i][1]][plot[i][0]] = 15;
-                  matrixO[plot[i][1]][plot[i][0]] = 1;
-                  gridO.setWalkableAt(plot[i][0],plot[i][1],false);
+                  matrixChange(0,plot[i][0],plot[i][1],1);
                   world[3][plot[i][1]][plot[i][0]] = String('gtower' + i);
                 }
                 world[5][top[0][1]][top[0][0]] = 'gtower4';
@@ -1978,25 +1961,19 @@ Player = function(param){
                   parent:b.id
                 })
               } else if(b.type === 'tower'){
-                Building.list[getBuilding(self.x,self.y)].built = true;
                 for(var i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('tower' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'tower0'){
-                    matrixB1[plot[i][1]][plot[i][0]] = 0;
-                    gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
-                    matrixB2[plot[i][1]][plot[i][0]] = 0;
-                    gridB2.setWalkableAt(plot[i][0],plot[i][1],true);
-                    matrixB1[plot[i][1]+1][plot[i][0]] = 0;
-                    gridB1.setWalkableAt(plot[i][0],plot[i][1]+1,true);
+                    matrixChange(1,plot[i][0],plot[i][1],0);
+                    matrixChange(2,plot[i][0],plot[i][1],0);
+                    matrixChange(1,plot[i][0],plot[i][1]+1,0);
                     world[0][plot[i][1]][plot[i][0]] = 19;
                     world[5][plot[i][1]][plot[i][0]] = 15;
+                    Building.list[b].entrance = [plot[i][0],plot[i][1]];
                   } else {
-                    matrixO[plot[i][1]][plot[i][0]] = 1;
-                    gridO.setWalkableAt(plot[i][0],plot[i][1],false);
-                    matrixB1[plot[i][1]][plot[i][0]] = 0;
-                    gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
-                    matrixB2[plot[i][1]][plot[i][0]] = 0;
-                    gridB2.setWalkableAt(plot[i][0],plot[i][1],true);
+                    matrixChange(0,plot[i][0],plot[i][1],1);
+                    matrixChange(1,plot[i][0],plot[i][1],0);
+                    matrixChange(2,plot[i][0],plot[i][1],0);
                     world[0][plot[i][1]][plot[i][0]] = 15;
                     world[5][plot[i][1]][plot[i][0]] = 15;
                   }
@@ -2008,10 +1985,9 @@ Player = function(param){
                   world[4][n[1]][n[0]] = 2;
                   if(world[5][n[1]][n[0]] === 'tower10'){
                     world[4][n[1]][n[0]] = 4;
-                    matrixB1[n[1]][n[0]] = 0;
-                    gridB1.setWalkableAt(n[0],n[1],true);
-                    matrixB2[n[1]][n[0]] = 0;
-                    gridB2.setWalkableAt(n[0],n[1],true);
+                    matrixChange(1,n[0],n[1],0);
+                    matrixChange(2,n[0],n[1],0);
+                    Building.list[b].ustairs = [n[0],n[1]];
                   } else if(world[5][n[1]][n[0]] === 'tower12' || world[5][n[1]][n[0]] === 'tower13' || world[5][n[1]][n[0]] === 'tower14'){
                     world[4][n[1]][n[0]] = 0;
                   }
@@ -2027,32 +2003,23 @@ Player = function(param){
                 });
                 Player.list[b.owner].keys.push(b.id);
               } else if(b.type === 'tavern'){
-                Building.list[getBuilding(self.x,self.y)].built = true;
                 for(var i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('tavern' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'tavern1'){
-                    matrixO[plot[i][1]][plot[i][0]] = 0;
-                    gridO.setWalkableAt(plot[i][0],plot[i][1],true);
-                    matrixB1[plot[i][1]][plot[i][0]] = 0;
-                    gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
-                    matrixB1[plot[i][1]+1][plot[i][0]] = 0;
-                    gridB1.setWalkableAt(plot[i][0],plot[i][1]+1,true);
+                    matrixChange(0,plot[i][0],plot[i][1],0);
+                    matrixChange(1,plot[i][0],plot[i][1],0);
+                    matrixChange(1,plot[i][0],plot[i][1]+1,0);
                     world[0][plot[i][1]][plot[i][0]] = 14;
+                    Building.list[b].entrance = [plot[i][0],plot[i][1]];
                   } else if(world[3][plot[i][1]][plot[i][0]] === 'tavern0' || world[3][plot[i][1]][plot[i][0]] === 'tavern2'){
-                    matrixO[plot[i][1]][plot[i][0]] = 1;
-                    gridO.setWalkableAt(plot[i][0],plot[i][1],false);
-                    matrixB1[plot[i][1]][plot[i][0]] = 0;
-                    gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
+                    matrixChange(0,plot[i][0],plot[i][1],1);
+                    matrixChange(1,plot[i][0],plot[i][1],0);
                     world[0][plot[i][1]][plot[i][0]] = 13;
                   } else {
-                    matrixO[plot[i][1]][plot[i][0]] = 1;
-                    gridO.setWalkableAt(plot[i][0],plot[i][1],false);
-                    matrixB1[plot[i][1]][plot[i][0]] = 0;
-                    gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
-                    matrixB2[plot[i][1]][plot[i][0]] = 0;
-                    gridB2.setWalkableAt(plot[i][0],plot[i][1],true);
-                    matrixB3[plot[i][1]][plot[i][0]] = 0;
-                    gridB3.setWalkableAt(plot[i][0],plot[i][1],true);
+                    matrixChange(0,plot[i][0],plot[i][1],1);
+                    matrixChange(1,plot[i][0],plot[i][1],0);
+                    matrixChange(2,plot[i][0],plot[i][1],0);
+                    matrixChange(-2,plot[i][0],plot[i][1],0);
                     world[0][plot[i][1]][plot[i][0]] = 13;
                     world[5][plot[i][1]][plot[i][0]] = 13;
                     world[8][plot[i][1]][plot[i][0]] = 1;
@@ -2069,16 +2036,14 @@ Player = function(param){
                   world[4][n[1]][n[0]] = 1;
                 }
                 world[4][walls[0][1]][walls[0][0]] = 5;
-                matrixB1[walls[0][1]][walls[0][0]] = 0;
-                gridB1.setWalkableAt(walls[0][0],walls[0][1],true);
+                matrixChange(1,walls[0][0],walls[0][1],0);
                 world[8][walls[0][1]][walls[0][0]] = 5;
-                matrixB3[walls[0][1]][walls[0][0]] = 0;
-                gridB3.setWalkableAt(walls[0][0],walls[0][1],true);
+                matrixChange(-2,walls[0][0],walls[0][1],0);
+                Building.list[b].dstairs = [walls[0][0],walls[0][1]];
                 world[4][walls[4][1]][walls[4][0]] = 3;
-                matrixB1[walls[4][1]][walls[4][0]] = 0;
-                gridB1.setWalkableAt(walls[4][0],walls[4][1],true);
-                matrixB2[walls[4][1]][walls[4][0]] = 0;
-                gridB2.setWalkableAt(walls[4][0],walls[4][1],true);
+                matrixChange(1,walls[4][0],walls[4][1],0);
+                matrixChange(2,walls[4][0],walls[4][1],0);
+                Building.list[b].ustairs = [walls[4][0],walls[4][1]];
                 var fp = getCoords(walls[2][0],walls[2][1]);
                 var sh = getCoords(walls[3][0],walls[3][1]);
                 var b1 = getCoords(plot[0][0],plot[0][1]);
@@ -2253,8 +2218,8 @@ Player = function(param){
                   y:sp1[1],
                   z:1,
                   name:'Innkeeper ' + randomName('m'),
-                  house:self.house,
-                  kingdom:self.kingdom,
+                  house:Building.list[b].house,
+                  kingdom:Building.list[b].kingdom,
                   home:{
                     z:1,
                     x:sp1[0],
@@ -2262,28 +2227,21 @@ Player = function(param){
                   }
                 });
               } else if(b.type === 'monastery'){
-                Building.list[getBuilding(self.x,self.y)].built = true;
                 for(var i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('monastery' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'monastery0'){
-                    matrixB1[plot[i][1]][plot[i][0]] = 0;
-                    gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
-                    matrixB1[plot[i][1]+1][plot[i][0]] = 0;
-                    gridB1.setWalkableAt(plot[i][0],plot[i][1]+1,true);
+                    matrixChange(1,plot[i][0],plot[i][1],0);
+                    matrixChange(1,plot[i][0],plot[i][1]+1,0);
                     world[0][plot[i][1]][plot[i][0]] = 16;
+                    Building.list[b].entrance = [plot[i][0],plot[i][1]];
                   } else if(world[3][plot[i][1]][plot[i][0]] === 'monastery1' || world[3][plot[i][1]][plot[i][0]] === 'monastery2' || world[3][plot[i][1]][plot[i][0]] === 'monastery3' || world[3][plot[i][1]][plot[i][0]] === 'monastery4' || world[3][plot[i][1]][plot[i][0]] === 'monastery5' || world[3][plot[i][1]][plot[i][0]] === 'monastery6' || world[3][plot[i][1]][plot[i][0]] === 'monastery7'){
-                    matrixO[plot[i][1]][plot[i][0]] = 1;
-                    gridO.setWalkableAt(plot[i][0],plot[i][1],false);
-                    matrixB1[plot[i][1]][plot[i][0]] = 0;
-                    gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
+                    matrixChange(0,plot[i][0],plot[i][1],1);
+                    matrixChange(1,plot[i][0],plot[i][1],0);
                     world[0][plot[i][1]][plot[i][0]] = 15;
                   } else {
-                    matrixO[plot[i][1]][plot[i][0]] = 1;
-                    gridO.setWalkableAt(plot[i][0],plot[i][1],false);
-                    matrixB1[plot[i][1]][plot[i][0]] = 0;
-                    gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
-                    matrixB2[plot[i][1]][plot[i][0]] = 0;
-                    gridB2.setWalkableAt(plot[i][0],plot[i][1],true);
+                    matrixChange(0,plot[i][0],plot[i][1],1);
+                    matrixChange(1,plot[i][0],plot[i][1],0);
+                    matrixChange(2,plot[i][0],plot[i][1],0);
                     world[0][plot[i][1]][plot[i][0]] = 15;
                     world[5][plot[i][1]][plot[i][0]] = 15;
                   }
@@ -2299,10 +2257,9 @@ Player = function(param){
                   world[4][n[1]][n[0]] = 2;
                 }
                 world[4][walls[1][1]][walls[1][0]] = 4;
-                matrixB1[walls[1][1]][walls[1][0]] = 0;
-                gridB1.setWalkableAt(walls[1][0],walls[1][1],true);
-                matrixB2[walls[1][1]][walls[1][0]] = 0;
-                gridB2.setWalkableAt(walls[1][0],walls[1][1],true);
+                matrixChange(1,walls[1][0],walls[1][1],0);
+                matrixChange(2,walls[1][0],walls[1][1],0);
+                Building.list[b].ustairs = [walls[1][0],walls[1][1]];
                 var wt = getCoords(walls[0][0],walls[0][1]);
                 var cr = getCoords(walls[2][0],walls[2][1]);
                 var bs = getCoords(walls[3][0],walls[3][1]);
@@ -2342,8 +2299,8 @@ Player = function(param){
                   y:sp1[1],
                   z:1,
                   name:'Father ' + randomName(),
-                  house:self.house,
-                  kingdom:self.kingdom,
+                  house:Building.list[b].house,
+                  kingdom:Building.list[b].kingdom,
                   home:{
                     z:1,
                     x:sp1[0],
@@ -2355,8 +2312,8 @@ Player = function(param){
                   y:sp2[1],
                   z:1,
                   name:'Brother ' + randomName(),
-                  house:self.house,
-                  kingdom:self.kingdom,
+                  house:Building.list[b].house,
+                  kingdom:Building.list[b].kingdom,
                   home:{
                     z:1,
                     x:sp2[0],
@@ -2368,8 +2325,8 @@ Player = function(param){
                   y:sp3[1],
                   z:1,
                   name:'Brother ' + randomName(),
-                  house:self.house,
-                  kingdom:self.kingdom,
+                  house:Building.list[b].house,
+                  kingdom:Building.list[b].kingdom,
                   home:{
                     z:1,
                     x:sp3[0],
@@ -2377,22 +2334,19 @@ Player = function(param){
                   }
                 });
               } else if(b.type === 'market'){
-                Building.list[getBuilding(self.x,self.y)].built = true;
                 for(var i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('market' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'market0' || world[3][plot[i][1]][plot[i][0]] === 'market1' || world[3][plot[i][1]][plot[i][0]] === 'market2'){
-                    matrixB1[plot[i][1]][plot[i][0]] = 0;
-                    gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
-                    matrixB1[plot[i][1]+1][plot[i][0]] = 0;
-                    gridB1.setWalkableAt(plot[i][0],plot[i][1]+1,true);
+                    matrixChange(1,plot[i][0],plot[i][1],0);
+                    matrixChange(1,plot[i][0],plot[i][1]+1,0);
                     world[0][plot[i][1]][plot[i][0]] = 14;
+                    if(world[3][plot[i][1]][plot[i][0]] === 'market1'){
+                      Building.list[b].entrance = [plot[i][0],plot[i][1]];
+                    }
                   } else {
-                    matrixO[plot[i][1]][plot[i][0]] = 1;
-                    gridO.setWalkableAt(plot[i][0],plot[i][1],false);
-                    matrixB1[plot[i][1]][plot[i][0]] = 0;
-                    gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
-                    matrixB2[plot[i][1]][plot[i][0]] = 0;
-                    gridB2.setWalkableAt(plot[i][0],plot[i][1],true);
+                    matrixChange(0,plot[i][0],plot[i][1],1);
+                    matrixChange(1,plot[i][0],plot[i][1],0);
+                    matrixChange(2,plot[i][0],plot[i][1],0);
                     world[0][plot[i][1]][plot[i][0]] = 13;
                     world[5][plot[i][1]][plot[i][0]] = 13;
                   }
@@ -2407,10 +2361,9 @@ Player = function(param){
                   var n = walls[i];
                   if(world[5][n[1]][n[0]] === 'market12'){
                     world[4][n[1]][n[0]] = 3;
-                    matrixB1[n[1]][n[0]] = 0;
-                    gridB1.setWalkableAt(n[0],n[1],true);
-                    matrixB2[n[1]][n[0]] = 0;
-                    gridB2.setWalkableAt(n[0],n[1],true);
+                    matrixChange(1,n[0],n[1],0);
+                    matrixChange(2,n[0],n[1],0);
+                    Building.list[b].ustairs = [n[0],n[1]];
                   } else {
                     world[4][n[1]][n[0]] = 1;
                   }
@@ -2538,20 +2491,10 @@ Player = function(param){
                   parent:b.id
                 });
               } else if(b.type === 'stable'){
-                Building.list[getBuilding(self.x,self.y)].built = true;
                 for(var i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('stable' + i);
                   world[0][plot[i][1]][plot[i][0]] = 13;
-                  matrixO[plot[i][1]][plot[i][0]] = 1;
-                  if(world[3][plot[i][1]][plot[i][0]] === 'stable0' ||
-                  world[3][plot[i][1]][plot[i][0]] === 'stable1' ||
-                  world[3][plot[i][1]][plot[i][0]] === 'stable2' ||
-                  world[3][plot[i][1]][plot[i][0]] === 'stable3'){
-                    matrixO[plot[i][1]][plot[i][0]] = 'stable';
-                  } else {
-                    matrixO[plot[i][1]][plot[i][0]] = 1;
-                  }
-                  gridO.setWalkableAt(plot[i][0],plot[i][1],false);
+                  matrixChange(0,plot[i][0],plot[i][1],1);
                 }
                 var ii = 12;
                 for(var i in top){
@@ -2568,27 +2511,21 @@ Player = function(param){
                   parent:b.id
                 });
               } else if(b.type === 'dock'){
-                Building.list[getBuilding(self.x,self.y)].built = true;
                 for(var i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('dock' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'dock4'){
                     world[0][plot[i][1]][plot[i][0]] = 13;
-                    matrixO[plot[i][1]][plot[i][0]] = 'dock';
-                    gridO.setWalkableAt(plot[i][0],plot[i][1],false);
-                    matrixW[plot[i][1]][plot[i][0]] = 1;
-                    gridW.setWalkableAt(plot[i][0],plot[i][1],false);
-                    matrixS[plot[i][1]][plot[i][0]] = 1;
-                    gridS.setWalkableAt(plot[i][0],plot[i][1],false);
+                    matrixChange(0,plot[i][0],plot[i][1],1);
+                    matrixChange(-3,plot[i][0],plot[i][1],1);
+                    matrixChange(3,plot[i][0],plot[i][1],1);
                   } else {
                     if(getTile(0,plot[i][0],plot[i][1]) === 12.5){
                       world[0][plot[i][1]][plot[i][0]] = 20.5;
                     } else {
                       world[0][plot[i][1]][plot[i][0]] = 20;
                     }
-                    matrixO[plot[i][1]][plot[i][0]] = 0;
-                    gridO.setWalkableAt(plot[i][0],plot[i][1],true);
-                    matrixS[plot[i][1]][plot[i][0]] = 1;
-                    gridS.setWalkableAt(plot[i][0],plot[i][1],false);
+                    matrixChange(0,plot[i][0],plot[i][1],0);
+                    matrixChange(3,plot[i][0],plot[i][1],1);
                   }
                 }
                 var ii = 6;
@@ -2611,8 +2548,8 @@ Player = function(param){
                   y:sp[1],
                   z:0,
                   name:'Shipwright ' + randomName('m'),
-                  house:self.house,
-                  kingdom:self.kingdom,
+                  house:Building.list[b].house,
+                  kingdom:Building.list[b].kingdom,
                   home:{
                     z:0,
                     x:sp[0],
@@ -2620,28 +2557,21 @@ Player = function(param){
                   }
                 });
               } else if(b.type === 'garrison'){
-                Building.list[getBuilding(self.x,self.y)].built = true;
                 for(var i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('garrison' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'garrison0'){
-                    matrixB1[plot[i][1]][plot[i][0]] = 0;
-                    gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
-                    matrixB1[plot[i][1]+1][plot[i][0]] = 0;
-                    gridB1.setWalkableAt(plot[i][0],plot[i][1]+1,true);
+                    matrixChange(1,plot[i][0],plot[i][1],0);
+                    matrixChange(1,plot[i][0],plot[i][1]+1,0);
                     world[0][plot[i][1]][plot[i][0]] = 16;
+                    Building.list[b].entrance = [plot[i][0],plot[i][1]];
                   } else if(world[3][plot[i][1]][plot[i][0]] === 'garrison1' || world[3][plot[i][1]][plot[i][0]] === 'garrison2' || world[3][plot[i][1]][plot[i][0]] === 'garrison3'){
-                    matrixO[plot[i][1]][plot[i][0]] = 1;
-                    gridO.setWalkableAt(plot[i][0],plot[i][1],false);
-                    matrixB1[plot[i][1]][plot[i][0]] = 0;
-                    gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
+                    matrixChange(0,plot[i][0],plot[i][1],1);
+                    matrixChange(1,plot[i][0],plot[i][1],0);
                     world[0][plot[i][1]][plot[i][0]] = 15;
                   } else {
-                    matrixO[plot[i][1]][plot[i][0]] = 1;
-                    gridO.setWalkableAt(plot[i][0],plot[i][1],false);
-                    matrixB1[plot[i][1]][plot[i][0]] = 0;
-                    gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
-                    matrixB2[plot[i][1]][plot[i][0]] = 0;
-                    gridB2.setWalkableAt(plot[i][0],plot[i][1],true);
+                    matrixChange(0,plot[i][0],plot[i][1],1);
+                    matrixChange(1,plot[i][0],plot[i][1],0);
+                    matrixChange(2,plot[i][0],plot[i][1],0);
                     world[0][plot[i][1]][plot[i][0]] = 15;
                     world[5][plot[i][1]][plot[i][0]] = 15;
                   }
@@ -2656,10 +2586,9 @@ Player = function(param){
                   var n = walls[i];
                   if(world[5][n[1]][n[0]] === 'garrison12'){
                     world[4][n[1]][n[0]] = 4;
-                    matrixB1[n[1]][n[0]] = 0;
-                    gridB1.setWalkableAt(n[0],n[1],true);
-                    matrixB2[n[1]][n[0]] = 0;
-                    gridB2.setWalkableAt(n[0],n[1],true);
+                    matrixChange(1,n[0],n[1],0);
+                    matrixChange(2,n[0],n[1],0);
+                    Building.list[b].ustairs = [n[0],n[1]];
                   } else {
                     world[4][n[1]][n[0]] = 2;
                   }
@@ -2765,20 +2694,17 @@ Player = function(param){
                   parent:b.id
                 });
               } else if(b.type === 'blacksmith'){
-                Building.list[getBuilding(self.x,self.y)].built = true;
+                var b = getBuilding(self.x,self.y);
                 for(var i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('bsmith' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'bsmith1'){
-                    matrixB1[plot[i][1]][plot[i][0]] = 0;
-                    gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
-                    matrixB1[plot[i][1]+1][plot[i][0]] = 0;
-                    gridB1.setWalkableAt(plot[i][0],plot[i][1]+1,true);
+                    matrixChange(1,plot[i][0],plot[i][1],0);
+                    matrixChange(1,plot[i][0],plot[i][1]+1,0);
                     world[0][plot[i][1]][plot[i][0]] = 14;
+                    Building.list[b].entrance = [plot[i][0],plot[i][1]];
                   } else {
-                    matrixO[plot[i][1]][plot[i][0]] = 1;
-                    gridO.setWalkableAt(plot[i][0],plot[i][1],false);
-                    matrixB1[plot[i][1]][plot[i][0]] = 0;
-                    gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
+                    matrixChange(0,plot[i][0],plot[i][1],1);
+                    matrixChange(1,plot[i][0],plot[i][1],0);
                     world[0][plot[i][1]][plot[i][0]] = 13;
                   }
                 }
@@ -2827,20 +2753,18 @@ Player = function(param){
                   parent:b.id
                 });
               } else if(b.type === 'stronghold'){
-                Building.list[getBuilding(self.x,self.y)].built = true;
                 for(var i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('stronghold' + i);
                   if(world[3][plot[i][1]][plot[i][0]] === 'stronghold1' || world[3][plot[i][1]][plot[i][0]] === 'stronghold2'){
-                    matrixB1[plot[i][1]][plot[i][0]] = 0;
-                    gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
-                    matrixB1[plot[i][1]+1][plot[i][0]] = 0;
-                    gridB1.setWalkableAt(plot[i][0],plot[i][1]+1,true);
+                    matrixChange(1,plot[i][0],plot[i][1],0);
+                    matrixChange(1,plot[i][0],plot[i][1]+1,0);
                     world[0][plot[i][1]][plot[i][0]] = 16;
+                    if(world[3][plot[i][1]][plot[i][0]] === 'stronghold1'){
+                      Building.list[b].entrance = [plot[i][0],plot[i][1]];
+                    }
                   } else if(world[3][plot[i][1]][plot[i][0]] === 'stronghold0' || world[3][plot[i][1]][plot[i][0]] === 'stronghold3'){
-                    matrixO[plot[i][1]][plot[i][0]] = 1;
-                    gridO.setWalkableAt(plot[i][0],plot[i][1],false);
-                    matrixB1[plot[i][1]][plot[i][0]] = 0;
-                    gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
+                    matrixChange(0,plot[i][0],plot[i][1],1);
+                    matrixChange(1,plot[i][0],plot[i][1],0);
                     world[0][plot[i][1]][plot[i][0]] = 15;
                   } else if(world[3][plot[i][1]][plot[i][0]] === 'stronghold7' ||
                   world[3][plot[i][1]][plot[i][0]] === 'stronghold8' ||
@@ -2856,26 +2780,18 @@ Player = function(param){
                   world[3][plot[i][1]][plot[i][0]] === 'stronghold47' ||
                   world[3][plot[i][1]][plot[i][0]] === 'stronghold53' ||
                   world[3][plot[i][1]][plot[i][0]] === 'stronghold54'){
-                    matrixO[plot[i][1]][plot[i][0]] = 1;
-                    gridO.setWalkableAt(plot[i][0],plot[i][1],false);
-                    matrixB1[plot[i][1]][plot[i][0]] = 0;
-                    gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
-                    matrixB2[plot[i][1]][plot[i][0]] = 0;
-                    gridB2.setWalkableAt(plot[i][0],plot[i][1],true);
-                    matrixB3[plot[i][1]][plot[i][0]] = 0;
-                    gridB3.setWalkableAt(plot[i][0],plot[i][1],true);
+                    matrixChange(0,plot[i][0],plot[i][1],1);
+                    matrixChange(1,plot[i][0],plot[i][1],0);
+                    matrixChange(2,plot[i][0],plot[i][1],0);
+                    matrixChange(-2,plot[i][0],plot[i][1],0);
                     world[0][plot[i][1]][plot[i][0]] = 17;
                     world[5][plot[i][1]][plot[i][0]] = 15;
                     world[8][plot[i][1]][plot[i][0]] = 1;
                   } else {
-                    matrixO[plot[i][1]][plot[i][0]] = 1;
-                    gridO.setWalkableAt(plot[i][0],plot[i][1],false);
-                    matrixB1[plot[i][1]][plot[i][0]] = 0;
-                    gridB1.setWalkableAt(plot[i][0],plot[i][1],true);
-                    matrixB2[plot[i][1]][plot[i][0]] = 0;
-                    gridB2.setWalkableAt(plot[i][0],plot[i][1],true);
-                    matrixB3[plot[i][1]][plot[i][0]] = 0;
-                    gridB3.setWalkableAt(plot[i][0],plot[i][1],true);
+                    matrixChange(0,plot[i][0],plot[i][1],1);
+                    matrixChange(1,plot[i][0],plot[i][1],0);
+                    matrixChange(2,plot[i][0],plot[i][1],0);
+                    matrixChange(-2,plot[i][0],plot[i][1],0);
                     world[0][plot[i][1]][plot[i][0]] = 15;
                     world[5][plot[i][1]][plot[i][0]] = 15;
                     world[8][plot[i][1]][plot[i][0]] = 1;
@@ -2891,20 +2807,20 @@ Player = function(param){
                   var n = walls[i];
                   if(world[5][n[1]][n[0]] === 'stronghold58' || world[5][n[1]][n[0]] === 'stronghold62'){
                     world[4][n[1]][n[0]] = 7;
-                    matrixB1[n[1]][n[0]] = 0;
-                    gridB1.setWalkableAt(n[0],n[1],true);
-                    matrixB2[n[1]][n[0]] = 0;
-                    gridB2.setWalkableAt(n[0],n[1],true);
+                    matrixChange(1,n[0],n[1],0);
+                    matrixChange(2,n[0],n[1],0);
+                    if(world[5][n[1]][n[0]] === 'stronghold58'){
+                      Building.list[b].ustairs = [n[0],n[1]];
+                    }
                   } else {
                     world[4][n[1]][n[0]] = 2;
                   }
                 }
-                matrixB1[walls[0][1]][walls[0][0]] = 0;
-                gridB1.setWalkableAt(walls[0][0],walls[0][1],true);
-                matrixB3[walls[0][1]][walls[0][0]] = 0;
-                gridB3.setWalkableAt(walls[0][0],walls[0][1],true);
+                matrixChange(1,walls[0][0],walls[0][1],0);
+                matrixChange(-2,walls[0][0],walls[0][1],0);
                 world[4][walls[0][1]][walls[0][0]] = 6;
                 world[8][walls[0][1]][walls[0][0]] = 5;
+                Building.list[b].dstairs = [walls[0][0],walls[0][1]];
                 var sa1 = getCoords(walls[2][0],walls[2][1]);
                 var thr = getCoords(walls[3][0],walls[3][1]);
                 var b2 = getCoords(walls[4][0],walls[4][1]);

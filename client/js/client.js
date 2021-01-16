@@ -641,6 +641,7 @@ var Player = function(initPack){
   Player.list[self.id] = self;
   return self;
 }
+
 Player.list = {};
 
 // ARROWS
