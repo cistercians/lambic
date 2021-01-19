@@ -6,6 +6,7 @@ var bgmPlayer = function(playlist,next=false){
     var src = playlist[Math.floor(Math.random() * playlist.length)];
     AudioCtrl.bgm.src = src;
     AudioCtrl.bgm.play();
+    console.log('Playing bgm: ' + src);
     AudioCtrl.bgm.onended = function(){
       bgmPlayer(playlist,next=true);
     }
@@ -21,6 +22,7 @@ var ambPlayer = function(src){
     AudioCtrl.amb.src = src;
     AudioCtrl.amb.loop = true;
     AudioCtrl.amb.play();
+    console.log('Playing ambience: ' + src);
   }
 };
 

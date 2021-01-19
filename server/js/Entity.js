@@ -1107,7 +1107,7 @@ Character = function(param){
       } else if(self.action == 'return'){
         if(self.lastLoc){
           if(!self.path){
-            if(loc == self.lastLoc.loc){
+            if(loc.toString() == self.lastLoc.loc.toString() && self.z == self.lastLoc.z){
               self.action = null;
               self.lastLoc = null;
             } else {
@@ -1117,7 +1117,7 @@ Character = function(param){
         } else {
           var hLoc = getLoc(self.home.x,self.home.y);
           if(!self.path){
-            if(loc == hLoc){
+            if(loc.toString() == hLoc.toString()){
               self.action = null;
             } else {
               self.getPath(self.home.z,hLoc[0],hLoc[1]);
@@ -1197,7 +1197,7 @@ Character = function(param){
           }
         } else if(self.action == 'return'){
           if(!self.path){
-            if(loc == self.lastLoc.loc){
+            if(loc.toString() == self.lastLoc.loc.toString()){
               self.action = null;
               self.lastLoc = null;
             } else {
@@ -1452,6 +1452,7 @@ Character = function(param){
   }
 
   self.getPath = function(z,c,r){
+    console.log(self.name + ' getting path to ' + [c,r]);
     var start = getLoc(self.x,self.y);
     if(z == self.z){
       self.pathEnd = null;
@@ -3835,6 +3836,7 @@ Campfire = function(param){
   self.rank = 0;
   self.canPickup = false;
   self.timer = 0;
+  self.toUpdate = true;
   var super_update = self.update;
   self.update = function(){
     if(self.timer++ > 8000){
@@ -4254,6 +4256,7 @@ Blood = function(param){
   self.class = 'environment';
   self.rank = 0;
   self.canPickup = false;
+  self.toUpdate = true;
   var super_update = self.update;
   self.update = function(){
     if(self.timer++ > 16000){

@@ -1238,6 +1238,7 @@ Player = function(param){
         var item = Item.list[i];
         var dist = item.getDistance({x:self.x,y:self.y});
         if(dist < tileSize && item.canPickup){
+          Item.list[i].toUpdate = true;
           Item.list[i].pickup(self.id);
           return;
         } else {
@@ -3191,8 +3192,6 @@ Player = function(param){
     }
   }
 
-  self.lastTile = null;
-
   // x,y movement
   self.updateSpd = function(){
     var socket = SOCKET_LIST[self.id];
@@ -3346,12 +3345,6 @@ Player = function(param){
     // terrain effects and z movement
     if(self.z == 0){
       var tile = getTile(0,loc[0],loc[1]);
-      if(tile != self.lastTile){
-        if(self.lastTile >= 5 && self.lastTile < 6 && !self.onMtn){ // change mtn ambience
-          socket.emit('bgm',{x:self.x,y:self.y,z:self.z});
-        }
-        self.lastTile = tile;
-      }
       if(tile == 6){
         self.z = -1;
         self.innaWoods = false;
@@ -3376,7 +3369,6 @@ Player = function(param){
         setTimeout(function(){
           if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6){
             self.onMtn = true;
-            socket.emit('bgm',{x:self.x,y:self.y,z:self.z});
           }
         },2000);
       } else if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6 && self.onMtn){

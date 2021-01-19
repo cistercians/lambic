@@ -95,15 +95,10 @@ socket.on('bgm',function(data){
 var soundscape = function(x,y,z,b){
   // outdoors
   if(z == 0){
-    var tile = getLocTile(0,self.x,self.y);
-    if(tile >= 5 && tile < 6){
-      ambPlayer(Amb.mountains);
+    if(tempus == 'VIII.p' || tempus == 'IX.p' || tempus == 'X.p' || tempus == 'XI.p' || tempus == 'XII.a' || tempus == 'I.a' || tempus == 'II.a' || tempus == 'III.a' || tempus == 'IV.a'){
+      ambPlayer(Amb.forest);
     } else {
-      if(tempus == 'VIII.p' || tempus == 'IX.p' || tempus == 'X.p' || tempus == 'XI.p' || tempus == 'XII.a' || tempus == 'I.a' || tempus == 'II.a' || tempus == 'III.a' || tempus == 'IV.a'){
-        ambPlayer(Amb.forest);
-      } else {
-        ambPlayer(Amb.nature);
-      }
+      ambPlayer(Amb.nature);
     }
   } else if(z == -1){
     ambPlayer(Amb.cave);
@@ -2456,10 +2451,9 @@ var getLoc = function(x,y){
 
 // get tile type from (l,x,y)
 getLocTile = function(l,x,y){
-  if(x >= 0 && x <= mapPx && y >= 0 && y <= mapPx){
-    var loc = getLoc(x,y);
-    return world[l][loc[1]][loc[0]];
-  }
+  var loc = getLoc(x,y);
+  var tile = getTile(l,loc[0],loc[1])
+  return tile;
 };
 
 // get (x,y) coords of tile from loc
