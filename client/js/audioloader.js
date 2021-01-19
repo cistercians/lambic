@@ -319,18 +319,21 @@ var ship_bgm = [
   Bgm.occasus
 ];
 
+var garrison_bgm = [
+  Bgm.bourguignon,
+  Bgm.alta,
+  Bgm.zappay2,
+]
+
 var stronghold_day_bgm = [
   Bgm.alla_caccia,
   Bgm.danca,
-  Bgm.bourguignon,
   Bgm.zappay,
   Bgm.bourguignon2,
-  Bgm.alta,
   Bgm.sybilla,
   Bgm.alta2,
   Bgm.propinan,
   Bgm.trompette,
-  Bgm.zappay2,
   Bgm.alla_bataglia,
   Bgm.amor,
   Bgm.collinetto2,

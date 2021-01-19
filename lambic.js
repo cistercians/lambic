@@ -29,37 +29,37 @@ mapPx = mapSize * tileSize;
 var pathing = function(z){
   var grid = createArray(mapSize,mapSize);
 
-  if(z === 0){
+  if(z == 0){
     for(x = 0; x < mapSize; x++){
       for(y = 0; y < mapSize; y++){
-        if(world[0][y][x] === 0){
+        if(world[0][y][x] == 0){
           grid[y][x] = 1;
         } else {
           grid[y][x] = 0;
         }
       }
     }
-  } else if(z === -1){
+  } else if(z == -1){
     for(x = 0; x < mapSize; x++){
       for(y = 0; y < mapSize; y++){
-        if(world[1][y][x] === 1){
+        if(world[1][y][x] == 1){
           grid[y][x] = 1;
         } else {
           grid[y][x] = 0;
         }
       }
     }
-  } else if(z === 3){
+  } else if(z == 3){
     for(x = 0; x < mapSize; x++){
       for(y = 0; y < mapSize; y++){
-        if(world[0][y][x] === 0){
+        if(world[0][y][x] == 0){
           grid[y][x] = 0;
         } else {
           grid[y][x] = 1;
         }
       }
     }
-  } else if(z === -3){
+  } else if(z == -3){
     for(x = 0; x < mapSize; x++){
       for(y = 0; y < mapSize; y++){
         grid[y][x] = 0;
@@ -122,7 +122,7 @@ var entropy = function(){
   for(var c = 0; c < mapSize; c++){
     for(var r = 0; r < mapSize; r++){
       // fish
-      if(getTile(0,c,r) === 0){
+      if(getTile(0,c,r) == 0){
         if(Math.random() < 0.2){
           world[6][r][c] = Math.ceil(Math.random() * 10);
         } else {
@@ -149,7 +149,7 @@ var entropy = function(){
             toF.push([c,r]);
           }
         }
-      } else if(world[0][r][c] === 7 && c > 0 && c < mapSize && r > 0 && r < mapSize && day > 0){
+      } else if(world[0][r][c] == 7 && c > 0 && c < mapSize && r > 0 && r < mapSize && day > 0){
         var check = [getTile(0,c,r-1),getTile(0,c,r+1),getTile(0,c-1,r),getTile(0,c+1,r)];
         if((check[0] >= 1 && check[0] < 4) ||
         (check[1] >= 1 && check[1] < 4) ||
@@ -191,19 +191,19 @@ var entropy = function(){
 
   for(i in Player.list){
     var cl = Player.list[i].class;
-    if(cl === 'deer'){
+    if(cl == 'deer'){
       deerPop++;
-    } else if(cl === 'boar'){
+    } else if(cl == 'boar'){
       boarPop++;
-    } else if(cl === 'wolf'){
+    } else if(cl == 'wolf'){
       wolfPop++;
-    } else if(cl === 'falcon'){
+    } else if(cl == 'falcon'){
       falconPop++;
     }
   }
   if(deerPop < deerRatio){
     var num = 0;
-    if(day === 0){
+    if(day == 0){
       num = Math.floor(deerRatio * 0.5);
     } else {
       num = Math.floor((deerRatio - deerPop) * 0.01);
@@ -225,7 +225,7 @@ var entropy = function(){
   }
   if(boarPop < boarRatio){
     var num = 0;
-    if(day === 0){
+    if(day == 0){
       num = Math.floor(boarRatio * 0.5);
     } else {
       num = Math.floor((boarRatio - boarPop) * 0.01);
@@ -246,7 +246,7 @@ var entropy = function(){
   }
   if(wolfPop < wolfRatio){
     var num = 0;
-    if(day === 0){
+    if(day == 0){
       num = Math.floor(wolfRatio * 0.5);
     } else {
       num = Math.floor((wolfRatio - wolfPop) * 0.01);
@@ -267,7 +267,7 @@ var entropy = function(){
   }
   if(falconPop < falconRatio){
     var num = 0;
-    if(day === 0){
+    if(day == 0){
       num = Math.floor(falconRatio * 0.5);
     } else {
       num = Math.floor((falconRatio - falconPop) * 0.01);
@@ -374,7 +374,7 @@ for(x = 0; x < mapSize; x++){
       } else if(tile >= 5 && tile < 6){
         biomes.mtn++;
         mtnSpawns.push([x,y]);
-      } else if(tile === 6){
+      } else if(tile == 6){
         biomes.mtn++;
         caveEntrances.push([x,y]);
       }
@@ -382,7 +382,7 @@ for(x = 0; x < mapSize; x++){
       biomes.water++;
       waterSpawns.push([x,y]);
     }
-    if(uTile === 0){
+    if(uTile == 0){
       spawnPointsU.push([x,y]);
     } else {
       continue;
@@ -421,9 +421,9 @@ fs.readFile('./surnames.txt', function(err, data){
 });
 
 randomName = function(x){
-  if(x === 'm'){
+  if(x == 'm'){
     return maleNames[Math.floor(Math.random()*maleNames.length)];
-  } else if(x === 'f'){
+  } else if(x == 'f'){
     return femaleNames[Math.floor(Math.random()*femaleNames.length)];
   } else {
     return surnames[Math.floor(Math.random()*surnames.length)];
@@ -512,32 +512,32 @@ isWalkable = function(z, c, r){
   if(c < 0 || c > mapSize-1 || r < 0 || r > mapSize-1){
     return false;
   } else {
-    if(z === 0){
-      if(matrixO[r][c] === 0){
+    if(z == 0){
+      if(matrixO[r][c] == 0){
         return true;
       } else {
         return false;
       }
-    } else if(z === -1){
-      if(matrixU[r][c] === 0){
+    } else if(z == -1){
+      if(matrixU[r][c] == 0){
         return true;
       } else {
         return false;
       }
-    } else if(z === 1){
-      if(matrixB1[r][c] === 0){
+    } else if(z == 1){
+      if(matrixB1[r][c] == 0){
         return true;
       } else {
         return false;
       }
-    } else if(z === 2){
-      if(matrixB2[r][c] === 0){
+    } else if(z == 2){
+      if(matrixB2[r][c] == 0){
         return true;
       } else {
         return false;
       }
-    } else if(z === -2){
-      if(matrixB3[r][c] === 0){
+    } else if(z == -2){
+      if(matrixB3[r][c] == 0){
         return true;
       } else {
         return false;
@@ -551,7 +551,7 @@ getDistance = function(pt1,pt2){
 }
 
 // get tile type from (l,c,r)
-// l === 'layer'
+// l == 'layer'
 // 0: Overworld, 1: Underworld,  2: Underwater, 3: BuildI, 4: BuildII, 5: BuildIII, 6: resI, 7: resII, 8: BuildIV
 getTile = function(l,c,r){
   if(r >= 0 && r < mapSize && c >= 0 && c < mapSize){
@@ -577,17 +577,17 @@ getLocTile = function(l,x,y){
 
 // get item type from (z,c,r)
 getItem = function(z,c,r){
-  if(z === 0){
+  if(z == 0){
     return matrixO[r][c];
-  } else if(z === -1){
+  } else if(z == -1){
     return matrixU[r][c];
-  } else if(z === 1){
+  } else if(z == 1){
     return matrixB1[r][c];
-  } else if(z === 2){
+  } else if(z == 2){
     return matrixB2[r][c];
-  } else if(z === -2){
+  } else if(z == -2){
     return matrixB3[r][c];
-  } else if(z === -3){
+  } else if(z == -3){
     return matrixW[r][c];
   }
 }
@@ -598,7 +598,7 @@ getBuilding = function(x,y){
   for(var i in Building.list){
     var b = Building.list[i];
     for(n = 0; n < b.plot.length; n++){
-      if(b.plot[n][0] === loc[0] && b.plot[n][1] === loc[1]){
+      if(b.plot[n][0] == loc[0] && b.plot[n][1] == loc[1]){
         return b.id;
       } else {
         continue;
@@ -612,7 +612,7 @@ keyCheck = function(x,y,p){
   var key = getBuilding(x,y);
   var pKeys = Player.list[p].keys;
   for(var i in pKeys){
-    if(pKeys[i] === key){
+    if(pKeys[i] == key){
       return true;
     } else {
       continue;
@@ -626,16 +626,16 @@ chestCheck = function(z,x,y,p){
   var player = Player.list[p];
   for(var i in Item.list){
     var itm = Item.list[i];
-    if(itm.type === 'LockedChest' && itm.z === z && itm.x === x && itm.y === y){
+    if(itm.type == 'LockedChest' && itm.z == z && itm.x == x && itm.y == y){
       for(var k in player.inventory.keys){
         var key = player.inventory.keys[k];
-        if(itm.id === key){
+        if(itm.id == key){
           return itm.id;
         } else {
           continue;
         }
       }
-    } else if(itm.type === 'Chest' && itm.z === z && itm.x === x && itm.y === y){
+    } else if(itm.type == 'Chest' && itm.z == z && itm.x == x && itm.y == y){
       return itm.id;
     } else {
       continue;
@@ -648,10 +648,10 @@ chestCheck = function(z,x,y,p){
 gateCheck = function(x,y,h,k){
   var gateH = Building.list[getBuilding(x,y)].house;
   var gateK = Building.list[getBuilding(x,y)].kingdom;
-  if(k && k === gateK){
+  if(k && k == gateK){
     return true;
   } else {
-    if(h && h === gateH){
+    if(h && h == gateH){
       return true;
     } else {
       return false;
@@ -669,11 +669,11 @@ allyCheck = function(p,id){
   if(pHouse){
     if(pHouse.hostile){
       if(oHouse){
-        if(player.house === other.house){
+        if(player.house == other.house){
           return 2;
         } else {
           for(var i in pHouse.allies){
-            if(pHouse.allies[i] === other.house){
+            if(pHouse.allies[i] == other.house){
               return 1;
             } else {
               continue;
@@ -686,11 +686,11 @@ allyCheck = function(p,id){
       }
     } else {
       if(oHouse){
-        if(player.house === other.house){
+        if(player.house == other.house){
           return 2;
         } else {
           for(var i in pHouse.allies){
-            if(pHouse.allies[i] === other.house){
+            if(pHouse.allies[i] == other.house){
               return 1;
             } else {
               continue;
@@ -700,7 +700,7 @@ allyCheck = function(p,id){
             return -1;
           } else {
             for(var i in pHouse.enemies){
-              if(pHouse.enemies[i] === other.house){
+              if(pHouse.enemies[i] == other.house){
                 return -1;
               } else {
                 continue;
@@ -711,7 +711,7 @@ allyCheck = function(p,id){
         }
       } else {
         for(var i in pHouse.enemies){
-          if(pHouse.enemies[i] === id){
+          if(pHouse.enemies[i] == id){
             return -1;
           } else {
             continue;
@@ -726,7 +726,7 @@ allyCheck = function(p,id){
         return -1;
       } else {
         for(var i in oHouse.enemies){
-          if(oHouse.enemies[i] === p){
+          if(oHouse.enemies[i] == p){
             return -1;
           } else {
             continue;
@@ -736,14 +736,14 @@ allyCheck = function(p,id){
       }
     } else {
       for(var i in player.friends){
-        if(player.friends[i] === id){
+        if(player.friends[i] == id){
           return 1;
         } else {
           continue;
         }
       }
       for(var i in player.enemies){
-        if(player.enemies[i] === id){
+        if(player.enemies[i] == id){
           return -1;
         } else {
           continue;
@@ -801,7 +801,7 @@ randomSpawnU = function(){
 
 // faction spawner
 factionSpawn = function(id){
-  if(id === 1){
+  if(id == 1){
     var select = [];
     var gridSelect = [];
     for(var i in spawnPointsU){
@@ -815,11 +815,11 @@ factionSpawn = function(id){
       if(c < (mapSize-4) && r < (mapSize-4)){
         for(var n in grid){
           var tile = grid[n];
-          if(getTile(1,tile[0],tile[1]) === 0){
+          if(getTile(1,tile[0],tile[1]) == 0){
             count++;
           }
         }
-        if(count === grid.length){
+        if(count == grid.length){
           var r = Math.random();
           if(r < 0.25){
             select.push(grid[5]);
@@ -846,7 +846,7 @@ factionSpawn = function(id){
     var rand = Math.floor(Math.random() * select.length);
     originGrids.brotherhood = gridSelect[rand];
     return select[rand];
-  } else if(id === 2){
+  } else if(id == 2){
     var select = [];
     var gridSelect = [];
     for(var i in mtnSpawns){
@@ -865,7 +865,7 @@ factionSpawn = function(id){
             count++;
           }
         }
-        if(count === grid.length){
+        if(count == grid.length){
           select.push(grid[12]);
           grid.splice(12,1);
           gridSelect.push(grid);
@@ -877,7 +877,7 @@ factionSpawn = function(id){
     var rand = Math.floor(Math.random() * select.length);
     originGrids.goths = gridSelect[rand];
     return select[rand];
-  } else if(id === 3){
+  } else if(id == 3){
     var select = [];
     var gridSelect = [];
     for(var i in waterSpawns){
@@ -892,11 +892,11 @@ factionSpawn = function(id){
       if(c < (mapSize-4) && r < (mapSize-4)){
         for(var n in grid){
           var tile = grid[n];
-          if(getTile(0,tile[0],tile[1]) === 0){
+          if(getTile(0,tile[0],tile[1]) == 0){
             count++;
           }
         }
-        if(count === grid.length){
+        if(count == grid.length){
           select.push(grid[12]);
           gridSelect.push(grid);
         }
@@ -907,7 +907,7 @@ factionSpawn = function(id){
     var rand = Math.floor(Math.random() * select.length);
     // originGrids.norsemen = gridSelect[rand];
     return select[rand];
-  } else if(id === 4){
+  } else if(id == 4){
     var select = [];
     var gridSelect = [];
     for(var i in spawnPointsO){
@@ -926,7 +926,7 @@ factionSpawn = function(id){
             count++;
           }
         }
-        if(count === grid.length){
+        if(count == grid.length){
           select.push(grid[12]);
           grid.splice(12,1);
           gridSelect.push(grid);
@@ -938,7 +938,7 @@ factionSpawn = function(id){
     var rand = Math.floor(Math.random() * select.length);
     originGrids.franks = gridSelect[rand];
     return select[rand];
-  } else if(id === 5){
+  } else if(id == 5){
     var select = [];
     var gridSelect = [];
     for(var i in hForestSpawns){
@@ -957,7 +957,7 @@ factionSpawn = function(id){
             count++;
           }
         }
-        if(count === grid.length){
+        if(count == grid.length){
           select.push(grid[12]);
           grid.splice(12,1);
           gridSelect.push(grid);
@@ -969,7 +969,7 @@ factionSpawn = function(id){
     var rand = Math.floor(Math.random() * select.length);
     originGrids.celts = gridSelect[rand];
     return select[rand];
-  } else if(id === 6){
+  } else if(id == 6){
     var select = [];
     var gridSelect = [];
     for(var i in spawnPointsO){
@@ -988,7 +988,7 @@ factionSpawn = function(id){
             count++;
           }
         }
-        if(count === grid.length){
+        if(count == grid.length){
           select.push(grid[12]);
           grid.splice(12,1);
           gridSelect.push(grid);
@@ -1000,7 +1000,7 @@ factionSpawn = function(id){
     var rand = Math.floor(Math.random() * select.length);
     originGrids.teutons = gridSelect[rand];
     return select[rand];
-  } else if(id === 7){
+  } else if(id == 7){
     var select = [];
     var gridSelect = [];
     for(var i in hForestSpawns){
@@ -1019,7 +1019,7 @@ factionSpawn = function(id){
             count++;
           }
         }
-        if(count === grid.length){
+        if(count == grid.length){
           select.push(grid[12]);
           grid.splice(12,1);
           gridSelect.push(grid);
@@ -1031,7 +1031,7 @@ factionSpawn = function(id){
     var rand = Math.floor(Math.random() * select.length);
     originGrids.outlaws = gridSelect[rand];
     return select[rand];
-  } else if(id === 8){
+  } else if(id == 8){
     var select = [];
     var gridSelect = [];
     for(var i in spawnPointsU){
@@ -1046,11 +1046,11 @@ factionSpawn = function(id){
       if(c < (mapSize-4) && r < (mapSize-4)){
         for(var n in grid){
           var tile = grid[n];
-          if(getTile(1,tile[0],tile[1]) === 0){
+          if(getTile(1,tile[0],tile[1]) == 0){
             count++;
           }
         }
-        if(count === grid.length){
+        if(count == grid.length){
           select.push(grid[12]);
           grid.splice(12,1);
           gridSelect.push(grid);
@@ -1212,8 +1212,8 @@ Player = function(param){
       self.switchCooldown--;
     }
 
-    if(self.pressingAttack && self.gear.weapon && self.attackCooldown === 0 && self.z !== -3){
-      if(self.gear.weapon.type === 'bow'){
+    if(self.pressingAttack && self.gear.weapon && self.attackCooldown == 0 && self.z !== -3){
+      if(self.gear.weapon.type == 'bow'){
         self.shootArrow(self.mouseAngle);
         self.attackCooldown += self.gear.weapon.attackrate/self.dexterity;
       } else {
@@ -1223,7 +1223,7 @@ Player = function(param){
     }
 
     // TORCH
-    if(self.pressingT && self.actionCooldown === 0){
+    if(self.pressingT && self.actionCooldown == 0){
       self.lightTorch(Math.random());
       self.actionCooldown = 10;
     }
@@ -1231,7 +1231,7 @@ Player = function(param){
     // INSPECT
 
     // PICKUP
-    if(self.pressingP && self.actionCooldown === 0 && !self.working){
+    if(self.pressingP && self.actionCooldown == 0 && !self.working){
       var socket = SOCKET_LIST[self.id];
       self.actionCooldown = 10;
       for(var i in Item.list){
@@ -1248,7 +1248,7 @@ Player = function(param){
     }
 
     // HORSE
-    if(self.pressingH && self.actionCooldown === 0 && !self.working){
+    if(self.pressingH && self.actionCooldown == 0 && !self.working){
       var socket = SOCKET_LIST[self.id];
       if(self.hasHorse){
         if(self.mounted){
@@ -1258,7 +1258,7 @@ Player = function(param){
           self.mountCooldown = 200;
         } else {
           if(self.gear.armor && self.gear.armor.type !== 'cloth'){
-            if(self.mountCooldown === 0){
+            if(self.mountCooldown == 0){
               self.actionCooldown = 10;
               self.mounted = true;
               self.baseSpd += 3;
@@ -1275,9 +1275,9 @@ Player = function(param){
     }
 
     // SWITCH WEAPONS
-    if(self.pressingX && self.actionCooldown === 0){
+    if(self.pressingX && self.actionCooldown == 0){
       var socket = SOCKET_LIST[self.id];
-      if(self.switchCooldown === 0){
+      if(self.switchCooldown == 0){
         if(self.gear.weapon){
           if(self.gear.weapon2){
             var switchwep = self.gear.weapon2;
@@ -1297,7 +1297,7 @@ Player = function(param){
     }
 
     // BAG
-    if(self.pressingB && self.actionCooldown === 0){
+    if(self.pressingB && self.actionCooldown == 0){
       self.actionCooldown += 10;
       var socket = SOCKET_LIST[self.id];
       var all = '';
@@ -1565,7 +1565,7 @@ Player = function(param){
         var relic = '<b>Relic</b>: ' + self.inventory.relic + '<br>';
         all += relic;
       }
-      if(all === ''){
+      if(all == ''){
         socket.emit('addToChat','<i>You have nothing in your bag.</i>');
       } else {
         socket.emit('addToChat','<p>'+all+'</p>');
@@ -1575,7 +1575,7 @@ Player = function(param){
     // INTERACTIONS
 
     // WORK ACTIONS
-    if(self.pressingF && self.actionCooldown === 0 && !self.working){
+    if(self.pressingF && self.actionCooldown == 0 && !self.working){
       var socket = SOCKET_LIST[self.id];
       var loc = getLoc(self.x,self.y);
       var uLoc = getLoc(self.x,self.y-tileSize);
@@ -1583,7 +1583,7 @@ Player = function(param){
       var lLoc = getLoc(self.x-tileSize,self.y);
       var rLoc = getLoc(self.x+tileSize,self.y);
       // fish
-      if(self.z === 0 && self.facing === 'up' && getTile(0,uLoc[0],uLoc[1]) === 0){
+      if(self.z == 0 && self.facing == 'up' && getTile(0,uLoc[0],uLoc[1]) == 0){
         if(getTile(6,uLoc[0],uLoc[1]) > 0){
           var rand = Math.floor(Math.random() * 6000);
           self.working = true;
@@ -1603,7 +1603,7 @@ Player = function(param){
           self.working = true;
           self.fishing = true;
         }
-      } else if(self.z === 0 && self.facing === 'down' && getTile(0,dLoc[0],dLoc[1]) === 0){
+      } else if(self.z == 0 && self.facing == 'down' && getTile(0,dLoc[0],dLoc[1]) == 0){
         if(getTile(6,dLoc[0],dLoc[1]) > 0){
           var rand = Math.floor(Math.random() * 6000);
           self.working = true;
@@ -1623,7 +1623,7 @@ Player = function(param){
           self.working = true;
           self.fishing = true;
         }
-      } else if(self.z === 0 && self.facing === 'left' && getTile(0,lLoc[0],lLoc[1]) === 0){
+      } else if(self.z == 0 && self.facing == 'left' && getTile(0,lLoc[0],lLoc[1]) == 0){
         if(getTile(6,lLoc[0],lLoc[1]) > 0){
           var rand = Math.floor(Math.random() * 6000);
           self.working = true;
@@ -1643,7 +1643,7 @@ Player = function(param){
           self.working = true;
           self.fishing = true;
         }
-      } else if(self.z === 0 && self.facing === 'right' && getTile(0,rLoc[0],rLoc[1]) === 0){
+      } else if(self.z == 0 && self.facing == 'right' && getTile(0,rLoc[0],rLoc[1]) == 0){
         if(getTile(6,rLoc[0],rLoc[1]) > 0){
           var rand = Math.floor(Math.random() * 6000);
           self.working = true;
@@ -1664,7 +1664,7 @@ Player = function(param){
           self.fishing = true;
         }
         // clear brush
-      } else if(self.z === 0 && getTile(0,loc[0],loc[1]) >= 3 && getTile(0,loc[0],loc[1]) < 4){
+      } else if(self.z == 0 && getTile(0,loc[0],loc[1]) >= 3 && getTile(0,loc[0],loc[1]) < 4){
         self.working = true;
         setTimeout(function(){
           if(self.working){
@@ -1676,7 +1676,7 @@ Player = function(param){
           }
         },3000/self.strength);
         // gather wood
-      } else if(self.z === 0 && (getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 3)){
+      } else if(self.z == 0 && (getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 3)){
         self.working = true;
         if(self.inventory.stoneaxe > 0 || self.inventory.ironaxe > 0){
           self.chopping = true;
@@ -1691,7 +1691,7 @@ Player = function(param){
             if(getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 2 && getTile(6,loc[0],loc[1]) < 101){
               world[0][loc[1]][loc[0]] += 1;
               for(var i in hForestSpawns){
-                if(hForestSpawns[i] === loc){
+                if(hForestSpawns[i] == loc){
                   biomes.hForest--;
                   hForestSpawns.splice(i,1);
                   return;
@@ -1709,7 +1709,7 @@ Player = function(param){
           }
         },6000/self.strength);
         // gather stone
-      } else if(self.z === 0 && getTile(0,loc[0],loc[1]) >= 4 && getTile(0,loc[0],loc[1]) < 6){
+      } else if(self.z == 0 && getTile(0,loc[0],loc[1]) >= 4 && getTile(0,loc[0],loc[1]) < 6){
         self.working = true;
         if(self.inventory.pickaxe > 0){
           self.mining = true;
@@ -1730,7 +1730,7 @@ Player = function(param){
           }
         },10000/self.strength);
         // mine metal
-      } else if(self.z === -1 && getTile(1,loc[0],loc[1]) >= 3 && getTile(1,loc[0],loc[1]) < 4){
+      } else if(self.z == -1 && getTile(1,loc[0],loc[1]) >= 3 && getTile(1,loc[0],loc[1]) < 4){
         self.working = true;
         if(self.inventory.pickaxe > 0){
           self.mining = true;
@@ -1747,12 +1747,12 @@ Player = function(param){
           }
         },10000/self.strength);
         // farm
-      } else if(self.z === 0 && getTile(0,loc[0],loc[1]) === 8){
-        if(tempus === 'V.a' || tempus === 'VI.a' || tempus === 'VII.a' ||
-        tempus === 'VIII.a' || tempus === 'IX.a' || tempus === 'X.a' ||
-        tempus === 'XI.a' || tempus === 'XII.p' || tempus === 'I.p' ||
-        tempus === 'II.p' || tempus === 'III.p' || tempus === 'IV.p' ||
-        tempus === 'V.p' || tempus === 'VI.p'){
+      } else if(self.z == 0 && getTile(0,loc[0],loc[1]) == 8){
+        if(tempus == 'V.a' || tempus == 'VI.a' || tempus == 'VII.a' ||
+        tempus == 'VIII.a' || tempus == 'IX.a' || tempus == 'X.a' ||
+        tempus == 'XI.a' || tempus == 'XII.p' || tempus == 'I.p' ||
+        tempus == 'II.p' || tempus == 'III.p' || tempus == 'IV.p' ||
+        tempus == 'V.p' || tempus == 'VI.p'){
           var f = getBuilding(self.x,self.y);
           self.working = true;
           self.farming = true;
@@ -1773,7 +1773,7 @@ Player = function(param){
                   continue;
                 }
               }
-              if(count === 9){
+              if(count == 9){
                 for(var i in plot){
                   var n = plot[i];
                   world[0][n[1]][n[0]] = 9;
@@ -1787,12 +1787,12 @@ Player = function(param){
         } else {
           socket.emit('addToChat','<i>Farmwork is done during daylight hours.</i>');
         }
-      } else if(self.z === 0 && getTile(0,loc[0],loc[1]) === 9){
-        if(tempus === 'V.a' || tempus === 'VI.a' || tempus === 'VII.a' ||
-        tempus === 'VIII.a' || tempus === 'IX.a' || tempus === 'X.a' ||
-        tempus === 'XI.a' || tempus === 'XII.p' || tempus === 'I.p' ||
-        tempus === 'II.p' || tempus === 'III.p' || tempus === 'IV.p' ||
-        tempus === 'V.p' || tempus === 'VI.p'){
+      } else if(self.z == 0 && getTile(0,loc[0],loc[1]) == 9){
+        if(tempus == 'V.a' || tempus == 'VI.a' || tempus == 'VII.a' ||
+        tempus == 'VIII.a' || tempus == 'IX.a' || tempus == 'X.a' ||
+        tempus == 'XI.a' || tempus == 'XII.p' || tempus == 'I.p' ||
+        tempus == 'II.p' || tempus == 'III.p' || tempus == 'IV.p' ||
+        tempus == 'V.p' || tempus == 'VI.p'){
           var f = Building.list[getBuilding(self.x,self.y)];
           self.working = true;
           self.farming = true;
@@ -1812,7 +1812,7 @@ Player = function(param){
                   continue;
                 }
               }
-              if(count === 9){
+              if(count == 9){
                 for(var i in plot){
                   world[0][plot[i][1]][plot[i][0]] = 10;
                 }
@@ -1825,7 +1825,7 @@ Player = function(param){
         } else {
           socket.emit('addToChat','<i>Farmwork is done during daylight hours.</i>');
         }
-      } else if(self.z === 0 && getTile(0,loc[0],loc[1]) === 10){
+      } else if(self.z == 0 && getTile(0,loc[0],loc[1]) == 10){
         var f = getBuilding(self.x,self.y);
         self.working = true;
         self.farming = true;
@@ -1845,7 +1845,7 @@ Player = function(param){
           }
         },10000);
         // build
-      } else if(self.z === 0 && (getTile(0,loc[0],loc[1]) === 11 || getTile(0,loc[0],loc[1]) === 11.5)){
+      } else if(self.z == 0 && (getTile(0,loc[0],loc[1]) == 11 || getTile(0,loc[0],loc[1]) == 11.5)){
         self.working = true;
         self.building = true;
         self.actionCooldown = 10;
@@ -1856,33 +1856,33 @@ Player = function(param){
             self.working = false;
             self.building = false;
             var count = 0;
-            var plot = b.plot;
-            var walls = b.walls;
-            var top = b.topPlot;
-            if(world[6][loc[1]][loc[0]] >= b.req){
-              if(world[0][loc[1]][loc[0]] === 11){
+            var plot = Building.list[b].plot;
+            var walls = Building.list[b].walls;
+            var top = Building.list[b].topPlot;
+            if(world[6][loc[1]][loc[0]] >= Building.list[b].req){
+              if(world[0][loc[1]][loc[0]] == 11){
                 world[0][loc[1]][loc[0]] = 12;
-              } else if(world[0][loc[1]][loc[0]] === 11.5){
+              } else if(world[0][loc[1]][loc[0]] == 11.5){
                 world[0][loc[1]][loc[0]] = 12.5;
               }
               io.emit('mapEdit',world);
             }
             for(var i in plot){
-              if(getTile(6,plot[i][0],plot[i][1]) >= b.req){
+              if(getTile(6,plot[i][0],plot[i][1]) >= Building.list[b].req){
                 count++;
               } else {
                 continue;
               }
             }
-            if(count === plot.length){
+            if(count == plot.length){
               Building.list[b].built = true;
-              if(b.type === 'hut'){
+              if(Building.list[b].type == 'hut'){
                 for(var i in plot){
                   matrixChange(0,plot[i][0],plot[i][1],1);
                   matrixChange(1,plot[i][0],plot[i][1],0);
                   world[0][plot[i][1]][plot[i][0]] = 13;
                   world[3][plot[i][1]][plot[i][0]] = String('hut' + i);
-                  if(world[3][plot[i][1]][plot[i][0]] === 'hut1'){
+                  if(world[3][plot[i][1]][plot[i][0]] == 'hut1'){
                     world[0][plot[i][1]][plot[i][0]] = 14;
                     matrixChange(0,plot[i][0],plot[i][1],0);
                     matrixChange(1,plot[i][0],plot[i][1]+1,0);
@@ -1899,9 +1899,9 @@ Player = function(param){
                   y:fp[1],
                   z:1,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
-              } else if(b.type === 'mill'){
+              } else if(Building.list[b].type == 'mill'){
                 for(var i in plot){
                   world[0][plot[i][1]][plot[i][0]] = 13;
                   world[3][plot[i][1]][plot[i][0]] = String('mill' + i);
@@ -1909,13 +1909,13 @@ Player = function(param){
                 }
                 world[5][top[0][1]][top[0][0]] = 'mill4';
                 world[5][top[1][1]][top[1][0]] = 'mill5';
-              } else if(b.type === 'cottage'){
+              } else if(Building.list[b].type == 'cottage'){
                 for(var i in plot){
                   matrixChange(0,plot[i][0],plot[i][1],1);
                   matrixChange(1,plot[i][0],plot[i][1],0);
                   world[0][plot[i][1]][plot[i][0]] = 15;
                   world[3][plot[i][1]][plot[i][0]] = String('cottage' + i);
-                  if(world[3][plot[i][1]][plot[i][0]] === 'cottage1'){
+                  if(world[3][plot[i][1]][plot[i][0]] == 'cottage1'){
                     matrixChange(0,plot[i][0],plot[i][1],0);
                     matrixChange(1,plot[i][0],plot[i][1]+1,0);
                     world[0][plot[i][1]][plot[i][0]] = 19;
@@ -1932,20 +1932,20 @@ Player = function(param){
                   y:fp[1],
                   z:1,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
-                Player.list[b.owner].keys.push(b.id);
-              } else if(b.type === 'fort'){
+                Player.list[Building.list[b].owner].keys.push(b);
+              } else if(Building.list[b].type == 'fort'){
                 matrixChange(0,plot[0][0],plot[0][1],1);
                 world[3][plot[0][1]][plot[0][0]] = 'fort';
-              } else if(b.type === 'wall'){
+              } else if(Building.list[b].type == 'wall'){
                 matrixChange(0,plot[0][0],plot[0][1],1);
                 world[3][plot[0][1]][plot[0][0]] = 'wall';
-              } else if(b.type === 'outpost'){
+              } else if(Building.list[b].type == 'outpost'){
                 matrixChange(0,plot[0][0],plot[0][1],1);
                 world[3][plot[0][1]][plot[0][0]] = 'outpost0';
                 world[5][top[0][1]][top[0][0]] = 'outpost1';
-              } else if(b.type === 'guardtower'){
+              } else if(Building.list[b].type == 'guardtower'){
                 for(var i in plot){
                   matrixChange(0,plot[i][0],plot[i][1],1);
                   world[3][plot[i][1]][plot[i][0]] = String('gtower' + i);
@@ -1958,12 +1958,12 @@ Player = function(param){
                   y:fp[1],
                   z:0,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 })
-              } else if(b.type === 'tower'){
+              } else if(Building.list[b].type == 'tower'){
                 for(var i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('tower' + i);
-                  if(world[3][plot[i][1]][plot[i][0]] === 'tower0'){
+                  if(world[3][plot[i][1]][plot[i][0]] == 'tower0'){
                     matrixChange(1,plot[i][0],plot[i][1],0);
                     matrixChange(2,plot[i][0],plot[i][1],0);
                     matrixChange(1,plot[i][0],plot[i][1]+1,0);
@@ -1983,12 +1983,12 @@ Player = function(param){
                   var n = top[i];
                   world[5][n[1]][n[0]] = String('tower' + ii);
                   world[4][n[1]][n[0]] = 2;
-                  if(world[5][n[1]][n[0]] === 'tower10'){
+                  if(world[5][n[1]][n[0]] == 'tower10'){
                     world[4][n[1]][n[0]] = 4;
                     matrixChange(1,n[0],n[1],0);
                     matrixChange(2,n[0],n[1],0);
                     Building.list[b].ustairs = [n[0],n[1]];
-                  } else if(world[5][n[1]][n[0]] === 'tower12' || world[5][n[1]][n[0]] === 'tower13' || world[5][n[1]][n[0]] === 'tower14'){
+                  } else if(world[5][n[1]][n[0]] == 'tower12' || world[5][n[1]][n[0]] == 'tower13' || world[5][n[1]][n[0]] == 'tower14'){
                     world[4][n[1]][n[0]] = 0;
                   }
                   ii++;
@@ -1999,19 +1999,19 @@ Player = function(param){
                   y:fp[1],
                   z:1,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
-                Player.list[b.owner].keys.push(b.id);
-              } else if(b.type === 'tavern'){
+                Player.list[Building.list[b].owner].keys.push(b);
+              } else if(Building.list[b].type == 'tavern'){
                 for(var i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('tavern' + i);
-                  if(world[3][plot[i][1]][plot[i][0]] === 'tavern1'){
+                  if(world[3][plot[i][1]][plot[i][0]] == 'tavern1'){
                     matrixChange(0,plot[i][0],plot[i][1],0);
                     matrixChange(1,plot[i][0],plot[i][1],0);
                     matrixChange(1,plot[i][0],plot[i][1]+1,0);
                     world[0][plot[i][1]][plot[i][0]] = 14;
                     Building.list[b].entrance = [plot[i][0],plot[i][1]];
-                  } else if(world[3][plot[i][1]][plot[i][0]] === 'tavern0' || world[3][plot[i][1]][plot[i][0]] === 'tavern2'){
+                  } else if(world[3][plot[i][1]][plot[i][0]] == 'tavern0' || world[3][plot[i][1]][plot[i][0]] == 'tavern2'){
                     matrixChange(0,plot[i][0],plot[i][1],1);
                     matrixChange(1,plot[i][0],plot[i][1],0);
                     world[0][plot[i][1]][plot[i][0]] = 13;
@@ -2064,154 +2064,154 @@ Player = function(param){
                   y:fp[1],
                   z:1,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 StagHead({
                   x:sh[0],
                   y:sh[1],
                   z:1,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Firepit({
                   x:b1[0],
                   y:b1[1],
                   z:0,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Barrel({
                   x:b1[0],
                   y:b1[1],
                   z:1,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Firepit({
                   x:b2[0],
                   y:b2[1],
                   z:0,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Barrel({
                   x:b2[0],
                   y:b2[1],
                   z:1,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Barrel({
                   x:b3[0],
                   y:b3[1],
                   z:1,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Barrel({
                   x:b4[0],
                   y:b4[1],
                   z:1,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Barrel({
                   x:b5[0],
                   y:b5[1],
                   z:1,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Bed({
                   x:bd[0],
                   y:bd[1],
                   z:2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Fireplace({
                   x:fp[0],
                   y:fp[1],
                   z:2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Barrel({
                   x:b3[0],
                   y:b3[1],
                   z:2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Barrel({
                   x:b4[0],
                   y:b4[1],
                   z:2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Chest({
                   x:ch[0],
                   y:ch[1],
                   z:2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 WallTorch({
                   x:wt[0],
                   y:wt[1],
                   z:-2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Barrel({
                   x:b3[0],
                   y:b3[1],
                   z:-2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Barrel({
                   x:b6[0],
                   y:b6[1],
                   z:-2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Crates({
                   x:cr[0],
                   y:cr[1],
                   z:-2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Barrel({
                   x:b7[0],
                   y:b7[1],
                   z:-2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Barrel({
                   x:b4[0],
                   y:b4[1],
                   z:-2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Barrel({
                   x:b5[0],
                   y:b5[1],
                   z:-2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Barrel({
                   x:b8[0],
                   y:b8[1],
                   z:-2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Innkeeper({
                   x:sp1[0],
@@ -2226,15 +2226,15 @@ Player = function(param){
                     y:sp1[1]
                   }
                 });
-              } else if(b.type === 'monastery'){
+              } else if(Building.list[b].type == 'monastery'){
                 for(var i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('monastery' + i);
-                  if(world[3][plot[i][1]][plot[i][0]] === 'monastery0'){
+                  if(world[3][plot[i][1]][plot[i][0]] == 'monastery0'){
                     matrixChange(1,plot[i][0],plot[i][1],0);
                     matrixChange(1,plot[i][0],plot[i][1]+1,0);
                     world[0][plot[i][1]][plot[i][0]] = 16;
                     Building.list[b].entrance = [plot[i][0],plot[i][1]];
-                  } else if(world[3][plot[i][1]][plot[i][0]] === 'monastery1' || world[3][plot[i][1]][plot[i][0]] === 'monastery2' || world[3][plot[i][1]][plot[i][0]] === 'monastery3' || world[3][plot[i][1]][plot[i][0]] === 'monastery4' || world[3][plot[i][1]][plot[i][0]] === 'monastery5' || world[3][plot[i][1]][plot[i][0]] === 'monastery6' || world[3][plot[i][1]][plot[i][0]] === 'monastery7'){
+                  } else if(world[3][plot[i][1]][plot[i][0]] == 'monastery1' || world[3][plot[i][1]][plot[i][0]] == 'monastery2' || world[3][plot[i][1]][plot[i][0]] == 'monastery3' || world[3][plot[i][1]][plot[i][0]] == 'monastery4' || world[3][plot[i][1]][plot[i][0]] == 'monastery5' || world[3][plot[i][1]][plot[i][0]] == 'monastery6' || world[3][plot[i][1]][plot[i][0]] == 'monastery7'){
                     matrixChange(0,plot[i][0],plot[i][1],1);
                     matrixChange(1,plot[i][0],plot[i][1],0);
                     world[0][plot[i][1]][plot[i][0]] = 15;
@@ -2271,28 +2271,28 @@ Player = function(param){
                   y:wt[1],
                   z:1,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Cross({
                   x:cr[0],
                   y:cr[1],
                   z:1,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Bookshelf({
                   x:cr[0],
                   y:cr[1],
                   z:2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Bookshelf({
                   x:bs[0],
                   y:bs[1],
                   z:2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Bishop({
                   x:sp1[0],
@@ -2333,14 +2333,14 @@ Player = function(param){
                     y:sp3[1]
                   }
                 });
-              } else if(b.type === 'market'){
+              } else if(Building.list[b].type == 'market'){
                 for(var i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('market' + i);
-                  if(world[3][plot[i][1]][plot[i][0]] === 'market0' || world[3][plot[i][1]][plot[i][0]] === 'market1' || world[3][plot[i][1]][plot[i][0]] === 'market2'){
+                  if(world[3][plot[i][1]][plot[i][0]] == 'market0' || world[3][plot[i][1]][plot[i][0]] == 'market1' || world[3][plot[i][1]][plot[i][0]] == 'market2'){
                     matrixChange(1,plot[i][0],plot[i][1],0);
                     matrixChange(1,plot[i][0],plot[i][1]+1,0);
                     world[0][plot[i][1]][plot[i][0]] = 14;
-                    if(world[3][plot[i][1]][plot[i][0]] === 'market1'){
+                    if(world[3][plot[i][1]][plot[i][0]] == 'market1'){
                       Building.list[b].entrance = [plot[i][0],plot[i][1]];
                     }
                   } else {
@@ -2359,7 +2359,7 @@ Player = function(param){
                 }
                 for(var i in walls){
                   var n = walls[i];
-                  if(world[5][n[1]][n[0]] === 'market12'){
+                  if(world[5][n[1]][n[0]] == 'market12'){
                     world[4][n[1]][n[0]] = 3;
                     matrixChange(1,n[0],n[1],0);
                     matrixChange(2,n[0],n[1],0);
@@ -2383,114 +2383,114 @@ Player = function(param){
                   y:g1[1],
                   z:1,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Goods1({
                   x:g1[0],
                   y:g1[1],
                   z:1,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Goods2({
                   x:g2[0],
                   y:g2[1],
                   z:1,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Goods3({
                   x:g3[0],
                   y:g3[1],
                   z:1,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 WallTorch({
                   x:g4[0],
                   y:g4[1],
                   z:1,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Goods4({
                   x:g4[0],
                   y:g4[1],
                   z:1,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Firepit({
                   x:fp1[0],
                   y:fp1[1],
                   z:0,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Firepit({
                   x:fp2[0],
                   y:fp2[1],
                   z:0,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 WallTorch({
                   x:g1[0],
                   y:g1[1],
                   z:2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Stash1({
                   x:g2[0],
                   y:g2[1],
                   z:2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Stash2({
                   x:g3[0],
                   y:g3[1],
                   z:2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 WallTorch({
                   x:g4[0],
                   y:g4[1],
                   z:2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Crates({
                   x:cr1[0],
                   y:cr1[1],
                   z:2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Desk({
                   x:d1[0],
                   y:d1[1],
                   z:2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Desk({
                   x:d2[0],
                   y:d2[1],
                   z:2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Crates({
                   x:cr2[0],
                   y:cr2[1],
                   z:2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
-              } else if(b.type === 'stable'){
+              } else if(Building.list[b].type == 'stable'){
                 for(var i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('stable' + i);
                   world[0][plot[i][1]][plot[i][0]] = 13;
@@ -2508,18 +2508,18 @@ Player = function(param){
                   y:wt[1],
                   z:0,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
-              } else if(b.type === 'dock'){
+              } else if(Building.list[b].type == 'dock'){
                 for(var i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('dock' + i);
-                  if(world[3][plot[i][1]][plot[i][0]] === 'dock4'){
+                  if(world[3][plot[i][1]][plot[i][0]] == 'dock4'){
                     world[0][plot[i][1]][plot[i][0]] = 13;
                     matrixChange(0,plot[i][0],plot[i][1],1);
                     matrixChange(-3,plot[i][0],plot[i][1],1);
                     matrixChange(3,plot[i][0],plot[i][1],1);
                   } else {
-                    if(getTile(0,plot[i][0],plot[i][1]) === 12.5){
+                    if(getTile(0,plot[i][0],plot[i][1]) == 12.5){
                       world[0][plot[i][1]][plot[i][0]] = 20.5;
                     } else {
                       world[0][plot[i][1]][plot[i][0]] = 20;
@@ -2541,7 +2541,7 @@ Player = function(param){
                   y:wt[1],
                   z:0,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Shipwright({
                   x:sp[0],
@@ -2556,15 +2556,15 @@ Player = function(param){
                     y:sp[1]
                   }
                 });
-              } else if(b.type === 'garrison'){
+              } else if(Building.list[b].type == 'garrison'){
                 for(var i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('garrison' + i);
-                  if(world[3][plot[i][1]][plot[i][0]] === 'garrison0'){
+                  if(world[3][plot[i][1]][plot[i][0]] == 'garrison0'){
                     matrixChange(1,plot[i][0],plot[i][1],0);
                     matrixChange(1,plot[i][0],plot[i][1]+1,0);
                     world[0][plot[i][1]][plot[i][0]] = 16;
                     Building.list[b].entrance = [plot[i][0],plot[i][1]];
-                  } else if(world[3][plot[i][1]][plot[i][0]] === 'garrison1' || world[3][plot[i][1]][plot[i][0]] === 'garrison2' || world[3][plot[i][1]][plot[i][0]] === 'garrison3'){
+                  } else if(world[3][plot[i][1]][plot[i][0]] == 'garrison1' || world[3][plot[i][1]][plot[i][0]] == 'garrison2' || world[3][plot[i][1]][plot[i][0]] == 'garrison3'){
                     matrixChange(0,plot[i][0],plot[i][1],1);
                     matrixChange(1,plot[i][0],plot[i][1],0);
                     world[0][plot[i][1]][plot[i][0]] = 15;
@@ -2584,7 +2584,7 @@ Player = function(param){
                 }
                 for(var i in walls){
                   var n = walls[i];
-                  if(world[5][n[1]][n[0]] === 'garrison12'){
+                  if(world[5][n[1]][n[0]] == 'garrison12'){
                     world[4][n[1]][n[0]] = 4;
                     matrixChange(1,n[0],n[1],0);
                     matrixChange(2,n[0],n[1],0);
@@ -2607,97 +2607,96 @@ Player = function(param){
                   y:sa[1],
                   z:1,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Swordrack({
                   x:sr1[0],
                   y:sr1[1],
                   z:1,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Swordrack({
                   x:sr2[0],
                   y:sr2[1],
                   z:1,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Firepit({
                   x:fp[0],
                   y:fp[1],
                   z:0,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Firepit({
                   x:fp[0],
                   y:fp[1],
                   z:1,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Dummy({
                   x:d1[0],
                   y:d1[1],
                   z:1,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Dummy({
                   x:d2[0],
                   y:d2[1],
                   z:1,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 WallTorch({
                   x:sa[0],
                   y:sa[1],
                   z:2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Swordrack({
                   x:sr1[0],
                   y:sr1[1],
                   z:2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Swordrack({
                   x:sr2[0],
                   y:sr2[1],
                   z:2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Dummy({
                   x:d3[0],
                   y:d3[1],
                   z:2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Dummy({
                   x:d4[0],
                   y:d4[1],
                   z:2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Desk({
                   x:dk[0],
                   y:dk[1],
                   z:2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
-              } else if(b.type === 'blacksmith'){
-                var b = getBuilding(self.x,self.y);
+              } else if(Building.list[b].type == 'blacksmith'){
                 for(var i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('bsmith' + i);
-                  if(world[3][plot[i][1]][plot[i][0]] === 'bsmith1'){
+                  if(world[3][plot[i][1]][plot[i][0]] == 'bsmith1'){
                     matrixChange(1,plot[i][0],plot[i][1],0);
                     matrixChange(1,plot[i][0],plot[i][1]+1,0);
                     world[0][plot[i][1]][plot[i][0]] = 14;
@@ -2712,7 +2711,7 @@ Player = function(param){
                 for(var i in walls){
                   var n = walls[i];
                   world[5][n[1]][n[0]] = String('bsmith' + ii);
-                  if(world[5][n[1]][n[0]] === 'bsmith5'){
+                  if(world[5][n[1]][n[0]] == 'bsmith5'){
                     world[5][n[1]][n[0]] = 0;
                     world[4][n[1]][n[0]] = 1;
                   } else {
@@ -2729,57 +2728,57 @@ Player = function(param){
                   y:fg[1],
                   z:1,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Firepit({
                   x:fp[0],
                   y:fp[1],
                   z:0,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Barrel({
                   x:br[0],
                   y:br[1],
                   z:1,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Anvil({
                   x:anv[0],
                   y:anv[1],
                   z:1,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
-              } else if(b.type === 'stronghold'){
+              } else if(Building.list[b].type == 'stronghold'){
                 for(var i in plot){
                   world[3][plot[i][1]][plot[i][0]] = String('stronghold' + i);
-                  if(world[3][plot[i][1]][plot[i][0]] === 'stronghold1' || world[3][plot[i][1]][plot[i][0]] === 'stronghold2'){
+                  if(world[3][plot[i][1]][plot[i][0]] == 'stronghold1' || world[3][plot[i][1]][plot[i][0]] == 'stronghold2'){
                     matrixChange(1,plot[i][0],plot[i][1],0);
                     matrixChange(1,plot[i][0],plot[i][1]+1,0);
                     world[0][plot[i][1]][plot[i][0]] = 16;
-                    if(world[3][plot[i][1]][plot[i][0]] === 'stronghold1'){
+                    if(world[3][plot[i][1]][plot[i][0]] == 'stronghold1'){
                       Building.list[b].entrance = [plot[i][0],plot[i][1]];
                     }
-                  } else if(world[3][plot[i][1]][plot[i][0]] === 'stronghold0' || world[3][plot[i][1]][plot[i][0]] === 'stronghold3'){
+                  } else if(world[3][plot[i][1]][plot[i][0]] == 'stronghold0' || world[3][plot[i][1]][plot[i][0]] == 'stronghold3'){
                     matrixChange(0,plot[i][0],plot[i][1],1);
                     matrixChange(1,plot[i][0],plot[i][1],0);
                     world[0][plot[i][1]][plot[i][0]] = 15;
-                  } else if(world[3][plot[i][1]][plot[i][0]] === 'stronghold7' ||
-                  world[3][plot[i][1]][plot[i][0]] === 'stronghold8' ||
-                  world[3][plot[i][1]][plot[i][0]] === 'stronghold15' ||
-                  world[3][plot[i][1]][plot[i][0]] === 'stronghold16' ||
-                  world[3][plot[i][1]][plot[i][0]] === 'stronghold23' ||
-                  world[3][plot[i][1]][plot[i][0]] === 'stronghold24' ||
-                  world[3][plot[i][1]][plot[i][0]] === 'stronghold31' ||
-                  world[3][plot[i][1]][plot[i][0]] === 'stronghold32' ||
-                  world[3][plot[i][1]][plot[i][0]] === 'stronghold39' ||
-                  world[3][plot[i][1]][plot[i][0]] === 'stronghold40' ||
-                  world[3][plot[i][1]][plot[i][0]] === 'stronghold46' ||
-                  world[3][plot[i][1]][plot[i][0]] === 'stronghold47' ||
-                  world[3][plot[i][1]][plot[i][0]] === 'stronghold53' ||
-                  world[3][plot[i][1]][plot[i][0]] === 'stronghold54'){
+                  } else if(world[3][plot[i][1]][plot[i][0]] == 'stronghold7' ||
+                  world[3][plot[i][1]][plot[i][0]] == 'stronghold8' ||
+                  world[3][plot[i][1]][plot[i][0]] == 'stronghold15' ||
+                  world[3][plot[i][1]][plot[i][0]] == 'stronghold16' ||
+                  world[3][plot[i][1]][plot[i][0]] == 'stronghold23' ||
+                  world[3][plot[i][1]][plot[i][0]] == 'stronghold24' ||
+                  world[3][plot[i][1]][plot[i][0]] == 'stronghold31' ||
+                  world[3][plot[i][1]][plot[i][0]] == 'stronghold32' ||
+                  world[3][plot[i][1]][plot[i][0]] == 'stronghold39' ||
+                  world[3][plot[i][1]][plot[i][0]] == 'stronghold40' ||
+                  world[3][plot[i][1]][plot[i][0]] == 'stronghold46' ||
+                  world[3][plot[i][1]][plot[i][0]] == 'stronghold47' ||
+                  world[3][plot[i][1]][plot[i][0]] == 'stronghold53' ||
+                  world[3][plot[i][1]][plot[i][0]] == 'stronghold54'){
                     matrixChange(0,plot[i][0],plot[i][1],1);
                     matrixChange(1,plot[i][0],plot[i][1],0);
                     matrixChange(2,plot[i][0],plot[i][1],0);
@@ -2805,11 +2804,11 @@ Player = function(param){
                 }
                 for(var i in walls){
                   var n = walls[i];
-                  if(world[5][n[1]][n[0]] === 'stronghold58' || world[5][n[1]][n[0]] === 'stronghold62'){
+                  if(world[5][n[1]][n[0]] == 'stronghold58' || world[5][n[1]][n[0]] == 'stronghold62'){
                     world[4][n[1]][n[0]] = 7;
                     matrixChange(1,n[0],n[1],0);
                     matrixChange(2,n[0],n[1],0);
-                    if(world[5][n[1]][n[0]] === 'stronghold58'){
+                    if(world[5][n[1]][n[0]] == 'stronghold58'){
                       Building.list[b].ustairs = [n[0],n[1]];
                     }
                   } else {
@@ -2845,210 +2844,210 @@ Player = function(param){
                   y:sa1[1],
                   z:1,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Banner({
                   x:thr[0],
                   y:thr[1],
                   z:1,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Banner({
                   x:b2[0],
                   y:b2[1],
                   z:1,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Throne({
                   x:thr[0],
                   y:thr[1],
                   z:1,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 SuitArmor({
                   x:sa2[0],
                   y:sa2[1],
                   z:1,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Swordrack({
                   x:sr[0],
                   y:sr[1],
                   z:1,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Firepit({
                   x:fp1[0],
                   y:fp1[1],
                   z:0,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Firepit({
                   x:fp1[0],
                   y:fp1[1],
                   z:1,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Firepit({
                   x:fp2[0],
                   y:fp2[1],
                   z:0,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Firepit({
                   x:fp2[0],
                   y:fp2[1],
                   z:1,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Firepit({
                   x:fp3[0],
                   y:fp3[1],
                   z:1,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Firepit({
                   x:fp4[0],
                   y:fp4[1],
                   z:1,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Firepit({
                   x:fp5[0],
                   y:fp5[1],
                   z:1,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Firepit({
                   x:fp6[0],
                   y:fp6[1],
                   z:1,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 WallTorch({
                   x:sa1[0],
                   y:sa1[1],
                   z:2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Bed({
                   x:thr[0],
                   y:thr[1],
                   z:2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 WallTorch({
                   x:sa2[0],
                   y:sa2[1],
                   z:2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Chains({
                   x:sa1[0],
                   y:sa1[1],
                   z:-2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Chains({
                   x:ch2[0],
                   y:ch2[1],
                   z:-2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Chains({
                   x:ch3[0],
                   y:ch3[1],
                   z:-2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Jail({
                   x:j1[0],
                   y:j1[1],
                   z:-2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Jail({
                   x:fp5[0],
                   y:fp5[1],
                   z:-2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Jail({
                   x:j3[0],
                   y:j3[1],
                   z:-2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 WallTorch({
                   x:j3[0],
                   y:j3[1],
                   z:-2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 JailDoor({
                   x:j4[0],
                   y:j4[1],
                   z:-2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Jail({
                   x:fp6[0],
                   y:fp6[1],
                   z:-2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 WallTorch({
                   x:fp6[0],
                   y:fp6[1],
                   z:-2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Jail({
                   x:j6[0],
                   y:j6[1],
                   z:-2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Jail({
                   x:j7[0],
                   y:j7[1],
                   z:-2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
                 Firepit({
                   x:fp7[0],
                   y:fp7[1],
                   z:-2,
                   qty:1,
-                  parent:b.id
+                  parent:b
                 });
               }
               io.emit('mapEdit',world);
@@ -3061,13 +3060,13 @@ Player = function(param){
     }
 
     // CLASS
-    if(self.gear.head && self.gear.head.name === 'crown' && self.crowned){
+    if(self.gear.head && self.gear.head.name == 'crown' && self.crowned){
       self.class = 'King';
       self.spriteSize = tileSize;
     } else if(self.gear.armor){
-      if(self.gear.armor.type === 'leather'){
+      if(self.gear.armor.type == 'leather'){
         if(self.mounted && self.gear.weapon){
-          if(self.gear.weapon.type === 'bow'){
+          if(self.gear.weapon.type == 'bow'){
             self.class = 'Ranger';
             self.spriteSize = tileSize * 2;
           } else {
@@ -3079,7 +3078,7 @@ Player = function(param){
           self.spriteSize = tileSize * 2;
         } else {
           if(self.gear.weapon){
-            if(self.gear.weapon.type === 'bow'){
+            if(self.gear.weapon.type == 'bow'){
               self.class = 'Hunter';
               self.spriteSize = tileSize * 1.5;
             } else {
@@ -3091,9 +3090,9 @@ Player = function(param){
             self.spriteSize = tileSize * 1.5;
           }
         }
-      } else if(self.gear.armor.type === 'chainmail'){
+      } else if(self.gear.armor.type == 'chainmail'){
         if(self.mounted && self.gear.weapon){
-          if(self.gear.weapon.type === 'bow'){
+          if(self.gear.weapon.type == 'bow'){
             self.class = 'MountedArcher';
             self.spriteSize = tileSize * 2;
           } else {
@@ -3104,7 +3103,7 @@ Player = function(param){
           self.class = 'Horseman';
           self.spriteSize = tileSize * 2;
         } else if(self.gear.weapon){
-          if(self.gear.weapon.type === 'bow'){
+          if(self.gear.weapon.type == 'bow'){
             self.class = 'Archer';
             self.spriteSize = tileSize * 1.5;
           } else {
@@ -3115,10 +3114,10 @@ Player = function(param){
           self.class = 'Swordsman';
           self.spriteSize = tileSize * 1.5;
         }
-      } else if(self.gear.armor.type === 'plate'){
+      } else if(self.gear.armor.type == 'plate'){
         if(self.knighted){
           if(self.mounted && self.gear.weapon){
-            if(self.gear.weapon.type === 'lance'){
+            if(self.gear.weapon.type == 'lance'){
               self.class = 'Crusader';
               self.spriteSize = tileSize * 3;
             } else {
@@ -3134,7 +3133,7 @@ Player = function(param){
           }
         } else {
           if(self.mounted && self.gear.weapon){
-            if(self.gear.weapon.type === 'lance'){
+            if(self.gear.weapon.type == 'lance'){
               self.class = 'Lancer';
               self.spriteSize = tileSize * 3;
             } else {
@@ -3149,11 +3148,11 @@ Player = function(param){
             self.spriteSize = tileSize * 1.5;
           }
         }
-      } else if(self.gear.armor.type === 'cloth'){
-        if(self.gear.armor.name === 'MonkCowl'){
+      } else if(self.gear.armor.type == 'cloth'){
+        if(self.gear.armor.name == 'MonkCowl'){
           self.class = 'Mage';
           self.spriteSize = tileSize * 1.5;
-        } else if(self.gear.armor.name === 'BlackCloak'){
+        } else if(self.gear.armor.name == 'BlackCloak'){
           self.class = 'Warlock';
           self.spriteSize = tileSize * 1.5;
         } else {
@@ -3192,6 +3191,8 @@ Player = function(param){
     }
   }
 
+  self.lastTile = null;
+
   // x,y movement
   self.updateSpd = function(){
     var socket = SOCKET_LIST[self.id];
@@ -3207,37 +3208,37 @@ Player = function(param){
     var downBlocked = false;
 
     // outdoor collisions
-    if(self.z === 0){
-      if(((getTile(0,rLoc[0],rLoc[1]) === 19 && !keyCheck(self.x+(tileSize/2),self.y,self.id)) ||
+    if(self.z == 0){
+      if(((getTile(0,rLoc[0],rLoc[1]) == 19 && !keyCheck(self.x+(tileSize/2),self.y,self.id)) ||
       (!isWalkable(0,rLoc[0],rLoc[1]) && getTile(0,rLoc[0],rLoc[1]) !== 0) ||
       (self.x + 10) > (mapPx - tileSize)) && isWalkable(0,loc[0],loc[1])){
         rightBlocked = true;
       }
-      if(((getTile(0,lLoc[0],lLoc[1]) === 19 && !keyCheck(self.x-(tileSize/2),self.y,self.id)) || (!isWalkable(0,lLoc[0],lLoc[1]) && getTile(0,lLoc[0],lLoc[1]) !== 0) ||
+      if(((getTile(0,lLoc[0],lLoc[1]) == 19 && !keyCheck(self.x-(tileSize/2),self.y,self.id)) || (!isWalkable(0,lLoc[0],lLoc[1]) && getTile(0,lLoc[0],lLoc[1]) !== 0) ||
       (self.x - 10) < 0) && isWalkable(0,loc[0],loc[1])){
         leftBlocked = true;
       }
-      if(((getTile(0,uLoc[0],uLoc[1]) === 19 && !keyCheck(self.x,self.y-(tileSize/2),self.id)) || (!isWalkable(0,uLoc[0],uLoc[1]) && getTile(0,uLoc[0],uLoc[1]) !== 0) ||
-      (getTile(5,uLoc,uLoc[1]) === 'gatec' && !gateCheck(self.x,self.y-(tileSize/2),self.house,self.kingdom)) ||
+      if(((getTile(0,uLoc[0],uLoc[1]) == 19 && !keyCheck(self.x,self.y-(tileSize/2),self.id)) || (!isWalkable(0,uLoc[0],uLoc[1]) && getTile(0,uLoc[0],uLoc[1]) !== 0) ||
+      (getTile(5,uLoc,uLoc[1]) == 'gatec' && !gateCheck(self.x,self.y-(tileSize/2),self.house,self.kingdom)) ||
       (self.y - 10) < 0) && isWalkable(0,loc[0],loc[1])){
         upBlocked = true;
       }
-      if((getTile(0,dLoc[0],dLoc[1]) === 6 || (getTile(0,dLoc[0],dLoc[1]) === 19 && !keyCheck(self.x,self.y+(tileSize/2),self.id)) || (!isWalkable(0,dLoc[0],dLoc[1]) && getTile(0,dLoc[0],dLoc[1]) !== 0) ||
-      (getTile(5,dLoc[0],dLoc[1]) === 'gatec' && !gateCheck(self.x,self.y+(tileSize/2),self.house,self.kingdom)) ||
+      if((getTile(0,dLoc[0],dLoc[1]) == 6 || (getTile(0,dLoc[0],dLoc[1]) == 19 && !keyCheck(self.x,self.y+(tileSize/2),self.id)) || (!isWalkable(0,dLoc[0],dLoc[1]) && getTile(0,dLoc[0],dLoc[1]) !== 0) ||
+      (getTile(5,dLoc[0],dLoc[1]) == 'gatec' && !gateCheck(self.x,self.y+(tileSize/2),self.house,self.kingdom)) ||
       (self.y + 10) > (mapPx - tileSize)) && isWalkable(0,loc[0],loc[1])){
         downBlocked = true;
       }
     }
 
     // cave collisions
-    if(self.z === -1){
-      if(!isWalkable(-1,rLoc[0],rLoc[1]) || getTile(1,rLoc[0],rLoc[1]) === 2 || (self.x + 10) > (mapPx - tileSize)){
+    if(self.z == -1){
+      if(!isWalkable(-1,rLoc[0],rLoc[1]) || getTile(1,rLoc[0],rLoc[1]) == 2 || (self.x + 10) > (mapPx - tileSize)){
         rightBlocked = true;
       }
-      if(!isWalkable(-1,lLoc[0],lLoc[1]) || getTile(1,lLoc[0],lLoc[1]) === 2 || (self.x - 10) < 0){
+      if(!isWalkable(-1,lLoc[0],lLoc[1]) || getTile(1,lLoc[0],lLoc[1]) == 2 || (self.x - 10) < 0){
         leftBlocked = true;
       }
-      if(!isWalkable(-1,uLoc[0],uLoc[1]) || getTile(1,uLoc[0],uLoc[1]) === 2 || (self.y - 10) < 0){
+      if(!isWalkable(-1,uLoc[0],uLoc[1]) || getTile(1,uLoc[0],uLoc[1]) == 2 || (self.y - 10) < 0){
         upBlocked = true;
       }
       if(!isWalkable(-1,dLoc[0],dLoc[1]) || (self.y + 10) > (mapPx - tileSize)){
@@ -3246,15 +3247,15 @@ Player = function(param){
     }
 
     // indoor1 collisions
-    if(self.z === 1){
+    if(self.z == 1){
       if(!isWalkable(1,rLoc[0],rLoc[1])){
         rightBlocked = true;
       }
       if(!isWalkable(1,lLoc[0],lLoc[1])){
         leftBlocked = true;
       }
-      if(!isWalkable(1,uLoc[0],uLoc[1]) || (getTile(4,uLoc[0],uLoc[1]) === 7 && !self.rank &&
-      (Building.list[b].house === self.house || Building.list[b].kingdom === self.kingdom))){
+      if(!isWalkable(1,uLoc[0],uLoc[1]) || (getTile(4,uLoc[0],uLoc[1]) == 7 && !self.rank &&
+      (Building.list[b].house == self.house || Building.list[b].kingdom == self.kingdom))){
         upBlocked = true;
       }
       if(!isWalkable(1,dLoc[0],dLoc[1])){
@@ -3263,7 +3264,7 @@ Player = function(param){
     }
 
     // indoor2 collisions
-    if(self.z === 2){
+    if(self.z == 2){
       if(!isWalkable(2,rLoc[0],rLoc[1])){
         rightBlocked = true;
       }
@@ -3279,7 +3280,7 @@ Player = function(param){
     }
 
     // cellar/dungeon collisions
-    if(self.z === -2){
+    if(self.z == -2){
       if(!isWalkable(-2,rLoc[0],rLoc[1])){
         rightBlocked = true;
       }
@@ -3343,14 +3344,21 @@ Player = function(param){
     }
 
     // terrain effects and z movement
-    if(self.z === 0){
-      if(getTile(0,loc[0],loc[1]) === 6){
+    if(self.z == 0){
+      var tile = getTile(0,loc[0],loc[1]);
+      if(tile != self.lastTile){
+        if(self.lastTile >= 5 && self.lastTile < 6 && !self.onMtn){ // change mtn ambience
+          socket.emit('bgm',{x:self.x,y:self.y,z:self.z});
+        }
+        self.lastTile = tile;
+      }
+      if(tile == 6){
         self.z = -1;
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd;
         socket.emit('bgm',{x:self.x,y:self.y,z:self.z});
-      } else if(getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 2){
+      } else if(tile >= 1 && tile < 2){
         self.innaWoods = true;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * 0.3;
@@ -3368,28 +3376,29 @@ Player = function(param){
         setTimeout(function(){
           if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6){
             self.onMtn = true;
+            socket.emit('bgm',{x:self.x,y:self.y,z:self.z});
           }
         },2000);
       } else if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6 && self.onMtn){
         self.maxSpd = self.baseSpd * 0.5;
-      } else if(getTile(0,loc[0],loc[1]) === 18){
+      } else if(getTile(0,loc[0],loc[1]) == 18){
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * 1.1;
-      } else if(getTile(0,loc[0],loc[1]) === 14 || getTile(0,loc[0],loc[1]) === 16){
+      } else if(getTile(0,loc[0],loc[1]) == 14 || getTile(0,loc[0],loc[1]) == 16){
         self.z = 1;
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd;
         socket.emit('bgm',{x:self.x,y:self.y,z:self.z,b:Building.list[getBuilding(self.x,self.y)].type});
-      } else if(getTile(0,loc[0],loc[1]) === 19){
+      } else if(getTile(0,loc[0],loc[1]) == 19){
         self.z = 1;
         socket.emit('addToChat','<i>🗝 You unlock the door.</i>');
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd;
         socket.emit('bgm',{x:self.x,y:self.y,z:self.z,b:Building.list[getBuilding(self.x,self.y)].type});
-      } else if(getTile(0,loc[0],loc[1]) === 0){
+      } else if(getTile(0,loc[0],loc[1]) == 0){
         self.z = -3;
         self.innaWoods = false;
         self.onMtn = false;
@@ -3400,22 +3409,22 @@ Player = function(param){
         self.onMtn = false;
         self.maxSpd = self.baseSpd;
       }
-    } else if(self.z === -1){
-      if(getTile(1,loc[0],loc[1]) === 2){
+    } else if(self.z == -1){
+      if(getTile(1,loc[0],loc[1]) == 2){
         self.z = 0;
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * 0.9;
         socket.emit('bgm',{x:self.x,y:self.y,z:self.z});
       }
-    } else if(self.z === -2){
-      if(getTile(8,loc[0],loc[1]) === 5){
+    } else if(self.z == -2){
+      if(getTile(8,loc[0],loc[1]) == 5){
         self.z = 1;
         self.y += (tileSize/2);
         self.facing = 'down';
         socket.emit('bgm',{x:self.x,y:self.y,z:self.z,b:Building.list[getBuilding(self.x,self.y)].type});
       }
-    } else if(self.z === -3){
+    } else if(self.z == -3){
       if(self.breath > 0){
         self.breath -= 0.25;
       } else {
@@ -3426,23 +3435,23 @@ Player = function(param){
         self.breath = self.breathMax;
         socket.emit('bgm',{x:self.x,y:self.y,z:self.z});
       }
-    } else if(self.z === 1){
-      if(getTile(0,loc[0],loc[1] - 1) === 14 || getTile(0,loc[0],loc[1] - 1) === 16  || getTile(0,loc[0],loc[1] - 1) === 19){
+    } else if(self.z == 1){
+      if(getTile(0,loc[0],loc[1] - 1) == 14 || getTile(0,loc[0],loc[1] - 1) == 16  || getTile(0,loc[0],loc[1] - 1) == 19){
         self.z = 0;
         socket.emit('bgm',{x:self.x,y:self.y,z:self.z});
-      } else if(getTile(4,loc[0],loc[1]) === 3 || getTile(4,loc[0],loc[1]) === 4 || getTile(4,loc[0],loc[1]) === 7){
+      } else if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4 || getTile(4,loc[0],loc[1]) == 7){
         self.z = 2;
         self.y += (tileSize/2);
         self.facing = 'down'
         socket.emit('bgm',{x:self.x,y:self.y,z:self.z,b:Building.list[getBuilding(self.x,self.y)].type});
-      } else if(getTile(4,loc[0],loc[1]) === 5 || getTile(4,loc[0],loc[1]) === 6){
+      } else if(getTile(4,loc[0],loc[1]) == 5 || getTile(4,loc[0],loc[1]) == 6){
         self.z = -2;
         self.y += (tileSize/2);
         self.facing = 'down';
         socket.emit('bgm',{x:self.x,y:self.y,z:self.z,b:Building.list[getBuilding(self.x,self.y)].type});
       }
-    } else if(self.z === 2){
-      if(getTile(4,loc[0],loc[1]) === 3 || getTile(4,loc[0],loc[1]) === 4){
+    } else if(self.z == 2){
+      if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4){
         self.z = 1;
         self.y += (tileSize/2);
         self.facing = 'down';
@@ -3556,63 +3565,63 @@ Player.onConnect = function(socket,name){
   console.log(player.id + ' spawned at : ' + spawn + ' z: 0')
   // player control inputs
   socket.on('keyPress',function(data){
-    if(data.inputId === 'left'){
+    if(data.inputId == 'left'){
       player.pressingLeft = data.state;
-    } else if(data.inputId === 'right'){
+    } else if(data.inputId == 'right'){
       player.pressingRight = data.state;
-    } else if(data.inputId === 'up'){
+    } else if(data.inputId == 'up'){
       player.pressingUp = data.state;
-    } else if(data.inputId === 'down'){
+    } else if(data.inputId == 'down'){
       player.pressingDown = data.state;
-    } else if(data.inputId === 'attack'){
+    } else if(data.inputId == 'attack'){
       player.pressingAttack = data.state;
-    } else if(data.inputId === 'e'){
+    } else if(data.inputId == 'e'){
       player.pressingE = data.state;
-    } else if(data.inputId === 't'){
+    } else if(data.inputId == 't'){
       player.pressingT = data.state;
-    } else if(data.inputId === 'i'){
+    } else if(data.inputId == 'i'){
       player.pressingI = data.state;
-    } else if(data.inputId === 'p'){
+    } else if(data.inputId == 'p'){
       player.pressingP = data.state;
-    } else if(data.inputId === 'f'){
+    } else if(data.inputId == 'f'){
       player.pressingF = data.state;
-    } else if(data.inputId === 'h'){
+    } else if(data.inputId == 'h'){
       player.pressingH = data.state;
-    } else if(data.inputId === 'k'){
+    } else if(data.inputId == 'k'){
       player.pressingK = data.state;
-    } else if(data.inputId === 'l'){
+    } else if(data.inputId == 'l'){
       player.pressingL = data.state;
-    } else if(data.inputId === 'x'){
+    } else if(data.inputId == 'x'){
       player.pressingX = data.state;
-    } else if(data.inputId === 'c'){
+    } else if(data.inputId == 'c'){
       player.pressingC = data.state;
-    } else if(data.inputId === 'b'){
+    } else if(data.inputId == 'b'){
       player.pressingB = data.state;
-    } else if(data.inputId === 'n'){
+    } else if(data.inputId == 'n'){
       player.pressingN = data.state;
-    } else if(data.inputId === 'm'){
+    } else if(data.inputId == 'm'){
       player.pressingM = data.state;
-    } else if(data.inputId === '1'){
+    } else if(data.inputId == '1'){
       player.pressing1 = data.state;
-    } else if(data.inputId === '2'){
+    } else if(data.inputId == '2'){
       player.pressing2 = data.state;
-    } else if(data.inputId === '3'){
+    } else if(data.inputId == '3'){
       player.pressing3 = data.state;
-    } else if(data.inputId === '4'){
+    } else if(data.inputId == '4'){
       player.pressing4 = data.state;
-    } else if(data.inputId === '5'){
+    } else if(data.inputId == '5'){
       player.pressing5 = data.state;
-    } else if(data.inputId === '6'){
+    } else if(data.inputId == '6'){
       player.pressing6 = data.state;
-    } else if(data.inputId === '7'){
+    } else if(data.inputId == '7'){
       player.pressing7 = data.state;
-    } else if(data.inputId === '8'){
+    } else if(data.inputId == '8'){
       player.pressing8 = data.state;
-    } else if(data.inputId === '9'){
+    } else if(data.inputId == '9'){
       player.pressing9 = data.state;
-    } else if(data.inputId === '0'){
+    } else if(data.inputId == '0'){
       player.pressing0 = data.state;
-    } else if(data.inputId === 'mouseAngle'){
+    } else if(data.inputId == 'mouseAngle'){
       player.mouseAngle = data.state;
     }
   });
@@ -3626,11 +3635,11 @@ Player.onConnect = function(socket,name){
   socket.on('sendPmToServer',function(data){
     var recipient = null;
     for(var i in Player.list){
-      if(Player.list[i].name === data.recip){
+      if(Player.list[i].name == data.recip){
         recipient = SOCKET_LIST[i];
       }
     }
-    if(recipient === null){
+    if(recipient == null){
       socket.emit('addToChat','<i>' + data.recip + ' is not online.</i>');
     } else {
       recipient.emit('addToChat','<b>@' + player.name + '</b> whispers: <i>' + data.message + '</i>');
@@ -3733,7 +3742,7 @@ io.sockets.on('connection', function(socket){
 // day/night cycle
 var dayNight = function(){
   tempus = cycle[tick];
-  if(tempus === 'XII.a'){
+  if(tempus == 'XII.a'){
     day++;
     entropy();
     console.log('');

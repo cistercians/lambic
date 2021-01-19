@@ -124,8 +124,8 @@ Brotherhood = function(param){
     if(self.spawnTimer > 0){
       self.spawnTimer--;
     }
-    if(self.campaign === 0){
-      if(self.scene.pawns < 5 && self.spawnTimer === 0){
+    if(self.campaign == 0){
+      if(self.scene.pawns < 5 && self.spawnTimer == 0){
         var rand = Math.floor(Math.random() * grid.length);
         var select = grid[rand];
         var sCoords = getCenter(select[0],select[1]);
@@ -144,10 +144,10 @@ Brotherhood = function(param){
         self.scene.pawns++;
       } else if(self.scene.pawns < 5){
         self.nextChapter = 0;
-      } else if(self.spawnTimer === 0){
+      } else if(self.spawnTimer == 0){
         self.nextChapter++;
       }
-      if(self.nextChapter === 24){
+      if(self.nextChapter == 24){
         self.nextChapter = 0;
         self.campaign++;
       }
@@ -229,8 +229,8 @@ Goths = function(param){
     if(self.spawnTimer > 0){
       self.spawnTimer--;
     }
-    if(self.campaign === 0){
-      if(self.scene.pawns < 6 && self.spawnTimer === 0){
+    if(self.campaign == 0){
+      if(self.scene.pawns < 6 && self.spawnTimer == 0){
         var rand = Math.floor(Math.random() * grid.length);
         var select = grid[rand];
         var sCoords = getCenter(select[0],select[1]);
@@ -264,10 +264,10 @@ Goths = function(param){
         self.scene.pawns++;
       } else if(self.scene.pawns < 6){
         self.nextChapter = 0;
-      } else if(self.spawnTimer === 0){
+      } else if(self.spawnTimer == 0){
         self.nextChapter++;
       }
-      if(self.nextChapter === (3600000/period)*24){
+      if(self.nextChapter == (3600000/period)*24){
         self.nextChapter = 0;
         self.campaign++;
       }
@@ -300,7 +300,7 @@ Norsemen = function(param){
     if(self.spawnTimer > 0){
       self.spawnTimer--;
     }
-    if(self.campaign === 0){
+    if(self.campaign == 0){
     }
   }
 }
@@ -390,8 +390,8 @@ Franks = function(param){
     if(self.spawnTimer > 0){
       self.spawnTimer--;
     }
-    if(self.campaign === 0){
-      if(self.scene.pawns < 6 && self.spawnTimer === 0){
+    if(self.campaign == 0){
+      if(self.scene.pawns < 6 && self.spawnTimer == 0){
         var rand = Math.floor(Math.random() * grid.length);
         var select = grid[rand];
         var sCoords = getCenter(select[0],select[1]);
@@ -437,10 +437,10 @@ Franks = function(param){
         self.scene.pawns++;
       } else if(self.scene.pawns < 6){
         self.nextChapter = 0;
-      } else if(self.spawnTimer === 0){
+      } else if(self.spawnTimer == 0){
         self.nextChapter++;
       }
-      if(self.nextChapter === (3600000/period)*24){
+      if(self.nextChapter == (3600000/period)*24){
         self.nextChapter = 0;
         self.campaign++;
       }
@@ -523,8 +523,8 @@ Celts = function(param){
     if(self.spawnTimer > 0){
       self.spawnTimer--;
     }
-    if(self.campaign === 0){
-      if(self.scene.pawns < 6 && self.spawnTimer === 0){
+    if(self.campaign == 0){
+      if(self.scene.pawns < 6 && self.spawnTimer == 0){
         var rand = Math.floor(Math.random() * grid.length);
         var select = grid[rand];
         var sCoords = getCenter(select[0],select[1]);
@@ -558,10 +558,10 @@ Celts = function(param){
         self.scene.pawns++;
       } else if(self.scene.pawns < 6){
         self.nextChapter = 0;
-      } else if(self.spawnTimer === 0){
+      } else if(self.spawnTimer == 0){
         self.nextChapter++;
       }
-      if(self.nextChapter === (3600000/period)*24){
+      if(self.nextChapter == (3600000/period)*24){
         self.nextChapter = 0;
         self.campaign++;
       }
@@ -629,8 +629,8 @@ Teutons = function(param){
     if(self.spawnTimer > 0){
       self.spawnTimer--;
     }
-    if(self.campaign === 0){
-      if(self.scene.pawns < 4 && self.spawnTimer === 0){
+    if(self.campaign == 0){
+      if(self.scene.pawns < 4 && self.spawnTimer == 0){
         var rand = Math.floor(Math.random() * grid.length);
         var select = grid[rand];
         var sCoords = getCenter(select[0],select[1]);
@@ -649,10 +649,10 @@ Teutons = function(param){
         self.scene.pawns++;
       } else if(self.scene.pawns < 4){
         self.nextChapter = 0;
-      } else if(self.spawnTimer === 0){
+      } else if(self.spawnTimer == 0){
         self.nextChapter++;
       }
-      if(self.nextChapter === (3600000/period)*24){
+      if(self.nextChapter == (3600000/period)*24){
         self.nextChapter = 0;
         self.campaign++;
       }
@@ -732,8 +732,8 @@ Outlaws = function(param){
     if(self.spawnTimer > 0){
       self.spawnTimer--;
     }
-    if(self.campaign === 0){
-      if(self.scene.pawns < 6 && self.spawnTimer === 0){
+    if(self.campaign == 0){
+      if(self.scene.pawns < 6 && self.spawnTimer == 0){
         var rand = Math.floor(Math.random() * grid.length);
         var select = grid[rand];
         var sCoords = getCenter(select[0],select[1]);
@@ -767,10 +767,10 @@ Outlaws = function(param){
         self.scene.pawns++;
       } else if(self.scene.pawns < 6){
         self.nextChapter = 0;
-      } else if(self.spawnTimer === 0){
+      } else if(self.spawnTimer == 0){
         self.nextChapter++;
       }
-      if(self.nextChapter === (3600000/period)*24){
+      if(self.nextChapter == (3600000/period)*24){
         self.nextChapter = 0;
         self.campaign++;
       }
@@ -855,8 +855,8 @@ Mercenaries = function(param){
     if(self.spawnTimer > 0){
       self.spawnTimer--;
     }
-    if(self.campaign === 0){
-      if(self.scene.pawns < 6 && self.spawnTimer === 0){
+    if(self.campaign == 0){
+      if(self.scene.pawns < 6 && self.spawnTimer == 0){
         var rand = Math.floor(Math.random() * grid.length);
         var select = grid[rand];
         var sCoords = getCenter(select[0],select[1]);
@@ -890,10 +890,10 @@ Mercenaries = function(param){
         self.scene.pawns++;
       } else if(self.scene.pawns < 6){
         self.nextChapter = 0;
-      } else if(self.spawnTimer === 0){
+      } else if(self.spawnTimer == 0){
         self.nextChapter++;
       }
-      if(self.nextChapter === (3600000/period)*24){
+      if(self.nextChapter == (3600000/period)*24){
         self.nextChapter = 0;
         self.campaign++;
       }

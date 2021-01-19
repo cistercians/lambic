@@ -66,13 +66,13 @@ socket.on('mapEdit',function(data){
 
 chatForm.onsubmit = function(e){
   e.preventDefault();
-  if(chatInput.value[0] === '/'){ // command
+  if(chatInput.value[0] == '/'){ // command
     socket.emit('evalCmd',{
       id:selfId,
       cmd:chatInput.value.slice(1),
       world:world
     });
-  } else if(chatInput.value[0] === '@'){ // private message
+  } else if(chatInput.value[0] == '@'){ // private message
     socket.emit('sendPmToServer',{
       recip:chatInput.value.slice(1,chatInput.value.indexOf(' ')),
       message:chatInput.value.slice(chatInput.value.indexOf(' ') + 1)
@@ -99,7 +99,7 @@ var soundscape = function(x,y,z,b){
     if(tile >= 5 && tile < 6){
       ambPlayer(Amb.mountains);
     } else {
-      if(tempus == 'VII.p' || tempus == 'VIII.p' || tempus == 'IX.p' || tempus == 'X.p' || tempus == 'XI.p' || tempus == 'XII.a' || tempus == 'I.a' || tempus == 'II.a' || tempus == 'III.a' || tempus == 'IV.a'){
+      if(tempus == 'VIII.p' || tempus == 'IX.p' || tempus == 'X.p' || tempus == 'XI.p' || tempus == 'XII.a' || tempus == 'I.a' || tempus == 'II.a' || tempus == 'III.a' || tempus == 'IV.a'){
         ambPlayer(Amb.forest);
       } else {
         ambPlayer(Amb.nature);
@@ -115,6 +115,14 @@ var soundscape = function(x,y,z,b){
     } else {
       ambPlayer();
     }
+  } else if(z == -2){
+    if(b == 'tavern'){
+      ambPlayer(Amb.empty);
+    } else {
+      ambPlayer(Amb.evil);
+    }
+  } else if(z == -3){
+    ambPlayer(Amb.underwater);
   }
 };
 
@@ -122,10 +130,10 @@ var getBgm = function(x,y,z,b){
   soundscape(x,y,z,b);
   // outdoors
   if(z == 0){
-    if(tempus === 'IV.a' || tempus === 'V.a' || tempus === 'VI.a' || tempus === 'VII.a' || tempus === 'VIII.a' || tempus === 'IX.a'){
+    if(tempus == 'IV.a' || tempus == 'V.a' || tempus == 'VI.a' || tempus == 'VII.a' || tempus == 'VIII.a' || tempus == 'IX.a'){
       // morning
       bgmPlayer(overworld_morning_bgm);
-    } else if(tempus === 'X.a' || tempus === 'XI.a' || tempus === 'XII.p' || tempus === 'I.p' || tempus === 'II.p' || tempus === 'III.p' || tempus === 'IV.p' || tempus === 'V.p' || tempus === 'VI.p'){
+    } else if(tempus == 'X.a' || tempus == 'XI.a' || tempus == 'XII.p' || tempus == 'I.p' || tempus == 'II.p' || tempus == 'III.p' || tempus == 'IV.p' || tempus == 'V.p' || tempus == 'VI.p' || tempus == 'VII.p'){
       // day
       bgmPlayer(overworld_day_bgm);
     } else {
@@ -139,11 +147,13 @@ var getBgm = function(x,y,z,b){
     // indoors
     if(z == 1 || z == 2){
       if(b == 'stronghold'){
-        if(tempus == 'VI.p' || tempus == 'VII.p' || tempus == 'VIII.p' || tempus == 'IX.p' || tempus == 'X.p' || tempus == 'XI.p' || tempus == 'XII.a' || tempus == 'I.a' || tempus == 'II.a' || tempus == 'III.a'){
+        if(tempus == 'VIII.p' || tempus == 'IX.p' || tempus == 'X.p' || tempus == 'XI.p' || tempus == 'XII.a' || tempus == 'I.a' || tempus == 'II.a' || tempus == 'III.a'){
           bgmPlayer(stronghold_night_bgm);
         } else {
           bgmPlayer(stronghold_day_bgm);
         }
+      } else if(b == 'garrison'){
+        bgmPlayer(garrison_bgm);
       } else if(b == 'tavern'){
         bgmPlayer(tavern_bgm);
       } else if(b == 'monastery'){
@@ -163,7 +173,7 @@ var getBgm = function(x,y,z,b){
 
 var fly = 0
 setInterval(function(){
-  if(fly === 6){
+  if(fly == 6){
     fly = 0;
   } else {
     fly += 1;
@@ -173,7 +183,7 @@ setInterval(function(){
 // walking animation
 var wlk = 0;
 setInterval(function(){
-  if(wlk === 1){
+  if(wlk == 1){
     wlk = 0;
   } else {
     wlk = 1;
@@ -184,7 +194,7 @@ setInterval(function(){
 var workingIcon = ['⌛️','⏳'];
 var wrk = 0;
 setInterval(function(){
-  if(wrk === 1){
+  if(wrk == 1){
     wrk = 0;
   } else {
     wrk = 1;
@@ -253,22 +263,22 @@ var Player = function(initPack){
     var x = 0;
     var y = 0;
 
-    if(self.spriteSize === tileSize * 1.5){
+    if(self.spriteSize == tileSize * 1.5){
       x = (self.x - (tileSize*0.75)) - Player.list[selfId].x + WIDTH/2;
       y = (self.y - (tileSize*0.75)) - Player.list[selfId].y + HEIGHT/2;
-    } else if(self.spriteSize === tileSize * 2){
+    } else if(self.spriteSize == tileSize * 2){
       x = (self.x - tileSize) - Player.list[selfId].x + WIDTH/2;
       y = (self.y - tileSize) - Player.list[selfId].y + HEIGHT/2;
-    } else if(self.spriteSize === tileSize * 3){
+    } else if(self.spriteSize == tileSize * 3){
       x = (self.x - (tileSize*1.5)) - Player.list[selfId].x + WIDTH/2;
       y = (self.y - (tileSize*1.5)) - Player.list[selfId].y + HEIGHT/2;
-    } else if(self.spriteSize === tileSize * 7){
+    } else if(self.spriteSize == tileSize * 7){
       x = (self.x - (tileSize*3.5)) - Player.list[selfId].x + WIDTH/2;
       y = (self.y - (tileSize*3.5)) - Player.list[selfId].y + HEIGHT/2;
-    } else if(self.spriteSize === tileSize * 10){
+    } else if(self.spriteSize == tileSize * 10){
       x = (self.x - (tileSize*5)) - Player.list[selfId].x + WIDTH/2;
       y = (self.y - (tileSize*5)) - Player.list[selfId].y + HEIGHT/2;
-    } else if(self.spriteSize === tileSize * 12){
+    } else if(self.spriteSize == tileSize * 12){
       x = (self.x - (tileSize*6)) - Player.list[selfId].x + WIDTH/2;
       y = (self.y - (tileSize*6)) - Player.list[selfId].y + HEIGHT/2;
     } else {
@@ -299,7 +309,7 @@ var Player = function(initPack){
       ctx.fillStyle = 'royalblue';
       ctx.fillRect(barX,barY - 20,spiritWidth,4);
     }
-    if(self.z === -3){
+    if(self.z == -3){
       ctx.fillStyle = 'azure';
       ctx.fillRect(barX,barY - 30,brWidth,6);
     }
@@ -308,39 +318,39 @@ var Player = function(initPack){
     if(self.rank){
       var allied = allyCheck(self.id);
       if(self.kingdom){
-        if(allied === 2){
+        if(allied == 2){
           ctx.fillStyle = 'lightskyblue';
-        } else if(allied === 1){
+        } else if(allied == 1){
           ctx.fillStyle = 'palegreen';
-        } else if(allied === 0){
+        } else if(allied == 0){
           ctx.fillStyle = 'white';
-        } else if(allied === -1){
+        } else if(allied == -1){
           ctx.fillStyle = 'orangered';
         }
         ctx.font = '15px minion web';
         ctx.textAlign = 'center';
         ctx.fillText(kingdomList[self.kingdom].flag + ' ' + self.rank + self.name,barX + 30,barY - 40,100);
       } else if(self.house){
-        if(allied === 2){
+        if(allied == 2){
           ctx.fillStyle = 'lightskyblue';
-        } else if(allied === 1){
+        } else if(allied == 1){
           ctx.fillStyle = 'palegreen';
-        } else if(allied === 0){
+        } else if(allied == 0){
           ctx.fillStyle = 'white';
-        } else if(allied === -1){
+        } else if(allied == -1){
           ctx.fillStyle = 'orangered';
         }
         ctx.font = '15px minion web';
         ctx.textAlign = 'center';
         ctx.fillText(houseList[self.house].flag + ' ' + self.rank + self.name,barX + 30,barY - 40,100);
       } else {
-        if(allied === 2){
+        if(allied == 2){
           ctx.fillStyle = 'lightskyblue';
-        } else if(allied === 1){
+        } else if(allied == 1){
           ctx.fillStyle = 'palegreen';
-        } else if(allied === 0){
+        } else if(allied == 0){
           ctx.fillStyle = 'white';
-        } else if(allied === -1){
+        } else if(allied == -1){
           ctx.fillStyle = 'orangered';
         }
         ctx.font = '15px minion web';
@@ -350,39 +360,39 @@ var Player = function(initPack){
     } else if(self.name){
       var allied = allyCheck(self.id);
       if(self.kingdom){
-        if(allied === 2){
+        if(allied == 2){
           ctx.fillStyle = 'lightskyblue';
-        } else if(allied === 1){
+        } else if(allied == 1){
           ctx.fillStyle = 'palegreen';
-        } else if(allied === 0){
+        } else if(allied == 0){
           ctx.fillStyle = 'white';
-        } else if(allied === -1){
+        } else if(allied == -1){
           ctx.fillStyle = 'orangered';
         }
         ctx.font = '15px minion web';
         ctx.textAlign = 'center';
         ctx.fillText(kingdomList[self.kingdom].flag + ' ' + self.name,barX + 30,barY - 40,100);
       } else if(self.house){
-        if(allied === 2){
+        if(allied == 2){
           ctx.fillStyle = 'lightskyblue';
-        } else if(allied === 1){
+        } else if(allied == 1){
           ctx.fillStyle = 'palegreen';
-        } else if(allied === 0){
+        } else if(allied == 0){
           ctx.fillStyle = 'white';
-        } else if(allied === -1){
+        } else if(allied == -1){
           ctx.fillStyle = 'orangered';
         }
         ctx.font = '15px minion web';
         ctx.textAlign = 'center';
         ctx.fillText(houseList[self.house].flag + ' ' + self.name,barX + 30,barY - 40,100);
       } else {
-        if(allied === 2){
+        if(allied == 2){
           ctx.fillStyle = 'lightskyblue';
-        } else if(allied === 1){
+        } else if(allied == 1){
           ctx.fillStyle = 'palegreen';
-        } else if(allied === 0){
+        } else if(allied == 0){
           ctx.fillStyle = 'white';
-        } else if(allied === -1){
+        } else if(allied == -1){
           ctx.fillStyle = 'orangered';
         }
         ctx.font = '15px minion web';
@@ -398,8 +408,8 @@ var Player = function(initPack){
 
     // character sprite
     if(self.pressingAttack){
-      if((self.gear.weapon && self.gear.weapon.type === 'bow') || self.ranged){
-        if(self.type === 'player' && self.inventory.arrows < 1){
+      if((self.gear.weapon && self.gear.weapon.type == 'bow') || self.ranged){
+        if(self.type == 'player' && self.inventory.arrows < 1){
           SOCKET_LIST[self.id].emit('addToChat','<i>You have no arrows.</i>');
         } else {
           if(self.angle > 45 && self.angle <= 115){
@@ -437,7 +447,7 @@ var Player = function(initPack){
           }
         }
       } else {
-        if(self.facing === 'down'){
+        if(self.facing == 'down'){
           ctx.drawImage(
             self.sprite.attackd,
             x,
@@ -445,7 +455,7 @@ var Player = function(initPack){
             self.spriteSize,
             self.spriteSize
           );
-        } else if(self.facing === 'up'){
+        } else if(self.facing == 'up'){
           ctx.drawImage(
             self.sprite.attacku,
             x,
@@ -453,7 +463,7 @@ var Player = function(initPack){
             self.spriteSize,
             self.spriteSize
           );
-        } else if(self.facing === 'left'){
+        } else if(self.facing == 'left'){
           ctx.drawImage(
             self.sprite.attackl,
             x,
@@ -461,7 +471,7 @@ var Player = function(initPack){
             self.spriteSize,
             self.spriteSize
           );
-        } else if(self.facing === 'right'){
+        } else if(self.facing == 'right'){
           ctx.drawImage(
             self.sprite.attackr,
             x,
@@ -504,7 +514,7 @@ var Player = function(initPack){
         self.spriteSize
       );
     } else if(self.fishing){
-      if(self.facing === 'down'){
+      if(self.facing == 'down'){
         ctx.drawImage(
           self.sprite.fishingd,
           x,
@@ -512,7 +522,7 @@ var Player = function(initPack){
           self.spriteSize,
           self.spriteSize
         );
-      } else if(self.facing === 'up'){
+      } else if(self.facing == 'up'){
         ctx.drawImage(
           self.sprite.fishingu,
           x,
@@ -520,7 +530,7 @@ var Player = function(initPack){
           self.spriteSize,
           self.spriteSize
         );
-      } else if(self.facing === 'left'){
+      } else if(self.facing == 'left'){
         ctx.drawImage(
           self.sprite.fishingl,
           x,
@@ -528,7 +538,7 @@ var Player = function(initPack){
           self.spriteSize,
           self.spriteSize
         );
-      } else if(self.facing === 'right'){
+      } else if(self.facing == 'right'){
         ctx.drawImage(
           self.sprite.fishingr,
           x,
@@ -537,8 +547,8 @@ var Player = function(initPack){
           self.spriteSize
         );
       }
-    } else if(self.pressingAttack && self.type === 'npc'){
-      if(self.facing === 'down'){
+    } else if(self.pressingAttack && self.type == 'npc'){
+      if(self.facing == 'down'){
         ctx.drawImage(
           self.sprite.attackd,
           x,
@@ -546,7 +556,7 @@ var Player = function(initPack){
           self.spriteSize,
           self.spriteSize
         );
-      } else if(self.facing === 'up'){
+      } else if(self.facing == 'up'){
         ctx.drawImage(
           self.sprite.attacku,
           x,
@@ -554,7 +564,7 @@ var Player = function(initPack){
           self.spriteSize,
           self.spriteSize
         );
-      } else if(self.facing === 'left'){
+      } else if(self.facing == 'left'){
         ctx.drawImage(
           self.sprite.attackl,
           x,
@@ -562,7 +572,7 @@ var Player = function(initPack){
           self.spriteSize,
           self.spriteSize
         );
-      } else if(self.facing === 'right'){
+      } else if(self.facing == 'right'){
         ctx.drawImage(
           self.sprite.attackr,
           x,
@@ -571,7 +581,7 @@ var Player = function(initPack){
           self.spriteSize
         );
       }
-    } else if(self.facing === 'down' && !self.pressingDown){
+    } else if(self.facing == 'down' && !self.pressingDown){
       ctx.drawImage(
         self.sprite.facedown,
         x,
@@ -587,7 +597,7 @@ var Player = function(initPack){
         self.spriteSize,
         self.spriteSize
       );
-    } else if(self.facing === 'up' && !self.pressingUp){
+    } else if(self.facing == 'up' && !self.pressingUp){
       ctx.drawImage(
         self.sprite.faceup,
         x,
@@ -603,7 +613,7 @@ var Player = function(initPack){
         self.spriteSize,
         self.spriteSize
       );
-    } else if(self.facing === 'left' && !self.pressingLeft){
+    } else if(self.facing == 'left' && !self.pressingLeft){
       ctx.drawImage(
         self.sprite.faceleft,
         x,
@@ -619,7 +629,7 @@ var Player = function(initPack){
         self.spriteSize,
         self.spriteSize
       );
-    } else if(self.facing === 'right' && !self.pressingRight){
+    } else if(self.facing == 'right' && !self.pressingRight){
       ctx.drawImage(
         self.sprite.faceright,
         x,
@@ -699,7 +709,7 @@ var Item = function(initPack){
   self.innaWoods = initPack.innaWoods;
 
   self.draw = function(){
-    if(self.type === 'Wood'){
+    if(self.type == 'Wood'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 9){
@@ -727,7 +737,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'Stone'){
+    } else if(self.type == 'Stone'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 9){
@@ -747,7 +757,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'Grain'){
+    } else if(self.type == 'Grain'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 9){
@@ -775,7 +785,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'IronOre'){
+    } else if(self.type == 'IronOre'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -785,7 +795,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'IronBar'){
+    } else if(self.type == 'IronBar'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 4){
@@ -805,7 +815,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'SteelBar'){
+    } else if(self.type == 'SteelBar'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 4){
@@ -825,7 +835,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'BoarHide'){
+    } else if(self.type == 'BoarHide'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 4){
@@ -845,7 +855,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'Leather'){
+    } else if(self.type == 'Leather'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 4){
@@ -865,7 +875,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'SilverOre'){
+    } else if(self.type == 'SilverOre'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -875,7 +885,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'Silver'){
+    } else if(self.type == 'Silver'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 999){
@@ -951,7 +961,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'GoldOre'){
+    } else if(self.type == 'GoldOre'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -961,7 +971,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'Gold'){
+    } else if(self.type == 'Gold'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 999){
@@ -1037,7 +1047,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'Diamond'){
+    } else if(self.type == 'Diamond'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 2){
@@ -1057,7 +1067,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'HuntingKnife'){
+    } else if(self.type == 'HuntingKnife'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1067,7 +1077,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    }else if(self.type === 'Dague'){
+    }else if(self.type == 'Dague'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1077,7 +1087,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'Rondel'){
+    } else if(self.type == 'Rondel'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1087,7 +1097,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'Misericorde'){
+    } else if(self.type == 'Misericorde'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1097,7 +1107,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'BastardSword'){
+    } else if(self.type == 'BastardSword'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1107,7 +1117,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'Longsword'){
+    } else if(self.type == 'Longsword'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1117,7 +1127,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'Zweihander'){
+    } else if(self.type == 'Zweihander'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1127,7 +1137,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'Morallta'){
+    } else if(self.type == 'Morallta'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1137,7 +1147,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'Bow'){
+    } else if(self.type == 'Bow'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1147,7 +1157,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'WelshLongbow'){
+    } else if(self.type == 'WelshLongbow'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1157,7 +1167,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'KnightLance'){
+    } else if(self.type == 'KnightLance'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1167,7 +1177,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'RusticLance'){
+    } else if(self.type == 'RusticLance'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1177,7 +1187,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'PaladinLance'){
+    } else if(self.type == 'PaladinLance'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1187,7 +1197,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'Brigandine'){
+    } else if(self.type == 'Brigandine'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1197,7 +1207,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'Lamellar'){
+    } else if(self.type == 'Lamellar'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1207,7 +1217,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'Maille'){
+    } else if(self.type == 'Maille'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1217,7 +1227,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'Hauberk'){
+    } else if(self.type == 'Hauberk'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1227,7 +1237,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'Brynja'){
+    } else if(self.type == 'Brynja'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1237,7 +1247,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'Cuirass'){
+    } else if(self.type == 'Cuirass'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1247,7 +1257,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'SteelPlate'){
+    } else if(self.type == 'SteelPlate'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1257,7 +1267,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'GreenwichPlate'){
+    } else if(self.type == 'GreenwichPlate'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1267,7 +1277,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'GothicPlate'){
+    } else if(self.type == 'GothicPlate'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1277,7 +1287,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'ClericRobe'){
+    } else if(self.type == 'ClericRobe'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1287,7 +1297,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'MonkCowl'){
+    } else if(self.type == 'MonkCowl'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1297,7 +1307,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'BlackCloak'){
+    } else if(self.type == 'BlackCloak'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1307,7 +1317,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'Tome'){
+    } else if(self.type == 'Tome'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1317,7 +1327,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'RunicScroll'){
+    } else if(self.type == 'RunicScroll'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1327,7 +1337,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'SacredText'){
+    } else if(self.type == 'SacredText'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1337,7 +1347,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'Stoneaxe' || self.type === 'IronAxe'){
+    } else if(self.type == 'Stoneaxe' || self.type == 'IronAxe'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1347,7 +1357,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'Pickaxe'){
+    } else if(self.type == 'Pickaxe'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1357,7 +1367,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'Key'){
+    } else if(self.type == 'Key'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1367,7 +1377,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'Torch'){
+    } else if(self.type == 'Torch'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1377,7 +1387,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'LitTorch'){
+    } else if(self.type == 'LitTorch'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1387,7 +1397,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'WallTorch'){
+    } else if(self.type == 'WallTorch'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1397,7 +1407,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'Campfire'){
+    } else if(self.type == 'Campfire'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1407,7 +1417,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'Firepit'){
+    } else if(self.type == 'Firepit'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1417,7 +1427,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'Fireplace'){
+    } else if(self.type == 'Fireplace'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1427,7 +1437,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'Forge'){
+    } else if(self.type == 'Forge'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1437,7 +1447,7 @@ var Item = function(initPack){
       tileSize,
       tileSize * 1.5
       );
-    } else if(self.type === 'Barrel'){
+    } else if(self.type == 'Barrel'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1447,7 +1457,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'Crates'){
+    } else if(self.type == 'Crates'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1457,7 +1467,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'Bookshelf'){
+    } else if(self.type == 'Bookshelf'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1467,7 +1477,7 @@ var Item = function(initPack){
       tileSize,
       tileSize * 1.5
       );
-    } else if(self.type === 'SuitArmor'){
+    } else if(self.type == 'SuitArmor'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1477,7 +1487,7 @@ var Item = function(initPack){
       tileSize,
       tileSize * 1.5
       );
-    } else if(self.type === 'Anvil'){
+    } else if(self.type == 'Anvil'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1487,7 +1497,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'Runestone'){
+    } else if(self.type == 'Runestone'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1497,7 +1507,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'Dummy'){
+    } else if(self.type == 'Dummy'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1507,7 +1517,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'Cross'){
+    } else if(self.type == 'Cross'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1517,7 +1527,7 @@ var Item = function(initPack){
       tileSize * 2,
       tileSize * 1.5
       );
-    } else if(self.type === 'Skeleton1'){
+    } else if(self.type == 'Skeleton1'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1527,7 +1537,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'Skeleton2'){
+    } else if(self.type == 'Skeleton2'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1537,7 +1547,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'Goods1'){
+    } else if(self.type == 'Goods1'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1547,7 +1557,7 @@ var Item = function(initPack){
       tileSize,
       tileSize * 1.5
       );
-    } else if(self.type === 'Goods2'){
+    } else if(self.type == 'Goods2'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1557,7 +1567,7 @@ var Item = function(initPack){
       tileSize,
       tileSize * 1.5
       );
-    } else if(self.type === 'Goods3'){
+    } else if(self.type == 'Goods3'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1567,7 +1577,7 @@ var Item = function(initPack){
       tileSize,
       tileSize * 1.5
       );
-    } else if(self.type === 'Goods4'){
+    } else if(self.type == 'Goods4'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1577,7 +1587,7 @@ var Item = function(initPack){
       tileSize,
       tileSize * 1.5
       );
-    } else if(self.type === 'Stash1'){
+    } else if(self.type == 'Stash1'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1587,7 +1597,7 @@ var Item = function(initPack){
       tileSize,
       tileSize * 1.5
       );
-    } else if(self.type === 'Stash2'){
+    } else if(self.type == 'Stash2'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1597,7 +1607,7 @@ var Item = function(initPack){
       tileSize,
       tileSize * 1.5
       );
-    } else if(self.type === 'Desk'){
+    } else if(self.type == 'Desk'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1607,7 +1617,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'Swordrack'){
+    } else if(self.type == 'Swordrack'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1617,7 +1627,7 @@ var Item = function(initPack){
       tileSize,
       tileSize * 1.5
       );
-    } else if(self.type === 'Bed'){
+    } else if(self.type == 'Bed'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1627,7 +1637,7 @@ var Item = function(initPack){
       tileSize * 2,
       tileSize * 2
       );
-    } else if(self.type === 'Jail'){
+    } else if(self.type == 'Jail'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1637,7 +1647,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'JailDoor'){
+    } else if(self.type == 'JailDoor'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1647,7 +1657,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'Chains'){
+    } else if(self.type == 'Chains'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1657,7 +1667,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'Throne'){
+    } else if(self.type == 'Throne'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1667,7 +1677,7 @@ var Item = function(initPack){
       tileSize,
       tileSize * 1.5
       );
-    } else if(self.type === 'Banner'){
+    } else if(self.type == 'Banner'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1677,7 +1687,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'StagHead'){
+    } else if(self.type == 'StagHead'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1687,7 +1697,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'Blood'){ // MUST ONLY SEE WITH TRACKER SKILL !!!
+    } else if(self.type == 'Blood'){ // MUST ONLY SEE WITH TRACKER SKILL !!!
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1697,7 +1707,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'Chest'){
+    } else if(self.type == 'Chest'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1707,7 +1717,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'LockedChest'){
+    } else if(self.type == 'LockedChest'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1717,7 +1727,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'Bread'){
+    } else if(self.type == 'Bread'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 4){
@@ -1737,7 +1747,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'Fish'){
+    } else if(self.type == 'Fish'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 4){
@@ -1757,7 +1767,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'Lamb'){
+    } else if(self.type == 'Lamb'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 4){
@@ -1777,7 +1787,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'BoarMeat'){
+    } else if(self.type == 'BoarMeat'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 4){
@@ -1797,7 +1807,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'Venison'){
+    } else if(self.type == 'Venison'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 4){
@@ -1817,7 +1827,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'PoachedFish'){
+    } else if(self.type == 'PoachedFish'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 4){
@@ -1837,7 +1847,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'LambChop'){
+    } else if(self.type == 'LambChop'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 4){
@@ -1857,7 +1867,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'BoarShank'){
+    } else if(self.type == 'BoarShank'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 4){
@@ -1877,7 +1887,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'VenisonLoin'){
+    } else if(self.type == 'VenisonLoin'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 4){
@@ -1897,7 +1907,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'Mead' || self.type === 'Saison'){
+    } else if(self.type == 'Mead' || self.type == 'Saison'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 2){
@@ -1917,7 +1927,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'FlandersRedAle' || self.type === 'BiereDeGarde'){
+    } else if(self.type == 'FlandersRedAle' || self.type == 'BiereDeGarde'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 2){
@@ -1937,7 +1947,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'Bordeaux' || self.type === 'Bourgogne' || self.type === 'Chianti'){
+    } else if(self.type == 'Bordeaux' || self.type == 'Bourgogne' || self.type == 'Chianti'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 2){
@@ -1957,7 +1967,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type === 'Crown'){
+    } else if(self.type == 'Crown'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1967,7 +1977,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'Arrows'){
+    } else if(self.type == 'Arrows'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1977,7 +1987,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'WorldMap'){
+    } else if(self.type == 'WorldMap'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -1987,7 +1997,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type === 'Relic'){
+    } else if(self.type == 'Relic'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -2130,121 +2140,121 @@ socket.on('update',function(data){
       if(pack.breathMax !== undefined)
         p.breathMax = pack.breathMax;
 
-      if(p.class === 'Sheep'){
+      if(p.class == 'Sheep'){
         p.sprite = sheep;
-      } else if(p.class === 'Deer'){
+      } else if(p.class == 'Deer'){
         p.sprite = deer;
-      } else if(p.class === 'Boar'){
+      } else if(p.class == 'Boar'){
         p.sprite = boar;
-      } else if(p.class === 'Wolf'){
+      } else if(p.class == 'Wolf'){
         p.sprite = wolf;
-      } else if(p.class === 'Falcon'){
+      } else if(p.class == 'Falcon'){
         p.sprite = falcon;
-      } else if(p.class === 'Serf' || p.class === 'SerfM'){
+      } else if(p.class == 'Serf' || p.class == 'SerfM'){
         p.sprite = maleserf;
-      } else if(p.class === 'Rogue' || p.class === 'Trapper' || p.class === 'Cutthroat'){
+      } else if(p.class == 'Rogue' || p.class == 'Trapper' || p.class == 'Cutthroat'){
         p.sprite = rogue;
-      } else if(p.class === 'Hunter'){
+      } else if(p.class == 'Hunter'){
         p.sprite = hunter;
-      } else if(p.class === 'Scout'){
+      } else if(p.class == 'Scout'){
         p.sprite = scout;
-      } else if(p.class === 'Ranger' || p.class === 'Warden'){
+      } else if(p.class == 'Ranger' || p.class == 'Warden'){
         p.sprite = ranger;
-      } else if(p.class === 'Swordsman'){
+      } else if(p.class == 'Swordsman'){
         p.sprite = swordsman;
-      } else if(p.class === 'Archer'){
+      } else if(p.class == 'Archer'){
         p.sprite = archer;
-      } else if(p.class === 'Horseman'){
+      } else if(p.class == 'Horseman'){
         p.sprite = horseman;
-      } else if(p.class === 'MountedArcher'){
+      } else if(p.class == 'MountedArcher'){
         p.sprite = mountedarcher;
-      } else if(p.class === 'Hero'){
+      } else if(p.class == 'Hero'){
         p.sprite = hero;
-      } else if(p.class === 'Templar' || p.class === 'Hospitaller' || p.class === 'Hochmeister'){
+      } else if(p.class == 'Templar' || p.class == 'Hospitaller' || p.class == 'Hochmeister'){
         p.sprite = templar;
-      } else if(p.class === 'Cavalry'){
+      } else if(p.class == 'Cavalry'){
         p.sprite = cavalry;
-      } else if(p.class === 'Knight'){
+      } else if(p.class == 'Knight'){
         p.sprite = knight;
-      } else if(p.class === 'Lancer' || p.class === 'Charlemagne'){
+      } else if(p.class == 'Lancer' || p.class == 'Charlemagne'){
         p.sprite = lancer;
-      } else if(p.class === 'Crusader'){
+      } else if(p.class == 'Crusader'){
         p.sprite = crusader;
-      } else if(p.class === 'Priest' || p.class === 'Monk' || p.class === 'Prior'){
+      } else if(p.class == 'Priest' || p.class == 'Monk' || p.class == 'Prior'){
         p.sprite = monk;
-      } else if(p.class === 'Mage' || p.class === 'Acolyte'){
+      } else if(p.class == 'Mage' || p.class == 'Acolyte'){
         p.sprite = mage;
-      } else if(p.class === 'Warlock' || p.class === 'Brother'){
+      } else if(p.class == 'Warlock' || p.class == 'Brother'){
         p.sprite = warlock;
-      } else if(p.class === 'King' || p.class === 'Lothair'){
+      } else if(p.class == 'King' || p.class == 'Lothair'){
         p.sprite = king;
-      } else if(p.class === 'SerfF'){
+      } else if(p.class == 'SerfF'){
         p.sprite = femaleserf;
-      } else if(p.class === 'Innkeeper' || p.class === 'Shipwright'){
+      } else if(p.class == 'Innkeeper' || p.class == 'Shipwright'){
         p.sprite = innkeeper;
-      } else if(p.class === 'Bishop'){
+      } else if(p.class == 'Bishop'){
         p.sprite = bishop;
-      } else if(p.class === 'Friar'){
+      } else if(p.class == 'Friar'){
         p.sprite = friar;
-      } else if(p.class === 'Footsoldier'){
+      } else if(p.class == 'Footsoldier'){
         p.sprite = footsoldier;
-      } else if(p.class === 'Skirmisher'){
+      } else if(p.class == 'Skirmisher'){
         p.sprite = skirmisher;
-      } else if(p.class === 'Cavalier'){
+      } else if(p.class == 'Cavalier'){
         p.sprite = cavalier;
-      } else if(p.class === 'General'){
+      } else if(p.class == 'General'){
         p.sprite = general;
-      } else if(p.class === 'ImperialKnight' || p.class == 'TeutonicKnight'){
+      } else if(p.class == 'ImperialKnight' || p.class == 'TeutonicKnight'){
         p.sprite = teutonicknight;
-      } else if(p.class === 'Trebuchet'){
+      } else if(p.class == 'Trebuchet'){
         p.sprite = trebuchet;
-      } else if(p.class === 'Oathkeeper' || p.class === 'Duke'){
+      } else if(p.class == 'Oathkeeper' || p.class == 'Duke'){
         p.sprite = duke;
-      } else if(p.class === 'DarkEntity'){
+      } else if(p.class == 'DarkEntity'){
         p.sprite = darkentity;
-      } else if(p.class === 'Goth' || p.class === 'NorseSword'){
+      } else if(p.class == 'Goth' || p.class == 'NorseSword'){
         p.sprite = goth;
-      } else if(p.class === 'HighPriestess'){
+      } else if(p.class == 'HighPriestess'){
         p.sprite = highpriestess;
-      } else if(p.class === 'Cataphract' || p.class === 'Carolingian' || p.class === 'Marauder'){
+      } else if(p.class == 'Cataphract' || p.class == 'Carolingian' || p.class == 'Marauder'){
         p.sprite = marauder;
-      } else if(p.class === 'NorseSpear'){
+      } else if(p.class == 'NorseSpear'){
         p.sprite = norsespear;
-      } else if(p.class === 'Huskarl'){
+      } else if(p.class == 'Huskarl'){
         p.sprite = huskarl;
-      } else if(p.class === 'FrankSword'){
+      } else if(p.class == 'FrankSword'){
         p.sprite = franksword;
-      } else if(p.class === 'FrankSpear'){
+      } else if(p.class == 'FrankSpear'){
         p.sprite = frankspear;
-      } else if(p.class === 'FrankBow' || p.class === 'Outlaw'){
+      } else if(p.class == 'FrankBow' || p.class == 'Outlaw'){
         p.sprite = frankbow;
-      } else if(p.class === 'Mangonel'){
+      } else if(p.class == 'Mangonel'){
         p.sprite = mangonel;
-      } else if(p.class === 'Malvoisin'){
+      } else if(p.class == 'Malvoisin'){
         p.sprite = malvoisin;
-      } else if(p.class === 'CeltAxe'){
+      } else if(p.class == 'CeltAxe'){
         p.sprite = celtaxe;
-      } else if(p.class === 'CeltSpear'){
+      } else if(p.class == 'CeltSpear'){
         p.sprite = celtspear;
-      } else if(p.class === 'Headhunter'){
+      } else if(p.class == 'Headhunter'){
         p.sprite = headhunter;
-      } else if(p.class === 'Druid'){
+      } else if(p.class == 'Druid'){
         p.sprite = druid;
-      } else if(p.class === 'Morrigan'){
+      } else if(p.class == 'Morrigan'){
         p.sprite = morrigan;
-      } else if(p.class === 'Gwenllian'){
+      } else if(p.class == 'Gwenllian'){
         p.sprite = gwenllian;
-      } else if(p.class === 'TeutonPike'){
+      } else if(p.class == 'TeutonPike'){
         p.sprite = teutonpike;
-      } else if(p.class === 'TeutonBow'){
+      } else if(p.class == 'TeutonBow'){
         p.sprite = teutonbow;
-      } else if(p.class === 'TeutonicKnight'){
+      } else if(p.class == 'TeutonicKnight'){
         p.sprite = teutonicknight;
-      } else if(p.class === 'Poacher'){
+      } else if(p.class == 'Poacher'){
         p.sprite = poacher;
-      } else if(p.class === 'Strongman'){
+      } else if(p.class == 'Strongman'){
         p.sprite = strongman;
-      } else if(p.class === 'Condottiere'){
+      } else if(p.class == 'Condottiere'){
         p.sprite = condottiere;
       }
     }
@@ -2312,7 +2322,7 @@ socket.on('remove',function(data){
 var wtr = 0; // water
 var waterTiles = [Img.water1,Img.water2,Img.water3];
 setInterval(function(){
-  if(wtr === 2){
+  if(wtr == 2){
     wtr = 0;
   } else {
     wtr++;
@@ -2322,7 +2332,7 @@ setInterval(function(){
 var cld = 0; // clouds
 var clouds = [Img.clouds1,Img.clouds2,Img.clouds3];
 setInterval(function(){
-  if(cld === 2){
+  if(cld == 2){
     cld = 0;
   } else {
     cld++;
@@ -2335,8 +2345,8 @@ var inView = function(z,x,y,innaWoods){
   var right = (viewport.endTile[0] + 2) * tileSize;
   var bottom = (viewport.endTile[1] + 2) * tileSize;
 
-  if(z === Player.list[selfId].z && x > left && x < right && y > top && y < bottom){
-    if(z === 0 && innaWoods && !Player.list[selfId].innaWoods){
+  if(z == Player.list[selfId].z && x > left && x < right && y > top && y < bottom){
+    if(z == 0 && innaWoods && !Player.list[selfId].innaWoods){
       return false;
     } else {
       return true;
@@ -2349,7 +2359,7 @@ var inView = function(z,x,y,innaWoods){
 var hasFire = function(z,x,y){
   for(i in Light.list){
     var light = Light.list[i];
-    if(light.z === z && (getBuilding(light.x,light.y) === getBuilding(x,y) || getBuilding(light.x,light.y+tileSize) === getBuilding(x,y)) && light.radius > 1){
+    if(light.z == z && (getBuilding(light.x,light.y) == getBuilding(x,y) || getBuilding(light.x,light.y+tileSize) == getBuilding(x,y)) && light.radius > 1){
       return true;
     } else {
       continue;
@@ -2365,7 +2375,7 @@ setInterval(function(){
   renderMap();
   for(var i in Item.list){
     if(inView(Item.list[i].z,Item.list[i].x,Item.list[i].y,Item.list[i].innaWoods)){
-      if((Player.list[selfId].z === 1 || Player.list[selfId].z === 2) && (getBuilding(Item.list[i].x,Item.list[i].y) === getBuilding(Player.list[selfId].x,Player.list[selfId].y) || getBuilding(Item.list[i].x,Item.list[i].y+(tileSize * 1.1)) === getBuilding(Player.list[selfId].x,Player.list[selfId].y))){
+      if((Player.list[selfId].z == 1 || Player.list[selfId].z == 2) && (getBuilding(Item.list[i].x,Item.list[i].y) == getBuilding(Player.list[selfId].x,Player.list[selfId].y) || getBuilding(Item.list[i].x,Item.list[i].y+(tileSize * 1.1)) == getBuilding(Player.list[selfId].x,Player.list[selfId].y))){
         Item.list[i].draw();
       } else if(Player.list[selfId].z !== 1 && Player.list[selfId].z !== 2){
         Item.list[i].draw();
@@ -2379,7 +2389,7 @@ setInterval(function(){
   for(var i in Player.list){
     if(Player.list[i].class !== 'Falcon'){
       if(inView(Player.list[i].z,Player.list[i].x,Player.list[i].y,Player.list[i].innaWoods)){
-        if((Player.list[selfId].z === 1 || Player.list[selfId].z === 2) && (getBuilding(Player.list[i].x,Player.list[i].y) === getBuilding(Player.list[selfId].x,Player.list[selfId].y))){
+        if((Player.list[selfId].z == 1 || Player.list[selfId].z == 2) && (getBuilding(Player.list[i].x,Player.list[i].y) == getBuilding(Player.list[selfId].x,Player.list[selfId].y))){
           Player.list[i].draw();
         } else if(Player.list[selfId].z !== 1 && Player.list[selfId].z !== 2){
           Player.list[i].draw();
@@ -2393,7 +2403,7 @@ setInterval(function(){
   }
   for(var i in Arrow.list){
     if(inView(Arrow.list[i].z,Arrow.list[i].x,Arrow.list[i].y,Arrow.list[i].innaWoods)){
-      if((Player.list[selfId].z === 1 || Player.list[selfId].z === 2) && (getBuilding(Item.list[i].x,Item.list[i].y) === getBuilding(Arrow.list[selfId].x,Arrow.list[selfId].y))){
+      if((Player.list[selfId].z == 1 || Player.list[selfId].z == 2) && (getBuilding(Item.list[i].x,Item.list[i].y) == getBuilding(Arrow.list[selfId].x,Arrow.list[selfId].y))){
         Arrow.list[i].draw();
       } else if(Player.list[selfId].z !== 1 && Player.list[selfId].z !== 2){
         Arrow.list[i].draw();
@@ -2409,22 +2419,22 @@ setInterval(function(){
   }
   renderTops();
   for(var i in Player.list){
-    if(Player.list[i].class === 'Falcon'){
+    if(Player.list[i].class == 'Falcon'){
       if(inView(Player.list[i].z,Player.list[i].x,Player.list[i].y,false)){
         Player.list[i].draw();
       }
     }
   }
   renderLighting();
-  if(Player.list[selfId].z === 0){
-    if(tempus === 'VIII.p' || tempus === 'IX.p' || tempus === 'X.p' || tempus === 'XI.p' || tempus === 'XII.a' || tempus === 'I.a' || tempus === 'II.a' || tempus === 'III.a' || tempus === 'IV.a'){
+  if(Player.list[selfId].z == 0){
+    if(tempus == 'VIII.p' || tempus == 'IX.p' || tempus == 'X.p' || tempus == 'XI.p' || tempus == 'XII.a' || tempus == 'I.a' || tempus == 'II.a' || tempus == 'III.a' || tempus == 'IV.a'){
       renderLightSources(2);
     } else {
       renderLightSources(1);
     }
-  } else if(Player.list[selfId].z === 1 || Player.list[selfId].z === 2){
+  } else if(Player.list[selfId].z == 1 || Player.list[selfId].z == 2){
     renderLightSources(1);
-  } else if(Player.list[selfId].z === -1 || Player.list[selfId].z === -2){
+  } else if(Player.list[selfId].z == -1 || Player.list[selfId].z == -2){
     renderLightSources(3);
   }
   viewport.update(Player.list[selfId].x,Player.list[selfId].y);
@@ -2464,7 +2474,7 @@ getBuilding = function(x,y){
   for(i in Building.list){
     var b = Building.list[i];
     for(n = 0; n < b.plot.length; n++){
-      if(b.plot[n][0] === loc[0] && b.plot[n][1] === loc[1]){
+      if(b.plot[n][0] == loc[0] && b.plot[n][1] == loc[1]){
         return b.id;
       } else {
         continue;
@@ -2483,11 +2493,11 @@ var allyCheck = function(id){
   if(pHouse){
     if(pHouse.hostile){
       if(oHouse){
-        if(player.house === other.house){
+        if(player.house == other.house){
           return 2;
         } else {
           for(var i in pHouse.allies){
-            if(pHouse.allies[i] === other.house){
+            if(pHouse.allies[i] == other.house){
               return 1;
             } else {
               continue;
@@ -2500,11 +2510,11 @@ var allyCheck = function(id){
       }
     } else {
       if(oHouse){
-        if(player.house === other.house){
+        if(player.house == other.house){
           return 2;
         } else {
           for(var i in pHouse.allies){
-            if(pHouse.allies[i] === other.house){
+            if(pHouse.allies[i] == other.house){
               return 1;
             } else {
               continue;
@@ -2514,7 +2524,7 @@ var allyCheck = function(id){
             return -1;
           } else {
             for(var i in pHouse.enemies){
-              if(pHouse.enemies[i] === other.house){
+              if(pHouse.enemies[i] == other.house){
                 return -1;
               } else {
                 continue;
@@ -2525,7 +2535,7 @@ var allyCheck = function(id){
         }
       } else {
         for(var i in pHouse.enemies){
-          if(pHouse.enemies[i] === id){
+          if(pHouse.enemies[i] == id){
             return -1;
           } else {
             continue;
@@ -2540,7 +2550,7 @@ var allyCheck = function(id){
         return -1;
       } else {
         for(var i in oHouse.enemies){
-          if(oHouse.enemies[i] === selfId){
+          if(oHouse.enemies[i] == selfId){
             return -1;
           } else {
             continue;
@@ -2550,14 +2560,14 @@ var allyCheck = function(id){
       }
     } else {
       for(var i in player.friends){
-        if(player.friends[i] === id){
+        if(player.friends[i] == id){
           return 1;
         } else {
           continue;
         }
       }
       for(var i in player.enemies){
-        if(player.enemies[i] === id){
+        if(player.enemies[i] == id){
           return -1;
         } else {
           continue;
@@ -2577,10 +2587,11 @@ kingdomList = null;
 socket.on('tempus',function(data){
   tempus = data.tempus;
   if(Player.list[selfId]){
-    if(Player.list[selfId].z == 0 && (tempus == 'IV.a' || tempus == 'V.a' || tempus == 'X.a' || tempus == 'VII.p')){
-      getBgm(Player.list[selfId].x,Player.list[selfId].y,Player.list[selfId].z);
-    } else if((Player.list[selfId].z == 1 || Player.list[selfId].z == 2) && (tempus == 'VI.p' || tempus == 'IV.a')){
-      getBgm(Player.list[selfId].x,Player.list[selfId].y,Player.list[selfId].z);
+    var p = Player.list[selfId];
+    if(p.z == 0 && (tempus == 'IV.a' || tempus == 'V.a' || tempus == 'X.a' || tempus == 'VII.p')){
+      getBgm(p.x,p.y,p.z);
+    } else if((p.z == 1 || p.z == 2) && (tempus == 'VI.p' || tempus == 'IV.a')){
+      getBgm(p.x,p.y,p.z,Building.list[getBuilding(p.z,p.y)].type);
     }
   }
 });
@@ -2592,43 +2603,43 @@ socket.on('newFaction',function(data){
 
 // update sprite
 socket.on('sprite',function(data){
-  if(data === 'Serf'){
+  if(data == 'Serf'){
     Player.list[selfId].sprite = maleserf;
-  } else if(data === 'Rogue'){
+  } else if(data == 'Rogue'){
     Player.list[selfId].sprite = rogue;
-  } else if(data === 'Hunter'){
+  } else if(data == 'Hunter'){
     Player.list[selfId].sprite = hunter;
-  } else if(data === 'Scout'){
+  } else if(data == 'Scout'){
     Player.list[selfId].sprite = scout;
-  } else if(data === 'Ranger'){
+  } else if(data == 'Ranger'){
     Player.list[selfId].sprite = ranger;
-  } else if(data === 'Swordsman'){
+  } else if(data == 'Swordsman'){
     Player.list[selfId].sprite = swordsman;
-  } else if(data === 'Archer'){
+  } else if(data == 'Archer'){
     Player.list[selfId].sprite = archer;
-  } else if(data === 'Scout'){
+  } else if(data == 'Scout'){
     Player.list[selfId].sprite = scout;
-  } else if(data === 'Horseman'){
+  } else if(data == 'Horseman'){
     Player.list[selfId].sprite = horseman;
-  } else if(data === 'MountedArcher'){
+  } else if(data == 'MountedArcher'){
     Player.list[selfId].sprite = mountedarcher;
-  } else if(data === 'Hero'){
+  } else if(data == 'Hero'){
     Player.list[selfId].sprite = hero;
-  } else if(data === 'Templar'){
+  } else if(data == 'Templar'){
     Player.list[selfId].sprite = templar;
-  } else if(data === 'Cavalry'){
+  } else if(data == 'Cavalry'){
     Player.list[selfId].sprite = cavalry;
-  } else if(data === 'Knight'){
+  } else if(data == 'Knight'){
     Player.list[selfId].sprite = knight;
-  } else if(data === 'Lancer'){
+  } else if(data == 'Lancer'){
     Player.list[selfId].sprite = lancer;
-  } else if(data === 'Crusader'){
+  } else if(data == 'Crusader'){
     Player.list[selfId].sprite = crusader;
-  } else if(data === 'Priest'){
+  } else if(data == 'Priest'){
     Player.list[selfId].sprite = monk;
-  } else if(data === 'Mage'){
+  } else if(data == 'Mage'){
     Player.list[selfId].sprite = mage;
-  } else if(data === 'Warlock'){
+  } else if(data == 'Warlock'){
     Player.list[selfId].sprite = warlock;
   }
 });
@@ -2672,7 +2683,7 @@ var renderMap = function(){
   var z = Player.list[selfId].z;
 
   // overworld
-  if(z === 0){
+  if(z == 0){
     var cloudscape = ctx.createPattern(clouds[cld], "repeat");
     ctx.rect(0,0,WIDTH,HEIGHT);
     ctx.fillStyle = cloudscape;
@@ -2683,7 +2694,7 @@ var renderMap = function(){
         var xOffset = viewport.offset[0] + (c * tileSize);
         var yOffset = viewport.offset[1] + (r * tileSize);
         var tile = getTile(0, c, r);
-        if(tile === 0){
+        if(tile == 0){
           ctx.drawImage(
             waterTiles[wtr], // image
             xOffset, // target x
@@ -2906,7 +2917,7 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );;
-        } else if(tile === 6){
+        } else if(tile == 6){
           ctx.drawImage(
             Img.grass, // image
             xOffset, // target x
@@ -2921,7 +2932,7 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 7){
+        } else if(tile == 7){
           ctx.drawImage(
             Img.grass, // image
             xOffset, // target x
@@ -2929,7 +2940,7 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 8){
+        } else if(tile == 8){
           ctx.drawImage(
             Img.farm1, // image
             xOffset, // target x
@@ -2937,7 +2948,7 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 9){
+        } else if(tile == 9){
           ctx.drawImage(
             Img.farm2, // image
             xOffset, // target x
@@ -2945,7 +2956,7 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 10){
+        } else if(tile == 10){
           ctx.drawImage(
             Img.farm3, // image
             xOffset, // target x
@@ -2953,7 +2964,7 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 11){
+        } else if(tile == 11){
           ctx.drawImage(
             Img.grass, // image
             xOffset, // target x
@@ -2968,7 +2979,7 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 11.5){
+        } else if(tile == 11.5){
           ctx.drawImage(
             waterTiles[wtr], // image
             xOffset, // target x
@@ -2983,7 +2994,7 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 12){
+        } else if(tile == 12){
           ctx.drawImage(
             Img.grass, // image
             xOffset, // target x
@@ -2998,7 +3009,7 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 12.5){
+        } else if(tile == 12.5){
           ctx.drawImage(
             waterTiles[wtr], // image
             xOffset, // target x
@@ -3013,7 +3024,7 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if (tile === 18){
+        } else if (tile == 18){
           ctx.drawImage(
             Img.road, // image
             xOffset, // target x
@@ -3021,7 +3032,7 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 13 || tile === 14 || tile === 15 || tile === 16 || tile === 17 || tile === 19 || tile === 20 || tile === 20.5){
+        } else if(tile == 13 || tile == 14 || tile == 15 || tile == 16 || tile == 17 || tile == 19 || tile == 20 || tile == 20.5){
           var bTile = getTile(3,c,r);
           ctx.drawImage(
             Img.grass, // image
@@ -3030,7 +3041,7 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-          if(bTile === 'hut0'){
+          if(bTile == 'hut0'){
             ctx.drawImage(
               Img.hut0, // image
               xOffset, // target x
@@ -3038,7 +3049,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'hut1'){
+          } else if(bTile == 'hut1'){
             ctx.drawImage(
               Img.hut1, // image
               xOffset, // target x
@@ -3046,7 +3057,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'hut2'){
+          } else if(bTile == 'hut2'){
             ctx.drawImage(
               Img.hut2, // image
               xOffset, // target x
@@ -3054,7 +3065,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'hut3'){
+          } else if(bTile == 'hut3'){
             ctx.drawImage(
               Img.hut3, // image
               xOffset, // target x
@@ -3062,7 +3073,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'mill0'){
+          } else if(bTile == 'mill0'){
             ctx.drawImage(
               Img.mill0, // image
               xOffset, // target x
@@ -3070,7 +3081,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'mill1'){
+          } else if(bTile == 'mill1'){
             ctx.drawImage(
               Img.mill1, // image
               xOffset, // target x
@@ -3078,7 +3089,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'mill2'){
+          } else if(bTile == 'mill2'){
             ctx.drawImage(
               Img.mill2, // image
               xOffset, // target x
@@ -3086,7 +3097,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'mill3'){
+          } else if(bTile == 'mill3'){
             ctx.drawImage(
               Img.mill3, // image
               xOffset, // target x
@@ -3094,7 +3105,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'cottage0'){
+          } else if(bTile == 'cottage0'){
             ctx.drawImage(
               Img.cottage0, // image
               xOffset, // target x
@@ -3102,7 +3113,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'cottage1'){
+          } else if(bTile == 'cottage1'){
             ctx.drawImage(
               Img.cottage1, // image
               xOffset, // target x
@@ -3110,7 +3121,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'cottage2'){
+          } else if(bTile == 'cottage2'){
             ctx.drawImage(
               Img.cottage2, // image
               xOffset, // target x
@@ -3118,7 +3129,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          }  else if(bTile === 'cottage3'){
+          }  else if(bTile == 'cottage3'){
             ctx.drawImage(
               Img.cottage3, // image
               xOffset, // target x
@@ -3126,7 +3137,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'cottage4'){
+          } else if(bTile == 'cottage4'){
             ctx.drawImage(
               Img.cottage4, // image
               xOffset, // target x
@@ -3134,7 +3145,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'cottage5'){
+          } else if(bTile == 'cottage5'){
             ctx.drawImage(
               Img.cottage5, // image
               xOffset, // target x
@@ -3142,7 +3153,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'cottage6'){
+          } else if(bTile == 'cottage6'){
             ctx.drawImage(
               Img.cottage6, // image
               xOffset, // target x
@@ -3150,7 +3161,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'cottage7'){
+          } else if(bTile == 'cottage7'){
             ctx.drawImage(
               Img.cottage7, // image
               xOffset, // target x
@@ -3158,7 +3169,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'cottage8'){
+          } else if(bTile == 'cottage8'){
             ctx.drawImage(
               Img.cottage8, // image
               xOffset, // target x
@@ -3166,7 +3177,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'fort'){
+          } else if(bTile == 'fort'){
             var l = getTile(3,c-1,r);
             var rr = getTile(3,c+1,r);
             var u = getTile(3,c,r-1);
@@ -3179,19 +3190,19 @@ var renderMap = function(){
               tileSize // target height
             );
             if((l !== 'fort' && rr !== 'fort' && u !== 'fort' && d !== 'fort') ||
-            (l === 'fort' && rr === 'fort' && u === 'fort' && d === 'fort') ||
-            (l === 'fort' && rr !== 'fort' && u !== 'fort' && d !== 'fort') ||
-            (l !== 'fort' && rr === 'fort' && u !== 'fort' && d !== 'fort') ||
-            (l !== 'fort' && rr !== 'fort' && u === 'fort' && d !== 'fort') ||
-            (l !== 'fort' && rr !== 'fort' && u !== 'fort' && d === 'fort') ||
-            (l !== 'fort' && rr === 'fort' && u !== 'fort' && d === 'fort') ||
-            (l === 'fort' && rr !== 'fort' && u !== 'fort' && d === 'fort') ||
-            (l === 'fort' && rr !== 'fort' && u === 'fort' && d !== 'fort') ||
-            (l !== 'fort' && rr === 'fort' && u === 'fort' && d !== 'fort') ||
-            (l !== 'fort' && rr === 'fort' && u === 'fort' && d === 'fort') ||
-            (l === 'fort' && rr === 'fort' && u !== 'fort' && d === 'fort') ||
-            (l === 'fort' && rr !== 'fort' && u === 'fort' && d === 'fort') ||
-            (l === 'fort' && rr === 'fort' && u === 'fort' && d !== 'fort')){
+            (l == 'fort' && rr == 'fort' && u == 'fort' && d == 'fort') ||
+            (l == 'fort' && rr !== 'fort' && u !== 'fort' && d !== 'fort') ||
+            (l !== 'fort' && rr == 'fort' && u !== 'fort' && d !== 'fort') ||
+            (l !== 'fort' && rr !== 'fort' && u == 'fort' && d !== 'fort') ||
+            (l !== 'fort' && rr !== 'fort' && u !== 'fort' && d == 'fort') ||
+            (l !== 'fort' && rr == 'fort' && u !== 'fort' && d == 'fort') ||
+            (l == 'fort' && rr !== 'fort' && u !== 'fort' && d == 'fort') ||
+            (l == 'fort' && rr !== 'fort' && u == 'fort' && d !== 'fort') ||
+            (l !== 'fort' && rr == 'fort' && u == 'fort' && d !== 'fort') ||
+            (l !== 'fort' && rr == 'fort' && u == 'fort' && d == 'fort') ||
+            (l == 'fort' && rr == 'fort' && u !== 'fort' && d == 'fort') ||
+            (l == 'fort' && rr !== 'fort' && u == 'fort' && d == 'fort') ||
+            (l == 'fort' && rr == 'fort' && u == 'fort' && d !== 'fort')){
               ctx.drawImage(
                 Img.fortc, // image
                 xOffset, // target x
@@ -3199,7 +3210,7 @@ var renderMap = function(){
                 tileSize, // target width
                 tileSize * 1.5 // target height
               );
-            } else if(l === 'fort' && rr === 'fort' && u !== 'fort' && d !== 'fort'){
+            } else if(l == 'fort' && rr == 'fort' && u !== 'fort' && d !== 'fort'){
               ctx.drawImage(
                 Img.fortlr, // image
                 xOffset, // target x
@@ -3207,7 +3218,7 @@ var renderMap = function(){
                 tileSize, // target width
                 tileSize // target height
               );
-            } else if(l !== 'fort' && rr !== 'fort' && u === 'fort' && d === 'fort'){
+            } else if(l !== 'fort' && rr !== 'fort' && u == 'fort' && d == 'fort'){
               ctx.drawImage(
                 Img.fortud, // image
                 xOffset, // target x
@@ -3216,7 +3227,7 @@ var renderMap = function(){
                 tileSize * 2 // target height
               );
             }
-          } else if(bTile === 'wall'){
+          } else if(bTile == 'wall'){
             var l = getTile(3,c-1,r);
             var rr = getTile(3,c+1,r);
             var u = getTile(3,c,r-1);
@@ -3229,19 +3240,19 @@ var renderMap = function(){
               tileSize // target height
             );
             if((l !== 'wall' && rr !== 'wall' && u !== 'wall' && d !== 'wall') ||
-            (l === 'wall' && rr === 'wall' && u === 'wall' && d === 'wall') ||
-            (l === 'wall' && rr !== 'wall' && u !== 'wall' && d !== 'wall') ||
-            (l !== 'wall' && rr === 'wall' && u !== 'wall' && d !== 'wall') ||
-            (l !== 'wall' && rr !== 'wall' && u === 'wall' && d !== 'wall') ||
-            (l !== 'wall' && rr !== 'wall' && u !== 'wall' && d === 'wall') ||
-            (l !== 'wall' && rr === 'wall' && u !== 'wall' && d === 'wall') ||
-            (l === 'wall' && rr !== 'wall' && u !== 'wall' && d === 'wall') ||
-            (l === 'wall' && rr !== 'wall' && u === 'wall' && d !== 'wall') ||
-            (l !== 'wall' && rr === 'wall' && u === 'wall' && d !== 'wall') ||
-            (l !== 'wall' && rr === 'wall' && u === 'wall' && d === 'wall') ||
-            (l === 'wall' && rr === 'wall' && u !== 'wall' && d === 'wall') ||
-            (l === 'wall' && rr !== 'wall' && u === 'wall' && d === 'wall') ||
-            (l === 'wall' && rr === 'wall' && u === 'wall' && d !== 'wall')){
+            (l == 'wall' && rr == 'wall' && u == 'wall' && d == 'wall') ||
+            (l == 'wall' && rr !== 'wall' && u !== 'wall' && d !== 'wall') ||
+            (l !== 'wall' && rr == 'wall' && u !== 'wall' && d !== 'wall') ||
+            (l !== 'wall' && rr !== 'wall' && u == 'wall' && d !== 'wall') ||
+            (l !== 'wall' && rr !== 'wall' && u !== 'wall' && d == 'wall') ||
+            (l !== 'wall' && rr == 'wall' && u !== 'wall' && d == 'wall') ||
+            (l == 'wall' && rr !== 'wall' && u !== 'wall' && d == 'wall') ||
+            (l == 'wall' && rr !== 'wall' && u == 'wall' && d !== 'wall') ||
+            (l !== 'wall' && rr == 'wall' && u == 'wall' && d !== 'wall') ||
+            (l !== 'wall' && rr == 'wall' && u == 'wall' && d == 'wall') ||
+            (l == 'wall' && rr == 'wall' && u !== 'wall' && d == 'wall') ||
+            (l == 'wall' && rr !== 'wall' && u == 'wall' && d == 'wall') ||
+            (l == 'wall' && rr == 'wall' && u == 'wall' && d !== 'wall')){
               ctx.drawImage(
                 Img.wallc, // image
                 xOffset, // target x
@@ -3249,7 +3260,7 @@ var renderMap = function(){
                 tileSize, // target width
                 tileSize * 1.5 // target height
               );
-            } else if(l === 'wall' && rr === 'wall' && u !== 'wall' && d !== 'wall'){
+            } else if(l == 'wall' && rr == 'wall' && u !== 'wall' && d !== 'wall'){
               ctx.drawImage(
                 Img.walllr, // image
                 xOffset, // target x
@@ -3257,7 +3268,7 @@ var renderMap = function(){
                 tileSize, // target width
                 tileSize // target height
               );
-            } else if(l !== 'wall' && rr !== 'wall' && u === 'wall' && d === 'wall'){
+            } else if(l !== 'wall' && rr !== 'wall' && u == 'wall' && d == 'wall'){
               ctx.drawImage(
                 Img.wallud, // image
                 xOffset, // target x
@@ -3266,7 +3277,7 @@ var renderMap = function(){
                 tileSize * 2 // target height
               );
             }
-          } else if(bTile === 'outpost0'){
+          } else if(bTile == 'outpost0'){
             ctx.drawImage(
               Img.outpost0, // image
               xOffset, // target x
@@ -3274,7 +3285,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'gtower0'){
+          } else if(bTile == 'gtower0'){
             ctx.drawImage(
               Img.gtower0, // image
               xOffset, // target x
@@ -3282,7 +3293,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'gtower1'){
+          } else if(bTile == 'gtower1'){
             ctx.drawImage(
               Img.gtower1, // image
               xOffset, // target x
@@ -3290,7 +3301,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'gtower2'){
+          } else if(bTile == 'gtower2'){
             ctx.drawImage(
               Img.gtower2, // image
               xOffset, // target x
@@ -3298,7 +3309,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'gtower3'){
+          } else if(bTile == 'gtower3'){
             ctx.drawImage(
               Img.gtower3, // image
               xOffset, // target x
@@ -3306,7 +3317,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'tower0'){
+          } else if(bTile == 'tower0'){
             ctx.drawImage(
               Img.tower0, // image
               xOffset, // target x
@@ -3314,7 +3325,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'tower1'){
+          } else if(bTile == 'tower1'){
             ctx.drawImage(
               Img.tower1, // image
               xOffset, // target x
@@ -3322,7 +3333,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'tower2'){
+          } else if(bTile == 'tower2'){
             ctx.drawImage(
               Img.tower2, // image
               xOffset, // target x
@@ -3330,7 +3341,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'tower3'){
+          } else if(bTile == 'tower3'){
             ctx.drawImage(
               Img.tower3, // image
               xOffset, // target x
@@ -3338,7 +3349,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'tower4'){
+          } else if(bTile == 'tower4'){
             ctx.drawImage(
               Img.tower4, // image
               xOffset, // target x
@@ -3346,7 +3357,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'tower5'){
+          } else if(bTile == 'tower5'){
             ctx.drawImage(
               Img.tower5, // image
               xOffset, // target x
@@ -3354,7 +3365,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'tower6'){
+          } else if(bTile == 'tower6'){
             ctx.drawImage(
               Img.tower6, // image
               xOffset, // target x
@@ -3362,7 +3373,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'tower7'){
+          } else if(bTile == 'tower7'){
             ctx.drawImage(
               Img.tower7, // image
               xOffset, // target x
@@ -3370,7 +3381,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'tower8'){
+          } else if(bTile == 'tower8'){
             ctx.drawImage(
               Img.tower8, // image
               xOffset, // target x
@@ -3378,7 +3389,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'tavern0'){
+          } else if(bTile == 'tavern0'){
             ctx.drawImage(
               Img.tavern0, // image
               xOffset, // target x
@@ -3386,7 +3397,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'tavern1'){
+          } else if(bTile == 'tavern1'){
             ctx.drawImage(
               Img.tavern1, // image
               xOffset, // target x
@@ -3394,7 +3405,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'tavern2'){
+          } else if(bTile == 'tavern2'){
             ctx.drawImage(
               Img.tavern2, // image
               xOffset, // target x
@@ -3402,7 +3413,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'tavern3'){
+          } else if(bTile == 'tavern3'){
             ctx.drawImage(
               Img.tavern3, // image
               xOffset, // target x
@@ -3410,7 +3421,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'tavern4'){
+          } else if(bTile == 'tavern4'){
             ctx.drawImage(
               Img.tavern4, // image
               xOffset, // target x
@@ -3418,7 +3429,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'tavern5'){
+          } else if(bTile == 'tavern5'){
             ctx.drawImage(
               Img.tavern5, // image
               xOffset, // target x
@@ -3426,7 +3437,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'tavern6'){
+          } else if(bTile == 'tavern6'){
             ctx.drawImage(
               Img.tavern6, // image
               xOffset, // target x
@@ -3434,7 +3445,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'tavern7'){
+          } else if(bTile == 'tavern7'){
             ctx.drawImage(
               Img.tavern7, // image
               xOffset, // target x
@@ -3442,7 +3453,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'tavern8'){
+          } else if(bTile == 'tavern8'){
             ctx.drawImage(
               Img.tavern8, // image
               xOffset, // target x
@@ -3450,7 +3461,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'tavern9'){
+          } else if(bTile == 'tavern9'){
             ctx.drawImage(
               Img.tavern9, // image
               xOffset, // target x
@@ -3458,7 +3469,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'tavern10'){
+          } else if(bTile == 'tavern10'){
             ctx.drawImage(
               Img.tavern10, // image
               xOffset, // target x
@@ -3466,7 +3477,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'tavern11'){
+          } else if(bTile == 'tavern11'){
             ctx.drawImage(
               Img.tavern11, // image
               xOffset, // target x
@@ -3474,7 +3485,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'tavern12'){
+          } else if(bTile == 'tavern12'){
             ctx.drawImage(
               Img.tavern12, // image
               xOffset, // target x
@@ -3482,7 +3493,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'tavern13'){
+          } else if(bTile == 'tavern13'){
             ctx.drawImage(
               Img.tavern13, // image
               xOffset, // target x
@@ -3490,7 +3501,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'tavern14'){
+          } else if(bTile == 'tavern14'){
             ctx.drawImage(
               Img.tavern14, // image
               xOffset, // target x
@@ -3498,7 +3509,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'tavern15'){
+          } else if(bTile == 'tavern15'){
             ctx.drawImage(
               Img.tavern15, // image
               xOffset, // target x
@@ -3506,7 +3517,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'tavern16'){
+          } else if(bTile == 'tavern16'){
             ctx.drawImage(
               Img.tavern16, // image
               xOffset, // target x
@@ -3514,7 +3525,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'monastery0'){
+          } else if(bTile == 'monastery0'){
             ctx.drawImage(
               Img.monastery0, // image
               xOffset, // target x
@@ -3522,7 +3533,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'monastery1'){
+          } else if(bTile == 'monastery1'){
             ctx.drawImage(
               Img.monastery1, // image
               xOffset, // target x
@@ -3530,7 +3541,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'monastery2'){
+          } else if(bTile == 'monastery2'){
             ctx.drawImage(
               Img.monastery2, // image
               xOffset, // target x
@@ -3538,7 +3549,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'monastery3'){
+          } else if(bTile == 'monastery3'){
             ctx.drawImage(
               Img.monastery3, // image
               xOffset, // target x
@@ -3546,7 +3557,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'monastery4'){
+          } else if(bTile == 'monastery4'){
             ctx.drawImage(
               Img.monastery4, // image
               xOffset, // target x
@@ -3554,7 +3565,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'monastery5'){
+          } else if(bTile == 'monastery5'){
             ctx.drawImage(
               Img.monastery5, // image
               xOffset, // target x
@@ -3562,7 +3573,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'monastery6'){
+          } else if(bTile == 'monastery6'){
             ctx.drawImage(
               Img.monastery6, // image
               xOffset, // target x
@@ -3570,7 +3581,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'monastery7'){
+          } else if(bTile == 'monastery7'){
             ctx.drawImage(
               Img.monastery7, // image
               xOffset, // target x
@@ -3578,7 +3589,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'monastery8'){
+          } else if(bTile == 'monastery8'){
             ctx.drawImage(
               Img.monastery8, // image
               xOffset, // target x
@@ -3586,7 +3597,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'monastery9'){
+          } else if(bTile == 'monastery9'){
             ctx.drawImage(
               Img.monastery9, // image
               xOffset, // target x
@@ -3594,7 +3605,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'monastery10'){
+          } else if(bTile == 'monastery10'){
             ctx.drawImage(
               Img.monastery10, // image
               xOffset, // target x
@@ -3602,7 +3613,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'monastery11'){
+          } else if(bTile == 'monastery11'){
             ctx.drawImage(
               Img.monastery11, // image
               xOffset, // target x
@@ -3610,7 +3621,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'monastery12'){
+          } else if(bTile == 'monastery12'){
             ctx.drawImage(
               Img.monastery12, // image
               xOffset, // target x
@@ -3618,7 +3629,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'monastery13'){
+          } else if(bTile == 'monastery13'){
             ctx.drawImage(
               Img.monastery13, // image
               xOffset, // target x
@@ -3626,7 +3637,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'market0'){
+          } else if(bTile == 'market0'){
             ctx.drawImage(
               Img.market0, // image
               xOffset, // target x
@@ -3634,7 +3645,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'market1'){
+          } else if(bTile == 'market1'){
             ctx.drawImage(
               Img.market1, // image
               xOffset, // target x
@@ -3642,7 +3653,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'market2'){
+          } else if(bTile == 'market2'){
             ctx.drawImage(
               Img.market2, // image
               xOffset, // target x
@@ -3650,7 +3661,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'market3'){
+          } else if(bTile == 'market3'){
             ctx.drawImage(
               Img.market3, // image
               xOffset, // target x
@@ -3658,7 +3669,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'market4'){
+          } else if(bTile == 'market4'){
             ctx.drawImage(
               Img.market4, // image
               xOffset, // target x
@@ -3666,7 +3677,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'market5'){
+          } else if(bTile == 'market5'){
             ctx.drawImage(
               Img.market5, // image
               xOffset, // target x
@@ -3674,7 +3685,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'market6'){
+          } else if(bTile == 'market6'){
             ctx.drawImage(
               Img.market6, // image
               xOffset, // target x
@@ -3682,7 +3693,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'market7'){
+          } else if(bTile == 'market7'){
             ctx.drawImage(
               Img.market7, // image
               xOffset, // target x
@@ -3690,7 +3701,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'market8'){
+          } else if(bTile == 'market8'){
             ctx.drawImage(
               Img.market8, // image
               xOffset, // target x
@@ -3698,7 +3709,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'market9'){
+          } else if(bTile == 'market9'){
             ctx.drawImage(
               Img.market9, // image
               xOffset, // target x
@@ -3706,7 +3717,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'market10'){
+          } else if(bTile == 'market10'){
             ctx.drawImage(
               Img.market10, // image
               xOffset, // target x
@@ -3714,7 +3725,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'market11'){
+          } else if(bTile == 'market11'){
             ctx.drawImage(
               Img.market11, // image
               xOffset, // target x
@@ -3722,7 +3733,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stable0'){
+          } else if(bTile == 'stable0'){
             ctx.drawImage(
               Img.stable0, // image
               xOffset, // target x
@@ -3730,7 +3741,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stable1'){
+          } else if(bTile == 'stable1'){
             ctx.drawImage(
               Img.stable1, // image
               xOffset, // target x
@@ -3738,7 +3749,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stable2'){
+          } else if(bTile == 'stable2'){
             ctx.drawImage(
               Img.stable2, // image
               xOffset, // target x
@@ -3746,7 +3757,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stable3'){
+          } else if(bTile == 'stable3'){
             ctx.drawImage(
               Img.stable3, // image
               xOffset, // target x
@@ -3754,7 +3765,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stable4'){
+          } else if(bTile == 'stable4'){
             ctx.drawImage(
               Img.stable4, // image
               xOffset, // target x
@@ -3762,7 +3773,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stable5'){
+          } else if(bTile == 'stable5'){
             ctx.drawImage(
               Img.stable5, // image
               xOffset, // target x
@@ -3770,7 +3781,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stable6'){
+          } else if(bTile == 'stable6'){
             ctx.drawImage(
               Img.stable6, // image
               xOffset, // target x
@@ -3778,7 +3789,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stable7'){
+          } else if(bTile == 'stable7'){
             ctx.drawImage(
               Img.stable7, // image
               xOffset, // target x
@@ -3786,7 +3797,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stable8'){
+          } else if(bTile == 'stable8'){
             ctx.drawImage(
               Img.stable8, // image
               xOffset, // target x
@@ -3794,7 +3805,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stable9'){
+          } else if(bTile == 'stable9'){
             ctx.drawImage(
               Img.stable9, // image
               xOffset, // target x
@@ -3802,7 +3813,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stable10'){
+          } else if(bTile == 'stable10'){
             ctx.drawImage(
               Img.stable10, // image
               xOffset, // target x
@@ -3810,7 +3821,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stable11'){
+          } else if(bTile == 'stable11'){
             ctx.drawImage(
               Img.stable11, // image
               xOffset, // target x
@@ -3818,8 +3829,8 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'dock0'){
-            if(tile === 20.5){
+          } else if(bTile == 'dock0'){
+            if(tile == 20.5){
               ctx.drawImage(
                 waterTiles[wtr], // image
                 xOffset, // target x
@@ -3843,8 +3854,8 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'dock1'){
-            if(tile === 20.5){
+          } else if(bTile == 'dock1'){
+            if(tile == 20.5){
               ctx.drawImage(
                 waterTiles[wtr], // image
                 xOffset, // target x
@@ -3868,8 +3879,8 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'dock2'){
-            if(tile === 20.5){
+          } else if(bTile == 'dock2'){
+            if(tile == 20.5){
               ctx.drawImage(
                 waterTiles[wtr], // image
                 xOffset, // target x
@@ -3893,8 +3904,8 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'dock3'){
-            if(tile === 20.5){
+          } else if(bTile == 'dock3'){
+            if(tile == 20.5){
               ctx.drawImage(
                 waterTiles[wtr], // image
                 xOffset, // target x
@@ -3918,8 +3929,8 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'dock4'){
-            if(tile === 20.5){
+          } else if(bTile == 'dock4'){
+            if(tile == 20.5){
               ctx.drawImage(
                 waterTiles[wtr], // image
                 xOffset, // target x
@@ -3943,8 +3954,8 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'dock5'){
-            if(tile === 20.5){
+          } else if(bTile == 'dock5'){
+            if(tile == 20.5){
               ctx.drawImage(
                 waterTiles[wtr], // image
                 xOffset, // target x
@@ -3968,7 +3979,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'garrison0'){
+          } else if(bTile == 'garrison0'){
             ctx.drawImage(
               Img.garrison0, // image
               xOffset, // target x
@@ -3976,7 +3987,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'garrison1'){
+          } else if(bTile == 'garrison1'){
             ctx.drawImage(
               Img.garrison1, // image
               xOffset, // target x
@@ -3984,7 +3995,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'garrison2'){
+          } else if(bTile == 'garrison2'){
             ctx.drawImage(
               Img.garrison2, // image
               xOffset, // target x
@@ -3992,7 +4003,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'garrison3'){
+          } else if(bTile == 'garrison3'){
             ctx.drawImage(
               Img.garrison3, // image
               xOffset, // target x
@@ -4000,7 +4011,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'garrison4'){
+          } else if(bTile == 'garrison4'){
             ctx.drawImage(
               Img.garrison4, // image
               xOffset, // target x
@@ -4008,7 +4019,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'garrison5'){
+          } else if(bTile == 'garrison5'){
             ctx.drawImage(
               Img.garrison5, // image
               xOffset, // target x
@@ -4016,7 +4027,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'garrison6'){
+          } else if(bTile == 'garrison6'){
             ctx.drawImage(
               Img.garrison6, // image
               xOffset, // target x
@@ -4024,7 +4035,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'garrison7'){
+          } else if(bTile == 'garrison7'){
             ctx.drawImage(
               Img.garrison7, // image
               xOffset, // target x
@@ -4032,7 +4043,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'garrison8'){
+          } else if(bTile == 'garrison8'){
             ctx.drawImage(
               Img.garrison8, // image
               xOffset, // target x
@@ -4040,7 +4051,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'garrison9'){
+          } else if(bTile == 'garrison9'){
             ctx.drawImage(
               Img.garrison9, // image
               xOffset, // target x
@@ -4048,7 +4059,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'garrison10'){
+          } else if(bTile == 'garrison10'){
             ctx.drawImage(
               Img.garrison10, // image
               xOffset, // target x
@@ -4056,7 +4067,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'garrison11'){
+          } else if(bTile == 'garrison11'){
             ctx.drawImage(
               Img.garrison11, // image
               xOffset, // target x
@@ -4064,7 +4075,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'bsmith0'){
+          } else if(bTile == 'bsmith0'){
             ctx.drawImage(
               Img.bsmith0, // image
               xOffset, // target x
@@ -4072,7 +4083,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'bsmith1'){
+          } else if(bTile == 'bsmith1'){
             ctx.drawImage(
               Img.bsmith1, // image
               xOffset, // target x
@@ -4080,7 +4091,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'bsmith2'){
+          } else if(bTile == 'bsmith2'){
             ctx.drawImage(
               Img.bsmith2, // image
               xOffset, // target x
@@ -4088,7 +4099,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'bsmith3'){
+          } else if(bTile == 'bsmith3'){
             ctx.drawImage(
               Img.bsmith3, // image
               xOffset, // target x
@@ -4096,7 +4107,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'bsmith4'){
+          } else if(bTile == 'bsmith4'){
             ctx.drawImage(
               Img.bsmith4, // image
               xOffset, // target x
@@ -4104,7 +4115,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'bsmith5'){
+          } else if(bTile == 'bsmith5'){
             ctx.drawImage(
               Img.bsmith5, // image
               xOffset, // target x
@@ -4112,7 +4123,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold0'){
+          } else if(bTile == 'stronghold0'){
             ctx.drawImage(
               Img.stronghold0, // image
               xOffset, // target x
@@ -4120,7 +4131,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold1'){
+          } else if(bTile == 'stronghold1'){
             ctx.drawImage(
               Img.stronghold1, // image
               xOffset, // target x
@@ -4128,7 +4139,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold2'){
+          } else if(bTile == 'stronghold2'){
             ctx.drawImage(
               Img.stronghold2, // image
               xOffset, // target x
@@ -4136,7 +4147,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold3'){
+          } else if(bTile == 'stronghold3'){
             ctx.drawImage(
               Img.stronghold3, // image
               xOffset, // target x
@@ -4144,7 +4155,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold4'){
+          } else if(bTile == 'stronghold4'){
             ctx.drawImage(
               Img.stronghold4, // image
               xOffset, // target x
@@ -4152,7 +4163,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold5'){
+          } else if(bTile == 'stronghold5'){
             ctx.drawImage(
               Img.stronghold5, // image
               xOffset, // target x
@@ -4160,7 +4171,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold6'){
+          } else if(bTile == 'stronghold6'){
             ctx.drawImage(
               Img.stronghold6, // image
               xOffset, // target x
@@ -4168,7 +4179,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold7'){
+          } else if(bTile == 'stronghold7'){
             ctx.drawImage(
               Img.stronghold7, // image
               xOffset, // target x
@@ -4176,7 +4187,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold8'){
+          } else if(bTile == 'stronghold8'){
             ctx.drawImage(
               Img.stronghold8, // image
               xOffset, // target x
@@ -4184,7 +4195,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold9'){
+          } else if(bTile == 'stronghold9'){
             ctx.drawImage(
               Img.stronghold9, // image
               xOffset, // target x
@@ -4192,7 +4203,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold10'){
+          } else if(bTile == 'stronghold10'){
             ctx.drawImage(
               Img.stronghold10, // image
               xOffset, // target x
@@ -4200,7 +4211,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold11'){
+          } else if(bTile == 'stronghold11'){
             ctx.drawImage(
               Img.stronghold11, // image
               xOffset, // target x
@@ -4208,7 +4219,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold12'){
+          } else if(bTile == 'stronghold12'){
             ctx.drawImage(
               Img.stronghold12, // image
               xOffset, // target x
@@ -4216,7 +4227,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold13'){
+          } else if(bTile == 'stronghold13'){
             ctx.drawImage(
               Img.stronghold13, // image
               xOffset, // target x
@@ -4224,7 +4235,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold14'){
+          } else if(bTile == 'stronghold14'){
             ctx.drawImage(
               Img.stronghold14, // image
               xOffset, // target x
@@ -4232,7 +4243,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold15'){
+          } else if(bTile == 'stronghold15'){
             ctx.drawImage(
               Img.stronghold15, // image
               xOffset, // target x
@@ -4240,7 +4251,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold16'){
+          } else if(bTile == 'stronghold16'){
             ctx.drawImage(
               Img.stronghold16, // image
               xOffset, // target x
@@ -4248,7 +4259,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold17'){
+          } else if(bTile == 'stronghold17'){
             ctx.drawImage(
               Img.stronghold17, // image
               xOffset, // target x
@@ -4256,7 +4267,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold18'){
+          } else if(bTile == 'stronghold18'){
             ctx.drawImage(
               Img.stronghold18, // image
               xOffset, // target x
@@ -4264,7 +4275,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold19'){
+          } else if(bTile == 'stronghold19'){
             ctx.drawImage(
               Img.stronghold19, // image
               xOffset, // target x
@@ -4272,7 +4283,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold20'){
+          } else if(bTile == 'stronghold20'){
             ctx.drawImage(
               Img.stronghold20, // image
               xOffset, // target x
@@ -4280,7 +4291,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold21'){
+          } else if(bTile == 'stronghold21'){
             ctx.drawImage(
               Img.stronghold21, // image
               xOffset, // target x
@@ -4288,7 +4299,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold22'){
+          } else if(bTile == 'stronghold22'){
             ctx.drawImage(
               Img.stronghold22, // image
               xOffset, // target x
@@ -4296,7 +4307,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold23'){
+          } else if(bTile == 'stronghold23'){
             ctx.drawImage(
               Img.stronghold23, // image
               xOffset, // target x
@@ -4304,7 +4315,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold24'){
+          } else if(bTile == 'stronghold24'){
             ctx.drawImage(
               Img.stronghold24, // image
               xOffset, // target x
@@ -4312,7 +4323,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold25'){
+          } else if(bTile == 'stronghold25'){
             ctx.drawImage(
               Img.stronghold25, // image
               xOffset, // target x
@@ -4320,7 +4331,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold26'){
+          } else if(bTile == 'stronghold26'){
             ctx.drawImage(
               Img.stronghold26, // image
               xOffset, // target x
@@ -4328,7 +4339,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold27'){
+          } else if(bTile == 'stronghold27'){
             ctx.drawImage(
               Img.stronghold27, // image
               xOffset, // target x
@@ -4336,7 +4347,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold28'){
+          } else if(bTile == 'stronghold28'){
             ctx.drawImage(
               Img.stronghold28, // image
               xOffset, // target x
@@ -4344,7 +4355,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold29'){
+          } else if(bTile == 'stronghold29'){
             ctx.drawImage(
               Img.stronghold29, // image
               xOffset, // target x
@@ -4352,7 +4363,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold30'){
+          } else if(bTile == 'stronghold30'){
             ctx.drawImage(
               Img.stronghold30, // image
               xOffset, // target x
@@ -4360,7 +4371,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold31'){
+          } else if(bTile == 'stronghold31'){
             ctx.drawImage(
               Img.stronghold31, // image
               xOffset, // target x
@@ -4368,7 +4379,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold32'){
+          } else if(bTile == 'stronghold32'){
             ctx.drawImage(
               Img.stronghold32, // image
               xOffset, // target x
@@ -4376,7 +4387,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold33'){
+          } else if(bTile == 'stronghold33'){
             ctx.drawImage(
               Img.stronghold33, // image
               xOffset, // target x
@@ -4384,7 +4395,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold34'){
+          } else if(bTile == 'stronghold34'){
             ctx.drawImage(
               Img.stronghold34, // image
               xOffset, // target x
@@ -4392,7 +4403,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold35'){
+          } else if(bTile == 'stronghold35'){
             ctx.drawImage(
               Img.stronghold35, // image
               xOffset, // target x
@@ -4400,7 +4411,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold36'){
+          } else if(bTile == 'stronghold36'){
             ctx.drawImage(
               Img.stronghold36, // image
               xOffset, // target x
@@ -4408,7 +4419,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold37'){
+          } else if(bTile == 'stronghold37'){
             ctx.drawImage(
               Img.stronghold37, // image
               xOffset, // target x
@@ -4416,7 +4427,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold38'){
+          } else if(bTile == 'stronghold38'){
             ctx.drawImage(
               Img.stronghold38, // image
               xOffset, // target x
@@ -4424,7 +4435,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold39'){
+          } else if(bTile == 'stronghold39'){
             ctx.drawImage(
               Img.stronghold39, // image
               xOffset, // target x
@@ -4432,7 +4443,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold40'){
+          } else if(bTile == 'stronghold40'){
             ctx.drawImage(
               Img.stronghold40, // image
               xOffset, // target x
@@ -4440,7 +4451,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold41'){
+          } else if(bTile == 'stronghold41'){
             ctx.drawImage(
               Img.stronghold41, // image
               xOffset, // target x
@@ -4448,7 +4459,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold42'){
+          } else if(bTile == 'stronghold42'){
             ctx.drawImage(
               Img.stronghold42, // image
               xOffset, // target x
@@ -4456,7 +4467,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold43'){
+          } else if(bTile == 'stronghold43'){
             ctx.drawImage(
               Img.stronghold43, // image
               xOffset, // target x
@@ -4464,7 +4475,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold44'){
+          } else if(bTile == 'stronghold44'){
             ctx.drawImage(
               Img.stronghold44, // image
               xOffset, // target x
@@ -4472,7 +4483,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold45'){
+          } else if(bTile == 'stronghold45'){
             ctx.drawImage(
               Img.stronghold45, // image
               xOffset, // target x
@@ -4480,7 +4491,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold46'){
+          } else if(bTile == 'stronghold46'){
             ctx.drawImage(
               Img.stronghold46, // image
               xOffset, // target x
@@ -4488,7 +4499,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold47'){
+          } else if(bTile == 'stronghold47'){
             ctx.drawImage(
               Img.stronghold47, // image
               xOffset, // target x
@@ -4496,7 +4507,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold48'){
+          } else if(bTile == 'stronghold48'){
             ctx.drawImage(
               Img.stronghold48, // image
               xOffset, // target x
@@ -4504,7 +4515,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold49'){
+          } else if(bTile == 'stronghold49'){
             ctx.drawImage(
               Img.stronghold49, // image
               xOffset, // target x
@@ -4512,7 +4523,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold50'){
+          } else if(bTile == 'stronghold50'){
             ctx.drawImage(
               Img.stronghold50, // image
               xOffset, // target x
@@ -4520,7 +4531,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold51'){
+          } else if(bTile == 'stronghold51'){
             ctx.drawImage(
               Img.stronghold51, // image
               xOffset, // target x
@@ -4528,7 +4539,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold52'){
+          } else if(bTile == 'stronghold52'){
             ctx.drawImage(
               Img.stronghold52, // image
               xOffset, // target x
@@ -4536,7 +4547,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold53'){
+          } else if(bTile == 'stronghold53'){
             ctx.drawImage(
               Img.stronghold53, // image
               xOffset, // target x
@@ -4544,7 +4555,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold54'){
+          } else if(bTile == 'stronghold54'){
             ctx.drawImage(
               Img.stronghold54, // image
               xOffset, // target x
@@ -4552,7 +4563,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold55'){
+          } else if(bTile == 'stronghold55'){
             ctx.drawImage(
               Img.stronghold55, // image
               xOffset, // target x
@@ -4560,7 +4571,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold56'){
+          } else if(bTile == 'stronghold56'){
             ctx.drawImage(
               Img.stronghold56, // image
               xOffset, // target x
@@ -4568,7 +4579,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile === 'stronghold57'){
+          } else if(bTile == 'stronghold57'){
             ctx.drawImage(
               Img.stronghold57, // image
               xOffset, // target x
@@ -4580,7 +4591,7 @@ var renderMap = function(){
         }
       }
     }
-  } else if(z === -1){
+  } else if(z == -1){
     var morecave = ctx.createPattern(Img.cavefloor, "repeat");
     ctx.rect(0,0,WIDTH,HEIGHT);
     ctx.fillStyle = morecave;
@@ -4594,7 +4605,7 @@ var renderMap = function(){
         var tile = getTile(1, c, r);
         var xOffset = viewport.offset[0] + (c * tileSize);
         var yOffset = viewport.offset[1] + (r * tileSize);
-        if(tile === 0){
+        if(tile == 0){
           ctx.drawImage(
             Img.cavefloor, // image
             xOffset, // target x
@@ -4602,7 +4613,7 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 1){
+        } else if(tile == 1){
           ctx.drawImage(
             Img.cavefloor, // image
             xOffset, // target x
@@ -4617,7 +4628,7 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 2){
+        } else if(tile == 2){
           ctx.drawImage(
             Img.cavefloor, // image
             xOffset, // target x
@@ -4680,7 +4691,7 @@ var renderMap = function(){
         }
       }
     }
-  } else if(z === -2){
+  } else if(z == -2){
     var dark = ctx.createPattern(Img.void, "repeat");
     ctx.rect(0,0,WIDTH,HEIGHT);
     ctx.fillStyle = dark;
@@ -4691,7 +4702,7 @@ var renderMap = function(){
         var yOffset = viewport.offset[1] + (r * tileSize);
         var tile = getTile(8, c, r);
         var below = getTile(8,c,r+1);
-        if(tile === 1){
+        if(tile == 1){
           ctx.drawImage(
             Img.stonefloor, // image
             xOffset, // target x
@@ -4699,7 +4710,7 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 0 && below === 1){
+        } else if(tile == 0 && below == 1){
           ctx.drawImage(
             Img.stonewall, // image
             xOffset, // target x
@@ -4707,7 +4718,7 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 5){
+        } else if(tile == 5){
           ctx.drawImage(
             Img.sstairsu, // image
             xOffset, // target x
@@ -4733,7 +4744,7 @@ var renderMap = function(){
         }
       }
     }
-  } else if(z === -3){
+  } else if(z == -3){
     var dark = ctx.createPattern(Img.void, "repeat");
     ctx.rect(0,0,WIDTH,HEIGHT);
     ctx.fillStyle = dark;
@@ -4743,7 +4754,7 @@ var renderMap = function(){
         var xOffset = viewport.offset[0] + (c * tileSize);
         var yOffset = viewport.offset[1] + (r * tileSize);
         var tile = getTile(0, c, r);
-        if(tile === 11.5 || tile === 12.5 || tile === 20){
+        if(tile == 11.5 || tile == 12.5 || tile == 20){
           ctx.drawImage(
             Img.woodfloor, // image
             xOffset, // target x
@@ -4751,7 +4762,7 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 0){
+        } else if(tile == 0){
           ctx.drawImage(
             Img.sand, // image
             xOffset, // target x
@@ -4770,7 +4781,7 @@ var renderMap = function(){
         }
       }
     }
-  } else if(z === 1){
+  } else if(z == 1){
     var pBuilding = getBuilding(Player.list[selfId].x,Player.list[selfId].y);
     var dark = ctx.createPattern(Img.void, "repeat");
     ctx.rect(0,0,WIDTH,HEIGHT);
@@ -4786,8 +4797,8 @@ var renderMap = function(){
         var bbCoords = getCoords(c,r+1);
         var building = getBuilding(bCoords[0],bCoords[1]);
         var bbuilding = getBuilding(bbCoords[0],bbCoords[1]);
-        if(pBuilding === building || pBuilding === bbuilding){
-          if(wtile === 1){
+        if(pBuilding == building || pBuilding == bbuilding){
+          if(wtile == 1){
             ctx.drawImage(
               Img.woodwall, // image
               xOffset, // target x
@@ -4795,7 +4806,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(wtile === 2){
+          } else if(wtile == 2){
             ctx.drawImage(
               Img.stonewall, // image
               xOffset, // target x
@@ -4803,7 +4814,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(wtile === 3){
+          } else if(wtile == 3){
             ctx.drawImage(
               Img.wstairsu, // image
               xOffset, // target x
@@ -4811,7 +4822,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(wtile === 4){
+          } else if(wtile == 4){
             ctx.drawImage(
               Img.sstairsu, // image
               xOffset, // target x
@@ -4819,7 +4830,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(wtile === 5){
+          } else if(wtile == 5){
             ctx.drawImage(
               Img.wstairsd, // image
               xOffset, // target x
@@ -4827,7 +4838,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(wtile === 6){
+          } else if(wtile == 6){
             ctx.drawImage(
               Img.sstairsd, // image
               xOffset, // target x
@@ -4835,7 +4846,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(wtile === 7){
+          } else if(wtile == 7){
             ctx.drawImage(
               Img.lstairsu, // image
               xOffset, // target x
@@ -4843,7 +4854,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(tile === 13){
+          } else if(tile == 13){
             ctx.drawImage(
               Img.woodfloor, // image
               xOffset, // target x
@@ -4851,7 +4862,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(tile === 14){
+          } else if(tile == 14){
             ctx.drawImage(
               Img.woodexit, // image
               xOffset, // target x
@@ -4859,7 +4870,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(tile === 15){
+          } else if(tile == 15){
             ctx.drawImage(
               Img.stonefloor, // image
               xOffset, // target x
@@ -4867,7 +4878,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(tile === 16){
+          } else if(tile == 16){
             ctx.drawImage(
               Img.stoneexit, // image
               xOffset, // target x
@@ -4875,7 +4886,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(tile === 17){
+          } else if(tile == 17){
             ctx.drawImage(
               Img.carpet, // image
               xOffset, // target x
@@ -4883,7 +4894,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(tile === 19){
+          } else if(tile == 19){
             ctx.drawImage(
               Img.stoneexit, // image
               xOffset, // target x
@@ -4895,7 +4906,7 @@ var renderMap = function(){
         }
       }
     }
-  } else if(z === 2){
+  } else if(z == 2){
     var pBuilding = getBuilding(Player.list[selfId].x,Player.list[selfId].y);
     var dark = ctx.createPattern(Img.void, "repeat");
     ctx.rect(0,0,WIDTH,HEIGHT);
@@ -4912,8 +4923,8 @@ var renderMap = function(){
         var bbCoords = getCoords(c,r+1);
         var building = getBuilding(bCoords[0],bCoords[1]);
         var bbuilding = getBuilding(bbCoords[0],bbCoords[1]);
-        if(pBuilding === building || pBuilding === bbuilding){
-          if(wtile === 1){
+        if(pBuilding == building || pBuilding == bbuilding){
+          if(wtile == 1){
             if(below !== 0){
               ctx.drawImage(
                 Img.woodwall, // image
@@ -4923,7 +4934,7 @@ var renderMap = function(){
                 tileSize // target height
               );
             }
-          } else if(wtile === 2){
+          } else if(wtile == 2){
             if(below !== 0){
               ctx.drawImage(
                 Img.stonewall, // image
@@ -4933,7 +4944,7 @@ var renderMap = function(){
                 tileSize // target height
               );
             }
-          } else if(wtile === 3){
+          } else if(wtile == 3){
             if(below !== 0){
               ctx.drawImage(
                 Img.wstairsd, // image
@@ -4943,7 +4954,7 @@ var renderMap = function(){
                 tileSize // target height
               );
             }
-          } else if(wtile === 4){
+          } else if(wtile == 4){
             if(below !== 0){
               ctx.drawImage(
                 Img.sstairsd, // image
@@ -4953,7 +4964,7 @@ var renderMap = function(){
                 tileSize // target height
               );
             }
-          } else if(wtile === 5){
+          } else if(wtile == 5){
             if(below !== 0){
               ctx.drawImage(
                 Img.woodwall, // image
@@ -4963,7 +4974,7 @@ var renderMap = function(){
                 tileSize // target height
               );
             }
-          } else if(wtile === 6){
+          } else if(wtile == 6){
             if(below !== 0){
               ctx.drawImage(
                 Img.stonewall, // image
@@ -4973,7 +4984,7 @@ var renderMap = function(){
                 tileSize // target height
               );
             }
-          } else if(wtile === 7){
+          } else if(wtile == 7){
             if(below !== 0){
               ctx.drawImage(
                 Img.sstairsd, // image
@@ -4983,7 +4994,7 @@ var renderMap = function(){
                 tileSize // target height
               );
             }
-          } else if(tile === 13){
+          } else if(tile == 13){
             ctx.drawImage(
               Img.woodfloor, // image
               xOffset, // target x
@@ -4991,7 +5002,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(tile === 17){
+          } else if(tile == 17){
             ctx.drawImage(
               Img.carpet, // image
               xOffset, // target x
@@ -4999,7 +5010,7 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(tile === 15){
+          } else if(tile == 15){
             ctx.drawImage(
               Img.stonefloor, // image
               xOffset, // target x
@@ -5015,13 +5026,13 @@ var renderMap = function(){
 };
 
 var renderTops = function(){
-  if(Player.list[selfId].z === 0){
+  if(Player.list[selfId].z == 0){
     for (var c = viewport.startTile[0]; c < viewport.endTile[0]; c++){
       for (var r = viewport.startTile[1]; r < viewport.endTile[1]; r++){
         var xOffset = viewport.offset[0] + (c * tileSize);
         var yOffset = viewport.offset[1] + (r * tileSize);
         var tile = getTile(5, c, r);
-        if(tile === 'mill4'){
+        if(tile == 'mill4'){
           ctx.drawImage(
             Img.mill4, // image
             xOffset, // target x
@@ -5029,7 +5040,7 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'mill5'){
+        } else if(tile == 'mill5'){
           ctx.drawImage(
             Img.mill5, // image
             xOffset, // target x
@@ -5037,7 +5048,7 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'outpost1'){
+        } else if(tile == 'outpost1'){
           ctx.drawImage(
             Img.outpost1, // image
             xOffset, // target x
@@ -5045,7 +5056,7 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'gtower4'){
+        } else if(tile == 'gtower4'){
           ctx.drawImage(
             Img.gtower4, // image
             xOffset, // target x
@@ -5053,7 +5064,7 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'gtower5'){
+        } else if(tile == 'gtower5'){
           ctx.drawImage(
             Img.gtower5, // image
             xOffset, // target x
@@ -5061,7 +5072,7 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        }else if(tile === 'tower9'){
+        }else if(tile == 'tower9'){
           ctx.drawImage(
             Img.tower9, // image
             xOffset, // target x
@@ -5069,7 +5080,7 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'tower10'){
+        } else if(tile == 'tower10'){
           ctx.drawImage(
             Img.tower10, // image
             xOffset, // target x
@@ -5077,7 +5088,7 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'tower11'){
+        } else if(tile == 'tower11'){
           ctx.drawImage(
             Img.tower11, // image
             xOffset, // target x
@@ -5085,7 +5096,7 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'tower12'){
+        } else if(tile == 'tower12'){
           ctx.drawImage(
             Img.tower12, // image
             xOffset, // target x
@@ -5093,7 +5104,7 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'tower13'){
+        } else if(tile == 'tower13'){
           ctx.drawImage(
             Img.tower13, // image
             xOffset, // target x
@@ -5101,7 +5112,7 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'tower14'){
+        } else if(tile == 'tower14'){
           ctx.drawImage(
             Img.tower14, // image
             xOffset, // target x
@@ -5109,7 +5120,7 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'tavern17'){
+        } else if(tile == 'tavern17'){
           ctx.drawImage(
             Img.tavern17, // image
             xOffset, // target x
@@ -5117,7 +5128,7 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'tavern18'){
+        } else if(tile == 'tavern18'){
           ctx.drawImage(
             Img.tavern18, // image
             xOffset, // target x
@@ -5125,7 +5136,7 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'tavern19'){
+        } else if(tile == 'tavern19'){
           ctx.drawImage(
             Img.tavern19, // image
             xOffset, // target x
@@ -5133,7 +5144,7 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'monastery14'){
+        } else if(tile == 'monastery14'){
           ctx.drawImage(
             Img.monastery14, // image
             xOffset, // target x
@@ -5141,7 +5152,7 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'monastery15'){
+        } else if(tile == 'monastery15'){
           ctx.drawImage(
             Img.monastery15, // image
             xOffset, // target x
@@ -5149,7 +5160,7 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'monastery16'){
+        } else if(tile == 'monastery16'){
           ctx.drawImage(
             Img.monastery16, // image
             xOffset, // target x
@@ -5157,7 +5168,7 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'market12'){
+        } else if(tile == 'market12'){
           ctx.drawImage(
             Img.market12, // image
             xOffset, // target x
@@ -5165,7 +5176,7 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'market13'){
+        } else if(tile == 'market13'){
           ctx.drawImage(
             Img.market13, // image
             xOffset, // target x
@@ -5173,7 +5184,7 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'market14'){
+        } else if(tile == 'market14'){
           ctx.drawImage(
             Img.market14, // image
             xOffset, // target x
@@ -5181,7 +5192,7 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'market15'){
+        } else if(tile == 'market15'){
           ctx.drawImage(
             Img.market15, // image
             xOffset, // target x
@@ -5189,7 +5200,7 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'market16'){
+        } else if(tile == 'market16'){
           ctx.drawImage(
             Img.market16, // image
             xOffset, // target x
@@ -5197,7 +5208,7 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'stable12'){
+        } else if(tile == 'stable12'){
           ctx.drawImage(
             Img.stable12, // image
             xOffset, // target x
@@ -5205,7 +5216,7 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'stable13'){
+        } else if(tile == 'stable13'){
           ctx.drawImage(
             Img.stable13, // image
             xOffset, // target x
@@ -5213,7 +5224,7 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'stable14'){
+        } else if(tile == 'stable14'){
           ctx.drawImage(
             Img.stable14, // image
             xOffset, // target x
@@ -5221,7 +5232,7 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'dock6'){
+        } else if(tile == 'dock6'){
           ctx.drawImage(
             Img.dock6, // image
             xOffset, // target x
@@ -5229,7 +5240,7 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'dock7'){
+        } else if(tile == 'dock7'){
           ctx.drawImage(
             Img.dock7, // image
             xOffset, // target x
@@ -5237,7 +5248,7 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'dock8'){
+        } else if(tile == 'dock8'){
           ctx.drawImage(
             Img.dock8, // image
             xOffset, // target x
@@ -5245,7 +5256,7 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'garrison12'){
+        } else if(tile == 'garrison12'){
           ctx.drawImage(
             Img.garrison12, // image
             xOffset, // target x
@@ -5253,7 +5264,7 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'garrison13'){
+        } else if(tile == 'garrison13'){
           ctx.drawImage(
             Img.garrison13, // image
             xOffset, // target x
@@ -5261,7 +5272,7 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'garrison14'){
+        } else if(tile == 'garrison14'){
           ctx.drawImage(
             Img.garrison14, // image
             xOffset, // target x
@@ -5269,7 +5280,7 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'bsmith6'){
+        } else if(tile == 'bsmith6'){
           ctx.drawImage(
             Img.bsmith6, // image
             xOffset, // target x
@@ -5277,7 +5288,7 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'bsmith7'){
+        } else if(tile == 'bsmith7'){
           ctx.drawImage(
             Img.bsmith7, // image
             xOffset, // target x
@@ -5285,8 +5296,8 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'gateo'){
-          if(getTile(3,c-1,r) === 'wall'){
+        } else if(tile == 'gateo'){
+          if(getTile(3,c-1,r) == 'wall'){
             ctx.drawImage(
               Img.gateo0, // image
               xOffset, // target x
@@ -5303,8 +5314,8 @@ var renderTops = function(){
               tileSize // target height
             );
           }
-        } else if(tile === 'gatec'){
-          if(getTile(3,c-1,r) === 'wall'){
+        } else if(tile == 'gatec'){
+          if(getTile(3,c-1,r) == 'wall'){
             ctx.drawImage(
               Img.gatec0, // image
               xOffset, // target x
@@ -5321,7 +5332,7 @@ var renderTops = function(){
               tileSize // target height
             );
           }
-        } else if(tile === 'stronghold58'){
+        } else if(tile == 'stronghold58'){
           ctx.drawImage(
             Img.stronghold58, // image
             xOffset, // target x
@@ -5329,7 +5340,7 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'stronghold59'){
+        } else if(tile == 'stronghold59'){
           ctx.drawImage(
             Img.stronghold59, // image
             xOffset, // target x
@@ -5337,7 +5348,7 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'stronghold60'){
+        } else if(tile == 'stronghold60'){
           ctx.drawImage(
             Img.stronghold60, // image
             xOffset, // target x
@@ -5345,7 +5356,7 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'stronghold61'){
+        } else if(tile == 'stronghold61'){
           ctx.drawImage(
             Img.stronghold61, // image
             xOffset, // target x
@@ -5353,7 +5364,7 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'stronghold62'){
+        } else if(tile == 'stronghold62'){
           ctx.drawImage(
             Img.stronghold62, // image
             xOffset, // target x
@@ -5361,7 +5372,7 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'stronghold63'){
+        } else if(tile == 'stronghold63'){
           ctx.drawImage(
             Img.stronghold63, // image
             xOffset, // target x
@@ -5369,7 +5380,7 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'stronghold64'){
+        } else if(tile == 'stronghold64'){
           ctx.drawImage(
             Img.stronghold64, // image
             xOffset, // target x
@@ -5377,7 +5388,7 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'stronghold65'){
+        } else if(tile == 'stronghold65'){
           ctx.drawImage(
             Img.stronghold65, // image
             xOffset, // target x
@@ -5385,7 +5396,7 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile === 'stronghold66'){
+        } else if(tile == 'stronghold66'){
           ctx.drawImage(
             Img.stronghold66, // image
             xOffset, // target x
@@ -5404,59 +5415,59 @@ var renderForest = function(){
   var pc = pLoc[0];
   var pr = pLoc[1];
 
-  if(Player.list[selfId].z === 0){
+  if(Player.list[selfId].z == 0){
     for (var c = viewport.startTile[0]; c < viewport.endTile[0]; c++){
       for (var r = viewport.startTile[1]; r < viewport.endTile[1]; r++){
         var xOffset = viewport.offset[0] + (c * tileSize);
         var yOffset = viewport.offset[1] + (r * tileSize);
         var dist =  function(){
-          if((c === pc-1 && r === pr-1) ||
-          (c === pc && r === pr-1) ||
-          (c === pc+1 && r === pr-1) ||
-          (c === pc-1 && r === pr) ||
-          (c === pc && r === pr) ||
-          (c === pc+1 && r === pr) ||
-          (c === pc-1 && r === pr+1) ||
-          (c === pc && r === pr+1) ||
-          (c === pc+1 && r === pr+1)){
+          if((c == pc-1 && r == pr-1) ||
+          (c == pc && r == pr-1) ||
+          (c == pc+1 && r == pr-1) ||
+          (c == pc-1 && r == pr) ||
+          (c == pc && r == pr) ||
+          (c == pc+1 && r == pr) ||
+          (c == pc-1 && r == pr+1) ||
+          (c == pc && r == pr+1) ||
+          (c == pc+1 && r == pr+1)){
             return 40;
-          } else if((c === pc-1 && r === pr-2) ||
-          (c === pc && r === pr-2) ||
-          (c === pc+1 && r === pr-2) ||
-          (c === pc-2 && r === pr-1) ||
-          (c === pc-2 && r === pr) ||
-          (c === pc-2 && r === pr+1) ||
-          (c === pc-1 && r === pr+2) ||
-          (c === pc && r === pr+2) ||
-          (c === pc+1 && r === pr+2) ||
-          (c === pc+2 && r === pr-1) ||
-          (c === pc+2 && r === pr) ||
-          (c === pc+2 && r === pr+1)){
+          } else if((c == pc-1 && r == pr-2) ||
+          (c == pc && r == pr-2) ||
+          (c == pc+1 && r == pr-2) ||
+          (c == pc-2 && r == pr-1) ||
+          (c == pc-2 && r == pr) ||
+          (c == pc-2 && r == pr+1) ||
+          (c == pc-1 && r == pr+2) ||
+          (c == pc && r == pr+2) ||
+          (c == pc+1 && r == pr+2) ||
+          (c == pc+2 && r == pr-1) ||
+          (c == pc+2 && r == pr) ||
+          (c == pc+2 && r == pr+1)){
             return 60;
-          } else if((c === pc-2 && r === pr-3) ||
-          (c === pc-1 && r === pr-3) ||
-          (c === pc && r === pr-3) ||
-          (c === pc+1 && r === pr-3) ||
-          (c === pc+2 && r === pr-3) ||
-          (c === pc+2 && r === pr-2) ||
-          (c === pc+3 && r === pr-2) ||
-          (c === pc+3 && r === pr-1) ||
-          (c === pc+3 && r === pr) ||
-          (c === pc+3 && r === pr+1) ||
-          (c === pc+3 && r === pr+2) ||
-          (c === pc+2 && r === pr+2) ||
-          (c === pc+2 && r === pr+3) ||
-          (c === pc+1 && r === pr+3) ||
-          (c === pc && r === pr+3) ||
-          (c === pc-1 && r === pr+3) ||
-          (c === pc-2 && r === pr+3) ||
-          (c === pc-2 && r === pr+2) ||
-          (c === pc-3 && r === pr+2) ||
-          (c === pc-3 && r === pr+1) ||
-          (c === pc-3 && r === pr) ||
-          (c === pc-3 && r === pr-1) ||
-          (c === pc-3 && r === pr-2) ||
-          (c === pc-2 && r === pr-2)){
+          } else if((c == pc-2 && r == pr-3) ||
+          (c == pc-1 && r == pr-3) ||
+          (c == pc && r == pr-3) ||
+          (c == pc+1 && r == pr-3) ||
+          (c == pc+2 && r == pr-3) ||
+          (c == pc+2 && r == pr-2) ||
+          (c == pc+3 && r == pr-2) ||
+          (c == pc+3 && r == pr-1) ||
+          (c == pc+3 && r == pr) ||
+          (c == pc+3 && r == pr+1) ||
+          (c == pc+3 && r == pr+2) ||
+          (c == pc+2 && r == pr+2) ||
+          (c == pc+2 && r == pr+3) ||
+          (c == pc+1 && r == pr+3) ||
+          (c == pc && r == pr+3) ||
+          (c == pc-1 && r == pr+3) ||
+          (c == pc-2 && r == pr+3) ||
+          (c == pc-2 && r == pr+2) ||
+          (c == pc-3 && r == pr+2) ||
+          (c == pc-3 && r == pr+1) ||
+          (c == pc-3 && r == pr) ||
+          (c == pc-3 && r == pr-1) ||
+          (c == pc-3 && r == pr-2) ||
+          (c == pc-2 && r == pr-2)){
             return 80;
           } else {
             return;
@@ -5464,7 +5475,7 @@ var renderForest = function(){
         }
         var tile = getTile(0, c, r);
         if(tile >= 1 && tile < 1.3){
-          if(dist() === 40){
+          if(dist() == 40){
             ctx.drawImage(
               Img.hforest40, // image
               xOffset - (tileSize/4), // target x
@@ -5472,7 +5483,7 @@ var renderForest = function(){
               tileSize, // target width
               tileSize * 1.5 // target height
             );
-          } else if(dist() === 60){
+          } else if(dist() == 60){
             ctx.drawImage(
               Img.hforest60, // image
               xOffset - (tileSize/4), // target x
@@ -5480,7 +5491,7 @@ var renderForest = function(){
               tileSize, // target width
               tileSize * 1.5 // target height
             );
-          } else if(dist() === 80){
+          } else if(dist() == 80){
             ctx.drawImage(
               Img.hforest80, // image
               xOffset - (tileSize/4), // target x
@@ -5498,7 +5509,7 @@ var renderForest = function(){
             );
           }
         } else if(tile >= 1 && tile < 1.6){
-          if(dist() === 40){
+          if(dist() == 40){
             ctx.drawImage(
               Img.hforest40, // image
               xOffset, // target x
@@ -5506,7 +5517,7 @@ var renderForest = function(){
               tileSize, // target width
               tileSize * 1.5 // target height
             );
-          } else if(dist() === 60){
+          } else if(dist() == 60){
             ctx.drawImage(
               Img.hforest60, // image
               xOffset, // target x
@@ -5514,7 +5525,7 @@ var renderForest = function(){
               tileSize, // target width
               tileSize * 1.5 // target height
             );
-          } else if(dist() === 80){
+          } else if(dist() == 80){
             ctx.drawImage(
               Img.hforest80, // image
               xOffset, // target x
@@ -5532,7 +5543,7 @@ var renderForest = function(){
             );
           }
         } else if(tile >= 1 && tile < 2){
-          if(dist() === 40){
+          if(dist() == 40){
             ctx.drawImage(
               Img.hforest40, // image
               xOffset, // target x
@@ -5540,7 +5551,7 @@ var renderForest = function(){
               tileSize, // target width
               tileSize * 1.5 // target height
             );
-          } else if(dist() === 60){
+          } else if(dist() == 60){
             ctx.drawImage(
               Img.hforest60, // image
               xOffset, // target x
@@ -5548,7 +5559,7 @@ var renderForest = function(){
               tileSize, // target width
               tileSize * 1.5 // target height
             );
-          } else if(dist() === 80){
+          } else if(dist() == 80){
             ctx.drawImage(
               Img.hforest80, // image
               xOffset, // target x
@@ -5604,11 +5615,11 @@ var renderLightSources = function(env){
     var rnd = (0.05 * Math.sin(1.1 * Date.now() / 200) * flicker);
     var x = light.x - player.x + WIDTH/2;
     var y = light.y - player.y + HEIGHT/2;
-    if(light.z === player.z || light.z ===  99){
+    if(light.z == player.z || light.z ==  99){
       illuminate(x,y,(45 * light.radius),env);
       illuminate(x,y,7,env);
       //remove darkness layer
-      if((light.z === 0 || light.z === -1 || light.z === -2 || light.z === 99) || ((light.z === 1 || light.z === 2) && !hasFire(player.z,player.x,player.y))){
+      if((light.z == 0 || light.z == -1 || light.z == -2 || light.z == 99) || ((light.z == 1 || light.z == 2) && !hasFire(player.z,player.x,player.y))){
         lighting.save();
         lighting.globalCompositeOperation = 'destination-out';
         lighting.beginPath();
@@ -5622,49 +5633,49 @@ var renderLightSources = function(env){
 
 var renderLighting = function(){
   var z = Player.list[selfId].z;
-  if(z === 0){
-    if(tempus === 'IX.p' || tempus === 'X.p' || tempus === 'XI.p' || tempus === 'XII.a' || tempus === 'I.a' || tempus === 'II.a' || tempus === 'III.a'){
+  if(z == 0){
+    if(tempus == 'IX.p' || tempus == 'X.p' || tempus == 'XI.p' || tempus == 'XII.a' || tempus == 'I.a' || tempus == 'II.a' || tempus == 'III.a'){
       lighting.clearRect(0,0,WIDTH,HEIGHT);
       lighting.fillStyle = "rgba(5, 5, 30, 0.9)"; // night
       lighting.fillRect(0,0,WIDTH,HEIGHT);
-    } else if(tempus === 'IV.a'){
+    } else if(tempus == 'IV.a'){
       lighting.clearRect(0,0,WIDTH,HEIGHT);
       lighting.fillStyle = "rgba(5, 5, 30, 0.8)"; // early hours
       lighting.fillRect(0,0,WIDTH,HEIGHT);
-    } else if(tempus === 'V.a'){
+    } else if(tempus == 'V.a'){
       lighting.clearRect(0,0,WIDTH,HEIGHT);
       lighting.fillStyle = "rgba(5, 5, 30, 0.6)"; // early morning
       lighting.fillRect(0,0,WIDTH,HEIGHT);
-    } else if(tempus === 'VI.a'){
+    } else if(tempus == 'VI.a'){
       lighting.clearRect(0,0,WIDTH,HEIGHT);
       lighting.fillStyle = "rgba(244, 214, 65, 0.1)"; // sunrise
       lighting.fillRect(0,0,WIDTH,HEIGHT);
-    } else if(tempus === 'VII.a' || tempus === 'VIII.a' || tempus === 'IX.a'|| tempus === 'X.a' || tempus === 'XI.a' || tempus === 'XII.p' || tempus === 'I.p' || tempus === 'II.p' || tempus === 'III.p'){
+    } else if(tempus == 'VII.a' || tempus == 'VIII.a' || tempus == 'IX.a'|| tempus == 'X.a' || tempus == 'XI.a' || tempus == 'XII.p' || tempus == 'I.p' || tempus == 'II.p' || tempus == 'III.p'){
       lighting.clearRect(0,0,WIDTH,HEIGHT); // morning + daytime
-    } else if(tempus === 'IV.p'){
+    } else if(tempus == 'IV.p'){
       lighting.clearRect(0,0,WIDTH,HEIGHT);
       lighting.fillStyle = "rgba(255, 204, 22, 0.07)"; // afternoon
       lighting.fillRect(0,0,WIDTH,HEIGHT);
-    } else if(tempus === 'V.p'){
+    } else if(tempus == 'V.p'){
       lighting.clearRect(0,0,WIDTH,HEIGHT);
       lighting.fillStyle = "rgba(255, 204, 22, 0.1)"; // late afternoon
       lighting.fillRect(0,0,WIDTH,HEIGHT);
-    } else if(tempus === 'VI.p'){
+    } else if(tempus == 'VI.p'){
       lighting.clearRect(0,0,WIDTH,HEIGHT);
       lighting.fillStyle = "rgba(232, 112, 0, 0.25)"; // sunset
       lighting.fillRect(0,0,WIDTH,HEIGHT);
-    } else if(tempus === 'VII.p'){
+    } else if(tempus == 'VII.p'){
       lighting.clearRect(0,0,WIDTH,HEIGHT);
       lighting.fillStyle = "rgba(5, 5, 30, 0.4)"; // twilight
       lighting.fillRect(0,0,WIDTH,HEIGHT);
-    } else if(tempus === 'VIII.p'){
+    } else if(tempus == 'VIII.p'){
       lighting.clearRect(0,0,WIDTH,HEIGHT);
       lighting.fillStyle = "rgba(5, 5, 30, 0.7)"; // evening
       lighting.fillRect(0,0,WIDTH,HEIGHT);
     }
-  } else if(z === 1 || z === 2){
+  } else if(z == 1 || z == 2){
     var player = Player.list[selfId];
-    if(tempus === 'IX.p' || tempus === 'X.p' || tempus === 'XI.p' || tempus === 'XII.a' || tempus === 'I.a' || tempus === 'II.a' || tempus === 'III.a'){
+    if(tempus == 'IX.p' || tempus == 'X.p' || tempus == 'XI.p' || tempus == 'XII.a' || tempus == 'I.a' || tempus == 'II.a' || tempus == 'III.a'){
       if(hasFire(player.z,player.x,player.y)){
         lighting.clearRect(0,0,WIDTH,HEIGHT);
         lighting.fillStyle = "rgba(224, 104, 0, 0.4)"; // fire
@@ -5674,7 +5685,7 @@ var renderLighting = function(){
         lighting.fillStyle = "rgba(5, 5, 30, 0.9)"; // night
         lighting.fillRect(0,0,WIDTH,HEIGHT);
       }
-    } else if(tempus === 'IV.a'){
+    } else if(tempus == 'IV.a'){
       if(hasFire(player.z,player.x,player.y)){
         lighting.clearRect(0,0,WIDTH,HEIGHT);
         lighting.fillStyle = "rgba(224, 104, 0, 0.4)"; // fire
@@ -5684,7 +5695,7 @@ var renderLighting = function(){
         lighting.fillStyle = "rgba(5, 5, 30, 0.8)"; // early hours
         lighting.fillRect(0,0,WIDTH,HEIGHT);
       }
-    } else if(tempus === 'V.a'){
+    } else if(tempus == 'V.a'){
       if(hasFire(player.z,player.x,player.y)){
         lighting.clearRect(0,0,WIDTH,HEIGHT);
         lighting.fillStyle = "rgba(224, 104, 0, 0.4)"; // fire
@@ -5694,25 +5705,25 @@ var renderLighting = function(){
         lighting.fillStyle = "rgba(5, 5, 30, 0.6)"; // early morning
         lighting.fillRect(0,0,WIDTH,HEIGHT);
       }
-    } else if(tempus === 'VI.a'){
+    } else if(tempus == 'VI.a'){
       lighting.clearRect(0,0,WIDTH,HEIGHT);
       lighting.fillStyle = "rgba(244, 214, 65, 0.1)"; // sunrise
       lighting.fillRect(0,0,WIDTH,HEIGHT);
-    } else if(tempus === 'VII.a' || tempus === 'VIII.a' || tempus === 'IX.a'|| tempus === 'X.a' || tempus === 'XI.a' || tempus === 'XII.p' || tempus === 'I.p' || tempus === 'II.p' || tempus === 'III.p'){
+    } else if(tempus == 'VII.a' || tempus == 'VIII.a' || tempus == 'IX.a'|| tempus == 'X.a' || tempus == 'XI.a' || tempus == 'XII.p' || tempus == 'I.p' || tempus == 'II.p' || tempus == 'III.p'){
       lighting.clearRect(0,0,WIDTH,HEIGHT); // morning + daytime
-    } else if(tempus === 'IV.p'){
+    } else if(tempus == 'IV.p'){
       lighting.clearRect(0,0,WIDTH,HEIGHT);
       lighting.fillStyle = "rgba(255, 204, 22, 0.07)"; // afternoon
       lighting.fillRect(0,0,WIDTH,HEIGHT);
-    } else if(tempus === 'V.p'){
+    } else if(tempus == 'V.p'){
       lighting.clearRect(0,0,WIDTH,HEIGHT);
       lighting.fillStyle = "rgba(255, 204, 22, 0.1)"; // late afternoon
       lighting.fillRect(0,0,WIDTH,HEIGHT);
-    } else if(tempus === 'VI.p'){
+    } else if(tempus == 'VI.p'){
       lighting.clearRect(0,0,WIDTH,HEIGHT);
       lighting.fillStyle = "rgba(232, 112, 0, 0.25)"; // sunset
       lighting.fillRect(0,0,WIDTH,HEIGHT);
-    } else if(tempus === 'VII.p'){
+    } else if(tempus == 'VII.p'){
       if(hasFire(player.z,player.x,player.y)){
         lighting.clearRect(0,0,WIDTH,HEIGHT);
         lighting.fillStyle = "rgba(224, 104, 0, 0.4)"; // fire
@@ -5722,7 +5733,7 @@ var renderLighting = function(){
         lighting.fillStyle = "rgba(5, 5, 30, 0.4)"; // twilight
         lighting.fillRect(0,0,WIDTH,HEIGHT);
       }
-    } else if(tempus === 'VIII.p'){
+    } else if(tempus == 'VIII.p'){
       if(hasFire(player.z,player.x,player.y)){
         lighting.clearRect(0,0,WIDTH,HEIGHT);
         lighting.fillStyle = "rgba(224, 104, 0, 0.4)"; // fire
@@ -5733,19 +5744,19 @@ var renderLighting = function(){
         lighting.fillRect(0,0,WIDTH,HEIGHT);
       }
     }
-  } else if(z === -1){
+  } else if(z == -1){
     ctx.fillStyle = "rgba(224, 104, 0, 0.3)"; // light layer
     ctx.fillRect(0,0,WIDTH,HEIGHT);
     lighting.clearRect(0,0,WIDTH,HEIGHT);
     lighting.fillStyle = "rgba(0, 0, 0, 0.95)"; // darkness
     lighting.fillRect(0,0,WIDTH,HEIGHT);
-  } else if(z === -2){
+  } else if(z == -2){
     ctx.fillStyle = "rgba(224, 104, 0, 0.3)"; // light layer
     ctx.fillRect(0,0,WIDTH,HEIGHT);
     lighting.clearRect(0,0,WIDTH,HEIGHT);
     lighting.fillStyle = "rgba(0, 0, 0, 0.85)"; // darkness
     lighting.fillRect(0,0,WIDTH,HEIGHT);
-  } else if(z === -3){
+  } else if(z == -3){
     lighting.clearRect(0,0,WIDTH,HEIGHT);
     lighting.fillStyle = "rgba(0, 48, 99, 0.9)"; // underwater
     lighting.fillRect(0,0,WIDTH,HEIGHT);
@@ -5754,134 +5765,134 @@ var renderLighting = function(){
 
 // CONTROLS
 document.onkeydown = function(event){
-  var chatFocus = (document.activeElement === chatInput);
+  var chatFocus = (document.activeElement == chatInput);
   if(!chatFocus){
-    if(event.keyCode === 68){ // d
+    if(event.keyCode == 68){ // d
       socket.emit('keyPress',{inputId:'right',state:true});
       Player.list[selfId].pressingRight = true;
-    } else if(event.keyCode === 83){ // s
+    } else if(event.keyCode == 83){ // s
       socket.emit('keyPress',{inputId:'down',state:true});
       Player.list[selfId].pressingDown = true;
-    } else if(event.keyCode === 65){ // a
+    } else if(event.keyCode == 65){ // a
       socket.emit('keyPress',{inputId:'left',state:true});
       Player.list[selfId].pressingLeft = true;
-    } else if(event.keyCode === 87){ // w
+    } else if(event.keyCode == 87){ // w
       socket.emit('keyPress',{inputId:'up',state:true});
       Player.list[selfId].pressingUp = true;
-    } else if(event.keyCode === 32){ // space
+    } else if(event.keyCode == 32){ // space
       socket.emit('keyPress',{inputId:'attack',state:true});
       Player.list[selfId].pressingAttack = true;
-    } else if(event.keyCode === 69){ // e
+    } else if(event.keyCode == 69){ // e
        socket.emit('keyPress',{inputId:'e',state:true});
-    } else if(event.keyCode === 84){ // t
+    } else if(event.keyCode == 84){ // t
       socket.emit('keyPress',{inputId:'t',state:true});
-    } else if(event.keyCode === 73){ // i
+    } else if(event.keyCode == 73){ // i
       socket.emit('keyPress',{inputId:'i',state:true});
-    } else if(event.keyCode === 80){ // p
+    } else if(event.keyCode == 80){ // p
       socket.emit('keyPress',{inputId:'p',state:true});
-    } else if(event.keyCode === 70){ // f
+    } else if(event.keyCode == 70){ // f
       socket.emit('keyPress',{inputId:'f',state:true});
-    } else if(event.keyCode === 72){ // h
+    } else if(event.keyCode == 72){ // h
       socket.emit('keyPress',{inputId:'h',state:true});
-    } else if(event.keyCode === 75){ // k
+    } else if(event.keyCode == 75){ // k
       socket.emit('keyPress',{inputId:'k',state:true});
-    } else if(event.keyCode === 76){ // l
+    } else if(event.keyCode == 76){ // l
       socket.emit('keyPress',{inputId:'l',state:true});
-    } else if(event.keyCode === 88){ // x
+    } else if(event.keyCode == 88){ // x
       socket.emit('keyPress',{inputId:'x',state:true});
-    } else if(event.keyCode === 67){ // c
+    } else if(event.keyCode == 67){ // c
       socket.emit('keyPress',{inputId:'c',state:true});
-    } else if(event.keyCode === 66){ // b
+    } else if(event.keyCode == 66){ // b
       socket.emit('keyPress',{inputId:'b',state:true});
-    } else if(event.keyCode === 78){ // n
+    } else if(event.keyCode == 78){ // n
       socket.emit('keyPress',{inputId:'n',state:true});
-    } else if(event.keyCode === 77){ // m
+    } else if(event.keyCode == 77){ // m
       socket.emit('keyPress',{inputId:'m',state:true});
-    } else if(event.keyCode === 49){ // 1
+    } else if(event.keyCode == 49){ // 1
       socket.emit('keyPress',{inputId:'1',state:true});
-    } else if(event.keyCode === 50){ // 2
+    } else if(event.keyCode == 50){ // 2
       socket.emit('keyPress',{inputId:'2',state:true});
-    } else if(event.keyCode === 51){ // 3
+    } else if(event.keyCode == 51){ // 3
       socket.emit('keyPress',{inputId:'3',state:true});
-    } else if(event.keyCode === 52){ // 4
+    } else if(event.keyCode == 52){ // 4
       socket.emit('keyPress',{inputId:'4',state:true});
-    } else if(event.keyCode === 53){ // 5
+    } else if(event.keyCode == 53){ // 5
       socket.emit('keyPress',{inputId:'5',state:true});
-    } else if(event.keyCode === 54){ // 6
+    } else if(event.keyCode == 54){ // 6
       socket.emit('keyPress',{inputId:'6',state:true});
-    } else if(event.keyCode === 55){ // 7
+    } else if(event.keyCode == 55){ // 7
       socket.emit('keyPress',{inputId:'7',state:true});
-    } else if(event.keyCode === 56){ // 8
+    } else if(event.keyCode == 56){ // 8
       socket.emit('keyPress',{inputId:'8',state:true});
-    } else if(event.keyCode === 57){ // 9
+    } else if(event.keyCode == 57){ // 9
       socket.emit('keyPress',{inputId:'9',state:true});
-    } else if(event.keyCode === 48){ // 0
+    } else if(event.keyCode == 48){ // 0
       socket.emit('keyPress',{inputId:'0',state:true});
     }
   }
 }
 
 document.onkeyup = function(event){
-  if(event.keyCode === 68){ // d
+  if(event.keyCode == 68){ // d
     socket.emit('keyPress',{inputId:'right',state:false});
     Player.list[selfId].pressingRight = false;
-  } else if(event.keyCode === 83){ // s
+  } else if(event.keyCode == 83){ // s
     socket.emit('keyPress',{inputId:'down',state:false});
     Player.list[selfId].pressingDown = false;
-  } else if(event.keyCode === 65){ // a
+  } else if(event.keyCode == 65){ // a
     socket.emit('keyPress',{inputId:'left',state:false});
     Player.list[selfId].pressingLeft = false;
-  } else if(event.keyCode === 87){ // w
+  } else if(event.keyCode == 87){ // w
     socket.emit('keyPress',{inputId:'up',state:false});
     Player.list[selfId].pressingUp = false;
-  } else if(event.keyCode === 32){ // space
+  } else if(event.keyCode == 32){ // space
     socket.emit('keyPress',{inputId:'attack',state:false});
     Player.list[selfId].pressingAttack = false;
-  } else if(event.keyCode === 69){ // e
+  } else if(event.keyCode == 69){ // e
     socket.emit('keyPress',{inputId:'e',state:false});
-  } else if(event.keyCode === 84){ // t
+  } else if(event.keyCode == 84){ // t
     socket.emit('keyPress',{inputId:'t',state:false});
-  } else if(event.keyCode === 73){ // i
+  } else if(event.keyCode == 73){ // i
     socket.emit('keyPress',{inputId:'i',state:false});
-  } else if(event.keyCode === 80){ // p
+  } else if(event.keyCode == 80){ // p
     socket.emit('keyPress',{inputId:'p',state:false});
-  } else if(event.keyCode === 70){ // f
+  } else if(event.keyCode == 70){ // f
     socket.emit('keyPress',{inputId:'f',state:false});
-  } else if(event.keyCode === 72){ // h
+  } else if(event.keyCode == 72){ // h
     socket.emit('keyPress',{inputId:'h',state:false});
-  } else if(event.keyCode === 75){ // k
+  } else if(event.keyCode == 75){ // k
     socket.emit('keyPress',{inputId:'k',state:false});
-  } else if(event.keyCode === 76){ // l
+  } else if(event.keyCode == 76){ // l
     socket.emit('keyPress',{inputId:'l',state:false});
-  } else if(event.keyCode === 88){ // x
+  } else if(event.keyCode == 88){ // x
     socket.emit('keyPress',{inputId:'x',state:false});
-  } else if(event.keyCode === 67){ // c
+  } else if(event.keyCode == 67){ // c
     socket.emit('keyPress',{inputId:'c',state:false});
-  } else if(event.keyCode === 66){ // b
+  } else if(event.keyCode == 66){ // b
     socket.emit('keyPress',{inputId:'b',state:false});
-  } else if(event.keyCode === 78){ // n
+  } else if(event.keyCode == 78){ // n
     socket.emit('keyPress',{inputId:'n',state:false});
-  } else if(event.keyCode === 77){ // m
+  } else if(event.keyCode == 77){ // m
     socket.emit('keyPress',{inputId:'m',state:false});
-  } else if(event.keyCode === 49){ // 1
+  } else if(event.keyCode == 49){ // 1
     socket.emit('keyPress',{inputId:'1',state:false});
-  } else if(event.keyCode === 50){ // 2
+  } else if(event.keyCode == 50){ // 2
     socket.emit('keyPress',{inputId:'2',state:false});
-  } else if(event.keyCode === 51){ // 3
+  } else if(event.keyCode == 51){ // 3
     socket.emit('keyPress',{inputId:'3',state:false});
-  } else if(event.keyCode === 52){ // 4
+  } else if(event.keyCode == 52){ // 4
     socket.emit('keyPress',{inputId:'4',state:false});
-  } else if(event.keyCode === 53){ // 5
+  } else if(event.keyCode == 53){ // 5
     socket.emit('keyPress',{inputId:'5',state:false});
-  } else if(event.keyCode === 54){ // 6
+  } else if(event.keyCode == 54){ // 6
     socket.emit('keyPress',{inputId:'6',state:false});
-  } else if(event.keyCode === 55){ // 7
+  } else if(event.keyCode == 55){ // 7
     socket.emit('keyPress',{inputId:'7',state:false});
-  } else if(event.keyCode === 56){ // 8
+  } else if(event.keyCode == 56){ // 8
     socket.emit('keyPress',{inputId:'8',state:false});
-  } else if(event.keyCode === 57){ // 9
+  } else if(event.keyCode == 57){ // 9
     socket.emit('keyPress',{inputId:'9',state:false});
-  } else if(event.keyCode === 48){ // 0
+  } else if(event.keyCode == 48){ // 0
     socket.emit('keyPress',{inputId:'0',state:false});
   }
 }

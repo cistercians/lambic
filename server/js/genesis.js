@@ -195,17 +195,17 @@ function genesis(){
     while (maxTunnels && dimensions && maxLength) {
       do {
         randomDirection = directions[Math.floor(Math.random() * directions.length)];
-      } while ((randomDirection[0] === -lastDirection[0] && randomDirection[1] === -lastDirection[1]) || (randomDirection[0] === lastDirection[0] && randomDirection[1] === lastDirection[1]));
+      } while ((randomDirection[0] == -lastDirection[0] && randomDirection[1] == -lastDirection[1]) || (randomDirection[0] == lastDirection[0] && randomDirection[1] == lastDirection[1]));
 
       var randomLength = Math.ceil(Math.random() * maxLength),
           tunnelLength = 0;
 
       while (tunnelLength < randomLength) {
 
-        if (((currentRow === 0) && (randomDirection[0] === -1)) ||
-            ((currentColumn === 0) && (randomDirection[1] === -1)) ||
-            ((currentRow === map.length - 1) && (randomDirection[0] === 1)) ||
-            ((currentColumn === map.length - 1) && (randomDirection[1] === 1))) {
+        if (((currentRow == 0) && (randomDirection[0] == -1)) ||
+            ((currentColumn == 0) && (randomDirection[1] == -1)) ||
+            ((currentRow == map.length - 1) && (randomDirection[0] == 1)) ||
+            ((currentColumn == map.length - 1) && (randomDirection[1] == 1))) {
           break;
         } else {
           map[currentRow][currentColumn] = 0;
@@ -280,7 +280,7 @@ function genesis(){
   for(x = 1; x < (mapTiles - 1); x++){
     for(y = 1; y < (mapTiles - 1); y++){
       roll = Math.random();
-      if(worldMaps[1][y][x] === 1 && roll < 0.1 && (worldMaps[1][y+1][x] === 0 || worldMaps[1][y-1][x] === 0 || worldMaps[1][y][x+1] === 0 || worldMaps[1][y][x-1] === 0)){
+      if(worldMaps[1][y][x] == 1 && roll < 0.1 && (worldMaps[1][y+1][x] == 0 || worldMaps[1][y-1][x] == 0 || worldMaps[1][y][x+1] == 0 || worldMaps[1][y][x-1] == 0)){
         worldMaps[1][y][x] = 3 + Number((Math.random()*0.9).toFixed(2));
         worldMaps[7][y][x] = 150;
       } else {

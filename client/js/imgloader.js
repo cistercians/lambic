@@ -4147,7 +4147,7 @@ Img.relic.src = '/client/img/items/relic.png';
 
 var flm = 0; // flame counter
 setInterval(function(){
-  if(flm === 2){
+  if(flm == 2){
     flm = 0;
   } else {
     flm++;
