@@ -1277,7 +1277,6 @@ Character = function(param){
           x:self.home.x,
           y:self.home.y
         });
-        console.log(self.name + ' dist: ' + hDist);
         if(hDist > self.wanderRange * 4){
           self.combat.target = null;
           self.action == 'return';
