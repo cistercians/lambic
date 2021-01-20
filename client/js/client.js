@@ -2352,10 +2352,18 @@ var inView = function(z,x,y,innaWoods){
 }
 
 var hasFire = function(z,x,y){
+  var count = 0;
   for(i in Light.list){
     var light = Light.list[i];
-    if(light.z == z && (getBuilding(light.x,light.y) == getBuilding(x,y) || getBuilding(light.x,light.y+tileSize) == getBuilding(x,y)) && light.radius > 1){
-      return true;
+    if(light.z == z && (getBuilding(light.x,light.y) == getBuilding(x,y) || getBuilding(light.x,light.y+tileSize) == getBuilding(x,y))){
+      if(light.radius > 1){
+        return true;
+      } else {
+        count++;
+        if(count == 2){
+          return true;
+        }
+      }
     } else {
       continue;
     }
