@@ -231,7 +231,7 @@ Character = function(param){
   // return = return to previous location and activity
   self.action = null;
 
-  self.lastLoc = null;
+  self.lastLoc = null; // {z,loc}
 
   self.dialogue = {};
 
@@ -616,15 +616,17 @@ Character = function(param){
               } else {
                 if(allyCheck(self.id,p.id) < 0){
                   self.combat.target = p.id;
-                  Player.list[zones[zr][zc][n]].combat.target = self.id;
-                  Player.list[zones[zr][zc][n]].action = 'combat';
+                  if(!p.action){
+                    Player.list[zones[zr][zc][n]].combat.target = self.id;
+                    Player.list[zones[zr][zc][n]].action = 'combat';
+                  }
                   if(self.hp < (self.hpMax * 0.1) || self.class == 'Deer' || self.class == 'SerfM' || self.class == 'SerfF'){
                     self.action = 'flee';
                   } else {
-                    self.action = 'combat';
-                    if(!self.lastLoc){
+                    if(!self.action){
                       self.lastLoc = {z:self.z,loc:getLoc(self.x,self.y)};
                     }
+                    self.action = 'combat';
                     console.log(self.name + ' aggro @ ' + p.name);
                   }
                 }
@@ -696,22 +698,14 @@ Character = function(param){
     }
   }
 
-  self.lastTarget = null;
   self.lastDir = null;
+  self.lastTarget = null;
 
-  self.follow = function(target,attack=false){
-    var loc = getLoc(self.x,self.y);
-    var tLoc = getLoc(target.x,target.y);
-    var dLoc = [tLoc[0],tLoc[1]+1];
-    var uLoc = [tLoc[0],tLoc[1]-1];
-    var lLoc = [tLoc[0]-1,tLoc[1]];
-    var rLoc = [tLoc[0]+1,tLoc[1]];
-
+  self.moveTo = function(tLoc){
     if(!self.path){
-      if(loc.toString() != uLoc.toString() &&
-      loc.toString() != dLoc.toString() &&
-      loc.toString() != rLoc.toString() &&
-      loc.toString() != lLoc.toString()){
+      var loc = getLoc(self.x,self.y);
+
+      if(loc.toString() != tLoc.toString()){
         var dir = self.calcDir(loc,tLoc);
         if(dir != self.lastDir){
           self.lastDir = dir;
@@ -864,33 +858,210 @@ Character = function(param){
               }
             }
           }
-        } else if(dir == 'c'){
-          if(target.facing == 'up'){
-            var d = [loc[0],loc[1]+1];
-            self.path = [d];
-          } else if(target.facing == 'down'){
-            var u = [loc[0],loc[1]-1];
-            self.path = [u];
-          } else if(target.facing == 'left'){
-            var r = [loc[0]+1,loc[1]];
-            self.path = [r];
-          } else if(target.facing == 'right'){
-            var l = [loc[0]-1,loc[1]];
-            self.path = [l];
-          }
         }
+      }
+    }
+  }
+
+  self.follow = function(target,attack=false){
+    if(!self.path){
+      if(self.z != target.z){
+        self.moveTo(self.lastTarget);
       } else {
-        if(loc.toString() == uLoc.toString()){
-          self.facing = 'down';
-        } else if(loc.toString() == dLoc.toString()){
-          self.facing = 'up';
-        } else if(loc.toString() == lLoc.toString()){
-          self.facing = 'right';
-        } else if(loc.toString() == rLoc.toString()){
-          self.facing = 'left';
+        var loc = getLoc(self.x,self.y);
+        var tLoc = getLoc(target.x,target.y);
+        var dLoc = [tLoc[0],tLoc[1]+1];
+        var uLoc = [tLoc[0],tLoc[1]-1];
+        var lLoc = [tLoc[0]-1,tLoc[1]];
+        var rLoc = [tLoc[0]+1,tLoc[1]];
+
+        if(!self.lastTarget || tLoc.toString() != self.lastTarget.toString()){
+          self.lastTarget = tLoc;
         }
-        if(attack && self.attackCooldown == 0){
-          self.attack(self.facing);
+        if(loc.toString() != uLoc.toString() &&
+        loc.toString() != dLoc.toString() &&
+        loc.toString() != rLoc.toString() &&
+        loc.toString() != lLoc.toString()){
+          var dir = self.calcDir(loc,tLoc);
+          if(dir != self.lastDir){
+            self.lastDir = dir;
+          }
+          if(dir == 'dr'){
+            var d = [loc[0],loc[1]+1];
+            if(isWalkable(self.z,d[0],d[1])){
+              self.path = [d];
+            } else {
+              var r = [loc[0]+1,loc[1]];
+              if(isWalkable(self.z,r[0],r[1])){
+                self.path = [r];
+              }
+            }
+          } else if(dir == 'rd'){
+            var r = [loc[0]+1,loc[1]];
+            if(isWalkable(self.z,r[0],r[1])){
+              self.path = [r];
+            } else {
+              var d = [loc[0],loc[1]+1];
+              if(isWalkable(self.z,d[0],d[1])){
+                self.path = [d];
+              }
+            }
+          } else if(dir == 'r'){
+            var r = [loc[0]+1,loc[1]];
+            if(isWalkable(self.z,r[0],r[1])){
+              self.path = [r];
+            } else {
+              if(self.lastDir == 'ur' || self.lastDir == 'ru'){
+                var u = [loc[0],loc[1]-1];
+                if(isWalkable(self.z,u[0],u[1])){
+                  self.path = [u];
+                }
+              } else {
+                var d = [loc[0],loc[1]+1];
+                if(isWalkable(self.z,d[0],d[1])){
+                  self.path = [d];
+                }
+              }
+            }
+          } else if(dir == 'd'){
+            var d = [loc[0],loc[1]+1];
+            if(isWalkable(self.z,d[0],d[1])){
+              self.path = [d];
+            } else {
+              if(self.lastDir == 'dr' || self.lastDir == 'rd'){
+                var r = [loc[0]+1,loc[1]];
+                if(isWalkable(self.z,r[0],r[1])){
+                  self.path = [r];
+                } else {
+                  var l = [loc[0]-1,loc[1]];
+                  if(isWalkable(self.z,l[0],l[1])){
+                    self.path = [l];
+                  }
+                }
+              }
+            }
+          } else if(dir == 'ru'){
+            var r = [loc[0]+1,loc[1]];
+            if(isWalkable(self.z,r[0],r[1])){
+              self.path = [r];
+            } else {
+              var u = [loc[0],loc[1]-1];
+              if(isWalkable(self.z,u[0],u[1])){
+                self.path = [u];
+              }
+            }
+          } else if(dir == 'ur'){
+            var u = [loc[0],loc[1]-1];
+            if(isWalkable(self.z,u[0],u[1])){
+              self.path = [u];
+            } else {
+              var r = [loc[0]+1,loc[1]];
+              if(isWalkable(self.z,r[0],r[1])){
+                self.path = [r];
+              }
+            }
+          } else if(dir == 'u'){
+            var u = [loc[0],loc[1]-1];
+            if(isWalkable(self.z,u[0],u[1])){
+              self.path = [u];
+            } else {
+              if(self.lastDir == 'ur' || self.lastDir == 'ru'){
+                var r = [loc[0]+1,loc[1]];
+                if(isWalkable(self.z,r[0],r[1])){
+                  self.path = [r];
+                }
+              } else {
+                var l = [loc[0]-1,loc[1]];
+                if(isWalkable(self.z,l[0],l[1])){
+                  self.path = [l];
+                }
+              }
+            }
+          } else if(dir == 'lu'){
+            var l = [loc[0]-1,loc[1]];
+            if(isWalkable(self.z,l[0],l[1])){
+              self.path = [l];
+            } else {
+              var u = [loc[0],loc[1]-1];
+              if(isWalkable(self.z,u[0],u[1])){
+                self.path = [u];
+              }
+            }
+          } else if(dir == 'ul'){
+            var u = [loc[0],loc[1]-1];
+            if(isWalkable(self.z,u[0],u[1])){
+              self.path = [u];
+            } else {
+              var l = [loc[0]-1,loc[1]];
+              if(isWalkable(self.z,l[0],l[1])){
+                self.path = [l];
+              }
+            }
+          } else if(dir == 'ld'){
+            var l = [loc[0]-1,loc[1]];
+            if(isWalkable(self.z,l[0],l[1])){
+              self.path = [l];
+            } else {
+              var d = [loc[0],loc[1]+1];
+              if(isWalkable(self.z,d[0],d[1])){
+                self.path = [d];
+              }
+            }
+          } else if(dir == 'dl'){
+            var d = [loc[0],loc[1]+1];
+            if(isWalkable(self.z,d[0],d[1])){
+              self.path = [d];
+            } else {
+              var l = [loc[0]-1,loc[1]];
+              if(isWalkable(self.z,l[0],l[1])){
+                self.path = [l];
+              }
+            }
+          } else if(dir == 'l'){
+            var l = [loc[0]-1,loc[1]];
+            if(isWalkable(self.z,l[0],l[1])){
+              self.path = [l];
+            } else {
+              if(self.lastDir == 'ul' || self.lastDir == 'lu'){
+                var u = [loc[0],loc[1]-1];
+                if(isWalkable(self.z,u[0],u[1])){
+                  self.path = [u];
+                } else {
+                  var d = [loc[0],loc[1]+1];
+                  if(isWalkable(self.z,d[0],d[1])){
+                    self.path = [d];
+                  }
+                }
+              }
+            }
+          } else if(dir == 'c'){
+            if(target.facing == 'up'){
+              var d = [loc[0],loc[1]+1];
+              self.path = [d];
+            } else if(target.facing == 'down'){
+              var u = [loc[0],loc[1]-1];
+              self.path = [u];
+            } else if(target.facing == 'left'){
+              var r = [loc[0]+1,loc[1]];
+              self.path = [r];
+            } else if(target.facing == 'right'){
+              var l = [loc[0]-1,loc[1]];
+              self.path = [l];
+            }
+          }
+        } else {
+          if(loc.toString() == uLoc.toString()){
+            self.facing = 'down';
+          } else if(loc.toString() == dLoc.toString()){
+            self.facing = 'up';
+          } else if(loc.toString() == lLoc.toString()){
+            self.facing = 'right';
+          } else if(loc.toString() == rLoc.toString()){
+            self.facing = 'left';
+          }
+          if(attack && self.attackCooldown == 0){
+            self.attack(self.facing);
+          }
         }
       }
     }
@@ -1060,7 +1231,7 @@ Character = function(param){
           x:self.home.x,
           y:self.home.y
         });
-        if(self.z == self.home.z && hDist > self.wanderRange){
+        if(hDist > self.wanderRange){
           self.action == 'return';
         } else if(self.idleTime == 0){
           if(!self.path){
@@ -1079,22 +1250,20 @@ Character = function(param){
       } else if(self.action == 'combat'){
         var target = Player.list[self.combat.target];
         if(!target){
+          self.combat.target = null;
           self.action = 'return';
           console.log(self.name + ' return');
-        } else if(self.hp < (self.hpMax * 0.1) || self.class == 'Deer' || self.class == 'SerfM' || self.class == 'SerfF'){
-          self.action = 'flee';
-          console.log(self.name + ' flee');
         } else if(self.ranged){
-          var dist = self.getDistance({
-            x:target.x,
-            y:target.y
-          })
           if(self.attackCooldown > 0){
-            if(dist < 256){
+            var dist = self.getDistance({
+              x:target.x,
+              y:target.y
+            })
+            if(dist < self.aggroRange){
               self.reposition(target.id);
             }
           } else {
-            if(dist > 256){
+            if(dist >= self.aggroRange){
               var angle = self.getAngle(target.x,target.y);
               self.shootArrow(angle);
             } else {
@@ -1103,6 +1272,16 @@ Character = function(param){
           }
         } else {
           self.follow(target,true);
+        }
+        var hDist = self.getDistance({
+          x:self.home.x,
+          y:self.home.y
+        });
+        console.log(self.name + ' dist: ' + hDist);
+        if(hDist > self.wanderRange * 4){
+          self.combat.target = null;
+          self.action == 'return';
+          console.log(self.name + ' return');
         }
       } else if(self.action == 'return'){
         if(self.lastLoc){
@@ -1125,15 +1304,17 @@ Character = function(param){
           }
         }
       } else if(self.action == 'flee'){
-        var target = Player.list[self.combat.target];
-        var dist = self.getDistance({
-          x:target.x,
-          y:target.y
-        })
-        if(dist > self.aggroRange){
-          self.action = null;
-        } else {
-          self.reposition(target.id);
+        if(self.combat.target){
+          var target = Player.list[self.combat.target];
+          var dist = self.getDistance({
+            x:target.x,
+            y:target.y
+          })
+          if(dist > self.aggroRange * 2){
+            self.action = null;
+          } else {
+            self.reposition(target.id);
+          }
         }
       }
       // PATROL
@@ -1159,7 +1340,7 @@ Character = function(param){
           if(!self.path){
             if(self.lastLoc){
               self.action = 'return';
-            } else if(!self.patrol.next || self.patrol.next == loc){
+            } else if(!self.patrol.next || self.patrol.next.toString() == loc.toString()){
               var rand = Math.floor(Math.random() * self.patrol.bList.length);
               var select = self.patrol.bList[rand];
               self.patrol.next = select;
@@ -1168,7 +1349,6 @@ Character = function(param){
           }
         } else if(self.action == 'combat'){
           var target = Player.list[self.combat.target];
-          var lastLoc = self.lastLoc;
           var lCoords = getCenter(lastLoc.loc[0],lastLoc.loc[1]);
           var lDist = self.getDistance(lCoords[0],lCoords[1]);
           if(!target || (lDist > self.aggroRange*2)){
@@ -1303,7 +1483,7 @@ Character = function(param){
       }
       if(!self.action){
         if(!self.path){
-          if(loc == dest){
+          if(loc.toString() == dest.toString()){
             self.action = 'flee';
           }
         }
@@ -1313,7 +1493,7 @@ Character = function(param){
       } else if(self.action == 'flee'){
         if(!self.path){
           var ret = self.scout.return;
-          if(loc == ret){
+          if(loc.toString() == ret.toString()){
             self.mode = 'idle';
           } else {
             self.getPath(self.z,ret[0],ret[1]);
@@ -1401,7 +1581,6 @@ Character = function(param){
         }
       } else if(self.action == 'combat'){
         var target = Player.list[self.combat.target];
-        var lastLoc = self.lastLoc;
         var lCoords = getCenter(lastLoc.loc[0],lastLoc.loc[1]);
         var lDist = self.getDistance(lCoords[0],lCoords[1]);
         if(!target || (lDist > self.aggroRange*4)){
@@ -1584,7 +1763,7 @@ Character = function(param){
           self.pressingDown = false;
           self.pressingUp = false;
           self.pathCount++;
-          if(!self.combat.target){
+          if(!self.combat.target && !self.action){
             self.checkAggro();
           }
         }
@@ -2465,11 +2644,6 @@ Item = function(param){
     self.innaWoods = true;
   } else {
     self.innaWoods = false;
-  }
-  self.update = function(){
-    if(self.toRemove){
-      self.toUpdate = true;
-    }
   }
 
   self.blocker = function(n){
