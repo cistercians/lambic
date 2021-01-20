@@ -605,7 +605,7 @@ Character = function(param){
       if(zc < 64 && zc > -1 && zr < 64 && zr > -1){
         for(var n in zones[zr][zc]){
           var p = Player.list[zones[zr][zc][n]];
-          if(p){
+          if(p && p.z == self.z){
             var pDist = self.getDistance({
               x:p.x,
               y:p.y
