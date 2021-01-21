@@ -154,6 +154,7 @@ Bgm.ricorditi = '/client/audio/bgm/Ricorditi.mp3';
 Bgm.romanesca = '/client/audio/bgm/Romanesca.mp3';
 Bgm.saltarello = '/client/audio/bgm/Saltarello.mp3';
 Bgm.saltarello2 = '/client/audio/bgm/Saltarello2.mp3';
+Bgm.saltarello3 = '/client/audio/bgm/Saltarello3.mp3';
 Bgm.se_zephirus = '/client/audio/bgm/Se_zephirus.mp3';
 Bgm.se_zephirus2 = '/client/audio/bgm/Se_zephirus2.mp3';
 Bgm.se_zephirus3 = '/client/audio/bgm/Se_zephirus3.mp3';
@@ -386,8 +387,8 @@ var title_bgm = [
   Bgm.danca,
   Bgm.miri,
   Bgm.moriar,
-  Bgm.tousjours,
-  Bgm.saltarello2
+  Bgm.saltarello2,
+  Bgm.saltarello3
 ];
 
 Amb = {};

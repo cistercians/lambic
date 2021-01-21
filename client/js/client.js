@@ -1922,7 +1922,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type == 'FlandersRedAle' || self.type == 'BiereDeGarde'){
+    } else if(self.type == 'Flanders' || self.type == 'BiereDeGarde'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 2){
@@ -2590,9 +2590,9 @@ socket.on('tempus',function(data){
   tempus = data.tempus;
   if(Player.list[selfId]){
     var p = Player.list[selfId];
-    if(p.z == 0 && (tempus == 'IV.a' || tempus == 'V.a' || tempus == 'X.a' || tempus == 'VII.p')){
+    if(p.z == 0 && (tempus == 'IV.a' || tempus == 'V.a' || tempus == 'X.a' || tempus == 'VIII.p')){
       getBgm(p.x,p.y,p.z);
-    } else if((p.z == 1 || p.z == 2) && (tempus == 'VI.p' || tempus == 'IV.a')){
+    } else if((p.z == 1 || p.z == 2) && (tempus == 'VIII.p' || tempus == 'IV.a')){
       getBgm(p.x,p.y,p.z,Building.list[getBuilding(p.z,p.y)].type);
     }
   }

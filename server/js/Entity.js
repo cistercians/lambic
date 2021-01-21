@@ -105,7 +105,7 @@ Character = function(param){
   self.sex = param.sex; // 'm' or 'f'
   self.house = param.house;
   self.kingdom = param.kingdom;
-  self.home = param.home; // {z,x,y}
+  self.home = param.home; // {z,loc}
   self.class = null;
   self.rank = null;
   self.keys = [];
@@ -173,7 +173,7 @@ Character = function(param){
     venisonloin:0,
     mead:0,
     saison:0,
-    flandersredale:0,
+    flanders:0,
     bieredegarde:0,
     bordeaux:0,
     bourgogne:0,
@@ -219,6 +219,15 @@ Character = function(param){
   self.dmg = null;
   self.attackrate = 50;
   self.dexterity = 1;
+  self.die = function(report){
+    if(self.house && self.house.type == 'npc'){
+      if(!self.rank){
+        House.list[self.house].respawn(0,self.home);
+      } else if(self.rank == '♞ ' || self.rank ==  '♝ '){
+        House.list[self.house].respawn(1,self.home);
+      }
+    }
+  }
 
   // idle = walk around
   // patrol = walk between targets
@@ -300,15 +309,18 @@ Character = function(param){
               if(pLoc.toString() == dLoc.toString()){
                 if(allyCheck(self.id,p.id) < 1 || self.friendlyfire){
                   Player.list[zones[zr][zc][n]].hp -= dmg;
+                  Player.list[zones[zr][zc][n]].working = false;
+                  Player.list[zones[zr][zc][n]].chopping = false;
+                  Player.list[zones[zr][zc][n]].mining = false;
+                  Player.list[zones[zr][zc][n]].farming = false;
+                  Player.list[zones[zr][zc][n]].building = false;
+                  Player.list[zones[zr][zc][n]].fishing = false;
                 }
                 // player death & respawn
                 if(Player.list[zones[zr][zc][n]].hp <= 0){
-                  Player.list[zones[zr][zc][n]].hp = p.hpMax;
-                  var spawn = randomSpawnO();
-                  Player.list[zones[zr][zc][n]].x = spawn[0]; // replace this
-                  Player.list[zones[zr][zc][n]].y = spawn[1]; // replace this
+                  Player.list[zones[zr][zc][n]].die();
                   self.combat.target = null;
-                  self.action = null;
+                  self.action = 'return';
                 }
               }
             }
@@ -329,15 +341,18 @@ Character = function(param){
               if(pLoc.toString() == uLoc.toString()){
                 if(allyCheck(self.id,p.id) < 1 || self.friendlyfire){
                   Player.list[zones[zr][zc][n]].hp -= dmg;
+                  Player.list[zones[zr][zc][n]].working = false;
+                  Player.list[zones[zr][zc][n]].chopping = false;
+                  Player.list[zones[zr][zc][n]].mining = false;
+                  Player.list[zones[zr][zc][n]].farming = false;
+                  Player.list[zones[zr][zc][n]].building = false;
+                  Player.list[zones[zr][zc][n]].fishing = false;
                 }
                 // player death & respawn
                 if(Player.list[zones[zr][zc][n]].hp <= 0){
-                  Player.list[zones[zr][zc][n]].hp = p.hpMax;
-                  var spawn = randomSpawnO();
-                  Player.list[zones[zr][zc][n]].x = spawn[0]; // replace this
-                  Player.list[zones[zr][zc][n]].y = spawn[1]; // replace this
+                  Player.list[zones[zr][zc][n]].die();
                   self.combat.target = null;
-                  self.action = null;
+                  self.action = 'return';
                 }
               }
             }
@@ -358,15 +373,18 @@ Character = function(param){
               if(pLoc.toString() == lLoc.toString()){
                 if(allyCheck(self.id,p.id) < 1 || self.friendlyfire){
                   Player.list[zones[zr][zc][n]].hp -= dmg;
+                  Player.list[zones[zr][zc][n]].working = false;
+                  Player.list[zones[zr][zc][n]].chopping = false;
+                  Player.list[zones[zr][zc][n]].mining = false;
+                  Player.list[zones[zr][zc][n]].farming = false;
+                  Player.list[zones[zr][zc][n]].building = false;
+                  Player.list[zones[zr][zc][n]].fishing = false;
                 }
                 // player death & respawn
                 if(Player.list[zones[zr][zc][n]].hp <= 0){
-                  Player.list[zones[zr][zc][n]].hp = p.hpMax;
-                  var spawn = randomSpawnO();
-                  Player.list[zones[zr][zc][n]].x = spawn[0]; // replace this
-                  Player.list[zones[zr][zc][n]].y = spawn[1]; // replace this
+                  Player.list[zones[zr][zc][n]].die();
                   self.combat.target = null;
-                  self.action = null;
+                  self.action = 'return';
                 }
               }
             }
@@ -387,15 +405,18 @@ Character = function(param){
               if(pLoc.toString() == rLoc.toString()){
                 if(allyCheck(self.id,p.id) < 1 || self.friendlyfire){
                   Player.list[zones[zr][zc][n]].hp -= dmg;
+                  Player.list[zones[zr][zc][n]].working = false;
+                  Player.list[zones[zr][zc][n]].chopping = false;
+                  Player.list[zones[zr][zc][n]].mining = false;
+                  Player.list[zones[zr][zc][n]].farming = false;
+                  Player.list[zones[zr][zc][n]].building = false;
+                  Player.list[zones[zr][zc][n]].fishing = false;
                 }
                 // player death & respawn
                 if(Player.list[zones[zr][zc][n]].hp <= 0){
-                  Player.list[zones[zr][zc][n]].hp = p.hpMax;
-                  var spawn = randomSpawnO();
-                  Player.list[zones[zr][zc][n]].x = spawn[0]; // replace this
-                  Player.list[zones[zr][zc][n]].y = spawn[1]; // replace this
+                  Player.list[zones[zr][zc][n]].die();
                   self.combat.target = null;
-                  self.action = null;
+                  self.action = 'return';
                 }
               }
             }
@@ -1069,6 +1090,18 @@ Character = function(param){
 
   self.update = function(){
     var loc = getLoc(self.x, self.y);
+
+    if(self.torchBearer){
+      if(!self.hasTorch){
+        if((tempus == 'VIII.p' || tempus == 'IX.p' ||
+        tempus == 'X.p' || tempus == 'XI.p' || tempus == 'XII.a' ||
+        tempus == 'I.a' || tempus == 'II.a' || tempus == 'III.a' ||
+        tempus == 'IV.a') || self.z == -1 || self.z == -2){
+          self.lightTorch(Math.random());
+        }
+      }
+    }
+
     self.zoneCheck();
 
     if(self.idleTime > 0){
@@ -1227,9 +1260,10 @@ Character = function(param){
     // IDLE
     if(self.mode == 'idle'){
       if(!self.action){
+        var cHome = getCenter(self.home.loc[0],self.home.loc[1]);
         var hDist = self.getDistance({
-          x:self.home.x,
-          y:self.home.y
+          x:cHome[0],
+          y:cHome[1]
         });
         if(hDist > self.wanderRange){
           self.action == 'return';
@@ -1273,9 +1307,10 @@ Character = function(param){
         } else {
           self.follow(target,true);
         }
+        var cHome = getCenter(self.home.loc[0],self.home.loc[1]);
         var hDist = self.getDistance({
-          x:self.home.x,
-          y:self.home.y
+          x:cHome[0],
+          y:cHome[1]
         });
         if(hDist > self.wanderRange * 4){
           self.combat.target = null;
@@ -1293,12 +1328,11 @@ Character = function(param){
             }
           }
         } else {
-          var hLoc = getLoc(self.home.x,self.home.y);
           if(!self.path){
-            if(loc.toString() == hLoc.toString()){
+            if(loc.toString() == self.home.loc.toString()){
               self.action = null;
             } else {
-              self.getPath(self.home.z,hLoc[0],hLoc[1]);
+              self.getPath(self.home.z,self.home.loc[0],self.home.loc[1]);
             }
           }
         }
@@ -1617,11 +1651,10 @@ Character = function(param){
         }
       } else if(self.action == 'flee'){
         if(!self.path){
-          var ret = self.home;
-          if(loc == [ret[1],ret[2]]){
+          if(loc.toString() == self.home.loc.toString()){
             self.mode = 'idle';
           } else {
-            self.getPath(self.home.z,ret[1],ret[2]);
+            self.getPath(self.home.z,self.home.loc[0],self.home.loc[1]);
           }
         }
       }
@@ -1724,6 +1757,8 @@ Character = function(param){
         var stairs = Building.list[b].dstairs;
         var path = finder.findPath(start[0], start[1], stairs[0], stairs[1], gridB1b);
         self.path = path;
+      } else if(self.z == -3){ // underwater
+        self.moveTo([c,r]);
       }
     }
   }
@@ -2013,6 +2048,7 @@ Innkeeper = function(param){
   self.class = 'Innkeeper';
   self.spriteSize = tileSize*1.5;
   self.baseSpd = 3;
+  self.torchBearer = true;
 }
 
 Monk = function(param){
@@ -2040,6 +2076,7 @@ Friar = function(param){
   self.mounted = true;
   self.cleric = true;
   self.baseSpd = 2;
+  self.torchBearer = true;
 }
 
 Shipwright = function(param){
@@ -2048,6 +2085,7 @@ Shipwright = function(param){
   self.class = 'Shipwright';
   self.spriteSize = tileSize*1.5;
   self.baseSpd = 3;
+  self.torchBearer = true;
 }
 
 Footsoldier = function(param){
@@ -2095,6 +2133,7 @@ Warden = function(param){
   self.mounted = true;
   self.ranged = true;
   self.baseSpd = 7;
+  self.torchBearer = true;
 }
 
 SwissGuard = function(param){
@@ -2142,12 +2181,14 @@ TradeCart = function(param){
   self.class = 'TradeCart';
   self.mounted = true;
   self.baseSpd = 2;
+  self.torchBearer = true;
 }
 
 Merchant = function(param){
   var self = Character(param);
   self.class = 'Merchant';
   self.baseSpd = 2;
+  self.torchBearer = true;
 }
 
 FishingBoat = function(param){
@@ -2158,6 +2199,7 @@ FishingBoat = function(param){
 CargoShip = function(param){
   var self = Character(param);
   self.class = 'CargoShip';
+  self.torchBearer = true;
 }
 
 Longship = function(param){
@@ -2165,12 +2207,14 @@ Longship = function(param){
   self.class = 'Longship';
   self.rank = '♞ ';
   self.ranged = true;
+  self.torchBearer = true;
 }
 
 Caravel = function(param){
   var self = Character(param);
   self.class = 'Caravel';
   self.ranged = true;
+  self.torchBearer = true;
 }
 
 Galleon = function(param){
@@ -2178,6 +2222,7 @@ Galleon = function(param){
   self.class = 'Galleon';
   self.rank = '♜ ';
   self.ranged = true;
+  self.torchBearer = true;
 }
 
 // ENEMIES
@@ -2198,6 +2243,7 @@ Oathkeeper = function(param){
   self.spriteSize = tileSize*1.5;
   self.cleric = true;
   self.baseSpd = 3.5;
+  self.torchBearer = true;
 }
 
 DarkEntity = function(param){
@@ -2237,6 +2283,7 @@ Acolyte = function(param){
   self.class = 'Acolyte';
   self.spriteSize = tileSize*1.5;
   self.baseSpd = 3.5;
+  self.torchBearer = true;
 }
 
 HighPriestess = function(param){
@@ -2247,6 +2294,7 @@ HighPriestess = function(param){
   self.spriteSize = tileSize*1.5;
   self.cleric = true;
   self.baseSpd = 3.5;
+  self.torchBearer = true;
 }
 
 Archmage = function(param){
@@ -2263,6 +2311,7 @@ NorseShip = function(param){
   self.name = 'Norse Longship';
   self.class = 'NorseShip';
   self.ranged = true;
+  self.torchBearer = true;
 }
 
 NorseSword = function(param){
@@ -2369,6 +2418,7 @@ Headhunter = function(param){
   self.baseSpd = 7;
   self.mounted = true;
   self.spriteSize = tileSize*2;
+  self.torchBearer = true;
 }
 
 Druid = function(param){
@@ -2379,6 +2429,7 @@ Druid = function(param){
   self.spriteSize = tileSize*1.5;
   self.cleric = true;
   self.baseSpd = 2;
+  self.torchBearer = true;
 }
 
 Morrigan = function(param){
@@ -2389,6 +2440,7 @@ Morrigan = function(param){
   self.mounted = true;
   self.baseSpd = 6;
   self.spriteSize = tileSize*2;
+  self.torchBearer = true;
 }
 
 Gwenllian = function(param){
@@ -2396,6 +2448,7 @@ Gwenllian = function(param){
   self.name = 'Queen Gwenllian';
   self.class = 'Gwenllian';
   self.rank = '♛ ';
+  self.torchBearer = true;
 }
 
 TeutonPike = function(param){
@@ -2429,6 +2482,7 @@ Prior = function(param){
   self.class = 'Prior';
   self.cleric = true;
   self.baseSpd = 2;
+  self.torchBearer = true;
 }
 
 Duke = function(param){
@@ -2439,6 +2493,7 @@ Duke = function(param){
   self.spriteSize = tileSize*1.5;
   self.cleric = true;
   self.baseSpd = 3.5;
+  self.torchBearer = true;
 }
 
 Hochmeister = function(param){
@@ -2448,6 +2503,7 @@ Hochmeister = function(param){
   self.rank = '♜ ';
   self.spriteSize = tileSize*1.5;
   self.baseSpd = 3;
+  self.torchBearer = true;
 }
 
 Lothair = function(param){
@@ -2470,6 +2526,7 @@ Outlaw = function(param){
   self.class = 'Outlaw';
   self.spriteSize = tileSize*1.5;
   self.ranged = true;
+  self.torchBearer = true;
 }
 
 Poacher = function(param){
@@ -2481,6 +2538,7 @@ Poacher = function(param){
   self.baseSpd = 7;
   self.spriteSize = tileSize*2;
   self.ranged = true;
+  self.torchBearer = true;
 }
 
 Cutthroat = function(param){
@@ -2496,6 +2554,7 @@ Strongman = function(param){
   self.class = 'Strongman';
   self.spriteSize = tileSize*2;
   self.baseSpd = 3.5;
+  self.torchBearer = true;
 }
 
 Marauder = function(param){
@@ -2506,6 +2565,7 @@ Marauder = function(param){
   self.mounted = true;
   self.baseSpd = 6;
   self.spriteSize = tileSize*3;
+  self.torchBearer = true;
 }
 
 Condottiere = function(param){
@@ -2517,6 +2577,7 @@ Condottiere = function(param){
   self.baseSpd = 6.5;
   self.spriteSize = tileSize*2;
   self.ranged = true;
+  self.torchBearer = true;
 }
 
 // ARROWS
@@ -4506,7 +4567,7 @@ Chest = function(param){
     venisonloin:0,
     mead:0,
     saison:0,
-    flandersredale:0,
+    flanders:0,
     bieredegarde:0,
     bordeaux:0,
     bourgogne:0,
@@ -4586,7 +4647,7 @@ LockedChest = function(param){
     venisonloin:0,
     mead:0,
     saison:0,
-    flandersredale:0,
+    flanders:0,
     bieredegarde:0,
     bordeaux:0,
     bourgogne:0,
@@ -4911,25 +4972,25 @@ Saison = function(param){
 }
 
 // FLANDERS
-FlandersRedAle = function(param){
+Flanders = function(param){
   var self = Item(param);
-  self.type = 'FlandersRedAle';
+  self.type = 'Flanders';
   self.class = 'consumable';
   self.rank = 0;
   self.canPickup = true;
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.flandersredale > 24){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>FlandersRedAle</b>.');
-    } else if(player.inventory.flandersredale + self.qty > 25){
-      var q = 25 - player.inventory.flandersredale;
+    if(player.inventory.flanders > 24){
+      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Flanders</b>.');
+    } else if(player.inventory.flanders + self.qty > 25){
+      var q = 25 - player.inventory.flanders;
       self.qty -= q;
-      Player.list[id].inventory.flandersredale += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>FlandersRedAle</b>.');
+      Player.list[id].inventory.flanders += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Flanders</b>.');
     } else {
-      Player.list[id].inventory.flandersredale += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>FlandersRedAle</b>.');
+      Player.list[id].inventory.flanders += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Flanders</b>.');
       self.toRemove = true;
     }
   }

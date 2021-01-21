@@ -9002,8 +9002,8 @@ EvalCmd = function(data){
               }
             }
           }
-        } else if(item == 'flandersredale'){
-          if(q > player.inventory.flandersredale){
+        } else if(item == 'flanders'){
+          if(q > player.inventory.flanders){
             socket.emit('addToChat','<i>You do not have that many.</i>');
           } else {
             if(player.facing == 'up'){
@@ -9011,124 +9011,124 @@ EvalCmd = function(data){
                 var chCoords = getCoords(c,r-1);
                 var ch = chestCheck(z,chCoords[0],chCoords[1],player.id);
                 if(ch){
-                  Player.list[player.id].inventory.flandersredale -= q;
-                  Item.list[ch].inventory.flandersredale += q;
+                  Player.list[player.id].inventory.flanders -= q;
+                  Item.list[ch].inventory.flanders += q;
                 } else {
                   socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
-                FlandersRedAle({
+                Flanders({
                   z:z,
                   x:coords[0],
                   y:coords[1],
                   qty:Number(q),
                   parent:player.id
                 });
-                Player.list[player.id].inventory.flandersredale -= q;
+                Player.list[player.id].inventory.flanders -= q;
               } else if(!isWalkable(z,c,r-1) && z == 0 && getTile(0,c,r-1) == 0){
                 var coords = getCoords(c,r-1);
-                FlandersRedAle({
+                Flanders({
                   z:-3,
                   x:coords[0],
                   y:coords[1],
                   qty:Number(q),
                   parent:player.id
                 });
-                Player.list[player.id].inventory.flandersredale -= q;
+                Player.list[player.id].inventory.flanders -= q;
               }
             } else if(player.facing == 'down'){
               if(getItem(z,c,r+1) == 'LockedChest' || getItem(z,c,r+1) == 'Chest'){
                 var chCoords = getCoords(c,r+1);
                 var ch = chestCheck(z,chCoords[0],chCoords[1],player.id);
                 if(ch){
-                  Player.list[player.id].inventory.flandersredale -= q;
-                  Item.list[ch].inventory.flandersredale += q;
+                  Player.list[player.id].inventory.flanders -= q;
+                  Item.list[ch].inventory.flanders += q;
                 } else {
                   socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
-                FlandersRedAle({
+                Flanders({
                   z:z,
                   x:coords[0],
                   y:coords[1],
                   qty:Number(q),
                   parent:player.id
                 });
-                Player.list[player.id].inventory.flandersredale -= q;
+                Player.list[player.id].inventory.flanders -= q;
               } else if(!isWalkable(z,c,r+1) && z == 0 && getTile(0,c,r+1) == 0){
                 var coords = getCoords(c,r+1);
-                FlandersRedAle({
+                Flanders({
                   z:-3,
                   x:coords[0],
                   y:coords[1],
                   qty:Number(q),
                   parent:player.id
                 });
-                Player.list[player.id].inventory.flandersredale -= q;
+                Player.list[player.id].inventory.flanders -= q;
               }
             } else if(player.facing == 'left'){
               if(getItem(z,c-1,r) == 'LockedChest' || getItem(z,c-1,r) == 'Chest'){
                 var chCoords = getCoords(c-1,r);
                 var ch = chestCheck(z,chCoords[0],chCoords[1],player.id);
                 if(ch){
-                  Player.list[player.id].inventory.flandersredale -= q;
-                  Item.list[ch].inventory.flandersredale += q;
+                  Player.list[player.id].inventory.flanders -= q;
+                  Item.list[ch].inventory.flanders += q;
                 } else {
                   socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
-                FlandersRedAle({
+                Flanders({
                   z:z,
                   x:coords[0],
                   y:coords[1],
                   qty:Number(q),
                   parent:player.id
                 });
-                Player.list[player.id].inventory.flandersredale -= q;
+                Player.list[player.id].inventory.flanders -= q;
               } else if(!isWalkable(z,c-1,r) && z == 0 && getTile(0,c-1,r) == 0){
                 var coords = getCoords(c-1,r);
-                FlandersRedAle({
+                Flanders({
                   z:-3,
                   x:coords[0],
                   y:coords[1],
                   qty:Number(q),
                   parent:player.id
                 });
-                Player.list[player.id].inventory.flandersredale -= q;
+                Player.list[player.id].inventory.flanders -= q;
               }
             } else if(player.facing == 'right'){
               if(getItem(z,c+1,r) == 'LockedChest' || getItem(z,c+1,r) == 'Chest'){
                 var chCoords = getCoords(c+1,r);
                 var ch = chestCheck(z,chCoords[0],chCoords[1],player.id);
                 if(ch){
-                  Player.list[player.id].inventory.flandersredale -= q;
-                  Item.list[ch].inventory.flandersredale += q;
+                  Player.list[player.id].inventory.flanders -= q;
+                  Item.list[ch].inventory.flanders += q;
                 } else {
                   socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
-                FlandersRedAle({
+                Flanders({
                   z:z,
                   x:coords[0],
                   y:coords[1],
                   qty:Number(q),
                   parent:player.id
                 });
-                Player.list[player.id].inventory.flandersredale -= q;
+                Player.list[player.id].inventory.flanders -= q;
               } else if(!isWalkable(z,c+1,r) && z == 0 && getTile(0,c+1,r) == 0){
                 var coords = getCoords(c+1,r);
-                FlandersRedAle({
+                Flanders({
                   z:-3,
                   x:coords[0],
                   y:coords[1],
                   qty:Number(q),
                   parent:player.id
                 });
-                Player.list[player.id].inventory.flandersredale -= q;
+                Player.list[player.id].inventory.flanders -= q;
               }
             }
           }
@@ -10876,17 +10876,17 @@ EvalCmd = function(data){
                 } else {
                   socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Saison</b>.');
                 }
-              } else if(item == 'flandersredale'){
-                if(q <= Item.list[ch].inventory.flandersredale){
-                  if(player.inventory.flandersredale + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>FlandersRedAle</b>.');
+              } else if(item == 'flanders'){
+                if(q <= Item.list[ch].inventory.flanders){
+                  if(player.inventory.flanders + q > 25){
+                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Flanders</b>.');
                   } else {
-                    Item.list[ch].inventory.flandersredale -= q;
-                    Player.list[id].inventory.flandersredale += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>FlandersRedAle</b> <i>from the chest.</i>');
+                    Item.list[ch].inventory.flanders -= q;
+                    Player.list[id].inventory.flanders += q;
+                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Flanders</b> <i>from the chest.</i>');
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>FlandersRedAle</b>.');
+                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Flanders</b>.');
                 }
               } else if(item == 'bieredegarde'){
                 if(q <= Item.list[ch].inventory.bieredegarde){
@@ -11680,17 +11680,17 @@ EvalCmd = function(data){
                 } else {
                   socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Saison</b>.');
                 }
-              } else if(item == 'flandersredale'){
-                if(q <= Item.list[ch].inventory.flandersredale){
-                  if(player.inventory.flandersredale + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>FlandersRedAle</b>.');
+              } else if(item == 'flanders'){
+                if(q <= Item.list[ch].inventory.flanders){
+                  if(player.inventory.flanders + q > 25){
+                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Flanders</b>.');
                   } else {
-                    Item.list[ch].inventory.flandersredale -= q;
-                    Player.list[id].inventory.flandersredale += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>FlandersRedAle</b> <i>from the chest.</i>');
+                    Item.list[ch].inventory.flanders -= q;
+                    Player.list[id].inventory.flanders += q;
+                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Flanders</b> <i>from the chest.</i>');
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>FlandersRedAle</b>.');
+                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Flanders</b>.');
                 }
               } else if(item == 'bieredegarde'){
                 if(q <= Item.list[ch].inventory.bieredegarde){
@@ -12484,17 +12484,17 @@ EvalCmd = function(data){
                 } else {
                   socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Saison</b>.');
                 }
-              } else if(item == 'flandersredale'){
-                if(q <= Item.list[ch].inventory.flandersredale){
-                  if(player.inventory.flandersredale + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>FlandersRedAle</b>.');
+              } else if(item == 'flanders'){
+                if(q <= Item.list[ch].inventory.flanders){
+                  if(player.inventory.flanders + q > 25){
+                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Flanders</b>.');
                   } else {
-                    Item.list[ch].inventory.flandersredale -= q;
-                    Player.list[id].inventory.flandersredale += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>FlandersRedAle</b> <i>from the chest.</i>');
+                    Item.list[ch].inventory.flanders -= q;
+                    Player.list[id].inventory.flanders += q;
+                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Flanders</b> <i>from the chest.</i>');
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>FlandersRedAle</b>.');
+                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Flanders</b>.');
                 }
               } else if(item == 'bieredegarde'){
                 if(q <= Item.list[ch].inventory.bieredegarde){
@@ -13288,17 +13288,17 @@ EvalCmd = function(data){
                 } else {
                   socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Saison</b>.');
                 }
-              } else if(item == 'flandersredale'){
-                if(q <= Item.list[ch].inventory.flandersredale){
-                  if(player.inventory.flandersredale + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>FlandersRedAle</b>.');
+              } else if(item == 'flanders'){
+                if(q <= Item.list[ch].inventory.flanders){
+                  if(player.inventory.flanders + q > 25){
+                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Flanders</b>.');
                   } else {
-                    Item.list[ch].inventory.flandersredale -= q;
-                    Player.list[id].inventory.flandersredale += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>FlandersRedAle</b> <i>from the chest.</i>');
+                    Item.list[ch].inventory.flanders -= q;
+                    Player.list[id].inventory.flanders += q;
+                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Flanders</b> <i>from the chest.</i>');
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>FlandersRedAle</b>.');
+                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Flanders</b>.');
                 }
               } else if(item == 'bieredegarde'){
                 if(q <= Item.list[ch].inventory.bieredegarde){

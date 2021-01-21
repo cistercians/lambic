@@ -210,15 +210,14 @@ var entropy = function(){
     }
     for(var i = 0; i < num; i++){
       var sp = randomSpawnHF();
-      var sCoords = getCenter(sp[0],sp[1]);
+      var sLoc = getLoc(sp[0],sp[1]);
       Deer({
         x:sp[0],
         y:sp[1],
         z:0,
         home:{
           z:0,
-          x:sp[0],
-          y:sp[1]
+          loc:[sLoc[0],sLoc[1]]
         }
       });
     }
@@ -232,14 +231,14 @@ var entropy = function(){
     }
     for(var i = 0; i < num; i++){
       var sp = randomSpawnHF();
+      var sLoc = getLoc(sp[0],sp[1]);
       Boar({
         x:sp[0],
         y:sp[1],
         z:0,
         home:{
           z:0,
-          x:sp[0],
-          y:sp[1]
+          loc:[sLoc[0],sLoc[1]]
         }
       });
     }
@@ -253,14 +252,14 @@ var entropy = function(){
     }
     for(var i = 0; i < num; i++){
       var sp = randomSpawnHF();
+      var sLoc = getLoc(sp[0],sp[1]);
       Wolf({
         x:sp[0],
         y:sp[1],
         z:0,
         home:{
           z:0,
-          x:sp[0],
-          y:sp[1]
+          loc:[sLoc[0],sLoc[1]]
         }
       });
     }
@@ -1182,6 +1181,12 @@ Player = function(param){
   self.breathMax = 100;
   self.strength = 10; // ALPHA
   self.dexterity = 1;
+  self.die = function(report){
+    self.hp = self.hpMax;
+    var spawn = randomSpawnO();
+    self.x = spawn[0]; // replace this
+    self.y = spawn[1]; // replace this
+  }
 
   self.stores = {
     grain:0,
@@ -1530,9 +1535,9 @@ Player = function(param){
         var saison = '<b>Saison</b>: ' + self.inventory.saison + '<br>';
         all += saison;
       }
-      if(self.inventory.flandersredale > 0){
-        var flandersredale = '<b>FlandersRedAle</b>: ' + self.inventory.flandersredale + '<br>';
-        all += flandersredale;
+      if(self.inventory.flanders > 0){
+        var flanders = '<b>Flanders</b>: ' + self.inventory.flanders + '<br>';
+        all += flanders;
       }
       if(self.inventory.bieredegarde > 0){
         var bieredegarde = '<b>BiereDeGarde</b>: ' + self.inventory.bieredegarde + '<br>';
@@ -2046,7 +2051,8 @@ Player = function(param){
                 matrixChange(2,walls[4][0],walls[4][1],0);
                 Building.list[b].ustairs = [walls[4][0],walls[4][1]];
                 var fp = getCoords(walls[2][0],walls[2][1]);
-                var sh = getCoords(walls[3][0],walls[3][1]);
+                var sh1 = getCoords(walls[1][0],walls[1][1]);
+                var sh2 = getCoords(walls[3][0],walls[3][1]);
                 var b1 = getCoords(plot[0][0],plot[0][1]);
                 var b2 = getCoords(plot[2][0],plot[2][1]);
                 var b3 = getCoords(plot[3][0],plot[3][1]);
@@ -2068,8 +2074,15 @@ Player = function(param){
                   parent:b
                 });
                 StagHead({
-                  x:sh[0],
-                  y:sh[1],
+                  x:sh1[0],
+                  y:sh1[1],
+                  z:1,
+                  qty:1,
+                  parent:b
+                });
+                StagHead({
+                  x:sh2[0],
+                  y:sh2[1],
                   z:1,
                   qty:1,
                   parent:b
@@ -3812,7 +3825,6 @@ Brotherhood({
   name:'Brotherhood',
   flag:'',
   hq:factionSpawn(1),
-  origin:true,
   hostile:true
 });
 
@@ -3822,7 +3834,6 @@ Goths({
   name:'Goths',
   flag:'',
   hq:factionSpawn(2),
-  origin:true,
   hostile:true
 });
 
@@ -3832,7 +3843,6 @@ Norsemen({
   name:'Norsemen',
   flag:'',
   hq:factionSpawn(3),
-  origin:true,
   hostile:true
 });
 
@@ -3842,7 +3852,6 @@ Franks({
   name:'Franks',
   flag:'',
   hq:factionSpawn(4),
-  origin:true,
   hostile:true
 });
 
@@ -3852,7 +3861,6 @@ Celts({
   name:'Celts',
   flag:'',
   hq:factionSpawn(5),
-  origin:true,
   hostile:true
 });
 
@@ -3862,7 +3870,6 @@ Teutons({
   name:'Teutons',
   flag:'',
   hq:factionSpawn(6),
-  origin:true,
   hostile:true
 });
 
@@ -3872,7 +3879,6 @@ Outlaws({
   name:'Outlaws',
   flag:'☠️',
   hq:factionSpawn(7),
-  origin:true,
   hostile:true
 });
 
@@ -3882,7 +3888,6 @@ Mercenaries({
   name:'Mercenaries',
   flag:'',
   hq:factionSpawn(8),
-  origin:true,
   hostile:true
 });
 
