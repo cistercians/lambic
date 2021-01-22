@@ -95,7 +95,9 @@ socket.on('bgm',function(data){
 var soundscape = function(x,y,z,b){
   // outdoors
   if(z == 0){
-    if(tempus == 'VIII.p' || tempus == 'IX.p' || tempus == 'X.p' || tempus == 'XI.p' || tempus == 'XII.a' || tempus == 'I.a' || tempus == 'II.a' || tempus == 'III.a' || tempus == 'IV.a'){
+    if(tempus == 'VIII.p' || tempus == 'IX.p' || tempus == 'X.p' ||
+    tempus == 'XI.p' || tempus == 'XII.a' || tempus == 'I.a' ||
+    tempus == 'II.a' || tempus == 'III.a' || tempus == 'IV.a'){
       ambPlayer(Amb.forest);
     } else {
       ambPlayer(Amb.nature);
@@ -125,10 +127,15 @@ var getBgm = function(x,y,z,b){
   soundscape(x,y,z,b);
   // outdoors
   if(z == 0){
-    if(tempus == 'IV.a' || tempus == 'V.a' || tempus == 'VI.a' || tempus == 'VII.a' || tempus == 'VIII.a' || tempus == 'IX.a'){
+    if(tempus == 'IV.a' || tempus == 'V.a' || tempus == 'VI.a' ||
+    tempus == 'VII.a' || tempus == 'VIII.a' || tempus == 'IX.a'){
       // morning
       bgmPlayer(overworld_morning_bgm);
-    } else if(tempus == 'X.a' || tempus == 'XI.a' || tempus == 'XII.p' || tempus == 'I.p' || tempus == 'II.p' || tempus == 'III.p' || tempus == 'IV.p' || tempus == 'V.p' || tempus == 'VI.p' || tempus == 'VII.p'){
+    } else if(tempus == 'X.a' || tempus == 'XI.a' ||
+    tempus == 'XII.p' || tempus == 'I.p' ||
+    tempus == 'II.p' || tempus == 'III.p' ||
+    tempus == 'IV.p' || tempus == 'V.p' ||
+    tempus == 'VI.p' || tempus == 'VII.p'){
       // day
       bgmPlayer(overworld_day_bgm);
     } else {
@@ -142,7 +149,10 @@ var getBgm = function(x,y,z,b){
     // indoors
     if(z == 1 || z == 2){
       if(b == 'stronghold'){
-        if(tempus == 'VIII.p' || tempus == 'IX.p' || tempus == 'X.p' || tempus == 'XI.p' || tempus == 'XII.a' || tempus == 'I.a' || tempus == 'II.a' || tempus == 'III.a'){
+        if(tempus == 'VIII.p' || tempus == 'IX.p' ||
+        tempus == 'X.p' || tempus == 'XI.p' ||
+        tempus == 'XII.a' || tempus == 'I.a' ||
+        tempus == 'II.a' || tempus == 'III.a'){
           bgmPlayer(stronghold_night_bgm);
         } else {
           bgmPlayer(stronghold_day_bgm);
@@ -207,6 +217,7 @@ var Building = function(initPack){
   self.type = initPack.type;
   self.hp = initPack.hp;
   self.plot = initPack.plot;
+  self.walls = initPack.walls;
 
   Building.list[self.id] = self;
   return self;
@@ -252,6 +263,7 @@ var Player = function(initPack){
   self.spiritMax = initPack.spiritMax;
   self.sprite = maleserf;
   self.spriteSize = initPack.spriteSize;
+  self.ranged = initPack.ranged;
 
   self.draw = function(){
 
@@ -2292,6 +2304,14 @@ socket.on('update',function(data){
         l.z = pack.z;
     }
   }
+  for(var i = 0; i < data.building.length; i++){
+    var pack = data.building[i];
+    var b = Building.list[data.building[i].id];
+    if(b){
+      if(pack.hp !== undefined)
+        b.hp = pack.hp;
+    }
+  }
 });
 
 // remove
@@ -2308,6 +2328,9 @@ socket.on('remove',function(data){
   }
   for(var i = 0 ; i < data.light.length; i++){
     delete Light.list[data.light[i]];
+  }
+  for(var i = 0 ; i < data.building.length; i++){
+    delete Building.list[data.building[i]];
   }
 });
 

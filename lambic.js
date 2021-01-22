@@ -1,11 +1,10 @@
 /////////////////////////////////////////////////////////////////////////
 //                                                                     //
-//                 ((🔥))   S T R O N G H O D L   ((🔥))               //
-//                   \\                            //                  //
+//                      ♜ S T R O N G H O D L ♜                       //
 //                                                                     //
 //      A   S O L I S   O R T V   V S Q V E   A D   O C C A S V M      //
 //                                                                     //
-//            A game by Johan Argyne, Cistercian Capital               //
+//             A game by Johan Argyne, Cistercian Capital              //
 //                                                                     //
 /////////////////////////////////////////////////////////////////////////
 
@@ -303,37 +302,6 @@ var mtnSpawns = [];
 
 caveEntrances = [];
 
-// territories
-var territories = {
-  northwest:{
-    contestants:[]
-  },
-  north:{
-    contestants:[]
-  },
-  northeast:{
-    contestants:[]
-  },
-  west:{
-    contestants:[]
-  },
-  midland:{
-    contestants:[]
-  },
-  east:{
-    contestants:[]
-  },
-  southwest:{
-    contestants:[]
-  },
-  south:{
-    contestants:[]
-  },
-  southeast:{
-    contestants:[]
-  }
-};
-
 // create n-dimensional array
 function createArray(length){
   var arr = new Array(length || 0),
@@ -444,8 +412,16 @@ console.log('');
 // MAP TOOLS
 
 //edit world tiles
-tileChange = function(l,c,r,n){
-  world[l][r][c] = n;
+tileChange = function(l,c,r,n,incr=false){
+  if(!incr){
+    world[l][r][c] = n;
+  } else {
+    if(n > 0){
+      world[l][r][c] += n;
+    } else {
+      world[l][r][c] -= n;
+    }
+  }
 };
 
 matrixChange = function(l,c,r,n){
@@ -1182,10 +1158,20 @@ Player = function(param){
   self.strength = 10; // ALPHA
   self.dexterity = 1;
   self.die = function(report){
+    if(report.id){
+      if(Player.list[report.id]){
+        Player.list[report.id].combat.target = null;
+        if(Player.list[report.id].type == 'npc'){
+          Player.list[report.id].action = 'return';
+        } else {
+          Player.list[report.id].action = null;
+        }
+      }
+    }
     self.hp = self.hpMax;
     var spawn = randomSpawnO();
-    self.x = spawn[0]; // replace this
-    self.y = spawn[1]; // replace this
+    self.x = spawn[0]; // ALPHA replace this
+    self.y = spawn[1]; // ALPHA replace this
   }
 
   self.stores = {
@@ -3435,6 +3421,9 @@ Player = function(param){
       } else {
         self.hp -= 0.5;
       }
+      if(self.hp <= 0){
+        self.die({cause:'drowned'});
+      }
       if(getTile(0,loc[0],loc[1]) !== 0){
         self.z = 0;
         self.breath = self.breathMax;
@@ -3685,7 +3674,13 @@ Player.update = function(){
   for(var i in Player.list){
     var player = Player.list[i];
     player.update();
-    pack.push(player.getUpdatePack());
+    if(player.toRemove){
+      delete Player.list[i];
+      delete zones[player.zone[1]][player.zone[0]][player.id];
+      removePack.player.push(player.id);
+    } else {
+      pack.push(player.getUpdatePack());
+    }
   }
   return pack;
 };

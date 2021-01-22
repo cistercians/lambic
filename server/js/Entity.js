@@ -59,7 +59,8 @@ Building = function(param){
       id:self.id,
       type:self.type,
       hp:self.hp,
-      plot:self.plot
+      plot:self.plot,
+      walls:self.walls
     };
   }
 
@@ -219,7 +220,18 @@ Character = function(param){
   self.dmg = null;
   self.attackrate = 50;
   self.dexterity = 1;
-  self.die = function(report){
+  self.toRemove = false;
+  self.die = function(report){ // report {id,cause}
+    if(report.id){
+      if(Player.list[report.id]){
+        Player.list[report.id].combat.target = null;
+        if(Player.list[report.id].type == 'npc'){
+          Player.list[report.id].action = 'return';
+        } else {
+          Player.list[report.id].action = null;
+        }
+      }
+    }
     if(self.house && self.house.type == 'npc'){
       if(!self.rank){
         House.list[self.house].respawn(0,self.home);
@@ -227,6 +239,7 @@ Character = function(param){
         House.list[self.house].respawn(1,self.home);
       }
     }
+    self.toRemove = true;
   }
 
   // idle = walk around
@@ -267,7 +280,6 @@ Character = function(param){
     target:null,
     return:null,
     enemyBuilding:null,
-    attacked:null
   }
 
   self.guard = {
@@ -315,12 +327,16 @@ Character = function(param){
                   Player.list[zones[zr][zc][n]].farming = false;
                   Player.list[zones[zr][zc][n]].building = false;
                   Player.list[zones[zr][zc][n]].fishing = false;
+                  if(self.stealthed){
+                    self.stealthed = false;
+                    Player.list[zones[zr][zc][n]].combat.target = self.id;
+                    Player.list[zones[zr][zc][n]].action = 'combat';
+                  }
                 }
+                console.log(self.name + ' attacks ' + p.name);
                 // player death & respawn
                 if(Player.list[zones[zr][zc][n]].hp <= 0){
-                  Player.list[zones[zr][zc][n]].die();
-                  self.combat.target = null;
-                  self.action = 'return';
+                  Player.list[zones[zr][zc][n]].die({id:self.id,cause:'melee'});
                 }
               }
             }
@@ -347,12 +363,16 @@ Character = function(param){
                   Player.list[zones[zr][zc][n]].farming = false;
                   Player.list[zones[zr][zc][n]].building = false;
                   Player.list[zones[zr][zc][n]].fishing = false;
+                  if(self.stealthed){
+                    self.stealthed = false;
+                    Player.list[zones[zr][zc][n]].combat.target = self.id;
+                    Player.list[zones[zr][zc][n]].action = 'combat';
+                  }
                 }
+                console.log(self.name + ' attacks ' + p.name);
                 // player death & respawn
                 if(Player.list[zones[zr][zc][n]].hp <= 0){
-                  Player.list[zones[zr][zc][n]].die();
-                  self.combat.target = null;
-                  self.action = 'return';
+                  Player.list[zones[zr][zc][n]].die({id:self.id,cause:'melee'});
                 }
               }
             }
@@ -379,12 +399,16 @@ Character = function(param){
                   Player.list[zones[zr][zc][n]].farming = false;
                   Player.list[zones[zr][zc][n]].building = false;
                   Player.list[zones[zr][zc][n]].fishing = false;
+                  if(self.stealthed){
+                    self.stealthed = false;
+                    Player.list[zones[zr][zc][n]].combat.target = self.id;
+                    Player.list[zones[zr][zc][n]].action = 'combat';
+                  }
                 }
+                console.log(self.name + ' attacks ' + p.name);
                 // player death & respawn
                 if(Player.list[zones[zr][zc][n]].hp <= 0){
-                  Player.list[zones[zr][zc][n]].die();
-                  self.combat.target = null;
-                  self.action = 'return';
+                  Player.list[zones[zr][zc][n]].die({id:self.id,cause:'melee'});
                 }
               }
             }
@@ -411,12 +435,16 @@ Character = function(param){
                   Player.list[zones[zr][zc][n]].farming = false;
                   Player.list[zones[zr][zc][n]].building = false;
                   Player.list[zones[zr][zc][n]].fishing = false;
+                  if(self.stealthed){
+                    self.stealthed = false;
+                    Player.list[zones[zr][zc][n]].combat.target = self.id;
+                    Player.list[zones[zr][zc][n]].action = 'combat';
+                  }
                 }
+                console.log(self.name + ' attacks ' + p.name);
                 // player death & respawn
                 if(Player.list[zones[zr][zc][n]].hp <= 0){
-                  Player.list[zones[zr][zc][n]].die();
-                  self.combat.target = null;
-                  self.action = 'return';
+                  Player.list[zones[zr][zc][n]].die({id:self.id,cause:'melee'});
                 }
               }
             }
@@ -431,6 +459,7 @@ Character = function(param){
   }
 
   self.shootArrow = function(angle){
+    console.log(self.name + ' shoots arrow @ ' + Player.list[self.combat.target].name);
     self.pressingAttack = true;
     self.working = false;
     self.chopping = false;
@@ -470,118 +499,157 @@ Character = function(param){
   self.upBlocked = false;
   self.downBlocked = false;
 
-  self.reposition = function(t){
-    var target = Player.list[t];
-    var angle = self.getAngle(target.x,target.y);
-    if(angle > 45 && angle <= 115){ // go up (or left/right)
-      if(!self.upBlocked){
-        self.y -= self.maxSpd;
-        self.pressingUp = true;
-        self.facing = 'up';
+  self.reposition = function(loc,tLoc){
+    console.log(self.name + ' repositioning...');
+    var dir = self.calcDir(loc,tLoc,true);
+    if(dir != self.lastDir){
+      self.lastDir = dir;
+    }
+    if(dir == 'dr'){
+      var d = [loc[0],loc[1]+1];
+      if(isWalkable(self.z,d[0],d[1])){
+        self.path = [d];
       } else {
-        if(self.x < target.x){
-          if(!self.leftBlocked){
-            self.x -= self.maxSpd;
-            self.pressingLeft = true;
-            self.facing = 'left';
-          } else if(!self.rightBlocked){
-            self.x += self.maxSpd;
-            self.pressingRight = true;
-            self.facing = 'right';
+        var r = [loc[0]+1,loc[1]];
+        if(isWalkable(self.z,r[0],r[1])){
+          self.path = [r];
+        }
+      }
+    } else if(dir == 'rd'){
+      var r = [loc[0]+1,loc[1]];
+      if(isWalkable(self.z,r[0],r[1])){
+        self.path = [r];
+      } else {
+        var d = [loc[0],loc[1]+1];
+        if(isWalkable(self.z,d[0],d[1])){
+          self.path = [d];
+        }
+      }
+    } else if(dir == 'r'){
+      var r = [loc[0]+1,loc[1]];
+      if(isWalkable(self.z,r[0],r[1])){
+        self.path = [r];
+      } else {
+        if(self.lastDir == 'ur' || self.lastDir == 'ru'){
+          var u = [loc[0],loc[1]-1];
+          if(isWalkable(self.z,u[0],u[1])){
+            self.path = [u];
           }
         } else {
-          if(!self.rightBlocked){
-            self.x += self.maxSpd;
-            self.pressingRight = true;
-            self.facing = 'right';
-          } else if(!self.leftBlocked){
-            self.x -= self.maxSpd;
-            self.pressingLeft = true;
-            self.facing = 'left';
+          var d = [loc[0],loc[1]+1];
+          if(isWalkable(self.z,d[0],d[1])){
+            self.path = [d];
           }
         }
       }
-    } else if(self.angle > -135 && self.angle <= -15){ // go down (or left/right)
-      if(!self.downlocked){
-        self.y += self.maxSpd;
-        self.pressingDown = true;
-        self.facing = 'down';
+    } else if(dir == 'd'){
+      var d = [loc[0],loc[1]+1];
+      if(isWalkable(self.z,d[0],d[1])){
+        self.path = [d];
       } else {
-        if(self.x < target.x){
-          if(!self.leftBlocked){
-            self.x -= self.maxSpd;
-            self.pressingLeft = true;
-            self.facing = 'left';
-          } else if(!self.rightBlocked){
-            self.x += self.maxSpd;
-            self.pressingRight = true;
-            self.facing = 'right';
-          }
-        } else {
-          if(!self.rightBlocked){
-            self.x += self.maxSpd;
-            self.pressingRight = true;
-            self.facing = 'right';
-          } else if(!self.leftBlocked){
-            self.x -= self.maxSpd;
-            self.pressingLeft = true;
-            self.facing = 'left';
+        if(self.lastDir == 'dr' || self.lastDir == 'rd'){
+          var r = [loc[0]+1,loc[1]];
+          if(isWalkable(self.z,r[0],r[1])){
+            self.path = [r];
+          } else {
+            var l = [loc[0]-1,loc[1]];
+            if(isWalkable(self.z,l[0],l[1])){
+              self.path = [l];
+            }
           }
         }
       }
-    } else if(self.angle > 115 || self.angle <= -135){ // go right (or up/down)
-      if(!self.rightBlocked){
-        self.x += self.maxSpd;
-        self.pressingRight = true;
-        self.facing = 'right';
+    } else if(dir == 'ru'){
+      var r = [loc[0]+1,loc[1]];
+      if(isWalkable(self.z,r[0],r[1])){
+        self.path = [r];
       } else {
-        if(target.y < self.y){
-          if(!self.downBlocked){
-            self.y += self.maxSpd;
-            self.pressingDown = true;
-            self.facing = 'down';
-          } else if(!self.upBlocked){
-            self.y -= self.maxSpd;
-            self.pressingUp = true;
-            self.facing = 'up';
+        var u = [loc[0],loc[1]-1];
+        if(isWalkable(self.z,u[0],u[1])){
+          self.path = [u];
+        }
+      }
+    } else if(dir == 'ur'){
+      var u = [loc[0],loc[1]-1];
+      if(isWalkable(self.z,u[0],u[1])){
+        self.path = [u];
+      } else {
+        var r = [loc[0]+1,loc[1]];
+        if(isWalkable(self.z,r[0],r[1])){
+          self.path = [r];
+        }
+      }
+    } else if(dir == 'u'){
+      var u = [loc[0],loc[1]-1];
+      if(isWalkable(self.z,u[0],u[1])){
+        self.path = [u];
+      } else {
+        if(self.lastDir == 'ur' || self.lastDir == 'ru'){
+          var r = [loc[0]+1,loc[1]];
+          if(isWalkable(self.z,r[0],r[1])){
+            self.path = [r];
           }
         } else {
-          if(!self.upBlocked){
-            self.y -= self.maxSpd;
-            self.pressingUp = true;
-            self.facing = 'up';
-          } else if(!self.downBlocked){
-            self.y += self.maxSpd;
-            self.pressingDown = true;
-            self.facing = 'down';
+          var l = [loc[0]-1,loc[1]];
+          if(isWalkable(self.z,l[0],l[1])){
+            self.path = [l];
           }
         }
       }
-    } else if(self.angle > -15 || self.angle <= 45){ // go left (or up/down)
-      if(!self.leftBlocked){
-        self.x -= self.maxSpd;
-        self.pressingLeft = true;
-        self.facing = 'left';
+    } else if(dir == 'lu'){
+      var l = [loc[0]-1,loc[1]];
+      if(isWalkable(self.z,l[0],l[1])){
+        self.path = [l];
       } else {
-        if(target.y < self.y){
-          if(!self.downBlocked){
-            self.y += self.maxSpd;
-            self.pressingDown = true;
-            self.facing = 'down';
-          } else if(!self.upBlocked){
-            self.y -= self.maxSpd;
-            self.pressingUp = true;
-            self.facing = 'up';
-          }
-        } else {
-          if(!self.upBlocked){
-            self.y -= self.maxSpd;
-            self.pressingUp = true;
-            self.facing = 'up';
-          } else if(!self.downBlocked){
-            self.y += self.maxSpd;
-            self.pressingDown = true;
-            self.facing = 'down';
+        var u = [loc[0],loc[1]-1];
+        if(isWalkable(self.z,u[0],u[1])){
+          self.path = [u];
+        }
+      }
+    } else if(dir == 'ul'){
+      var u = [loc[0],loc[1]-1];
+      if(isWalkable(self.z,u[0],u[1])){
+        self.path = [u];
+      } else {
+        var l = [loc[0]-1,loc[1]];
+        if(isWalkable(self.z,l[0],l[1])){
+          self.path = [l];
+        }
+      }
+    } else if(dir == 'ld'){
+      var l = [loc[0]-1,loc[1]];
+      if(isWalkable(self.z,l[0],l[1])){
+        self.path = [l];
+      } else {
+        var d = [loc[0],loc[1]+1];
+        if(isWalkable(self.z,d[0],d[1])){
+          self.path = [d];
+        }
+      }
+    } else if(dir == 'dl'){
+      var d = [loc[0],loc[1]+1];
+      if(isWalkable(self.z,d[0],d[1])){
+        self.path = [d];
+      } else {
+        var l = [loc[0]-1,loc[1]];
+        if(isWalkable(self.z,l[0],l[1])){
+          self.path = [l];
+        }
+      }
+    } else if(dir == 'l'){
+      var l = [loc[0]-1,loc[1]];
+      if(isWalkable(self.z,l[0],l[1])){
+        self.path = [l];
+      } else {
+        if(self.lastDir == 'ul' || self.lastDir == 'lu'){
+          var u = [loc[0],loc[1]-1];
+          if(isWalkable(self.z,u[0],u[1])){
+            self.path = [u];
+          } else {
+            var d = [loc[0],loc[1]+1];
+            if(isWalkable(self.z,d[0],d[1])){
+              self.path = [d];
+            }
           }
         }
       }
@@ -637,7 +705,7 @@ Character = function(param){
               } else {
                 if(allyCheck(self.id,p.id) < 0){
                   self.combat.target = p.id;
-                  if(!p.action){
+                  if(!p.action && !self.stealthed){
                     Player.list[zones[zr][zc][n]].combat.target = self.id;
                     Player.list[zones[zr][zc][n]].action = 'combat';
                   }
@@ -659,61 +727,115 @@ Character = function(param){
     }
   }
 
-  self.calcDir = function(loc,tLoc){
+  self.calcDir = function(loc,tLoc,rev=false){
     var c = tLoc[0] - loc[0];
     var r = tLoc[1] - loc[1];
-
     if(c == 0 && r == 0){
       return 'c';
     } else if(c >= 0 && r >= 0){ // down/right
       if(c >= r){
         if(r > 0){
-          return 'rd'
+          if(!rev){
+            return 'rd';
+          } else {
+            return 'lu';
+          }
         } else {
-          return 'r';
+          if(!rev){
+            return 'r';
+          } else {
+            return 'l';
+          }
         }
       } else {
         if(c > 0){
-          return 'dr';
+          if(!rev){
+            return 'dr';
+          } else {
+            return 'ul';
+          }
         } else {
-          return 'd';
+          if(!rev){
+            return 'd';
+          } else {
+            return 'u';
+          }
         }
       }
     } else if(c >= 0 && r < 0){ // up/right
       r *= -1;
       if(c >= r){
         if(r > 0){
-          return 'ru';
+          if(!rev){
+            return 'ru';
+          } else {
+            return 'ld';
+          }
         } else {
-          return 'r';
+          if(!rev){
+            return 'r';
+          } else {
+            return 'l';
+          }
         }
-        return 'r';
       } else {
         if(c > 0){
-          return 'ur';
+          if(!rev){
+            return 'ur';
+          } else {
+            return 'dl';
+          }
         } else {
-          return 'u';
+          if(!rev){
+            return 'u';
+          } else {
+            return 'd';
+          }
         }
       }
     } else if(c < 0 && r < 0){ // up/left
       if(c <= r){
-        return 'lu';
+        if(!rev){
+          return 'lu';
+        } else {
+          return 'rd';
+        }
       } else {
-        return 'ul';
+        if(!rev){
+          return 'ul';
+        } else {
+          return 'dr';
+        }
       }
     } else if(c < 0 && r >= 0){ // down/left
       c *= -1;
       if(c >= r){
         if(r > 0){
-          return 'ld';
+          if(!rev){
+            return 'ld';
+          } else {
+            return 'ru';
+          }
         } else {
-          return 'l';
+          if(!rev){
+            return 'l';
+          } else {
+            return 'r';
+          }
         }
       } else {
         if(c > 0){
-          return 'dl';
+          if(!rev){
+            return 'dl';
+          } else {
+            return 'ur'
+          }
         } else {
-          return 'd';
+          if(!rev){
+            return 'd';
+          } else {
+            return 'u';
+          }
         }
       }
     }
@@ -725,7 +847,6 @@ Character = function(param){
   self.moveTo = function(tLoc){
     if(!self.path){
       var loc = getLoc(self.x,self.y);
-
       if(loc.toString() != tLoc.toString()){
         var dir = self.calcDir(loc,tLoc);
         if(dir != self.lastDir){
@@ -1090,7 +1211,6 @@ Character = function(param){
 
   self.update = function(){
     var loc = getLoc(self.x, self.y);
-
     if(self.torchBearer){
       if(!self.hasTorch){
         if((tempus == 'VIII.p' || tempus == 'IX.p' ||
@@ -1206,6 +1326,9 @@ Character = function(param){
       } else {
         self.hp -= 0.5;
       }
+      if(self.hp <= 0){
+        self.die({cause:'drowned'});
+      }
       if(getTile(0,loc[0],loc[1]) !== 0){
         self.z = 0;
         self.breath = self.breathMax;
@@ -1287,35 +1410,42 @@ Character = function(param){
           self.combat.target = null;
           self.action = 'return';
           console.log(self.name + ' return');
-        } else if(self.ranged){
-          if(self.attackCooldown > 0){
+        } else {
+          if(self.ranged){
+            var tLoc = getLoc(target.x,target.y);
             var dist = self.getDistance({
               x:target.x,
               y:target.y
             })
-            if(dist < self.aggroRange){
-              self.reposition(target.id);
+            if(self.attackCooldown > 0){
+              if(dist < self.aggroRange){
+                self.reposition(loc,tLoc);
+              }
+            } else {
+              if(dist >= self.aggroRange){
+                var angle = self.getAngle(target.x,target.y);
+                self.shootArrow(angle);
+              } else {
+                self.reposition(loc,tLoc);
+              }
             }
           } else {
-            if(dist >= self.aggroRange){
-              var angle = self.getAngle(target.x,target.y);
-              self.shootArrow(angle);
-            } else {
-              self.reposition(target.id);
-            }
+            self.follow(target,true);
           }
-        } else {
-          self.follow(target,true);
-        }
-        var cHome = getCenter(self.home.loc[0],self.home.loc[1]);
-        var hDist = self.getDistance({
-          x:cHome[0],
-          y:cHome[1]
-        });
-        if(hDist > self.wanderRange * 4){
-          self.combat.target = null;
-          self.action == 'return';
-          console.log(self.name + ' return');
+          var cHome = getCenter(self.home.loc[0],self.home.loc[1]);
+          var hDist = self.getDistance({
+            x:cHome[0],
+            y:cHome[1]
+          });
+          var tDist = self.getDistance({
+            x:target.x,
+            y:target.y
+          });
+          if(hDist > self.wanderRange * 4 || tDist > self.aggroRange * 2){
+            self.combat.target = null;
+            self.action == 'return';
+            console.log(self.name + ' return');
+          }
         }
       } else if(self.action == 'return'){
         if(self.lastLoc){
@@ -1346,7 +1476,8 @@ Character = function(param){
           if(dist > self.aggroRange * 2){
             self.action = null;
           } else {
-            self.reposition(target.id);
+            var tLoc = getLoc(target.x,target.y);
+            self.reposition(loc,tLoc);
           }
         }
       }
@@ -1388,13 +1519,14 @@ Character = function(param){
             self.action = 'return';
           }
           if(self.ranged){
+            var tLoc = getLoc(target.x,target.y);
             var dist = self.getDistance({
               x:target.x,
               y:target.y
             })
             if(self.attackCooldown > 0){
               if(dist < 256){
-                self.reposition(target.id);
+                self.reposition(loc,tLoc);
               }
             } else {
               if(dist > 256){
@@ -1402,7 +1534,7 @@ Character = function(param){
                 self.shootArrow(angle);
                 self.attackCooldown += self.attackRate/self.dexterity;
               } else {
-                self.reposition(target.id);
+                self.reposition(loc,tLoc);
               }
             }
           } else {
@@ -1457,13 +1589,14 @@ Character = function(param){
           self.action = 'return';
         }
         if(self.ranged){
+          var tLoc = getLoc(target.x,target.y);
           var dist = self.getDistance({
             x:Player.list[cTarget].x,
             y:Player.list[cTarget].y
           })
           if(self.attackCooldown > 0){
             if(dist < 256){
-              self.reposition(target.id);
+              self.reposition(loc,tLoc);
             }
           } else {
             if(dist > 256){
@@ -1471,7 +1604,7 @@ Character = function(param){
               self.shootArrow(angle);
               self.attackCooldown += self.attackRate/self.dexterity;
             } else {
-              self.reposition(target.id);
+              self.reposition(loc,tLoc);
             }
           }
         } else {
@@ -1553,13 +1686,14 @@ Character = function(param){
           self.action = 'return';
         }
         if(self.ranged){
+          var tLoc = getLoc(target.x,target.y);
           var dist = self.getDistance({
             x:target.x,
             y:target.y
           })
           if(self.attackCooldown > 0){
             if(dist < 256){
-              self.reposition(target.id);
+              self.reposition(loc,tLoc);
             }
           } else {
             if(dist > 256){
@@ -1567,7 +1701,7 @@ Character = function(param){
               self.shootArrow(angle);
               self.attackCooldown += self.attackRate/self.dexterity;
             } else {
-              self.reposition(target.id);
+              self.reposition(loc,tLoc);
             }
           }
         } else {
@@ -1620,13 +1754,14 @@ Character = function(param){
           self.action = 'return';
         }
         if(self.ranged){
+          var tLoc = getLoc(target.x,target.y);
           var dist = self.getDistance({
             x:target.x,
             y:target.y
           })
           if(self.attackCooldown > 0){
             if(dist < 256){
-              self.reposition(target.id);
+              self.reposition(loc,tLoc);
             }
           } else {
             if(dist > 256){
@@ -1634,7 +1769,7 @@ Character = function(param){
               self.shootArrow(angle);
               self.attackCooldown += self.attackRate/self.dexterity;
             } else {
-              self.reposition(target.id);
+              self.reposition(loc,tLoc);
             }
           }
         } else {
@@ -2587,12 +2722,14 @@ Arrow = function(param){
   self.spdX = Math.cos(param.angle/180*Math.PI) * 50;
   self.spdY = Math.sin(param.angle/180*Math.PI) * 50;
   self.parent = param.parent;
-  self.innaWoods = self.parent.innaWoods;
+  self.innaWoods = Player.list[self.parent].innaWoods;
+  self.zGrid = Player.list[self.parent].zGrid;
 
   self.timer = 0;
   self.toRemove = false;
   var super_update = self.update;
   self.update = function(){
+    super_update();
     if(self.z == 0 && getLocTile(0,self.x,self.y) >= 1 && getLocTile(0,self.x,self.y) < 2){
       self.innaWoods = true;
     } else {
@@ -2601,39 +2738,52 @@ Arrow = function(param){
     if(self.timer++ > 100){
       self.toRemove = true;
     }
-    super_update();
-
-    for(var i in Player.list){
-      var p = Player.list[i];
-      if(self.getDistance(p) < 32 && self.z == p.z && self.parent !== p.id){
-        p.hp -= 5;
-        // defines shooter
-        var shooter = Player.list[self.parent];
-        // player death & respawn
-        if(p.hp <= 0){
-          p.hp = p.hpMax;
-          var spawn = randomSpawnO();
-          p.x = spawn[0]; // replace this
-          p.y = spawn[1]; // replace this
+    for(var i in self.zGrid){
+      var zc = self.zGrid[i][0];
+      var zr = self.zGrid[i][1];
+      if(zc < 64 && zc > -1 && zr < 64 && zr > -1){
+        for(var n in zones[zr][zc]){
+          var p = Player.list[zones[zr][zc][n]];
+          if(p){
+            if(self.getDistance(p) < 32 && self.z == p.z && self.parent != p.id){
+              Player.list[zones[zr][zc][n]].hp -= 5;
+              Player.list[zones[zr][zc][n]].working = false;
+              Player.list[zones[zr][zc][n]].chopping = false;
+              Player.list[zones[zr][zc][n]].mining = false;
+              Player.list[zones[zr][zc][n]].farming = false;
+              Player.list[zones[zr][zc][n]].building = false;
+              Player.list[zones[zr][zc][n]].fishing = false;
+              if(Player.list[self.parent].stealthed){
+                Player.list[self.parent].stealthed = false;
+                Player.list[zones[zr][zc][n]].combat.target = self.id;
+                Player.list[zones[zr][zc][n]].action = 'combat';
+              }
+              // player death & respawn
+              if(Player.list[zones[zr][zc][n]].hp <= 0){
+                Player.list[zones[zr][zc][n]].die({id:self.parent,cause:'arrow'});
+              }
+              self.toRemove = true;
+            }
+          }
         }
-        self.toRemove = true;
-      } else if(self.x == 0 || self.x == mapPx || self.y == 0 || self.y == mapPx){
-        self.toRemove = true;
-      } else if(self.z == 0 && getLocTile(0,self.x,self.y) == 5 && getLocTile(0,Player.list[self.parent].x,Player.list[self.parent].y) !== 5){
-        self.toRemove = true;
-      } else if(self.z == 0 && getLocTile(0,self.x,self.y) == 1 && getLocTile(0,Player.list[self.parent].x,Player.list[self.parent].y) !== 1){
-        self.toRemove = true;
-      } else if(self.z == 0 && (getLocTile(0,self.x,self.y) == 13 || getLocTile(0,self.x,self.y) == 14 || getLocTile(0,self.x,self.y) == 15 || getLocTile(0,self.x,self.y) == 16 || getLocTile(0,self.x,self.y) == 19)){
-        self.toRemove = true;
-      } else if(self.z == -1 && getLocTile(1,self.x,self.y) == 1){
-        self.toRemove = true;
-      } else if(self.z == -2 && getLocTile(8,self.x,self.y) == 0){
-        self.toRemove = true;
-      } else if(self.z == 1 && (getLocTile(3,self.x,self.y) == 0 || getLocTile(4,self.x,self.y) !== 0)){
-        self.toRemove = true;
-      } else if(self.z == 2 && (getLocTile(5,self.x,self.y) == 0 || getLocTile(4,self.x,self.y) !== 0)){
-        self.toRemove = true;
       }
+    }
+    if(self.x == 0 || self.x == mapPx || self.y == 0 || self.y == mapPx){
+      self.toRemove = true;
+    } else if(self.z == 0 && getLocTile(0,self.x,self.y) == 5 && getLocTile(0,Player.list[self.parent].x,Player.list[self.parent].y) !== 5){
+      self.toRemove = true;
+    } else if(self.z == 0 && getLocTile(0,self.x,self.y) == 1 && getLocTile(0,Player.list[self.parent].x,Player.list[self.parent].y) !== 1){
+      self.toRemove = true;
+    } else if(self.z == 0 && (getLocTile(0,self.x,self.y) == 13 || getLocTile(0,self.x,self.y) == 14 || getLocTile(0,self.x,self.y) == 15 || getLocTile(0,self.x,self.y) == 16 || getLocTile(0,self.x,self.y) == 19)){
+      self.toRemove = true;
+    } else if(self.z == -1 && getLocTile(1,self.x,self.y) == 1){
+      self.toRemove = true;
+    } else if(self.z == -2 && getLocTile(8,self.x,self.y) == 0){
+      self.toRemove = true;
+    } else if(self.z == 1 && (getLocTile(3,self.x,self.y) == 0 || getLocTile(4,self.x,self.y) !== 0)){
+      self.toRemove = true;
+    } else if(self.z == 2 && (getLocTile(5,self.x,self.y) == 0 || getLocTile(4,self.x,self.y) !== 0)){
+      self.toRemove = true;
     }
   }
 
@@ -2673,8 +2823,9 @@ Arrow.update = function(){
     if(arrow.toRemove){
       delete Arrow.list[i];
       removePack.arrow.push(arrow.id);
-    } else
+    } else {
       pack.push(arrow.getUpdatePack());
+    }
   }
   return pack;
 }
