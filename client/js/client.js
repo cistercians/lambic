@@ -176,6 +176,27 @@ var getBgm = function(x,y,z,b){
   }
 };
 
+var stealthCheck = function(id){ // 0: not stealthed, 1: somewhat visible, 1.5: revealed, 2: totally stealthed
+  var p = Player.list[id];
+  if(p.stealthed){
+    if(id == selfId){
+      return 1;
+    } else {
+      if(allyCheck(id) <= 0){ // neutral or enemy
+        if(p.revealed){
+          return 1.5;
+        } else {
+          return 2;
+        }
+      } else { // ally
+        return 1;
+      }
+    }
+  } else { // not stealthed
+    return 0;
+  }
+}
+
 var fly = 0
 setInterval(function(){
   if(fly == 6){
@@ -243,7 +264,7 @@ var Player = function(initPack){
   self.inventory = initPack.inventory;
   self.facing = 'down';
   self.stealthed = initPack.stealthed;
-  self.visible = initPack.visible;
+  self.revealed = initPack.revealed;
   self.angle = 0;
   self.pressingDown = false;
   self.pressingUp = false;
@@ -266,6 +287,7 @@ var Player = function(initPack){
   self.ranged = initPack.ranged;
 
   self.draw = function(){
+    var stealth = stealthCheck(self.id);
 
     var x = 0;
     var y = 0;
@@ -294,131 +316,473 @@ var Player = function(initPack){
     }
 
     // hp and spirit bars
-    var barX = (self.x - (tileSize/2)) - Player.list[selfId].x + WIDTH/2;
-    var barY = (self.y - (tileSize/2)) - Player.list[selfId].y + HEIGHT/2;
+    if(stealth < 1.5){
+      var barX = (self.x - (tileSize/2)) - Player.list[selfId].x + WIDTH/2;
+      var barY = (self.y - (tileSize/2)) - Player.list[selfId].y + HEIGHT/2;
 
-    var hpWidth = 60 * self.hp / self.hpMax;
-    var spiritWidth = null;
-    var brWidth = 60 * self.breath / self.breathMax;
-    if(self.spirit){
-      spiritWidth = 60 * self.spirit / self.spiritMax;
-    }
-
-    if(self.hp){
-      ctx.fillStyle = 'orangered';
-      ctx.fillRect(barX,barY - 30,60,6);
-      ctx.fillStyle = 'limegreen';
-      ctx.fillRect(barX,barY - 30,hpWidth,6);
-    }
-    if(self.spirit){
-      ctx.fillStyle = 'orangered';
-      ctx.fillRect(barX,barY - 20,60,4);
-      ctx.fillStyle = 'royalblue';
-      ctx.fillRect(barX,barY - 20,spiritWidth,4);
-    }
-    if(self.z == -3){
-      ctx.fillStyle = 'azure';
-      ctx.fillRect(barX,barY - 30,brWidth,6);
-    }
-
-    // username
-    if(self.rank){
-      var allied = allyCheck(self.id);
-      if(self.kingdom){
-        if(allied == 2){
-          ctx.fillStyle = 'lightskyblue';
-        } else if(allied == 1){
-          ctx.fillStyle = 'palegreen';
-        } else if(allied == 0){
-          ctx.fillStyle = 'white';
-        } else if(allied == -1){
-          ctx.fillStyle = 'orangered';
-        }
-        ctx.font = '15px minion web';
-        ctx.textAlign = 'center';
-        ctx.fillText(kingdomList[self.kingdom].flag + ' ' + self.rank + self.name,barX + 30,barY - 40,100);
-      } else if(self.house){
-        if(allied == 2){
-          ctx.fillStyle = 'lightskyblue';
-        } else if(allied == 1){
-          ctx.fillStyle = 'palegreen';
-        } else if(allied == 0){
-          ctx.fillStyle = 'white';
-        } else if(allied == -1){
-          ctx.fillStyle = 'orangered';
-        }
-        ctx.font = '15px minion web';
-        ctx.textAlign = 'center';
-        ctx.fillText(houseList[self.house].flag + ' ' + self.rank + self.name,barX + 30,barY - 40,100);
-      } else {
-        if(allied == 2){
-          ctx.fillStyle = 'lightskyblue';
-        } else if(allied == 1){
-          ctx.fillStyle = 'palegreen';
-        } else if(allied == 0){
-          ctx.fillStyle = 'white';
-        } else if(allied == -1){
-          ctx.fillStyle = 'orangered';
-        }
-        ctx.font = '15px minion web';
-        ctx.textAlign = 'center';
-        ctx.fillText(self.rank + self.name,barX + 30,barY - 40,100);
+      var hpWidth = 60 * self.hp / self.hpMax;
+      var spiritWidth = null;
+      var brWidth = 60 * self.breath / self.breathMax;
+      if(self.spirit){
+        spiritWidth = 60 * self.spirit / self.spiritMax;
       }
-    } else if(self.name){
-      var allied = allyCheck(self.id);
-      if(self.kingdom){
-        if(allied == 2){
-          ctx.fillStyle = 'lightskyblue';
-        } else if(allied == 1){
-          ctx.fillStyle = 'palegreen';
-        } else if(allied == 0){
-          ctx.fillStyle = 'white';
-        } else if(allied == -1){
-          ctx.fillStyle = 'orangered';
-        }
-        ctx.font = '15px minion web';
-        ctx.textAlign = 'center';
-        ctx.fillText(kingdomList[self.kingdom].flag + ' ' + self.name,barX + 30,barY - 40,100);
-      } else if(self.house){
-        if(allied == 2){
-          ctx.fillStyle = 'lightskyblue';
-        } else if(allied == 1){
-          ctx.fillStyle = 'palegreen';
-        } else if(allied == 0){
-          ctx.fillStyle = 'white';
-        } else if(allied == -1){
-          ctx.fillStyle = 'orangered';
-        }
-        ctx.font = '15px minion web';
-        ctx.textAlign = 'center';
-        ctx.fillText(houseList[self.house].flag + ' ' + self.name,barX + 30,barY - 40,100);
-      } else {
-        if(allied == 2){
-          ctx.fillStyle = 'lightskyblue';
-        } else if(allied == 1){
-          ctx.fillStyle = 'palegreen';
-        } else if(allied == 0){
-          ctx.fillStyle = 'white';
-        } else if(allied == -1){
-          ctx.fillStyle = 'orangered';
-        }
-        ctx.font = '15px minion web';
-        ctx.textAlign = 'center';
-        ctx.fillText(self.name,barX + 30,barY - 40,100);
-      }
-    }
 
-    // status
-    if(self.working){
-      ctx.fillText(workingIcon[wrk], barX + 80, barY - 20);
+      if(self.hp){
+        ctx.fillStyle = 'orangered';
+        ctx.fillRect(barX,barY - 30,60,6);
+        ctx.fillStyle = 'limegreen';
+        ctx.fillRect(barX,barY - 30,hpWidth,6);
+      }
+      if(self.spirit){
+        ctx.fillStyle = 'orangered';
+        ctx.fillRect(barX,barY - 20,60,4);
+        ctx.fillStyle = 'royalblue';
+        ctx.fillRect(barX,barY - 20,spiritWidth,4);
+      }
+      if(self.z == -3){
+        ctx.fillStyle = 'azure';
+        ctx.fillRect(barX,barY - 30,brWidth,6);
+      }
+
+      // username
+      if(self.rank){
+        var allied = allyCheck(self.id);
+        if(self.kingdom){
+          if(allied == 2){
+            ctx.fillStyle = 'lightskyblue';
+          } else if(allied == 1){
+            ctx.fillStyle = 'palegreen';
+          } else if(allied == 0){
+            ctx.fillStyle = 'white';
+          } else if(allied == -1){
+            ctx.fillStyle = 'orangered';
+          }
+          ctx.font = '15px minion web';
+          ctx.textAlign = 'center';
+          ctx.fillText(kingdomList[self.kingdom].flag + ' ' + self.rank + self.name,barX + 30,barY - 40,100);
+        } else if(self.house){
+          if(allied == 2){
+            ctx.fillStyle = 'lightskyblue';
+          } else if(allied == 1){
+            ctx.fillStyle = 'palegreen';
+          } else if(allied == 0){
+            ctx.fillStyle = 'white';
+          } else if(allied == -1){
+            ctx.fillStyle = 'orangered';
+          }
+          ctx.font = '15px minion web';
+          ctx.textAlign = 'center';
+          ctx.fillText(houseList[self.house].flag + ' ' + self.rank + self.name,barX + 30,barY - 40,100);
+        } else {
+          if(allied == 2){
+            ctx.fillStyle = 'lightskyblue';
+          } else if(allied == 1){
+            ctx.fillStyle = 'palegreen';
+          } else if(allied == 0){
+            ctx.fillStyle = 'white';
+          } else if(allied == -1){
+            ctx.fillStyle = 'orangered';
+          }
+          ctx.font = '15px minion web';
+          ctx.textAlign = 'center';
+          ctx.fillText(self.rank + self.name,barX + 30,barY - 40,100);
+        }
+      } else if(self.name){
+        var allied = allyCheck(self.id);
+        if(self.kingdom){
+          if(allied == 2){
+            ctx.fillStyle = 'lightskyblue';
+          } else if(allied == 1){
+            ctx.fillStyle = 'palegreen';
+          } else if(allied == 0){
+            ctx.fillStyle = 'white';
+          } else if(allied == -1){
+            ctx.fillStyle = 'orangered';
+          }
+          ctx.font = '15px minion web';
+          ctx.textAlign = 'center';
+          ctx.fillText(kingdomList[self.kingdom].flag + ' ' + self.name,barX + 30,barY - 40,100);
+        } else if(self.house){
+          if(allied == 2){
+            ctx.fillStyle = 'lightskyblue';
+          } else if(allied == 1){
+            ctx.fillStyle = 'palegreen';
+          } else if(allied == 0){
+            ctx.fillStyle = 'white';
+          } else if(allied == -1){
+            ctx.fillStyle = 'orangered';
+          }
+          ctx.font = '15px minion web';
+          ctx.textAlign = 'center';
+          ctx.fillText(houseList[self.house].flag + ' ' + self.name,barX + 30,barY - 40,100);
+        } else {
+          if(allied == 2){
+            ctx.fillStyle = 'lightskyblue';
+          } else if(allied == 1){
+            ctx.fillStyle = 'palegreen';
+          } else if(allied == 0){
+            ctx.fillStyle = 'white';
+          } else if(allied == -1){
+            ctx.fillStyle = 'orangered';
+          }
+          ctx.font = '15px minion web';
+          ctx.textAlign = 'center';
+          ctx.fillText(self.name,barX + 30,barY - 40,100);
+        }
+      }
+
+      // status
+      if(self.working){
+        ctx.fillText(workingIcon[wrk], barX + 80, barY - 20);
+      } else if(self.revealed){
+        ctx.fillText('👁️', barX + 80, barY - 20);
+      }
     }
 
     // character sprite
-    if(self.pressingAttack){
-      if((self.gear.weapon && self.gear.weapon.type == 'bow') || self.ranged){
-        if(self.type == 'player' && self.inventory.arrows < 1){
-          SOCKET_LIST[self.id].emit('addToChat','<i>You have no arrows.</i>');
+    if(stealth == 2){ // totally stealthed
+      if(self.pressingAttack){
+        if((self.gear.weapon && self.gear.weapon.type == 'bow') || self.ranged){
+          if(self.angle > 45 && self.angle <= 115){
+            ctx.drawImage(
+              self.sprite.attackdbst2,
+              x,
+              y,
+              self.spriteSize,
+              self.spriteSize
+            );
+          } else if(self.angle > -135 && self.angle <= -15){
+            ctx.drawImage(
+              self.sprite.attackubst2,
+              x,
+              y,
+              self.spriteSize,
+              self.spriteSize
+            );
+          } else if(self.angle > 115 || self.angle <= -135){
+            ctx.drawImage(
+              self.sprite.attacklbst2,
+              x,
+              y,
+              self.spriteSize,
+              self.spriteSize
+            );
+          } else if(self.angle > -15 || self.angle <= 45){
+            ctx.drawImage(
+              self.sprite.attackrbst2,
+              x,
+              y,
+              self.spriteSize,
+              self.spriteSize
+            );
+          }
         } else {
+          if(self.facing == 'down'){
+            ctx.drawImage(
+              self.sprite.attackdst2,
+              x,
+              y,
+              self.spriteSize,
+              self.spriteSize
+            );
+          } else if(self.facing == 'up'){
+            ctx.drawImage(
+              self.sprite.attackust2,
+              x,
+              y,
+              self.spriteSize,
+              self.spriteSize
+            );
+          } else if(self.facing == 'left'){
+            ctx.drawImage(
+              self.sprite.attacklst2,
+              x,
+              y,
+              self.spriteSize,
+              self.spriteSize
+            );
+          } else if(self.facing == 'right'){
+            ctx.drawImage(
+              self.sprite.attackrst2,
+              x,
+              y,
+              self.spriteSize,
+              self.spriteSize
+            );
+          }
+        }
+      } else if(self.pressingAttack && self.type == 'npc'){
+        if(self.facing == 'down'){
+          ctx.drawImage(
+            self.sprite.attackdst2,
+            x,
+            y,
+            self.spriteSize,
+            self.spriteSize
+          );
+        } else if(self.facing == 'up'){
+          ctx.drawImage(
+            self.sprite.attackust2,
+            x,
+            y,
+            self.spriteSize,
+            self.spriteSize
+          );
+        } else if(self.facing == 'left'){
+          ctx.drawImage(
+            self.sprite.attacklst2,
+            x,
+            y,
+            self.spriteSize,
+            self.spriteSize
+          );
+        } else if(self.facing == 'right'){
+          ctx.drawImage(
+            self.sprite.attackrst2,
+            x,
+            y,
+            self.spriteSize,
+            self.spriteSize
+          );
+        }
+      } else if(self.facing == 'down' && !self.pressingDown){
+        ctx.drawImage(
+          self.sprite.facedownst2,
+          x,
+          y,
+          self.spriteSize,
+          self.spriteSize
+        );
+      } else if(self.pressingDown){
+        ctx.drawImage(
+          self.sprite.walkdownst2[wlk],
+          x,
+          y,
+          self.spriteSize,
+          self.spriteSize
+        );
+      } else if(self.facing == 'up' && !self.pressingUp){
+        ctx.drawImage(
+          self.sprite.faceupst2,
+          x,
+          y,
+          self.spriteSize,
+          self.spriteSize
+        );
+      } else if(self.pressingUp){
+        ctx.drawImage(
+          self.sprite.walkupst2[wlk],
+          x,
+          y,
+          self.spriteSize,
+          self.spriteSize
+        );
+      } else if(self.facing == 'left' && !self.pressingLeft){
+        ctx.drawImage(
+          self.sprite.faceleftst2,
+          x,
+          y,
+          self.spriteSize,
+          self.spriteSize
+        );
+      } else if(self.pressingLeft){
+        ctx.drawImage(
+          self.sprite.walkleftst2[wlk],
+          x,
+          y,
+          self.spriteSize,
+          self.spriteSize
+        );
+      } else if(self.facing == 'right' && !self.pressingRight){
+        ctx.drawImage(
+          self.sprite.facerightst2,
+          x,
+          y,
+          self.spriteSize,
+          self.spriteSize
+        );
+      } else if(self.pressingRight){
+        ctx.drawImage(
+          self.sprite.walkrightst2[wlk],
+          x,
+          y,
+          self.spriteSize,
+          self.spriteSize
+        );
+      }
+    } else if(stealth < 2 && stealth >= 1){ // somewhat visible
+      if(self.pressingAttack){
+        if((self.gear.weapon && self.gear.weapon.type == 'bow') || self.ranged){
+          if(self.angle > 45 && self.angle <= 115){
+            ctx.drawImage(
+              self.sprite.attackdbst,
+              x,
+              y,
+              self.spriteSize,
+              self.spriteSize
+            );
+          } else if(self.angle > -135 && self.angle <= -15){
+            ctx.drawImage(
+              self.sprite.attackubst,
+              x,
+              y,
+              self.spriteSize,
+              self.spriteSize
+            );
+          } else if(self.angle > 115 || self.angle <= -135){
+            ctx.drawImage(
+              self.sprite.attacklbst,
+              x,
+              y,
+              self.spriteSize,
+              self.spriteSize
+            );
+          } else if(self.angle > -15 || self.angle <= 45){
+            ctx.drawImage(
+              self.sprite.attackrbst,
+              x,
+              y,
+              self.spriteSize,
+              self.spriteSize
+            );
+          }
+        } else {
+          if(self.facing == 'down'){
+            ctx.drawImage(
+              self.sprite.attackdst,
+              x,
+              y,
+              self.spriteSize,
+              self.spriteSize
+            );
+          } else if(self.facing == 'up'){
+            ctx.drawImage(
+              self.sprite.attackust,
+              x,
+              y,
+              self.spriteSize,
+              self.spriteSize
+            );
+          } else if(self.facing == 'left'){
+            ctx.drawImage(
+              self.sprite.attacklst,
+              x,
+              y,
+              self.spriteSize,
+              self.spriteSize
+            );
+          } else if(self.facing == 'right'){
+            ctx.drawImage(
+              self.sprite.attackrst,
+              x,
+              y,
+              self.spriteSize,
+              self.spriteSize
+            );
+          }
+        }
+      } else if(self.pressingAttack && self.type == 'npc'){
+        if(self.facing == 'down'){
+          ctx.drawImage(
+            self.sprite.attackdst,
+            x,
+            y,
+            self.spriteSize,
+            self.spriteSize
+          );
+        } else if(self.facing == 'up'){
+          ctx.drawImage(
+            self.sprite.attackust,
+            x,
+            y,
+            self.spriteSize,
+            self.spriteSize
+          );
+        } else if(self.facing == 'left'){
+          ctx.drawImage(
+            self.sprite.attacklst,
+            x,
+            y,
+            self.spriteSize,
+            self.spriteSize
+          );
+        } else if(self.facing == 'right'){
+          ctx.drawImage(
+            self.sprite.attackrst,
+            x,
+            y,
+            self.spriteSize,
+            self.spriteSize
+          );
+        }
+      } else if(self.facing == 'down' && !self.pressingDown){
+        ctx.drawImage(
+          self.sprite.facedownst,
+          x,
+          y,
+          self.spriteSize,
+          self.spriteSize
+        );
+      } else if(self.pressingDown){
+        ctx.drawImage(
+          self.sprite.walkdownst[wlk],
+          x,
+          y,
+          self.spriteSize,
+          self.spriteSize
+        );
+      } else if(self.facing == 'up' && !self.pressingUp){
+        ctx.drawImage(
+          self.sprite.faceupst,
+          x,
+          y,
+          self.spriteSize,
+          self.spriteSize
+        );
+      } else if(self.pressingUp){
+        ctx.drawImage(
+          self.sprite.walkupst[wlk],
+          x,
+          y,
+          self.spriteSize,
+          self.spriteSize
+        );
+      } else if(self.facing == 'left' && !self.pressingLeft){
+        ctx.drawImage(
+          self.sprite.faceleftst,
+          x,
+          y,
+          self.spriteSize,
+          self.spriteSize
+        );
+      } else if(self.pressingLeft){
+        ctx.drawImage(
+          self.sprite.walkleftst[wlk],
+          x,
+          y,
+          self.spriteSize,
+          self.spriteSize
+        );
+      } else if(self.facing == 'right' && !self.pressingRight){
+        ctx.drawImage(
+          self.sprite.facerightst,
+          x,
+          y,
+          self.spriteSize,
+          self.spriteSize
+        );
+      } else if(self.pressingRight){
+        ctx.drawImage(
+          self.sprite.walkrightst[wlk],
+          x,
+          y,
+          self.spriteSize,
+          self.spriteSize
+        );
+      }
+    } else { // not stealthed
+      if(self.pressingAttack){
+        if((self.gear.weapon && self.gear.weapon.type == 'bow') || self.ranged){
           if(self.angle > 45 && self.angle <= 115){
             ctx.drawImage(
               self.sprite.attackdb,
@@ -452,8 +816,108 @@ var Player = function(initPack){
               self.spriteSize
             );
           }
+        } else {
+          if(self.facing == 'down'){
+            ctx.drawImage(
+              self.sprite.attackd,
+              x,
+              y,
+              self.spriteSize,
+              self.spriteSize
+            );
+          } else if(self.facing == 'up'){
+            ctx.drawImage(
+              self.sprite.attacku,
+              x,
+              y,
+              self.spriteSize,
+              self.spriteSize
+            );
+          } else if(self.facing == 'left'){
+            ctx.drawImage(
+              self.sprite.attackl,
+              x,
+              y,
+              self.spriteSize,
+              self.spriteSize
+            );
+          } else if(self.facing == 'right'){
+            ctx.drawImage(
+              self.sprite.attackr,
+              x,
+              y,
+              self.spriteSize,
+              self.spriteSize
+            );
+          }
         }
-      } else {
+      } else if(self.chopping){
+        ctx.drawImage(
+          self.sprite.chopping[wrk],
+          x,
+          y,
+          self.spriteSize,
+          self.spriteSize
+        );
+      } else if(self.mining){
+        ctx.drawImage(
+          self.sprite.mining[wrk],
+          x,
+          y,
+          self.spriteSize,
+          self.spriteSize
+        );
+      } else if(self.farming){
+        ctx.drawImage(
+          self.sprite.farming[wrk],
+          x,
+          y,
+          self.spriteSize,
+          self.spriteSize
+        );
+      } else if(self.building){
+        ctx.drawImage(
+          self.sprite.building[wrk],
+          x,
+          y,
+          self.spriteSize,
+          self.spriteSize
+        );
+      } else if(self.fishing){
+        if(self.facing == 'down'){
+          ctx.drawImage(
+            self.sprite.fishingd,
+            x,
+            y,
+            self.spriteSize,
+            self.spriteSize
+          );
+        } else if(self.facing == 'up'){
+          ctx.drawImage(
+            self.sprite.fishingu,
+            x,
+            y,
+            self.spriteSize,
+            self.spriteSize
+          );
+        } else if(self.facing == 'left'){
+          ctx.drawImage(
+            self.sprite.fishingl,
+            x,
+            y,
+            self.spriteSize,
+            self.spriteSize
+          );
+        } else if(self.facing == 'right'){
+          ctx.drawImage(
+            self.sprite.fishingr,
+            x,
+            y,
+            self.spriteSize,
+            self.spriteSize
+          );
+        }
+      } else if(self.pressingAttack && self.type == 'npc'){
         if(self.facing == 'down'){
           ctx.drawImage(
             self.sprite.attackd,
@@ -487,171 +951,71 @@ var Player = function(initPack){
             self.spriteSize
           );
         }
-      }
-    } else if(self.chopping){
-      ctx.drawImage(
-        self.sprite.chopping[wrk],
-        x,
-        y,
-        self.spriteSize,
-        self.spriteSize
-      );
-    } else if(self.mining){
-      ctx.drawImage(
-        self.sprite.mining[wrk],
-        x,
-        y,
-        self.spriteSize,
-        self.spriteSize
-      );
-    } else if(self.farming){
-      ctx.drawImage(
-        self.sprite.farming[wrk],
-        x,
-        y,
-        self.spriteSize,
-        self.spriteSize
-      );
-    } else if(self.building){
-      ctx.drawImage(
-        self.sprite.building[wrk],
-        x,
-        y,
-        self.spriteSize,
-        self.spriteSize
-      );
-    } else if(self.fishing){
-      if(self.facing == 'down'){
+      } else if(self.facing == 'down' && !self.pressingDown){
         ctx.drawImage(
-          self.sprite.fishingd,
+          self.sprite.facedown,
           x,
           y,
           self.spriteSize,
           self.spriteSize
         );
-      } else if(self.facing == 'up'){
+      } else if(self.pressingDown){
         ctx.drawImage(
-          self.sprite.fishingu,
+          self.sprite.walkdown[wlk],
           x,
           y,
           self.spriteSize,
           self.spriteSize
         );
-      } else if(self.facing == 'left'){
+      } else if(self.facing == 'up' && !self.pressingUp){
         ctx.drawImage(
-          self.sprite.fishingl,
+          self.sprite.faceup,
           x,
           y,
           self.spriteSize,
           self.spriteSize
         );
-      } else if(self.facing == 'right'){
+      } else if(self.pressingUp){
         ctx.drawImage(
-          self.sprite.fishingr,
+          self.sprite.walkup[wlk],
           x,
           y,
           self.spriteSize,
           self.spriteSize
         );
-      }
-    } else if(self.pressingAttack && self.type == 'npc'){
-      if(self.facing == 'down'){
+      } else if(self.facing == 'left' && !self.pressingLeft){
         ctx.drawImage(
-          self.sprite.attackd,
+          self.sprite.faceleft,
           x,
           y,
           self.spriteSize,
           self.spriteSize
         );
-      } else if(self.facing == 'up'){
+      } else if(self.pressingLeft){
         ctx.drawImage(
-          self.sprite.attacku,
+          self.sprite.walkleft[wlk],
           x,
           y,
           self.spriteSize,
           self.spriteSize
         );
-      } else if(self.facing == 'left'){
+      } else if(self.facing == 'right' && !self.pressingRight){
         ctx.drawImage(
-          self.sprite.attackl,
+          self.sprite.faceright,
           x,
           y,
           self.spriteSize,
           self.spriteSize
         );
-      } else if(self.facing == 'right'){
+      } else if(self.pressingRight){
         ctx.drawImage(
-          self.sprite.attackr,
+          self.sprite.walkright[wlk],
           x,
           y,
           self.spriteSize,
           self.spriteSize
         );
       }
-    } else if(self.facing == 'down' && !self.pressingDown){
-      ctx.drawImage(
-        self.sprite.facedown,
-        x,
-        y,
-        self.spriteSize,
-        self.spriteSize
-      );
-    } else if(self.pressingDown){
-      ctx.drawImage(
-        self.sprite.walkdown[wlk],
-        x,
-        y,
-        self.spriteSize,
-        self.spriteSize
-      );
-    } else if(self.facing == 'up' && !self.pressingUp){
-      ctx.drawImage(
-        self.sprite.faceup,
-        x,
-        y,
-        self.spriteSize,
-        self.spriteSize
-      );
-    } else if(self.pressingUp){
-      ctx.drawImage(
-        self.sprite.walkup[wlk],
-        x,
-        y,
-        self.spriteSize,
-        self.spriteSize
-      );
-    } else if(self.facing == 'left' && !self.pressingLeft){
-      ctx.drawImage(
-        self.sprite.faceleft,
-        x,
-        y,
-        self.spriteSize,
-        self.spriteSize
-      );
-    } else if(self.pressingLeft){
-      ctx.drawImage(
-        self.sprite.walkleft[wlk],
-        x,
-        y,
-        self.spriteSize,
-        self.spriteSize
-      );
-    } else if(self.facing == 'right' && !self.pressingRight){
-      ctx.drawImage(
-        self.sprite.faceright,
-        x,
-        y,
-        self.spriteSize,
-        self.spriteSize
-      );
-    } else if(self.pressingRight){
-      ctx.drawImage(
-        self.sprite.walkright[wlk],
-        x,
-        y,
-        self.spriteSize,
-        self.spriteSize
-      );
     }
   }
 
@@ -2106,8 +2470,8 @@ socket.on('update',function(data){
         p.facing = pack.facing;
       if(pack.stealthed !== undefined)
         p.stealthed = pack.stealthed;
-      if(pack.visible !== undefined)
-        p.visible = pack.visible;
+      if(pack.revealed !== undefined)
+        p.revealed = pack.revealed;
       if(pack.pressingUp !== undefined)
         p.pressingUp = pack.pressingUp;
       if(pack.pressingDown !== undefined)
@@ -5805,8 +6169,19 @@ document.onkeydown = function(event){
       socket.emit('keyPress',{inputId:'up',state:true});
       Player.list[selfId].pressingUp = true;
     } else if(event.keyCode == 32){ // space
-      socket.emit('keyPress',{inputId:'attack',state:true});
-      Player.list[selfId].pressingAttack = true;
+      if(Player.list[selfId].gear.weapon){
+        if(Player.list[selfId].gear.weapon.type == 'bow'){
+          if(Player.list[selfId].inventory.arrows > 0){
+            socket.emit('keyPress',{inputId:'attack',state:true});
+            Player.list[selfId].pressingAttack = true;
+          } else {
+            SOCKET_LIST[self.id].emit('addToChat','<i>You have no arrows.</i>');
+          }
+        } else {
+          socket.emit('keyPress',{inputId:'attack',state:true});
+          Player.list[selfId].pressingAttack = true;
+        }
+      }
     } else if(event.keyCode == 69){ // e
        socket.emit('keyPress',{inputId:'e',state:true});
     } else if(event.keyCode == 84){ // t

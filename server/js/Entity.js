@@ -188,7 +188,7 @@ Character = function(param){
   self.stealthed = false;
   self.ranged = false;
   self.cleric = false;
-  self.visible = false;
+  self.revealed = false;
   self.spriteSize = tileSize;
   self.facing = 'down';
   self.pressingRight = false;
@@ -217,7 +217,8 @@ Character = function(param){
   self.hpMax = 100;
   self.spirit = null;
   self.spiritMax = null;
-  self.dmg = null;
+  self.damage = 0;
+  self.fortitude = 0;
   self.attackrate = 50;
   self.dexterity = 1;
   self.toRemove = false;
@@ -230,6 +231,9 @@ Character = function(param){
         } else {
           Player.list[report.id].action = null;
         }
+        console.log(Player.list[report.id].name + ' has killed ' + self.name);
+      } else {
+        console.log(self.name + ' has ' + report.cause);
       }
     }
     if(self.house && self.house.type == 'npc'){
@@ -237,6 +241,10 @@ Character = function(param){
         House.list[self.house].respawn(0,self.home);
       } else if(self.rank == '♞ ' || self.rank ==  '♝ '){
         House.list[self.house].respawn(1,self.home);
+      } else if(self.rank == '♜ '){
+        House.list[self.house].respawn(2,self.home);
+      } else if(self.rank == '♚ ' || self.rank == '♛ '){
+        House.list[self.house].respawn(3,self.home);
       }
     }
     self.toRemove = true;
@@ -303,7 +311,7 @@ Character = function(param){
     self.farming = false;
     self.building = false;
     self.fishing = false;
-    var dmg = self.dmg;
+    var dmg = self.damage;
     if(self.type == 'player'){
       dmg = self.gear.weapon.dmg;
     }
@@ -320,7 +328,7 @@ Character = function(param){
               var pLoc = getLoc(p.x,p.y);
               if(pLoc.toString() == dLoc.toString()){
                 if(allyCheck(self.id,p.id) < 1 || self.friendlyfire){
-                  Player.list[zones[zr][zc][n]].hp -= dmg;
+                  Player.list[zones[zr][zc][n]].hp -= dmg - p.fortitude;
                   Player.list[zones[zr][zc][n]].working = false;
                   Player.list[zones[zr][zc][n]].chopping = false;
                   Player.list[zones[zr][zc][n]].mining = false;
@@ -356,7 +364,7 @@ Character = function(param){
               var pLoc = getLoc(p.x,p.y);
               if(pLoc.toString() == uLoc.toString()){
                 if(allyCheck(self.id,p.id) < 1 || self.friendlyfire){
-                  Player.list[zones[zr][zc][n]].hp -= dmg;
+                  Player.list[zones[zr][zc][n]].hp -= dmg - p.fortitude;
                   Player.list[zones[zr][zc][n]].working = false;
                   Player.list[zones[zr][zc][n]].chopping = false;
                   Player.list[zones[zr][zc][n]].mining = false;
@@ -392,7 +400,7 @@ Character = function(param){
               var pLoc = getLoc(p.x,p.y);
               if(pLoc.toString() == lLoc.toString()){
                 if(allyCheck(self.id,p.id) < 1 || self.friendlyfire){
-                  Player.list[zones[zr][zc][n]].hp -= dmg;
+                  Player.list[zones[zr][zc][n]].hp -= dmg - p.fortitude;
                   Player.list[zones[zr][zc][n]].working = false;
                   Player.list[zones[zr][zc][n]].chopping = false;
                   Player.list[zones[zr][zc][n]].mining = false;
@@ -428,7 +436,7 @@ Character = function(param){
               var pLoc = getLoc(p.x,p.y);
               if(pLoc.toString() == rLoc.toString()){
                 if(allyCheck(self.id,p.id) < 1 || self.friendlyfire){
-                  Player.list[zones[zr][zc][n]].hp -= dmg;
+                  Player.list[zones[zr][zc][n]].hp -= dmg - p.fortitude;
                   Player.list[zones[zr][zc][n]].working = false;
                   Player.list[zones[zr][zc][n]].chopping = false;
                   Player.list[zones[zr][zc][n]].mining = false;
@@ -690,6 +698,48 @@ Character = function(param){
     }
   }
 
+  self.stealthCheck = function(p){
+    if(p.stealthed){
+      var loc = getLoc(self.x,self.y);
+      var pLoc = getLoc(p.x,p.y);
+      if(self.facing == 'up'){
+        var uLoc = [loc[0],loc[1]-1];
+        if(pLoc.toString() == uLoc.toString()){
+          Player.list[p.id].revealed = true;
+        }
+      } else if(self.facing == 'right'){
+        var rLoc = [loc[0]+1,loc[1]];
+        if(pLoc.toString() == rLoc.toString()){
+          Player.list[p.id].revealed = true;
+        }
+      } else if(self.facing == 'down'){
+        var dLoc = [loc[0],loc[1]+1];
+        if(pLoc.toString() == dLoc.toString()){
+          Player.list[p.id].revealed = true;
+        }
+      } else if(self.facing == 'left'){
+        var lLoc = [loc[0]-1,loc[1]];
+        if(pLoc.toString() == lLoc.toString()){
+          Player.list[p.id].revealed = true;
+        }
+      }
+    }
+  }
+
+  self.revealCheck = function(){
+    for(i in Light.list){
+      var light = Light.list[i];
+      if(self.z == light.z){
+        var d = self.getDistance({x:light.x,y:light.y});
+        if(d >= light.radius * 1.5){
+          self.revealed = true;
+          return;
+        }
+      }
+    }
+    self.revealed = false;
+  }
+
   self.checkAggro = function(){
     for(var i in self.zGrid){
       var zc = self.zGrid[i][0];
@@ -702,24 +752,36 @@ Character = function(param){
               x:p.x,
               y:p.y
             });
-            if(pDist < self.aggroRange && !p.stealthed){
-              if(!self.innaWoods && p.innaWoods){
-                continue;
-              } else {
-                if(allyCheck(self.id,p.id) < 0){
-                  self.combat.target = p.id;
-                  if(!p.action && !self.stealthed){
+            if(pDist <= self.aggroRange){ // in aggro range
+              var ally = allyCheck(self.id,p.id);
+              if(self.innaWoods == p.innaWoods || (self.innaWoods && !p.innaWoods)){ // both in woods, both out of woods or in woods and they are not
+                if(ally <= 0){ // is neutral or enemy
+                  self.stealthCheck(p);
+                  if(!Player.list[zones[zr][zc][n]].stealthed || Player.list[zones[zr][zc][n]].revealed){ // not stealthed or revealed
+                    if(ally == -1){ // is enemy
+                      self.combat.target = p.id;
+                      if(self.hp < (self.hpMax * 0.1) || self.class == 'SerfM' ||
+                      self.class == 'SerfF' || self.class == 'Deer' || self.class == 'Sheep'){
+                        self.action = 'flee';
+                      } else {
+                        self.lastLoc = {z:self.z,loc:getLoc(self.x,self.y)};
+                        self.action = 'combat';
+                        console.log(self.name + ' aggro @ ' + p.name);
+                      }
+                      if(!self.stealthed && !p.action){
+                        Player.list[zones[zr][zc][n]].combat.target = self.id;
+                        Player.list[zones[zr][zc][n]].action = 'combat';
+                      }
+                    } else {
+                      continue;
+                    }
+                  }
+                }
+              } else { // not in woods and they are
+                if(ally == -1){ // is enemy
+                  if((!self.stealthed || self.revealed) && p.type == 'npc' && !p.action){
                     Player.list[zones[zr][zc][n]].combat.target = self.id;
                     Player.list[zones[zr][zc][n]].action = 'combat';
-                  }
-                  if(self.hp < (self.hpMax * 0.1) || self.class == 'Deer' || self.class == 'SerfM' || self.class == 'SerfF'){
-                    self.action = 'flee';
-                  } else {
-                    if(!self.action){
-                      self.lastLoc = {z:self.z,loc:getLoc(self.x,self.y)};
-                    }
-                    self.action = 'combat';
-                    console.log(self.name + ' aggro @ ' + p.name);
                   }
                 }
               }
@@ -1158,18 +1220,22 @@ Character = function(param){
 
   self.update = function(){
     var loc = getLoc(self.x,self.y);
+    self.zoneCheck();
+
+    if(self.stealthed){
+      self.revealCheck();
+    }
+
     if(self.torchBearer){
       if(!self.hasTorch){
-        if((tempus == 'VIII.p' || tempus == 'IX.p' ||
+        if((self.z == 0 && (tempus == 'VIII.p' || tempus == 'IX.p' ||
         tempus == 'X.p' || tempus == 'XI.p' || tempus == 'XII.a' ||
         tempus == 'I.a' || tempus == 'II.a' || tempus == 'III.a' ||
-        tempus == 'IV.a') || self.z == -1 || self.z == -2){
+        tempus == 'IV.a')) || self.z == -1 || self.z == -2){
           self.lightTorch(Math.random());
         }
       }
     }
-
-    self.zoneCheck();
 
     if(self.idleTime > 0){
       self.idleTime--;
@@ -1420,6 +1486,8 @@ Character = function(param){
             y:target.y
           })
           if(dist > self.aggroRange * 2){
+            console.log(self.name + ' fled from ' + target.name);
+            self.combat.target = null;
             self.action = null;
           } else {
             var tLoc = getLoc(target.x,target.y);
@@ -1429,7 +1497,6 @@ Character = function(param){
       }
       // PATROL
     } else if(self.mode == 'patrol'){
-      var loc = getLoc(self.x,self.y);
       if(!self.patrol.bList){
         var list = [];
         for(var i in Building.list){
@@ -1500,7 +1567,6 @@ Character = function(param){
       // ESCORT
     } else if(self.mode == 'escort'){
       var target = Player.list[self.escort.target];
-      var loc = getLoc(self.x,self.y);
       var tDist = getDistance({x:target.x,y:target.y});
       if(!self.action){
         if(!self.path){
@@ -1588,7 +1654,6 @@ Character = function(param){
       }
       // SCOUT
     } else if(self.mode == 'scout'){
-      var loc = getLoc(self.x,self.y);
       var dest = self.scout.target;
       if(!self.scout.enemyBuilding){
         //
@@ -1662,7 +1727,6 @@ Character = function(param){
       }
       // RAID
     } else if(self.mode == 'raid'){
-      var loc = getLoc(self.x,self.y);
       var dest = self.raid.target;
       var dCoords = getCoords(dest[0],dest[1]);
       var dDist = self.getDistance(dCoords[0],dCoords[1]);
@@ -1938,7 +2002,7 @@ Character = function(param){
       facing:self.facing,
       stealthed:self.stealthed,
       ranged:self.ranged,
-      visible:self.visible,
+      revealed:self.revealed,
       hp:self.hp,
       hpMax:self.hpMax,
       spirit:self.spirit,
@@ -1964,7 +2028,7 @@ Character = function(param){
       facing:self.facing,
       stealthed:self.stealthed,
       ranged:self.ranged,
-      visible:self.visible,
+      revealed:self.revealed,
       pressingUp:self.pressingUp,
       pressingDown:self.pressingDown,
       pressingLeft:self.pressingLeft,
@@ -2006,14 +2070,14 @@ Boar = function(param){
   var self = Character(param);
   self.class = 'Boar';
   self.baseSpd = 5;
-  self.dmg = 12;
+  self.damage = 12;
 }
 
 Wolf = function(param){
   var self = Character(param);
   self.class = 'Wolf';
   self.baseSpd = 6;
-  self.dmg = 10;
+  self.damage = 10;
 }
 
 Falcon = function(param){
@@ -2204,7 +2268,7 @@ Footsoldier = function(param){
   self.class = 'Footsoldier';
   self.spriteSize = tileSize*1.5;
   self.baseSpd = 3.5;
-  self.dmg = 10;
+  self.damage = 10;
 }
 
 Skirmisher = function(param){
@@ -2213,7 +2277,7 @@ Skirmisher = function(param){
   self.class = 'Skirmisher';
   self.spriteSize = tileSize*1.5;
   self.baseSpd = 3.5;
-  self.dmg = 15;
+  self.damage = 15;
 }
 
 Cavalier = function(param){
@@ -2224,7 +2288,7 @@ Cavalier = function(param){
   self.spriteSize = tileSize*1.5;
   self.mounted = true;
   self.baseSpd = 6.5;
-  self.dmg = 20;
+  self.damage = 20;
 }
 
 General = function(param){
@@ -2235,7 +2299,7 @@ General = function(param){
   self.spriteSize = tileSize*2;
   self.mounted = true;
   self.baseSpd = 6.5;
-  self.dmg = 25;
+  self.damage = 25;
 }
 
 Warden = function(param){
@@ -2248,7 +2312,7 @@ Warden = function(param){
   self.ranged = true;
   self.baseSpd = 7;
   self.torchBearer = true;
-  self.dmg = 20;
+  self.damage = 20;
 }
 
 SwissGuard = function(param){
@@ -2256,7 +2320,7 @@ SwissGuard = function(param){
   self.name = 'Swiss Guard';
   self.class = 'SwissGuard';
   self.spriteSize = tileSize*2;
-  self.dmg = 15;
+  self.damage = 15;
 }
 
 Hospitaller = function(param){
@@ -2266,7 +2330,7 @@ Hospitaller = function(param){
   self.rank = '♞ ';
   self.spriteSize = tileSize*1.5;
   self.baseSpd = 3;
-  self.dmg = 20;
+  self.damage = 20;
 }
 
 ImperialKnight = function(param){
@@ -2277,7 +2341,7 @@ ImperialKnight = function(param){
   self.mounted = true;
   self.baseSpd = 6;
   self.spriteSize = tileSize*3;
-  self.dmg = 25;
+  self.damage = 25;
 }
 
 Trebuchet = function(param){
@@ -2285,7 +2349,7 @@ Trebuchet = function(param){
   self.class = 'Trebuchet';
   self.spriteSize = tileSize*10;
   self.ranged = true;
-  self.dmg = 100;
+  self.damage = 100;
 }
 
 BombardCannon = function(param){
@@ -2293,7 +2357,7 @@ BombardCannon = function(param){
   self.class = 'BombardCannon';
   self.baseSpd = 2;
   self.ranged = true;
-  self.dmg = 250;
+  self.damage = 250;
 }
 
 TradeCart = function(param){
@@ -2328,7 +2392,7 @@ Longship = function(param){
   self.rank = '♞ ';
   self.ranged = true;
   self.torchBearer = true;
-  self.dmg = 15;
+  self.damage = 15;
 }
 
 Caravel = function(param){
@@ -2344,7 +2408,7 @@ Galleon = function(param){
   self.rank = '♜ ';
   self.ranged = true;
   self.torchBearer = true;
-  self.dmg = 150;
+  self.damage = 150;
 }
 
 // ENEMIES
@@ -2355,7 +2419,7 @@ Brother = function(param){
   self.class = 'Brother';
   self.spriteSize = tileSize*1.5;
   self.baseSpd = 3.5;
-  self.dmg = 5;
+  self.damage = 5;
 }
 
 Oathkeeper = function(param){
@@ -2373,7 +2437,7 @@ DarkEntity = function(param){
   var self = Character(param);
   self.class = 'DarkEntity';
   self.spriteSize = tileSize*1.5;
-  self.dmg = 1;
+  self.damage = 1;
 }
 
 Apollyon = function(param){
@@ -2389,7 +2453,7 @@ Goth = function(param){
   self.name = 'Goth';
   self.class = 'Goth';
   self.spriteSize = tileSize*1.5;
-  self.dmg = 10;
+  self.damage = 10;
 }
 
 Cataphract = function(param){
@@ -2400,7 +2464,7 @@ Cataphract = function(param){
   self.mounted = true;
   self.spriteSize = tileSize*3;
   self.baseSpd = 6;
-  self.dmg = 20;
+  self.damage = 20;
 }
 
 Acolyte = function(param){
@@ -2410,7 +2474,7 @@ Acolyte = function(param){
   self.spriteSize = tileSize*1.5;
   self.baseSpd = 3.5;
   self.torchBearer = true;
-  self.dmg = 5;
+  self.damage = 5;
 }
 
 HighPriestess = function(param){
@@ -2439,7 +2503,7 @@ NorseShip = function(param){
   self.class = 'NorseShip';
   self.ranged = true;
   self.torchBearer = true;
-  self.dmg = 15;
+  self.damage = 15;
 }
 
 NorseSword = function(param){
@@ -2447,7 +2511,7 @@ NorseSword = function(param){
   self.name = 'Norseman';
   self.class = 'NorseSword';
   self.spriteSize = tileSize*1.5;
-  self.dmg = 15;
+  self.damage = 15;
 }
 
 NorseSpear = function(param){
@@ -2455,7 +2519,7 @@ NorseSpear = function(param){
   self.name = 'Norseman';
   self.class = 'NorseSpear';
   self.spriteSize = tileSize*1.5;
-  self.dmg = 15;
+  self.damage = 15;
 }
 
 Huskarl = function(param){
@@ -2465,14 +2529,14 @@ Huskarl = function(param){
   self.rank = '♞ ';
   self.spriteSize = tileSize*1.5;
   self.baseSpd = 3;
-  self.dmg = 20;
+  self.damage = 20;
 }
 
 FrankSword = function(param){
   var self = Character(param);
   self.name = 'Frank';
   self.class = 'FrankSword';
-  self.dmg = 10;
+  self.damage = 10;
 }
 
 FrankSpear = function(param){
@@ -2480,7 +2544,7 @@ FrankSpear = function(param){
   self.name = 'Frank';
   self.class = 'FrankSpear';
   self.spriteSize = tileSize*2;
-  self.dmg = 10;
+  self.damage = 10;
 }
 
 FrankBow = function(param){
@@ -2489,7 +2553,7 @@ FrankBow = function(param){
   self.class = 'FrankBow';
   self.spriteSize = tileSize*1.5;
   self.ranged = true;
-  self.dmg = 5;
+  self.damage = 5;
 }
 
 Mangonel = function(param){
@@ -2499,7 +2563,7 @@ Mangonel = function(param){
   self.baseSpd = 2;
   self.spriteSize = tileSize*2;
   self.ranged = true;
-  self.dmg = 50;
+  self.damage = 50;
 }
 
 Carolingian = function(param){
@@ -2510,7 +2574,7 @@ Carolingian = function(param){
   self.mounted = true;
   self.baseSpd = 6;
   self.spriteSize = tileSize*3;
-  self.dmg = 20;
+  self.damage = 20;
 }
 
 Malvoisin = function(param){
@@ -2520,7 +2584,7 @@ Malvoisin = function(param){
   self.rank = '♜ ';
   self.spriteSize = tileSize*12;
   self.ranged = true;
-  self.dmg = 150;
+  self.damage = 150;
 }
 
 Charlemagne = function(param){
@@ -2531,7 +2595,7 @@ Charlemagne = function(param){
   self.mounted = true;
   self.baseSpeed = 6;
   self.spriteSize = tileSize*3;
-  self.dmg = 25;
+  self.damage = 25;
 }
 
 CeltAxe = function(param){
@@ -2539,7 +2603,7 @@ CeltAxe = function(param){
   self.name = 'Celt';
   self.class = 'CeltAxe';
   self.spriteSize = tileSize*1.5;
-  self.dmg = 10;
+  self.damage = 10;
 }
 
 CeltSpear = function(param){
@@ -2547,7 +2611,7 @@ CeltSpear = function(param){
   self.name = 'Celt';
   self.class = 'CeltSpear';
   self.spriteSize = tileSize*2;
-  self.dmg = 10;
+  self.damage = 10;
 }
 
 Headhunter = function(param){
@@ -2559,7 +2623,7 @@ Headhunter = function(param){
   self.mounted = true;
   self.spriteSize = tileSize*2;
   self.torchBearer = true;
-  self.dmg = 20;
+  self.damage = 20;
 }
 
 Druid = function(param){
@@ -2582,7 +2646,7 @@ Morrigan = function(param){
   self.baseSpd = 6;
   self.spriteSize = tileSize*2;
   self.torchBearer = true;
-  self.dmg = 25;
+  self.damage = 25;
 }
 
 Gwenllian = function(param){
@@ -2598,7 +2662,7 @@ TeutonPike = function(param){
   self.name = 'Teuton';
   self.class = 'TeutonPike';
   self.spriteSize = tileSize*2;
-  self.dmg = 15;
+  self.damage = 15;
 }
 
 TeutonBow = function(param){
@@ -2607,7 +2671,7 @@ TeutonBow = function(param){
   self.class = 'TeutonBow';
   self.spriteSize = tileSize*1.5;
   self.ranged = true;
-  self.dmg = 10;
+  self.damage = 10;
 }
 
 TeutonicKnight = function(param){
@@ -2618,7 +2682,7 @@ TeutonicKnight = function(param){
   self.mounted = true;
   self.baseSpd = 6;
   self.spriteSize = tileSize*3;
-  self.dmg = 25;
+  self.damage = 25;
 }
 
 Prior = function(param){
@@ -2638,7 +2702,7 @@ Duke = function(param){
   self.spriteSize = tileSize*1.5;
   self.cleric = true;
   self.baseSpd = 3.5;
-  self.torchBearer = true;
+  self.torchBearer = true;s
 }
 
 Hochmeister = function(param){
@@ -2649,7 +2713,7 @@ Hochmeister = function(param){
   self.spriteSize = tileSize*1.5;
   self.baseSpd = 3;
   self.torchBearer = true;
-  self.dmg = 25;
+  self.damage = 25;
 }
 
 Lothair = function(param){
@@ -2664,7 +2728,8 @@ Trapper = function(param){
   self.name = 'Trapper';
   self.class = 'Trapper';
   self.spriteSize = tileSize*1.5;
-  self.dmg = 10;
+  self.damage = 10;
+  self.stealthed = true;
 }
 
 Outlaw = function(param){
@@ -2674,7 +2739,7 @@ Outlaw = function(param){
   self.spriteSize = tileSize*1.5;
   self.ranged = true;
   self.torchBearer = true;
-  self.dmg = 5;
+  self.damage = 5;
 }
 
 Poacher = function(param){
@@ -2687,7 +2752,7 @@ Poacher = function(param){
   self.spriteSize = tileSize*2;
   self.ranged = true;
   self.torchBearer = true;
-  self.dmg = 10;
+  self.damage = 10;
 }
 
 Cutthroat = function(param){
@@ -2695,7 +2760,8 @@ Cutthroat = function(param){
   self.name = 'Cutthroat';
   self.class = 'Cutthroat';
   self.spriteSize = tileSize*1.5;
-  self.dmg = 10;
+  self.damage = 10;
+  self.stealthed = true;
 }
 
 Strongman = function(param){
@@ -2705,7 +2771,7 @@ Strongman = function(param){
   self.spriteSize = tileSize*2;
   self.baseSpd = 3.5;
   self.torchBearer = true;
-  self.dmg = 15;
+  self.damage = 15;
 }
 
 Marauder = function(param){
@@ -2717,7 +2783,7 @@ Marauder = function(param){
   self.baseSpd = 6;
   self.spriteSize = tileSize*3;
   self.torchBearer = true;
-  self.dmg = 20;
+  self.damage = 20;
 }
 
 Condottiere = function(param){
@@ -2730,7 +2796,7 @@ Condottiere = function(param){
   self.spriteSize = tileSize*2;
   self.ranged = true;
   self.torchBearer = true;
-  self.dmg = 25;
+  self.damage = 25;
 }
 
 // ARROWS
@@ -2764,7 +2830,7 @@ Arrow = function(param){
           var p = Player.list[zones[zr][zc][n]];
           if(p){
             if(self.getDistance(p) < 32 && self.z == p.z && self.parent != p.id){
-              Player.list[zones[zr][zc][n]].hp -= Player.list[parent.id].dmg;
+              Player.list[zones[zr][zc][n]].hp -= Player.list[self.parent].dmg - p.fortitude;
               Player.list[zones[zr][zc][n]].working = false;
               Player.list[zones[zr][zc][n]].chopping = false;
               Player.list[zones[zr][zc][n]].mining = false;

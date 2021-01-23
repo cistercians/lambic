@@ -204,7 +204,8 @@ var cave_bgm = [
   Bgm.coraige,
   Bgm.judici,
   Bgm.aucells,
-  Bgm.plainte
+  Bgm.plainte,
+  Bgm.andalusi
 ];
 
 var dungeons_bgm = [

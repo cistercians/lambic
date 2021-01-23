@@ -1168,9 +1168,12 @@ Player = function(param){
           Player.list[report.id].action = null;
         }
       }
+      console.log(Player.list[report.id].name + ' has killed ' + self.name);
+    } else {
+      console.log(self.name + ' has ' + report.cause);
     }
-    self.hp = self.hpMax;
-    var spawn = randomSpawnO();
+    self.hp = self.hpMax; // ALPHA replace this
+    var spawn = randomSpawnO(); // ALPHA replace this
     self.x = spawn[0]; // ALPHA replace this
     self.y = spawn[1]; // ALPHA replace this
   }
@@ -1187,6 +1190,10 @@ Player = function(param){
   self.update = function(){
     self.updateSpd();
     self.zoneCheck();
+
+    if(self.stealthed){
+      self.revealCheck();
+    }
 
     if(self.actionCooldown > 0){
       self.actionCooldown--;
@@ -1205,7 +1212,7 @@ Player = function(param){
     }
 
     if(self.pressingAttack && self.gear.weapon && self.attackCooldown == 0 && self.z !== -3){
-      if(self.gear.weapon.type == 'bow'){
+      if(self.gear.weapon.type == 'bow' && self.inventory.arrows > 0){
         self.shootArrow(self.mouseAngle);
         self.attackCooldown += self.gear.weapon.attackrate/self.dexterity;
       } else {

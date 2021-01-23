@@ -786,8 +786,6 @@ EvalCmd = function(data){
             getTile(0,n[0],n[1]) !== 16 &&
             getTile(0,n[0],n[1]) !== 17 &&
             getTile(0,n[0],n[1]) !== 19 &&
-            getTile(0,n[0],n[1]) !== 20 &&
-            getTile(0,n[0],n[1]) !== 20.5 &&
             getTile(5,n[0],n[1]) == 0){
               count++;
             }

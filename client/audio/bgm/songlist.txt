@@ -104,6 +104,7 @@ Coraige
 Judici
 Aucells
 Plainte
+Andalusi
 
 GARRISON:
 Bourguignon
