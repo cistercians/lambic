@@ -1744,7 +1744,6 @@ Character = function(param){
   }
 
   self.getPath = function(z,c,r){
-    console.log(self.name + ' getting path to ' + [c,r]);
     var start = getLoc(self.x,self.y);
     if(z == self.z){
       self.pathEnd = null;

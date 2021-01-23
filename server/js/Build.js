@@ -1,4 +1,4 @@
-var build = function(id){
+Build = function(id){
   var p = Player.list[id];
   var loc = getLoc(p.x,p.y);
   Player.list[id].working = true;
@@ -92,17 +92,21 @@ var build = function(id){
           Player.list[Building.list[b].owner].keys.push(b);
         } else if(Building.list[b].type == 'fort'){
           matrixChange(0,plot[0][0],plot[0][1],1);
+          tileChange(0,plot[0][0],plot[0][1],13);
           tileChange(3,plot[0][0],plot[0][1],'fort');
         } else if(Building.list[b].type == 'wall'){
           matrixChange(0,plot[0][0],plot[0][1],1);
+          tileChange(0,plot[0][0],plot[0][1],15);
           tileChange(3,plot[0][0],plot[0][1],'wall');
         } else if(Building.list[b].type == 'outpost'){
           matrixChange(0,plot[0][0],plot[0][1],1);
+          tileChange(0,plot[0][0],plot[0][1],13);
           tileChange(3,plot[0][0],plot[0][1],'outpost0');
           tileChange(5,top[0][0],top[0][1],'outpost1');
         } else if(Building.list[b].type == 'guardtower'){
           for(var i in plot){
             matrixChange(0,plot[i][0],plot[i][1],1);
+            tileChange(0,plot[i][0],plot[i][1],15);
             tileChange(3,plot[i][0],plot[i][1],String('gtower' + i));
           }
           tileChange(5,top[0][0],top[0][1],'gtower4');
@@ -388,8 +392,7 @@ var build = function(id){
             kingdom:Building.list[b].kingdom,
             home:{
               z:1,
-              x:sp1[0],
-              y:sp1[1]
+              loc:[plot[16][0],plot[16][1]]
             }
           });
         } else if(Building.list[b].type == 'monastery'){
@@ -475,8 +478,7 @@ var build = function(id){
             kingdom:Building.list[b].kingdom,
             home:{
               z:1,
-              x:sp1[0],
-              y:sp1[1]
+              loc:[plot[13][0],plot[13][1]]
             }
           });
           Monk({
@@ -488,8 +490,7 @@ var build = function(id){
             kingdom:Building.list[b].kingdom,
             home:{
               z:1,
-              x:sp2[0],
-              y:sp2[1]
+              loc:[plot[8][0],plot[8][1]]
             }
           });
           Monk({
@@ -501,8 +502,7 @@ var build = function(id){
             kingdom:Building.list[b].kingdom,
             home:{
               z:1,
-              x:sp3[0],
-              y:sp3[1]
+              loc:[plot[10][0],plot[10][1]]
             }
           });
         } else if(Building.list[b].type == 'market'){
@@ -726,8 +726,7 @@ var build = function(id){
             kingdom:Building.list[b].kingdom,
             home:{
               z:0,
-              x:sp[0],
-              y:sp[1]
+              loc:[plot[1][0],plot[1][1]]
             }
           });
         } else if(Building.list[b].type == 'garrison'){
@@ -1230,5 +1229,5 @@ var build = function(id){
         mapEdit();
       }
     }
-  },10000/self.strength);
+  },10000/p.strength);
 }
