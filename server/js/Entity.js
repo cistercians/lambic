@@ -452,7 +452,7 @@ Character = function(param){
         }
       }
     }
-    self.attackCooldown += self.attackrate/self.dexterity;
+    self.attackCooldown = self.attackrate/self.dexterity;
     setTimeout(function(){
       self.pressingAttack = false;
     },250);
@@ -467,6 +467,7 @@ Character = function(param){
     self.farming = false;
     self.building = false;
     self.fishing = false;
+    // add variable inaccuracy to angle?
     Arrow({
       parent:self.id,
       angle:angle,
@@ -474,7 +475,7 @@ Character = function(param){
       y:self.y,
       z:self.z
     });
-    self.attackCooldown += self.attackRate/self.dexterity;
+    self.attackCooldown = (self.attackrate*2)/self.dexterity;
     setTimeout(function(){
       self.pressingAttack = false;
     },250);
@@ -501,11 +502,11 @@ Character = function(param){
 
   self.reposition = function(loc,tLoc){
     console.log(self.name + ' repositioning...');
-    var dir = self.calcDir(loc,tLoc,true);
+    var dir = self.calcDir(loc,tLoc);
     if(dir != self.lastDir){
       self.lastDir = dir;
     }
-    if(dir == 'dr'){
+    if(dir == 'ul'){
       var d = [loc[0],loc[1]+1];
       if(isWalkable(self.z,d[0],d[1])){
         self.path = [d];
@@ -515,7 +516,7 @@ Character = function(param){
           self.path = [r];
         }
       }
-    } else if(dir == 'rd'){
+    } else if(dir == 'lu'){
       var r = [loc[0]+1,loc[1]];
       if(isWalkable(self.z,r[0],r[1])){
         self.path = [r];
@@ -525,12 +526,12 @@ Character = function(param){
           self.path = [d];
         }
       }
-    } else if(dir == 'r'){
+    } else if(dir == 'l'){
       var r = [loc[0]+1,loc[1]];
       if(isWalkable(self.z,r[0],r[1])){
         self.path = [r];
       } else {
-        if(self.lastDir == 'ur' || self.lastDir == 'ru'){
+        if(self.lastDir == 'dl' || self.lastDir == 'ld'){
           var u = [loc[0],loc[1]-1];
           if(isWalkable(self.z,u[0],u[1])){
             self.path = [u];
@@ -542,12 +543,12 @@ Character = function(param){
           }
         }
       }
-    } else if(dir == 'd'){
+    } else if(dir == 'u'){
       var d = [loc[0],loc[1]+1];
       if(isWalkable(self.z,d[0],d[1])){
         self.path = [d];
       } else {
-        if(self.lastDir == 'dr' || self.lastDir == 'rd'){
+        if(self.lastDir == 'ul' || self.lastDir == 'lu'){
           var r = [loc[0]+1,loc[1]];
           if(isWalkable(self.z,r[0],r[1])){
             self.path = [r];
@@ -559,7 +560,7 @@ Character = function(param){
           }
         }
       }
-    } else if(dir == 'ru'){
+    } else if(dir == 'ld'){
       var r = [loc[0]+1,loc[1]];
       if(isWalkable(self.z,r[0],r[1])){
         self.path = [r];
@@ -569,7 +570,7 @@ Character = function(param){
           self.path = [u];
         }
       }
-    } else if(dir == 'ur'){
+    } else if(dir == 'dl'){
       var u = [loc[0],loc[1]-1];
       if(isWalkable(self.z,u[0],u[1])){
         self.path = [u];
@@ -579,12 +580,12 @@ Character = function(param){
           self.path = [r];
         }
       }
-    } else if(dir == 'u'){
+    } else if(dir == 'd'){
       var u = [loc[0],loc[1]-1];
       if(isWalkable(self.z,u[0],u[1])){
         self.path = [u];
       } else {
-        if(self.lastDir == 'ur' || self.lastDir == 'ru'){
+        if(self.lastDir == 'dl' || self.lastDir == 'ld'){
           var r = [loc[0]+1,loc[1]];
           if(isWalkable(self.z,r[0],r[1])){
             self.path = [r];
@@ -596,7 +597,7 @@ Character = function(param){
           }
         }
       }
-    } else if(dir == 'lu'){
+    } else if(dir == 'rd'){
       var l = [loc[0]-1,loc[1]];
       if(isWalkable(self.z,l[0],l[1])){
         self.path = [l];
@@ -606,7 +607,7 @@ Character = function(param){
           self.path = [u];
         }
       }
-    } else if(dir == 'ul'){
+    } else if(dir == 'dr'){
       var u = [loc[0],loc[1]-1];
       if(isWalkable(self.z,u[0],u[1])){
         self.path = [u];
@@ -616,7 +617,7 @@ Character = function(param){
           self.path = [l];
         }
       }
-    } else if(dir == 'ld'){
+    } else if(dir == 'ru'){
       var l = [loc[0]-1,loc[1]];
       if(isWalkable(self.z,l[0],l[1])){
         self.path = [l];
@@ -626,7 +627,7 @@ Character = function(param){
           self.path = [d];
         }
       }
-    } else if(dir == 'dl'){
+    } else if(dir == 'ur'){
       var d = [loc[0],loc[1]+1];
       if(isWalkable(self.z,d[0],d[1])){
         self.path = [d];
@@ -636,12 +637,12 @@ Character = function(param){
           self.path = [l];
         }
       }
-    } else if(dir == 'l'){
+    } else if(dir == 'r'){
       var l = [loc[0]-1,loc[1]];
       if(isWalkable(self.z,l[0],l[1])){
         self.path = [l];
       } else {
-        if(self.lastDir == 'ul' || self.lastDir == 'lu'){
+        if(self.lastDir == 'dr' || self.lastDir == 'rd'){
           var u = [loc[0],loc[1]-1];
           if(isWalkable(self.z,u[0],u[1])){
             self.path = [u];
@@ -657,7 +658,9 @@ Character = function(param){
   }
 
   self.getAngle = function(x,y){
-    var angle = Math.atan2(y,x) / Math.PI * 180;
+    var dx = x - self.x;
+    var dy = y - self.y;
+    var angle = Math.atan2(dy,dx) / Math.PI * 180;
     return angle;
   }
 
@@ -727,7 +730,7 @@ Character = function(param){
     }
   }
 
-  self.calcDir = function(loc,tLoc,rev=false){
+  self.calcDir = function(loc,tLoc){
     var c = tLoc[0] - loc[0];
     var r = tLoc[1] - loc[1];
     if(c == 0 && r == 0){
@@ -735,107 +738,51 @@ Character = function(param){
     } else if(c >= 0 && r >= 0){ // down/right
       if(c >= r){
         if(r > 0){
-          if(!rev){
-            return 'rd';
-          } else {
-            return 'lu';
-          }
+          return 'rd';
         } else {
-          if(!rev){
-            return 'r';
-          } else {
-            return 'l';
-          }
+          return 'r';
         }
       } else {
         if(c > 0){
-          if(!rev){
-            return 'dr';
-          } else {
-            return 'ul';
-          }
+          return 'dr';
         } else {
-          if(!rev){
-            return 'd';
-          } else {
-            return 'u';
-          }
+          return 'd';
         }
       }
     } else if(c >= 0 && r < 0){ // up/right
       r *= -1;
       if(c >= r){
         if(r > 0){
-          if(!rev){
-            return 'ru';
-          } else {
-            return 'ld';
-          }
+          return 'ru';
         } else {
-          if(!rev){
-            return 'r';
-          } else {
-            return 'l';
-          }
+          return 'r';
         }
       } else {
         if(c > 0){
-          if(!rev){
-            return 'ur';
-          } else {
-            return 'dl';
-          }
+          return 'ur';
         } else {
-          if(!rev){
-            return 'u';
-          } else {
-            return 'd';
-          }
+          return 'u';
         }
       }
     } else if(c < 0 && r < 0){ // up/left
       if(c <= r){
-        if(!rev){
-          return 'lu';
-        } else {
-          return 'rd';
-        }
+        return 'lu';
       } else {
-        if(!rev){
-          return 'ul';
-        } else {
-          return 'dr';
-        }
+        return 'ul';
       }
     } else if(c < 0 && r >= 0){ // down/left
       c *= -1;
       if(c >= r){
         if(r > 0){
-          if(!rev){
-            return 'ld';
-          } else {
-            return 'ru';
-          }
+          return 'ld';
         } else {
-          if(!rev){
-            return 'l';
-          } else {
-            return 'r';
-          }
+          return 'l';
         }
       } else {
         if(c > 0){
-          if(!rev){
-            return 'dl';
-          } else {
-            return 'ur'
-          }
+          return 'dl';
         } else {
-          if(!rev){
-            return 'd';
-          } else {
-            return 'u';
-          }
+          return 'd';
         }
       }
     }
@@ -1210,7 +1157,7 @@ Character = function(param){
   }
 
   self.update = function(){
-    var loc = getLoc(self.x, self.y);
+    var loc = getLoc(self.x,self.y);
     if(self.torchBearer){
       if(!self.hasTorch){
         if((tempus == 'VIII.p' || tempus == 'IX.p' ||
@@ -1389,7 +1336,7 @@ Character = function(param){
           y:cHome[1]
         });
         if(hDist > self.wanderRange){
-          self.action == 'return';
+          self.action = 'return';
         } else if(self.idleTime == 0){
           if(!self.path){
             var col = loc[0];
@@ -1417,16 +1364,15 @@ Character = function(param){
               x:target.x,
               y:target.y
             })
-            if(self.attackCooldown > 0){
-              if(dist < self.aggroRange){
-                self.reposition(loc,tLoc);
-              }
+            if(dist < self.aggroRange/2){
+              self.reposition(loc,tLoc);
             } else {
-              if(dist >= self.aggroRange){
+              if(self.attackCooldown <= 0){
                 var angle = self.getAngle(target.x,target.y);
                 self.shootArrow(angle);
-              } else {
-                self.reposition(loc,tLoc);
+              }
+              if(dist > self.aggroRange){
+                self.follow(target);
               }
             }
           } else {
@@ -1898,6 +1844,18 @@ Character = function(param){
     }
   }
 
+  self.orient = function(dir){
+    if(dir == 'ul' || dir == 'u' || dir == 'ur'){
+      self.facing = 'up';
+    } else if(dir == 'ru' || dir == 'r' || dir == 'rd'){
+      self.facing = 'right';
+    } else if(dir == 'dl' || dir == 'd' || dir == 'dr'){
+      self.facing = 'down';
+    } else if(dir == 'lu' || dir == 'l' || dir == 'ld'){
+      self.facing = 'left';
+    }
+  }
+
   self.updatePosition = function(){
     if(self.path){
       var len = self.path.length;
@@ -1911,20 +1869,36 @@ Character = function(param){
         if(diffX >= self.maxSpd){
           self.x += self.maxSpd;
           self.pressingRight = true;
-          self.facing = 'right';
+          if(self.action == 'combat'){
+            self.orient(self.lastDir);
+          } else {
+            self.facing = 'right';
+          }
         } else if(diffX <= (0-self.maxSpd)){
           self.x -= self.maxSpd;
           self.pressingLeft = true;
-          self.facing = 'left';
+          if(self.action == 'combat'){
+            self.orient(self.lastDir);
+          } else {
+            self.facing = 'left';
+          }
         }
         if(diffY >= self.maxSpd){
           self.y += self.maxSpd;
           self.pressingDown = true;
-          self.facing = 'down';
+          if(self.action == 'combat'){
+            self.orient(self.lastDir);
+          } else {
+            self.facing = 'down';
+          }
         } else if(diffY <= (0-self.maxSpd)){
           self.y -= self.maxSpd;
           self.pressingUp = true;
-          self.facing = 'up';
+          if(self.action == 'combat'){
+            self.orient(self.lastDir);
+          } else {
+            self.facing = 'up';
+          }
         }
         if((diffX < self.maxSpd && diffX > (0-self.maxSpd)) && (diffY < self.maxSpd && diffY > (0-self.maxSpd))){
           self.pressingRight = false;
@@ -2033,12 +2007,14 @@ Boar = function(param){
   var self = Character(param);
   self.class = 'Boar';
   self.baseSpd = 5;
+  self.dmg = 12;
 }
 
 Wolf = function(param){
   var self = Character(param);
   self.class = 'Wolf';
   self.baseSpd = 6;
+  self.dmg = 10;
 }
 
 Falcon = function(param){
@@ -2229,6 +2205,7 @@ Footsoldier = function(param){
   self.class = 'Footsoldier';
   self.spriteSize = tileSize*1.5;
   self.baseSpd = 3.5;
+  self.dmg = 10;
 }
 
 Skirmisher = function(param){
@@ -2237,6 +2214,7 @@ Skirmisher = function(param){
   self.class = 'Skirmisher';
   self.spriteSize = tileSize*1.5;
   self.baseSpd = 3.5;
+  self.dmg = 15;
 }
 
 Cavalier = function(param){
@@ -2247,6 +2225,7 @@ Cavalier = function(param){
   self.spriteSize = tileSize*1.5;
   self.mounted = true;
   self.baseSpd = 6.5;
+  self.dmg = 20;
 }
 
 General = function(param){
@@ -2257,6 +2236,7 @@ General = function(param){
   self.spriteSize = tileSize*2;
   self.mounted = true;
   self.baseSpd = 6.5;
+  self.dmg = 25;
 }
 
 Warden = function(param){
@@ -2269,6 +2249,7 @@ Warden = function(param){
   self.ranged = true;
   self.baseSpd = 7;
   self.torchBearer = true;
+  self.dmg = 20;
 }
 
 SwissGuard = function(param){
@@ -2276,6 +2257,7 @@ SwissGuard = function(param){
   self.name = 'Swiss Guard';
   self.class = 'SwissGuard';
   self.spriteSize = tileSize*2;
+  self.dmg = 15;
 }
 
 Hospitaller = function(param){
@@ -2285,6 +2267,7 @@ Hospitaller = function(param){
   self.rank = '♞ ';
   self.spriteSize = tileSize*1.5;
   self.baseSpd = 3;
+  self.dmg = 20;
 }
 
 ImperialKnight = function(param){
@@ -2295,6 +2278,7 @@ ImperialKnight = function(param){
   self.mounted = true;
   self.baseSpd = 6;
   self.spriteSize = tileSize*3;
+  self.dmg = 25;
 }
 
 Trebuchet = function(param){
@@ -2302,6 +2286,7 @@ Trebuchet = function(param){
   self.class = 'Trebuchet';
   self.spriteSize = tileSize*10;
   self.ranged = true;
+  self.dmg = 100;
 }
 
 BombardCannon = function(param){
@@ -2309,6 +2294,7 @@ BombardCannon = function(param){
   self.class = 'BombardCannon';
   self.baseSpd = 2;
   self.ranged = true;
+  self.dmg = 250;
 }
 
 TradeCart = function(param){
@@ -2343,6 +2329,7 @@ Longship = function(param){
   self.rank = '♞ ';
   self.ranged = true;
   self.torchBearer = true;
+  self.dmg = 15;
 }
 
 Caravel = function(param){
@@ -2358,6 +2345,7 @@ Galleon = function(param){
   self.rank = '♜ ';
   self.ranged = true;
   self.torchBearer = true;
+  self.dmg = 150;
 }
 
 // ENEMIES
@@ -2368,6 +2356,7 @@ Brother = function(param){
   self.class = 'Brother';
   self.spriteSize = tileSize*1.5;
   self.baseSpd = 3.5;
+  self.dmg = 5;
 }
 
 Oathkeeper = function(param){
@@ -2385,6 +2374,7 @@ DarkEntity = function(param){
   var self = Character(param);
   self.class = 'DarkEntity';
   self.spriteSize = tileSize*1.5;
+  self.dmg = 1;
 }
 
 Apollyon = function(param){
@@ -2400,6 +2390,7 @@ Goth = function(param){
   self.name = 'Goth';
   self.class = 'Goth';
   self.spriteSize = tileSize*1.5;
+  self.dmg = 10;
 }
 
 Cataphract = function(param){
@@ -2410,6 +2401,7 @@ Cataphract = function(param){
   self.mounted = true;
   self.spriteSize = tileSize*3;
   self.baseSpd = 6;
+  self.dmg = 20;
 }
 
 Acolyte = function(param){
@@ -2419,6 +2411,7 @@ Acolyte = function(param){
   self.spriteSize = tileSize*1.5;
   self.baseSpd = 3.5;
   self.torchBearer = true;
+  self.dmg = 5;
 }
 
 HighPriestess = function(param){
@@ -2447,6 +2440,7 @@ NorseShip = function(param){
   self.class = 'NorseShip';
   self.ranged = true;
   self.torchBearer = true;
+  self.dmg = 15;
 }
 
 NorseSword = function(param){
@@ -2454,6 +2448,7 @@ NorseSword = function(param){
   self.name = 'Norseman';
   self.class = 'NorseSword';
   self.spriteSize = tileSize*1.5;
+  self.dmg = 15;
 }
 
 NorseSpear = function(param){
@@ -2461,6 +2456,7 @@ NorseSpear = function(param){
   self.name = 'Norseman';
   self.class = 'NorseSpear';
   self.spriteSize = tileSize*1.5;
+  self.dmg = 15;
 }
 
 Huskarl = function(param){
@@ -2470,12 +2466,14 @@ Huskarl = function(param){
   self.rank = '♞ ';
   self.spriteSize = tileSize*1.5;
   self.baseSpd = 3;
+  self.dmg = 20;
 }
 
 FrankSword = function(param){
   var self = Character(param);
   self.name = 'Frank';
   self.class = 'FrankSword';
+  self.dmg = 10;
 }
 
 FrankSpear = function(param){
@@ -2483,6 +2481,7 @@ FrankSpear = function(param){
   self.name = 'Frank';
   self.class = 'FrankSpear';
   self.spriteSize = tileSize*2;
+  self.dmg = 10;
 }
 
 FrankBow = function(param){
@@ -2491,6 +2490,7 @@ FrankBow = function(param){
   self.class = 'FrankBow';
   self.spriteSize = tileSize*1.5;
   self.ranged = true;
+  self.dmg = 5;
 }
 
 Mangonel = function(param){
@@ -2500,6 +2500,7 @@ Mangonel = function(param){
   self.baseSpd = 2;
   self.spriteSize = tileSize*2;
   self.ranged = true;
+  self.dmg = 50;
 }
 
 Carolingian = function(param){
@@ -2510,6 +2511,7 @@ Carolingian = function(param){
   self.mounted = true;
   self.baseSpd = 6;
   self.spriteSize = tileSize*3;
+  self.dmg = 20;
 }
 
 Malvoisin = function(param){
@@ -2519,6 +2521,7 @@ Malvoisin = function(param){
   self.rank = '♜ ';
   self.spriteSize = tileSize*12;
   self.ranged = true;
+  self.dmg = 150;
 }
 
 Charlemagne = function(param){
@@ -2529,6 +2532,7 @@ Charlemagne = function(param){
   self.mounted = true;
   self.baseSpeed = 6;
   self.spriteSize = tileSize*3;
+  self.dmg = 25;
 }
 
 CeltAxe = function(param){
@@ -2536,6 +2540,7 @@ CeltAxe = function(param){
   self.name = 'Celt';
   self.class = 'CeltAxe';
   self.spriteSize = tileSize*1.5;
+  self.dmg = 10;
 }
 
 CeltSpear = function(param){
@@ -2543,6 +2548,7 @@ CeltSpear = function(param){
   self.name = 'Celt';
   self.class = 'CeltSpear';
   self.spriteSize = tileSize*2;
+  self.dmg = 10;
 }
 
 Headhunter = function(param){
@@ -2554,6 +2560,7 @@ Headhunter = function(param){
   self.mounted = true;
   self.spriteSize = tileSize*2;
   self.torchBearer = true;
+  self.dmg = 20;
 }
 
 Druid = function(param){
@@ -2576,6 +2583,7 @@ Morrigan = function(param){
   self.baseSpd = 6;
   self.spriteSize = tileSize*2;
   self.torchBearer = true;
+  self.dmg = 25;
 }
 
 Gwenllian = function(param){
@@ -2591,6 +2599,7 @@ TeutonPike = function(param){
   self.name = 'Teuton';
   self.class = 'TeutonPike';
   self.spriteSize = tileSize*2;
+  self.dmg = 15;
 }
 
 TeutonBow = function(param){
@@ -2599,6 +2608,7 @@ TeutonBow = function(param){
   self.class = 'TeutonBow';
   self.spriteSize = tileSize*1.5;
   self.ranged = true;
+  self.dmg = 10;
 }
 
 TeutonicKnight = function(param){
@@ -2609,6 +2619,7 @@ TeutonicKnight = function(param){
   self.mounted = true;
   self.baseSpd = 6;
   self.spriteSize = tileSize*3;
+  self.dmg = 25;
 }
 
 Prior = function(param){
@@ -2639,6 +2650,7 @@ Hochmeister = function(param){
   self.spriteSize = tileSize*1.5;
   self.baseSpd = 3;
   self.torchBearer = true;
+  self.dmg = 25;
 }
 
 Lothair = function(param){
@@ -2653,6 +2665,7 @@ Trapper = function(param){
   self.name = 'Trapper';
   self.class = 'Trapper';
   self.spriteSize = tileSize*1.5;
+  self.dmg = 10;
 }
 
 Outlaw = function(param){
@@ -2662,6 +2675,7 @@ Outlaw = function(param){
   self.spriteSize = tileSize*1.5;
   self.ranged = true;
   self.torchBearer = true;
+  self.dmg = 5;
 }
 
 Poacher = function(param){
@@ -2674,6 +2688,7 @@ Poacher = function(param){
   self.spriteSize = tileSize*2;
   self.ranged = true;
   self.torchBearer = true;
+  self.dmg = 10;
 }
 
 Cutthroat = function(param){
@@ -2681,6 +2696,7 @@ Cutthroat = function(param){
   self.name = 'Cutthroat';
   self.class = 'Cutthroat';
   self.spriteSize = tileSize*1.5;
+  self.dmg = 10;
 }
 
 Strongman = function(param){
@@ -2690,6 +2706,7 @@ Strongman = function(param){
   self.spriteSize = tileSize*2;
   self.baseSpd = 3.5;
   self.torchBearer = true;
+  self.dmg = 15;
 }
 
 Marauder = function(param){
@@ -2701,6 +2718,7 @@ Marauder = function(param){
   self.baseSpd = 6;
   self.spriteSize = tileSize*3;
   self.torchBearer = true;
+  self.dmg = 20;
 }
 
 Condottiere = function(param){
@@ -2713,6 +2731,7 @@ Condottiere = function(param){
   self.spriteSize = tileSize*2;
   self.ranged = true;
   self.torchBearer = true;
+  self.dmg = 25;
 }
 
 // ARROWS
@@ -2746,7 +2765,7 @@ Arrow = function(param){
           var p = Player.list[zones[zr][zc][n]];
           if(p){
             if(self.getDistance(p) < 32 && self.z == p.z && self.parent != p.id){
-              Player.list[zones[zr][zc][n]].hp -= 5;
+              Player.list[zones[zr][zc][n]].hp -= Player.list[parent.id].dmg;
               Player.list[zones[zr][zc][n]].working = false;
               Player.list[zones[zr][zc][n]].chopping = false;
               Player.list[zones[zr][zc][n]].mining = false;
