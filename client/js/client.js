@@ -125,7 +125,7 @@ var getBgm = function(x,y,z,b){
   soundscape(x,y,z,b);
   // outdoors
   if(z == 0){
-    if(nightfall){
+    if(nightfall && tempus != 'IV.a'){
       bgmPlayer(overworld_night_bgm);
     } else if(tempus == 'IV.a' || tempus == 'V.a' || tempus == 'VI.a' ||
     tempus == 'VII.a' || tempus == 'VIII.a' || tempus == 'IX.a'){
