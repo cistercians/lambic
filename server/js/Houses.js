@@ -1,4 +1,4 @@
-originGrids = {
+factionGrids = {
   brotherhood:null,
   goths:null,
   norsemen:null,
@@ -98,7 +98,7 @@ Brotherhood = function(param){
   self.update = function(){
     if(self.init){
       if(self.chapter == 0){
-        var grid = originGrids.brotherhood;
+        var grid = factionGrids.brotherhood;
         var point = [self.hq[0],self.hq[1]+1];
         self.patrolPoints.push(point);
         // fire
@@ -154,7 +154,7 @@ Goths = function(param){
   self.update = function(){
     if(self.init){
       if(self.chapter == 0){
-        var grid = originGrids.goths;
+        var grid = factionGrids.goths;
         var point = [self.hq[0],self.hq[1]+1];
         self.patrolPoints.push(point);
         // fire
@@ -221,7 +221,7 @@ Norsemen = function(param){
   self.update = function(){
     if(self.init){
       if(self.chapter == 0){
-        var grid = originGrids.norsemen;
+        var grid = factionGrids.norsemen;
       }
     }
   }
@@ -239,7 +239,7 @@ Franks = function(param){
   self.update = function(){
     if(self.init){
       if(self.chapter == 0){
-        var grid = originGrids.franks;
+        var grid = factionGrids.franks;
         var point = [self.hq[0],self.hq[1]+1];
         self.patrolPoints.push(point);
         // fire
@@ -316,7 +316,7 @@ Celts = function(param){
   self.update = function(){
     if(self.init){
       if(self.chapter == 0){
-        var grid = originGrids.celts;
+        var grid = factionGrids.celts;
         var point = [self.hq[0],self.hq[1]+1];
         self.patrolPoints.push(point);
         // fire
@@ -382,7 +382,7 @@ Teutons = function(param){
   self.update = function(){
     if(self.init){
       if(self.chapter == 0){
-        var grid = originGrids.teutons;
+        var grid = factionGrids.teutons;
         var point = [self.hq[0],self.hq[1]+1];
         self.patrolPoints.push(point);
         // fire
@@ -434,7 +434,7 @@ Outlaws = function(param){
   self.update = function(){
     if(self.init){
       if(self.chapter == 0){
-        var grid = originGrids.outlaws;
+        var grid = factionGrids.outlaws;
         var point = [self.hq[0],self.hq[1]+1];
         self.patrolPoints.push(point);
         // fire
@@ -505,7 +505,7 @@ Mercenaries = function(param){
   self.update = function(){
     if(self.init){
       if(self.chapter == 0){
-        var grid = originGrids.mercenaries;
+        var grid = factionGrids.mercenaries;
         var point = [self.hq[0],self.hq[1]+1];
         self.patrolPoints.push(point);
         // fire

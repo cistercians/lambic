@@ -820,7 +820,7 @@ factionSpawn = function(id){
       }
     }
     var rand = Math.floor(Math.random() * select.length);
-    originGrids.brotherhood = gridSelect[rand];
+    factionGrids.brotherhood = gridSelect[rand];
     return select[rand];
   } else if(id == 2){
     var select = [];
@@ -851,7 +851,7 @@ factionSpawn = function(id){
       }
     }
     var rand = Math.floor(Math.random() * select.length);
-    originGrids.goths = gridSelect[rand];
+    factionGrids.goths = gridSelect[rand];
     return select[rand];
   } else if(id == 3){
     var select = [];
@@ -881,7 +881,7 @@ factionSpawn = function(id){
       }
     }
     var rand = Math.floor(Math.random() * select.length);
-    // originGrids.norsemen = gridSelect[rand];
+    // factionGrids.norsemen = gridSelect[rand];
     return select[rand];
   } else if(id == 4){
     var select = [];
@@ -912,7 +912,7 @@ factionSpawn = function(id){
       }
     }
     var rand = Math.floor(Math.random() * select.length);
-    originGrids.franks = gridSelect[rand];
+    factionGrids.franks = gridSelect[rand];
     return select[rand];
   } else if(id == 5){
     var select = [];
@@ -943,7 +943,7 @@ factionSpawn = function(id){
       }
     }
     var rand = Math.floor(Math.random() * select.length);
-    originGrids.celts = gridSelect[rand];
+    factionGrids.celts = gridSelect[rand];
     return select[rand];
   } else if(id == 6){
     var select = [];
@@ -974,7 +974,7 @@ factionSpawn = function(id){
       }
     }
     var rand = Math.floor(Math.random() * select.length);
-    originGrids.teutons = gridSelect[rand];
+    factionGrids.teutons = gridSelect[rand];
     return select[rand];
   } else if(id == 7){
     var select = [];
@@ -1005,7 +1005,7 @@ factionSpawn = function(id){
       }
     }
     var rand = Math.floor(Math.random() * select.length);
-    originGrids.outlaws = gridSelect[rand];
+    factionGrids.outlaws = gridSelect[rand];
     return select[rand];
   } else if(id == 8){
     var select = [];
@@ -1022,7 +1022,7 @@ factionSpawn = function(id){
       if(c < (mapSize-4) && r < (mapSize-4)){
         for(var n in grid){
           var tile = grid[n];
-          if(getTile(1,tile[0],tile[1]) == 0){
+          if(getTile(1,tile[0],tile[1]) == 0 || getTile(1,tile[0],tile[1]) == 3){
             count++;
           }
         }
@@ -1030,13 +1030,34 @@ factionSpawn = function(id){
           select.push(grid[12]);
           grid.splice(12,1);
           gridSelect.push(grid);
+        } else if(count >= grid.length-5){
+          var exits = 0;
+          for(var n in grid){
+            var tile = grid[n];
+            var t = getTile(1,tile[0],tile[1]);
+            if(t == 2){
+              exits++;
+            }
+          }
+          if(exits == 0){
+            for(var n in grid){
+              var tile = grid[n];
+              var t = getTile(1,tile[0],tile[1]);
+              if(t == 1){
+                tileChange(1,tile[0],tile[1],0);
+              }
+            }
+            select.push(grid[12]);
+            grid.splice(12,1);
+            gridSelect.push(grid);
+          }
         }
       } else {
         continue;
       }
     }
     var rand = Math.floor(Math.random() * select.length);
-    originGrids.mercenaries = gridSelect[rand];
+    factionGrids.mercenaries = gridSelect[rand];
     return select[rand];
   }
 }
@@ -1584,6 +1605,7 @@ Player = function(param){
       var rLoc = getLoc(self.x+tileSize,self.y);
       // fish
       if(self.z == 0 && self.facing == 'up' && getTile(0,uLoc[0],uLoc[1]) == 0){
+        self.actionCooldown = 10;
         if(getTile(6,uLoc[0],uLoc[1]) > 0){
           var rand = Math.floor(Math.random() * 6000);
           self.working = true;
@@ -1604,6 +1626,7 @@ Player = function(param){
           self.fishing = true;
         }
       } else if(self.z == 0 && self.facing == 'down' && getTile(0,dLoc[0],dLoc[1]) == 0){
+        self.actionCooldown = 10;
         if(getTile(6,dLoc[0],dLoc[1]) > 0){
           var rand = Math.floor(Math.random() * 6000);
           self.working = true;
@@ -1624,6 +1647,7 @@ Player = function(param){
           self.fishing = true;
         }
       } else if(self.z == 0 && self.facing == 'left' && getTile(0,lLoc[0],lLoc[1]) == 0){
+        self.actionCooldown = 10;
         if(getTile(6,lLoc[0],lLoc[1]) > 0){
           var rand = Math.floor(Math.random() * 6000);
           self.working = true;
@@ -1644,6 +1668,7 @@ Player = function(param){
           self.fishing = true;
         }
       } else if(self.z == 0 && self.facing == 'right' && getTile(0,rLoc[0],rLoc[1]) == 0){
+        self.actionCooldown = 10;
         if(getTile(6,rLoc[0],rLoc[1]) > 0){
           var rand = Math.floor(Math.random() * 6000);
           self.working = true;
@@ -1665,6 +1690,7 @@ Player = function(param){
         }
         // clear brush
       } else if(self.z == 0 && getTile(0,loc[0],loc[1]) >= 3 && getTile(0,loc[0],loc[1]) < 4){
+        self.actionCooldown = 10;
         self.working = true;
         setTimeout(function(){
           if(self.working){
@@ -1677,11 +1703,11 @@ Player = function(param){
         },3000/self.strength);
         // gather wood
       } else if(self.z == 0 && (getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 3)){
+        self.actionCooldown = 10;
         self.working = true;
         if(self.inventory.stoneaxe > 0 || self.inventory.ironaxe > 0){
           self.chopping = true;
         }
-        self.actionCooldown = 10;
         setTimeout(function(){
           if(self.working){
             world[6][loc[1]][loc[0]] -= 50; // ALPHA
@@ -1710,11 +1736,11 @@ Player = function(param){
         },6000/self.strength);
         // gather stone
       } else if(self.z == 0 && getTile(0,loc[0],loc[1]) >= 4 && getTile(0,loc[0],loc[1]) < 6){
+        self.actionCooldown = 10;
         self.working = true;
         if(self.inventory.pickaxe > 0){
           self.mining = true;
         }
-        self.actionCooldown = 10;
         setTimeout(function(){
           if(self.working){
             world[6][loc[1]][loc[0]] -= 50; // ALPHA
@@ -1731,11 +1757,11 @@ Player = function(param){
         },10000/self.strength);
         // mine metal
       } else if(self.z == -1 && getTile(1,loc[0],loc[1]) >= 3 && getTile(1,loc[0],loc[1]) < 4){
+        self.actionCooldown = 10;
         self.working = true;
         if(self.inventory.pickaxe > 0){
           self.mining = true;
         }
-        self.actionCooldown = 10;
         setTimeout(function(){
           if(self.working){
             world[7][loc[1]][loc[0]] -= 1;
@@ -1748,6 +1774,7 @@ Player = function(param){
         },10000/self.strength);
         // farm
       } else if(self.z == 0 && getTile(0,loc[0],loc[1]) == 8){
+        self.actionCooldown = 10;
         if(tempus == 'V.a' || tempus == 'VI.a' || tempus == 'VII.a' ||
         tempus == 'VIII.a' || tempus == 'IX.a' || tempus == 'X.a' ||
         tempus == 'XI.a' || tempus == 'XII.p' || tempus == 'I.p' ||
@@ -1756,11 +1783,9 @@ Player = function(param){
           var f = getBuilding(self.x,self.y);
           self.working = true;
           self.farming = true;
-          self.actionCooldown = 10;
           setTimeout(function(){
             if(self.working && world[6][loc[1]][loc[0]] < 25){
               world[6][loc[1]][loc[0]] += 25; // ALPHA, default:5
-              //io.emit('mapEdit',world);
               self.working = false;
               self.farming = false;
               var count = 0;
@@ -1788,6 +1813,7 @@ Player = function(param){
           socket.emit('addToChat','<i>Farmwork is done during daylight hours.</i>');
         }
       } else if(self.z == 0 && getTile(0,loc[0],loc[1]) == 9){
+        self.actionCooldown = 10;
         if(tempus == 'V.a' || tempus == 'VI.a' || tempus == 'VII.a' ||
         tempus == 'VIII.a' || tempus == 'IX.a' || tempus == 'X.a' ||
         tempus == 'XI.a' || tempus == 'XII.p' || tempus == 'I.p' ||
@@ -1796,7 +1822,6 @@ Player = function(param){
           var f = Building.list[getBuilding(self.x,self.y)];
           self.working = true;
           self.farming = true;
-          self.actionCooldown = 10;
           setTimeout(function(){
             if(self.working && world[6][loc[1]][loc[0]] < 50){
               world[6][loc[1]][loc[0]] += 25; // ALPHA, default:1
@@ -1826,10 +1851,10 @@ Player = function(param){
           socket.emit('addToChat','<i>Farmwork must be done during daylight hours.</i>');
         }
       } else if(self.z == 0 && getTile(0,loc[0],loc[1]) == 10){
+        self.actionCooldown = 10;
         var f = getBuilding(self.x,self.y);
         self.working = true;
         self.farming = true;
-        self.actionCooldown = 10;
         setTimeout(function(){
           if(self.working){
             world[6][loc[1]][loc[0]] -= 1;

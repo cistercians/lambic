@@ -114,17 +114,18 @@ EvalCmd = function(data){
           count = 0;
           for(var i in perim){
             var n = perim[i];
-            if(getTile(0,n[0],n[1]) !== 11 &&
-            getTile(0,n[0],n[1]) !== 11.5 &&
-            getTile(0,n[0],n[1]) !== 12 &&
-            getTile(0,n[0],n[1]) !== 12.5 &&
-            getTile(0,n[0],n[1]) !== 13 &&
-            getTile(0,n[0],n[1]) !== 14 &&
-            getTile(0,n[0],n[1]) !== 15 &&
-            getTile(0,n[0],n[1]) !== 16 &&
-            getTile(0,n[0],n[1]) !== 17 &&
-            getTile(0,n[0],n[1]) !== 19 &&
-            getTile(0,n[0],n[1]) !== 20 &&
+            var tile = getTile(0,n[0],n[1]);
+            if(tile != 11 &&
+            tile != 11.5 &&
+            tile != 12 &&
+            tile != 12.5 &&
+            tile != 13 &&
+            tile != 14 &&
+            tile != 15 &&
+            tile != 16 &&
+            tile != 17 &&
+            tile != 19 &&
+            tile != 20 &&
             getTile(5,n[0],n[1]) == 0){
               count++;
             }
@@ -176,17 +177,18 @@ EvalCmd = function(data){
           count = 0;
           for(var i in perim){
             var n = perim[i];
-            if(getTile(0,n[0],n[1]) !== 11 &&
-            getTile(0,n[0],n[1]) !== 11.5 &&
-            getTile(0,n[0],n[1]) !== 12 &&
-            getTile(0,n[0],n[1]) !== 12.5 &&
-            getTile(0,n[0],n[1]) !== 13 &&
-            getTile(0,n[0],n[1]) !== 14 &&
-            getTile(0,n[0],n[1]) !== 15 &&
-            getTile(0,n[0],n[1]) !== 16 &&
-            getTile(0,n[0],n[1]) !== 17 &&
-            getTile(0,n[0],n[1]) !== 19 &&
-            getTile(0,n[0],n[1]) !== 20 &&
+            var tile = getTile(0,n[0],n[1]);
+            if(tile != 11 &&
+            tile != 11.5 &&
+            tile != 12 &&
+            tile != 12.5 &&
+            tile != 13 &&
+            tile != 14 &&
+            tile != 15 &&
+            tile != 16 &&
+            tile != 17 &&
+            tile != 19 &&
+            tile != 20 &&
             getTile(5,n[0],n[1]) == 0){
               count++;
             }
@@ -238,17 +240,18 @@ EvalCmd = function(data){
           count = 0;
           for(var i in perim){
             var n = perim[i];
-            if(getTile(0,n[0],n[1]) !== 11 &&
-            getTile(0,n[0],n[1]) !== 11.5 &&
-            getTile(0,n[0],n[1]) !== 12 &&
-            getTile(0,n[0],n[1]) !== 12.5 &&
-            getTile(0,n[0],n[1]) !== 13 &&
-            getTile(0,n[0],n[1]) !== 14 &&
-            getTile(0,n[0],n[1]) !== 15 &&
-            getTile(0,n[0],n[1]) !== 16 &&
-            getTile(0,n[0],n[1]) !== 17 &&
-            getTile(0,n[0],n[1]) !== 19 &&
-            getTile(0,n[0],n[1]) !== 20 &&
+            var tile = getTile(0,n[0],n[1]);
+            if(tile != 11 &&
+            tile != 11.5 &&
+            tile != 12 &&
+            tile != 12.5 &&
+            tile != 13 &&
+            tile != 14 &&
+            tile != 15 &&
+            tile != 16 &&
+            tile != 17 &&
+            tile != 19 &&
+            tile != 20 &&
             getTile(5,n[0],n[1]) == 0){
               count++;
             }
@@ -351,7 +354,7 @@ EvalCmd = function(data){
         var plot = [[c,r]];
         var topPlot = [[c,r-1]];
         if(getTile(0,c,r) == 7){
-          if(getTile(0,c,r-1) == 14 || getTile(0,c,r-1) == 16 || getTile(0,c,r-1) == 19 || getTile(5,c,r-1) !== 0){
+          if(getTile(0,c,r-1) == 14 || getTile(0,c,r-1) == 16 || getTile(0,c,r-1) == 19 || getTile(5,c,r-1) != 0){
             socket.emit('addToChat','<i>You cannot build that there.</i>');
           } else {
             tileChange(0,c,r,11);
@@ -391,7 +394,7 @@ EvalCmd = function(data){
           }
         }
         if(count == 4){
-          if(getTile(0,c,r-2) == 14 || getTile(0,c,r-2) == 16 || getTile(0,c,r-2) == 19 || getTile(5,c,r-2) !== 0 || getTile(0,c+1,r-2) == 14 || getTile(0,c+1,r-2) == 16 || getTile(0,c+1,r-2) == 19 || getTile(5,c+1,r-2) !== 0){
+          if(getTile(0,c,r-2) == 14 || getTile(0,c,r-2) == 16 || getTile(0,c,r-2) == 19 || getTile(5,c,r-2) != 0 || getTile(0,c+1,r-2) == 14 || getTile(0,c+1,r-2) == 16 || getTile(0,c+1,r-2) == 19 || getTile(5,c+1,r-2) != 0){
             socket.emit('addToChat','<i>You cannot build that there.</i>');
           } else {
             for(var i in plot){
@@ -439,18 +442,19 @@ EvalCmd = function(data){
           count = 0;
           for(var i in perim){
             var n = perim[i];
-            if(getTile(0,n[0],n[1]) !== 11 &&
-            getTile(0,n[0],n[1]) !== 11.5 &&
-            getTile(0,n[0],n[1]) !== 12 &&
-            getTile(0,n[0],n[1]) !== 12.5 &&
-            getTile(0,n[0],n[1]) !== 13 &&
-            getTile(0,n[0],n[1]) !== 14 &&
-            getTile(0,n[0],n[1]) !== 15 &&
-            getTile(0,n[0],n[1]) !== 16 &&
-            getTile(0,n[0],n[1]) !== 17 &&
-            getTile(0,n[0],n[1]) !== 19 &&
-            getTile(0,n[0],n[1]) !== 20 &&
-            getTile(0,n[0],n[1]) !== 20.5 &&
+            var tile = getTile(0,n[0],n[1]);
+            if(tile != 11 &&
+            tile != 11.5 &&
+            tile != 12 &&
+            tile != 12.5 &&
+            tile != 13 &&
+            tile != 14 &&
+            tile != 15 &&
+            tile != 16 &&
+            tile != 17 &&
+            tile != 19 &&
+            tile != 20 &&
+            tile != 20.5 &&
             getTile(5,n[0],n[1]) == 0){
               count++;
             }
@@ -503,18 +507,19 @@ EvalCmd = function(data){
           count = 0;
           for(var i in perim){
             var n = perim[i];
-            if(getTile(0,n[0],n[1]) !== 11 &&
-            getTile(0,n[0],n[1]) !== 11.5 &&
-            getTile(0,n[0],n[1]) !== 12 &&
-            getTile(0,n[0],n[1]) !== 12.5 &&
-            getTile(0,n[0],n[1]) !== 13 &&
-            getTile(0,n[0],n[1]) !== 14 &&
-            getTile(0,n[0],n[1]) !== 15 &&
-            getTile(0,n[0],n[1]) !== 16 &&
-            getTile(0,n[0],n[1]) !== 17 &&
-            getTile(0,n[0],n[1]) !== 19 &&
-            getTile(0,n[0],n[1]) !== 20 &&
-            getTile(0,n[0],n[1]) !== 20.5 &&
+            var tile = getTile(0,n[0],n[1]);
+            if(tile != 11 &&
+            tile != 11.5 &&
+            tile != 12 &&
+            tile != 12.5 &&
+            tile != 13 &&
+            tile != 14 &&
+            tile != 15 &&
+            tile != 16 &&
+            tile != 17 &&
+            tile != 19 &&
+            tile != 20 &&
+            tile != 20.5 &&
             getTile(5,n[0],n[1]) == 0){
               count++;
             }
@@ -567,18 +572,19 @@ EvalCmd = function(data){
           count = 0;
           for(var i in perim){
             var n = perim[i];
-            if(getTile(0,n[0],n[1]) !== 11 &&
-            getTile(0,n[0],n[1]) !== 11.5 &&
-            getTile(0,n[0],n[1]) !== 12 &&
-            getTile(0,n[0],n[1]) !== 12.5 &&
-            getTile(0,n[0],n[1]) !== 13 &&
-            getTile(0,n[0],n[1]) !== 14 &&
-            getTile(0,n[0],n[1]) !== 15 &&
-            getTile(0,n[0],n[1]) !== 16 &&
-            getTile(0,n[0],n[1]) !== 17 &&
-            getTile(0,n[0],n[1]) !== 19 &&
-            getTile(0,n[0],n[1]) !== 20 &&
-            getTile(0,n[0],n[1]) !== 20.5 &&
+            var tile = getTile(0,n[0],n[1]);
+            if(tile != 11 &&
+            tile != 11.5 &&
+            tile != 12 &&
+            tile != 12.5 &&
+            tile != 13 &&
+            tile != 14 &&
+            tile != 15 &&
+            tile != 16 &&
+            tile != 17 &&
+            tile != 19 &&
+            tile != 20 &&
+            tile != 20.5 &&
             getTile(5,n[0],n[1]) == 0){
               count++;
             }
@@ -631,18 +637,19 @@ EvalCmd = function(data){
           count = 0;
           for(var i in perim){
             var n = perim[i];
-            if(getTile(0,n[0],n[1]) !== 11 &&
-            getTile(0,n[0],n[1]) !== 11.5 &&
-            getTile(0,n[0],n[1]) !== 12 &&
-            getTile(0,n[0],n[1]) !== 12.5 &&
-            getTile(0,n[0],n[1]) !== 13 &&
-            getTile(0,n[0],n[1]) !== 14 &&
-            getTile(0,n[0],n[1]) !== 15 &&
-            getTile(0,n[0],n[1]) !== 16 &&
-            getTile(0,n[0],n[1]) !== 17 &&
-            getTile(0,n[0],n[1]) !== 19 &&
-            getTile(0,n[0],n[1]) !== 20 &&
-            getTile(0,n[0],n[1]) !== 20.5 &&
+            var tile = getTile(0,n[0],n[1]);
+            if(tile != 11 &&
+            tile != 11.5 &&
+            tile != 12 &&
+            tile != 12.5 &&
+            tile != 13 &&
+            tile != 14 &&
+            tile != 15 &&
+            tile != 16 &&
+            tile != 17 &&
+            tile != 19 &&
+            tile != 20 &&
+            tile != 20.5 &&
             getTile(5,n[0],n[1]) == 0){
               count++;
             }
@@ -694,18 +701,19 @@ EvalCmd = function(data){
           count = 0;
           for(var i in perim){
             var n = perim[i];
-            if(getTile(0,n[0],n[1]) !== 11 &&
-            getTile(0,n[0],n[1]) !== 11.5 &&
-            getTile(0,n[0],n[1]) !== 12 &&
-            getTile(0,n[0],n[1]) !== 12.5 &&
-            getTile(0,n[0],n[1]) !== 13 &&
-            getTile(0,n[0],n[1]) !== 14 &&
-            getTile(0,n[0],n[1]) !== 15 &&
-            getTile(0,n[0],n[1]) !== 16 &&
-            getTile(0,n[0],n[1]) !== 17 &&
-            getTile(0,n[0],n[1]) !== 19 &&
-            getTile(0,n[0],n[1]) !== 20 &&
-            getTile(0,n[0],n[1]) !== 20.5 &&
+            var tile = getTile(0,n[0],n[1]);
+            if(tile != 11 &&
+            tile != 11.5 &&
+            tile != 12 &&
+            tile != 12.5 &&
+            tile != 13 &&
+            tile != 14 &&
+            tile != 15 &&
+            tile != 16 &&
+            tile != 17 &&
+            tile != 19 &&
+            tile != 20 &&
+            tile != 20.5 &&
             getTile(5,n[0],n[1]) == 0){
               count++;
             }
@@ -749,19 +757,19 @@ EvalCmd = function(data){
         if(player.facing == 'up' && getTile(0,c,r-1) == 0 && getTile(0,c,r-3) == 0){
           plot = [[c-1,r],[c,r],[c+1,r],[c-1,r-1],[c,r-1],[c+1,r-1]];
           topPlot = [[c-1,r-2],[c,r-2],[c+1,r-2]];
-          perim = [[c-2,r-3],[c-1,r-3],[c,r-3],[c+1,r-3],[c+2,r-3],[c-2,r-2],[c-2,r-1],[c-2,r],[c-2,r+1],[c-1,r+1],[c,r+1],[c+1,r+1],[c+2,r+1],[c+2,r-2],[c+2,r-1],[c+2,r]];
+          perim = [[c-1,r+1],[c,r+1],[c+1,r+1],[c+2,r],[c+2,r-1],[c-1,r-2],[c,r-2],[c+1,r-2],[c-2,r],[c-2,r-1]];
         } else if(player.facing == 'left' && getTile(0,c-1,r) == 0 && getTile(0,c-3,r) == 0){
           plot = [[c-2,r],[c-1,r],[c,r],[c-2,r-1],[c-1,r-1],[c,r-1]];
           topPlot = [[c-2,r-2],[c-1,r-2],[c,r-2]];
-          perim = [[c-3,r-3],[c-2,r-3],[c-1,r-3],[c,r-3],[c+1,r-3],[c-3,r-2],[c-3,r-1],[c-3,r],[c-3,r+1],[c-2,r+1],[c-1,r+1],[c,r+1],[c+1,r+1],[c+1,r-2],[c+1,r-1],[c+1,r]];
+          perim = [[c-3,r],[c-3,r-1],[c-2,r+1],[c-1,r+1],[c,r+1],[c+1,r],[c+1,r-1],[c-2,r-2],[c-1,r-2],[c,r-2]];
         } else if(player.facing == 'right' && getTile(0,c+1,r) == 0 && getTile(0,c+3,r) == 0){
           plot = [[c,r],[c+1,r],[c+2,r],[c,r-1],[c+1,r-1],[c+2,r-1]];
           topPlot = [[c,r-2],[c+1,r-2],[c+2,r-2]];
-          perim = [[c-1,r-3],[c,r-3],[c+1,r-3],[c+2,r-3],[c+3,r-3],[c-1,r-2],[c-1,r-1],[c-1,r],[c-1,r+1],[c,r+1],[c+1,r+1],[c+2,r+1],[c+3,r+1],[c+3,r-2],[c+3,r-1],[c+3,r]];
+          perim = [[c,r+1],[c+1,r+1],[c+2,r+1],[c+3,r],[c+3,r-1],[c,r-2],[c+1,r-2],[c+2,r-2],[c-1,r],[c-1,r-1]];
         } else if(player.facing == 'down' && getTile(0,c,r+1) == 0 && getTile(0,c,r+2) == 0){
           plot = [[c-1,r+1],[c,r+1],[c+1,r+1],[c-1,r],[c,r],[c+1,r]];
           topPlot = [[c-1,r-1],[c,r-1],[c+1,r-1]];
-          perim = [[c-2,r-2],[c-1,r-2],[c,r-2],[c+1,r-2],[c+2,r-2],[c-2,r-1],[c-2,r],[c-2,r+1],[c-2,r+2],[c-1,r+2],[c,r+2],[c+1,r+2],[c+2,r+2],[c+2,r-1],[c+2,r],[c+2,r-1]];
+          perim = [[c-1,r-1],[c,r-1],[c+1,r-1],[c+2,r],[c+2,r+1],[c-1,r-2],[c,r-2],[c+1,r-2],[c-2,r],[c-2,r+1]];
         } else {
           socket.emit('addToChat','<i>You cannot build that there.</i>');
         }
@@ -776,24 +784,25 @@ EvalCmd = function(data){
           count = 0;
           for(var i in perim){
             var n = perim[i];
-            if(getTile(0,n[0],n[1]) !== 11 &&
-            getTile(0,n[0],n[1]) !== 11.5 &&
-            getTile(0,n[0],n[1]) !== 12 &&
-            getTile(0,n[0],n[1]) !== 12.5 &&
-            getTile(0,n[0],n[1]) !== 13 &&
-            getTile(0,n[0],n[1]) !== 14 &&
-            getTile(0,n[0],n[1]) !== 15 &&
-            getTile(0,n[0],n[1]) !== 16 &&
-            getTile(0,n[0],n[1]) !== 17 &&
-            getTile(0,n[0],n[1]) !== 19 &&
+            var tile = getTile(0,n[0],n[1]);
+            if(tile != 11 &&
+            tile != 11.5 &&
+            tile != 12 &&
+            tile != 12.5 &&
+            tile != 13 &&
+            tile != 14 &&
+            tile != 15 &&
+            tile != 16 &&
+            tile != 17 &&
+            tile != 19 &&
             getTile(5,n[0],n[1]) == 0){
               count++;
             }
           }
-          if(count == 16){
+          if(count == 10){
             for(var i in plot){
               var n = plot[i];
-              if(getTile(0,n[0],n[1]) !== 0){
+              if(getTile(0,n[0],n[1]) != 0){
                 tileChange(0,n[0],n[1],11);
               } else {
                 tileChange(0,n[0],n[1],11.5);
@@ -822,10 +831,10 @@ EvalCmd = function(data){
               hp:750
             });
           } else {
-            socket.emit('addToChat','<i>You cannot build that there.</i>');
+            socket.emit('addToChat','<i>You cannot build that there.</i> PERIM');
           }
         } else {
-          socket.emit('addToChat','<i>You cannot build that there.</i>');
+          socket.emit('addToChat','<i>You cannot build that there.</i> PLOT');
         }
       } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) == 'garrison' && z == 0){
         var plot = [[c,r],[c+1,r],[c+2,r],[c+3,r],[c,r-1],[c+1,r-1],[c+2,r-1],[c+3,r-1],[c,r-2],[c+1,r-2],[c+2,r-2],[c+3,r-2]];
@@ -843,18 +852,18 @@ EvalCmd = function(data){
           count = 0;
           for(var i in perim){
             var n = perim[i];
-            if(getTile(0,n[0],n[1]) !== 11 &&
-            getTile(0,n[0],n[1]) !== 11.5 &&
-            getTile(0,n[0],n[1]) !== 12 &&
-            getTile(0,n[0],n[1]) !== 12.5 &&
-            getTile(0,n[0],n[1]) !== 13 &&
-            getTile(0,n[0],n[1]) !== 14 &&
-            getTile(0,n[0],n[1]) !== 15 &&
-            getTile(0,n[0],n[1]) !== 16 &&
-            getTile(0,n[0],n[1]) !== 17 &&
-            getTile(0,n[0],n[1]) !== 19 &&
-            getTile(0,n[0],n[1]) !== 20 &&
-            getTile(0,n[0],n[1]) !== 20.5 &&
+            if(getTile(0,n[0],n[1]) != 11 &&
+            getTile(0,n[0],n[1]) != 11.5 &&
+            getTile(0,n[0],n[1]) != 12 &&
+            getTile(0,n[0],n[1]) != 12.5 &&
+            getTile(0,n[0],n[1]) != 13 &&
+            getTile(0,n[0],n[1]) != 14 &&
+            getTile(0,n[0],n[1]) != 15 &&
+            getTile(0,n[0],n[1]) != 16 &&
+            getTile(0,n[0],n[1]) != 17 &&
+            getTile(0,n[0],n[1]) != 19 &&
+            getTile(0,n[0],n[1]) != 20 &&
+            getTile(0,n[0],n[1]) != 20.5 &&
             getTile(5,n[0],n[1]) == 0){
               count++;
             }
@@ -906,18 +915,18 @@ EvalCmd = function(data){
           count = 0;
           for(var i in perim){
             var n = perim[i];
-            if(getTile(0,n[0],n[1]) !== 11 &&
-            getTile(0,n[0],n[1]) !== 11.5 &&
-            getTile(0,n[0],n[1]) !== 12 &&
-            getTile(0,n[0],n[1]) !== 12.5 &&
-            getTile(0,n[0],n[1]) !== 13 &&
-            getTile(0,n[0],n[1]) !== 14 &&
-            getTile(0,n[0],n[1]) !== 15 &&
-            getTile(0,n[0],n[1]) !== 16 &&
-            getTile(0,n[0],n[1]) !== 17 &&
-            getTile(0,n[0],n[1]) !== 19 &&
-            getTile(0,n[0],n[1]) !== 20 &&
-            getTile(0,n[0],n[1]) !== 20.5 &&
+            if(getTile(0,n[0],n[1]) != 11 &&
+            getTile(0,n[0],n[1]) != 11.5 &&
+            getTile(0,n[0],n[1]) != 12 &&
+            getTile(0,n[0],n[1]) != 12.5 &&
+            getTile(0,n[0],n[1]) != 13 &&
+            getTile(0,n[0],n[1]) != 14 &&
+            getTile(0,n[0],n[1]) != 15 &&
+            getTile(0,n[0],n[1]) != 16 &&
+            getTile(0,n[0],n[1]) != 17 &&
+            getTile(0,n[0],n[1]) != 19 &&
+            getTile(0,n[0],n[1]) != 20 &&
+            getTile(0,n[0],n[1]) != 20.5 &&
             getTile(5,n[0],n[1]) == 0){
               count++;
             }
@@ -1038,18 +1047,18 @@ EvalCmd = function(data){
           count = 0;
           for(var i in perim){
             var n = perim[i];
-            if(getTile(0,n[0],n[1]) !== 11 &&
-            getTile(0,n[0],n[1]) !== 11.5 &&
-            getTile(0,n[0],n[1]) !== 12 &&
-            getTile(0,n[0],n[1]) !== 12.5 &&
-            getTile(0,n[0],n[1]) !== 13 &&
-            getTile(0,n[0],n[1]) !== 14 &&
-            getTile(0,n[0],n[1]) !== 15 &&
-            getTile(0,n[0],n[1]) !== 16 &&
-            getTile(0,n[0],n[1]) !== 17 &&
-            getTile(0,n[0],n[1]) !== 19 &&
-            getTile(0,n[0],n[1]) !== 20 &&
-            getTile(0,n[0],n[1]) !== 20.5 &&
+            if(getTile(0,n[0],n[1]) != 11 &&
+            getTile(0,n[0],n[1]) != 11.5 &&
+            getTile(0,n[0],n[1]) != 12 &&
+            getTile(0,n[0],n[1]) != 12.5 &&
+            getTile(0,n[0],n[1]) != 13 &&
+            getTile(0,n[0],n[1]) != 14 &&
+            getTile(0,n[0],n[1]) != 15 &&
+            getTile(0,n[0],n[1]) != 16 &&
+            getTile(0,n[0],n[1]) != 17 &&
+            getTile(0,n[0],n[1]) != 19 &&
+            getTile(0,n[0],n[1]) != 20 &&
+            getTile(0,n[0],n[1]) != 20.5 &&
             getTile(5,n[0],n[1]) == 0){
               count++;
             }
@@ -1090,9 +1099,9 @@ EvalCmd = function(data){
         socket.emit('addToChat','<i>Invalid command.</i>');
       }
     } else if(data.cmd == 'fire'){
-      if(z !== -3){
+      if(z != -3){
         if(player.facing == 'left'){
-          if((z == 1 || z == 2) && getTile(4,c-1,r) !== 0){
+          if((z == 1 || z == 2) && getTile(4,c-1,r) != 0){
             socket.emit('addToChat','<i>You cannot place that there.</i>');
           } else {
             var p = getCoords(c-1,r);
@@ -1105,7 +1114,7 @@ EvalCmd = function(data){
             });
           }
         } else if(player.facing == 'right'){
-          if((z == 1 || z == 2) && getTile(4,c+1,r) !== 0){
+          if((z == 1 || z == 2) && getTile(4,c+1,r) != 0){
             socket.emit('addToChat','<i>You cannot place that there.</i>');
           } else {
             var p = getCoords(c+1,r);
@@ -1118,7 +1127,7 @@ EvalCmd = function(data){
             });
           }
         } else if(player.facing == 'up'){
-          if((z == 1 || z == 2) && getTile(4,c,r-1) !== 0){
+          if((z == 1 || z == 2) && getTile(4,c,r-1) != 0){
             socket.emit('addToChat','<i>You cannot place that there.</i>');
           } else {
             var p = getCoords(c,r-1);
@@ -1131,7 +1140,7 @@ EvalCmd = function(data){
             });
           }
         } else if(player.facing == 'down'){
-          if((z == 1 || z == 2) && getTile(4,c,r+1) !== 0){
+          if((z == 1 || z == 2) && getTile(4,c,r+1) != 0){
             socket.emit('addToChat','<i>You cannot place that there.</i>');
           } else {
             var p = getCoords(c,r+1);
@@ -1151,10 +1160,10 @@ EvalCmd = function(data){
     } else if(data.cmd == 'equip'){
       socket.emit('addToChat','<i>List all equippable items here.</i>');
     } else if(data.cmd.slice(0,5) == 'equip' && data.cmd[5] == ' '){
-      if(player.mode !== 'combat'){
+      if(player.mode != 'combat'){
         if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'huntingknife'){
           if(player.inventory.huntingknife > 0){
-            if(!player.mounted && (!player.gear.armor || player.gear.armor.type == 'leather' || (player.gear.armor.type == 'cloth' && player.gear.armor.name !== 'ClericRobe'))){
+            if(!player.mounted && (!player.gear.armor || player.gear.armor.type == 'leather' || (player.gear.armor.type == 'cloth' && player.gear.armor.name != 'ClericRobe'))){
               if(!player.gear.weapon){
                 player.gear.weapon = equip.huntingknife;
                 player.inventory.huntingknife--;
@@ -1175,7 +1184,7 @@ EvalCmd = function(data){
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'dague'){
           if(player.inventory.dague > 0){
-            if(!player.mounted && (!player.gear.armor || player.gear.armor.type == 'leather' || (player.gear.armor.type == 'cloth' && player.gear.armor.name !== 'ClericRobe'))){
+            if(!player.mounted && (!player.gear.armor || player.gear.armor.type == 'leather' || (player.gear.armor.type == 'cloth' && player.gear.armor.name != 'ClericRobe'))){
               if(!player.gear.weapon){
                 player.gear.weapon = equip.dague;
                 player.inventory.dague--;
@@ -1196,7 +1205,7 @@ EvalCmd = function(data){
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'rondel'){
           if(player.inventory.rondel > 0){
-            if(!player.mounted && (!player.gear.armor || player.gear.armor.type == 'leather' || (player.gear.armor.type == 'cloth' && player.gear.armor.name !== 'ClericRobe'))){
+            if(!player.mounted && (!player.gear.armor || player.gear.armor.type == 'leather' || (player.gear.armor.type == 'cloth' && player.gear.armor.name != 'ClericRobe'))){
               if(!player.gear.weapon){
                 player.gear.weapon = equip.rondel;
                 player.inventory.rondel--;
@@ -1217,7 +1226,7 @@ EvalCmd = function(data){
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'misericorde'){
           if(player.inventory.misericorde > 0){
-            if(!player.mounted && (!player.gear.armor || player.gear.armor.type == 'leather' || (player.gear.armor.type == 'cloth' && player.gear.armor.name !== 'ClericRobe'))){
+            if(!player.mounted && (!player.gear.armor || player.gear.armor.type == 'leather' || (player.gear.armor.type == 'cloth' && player.gear.armor.name != 'ClericRobe'))){
               if(!player.gear.weapon){
                 player.gear.weapon = equip.misericorde;
                 player.inventory.misericorde--;
@@ -1238,7 +1247,7 @@ EvalCmd = function(data){
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'bastardsword'){
           if(player.inventory.bastardsword > 0){
-            if(!player.gear.armor || player.gear.armor.type !== 'cloth'){
+            if(!player.gear.armor || player.gear.armor.type != 'cloth'){
               if(!player.gear.weapon){
                 player.gear.weapon = equip.bastardsword;
                 player.inventory.bastardsword--;
@@ -1259,7 +1268,7 @@ EvalCmd = function(data){
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'longsword'){
           if(player.inventory.longsword > 0){
-            if(!player.gear.armor || player.gear.armor.type !== 'cloth'){
+            if(!player.gear.armor || player.gear.armor.type != 'cloth'){
               if(!player.gear.weapon){
                 player.gear.weapon = equip.longsword;
                 player.inventory.longsword--;
@@ -1280,7 +1289,7 @@ EvalCmd = function(data){
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'zweihander'){
           if(player.inventory.zweihander > 0){
-            if(!player.gear.armor || player.gear.armor.type !== 'cloth'){
+            if(!player.gear.armor || player.gear.armor.type != 'cloth'){
               if(!player.gear.weapon){
                 player.gear.weapon = equip.zweihander;
                 player.inventory.zweihander--;
@@ -1301,7 +1310,7 @@ EvalCmd = function(data){
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'morallta'){
           if(player.inventory.morallta > 0){
-            if(!player.gear.armor || player.gear.armor.type !== 'cloth'){
+            if(!player.gear.armor || player.gear.armor.type != 'cloth'){
               if(!player.gear.weapon){
                 player.gear.weapon = equip.morallta;
                 player.inventory.morallta--;
@@ -1322,7 +1331,7 @@ EvalCmd = function(data){
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'bow'){
           if(player.inventory.bow > 0){
-            if(!player.gear.armor || (player.gear.armor.type !== 'cloth' && player.gear.armor.type !== 'plate')){
+            if(!player.gear.armor || (player.gear.armor.type != 'cloth' && player.gear.armor.type != 'plate')){
               if(!player.gear.weapon){
                 player.gear.weapon = equip.bow;
                 player.inventory.bow--;
@@ -1343,7 +1352,7 @@ EvalCmd = function(data){
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'welshlongbow'){
           if(player.inventory.welshlongbow > 0){
-            if(!player.gear.armor || (player.gear.armor.type !== 'cloth' && player.gear.armor.type !== 'plate')){
+            if(!player.gear.armor || (player.gear.armor.type != 'cloth' && player.gear.armor.type != 'plate')){
               if(!player.gear.weapon){
                 player.gear.weapon = equip.welshlongbow;
                 player.inventory.welshlongbow--;
@@ -1427,7 +1436,7 @@ EvalCmd = function(data){
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'brigandine'){
           if(player.inventory.brigandine > 0){
-            if(!player.gear.weapon || (player.gear.weapon.type !== 'lance' || player.gear.weapon2.type !== 'lance')){
+            if(!player.gear.weapon || (player.gear.weapon.type != 'lance' || player.gear.weapon2.type != 'lance')){
               if(player.gear.armor){
                 player.gear.armor.unequip(player.id);
               }
@@ -1442,7 +1451,7 @@ EvalCmd = function(data){
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'lamellar'){
           if(player.inventory.lamellar > 0){
-            if(!player.gear.weapon || (player.gear.weapon.type !== 'lance' || player.gear.weapon2.type !== 'lance')){
+            if(!player.gear.weapon || (player.gear.weapon.type != 'lance' || player.gear.weapon2.type != 'lance')){
               if(player.gear.armor){
                 player.gear.armor.unequip(player.id);
               }
@@ -1457,8 +1466,8 @@ EvalCmd = function(data){
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'maille'){
           if(player.inventory.maille > 0){
-            if(!player.gear.weapon || (player.gear.weapon.type !== 'lance' || player.gear.weapon2.type !== 'lance' ||
-            player.gear.weapon.type !== 'dagger' || player.gear.weapon2.type !== 'dagger')){
+            if(!player.gear.weapon || (player.gear.weapon.type != 'lance' || player.gear.weapon2.type != 'lance' ||
+            player.gear.weapon.type != 'dagger' || player.gear.weapon2.type != 'dagger')){
               if(player.gear.armor){
                 player.gear.armor.unequip(player.id);
               }
@@ -1473,8 +1482,8 @@ EvalCmd = function(data){
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'hauberk'){
           if(player.inventory.hauberk > 0){
-            if(!player.gear.weapon || (player.gear.weapon.type !== 'lance' || player.gear.weapon2.type !== 'lance' ||
-            player.gear.weapon.type !== 'dagger' || player.gear.weapon2.type !== 'dagger')){
+            if(!player.gear.weapon || (player.gear.weapon.type != 'lance' || player.gear.weapon2.type != 'lance' ||
+            player.gear.weapon.type != 'dagger' || player.gear.weapon2.type != 'dagger')){
               if(player.gear.armor){
                 player.gear.armor.unequip(player.id);
               }
@@ -1489,8 +1498,8 @@ EvalCmd = function(data){
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'brynja'){
           if(player.inventory.brynja > 0){
-            if(!player.gear.weapon || (player.gear.weapon.type !== 'lance' || player.gear.weapon2.type !== 'lance' ||
-            player.gear.weapon.type !== 'dagger' || player.gear.weapon2.type !== 'dagger')){
+            if(!player.gear.weapon || (player.gear.weapon.type != 'lance' || player.gear.weapon2.type != 'lance' ||
+            player.gear.weapon.type != 'dagger' || player.gear.weapon2.type != 'dagger')){
               if(player.gear.armor){
                 player.gear.armor.unequip(player.id);
               }
@@ -1505,8 +1514,8 @@ EvalCmd = function(data){
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'cuirass'){
           if(player.inventory.cuirass > 0){
-            if(!player.gear.weapon || (player.gear.weapon.type !== 'bow' || player.gear.weapon2.type !== 'bow' ||
-            player.gear.weapon.type !== 'dagger' || player.gear.weapon2.type !== 'dagger')){
+            if(!player.gear.weapon || (player.gear.weapon.type != 'bow' || player.gear.weapon2.type != 'bow' ||
+            player.gear.weapon.type != 'dagger' || player.gear.weapon2.type != 'dagger')){
               if(player.gear.armor){
                 player.gear.armor.unequip(player.id);
               }
@@ -1521,8 +1530,8 @@ EvalCmd = function(data){
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'steelplate'){
           if(player.inventory.steelplate > 0){
-            if(!player.gear.weapon || (player.gear.weapon.type !== 'bow' || player.gear.weapon2.type !== 'bow' ||
-            player.gear.weapon.type !== 'dagger' || player.gear.weapon2.type !== 'dagger')){
+            if(!player.gear.weapon || (player.gear.weapon.type != 'bow' || player.gear.weapon2.type != 'bow' ||
+            player.gear.weapon.type != 'dagger' || player.gear.weapon2.type != 'dagger')){
               if(player.gear.armor){
                 player.gear.armor.unequip(player.id);
               }
@@ -1537,8 +1546,8 @@ EvalCmd = function(data){
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'greenwichplate'){
           if(player.inventory.greenwichplate > 0){
-            if(!player.gear.weapon || (player.gear.weapon.type !== 'bow' || player.gear.weapon2.type !== 'bow' ||
-            player.gear.weapon.type !== 'dagger' || player.gear.weapon2.type !== 'dagger')){
+            if(!player.gear.weapon || (player.gear.weapon.type != 'bow' || player.gear.weapon2.type != 'bow' ||
+            player.gear.weapon.type != 'dagger' || player.gear.weapon2.type != 'dagger')){
               if(player.gear.armor){
                 player.gear.armor.unequip(player.id);
               }
@@ -1553,8 +1562,8 @@ EvalCmd = function(data){
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'gothicplate'){
           if(player.inventory.gothicplate > 0){
-            if(!player.gear.weapon || (player.gear.weapon.type !== 'bow' || player.gear.weapon2.type !== 'bow' ||
-            player.gear.weapon.type !== 'dagger' || player.gear.weapon2.type !== 'dagger')){
+            if(!player.gear.weapon || (player.gear.weapon.type != 'bow' || player.gear.weapon2.type != 'bow' ||
+            player.gear.weapon.type != 'dagger' || player.gear.weapon2.type != 'dagger')){
               if(player.gear.armor){
                 player.gear.armor.unequip(player.id);
               }
