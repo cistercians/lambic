@@ -21,6 +21,7 @@ require('./server/js/Build');
 // BUILD MAP
 var genesis = require('./server/js/Genesis');
 var world = genesis.map;
+var nightfall = true;
 tileSize = 64;
 mapSize = world[0].length;
 mapPx = mapSize * tileSize;
@@ -637,57 +638,90 @@ gateCheck = function(x,y,h,k){
 
 // check if same faction(2), ally(1), neutral(0), enemy(-1)
 allyCheck = function(p,id){
-  var player = Player.list[p];
-  var other = Player.list[id]
-  var pHouse = House.list[player.house];
-  var oHouse = House.list[other.house];
+  if(Player.list[p]){
+    var player = Player.list[p];
+    var other = Player.list[id]
+    var pHouse = House.list[player.house];
+    var oHouse = House.list[other.house];
 
-  if(pHouse){
-    if(pHouse.hostile){
-      if(oHouse){
-        if(player.house == other.house){
-          return 2;
-        } else {
-          for(var i in pHouse.allies){
-            if(pHouse.allies[i] == other.house){
-              return 1;
-            } else {
-              continue;
-            }
-          }
-          return -1;
-        }
-      } else {
-        return -1;
-      }
-    } else {
-      if(oHouse){
-        if(player.house == other.house){
-          return 2;
-        } else {
-          for(var i in pHouse.allies){
-            if(pHouse.allies[i] == other.house){
-              return 1;
-            } else {
-              continue;
-            }
-          }
-          if(oHouse.hostile){
-            return -1;
+    if(pHouse){
+      if(pHouse.hostile){
+        if(oHouse){
+          if(player.house == other.house){
+            return 2;
           } else {
-            for(var i in pHouse.enemies){
-              if(pHouse.enemies[i] == other.house){
-                return -1;
+            for(var i in pHouse.allies){
+              if(pHouse.allies[i] == other.house){
+                return 1;
               } else {
                 continue;
               }
+            }
+            return -1;
+          }
+        } else {
+          return -1;
+        }
+      } else {
+        if(oHouse){
+          if(player.house == other.house){
+            return 2;
+          } else {
+            for(var i in pHouse.allies){
+              if(pHouse.allies[i] == other.house){
+                return 1;
+              } else {
+                continue;
+              }
+            }
+            if(oHouse.hostile){
+              return -1;
+            } else {
+              for(var i in pHouse.enemies){
+                if(pHouse.enemies[i] == other.house){
+                  return -1;
+                } else {
+                  continue;
+                }
+              }
+            }
+            return 0;
+          }
+        } else {
+          for(var i in pHouse.enemies){
+            if(pHouse.enemies[i] == id){
+              return -1;
+            } else {
+              continue;
+            }
+          }
+          return 0;
+        }
+      }
+    } else {
+      if(oHouse){
+        if(oHouse.hostile){
+          return -1;
+        } else {
+          for(var i in oHouse.enemies){
+            if(oHouse.enemies[i] == p){
+              return -1;
+            } else {
+              continue;
             }
           }
           return 0;
         }
       } else {
-        for(var i in pHouse.enemies){
-          if(pHouse.enemies[i] == id){
+        for(var i in player.friends){
+          if(player.friends[i] == id){
+            return 1;
+          } else {
+            continue;
+          }
+        }
+        for(var i in player.enemies){
+          if(player.enemies[i] == id){
             return -1;
           } else {
             continue;
@@ -695,37 +729,6 @@ allyCheck = function(p,id){
         }
         return 0;
       }
-    }
-  } else {
-    if(oHouse){
-      if(oHouse.hostile){
-        return -1;
-      } else {
-        for(var i in oHouse.enemies){
-          if(oHouse.enemies[i] == p){
-            return -1;
-          } else {
-            continue;
-          }
-        }
-        return 0;
-      }
-    } else {
-      for(var i in player.friends){
-        if(player.friends[i] == id){
-          return 1;
-        } else {
-          continue;
-        }
-      }
-      for(var i in player.enemies){
-        if(player.enemies[i] == id){
-          return -1;
-        } else {
-          continue;
-        }
-      }
-      return 0;
     }
   }
 }
@@ -1208,11 +1211,51 @@ Player = function(param){
     gold:0
   }
 
+  self.checkAggro = function(){
+    for(var i in self.zGrid){
+      var zc = self.zGrid[i][0];
+      var zr = self.zGrid[i][1];
+      if(zc < 64 && zc > -1 && zr < 64 && zr > -1){
+        for(var n in zones[zr][zc]){
+          var p = Player.list[zones[zr][zc][n]];
+          if(p && p.z == self.z){
+            var pDist = self.getDistance({
+              x:p.x,
+              y:p.y
+            });
+            if(pDist <= self.aggroRange){ // in aggro range
+              var ally = allyCheck(self.id,p.id);
+              if(ally <= 0){ // is neutral or enemy
+                self.stealthCheck(p);
+                if(ally == -1 && p.type == 'npc' &&
+                (self.innaWoods == p.innaWoods || (!self.innaWoods && p.innaWoods))){ // is enemy, both in/out woods or not in woods and they are
+                  if(!self.stealthed){
+                    Player.list[zones[zr][zc][n]].combat.target = self.id;
+                    Player.list[zones[zr][zc][n]].action = 'combat';
+                    console.log(p.name + ' aggro @ ' + self.name);
+                  } else if(!self.revealed){
+                    Player.list[zones[zr][zc][n]].combat.target = self.id;
+                    Player.list[zones[zr][zc][n]].action = 'combat';
+                    console.log(p.name + ' aggro @ ' + self.name);
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  setInterval(function(){
+    self.checkAggro();
+  },1000);
+
   self.update = function(){
     self.updateSpd();
     self.zoneCheck();
 
-    if(self.stealthed){
+    if(self.stealthed && !self.revealed){
       self.revealCheck();
     }
 
@@ -1775,11 +1818,7 @@ Player = function(param){
         // farm
       } else if(self.z == 0 && getTile(0,loc[0],loc[1]) == 8){
         self.actionCooldown = 10;
-        if(tempus == 'V.a' || tempus == 'VI.a' || tempus == 'VII.a' ||
-        tempus == 'VIII.a' || tempus == 'IX.a' || tempus == 'X.a' ||
-        tempus == 'XI.a' || tempus == 'XII.p' || tempus == 'I.p' ||
-        tempus == 'II.p' || tempus == 'III.p' || tempus == 'IV.p' ||
-        tempus == 'V.p' || tempus == 'VI.p'){
+        if(!nightfall){
           var f = getBuilding(self.x,self.y);
           self.working = true;
           self.farming = true;
@@ -1810,15 +1849,11 @@ Player = function(param){
             }
           },10000);
         } else {
-          socket.emit('addToChat','<i>Farmwork is done during daylight hours.</i>');
+          socket.emit('addToChat','<i>It is too dark out for farmwork.</i>');
         }
       } else if(self.z == 0 && getTile(0,loc[0],loc[1]) == 9){
         self.actionCooldown = 10;
-        if(tempus == 'V.a' || tempus == 'VI.a' || tempus == 'VII.a' ||
-        tempus == 'VIII.a' || tempus == 'IX.a' || tempus == 'X.a' ||
-        tempus == 'XI.a' || tempus == 'XII.p' || tempus == 'I.p' ||
-        tempus == 'II.p' || tempus == 'III.p' || tempus == 'IV.p' ||
-        tempus == 'V.p' || tempus == 'VI.p'){
+        if(!nightfall){
           var f = Building.list[getBuilding(self.x,self.y)];
           self.working = true;
           self.farming = true;
@@ -1848,7 +1883,7 @@ Player = function(param){
             }
           },10000);
         } else {
-          socket.emit('addToChat','<i>Farmwork must be done during daylight hours.</i>');
+          socket.emit('addToChat','<i>It is too dark out for farmwork.</i>');
         }
       } else if(self.z == 0 && getTile(0,loc[0],loc[1]) == 10){
         self.actionCooldown = 10;
@@ -2363,6 +2398,10 @@ Player = function(param){
 Player.list = {};
 
 Player.onConnect = function(socket,name){
+  socket.emit('tempus',{
+    tempus:tempus,
+    nightfall:nightfall
+  })
   var spawn = randomSpawnO();
   var player = Player({
     name:name,
@@ -2573,8 +2612,17 @@ var dayNight = function(){
     }
     console.log('Population: ' + count);
   }
+  if(tempus == 'VIII.p' || tempus == 'IX.p' ||
+  tempus == 'X.p' || tempus == 'XI.p' || tempus == 'XII.a' ||
+  tempus == 'I.a' || tempus == 'II.a' || tempus == 'III.a' ||
+  tempus == 'IV.a'){
+    nightfall = true;
+  } else {
+    nightfall = false;
+  }
   io.emit('tempus',{
-    tempus:tempus
+    tempus:tempus,
+    nightfall:nightfall
   })
   console.log(tempus);
 

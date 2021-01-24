@@ -95,9 +95,7 @@ socket.on('bgm',function(data){
 var soundscape = function(x,y,z,b){
   // outdoors
   if(z == 0){
-    if(tempus == 'VIII.p' || tempus == 'IX.p' || tempus == 'X.p' ||
-    tempus == 'XI.p' || tempus == 'XII.a' || tempus == 'I.a' ||
-    tempus == 'II.a' || tempus == 'III.a' || tempus == 'IV.a'){
+    if(nightfall){
       ambPlayer(Amb.forest);
     } else {
       ambPlayer(Amb.nature);
@@ -127,20 +125,15 @@ var getBgm = function(x,y,z,b){
   soundscape(x,y,z,b);
   // outdoors
   if(z == 0){
-    if(tempus == 'IV.a' || tempus == 'V.a' || tempus == 'VI.a' ||
+    if(nightfall){
+      bgmPlayer(overworld_night_bgm);
+    } else if(tempus == 'IV.a' || tempus == 'V.a' || tempus == 'VI.a' ||
     tempus == 'VII.a' || tempus == 'VIII.a' || tempus == 'IX.a'){
       // morning
       bgmPlayer(overworld_morning_bgm);
-    } else if(tempus == 'X.a' || tempus == 'XI.a' ||
-    tempus == 'XII.p' || tempus == 'I.p' ||
-    tempus == 'II.p' || tempus == 'III.p' ||
-    tempus == 'IV.p' || tempus == 'V.p' ||
-    tempus == 'VI.p' || tempus == 'VII.p'){
-      // day
-      bgmPlayer(overworld_day_bgm);
     } else {
       // night
-      bgmPlayer(overworld_night_bgm);
+      bgmPlayer(overworld_day_bgm);
     }
   } else if(z == -1){
     // cave
@@ -149,10 +142,7 @@ var getBgm = function(x,y,z,b){
     // indoors
     if(z == 1 || z == 2){
       if(b == 'stronghold'){
-        if(tempus == 'VIII.p' || tempus == 'IX.p' ||
-        tempus == 'X.p' || tempus == 'XI.p' ||
-        tempus == 'XII.a' || tempus == 'I.a' ||
-        tempus == 'II.a' || tempus == 'III.a'){
+        if(nightfall){
           bgmPlayer(stronghold_night_bgm);
         } else {
           bgmPlayer(stronghold_day_bgm);
@@ -184,14 +174,11 @@ var stealthCheck = function(id){ // 0: not stealthed, 1: somewhat visible, 1.5: 
     } else {
       if(allyCheck(id) <= 0){ // neutral or enemy
         if(p.revealed){
-          console.log(p.name + ' stealth 1.5');
           return 1.5;
         } else {
-          console.log(p.name + ' stealth 2');
           return 2;
         }
       } else { // ally
-        console.log(p.name + ' stealth 1');
         return 1;
       }
     }
@@ -2820,7 +2807,7 @@ setInterval(function(){
   }
   renderLighting();
   if(Player.list[selfId].z == 0){
-    if(tempus == 'VIII.p' || tempus == 'IX.p' || tempus == 'X.p' || tempus == 'XI.p' || tempus == 'XII.a' || tempus == 'I.a' || tempus == 'II.a' || tempus == 'III.a' || tempus == 'IV.a'){
+    if(nightfall){
       renderLightSources(2);
     } else {
       renderLightSources(1);
@@ -2972,12 +2959,14 @@ var allyCheck = function(id){
 
 // update environment
 tempus = null;
+nightfall = null;
 
 houseList = null;
 kingdomList = null;
 
 socket.on('tempus',function(data){
   tempus = data.tempus;
+  nightfall = data.nightfall;
   if(Player.list[selfId]){
     var p = Player.list[selfId];
     if(p.z == 0 && (tempus == 'IV.a' || tempus == 'V.a' || tempus == 'X.a' || tempus == 'VIII.p')){

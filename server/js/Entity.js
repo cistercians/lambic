@@ -764,7 +764,7 @@ Character = function(param){
                         self.action = 'combat';
                         console.log(self.name + ' aggro @ ' + p.name);
                       }
-                      if(!self.stealthed && !p.action){
+                      if(!self.stealthed && p.type == 'npc' && !p.action){
                         Player.list[zones[zr][zc][n]].combat.target = self.id;
                         Player.list[zones[zr][zc][n]].action = 'combat';
                       }
@@ -775,9 +775,14 @@ Character = function(param){
                 }
               } else { // not in woods and they are
                 if(ally == -1){ // is enemy
-                  if((!self.stealthed || self.revealed) && p.type == 'npc' && !p.action){
-                    Player.list[zones[zr][zc][n]].combat.target = self.id;
-                    Player.list[zones[zr][zc][n]].action = 'combat';
+                  if(p.type == 'npc' && !p.action){
+                    if(!self.stealthed){
+                      Player.list[zones[zr][zc][n]].combat.target = self.id;
+                      Player.list[zones[zr][zc][n]].action = 'combat';
+                    } else if(!self.revealed){
+                      Player.list[zones[zr][zc][n]].combat.target = self.id;
+                      Player.list[zones[zr][zc][n]].action = 'combat';
+                    }
                   }
                 }
               }
