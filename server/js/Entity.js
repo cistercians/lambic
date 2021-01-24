@@ -185,9 +185,9 @@ Character = function(param){
     relic:0
   }
   self.mounted = false;
-  self.stealthed = false;
   self.ranged = false;
   self.cleric = false;
+  self.stealthed = false;
   self.revealed = false;
   self.spriteSize = tileSize;
   self.facing = 'down';
@@ -335,11 +335,10 @@ Character = function(param){
                   Player.list[zones[zr][zc][n]].farming = false;
                   Player.list[zones[zr][zc][n]].building = false;
                   Player.list[zones[zr][zc][n]].fishing = false;
-                  if(self.stealthed){
-                    self.stealthed = false;
-                    Player.list[zones[zr][zc][n]].combat.target = self.id;
-                    Player.list[zones[zr][zc][n]].action = 'combat';
-                  }
+                  Player.list[zones[zr][zc][n]].combat.target = self.id;
+                  Player.list[zones[zr][zc][n]].action = 'combat';
+                  self.stealthed = false;
+                  self.revealed = false;
                 }
                 console.log(self.name + ' attacks ' + p.name);
                 // player death & respawn
@@ -371,11 +370,10 @@ Character = function(param){
                   Player.list[zones[zr][zc][n]].farming = false;
                   Player.list[zones[zr][zc][n]].building = false;
                   Player.list[zones[zr][zc][n]].fishing = false;
-                  if(self.stealthed){
-                    self.stealthed = false;
-                    Player.list[zones[zr][zc][n]].combat.target = self.id;
-                    Player.list[zones[zr][zc][n]].action = 'combat';
-                  }
+                  Player.list[zones[zr][zc][n]].combat.target = self.id;
+                  Player.list[zones[zr][zc][n]].action = 'combat';
+                  self.stealthed = false;
+                  self.revealed = false;
                 }
                 console.log(self.name + ' attacks ' + p.name);
                 // player death & respawn
@@ -407,11 +405,10 @@ Character = function(param){
                   Player.list[zones[zr][zc][n]].farming = false;
                   Player.list[zones[zr][zc][n]].building = false;
                   Player.list[zones[zr][zc][n]].fishing = false;
-                  if(self.stealthed){
-                    self.stealthed = false;
-                    Player.list[zones[zr][zc][n]].combat.target = self.id;
-                    Player.list[zones[zr][zc][n]].action = 'combat';
-                  }
+                  Player.list[zones[zr][zc][n]].combat.target = self.id;
+                  Player.list[zones[zr][zc][n]].action = 'combat';
+                  self.stealthed = false;
+                  self.revealed = false;
                 }
                 console.log(self.name + ' attacks ' + p.name);
                 // player death & respawn
@@ -443,11 +440,10 @@ Character = function(param){
                   Player.list[zones[zr][zc][n]].farming = false;
                   Player.list[zones[zr][zc][n]].building = false;
                   Player.list[zones[zr][zc][n]].fishing = false;
-                  if(self.stealthed){
-                    self.stealthed = false;
-                    Player.list[zones[zr][zc][n]].combat.target = self.id;
-                    Player.list[zones[zr][zc][n]].action = 'combat';
-                  }
+                  Player.list[zones[zr][zc][n]].combat.target = self.id;
+                  Player.list[zones[zr][zc][n]].action = 'combat';
+                  self.stealthed = false;
+                  self.revealed = false;
                 }
                 console.log(self.name + ' attacks ' + p.name);
                 // player death & respawn
@@ -731,7 +727,7 @@ Character = function(param){
       var light = Light.list[i];
       if(self.z == light.z){
         var d = self.getDistance({x:light.x,y:light.y});
-        if(d >= light.radius * 1.5){
+        if(d <= light.radius * 50){
           self.revealed = true;
           return;
         }
@@ -757,7 +753,7 @@ Character = function(param){
               if(self.innaWoods == p.innaWoods || (self.innaWoods && !p.innaWoods)){ // both in woods, both out of woods or in woods and they are not
                 if(ally <= 0){ // is neutral or enemy
                   self.stealthCheck(p);
-                  if(!Player.list[zones[zr][zc][n]].stealthed || Player.list[zones[zr][zc][n]].revealed){ // not stealthed or revealed
+                  if(!Player.list[zones[zr][zc][n]].stealthed || Player.list[zones[zr][zc][n]].revealed){ // is not stealthed or is revealed
                     if(ally == -1){ // is enemy
                       self.combat.target = p.id;
                       if(self.hp < (self.hpMax * 0.1) || self.class == 'SerfM' ||

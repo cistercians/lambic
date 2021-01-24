@@ -184,11 +184,14 @@ var stealthCheck = function(id){ // 0: not stealthed, 1: somewhat visible, 1.5: 
     } else {
       if(allyCheck(id) <= 0){ // neutral or enemy
         if(p.revealed){
+          console.log(p.name + ' stealth 1.5');
           return 1.5;
         } else {
+          console.log(p.name + ' stealth 2');
           return 2;
         }
       } else { // ally
+        console.log(p.name + ' stealth 1');
         return 1;
       }
     }
@@ -2440,75 +2443,75 @@ socket.on('update',function(data){
     var pack = data.player[i];
     var p = Player.list[pack.id];
     if(p){
-      if(pack.name !== undefined)
+      if(pack.name != undefined)
         p.name = pack.name;
-      if(pack.house !== undefined)
+      if(pack.house != undefined)
         p.house = pack.house;
-      if(pack.kingdom !== undefined)
+      if(pack.kingdom != undefined)
         p.kingdom = pack.kingdom;
-      if(pack.x !== undefined)
+      if(pack.x != undefined)
         p.x = pack.x;
-      if(pack.y !== undefined)
+      if(pack.y != undefined)
         p.y = pack.y;
-      if(pack.z !== undefined)
+      if(pack.z != undefined)
         p.z = pack.z;
-      if(pack.class !== undefined)
+      if(pack.class != undefined)
         p.class = pack.class;
-      if(pack.rank !== undefined)
+      if(pack.rank != undefined)
         p.rank = pack.rank;
-      if(pack.friends !== undefined)
+      if(pack.friends != undefined)
         p.friends = pack.friends;
-      if(pack.enemies !== undefined)
+      if(pack.enemies != undefined)
         p.enemies = pack.enemies;
-      if(pack.gear !== undefined)
+      if(pack.gear != undefined)
         p.gear = pack.gear;
-      if(pack.inventory !== undefined)
+      if(pack.inventory != undefined)
         p.inventory = pack.inventory;
-      if(pack.spriteSize !== undefined)
+      if(pack.spriteSize != undefined)
         p.spriteSize = pack.spriteSize;
-      if(pack.facing !== undefined)
+      if(pack.facing != undefined)
         p.facing = pack.facing;
-      if(pack.stealthed !== undefined)
+      if(pack.stealthed != undefined)
         p.stealthed = pack.stealthed;
-      if(pack.revealed !== undefined)
+      if(pack.revealed != undefined)
         p.revealed = pack.revealed;
-      if(pack.pressingUp !== undefined)
+      if(pack.pressingUp != undefined)
         p.pressingUp = pack.pressingUp;
-      if(pack.pressingDown !== undefined)
+      if(pack.pressingDown != undefined)
         p.pressingDown = pack.pressingDown;
-      if(pack.pressingLeft !== undefined)
+      if(pack.pressingLeft != undefined)
         p.pressingLeft = pack.pressingLeft;
-      if(pack.pressingRight !== undefined)
+      if(pack.pressingRight != undefined)
         p.pressingRight = pack.pressingRight;
-      if(pack.pressingAttack !== undefined)
+      if(pack.pressingAttack != undefined)
         p.pressingAttack = pack.pressingAttack;
-      if(pack.innaWoods !== undefined)
+      if(pack.innaWoods != undefined)
         p.innaWoods = pack.innaWoods;
-      if(pack.angle !== undefined)
+      if(pack.angle != undefined)
         p.angle = pack.angle;
-      if(pack.working !== undefined)
+      if(pack.working != undefined)
         p.working = pack.working;
-      if(pack.chopping !== undefined)
+      if(pack.chopping != undefined)
         p.chopping = pack.chopping;
-      if(pack.mining !== undefined)
+      if(pack.mining != undefined)
         p.mining = pack.mining;
-      if(pack.farming !== undefined)
+      if(pack.farming != undefined)
         p.farming = pack.farming;
-      if(pack.building !== undefined)
+      if(pack.building != undefined)
         p.building = pack.building;
-      if(pack.fishing !== undefined)
+      if(pack.fishing != undefined)
         p.fishing = pack.fishing;
-      if(pack.hp !== undefined)
+      if(pack.hp != undefined)
         p.hp = pack.hp;
-      if(pack.hpMax !== undefined)
+      if(pack.hpMax != undefined)
         p.hpMax = pack.hpMax;
-      if(pack.spirit !== undefined)
+      if(pack.spirit != undefined)
         p.spirit = pack.spirit;
-      if(pack.spiritMax !== undefined)
+      if(pack.spiritMax != undefined)
         p.spiritMax = pack.spiritMax;
-      if(pack.breath !== undefined)
+      if(pack.breath != undefined)
         p.breath = pack.breath;
-      if(pack.breathMax !== undefined)
+      if(pack.breathMax != undefined)
         p.breathMax = pack.breathMax;
 
       if(p.class == 'Sheep'){
@@ -2634,11 +2637,11 @@ socket.on('update',function(data){
     var pack = data.arrow[i];
     var b = Arrow.list[data.arrow[i].id];
     if(b){
-      if(pack.x !== undefined)
+      if(pack.x != undefined)
         b.x = pack.x;
-      if(pack.y !== undefined)
+      if(pack.y != undefined)
         b.y = pack.y;
-      if(pack.z !== undefined)
+      if(pack.z != undefined)
         b.z = pack.z;
     }
   }
@@ -2646,13 +2649,13 @@ socket.on('update',function(data){
     var pack = data.item[i];
     var itm = Item.list[data.item[i].id];
     if(itm){
-      if(pack.x !== undefined)
+      if(pack.x != undefined)
         itm.x = pack.x;
-      if(pack.y !== undefined)
+      if(pack.y != undefined)
         itm.y = pack.y;
-      if(pack.z !== undefined)
+      if(pack.z != undefined)
         itm.z = pack.z;
-      if(pack.innaWoods !== undefined)
+      if(pack.innaWoods != undefined)
         itm.innaWoods = pack.innaWoods;
     }
   }
@@ -2660,11 +2663,11 @@ socket.on('update',function(data){
     var pack = data.light[i];
     var l = Light.list[data.light[i].id];
     if(l){
-      if(pack.x !== undefined)
+      if(pack.x != undefined)
         l.x = pack.x;
-      if(pack.y !== undefined)
+      if(pack.y != undefined)
         l.y = pack.y;
-      if(pack.z !== undefined)
+      if(pack.z != undefined)
         l.z = pack.z;
     }
   }
@@ -2672,7 +2675,7 @@ socket.on('update',function(data){
     var pack = data.building[i];
     var b = Building.list[data.building[i].id];
     if(b){
-      if(pack.hp !== undefined)
+      if(pack.hp != undefined)
         b.hp = pack.hp;
     }
   }
@@ -2767,7 +2770,7 @@ setInterval(function(){
     if(inView(Item.list[i].z,Item.list[i].x,Item.list[i].y,Item.list[i].innaWoods)){
       if((Player.list[selfId].z == 1 || Player.list[selfId].z == 2) && (getBuilding(Item.list[i].x,Item.list[i].y) == getBuilding(Player.list[selfId].x,Player.list[selfId].y) || getBuilding(Item.list[i].x,Item.list[i].y+(tileSize * 1.1)) == getBuilding(Player.list[selfId].x,Player.list[selfId].y))){
         Item.list[i].draw();
-      } else if(Player.list[selfId].z !== 1 && Player.list[selfId].z !== 2){
+      } else if(Player.list[selfId].z != 1 && Player.list[selfId].z != 2){
         Item.list[i].draw();
       } else {
         continue;
@@ -2777,11 +2780,11 @@ setInterval(function(){
     }
   }
   for(var i in Player.list){
-    if(Player.list[i].class !== 'Falcon'){
+    if(Player.list[i].class != 'Falcon'){
       if(inView(Player.list[i].z,Player.list[i].x,Player.list[i].y,Player.list[i].innaWoods)){
         if((Player.list[selfId].z == 1 || Player.list[selfId].z == 2) && (getBuilding(Player.list[i].x,Player.list[i].y) == getBuilding(Player.list[selfId].x,Player.list[selfId].y))){
           Player.list[i].draw();
-        } else if(Player.list[selfId].z !== 1 && Player.list[selfId].z !== 2){
+        } else if(Player.list[selfId].z != 1 && Player.list[selfId].z != 2){
           Player.list[i].draw();
         } else {
           continue;
@@ -2795,7 +2798,7 @@ setInterval(function(){
     if(inView(Arrow.list[i].z,Arrow.list[i].x,Arrow.list[i].y,Arrow.list[i].innaWoods)){
       if((Player.list[selfId].z == 1 || Player.list[selfId].z == 2) && (getBuilding(Item.list[i].x,Item.list[i].y) == getBuilding(Arrow.list[selfId].x,Arrow.list[selfId].y))){
         Arrow.list[i].draw();
-      } else if(Player.list[selfId].z !== 1 && Player.list[selfId].z !== 2){
+      } else if(Player.list[selfId].z != 1 && Player.list[selfId].z != 2){
         Arrow.list[i].draw();
       } else {
         continue;
@@ -3578,20 +3581,20 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-            if((l !== 'fort' && rr !== 'fort' && u !== 'fort' && d !== 'fort') ||
+            if((l != 'fort' && rr != 'fort' && u != 'fort' && d != 'fort') ||
             (l == 'fort' && rr == 'fort' && u == 'fort' && d == 'fort') ||
-            (l == 'fort' && rr !== 'fort' && u !== 'fort' && d !== 'fort') ||
-            (l !== 'fort' && rr == 'fort' && u !== 'fort' && d !== 'fort') ||
-            (l !== 'fort' && rr !== 'fort' && u == 'fort' && d !== 'fort') ||
-            (l !== 'fort' && rr !== 'fort' && u !== 'fort' && d == 'fort') ||
-            (l !== 'fort' && rr == 'fort' && u !== 'fort' && d == 'fort') ||
-            (l == 'fort' && rr !== 'fort' && u !== 'fort' && d == 'fort') ||
-            (l == 'fort' && rr !== 'fort' && u == 'fort' && d !== 'fort') ||
-            (l !== 'fort' && rr == 'fort' && u == 'fort' && d !== 'fort') ||
-            (l !== 'fort' && rr == 'fort' && u == 'fort' && d == 'fort') ||
-            (l == 'fort' && rr == 'fort' && u !== 'fort' && d == 'fort') ||
-            (l == 'fort' && rr !== 'fort' && u == 'fort' && d == 'fort') ||
-            (l == 'fort' && rr == 'fort' && u == 'fort' && d !== 'fort')){
+            (l == 'fort' && rr != 'fort' && u != 'fort' && d != 'fort') ||
+            (l != 'fort' && rr == 'fort' && u != 'fort' && d != 'fort') ||
+            (l != 'fort' && rr != 'fort' && u == 'fort' && d != 'fort') ||
+            (l != 'fort' && rr != 'fort' && u != 'fort' && d == 'fort') ||
+            (l != 'fort' && rr == 'fort' && u != 'fort' && d == 'fort') ||
+            (l == 'fort' && rr != 'fort' && u != 'fort' && d == 'fort') ||
+            (l == 'fort' && rr != 'fort' && u == 'fort' && d != 'fort') ||
+            (l != 'fort' && rr == 'fort' && u == 'fort' && d != 'fort') ||
+            (l != 'fort' && rr == 'fort' && u == 'fort' && d == 'fort') ||
+            (l == 'fort' && rr == 'fort' && u != 'fort' && d == 'fort') ||
+            (l == 'fort' && rr != 'fort' && u == 'fort' && d == 'fort') ||
+            (l == 'fort' && rr == 'fort' && u == 'fort' && d != 'fort')){
               ctx.drawImage(
                 Img.fortc, // image
                 xOffset, // target x
@@ -3599,7 +3602,7 @@ var renderMap = function(){
                 tileSize, // target width
                 tileSize * 1.5 // target height
               );
-            } else if(l == 'fort' && rr == 'fort' && u !== 'fort' && d !== 'fort'){
+            } else if(l == 'fort' && rr == 'fort' && u != 'fort' && d != 'fort'){
               ctx.drawImage(
                 Img.fortlr, // image
                 xOffset, // target x
@@ -3607,7 +3610,7 @@ var renderMap = function(){
                 tileSize, // target width
                 tileSize // target height
               );
-            } else if(l !== 'fort' && rr !== 'fort' && u == 'fort' && d == 'fort'){
+            } else if(l != 'fort' && rr != 'fort' && u == 'fort' && d == 'fort'){
               ctx.drawImage(
                 Img.fortud, // image
                 xOffset, // target x
@@ -3628,20 +3631,20 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-            if((l !== 'wall' && rr !== 'wall' && u !== 'wall' && d !== 'wall') ||
+            if((l != 'wall' && rr != 'wall' && u != 'wall' && d != 'wall') ||
             (l == 'wall' && rr == 'wall' && u == 'wall' && d == 'wall') ||
-            (l == 'wall' && rr !== 'wall' && u !== 'wall' && d !== 'wall') ||
-            (l !== 'wall' && rr == 'wall' && u !== 'wall' && d !== 'wall') ||
-            (l !== 'wall' && rr !== 'wall' && u == 'wall' && d !== 'wall') ||
-            (l !== 'wall' && rr !== 'wall' && u !== 'wall' && d == 'wall') ||
-            (l !== 'wall' && rr == 'wall' && u !== 'wall' && d == 'wall') ||
-            (l == 'wall' && rr !== 'wall' && u !== 'wall' && d == 'wall') ||
-            (l == 'wall' && rr !== 'wall' && u == 'wall' && d !== 'wall') ||
-            (l !== 'wall' && rr == 'wall' && u == 'wall' && d !== 'wall') ||
-            (l !== 'wall' && rr == 'wall' && u == 'wall' && d == 'wall') ||
-            (l == 'wall' && rr == 'wall' && u !== 'wall' && d == 'wall') ||
-            (l == 'wall' && rr !== 'wall' && u == 'wall' && d == 'wall') ||
-            (l == 'wall' && rr == 'wall' && u == 'wall' && d !== 'wall')){
+            (l == 'wall' && rr != 'wall' && u != 'wall' && d != 'wall') ||
+            (l != 'wall' && rr == 'wall' && u != 'wall' && d != 'wall') ||
+            (l != 'wall' && rr != 'wall' && u == 'wall' && d != 'wall') ||
+            (l != 'wall' && rr != 'wall' && u != 'wall' && d == 'wall') ||
+            (l != 'wall' && rr == 'wall' && u != 'wall' && d == 'wall') ||
+            (l == 'wall' && rr != 'wall' && u != 'wall' && d == 'wall') ||
+            (l == 'wall' && rr != 'wall' && u == 'wall' && d != 'wall') ||
+            (l != 'wall' && rr == 'wall' && u == 'wall' && d != 'wall') ||
+            (l != 'wall' && rr == 'wall' && u == 'wall' && d == 'wall') ||
+            (l == 'wall' && rr == 'wall' && u != 'wall' && d == 'wall') ||
+            (l == 'wall' && rr != 'wall' && u == 'wall' && d == 'wall') ||
+            (l == 'wall' && rr == 'wall' && u == 'wall' && d != 'wall')){
               ctx.drawImage(
                 Img.wallc, // image
                 xOffset, // target x
@@ -3649,7 +3652,7 @@ var renderMap = function(){
                 tileSize, // target width
                 tileSize * 1.5 // target height
               );
-            } else if(l == 'wall' && rr == 'wall' && u !== 'wall' && d !== 'wall'){
+            } else if(l == 'wall' && rr == 'wall' && u != 'wall' && d != 'wall'){
               ctx.drawImage(
                 Img.walllr, // image
                 xOffset, // target x
@@ -3657,7 +3660,7 @@ var renderMap = function(){
                 tileSize, // target width
                 tileSize // target height
               );
-            } else if(l !== 'wall' && rr !== 'wall' && u == 'wall' && d == 'wall'){
+            } else if(l != 'wall' && rr != 'wall' && u == 'wall' && d == 'wall'){
               ctx.drawImage(
                 Img.wallud, // image
                 xOffset, // target x
@@ -5314,7 +5317,7 @@ var renderMap = function(){
         var bbuilding = getBuilding(bbCoords[0],bbCoords[1]);
         if(pBuilding == building || pBuilding == bbuilding){
           if(wtile == 1){
-            if(below !== 0){
+            if(below != 0){
               ctx.drawImage(
                 Img.woodwall, // image
                 xOffset, // target x
@@ -5324,7 +5327,7 @@ var renderMap = function(){
               );
             }
           } else if(wtile == 2){
-            if(below !== 0){
+            if(below != 0){
               ctx.drawImage(
                 Img.stonewall, // image
                 xOffset, // target x
@@ -5334,7 +5337,7 @@ var renderMap = function(){
               );
             }
           } else if(wtile == 3){
-            if(below !== 0){
+            if(below != 0){
               ctx.drawImage(
                 Img.wstairsd, // image
                 xOffset, // target x
@@ -5344,7 +5347,7 @@ var renderMap = function(){
               );
             }
           } else if(wtile == 4){
-            if(below !== 0){
+            if(below != 0){
               ctx.drawImage(
                 Img.sstairsd, // image
                 xOffset, // target x
@@ -5354,7 +5357,7 @@ var renderMap = function(){
               );
             }
           } else if(wtile == 5){
-            if(below !== 0){
+            if(below != 0){
               ctx.drawImage(
                 Img.woodwall, // image
                 xOffset, // target x
@@ -5364,7 +5367,7 @@ var renderMap = function(){
               );
             }
           } else if(wtile == 6){
-            if(below !== 0){
+            if(below != 0){
               ctx.drawImage(
                 Img.stonewall, // image
                 xOffset, // target x
@@ -5374,7 +5377,7 @@ var renderMap = function(){
               );
             }
           } else if(wtile == 7){
-            if(below !== 0){
+            if(below != 0){
               ctx.drawImage(
                 Img.sstairsd, // image
                 xOffset, // target x
