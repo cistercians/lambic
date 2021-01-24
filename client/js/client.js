@@ -2980,7 +2980,7 @@ socket.on('tempus',function(data){
     if(p.z == 0 && (tempus == 'IV.a' || tempus == 'V.a' || tempus == 'X.a' || tempus == 'VIII.p')){
       getBgm(p.x,p.y,p.z);
     } else if((p.z == 1 || p.z == 2) && (tempus == 'VIII.p' || tempus == 'IV.a')){
-      getBgm(p.x,p.y,p.z,Building.list[getBuilding(p.z,p.y)].type);
+      getBgm(p.x,p.y,p.z,Building.list[getBuilding(p.x,p.y)].type);
     }
   }
 });
