@@ -723,6 +723,12 @@ Character = function(param){
   }
 
   self.revealCheck = function(){
+    if(self.z == 0 || self.z == 1 || self.z == 2){
+      if(!nightfall && !self.innaWoods){
+        self.revealed = true;
+        return;
+      }
+    }
     for(i in Light.list){
       var light = Light.list[i];
       if(self.z == light.z){
@@ -1229,10 +1235,7 @@ Character = function(param){
 
     if(self.torchBearer){
       if(!self.hasTorch){
-        if((self.z == 0 && (tempus == 'VIII.p' || tempus == 'IX.p' ||
-        tempus == 'X.p' || tempus == 'XI.p' || tempus == 'XII.a' ||
-        tempus == 'I.a' || tempus == 'II.a' || tempus == 'III.a' ||
-        tempus == 'IV.a')) || self.z == -1 || self.z == -2){
+        if((self.z == 0 && nightfall) || self.z == -1 || self.z == -2){
           self.lightTorch(Math.random());
         }
       }

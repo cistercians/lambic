@@ -21,7 +21,7 @@ require('./server/js/Build');
 // BUILD MAP
 var genesis = require('./server/js/Genesis');
 var world = genesis.map;
-var nightfall = true;
+nightfall = true;
 tileSize = 64;
 mapSize = world[0].length;
 mapPx = mapSize * tileSize;
@@ -1255,7 +1255,7 @@ Player = function(param){
     self.updateSpd();
     self.zoneCheck();
 
-    if(self.stealthed && !self.revealed){
+    if(self.stealthed){
       self.revealCheck();
     }
 
