@@ -103,15 +103,21 @@ var soundscape = function(x,y,z,b){
   } else if(z == -1){
     ambPlayer(Amb.cave);
   } else if(z == 1 || z == 2){
-    if(b == 'monastery'){
+    if(b.type == 'monastery'){
       ambPlayer(Amb.empty);
     } else if(hasFire(z,x,y)){
-      ambPlayer(Amb.fire);
+      if(b.occ < 3){
+        ambPlayer(Amb.fire);
+      } else if(b.occ < 6){
+        ambPlayer(Amb.hush);
+      } else {
+        ambPlayer(Amb.chatter);
+      }
     } else {
       ambPlayer();
     }
   } else if(z == -2){
-    if(b == 'tavern'){
+    if(b.type == 'tavern'){
       ambPlayer(Amb.empty);
     } else {
       ambPlayer(Amb.evil);
@@ -122,7 +128,8 @@ var soundscape = function(x,y,z,b){
 };
 
 var getBgm = function(x,y,z,b){
-  soundscape(x,y,z,b);
+  var building = Building.list[b];
+  soundscape(x,y,z,building);
   // outdoors
   if(z == 0){
     if(nightfall && tempus != 'IV.a'){
@@ -138,30 +145,28 @@ var getBgm = function(x,y,z,b){
   } else if(z == -1){
     // cave
     bgmPlayer(cave_bgm);
-  } else {
-    // indoors
-    if(z == 1 || z == 2){
-      if(b == 'stronghold'){
-        if(nightfall){
-          bgmPlayer(stronghold_night_bgm);
-        } else {
-          bgmPlayer(stronghold_day_bgm);
-        }
-      } else if(b == 'garrison'){
-        bgmPlayer(garrison_bgm);
-      } else if(b == 'tavern'){
-        bgmPlayer(tavern_bgm);
-      } else if(b == 'monastery'){
-        bgmPlayer(monastery_bgm);
+    // indoor
+  } else if(z == 1 || z == 2){
+    if(building.type == 'stronghold'){
+      if(nightfall){
+        bgmPlayer(stronghold_night_bgm);
       } else {
-        bgmPlayer(indoors_bgm);
+        bgmPlayer(stronghold_day_bgm);
       }
-    } else if(z == -2){
-      if(b == 'tavern'){
-        return;
-      } else {
-        bgmPlayer(dungeons_bgm);
-      }
+    } else if(building.type == 'garrison'){
+      bgmPlayer(garrison_bgm);
+    } else if(building.type == 'tavern'){
+      bgmPlayer(tavern_bgm);
+    } else if(building.type == 'monastery'){
+      bgmPlayer(monastery_bgm);
+    } else {
+      bgmPlayer(indoors_bgm);
+    }
+  } else if(z == -2){
+    if(building.type == 'tavern'){
+      return;
+    } else {
+      bgmPlayer(dungeons_bgm);
     }
   }
 };
@@ -227,6 +232,7 @@ var Building = function(initPack){
   self.id = initPack.id;
   self.type = initPack.type;
   self.hp = initPack.hp;
+  self.occ = initPack.occ;
   self.plot = initPack.plot;
   self.walls = initPack.walls;
 
@@ -275,6 +281,7 @@ var Player = function(initPack){
   self.sprite = maleserf;
   self.spriteSize = initPack.spriteSize;
   self.ranged = initPack.ranged;
+  self.action = initPack.action;
 
   self.draw = function(){
     var stealth = stealthCheck(self.id);
@@ -426,6 +433,8 @@ var Player = function(initPack){
         ctx.fillText(workingIcon[wrk], barX + 80, barY - 20);
       } else if(self.revealed){
         ctx.fillText('👁️', barX + 80, barY - 20);
+      } else if(self.action == 'combat'){
+        ctx.fillText('⚔️', barX + 80, barY - 20)
       }
     }
 
@@ -2500,6 +2509,10 @@ socket.on('update',function(data){
         p.breath = pack.breath;
       if(pack.breathMax != undefined)
         p.breathMax = pack.breathMax;
+      if(pack.action != undefined)
+        p.action = pack.action;
+      if(pack.ghost != undefined)
+        p.ghost = pack.ghost;
 
       if(p.class == 'Sheep'){
         p.sprite = sheep;
@@ -2664,6 +2677,8 @@ socket.on('update',function(data){
     if(b){
       if(pack.hp != undefined)
         b.hp = pack.hp;
+      if(pack.occ != undefined)
+        b.occ = pack.occ;
     }
   }
 });
@@ -2972,7 +2987,8 @@ socket.on('tempus',function(data){
     if(p.z == 0 && (tempus == 'IV.a' || tempus == 'V.a' || tempus == 'X.a' || tempus == 'VIII.p')){
       getBgm(p.x,p.y,p.z);
     } else if((p.z == 1 || p.z == 2) && (tempus == 'VIII.p' || tempus == 'IV.a')){
-      getBgm(p.x,p.y,p.z,Building.list[getBuilding(p.x,p.y)].type);
+      var b = getBuilding(p.x,p.y);
+      getBgm(p.x,p.y,p.z,Building.list[b].type);
     }
   }
 });
@@ -6161,21 +6177,10 @@ document.onkeydown = function(event){
       socket.emit('keyPress',{inputId:'up',state:true});
       Player.list[selfId].pressingUp = true;
     } else if(event.keyCode == 32){ // space
-      if(Player.list[selfId].gear.weapon){
-        if(Player.list[selfId].gear.weapon.type == 'bow'){
-          if(Player.list[selfId].inventory.arrows > 0){
-            socket.emit('keyPress',{inputId:'attack',state:true});
-            Player.list[selfId].pressingAttack = true;
-          } else {
-            SOCKET_LIST[self.id].emit('addToChat','<i>You have no arrows.</i>');
-          }
-        } else {
-          socket.emit('keyPress',{inputId:'attack',state:true});
-          Player.list[selfId].pressingAttack = true;
-        }
-      }
+      socket.emit('keyPress',{inputId:'attack',state:true});
+      Player.list[selfId].pressingAttack = true;
     } else if(event.keyCode == 69){ // e
-       socket.emit('keyPress',{inputId:'e',state:true});
+      socket.emit('keyPress',{inputId:'e',state:true});
     } else if(event.keyCode == 84){ // t
       socket.emit('keyPress',{inputId:'t',state:true});
     } else if(event.keyCode == 73){ // i

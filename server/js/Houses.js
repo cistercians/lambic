@@ -87,7 +87,8 @@ Brotherhood = function(param){
         home:{
           z:-1,
           loc:[spawn.loc[0],spawn.loc[1]]
-        }
+        },
+        sex:'m'
       })
     } else {
       //
@@ -127,7 +128,8 @@ Brotherhood = function(param){
             home:{
               z:-1,
               loc:select
-            }
+            },
+            sex:'m'
           })
         }
         self.init = false;
@@ -185,7 +187,8 @@ Goths = function(param){
               home:{
                 z:0,
                 loc:select
-              }
+              },
+              sex:'m'
             })
           } else {
             Acolyte({
@@ -196,7 +199,8 @@ Goths = function(param){
               home:{
                 z:0,
                 loc:select
-              }
+              },
+              sex:'m'
             })
           }
         }
@@ -270,7 +274,8 @@ Franks = function(param){
               home:{
                 z:0,
                 loc:select
-              }
+              },
+              sex:'m'
             })
           } else if(flip < 0.5){
             FrankBow({
@@ -281,7 +286,8 @@ Franks = function(param){
               home:{
                 z:0,
                 loc:select
-              }
+              },
+              sex:'m'
             })
           } else {
             FrankSpear({
@@ -292,7 +298,8 @@ Franks = function(param){
               home:{
                 z:0,
                 loc:select
-              }
+              },
+              sex:'m'
             })
           }
         }
@@ -347,7 +354,8 @@ Celts = function(param){
               home:{
                 z:0,
                 loc:select
-              }
+              },
+              sex:'m'
             })
           } else {
             CeltSpear({
@@ -358,7 +366,8 @@ Celts = function(param){
               home:{
                 z:0,
                 loc:select
-              }
+              },
+              sex:'m'
             })
           }
         }
@@ -411,7 +420,8 @@ Teutons = function(param){
             home:{
               z:0,
               loc:select
-            }
+            },
+            sex:'m'
           })
         }
         self.init = false;
@@ -465,7 +475,8 @@ Outlaws = function(param){
               home:{
                 z:0,
                 loc:select
-              }
+              },
+              sex:'m'
             })
           } else {
             Outlaw({
@@ -476,7 +487,8 @@ Outlaws = function(param){
               home:{
                 z:0,
                 loc:select
-              }
+              },
+              sex:'m'
             })
           }
         }
@@ -536,7 +548,8 @@ Mercenaries = function(param){
               home:{
                 z:-1,
                 loc:select
-              }
+              },
+              sex:'m'
             })
           } else {
             Strongman({
@@ -547,7 +560,8 @@ Mercenaries = function(param){
               home:{
                 z:-1,
                 loc:select
-              }
+              },
+              sex:'m'
             })
           }
         }

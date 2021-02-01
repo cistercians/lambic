@@ -663,6 +663,28 @@ var maleserf = {
   fishingr: Img.maleserffishingr
 };
 
+// ghost
+// stand
+Img.ghoststandd = new Image();
+Img.ghoststandd.src = '/client/img/chars/ghost/standd.png';
+Img.ghoststandu = new Image();
+Img.ghoststandu.src = '/client/img/chars/ghost/standu.png';
+Img.ghoststandl = new Image();
+Img.ghoststandl.src = '/client/img/chars/ghost/standl.png';
+Img.ghoststandr = new Image();
+Img.ghoststandr.src = '/client/img/chars/ghost/standr.png';
+
+var ghost = {
+  facedown: Img.ghoststandd,
+  faceup: Img.ghoststandu,
+  faceleft: Img.ghoststandl,
+  faceright: Img.ghoststandr,
+  walkdown: Img.ghoststandd,
+  walkup: Img.ghoststandu,
+  walkleft: Img.ghoststandl,
+  walkright: Img.ghoststandr,
+};
+
 // rogue
 // stand
 // regular

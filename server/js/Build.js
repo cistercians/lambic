@@ -1,12 +1,18 @@
 Build = function(id){
   var p = Player.list[id];
+  if(p.type == 'npc' && !p.workTimer){
+    Player.list[id].workTimer = true;
+  }
   var loc = getLoc(p.x,p.y);
+  console.log(loc);
   Player.list[id].working = true;
   Player.list[id].building = true;
   Player.list[id].actionCooldown = 10;
   var b = getBuilding(p.x,p.y);
   setTimeout(function(){
+    var p = Player.list[id];
     if(Player.list[id].working){
+      var loc = getLoc(p.x,p.y);
       tileChange(6,loc[0],loc[1],10,true); // ALPHA, default:1
       Player.list[id].working = false;
       Player.list[id].building = false;
@@ -1000,7 +1006,9 @@ Build = function(id){
           var thr = getCoords(walls[3][0],walls[3][1]);
           var b2 = getCoords(walls[4][0],walls[4][1]);
           var sa2 = getCoords(walls[5][0],walls[5][1]);
-          var sr = getCoords(walls[7][0],walls[7][1]);
+          var sr1 = getCoords(plot[4][0],plot[4][1]);
+          var sr2 = getCoords(plot[11][0],plot[11][1]);
+          var sr3 = getCoords(walls[7][0],walls[7][1]);
           var fp1 = getCoords(plot[0][0],plot[0][1]);
           var fp2 = getCoords(plot[3][0],plot[3][1]);
           var fp3 = getCoords(plot[22][0],plot[22][1]);
@@ -1051,8 +1059,22 @@ Build = function(id){
             parent:b
           });
           Swordrack({
-            x:sr[0],
-            y:sr[1],
+            x:sr1[0],
+            y:sr1[1],
+            z:1,
+            qty:1,
+            parent:b
+          });
+          Swordrack({
+            x:sr2[0],
+            y:sr2[1],
+            z:1,
+            qty:1,
+            parent:b
+          });
+          Swordrack({
+            x:sr3[0],
+            y:sr3[1],
             z:1,
             qty:1,
             parent:b
@@ -1227,6 +1249,26 @@ Build = function(id){
           });
         }
         mapEdit();
+      }
+    }
+    if(p.type == 'npc'){
+      Player.list[p.id].workTimer = false;
+    }
+    if(Building.list[b].built){
+      for(var i in Player.list){
+        var player = Player.list[i];
+        var loc = getLoc(player.x,player.y);
+        for(var n in Building.list[b].plot){
+          var p = Building.list[b].plot[n];
+          if(loc.toString() == p.toString()){
+            if(player.z == 0){
+              var e = Building.list[b].plot[0];
+              var exit = getCenter(e[0],e[1]+1);
+              Player.list[i].x = exit[0];
+              Player.list[i].y = exit[1];
+            }
+          }
+        }
       }
     }
   },10000/p.strength);

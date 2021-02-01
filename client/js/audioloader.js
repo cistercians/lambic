@@ -120,6 +120,7 @@ Bgm.mater = '/client/audio/bgm/Mater.mp3';
 Bgm.mephisto = '/client/audio/bgm/Mephisto.mp3';
 Bgm.mio = '/client/audio/bgm/Mio.mp3';
 Bgm.miri = '/client/audio/bgm/Miri.mp3';
+Bgm.miri2 = '/client/audio/bgm/Miri2.mp3';
 Bgm.moriar = '/client/audio/bgm/Moriar.mp3';
 Bgm.morseca = '/client/audio/bgm/Morseca.mp3';
 Bgm.morte = '/client/audio/bgm/Morte.mp3';
@@ -240,7 +241,8 @@ var indoors_bgm = [
   Bgm.doulse,
   Bgm.coloribus2,
   Bgm.lannoys,
-  Bgm.ardente
+  Bgm.ardente,
+  Bgm.miri
 ];
 
 var monastery_bgm = [
@@ -387,6 +389,7 @@ var title_bgm = [
   Bgm.danca,
   Bgm.danca,
   Bgm.miri,
+  Bgm.miri2,
   Bgm.moriar,
   Bgm.saltarello2,
   Bgm.saltarello3

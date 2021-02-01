@@ -17,7 +17,7 @@ EvalCmd = function(data){
       var garrison = 0;
       var stronghold = 0;
 
-      var all = '<b><u>TIER I</u><br>Farm</b>: /build farm<br><b>LumberCamp</b>: /build lumbercamp<br><b>MiningCamp</b>: /build miningcamp<br><b>Hut</b>: /build hut<br><b>Cottage</b>: /build cottage<br><b>Tavern</b>: /build tavern<br><b>Tower</b>: /build tower<br><b>Blacksmith</b>: /build blacksmith<br><b>Fort</b>: /build fort<br><b>Outpost</b>: /build outpost<br><b>Monastery</b>: /build monastery<br><b>Road</b>: /build road<br>';
+      var all = '<b><u>TIER I</u><br>[Farm]</b>: /build farm<br><b>Lumbermill</b>: /build lumbermill<br><b>Mine</b>: /build mine<br><b>Hut</b>: /build hut<br><b>Cottage</b>: /build cottage<br><b>[Tavern]</b>: /build tavern<br><b>Tower</b>: /build tower<br><b>[Blacksmith]</b>: /build blacksmith<br><b>Fort</b>: /build fort<br><b>Outpost</b>: /build outpost<br><b>[Monastery]</b>: /build monastery<br><b>Road</b>: /build road<br>';
 
       for(var i in Building.list){
         var b = Building.list[i];
@@ -46,11 +46,11 @@ EvalCmd = function(data){
           all += '<b>Dock</b>: /build dock<br><b>Stable</b>: /build stable<br><b>Market</b>: /build market<br>';
         }
         if(blacksmith > 0){
-          all += '<b>Garrison</b>: /build garrison<br>';
+          all += '<b>[Garrison]</b>: /build garrison<br>';
         }
       }
       if(garrison){
-        all += '<b><u>TIER III</u><br>Stronghold</b>: /build stronghold<br><b>Wall</b>: /build wall<br><b>Gate</b>: /build gate<br><b>Guardtower</b> /build guardtower<br>'
+        all += '<b><u>TIER III</u><br>[Stronghold]</b>: /build stronghold<br><b>Wall</b>: /build wall<br><b>Gate</b>: /build gate<br><b>Guardtower</b> /build guardtower<br>'
       }
       if(monastery > 0 && stronghold > 0){
         all += '<b><u>TIER IV</u><br>Cathedral</b>: /build cathedral<br>';
@@ -78,12 +78,13 @@ EvalCmd = function(data){
               }
               player.working = false;
               mapEdit();
-              Building({
+              var center = getCenter(plot[4][0],plot[4][1]);
+              Farm({
                 owner:player.id,
                 house:player.house,
                 kingdom:player.kingdom,
-                x:player.x,
-                y:player.y,
+                x:center[0],
+                y:center[1],
                 z:0,
                 type:'farm',
                 built:true,
@@ -115,6 +116,7 @@ EvalCmd = function(data){
           for(var i in perim){
             var n = perim[i];
             var tile = getTile(0,n[0],n[1]);
+            var ttile = getTile(5,n[0],n[1]);
             if(tile != 11 &&
             tile != 11.5 &&
             tile != 12 &&
@@ -126,7 +128,7 @@ EvalCmd = function(data){
             tile != 17 &&
             tile != 19 &&
             tile != 20 &&
-            getTile(5,n[0],n[1]) == 0){
+            (ttile == 0 || ttile == 'dock6' || ttile == 'dock7' || ttile == 'dock8')){
               count++;
             }
           }
@@ -137,12 +139,13 @@ EvalCmd = function(data){
               tileChange(6,n[0],n[1],0);
             }
             mapEdit();
-            Building({
+            var center = getCoords(plot[1][0],plot[1][1]);
+            Mill({
               owner:player.id,
               house:player.house,
               kingdom:player.kingdom,
-              x:player.x,
-              y:player.y,
+              x:center[0],
+              y:center[1],
               z:0,
               type:'mill',
               built:false,
@@ -178,6 +181,7 @@ EvalCmd = function(data){
           for(var i in perim){
             var n = perim[i];
             var tile = getTile(0,n[0],n[1]);
+            var ttile = getTile(5,n[0],n[1]);
             if(tile != 11 &&
             tile != 11.5 &&
             tile != 12 &&
@@ -189,7 +193,7 @@ EvalCmd = function(data){
             tile != 17 &&
             tile != 19 &&
             tile != 20 &&
-            getTile(5,n[0],n[1]) == 0){
+            (ttile == 0 || ttile == 'dock6' || ttile == 'dock7' || ttile == 'dock8')){
               count++;
             }
           }
@@ -241,6 +245,7 @@ EvalCmd = function(data){
           for(var i in perim){
             var n = perim[i];
             var tile = getTile(0,n[0],n[1]);
+            var ttile = getTile(5,n[0],n[1]);
             if(tile != 11 &&
             tile != 11.5 &&
             tile != 12 &&
@@ -252,7 +257,7 @@ EvalCmd = function(data){
             tile != 17 &&
             tile != 19 &&
             tile != 20 &&
-            getTile(5,n[0],n[1]) == 0){
+            (ttile == 0 || ttile == 'dock6' || ttile == 'dock7' || ttile == 'dock8')){
               count++;
             }
           }
@@ -360,7 +365,7 @@ EvalCmd = function(data){
             tileChange(0,c,r,11);
             tileChange(6,c,r,0);
             mapEdit();
-            Building({
+            Outpost({
               owner:player.id,
               house:player.house,
               kingdom:player.kingdom,
@@ -403,7 +408,7 @@ EvalCmd = function(data){
               tileChange(6,n[0],n[1],0);
             }
             mapEdit();
-            Building({
+            Guardtower({
               owner:player.id,
               house:player.house,
               kingdom:player.kingdom,
@@ -443,6 +448,7 @@ EvalCmd = function(data){
           for(var i in perim){
             var n = perim[i];
             var tile = getTile(0,n[0],n[1]);
+            var ttile = getTile(5,n[0],n[1]);
             if(tile != 11 &&
             tile != 11.5 &&
             tile != 12 &&
@@ -455,7 +461,7 @@ EvalCmd = function(data){
             tile != 19 &&
             tile != 20 &&
             tile != 20.5 &&
-            getTile(5,n[0],n[1]) == 0){
+            (ttile == 0 || ttile == 'dock6' || ttile == 'dock7' || ttile == 'dock8')){
               count++;
             }
           }
@@ -508,6 +514,7 @@ EvalCmd = function(data){
           for(var i in perim){
             var n = perim[i];
             var tile = getTile(0,n[0],n[1]);
+            var ttile = getTile(5,n[0],n[1]);
             if(tile != 11 &&
             tile != 11.5 &&
             tile != 12 &&
@@ -520,7 +527,7 @@ EvalCmd = function(data){
             tile != 19 &&
             tile != 20 &&
             tile != 20.5 &&
-            getTile(5,n[0],n[1]) == 0){
+            (ttile == 0 || ttile == 'dock6' || ttile == 'dock7' || ttile == 'dock8')){
               count++;
             }
           }
@@ -531,7 +538,7 @@ EvalCmd = function(data){
               tileChange(6,n[0],n[1],0);
             }
             mapEdit();
-            Building({
+            Tavern({
               owner:player.id,
               house:player.house,
               kingdom:player.kingdom,
@@ -573,6 +580,7 @@ EvalCmd = function(data){
           for(var i in perim){
             var n = perim[i];
             var tile = getTile(0,n[0],n[1]);
+            var ttile = getTile(5,n[0],n[1]);
             if(tile != 11 &&
             tile != 11.5 &&
             tile != 12 &&
@@ -585,7 +593,7 @@ EvalCmd = function(data){
             tile != 19 &&
             tile != 20 &&
             tile != 20.5 &&
-            getTile(5,n[0],n[1]) == 0){
+            (ttile == 0 || ttile == 'dock6' || ttile == 'dock7' || ttile == 'dock8')){
               count++;
             }
           }
@@ -596,7 +604,7 @@ EvalCmd = function(data){
               tileChange(6,n[0],n[1],0);
             }
             mapEdit();
-            Building({
+            Monastery({
               owner:player.id,
               house:player.house,
               kingdom:player.kingdom,
@@ -638,6 +646,7 @@ EvalCmd = function(data){
           for(var i in perim){
             var n = perim[i];
             var tile = getTile(0,n[0],n[1]);
+            var ttile = getTile(5,n[0],n[1]);
             if(tile != 11 &&
             tile != 11.5 &&
             tile != 12 &&
@@ -650,7 +659,7 @@ EvalCmd = function(data){
             tile != 19 &&
             tile != 20 &&
             tile != 20.5 &&
-            getTile(5,n[0],n[1]) == 0){
+            (ttile == 0 || ttile == 'dock6' || ttile == 'dock7' || ttile == 'dock8')){
               count++;
             }
           }
@@ -661,7 +670,7 @@ EvalCmd = function(data){
               tileChange(6,n[0],n[1],0);
             }
             mapEdit();
-            Building({
+            Market({
               owner:player.id,
               house:player.house,
               kingdom:player.kingdom,
@@ -702,6 +711,7 @@ EvalCmd = function(data){
           for(var i in perim){
             var n = perim[i];
             var tile = getTile(0,n[0],n[1]);
+            var ttile = getTile(5,n[0],n[1]);
             if(tile != 11 &&
             tile != 11.5 &&
             tile != 12 &&
@@ -714,7 +724,7 @@ EvalCmd = function(data){
             tile != 19 &&
             tile != 20 &&
             tile != 20.5 &&
-            getTile(5,n[0],n[1]) == 0){
+            (ttile == 0 || ttile == 'dock6' || ttile == 'dock7' || ttile == 'dock8')){
               count++;
             }
           }
@@ -725,7 +735,7 @@ EvalCmd = function(data){
               tileChange(6,n[0],n[1],0);
             }
             mapEdit();
-            Building({
+            Stable({
               owner:player.id,
               house:player.house,
               kingdom:player.kingdom,
@@ -785,6 +795,7 @@ EvalCmd = function(data){
           for(var i in perim){
             var n = perim[i];
             var tile = getTile(0,n[0],n[1]);
+            var ttile = getTile(5,n[0],n[1]);
             if(tile != 11 &&
             tile != 11.5 &&
             tile != 12 &&
@@ -795,7 +806,7 @@ EvalCmd = function(data){
             tile != 16 &&
             tile != 17 &&
             tile != 19 &&
-            getTile(5,n[0],n[1]) == 0){
+            (ttile == 0 || ttile == 'dock6' || ttile == 'dock7' || ttile == 'dock8')){
               count++;
             }
           }
@@ -811,7 +822,7 @@ EvalCmd = function(data){
               matrixChange(0,n[0],n[1],0);
             }
             mapEdit();
-            Building({
+            Dock({
               owner:player.id,
               house:player.house,
               kingdom:player.kingdom,
@@ -831,10 +842,10 @@ EvalCmd = function(data){
               hp:750
             });
           } else {
-            socket.emit('addToChat','<i>You cannot build that there.</i> PERIM');
+            socket.emit('addToChat','<i>You cannot build that there.</i>');
           }
         } else {
-          socket.emit('addToChat','<i>You cannot build that there.</i> PLOT');
+          socket.emit('addToChat','<i>You cannot build that there.</i>');
         }
       } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) == 'garrison' && z == 0){
         var plot = [[c,r],[c+1,r],[c+2,r],[c+3,r],[c,r-1],[c+1,r-1],[c+2,r-1],[c+3,r-1],[c,r-2],[c+1,r-2],[c+2,r-2],[c+3,r-2]];
@@ -852,19 +863,21 @@ EvalCmd = function(data){
           count = 0;
           for(var i in perim){
             var n = perim[i];
-            if(getTile(0,n[0],n[1]) != 11 &&
-            getTile(0,n[0],n[1]) != 11.5 &&
-            getTile(0,n[0],n[1]) != 12 &&
-            getTile(0,n[0],n[1]) != 12.5 &&
-            getTile(0,n[0],n[1]) != 13 &&
-            getTile(0,n[0],n[1]) != 14 &&
-            getTile(0,n[0],n[1]) != 15 &&
-            getTile(0,n[0],n[1]) != 16 &&
-            getTile(0,n[0],n[1]) != 17 &&
-            getTile(0,n[0],n[1]) != 19 &&
-            getTile(0,n[0],n[1]) != 20 &&
-            getTile(0,n[0],n[1]) != 20.5 &&
-            getTile(5,n[0],n[1]) == 0){
+            var tile = getTile(0,n[0],n[1]);
+            var ttile = getTile(5,n[0],n[1]);
+            if(tile != 11 &&
+            tile != 11.5 &&
+            tile != 12 &&
+            tile != 12.5 &&
+            tile != 13 &&
+            tile != 14 &&
+            tile != 15 &&
+            tile != 16 &&
+            tile != 17 &&
+            tile != 19 &&
+            tile != 20 &&
+            tile != 20.5 &&
+            (ttile == 0 || ttile == 'dock6' || ttile == 'dock7' || ttile == 'dock8')){
               count++;
             }
           }
@@ -875,7 +888,7 @@ EvalCmd = function(data){
               tileChange(6,n[0],n[1],0);
             }
             mapEdit();
-            Building({
+            Garrison({
               owner:player.id,
               house:player.house,
               kingdom:player.kingdom,
@@ -915,19 +928,21 @@ EvalCmd = function(data){
           count = 0;
           for(var i in perim){
             var n = perim[i];
-            if(getTile(0,n[0],n[1]) != 11 &&
-            getTile(0,n[0],n[1]) != 11.5 &&
-            getTile(0,n[0],n[1]) != 12 &&
-            getTile(0,n[0],n[1]) != 12.5 &&
-            getTile(0,n[0],n[1]) != 13 &&
-            getTile(0,n[0],n[1]) != 14 &&
-            getTile(0,n[0],n[1]) != 15 &&
-            getTile(0,n[0],n[1]) != 16 &&
-            getTile(0,n[0],n[1]) != 17 &&
-            getTile(0,n[0],n[1]) != 19 &&
-            getTile(0,n[0],n[1]) != 20 &&
-            getTile(0,n[0],n[1]) != 20.5 &&
-            getTile(5,n[0],n[1]) == 0){
+            var tile = getTile(0,n[0],n[1]);
+            var ttile = getTile(5,n[0],n[1]);
+            if(tile != 11 &&
+            tile != 11.5 &&
+            tile != 12 &&
+            tile != 12.5 &&
+            tile != 13 &&
+            tile != 14 &&
+            tile != 15 &&
+            tile != 16 &&
+            tile != 17 &&
+            tile != 19 &&
+            tile != 20 &&
+            tile != 20.5 &&
+            (ttile == 0 || ttile == 'dock6' || ttile == 'dock7' || ttile == 'dock8')){
               count++;
             }
           }
@@ -938,7 +953,7 @@ EvalCmd = function(data){
               tileChange(6,n[0],n[1],0);
             }
             mapEdit();
-            Building({
+            Blacksmith({
               owner:player.id,
               house:player.house,
               kingdom:player.kingdom,
@@ -979,7 +994,7 @@ EvalCmd = function(data){
               tileChange(5,plot[i][0],plot[i][1],String('gateo'));
             }
             mapEdit();
-            Building({
+            Gate({
               owner:player.id,
               house:player.house,
               kingdom:player.kingdom,
@@ -1047,19 +1062,21 @@ EvalCmd = function(data){
           count = 0;
           for(var i in perim){
             var n = perim[i];
-            if(getTile(0,n[0],n[1]) != 11 &&
-            getTile(0,n[0],n[1]) != 11.5 &&
-            getTile(0,n[0],n[1]) != 12 &&
-            getTile(0,n[0],n[1]) != 12.5 &&
-            getTile(0,n[0],n[1]) != 13 &&
-            getTile(0,n[0],n[1]) != 14 &&
-            getTile(0,n[0],n[1]) != 15 &&
-            getTile(0,n[0],n[1]) != 16 &&
-            getTile(0,n[0],n[1]) != 17 &&
-            getTile(0,n[0],n[1]) != 19 &&
-            getTile(0,n[0],n[1]) != 20 &&
-            getTile(0,n[0],n[1]) != 20.5 &&
-            getTile(5,n[0],n[1]) == 0){
+            var tile = getTile(0,n[0],n[1]);
+            var ttile = getTile(5,n[0],n[1]);
+            if(tile != 11 &&
+            tile != 11.5 &&
+            tile != 12 &&
+            tile != 12.5 &&
+            tile != 13 &&
+            tile != 14 &&
+            tile != 15 &&
+            tile != 16 &&
+            tile != 17 &&
+            tile != 19 &&
+            tile != 20 &&
+            tile != 20.5 &&
+            (ttile == 0 || ttile == 'dock6' || ttile == 'dock7' || ttile == 'dock8')){
               count++;
             }
           }
@@ -1070,7 +1087,7 @@ EvalCmd = function(data){
               //tileChange(6,n[0],n[1],0); // ALPHA
             }
             mapEdit();
-            Building({
+            Stronghold({
               owner:player.id,
               house:player.house,
               kingdom:player.kingdom,
@@ -1676,9 +1693,9 @@ EvalCmd = function(data){
       } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'armor'){
         if(player.gear.armor){
           if(player.mounted){
-            self.mounted = false;
-            self.baseSpd -= 3;
-            self.mountCooldown = 200;
+            player.mounted = false;
+            player.baseSpd -= 3;
+            player.mountCooldown = 200;
           }
           player.gear.armor.unequip(player.id);
           socket.emit('addToChat','<i>You unequip </i><b>' + player.gear.armor.name + '</b>.');

@@ -2,7 +2,8 @@ STRONGHODL OST:
 
 TITLE:
 Danca
-Miri
+Miri,
+Miri2,
 Moriar
 Saltarello2
 Saltarello3
@@ -82,6 +83,7 @@ Doulse
 Coloribus2
 Lannoys
 Ardente
+Miri
 
 DUNGEON:
 Mundi
@@ -532,6 +534,10 @@ https://www.youtube.com/watch?v=5FwbYZwNnjc
 Miri:
 Ensemble Belladonna - Miri it is while sumer ilast
 https://www.youtube.com/watch?v=7UvesKl8_W8
+
+Miri2:
+Arkaizm - Miri It Is Whil Sumer Ylast
+https://www.youtube.com/watch?v=QC_RqHSnfsA
 
 Moriar:
 Capella de la Torre - Non moriar, sed vivam

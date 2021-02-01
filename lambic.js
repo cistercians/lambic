@@ -17,6 +17,8 @@ require('./server/js/Houses');
 require('./server/js/Dialogue');
 require('./server/js/Inspect');
 require('./server/js/Build');
+require('./server/js/Interact');
+require('./server/js/Econ');
 
 // BUILD MAP
 var genesis = require('./server/js/Genesis');
@@ -205,9 +207,9 @@ var entropy = function(){
   if(deerPop < deerRatio){
     var num = 0;
     if(day == 0){
-      num = Math.floor(deerRatio * 0.5);
+      num = Math.floor(deerRatio * 0.618);
     } else {
-      num = Math.floor((deerRatio - deerPop) * 0.01);
+      num = Math.floor((deerRatio - deerPop) * 0.02);
     }
     for(var i = 0; i < num; i++){
       var sp = randomSpawnHF();
@@ -226,9 +228,9 @@ var entropy = function(){
   if(boarPop < boarRatio){
     var num = 0;
     if(day == 0){
-      num = Math.floor(boarRatio * 0.5);
+      num = Math.floor(boarRatio * 0.618);
     } else {
-      num = Math.floor((boarRatio - boarPop) * 0.01);
+      num = Math.floor((boarRatio - boarPop) * 0.02);
     }
     for(var i = 0; i < num; i++){
       var sp = randomSpawnHF();
@@ -247,9 +249,9 @@ var entropy = function(){
   if(wolfPop < wolfRatio){
     var num = 0;
     if(day == 0){
-      num = Math.floor(wolfRatio * 0.5);
+      num = Math.floor(wolfRatio * 0.618);
     } else {
-      num = Math.floor((wolfRatio - wolfPop) * 0.01);
+      num = Math.floor((wolfRatio - wolfPop) * 0.02);
     }
     for(var i = 0; i < num; i++){
       var sp = randomSpawnHF();
@@ -268,7 +270,7 @@ var entropy = function(){
   if(falconPop < falconRatio){
     var num = 0;
     if(day == 0){
-      num = Math.floor(falconRatio * 0.5);
+      num = Math.floor(falconRatio * 0.618);
     } else {
       num = Math.floor((falconRatio - falconPop) * 0.01);
     }
@@ -303,6 +305,16 @@ var hForestSpawns = [];
 var mtnSpawns = [];
 
 caveEntrances = [];
+
+// daily tally
+var dailyTally = function(){
+  for(var i in Building.list){
+    var b = Building.list[i];
+    if(b.type == 'mill' || b.type == 'lumbermill' || b.type == 'mine'){
+      Building.list[i].tally();
+    }
+  }
+}
 
 // create n-dimensional array
 function createArray(length){
@@ -754,6 +766,50 @@ getCenter = function(c,r){
   return coords;
 };
 
+// get grid of a rectangular area
+getArea = function(loc1,loc2,margin=0){
+  var c1 = loc1[0];
+  var c2 = loc2[0];
+  var r1 = loc1[1];
+  var r2 = loc2[1];
+  var tl = [];
+  var br = [];
+  var c = 0;
+  var r = 0;
+  var grid = [];
+  if(c1 <= c2){
+    c = c2 - c1;
+    if(r1 <= r2){
+      r = r2 - r1;
+      tl = [c1-margin,r1-margin];
+      br = [c2+margin,r2+margin];
+    } else {
+      r = r1 - r2;
+      tl = [c1-margin,r2-margin];
+      br = [c2+margin,r1+margin];
+    }
+  } else {
+    c = c1 - c2;
+    if(r1 <= r2){
+      r = r2 - r1;
+      tl = [c2,r1];
+      br = [c1,r2];
+    } else {
+      r = r1 - r2;
+      tl = loc2;
+      br = loc1;
+    }
+  }
+  for(var y = tl[1]; y < br[1]; y++){
+    for(var x = tl[0]; x < br[0]; x++){
+      if(x >= 0 && x < mapSize && y >= 0 && y < mapSize){
+        grid.push([x,y]);
+      }
+    }
+  }
+  return grid;
+}
+
 // random spawner (Overworld)
 randomSpawnO = function(){
   var rand = Math.floor(Math.random() * spawnPointsO.length);
@@ -1079,7 +1135,7 @@ if(saveMap){
 
 // day/night cycle
 tempus = 'XII.a';
-period = 60; // 1=1hr, 2=30m, 4=15m, 12=5m, 60=1m, 120=30s, 360=10s (number of game days per 24 hours)
+period = 120; // 1=1hr, 2=30m, 4=15m, 12=5m, 60=1m, 120=30s, 360=10s (number of game days per 24 hours)
 var cycle = ['XII.a','I.a','II.a','III.a','IV.a','V.a','VI.a','VII.a','VIII.a','IX.a','X.a','XI.a'
             ,'XII.p','I.p','II.p','III.p','IV.p','V.p','VI.p','VII.p','VIII.p','IX.p','X.p','XI.p'];
 var tick = 1;
@@ -1182,6 +1238,7 @@ Player = function(param){
   self.breathMax = 100;
   self.strength = 10; // ALPHA
   self.dexterity = 1;
+  self.ghost = false;
   self.die = function(report){
     if(report.id){
       if(Player.list[report.id]){
@@ -1202,16 +1259,10 @@ Player = function(param){
     self.y = spawn[1]; // ALPHA replace this
   }
 
-  self.stores = {
-    grain:0,
-    wood:0,
-    stone:0,
-    iron:0,
-    silver:0,
-    gold:0
-  }
-
   self.checkAggro = function(){
+    if(!self.combat.target){
+      self.action = null;
+    }
     for(var i in self.zGrid){
       var zc = self.zGrid[i][0];
       var zr = self.zGrid[i][1];
@@ -1223,20 +1274,20 @@ Player = function(param){
               x:p.x,
               y:p.y
             });
-            if(pDist <= self.aggroRange){ // in aggro range
+            if(pDist <= p.aggroRange){ // in aggro range
               var ally = allyCheck(self.id,p.id);
               if(ally <= 0){ // is neutral or enemy
                 self.stealthCheck(p);
                 if(ally == -1 && p.type == 'npc' &&
                 (self.innaWoods == p.innaWoods || (!self.innaWoods && p.innaWoods))){ // is enemy, both in/out woods or not in woods and they are
                   if(!self.stealthed){
-                    Player.list[zones[zr][zc][n]].combat.target = self.id;
-                    Player.list[zones[zr][zc][n]].action = 'combat';
-                    console.log(p.name + ' aggro @ ' + self.name);
+                    Player.list[p.id].combat.target = self.id;
+                    Player.list[p.id].action = 'combat';
+                    console.log(p.class + ' aggro @ ' + self.name);
                   } else if(!self.revealed){
-                    Player.list[zones[zr][zc][n]].combat.target = self.id;
-                    Player.list[zones[zr][zc][n]].action = 'combat';
-                    console.log(p.name + ' aggro @ ' + self.name);
+                    Player.list[p.id].combat.target = self.id;
+                    Player.list[p.id].action = 'combat';
+                    console.log(p.class + ' aggro @ ' + self.name);
                   }
                 }
               }
@@ -1273,16 +1324,6 @@ Player = function(param){
 
     if(self.switchCooldown > 0){
       self.switchCooldown--;
-    }
-
-    if(self.pressingAttack && self.gear.weapon && self.attackCooldown == 0 && self.z !== -3){
-      if(self.gear.weapon.type == 'bow' && self.inventory.arrows > 0){
-        self.shootArrow(self.mouseAngle);
-        self.attackCooldown += self.gear.weapon.attackrate/self.dexterity;
-      } else {
-        self.attack(self.facing);
-        self.attackCooldown += self.gear.weapon.attackrate/self.dexterity;
-      }
     }
 
     // TORCH
@@ -1637,6 +1678,32 @@ Player = function(param){
     }
 
     // INTERACTIONS
+    if(self.pressingAttack && self.actionCooldown == 0 && !self.working){
+      var loc = getLoc(self.x,self.y);
+      var dir = null;
+      if(self.facing == 'down'){
+        dir = [loc[0],loc[1]+1];
+      } else if(self.facing == 'up'){
+        dir = [loc[0],loc[1]-1];
+      } else if(self.facing == 'left'){
+        dir = [loc[0]-1,loc[1]];
+      } else if(self.facing == 'right'){
+        dir = [loc[0]+1,loc[1]];
+      }
+      if(!isWalkable(self.z,dir[0],dir[1])){
+        Interact(self.id,dir);
+      } else {
+        if(self.gear.weapon && self.attackCooldown == 0 && self.z !== -3){
+          if(self.gear.weapon.type == 'bow' && self.inventory.arrows > 0){
+            self.shootArrow(self.mouseAngle);
+            self.attackCooldown += self.gear.weapon.attackrate/self.dexterity;
+          } else {
+            self.attack(self.facing);
+            self.attackCooldown += self.gear.weapon.attackrate/self.dexterity;
+          }
+        }
+      }
+    }
 
     // WORK ACTIONS
     if(self.pressingF && self.actionCooldown == 0 && !self.working){
@@ -1824,7 +1891,7 @@ Player = function(param){
           self.farming = true;
           setTimeout(function(){
             if(self.working && world[6][loc[1]][loc[0]] < 25){
-              world[6][loc[1]][loc[0]] += 25; // ALPHA, default:5
+              world[6][loc[1]][loc[0]] += 25; // ALPHA, default:1
               self.working = false;
               self.farming = false;
               var count = 0;
@@ -2053,6 +2120,8 @@ Player = function(param){
     var uLoc = getLoc(self.x, self.y - (tileSize/8));
     var dLoc = getLoc(self.x, self.y + (tileSize/2));
     var b = getBuilding(self.x,self.y);
+    var exit = getBuilding(self.x,self.y-tileSize);
+    var b2 = getBuilding(self.x,self.y+tileSize);
     var rightBlocked = false;
     var leftBlocked = false;
     var upBlocked = false;
@@ -2201,64 +2270,66 @@ Player = function(param){
         self.z = -1;
         self.innaWoods = false;
         self.onMtn = false;
-        self.maxSpd = self.baseSpd;
+        self.maxSpd = self.baseSpd * self.drag;
         socket.emit('bgm',{x:self.x,y:self.y,z:self.z});
       } else if(tile >= 1 && tile < 2){
         self.innaWoods = true;
         self.onMtn = false;
-        self.maxSpd = self.baseSpd * 0.3;
+        self.maxSpd = (self.baseSpd * 0.3) * self.drag;
       } else if(getTile(0,loc[0],loc[1]) >= 2 && getTile(0,loc[0],loc[1]) < 4){
         self.innaWoods = false;
         self.onMtn = false;
-        self.maxSpd = self.baseSpd * 0.5;
+        self.maxSpd = (self.baseSpd * 0.5) * self.drag;
       } else if(getTile(0,loc[0],loc[1]) >= 4 && getTile(0,loc[0],loc[1]) < 5){
         self.innaWoods = false;
         self.onMtn = false;
-        self.maxSpd = self.baseSpd * 0.6;
+        self.maxSpd = (self.baseSpd * 0.6) * self.drag;
       } else if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6 && !self.onMtn){
         self.innaWoods = false;
-        self.maxSpd = self.baseSpd * 0.2;
+        self.maxSpd = (self.baseSpd * 0.2) * self.drag;
         setTimeout(function(){
           if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6){
             self.onMtn = true;
           }
         },2000);
       } else if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6 && self.onMtn){
-        self.maxSpd = self.baseSpd * 0.5;
+        self.maxSpd = (self.baseSpd * 0.5) * self.drag;
       } else if(getTile(0,loc[0],loc[1]) == 18){
         self.innaWoods = false;
         self.onMtn = false;
-        self.maxSpd = self.baseSpd * 1.1;
+        self.maxSpd = (self.baseSpd * 1.1) * self.drag;
       } else if(getTile(0,loc[0],loc[1]) == 14 || getTile(0,loc[0],loc[1]) == 16){
+        Building.list[b].occ++;
         self.z = 1;
         self.innaWoods = false;
         self.onMtn = false;
-        self.maxSpd = self.baseSpd;
-        socket.emit('bgm',{x:self.x,y:self.y,z:self.z,b:Building.list[getBuilding(self.x,self.y)].type});
+        self.maxSpd = self.baseSpd * self.drag;
+        socket.emit('bgm',{x:self.x,y:self.y,z:self.z,b:b});
       } else if(getTile(0,loc[0],loc[1]) == 19){
+        Building.list[b].occ++;
         self.z = 1;
         socket.emit('addToChat','<i>🗝 You unlock the door.</i>');
         self.innaWoods = false;
         self.onMtn = false;
-        self.maxSpd = self.baseSpd;
-        socket.emit('bgm',{x:self.x,y:self.y,z:self.z,b:Building.list[getBuilding(self.x,self.y)].type});
+        self.maxSpd = self.baseSpd * self.drag;
+        socket.emit('bgm',{x:self.x,y:self.y,z:self.z,b:b});
       } else if(getTile(0,loc[0],loc[1]) == 0){
         self.z = -3;
         self.innaWoods = false;
         self.onMtn = false;
-        self.maxSpd = self.baseSpd * 0.1;
+        self.maxSpd = (self.baseSpd * 0.2) * self.drag;
         socket.emit('bgm',{x:self.x,y:self.y,z:self.z});
       } else {
         self.innaWoods = false;
         self.onMtn = false;
-        self.maxSpd = self.baseSpd;
+        self.maxSpd = self.baseSpd * self.drag;
       }
     } else if(self.z == -1){
       if(getTile(1,loc[0],loc[1]) == 2){
         self.z = 0;
         self.innaWoods = false;
         self.onMtn = false;
-        self.maxSpd = self.baseSpd * 0.9;
+        self.maxSpd = (self.baseSpd * 0.9) * self.drag;
         socket.emit('bgm',{x:self.x,y:self.y,z:self.z});
       }
     } else if(self.z == -2){
@@ -2266,7 +2337,7 @@ Player = function(param){
         self.z = 1;
         self.y += (tileSize/2);
         self.facing = 'down';
-        socket.emit('bgm',{x:self.x,y:self.y,z:self.z,b:Building.list[getBuilding(self.x,self.y)].type});
+        socket.emit('bgm',{x:self.x,y:self.y,z:self.z,b:b2});
       }
     } else if(self.z == -3){
       if(self.breath > 0){
@@ -2284,25 +2355,26 @@ Player = function(param){
       }
     } else if(self.z == 1){
       if(getTile(0,loc[0],loc[1] - 1) == 14 || getTile(0,loc[0],loc[1] - 1) == 16  || getTile(0,loc[0],loc[1] - 1) == 19){
+        Building.list[exit].occ--;
         self.z = 0;
         socket.emit('bgm',{x:self.x,y:self.y,z:self.z});
       } else if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4 || getTile(4,loc[0],loc[1]) == 7){
         self.z = 2;
         self.y += (tileSize/2);
         self.facing = 'down'
-        socket.emit('bgm',{x:self.x,y:self.y,z:self.z,b:Building.list[getBuilding(self.x,self.y)].type});
+        socket.emit('bgm',{x:self.x,y:self.y,z:self.z,b:b2});
       } else if(getTile(4,loc[0],loc[1]) == 5 || getTile(4,loc[0],loc[1]) == 6){
         self.z = -2;
         self.y += (tileSize/2);
         self.facing = 'down';
-        socket.emit('bgm',{x:self.x,y:self.y,z:self.z,b:Building.list[getBuilding(self.x,self.y)].type});
+        socket.emit('bgm',{x:self.x,y:self.y,z:self.z,b:b2});
       }
     } else if(self.z == 2){
       if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4){
         self.z = 1;
         self.y += (tileSize/2);
         self.facing = 'down';
-        socket.emit('bgm',{x:self.x,y:self.y,z:self.z,b:Building.list[getBuilding(self.x,self.y)].type});
+        socket.emit('bgm',{x:self.x,y:self.y,z:self.z,b:b2});
       }
     }
   }
@@ -2329,13 +2401,15 @@ Player = function(param){
       innaWoods:self.innaWoods,
       facing:self.facing,
       stealthed:self.stealthed,
-      visible:self.visible,
+      revealed:self.revealed,
       hp:self.hp,
       hpMax:self.hpMax,
       spirit:self.spirit,
       spiritMax:self.spiritMax,
       breath:self.breath,
-      breathMax:self.breathMax
+      breathMax:self.breathMax,
+      action:self.action,
+      ghost:self.ghost
     };
   }
 
@@ -2359,7 +2433,7 @@ Player = function(param){
       innaWoods:self.innaWoods,
       facing:self.facing,
       stealthed:self.stealthed,
-      visible:self.visible,
+      revealed:self.revealed,
       pressingUp:self.pressingUp,
       pressingDown:self.pressingDown,
       pressingLeft:self.pressingLeft,
@@ -2377,7 +2451,9 @@ Player = function(param){
       spirit:self.spirit,
       spiritMax:self.spiritMax,
       breath:self.breath,
-      breathMax:self.breathMax
+      breathMax:self.breathMax,
+      action:self.action,
+      ghost:self.ghost
     }
   }
 
@@ -2601,6 +2677,7 @@ var dayNight = function(){
   tempus = cycle[tick];
   if(tempus == 'XII.a'){
     day++;
+    dailyTally();
     entropy();
     console.log('');
     console.log('Day ' + day);
