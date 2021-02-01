@@ -57,7 +57,6 @@ Building = function(param){
     return {
       id:self.id,
       type:self.type,
-      hp:self.hp,
       occ:self.occ,
       plot:self.plot,
       walls:self.walls
@@ -66,7 +65,7 @@ Building = function(param){
 
   self.getUpdatePack = function(){
     return {
-      hp:self.hp,
+      id:self.id,
       occ:self.occ
     };
   }
@@ -85,7 +84,7 @@ Farm = function(param){
     for(var i in Building.list){
       var m = Building.list[i];
       var dist = getDistance({x:self.x,y:self.y},{x:m.x,y:m.y});
-      if(m.type == 'mill' && dist <= 384){
+      if(m.type == 'mill' && dist <= 384 && m.house == self.house){
         Building.list[m.id].farms[self.id] = self.plot;
         for(var p in self.plot){
           Building.list[m.id].resources.push(self.plot[p]);
@@ -133,7 +132,7 @@ Mill = function(param){
     for(var i in Building.list){
       var f = Building.list[i];
       var dist = getDistance({x:self.x,y:self.y},{x:f.x,y:f.y});
-      if(f.type == 'farm' && dist <= 384 && !f.mill){
+      if(f.type == 'farm' && dist <= 384 && f.house == self.house){
         self.farms[f.id] = f.plot;
         var count = 0;
         var add = [];
@@ -154,7 +153,7 @@ Mill = function(param){
             self.resources.push(f.plot[r])
           }
         }
-      } else if(f.type == 'tavern' && dist <= 1280){
+      } else if(f.type == 'tavern' && dist <= 1280 && f.house == self.house){
         self.tavern = f.id;
       }
     }
@@ -197,11 +196,8 @@ Lumbermill = function(param){
     for(var i in Building.list){
       var t = Building.list[i];
       var dist = getDistance({x:self.x,y:self.y},{x:t.x,y:t.y});
-      if(t.type == 'tavern' && dist <= 1280){
+      if(t.type == 'tavern' && dist <= 1280 && t.house == self.house){
         self.tavern = t.id;
-        if(!t.market){
-          Building.list[i].market = self.id;
-        }
       }
     }
   }
@@ -243,7 +239,7 @@ Mine = function(param){
     for(var i in Building.list){
       var t = Building.list[i];
       var dist = getDistance({x:self.x,y:self.y},{x:t.x,y:t.y});
-      if(t.type == 'tavern' && dist <= 1280){
+      if(t.type == 'tavern' && dist <= 1280 && t.house == self.house){
         self.tavern = t.id;
         if(!t.market){
           Building.list[i].market = self.id;
@@ -271,14 +267,10 @@ Tavern = function(param){
     for(var i in Building.list){
       var b = Building.list[i];
       var dist = getDistance({x:self.x,y:self.y},{x:b.x,y:b.y});
-      if(dist <= 1280){
+      if(dist <= 1280 && b.house == self.house){
         if(b.type == 'mill' || b.type == 'lumbermill' || b.type == 'mine' || b.type == 'market'){
           if(!b.tavern){
-            if(self.house && b.house == self.house){
-              Building.list[i].tavern = self.id;
-            } else if(b.owner == self.owner){
-              Building.list[i].tavern = self.id;
-            }
+            Building.list[i].tavern = self.id;
           }
           if(b.type == 'market'){
             self.market = b.id;
@@ -299,6 +291,7 @@ Tavern = function(param){
       var r = t[1];
       var plot = [[c,r+1],[c+1,r+1],t,[c+1,r]];
       var perim = [[c-1,r-1],[c,r-1],[c+1,r-1],[c+2,r-1],[c-1,r],[c+2,r],[c-1,r+1],[c+2,r+1],[c-1,r+2],[c,r+2],[c+1,r+2],[c+2,r+2]];
+      var walls = [[c,r-2],[c+1,r-2]];
       var count = 0;
       for(var n in plot){
         var p = getTile(0,plot[n][0],plot[n][1]);
@@ -342,7 +335,6 @@ Tavern = function(param){
       }
       mapEdit();
       var center = getCoords(plot[3][0],plot[3][1]);
-      var walls = [[plot[0][0],plot[0][1]-1],[plot[1][0]+1,plot[1][1]-1]];
       var id = Math.random();
       Building({
         id:id,
@@ -433,6 +425,7 @@ Tavern = function(param){
           tavern:self.id
         });
       }
+      self.occ += 2;
     }
   }
   self.findBuildings();

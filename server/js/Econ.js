@@ -2,6 +2,6 @@ Buy = function(id,type,){
 
 }
 
-Sell = function(){
+Sell = function(id,type,){
 
 }

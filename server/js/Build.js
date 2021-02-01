@@ -4,7 +4,6 @@ Build = function(id){
     Player.list[id].workTimer = true;
   }
   var loc = getLoc(p.x,p.y);
-  console.log(loc);
   Player.list[id].working = true;
   Player.list[id].building = true;
   Player.list[id].actionCooldown = 10;
@@ -401,6 +400,7 @@ Build = function(id){
               loc:[plot[16][0],plot[16][1]]
             }
           });
+          Building.list[b].occ++;
         } else if(Building.list[b].type == 'monastery'){
           for(var i in plot){
             tileChange(3,plot[i][0],plot[i][1],String('monastery' + i));
@@ -511,6 +511,7 @@ Build = function(id){
               loc:[plot[10][0],plot[10][1]]
             }
           });
+          Building.list[b].occ += 3;
         } else if(Building.list[b].type == 'market'){
           for(var i in plot){
             tileChange(3,plot[i][0],plot[i][1],String('market' + i));
