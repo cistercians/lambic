@@ -34,7 +34,7 @@ Build = function(id){
           continue;
         }
       }
-      if(count == plot.length){
+      if(count == plot.length && !Building.list[b].built){
         Building.list[b].built = true;
         if(Building.list[b].type == 'hut'){
           for(var i in plot){
@@ -61,6 +61,21 @@ Build = function(id){
             qty:1,
             parent:b
           });
+          var serf1 = null;
+          var spot1 = Building.list[b].plot[2];
+          var serf2 = null;
+          var spot2 = Building.list[b].plot[3];
+          for(var i in Player.list){
+            if(Player.list[i].hut && Player.list[i].hut == Building.list[b].id){
+              if(!serf1){
+                serf1 = Player.list[i].id;
+              } else {
+                serf2 = Player.list[i].id;
+              }
+            }
+          }
+          Player.list[serf1].home = {z:1,loc:spot1};
+          Player.list[serf2].home = {z:1,loc:spot2};
         } else if(Building.list[b].type == 'mill'){
           for(var i in plot){
             tileChange(0,plot[i][0],plot[i][1],13);
@@ -1259,14 +1274,21 @@ Build = function(id){
       for(var i in Player.list){
         var player = Player.list[i];
         var loc = getLoc(player.x,player.y);
-        for(var n in Building.list[b].plot){
-          var p = Building.list[b].plot[n];
-          if(loc.toString() == p.toString()){
-            if(player.z == 0){
-              var e = Building.list[b].plot[0];
-              var exit = getCenter(e[0],e[1]+1);
-              Player.list[i].x = exit[0];
-              Player.list[i].y = exit[1];
+        if(Building.list[b].type == 'dock'){
+          var dock = Building.list[b].plot[4];
+          if(loc.toString() == dock.toString()){
+            Player.list[i].y += tileSize;
+          }
+        } else {
+          for(var n in Building.list[b].plot){
+            var p = Building.list[b].plot[n];
+            if(loc.toString() == p.toString()){
+              if(player.z == 0){
+                var e = Building.list[b].plot[0];
+                var exit = getCenter(e[0],e[1]+1);
+                Player.list[i].x = exit[0];
+                Player.list[i].y = exit[1];
+              }
             }
           }
         }

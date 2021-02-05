@@ -285,13 +285,14 @@ Tavern = function(param){
     var mLoc = getLoc(building.x,building.y);
     var area = getArea(loc,mLoc,5);
     var select = [];
+    var wselect = [];
     for(var i in area){
       var t = area[i];
       var c = t[0];
       var r = t[1];
       var plot = [[c,r+1],[c+1,r+1],t,[c+1,r]];
       var perim = [[c-1,r-1],[c,r-1],[c+1,r-1],[c+2,r-1],[c-1,r],[c+2,r],[c-1,r+1],[c+2,r+1],[c-1,r+2],[c,r+2],[c+1,r+2],[c+2,r+2]];
-      var walls = [[c,r-2],[c+1,r-2]];
+      var walls = [[c,r-1],[c+1,r-1]];
       var count = 0;
       for(var n in plot){
         var p = getTile(0,plot[n][0],plot[n][1]);
@@ -322,12 +323,14 @@ Tavern = function(param){
         }
         if(count == 12){
           select.push(plot);
+          wselect.push(walls);
         }
       }
     }
     if(select.length > 0){
       var rand = Math.floor(Math.random() * select.length);
       var plot = select[rand];
+      var walls = wselect[rand];
       for(var i in plot){
         var p = plot[i];
         tileChange(0,p[0],p[1],11);
@@ -629,6 +632,7 @@ Character = function(param){
   self.hpMax = 100;
   self.spirit = null;
   self.spiritMax = null;
+  self.strength = 1;
   self.damage = 0;
   self.fortitude = 0;
   self.attackrate = 50;
@@ -941,7 +945,7 @@ Character = function(param){
 
   self.reposition = function(loc,tLoc){
     var dir = self.calcDir(loc,tLoc);
-    if(dir != self.lastDir){
+    if(dir != self.lastDir && dir !== 'd' && dir !== 'u' && dir !== 'l' && dir != 'r'){
       self.lastDir = dir;
     }
     if(dir == 'ul'){
@@ -1655,7 +1659,6 @@ Character = function(param){
   self.update = function(){
     var loc = getLoc(self.x,self.y);
     var b = getBuilding(self.x,self.y);
-    var exit = getBuilding(self.x,self.y-tileSize);
     self.zoneCheck();
     if(self.stealthed){
       self.drag = 0.5;
@@ -1785,6 +1788,7 @@ Character = function(param){
       }
     } else if(self.z == 1){
       if(getTile(0,loc[0],loc[1] - 1) == 14 || getTile(0,loc[0],loc[1] - 1) == 16  || getTile(0,loc[0],loc[1] - 1) == 19){
+        var exit = getBuilding(self.x,self.y-tileSize);
         Building.list[exit].occ--;
         self.z = 0;
         self.path = null;
@@ -1924,17 +1928,19 @@ Character = function(param){
           }
         }
       } else if(self.action == 'flee'){
-        if(self.combat.target){
-          var target = Player.list[self.combat.target];
-          if(target){
-            var tLoc = getLoc(target.x,target.y);
-            self.reposition(loc,tLoc);
+        if(!self.path){
+          if(self.combat.target){
+            var target = Player.list[self.combat.target];
+            if(target){
+              var tLoc = getLoc(target.x,target.y);
+              self.reposition(loc,tLoc);
+            } else {
+              self.combat.target = null;
+              self.action = null;
+            }
           } else {
-            self.combat.target = null;
             self.action = null;
           }
-        } else {
-          self.action = null;
         }
       }
       // PATROL
@@ -2251,32 +2257,68 @@ Character = function(param){
 
   self.getPath = function(z,c,r){
     var start = getLoc(self.x,self.y);
+    var cst = getCenter(start[0],start[1]);
+    var b = getBuilding(cst[0],cst[1]);
+    var cd = getCenter(c,r);
+    var db = getBuilding(cd[0],cd[1]);
     if(z == self.z){
-      self.pathEnd = null;
-      if(self.z == 0 && getLocTile(0,self.x,self.y) == 0){
-        var gridSb = cloneGrid(3);
-        var path = finder.findPath(start[0], start[1], c, r, gridSb);
-        self.path = path;
-      } else if(self.z == 0){
-        var gridOb = cloneGrid(0);
-        var path = finder.findPath(start[0], start[1], c, r, gridOb);
-        self.path = path;
+      if(self.z == 0){
+        self.pathEnd = null;
+        if(getLocTile(0,self.x,self.y) == 0){
+          var gridSb = cloneGrid(3);
+          var path = finder.findPath(start[0], start[1], c, r, gridSb);
+          self.path = path;
+        } else {
+          var gridOb = cloneGrid(0);
+          var path = finder.findPath(start[0], start[1], c, r, gridOb);
+          self.path = path;
+        }
       } else if(self.z == -1){
         var gridUb = cloneGrid(-1);
         var path = finder.findPath(start[0], start[1], c, r, gridUb);
         self.path = path;
       } else if(self.z == -2){
-        var gridB3b = cloneGrid(-2);
-        var path = finder.findPath(start[0], start[1], c, r, gridB3b);
-        self.path = path;
+        if(b == db){
+          var gridB3b = cloneGrid(-2);
+          var path = finder.findPath(start[0], start[1], c, r, gridB3b);
+          self.path = path;
+        } else {
+          if(!self.pathEnd){
+            self.pathEnd = {z:z,loc:[c,r]};
+          }
+          var gridB3b = cloneGrid(-2);
+          var stairs = Building.list[b].dstairs;
+          var path = finder.findPath(start[0], start[1], stairs[0], stairs[1], gridB1b);
+          self.path = path;
+        }
       } else if(self.z == 1){
-        var gridB1b = cloneGrid(1);
-        var path = finder.findPath(start[0], start[1], c, r, gridB1b);
-        self.path = path;
+        if(b == db){
+          var gridB1b = cloneGrid(1);
+          var path = finder.findPath(start[0], start[1], c, r, gridB1b);
+          self.path = path;
+        } else {
+          if(!self.pathEnd){
+            self.pathEnd = {z:z,loc:[c,r]};
+          }
+          var gridB1b = cloneGrid(1);
+          var exit = Building.list[b].entrance;
+          var path = finder.findPath(start[0], start[1], exit[0], exit[1]+1, gridB1b);
+          self.path = path;
+        }
       } else if(self.z == 2){
-        var gridB2b = cloneGrid(2);
-        var path = finder.findPath(start[0], start[1], c, r, gridB2b);
-        self.path = path;
+        if(b == db){
+          var gridB2b = cloneGrid(2);
+          var path = finder.findPath(start[0], start[1], c, r, gridB2b);
+          self.path = path;
+        } else {
+          if(!self.pathEnd){
+            self.pathEnd = {z:z,loc:[c,r]};
+          }
+          var gridB2b = cloneGrid(2);
+          var stairs = Building.list[b].ustairs;
+          var path = finder.findPath(start[0], start[1], stairs[0], stairs[1], gridB1b);
+          self.path = path;
+        }
       }
     } else {
       if(!self.pathEnd){
@@ -2319,16 +2361,21 @@ Character = function(param){
         self.path = path;
       } else if(self.z == 1){ // indoors
         var gridB1b = cloneGrid(1);
-        var b = getBuilding(start[0],start[1]);
-        if(z == 2){ // to upstairs
-          var stairs = Building.list[b].ustairs;
-          var path = finder.findPath(start[0], start[1], stairs[0], stairs[1], gridB1b);
-          self.path = path;
-        } else if(z == -2){ // to cellar/dungeon
-          var stairs = Building.list[b].dstairs;
-          var path = finder.findPath(start[0], start[1], stairs[0], stairs[1], gridB1b);
-          self.path = path;
-        } else { // outdoors
+        if(b == db){
+          if(z == 2){ // to upstairs
+            var stairs = Building.list[b].ustairs;
+            var path = finder.findPath(start[0], start[1], stairs[0], stairs[1], gridB1b);
+            self.path = path;
+          } else if(z == -2){ // to cellar/dungeon
+            var stairs = Building.list[b].dstairs;
+            var path = finder.findPath(start[0], start[1], stairs[0], stairs[1], gridB1b);
+            self.path = path;
+          } else { // outdoors
+            var exit = Building.list[b].entrance;
+            var path = finder.findPath(start[0], start[1], exit[0], exit[1]+1, gridB1b);
+            self.path = path;
+          }
+        } else {
           var exit = Building.list[b].entrance;
           var path = finder.findPath(start[0], start[1], exit[0], exit[1]+1, gridB1b);
           self.path = path;
@@ -2336,12 +2383,12 @@ Character = function(param){
       } else if(self.z == 2){ // upstairs
         var gridB2b = cloneGrid(2);
         var stairs = Building.list[b].ustairs;
-        var path = finder.findPath(start[0], start[1], stairs[0], stairs[1], gridB1b);
+        var path = finder.findPath(start[0], start[1], stairs[0], stairs[1], gridB2b);
         self.path = path;
       } else if(self.z == -2){ // cellar/dungeon
         var gridB3b = cloneGrid(-2);
         var stairs = Building.list[b].dstairs;
-        var path = finder.findPath(start[0], start[1], stairs[0], stairs[1], gridB1b);
+        var path = finder.findPath(start[0], start[1], stairs[0], stairs[1], gridB3b);
         self.path = path;
       } else if(self.z == -3){ // underwater
         self.moveTo([c,r]);
@@ -2353,7 +2400,12 @@ Character = function(param){
     if(self.path){
       var len = self.path.length;
       if(self.pathCount < len){
-        var dest = getCenter(self.path[self.pathCount][0],self.path[self.pathCount][1]);
+        var next = self.path[self.pathCount];
+        var tile = getTile(0,next[0],next[1]);
+        if(!self.pathEnd && (tile == 14 || tile == 16 || tile == 19)){
+          self.path[self.pathCount] = [next[0]+1,next[1]+1];
+        }
+        var dest = getCenter(next[0],next[1]);
         var dx = dest[0];
         var dy = dest[1];
         var diffX = dx - self.x;
@@ -2591,18 +2643,20 @@ Deer = function(param){
           }
         }
       } else if(self.action == 'flee'){
-        if(self.combat.target){
-          var target = Player.list[self.combat.target];
-          if(target){
-            self.baseSpd = 6.5;
-            var tLoc = getLoc(target.x,target.y);
-            self.reposition(loc,tLoc);
+        if(!self.path){
+          if(self.combat.target){
+            var target = Player.list[self.combat.target];
+            if(target){
+              self.baseSpd = 6.5;
+              var tLoc = getLoc(target.x,target.y);
+              self.reposition(loc,tLoc);
+            } else {
+              self.combat.target = null;
+              self.action = null;
+            }
           } else {
-            self.combat.target = null;
             self.action = null;
           }
-        } else {
-          self.action = null;
         }
       }
     }
@@ -2828,18 +2882,20 @@ Wolf = function(param){
           }
         }
       } else if(self.action == 'flee'){
-        if(self.combat.target){
-          var target = Player.list[self.combat.target];
-          if(target){
-            self.baseSpd = 6;
-            var tLoc = getLoc(target.x,target.y);
-            self.reposition(loc,tLoc);
+        if(!self.path){
+          if(self.combat.target){
+            var target = Player.list[self.combat.target];
+            if(target){
+              self.baseSpd = 6;
+              var tLoc = getLoc(target.x,target.y);
+              self.reposition(loc,tLoc);
+            } else {
+              self.combat.target = null;
+              self.action = null;
+            }
           } else {
-            self.combat.target = null;
             self.action = null;
           }
-        } else {
-          self.action = null;
         }
       }
     }
@@ -2995,7 +3051,7 @@ SerfM = function(param){
         self.dayTimer = false;
         console.log(self.name + ' heads to work');
       },rand);
-    } else if(tempus == 'VI.p' && self.mode == 'work' && !self.dayTimer){
+    } else if(tempus == 'VI.p' && self.action == 'task' && !self.dayTimer){
       self.dayTimer = true;
       var rand = Math.floor(Math.random() * (3600000/(period*6)));
       setTimeout(function(){
@@ -3007,6 +3063,7 @@ SerfM = function(param){
       self.dayTimer = true;
       var rand = Math.floor(Math.random() * (3600000/(period/2)));
       setTimeout(function(){
+        self.tether = null;
         self.action = null;
         self.dayTimer = false;
         console.log(self.name + ' heads home for the night');
@@ -3125,7 +3182,8 @@ SerfM = function(param){
       }
     } else if(self.z == 1){
       if(getTile(0,loc[0],loc[1] - 1) == 14 || getTile(0,loc[0],loc[1] - 1) == 16  || getTile(0,loc[0],loc[1] - 1) == 19){
-        Building.list[b].occ--;
+        var exit = getBuilding(self.x,self.y-tileSize);
+        Building.list[exit].occ--;
         self.z = 0;
         self.path = null;
         self.pathCount = 0;
@@ -3191,16 +3249,18 @@ SerfM = function(param){
           var tDist = 0;
           var avgDist = null;
           for(var i in hq.resources){
-            var res = getCenter(hq.resources[i]);
-            var dist = getDistance({x:hq.x,y:hq.y},{x:res.x,y:res.y});
+            var res = hq.resources[i];
+            var r = getCenter(res[0],res[1]);
+            var dist = getDistance({x:hq.x,y:hq.y},{x:r[0],y:r[1]});
             tDist += dist;
           }
           avgDist = tDist/hq.resources.length;
           for(var i in hq.resources){
-            var res = getCenter(hq.resources[i]);
-            var dist = getDistance({x:hq.x,y:hq.y},{x:res.x,y:res.y});
+            var res = hq.resources[i];
+            var r = getCenter(res[0],res[1]);
+            var dist = getDistance({x:hq.x,y:hq.y},{x:r[0],y:r[1]});
             if(dist < avgDist){
-              self.work.spot = hq.resources[i];
+              self.work.spot = res;
               Building.list[self.work.hq].log[self.id] = self.work.spot;
               self.action = 'task';
               return;
@@ -3210,125 +3270,99 @@ SerfM = function(param){
           self.action = 'build';
         }
       } else if(self.action == 'build'){
-        if(!self.work.spot){
-          var hut = Building.list[self.hut];
-          for(var i in hut.plot){
-            var p = hut.plot[i];
-            var t = getTile(0,p[0],p[1]);
-            if(t == 11){
-              self.work.spot = p;
-              return;
+        if(!self.path){
+          if(!self.work.spot){
+            var hut = Building.list[self.hut];
+            for(var i in hut.plot){
+              var p = hut.plot[i];
+              var t = getTile(0,p[0],p[1]);
+              if(t == 11){
+                self.work.spot = p;
+                return;
+              }
+              self.action = null;
             }
-            self.action = null;
-          }
-        } else {
-          var spot = self.work.spot;
-          if(!self.path){
-            if(loc.toString() == spot.toString()){
-              var build = getBuilding(self.x,self.y);
-              var plot = Building.list[build].plot;
-              if(!self.workTimer){
-                var gt = getTile(0,spot[0],spot[1]);
-                if(gt == 11){
-                  Build(self.id);
-                } else {
-                  for(var i in plot){
-                    var p = plot[i];
-                    var t = getTile(0,p[0],p[1]);
-                    if(t == 11){
-                      self.work.spot = p;
+          } else {
+            var spot = self.work.spot;
+            var cs = getCenter(spot[0],spot[1]);
+            var build = getBuilding(cs[0],cs[1]);
+            if(Building.list[build].built){
+              self.work.spot = null;
+              self.action = null;
+            } else {
+              if(loc.toString() == spot.toString()){
+                self.action = null;
+                var plot = Building.list[build].plot;
+                if(!self.workTimer){
+                  var gt = getTile(0,spot[0],spot[1]);
+                  if(gt == 11){
+                    Build(self.id);
+                  } else {
+                    for(var i in plot){
+                      var p = plot[i];
+                      var t = getTile(0,p[0],p[1]);
+                      if(t == 11){
+                        self.work.spot = p;
+                      }
                     }
                   }
                 }
+              } else {
+                self.getPath(0,spot[0],spot[1]);
               }
-            } else {
-              self.getPath(0,spot[0],spot[1]);
             }
           }
         }
       } else if(self.action == 'task'){
         var spot = self.work.spot;
-        if(hq.type == 'farm'){
-          if(!self.path){
-            if(loc.toString() == spot.toString()){
-              var tile = getTile(0,spot[0],spot[1]);
-              var res = getTile(6,spot[0],spot[1]);
-              self.working = true;
-              self.farming = true;
-              if(!self.workTimer){
-                self.workTimer = true;
-                setTimeout(function(){
-                  if(self.farming){
-                    var b = getBuilding(self.x,self.y);
-                    var f = Building.list[b];
-                    if(tile == 8){
-                      tileChange(6,spot[0],spot[1],1,true);
-                      var count = 0;
-                      var next = [];
-                      for(var i in f.plot){
-                        var p = f.plot[i];
-                        if(getTile(6,p[0],p[1]) >= 25){
-                          count++;
-                        } else {
-                          next.push(p);
-                        }
-                      }
-                      if(count == 9){
-                        for(var i in f.plot){
-                          var p = f.plot[i];
-                          tileChange(0,p[0],p[1],9);
-                        }
-                        mapEdit();
-                      } else {
-                        var rand = Math.floor(Math.random() * next.length);
-                        self.work.spot = next[rand];
-                        Building.list[self.work.hq].log[self.id] = self.work.spot;
-                      }
-                    } else if(tile == 9){
-                      tileChange(6,spot[0],spot[1],1,true);
-                      var count = 0;
-                      var next = [];
-                      for(var i in f.plot){
-                        var p = f.plot[i];
-                        if(getTile(6,p[0],p[1]) >= 50){
-                          count++;
-                        }
-                      }
-                      if(count == 9){
-                        for(var i in f.plot){
-                          var p = f.plot[i];
-                          tileChange(0,p[0],p[1],10);
-                        }
-                        mapEdit();
-                      } else {
-                        var rand = Math.floor(Math.random() * next.length);
-                        self.work.spot = next[rand];
-                        Building.list[self.work.hq].log[self.id] = self.work.spot;
-                      }
-                    } else {
-                      tileChange(6,spot[0],spot[1],-1,true);
-                      if(getTile(6,spot[0],spot[1]) == 0){
-                        tileChange(0,spot[0],spot[1],8);
+        if(!self.path){
+          if(hq.type == 'mill'){
+            if(self.inventory.grain == 10){
+              var b = Building.list[self.work.hq];
+              var dropoff = [b.plot[0][0],b.plot[0][1]+1];
+              if(loc.toString() == dropoff.toString()){
+                self.facing = 'up';
+                self.inventory.grain -= 9;
+                if(Player.list[b.owner].house){
+                  var h = Player.list[b.owner].house;
+                  House.list[h].stores.grain += 6;
+                } else {
+                  Player.list[b.owner].stores.grain += 6
+                }
+                self.inventory.flour += 3;
+              } else {
+                self.getPath(0,dropoff[0],dropoff[1]);
+              }
+            } else {
+              if(loc.toString() == spot.toString()){
+                var tile = getTile(0,spot[0],spot[1]);
+                var res = getTile(6,spot[0],spot[1]);
+                self.working = true;
+                self.farming = true;
+                if(!self.workTimer){
+                  self.workTimer = true;
+                  setTimeout(function(){
+                    if(self.farming){
+                      var b = getBuilding(self.x,self.y);
+                      var f = Building.list[b];
+                      if(tile == 8){
+                        tileChange(6,spot[0],spot[1],1,true);
                         var count = 0;
                         var next = [];
                         for(var i in f.plot){
-                          var p = f.plot[i]
-                          var t = getTile(0,p[0],p[1]);
-                          if(t == 8){
+                          var p = f.plot[i];
+                          if(getTile(6,p[0],p[1]) >= 25){
                             count++;
                           } else {
                             next.push(p);
                           }
                         }
                         if(count == 9){
-                          for(var n in f.plot){
-                            var p = f.plot[n];
-                            if(p.toString() == spot.toString()){
-                              continue;
-                            } else {
-                              Building.list[self.work.hq].resources.push(p);
-                            }
+                          for(var i in f.plot){
+                            var p = f.plot[i];
+                            tileChange(0,p[0],p[1],9);
                           }
+                          mapEdit();
                         } else {
                           for(var n in hq.resources){
                             var r = hq.resources[n];
@@ -3340,98 +3374,191 @@ SerfM = function(param){
                           self.work.spot = next[rand];
                           Building.list[self.work.hq].log[self.id] = self.work.spot;
                         }
-                      }
-                      mapEdit();
-                    }
-                  }
-                  self.workTimer = false;
-                  self.working = false;
-                  self.farming = false;
-                },10000/self.strength);
-              }
-            } else {
-              self.getPath(0,self.work.spot[0],self.work.spot[1]);
-            }
-          }
-        } else if(hq.type == 'lumbermill'){
-          if(!self.path){
-            if(loc.toString() == spot.toString()){
-              var tile = getTile(0,spot[0],spot[1]);
-              self.working = true;
-              self.chopping = true;
-              if(!self.workTimer){
-                self.workTimer = true;
-                setTimeout(function(){
-                  if(self.chopping){
-                    tileChange(6,spot[0],spot[1],-1,true);
-                    var res = getTile(6,spot[0],spot[1]);
-                    if(tile >= 1 && tile < 2 && res < 101){ // heavy forest
-                      tileChange(0,spot[0],spot[1],1,true);
-                      mapEdit();
-                    } else if(tile >= 2 && tile < 3 && res <= 0 ){ // light forest
-                      tileChange(0,spot[0],spot[1],1,true);
-                      mapEdit();
-                      var next = [];
-                      for(var i in hq.resources){
-                        var f = hq.resources[i];
-                        if(f.toString() == spot.toString()){
-                          Building.list[self.work.hq].resources.splice(i,1);
+                      } else if(tile == 9){
+                        tileChange(6,spot[0],spot[1],1,true);
+                        var count = 0;
+                        var next = [];
+                        for(var i in f.plot){
+                          var p = f.plot[i];
+                          if(getTile(6,p[0],p[1]) >= 50){
+                            count++;
+                          }
                         }
+                        if(count == 9){
+                          for(var i in f.plot){
+                            var p = f.plot[i];
+                            tileChange(0,p[0],p[1],10);
+                          }
+                          mapEdit();
+                        } else {
+                          for(var n in hq.resources){
+                            var r = hq.resources[n];
+                            if(r.toString() == spot.toString()){
+                              Building.list[self.work.hq].resources.splice(n,1);
+                            }
+                          }
+                          var rand = Math.floor(Math.random() * next.length);
+                          self.work.spot = next[rand];
+                          Building.list[self.work.hq].log[self.id] = self.work.spot;
+                        }
+                      } else {
+                        tileChange(6,spot[0],spot[1],-1,true);
+                        if(getTile(6,spot[0],spot[1]) == 0){
+                          tileChange(0,spot[0],spot[1],8);
+                          var count = 0;
+                          var next = [];
+                          for(var i in f.plot){
+                            var p = f.plot[i]
+                            var t = getTile(0,p[0],p[1]);
+                            if(t == 8){
+                              count++;
+                            } else {
+                              next.push(p);
+                            }
+                          }
+                          if(count == 9){
+                            for(var n in f.plot){
+                              var p = f.plot[n];
+                              if(p.toString() == spot.toString()){
+                                continue;
+                              } else {
+                                Building.list[self.work.hq].resources.push(p);
+                              }
+                            }
+                          } else {
+                            for(var n in hq.resources){
+                              var r = hq.resources[n];
+                              if(r.toString() == spot.toString()){
+                                Building.list[self.work.hq].resources.splice(n,1);
+                              }
+                            }
+                            var rand = Math.floor(Math.random() * next.length);
+                            self.work.spot = next[rand];
+                            Building.list[self.work.hq].log[self.id] = self.work.spot;
+                          }
+                        }
+                        mapEdit();
                       }
-                      var rand = Math.floor(Math.random() * next.length);
-                      self.work.spot = next[rand];
                     }
-                  }
-                  self.workTimer = false;
-                  self.working = false;
-                  self.chopping = false;
-                  self.action = null;
-                },10000/self.strength);
+                    self.workTimer = false;
+                    self.working = false;
+                    self.farming = false;
+                  },10000/self.strength);
+                }
+              } else {
+                self.getPath(0,spot[0],spot[1]);
+              }
+            }
+          } else if(hq.type == 'lumbermill'){
+            if(self.inventory.wood == 10){
+              var b = Building.list[self.work.hq];
+              var dropoff = [b.plot[0][0],b.plot[0][1]+1];
+              if(loc.toString() == dropoff.toString()){
+                self.facing = 'up';
+                self.inventory.wood -= 8;
+                if(Player.list[b.owner].house){
+                  var h = Player.list[b.owner].house;
+                  House.list[h].stores.wood += 8;
+                } else {
+                  Player.list[b.owner].stores.wood += 8
+                }
+              } else {
+                self.getPath(0,dropoff[0],dropoff[1]);
               }
             } else {
-              self.getPath(0,self.work.spot[0],self.work.spot[1]);
-            }
-          }
-        } else if(hq.type == 'mine'){
-          if(hq.cave){ // metal
-
-          } else { // stone
-            if(!self.path){
               if(loc.toString() == spot.toString()){
                 var tile = getTile(0,spot[0],spot[1]);
                 self.working = true;
-                self.mining = true;
+                self.chopping = true;
                 if(!self.workTimer){
                   self.workTimer = true;
                   setTimeout(function(){
-                    if(self.mining){
+                    if(self.chopping){
                       tileChange(6,spot[0],spot[1],-1,true);
                       var res = getTile(6,spot[0],spot[1]);
-                      if(res <= 0){
+                      if(tile >= 1 && tile < 2 && res < 101){ // heavy forest
+                        tileChange(0,spot[0],spot[1],1,true);
+                        mapEdit();
+                      } else if(tile >= 2 && tile < 3 && res <= 0 ){ // light forest
+                        tileChange(0,spot[0],spot[1],1,true);
+                        mapEdit();
                         var next = [];
-                        if(tile >= 4 && tile < 5 && res){ // stone
-                          tileChange(0,spot[0],spot[1],7);
-                          mapEdit();
-                        } else if(tile >= 5 && tile < 6){ // stone
-                          tileChange(0,spot[0],spot[1],1,true);
-                          mapEdit();
-                        }
                         for(var i in hq.resources){
                           var f = hq.resources[i];
                           if(f.toString() == spot.toString()){
                             Building.list[self.work.hq].resources.splice(i,1);
                           }
                         }
+                        var rand = Math.floor(Math.random() * next.length);
+                        self.work.spot = next[rand];
                       }
                     }
                     self.workTimer = false;
                     self.working = false;
-                    self.mining = false;
+                    self.chopping = false;
                     self.action = null;
                   },10000/self.strength);
                 }
               } else {
-                self.getPath(0,self.work.spot[0],self.work.spot[1]);
+                self.getPath(0,spot[0],spot[1]);
+              }
+            }
+          } else if(hq.type == 'mine'){
+            if(hq.cave){ // metal
+
+            } else { // stone
+              if(self.inventory.stone == 10){
+                var b = Building.list[self.work.hq];
+                var dropoff = [b.plot[0][0],b.plot[0][1]+1];
+                if(loc.toString() == dropoff.toString()){
+                  self.facing = 'up';
+                  self.inventory.stone -= 8;
+                  if(Player.list[b.owner].house){
+                    var h = Player.list[b.owner].house;
+                    House.list[h].stores.stone += 8;
+                  } else {
+                    Player.list[b.owner].stores.stone += 8
+                  }
+                } else {
+                  self.getPath(0,dropoff[0],dropoff[1]);
+                }
+              } else {
+                if(loc.toString() == spot.toString()){
+                  var tile = getTile(0,spot[0],spot[1]);
+                  self.working = true;
+                  self.mining = true;
+                  if(!self.workTimer){
+                    self.workTimer = true;
+                    setTimeout(function(){
+                      if(self.mining){
+                        tileChange(6,spot[0],spot[1],-1,true);
+                        var res = getTile(6,spot[0],spot[1]);
+                        if(res <= 0){
+                          var next = [];
+                          if(tile >= 4 && tile < 5 && res){ // stone
+                            tileChange(0,spot[0],spot[1],7);
+                            mapEdit();
+                          } else if(tile >= 5 && tile < 6){ // stone
+                            tileChange(0,spot[0],spot[1],1,true);
+                            mapEdit();
+                          }
+                          for(var i in hq.resources){
+                            var f = hq.resources[i];
+                            if(f.toString() == spot.toString()){
+                              Building.list[self.work.hq].resources.splice(i,1);
+                            }
+                          }
+                        }
+                      }
+                      self.workTimer = false;
+                      self.working = false;
+                      self.mining = false;
+                      self.action = null;
+                    },10000/self.strength);
+                  }
+                } else {
+                  self.getPath(0,spot[0],spot[1]);
+                }
               }
             }
           }
@@ -3450,7 +3577,12 @@ SerfM = function(param){
             if(b.type == 'mill'){
               if(self.inventory.grain >= 3){
                 self.inventory.grain -= 3;
-                Player.list[b.owner].stores.grain += 2
+                if(Player.list[b.owner].house){
+                  var h = Player.list[b.owner].house;
+                  House.list[h].stores.grain += 2;
+                } else {
+                  Player.list[b.owner].stores.grain += 2
+                }
                 self.inventory.flour++;
               } else {
                 self.mode = 'idle';
@@ -3458,7 +3590,12 @@ SerfM = function(param){
             } else if(b.type == 'lumbermill'){
               if(self.inventory.wood >= 3){
                 self.inventory.wood -= 2;
-                Player.list[b.owner].stores.wood += 2
+                if(Player.list[b.owner].house){
+                  var h = Player.list[b.owner].house;
+                  House.list[h].stores.wood += 2;
+                } else {
+                  Player.list[b.owner].stores.wood += 2
+                }
               } else {
                 self.mode = 'idle';
               }
@@ -3468,12 +3605,44 @@ SerfM = function(param){
               } else {
                 if(self.inventory.stone >= 3){
                   self.inventory.stone -= 2;
-                  Player.list[b.owner].stores.stone += 2
+                  if(Player.list[b.owner].house){
+                    var h = Player.list[b.owner].house;
+                    House.list[h].stores.stone += 2;
+                  } else {
+                    Player.list[b.owner].stores.stone += 2
+                  }
                 } else {
                   self.mode = 'idle'
                 }
               }
             }
+          } else {
+            self.getPath(0,dropoff[0],dropoff[1]);
+          }
+        }
+      } else if(self.action == 'combat'){
+        self.action = 'flee';
+      } else if(self.action == 'return'){
+        if(!self.path){
+          if(loc.toString() == self.work.spot.toString()){
+            self.action = null;
+          } else {
+            self.getPath(0,self.work.spot[0],self.work.spot[1]);
+          }
+        }
+      } else if(self.action == 'flee'){
+        if(!self.path){
+          if(self.combat.target){
+            var target = Player.list[self.combat.target];
+            if(target){
+              var tLoc = getLoc(target.x,target.y);
+              self.reposition(loc,tLoc);
+            } else {
+              self.combat.target = null;
+              self.action = null;
+            }
+          } else {
+            self.action = null;
           }
         }
       }
@@ -3531,17 +3700,11 @@ SerfM = function(param){
         }
       } else if(self.action == 'market'){
         if(!self.path){
-          var m = Building.list[self.tavern].market;
-          if(getBuilding(self.x,self.y) != m){
-            var select = [];
-            for(var i in m.plot){
-              var p = m.plot[i];
-              if(isWalkable(1,p[0],p[1])){
-                select.push(p);
-              }
-            }
-            var rand = Math.floor(Math.random() * select.length);
-            var dest = select[rand];
+          var market = Building.list[self.tavern].market;
+          var m = Building.list[market];
+          if(getBuilding(self.x,self.y) != market){
+            var rand = Math.floor(Math.random() * m.plot.length);
+            var dest = m.plot[rand];
             self.tether = {z:1,loc:dest};
             self.getPath(1,dest[0],dest[1]);
           } else {
@@ -3565,6 +3728,7 @@ SerfM = function(param){
                 self.dayTimer = true;
                 var rand = Math.floor(Math.random() * (3600000/(period/3)));
                 setTimeout(function(){
+                  self.tether = null;
                   self.action = 'tavern';
                   self.dayTimer = false;
                   console.log(self.name + ' heads to the tavern');
@@ -3642,39 +3806,34 @@ SerfM = function(param){
             if(loc.toString() == self.tether.loc.toString() && self.z == self.tether.z){
               self.action = null;
             } else {
-              if(self.z == self.tether.z){
-                self.moveTo(self.tether.loc[0],self.tether.loc[1]);
-              } else {
-                self.getPath(self.tether.z,self.tether.loc[0],self.tether.loc[1]);
-              }
+              self.getPath(self.tether.z,self.tether.loc[0],self.tether.loc[1]);
             }
           } else {
             if(loc.toString() == self.home.loc.toString()){
               self.action = null;
             } else {
-              if(self.z == self.home.z){
-                self.moveTo(self.home.loc[0],self.home.loc[1]);
-              } else {
-                self.getPath(self.home.z,self.home.loc[0],self.home.loc[1]);
-              }
+              self.getPath(self.home.z,self.home.loc[0],self.home.loc[1]);
             }
           }
         }
       } else if(self.action == 'flee'){
-        if(self.combat.target){
-          var target = Player.list[self.combat.target];
-          if(target){
-            var tLoc = getLoc(target.x,target.y);
-            self.reposition(loc,tLoc);
+        if(!self.path){
+          if(self.combat.target){
+            var target = Player.list[self.combat.target];
+            if(target){
+              var tLoc = getLoc(target.x,target.y);
+              self.reposition(loc,tLoc);
+            } else {
+              self.combat.target = null;
+              self.action = null;
+            }
           } else {
-            self.combat.target = null;
             self.action = null;
           }
-        } else {
-          self.action = null;
         }
       }
     }
+    self.updatePosition();
   }
 }
 
@@ -3866,10 +4025,9 @@ CargoShip = function(param){
   self.torchBearer = true;
 }
 
-Longship = function(param){
+Galley = function(param){
   var self = Character(param);
   self.class = 'Longship';
-  self.rank = '♞ ';
   self.ranged = true;
   self.torchBearer = true;
   self.damage = 15;
@@ -3977,10 +4135,10 @@ Archmage = function(param){
   self.baseSpd = 2;
 }
 
-NorseShip = function(param){
+Drakkar = function(param){
   var self = Character(param);
-  self.name = 'Norse Longship';
-  self.class = 'NorseShip';
+  self.name = 'Drakkar';
+  self.class = 'Drakkar';
   self.ranged = true;
   self.torchBearer = true;
   self.damage = 15;
@@ -4116,6 +4274,25 @@ Druid = function(param){
   self.baseSpd = 2;
   self.torchBearer = true;
 }
+
+ScoutShip = function(param){
+  var self = Character(param);
+  self.name = 'Scout Ship';
+  self.class = 'ScoutShip';
+  self.ranged = true;
+  self.torchBearer = true;
+  self.damage = 10;
+}
+
+Longship = function(param){
+  var self = Character(param);
+  self.name = 'Longship';
+  self.class = 'Longship';
+  self.ranged = true;
+  self.torchBearer = true;
+  self.damage = 10;
+}
+
 
 Morrigan = function(param){
   var self = Character(param);
@@ -6988,6 +7165,9 @@ Light = function(param){
       super_update();
     }
   } else {
+    if(Item.list[self.parent].type == 'Campfire'){
+      self.toUpdate = true;
+    }
     self.update = function(){
       if(!Item.list[self.parent]){
         self.toRemove = true;

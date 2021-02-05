@@ -39,7 +39,8 @@ socket.on('signInResponse',function(data){
     signDiv.style.display = 'none';
     gameDiv.style.display = 'inline-block';
     UI.style.display = 'inline-block';
-    getBgm(Player.list[selfId].x,Player.list[selfId].y,Player.list[selfId].z);
+    var b = getBuilding(Player.list[selfId].x,Player.list[selfId].y);
+    getBgm(Player.list[selfId].x,Player.list[selfId].y,Player.list[selfId].z,b);
   } else
     alert('Sign-in failed.')
 });
@@ -106,7 +107,7 @@ var soundscape = function(x,y,z,b){
     if(b.type == 'monastery'){
       ambPlayer(Amb.empty);
     } else if(hasFire(z,x,y)){
-      if(b.occ < 3){
+      if(b.occ < 4){
         ambPlayer(Amb.fire);
       } else if(b.occ < 6){
         ambPlayer(Amb.hush);
@@ -2988,7 +2989,7 @@ socket.on('tempus',function(data){
       getBgm(p.x,p.y,p.z);
     } else if((p.z == 1 || p.z == 2) && (tempus == 'VIII.p' || tempus == 'IV.a')){
       var b = getBuilding(p.x,p.y);
-      getBgm(p.x,p.y,p.z,Building.list[b].type);
+      getBgm(p.x,p.y,p.z,b);
     }
   }
 });

@@ -1135,7 +1135,7 @@ if(saveMap){
 
 // day/night cycle
 tempus = 'XII.a';
-period = 120; // 1=1hr, 2=30m, 4=15m, 12=5m, 60=1m, 120=30s, 360=10s (number of game days per 24 hours)
+period = 360; // 1=1hr, 2=30m, 4=15m, 12=5m, 60=1m, 120=30s, 360=10s (number of game days per 24 hours)
 var cycle = ['XII.a','I.a','II.a','III.a','IV.a','V.a','VI.a','VII.a','VIII.a','IX.a','X.a',
 'XI.a','XII.p','I.p','II.p','III.p','IV.p','V.p','VI.p','VII.p','VIII.p','IX.p','X.p','XI.p'];
 var tick = 1;
@@ -1236,7 +1236,7 @@ Player = function(param){
   self.spiritMax = 100;
   self.breath = 100;
   self.breathMax = 100;
-  self.strength = 10; // ALPHA
+  self.strength = 10; // ALPHA, default: 1
   self.dexterity = 1;
   self.ghost = false;
   self.die = function(report){
@@ -2304,7 +2304,9 @@ Player = function(param){
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * self.drag;
-        socket.emit('bgm',{x:self.x,y:self.y,z:self.z,b:b});
+        setTimeout(function(){
+          socket.emit('bgm',{x:self.x,y:self.y,z:self.z,b:b});
+        },100);
       } else if(getTile(0,loc[0],loc[1]) == 19){
         Building.list[b].occ++;
         self.z = 1;
@@ -2312,7 +2314,9 @@ Player = function(param){
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * self.drag;
-        socket.emit('bgm',{x:self.x,y:self.y,z:self.z,b:b});
+        setTimeout(function(){
+          socket.emit('bgm',{x:self.x,y:self.y,z:self.z,b:b});
+        },100);
       } else if(getTile(0,loc[0],loc[1]) == 0){
         self.z = -3;
         self.innaWoods = false;
