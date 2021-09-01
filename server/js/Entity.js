@@ -715,9 +715,13 @@ Character = function(param){
     target:null
   }
 
-  self.pathEnd = null; // {z,loc}
   self.path = null;
   self.pathCount = 0;
+  self.pathEnd = null;
+
+  self.move = function(target){ // [c,r]
+    self.path = [target];
+  }
 
   self.attack = function(dir){
     self.pressingAttack = true;
@@ -951,53 +955,53 @@ Character = function(param){
     if(dir == 'ul'){
       var d = [loc[0],loc[1]+1];
       if(isWalkable(self.z,d[0],d[1])){
-        self.path = [d];
+        self.move(d);
       } else {
         var r = [loc[0]+1,loc[1]];
         if(isWalkable(self.z,r[0],r[1])){
-          self.path = [r];
+          self.move(r);
         }
       }
     } else if(dir == 'lu'){
       var r = [loc[0]+1,loc[1]];
       if(isWalkable(self.z,r[0],r[1])){
-        self.path = [r];
+        self.move(r);
       } else {
         var d = [loc[0],loc[1]+1];
         if(isWalkable(self.z,d[0],d[1])){
-          self.path = [d];
+          self.move(d);
         }
       }
     } else if(dir == 'l'){
       var r = [loc[0]+1,loc[1]];
       if(isWalkable(self.z,r[0],r[1])){
-        self.path = [r];
+        self.move(r);
       } else {
         if(self.lastDir == 'dl' || self.lastDir == 'ld'){
           var u = [loc[0],loc[1]-1];
           if(isWalkable(self.z,u[0],u[1])){
-            self.path = [u];
+            self.move(u);
           }
         } else {
           var d = [loc[0],loc[1]+1];
           if(isWalkable(self.z,d[0],d[1])){
-            self.path = [d];
+            self.move(d);
           }
         }
       }
     } else if(dir == 'u'){
       var d = [loc[0],loc[1]+1];
       if(isWalkable(self.z,d[0],d[1])){
-        self.path = [d];
+        self.move(d);
       } else {
         if(self.lastDir == 'ul' || self.lastDir == 'lu'){
           var r = [loc[0]+1,loc[1]];
           if(isWalkable(self.z,r[0],r[1])){
-            self.path = [r];
+            self.move(r);
           } else {
             var l = [loc[0]-1,loc[1]];
             if(isWalkable(self.z,l[0],l[1])){
-              self.path = [l];
+              self.move(l);
             }
           }
         }
@@ -1005,93 +1009,93 @@ Character = function(param){
     } else if(dir == 'ld'){
       var r = [loc[0]+1,loc[1]];
       if(isWalkable(self.z,r[0],r[1])){
-        self.path = [r];
+        self.move(r);
       } else {
         var u = [loc[0],loc[1]-1];
         if(isWalkable(self.z,u[0],u[1])){
-          self.path = [u];
+          self.move(u);
         }
       }
     } else if(dir == 'dl'){
       var u = [loc[0],loc[1]-1];
       if(isWalkable(self.z,u[0],u[1])){
-        self.path = [u];
+        self.move(u);
       } else {
         var r = [loc[0]+1,loc[1]];
         if(isWalkable(self.z,r[0],r[1])){
-          self.path = [r];
+          self.move(r);
         }
       }
     } else if(dir == 'd'){
       var u = [loc[0],loc[1]-1];
       if(isWalkable(self.z,u[0],u[1])){
-        self.path = [u];
+        self.move(u);
       } else {
         if(self.lastDir == 'dl' || self.lastDir == 'ld'){
           var r = [loc[0]+1,loc[1]];
           if(isWalkable(self.z,r[0],r[1])){
-            self.path = [r];
+            self.move(r);
           }
         } else {
           var l = [loc[0]-1,loc[1]];
           if(isWalkable(self.z,l[0],l[1])){
-            self.path = [l];
+            self.move(l);
           }
         }
       }
     } else if(dir == 'rd'){
       var l = [loc[0]-1,loc[1]];
       if(isWalkable(self.z,l[0],l[1])){
-        self.path = [l];
+        self.move(l);
       } else {
         var u = [loc[0],loc[1]-1];
         if(isWalkable(self.z,u[0],u[1])){
-          self.path = [u];
+          self.move(u);
         }
       }
     } else if(dir == 'dr'){
       var u = [loc[0],loc[1]-1];
       if(isWalkable(self.z,u[0],u[1])){
-        self.path = [u];
+        self.move(u);
       } else {
         var l = [loc[0]-1,loc[1]];
         if(isWalkable(self.z,l[0],l[1])){
-          self.path = [l];
+          self.move(l);
         }
       }
     } else if(dir == 'ru'){
       var l = [loc[0]-1,loc[1]];
       if(isWalkable(self.z,l[0],l[1])){
-        self.path = [l];
+        self.move(l);
       } else {
         var d = [loc[0],loc[1]+1];
         if(isWalkable(self.z,d[0],d[1])){
-          self.path = [d];
+          self.move(d);
         }
       }
     } else if(dir == 'ur'){
       var d = [loc[0],loc[1]+1];
       if(isWalkable(self.z,d[0],d[1])){
-        self.path = [d];
+        self.move(d);
       } else {
         var l = [loc[0]-1,loc[1]];
         if(isWalkable(self.z,l[0],l[1])){
-          self.path = [l];
+          self.move(l);
         }
       }
     } else if(dir == 'r'){
       var l = [loc[0]-1,loc[1]];
       if(isWalkable(self.z,l[0],l[1])){
-        self.path = [l];
+        self.move(l);
       } else {
         if(self.lastDir == 'dr' || self.lastDir == 'rd'){
           var u = [loc[0],loc[1]-1];
           if(isWalkable(self.z,u[0],u[1])){
-            self.path = [u];
+            self.move(u);
           } else {
             var d = [loc[0],loc[1]+1];
             if(isWalkable(self.z,d[0],d[1])){
-              self.path = [d];
+              self.move(d);
             }
           }
         }
@@ -1307,53 +1311,53 @@ Character = function(param){
         if(dir == 'dr'){
           var d = [loc[0],loc[1]+1];
           if(isWalkable(self.z,d[0],d[1])){
-            self.path = [d];
+            self.move(d);
           } else {
             var r = [loc[0]+1,loc[1]];
             if(isWalkable(self.z,r[0],r[1])){
-              self.path = [r];
+              self.move(r);
             }
           }
         } else if(dir == 'rd'){
           var r = [loc[0]+1,loc[1]];
           if(isWalkable(self.z,r[0],r[1])){
-            self.path = [r];
+            self.move(r);
           } else {
             var d = [loc[0],loc[1]+1];
             if(isWalkable(self.z,d[0],d[1])){
-              self.path = [d];
+              self.move(d);
             }
           }
         } else if(dir == 'r'){
           var r = [loc[0]+1,loc[1]];
           if(isWalkable(self.z,r[0],r[1])){
-            self.path = [r];
+            self.move(r);
           } else {
             if(self.lastDir == 'ur' || self.lastDir == 'ru'){
               var u = [loc[0],loc[1]-1];
               if(isWalkable(self.z,u[0],u[1])){
-                self.path = [u];
+                self.move(u);
               }
             } else {
               var d = [loc[0],loc[1]+1];
               if(isWalkable(self.z,d[0],d[1])){
-                self.path = [d];
+                self.move(d);
               }
             }
           }
         } else if(dir == 'd'){
           var d = [loc[0],loc[1]+1];
           if(isWalkable(self.z,d[0],d[1])){
-            self.path = [d];
+            self.move(d);
           } else {
             if(self.lastDir == 'dr' || self.lastDir == 'rd'){
               var r = [loc[0]+1,loc[1]];
               if(isWalkable(self.z,r[0],r[1])){
-                self.path = [r];
+                self.move(r);
               } else {
                 var l = [loc[0]-1,loc[1]];
                 if(isWalkable(self.z,l[0],l[1])){
-                  self.path = [l];
+                  self.move(l);
                 }
               }
             }
@@ -1361,93 +1365,93 @@ Character = function(param){
         } else if(dir == 'ru'){
           var r = [loc[0]+1,loc[1]];
           if(isWalkable(self.z,r[0],r[1])){
-            self.path = [r];
+            self.move(r);
           } else {
             var u = [loc[0],loc[1]-1];
             if(isWalkable(self.z,u[0],u[1])){
-              self.path = [u];
+              self.move(u);
             }
           }
         } else if(dir == 'ur'){
           var u = [loc[0],loc[1]-1];
           if(isWalkable(self.z,u[0],u[1])){
-            self.path = [u];
+            self.move(u);
           } else {
             var r = [loc[0]+1,loc[1]];
             if(isWalkable(self.z,r[0],r[1])){
-              self.path = [r];
+              self.move(r);
             }
           }
         } else if(dir == 'u'){
           var u = [loc[0],loc[1]-1];
           if(isWalkable(self.z,u[0],u[1])){
-            self.path = [u];
+            self.move(u);
           } else {
             if(self.lastDir == 'ur' || self.lastDir == 'ru'){
               var r = [loc[0]+1,loc[1]];
               if(isWalkable(self.z,r[0],r[1])){
-                self.path = [r];
+                self.move(r);
               }
             } else {
               var l = [loc[0]-1,loc[1]];
               if(isWalkable(self.z,l[0],l[1])){
-                self.path = [l];
+                self.move(l);
               }
             }
           }
         } else if(dir == 'lu'){
           var l = [loc[0]-1,loc[1]];
           if(isWalkable(self.z,l[0],l[1])){
-            self.path = [l];
+            self.move(l);
           } else {
             var u = [loc[0],loc[1]-1];
             if(isWalkable(self.z,u[0],u[1])){
-              self.path = [u];
+              self.move(u);
             }
           }
         } else if(dir == 'ul'){
           var u = [loc[0],loc[1]-1];
           if(isWalkable(self.z,u[0],u[1])){
-            self.path = [u];
+            self.move(u);
           } else {
             var l = [loc[0]-1,loc[1]];
             if(isWalkable(self.z,l[0],l[1])){
-              self.path = [l];
+              self.move(l);
             }
           }
         } else if(dir == 'ld'){
           var l = [loc[0]-1,loc[1]];
           if(isWalkable(self.z,l[0],l[1])){
-            self.path = [l];
+            self.move(l);
           } else {
             var d = [loc[0],loc[1]+1];
             if(isWalkable(self.z,d[0],d[1])){
-              self.path = [d];
+              self.move(d);
             }
           }
         } else if(dir == 'dl'){
           var d = [loc[0],loc[1]+1];
           if(isWalkable(self.z,d[0],d[1])){
-            self.path = [d];
+            self.move(d);
           } else {
             var l = [loc[0]-1,loc[1]];
             if(isWalkable(self.z,l[0],l[1])){
-              self.path = [l];
+              self.move(l);
             }
           }
         } else if(dir == 'l'){
           var l = [loc[0]-1,loc[1]];
           if(isWalkable(self.z,l[0],l[1])){
-            self.path = [l];
+            self.move(l);
           } else {
             if(self.lastDir == 'ul' || self.lastDir == 'lu'){
               var u = [loc[0],loc[1]-1];
               if(isWalkable(self.z,u[0],u[1])){
-                self.path = [u];
+                self.move(u);
               } else {
                 var d = [loc[0],loc[1]+1];
                 if(isWalkable(self.z,d[0],d[1])){
-                  self.path = [d];
+                  self.move(d);
                 }
               }
             }
@@ -1481,53 +1485,53 @@ Character = function(param){
           if(dir == 'dr'){
             var d = [loc[0],loc[1]+1];
             if(isWalkable(self.z,d[0],d[1])){
-              self.path = [d];
+              self.move(d);
             } else {
               var r = [loc[0]+1,loc[1]];
               if(isWalkable(self.z,r[0],r[1])){
-                self.path = [r];
+                self.move(r);
               }
             }
           } else if(dir == 'rd'){
             var r = [loc[0]+1,loc[1]];
             if(isWalkable(self.z,r[0],r[1])){
-              self.path = [r];
+              self.move(r);
             } else {
               var d = [loc[0],loc[1]+1];
               if(isWalkable(self.z,d[0],d[1])){
-                self.path = [d];
+                self.move(d);
               }
             }
           } else if(dir == 'r'){
             var r = [loc[0]+1,loc[1]];
             if(isWalkable(self.z,r[0],r[1])){
-              self.path = [r];
+              self.move(r);
             } else {
               if(self.lastDir == 'ur' || self.lastDir == 'ru'){
                 var u = [loc[0],loc[1]-1];
                 if(isWalkable(self.z,u[0],u[1])){
-                  self.path = [u];
+                  self.move(u);
                 }
               } else {
                 var d = [loc[0],loc[1]+1];
                 if(isWalkable(self.z,d[0],d[1])){
-                  self.path = [d];
+                  self.move(d);
                 }
               }
             }
           } else if(dir == 'd'){
             var d = [loc[0],loc[1]+1];
             if(isWalkable(self.z,d[0],d[1])){
-              self.path = [d];
+              self.move(d);
             } else {
               if(self.lastDir == 'dr' || self.lastDir == 'rd'){
                 var r = [loc[0]+1,loc[1]];
                 if(isWalkable(self.z,r[0],r[1])){
-                  self.path = [r];
+                  self.move(r);
                 } else {
                   var l = [loc[0]-1,loc[1]];
                   if(isWalkable(self.z,l[0],l[1])){
-                    self.path = [l];
+                    self.move(l);
                   }
                 }
               }
@@ -1535,93 +1539,93 @@ Character = function(param){
           } else if(dir == 'ru'){
             var r = [loc[0]+1,loc[1]];
             if(isWalkable(self.z,r[0],r[1])){
-              self.path = [r];
+              self.move(r);
             } else {
               var u = [loc[0],loc[1]-1];
               if(isWalkable(self.z,u[0],u[1])){
-                self.path = [u];
+                self.move(u);
               }
             }
           } else if(dir == 'ur'){
             var u = [loc[0],loc[1]-1];
             if(isWalkable(self.z,u[0],u[1])){
-              self.path = [u];
+              self.move(u);
             } else {
               var r = [loc[0]+1,loc[1]];
               if(isWalkable(self.z,r[0],r[1])){
-                self.path = [r];
+                self.move(r);
               }
             }
           } else if(dir == 'u'){
             var u = [loc[0],loc[1]-1];
             if(isWalkable(self.z,u[0],u[1])){
-              self.path = [u];
+              self.move(u);
             } else {
               if(self.lastDir == 'ur' || self.lastDir == 'ru'){
                 var r = [loc[0]+1,loc[1]];
                 if(isWalkable(self.z,r[0],r[1])){
-                  self.path = [r];
+                  self.move(r);
                 }
               } else {
                 var l = [loc[0]-1,loc[1]];
                 if(isWalkable(self.z,l[0],l[1])){
-                  self.path = [l];
+                  self.move(l);
                 }
               }
             }
           } else if(dir == 'lu'){
             var l = [loc[0]-1,loc[1]];
             if(isWalkable(self.z,l[0],l[1])){
-              self.path = [l];
+              self.move(l);
             } else {
               var u = [loc[0],loc[1]-1];
               if(isWalkable(self.z,u[0],u[1])){
-                self.path = [u];
+                self.move(u);
               }
             }
           } else if(dir == 'ul'){
             var u = [loc[0],loc[1]-1];
             if(isWalkable(self.z,u[0],u[1])){
-              self.path = [u];
+              self.move(u);
             } else {
               var l = [loc[0]-1,loc[1]];
               if(isWalkable(self.z,l[0],l[1])){
-                self.path = [l];
+                self.move(l);
               }
             }
           } else if(dir == 'ld'){
             var l = [loc[0]-1,loc[1]];
             if(isWalkable(self.z,l[0],l[1])){
-              self.path = [l];
+              self.move(l);
             } else {
               var d = [loc[0],loc[1]+1];
               if(isWalkable(self.z,d[0],d[1])){
-                self.path = [d];
+                self.move(d);
               }
             }
           } else if(dir == 'dl'){
             var d = [loc[0],loc[1]+1];
             if(isWalkable(self.z,d[0],d[1])){
-              self.path = [d];
+              self.move(d);
             } else {
               var l = [loc[0]-1,loc[1]];
               if(isWalkable(self.z,l[0],l[1])){
-                self.path = [l];
+                self.move(l);
               }
             }
           } else if(dir == 'l'){
             var l = [loc[0]-1,loc[1]];
             if(isWalkable(self.z,l[0],l[1])){
-              self.path = [l];
+              self.move(l);
             } else {
               if(self.lastDir == 'ul' || self.lastDir == 'lu'){
                 var u = [loc[0],loc[1]-1];
                 if(isWalkable(self.z,u[0],u[1])){
-                  self.path = [u];
+                  self.move(u);
                 } else {
                   var d = [loc[0],loc[1]+1];
                   if(isWalkable(self.z,d[0],d[1])){
-                    self.path = [d];
+                    self.move(d);
                   }
                 }
               }
@@ -1636,7 +1640,7 @@ Character = function(param){
               }
             }
             var rand = Math.floor(Math.random() * select.length);
-            self.path = select[rand];
+            self.move(select[rand]);
           }
         } else {
           if(loc.toString() == uLoc.toString()){
@@ -1688,9 +1692,6 @@ Character = function(param){
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * self.drag;
-        if(self.pathEnd){
-          self.getPath(self.pathEnd.z,self.pathEnd.loc[0],self.pathEnd.loc[1]);
-        }
       } else if(getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 2){
         self.innaWoods = true;
         self.onMtn = false;
@@ -1729,9 +1730,6 @@ Character = function(param){
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * self.drag;
-        if(self.pathEnd){
-          self.getPath(self.pathEnd.z,self.pathEnd.loc[0],self.pathEnd.loc[1]);
-        }
       } else if(getTile(0,loc[0],loc[1]) == 0){
         self.z = -3;
         self.path = null;
@@ -1739,9 +1737,6 @@ Character = function(param){
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = (self.baseSpd * 0.2)  * self.drag;
-        if(self.pathEnd){
-          self.getPath(self.pathEnd.z,self.pathEnd.loc[0],self.pathEnd.loc[1]);
-        }
       } else {
         self.innaWoods = false;
         self.onMtn = false;
@@ -1755,9 +1750,6 @@ Character = function(param){
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = (self.baseSpd * 0.9)  * self.drag;
-        if(self.pathEnd){
-          self.getPath(self.pathEnd.z,self.pathEnd.loc[0],self.pathEnd.loc[1]);
-        }
       }
     } else if(self.z == -2){
       if(getTile(8,loc[0],loc[1]) == 5){
@@ -1766,9 +1758,6 @@ Character = function(param){
         self.pathCount = 0;
         self.y += (tileSize/2);
         self.facing = 'down';
-        if(self.pathEnd){
-          self.getPath(self.pathEnd.z,self.pathEnd.loc[0],self.pathEnd.loc[1]);
-        }
       }
     } else if(self.z == -3){
       if(self.breath > 0){
@@ -1781,10 +1770,9 @@ Character = function(param){
       }
       if(getTile(0,loc[0],loc[1]) != 0){
         self.z = 0;
+        self.path = null;
+        self.pathCount = 0;
         self.breath = self.breathMax;
-        if(self.pathEnd){
-          self.getPath(self.pathEnd.z,self.pathEnd.loc[0],self.pathEnd.loc[1]);
-        }
       }
     } else if(self.z == 1){
       if(getTile(0,loc[0],loc[1] - 1) == 14 || getTile(0,loc[0],loc[1] - 1) == 16  || getTile(0,loc[0],loc[1] - 1) == 19){
@@ -1793,27 +1781,18 @@ Character = function(param){
         self.z = 0;
         self.path = null;
         self.pathCount = 0;
-        if(self.pathEnd){
-          self.getPath(self.pathEnd.z,self.pathEnd.loc[0],self.pathEnd.loc[1]);
-        }
       } else if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4 || getTile(4,loc[0],loc[1]) == 7){
         self.z = 2;
         self.path = null;
         self.pathCount = 0;
         self.y += (tileSize/2);
         self.facing = 'down'
-        if(self.pathEnd){
-          self.getPath(self.pathEnd.z,self.pathEnd.loc[0],self.pathEnd.loc[1]);
-        }
       } else if(getTile(4,loc[0],loc[1]) == 5 || getTile(4,loc[0],loc[1]) == 6){
         self.z = -2;
         self.path = null;
         self.pathCount = 0;
         self.y += (tileSize/2);
         self.facing = 'down';
-        if(self.pathEnd){
-          self.getPath(self.pathEnd.z,self.pathEnd.loc[0],self.pathEnd.loc[1]);
-        }
       }
     } else if(self.z == 2){
       if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4){
@@ -1822,9 +1801,6 @@ Character = function(param){
         self.pathCount = 0;
         self.y += (tileSize/2);
         self.facing = 'down';
-        if(self.pathEnd){
-          self.getPath(self.pathEnd.z,self.pathEnd.loc[0],self.pathEnd.loc[1]);
-        }
       }
     }
 
@@ -1850,7 +1826,7 @@ Character = function(param){
             var target = select[Math.floor(Math.random() * 4)];
             if(target[0] < mapSize && target[0] > -1 && target[1] < mapSize && target[1] > -1){
               if(isWalkable(self.z,target[0],target[1])){
-                self.path = [target];
+                self.move(target);
                 self.idleTime += Math.floor(Math.random() * self.idleRange);
               }
             }
@@ -2256,6 +2232,7 @@ Character = function(param){
   }
 
   self.getPath = function(z,c,r){
+    self.pathEnd = {z:z,loc:[c,r]};
     var start = getLoc(self.x,self.y);
     var cst = getCenter(start[0],start[1]);
     var b = getBuilding(cst[0],cst[1]);
@@ -2263,7 +2240,6 @@ Character = function(param){
     var db = getBuilding(cd[0],cd[1]);
     if(z == self.z){
       if(self.z == 0){
-        self.pathEnd = null;
         if(getLocTile(0,self.x,self.y) == 0){
           var gridSb = cloneGrid(3);
           var path = finder.findPath(start[0], start[1], c, r, gridSb);
@@ -2283,53 +2259,46 @@ Character = function(param){
           var path = finder.findPath(start[0], start[1], c, r, gridB3b);
           self.path = path;
         } else {
-          if(!self.pathEnd){
-            self.pathEnd = {z:z,loc:[c,r]};
-          }
-          var gridB3b = cloneGrid(-2);
+          //var gridB3b = cloneGrid(-2);
           var stairs = Building.list[b].dstairs;
-          var path = finder.findPath(start[0], start[1], stairs[0], stairs[1], gridB1b);
-          self.path = path;
+          //var path = finder.findPath(start[0], start[1], stairs[0], stairs[1], gridB1b);
+          //self.path = path;
+          self.moveTo(stairs);
         }
       } else if(self.z == 1){
         if(b == db){
-          var gridB1b = cloneGrid(1);
-          var path = finder.findPath(start[0], start[1], c, r, gridB1b);
-          self.path = path;
+          //var gridB1b = cloneGrid(1);
+          //var path = finder.findPath(start[0], start[1], c, r, gridB1b);
+          //self.path = path;
+          self.moveTo([c,r]);
         } else {
-          if(!self.pathEnd){
-            self.pathEnd = {z:z,loc:[c,r]};
-          }
-          var gridB1b = cloneGrid(1);
+          //var gridB1b = cloneGrid(1);
           var exit = Building.list[b].entrance;
-          var path = finder.findPath(start[0], start[1], exit[0], exit[1]+1, gridB1b);
-          self.path = path;
+          //var path = finder.findPath(start[0], start[1], exit[0], exit[1]+1, gridB1b);
+          //self.path = path;
+          self.moveTo([exit[0],exit[1]+1]);
         }
       } else if(self.z == 2){
         if(b == db){
-          var gridB2b = cloneGrid(2);
-          var path = finder.findPath(start[0], start[1], c, r, gridB2b);
-          self.path = path;
+          //var gridB2b = cloneGrid(2);
+          //var path = finder.findPath(start[0], start[1], c, r, gridB2b);
+          //self.path = path;
+          self.moveTo([c,r]);
         } else {
-          if(!self.pathEnd){
-            self.pathEnd = {z:z,loc:[c,r]};
-          }
-          var gridB2b = cloneGrid(2);
+          //var gridB2b = cloneGrid(2);
           var stairs = Building.list[b].ustairs;
-          var path = finder.findPath(start[0], start[1], stairs[0], stairs[1], gridB1b);
-          self.path = path;
+          //var path = finder.findPath(start[0], start[1], stairs[0], stairs[1], gridB1b);
+          //self.path = path;
+          self.moveTo(stairs);
         }
       }
     } else {
-      if(!self.pathEnd){
-        self.pathEnd = {z:z,loc:[c,r]};
-      }
       if(self.z == 0){ // outdoors
         var gridOb = cloneGrid(0);
         if(z == -1){ // to cave
           var cave = [];
           var best = null;
-          var c = getCoords(self.pathEnd.loc[0],self.pathEnd.loc[1]);
+          var c = getCoords(c,r);
           for(i in caveEntrances){
             var e = getCoords(caveEntrances[i]);
             var d = getDistance({x:c[0],y:c[1]},{x:e[0],y:e[1]});
@@ -2341,9 +2310,7 @@ Character = function(param){
           var path = finder.findPath(start[0], start[1], cave[0], cave[1], gridOb);
           self.path = path;
         } else { // to building
-          var c = getCoords(self.pathEnd.loc[0],self.pathEnd.loc[1]);
-          var b = getBuilding(c[0],c[1]);
-          var ent = Building.list[b].entrance;
+          var ent = Building.list[db].entrance;
           var path = finder.findPath(start[0], start[1], ent[0], ent[1], gridOb);
           self.path = path;
         }
@@ -2360,36 +2327,42 @@ Character = function(param){
         var path = finder.findPath(start[0], start[1], cave[0], cave[1]+1, gridUb);
         self.path = path;
       } else if(self.z == 1){ // indoors
-        var gridB1b = cloneGrid(1);
+        //var gridB1b = cloneGrid(1);
         if(b == db){
           if(z == 2){ // to upstairs
             var stairs = Building.list[b].ustairs;
-            var path = finder.findPath(start[0], start[1], stairs[0], stairs[1], gridB1b);
-            self.path = path;
+            //var path = finder.findPath(start[0], start[1], stairs[0], stairs[1], gridB1b);
+            //self.path = path;
+            self.moveTo(stairs);
           } else if(z == -2){ // to cellar/dungeon
             var stairs = Building.list[b].dstairs;
-            var path = finder.findPath(start[0], start[1], stairs[0], stairs[1], gridB1b);
-            self.path = path;
+            //var path = finder.findPath(start[0], start[1], stairs[0], stairs[1], gridB1b);
+            //self.path = path;
+            self.moveTo(stairs);
           } else { // outdoors
             var exit = Building.list[b].entrance;
-            var path = finder.findPath(start[0], start[1], exit[0], exit[1]+1, gridB1b);
-            self.path = path;
+            //var path = finder.findPath(start[0], start[1], exit[0], exit[1]+1, gridB1b);
+            //self.path = path;
+            self.moveTo([exit[0],exit[1]+1]);
           }
         } else {
           var exit = Building.list[b].entrance;
-          var path = finder.findPath(start[0], start[1], exit[0], exit[1]+1, gridB1b);
-          self.path = path;
+          //var path = finder.findPath(start[0], start[1], exit[0], exit[1]+1, gridB1b);
+          //self.path = path;
+          self.moveTo([exit[0],exit[1]+1]);
         }
       } else if(self.z == 2){ // upstairs
-        var gridB2b = cloneGrid(2);
+        //var gridB2b = cloneGrid(2);
         var stairs = Building.list[b].ustairs;
-        var path = finder.findPath(start[0], start[1], stairs[0], stairs[1], gridB2b);
-        self.path = path;
+        //var path = finder.findPath(start[0], start[1], stairs[0], stairs[1], gridB2b);
+        //self.path = path;
+        self.moveTo(stairs);
       } else if(self.z == -2){ // cellar/dungeon
-        var gridB3b = cloneGrid(-2);
+        //var gridB3b = cloneGrid(-2);
         var stairs = Building.list[b].dstairs;
-        var path = finder.findPath(start[0], start[1], stairs[0], stairs[1], gridB3b);
-        self.path = path;
+        //var path = finder.findPath(start[0], start[1], stairs[0], stairs[1], gridB3b);
+        //self.path = path;
+        self.moveTo(stairs);
       } else if(self.z == -3){ // underwater
         self.moveTo([c,r]);
       }
@@ -2398,12 +2371,13 @@ Character = function(param){
 
   self.updatePosition = function(){
     if(self.path){
-      var len = self.path.length;
-      if(self.pathCount < len){
+      if(self.pathCount < self.path.length){
         var next = self.path[self.pathCount];
-        var tile = getTile(0,next[0],next[1]);
-        if(!self.pathEnd && (tile == 14 || tile == 16 || tile == 19)){
-          self.path[self.pathCount] = [next[0]+1,next[1]+1];
+        if(self.z == 0){ // sidestep doors in path
+          var tile = getTile(0,next[0],next[1]);
+          if((tile == 14 || tile == 16) && self.path[self.path.length-1].toString() != next.toString()){
+            self.path[self.pathCount] = [next[0]+1,next[1]+1];
+          }
         }
         var dest = getCenter(next[0],next[1]);
         var dx = dest[0];
@@ -2438,6 +2412,12 @@ Character = function(param){
           self.checkAggro();
         }
       } else {
+        if(self.pathEnd){
+          var loc = getLoc(self.x,self.y);
+          if(self.z == self.pathEnd.z && loc.toString() == self.pathEnd.loc.toString()){
+            self.pathEnd = null;
+          }
+        }
         self.path = null;
         self.pathCount = 0;
       }
@@ -2601,8 +2581,6 @@ Deer = function(param){
       self.maxSpd = self.baseSpd * 1.1;
     } else if(getTile(0,loc[0],loc[1]) == 0){
       self.z = -3;
-      self.path = null;
-      self.pathCount = 0;
       self.innaWoods = false;
       self.onMtn = false;
       self.maxSpd = self.baseSpd * 0.1;
@@ -2625,7 +2603,7 @@ Deer = function(param){
             var target = select[Math.floor(Math.random() * 4)];
             if(target[0] < mapSize && target[0] > -1 && target[1] < mapSize && target[1] > -1){
               if(isWalkable(self.z,target[0],target[1])){
-                self.path = [target];
+                self.move(target);
                 self.idleTime += Math.floor(Math.random() * self.idleRange);
               }
             }
@@ -2764,22 +2742,15 @@ Wolf = function(param){
         self.maxSpd = self.baseSpd * self.drag;
       } else if(getTile(0,loc[0],loc[1]) == 6){
         self.z = -1;
-        self.path = null;
-        self.pathCount = 0;
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * self.drag;
-        if(self.pathEnd){
-          self.getPath(self.pathEnd.z,self.pathEnd.loc[0],self.pathEnd.loc[1]);
-        }
       } else if(getTile(0,loc[0],loc[1]) == 18){
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * self.drag;
       } else if(getTile(0,loc[0],loc[1]) == 0){
         self.z = -3;
-        self.path = null;
-        self.pathCount = 0;
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = (self.baseSpd * 0.1) * self.drag;
@@ -2791,14 +2762,9 @@ Wolf = function(param){
     } else if(self.z == -1){
       if(getTile(1,loc[0],loc[1]) == 2){
         self.z = 0;
-        self.path = null;
-        self.pathCount = 0;
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = (self.baseSpd * 0.9)  * self.drag;
-        if(self.pathEnd){
-          self.getPath(self.pathEnd.z,self.pathEnd.loc[0],self.pathEnd.loc[1]);
-        }
       }
     }
 
@@ -2824,7 +2790,7 @@ Wolf = function(param){
               var target = select[Math.floor(Math.random() * 4)];
               if(target[0] < mapSize && target[0] > -1 && target[1] < mapSize && target[1] > -1){
                 if(isWalkable(self.z,target[0],target[1])){
-                  self.path = [target];
+                  self.move(target);
                   self.idleTime += Math.floor(Math.random() * self.idleRange);
                 }
               }
@@ -3032,7 +2998,7 @@ SerfM = function(param){
   self.spriteSize = tileSize*1.5;
   self.unarmed = true;
   self.tether = null; // {z,loc}
-  self.tavern = param.tavern
+  self.tavern = param.tavern;
   self.hut = param.hut;
   self.work = param.work; // {hq,spot}
   self.dayTimer = false;
@@ -3043,11 +3009,12 @@ SerfM = function(param){
     var b = getBuilding(self.x,self.y);
     self.zoneCheck();
 
-    if(tempus == 'VI.a' && self.mode == 'idle' && !self.dayTimer){
+    if(tempus == 'VI.a' && !self.dayTimer){
       self.dayTimer = true;
       var rand = Math.floor(Math.random() * (3600000/(period*6)));
       setTimeout(function(){
         self.mode = 'work';
+        self.action = null;
         self.dayTimer = false;
         console.log(self.name + ' heads to work');
       },rand);
@@ -3059,7 +3026,7 @@ SerfM = function(param){
         self.dayTimer = false;
         console.log(self.name + ' is clocking out');
       },rand);
-    } else if(tempus == 'XI.p' && self.action && !self.dayTimer){
+    } else if(tempus == 'XI.p' && self.action == 'tavern' && !self.dayTimer){
       self.dayTimer = true;
       var rand = Math.floor(Math.random() * (3600000/(period/2)));
       setTimeout(function(){
@@ -3082,21 +3049,14 @@ SerfM = function(param){
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * self.drag;
-        if(self.pathEnd){
-          self.getPath(self.pathEnd.z,self.pathEnd.loc[0],self.pathEnd.loc[1]);
-        }
       } else if(getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 2){
         self.innaWoods = true;
         self.onMtn = false;
-        if(self.class != 'Deer' && self.class != 'Boar' && self.class != 'Wolf'){
-          self.maxSpd = (self.baseSpd * 0.3) * self.drag;
-        }
+        self.maxSpd = (self.baseSpd * 0.3) * self.drag;
       } else if(getTile(0,loc[0],loc[1]) >= 2 && getTile(0,loc[0],loc[1]) < 4){
         self.innaWoods = false;
         self.onMtn = false;
-        if(self.class != 'Deer' && self.class != 'Boar' && self.class != 'Wolf'){
-          self.maxSpd = (self.baseSpd * 0.5) * self.drag;
-        }
+        self.maxSpd = (self.baseSpd * 0.5) * self.drag;
       } else if(getTile(0,loc[0],loc[1]) >= 4 && getTile(0,loc[0],loc[1]) < 5){
         self.innaWoods = false;
         self.onMtn = false;
@@ -3123,9 +3083,6 @@ SerfM = function(param){
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * self.drag;
-        if(self.pathEnd){
-          self.getPath(self.pathEnd.z,self.pathEnd.loc[0],self.pathEnd.loc[1]);
-        }
       } else if(getTile(0,loc[0],loc[1]) == 0){
         self.z = -3;
         self.path = null;
@@ -3133,9 +3090,6 @@ SerfM = function(param){
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = (self.baseSpd * 0.2)  * self.drag;
-        if(self.pathEnd){
-          self.getPath(self.pathEnd.z,self.pathEnd.loc[0],self.pathEnd.loc[1]);
-        }
       } else {
         self.innaWoods = false;
         self.onMtn = false;
@@ -3149,9 +3103,6 @@ SerfM = function(param){
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = (self.baseSpd * 0.9)  * self.drag;
-        if(self.pathEnd){
-          self.getPath(self.pathEnd.z,self.pathEnd.loc[0],self.pathEnd.loc[1]);
-        }
       }
     } else if(self.z == -2){
       if(getTile(8,loc[0],loc[1]) == 5){
@@ -3160,9 +3111,6 @@ SerfM = function(param){
         self.pathCount = 0;
         self.y += (tileSize/2);
         self.facing = 'down';
-        if(self.pathEnd){
-          self.getPath(self.pathEnd.z,self.pathEnd.loc[0],self.pathEnd.loc[1]);
-        }
       }
     } else if(self.z == -3){
       if(self.breath > 0){
@@ -3175,10 +3123,9 @@ SerfM = function(param){
       }
       if(getTile(0,loc[0],loc[1]) != 0){
         self.z = 0;
+        self.path = null;
+        self.pathCount = 0;
         self.breath = self.breathMax;
-        if(self.pathEnd){
-          self.getPath(self.pathEnd.z,self.pathEnd.loc[0],self.pathEnd.loc[1]);
-        }
       }
     } else if(self.z == 1){
       if(getTile(0,loc[0],loc[1] - 1) == 14 || getTile(0,loc[0],loc[1] - 1) == 16  || getTile(0,loc[0],loc[1] - 1) == 19){
@@ -3187,27 +3134,18 @@ SerfM = function(param){
         self.z = 0;
         self.path = null;
         self.pathCount = 0;
-        if(self.pathEnd){
-          self.getPath(self.pathEnd.z,self.pathEnd.loc[0],self.pathEnd.loc[1]);
-        }
       } else if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4 || getTile(4,loc[0],loc[1]) == 7){
         self.z = 2;
         self.path = null;
         self.pathCount = 0;
         self.y += (tileSize/2);
         self.facing = 'down'
-        if(self.pathEnd){
-          self.getPath(self.pathEnd.z,self.pathEnd.loc[0],self.pathEnd.loc[1]);
-        }
       } else if(getTile(4,loc[0],loc[1]) == 5 || getTile(4,loc[0],loc[1]) == 6){
         self.z = -2;
         self.path = null;
         self.pathCount = 0;
         self.y += (tileSize/2);
         self.facing = 'down';
-        if(self.pathEnd){
-          self.getPath(self.pathEnd.z,self.pathEnd.loc[0],self.pathEnd.loc[1]);
-        }
       }
     } else if(self.z == 2){
       if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4){
@@ -3216,61 +3154,58 @@ SerfM = function(param){
         self.pathCount = 0;
         self.y += (tileSize/2);
         self.facing = 'down';
-        if(self.pathEnd){
-          self.getPath(self.pathEnd.z,self.pathEnd.loc[0],self.pathEnd.loc[1]);
-        }
       }
     }
 
     // WORK
-    if(self.mode == 'work'){
-      var hq = Building.list[self.work.hq];
-      if(!self.action){
-        if(Building.list[self.hut].built){ // if hut is built
-          if(self.house){
-            for(var i in Building.list){
-              var b = Building.list[i];
-              if(b.house == self.house && !b.built){ // check for any build projects
-                var dist = getDistance({x:self.x,y:self.y},{x:b.x,y:b.y});
-                if(dist <= 1280){
-                  for(var i in b.plot){
-                    var p = b.plot[i];
-                    var t = getTile(0,p[0],p[1]);
-                    if(t == 11){
-                      self.work.spot = p;
-                      self.action = 'build';
-                      return;
+    if(!self.path){
+      if(self.mode == 'work'){
+        var hq = Building.list[self.work.hq];
+        if(!self.action){
+          if(Building.list[self.hut].built){ // if hut is built
+            if(self.house){
+              for(var i in Building.list){
+                var b = Building.list[i];
+                if(b.house == self.house && !b.built){ // check for any build projects
+                  var dist = getDistance({x:self.x,y:self.y},{x:b.x,y:b.y});
+                  if(dist <= 1280){
+                    for(var i in b.plot){
+                      var p = b.plot[i];
+                      var t = getTile(0,p[0],p[1]);
+                      if(t == 11){
+                        self.work.spot = p;
+                        self.action = 'build';
+                        return;
+                      }
                     }
                   }
                 }
               }
             }
-          }
-          var tDist = 0;
-          var avgDist = null;
-          for(var i in hq.resources){
-            var res = hq.resources[i];
-            var r = getCenter(res[0],res[1]);
-            var dist = getDistance({x:hq.x,y:hq.y},{x:r[0],y:r[1]});
-            tDist += dist;
-          }
-          avgDist = tDist/hq.resources.length;
-          for(var i in hq.resources){
-            var res = hq.resources[i];
-            var r = getCenter(res[0],res[1]);
-            var dist = getDistance({x:hq.x,y:hq.y},{x:r[0],y:r[1]});
-            if(dist < avgDist){
-              self.work.spot = res;
-              Building.list[self.work.hq].log[self.id] = self.work.spot;
-              self.action = 'task';
-              return;
+            var tDist = 0;
+            var avgDist = null;
+            for(var i in hq.resources){
+              var res = hq.resources[i];
+              var r = getCenter(res[0],res[1]);
+              var dist = getDistance({x:hq.x,y:hq.y},{x:r[0],y:r[1]});
+              tDist += dist;
             }
+            avgDist = tDist/hq.resources.length;
+            for(var i in hq.resources){
+              var res = hq.resources[i];
+              var r = getCenter(res[0],res[1]);
+              var dist = getDistance({x:hq.x,y:hq.y},{x:r[0],y:r[1]});
+              if(dist < avgDist){
+                self.work.spot = res;
+                Building.list[self.work.hq].log[self.id] = self.work.spot;
+                self.action = 'task';
+                return;
+              }
+            }
+          } else {
+            self.action = 'build';
           }
-        } else {
-          self.action = 'build';
-        }
-      } else if(self.action == 'build'){
-        if(!self.path){
+        } else if(self.action == 'build'){
           if(!self.work.spot){
             var hut = Building.list[self.hut];
             for(var i in hut.plot){
@@ -3312,10 +3247,8 @@ SerfM = function(param){
               }
             }
           }
-        }
-      } else if(self.action == 'task'){
-        var spot = self.work.spot;
-        if(!self.path){
+        } else if(self.action == 'task'){
+          var spot = self.work.spot;
           if(hq.type == 'mill'){
             if(self.inventory.grain == 10){
               var b = Building.list[self.work.hq];
@@ -3562,14 +3495,12 @@ SerfM = function(param){
               }
             }
           }
-        }
-      } else if(self.action == 'clockout'){
-        self.working = false;
-        self.building = false;
-        self.farming = false;
-        self.chopping = false;
-        self.mining = false;
-        if(!self.path){
+        } else if(self.action == 'clockout'){
+          self.working = false;
+          self.building = false;
+          self.farming = false;
+          self.chopping = false;
+          self.mining = false;
           var b = Building.list[self.work.hq];
           var dropoff = [b.plot[0][0],b.plot[0][1]+1];
           if(loc.toString() == dropoff.toString()){
@@ -3619,19 +3550,15 @@ SerfM = function(param){
           } else {
             self.getPath(0,dropoff[0],dropoff[1]);
           }
-        }
-      } else if(self.action == 'combat'){
-        self.action = 'flee';
-      } else if(self.action == 'return'){
-        if(!self.path){
+        } else if(self.action == 'combat'){
+          self.action = 'flee';
+        } else if(self.action == 'return'){
           if(loc.toString() == self.work.spot.toString()){
             self.action = null;
           } else {
             self.getPath(0,self.work.spot[0],self.work.spot[1]);
           }
-        }
-      } else if(self.action == 'flee'){
-        if(!self.path){
+        } else if(self.action == 'flee'){
           if(self.combat.target){
             var target = Player.list[self.combat.target];
             if(target){
@@ -3645,61 +3572,57 @@ SerfM = function(param){
             self.action = null;
           }
         }
-      }
-      // IDLE
-    } else if(self.mode == 'idle'){
-      if(!self.action){
-        var cHome = getCenter(self.home.loc[0],self.home.loc[1]);
-        var hDist = self.getDistance({
-          x:cHome[0],
-          y:cHome[1]
-        });
-        if(hDist > self.wanderRange){
-          self.action = 'return';
-        } else if(self.idleTime == 0){
-          if(!self.path){
+        // IDLE
+      } else if(self.mode == 'idle'){
+        if(!self.action){
+          var cHome = getCenter(self.home.loc[0],self.home.loc[1]);
+          var hDist = self.getDistance({
+            x:cHome[0],
+            y:cHome[1]
+          });
+          if(hDist > self.wanderRange){
+            self.action = 'return';
+          } else if(self.idleTime == 0){
             var col = loc[0];
             var row = loc[1];
             var select = [[col,row-1],[col-1,row],[col,row+1],[col+1,row]];
             var target = select[Math.floor(Math.random() * 4)];
             if(target[0] < mapSize && target[0] > -1 && target[1] < mapSize && target[1] > -1){
               if(isWalkable(self.z,target[0],target[1])){
-                self.path = [target];
+                self.move(target);
                 self.idleTime += Math.floor(Math.random() * self.idleRange);
               }
             }
           }
-        }
-      } else if(self.action == 'clockout'){
-        if(Building.list[self.tavern].market){
-          var inv = self.inventory;
-          if(inv.grain > 0 || inv.flour > 3 || inv.wood > 0 || inv.stone > 0 || inv.ironore > 0){
-            self.action = 'market';
-            console.log(self.name + ' heads to the market');
-          } else {
-            var rand = Math.random();
-            if(rand < 0.2){
+        } else if(self.action == 'clockout'){
+          var rand = Math.random();
+          if(Building.list[self.tavern].market){
+            var inv = self.inventory;
+            if(inv.grain > 0 || inv.flour > 3 || inv.wood > 0 || inv.stone > 0 || inv.ironore > 0){
               self.action = 'market';
               console.log(self.name + ' heads to the market');
-            } else if(rand > 0.9){
-              self.action = null;
-              console.log(self.name + ' heads home for the night');
             } else {
+              if(rand < 0.2){
+                self.action = 'market';
+                console.log(self.name + ' heads to the market');
+              } else if(rand > 0.9){
+                self.action = null;
+                console.log(self.name + ' heads home for the night');
+              } else {
+                self.action = 'tavern';
+                console.log(self.name + ' heads to the tavern');
+              }
+            }
+          } else {
+            if(rand < 0.77){
               self.action = 'tavern';
               console.log(self.name + ' heads to the tavern');
+            } else {
+              self.action = null;
+              console.log(self.name + ' heads home for the night');
             }
           }
-        } else {
-          if(rand < 0.77){
-            self.action = 'tavern';
-            console.log(self.name + ' heads to the tavern');
-          } else {
-            self.action = null;
-            console.log(self.name + ' heads home for the night');
-          }
-        }
-      } else if(self.action == 'market'){
-        if(!self.path){
+        } else if(self.action == 'market'){
           var market = Building.list[self.tavern].market;
           var m = Building.list[market];
           if(getBuilding(self.x,self.y) != market){
@@ -3742,25 +3665,20 @@ SerfM = function(param){
               if(tDist > self.wanderRange){
                 self.action = 'return';
               } else if(self.idleTime == 0){
-                if(!self.path){
-                  var col = loc[0];
-                  var row = loc[1];
-                  var select = [[col,row-1],[col-1,row],[col,row+1],[col+1,row]];
-                  var target = select[Math.floor(Math.random() * 4)];
-                  if(target[0] < mapSize && target[0] > -1 && target[1] < mapSize && target[1] > -1){
-                    if(isWalkable(self.z,target[0],target[1])){
-                      self.path = [target];
-                      self.idleTime += Math.floor(Math.random() * self.idleRange);
-                    }
+                var col = loc[0];
+                var row = loc[1];
+                var select = [[col,row-1],[col-1,row],[col,row+1],[col+1,row]];
+                var target = select[Math.floor(Math.random() * 4)];
+                if(target[0] < mapSize && target[0] > -1 && target[1] < mapSize && target[1] > -1){
+                  if(isWalkable(self.z,target[0],target[1])){
+                    self.move(target);
+                    self.idleTime += Math.floor(Math.random() * self.idleRange);
                   }
                 }
               }
             }
           }
-        }
-
-      } else if(self.action == 'tavern'){
-        if(!self.path){
+        } else if(self.action == 'tavern'){
           var t = Building.list[self.tavern];
           if(getBuilding(self.x,self.y) != self.tavern){
             var select = [];
@@ -3783,41 +3701,39 @@ SerfM = function(param){
             if(tDist > self.wanderRange){
               self.action = 'return';
             } else if(self.idleTime == 0){
-              if(!self.path){
-                var col = loc[0];
-                var row = loc[1];
-                var select = [[col,row-1],[col-1,row],[col,row+1],[col+1,row]];
-                var target = select[Math.floor(Math.random() * 4)];
-                if(target[0] < mapSize && target[0] > -1 && target[1] < mapSize && target[1] > -1){
-                  if(isWalkable(self.z,target[0],target[1])){
-                    self.path = [target];
-                    self.idleTime += Math.floor(Math.random() * self.idleRange);
-                  }
+              var col = loc[0];
+              var row = loc[1];
+              var select = [[col,row-1],[col-1,row],[col,row+1],[col+1,row]];
+              var target = select[Math.floor(Math.random() * 4)];
+              if(target[0] < mapSize && target[0] > -1 && target[1] < mapSize && target[1] > -1){
+                if(isWalkable(self.z,target[0],target[1])){
+                  self.move(target);
+                  self.idleTime += Math.floor(Math.random() * self.idleRange);
                 }
               }
             }
           }
-        }
-      } else if(self.action == 'combat'){
-        self.action = 'flee';
-      } else if(self.action == 'return'){
-        if(!self.path){
+        } else if(self.action == 'combat'){
+          self.action = 'flee';
+        } else if(self.action == 'return'){
           if(self.tether){
             if(loc.toString() == self.tether.loc.toString() && self.z == self.tether.z){
               self.action = null;
             } else {
               self.getPath(self.tether.z,self.tether.loc[0],self.tether.loc[1]);
             }
+            console.log(self.name + ' returning to tether');
           } else {
             if(loc.toString() == self.home.loc.toString()){
               self.action = null;
             } else {
-              self.getPath(self.home.z,self.home.loc[0],self.home.loc[1]);
+              if(!self.path){
+                self.getPath(self.home.z,self.home.loc[0],self.home.loc[1]);
+                console.log(self.name + ' returning to home');
+              }
             }
           }
-        }
-      } else if(self.action == 'flee'){
-        if(!self.path){
+        } else if(self.action == 'flee'){
           if(self.combat.target){
             var target = Player.list[self.combat.target];
             if(target){

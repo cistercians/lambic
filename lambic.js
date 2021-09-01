@@ -581,7 +581,7 @@ getItem = function(z,c,r){
   }
 }
 
-// get building id from (x,y)
+// get building id from (z,x,y)
 getBuilding = function(x,y){
   var loc = getLoc(x,y);
   for(var i in Building.list){
@@ -589,8 +589,6 @@ getBuilding = function(x,y){
     for(n = 0; n < b.plot.length; n++){
       if(b.plot[n][0] == loc[0] && b.plot[n][1] == loc[1]){
         return b.id;
-      } else {
-        continue;
       }
     }
   }
@@ -603,8 +601,6 @@ keyCheck = function(x,y,p){
   for(var i in pKeys){
     if(pKeys[i] == key){
       return true;
-    } else {
-      continue;
     }
     return false;
   }
