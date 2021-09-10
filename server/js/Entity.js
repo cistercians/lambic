@@ -90,6 +90,7 @@ Farm = function(param){
           Building.list[m.id].resources.push(self.plot[p]);
         }
         self.mill = m.id;
+        console.log('Farm found mill ' + m.id);
         return;
       }
     }
@@ -126,6 +127,9 @@ Mill = function(param){
           Building.list[self.tavern].newSerfs(self.id);
         }
       }
+      console.log('Mill tally: f: ' + f + ' s: ' + s);
+    } else {
+      console.log('Mill no tavern');
     }
   }
   self.findFarms = function(){
@@ -138,7 +142,8 @@ Mill = function(param){
         var add = [];
         for(var n in f.plot){
           var p = f.plot[n];
-          if(getTile(0,p[0],p[1]) == 8){
+          var gt = getTile(0,p[0],p[1]);
+          if(gt == 8 || gt == 9){
             count++;
           } else {
             add.push(p);
@@ -153,8 +158,9 @@ Mill = function(param){
             self.resources.push(f.plot[r])
           }
         }
-      } else if(f.type == 'tavern' && dist <= 1280 && f.house == self.house){
+      } else if(f.type == 'tavern' && dist <= 1280 && f.house == self.house && !self.tavern){
         self.tavern = f.id;
+        console.log('Mill found tavern ' + f.id);
       }
     }
   }
@@ -190,6 +196,9 @@ Lumbermill = function(param){
           Building.list[self.tavern].newSerfs(self.id);
         }
       }
+      console.log('Lumbermill tally: r: ' + r + ' s: ' + s + ' sr: ' + sr);
+    } else {
+      console.log('Lumbermill no tavern');
     }
   }
   self.findTavern = function(){
@@ -198,15 +207,35 @@ Lumbermill = function(param){
       var dist = getDistance({x:self.x,y:self.y},{x:t.x,y:t.y});
       if(t.type == 'tavern' && dist <= 1280 && t.house == self.house){
         self.tavern = t.id;
+        console.log('Lumbermill found tavern ' + t.id);
       }
     }
   }
+  self.getRes = function(){
+    var loc = getLoc(self.x,self.y);
+    var loc1 = [loc[0]+1,loc[1]];
+    var area = getArea(loc,loc1,6);
+    for(var i in area){
+      var r = area[i];
+      var c = getCenter(r[0],r[1]);
+      var dist = self.getDistance({x:c[0],y:c[1]});
+      if(dist <= 384){
+        var gt = getTile(0,r[0],r[1]);
+        if(gt >= 1 && gt < 3){
+          self.resources.push(r);
+        }
+      }
+    }
+    console.log('Lumbermill added ' + self.resources.length + ' resources');
+  }
+  self.getRes();
   self.findTavern();
 }
 
 Mine = function(param){
   var self = Building(param);
   self.tavern = null;
+  self.cave = null;
   self.resources = [];
   self.serfs = {};
   self.log = {};
@@ -233,6 +262,9 @@ Mine = function(param){
           Building.list[self.tavern].newSerfs(self.id);
         }
       }
+      console.log('Mine tally: r: ' + r + ' s: ' + s + ' sr: ' + sr);
+    } else {
+      console.log('Mine no tavern');
     }
   }
   self.findTavern = function(){
@@ -241,12 +273,49 @@ Mine = function(param){
       var dist = getDistance({x:self.x,y:self.y},{x:t.x,y:t.y});
       if(t.type == 'tavern' && dist <= 1280 && t.house == self.house){
         self.tavern = t.id;
-        if(!t.market){
-          Building.list[i].market = self.id;
-        }
+        console.log('Mine found tavern ' + t.id);
       }
     }
   }
+  self.getRes = function(){
+    for(var i in caveEntrances){
+      var cave = caveEntrances[i];
+      var c = getCenter(cave[0],cave[1]);
+      var dist = self.getDistance({x:c[0],y:c[1]});
+      if(dist <= 384){
+        self.cave = cave;
+        console.log('Mine found a cave')
+      }
+    }
+    if(self.cave){
+      var loc = getLoc(self.x,self.y);
+      var area = getArea(loc,self.cave,10);
+      for(var i in area){
+        var r = area[i];
+        if(getTile(1,r[0],r[1]) == 3){
+          self.resources.push(r);
+        }
+      }
+      console.log('Mine added ' + self.resources.length + ' resources');
+    } else {
+      var loc = getLoc(self.x,self.y);
+      var loc1 = [loc[0]+1,loc[1]-1];
+      var area = getArea(loc,loc1,6);
+      for(var i in area){
+        var r = area[i];
+        var c = getCenter(r[0],r[1]);
+        var dist = self.getDistance({x:c[0],y:c[1]});
+        if(dist <= 384){
+          var gt = getTile(0,r[0],r[1]);
+          if(gt >= 4 && gt < 6){
+            self.resources.push(r);
+          }
+        }
+      }
+      console.log('Mine added ' + self.resources.length + ' resources');
+    }
+  }
+  self.getRes();
   self.findTavern();
 }
 
@@ -271,9 +340,11 @@ Tavern = function(param){
         if(b.type == 'mill' || b.type == 'lumbermill' || b.type == 'mine' || b.type == 'market'){
           if(!b.tavern){
             Building.list[i].tavern = self.id;
+            console.log('Tavern found ' + b.type + ' ' + b.id);
           }
           if(b.type == 'market'){
             self.market = b.id;
+            console.log('Tavern found market ' + b.id);
           }
         }
       }
@@ -428,7 +499,10 @@ Tavern = function(param){
           tavern:self.id
         });
       }
+      Building.list[b].serfs[s1] = s1;
+      Building.list[b].serfs[s2] = s2;
       self.occ += 2;
+      console.log('Serfs have spawned in the tavern: ' + Building.list[b].type);
     }
   }
   self.findBuildings();
@@ -944,6 +1018,7 @@ Character = function(param){
 
   self.return = function(target){ // target = {z:z,loc:[c,r]}
     var loc = getLoc(self.x,self.y);
+    console.log(self.class + self.id + ' z:' + self.z + ' loc:' + loc);
     if(target){
       self.getPath(target.z,target.loc[0],target.loc[1]);
       console.log(self.class + self.id + ' returning');
@@ -953,9 +1028,11 @@ Character = function(param){
     } else if(self.tether){
       self.getPath(self.tether.z,self.tether.loc[0],self.tether.loc[1]);
       console.log(self.class + self.id + ' returning to tether');
-    } else {
+    } else if(self.home){
       self.getPath(self.home.z,self.home.loc[0],self.home.loc[1]);
       console.log(self.class + self.id + ' returning home');
+    } else {
+      console.log(self.class + self.id + ' cant return');
     }
   }
 
@@ -1219,8 +1296,10 @@ Character = function(param){
                       if(self.hp < (self.hpMax * 0.1) || self.unarmed){
                         self.action = 'flee';
                       } else {
-                        var loc = getLoc(self.x,self.y);
-                        self.lastLoc = {z:self.z,loc:loc};
+                        if(self.mode == 'patrol' && !self.lastLoc){
+                          var loc = getLoc(self.x,self.y);
+                          self.lastLoc = {z:self.z,loc:loc};
+                        }
                         self.action = 'combat';
                       }
                       if(p.type == 'npc' && pDist <= p.aggroRange){
@@ -1824,10 +1903,7 @@ Character = function(param){
     if(self.mode == 'idle'){
       if(!self.action){
         var cHome = getCenter(self.home.loc[0],self.home.loc[1]);
-        var hDist = self.getDistance({
-          x:cHome[0],
-          y:cHome[1]
-        });
+        var hDist = self.getDistance({x:cHome[0],y:cHome[1]});
         if(hDist > self.wanderRange){
           if(!self.path){
             self.return();
@@ -3099,14 +3175,16 @@ SerfM = function(param){
               if(b.house == self.house && !b.built){ // check for any build projects
                 var dist = getDistance({x:self.x,y:self.y},{x:b.x,y:b.y});
                 if(dist <= 1280){
+                  var select = [];
                   for(var i in b.plot){
                     var p = b.plot[i];
                     var t = getTile(0,p[0],p[1]);
-                    if(t == 11){
-                      self.work.spot = p;
-                      self.action = 'build';
-                      return;
+                    if(t == 11 || t == 11.5){
+                      select.push(p);
                     }
+                    self.work.spot = select[Math.floor(Math.random() * select.length)];
+                    self.action = 'build';
+                    return;
                   }
                 }
               }
@@ -3121,179 +3199,118 @@ SerfM = function(param){
             tDist += dist;
           }
           avgDist = tDist/hq.resources.length;
+          var select = [];
           for(var i in hq.resources){
             var res = hq.resources[i];
             var r = getCenter(res[0],res[1]);
             var dist = getDistance({x:hq.x,y:hq.y},{x:r[0],y:r[1]});
-            if(dist < avgDist){
-              self.work.spot = res;
-              Building.list[self.work.hq].log[self.id] = self.work.spot;
-              self.action = 'task';
-              return;
+            if(dist <= avgDist){
+              select.push(res);
             }
           }
+          self.work.spot = select[Math.floor(Math.random() * select.length)];
+          Building.list[self.work.hq].log[self.id] = self.work.spot;
+          self.action = 'task';
+          console.log(self.name + ' working @ ' + self.work.spot.toString());
         } else {
-          self.action = 'build';
-        }
-      } else if(self.action == 'build'){
-        if(!self.work.spot){
           var hut = Building.list[self.hut];
+          var select = [];
           for(var i in hut.plot){
             var p = hut.plot[i];
             var t = getTile(0,p[0],p[1]);
             if(t == 11){
-              self.work.spot = p;
-              return;
+              select.push(p);
             }
-            self.action = null;
           }
+          self.work.spot = select[Math.floor(Math.random() * select.length)];
+          self.action = 'build';
+        }
+      } else if(self.action == 'build'){
+        var spot = self.work.spot;
+        var cs = getCenter(spot[0],spot[1]);
+        var build = getBuilding(cs[0],cs[1]);
+        if(Building.list[build].built){
+          self.work.spot = null;
+          self.action = null;
         } else {
-          var spot = self.work.spot;
-          var cs = getCenter(spot[0],spot[1]);
-          var build = getBuilding(cs[0],cs[1]);
-          if(Building.list[build].built){
-            self.work.spot = null;
-            self.action = null;
-          } else {
-            if(loc.toString() == spot.toString()){
-              self.action = null;
-              var plot = Building.list[build].plot;
-              if(!self.workTimer){
-                var gt = getTile(0,spot[0],spot[1]);
-                if(gt == 11){
-                  if(!self.building){
-                    Build(self.id);
-                  }
-                } else {
-                  for(var i in plot){
-                    var p = plot[i];
-                    var t = getTile(0,p[0],p[1]);
-                    if(t == 11){
-                      self.work.spot = p;
-                    }
+          if(loc.toString() == spot.toString()){
+              var gt = getTile(0,spot[0],spot[1]);
+              if(gt == 11){
+                if(!self.building){
+                  Build(self.id);
+                }
+              } else {
+                var plot = Building.list[build].plot;
+                var select = [];
+                for(var i in plot){
+                  var p = plot[i];
+                  var t = getTile(0,p[0],p[1]);
+                  if(t == 11){
+                    select.push(p);
                   }
                 }
+                self.work.spot = select[Math.floor(Math.random() * select.length)];
               }
-            } else {
-              if(!self.path){
-                self.getPath(0,spot[0],spot[1]);
-              }
+          } else {
+            if(!self.path){
+              self.getPath(0,spot[0],spot[1]);
             }
           }
         }
       } else if(self.action == 'task'){
         var spot = self.work.spot;
-        if(hq.type == 'mill'){
-          if(self.inventory.grain == 10){
-            var b = Building.list[self.work.hq];
-            var dropoff = [b.plot[0][0],b.plot[0][1]+1];
-            if(loc.toString() == dropoff.toString()){
-              self.facing = 'up';
-              self.inventory.grain -= 9;
-              if(Player.list[b.owner].house){
-                var h = Player.list[b.owner].house;
-                House.list[h].stores.grain += 6;
+        if(!spot){
+          self.action = null;
+        } else {
+          if(hq.type == 'mill'){
+            if(self.inventory.grain == 10){
+              var b = Building.list[self.work.hq];
+              var dropoff = [b.plot[0][0],b.plot[0][1]+1];
+              if(loc.toString() == dropoff.toString()){
+                self.facing = 'up';
+                self.inventory.grain -= 9;
+                if(Player.list[b.owner].house){
+                  var h = Player.list[b.owner].house;
+                  House.list[h].stores.grain += 6;
+                } else {
+                  Player.list[b.owner].stores.grain += 6
+                }
+                self.inventory.flour += 3;
               } else {
-                Player.list[b.owner].stores.grain += 6
+                if(!self.path){
+                  self.getPath(0,dropoff[0],dropoff[1]);
+                }
               }
-              self.inventory.flour += 3;
             } else {
-              if(!self.path){
-                self.getPath(0,dropoff[0],dropoff[1]);
-              }
-            }
-          } else {
-            if(loc.toString() == spot.toString()){
-              var tile = getTile(0,spot[0],spot[1]);
-              var res = getTile(6,spot[0],spot[1]);
-              self.working = true;
-              self.farming = true;
-              if(!self.workTimer){
-                self.workTimer = true;
-                setTimeout(function(){
-                  if(self.farming){
-                    var b = getBuilding(self.x,self.y);
-                    var f = Building.list[b];
-                    if(tile == 8){
-                      tileChange(6,spot[0],spot[1],1,true);
-                      var count = 0;
-                      var next = [];
-                      for(var i in f.plot){
-                        var p = f.plot[i];
-                        if(getTile(6,p[0],p[1]) >= 25){
-                          count++;
-                        } else {
-                          next.push(p);
-                        }
-                      }
-                      if(count == 9){
-                        for(var i in f.plot){
-                          var p = f.plot[i];
-                          tileChange(0,p[0],p[1],9);
-                        }
-                        mapEdit();
-                      } else {
-                        for(var n in hq.resources){
-                          var r = hq.resources[n];
-                          if(r.toString() == spot.toString()){
-                            Building.list[self.work.hq].resources.splice(n,1);
-                          }
-                        }
-                        var rand = Math.floor(Math.random() * next.length);
-                        self.work.spot = next[rand];
-                        Building.list[self.work.hq].log[self.id] = self.work.spot;
-                      }
-                    } else if(tile == 9){
-                      tileChange(6,spot[0],spot[1],1,true);
-                      var count = 0;
-                      var next = [];
-                      for(var i in f.plot){
-                        var p = f.plot[i];
-                        if(getTile(6,p[0],p[1]) >= 50){
-                          count++;
-                        }
-                      }
-                      if(count == 9){
-                        for(var i in f.plot){
-                          var p = f.plot[i];
-                          tileChange(0,p[0],p[1],10);
-                        }
-                        mapEdit();
-                      } else {
-                        for(var n in hq.resources){
-                          var r = hq.resources[n];
-                          if(r.toString() == spot.toString()){
-                            Building.list[self.work.hq].resources.splice(n,1);
-                          }
-                        }
-                        var rand = Math.floor(Math.random() * next.length);
-                        self.work.spot = next[rand];
-                        Building.list[self.work.hq].log[self.id] = self.work.spot;
-                      }
-                    } else {
-                      tileChange(6,spot[0],spot[1],-1,true);
-                      if(getTile(6,spot[0],spot[1]) == 0){
-                        tileChange(0,spot[0],spot[1],8);
+              if(loc.toString() == spot.toString()){
+                var tile = getTile(0,spot[0],spot[1]);
+                var res = getTile(6,spot[0],spot[1]);
+                self.working = true;
+                self.farming = true;
+                if(!self.workTimer){
+                  self.workTimer = true;
+                  setTimeout(function(){
+                    if(self.farming){
+                      var b = getBuilding(self.x,self.y);
+                      var f = Building.list[b];
+                      if(tile == 8){
+                        tileChange(6,spot[0],spot[1],1,true);
                         var count = 0;
                         var next = [];
                         for(var i in f.plot){
-                          var p = f.plot[i]
-                          var t = getTile(0,p[0],p[1]);
-                          if(t == 8){
+                          var p = f.plot[i];
+                          if(getTile(6,p[0],p[1]) >= 25){
                             count++;
                           } else {
                             next.push(p);
                           }
                         }
                         if(count == 9){
-                          for(var n in f.plot){
-                            var p = f.plot[n];
-                            if(p.toString() == spot.toString()){
-                              continue;
-                            } else {
-                              Building.list[self.work.hq].resources.push(p);
-                            }
+                          for(var i in f.plot){
+                            var p = f.plot[i];
+                            tileChange(0,p[0],p[1],9);
                           }
+                          mapEdit();
                         } else {
                           for(var n in hq.resources){
                             var r = hq.resources[n];
@@ -3305,118 +3322,305 @@ SerfM = function(param){
                           self.work.spot = next[rand];
                           Building.list[self.work.hq].log[self.id] = self.work.spot;
                         }
-                      }
-                      mapEdit();
-                    }
-                  }
-                  self.workTimer = false;
-                  self.working = false;
-                  self.farming = false;
-                },10000/self.strength);
-              }
-            } else {
-              if(!self.path){
-                self.getPath(0,spot[0],spot[1]);
-              }
-            }
-          }
-        } else if(hq.type == 'lumbermill'){
-          if(self.inventory.wood == 10){
-            var b = Building.list[self.work.hq];
-            var dropoff = [b.plot[0][0],b.plot[0][1]+1];
-            if(loc.toString() == dropoff.toString()){
-              self.facing = 'up';
-              self.inventory.wood -= 8;
-              if(Player.list[b.owner].house){
-                var h = Player.list[b.owner].house;
-                House.list[h].stores.wood += 8;
-              } else {
-                Player.list[b.owner].stores.wood += 8
-              }
-            } else {
-              if(!self.path){
-                self.getPath(0,dropoff[0],dropoff[1]);
-              }
-            }
-          } else {
-            if(loc.toString() == spot.toString()){
-              var tile = getTile(0,spot[0],spot[1]);
-              self.working = true;
-              self.chopping = true;
-              if(!self.workTimer){
-                self.workTimer = true;
-                setTimeout(function(){
-                  if(self.chopping){
-                    tileChange(6,spot[0],spot[1],-1,true);
-                    var res = getTile(6,spot[0],spot[1]);
-                    if(tile >= 1 && tile < 2 && res < 101){ // heavy forest
-                      tileChange(0,spot[0],spot[1],1,true);
-                      mapEdit();
-                    } else if(tile >= 2 && tile < 3 && res <= 0 ){ // light forest
-                      tileChange(0,spot[0],spot[1],1,true);
-                      mapEdit();
-                      var next = [];
-                      for(var i in hq.resources){
-                        var f = hq.resources[i];
-                        if(f.toString() == spot.toString()){
-                          Building.list[self.work.hq].resources.splice(i,1);
+                      } else if(tile == 9){
+                        tileChange(6,spot[0],spot[1],1,true);
+                        var count = 0;
+                        var next = [];
+                        for(var i in f.plot){
+                          var p = f.plot[i];
+                          if(getTile(6,p[0],p[1]) >= 50){
+                            count++;
+                          }
                         }
+                        if(count == 9){
+                          for(var i in f.plot){
+                            var p = f.plot[i];
+                            tileChange(0,p[0],p[1],10);
+                          }
+                          mapEdit();
+                        } else {
+                          for(var n in hq.resources){
+                            var r = hq.resources[n];
+                            if(r.toString() == spot.toString()){
+                              Building.list[self.work.hq].resources.splice(n,1);
+                            }
+                          }
+                          var rand = Math.floor(Math.random() * next.length);
+                          self.work.spot = next[rand];
+                          Building.list[self.work.hq].log[self.id] = self.work.spot;
+                        }
+                      } else {
+                        tileChange(6,spot[0],spot[1],-1,true);
+                        if(getTile(6,spot[0],spot[1]) == 0){
+                          tileChange(0,spot[0],spot[1],8);
+                          var count = 0;
+                          var next = [];
+                          for(var i in f.plot){
+                            var p = f.plot[i]
+                            var t = getTile(0,p[0],p[1]);
+                            if(t == 8){
+                              count++;
+                            } else {
+                              next.push(p);
+                            }
+                          }
+                          if(count == 9){
+                            for(var n in f.plot){
+                              var p = f.plot[n];
+                              if(p.toString() == spot.toString()){
+                                continue;
+                              } else {
+                                Building.list[self.work.hq].resources.push(p);
+                              }
+                            }
+                          } else {
+                            for(var n in hq.resources){
+                              var r = hq.resources[n];
+                              if(r.toString() == spot.toString()){
+                                Building.list[self.work.hq].resources.splice(n,1);
+                              }
+                            }
+                            var rand = Math.floor(Math.random() * next.length);
+                            self.work.spot = next[rand];
+                            Building.list[self.work.hq].log[self.id] = self.work.spot;
+                          }
+                        }
+                        mapEdit();
                       }
-                      var rand = Math.floor(Math.random() * next.length);
-                      self.work.spot = next[rand];
                     }
-                  }
-                  self.workTimer = false;
-                  self.working = false;
-                  self.chopping = false;
-                  self.action = null;
-                },10000/self.strength);
-              }
-            } else {
-              if(!self.path){
-                self.getPath(0,spot[0],spot[1]);
-              }
-            }
-          }
-        } else if(hq.type == 'mine'){
-          if(hq.cave){ // metal
-
-          } else { // stone
-            if(self.inventory.stone == 10){
-              var b = Building.list[self.work.hq];
-              var drop = [b.plot[0][0],b.plot[0][1]+1];
-              if(loc.toString() == drop.toString()){
-                self.facing = 'up';
-                self.inventory.stone -= 8;
-                if(Player.list[b.owner].house){
-                  var h = Player.list[b.owner].house;
-                  House.list[h].stores.stone += 8;
-                } else {
-                  Player.list[b.owner].stores.stone += 8
+                    self.workTimer = false;
+                    self.working = false;
+                    self.farming = false;
+                  },10000/self.strength);
                 }
               } else {
                 if(!self.path){
-                  self.getPath(0,drop[0],drop[1]);
+                  self.getPath(0,spot[0],spot[1]);
+                }
+              }
+            }
+          } else if(hq.type == 'lumbermill'){
+            if(self.inventory.wood == 10){
+              var b = Building.list[self.work.hq];
+              var dropoff = [b.plot[0][0],b.plot[0][1]+1];
+              if(loc.toString() == dropoff.toString()){
+                self.facing = 'up';
+                self.inventory.wood -= 8;
+                if(Player.list[b.owner].house){
+                  var h = Player.list[b.owner].house;
+                  House.list[h].stores.wood += 8;
+                } else {
+                  Player.list[b.owner].stores.wood += 8
+                }
+              } else {
+                if(!self.path){
+                  self.getPath(0,dropoff[0],dropoff[1]);
                 }
               }
             } else {
               if(loc.toString() == spot.toString()){
                 var tile = getTile(0,spot[0],spot[1]);
                 self.working = true;
-                self.mining = true;
+                self.chopping = true;
                 if(!self.workTimer){
                   self.workTimer = true;
                   setTimeout(function(){
-                    if(self.mining){
+                    if(self.chopping){
                       tileChange(6,spot[0],spot[1],-1,true);
                       var res = getTile(6,spot[0],spot[1]);
-                      if(res <= 0){
-                        var next = [];
-                        if(tile >= 4 && tile < 5 && res){ // stone
+                      if(res <= 0 ){
+                        tileChange(0,spot[0],spot[1],1,true);
+                        mapEdit();
+                        for(var i in hq.resources){
+                          var f = hq.resources[i];
+                          if(f.toString() == spot.toString()){
+                            Building.list[self.work.hq].resources.splice(i,1);
+                          }
+                        }
+                        self.action = null;
+                      } else if(res < 101){
+                        var gt = getTile(0,spot[0],spot[1]);
+                        if(gt >= 1 && gt < 2){
+                          tileChange(0,spot[0],spot[1],1,true);
+                          mapEdit();
+                        }
+                      }
+                    }
+                    self.workTimer = false;
+                    self.working = false;
+                    self.chopping = false;
+                  },10000/self.strength);
+                }
+              } else {
+                if(!self.path){
+                  self.getPath(0,spot[0],spot[1]);
+                }
+              }
+            }
+          } else if(hq.type == 'mine'){
+            if(hq.cave){ // metal
+              if(self.inventory.ironeore == 10){
+                var b = Building.list[self.work.hq];
+                var drop = [b.plot[0][0],b.plot[0][1]+1];
+                if(loc.toString() == drop.toString()){
+                  self.facing = 'up';
+                  self.inventory.ironore -= 9;
+                  if(Player.list[b.owner].house){
+                    var h = Player.list[b.owner].house;
+                    House.list[h].stores.ironore += 9;
+                  } else {
+                    Player.list[b.owner].stores.ironore += 9;
+                  }
+                } else {
+                  if(!self.path){
+                    self.getPath(0,drop[0],drop[1]);
+                  }
+                }
+              } else if(self.inventory.silverore == 1){
+                var b = Building.list[self.work.hq];
+                var drop = [b.plot[0][0],b.plot[0][1]+1];
+                if(loc.toString() == drop.toString()){
+                  self.facing = 'up';
+                  self.inventory.silverore--;
+                  if(Player.list[b.owner].house){
+                    var h = Player.list[b.owner].house;
+                    House.list[h].stores.silverore++;
+                  } else {
+                    Player.list[b.owner].stores.silverore++;
+                  }
+                } else {
+                  if(!self.path){
+                    self.getPath(0,drop[0],drop[1]);
+                  }
+                }
+              } else if(self.inventory.goldore == 1){
+                var b = Building.list[self.work.hq];
+                var drop = [b.plot[0][0],b.plot[0][1]+1];
+                if(loc.toString() == drop.toString()){
+                  self.facing = 'up';
+                  self.inventory.goldore--;
+                  if(Player.list[b.owner].house){
+                    var h = Player.list[b.owner].house;
+                    House.list[h].stores.goldore++;
+                  } else {
+                    Player.list[b.owner].stores.goldore++;
+                  }
+                } else {
+                  if(!self.path){
+                    self.getPath(0,drop[0],drop[1]);
+                  }
+                }
+              } else if(self.inventory.diamond == 1){
+                var b = Building.list[self.work.hq];
+                var drop = [b.plot[0][0],b.plot[0][1]+1];
+                if(loc.toString() == drop.toString()){
+                  self.facing = 'up';
+                  self.inventory.diamond--;
+                  if(Player.list[b.owner].house){
+                    var h = Player.list[b.owner].house;
+                    House.list[h].stores.diamond++;
+                  } else {
+                    Player.list[b.owner].stores.diamond++;
+                  }
+                } else {
+                  if(!self.path){
+                    self.getPath(0,drop[0],drop[1]);
+                  }
+                }
+              } else {
+                if(loc.toString() == spot.toString() && self.z == -1){
+                  var tile = getTile(0,spot[0],spot[1]);
+                  self.working = true;
+                  self.mining = true;
+                  if(!self.workTimer){
+                    self.workTimer = true;
+                    setTimeout(function(){
+                      if(self.mining){
+                        var roll = Math.random();
+                        if(roll < 0.001){
+                          self.inventory.diamond++;
+                        } else if(roll < 0.01){
+                          self.inventory.goldore++;
+                        } else if(roll < 0.1){
+                          self.inventory.silverore++;
+                        } else if(roll < 0.5){
+                          self.inventory.ironore++;
+                        }
+                        tileChange(7,spot[0],spot[1],-1,true);
+                        var res = getTile(7,spot[0],spot[1]);
+                        if(res <= 0){
                           tileChange(0,spot[0],spot[1],7);
                           mapEdit();
-                        } else if(tile >= 5 && tile < 6){ // stone
-                          tileChange(0,spot[0],spot[1],1,true);
+                          for(var i in hq.resources){
+                            var f = hq.resources[i];
+                            if(f.toString() == spot.toString()){
+                              Building.list[self.work.hq].resources.splice(i,1);
+                            }
+                          }
+                          var adj = [[spot[0]-1,spot[1]],[spot[0],spot[1]-1],[spot[0]+1,spot[1]],[spot[0],spot[1]+1]];
+                          var n = [];
+                          for(var i in adj){
+                            var t = adj[i];
+                            var gt = getTile(1,t[0],t[1]);
+                            if(gt == 1){
+                              n.push(t);
+                            }
+                          }
+                          if(n.length > 0){
+                            for(var i in n){
+                              var r = n[i];
+                              var num = 3 + Number((Math.random()*0.9).toFixed(2));
+                              tileChange(1,r[0],r[1],num);
+                              matrixChange(1,r[0],r[1],0);
+                              Building.list[self.work.hq].resources.push(r);
+                            }
+                            mapEdit();
+                          }
+                          self.action = null;
+                        }
+                      }
+                      self.workTimer = false;
+                      self.working = false;
+                      self.mining = false;
+                    },10000/self.strength);
+                  }
+                }
+              }
+            } else { // stone
+              if(self.inventory.stone == 10){
+                var b = Building.list[self.work.hq];
+                var drop = [b.plot[0][0],b.plot[0][1]+1];
+                if(loc.toString() == drop.toString()){
+                  self.facing = 'up';
+                  self.inventory.stone -= 8;
+                  if(Player.list[b.owner].house){
+                    var h = Player.list[b.owner].house;
+                    House.list[h].stores.stone += 8;
+                  } else {
+                    Player.list[b.owner].stores.stone += 8
+                  }
+                } else {
+                  if(!self.path){
+                    self.getPath(0,drop[0],drop[1]);
+                  }
+                }
+              } else {
+                if(loc.toString() == spot.toString()){
+                  var tile = getTile(0,spot[0],spot[1]);
+                  self.working = true;
+                  self.mining = true;
+                  if(!self.workTimer){
+                    self.workTimer = true;
+                    setTimeout(function(){
+                      if(self.mining){
+                        tileChange(6,spot[0],spot[1],-1,true);
+                        var res = getTile(6,spot[0],spot[1]);
+                        if(res <= 0){
+                          tileChange(0,spot[0],spot[1],7);
+                          mapEdit();
+                          self.action = null;
+                        } else if(tile >= 5 && tile < 6 && res <= 50){
+                          tileChange(0,spot[0],spot[1],-1,true);
                           mapEdit();
                         }
                         for(var i in hq.resources){
@@ -3426,16 +3630,15 @@ SerfM = function(param){
                           }
                         }
                       }
-                    }
-                    self.workTimer = false;
-                    self.working = false;
-                    self.mining = false;
-                    self.action = null;
-                  },10000/self.strength);
-                }
-              } else {
-                if(!self.path){
-                  self.getPath(0,spot[0],spot[1]);
+                      self.workTimer = false;
+                      self.working = false;
+                      self.mining = false;
+                    },10000/self.strength);
+                  }
+                } else {
+                  if(!self.path){
+                    self.getPath(0,spot[0],spot[1]);
+                  }
                 }
               }
             }
@@ -3478,7 +3681,41 @@ SerfM = function(param){
             }
           } else if(b.type == 'mine'){
             if(b.cave){
-
+              if(self.inventory.ironore >= 3){
+                self.inventory.ironore -= 2;
+                if(Player.list[b.owner].house){
+                  var h = Player.list[b.owner].house;
+                  House.list[h].stores.ironore += 2;
+                } else {
+                  Player.list[b.owner].stores.stone += 2
+                }
+              } else if(self.inventory.silverore > 0){
+                self.inventory.silverore--;
+                if(Player.list[b.owner].house){
+                  var h = Player.list[b.owner].house;
+                  House.list[h].stores.silverore++;
+                } else {
+                  Player.list[b.owner].stores.silverore++;
+                }
+              } else if(self.inventory.goldore > 0){
+                self.inventory.goldore--;
+                if(Player.list[b.owner].house){
+                  var h = Player.list[b.owner].house;
+                  House.list[h].stores.goldore++;
+                } else {
+                  Player.list[b.owner].stores.goldore++;
+                }
+              } else if(self.inventory.diamond > 0){
+                self.inventory.diamond--;
+                if(Player.list[b.owner].house){
+                  var h = Player.list[b.owner].house;
+                  House.list[h].stores.diamond++;
+                } else {
+                  Player.list[b.owner].stores.diamond++;
+                }
+              } else {
+                self.mode = 'idle';
+              }
             } else {
               if(self.inventory.stone >= 3){
                 self.inventory.stone -= 2;
@@ -3540,31 +3777,36 @@ SerfM = function(param){
         }
       } else if(self.action == 'clockout'){
         var rand = Math.random();
-        if(Building.list[self.tavern].market){
-          var inv = self.inventory;
-          if(inv.grain > 0 || inv.flour > 3 || inv.wood > 0 || inv.stone > 0 || inv.ironore > 0){
-            self.action = 'market';
-            console.log(self.name + ' heads to the market');
-          } else {
-            if(rand < 0.2){
+        if(self.tavern){
+          if(Building.list[self.tavern].market){
+            var inv = self.inventory;
+            if(inv.flour > 0 || inv.wood > 0 || inv.stone > 0 || inv.ironore > 0){
               self.action = 'market';
               console.log(self.name + ' heads to the market');
-            } else if(rand > 0.9){
-              self.action = null;
-              console.log(self.name + ' heads home for the night');
             } else {
+              if(rand < 0.2){
+                self.action = 'market';
+                console.log(self.name + ' heads to the market');
+              } else if(rand > 0.9){
+                self.action = null;
+                console.log(self.name + ' heads home for the night');
+              } else {
+                self.action = 'tavern';
+                console.log(self.name + ' heads to the tavern');
+              }
+            }
+          } else {
+            if(rand < 0.77){
               self.action = 'tavern';
               console.log(self.name + ' heads to the tavern');
+            } else {
+              self.action = null;
+              console.log(self.name + ' heads home for the night');
             }
           }
         } else {
-          if(rand < 0.77){
-            self.action = 'tavern';
-            console.log(self.name + ' heads to the tavern');
-          } else {
-            self.action = null;
-            console.log(self.name + ' heads home for the night');
-          }
+          self.action = null;
+          console.log(self.name + ' heads home for the night');
         }
       } else if(self.action == 'market'){
         var market = Building.list[self.tavern].market;
@@ -3579,9 +3821,7 @@ SerfM = function(param){
         } else {
           var inv = self.inventory;
           // if has inventory, sell inventory
-          if(inv.grain > 0){
-            // sell
-          } else if(inv.flour > 3){
+          if(inv.flour > 0){
             // sell
           } else if(inv.wood > 0){
             // sell

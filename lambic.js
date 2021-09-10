@@ -307,11 +307,11 @@ var mtnSpawns = [];
 caveEntrances = [];
 
 // daily tally
-var dailyTally = function(){
+var dailyTally = async function(){
   for(var i in Building.list){
     var b = Building.list[i];
     if(b.type == 'mill' || b.type == 'lumbermill' || b.type == 'mine'){
-      Building.list[i].tally();
+      await Building.list[i].tally();
     }
   }
 }

@@ -104,7 +104,7 @@ EvalCmd = function(data){
         var plot = [[c,r],[c+1,r],[c,r-1],[c+1,r-1]];
         var topPlot = [[c,r-2],[c+1,r-2]];
         var perim = [[c-1,r-2],[c-1,r-1],[c-1,r],[c,r+1],[c+1,r+1],[c+2,r-2],[c+2,r-1],[c+2,r],[c,r-3],[c+1,r-3]];
-        count = 0;
+        var count = 0;
         for(var i in plot){
           var n = plot[i];
           if(getTile(0,n[0],n[1]) == 7){
@@ -152,6 +152,134 @@ EvalCmd = function(data){
               plot:plot,
               walls:null,
               topPlot:topPlot,
+              mats:{
+                wood:40,
+                stone:0
+              },
+              req:5,
+              hp:150
+            });
+          } else {
+            socket.emit('addToChat','<i>You cannot build that there.</i>');
+          }
+        } else {
+          socket.emit('addToChat','<i>You cannot build that there.</i>');
+        }
+      } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) == 'lumbermill' && z == 0){
+        var plot = [[c,r],[c+1,r]];
+        var topPlot = [[c,r-1],[c+1,r-1]];
+        var perim = [[c,r-1],[c+1,r-1],[c-1,r],[c+2,r],[c,r+1],[c+1,r+1]];
+        var count = 0;
+        for(var i in plot){
+          var n = plot[i];
+          if(getTile(0,n[0],n[1]) == 7){
+            count++;
+          }
+        }
+        if(count == 2){
+          count = 0;
+          for(var i in perim){
+            var n = perim[i];
+            var tile = getTile(0,n[0],n[1]);
+            var ttile = getTile(5,n[0],n[1]);
+            if(tile != 11 &&
+            tile != 11.5 &&
+            tile != 12 &&
+            tile != 12.5 &&
+            tile != 13 &&
+            tile != 14 &&
+            tile != 15 &&
+            tile != 16 &&
+            tile != 17 &&
+            tile != 19 &&
+            tile != 20 &&
+            (ttile == 0 || ttile == 'dock6' || ttile == 'dock7' || ttile == 'dock8')){
+              count++;
+            }
+          }
+          if(count == 6){
+            for(var i in plot){
+              var n = plot[i];
+              tileChange(0,n[0],n[1],11);
+              tileChange(6,n[0],n[1],0);
+            }
+            mapEdit();
+            Lumbermill({
+              owner:player.id,
+              house:player.house,
+              kingdom:player.kingdom,
+              x:player.x,
+              y:player.y,
+              z:0,
+              type:'lumbermill',
+              built:false,
+              plot:plot,
+              walls:null,
+              topPlot:topPlot,
+              mats:{
+                wood:25,
+                stone:0
+              },
+              req:5,
+              hp:100
+            });
+          } else {
+            socket.emit('addToChat','<i>You cannot build that there.</i>');
+          }
+        } else {
+          socket.emit('addToChat','<i>You cannot build that there.</i>');
+        }
+      } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) == 'mine' && z == 0){
+        var plot = [[c,r],[c+1,r],[c,r-1],[c+1,r-1]];
+        var perim = [[c,r-2],[c+1,r-2],[c-1,r-1],[c-1,r],[c,r+1],[c+1,r+1],[c+2,r-1],[c+2,r]];
+        var count = 0;
+        for(var i in plot){
+          var n = plot[i];
+          var gt = getTile(0,n[0],n[1])
+          if((gt >= 4 && gt < 6) || gt == 7){
+            count++;
+          }
+        }
+        if(count == 4){
+          count = 0;
+          for(var i in perim){
+            var n = perim[i];
+            var tile = getTile(0,n[0],n[1]);
+            var ttile = getTile(5,n[0],n[1]);
+            if(tile != 11 &&
+            tile != 11.5 &&
+            tile != 12 &&
+            tile != 12.5 &&
+            tile != 13 &&
+            tile != 14 &&
+            tile != 15 &&
+            tile != 16 &&
+            tile != 17 &&
+            tile != 19 &&
+            tile != 20 &&
+            (ttile == 0 || ttile == 'dock6' || ttile == 'dock7' || ttile == 'dock8')){
+              count++;
+            }
+          }
+          if(count == 8){
+            for(var i in plot){
+              var n = plot[i];
+              tileChange(0,n[0],n[1],11);
+              tileChange(6,n[0],n[1],0);
+            }
+            mapEdit();
+            Mine({
+              owner:player.id,
+              house:player.house,
+              kingdom:player.kingdom,
+              x:player.x,
+              y:player.y,
+              z:0,
+              type:'mine',
+              built:false,
+              plot:plot,
+              walls:null,
+              topPlot:null,
               mats:{
                 wood:40,
                 stone:0
@@ -214,8 +342,8 @@ EvalCmd = function(data){
               type:'hut',
               built:false,
               plot:plot,
-              walls:walls,
-              topPlot:null,
+              walls:null,
+              topPlot:topPlot,
               mats:{
                 wood:30,
                 stone:0

@@ -3503,6 +3503,54 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
+          } else if(bTile == 'lumbermill0'){
+            ctx.drawImage(
+              Img.lumbermill0, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'lumbermill1'){
+            ctx.drawImage(
+              Img.lumbermill1, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'mine0'){
+            ctx.drawImage(
+              Img.mine0, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'mine1'){
+            ctx.drawImage(
+              Img.mine1, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'mine2'){
+            ctx.drawImage(
+              Img.mine2, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'mine3'){
+            ctx.drawImage(
+              Img.mine3, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
           } else if(bTile == 'cottage0'){
             ctx.drawImage(
               Img.cottage0, // image
@@ -5441,6 +5489,22 @@ var renderTops = function(){
         } else if(tile == 'mill5'){
           ctx.drawImage(
             Img.mill5, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile == 'lumbermill2'){
+          ctx.drawImage(
+            Img.lumbermill2, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile == 'lumbermill3'){
+          ctx.drawImage(
+            Img.lumbermill3, // image
             xOffset, // target x
             yOffset, // target y
             tileSize, // target width
