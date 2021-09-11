@@ -184,7 +184,7 @@ Lumbermill = function(param){
         s++;
       }
       var sr = s/r;
-      if(sr < 0.618){
+      if(sr < 0.372){
         var wood = 0;
         if(Player.list[self.owner].house){
           var h = Player.list[self.owner].house;
@@ -250,16 +250,29 @@ Mine = function(param){
         s++;
       }
       var sr = s/r;
-      if(sr < 0.618){
-        var stone = 0;
-        if(Player.list[self.owner].house){
-          var h = Player.list[self.owner].house;
-          stone = House.list[h].stores.stone;
+      if(sr < 0.372){
+        if(self.cave){
+          var ore = 0;
+          if(Player.list[self.owner].house){
+            var h = Player.list[self.owner].house;
+            ore = House.list[h].stores.ironore;
+          } else {
+            ore = Player.list[self.owner].stores.ironore;
+          }
+          if(ore >= s){
+            Building.list[self.tavern].newSerfs(self.id);
+          }
         } else {
-          stone = Player.list[self.owner].stores.stone;
-        }
-        if(stone >= s){
-          Building.list[self.tavern].newSerfs(self.id);
+          var stone = 0;
+          if(Player.list[self.owner].house){
+            var h = Player.list[self.owner].house;
+            stone = House.list[h].stores.stone;
+          } else {
+            stone = Player.list[self.owner].stores.stone;
+          }
+          if(stone >= s){
+            Building.list[self.tavern].newSerfs(self.id);
+          }
         }
       }
       console.log('Mine tally: r: ' + r + ' s: ' + s + ' sr: ' + sr);
@@ -352,9 +365,11 @@ Tavern = function(param){
   }
   self.newSerfs = function(b){
     var building = Building.list[b];
+    console.log('New serfs for ' + building.type);
     var loc = getLoc(self.x,self.y);
     var mLoc = getLoc(building.x,building.y);
     var area = getArea(loc,mLoc,5);
+    console.log(building.type + ' area: ' + area.length);
     var select = [];
     var wselect = [];
     for(var i in area){
@@ -1016,23 +1031,35 @@ Character = function(param){
   self.upBlocked = false;
   self.downBlocked = false;
 
+  /// ALPHA DEBUGGING ///
+  self.returnCount = 0;
+  self.returnLoc = [];
+
   self.return = function(target){ // target = {z:z,loc:[c,r]}
     var loc = getLoc(self.x,self.y);
     console.log(self.class + self.id + ' z:' + self.z + ' loc:' + loc);
     if(target){
       self.getPath(target.z,target.loc[0],target.loc[1]);
-      console.log(self.class + self.id + ' returning');
+      console.log(self.class + self.id + ' returning to target @ ' + target.toString());
     } else if(self.lastLoc){
       self.getPath(self.lastLoc.z,self.lastLoc.loc[0],self.lastLoc.loc[1]);
-      console.log(self.class + self.id + ' returning');
+      console.log(self.class + self.id + ' returning to last loc @ ' + self.lastLoc.loc.toString());
     } else if(self.tether){
       self.getPath(self.tether.z,self.tether.loc[0],self.tether.loc[1]);
-      console.log(self.class + self.id + ' returning to tether');
+      console.log(self.class + self.id + ' returning to tether @ ' + self.tether.loc.toString());
     } else if(self.home){
       self.getPath(self.home.z,self.home.loc[0],self.home.loc[1]);
-      console.log(self.class + self.id + ' returning home');
+      console.log(self.class + self.id + ' returning home @ ' + self.home.loc.toString());
     } else {
       console.log(self.class + self.id + ' cant return');
+    }
+    if(loc.toString() == self.returnLoc.toString()){
+      self.returnCount++;
+    } else {
+      self.returnLoc = loc;
+    }
+    if(self.returnCount == 10){
+      self.die({id:null,cause:'been deleted due to return bug'})
     }
   }
 
@@ -1302,8 +1329,9 @@ Character = function(param){
                         }
                         self.action = 'combat';
                       }
-                      if(p.type == 'npc' && pDist <= p.aggroRange){
-                        Player.list[p.id].checkAggro();
+                      if(p.type == 'npc' && pDist <= p.aggroRange && !p.action){
+                        Player.list[p.id].combat.target = self.id;
+                        Player.list[p.id].action = 'combat';
                       }
                     } else {
                       continue;
@@ -1554,7 +1582,7 @@ Character = function(param){
 
   self.follow = function(target,attack=false){
     if(!self.path){
-      if(self.z != target.z){
+      if(self.z != target.z && self.lastTarget){
         self.moveTo(self.lastTarget);
       } else {
         var loc = getLoc(self.x,self.y);
@@ -3211,7 +3239,11 @@ SerfM = function(param){
           self.work.spot = select[Math.floor(Math.random() * select.length)];
           Building.list[self.work.hq].log[self.id] = self.work.spot;
           self.action = 'task';
-          console.log(self.name + ' working @ ' + self.work.spot.toString());
+          if(self.work.spot){
+            console.log(self.name + ' working @ ' + self.work.spot.toString());
+          } else {
+            console.log(self.name + ' failed to find work spot');
+          }
         } else {
           var hut = Building.list[self.hut];
           var select = [];
@@ -3618,16 +3650,16 @@ SerfM = function(param){
                         if(res <= 0){
                           tileChange(0,spot[0],spot[1],7);
                           mapEdit();
+                          for(var i in hq.resources){
+                            var f = hq.resources[i];
+                            if(f.toString() == spot.toString()){
+                              Building.list[self.work.hq].resources.splice(i,1);
+                            }
+                          }
                           self.action = null;
                         } else if(tile >= 5 && tile < 6 && res <= 50){
                           tileChange(0,spot[0],spot[1],-1,true);
                           mapEdit();
-                        }
-                        for(var i in hq.resources){
-                          var f = hq.resources[i];
-                          if(f.toString() == spot.toString()){
-                            Building.list[self.work.hq].resources.splice(i,1);
-                          }
                         }
                       }
                       self.workTimer = false;

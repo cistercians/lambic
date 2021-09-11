@@ -307,11 +307,11 @@ var mtnSpawns = [];
 caveEntrances = [];
 
 // daily tally
-var dailyTally = async function(){
+var dailyTally = function(){
   for(var i in Building.list){
     var b = Building.list[i];
     if(b.type == 'mill' || b.type == 'lumbermill' || b.type == 'mine'){
-      await Building.list[i].tally();
+      Building.list[i].tally();
     }
   }
 }
@@ -788,12 +788,12 @@ getArea = function(loc1,loc2,margin=0){
     c = c1 - c2;
     if(r1 <= r2){
       r = r2 - r1;
-      tl = [c2,r1];
-      br = [c1,r2];
+      tl = [c2-margin,r1-margin];
+      br = [c1+margin,r2+margin];
     } else {
       r = r1 - r2;
-      tl = loc2;
-      br = loc1;
+      tl = [c2-margin,r2-margin];
+      br = [c1+margin,r1+margin];
     }
   }
   for(var y = tl[1]; y < br[1]; y++){
@@ -1239,13 +1239,13 @@ Player = function(param){
     if(report.id){
       if(Player.list[report.id]){
         Player.list[report.id].combat.target = null;
-        if(Player.list[report.id].type == 'npc'){
-          Player.list[report.id].action = 'return';
-        } else {
-          Player.list[report.id].action = null;
-        }
+        Player.list[report.id].action = null;
       }
-      console.log(Player.list[report.id].name + ' has killed ' + self.name);
+      if(Player.list[report.id].name){
+        console.log(Player.list[report.id].name + ' has killed ' + self.name);
+      } else {
+        console.log(Player.list[report.id].class + ' has killed ' + self.name);
+      }
     } else {
       console.log(self.name + ' has ' + report.cause);
     }
