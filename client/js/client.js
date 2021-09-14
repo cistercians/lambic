@@ -1166,7 +1166,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type == 'IronBar'){
+    } else if(self.type == 'Iron'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 4){
@@ -1186,7 +1186,7 @@ var Item = function(initPack){
         tileSize
         );
       }
-    } else if(self.type == 'SteelBar'){
+    } else if(self.type == 'Steel'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       if(self.qty > 4){
@@ -2561,7 +2561,7 @@ socket.on('update',function(data){
         p.sprite = mage;
       } else if(p.class == 'Warlock' || p.class == 'Brother'){
         p.sprite = warlock;
-      } else if(p.class == 'King' || p.class == 'Lothair'){
+      } else if(p.class == 'King' || p.class == 'Alaric'){
         p.sprite = king;
       } else if(p.class == 'SerfF'){
         p.sprite = femaleserf;
@@ -2585,8 +2585,8 @@ socket.on('update',function(data){
         p.sprite = trebuchet;
       } else if(p.class == 'Oathkeeper' || p.class == 'Archbishop'){
         p.sprite = archbishop;
-      } else if(p.class == 'DarkEntity'){
-        p.sprite = darkentity;
+      } else if(p.class == 'Apparition'){
+        p.sprite = apparition;
       } else if(p.class == 'Goth' || p.class == 'NorseSword'){
         p.sprite = goth;
       } else if(p.class == 'HighPriestess'){
@@ -2595,6 +2595,8 @@ socket.on('update',function(data){
         p.sprite = marauder;
       } else if(p.class == 'NorseSpear'){
         p.sprite = norsespear;
+      } else if(p.class == 'seidr'){
+        p.sprite = seidr;
       } else if(p.class == 'Huskarl'){
         p.sprite = huskarl;
       } else if(p.class == 'FrankSword'){

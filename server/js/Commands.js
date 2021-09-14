@@ -2394,8 +2394,8 @@ EvalCmd = function(data){
               }
             }
           }
-        } else if(item == 'ironbar'){
-          if(q > player.inventory.ironbar){
+        } else if(item == 'iron'){
+          if(q > player.inventory.iron){
             socket.emit('addToChat','<i>You do not have that many.</i>');
           } else {
             if(player.facing == 'up'){
@@ -2403,129 +2403,129 @@ EvalCmd = function(data){
                 var chCoords = getCoords(c,r-1);
                 var ch = chestCheck(z,chCoords[0],chCoords[1],player.id);
                 if(ch){
-                  Player.list[player.id].inventory.ironbar -= q;
-                  Item.list[ch].inventory.ironbar += q;
+                  Player.list[player.id].inventory.iron -= q;
+                  Item.list[ch].inventory.iron += q;
                 } else {
                   socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
-                IronBar({
+                Iron({
                   z:z,
                   x:coords[0],
                   y:coords[1],
                   qty:Number(q),
                   parent:player.id
                 });
-                Player.list[player.id].inventory.ironbar -= q;
+                Player.list[player.id].inventory.iron -= q;
               } else if(!isWalkable(z,c,r-1) && z == 0 && getTile(0,c,r-1) == 0){
                 var coords = getCoords(c,r-1);
-                IronBar({
+                Iron({
                   z:-3,
                   x:coords[0],
                   y:coords[1],
                   qty:Number(q),
                   parent:player.id
                 });
-                Player.list[player.id].inventory.ironbar -= q;
+                Player.list[player.id].inventory.iron -= q;
               }
             } else if(player.facing == 'down'){
               if(getItem(z,c,r+1) == 'LockedChest' || getItem(z,c,r+1) == 'Chest'){
                 var chCoords = getCoords(c,r+1);
                 var ch = chestCheck(z,chCoords[0],chCoords[1],player.id);
                 if(ch){
-                  Player.list[player.id].inventory.ironbar -= q;
-                  Item.list[ch].inventory.ironbar += q;
+                  Player.list[player.id].inventory.iron -= q;
+                  Item.list[ch].inventory.iron += q;
                 } else {
                   socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
-                IronBar({
+                Iron({
                   z:z,
                   x:coords[0],
                   y:coords[1],
                   qty:Number(q),
                   parent:player.id
                 });
-                Player.list[player.id].inventory.ironbar -= q;
+                Player.list[player.id].inventory.iron -= q;
               } else if(!isWalkable(z,c,r+1) && z == 0 && getTile(0,c,r+1) == 0){
                 var coords = getCoords(c,r+1);
-                IronBar({
+                Iron({
                   z:-3,
                   x:coords[0],
                   y:coords[1],
                   qty:Number(q),
                   parent:player.id
                 });
-                Player.list[player.id].inventory.ironbar -= q;
+                Player.list[player.id].inventory.iron -= q;
               }
             } else if(player.facing == 'left'){
               if(getItem(z,c-1,r) == 'LockedChest' || getItem(z,c-1,r) == 'Chest'){
                 var chCoords = getCoords(c-1,r);
                 var ch = chestCheck(z,chCoords[0],chCoords[1],player.id);
                 if(ch){
-                  Player.list[player.id].inventory.ironbar -= q;
-                  Item.list[ch].inventory.ironbar += q;
+                  Player.list[player.id].inventory.iron -= q;
+                  Item.list[ch].inventory.iron += q;
                 } else {
                   socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
-                IronBar({
+                Iron({
                   z:z,
                   x:coords[0],
                   y:coords[1],
                   qty:Number(q),
                   parent:player.id
                 });
-                Player.list[player.id].inventory.ironbar -= q;
+                Player.list[player.id].inventory.iron -= q;
               } else if(!isWalkable(z,c-1,r) && z == 0 && getTile(0,c-1,r) == 0){
                 var coords = getCoords(c-1,r);
-                IronBar({
+                Iron({
                   z:-3,
                   x:coords[0],
                   y:coords[1],
                   qty:Number(q),
                   parent:player.id
                 });
-                Player.list[player.id].inventory.ironbar -= q;
+                Player.list[player.id].inventory.iron -= q;
               }
             } else if(player.facing == 'right'){
               if(getItem(z,c+1,r) == 'LockedChest' || getItem(z,c+1,r) == 'Chest'){
                 var chCoords = getCoords(c+1,r);
                 var ch = chestCheck(z,chCoords[0],chCoords[1],player.id);
                 if(ch){
-                  Player.list[player.id].inventory.ironbar -= q;
-                  Item.list[ch].inventory.ironbar += q;
+                  Player.list[player.id].inventory.iron -= q;
+                  Item.list[ch].inventory.iron += q;
                 } else {
                   socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
-                IronBar({
+                Iron({
                   z:z,
                   x:coords[0],
                   y:coords[1],
                   qty:Number(q),
                   parent:player.id
                 });
-                Player.list[player.id].inventory.ironbar -= q;
+                Player.list[player.id].inventory.iron -= q;
               } else if(!isWalkable(z,c+1,r) && z == 0 && getTile(0,c+1,r) == 0){
                 var coords = getCoords(c+1,r);
-                IronBar({
+                Iron({
                   z:-3,
                   x:coords[0],
                   y:coords[1],
                   qty:Number(q),
                   parent:player.id
                 });
-                Player.list[player.id].inventory.ironbar -= q;
+                Player.list[player.id].inventory.iron -= q;
               }
             }
           }
-        } else if(item == 'steelbar'){
-          if(q > player.inventory.steelbar){
+        } else if(item == 'steel'){
+          if(q > player.inventory.steel){
             socket.emit('addToChat','<i>You do not have that many.</i>');
           } else {
             if(player.facing == 'up'){
@@ -2533,124 +2533,124 @@ EvalCmd = function(data){
                 var chCoords = getCoords(c,r-1);
                 var ch = chestCheck(z,chCoords[0],chCoords[1],player.id);
                 if(ch){
-                  Player.list[player.id].inventory.steelbar -= q;
-                  Item.list[ch].inventory.steelbar += q;
+                  Player.list[player.id].inventory.steel -= q;
+                  Item.list[ch].inventory.steel += q;
                 } else {
                   socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
-                SteelBar({
+                Steel({
                   z:z,
                   x:coords[0],
                   y:coords[1],
                   qty:Number(q),
                   parent:player.id
                 });
-                Player.list[player.id].inventory.steelbar -= q;
+                Player.list[player.id].inventory.steel -= q;
               } else if(!isWalkable(z,c,r-1) && z == 0 && getTile(0,c,r-1) == 0){
                 var coords = getCoords(c,r-1);
-                SteelBar({
+                Steel({
                   z:-3,
                   x:coords[0],
                   y:coords[1],
                   qty:Number(q),
                   parent:player.id
                 });
-                Player.list[player.id].inventory.steelbar -= q;
+                Player.list[player.id].inventory.steel -= q;
               }
             } else if(player.facing == 'down'){
               if(getItem(z,c,r+1) == 'LockedChest' || getItem(z,c,r+1) == 'Chest'){
                 var chCoords = getCoords(c,r+1);
                 var ch = chestCheck(z,chCoords[0],chCoords[1],player.id);
                 if(ch){
-                  Player.list[player.id].inventory.steelbar -= q;
-                  Item.list[ch].inventory.steelbar += q;
+                  Player.list[player.id].inventory.steel -= q;
+                  Item.list[ch].inventory.steel += q;
                 } else {
                   socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
-                SteelBar({
+                Steel({
                   z:z,
                   x:coords[0],
                   y:coords[1],
                   qty:Number(q),
                   parent:player.id
                 });
-                Player.list[player.id].inventory.steelbar -= q;
+                Player.list[player.id].inventory.steel -= q;
               } else if(!isWalkable(z,c,r+1) && z == 0 && getTile(0,c,r+1) == 0){
                 var coords = getCoords(c,r+1);
-                SteelBar({
+                Steel({
                   z:-3,
                   x:coords[0],
                   y:coords[1],
                   qty:Number(q),
                   parent:player.id
                 });
-                Player.list[player.id].inventory.steelbar -= q;
+                Player.list[player.id].inventory.steel -= q;
               }
             } else if(player.facing == 'left'){
               if(getItem(z,c-1,r) == 'LockedChest' || getItem(z,c-1,r) == 'Chest'){
                 var chCoords = getCoords(c-1,r);
                 var ch = chestCheck(z,chCoords[0],chCoords[1],player.id);
                 if(ch){
-                  Player.list[player.id].inventory.steelbar -= q;
-                  Item.list[ch].inventory.steelbar += q;
+                  Player.list[player.id].inventory.steel -= q;
+                  Item.list[ch].inventory.steel += q;
                 } else {
                   socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
-                SteelBar({
+                Steel({
                   z:z,
                   x:coords[0],
                   y:coords[1],
                   qty:Number(q),
                   parent:player.id
                 });
-                Player.list[player.id].inventory.steelbar -= q;
+                Player.list[player.id].inventory.steel -= q;
               } else if(!isWalkable(z,c-1,r) && z == 0 && getTile(0,c-1,r) == 0){
                 var coords = getCoords(c-1,r);
-                SteelBar({
+                Steel({
                   z:-3,
                   x:coords[0],
                   y:coords[1],
                   qty:Number(q),
                   parent:player.id
                 });
-                Player.list[player.id].inventory.steelbar -= q;
+                Player.list[player.id].inventory.steel -= q;
               }
             } else if(player.facing == 'right'){
               if(getItem(z,c+1,r) == 'LockedChest' || getItem(z,c+1,r) == 'Chest'){
                 var chCoords = getCoords(c+1,r);
                 var ch = chestCheck(z,chCoords[0],chCoords[1],player.id);
                 if(ch){
-                  Player.list[player.id].inventory.steelbar -= q;
-                  Item.list[ch].inventory.steelbar += q;
+                  Player.list[player.id].inventory.steel -= q;
+                  Item.list[ch].inventory.steel += q;
                 } else {
                   socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
-                SteelBar({
+                Steel({
                   z:z,
                   x:coords[0],
                   y:coords[1],
                   qty:Number(q),
                   parent:player.id
                 });
-                Player.list[player.id].inventory.steelbar -= q;
+                Player.list[player.id].inventory.steel -= q;
               } else if(!isWalkable(z,c+1,r) && z == 0 && getTile(0,c+1,r) == 0){
                 var coords = getCoords(c+1,r);
-                SteelBar({
+                Steel({
                   z:-3,
                   x:coords[0],
                   y:coords[1],
                   qty:Number(q),
                   parent:player.id
                 });
-                Player.list[player.id].inventory.steelbar -= q;
+                Player.list[player.id].inventory.steel -= q;
               }
             }
           }
@@ -10416,29 +10416,29 @@ EvalCmd = function(data){
                 } else {
                   socket.emit('addToChat','<i>The chest does not contain that much</i> <b>IronOre</b>.');
                 }
-              } else if(item == 'ironbar'){
-                if(q <= Item.list[ch].inventory.ironbar){
-                  if(player.inventory.ironbar + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>IronBar</b>.');
+              } else if(item == 'iron'){
+                if(q <= Item.list[ch].inventory.iron){
+                  if(player.inventory.iron + q > 10){
+                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Iron</b>.');
                   } else {
-                    Item.list[ch].inventory.ironbar -= q;
-                    Player.list[id].inventory.ironbar += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>IronBar</b> <i>from the chest.</i>');
+                    Item.list[ch].inventory.iron -= q;
+                    Player.list[id].inventory.iron += q;
+                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Iron</b> <i>from the chest.</i>');
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>IronBar</b>.');
+                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Iron</b>.');
                 }
-              } else if(item == 'steelbar'){
-                if(q <= Item.list[ch].inventory.steelbar){
-                  if(player.inventory.steelbar + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>SteelBar</b>.');
+              } else if(item == 'steel'){
+                if(q <= Item.list[ch].inventory.steel){
+                  if(player.inventory.steel + q > 10){
+                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Steel</b>.');
                   } else {
-                    Item.list[ch].inventory.steelbar -= q;
-                    Player.list[id].inventory.steelbar += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>SteelBar</b> <i>from the chest.</i>');
+                    Item.list[ch].inventory.steel -= q;
+                    Player.list[id].inventory.steel += q;
+                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Steel</b> <i>from the chest.</i>');
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>SteelBar</b>.');
+                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Steel</b>.');
                 }
               } else if(item == 'boarhide'){
                 if(q <= Item.list[ch].inventory.boarhide){
@@ -11220,29 +11220,29 @@ EvalCmd = function(data){
                 } else {
                   socket.emit('addToChat','<i>The chest does not contain that much</i> <b>IronOre</b>.');
                 }
-              } else if(item == 'ironbar'){
-                if(q <= Item.list[ch].inventory.ironbar){
-                  if(player.inventory.ironbar + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>IronBar</b>.');
+              } else if(item == 'iron'){
+                if(q <= Item.list[ch].inventory.iron){
+                  if(player.inventory.iron + q > 10){
+                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Iron</b>.');
                   } else {
-                    Item.list[ch].inventory.ironbar -= q;
-                    Player.list[id].inventory.ironbar += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>IronBar</b> <i>from the chest.</i>');
+                    Item.list[ch].inventory.iron -= q;
+                    Player.list[id].inventory.iron += q;
+                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Iron</b> <i>from the chest.</i>');
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>IronBar</b>.');
+                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Iron</b>.');
                 }
-              } else if(item == 'steelbar'){
-                if(q <= Item.list[ch].inventory.steelbar){
-                  if(player.inventory.steelbar + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>SteelBar</b>.');
+              } else if(item == 'steel'){
+                if(q <= Item.list[ch].inventory.steel){
+                  if(player.inventory.steel + q > 10){
+                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Steel</b>.');
                   } else {
-                    Item.list[ch].inventory.steelbar -= q;
-                    Player.list[id].inventory.steelbar += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>SteelBar</b> <i>from the chest.</i>');
+                    Item.list[ch].inventory.steel -= q;
+                    Player.list[id].inventory.steel += q;
+                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Steel</b> <i>from the chest.</i>');
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>SteelBar</b>.');
+                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Steel</b>.');
                 }
               } else if(item == 'boarhide'){
                 if(q <= Item.list[ch].inventory.boarhide){
@@ -12024,29 +12024,29 @@ EvalCmd = function(data){
                 } else {
                   socket.emit('addToChat','<i>The chest does not contain that much</i> <b>IronOre</b>.');
                 }
-              } else if(item == 'ironbar'){
-                if(q <= Item.list[ch].inventory.ironbar){
-                  if(player.inventory.ironbar + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>IronBar</b>.');
+              } else if(item == 'iron'){
+                if(q <= Item.list[ch].inventory.iron){
+                  if(player.inventory.iron + q > 10){
+                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Iron</b>.');
                   } else {
-                    Item.list[ch].inventory.ironbar -= q;
-                    Player.list[id].inventory.ironbar += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>IronBar</b> <i>from the chest.</i>');
+                    Item.list[ch].inventory.iron -= q;
+                    Player.list[id].inventory.iron += q;
+                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Iron</b> <i>from the chest.</i>');
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>IronBar</b>.');
+                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Iron</b>.');
                 }
-              } else if(item == 'steelbar'){
-                if(q <= Item.list[ch].inventory.steelbar){
-                  if(player.inventory.steelbar + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>SteelBar</b>.');
+              } else if(item == 'steel'){
+                if(q <= Item.list[ch].inventory.steel){
+                  if(player.inventory.steel + q > 10){
+                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Steel</b>.');
                   } else {
-                    Item.list[ch].inventory.steelbar -= q;
-                    Player.list[id].inventory.steelbar += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>SteelBar</b> <i>from the chest.</i>');
+                    Item.list[ch].inventory.steel -= q;
+                    Player.list[id].inventory.steel += q;
+                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Steel</b> <i>from the chest.</i>');
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>SteelBar</b>.');
+                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Steel</b>.');
                 }
               } else if(item == 'boarhide'){
                 if(q <= Item.list[ch].inventory.boarhide){
@@ -12828,29 +12828,29 @@ EvalCmd = function(data){
                 } else {
                   socket.emit('addToChat','<i>The chest does not contain that much</i> <b>IronOre</b>.');
                 }
-              } else if(item == 'ironbar'){
-                if(q <= Item.list[ch].inventory.ironbar){
-                  if(player.inventory.ironbar + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>IronBar</b>.');
+              } else if(item == 'iron'){
+                if(q <= Item.list[ch].inventory.iron){
+                  if(player.inventory.iron + q > 10){
+                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Iron</b>.');
                   } else {
-                    Item.list[ch].inventory.ironbar -= q;
-                    Player.list[id].inventory.ironbar += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>IronBar</b> <i>from the chest.</i>');
+                    Item.list[ch].inventory.iron -= q;
+                    Player.list[id].inventory.iron += q;
+                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Iron</b> <i>from the chest.</i>');
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>IronBar</b>.');
+                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Iron</b>.');
                 }
-              } else if(item == 'steelbar'){
-                if(q <= Item.list[ch].inventory.steelbar){
-                  if(player.inventory.steelbar + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>SteelBar</b>.');
+              } else if(item == 'steel'){
+                if(q <= Item.list[ch].inventory.steel){
+                  if(player.inventory.steel + q > 10){
+                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Steel</b>.');
                   } else {
-                    Item.list[ch].inventory.steelbar -= q;
-                    Player.list[id].inventory.steelbar += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>SteelBar</b> <i>from the chest.</i>');
+                    Item.list[ch].inventory.steel -= q;
+                    Player.list[id].inventory.steel += q;
+                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Steel</b> <i>from the chest.</i>');
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>SteelBar</b>.');
+                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Steel</b>.');
                 }
               } else if(item == 'boarhide'){
                 if(q <= Item.list[ch].inventory.boarhide){

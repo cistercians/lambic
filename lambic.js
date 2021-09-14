@@ -1423,11 +1423,11 @@ Player = function(param){
         all += ironore;
       }
       if(self.inventory.ironbar > 0){
-        var ironbar = '<b>IronBar</b>: ' + self.inventory.ironbar + '<br>';
+        var ironbar = '<b>Iron</b>: ' + self.inventory.iron + '<br>';
         all += ironbar;
       }
       if(self.inventory.steelbar > 0){
-        var steelbar = '<b>SteelBar</b>: ' + self.inventory.steelbar + '<br>';
+        var steelbar = '<b>Steel</b>: ' + self.inventory.steel + '<br>';
         all += steelbar;
       }
       if(self.inventory.boarhide > 0){
@@ -2755,6 +2755,35 @@ setInterval(function(){
 
 // spawn fauna
 entropy();
+
+// hide relics
+var rel1 = randomSpawnHF();
+var cr1 = getLoc(rel1[0],rel1[1]);
+Relic({
+  x:rel1[0],
+  y:rel1[1],
+  z:0,
+  qty:1
+});
+console.log('Relic hidden in the forest @ ' + cr1.toString());
+var rel2 = randomSpawnU();
+var cr2 = getLoc(rel2[0],rel2[1]);
+Relic({
+  x:rel2[0],
+  y:rel2[1],
+  z:-1,
+  qty:1
+});
+console.log('Relic hidden in the caves @ ' + cr2.toString());
+var wsp = waterSpawns[Math.floor(Math.random() * waterSpawns.length)];
+var rel3 = getCoords(wsp[0],wsp[1]);
+Relic({
+  x:rel3[0],
+  y:rel3[1],
+  z:-3,
+  qty:1
+});
+console.log('Relic hidden in the sea @ ' + wsp.toString());
 
 // create NPC factions
 Brotherhood({

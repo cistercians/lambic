@@ -684,8 +684,8 @@ Character = function(param){
     stone:0,
     grain:0,
     ironore:0,
-    ironbar:0,
-    steelbar:0,
+    iron:0,
+    steel:0,
     boarhide:0,
     leather:0,
     silverore:0,
@@ -5112,9 +5112,9 @@ Oathkeeper = function(param){
   self.torchBearer = true;
 }
 
-DarkEntity = function(param){
+Apparition = function(param){
   var self = Character(param);
-  self.class = 'DarkEntity';
+  self.class = 'Apparition';
   self.spriteSize = tileSize*1.5;
   self.damage = 1;
 }
@@ -5169,13 +5169,11 @@ HighPriestess = function(param){
   self.torchBearer = true;
 }
 
-Archmage = function(param){
+Alaric = function(param){
   var self = Character(param);
-  self.name = 'Archmage';
-  self.class = 'Archmage';
-  self.rank = '♝ ';
-  self.cleric = true;
-  self.baseSpd = 2;
+  self.name = 'Alaric I';
+  self.class = 'Alaric';
+  self.rank = '♜ ';
 }
 
 Drakkar = function(param){
@@ -5203,6 +5201,15 @@ NorseSpear = function(param){
   self.military = true;
   self.spriteSize = tileSize*1.5;
   self.damage = 15;
+}
+
+Seidr = function(param){
+  var self = Character(param);
+  self.name = 'Seidr';
+  self.class = 'Seidr';
+  self.rank = '♝ ';
+  self.cleric = true;
+  self.baseSpd = 2;
 }
 
 Huskarl = function(param){
@@ -5277,7 +5284,7 @@ Malvoisin = function(param){
 
 Charlemagne = function(param){
   var self = Character(param);
-  self.name = 'King Charlemagne';
+  self.name = 'Charlemagne';
   self.class = 'Charlemagne';
   self.rank = '♚ ';
   self.mounted = true;
@@ -5429,13 +5436,6 @@ Hochmeister = function(param){
   self.baseSpd = 3;
   self.torchBearer = true;
   self.damage = 25;
-}
-
-Lothair = function(param){
-  var self = Character(param);
-  self.name = 'King Lothair II';
-  self.class = 'Lothair';
-  self.rank = '♚ ';
 }
 
 Trapper = function(param){
@@ -7505,8 +7505,8 @@ Chest = function(param){
     stone:0,
     grain:0,
     ironore:0,
-    ironbar:0,
-    steelbar:0,
+    iron:0,
+    steel:0,
     boarhide:0,
     leather:0,
     silverore:0,
@@ -7585,8 +7585,8 @@ LockedChest = function(param){
     stone:0,
     grain:0,
     ironore:0,
-    ironbar:0,
-    steelbar:0,
+    iron:0,
+    steel:0,
     boarhide:0,
     leather:0,
     silverore:0,

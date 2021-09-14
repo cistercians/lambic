@@ -2762,45 +2762,45 @@ var archbishop = {
   cast: Img.archbishopcast
 };
 
-// darkentity
+// apparition
 //stand
-Img.darkentitystandd = new Image();
-Img.darkentitystandd.src = '/client/img/chars/darkentity/standd.png';
-Img.darkentitystandu = new Image();
-Img.darkentitystandu.src = '/client/img/chars/darkentity/standu.png';
-Img.darkentitystandl = new Image();
-Img.darkentitystandl.src = '/client/img/chars/darkentity/standl.png';
-Img.darkentitystandr = new Image();
-Img.darkentitystandr.src = '/client/img/chars/darkentity/standr.png';
+Img.apparitionstandd = new Image();
+Img.apparitionstandd.src = '/client/img/chars/apparition/standd.png';
+Img.apparitionstandu = new Image();
+Img.apparitionstandu.src = '/client/img/chars/apparition/standu.png';
+Img.apparitionstandl = new Image();
+Img.apparitionstandl.src = '/client/img/chars/apparition/standl.png';
+Img.apparitionstandr = new Image();
+Img.apparitionstandr.src = '/client/img/chars/apparition/standr.png';
 
-var darkentitywalkd = [Img.darkentitystandd,Img.darkentitystandd];
-var darkentitywalku = [Img.darkentitystandu,Img.darkentitystandu];
-var darkentitywalkl = [Img.darkentitystandl,Img.darkentitystandl];
-var darkentitywalkr = [Img.darkentitystandr,Img.darkentitystandr];
+var apparitionwalkd = [Img.apparitionstandd,Img.apparitionstandd];
+var apparitionwalku = [Img.apparitionstandu,Img.apparitionstandu];
+var apparitionwalkl = [Img.apparitionstandl,Img.apparitionstandl];
+var apparitionwalkr = [Img.apparitionstandr,Img.apparitionstandr];
 
 // attack
-Img.darkentityattackd = new Image();
-Img.darkentityattackd.src = '/client/img/chars/darkentity/attackd.png';
-Img.darkentityattacku = new Image();
-Img.darkentityattacku.src = '/client/img/chars/darkentity/attacku.png';
-Img.darkentityattackl = new Image();
-Img.darkentityattackl.src = '/client/img/chars/darkentity/attackl.png';
-Img.darkentityattackr = new Image();
-Img.darkentityattackr.src = '/client/img/chars/darkentity/attackr.png';
+Img.apparitionattackd = new Image();
+Img.apparitionattackd.src = '/client/img/chars/apparition/attackd.png';
+Img.apparitionattacku = new Image();
+Img.apparitionattacku.src = '/client/img/chars/apparition/attacku.png';
+Img.apparitionattackl = new Image();
+Img.apparitionattackl.src = '/client/img/chars/apparition/attackl.png';
+Img.apparitionattackr = new Image();
+Img.apparitionattackr.src = '/client/img/chars/apparition/attackr.png';
 
-var darkentity = {
-  facedown: Img.darkentitystandd,
-  faceup: Img.darkentitystandu,
-  faceleft: Img.darkentitystandl,
-  faceright: Img.darkentitystandr,
-  walkdown: darkentitywalkd,
-  walkup: darkentitywalku,
-  walkleft: darkentitywalkl,
-  walkright: darkentitywalkr,
-  attackd: Img.darkentityattackd,
-  attacku: Img.darkentityattacku,
-  attackl: Img.darkentityattackl,
-  attackr: Img.darkentityattackr
+var apparition = {
+  facedown: Img.apparitionstandd,
+  faceup: Img.apparitionstandu,
+  faceleft: Img.apparitionstandl,
+  faceright: Img.apparitionstandr,
+  walkdown: apparitionwalkd,
+  walkup: apparitionwalku,
+  walkleft: apparitionwalkl,
+  walkright: apparitionwalkr,
+  attackd: Img.apparitionattackd,
+  attacku: Img.apparitionattacku,
+  attackl: Img.apparitionattackl,
+  attackr: Img.apparitionattackr
 };
 
 // goth
@@ -2919,6 +2919,56 @@ var norsespear = {
   attacku: Img.norsespearattacku,
   attackl: Img.norsespearattackl,
   attackr: Img.norsespearattackr
+};
+
+// seidr
+//stand
+Img.seidrstandd = new Image();
+Img.seidrstandd.src = '/client/img/chars/seidr/standd.png';
+Img.seidrstandu = new Image();
+Img.seidrstandu.src = '/client/img/chars/seidr/standu.png';
+Img.seidrstandl = new Image();
+Img.seidrstandl.src = '/client/img/chars/seidr/standl.png';
+Img.seidrstandr = new Image();
+Img.seidrstandr.src = '/client/img/chars/seidr/standr.png';
+
+// walk
+Img.seidrwalkd1 = new Image();
+Img.seidrwalkd1.src = '/client/img/chars/seidr/walkd1.png';
+Img.seidrwalkd2 = new Image();
+Img.seidrwalkd2.src = '/client/img/chars/seidr/walkd2.png';
+Img.seidrwalku1 = new Image();
+Img.seidrwalku1.src = '/client/img/chars/seidr/walku1.png';
+Img.seidrwalku2 = new Image();
+Img.seidrwalku2.src = '/client/img/chars/seidr/walku2.png';
+Img.seidrwalkl1 = new Image();
+Img.seidrwalkl1.src = '/client/img/chars/seidr/walkl1.png';
+Img.seidrwalkl2 = new Image();
+Img.seidrwalkl2.src = '/client/img/chars/seidr/walkl2.png';
+Img.seidrwalkr1 = new Image();
+Img.seidrwalkr1.src = '/client/img/chars/seidr/walkr1.png';
+Img.seidrwalkr2 = new Image();
+Img.seidrwalkr2.src = '/client/img/chars/seidr/walkr2.png';
+
+// actions
+Img.seidrcast = new Image();
+Img.seidrcast.src = '/client/img/chars/seidr/cast.png';
+
+var seidrwalkd = [Img.seidrwalkd1,Img.seidrwalkd2];
+var seidrwalku = [Img.seidrwalku1,Img.seidrwalku2];
+var seidrwalkl = [Img.seidrwalkl1,Img.seidrwalkl2];
+var seidrwalkr = [Img.seidrwalkr1,Img.seidrwalkr2];
+
+var seidr = {
+  facedown: Img.seidrstandd,
+  faceup: Img.seidrstandu,
+  faceleft: Img.seidrstandl,
+  faceright: Img.seidrstandr,
+  walkdown: seidrwalkd,
+  walkup: seidrwalku,
+  walkleft: seidrwalkl,
+  walkright: seidrwalkr,
+  cast: Img.seidrcast
 };
 
 // huskarl
