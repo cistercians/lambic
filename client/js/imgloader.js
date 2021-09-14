@@ -384,22 +384,22 @@ Img.garrison13 = new Image();
 Img.garrison13.src = '/client/img/buildings/garrison13.png';
 Img.garrison14 = new Image();
 Img.garrison14.src = '/client/img/buildings/garrison14.png';
-Img.bsmith0 = new Image();
-Img.bsmith0.src = '/client/img/buildings/bsmith0.png';
-Img.bsmith1 = new Image();
-Img.bsmith1.src = '/client/img/buildings/bsmith1.png';
-Img.bsmith2 = new Image();
-Img.bsmith2.src = '/client/img/buildings/bsmith2.png';
-Img.bsmith3 = new Image();
-Img.bsmith3.src = '/client/img/buildings/bsmith3.png';
-Img.bsmith4 = new Image();
-Img.bsmith4.src = '/client/img/buildings/bsmith4.png';
-Img.bsmith5 = new Image();
-Img.bsmith5.src = '/client/img/buildings/bsmith5.png';
-Img.bsmith6 = new Image();
-Img.bsmith6.src = '/client/img/buildings/bsmith6.png';
-Img.bsmith7 = new Image();
-Img.bsmith7.src = '/client/img/buildings/bsmith7.png';
+Img.forge0 = new Image();
+Img.forge0.src = '/client/img/buildings/forge0.png';
+Img.forge1 = new Image();
+Img.forge1.src = '/client/img/buildings/forge1.png';
+Img.forge2 = new Image();
+Img.forge2.src = '/client/img/buildings/forge2.png';
+Img.forge3 = new Image();
+Img.forge3.src = '/client/img/buildings/forge3.png';
+Img.forge4 = new Image();
+Img.forge4.src = '/client/img/buildings/forge4.png';
+Img.forge5 = new Image();
+Img.forge5.src = '/client/img/buildings/forge5.png';
+Img.forge6 = new Image();
+Img.forge6.src = '/client/img/buildings/forge6.png';
+Img.forge7 = new Image();
+Img.forge7.src = '/client/img/buildings/forge7.png';
 Img.gateo0 = new Image();
 Img.gateo0.src = '/client/img/buildings/gateo0.png';
 Img.gateo1 = new Image();
@@ -2712,54 +2712,54 @@ var falcon = {
 };
 
 // enemies
-// duke
+// archbishop
 //stand
-Img.dukestandd = new Image();
-Img.dukestandd.src = '/client/img/chars/duke/standd.png';
-Img.dukestandu = new Image();
-Img.dukestandu.src = '/client/img/chars/duke/standu.png';
-Img.dukestandl = new Image();
-Img.dukestandl.src = '/client/img/chars/duke/standl.png';
-Img.dukestandr = new Image();
-Img.dukestandr.src = '/client/img/chars/duke/standr.png';
+Img.archbishopstandd = new Image();
+Img.archbishopstandd.src = '/client/img/chars/archbishop/standd.png';
+Img.archbishopstandu = new Image();
+Img.archbishopstandu.src = '/client/img/chars/archbishop/standu.png';
+Img.archbishopstandl = new Image();
+Img.archbishopstandl.src = '/client/img/chars/archbishop/standl.png';
+Img.archbishopstandr = new Image();
+Img.archbishopstandr.src = '/client/img/chars/archbishop/standr.png';
 
 // walk
-Img.dukewalkd1 = new Image();
-Img.dukewalkd1.src = '/client/img/chars/duke/walkd1.png';
-Img.dukewalkd2 = new Image();
-Img.dukewalkd2.src = '/client/img/chars/duke/walkd2.png';
-Img.dukewalku1 = new Image();
-Img.dukewalku1.src = '/client/img/chars/duke/walku1.png';
-Img.dukewalku2 = new Image();
-Img.dukewalku2.src = '/client/img/chars/duke/walku2.png';
-Img.dukewalkl1 = new Image();
-Img.dukewalkl1.src = '/client/img/chars/duke/walkl1.png';
-Img.dukewalkl2 = new Image();
-Img.dukewalkl2.src = '/client/img/chars/duke/walkl2.png';
-Img.dukewalkr1 = new Image();
-Img.dukewalkr1.src = '/client/img/chars/duke/walkr1.png';
-Img.dukewalkr2 = new Image();
-Img.dukewalkr2.src = '/client/img/chars/duke/walkr2.png';
+Img.archbishopwalkd1 = new Image();
+Img.archbishopwalkd1.src = '/client/img/chars/archbishop/walkd1.png';
+Img.archbishopwalkd2 = new Image();
+Img.archbishopwalkd2.src = '/client/img/chars/archbishop/walkd2.png';
+Img.archbishopwalku1 = new Image();
+Img.archbishopwalku1.src = '/client/img/chars/archbishop/walku1.png';
+Img.archbishopwalku2 = new Image();
+Img.archbishopwalku2.src = '/client/img/chars/archbishop/walku2.png';
+Img.archbishopwalkl1 = new Image();
+Img.archbishopwalkl1.src = '/client/img/chars/archbishop/walkl1.png';
+Img.archbishopwalkl2 = new Image();
+Img.archbishopwalkl2.src = '/client/img/chars/archbishop/walkl2.png';
+Img.archbishopwalkr1 = new Image();
+Img.archbishopwalkr1.src = '/client/img/chars/archbishop/walkr1.png';
+Img.archbishopwalkr2 = new Image();
+Img.archbishopwalkr2.src = '/client/img/chars/archbishop/walkr2.png';
 
 // actions
-Img.dukecast = new Image();
-Img.dukecast.src = '/client/img/chars/duke/cast.png';
+Img.archbishopcast = new Image();
+Img.archbishopcast.src = '/client/img/chars/archbishop/cast.png';
 
-var dukewalkd = [Img.dukewalkd1,Img.dukewalkd2];
-var dukewalku = [Img.dukewalku1,Img.dukewalku2];
-var dukewalkl = [Img.dukewalkl1,Img.dukewalkl2];
-var dukewalkr = [Img.dukewalkr1,Img.dukewalkr2];
+var archbishopwalkd = [Img.archbishopwalkd1,Img.archbishopwalkd2];
+var archbishopwalku = [Img.archbishopwalku1,Img.archbishopwalku2];
+var archbishopwalkl = [Img.archbishopwalkl1,Img.archbishopwalkl2];
+var archbishopwalkr = [Img.archbishopwalkr1,Img.archbishopwalkr2];
 
-var duke = {
-  facedown: Img.dukestandd,
-  faceup: Img.dukestandu,
-  faceleft: Img.dukestandl,
-  faceright: Img.dukestandr,
-  walkdown: dukewalkd,
-  walkup: dukewalku,
-  walkleft: dukewalkl,
-  walkright: dukewalkr,
-  cast: Img.dukecast
+var archbishop = {
+  facedown: Img.archbishopstandd,
+  faceup: Img.archbishopstandu,
+  faceleft: Img.archbishopstandl,
+  faceright: Img.archbishopstandr,
+  walkdown: archbishopwalkd,
+  walkup: archbishopwalku,
+  walkleft: archbishopwalkl,
+  walkright: archbishopwalkr,
+  cast: Img.archbishopcast
 };
 
 // darkentity
@@ -4084,12 +4084,12 @@ Img.fireplace2 = new Image();
 Img.fireplace2.src = '/client/img/items/fireplace2.png';
 Img.fireplace3 = new Image();
 Img.fireplace3.src = '/client/img/items/fireplace3.png';
-Img.forge1 = new Image();
-Img.forge1.src = '/client/img/items/forge1.png';
-Img.forge2 = new Image();
-Img.forge2.src = '/client/img/items/forge2.png';
-Img.forge3 = new Image();
-Img.forge3.src = '/client/img/items/forge3.png';
+Img.furnace1 = new Image();
+Img.furnace1.src = '/client/img/items/furnace1.png';
+Img.furnace2 = new Image();
+Img.furnace2.src = '/client/img/items/furnace2.png';
+Img.furnace3 = new Image();
+Img.furnace3.src = '/client/img/items/furnace3.png';
 Img.barrel = new Image();
 Img.barrel.src = '/client/img/items/barrel.png';
 Img.crates = new Image();
@@ -4197,7 +4197,7 @@ var wtorchFlame = [Img.wtorch1,Img.wtorch2,Img.wtorch3];
 var fireFlame = [Img.fire1,Img.fire2,Img.fire3];
 var firepitFlame = [Img.firepit1,Img.firepit2,Img.firepit3];
 var fireplaceFlame = [Img.fireplace1,Img.fireplace2,Img.fireplace3];
-var forgeFlame = [Img.forge1,Img.forge2,Img.forge3];
+var forgeFlame = [Img.furnace1,Img.furnace2,Img.furnace3];
 
 // EFFECTS
 Img.arrow1 = new Image();

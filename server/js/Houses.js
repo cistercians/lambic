@@ -40,9 +40,13 @@ House = function(param){
     grain:0,
     wood:0,
     stone:0,
+    ironore:0,
     iron:0,
+    silverore:0,
     silver:0,
-    gold:0
+    goldore:0,
+    gold:0,
+    diamond:0
   }
 
   self.update = function(){
@@ -588,9 +592,13 @@ Kingdom = function(param){
     grain:0,
     wood:0,
     stone:0,
+    ironore:0,
     iron:0,
+    silverore:0,
     silver:0,
-    gold:0
+    goldore:0,
+    gold:0,
+    diamond:0
   }
   Kingdom.list[self.id] = self;
 
@@ -676,3 +684,25 @@ flags = [
   ['🇳🇴',0], // 68
   ['🇼🇫',0], // 69
 ];
+
+convertHouse = function(id){
+  var player = Player.list[id];
+  var house = player.house;
+  for(var i in Building.list){
+    var b = Building.list[i];
+    if(b.owner == id){
+      Building.list[i].house = house;
+      if(b.serfs){
+        for(var s in b.serfs){
+          var serf = b.serfs[s];
+          Player.list[serf].house = house;
+        }
+      }
+    }
+  }
+}
+
+convertKingdom = function(hid){
+  var house = House.list[hid];
+  var kingdom = house.kingdom;
+}

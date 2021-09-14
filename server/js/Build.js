@@ -904,10 +904,10 @@ Build = function(id){
             qty:1,
             parent:b
           });
-        } else if(Building.list[b].type == 'blacksmith'){
+        } else if(Building.list[b].type == 'forge'){
           for(var i in plot){
-            tileChange(3,plot[i][0],plot[i][1],String('bsmith' + i));
-            if(getTile(3,plot[i][0],plot[i][1]) == 'bsmith1'){
+            tileChange(3,plot[i][0],plot[i][1],String('forge' + i));
+            if(getTile(3,plot[i][0],plot[i][1]) == 'forge1'){
               matrixChange(1,plot[i][0],plot[i][1],0);
               matrixChange(1,plot[i][0],plot[i][1]+1,0);
               tileChange(0,plot[i][0],plot[i][1],14);
@@ -921,8 +921,8 @@ Build = function(id){
           var ii = 5;
           for(var i in walls){
             var n = walls[i];
-            tileChange(5,n[0],n[1],String('bsmith' + ii));
-            if(getTile(5,n[0],n[1]) == 'bsmith5'){
+            tileChange(5,n[0],n[1],String('forge' + ii));
+            if(getTile(5,n[0],n[1]) == 'forge5'){
               tileChange(5,n[0],n[1],0);
               tileChange(4,n[0],n[1],1);
             } else {
@@ -930,13 +930,14 @@ Build = function(id){
             }
             ii++;
           }
-          var fg = getCoords(walls[1][0],walls[1][1]);
+          var fr = getCoords(walls[1][0],walls[1][1]);
           var fp = getCoords(plot[0][0],plot[0][1]);
           var br = getCoords(plot[3][0],plot[3][1]);
           var anv = getCoords(plot[5][0],plot[5][1]);
-          Forge({
-            x:fg[0],
-            y:fg[1],
+          var sp = getCenter(plot[4][0],plot[4][1]);
+          Furnace({
+            x:fr[0],
+            y:fr[1],
             z:1,
             qty:1,
             parent:b
@@ -961,6 +962,19 @@ Build = function(id){
             z:1,
             qty:1,
             parent:b
+          });
+          Blacksmith({
+            x:sp[0],
+            y:sp[1],
+            z:0,
+            name:'Smith ' + randomName('m'),
+            house:Building.list[b].house,
+            kingdom:Building.list[b].kingdom,
+            forge:Building.list[b].id,
+            home:{
+              z:1,
+              loc:[plot[4][0],plot[4][1]]
+            }
           });
         } else if(Building.list[b].type == 'stronghold'){
           for(var i in plot){

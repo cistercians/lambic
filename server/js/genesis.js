@@ -156,25 +156,29 @@ function genesis(){
   var entrances = [];
 
   function idEntrances(){
-    var subsection = Math.floor(mapTiles / 3);
-    var trueLength = subsection * 3
-    var result = [];
-    for(x = 0; x < trueLength; x += subsection){
-      for(y = 0; y < trueLength; y += subsection){
-        var selection = [];
+    var subsection = Math.floor(mapTiles / 4);
+    for(x = 0; x < mapTiles; x += subsection){
+      for(y = 0; y < mapTiles; y += subsection){
+        var select = [];
         for(c = x; c < x + subsection; c++){
           for(r = y; r < y + subsection; r++){
-            var tile = worldMaps[0][r][c];
-            var tileBelow = worldMaps[0][r+1][c];
-            if(tile >= 5 && tile < 6 && (tileBelow < 5 || tileBelow >= 6) && r !== 0){
-              selection.push([c,r]);
-            } else {
-              continue;
+            if(r < mapTiles-1){
+              var tile = worldMaps[0][r][c];
+              var tileBelow = worldMaps[0][r+1][c];
+              if(tile >= 5 && tile < 6 && tileBelow < 5 && r != mapTiles-1){
+                select.push([c,r]);
+              } else {
+                continue;
+              }
             }
           }
         }
-        entrances.push(selection[Math.floor(Math.random() * selection.length)]);
-        selection = [];
+        if(select.length > 0){
+          if(Math.random() > 0.25){
+            entrances.push(select[Math.floor(Math.random() * select.length)]);
+          }
+          select = [];
+        }
       }
     }
   };

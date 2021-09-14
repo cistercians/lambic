@@ -12,12 +12,12 @@ EvalCmd = function(data){
     if(data.cmd == 'build'){
       var farm = 0;
       var tavern = 0;
-      var blacksmith = 0;
+      var forge = 0;
       var monastery = 0;
       var garrison = 0;
       var stronghold = 0;
 
-      var all = '<b><u>TIER I</u><br>[Farm]</b>: /build farm<br><b>Lumbermill</b>: /build lumbermill<br><b>Mine</b>: /build mine<br><b>Hut</b>: /build hut<br><b>Cottage</b>: /build cottage<br><b>[Tavern]</b>: /build tavern<br><b>Tower</b>: /build tower<br><b>[Blacksmith]</b>: /build blacksmith<br><b>Fort</b>: /build fort<br><b>Outpost</b>: /build outpost<br><b>[Monastery]</b>: /build monastery<br><b>Road</b>: /build road<br>';
+      var all = '<b><u>TIER I</u><br>[Farm]</b>: /build farm<br><b>Lumbermill</b>: /build lumbermill<br><b>Mine</b>: /build mine<br><b>Hut</b>: /build hut<br><b>Cottage</b>: /build cottage<br><b>[Tavern]</b>: /build tavern<br><b>Tower</b>: /build tower<br><b>[Forge]</b>: /build forge<br><b>Fort</b>: /build fort<br><b>Outpost</b>: /build outpost<br><b>[Monastery]</b>: /build monastery<br><b>Road</b>: /build road<br>';
 
       for(var i in Building.list){
         var b = Building.list[i];
@@ -26,8 +26,8 @@ EvalCmd = function(data){
             farm++;
           } else if(b.type == 'tavern'){
             tavern++;
-          } else if(b.type == 'blacksmith'){
-            blacksmith++;
+          } else if(b.type == 'forge'){
+            forge++;
           } else if(b.type == 'monastery'){
             monastery++;
           } else if(b.type == 'garrison'){
@@ -37,7 +37,7 @@ EvalCmd = function(data){
           }
         }
       }
-      if(farm > 0 || tavern > 0 || blacksmith > 0){
+      if(farm > 0 || tavern > 0 || forge > 0){
         all += '<br><b><u>TIER II</u></b><br>';
         if(farm > 0){
           all += '<b>Mill</b>: /build mill<br>';
@@ -45,7 +45,7 @@ EvalCmd = function(data){
         if(tavern > 0){
           all += '<b>Dock</b>: /build dock<br><b>Stable</b>: /build stable<br><b>Market</b>: /build market<br>';
         }
-        if(blacksmith > 0){
+        if(forge > 0){
           all += '<b>[Garrison]</b>: /build garrison<br>';
         }
       }
@@ -1041,7 +1041,7 @@ EvalCmd = function(data){
         } else {
           socket.emit('addToChat','<i>You cannot build that there.</i>');
         }
-      } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) == 'blacksmith' && z == 0){
+      } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) == 'forge' && z == 0){
         var plot = [[c,r],[c+1,r],[c+2,r],[c,r-1],[c+1,r-1],[c+2,r-1]];
         var walls = [[c,r-2],[c+1,r-2],[c+2,r-2]];
         var perim = [[c-1,r-3],[c,r-3],[c+1,r-3],[c+2,r-3],[c+3,r-3],[c-1,r-2],[c-1,r-1],[c-1,r],[c-1,r-1],[c,r-1],[c+1,r-1],[c+2,r-1],[c+3,r-1],[c+3,r-2],[c+3,r-1],[c+3,r]];
@@ -1081,14 +1081,14 @@ EvalCmd = function(data){
               tileChange(6,n[0],n[1],0);
             }
             mapEdit();
-            Blacksmith({
+            Forge({
               owner:player.id,
               house:player.house,
               kingdom:player.kingdom,
               x:player.x,
               y:player.y,
               z:0,
-              type:'blacksmith',
+              type:'forge',
               built:false,
               plot:plot,
               walls:walls,
@@ -13555,6 +13555,330 @@ EvalCmd = function(data){
               socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
             }
           }
+        }
+      }
+    } else if(data.cmd == 'train'){
+      var permit = false;
+      if(player.house){
+        var gar = 0;
+        var stb = 0;
+        var str = 0;
+        for(var i in Building.list){
+          if(b.house == player.house){
+            if(b.type == 'garrison'){
+              gar++;
+            } else if(b.type == 'stronghold'){
+              str++;
+            } else if(b.type == 'stable'){
+              stb++;
+            }
+          }
+        }
+        if(gar > 0){
+          if(player.rank == '♞ ' || player.rank == '♜ ' || player.rank == '♚ '){
+            if(player.house.general){
+              permit = true;
+            } else {
+              if(player.z == 1 || player.z == 2){
+                var g = getBuilding(player.x,player.y);
+                var garr = Building.list[g];
+                if(garr.type == 'garrison' && garr.house == player.house){
+                  permit = true;
+                } else {
+                  socket.emit('addToChat','<i>You must be in a garrison.</i>');
+                }
+              } else {
+                socket.emit('addToChat','<i>You must be in a garrison.</i>');
+              }
+            }
+          } else {
+            socket.emit('addToChat','<i>You cannot give this order.</i>');
+          }
+        } else {
+          socket.emit('addToChat','<i>You have no garrison.</i>');
+        }
+      } else {
+        socket.emit('addToChat','<i>You cannot give this order.</i>');
+      }
+      if(permit){
+        var all = '<b>Footsoldier</b>: /train <i>Quantity</i> footsoldier<br><b>3 iron, 2 grain</b>';
+        if(str > 0){
+          all += '<br><b>Cavalier</b>: /train <i>Quantity</i> skirmisher<br><b>5 iron, 3 grain</b>';
+        }
+        if(str > 0 && stb > 0){
+          all += '<br><b>Cavalier</b>: /train <i>Quantity</i> cavalier<br><b>5 iron, 7 grain</b>';
+        }
+        socket.emit('addToChat','<p>'+all+'</p>');
+      }
+    } else if(data.cmd.slice(0,5) == 'train' && data.cmd[5] == ' '){
+      var permit = false;
+      if(player.house){
+        var gar = [];
+        var str = 0;
+        var stb = 0;
+        for(var i in Building.list){
+          var b = Building.list[i];
+          if(b.house == player.house){
+            if(b.type == 'garrison'){
+              gar.push(b.id);
+            } else if(b.type == 'stronghold'){
+              str++;
+            } else if(b.type == 'stable'){
+              stb++;
+            }
+          }
+        }
+        if(gar.length > 0){
+          if(player.rank == '♞ ' || player.rank == '♜ ' || player.rank == '♚ '){
+            if(player.house.general){
+              permit = true;
+            } else {
+              if(player.z == 1 || player.z == 2){
+                var g = getBuilding(player.x,player.y);
+                var garr = Building.list[g];
+                if(garr.type == 'garrison' && garr.house == player.house){
+                  permit = true;
+                } else {
+                  socket.emit('addToChat','<i>You must be in a garrison.</i>');
+                }
+              } else {
+                socket.emit('addToChat','<i>You must be in a garrison.</i>');
+              }
+            }
+          } else {
+            socket.emit('addToChat','<i>You cannot give this order.</i>');
+          }
+        } else {
+          socket.emit('addToChat','<i>You have no garrison.</i>');
+        }
+      } else {
+        socket.emit('addToChat','<i>You cannot give this order.</i>');
+      }
+      if(permit){
+        if(data.cmd.slice(data.cmd.indexOf(' ')+1).toLowerCase() == 'footsoldier'){
+          House.list[player.house].stores.iron -= 3 ;
+          House.list[player.house].stores.grain -= 2;
+          Building.list[gar[0]].queue.push('footsoldier');
+          console.log('Footsoldier in training');
+        } else if(data.cmd.slice(data.cmd.indexOf(' ')+1).toLowerCase() == 'skirmisher'){
+          if(str > 0){
+            House.list[player.house].stores.iron -= 5 ;
+            House.list[player.house].stores.grain -= 3;
+            Building.list[gar[0]].queue.push('skirmisher');
+            console.log('Skirmisher in training');
+          } else {
+            socket.emit('addToChat','<i>You have no stronghold.</i>');
+          }
+        } else if(data.cmd.slice(data.cmd.indexOf(' ')+1).toLowerCase() == 'cavalier'){
+          if(stb > 0){
+            if(str > 0){
+              House.list[player.house].stores.iron -= 5 ;
+              House.list[player.house].stores.grain -= 7;
+              Building.list[gar[0]].queue.push('cavalier');
+              console.log('Cavalier in training');
+            } else {
+              socket.emit('addToChat','<i>You have no stronghold.</i>');
+            }
+          } else {
+            socket.emit('addToChat','<i>You have no stable.</i>');
+          }
+        } else {
+          var order = data.cmd.slice(data.cmd.indexOf(' ')+1);
+          var q = Number(order.slice(0,order.indexOf(' '))).toFixed(0);
+          var unit = order.slice(order.indexOf(' ')+1).toLowerCase();
+          if(q < 1){
+            socket.emit('addToChat','<i>Quantity must be greater than 0.</i>');
+          } else if(Number.isNaN(q/1)){
+            socket.emit('addToChat','<i>Quantity must be a number.</i>');
+          } else {
+            var counter = 0;
+            if(unit == 'footsoldier'){
+              var iCost = 3 * q;
+              if(player.house.stores.iron > iCost){
+                var gCost = 2 * q;
+                if(player.house.stores.iron > gCost){
+                  House.list[player.house].stores.iron -= 3 * q;
+                  House.list[player.house].stores.grain -= 2 * q;
+                  for(var i = 0; i < q; i++){
+                    var id = gar[counter];
+                    Building.list[id].queue.push('footsoldier');
+                    console.log('Footsoldier in training');
+                    counter++;
+                    if(counter == gar.length){
+                      counter = 0;
+                    }
+                  }
+                } else {
+                  socket.emit('addToChat','<i>Not enough grain.</i>');
+                }
+              } else {
+                socket.emit('addToChat','<i>Not enough iron.</i>');
+              }
+            } else if(unit == 'skirmisher'){
+              if(str > 0){
+                var iCost = 5 * q;
+                if(player.house.stores.iron > iCost){
+                  var gCost = 3 * q;
+                  if(player.house.stores.iron > gCost){
+                    House.list[player.house].stores.iron -= 5 * q;
+                    House.list[player.house].stores.grain -= 3 * q;
+                    for(var i = 0; i < q; i++){
+                      var id = gar[counter];
+                      Building.list[id].queue.push('skirmisher');
+                      console.log('Skirmisher in training');
+                      counter++;
+                      if(counter == gar.length){
+                        counter = 0;
+                      }
+                    }
+                  } else {
+                    socket.emit('addToChat','<i>Not enough grain.</i>');
+                  }
+                } else {
+                  socket.emit('addToChat','<i>Not enough iron.</i>');
+                }
+              } else {
+                socket.emit('addToChat','<i>You have no stronghold.</i>');
+              }
+            } else if(unit == 'cavalier'){
+              if(stb > 0){
+                if(str > 0){
+                  var iCost = 5 * q;
+                  if(player.house.stores.iron > iCost){
+                    var gCost = 7 * q;
+                    if(player.house.stores.iron > gCost){
+                      House.list[player.house].stores.iron -= 5 * q;
+                      House.list[player.house].stores.grain -= 7 * q;
+                      for(var i = 0; i < q; i++){
+                        var id = gar[counter];
+                        Building.list[id].queue.push('cavalier');
+                        console.log('Cavalier in training');
+                        counter++;
+                        if(counter == gar.length){
+                          counter = 0;
+                        }
+                      }
+                    } else {
+                      socket.emit('addToChat','<i>Not enough grain.</i>');
+                    }
+                  } else {
+                    socket.emit('addToChat','<i>Not enough iron.</i>');
+                  }
+                } else {
+                  socket.emit('addToChat','<i>You have no stronghold.</i>');
+                }
+              } else {
+                socket.emit('addToChat','<i>You have no stable.</i>');
+              }
+            } else {
+              socket.emit('addToChat','<i>Invalid unit.</i>');
+            }
+          }
+        }
+      }
+    } else if(data.cmd == 'house'){
+      if(player.house){
+        // house report
+      } else {
+        socket.emit('addToChat','<i>You do not belong to a House.</i>');
+      }
+    } else if(data.cmd.slice(0,5) == 'house' && data.cmd[5] == ' '){
+      var b = getBuilding(player.x,player.y);
+      if(b){
+        var build = Building.list[b];
+        if(build.type == 'garrison'){
+          if(build.owner == data.id){
+            if(player.z == 2){
+              if(player.facing == 'up' && getItem(player.z,loc[0],loc[1]-1) == 'Desk'){
+                var flagcheck = 0;
+                for(var i in flags){
+                  if(flags[i][1] == 0){
+                    flagcheck++;
+                  }
+                }
+                if(flagcheck > 0){
+                  var house = data.cmd.slice(data.cmd.indexOf(' ')+1);
+                  if(house.indexOf(' ') >= 0){
+                    var name = house.slice(0,house.indexOf(' '));
+                    var f = Number(house.slice(house.indexOf(' ')+1)).toFixed(0);
+                    if(Number.isNaN(f/1) || f < 0 || f > 69){
+                      socket.emit('addToChat','<i>Flag must be a number from 0 to 69.</i>');
+                    } else {
+                      var flag = flags[f];
+                      if(flag[1] == 0){
+                        for(var i in House.list){
+                          var h = House.list[i];
+                          if(h.name == name){
+                            socket.emit('addToChat','<i>Name is taken.</i>');
+                            return;
+                          }
+                          flags[f][1] = 1;
+                          var hid = Math.random();
+                          House({
+                            id:hid,
+                            type:'player',
+                            name:name,
+                            flag:flag[0],
+                            hq:loc,
+                            hostile:false
+                          });
+                          Player.list[data.id].house = hid;
+                          convertHouse(data.id);
+                          console.log(player.name + ' has established House ' + name);
+                        }
+                      } else {
+                        socket.emit('addToChat','<i>Flag is taken.</i>');
+                      }
+                    }
+                  } else {
+                    for(var i in House.list){
+                      var h = House.list[i];
+                      if(h.name == house){
+                        socket.emit('addToChat','<i>Name is taken.</i>');
+                        return;
+                      }
+                    }
+                    var select = [];
+                    var flag = null;
+                    for(var f in flags){
+                      var fl = flags[f];
+                      if(fl[1] == 0){
+                        select.push(fl[0]);
+                      }
+                    }
+                    flag = select[Math.floor(Math.random() * select.length)];
+                    for(var i in flags){
+                      if(flags[i][0] == flag){
+                        flags[i][1] = 1;
+                      }
+                    }
+                    var hid = Math.random();
+                    House({
+                      id:hid,
+                      type:'player',
+                      name:house,
+                      flag:flag,
+                      hq:loc,
+                      hostile:false
+                    });
+                    Player.list[data.id].house = hid;
+                    convertHouse(data.id);
+                    console.log(player.name + ' has established House ' + house);
+                  }
+                } else {
+                  socket.emit('addToChat','<i>There are too many Houses.</i>');
+                }
+              } else {
+                socket.emit('addToChat','<i>Must be at the desk.</i>');
+              }
+            } else {
+              socket.emit('addToChat','<i>Must be at the desk upstairs.</i>');
+            }
+          } else {
+            socket.emit('addToChat','<i>Must be at your own Garrison.</i>');
+          }
+        } else {
+          socket.emit('addToChat','<i>Must be at a Garrison.</i>');
         }
       }
       // ALPHA HAX !!

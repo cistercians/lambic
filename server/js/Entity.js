@@ -60,14 +60,14 @@ Building = function(param){
       occ:self.occ,
       plot:self.plot,
       walls:self.walls
-    };
+    }
   }
 
   self.getUpdatePack = function(){
     return {
       id:self.id,
       occ:self.occ
-    };
+    }
   }
 
   Building.list[self.id] = self;
@@ -75,7 +75,7 @@ Building = function(param){
   initPack.building.push(self.getInitPack());
 
   return self;
-};
+}
 
 Farm = function(param){
   var self = Building(param);
@@ -386,7 +386,8 @@ Tavern = function(param){
           count++;
         }
       }
-      if(count == 4){
+      var ex = perim[2];
+      if(count == 4 && getTile(0,ex[0],ex[1]) != 0){
         count = 0;
         for(var n in perim){
           var m = getTile(0,perim[n][0],perim[n][1]);
@@ -452,7 +453,7 @@ Tavern = function(param){
       var sp2 = self.plot[14];
       var c2 = getCenter(sp2[0],sp2[1]);
       var work = {hq:b,spot:null};
-      if(s1 > 0.45){
+      if(s1 > 0.4){
         SerfM({
           id:s1,
           name:randomName('m'),
@@ -483,7 +484,7 @@ Tavern = function(param){
           tavern:self.id
         });
       }
-      if(s2 > 0.45){
+      if(s2 > 0.6){
         SerfM({
           id:s2,
           name:randomName('m'),
@@ -514,8 +515,17 @@ Tavern = function(param){
           tavern:self.id
         });
       }
-      Building.list[b].serfs[s1] = s1;
-      Building.list[b].serfs[s2] = s2;
+      if(Building.list[b].type == 'mill'){
+        Building.list[b].serfs[s1] = s1;
+        Building.list[b].serfs[s2] = s2;
+      } else {
+        if(Player.list[s1].sex == 'm'){
+          Building.list[b].serfs[s1] = s1;
+        }
+        if(Player.list[s2].sex == 'm'){
+          Building.list[b].serfs[s2] = s2;
+        }
+      }
       self.occ += 2;
       console.log('Serfs have spawned in the tavern: ' + Building.list[b].type);
     }
@@ -547,6 +557,7 @@ Market = function(param){
 
 Stable = function(param){
   var self = Building(param);
+  self.horses = 5;
 }
 
 Dock = function(param){
@@ -555,14 +566,70 @@ Dock = function(param){
 
 Garrison = function(param){
   var self = Building(param);
+  self.queue = [];
+  self.timer = 1000;
+  self.update = function(){
+    if(self.queue.length > 0){
+      if(self.timer > 0){
+        self.timer--;
+        if(self.timer == 0){
+          var sp = self.plot[7];
+          if(self.queue[0] == 'footsoldier'){
+            Footsoldier({
+              x:sp[0],
+              y:sp[1],
+              z:1,
+              house:Building.list[b].house,
+              kingdom:Building.list[b].kingdom,
+              home:{
+                z:1,
+                loc:[sp[0],sp[1]]
+              }
+            });
+          } else if(self.queue[0] == 'skirmisher'){
+            Skirmisher({
+              x:sp[0],
+              y:sp[1],
+              z:1,
+              house:Building.list[b].house,
+              kingdom:Building.list[b].kingdom,
+              home:{
+                z:1,
+                loc:[sp[0],sp[1]]
+              }
+            });
+          } else if(self.queue[0] == 'cavalier'){
+            Cavalier({
+              x:sp[0],
+              y:sp[1],
+              z:1,
+              house:Building.list[b].house,
+              kingdom:Building.list[b].kingdom,
+              home:{
+                z:1,
+                loc:[sp[0],sp[1]]
+              }
+            });
+          }
+        }
+      }
+    }
+  }
 }
 
-Blacksmith = function(param){
+Forge = function(param){
   var self = Building(param);
+  self.blacksmith = null;
 }
 
 Gate = function(param){
   var self = Building(param);
+  self.open = function(){
+
+  }
+  self.close = function(){
+
+  }
 }
 
 Stronghold = function(param){
@@ -683,12 +750,17 @@ Character = function(param){
     grain:0,
     wood:0,
     stone:0,
+    ironore:0,
     iron:0,
+    silverore:0,
     silver:0,
-    gold:0
+    goldore:0,
+    gold:0,
+    diamond:0
   }
   self.mounted = false;
   self.ranged = false;
+  self.military = false;
   self.cleric = false;
   self.stealthed = false;
   self.revealed = false;
@@ -1956,7 +2028,9 @@ Character = function(param){
           self.combat.target = null;
           self.action = null;
         } else {
-          if(self.ranged){
+          if(self.unarmed){
+            self.action = 'flee';
+          } else if(self.ranged){
             var tLoc = getLoc(target.x,target.y);
             var dist = self.getDistance({
               x:target.x,
@@ -2536,6 +2610,10 @@ Character = function(param){
   }
 
   Player.list[self.id] = self;
+
+  if(self.military){
+
+  }
 
   initPack.player.push(self.getInitPack());
   return self;
@@ -3240,9 +3318,9 @@ SerfM = function(param){
           Building.list[self.work.hq].log[self.id] = self.work.spot;
           self.action = 'task';
           if(self.work.spot){
-            console.log(self.name + ' working @ ' + self.work.spot.toString());
+            console.log(self.name + ' working @ ' + hq.type);
           } else {
-            console.log(self.name + ' failed to find work spot');
+            console.log(self.name + ' failed to find work spot @ ' + hq.type);
           }
         } else {
           var hut = Building.list[self.hut];
@@ -3816,7 +3894,7 @@ SerfM = function(param){
               self.action = 'market';
               console.log(self.name + ' heads to the market');
             } else {
-              if(rand < 0.2){
+              if(rand < 0.2 && (inv.gold > 0 || inv.silver > 0)){
                 self.action = 'market';
                 console.log(self.name + ' heads to the market');
               } else if(rand > 0.9){
@@ -3828,7 +3906,7 @@ SerfM = function(param){
               }
             }
           } else {
-            if(rand < 0.77){
+            if(rand < 0.6){
               self.action = 'tavern';
               console.log(self.name + ' heads to the tavern');
             } else {
@@ -3971,7 +4049,587 @@ SerfF = function(param){
   self.dayTimer = false;
   self.workTimer = false;
 
+  self.update = function(){
+    var loc = getLoc(self.x,self.y);
+    var b = getBuilding(self.x,self.y);
+    self.zoneCheck();
 
+    if(self.z == 0){
+      if(getTile(0,loc[0],loc[1]) == 6){
+        self.z = -1;
+        self.path = null;
+        self.pathCount = 0;
+        self.innaWoods = false;
+        self.onMtn = false;
+        self.maxSpd = self.baseSpd * self.drag;
+      } else if(getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 2){
+        self.innaWoods = true;
+        self.onMtn = false;
+        self.maxSpd = (self.baseSpd * 0.3) * self.drag;
+      } else if(getTile(0,loc[0],loc[1]) >= 2 && getTile(0,loc[0],loc[1]) < 4){
+        self.innaWoods = false;
+        self.onMtn = false;
+        self.maxSpd = (self.baseSpd * 0.5) * self.drag;
+      } else if(getTile(0,loc[0],loc[1]) >= 4 && getTile(0,loc[0],loc[1]) < 5){
+        self.innaWoods = false;
+        self.onMtn = false;
+        self.maxSpd = (self.baseSpd * 0.6) * self.drag;
+      } else if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6 && !self.onMtn){
+        self.innaWoods = false;
+        self.maxSpd = (self.baseSpd * 0.2) * self.drag;
+        setTimeout(function(){
+          if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6){
+            self.onMtn = true;
+          }
+        },2000);
+      } else if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6 && self.onMtn){
+        self.maxSpd = (self.baseSpd * 0.5) * self.drag;
+      } else if(getTile(0,loc[0],loc[1]) == 18){
+        self.innaWoods = false;
+        self.onMtn = false;
+        self.maxSpd = (self.baseSpd * 1.1) * self.drag;
+      } else if(getTile(0,loc[0],loc[1]) == 14 || getTile(0,loc[0],loc[1]) == 16 || getTile(0,loc[0],loc[1]) == 19){
+        Building.list[b].occ++;
+        self.z = 1;
+        self.path = null;
+        self.pathCount = 0;
+        self.innaWoods = false;
+        self.onMtn = false;
+        self.maxSpd = self.baseSpd * self.drag;
+      } else if(getTile(0,loc[0],loc[1]) == 0){
+        self.z = -3;
+        self.path = null;
+        self.pathCount = 0;
+        self.innaWoods = false;
+        self.onMtn = false;
+        self.maxSpd = (self.baseSpd * 0.2)  * self.drag;
+      } else {
+        self.innaWoods = false;
+        self.onMtn = false;
+        self.maxSpd = self.baseSpd  * self.drag;
+      }
+    } else if(self.z == -1){
+      if(getTile(1,loc[0],loc[1]) == 2){
+        self.z = 0;
+        self.path = null;
+        self.pathCount = 0;
+        self.innaWoods = false;
+        self.onMtn = false;
+        self.maxSpd = (self.baseSpd * 0.9)  * self.drag;
+      }
+    } else if(self.z == -2){
+      if(getTile(8,loc[0],loc[1]) == 5){
+        self.z = 1;
+        self.path = null;
+        self.pathCount = 0;
+        self.y += (tileSize/2);
+        self.facing = 'down';
+      }
+    } else if(self.z == -3){
+      if(self.breath > 0){
+        self.breath -= 0.25;
+      } else {
+        self.hp -= 0.5;
+      }
+      if(self.hp <= 0){
+        self.die({cause:'drowned'});
+      }
+      if(getTile(0,loc[0],loc[1]) != 0){
+        self.z = 0;
+        self.path = null;
+        self.pathCount = 0;
+        self.breath = self.breathMax;
+      }
+    } else if(self.z == 1){
+      if(getTile(0,loc[0],loc[1] - 1) == 14 || getTile(0,loc[0],loc[1] - 1) == 16  || getTile(0,loc[0],loc[1] - 1) == 19){
+        var exit = getBuilding(self.x,self.y-tileSize);
+        Building.list[exit].occ--;
+        self.z = 0;
+        self.path = null;
+        self.pathCount = 0;
+      } else if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4 || getTile(4,loc[0],loc[1]) == 7){
+        self.z = 2;
+        self.path = null;
+        self.pathCount = 0;
+        self.y += (tileSize/2);
+        self.facing = 'down'
+      } else if(getTile(4,loc[0],loc[1]) == 5 || getTile(4,loc[0],loc[1]) == 6){
+        self.z = -2;
+        self.path = null;
+        self.pathCount = 0;
+        self.y += (tileSize/2);
+        self.facing = 'down';
+      }
+    } else if(self.z == 2){
+      if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4){
+        self.z = 1;
+        self.path = null;
+        self.pathCount = 0;
+        self.y += (tileSize/2);
+        self.facing = 'down';
+      }
+    }
+
+    if(tempus == 'VI.a' && self.mode != 'work' && !self.dayTimer){
+      self.dayTimer = true;
+      var rand = Math.floor(Math.random() * (3600000/(period*6)));
+      setTimeout(function(){
+        self.mode = 'work';
+        self.action = null;
+        self.dayTimer = false;
+        console.log(self.name + ' heads to work');
+      },rand);
+    } else if(tempus == 'VI.p' && self.action == 'task' && !self.dayTimer){
+      self.dayTimer = true;
+      var rand = Math.floor(Math.random() * (3600000/(period*6)));
+      setTimeout(function(){
+        self.action = 'clockout';
+        self.dayTimer = false;
+        console.log(self.name + ' is clocking out');
+      },rand);
+    } else if(tempus == 'XI.p' && self.action == 'tavern' && !self.dayTimer){
+      self.dayTimer = true;
+      var rand = Math.floor(Math.random() * (3600000/(period/2)));
+      setTimeout(function(){
+        self.tether = null;
+        self.action = null;
+        self.dayTimer = false;
+        console.log(self.name + ' heads home for the night');
+      },rand);
+    }
+
+    if(self.idleTime > 0){
+      self.idleTime--;
+    }
+
+    // WORK
+    if(self.mode == 'work'){
+      var hq = Building.list[self.work.hq];
+      if(!self.action){
+        if(Building.list[self.hut].built){ // if hut is built
+          var tDist = 0;
+          var avgDist = null;
+          for(var i in hq.resources){
+            var res = hq.resources[i];
+            var r = getCenter(res[0],res[1]);
+            var dist = getDistance({x:hq.x,y:hq.y},{x:r[0],y:r[1]});
+            tDist += dist;
+          }
+          avgDist = tDist/hq.resources.length;
+          var select = [];
+          for(var i in hq.resources){
+            var res = hq.resources[i];
+            var r = getCenter(res[0],res[1]);
+            var dist = getDistance({x:hq.x,y:hq.y},{x:r[0],y:r[1]});
+            if(dist <= avgDist){
+              select.push(res);
+            }
+          }
+          self.work.spot = select[Math.floor(Math.random() * select.length)];
+          Building.list[self.work.hq].log[self.id] = self.work.spot;
+          self.action = 'task';
+          if(self.work.spot){
+            console.log(self.name + ' working @ ' + hq.type);
+          } else {
+            console.log(self.name + ' failed to find work spot @ ' + hq.type);
+          }
+        } else {
+          var hut = Building.list[self.hut];
+          var select = [];
+          for(var i in hut.plot){
+            var p = hut.plot[i];
+            var t = getTile(0,p[0],p[1]);
+            if(t == 11){
+              select.push(p);
+            }
+          }
+          self.work.spot = select[Math.floor(Math.random() * select.length)];
+          self.action = 'build';
+        }
+      } else if(self.action == 'build'){
+        var spot = self.work.spot;
+        var cs = getCenter(spot[0],spot[1]);
+        var build = getBuilding(cs[0],cs[1]);
+        if(Building.list[build].built){
+          self.work.spot = null;
+          self.action = null;
+        } else {
+          if(loc.toString() == spot.toString()){
+              var gt = getTile(0,spot[0],spot[1]);
+              if(gt == 11){
+                if(!self.building){
+                  Build(self.id);
+                }
+              } else {
+                var plot = Building.list[build].plot;
+                var select = [];
+                for(var i in plot){
+                  var p = plot[i];
+                  var t = getTile(0,p[0],p[1]);
+                  if(t == 11){
+                    select.push(p);
+                  }
+                }
+                self.work.spot = select[Math.floor(Math.random() * select.length)];
+              }
+          } else {
+            if(!self.path){
+              self.getPath(0,spot[0],spot[1]);
+            }
+          }
+        }
+      } else if(self.action == 'task'){
+        var spot = self.work.spot;
+        if(!spot){
+          self.action = null;
+        } else {
+          if(self.inventory.grain == 10){
+            var b = Building.list[self.work.hq];
+            var dropoff = [b.plot[0][0],b.plot[0][1]+1];
+            if(loc.toString() == dropoff.toString()){
+              self.facing = 'up';
+              self.inventory.grain -= 9;
+              if(Player.list[b.owner].house){
+                var h = Player.list[b.owner].house;
+                House.list[h].stores.grain += 6;
+              } else {
+                Player.list[b.owner].stores.grain += 6
+              }
+              self.inventory.flour += 3;
+            } else {
+              if(!self.path){
+                self.getPath(0,dropoff[0],dropoff[1]);
+              }
+            }
+          } else {
+            if(loc.toString() == spot.toString()){
+              var tile = getTile(0,spot[0],spot[1]);
+              var res = getTile(6,spot[0],spot[1]);
+              self.working = true;
+              self.farming = true;
+              if(!self.workTimer){
+                self.workTimer = true;
+                setTimeout(function(){
+                  if(self.farming){
+                    var b = getBuilding(self.x,self.y);
+                    var f = Building.list[b];
+                    if(tile == 8){
+                      tileChange(6,spot[0],spot[1],1,true);
+                      var count = 0;
+                      var next = [];
+                      for(var i in f.plot){
+                        var p = f.plot[i];
+                        if(getTile(6,p[0],p[1]) >= 25){
+                          count++;
+                        } else {
+                          next.push(p);
+                        }
+                      }
+                      if(count == 9){
+                        for(var i in f.plot){
+                          var p = f.plot[i];
+                          tileChange(0,p[0],p[1],9);
+                        }
+                        mapEdit();
+                      } else {
+                        for(var n in hq.resources){
+                          var r = hq.resources[n];
+                          if(r.toString() == spot.toString()){
+                            Building.list[self.work.hq].resources.splice(n,1);
+                          }
+                        }
+                        var rand = Math.floor(Math.random() * next.length);
+                        self.work.spot = next[rand];
+                        Building.list[self.work.hq].log[self.id] = self.work.spot;
+                      }
+                    } else if(tile == 9){
+                      tileChange(6,spot[0],spot[1],1,true);
+                      var count = 0;
+                      var next = [];
+                      for(var i in f.plot){
+                        var p = f.plot[i];
+                        if(getTile(6,p[0],p[1]) >= 50){
+                          count++;
+                        }
+                      }
+                      if(count == 9){
+                        for(var i in f.plot){
+                          var p = f.plot[i];
+                          tileChange(0,p[0],p[1],10);
+                        }
+                        mapEdit();
+                      } else {
+                        for(var n in hq.resources){
+                          var r = hq.resources[n];
+                          if(r.toString() == spot.toString()){
+                            Building.list[self.work.hq].resources.splice(n,1);
+                          }
+                        }
+                        var rand = Math.floor(Math.random() * next.length);
+                        self.work.spot = next[rand];
+                        Building.list[self.work.hq].log[self.id] = self.work.spot;
+                      }
+                    } else {
+                      tileChange(6,spot[0],spot[1],-1,true);
+                      if(getTile(6,spot[0],spot[1]) == 0){
+                        tileChange(0,spot[0],spot[1],8);
+                        var count = 0;
+                        var next = [];
+                        for(var i in f.plot){
+                          var p = f.plot[i]
+                          var t = getTile(0,p[0],p[1]);
+                          if(t == 8){
+                            count++;
+                          } else {
+                            next.push(p);
+                          }
+                        }
+                        if(count == 9){
+                          for(var n in f.plot){
+                            var p = f.plot[n];
+                            if(p.toString() == spot.toString()){
+                              continue;
+                            } else {
+                              Building.list[self.work.hq].resources.push(p);
+                            }
+                          }
+                        } else {
+                          for(var n in hq.resources){
+                            var r = hq.resources[n];
+                            if(r.toString() == spot.toString()){
+                              Building.list[self.work.hq].resources.splice(n,1);
+                            }
+                          }
+                          var rand = Math.floor(Math.random() * next.length);
+                          self.work.spot = next[rand];
+                          Building.list[self.work.hq].log[self.id] = self.work.spot;
+                        }
+                      }
+                      mapEdit();
+                    }
+                  }
+                  self.workTimer = false;
+                  self.working = false;
+                  self.farming = false;
+                },10000/self.strength);
+              }
+            } else {
+              if(!self.path){
+                self.getPath(0,spot[0],spot[1]);
+              }
+            }
+          }
+        }
+      } else if(self.action == 'clockout'){
+        self.working = false;
+        self.building = false;
+        self.farming = false;
+        self.chopping = false;
+        self.mining = false;
+        var b = Building.list[self.work.hq];
+        var drop = [b.plot[0][0],b.plot[0][1]+1];
+        if(loc.toString() == drop.toString()){
+          self.facing = 'up';
+          if(self.inventory.grain >= 3){
+            self.inventory.grain -= 3;
+            if(Player.list[b.owner].house){
+              var h = Player.list[b.owner].house;
+              House.list[h].stores.grain += 2;
+            } else {
+              Player.list[b.owner].stores.grain += 2
+            }
+            self.inventory.flour++;
+          } else {
+            self.mode = 'idle';
+          }
+        } else {
+          if(!self.path){
+            self.getPath(0,drop[0],drop[1]);
+          }
+        }
+      } else if(self.action == 'combat'){
+        self.action = 'flee';
+      } else if(self.action == 'flee'){
+        if(self.combat.target){
+          var target = Player.list[self.combat.target];
+          if(target){
+            var tLoc = getLoc(target.x,target.y);
+            self.reposition(loc,tLoc);
+          } else {
+            self.combat.target = null;
+            self.action = null;
+          }
+        } else {
+          self.action = null;
+        }
+      }
+      // IDLE
+    } else if(self.mode == 'idle'){
+      if(!self.action){
+        var cHome = getCenter(self.home.loc[0],self.home.loc[1]);
+        var hDist = self.getDistance({
+          x:cHome[0],
+          y:cHome[1]
+        });
+        if(hDist > self.wanderRange){
+          if(!self.path){
+            self.return();
+          }
+        } else if(self.idleTime == 0){
+          var col = loc[0];
+          var row = loc[1];
+          var select = [[col,row-1],[col-1,row],[col,row+1],[col+1,row]];
+          var target = select[Math.floor(Math.random() * 4)];
+          if(target[0] < mapSize && target[0] > -1 && target[1] < mapSize && target[1] > -1){
+            if(isWalkable(self.z,target[0],target[1])){
+              self.move(target);
+              self.idleTime += Math.floor(Math.random() * self.idleRange);
+            }
+          }
+        }
+      } else if(self.action == 'clockout'){
+        var rand = Math.random();
+        if(self.tavern){
+          if(Building.list[self.tavern].market){
+            var inv = self.inventory;
+            if(inv.flour > 0 || inv.wood > 0 || inv.stone > 0 || inv.ironore > 0){
+              self.action = 'market';
+              console.log(self.name + ' heads to the market');
+            } else {
+              if(rand < 0.2 && (inv.gold > 0 || inv.silver > 0)){
+                self.action = 'market';
+                console.log(self.name + ' heads to the market');
+              } else if(rand > 0.8){
+                self.action = 'tavern';
+                console.log(self.name + ' heads to the tavern');
+              } else {
+                self.action = null;
+                console.log(self.name + ' heads home for the night');
+              }
+            }
+          } else {
+            if(rand < 0.8){
+              self.action = null;
+              console.log(self.name + ' heads home for the night');
+            } else {
+              self.action = 'tavern';
+              console.log(self.name + ' heads to the tavern');
+            }
+          }
+        } else {
+          self.action = null;
+          console.log(self.name + ' heads home for the night');
+        }
+      } else if(self.action == 'market'){
+        var market = Building.list[self.tavern].market;
+        var m = Building.list[market];
+        if(getBuilding(self.x,self.y) != market){
+          if(!self.path){
+            var rand = Math.floor(Math.random() * m.plot.length);
+            var dest = m.plot[rand];
+            self.tether = {z:1,loc:dest};
+            self.getPath(1,dest[0],dest[1]);
+          }
+        } else {
+          var inv = self.inventory;
+          // if has inventory, sell inventory
+          if(inv.bread > 0){
+            // sell
+          } else {
+            if(inv.silver > 0 || inv.gold > 0){
+              // buy something nice
+            }
+            if(!self.dayTimer){
+              self.dayTimer = true;
+              var rand = Math.floor(Math.random() * (3600000/(period/3)));
+              setTimeout(function(){
+                self.tether = null;
+                self.action = null;
+                self.dayTimer = false;
+                console.log(self.name + ' heads home for the night');
+              },rand);
+            }
+            var ct = getCenter(self.tether.loc[0],self.tether.loc[1]);
+            var tDist = self.getDistance({
+              x:ct[0],
+              y:ct[1]
+            });
+            if(tDist > self.wanderRange){
+              if(!self.path){
+                self.return();
+              }
+            } else if(self.idleTime == 0){
+              var col = loc[0];
+              var row = loc[1];
+              var select = [[col,row-1],[col-1,row],[col,row+1],[col+1,row]];
+              var target = select[Math.floor(Math.random() * 4)];
+              if(target[0] < mapSize && target[0] > -1 && target[1] < mapSize && target[1] > -1){
+                if(isWalkable(self.z,target[0],target[1])){
+                  self.move(target);
+                  self.idleTime += Math.floor(Math.random() * self.idleRange);
+                }
+              }
+            }
+          }
+        }
+      } else if(self.action == 'tavern'){
+        var t = Building.list[self.tavern];
+        if(getBuilding(self.x,self.y) != self.tavern){
+          if(!self.path){
+            var select = [];
+            for(var i in t.plot){
+              var p = t.plot[i];
+              if(isWalkable(1,p[0],p[1])){
+                select.push(p);
+              }
+            }
+            var rand = Math.floor(Math.random() * select.length);
+            var dest = select[rand];
+            self.tether = {z:1,loc:dest};
+            self.getPath(1,dest[0],dest[1]);
+          }
+        } else {
+          var ct = getCenter(self.tether.loc[0],self.tether.loc[1]);
+          var tDist = self.getDistance({
+            x:ct[0],
+            y:ct[1]
+          });
+          if(tDist > self.wanderRange){
+            if(!self.path){
+              self.return();
+            }
+          } else if(self.idleTime == 0){
+            var col = loc[0];
+            var row = loc[1];
+            var select = [[col,row-1],[col-1,row],[col,row+1],[col+1,row]];
+            var target = select[Math.floor(Math.random() * 4)];
+            if(target[0] < mapSize && target[0] > -1 && target[1] < mapSize && target[1] > -1){
+              if(isWalkable(self.z,target[0],target[1])){
+                self.move(target);
+                self.idleTime += Math.floor(Math.random() * self.idleRange);
+              }
+            }
+          }
+        }
+      } else if(self.action == 'combat'){
+        self.action = 'flee';
+      } else if(self.action == 'flee'){
+        if(self.combat.target){
+          var target = Player.list[self.combat.target];
+          if(target){
+            var tLoc = getLoc(target.x,target.y);
+            self.reposition(loc,tLoc);
+          } else {
+            self.combat.target = null;
+            self.action = null;
+          }
+        } else {
+          self.action = null;
+        }
+      }
+    }
+    self.updatePosition();
+  }
 }
 
 Innkeeper = function(param){
@@ -3982,6 +4640,265 @@ Innkeeper = function(param){
   self.baseSpd = 3;
   self.torchBearer = true;
   self.unarmed = true;
+}
+
+Blacksmith = function(param){
+  var self = Character(param);
+  self.name = param.name;
+  self.class = 'SerfM';
+  self.unarmed = true;
+  self.forge = param.forge;
+  self.work = 100;
+
+  self.update = function(){
+    var loc = getLoc(self.x,self.y);
+    var b = getBuilding(self.x,self.y);
+    self.zoneCheck();
+
+    if(self.z == 0){
+      if(getTile(0,loc[0],loc[1]) == 6){
+        self.z = -1;
+        self.path = null;
+        self.pathCount = 0;
+        self.innaWoods = false;
+        self.onMtn = false;
+        self.maxSpd = self.baseSpd * self.drag;
+      } else if(getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 2){
+        self.innaWoods = true;
+        self.onMtn = false;
+        self.maxSpd = (self.baseSpd * 0.3) * self.drag;
+      } else if(getTile(0,loc[0],loc[1]) >= 2 && getTile(0,loc[0],loc[1]) < 4){
+        self.innaWoods = false;
+        self.onMtn = false;
+        self.maxSpd = (self.baseSpd * 0.5) * self.drag;
+      } else if(getTile(0,loc[0],loc[1]) >= 4 && getTile(0,loc[0],loc[1]) < 5){
+        self.innaWoods = false;
+        self.onMtn = false;
+        self.maxSpd = (self.baseSpd * 0.6) * self.drag;
+      } else if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6 && !self.onMtn){
+        self.innaWoods = false;
+        self.maxSpd = (self.baseSpd * 0.2) * self.drag;
+        setTimeout(function(){
+          if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6){
+            self.onMtn = true;
+          }
+        },2000);
+      } else if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6 && self.onMtn){
+        self.maxSpd = (self.baseSpd * 0.5) * self.drag;
+      } else if(getTile(0,loc[0],loc[1]) == 18){
+        self.innaWoods = false;
+        self.onMtn = false;
+        self.maxSpd = (self.baseSpd * 1.1) * self.drag;
+      } else if(getTile(0,loc[0],loc[1]) == 14 || getTile(0,loc[0],loc[1]) == 16 || getTile(0,loc[0],loc[1]) == 19){
+        Building.list[b].occ++;
+        self.z = 1;
+        self.path = null;
+        self.pathCount = 0;
+        self.innaWoods = false;
+        self.onMtn = false;
+        self.maxSpd = self.baseSpd * self.drag;
+      } else if(getTile(0,loc[0],loc[1]) == 0){
+        self.z = -3;
+        self.path = null;
+        self.pathCount = 0;
+        self.innaWoods = false;
+        self.onMtn = false;
+        self.maxSpd = (self.baseSpd * 0.2)  * self.drag;
+      } else {
+        self.innaWoods = false;
+        self.onMtn = false;
+        self.maxSpd = self.baseSpd  * self.drag;
+      }
+    } else if(self.z == -1){
+      if(getTile(1,loc[0],loc[1]) == 2){
+        self.z = 0;
+        self.path = null;
+        self.pathCount = 0;
+        self.innaWoods = false;
+        self.onMtn = false;
+        self.maxSpd = (self.baseSpd * 0.9)  * self.drag;
+      }
+    } else if(self.z == -2){
+      if(getTile(8,loc[0],loc[1]) == 5){
+        self.z = 1;
+        self.path = null;
+        self.pathCount = 0;
+        self.y += (tileSize/2);
+        self.facing = 'down';
+      }
+    } else if(self.z == -3){
+      if(self.breath > 0){
+        self.breath -= 0.25;
+      } else {
+        self.hp -= 0.5;
+      }
+      if(self.hp <= 0){
+        self.die({cause:'drowned'});
+      }
+      if(getTile(0,loc[0],loc[1]) != 0){
+        self.z = 0;
+        self.path = null;
+        self.pathCount = 0;
+        self.breath = self.breathMax;
+      }
+    } else if(self.z == 1){
+      if(getTile(0,loc[0],loc[1] - 1) == 14 || getTile(0,loc[0],loc[1] - 1) == 16  || getTile(0,loc[0],loc[1] - 1) == 19){
+        var exit = getBuilding(self.x,self.y-tileSize);
+        Building.list[exit].occ--;
+        self.z = 0;
+        self.path = null;
+        self.pathCount = 0;
+      } else if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4 || getTile(4,loc[0],loc[1]) == 7){
+        self.z = 2;
+        self.path = null;
+        self.pathCount = 0;
+        self.y += (tileSize/2);
+        self.facing = 'down'
+      } else if(getTile(4,loc[0],loc[1]) == 5 || getTile(4,loc[0],loc[1]) == 6){
+        self.z = -2;
+        self.path = null;
+        self.pathCount = 0;
+        self.y += (tileSize/2);
+        self.facing = 'down';
+      }
+    } else if(self.z == 2){
+      if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4){
+        self.z = 1;
+        self.path = null;
+        self.pathCount = 0;
+        self.y += (tileSize/2);
+        self.facing = 'down';
+      }
+    }
+
+    if(self.idleTime > 0){
+      self.idleTime--;
+    }
+
+    //WORK
+    if(self.mode == 'work'){
+      if(self.loc.toString() != self.home.loc.toString()){
+        if(!self.path){
+          self.return();
+        }
+      } else {
+        if(!self.action){
+          self.facing = 'right';
+          self.working = true;
+          self.building = true;
+          if(self.work > 0){
+            self.work--;
+          } else {
+            if(self.house){
+              var goldore = House.list[self.house].stores.goldore;
+              var silverore = House.list[self.house].stores.silverore;
+              var ironore = House.list[self.house].stores.ironore;
+              if(goldore > 0){
+                House.list[self.house].stores.goldore--;
+                House.list[self.house].stores.gold++;
+                console.log('Blacksmith: +1 gold');
+                self.work += 100;
+              } else if(silverore > 0){
+                House.list[self.house].stores.silverore--;
+                House.list[self.house].stores.silver++;
+                console.log('Blacksmith: +1 silver');
+                self.work += 100;
+              } else if(ironore > 0){
+                House.list[self.house].stores.ironore--;
+                House.list[self.house].stores.iron++;
+                console.log('Blacksmith: +1 iron');
+                self.work += 100;
+              } else {
+                self.mode = 'idle';
+                console.log('Blacksmith done');
+              }
+            } else {
+              var p = Building.list[self.forge].owner;
+              var goldore = Player.list[p].stores.goldore;
+              var silverore = Player.list[p].stores.silverore;
+              var ironore = Player.list[p].stores.ironore;
+              if(goldore > 0){
+                Player.list[p].stores.goldore--;
+                Player.list[p].stores.gold++;
+                console.log('Blacksmith: +1 gold');
+                self.work += 100;
+              } else if(silverore > 0){
+                Player.list[p].stores.silverore--;
+                Player.list[p].stores.silver++;
+                console.log('Blacksmith: +1 silver');
+                self.work += 100;
+              } else if(ironore > 0){
+                Player.list[p].stores.ironore--;
+                Player.list[p].stores.iron++;
+                console.log('Blacksmith: +1 iron');
+                self.work += 100;
+              } else {
+                self.mode = 'idle';
+                console.log('Blacksmith done');
+              }
+            }
+          }
+        } else if(self.action == 'combat'){
+          self.action = 'flee';
+        } else if(self.action == 'flee'){
+          if(self.combat.target){
+            var target = Player.list[self.combat.target];
+            if(target){
+              var tLoc = getLoc(target.x,target.y);
+              self.reposition(loc,tLoc);
+            } else {
+              self.combat.target = null;
+              self.action = null;
+            }
+          } else {
+            self.action = null;
+          }
+        }
+      }
+      //IDLE
+    } else if(self.mode == 'idle'){
+      if(!self.action){
+        var cHome = getCenter(self.home.loc[0],self.home.loc[1]);
+        var hDist = self.getDistance({
+          x:cHome[0],
+          y:cHome[1]
+        });
+        if(hDist > self.wanderRange){
+          if(!self.path){
+            self.return();
+          }
+        } else if(self.idleTime == 0){
+          var col = loc[0];
+          var row = loc[1];
+          var select = [[col,row-1],[col-1,row],[col,row+1],[col+1,row]];
+          var target = select[Math.floor(Math.random() * 4)];
+          if(target[0] < mapSize && target[0] > -1 && target[1] < mapSize && target[1] > -1){
+            if(isWalkable(self.z,target[0],target[1])){
+              self.move(target);
+              self.idleTime += Math.floor(Math.random() * self.idleRange);
+            }
+          }
+        }
+      } else if(self.action == 'combat'){
+        self.action = 'flee';
+      } else if(self.action == 'flee'){
+        if(self.combat.target){
+          var target = Player.list[self.combat.target];
+          if(target){
+            var tLoc = getLoc(target.x,target.y);
+            self.reposition(loc,tLoc);
+          } else {
+            self.combat.target = null;
+            self.action = null;
+          }
+        } else {
+          self.action = null;
+        }
+      }
+    }
+    self.updatePosition();
+  }
+  Building.list[self.forge].blacksmith = self.id;
 }
 
 Monk = function(param){
@@ -4026,6 +4943,7 @@ Footsoldier = function(param){
   var self = Character(param);
   self.name = 'Footsoldier';
   self.class = 'Footsoldier';
+  self.military = true;
   self.spriteSize = tileSize*1.5;
   self.baseSpd = 3.5;
   self.damage = 10;
@@ -4035,6 +4953,7 @@ Skirmisher = function(param){
   var self = Character(param);
   self.name = 'Skirmisher';
   self.class = 'Skirmisher';
+  self.military = true;
   self.spriteSize = tileSize*1.5;
   self.baseSpd = 3.5;
   self.damage = 15;
@@ -4044,6 +4963,7 @@ Cavalier = function(param){
   var self = Character(param);
   self.name = 'Cavalier';
   self.class = 'Cavalier';
+  self.military = true;
   self.rank = '♞ ';
   self.spriteSize = tileSize*1.5;
   self.mounted = true;
@@ -4211,6 +5131,7 @@ Goth = function(param){
   var self = Character(param);
   self.name = 'Goth';
   self.class = 'Goth';
+  self.military = true;
   self.spriteSize = tileSize*1.5;
   self.damage = 10;
 }
@@ -4219,6 +5140,7 @@ Cataphract = function(param){
   var self = Character(param);
   self.name = 'Cataphract';
   self.class = 'Cataphract';
+  self.military = true;
   self.rank = '♞ ';
   self.mounted = true;
   self.spriteSize = tileSize*3;
@@ -4269,6 +5191,7 @@ NorseSword = function(param){
   var self = Character(param);
   self.name = 'Norseman';
   self.class = 'NorseSword';
+  self.military = true;
   self.spriteSize = tileSize*1.5;
   self.damage = 15;
 }
@@ -4277,6 +5200,7 @@ NorseSpear = function(param){
   var self = Character(param);
   self.name = 'Norseman';
   self.class = 'NorseSpear';
+  self.military = true;
   self.spriteSize = tileSize*1.5;
   self.damage = 15;
 }
@@ -4285,6 +5209,7 @@ Huskarl = function(param){
   var self = Character(param);
   self.name = 'Huskarl';
   self.class = 'Huskarl';
+  self.military = true;
   self.rank = '♞ ';
   self.spriteSize = tileSize*1.5;
   self.baseSpd = 3;
@@ -4295,6 +5220,7 @@ FrankSword = function(param){
   var self = Character(param);
   self.name = 'Frank';
   self.class = 'FrankSword';
+  self.military = true;
   self.damage = 10;
 }
 
@@ -4302,6 +5228,7 @@ FrankSpear = function(param){
   var self = Character(param);
   self.name = 'Frank';
   self.class = 'FrankSpear';
+  self.military = true;
   self.spriteSize = tileSize*2;
   self.damage = 10;
 }
@@ -4310,6 +5237,7 @@ FrankBow = function(param){
   var self = Character(param);
   self.name = 'Frank';
   self.class = 'FrankBow';
+  self.military = true;
   self.spriteSize = tileSize*1.5;
   self.ranged = true;
   self.damage = 5;
@@ -4329,6 +5257,7 @@ Carolingian = function(param){
   var self = Character(param);
   self.name = 'Carolingian';
   self.class = 'Carolingian';
+  self.military = true;
   self.rank = '♞ ';
   self.mounted = true;
   self.baseSpd = 6;
@@ -4361,6 +5290,7 @@ CeltAxe = function(param){
   var self = Character(param);
   self.name = 'Celt';
   self.class = 'CeltAxe';
+  self.military = true;
   self.spriteSize = tileSize*1.5;
   self.damage = 10;
 }
@@ -4369,6 +5299,7 @@ CeltSpear = function(param){
   var self = Character(param);
   self.name = 'Celt';
   self.class = 'CeltSpear';
+  self.military = true;
   self.spriteSize = tileSize*2;
   self.damage = 10;
 }
@@ -4377,6 +5308,7 @@ Headhunter = function(param){
   var self = Character(param);
   self.name = 'Headhunter';
   self.class = 'Headhunter';
+  self.military = true;
   self.rank = '♞ ';
   self.baseSpd = 7;
   self.mounted = true;
@@ -4400,6 +5332,7 @@ ScoutShip = function(param){
   var self = Character(param);
   self.name = 'Scout Ship';
   self.class = 'ScoutShip';
+  self.military = true;
   self.ranged = true;
   self.torchBearer = true;
   self.damage = 10;
@@ -4409,6 +5342,7 @@ Longship = function(param){
   var self = Character(param);
   self.name = 'Longship';
   self.class = 'Longship';
+  self.military = true;
   self.ranged = true;
   self.torchBearer = true;
   self.damage = 10;
@@ -4439,6 +5373,7 @@ TeutonPike = function(param){
   var self = Character(param);
   self.name = 'Teuton';
   self.class = 'TeutonPike';
+  self.military = true;
   self.spriteSize = tileSize*2;
   self.damage = 15;
 }
@@ -4447,6 +5382,7 @@ TeutonBow = function(param){
   var self = Character(param);
   self.name = 'Teuton';
   self.class = 'TeutonBow';
+  self.military = true;
   self.spriteSize = tileSize*1.5;
   self.ranged = true;
   self.damage = 10;
@@ -4456,6 +5392,7 @@ TeutonicKnight = function(param){
   var self = Character(param);
   self.name = 'Teutonic Knight';
   self.class = 'TeutonicKnight';
+  self.military = true;
   self.rank = '♞ ';
   self.mounted = true;
   self.baseSpd = 6;
@@ -4472,10 +5409,10 @@ Prior = function(param){
   self.torchBearer = true;
 }
 
-Duke = function(param){
+Archbishop = function(param){
   var self = Character(param);
-  self.name = 'Duke';
-  self.class = 'Duke';
+  self.name = 'Archbishop';
+  self.class = 'Archbishop';
   self.rank = '♝ ';
   self.spriteSize = tileSize*1.5;
   self.cleric = true;
@@ -4511,15 +5448,18 @@ Trapper = function(param){
   self.stealthTimer = false;
   var super_update = self.update;
   self.update = function(){
-    if((nightfall || self.innaWoods) && !self.stealthTimer && self.action != 'combat'){
-      self.stealthTimer = true;
-      setTimeout(function(){
-        if(nightfall || self.innaWoods){
-          self.stealthed = true;
-          self.stealthTimer = false;
-        }
-      },3000);
+    if(!self.stealthed){
+      if(((self.z == 0 && (nightfall || self.innaWoods)) || self.z == -1 || self.z == -2) && !self.stealthTimer && !self.action){
+        self.stealthTimer = true;
+        setTimeout(function(){
+          if(((self.z == 0 && (nightfall || self.innaWoods)) || self.z == -1 || self.z == -2) && !self.action){
+            self.stealthed = true;
+            self.stealthTimer = false;
+          }
+        },3000);
+      }
     }
+    super_update();
   }
 }
 
@@ -4556,15 +5496,18 @@ Cutthroat = function(param){
   self.stealthTimer = false;
   var super_update = self.update;
   self.update = function(){
-    if((nightfall || self.innaWoods) && !self.stealthTimer && self.action != 'combat'){
-      self.stealthTimer = true;
-      setTimeout(function(){
-        if(nightfall || self.innaWoods){
-          self.stealthed = true;
-          self.stealthTimer = false;
-        }
-      },3000);
+    if(!self.stealthed){
+      if(((self.z == 0 && (nightfall || self.innaWoods)) || self.z == -1 || self.z == -2) && !self.stealthTimer && !self.action){
+        self.stealthTimer = true;
+        setTimeout(function(){
+          if(((self.z == 0 && (nightfall || self.innaWoods)) || self.z == -1 || self.z == -2) && !self.action){
+            self.stealthed = true;
+            self.stealthTimer = false;
+          }
+        },3000);
+      }
     }
+    super_update();
   }
 }
 
@@ -4920,25 +5863,25 @@ IronOre = function(param){
 }
 
 // IRON BAR
-IronBar = function(param){
+Iron = function(param){
   var self = Item(param);
-  self.type = 'IronBar';
+  self.type = 'Iron';
   self.class = 'resource';
   self.rank = 0;
   self.canPickup = true;
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.ironbar > 9){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>IronBar</b>.');
-    } else if(player.inventory.ironbar + self.qty > 10){
-      var q = 10 - player.inventory.ironbar;
+    if(player.inventory.iron > 9){
+      socket.emit('addToChat','<i>You are already carrying too much</i> <b>Iron</b>.');
+    } else if(player.inventory.iron + self.qty > 10){
+      var q = 10 - player.inventory.iron;
       self.qty -= q;
-      Player.list[id].inventory.ironbar += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>IronBar</b>.');
+      Player.list[id].inventory.iron += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Iron</b>.');
     } else {
-      Player.list[id].inventory.ironbar += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>IronBar</b>.');
+      Player.list[id].inventory.iron += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Iron</b>.');
       self.toRemove = true;
     }
   }
@@ -4948,25 +5891,25 @@ IronBar = function(param){
 }
 
 // STEEL BAR
-SteelBar = function(param){
+Steel = function(param){
   var self = Item(param);
-  self.type = 'SteelBar';
+  self.type = 'Steel';
   self.class = 'resource';
   self.rank = 0;
   self.canPickup = true;
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
-    if(player.inventory.steelbar > 9){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>SteelBar</b>.');
-    } else if(player.inventory.steelbar + self.qty > 10){
-      var q = 10 - player.inventory.steelbar;
+    if(player.inventory.steel > 9){
+      socket.emit('addToChat','<i>You are already carrying too much</i> <b>Steel</b>.');
+    } else if(player.inventory.steel + self.qty > 10){
+      var q = 10 - player.inventory.steel;
       self.qty -= q;
-      Player.list[id].inventory.steelbar += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>SteelBar</b>.');
+      Player.list[id].inventory.steel += q;
+      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Steel</b>.');
     } else {
-      Player.list[id].inventory.steelbar += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>SteelBar</b>.');
+      Player.list[id].inventory.steel += self.qty;
+      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Steel</b>.');
       self.toRemove = true;
     }
   }
@@ -6195,10 +7138,10 @@ Fireplace = function(param){
   return self;
 }
 
-// FORGE
-Forge = function(param){
+// FURNACE
+Furnace = function(param){
   var self = Item(param);
-  self.type = 'Forge';
+  self.type = 'Furnace';
   self.class = 'environment';
   self.rank = 0;
   self.canPickup = false;

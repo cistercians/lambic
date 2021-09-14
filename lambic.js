@@ -581,7 +581,7 @@ getItem = function(z,c,r){
   }
 }
 
-// get building id from (z,x,y)
+// get building id from (x,y)
 getBuilding = function(x,y){
   var loc = getLoc(x,y);
   for(var i in Building.list){
@@ -1350,14 +1350,14 @@ Player = function(param){
 
     // HORSE
     if(self.pressingH && self.actionCooldown == 0 && !self.working){
-      var socket = SOCKET_LIST[self.id];
-      if(self.hasHorse){
-        if(self.mounted){
-          self.actionCooldown = 10;
-          self.mounted = false;
-          self.baseSpd -= 3;
-          self.mountCooldown = 200;
-        } else {
+    var socket = SOCKET_LIST[self.id];
+      if(self.mounted){
+        self.actionCooldown = 10;
+        self.mounted = false;
+        self.baseSpd -= 3;
+        self.mountCooldown = 200;
+      } else {
+        if(self.hasHorse){
           if(self.gear.armor && self.gear.armor.type !== 'cloth'){
             if(self.mountCooldown == 0){
               self.actionCooldown = 10;
@@ -1369,9 +1369,9 @@ Player = function(param){
           } else {
             socket.emit('addToChat','<i>You are not wearing any riding gear.</i>');
           }
+        } else {
+          socket.emit('addToChat','<i>You do not own a horse.</i>');
         }
-      } else {
-        socket.emit('addToChat','<i>You do not own a horse.</i>');
       }
     }
 
@@ -1717,7 +1717,7 @@ Player = function(param){
           self.working = true;
           self.fishing = true;
           setTimeout(function(){
-            if(self.working){
+            if(self.fishing){
               self.working = false;
               self.fishing = false;
               self.inventory.fish++;

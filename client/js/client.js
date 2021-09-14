@@ -1808,7 +1808,7 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
-    } else if(self.type == 'Forge'){
+    } else if(self.type == 'Furnace'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
@@ -2583,8 +2583,8 @@ socket.on('update',function(data){
         p.sprite = teutonicknight;
       } else if(p.class == 'Trebuchet'){
         p.sprite = trebuchet;
-      } else if(p.class == 'Oathkeeper' || p.class == 'Duke'){
-        p.sprite = duke;
+      } else if(p.class == 'Oathkeeper' || p.class == 'Archbishop'){
+        p.sprite = archbishop;
       } else if(p.class == 'DarkEntity'){
         p.sprite = darkentity;
       } else if(p.class == 'Goth' || p.class == 'NorseSword'){

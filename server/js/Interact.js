@@ -1,5 +1,6 @@
 Interact = function(id,loc){
   var player = Player.list[id];
+  var socket = SOCKET_LIST[id];
   if(player.z == 0){
     var c = getCenter(loc[0],loc[1]);
     var b = getBuilding(c[0],c[1]);
@@ -60,14 +61,38 @@ Interact = function(id,loc){
           }
         }
       } else if(building.type == 'stable'){
+        if(building.horses > 0){
 
+        }
       } else if(building.type == 'dock'){
 
       }
-    } else { // item
+    } else { // item outside
 
     }
-  } else {
+  } else { // item inside, in cave, in dungeon or underwater
+    var item = getItem(player.z,loc[0],loc[1]);
+    if(item == 'Anvil'){
 
+    } else if(item == 'Desk'){
+      var c = getCenter(loc[0],loc[1]);
+      var b = getBuilding(c[0],c[1]);
+      var build = Building.list[b];
+      if(build.type == 'market'){ // access bank account
+
+      } else if(build.type == 'garrison'){
+        if(build.house){
+          if(player.house){
+            if(player.house == build.house && player.rank){
+              // access military report
+            }
+          } else {
+            // request to join house
+          }
+        } else { // create house
+          socket.emit('addToChat','<b><u>To establish a House</u></b>:<br>/house <i>HouseName</i>');
+        }
+      }
+    }
   }
 }
