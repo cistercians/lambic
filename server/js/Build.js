@@ -8,6 +8,7 @@ Build = function(id){
   Player.list[id].building = true;
   Player.list[id].actionCooldown = 10;
   var b = getBuilding(p.x,p.y);
+  var building = Building.list[b];
   setTimeout(function(){
     var p = Player.list[id];
     if(Player.list[id].working){
@@ -36,13 +37,18 @@ Build = function(id){
       }
       if(count == plot.length && !Building.list[b].built){
         Building.list[b].built = true;
-        if(Building.list[b].type == 'hut'){
+        if(building.house && building.patrol){
+          var h = building.house;
+          House.list[h].military.patrol.push(b.id);
+        }
+        if(building.type == 'hut' || building.type == 'gothhut' || building.type == 'frankhut' ||
+        building.type == 'celthut' || building.type == 'teuthut'){
           for(var i in plot){
             matrixChange(0,plot[i][0],plot[i][1],1);
             matrixChange(1,plot[i][0],plot[i][1],0);
             tileChange(0,plot[i][0],plot[i][1],13);
-            tileChange(3,plot[i][0],plot[i][1],String('hut' + i));
-            if(getTile(3,plot[i][0],plot[i][1]) == 'hut1'){
+            tileChange(3,plot[i][0],plot[i][1],String(building.type + i));
+            if(getTile(3,plot[i][0],plot[i][1]) == building.type + '1'){
               tileChange(0,plot[i][0],plot[i][1],14);
               matrixChange(0,plot[i][0],plot[i][1],0);
               matrixChange(1,plot[i][0],plot[i][1]+1,0);
@@ -66,7 +72,7 @@ Build = function(id){
           var serf2 = null;
           var spot2 = Building.list[b].plot[3];
           for(var i in Player.list){
-            if(Player.list[i].hut && Player.list[i].hut == Building.list[b].id){
+            if(Player.list[i].hut && Player.list[i].hut == building.id){
               if(!serf1){
                 serf1 = Player.list[i].id;
               } else {
@@ -76,7 +82,7 @@ Build = function(id){
           }
           Player.list[serf1].home = {z:1,loc:spot1};
           Player.list[serf2].home = {z:1,loc:spot2};
-        } else if(Building.list[b].type == 'mill'){
+        } else if(building.type == 'mill'){
           for(var i in plot){
             tileChange(0,plot[i][0],plot[i][1],13);
             tileChange(3,plot[i][0],plot[i][1],String('mill' + i));
@@ -84,7 +90,7 @@ Build = function(id){
           }
           tileChange(5,top[0][0],top[0][1],'mill4');
           tileChange(5,top[1][0],top[1][1],'mill5');
-        } else if(Building.list[b].type == 'lumbermill'){
+        } else if(building.type == 'lumbermill'){
           for(var i in plot){
             tileChange(0,plot[i][0],plot[i][1],13);
             tileChange(3,plot[i][0],plot[i][1],String('lumbermill' + i));
@@ -92,13 +98,13 @@ Build = function(id){
           }
           tileChange(5,top[0][0],top[0][1],'lumbermill2');
           tileChange(5,top[1][0],top[1][1],'lumbermill3');
-        } else if(Building.list[b].type == 'mine'){
+        } else if(building.type == 'mine'){
           for(var i in plot){
             tileChange(0,plot[i][0],plot[i][1],13);
             tileChange(3,plot[i][0],plot[i][1],String('mine' + i));
             matrixChange(0,plot[i][0],plot[i][1],1);
           }
-        }  else if(Building.list[b].type == 'cottage'){
+        }  else if(building.type == 'cottage'){
           for(var i in plot){
             matrixChange(0,plot[i][0],plot[i][1],1);
             matrixChange(1,plot[i][0],plot[i][1],0);
@@ -124,20 +130,20 @@ Build = function(id){
             parent:b
           });
           Player.list[Building.list[b].owner].keys.push(b);
-        } else if(Building.list[b].type == 'fort'){
+        } else if(building.type == 'fort'){
           matrixChange(0,plot[0][0],plot[0][1],1);
           tileChange(0,plot[0][0],plot[0][1],13);
           tileChange(3,plot[0][0],plot[0][1],'fort');
-        } else if(Building.list[b].type == 'wall'){
+        } else if(building.type == 'wall'){
           matrixChange(0,plot[0][0],plot[0][1],1);
           tileChange(0,plot[0][0],plot[0][1],15);
           tileChange(3,plot[0][0],plot[0][1],'wall');
-        } else if(Building.list[b].type == 'outpost'){
+        } else if(building.type == 'outpost'){
           matrixChange(0,plot[0][0],plot[0][1],1);
           tileChange(0,plot[0][0],plot[0][1],13);
           tileChange(3,plot[0][0],plot[0][1],'outpost0');
           tileChange(5,top[0][0],top[0][1],'outpost1');
-        } else if(Building.list[b].type == 'guardtower'){
+        } else if(building.type == 'guardtower'){
           for(var i in plot){
             matrixChange(0,plot[i][0],plot[i][1],1);
             tileChange(0,plot[i][0],plot[i][1],15);
@@ -153,7 +159,7 @@ Build = function(id){
             qty:1,
             parent:b
           })
-        } else if(Building.list[b].type == 'tower'){
+        } else if(building.type == 'tower'){
           for(var i in plot){
             tileChange(3,plot[i][0],plot[i][1],String('tower' + i));
             if(getTile(3,plot[i][0],plot[i][1]) == 'tower0'){
@@ -197,7 +203,7 @@ Build = function(id){
             parent:b
           });
           Player.list[Building.list[b].owner].keys.push(b);
-        } else if(Building.list[b].type == 'tavern'){
+        } else if(building.type == 'tavern'){
           for(var i in plot){
             tileChange(3,plot[i][0],plot[i][1],String('tavern' + i));
             if(getTile(3,plot[i][0],plot[i][1]) == 'tavern1'){
@@ -430,7 +436,7 @@ Build = function(id){
             }
           });
           Building.list[b].occ++;
-        } else if(Building.list[b].type == 'monastery'){
+        } else if(building.type == 'monastery'){
           for(var i in plot){
             tileChange(3,plot[i][0],plot[i][1],String('monastery' + i));
             if(getTile(3,plot[i][0],plot[i][1]) == 'monastery0'){
@@ -541,7 +547,7 @@ Build = function(id){
             }
           });
           Building.list[b].occ += 3;
-        } else if(Building.list[b].type == 'market'){
+        } else if(building.type == 'market'){
           for(var i in plot){
             tileChange(3,plot[i][0],plot[i][1],String('market' + i));
             if(getTile(3,plot[i][0],plot[i][1]) == 'market0' ||
@@ -720,7 +726,7 @@ Build = function(id){
             qty:1,
             parent:b
           });
-        } else if(Building.list[b].type == 'dock'){
+        } else if(building.type == 'dock'){
           for(var i in plot){
             tileChange(3,plot[i][0],plot[i][1],String('dock' + i));
             if(getTile(3,plot[i][0],plot[i][1]) == 'dock4'){
@@ -765,7 +771,7 @@ Build = function(id){
               loc:[plot[1][0],plot[1][1]]
             }
           });
-        } else if(Building.list[b].type == 'garrison'){
+        } else if(building.type == 'garrison'){
           for(var i in plot){
             tileChange(3,plot[i][0],plot[i][1],String('garrison' + i));
             if(getTile(3,plot[i][0],plot[i][1]) == 'garrison0'){
@@ -904,7 +910,7 @@ Build = function(id){
             qty:1,
             parent:b
           });
-        } else if(Building.list[b].type == 'forge'){
+        } else if(building.type == 'forge'){
           for(var i in plot){
             tileChange(3,plot[i][0],plot[i][1],String('forge' + i));
             if(getTile(3,plot[i][0],plot[i][1]) == 'forge1'){
@@ -976,7 +982,7 @@ Build = function(id){
               loc:[plot[4][0],plot[4][1]]
             }
           });
-        } else if(Building.list[b].type == 'stronghold'){
+        } else if(building.type == 'stronghold'){
           for(var i in plot){
             tileChange(3,plot[i][0],plot[i][1],String('stronghold' + i));
             if(getTile(3,plot[i][0],plot[i][1]) == 'stronghold1' || getTile(3,plot[i][0],plot[i][1]) == 'stronghold2'){
@@ -1296,7 +1302,7 @@ Build = function(id){
       }
     }
     if(p.type == 'npc'){
-      Player.list[p.id].workTimer = false;
+      Player.list[id].workTimer = false;
     }
     if(Building.list[b].built){
       for(var i in Player.list){

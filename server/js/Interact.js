@@ -90,7 +90,11 @@ Interact = function(id,loc){
             // request to join house
           }
         } else { // create house
-          socket.emit('addToChat','<b><u>To establish a House</u></b>:<br>/house <i>HouseName</i>');
+          if(build.owner == id){
+            socket.emit('addToChat','<b><u>To establish a House</u></b>:<br>/house <i>HouseName</i>');
+          } else {
+            socket.emit('addToChat','<i>This is not your Garrison.</i>');
+          }
         }
       }
     }

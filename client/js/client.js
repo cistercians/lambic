@@ -4,7 +4,387 @@ var world = [];
 var tileSize = 0;
 var mapSize = 0;
 
-var socket = io({transports: ['websocket'], upgrade: false});
+var socket = SockJS('http://localhost:2000/io');
+socket.onopen = function(){
+  console.log('Client connection opened');
+};
+socket.onmessage = function(event){
+  var data = JSON.parse(event.data);
+  if(data.msg == 'signInResponse'){
+    if(data.success){
+      world = data.world;
+      tileSize = data.tileSize;
+      mapSize = data.mapSize;
+      tempus = data.tempus;
+      signDiv.style.display = 'none';
+      gameDiv.style.display = 'inline-block';
+      UI.style.display = 'inline-block';
+      var b = getBuilding(Player.list[selfId].x,Player.list[selfId].y);
+      getBgm(Player.list[selfId].x,Player.list[selfId].y,Player.list[selfId].z,b);
+    } else {
+      alert('Sign-in failed.')
+    }
+  } else if(data.msg == 'signUpResponse'){
+    if(data.success){
+      alert('Sign-up successful.')
+    } else
+      alert('Sign-up failed.')
+  } else if(data.msg == 'bgm'){
+    getBgm(data.x,data.y,data.z,data.b);
+  } else if(data.msg == 'addToChat'){
+    chatText.innerHTML += '<div>' + data.message + '</div>';
+  } else if(data.msg == 'mapEdit'){
+    world = data.world;
+  } else if(data.msg == 'init'){
+    if(data.selfId)
+      selfId = data.selfId;
+    // { player : [{id:123,number:'1',x:0,y:0},{id:1,x:0,y:0}] arrow : []}
+    for(i in data.pack.player){
+      new Player(data.pack.player[i]);
+    }
+    for(i in data.pack.arrow){
+      new Arrow(data.pack.arrow[i]);
+    }
+    for(i in data.pack.item){
+      new Item(data.pack.item[i]);
+    }
+    for(i in data.pack.light){
+      new Light(data.pack.light[i]);
+    }
+    for(i in data.pack.building){
+      new Building(data.pack.building[i]);
+    }
+  } else if(data.msg == 'update'){
+    // { player : [{id:123,number:'1',x:0,y:0},{id:1,x:0,y:0}] arrow : []}
+    for(var i = 0 ; i < data.pack.player.length; i++){
+      var pack = data.pack.player[i];
+      var p = Player.list[pack.id];
+      if(p){
+        if(pack.name != undefined)
+          p.name = pack.name;
+        if(pack.house != undefined)
+          p.house = pack.house;
+        if(pack.kingdom != undefined)
+          p.kingdom = pack.kingdom;
+        if(pack.x != undefined)
+          p.x = pack.x;
+        if(pack.y != undefined)
+          p.y = pack.y;
+        if(pack.z != undefined)
+          p.z = pack.z;
+        if(pack.class != undefined)
+          p.class = pack.class;
+        if(pack.rank != undefined)
+          p.rank = pack.rank;
+        if(pack.friends != undefined)
+          p.friends = pack.friends;
+        if(pack.enemies != undefined)
+          p.enemies = pack.enemies;
+        if(pack.gear != undefined)
+          p.gear = pack.gear;
+        if(pack.inventory != undefined)
+          p.inventory = pack.inventory;
+        if(pack.spriteSize != undefined)
+          p.spriteSize = pack.spriteSize;
+        if(pack.facing != undefined)
+          p.facing = pack.facing;
+        if(pack.stealthed != undefined)
+          p.stealthed = pack.stealthed;
+        if(pack.revealed != undefined)
+          p.revealed = pack.revealed;
+        if(pack.pressingUp != undefined)
+          p.pressingUp = pack.pressingUp;
+        if(pack.pressingDown != undefined)
+          p.pressingDown = pack.pressingDown;
+        if(pack.pressingLeft != undefined)
+          p.pressingLeft = pack.pressingLeft;
+        if(pack.pressingRight != undefined)
+          p.pressingRight = pack.pressingRight;
+        if(pack.pressingAttack != undefined)
+          p.pressingAttack = pack.pressingAttack;
+        if(pack.innaWoods != undefined)
+          p.innaWoods = pack.innaWoods;
+        if(pack.angle != undefined)
+          p.angle = pack.angle;
+        if(pack.working != undefined)
+          p.working = pack.working;
+        if(pack.chopping != undefined)
+          p.chopping = pack.chopping;
+        if(pack.mining != undefined)
+          p.mining = pack.mining;
+        if(pack.farming != undefined)
+          p.farming = pack.farming;
+        if(pack.building != undefined)
+          p.building = pack.building;
+        if(pack.fishing != undefined)
+          p.fishing = pack.fishing;
+        if(pack.hp != undefined)
+          p.hp = pack.hp;
+        if(pack.hpMax != undefined)
+          p.hpMax = pack.hpMax;
+        if(pack.spirit != undefined)
+          p.spirit = pack.spirit;
+        if(pack.spiritMax != undefined)
+          p.spiritMax = pack.spiritMax;
+        if(pack.breath != undefined)
+          p.breath = pack.breath;
+        if(pack.breathMax != undefined)
+          p.breathMax = pack.breathMax;
+        if(pack.action != undefined)
+          p.action = pack.action;
+        if(pack.ghost != undefined)
+          p.ghost = pack.ghost;
+
+        if(p.class == 'Sheep'){
+          p.sprite = sheep;
+        } else if(p.class == 'Deer'){
+          p.sprite = deer;
+        } else if(p.class == 'Boar'){
+          p.sprite = boar;
+        } else if(p.class == 'Wolf'){
+          p.sprite = wolf;
+        } else if(p.class == 'Falcon'){
+          p.sprite = falcon;
+        } else if(p.class == 'Serf' || p.class == 'SerfM'){
+          p.sprite = maleserf;
+        } else if(p.class == 'Rogue' || p.class == 'Trapper' || p.class == 'Cutthroat'){
+          p.sprite = rogue;
+        } else if(p.class == 'Hunter' || p.class == 'Outlaw'){
+          p.sprite = hunter;
+        } else if(p.class == 'Scout'){
+          p.sprite = scout;
+        } else if(p.class == 'Ranger' || p.class == 'Warden'){
+          p.sprite = ranger;
+        } else if(p.class == 'Swordsman'){
+          p.sprite = swordsman;
+        } else if(p.class == 'Archer'){
+          p.sprite = archer;
+        } else if(p.class == 'Horseman'){
+          p.sprite = horseman;
+        } else if(p.class == 'MountedArcher'){
+          p.sprite = mountedarcher;
+        } else if(p.class == 'Hero'){
+          p.sprite = hero;
+        } else if(p.class == 'Templar' || p.class == 'Hospitaller' || p.class == 'Hochmeister'){
+          p.sprite = templar;
+        } else if(p.class == 'Cavalry'){
+          p.sprite = cavalry;
+        } else if(p.class == 'Knight'){
+          p.sprite = knight;
+        } else if(p.class == 'Lancer' || p.class == 'Charlemagne'){
+          p.sprite = lancer;
+        } else if(p.class == 'Crusader'){
+          p.sprite = crusader;
+        } else if(p.class == 'Priest' || p.class == 'Monk' || p.class == 'Prior'){
+          p.sprite = monk;
+        } else if(p.class == 'Mage' || p.class == 'Acolyte'){
+          p.sprite = mage;
+        } else if(p.class == 'Warlock' || p.class == 'Brother'){
+          p.sprite = warlock;
+        } else if(p.class == 'King' || p.class == 'Alaric'){
+          p.sprite = king;
+        } else if(p.class == 'SerfF'){
+          p.sprite = femaleserf;
+        } else if(p.class == 'Innkeeper' || p.class == 'Shipwright'){
+          p.sprite = innkeeper;
+        } else if(p.class == 'Bishop'){
+          p.sprite = bishop;
+        } else if(p.class == 'Friar'){
+          p.sprite = friar;
+        } else if(p.class == 'Footsoldier'){
+          p.sprite = footsoldier;
+        } else if(p.class == 'Skirmisher'){
+          p.sprite = skirmisher;
+        } else if(p.class == 'Cavalier'){
+          p.sprite = cavalier;
+        } else if(p.class == 'General'){
+          p.sprite = general;
+        } else if(p.class == 'ImperialKnight' || p.class == 'TeutonicKnight'){
+          p.sprite = teutonicknight;
+        } else if(p.class == 'Trebuchet'){
+          p.sprite = trebuchet;
+        } else if(p.class == 'Oathkeeper' || p.class == 'Archbishop'){
+          p.sprite = archbishop;
+        } else if(p.class == 'Apparition'){
+          p.sprite = apparition;
+        } else if(p.class == 'Goth' || p.class == 'NorseSword'){
+          p.sprite = goth;
+        } else if(p.class == 'HighPriestess'){
+          p.sprite = highpriestess;
+        } else if(p.class == 'Cataphract' || p.class == 'Carolingian' || p.class == 'Marauder'){
+          p.sprite = marauder;
+        } else if(p.class == 'NorseSpear'){
+          p.sprite = norsespear;
+        } else if(p.class == 'seidr'){
+          p.sprite = seidr;
+        } else if(p.class == 'Huskarl'){
+          p.sprite = huskarl;
+        } else if(p.class == 'FrankSword'){
+          p.sprite = franksword;
+        } else if(p.class == 'FrankSpear'){
+          p.sprite = frankspear;
+        } else if(p.class == 'FrankBow'){
+          p.sprite = frankbow;
+        } else if(p.class == 'Mangonel'){
+          p.sprite = mangonel;
+        } else if(p.class == 'Malvoisin'){
+          p.sprite = malvoisin;
+        } else if(p.class == 'CeltAxe'){
+          p.sprite = celtaxe;
+        } else if(p.class == 'CeltSpear'){
+          p.sprite = celtspear;
+        } else if(p.class == 'Headhunter'){
+          p.sprite = headhunter;
+        } else if(p.class == 'Druid'){
+          p.sprite = druid;
+        } else if(p.class == 'Morrigan'){
+          p.sprite = morrigan;
+        } else if(p.class == 'Gwenllian'){
+          p.sprite = gwenllian;
+        } else if(p.class == 'TeutonPike'){
+          p.sprite = teutonpike;
+        } else if(p.class == 'TeutonBow'){
+          p.sprite = teutonbow;
+        } else if(p.class == 'TeutonicKnight'){
+          p.sprite = teutonicknight;
+        } else if(p.class == 'Poacher'){
+          p.sprite = poacher;
+        } else if(p.class == 'Strongman'){
+          p.sprite = strongman;
+        } else if(p.class == 'Condottiere'){
+          p.sprite = condottiere;
+        }
+      }
+    }
+    for(var i = 0 ; i < data.pack.arrow.length; i++){
+      var pack = data.pack.arrow[i];
+      var b = Arrow.list[data.pack.arrow[i].id];
+      if(b){
+        if(pack.x != undefined)
+          b.x = pack.x;
+        if(pack.y != undefined)
+          b.y = pack.y;
+        if(pack.z != undefined)
+          b.z = pack.z;
+      }
+    }
+    for(var i = 0 ; i < data.pack.item.length; i++){
+      var pack = data.pack.item[i];
+      var itm = Item.list[data.pack.item[i].id];
+      if(itm){
+        if(pack.x != undefined)
+          itm.x = pack.x;
+        if(pack.y != undefined)
+          itm.y = pack.y;
+        if(pack.z != undefined)
+          itm.z = pack.z;
+        if(pack.innaWoods != undefined)
+          itm.innaWoods = pack.innaWoods;
+      }
+    }
+    for(var i = 0 ; i < data.pack.light.length; i++){
+      var pack = data.pack.light[i];
+      var l = Light.list[data.pack.light[i].id];
+      if(l){
+        if(pack.x != undefined)
+          l.x = pack.x;
+        if(pack.y != undefined)
+          l.y = pack.y;
+        if(pack.z != undefined)
+          l.z = pack.z;
+      }
+    }
+    for(var i = 0; i < data.pack.building.length; i++){
+      var pack = data.pack.building[i];
+      var b = Building.list[data.pack.building[i].id];
+      if(b){
+        if(pack.hp != undefined)
+          b.hp = pack.hp;
+        if(pack.occ != undefined)
+          b.occ = pack.occ;
+      }
+    }
+  } else if(data.msg == 'remove'){
+    // {player:[12323],arrow:[12323,123123]}
+    for(var i = 0 ; i < data.pack.player.length; i++){
+      delete Player.list[data.pack.player[i]];
+    }
+    for(var i = 0 ; i < data.pack.arrow.length; i++){
+      delete Arrow.list[data.pack.arrow[i]];
+    }
+    for(var i = 0 ; i < data.pack.item.length; i++){
+      delete Item.list[data.pack.item[i]];
+    }
+    for(var i = 0 ; i < data.pack.light.length; i++){
+      delete Light.list[data.pack.light[i]];
+    }
+    for(var i = 0 ; i < data.pack.building.length; i++){
+      delete Building.list[data.pack.building[i]];
+    }
+  } else if(data.msg == 'tempus'){
+    tempus = data.tempus;
+    nightfall = data.nightfall;
+    if(Player.list[selfId]){
+      var p = Player.list[selfId];
+      if(p.z == 0 && (tempus == 'IV.a' || tempus == 'V.a' || tempus == 'X.a' || tempus == 'VIII.p')){
+        getBgm(p.x,p.y,p.z);
+      } else if((p.z == 1 || p.z == 2) && (tempus == 'VIII.p' || tempus == 'IV.a')){
+        var b = getBuilding(p.x,p.y);
+        getBgm(p.x,p.y,p.z,b);
+      }
+    }
+  } else if(data.msg == 'newFaction'){
+    houseList = data.houseList;
+    kingdomList = data.kingdomlist;
+  } else if(data.msg == 'sprite'){
+    if(data == 'Serf'){
+      Player.list[selfId].sprite = maleserf;
+    } else if(data == 'Rogue'){
+      Player.list[selfId].sprite = rogue;
+    } else if(data == 'Hunter'){
+      Player.list[selfId].sprite = hunter;
+    } else if(data == 'Scout'){
+      Player.list[selfId].sprite = scout;
+    } else if(data == 'Ranger'){
+      Player.list[selfId].sprite = ranger;
+    } else if(data == 'Swordsman'){
+      Player.list[selfId].sprite = swordsman;
+    } else if(data == 'Archer'){
+      Player.list[selfId].sprite = archer;
+    } else if(data == 'Scout'){
+      Player.list[selfId].sprite = scout;
+    } else if(data == 'Horseman'){
+      Player.list[selfId].sprite = horseman;
+    } else if(data == 'MountedArcher'){
+      Player.list[selfId].sprite = mountedarcher;
+    } else if(data == 'Hero'){
+      Player.list[selfId].sprite = hero;
+    } else if(data == 'Templar'){
+      Player.list[selfId].sprite = templar;
+    } else if(data == 'Cavalry'){
+      Player.list[selfId].sprite = cavalry;
+    } else if(data == 'Knight'){
+      Player.list[selfId].sprite = knight;
+    } else if(data == 'Lancer'){
+      Player.list[selfId].sprite = lancer;
+    } else if(data == 'Crusader'){
+      Player.list[selfId].sprite = crusader;
+    } else if(data == 'Priest'){
+      Player.list[selfId].sprite = monk;
+    } else if(data == 'Mage'){
+      Player.list[selfId].sprite = mage;
+    } else if(data == 'Warlock'){
+      Player.list[selfId].sprite = warlock;
+    }
+  }
+};
+
+socket.onerror = function(event){
+  console.log('Client error: ' + event);
+};
+socket.onclose = function(event){
+  console.log('Client connection closed: ' + event.code);
+};
 
 // SIGN IN
 var enterDiv = document.getElementById('enterDiv');
@@ -23,75 +403,44 @@ enterButton.onclick = function(){
 };
 
 signDivSignIn.onclick = function(){
-  socket.emit('signIn',{name:signDivUsername.value,password:signDivPassword.value});
+  socket.send(JSON.stringify({msg:'signIn',name:signDivUsername.value,pass:signDivPassword.value}));
 };
 
 signDivSignUp.onclick = function(){
-  socket.emit('signUp',{name:signDivUsername.value,password:signDivPassword.value});
+  socket.send(JSON.stringify({msg:'signUp',name:signDivUsername.value,pass:signDivPassword.value}));
 };
-
-socket.on('signInResponse',function(data){
-  if(data.success){
-    world = data.world;
-    tileSize = data.tileSize;
-    mapSize = data.mapSize;
-    tempus = data.tempus;
-    signDiv.style.display = 'none';
-    gameDiv.style.display = 'inline-block';
-    UI.style.display = 'inline-block';
-    var b = getBuilding(Player.list[selfId].x,Player.list[selfId].y);
-    getBgm(Player.list[selfId].x,Player.list[selfId].y,Player.list[selfId].z,b);
-  } else
-    alert('Sign-in failed.')
-});
-
-socket.on('signUpResponse',function(data){
-  if(data.success){
-    alert('Sign-up successful.')
-  } else
-    alert('Sign-up failed.')
-});
 
 // CHAT & COMMANDS
 var chatText = document.getElementById('chat-text');
 var chatInput = document.getElementById('chat-input');
 var chatForm = document.getElementById('chat-form');
 
-socket.on('addToChat',function(data){
-  chatText.innerHTML += '<div>' + data + '</div>';
-});
-
-socket.on('mapEdit',function(data){
-  world = data;
-});
-
 chatForm.onsubmit = function(e){
   e.preventDefault();
   if(chatInput.value[0] == '/'){ // command
-    socket.emit('evalCmd',{
+    socket.send(JSON.stringify({
+      msg:'evalCmd',
       id:selfId,
       cmd:chatInput.value.slice(1),
       world:world
-    });
+    }));
   } else if(chatInput.value[0] == '@'){ // private message
-    socket.emit('sendPmToServer',{
+    socket.send(JSON.stringify({
+      msg:'pmToServer',
       recip:chatInput.value.slice(1,chatInput.value.indexOf(' ')),
       message:chatInput.value.slice(chatInput.value.indexOf(' ') + 1)
-    });
+    }));
   } else { // chat
-    socket.emit('sendMsgToServer',{
+    socket.send(JSON.stringify({
+      msg:'msgToServer',
       name:Player.list[selfId].name,
       message:chatInput.value
-    });
+    }));
   }
   chatInput.value = '';
 };
 
 // GAME
-
-socket.on('bgm',function(data){
-  getBgm(data.x,data.y,data.z,data.b);
-});
 
 var soundscape = function(x,y,z,b){
   // outdoors
@@ -268,6 +617,19 @@ var Player = function(initPack){
   self.pressingLeft = false;
   self.pressingRight = false;
   self.pressingAttack = false;
+  self.pressing = false;
+  self.pressing = false;
+  self.pressing = false;
+  self.pressing = false;
+  self.pressing = false;
+  self.pressing = false;
+  self.pressing = false;
+  self.pressing = false;
+  self.pressing = false;
+  self.pressing = false;
+  self.pressing = false;
+  self.pressing = false;
+  self.pressing = false;
   self.innaWoods = initPack.innaWoods;
   self.working = false;
   self.chopping = false;
@@ -1752,11 +2114,11 @@ var Item = function(initPack){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
       var y = self.y - Player.list[selfId].y + HEIGHT/2;
       ctx.drawImage(
-      Img.torch,
-      x,
-      y,
-      tileSize,
-      tileSize
+        Img.torch,
+        x,
+        y,
+        tileSize,
+        tileSize
       );
     } else if(self.type == 'LitTorch'){
       var x = self.x - Player.list[selfId].x + WIDTH/2;
@@ -2412,299 +2774,11 @@ Light.list = {
 var selfId = null;
 
 // init
-socket.on('init',function(data){
-  if(data.selfId)
-    selfId = data.selfId;
-  // { player : [{id:123,number:'1',x:0,y:0},{id:1,x:0,y:0}] arrow : []}
-  for(i in data.player){
-    new Player(data.player[i]);
-  }
-  for(i in data.arrow){
-    new Arrow(data.arrow[i]);
-  }
-  for(i in data.item){
-    new Item(data.item[i]);
-  }
-  for(i in data.light){
-    new Light(data.light[i]);
-  }
-  for(i in data.building){
-    new Building(data.building[i]);
-  }
-});
+
 
 // update
-socket.on('update',function(data){
-  // { player : [{id:123,number:'1',x:0,y:0},{id:1,x:0,y:0}] arrow : []}
-  for(var i = 0 ; i < data.player.length; i++){
-    var pack = data.player[i];
-    var p = Player.list[pack.id];
-    if(p){
-      if(pack.name != undefined)
-        p.name = pack.name;
-      if(pack.house != undefined)
-        p.house = pack.house;
-      if(pack.kingdom != undefined)
-        p.kingdom = pack.kingdom;
-      if(pack.x != undefined)
-        p.x = pack.x;
-      if(pack.y != undefined)
-        p.y = pack.y;
-      if(pack.z != undefined)
-        p.z = pack.z;
-      if(pack.class != undefined)
-        p.class = pack.class;
-      if(pack.rank != undefined)
-        p.rank = pack.rank;
-      if(pack.friends != undefined)
-        p.friends = pack.friends;
-      if(pack.enemies != undefined)
-        p.enemies = pack.enemies;
-      if(pack.gear != undefined)
-        p.gear = pack.gear;
-      if(pack.inventory != undefined)
-        p.inventory = pack.inventory;
-      if(pack.spriteSize != undefined)
-        p.spriteSize = pack.spriteSize;
-      if(pack.facing != undefined)
-        p.facing = pack.facing;
-      if(pack.stealthed != undefined)
-        p.stealthed = pack.stealthed;
-      if(pack.revealed != undefined)
-        p.revealed = pack.revealed;
-      if(pack.pressingUp != undefined)
-        p.pressingUp = pack.pressingUp;
-      if(pack.pressingDown != undefined)
-        p.pressingDown = pack.pressingDown;
-      if(pack.pressingLeft != undefined)
-        p.pressingLeft = pack.pressingLeft;
-      if(pack.pressingRight != undefined)
-        p.pressingRight = pack.pressingRight;
-      if(pack.pressingAttack != undefined)
-        p.pressingAttack = pack.pressingAttack;
-      if(pack.innaWoods != undefined)
-        p.innaWoods = pack.innaWoods;
-      if(pack.angle != undefined)
-        p.angle = pack.angle;
-      if(pack.working != undefined)
-        p.working = pack.working;
-      if(pack.chopping != undefined)
-        p.chopping = pack.chopping;
-      if(pack.mining != undefined)
-        p.mining = pack.mining;
-      if(pack.farming != undefined)
-        p.farming = pack.farming;
-      if(pack.building != undefined)
-        p.building = pack.building;
-      if(pack.fishing != undefined)
-        p.fishing = pack.fishing;
-      if(pack.hp != undefined)
-        p.hp = pack.hp;
-      if(pack.hpMax != undefined)
-        p.hpMax = pack.hpMax;
-      if(pack.spirit != undefined)
-        p.spirit = pack.spirit;
-      if(pack.spiritMax != undefined)
-        p.spiritMax = pack.spiritMax;
-      if(pack.breath != undefined)
-        p.breath = pack.breath;
-      if(pack.breathMax != undefined)
-        p.breathMax = pack.breathMax;
-      if(pack.action != undefined)
-        p.action = pack.action;
-      if(pack.ghost != undefined)
-        p.ghost = pack.ghost;
-
-      if(p.class == 'Sheep'){
-        p.sprite = sheep;
-      } else if(p.class == 'Deer'){
-        p.sprite = deer;
-      } else if(p.class == 'Boar'){
-        p.sprite = boar;
-      } else if(p.class == 'Wolf'){
-        p.sprite = wolf;
-      } else if(p.class == 'Falcon'){
-        p.sprite = falcon;
-      } else if(p.class == 'Serf' || p.class == 'SerfM'){
-        p.sprite = maleserf;
-      } else if(p.class == 'Rogue' || p.class == 'Trapper' || p.class == 'Cutthroat'){
-        p.sprite = rogue;
-      } else if(p.class == 'Hunter'){
-        p.sprite = hunter;
-      } else if(p.class == 'Scout'){
-        p.sprite = scout;
-      } else if(p.class == 'Ranger' || p.class == 'Warden'){
-        p.sprite = ranger;
-      } else if(p.class == 'Swordsman'){
-        p.sprite = swordsman;
-      } else if(p.class == 'Archer'){
-        p.sprite = archer;
-      } else if(p.class == 'Horseman'){
-        p.sprite = horseman;
-      } else if(p.class == 'MountedArcher'){
-        p.sprite = mountedarcher;
-      } else if(p.class == 'Hero'){
-        p.sprite = hero;
-      } else if(p.class == 'Templar' || p.class == 'Hospitaller' || p.class == 'Hochmeister'){
-        p.sprite = templar;
-      } else if(p.class == 'Cavalry'){
-        p.sprite = cavalry;
-      } else if(p.class == 'Knight'){
-        p.sprite = knight;
-      } else if(p.class == 'Lancer' || p.class == 'Charlemagne'){
-        p.sprite = lancer;
-      } else if(p.class == 'Crusader'){
-        p.sprite = crusader;
-      } else if(p.class == 'Priest' || p.class == 'Monk' || p.class == 'Prior'){
-        p.sprite = monk;
-      } else if(p.class == 'Mage' || p.class == 'Acolyte'){
-        p.sprite = mage;
-      } else if(p.class == 'Warlock' || p.class == 'Brother'){
-        p.sprite = warlock;
-      } else if(p.class == 'King' || p.class == 'Alaric'){
-        p.sprite = king;
-      } else if(p.class == 'SerfF'){
-        p.sprite = femaleserf;
-      } else if(p.class == 'Innkeeper' || p.class == 'Shipwright'){
-        p.sprite = innkeeper;
-      } else if(p.class == 'Bishop'){
-        p.sprite = bishop;
-      } else if(p.class == 'Friar'){
-        p.sprite = friar;
-      } else if(p.class == 'Footsoldier'){
-        p.sprite = footsoldier;
-      } else if(p.class == 'Skirmisher'){
-        p.sprite = skirmisher;
-      } else if(p.class == 'Cavalier'){
-        p.sprite = cavalier;
-      } else if(p.class == 'General'){
-        p.sprite = general;
-      } else if(p.class == 'ImperialKnight' || p.class == 'TeutonicKnight'){
-        p.sprite = teutonicknight;
-      } else if(p.class == 'Trebuchet'){
-        p.sprite = trebuchet;
-      } else if(p.class == 'Oathkeeper' || p.class == 'Archbishop'){
-        p.sprite = archbishop;
-      } else if(p.class == 'Apparition'){
-        p.sprite = apparition;
-      } else if(p.class == 'Goth' || p.class == 'NorseSword'){
-        p.sprite = goth;
-      } else if(p.class == 'HighPriestess'){
-        p.sprite = highpriestess;
-      } else if(p.class == 'Cataphract' || p.class == 'Carolingian' || p.class == 'Marauder'){
-        p.sprite = marauder;
-      } else if(p.class == 'NorseSpear'){
-        p.sprite = norsespear;
-      } else if(p.class == 'seidr'){
-        p.sprite = seidr;
-      } else if(p.class == 'Huskarl'){
-        p.sprite = huskarl;
-      } else if(p.class == 'FrankSword'){
-        p.sprite = franksword;
-      } else if(p.class == 'FrankSpear'){
-        p.sprite = frankspear;
-      } else if(p.class == 'FrankBow' || p.class == 'Outlaw'){
-        p.sprite = frankbow;
-      } else if(p.class == 'Mangonel'){
-        p.sprite = mangonel;
-      } else if(p.class == 'Malvoisin'){
-        p.sprite = malvoisin;
-      } else if(p.class == 'CeltAxe'){
-        p.sprite = celtaxe;
-      } else if(p.class == 'CeltSpear'){
-        p.sprite = celtspear;
-      } else if(p.class == 'Headhunter'){
-        p.sprite = headhunter;
-      } else if(p.class == 'Druid'){
-        p.sprite = druid;
-      } else if(p.class == 'Morrigan'){
-        p.sprite = morrigan;
-      } else if(p.class == 'Gwenllian'){
-        p.sprite = gwenllian;
-      } else if(p.class == 'TeutonPike'){
-        p.sprite = teutonpike;
-      } else if(p.class == 'TeutonBow'){
-        p.sprite = teutonbow;
-      } else if(p.class == 'TeutonicKnight'){
-        p.sprite = teutonicknight;
-      } else if(p.class == 'Poacher'){
-        p.sprite = poacher;
-      } else if(p.class == 'Strongman'){
-        p.sprite = strongman;
-      } else if(p.class == 'Condottiere'){
-        p.sprite = condottiere;
-      }
-    }
-  }
-  for(var i = 0 ; i < data.arrow.length; i++){
-    var pack = data.arrow[i];
-    var b = Arrow.list[data.arrow[i].id];
-    if(b){
-      if(pack.x != undefined)
-        b.x = pack.x;
-      if(pack.y != undefined)
-        b.y = pack.y;
-      if(pack.z != undefined)
-        b.z = pack.z;
-    }
-  }
-  for(var i = 0 ; i < data.item.length; i++){
-    var pack = data.item[i];
-    var itm = Item.list[data.item[i].id];
-    if(itm){
-      if(pack.x != undefined)
-        itm.x = pack.x;
-      if(pack.y != undefined)
-        itm.y = pack.y;
-      if(pack.z != undefined)
-        itm.z = pack.z;
-      if(pack.innaWoods != undefined)
-        itm.innaWoods = pack.innaWoods;
-    }
-  }
-  for(var i = 0 ; i < data.light.length; i++){
-    var pack = data.light[i];
-    var l = Light.list[data.light[i].id];
-    if(l){
-      if(pack.x != undefined)
-        l.x = pack.x;
-      if(pack.y != undefined)
-        l.y = pack.y;
-      if(pack.z != undefined)
-        l.z = pack.z;
-    }
-  }
-  for(var i = 0; i < data.building.length; i++){
-    var pack = data.building[i];
-    var b = Building.list[data.building[i].id];
-    if(b){
-      if(pack.hp != undefined)
-        b.hp = pack.hp;
-      if(pack.occ != undefined)
-        b.occ = pack.occ;
-    }
-  }
-});
 
 // remove
-socket.on('remove',function(data){
-  // {player:[12323],arrow:[12323,123123]}
-  for(var i = 0 ; i < data.player.length; i++){
-    delete Player.list[data.player[i]];
-  }
-  for(var i = 0 ; i < data.arrow.length; i++){
-    delete Arrow.list[data.arrow[i]];
-  }
-  for(var i = 0 ; i < data.item.length; i++){
-    delete Item.list[data.item[i]];
-  }
-  for(var i = 0 ; i < data.light.length; i++){
-    delete Light.list[data.light[i]];
-  }
-  for(var i = 0 ; i < data.building.length; i++){
-    delete Building.list[data.building[i]];
-  }
-});
 
 // DRAW TO SCREEN
 
@@ -2981,68 +3055,6 @@ nightfall = null;
 
 houseList = null;
 kingdomList = null;
-
-socket.on('tempus',function(data){
-  tempus = data.tempus;
-  nightfall = data.nightfall;
-  if(Player.list[selfId]){
-    var p = Player.list[selfId];
-    if(p.z == 0 && (tempus == 'IV.a' || tempus == 'V.a' || tempus == 'X.a' || tempus == 'VIII.p')){
-      getBgm(p.x,p.y,p.z);
-    } else if((p.z == 1 || p.z == 2) && (tempus == 'VIII.p' || tempus == 'IV.a')){
-      var b = getBuilding(p.x,p.y);
-      getBgm(p.x,p.y,p.z,b);
-    }
-  }
-});
-
-socket.on('newFaction',function(data){
-  houseList = data.houseList;
-  kingdomList = data.kingdomlist;
-});
-
-// update sprite
-socket.on('sprite',function(data){
-  if(data == 'Serf'){
-    Player.list[selfId].sprite = maleserf;
-  } else if(data == 'Rogue'){
-    Player.list[selfId].sprite = rogue;
-  } else if(data == 'Hunter'){
-    Player.list[selfId].sprite = hunter;
-  } else if(data == 'Scout'){
-    Player.list[selfId].sprite = scout;
-  } else if(data == 'Ranger'){
-    Player.list[selfId].sprite = ranger;
-  } else if(data == 'Swordsman'){
-    Player.list[selfId].sprite = swordsman;
-  } else if(data == 'Archer'){
-    Player.list[selfId].sprite = archer;
-  } else if(data == 'Scout'){
-    Player.list[selfId].sprite = scout;
-  } else if(data == 'Horseman'){
-    Player.list[selfId].sprite = horseman;
-  } else if(data == 'MountedArcher'){
-    Player.list[selfId].sprite = mountedarcher;
-  } else if(data == 'Hero'){
-    Player.list[selfId].sprite = hero;
-  } else if(data == 'Templar'){
-    Player.list[selfId].sprite = templar;
-  } else if(data == 'Cavalry'){
-    Player.list[selfId].sprite = cavalry;
-  } else if(data == 'Knight'){
-    Player.list[selfId].sprite = knight;
-  } else if(data == 'Lancer'){
-    Player.list[selfId].sprite = lancer;
-  } else if(data == 'Crusader'){
-    Player.list[selfId].sprite = crusader;
-  } else if(data == 'Priest'){
-    Player.list[selfId].sprite = monk;
-  } else if(data == 'Mage'){
-    Player.list[selfId].sprite = mage;
-  } else if(data == 'Warlock'){
-    Player.list[selfId].sprite = warlock;
-  }
-});
 
 // viewport
 var viewport = {
@@ -3468,6 +3480,166 @@ var renderMap = function(){
           } else if(bTile == 'hut3'){
             ctx.drawImage(
               Img.hut3, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'gothhut0'){
+            ctx.drawImage(
+              Img.gothhut0, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'gothhut1'){
+            ctx.drawImage(
+              Img.gothhut1, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'gothhut2'){
+            ctx.drawImage(
+              Img.gothhut2, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'gothhut3'){
+            ctx.drawImage(
+              Img.gothhut3, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'frankhut0'){
+            ctx.drawImage(
+              Img.frankhut0, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'frankhut1'){
+            ctx.drawImage(
+              Img.frankhut1, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'frankhut2'){
+            ctx.drawImage(
+              Img.frankhut2, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'frankhut3'){
+            ctx.drawImage(
+              Img.frankhut3, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'celthut0'){
+            ctx.drawImage(
+              Img.celthut0, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'celthut1'){
+            ctx.drawImage(
+              Img.celthut1, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'celthut2'){
+            ctx.drawImage(
+              Img.celthut2, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'celthut3'){
+            ctx.drawImage(
+              Img.celthut3, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'teuthut0'){
+            ctx.drawImage(
+              Img.teuthut0, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'teuthut1'){
+            ctx.drawImage(
+              Img.teuthut1, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'teuthut2'){
+            ctx.drawImage(
+              Img.teuthut2, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'teuthut3'){
+            ctx.drawImage(
+              Img.teuthut3, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'outhut0'){
+            ctx.drawImage(
+              Img.outhut0, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'outhut1'){
+            ctx.drawImage(
+              Img.outhut1, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'outhut2'){
+            ctx.drawImage(
+              Img.outhut2, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'outhut3'){
+            ctx.drawImage(
+              Img.outhut3, // image
               xOffset, // target x
               yOffset, // target y
               tileSize, // target width
@@ -6232,132 +6404,132 @@ document.onkeydown = function(event){
   var chatFocus = (document.activeElement == chatInput);
   if(!chatFocus){
     if(event.keyCode == 68){ // d
-      socket.emit('keyPress',{inputId:'right',state:true});
+      socket.send(JSON.stringify({msg:'keyPress',inputId:'right',state:true}));
       Player.list[selfId].pressingRight = true;
     } else if(event.keyCode == 83){ // s
-      socket.emit('keyPress',{inputId:'down',state:true});
+      socket.send(JSON.stringify({msg:'keyPress',inputId:'down',state:true}));
       Player.list[selfId].pressingDown = true;
     } else if(event.keyCode == 65){ // a
-      socket.emit('keyPress',{inputId:'left',state:true});
+      socket.send(JSON.stringify({msg:'keyPress',inputId:'left',state:true}));
       Player.list[selfId].pressingLeft = true;
     } else if(event.keyCode == 87){ // w
-      socket.emit('keyPress',{inputId:'up',state:true});
+      socket.send(JSON.stringify({msg:'keyPress',inputId:'up',state:true}));
       Player.list[selfId].pressingUp = true;
     } else if(event.keyCode == 32){ // space
-      socket.emit('keyPress',{inputId:'attack',state:true});
+      socket.send(JSON.stringify({msg:'keyPress',inputId:'attack',state:true}));
       Player.list[selfId].pressingAttack = true;
     } else if(event.keyCode == 69){ // e
-      socket.emit('keyPress',{inputId:'e',state:true});
+      socket.send(JSON.stringify({msg:'keyPress',inputId:'e',state:true}));
     } else if(event.keyCode == 84){ // t
-      socket.emit('keyPress',{inputId:'t',state:true});
+      socket.send(JSON.stringify({msg:'keyPress',inputId:'t',state:true}));
     } else if(event.keyCode == 73){ // i
-      socket.emit('keyPress',{inputId:'i',state:true});
+      socket.send(JSON.stringify({msg:'keyPress',inputId:'i',state:true}));
     } else if(event.keyCode == 80){ // p
-      socket.emit('keyPress',{inputId:'p',state:true});
+      socket.send(JSON.stringify({msg:'keyPress',inputId:'p',state:true}));
     } else if(event.keyCode == 70){ // f
-      socket.emit('keyPress',{inputId:'f',state:true});
+      socket.send(JSON.stringify({msg:'keyPress',inputId:'f',state:true}));
     } else if(event.keyCode == 72){ // h
-      socket.emit('keyPress',{inputId:'h',state:true});
+      socket.send(JSON.stringify({msg:'keyPress',inputId:'h',state:true}));
     } else if(event.keyCode == 75){ // k
-      socket.emit('keyPress',{inputId:'k',state:true});
+      socket.send(JSON.stringify({msg:'keyPress',inputId:'k',state:true}));
     } else if(event.keyCode == 76){ // l
-      socket.emit('keyPress',{inputId:'l',state:true});
+      socket.send(JSON.stringify({msg:'keyPress',inputId:'l',state:true}));
     } else if(event.keyCode == 88){ // x
-      socket.emit('keyPress',{inputId:'x',state:true});
+      socket.send(JSON.stringify({msg:'keyPress',inputId:'x',state:true}));
     } else if(event.keyCode == 67){ // c
-      socket.emit('keyPress',{inputId:'c',state:true});
+      socket.send(JSON.stringify({msg:'keyPress',inputId:'c',state:true}));
     } else if(event.keyCode == 66){ // b
-      socket.emit('keyPress',{inputId:'b',state:true});
+      socket.send(JSON.stringify({msg:'keyPress',inputId:'b',state:true}));
     } else if(event.keyCode == 78){ // n
-      socket.emit('keyPress',{inputId:'n',state:true});
+      socket.send(JSON.stringify({msg:'keyPress',inputId:'n',state:true}));
     } else if(event.keyCode == 77){ // m
-      socket.emit('keyPress',{inputId:'m',state:true});
+      socket.send(JSON.stringify({msg:'keyPress',inputId:'m',state:true}));
     } else if(event.keyCode == 49){ // 1
-      socket.emit('keyPress',{inputId:'1',state:true});
+      socket.send(JSON.stringify({msg:'keyPress',inputId:'1',state:true}));
     } else if(event.keyCode == 50){ // 2
-      socket.emit('keyPress',{inputId:'2',state:true});
+      socket.send(JSON.stringify({msg:'keyPress',inputId:'2',state:true}));
     } else if(event.keyCode == 51){ // 3
-      socket.emit('keyPress',{inputId:'3',state:true});
+      socket.send(JSON.stringify({msg:'keyPress',inputId:'3',state:true}));
     } else if(event.keyCode == 52){ // 4
-      socket.emit('keyPress',{inputId:'4',state:true});
+      socket.send(JSON.stringify({msg:'keyPress',inputId:'4',state:true}));
     } else if(event.keyCode == 53){ // 5
-      socket.emit('keyPress',{inputId:'5',state:true});
+      socket.send(JSON.stringify({msg:'keyPress',inputId:'5',state:true}));
     } else if(event.keyCode == 54){ // 6
-      socket.emit('keyPress',{inputId:'6',state:true});
+      socket.send(JSON.stringify({msg:'keyPress',inputId:'6',state:true}));
     } else if(event.keyCode == 55){ // 7
-      socket.emit('keyPress',{inputId:'7',state:true});
+      socket.send(JSON.stringify({msg:'keyPress',inputId:'7',state:true}));
     } else if(event.keyCode == 56){ // 8
-      socket.emit('keyPress',{inputId:'8',state:true});
+      socket.send(JSON.stringify({msg:'keyPress',inputId:'8',state:true}));
     } else if(event.keyCode == 57){ // 9
-      socket.emit('keyPress',{inputId:'9',state:true});
+      socket.send(JSON.stringify({msg:'keyPress',inputId:'9',state:true}));
     } else if(event.keyCode == 48){ // 0
-      socket.emit('keyPress',{inputId:'0',state:true});
+      socket.send(JSON.stringify({msg:'keyPress',inputId:'0',state:true}));
     }
   }
 }
 
 document.onkeyup = function(event){
   if(event.keyCode == 68){ // d
-    socket.emit('keyPress',{inputId:'right',state:false});
+    socket.send(JSON.stringify({msg:'keyPress',inputId:'right',state:false}));
     Player.list[selfId].pressingRight = false;
   } else if(event.keyCode == 83){ // s
-    socket.emit('keyPress',{inputId:'down',state:false});
+    socket.send(JSON.stringify({msg:'keyPress',inputId:'down',state:false}));
     Player.list[selfId].pressingDown = false;
   } else if(event.keyCode == 65){ // a
-    socket.emit('keyPress',{inputId:'left',state:false});
+    socket.send(JSON.stringify({msg:'keyPress',inputId:'left',state:false}));
     Player.list[selfId].pressingLeft = false;
   } else if(event.keyCode == 87){ // w
-    socket.emit('keyPress',{inputId:'up',state:false});
+    socket.send(JSON.stringify({msg:'keyPress',inputId:'up',state:false}));
     Player.list[selfId].pressingUp = false;
   } else if(event.keyCode == 32){ // space
-    socket.emit('keyPress',{inputId:'attack',state:false});
+    socket.send(JSON.stringify({msg:'keyPress',inputId:'attack',state:false}));
     Player.list[selfId].pressingAttack = false;
   } else if(event.keyCode == 69){ // e
-    socket.emit('keyPress',{inputId:'e',state:false});
+    socket.send(JSON.stringify({msg:'keyPress',inputId:'e',state:false}));
   } else if(event.keyCode == 84){ // t
-    socket.emit('keyPress',{inputId:'t',state:false});
+    socket.send(JSON.stringify({msg:'keyPress',inputId:'t',state:false}));
   } else if(event.keyCode == 73){ // i
-    socket.emit('keyPress',{inputId:'i',state:false});
+    socket.send(JSON.stringify({msg:'keyPress',inputId:'i',state:false}));
   } else if(event.keyCode == 80){ // p
-    socket.emit('keyPress',{inputId:'p',state:false});
+    socket.send(JSON.stringify({msg:'keyPress',inputId:'p',state:false}));
   } else if(event.keyCode == 70){ // f
-    socket.emit('keyPress',{inputId:'f',state:false});
+    socket.send(JSON.stringify({msg:'keyPress',inputId:'f',state:false}));
   } else if(event.keyCode == 72){ // h
-    socket.emit('keyPress',{inputId:'h',state:false});
+    socket.send(JSON.stringify({msg:'keyPress',inputId:'h',state:false}));
   } else if(event.keyCode == 75){ // k
-    socket.emit('keyPress',{inputId:'k',state:false});
+    socket.send(JSON.stringify({msg:'keyPress',inputId:'k',state:false}));
   } else if(event.keyCode == 76){ // l
-    socket.emit('keyPress',{inputId:'l',state:false});
+    socket.send(JSON.stringify({msg:'keyPress',inputId:'l',state:false}));
   } else if(event.keyCode == 88){ // x
-    socket.emit('keyPress',{inputId:'x',state:false});
+    socket.send(JSON.stringify({msg:'keyPress',inputId:'x',state:false}));
   } else if(event.keyCode == 67){ // c
-    socket.emit('keyPress',{inputId:'c',state:false});
+    socket.send(JSON.stringify({msg:'keyPress',inputId:'c',state:false}));
   } else if(event.keyCode == 66){ // b
-    socket.emit('keyPress',{inputId:'b',state:false});
+    socket.send(JSON.stringify({msg:'keyPress',inputId:'b',state:false}));
   } else if(event.keyCode == 78){ // n
-    socket.emit('keyPress',{inputId:'n',state:false});
+    socket.send(JSON.stringify({msg:'keyPress',inputId:'n',state:false}));
   } else if(event.keyCode == 77){ // m
-    socket.emit('keyPress',{inputId:'m',state:false});
+    socket.send(JSON.stringify({msg:'keyPress',inputId:'m',state:false}));
   } else if(event.keyCode == 49){ // 1
-    socket.emit('keyPress',{inputId:'1',state:false});
+    socket.send(JSON.stringify({msg:'keyPress',inputId:'1',state:false}));
   } else if(event.keyCode == 50){ // 2
-    socket.emit('keyPress',{inputId:'2',state:false});
+    socket.send(JSON.stringify({msg:'keyPress',inputId:'2',state:false}));
   } else if(event.keyCode == 51){ // 3
-    socket.emit('keyPress',{inputId:'3',state:false});
+    socket.send(JSON.stringify({msg:'keyPress',inputId:'3',state:false}));
   } else if(event.keyCode == 52){ // 4
-    socket.emit('keyPress',{inputId:'4',state:false});
+    socket.send(JSON.stringify({msg:'keyPress',inputId:'4',state:false}));
   } else if(event.keyCode == 53){ // 5
-    socket.emit('keyPress',{inputId:'5',state:false});
+    socket.send(JSON.stringify({msg:'keyPress',inputId:'5',state:false}));
   } else if(event.keyCode == 54){ // 6
-    socket.emit('keyPress',{inputId:'6',state:false});
+    socket.send(JSON.stringify({msg:'keyPress',inputId:'6',state:false}));
   } else if(event.keyCode == 55){ // 7
-    socket.emit('keyPress',{inputId:'7',state:false});
+    socket.send(JSON.stringify({msg:'keyPress',inputId:'7',state:false}));
   } else if(event.keyCode == 56){ // 8
-    socket.emit('keyPress',{inputId:'8',state:false});
+    socket.send(JSON.stringify({msg:'keyPress',inputId:'8',state:false}));
   } else if(event.keyCode == 57){ // 9
-    socket.emit('keyPress',{inputId:'9',state:false});
+    socket.send(JSON.stringify({msg:'keyPress',inputId:'9',state:false}));
   } else if(event.keyCode == 48){ // 0
-    socket.emit('keyPress',{inputId:'0',state:false});
+    socket.send(JSON.stringify({msg:'keyPress',inputId:'0',state:false}));
   }
 }
 
@@ -6366,7 +6538,7 @@ document.onmousemove = function(event){
     var x = -250 + event.clientX - 8;
     var y = -250 + event.clientY - 8;
     var angle = Math.atan2(y,x) / Math.PI * 180;
-    socket.emit('keyPress',{inputId:'mouseAngle',state:angle});
+    socket.send(JSON.stringify({msg:'keyPress',inputId:'mouseAngle',state:angle}));
   }
 }
 

@@ -88,12 +88,7 @@ EvalCmd = function(data){
                 z:0,
                 type:'farm',
                 built:true,
-                plot:plot,
-                walls:null,
-                topPlot:null,
-                mats:null,
-                req:null,
-                hp:null
+                plot:plot
               });
             }
           },10000/player.strength);
@@ -1245,61 +1240,30 @@ EvalCmd = function(data){
       }
     } else if(data.cmd == 'fire'){
       if(z != -3){
+        var f = null;
         if(player.facing == 'left'){
-          if((z == 1 || z == 2) && getTile(4,c-1,r) != 0){
-            socket.emit('addToChat','<i>You cannot place that there.</i>');
-          } else {
-            var p = getCoords(c-1,r);
-            Campfire({
-              parent:player.id,
-              x:p[0],
-              y:p[1],
-              z:z,
-              qty:1
-            });
-          }
+          f = [c-1,r];
         } else if(player.facing == 'right'){
-          if((z == 1 || z == 2) && getTile(4,c+1,r) != 0){
-            socket.emit('addToChat','<i>You cannot place that there.</i>');
-          } else {
-            var p = getCoords(c+1,r);
-            Campfire({
-              parent:player.id,
-              x:p[0],
-              y:p[1],
-              z:z,
-              qty:1
-            });
-          }
+          f = [c+1,r];
         } else if(player.facing == 'up'){
-          if((z == 1 || z == 2) && getTile(4,c,r-1) != 0){
-            socket.emit('addToChat','<i>You cannot place that there.</i>');
-          } else {
-            var p = getCoords(c,r-1);
-            Campfire({
-              parent:player.id,
-              x:p[0],
-              y:p[1],
-              z:z,
-              qty:1
-            });
-          }
+          f = [c,r-1];
         } else if(player.facing == 'down'){
-          if((z == 1 || z == 2) && getTile(4,c,r+1) != 0){
-            socket.emit('addToChat','<i>You cannot place that there.</i>');
-          } else {
-            var p = getCoords(c,r+1);
-            Campfire({
-              parent:player.id,
-              x:p[0],
-              y:p[1],
-              z:z,
-              qty:1
-            });
-          }
+          f = [c,r+1];
+        }
+        if((z == 1 || z == 2) && getTile(4,f[0],f[1]) != 0){
+          socket.emit('addToChat','<i>You cannot place that there.</i>');
+        } else {
+          var p = getCoords(f[0],f[1]);
+          Campfire({
+            parent:player.id,
+            x:p[0],
+            y:p[1],
+            z:z,
+            qty:1
+          });
         }
       } else {
-        socket.emit('addToChat','<i>You cannot place that there.</i>');
+        socket.emit('addToChat','<i>You cannot start a fire here.</i>');
       }
       // EQUIPPING
     } else if(data.cmd == 'equip'){
@@ -13598,7 +13562,7 @@ EvalCmd = function(data){
           socket.emit('addToChat','<i>You have no garrison.</i>');
         }
       } else {
-        socket.emit('addToChat','<i>You cannot give this order.</i>');
+        socket.emit('addToChat','<i>You must establish a House.</i>');
       }
       if(permit){
         var all = '<b>Footsoldier</b>: /train <i>Quantity</i> footsoldier<br><b>3 iron, 2 grain</b>';

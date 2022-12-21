@@ -4,12 +4,13 @@
 //                                                                     //
 //      A   S O L I S   O R T V   V S Q V E   A D   O C C A S V M      //
 //                                                                     //
-//             A game by Johan Argyne, Cistercian Capital              //
+//                      A game by Johan Argyne                         //
 //                                                                     //
 /////////////////////////////////////////////////////////////////////////
 
 var fs = require('fs');
 var PF = require('pathfinding');
+require('./server/js/Database')
 require('./server/js/Entity');
 require('./server/js/Commands');
 require('./server/js/Equip');
@@ -284,7 +285,7 @@ var entropy = function(){
       });
     }
   }
-  io.emit('mapEdit',world);
+  emit({msg:'mapEdit',world:world});
 };
 
 // biome levels
@@ -310,7 +311,7 @@ caveEntrances = [];
 var dailyTally = function(){
   for(var i in Building.list){
     var b = Building.list[i];
-    if(b.type == 'mill' || b.type == 'lumbermill' || b.type == 'mine'){
+    if(b.built && (b.type == 'mill' || b.type == 'lumbermill' || b.type == 'mine')){
       Building.list[i].tally();
     }
   }
@@ -493,7 +494,7 @@ matrixChange = function(l,c,r,n){
 
 // send mapEdit
 mapEdit = function(){
-  io.emit('mapEdit', world);
+  emit({msg:'mapEdit',world:world});
 }
 
 // get tile walkable status
@@ -832,9 +833,8 @@ randomSpawnU = function(){
 
 // faction spawner
 factionSpawn = function(id){
-  if(id == 1){
+  if(id == 1){ // brotherhood
     var select = [];
-    var gridSelect = [];
     for(var i in spawnPointsU){
       var count = 0;
       var c = spawnPointsU[i][0];
@@ -854,36 +854,24 @@ factionSpawn = function(id){
           var r = Math.random();
           if(r < 0.25){
             select.push(grid[5]);
-            grid.splice(5,1);
-            gridSelect.push(grid);
           } else if(r < 0.5){
             select.push(grid[6]);
-            grid.splice(6,1);
-            gridSelect.push(grid);
           } else if (r < 0.75){
             select.push(grid[9]);
-            grid.splice(9,1);
-            gridSelect.push(grid);
           } else {
             select.push(grid[10]);
-            grid.splice(10,1);
-            gridSelect.push(grid);
           }
         }
-      } else {
-        continue;
       }
     }
     var rand = Math.floor(Math.random() * select.length);
-    factionGrids.brotherhood = gridSelect[rand];
     return select[rand];
-  } else if(id == 2){
+  } else if(id == 2){ // goths
     var select = [];
-    var gridSelect = [];
-    for(var i in mtnSpawns){
+    for(var i in spawnPointsO){
       var count = 0;
-      var c = mtnSpawns[i][0];
-      var r = mtnSpawns[i][1];
+      var c = spawnPointsO[i][0];
+      var r = spawnPointsO[i][1];
       var grid = [[c,r],[c+1,r],[c+2,r],[c+3,r],[c+4,r],
       [c,r+1],[c+1,r+1],[c+2,r+1],[c+3,r+1],[c+4,r+1],
       [c,r+2],[c+1,r+2],[c+2,r+2],[c+3,r+2],[c+4,r+2],
@@ -892,25 +880,19 @@ factionSpawn = function(id){
       if(c < (mapSize-4) && r < (mapSize-4)){
         for(var n in grid){
           var tile = grid[n];
-          if(getTile(0,tile[0],tile[1]) >= 5 && getTile(0,tile[0],tile[1]) < 6){
+          if(getTile(0,tile[0],tile[1]) >= 3 && getTile(0,tile[0],tile[1]) < 4){
             count++;
           }
         }
         if(count == grid.length){
           select.push(grid[12]);
-          grid.splice(12,1);
-          gridSelect.push(grid);
         }
-      } else {
-        continue;
       }
     }
     var rand = Math.floor(Math.random() * select.length);
-    factionGrids.goths = gridSelect[rand];
     return select[rand];
-  } else if(id == 3){
+  } else if(id == 3){ // norsemen
     var select = [];
-    var gridSelect = [];
     for(var i in waterSpawns){
       var count = 0;
       var c = waterSpawns[i][0];
@@ -929,18 +911,13 @@ factionSpawn = function(id){
         }
         if(count == grid.length){
           select.push(grid[12]);
-          gridSelect.push(grid);
         }
-      } else {
-        continue;
       }
     }
     var rand = Math.floor(Math.random() * select.length);
-    // factionGrids.norsemen = gridSelect[rand];
     return select[rand];
-  } else if(id == 4){
+  } else if(id == 4){ // franks
     var select = [];
-    var gridSelect = [];
     for(var i in spawnPointsO){
       var count = 0;
       var c = spawnPointsO[i][0];
@@ -953,25 +930,83 @@ factionSpawn = function(id){
       if(c < (mapSize-4) && r < (mapSize-4)){
         for(var n in grid){
           var tile = grid[n];
-          if(getTile(0,tile[0],tile[1]) >= 2 && getTile(0,tile[0],tile[1]) < 4){
+          if(getTile(0,tile[0],tile[1]) >= 3 && getTile(0,tile[0],tile[1]) < 4){
             count++;
           }
         }
         if(count == grid.length){
           select.push(grid[12]);
-          grid.splice(12,1);
-          gridSelect.push(grid);
         }
       } else {
         continue;
       }
     }
     var rand = Math.floor(Math.random() * select.length);
-    factionGrids.franks = gridSelect[rand];
     return select[rand];
-  } else if(id == 5){
+  } else if(id == 5){ // celts
+    var best = null;
+    var select = null;
+    for(var i in hForestSpawns){
+      var count = 0;
+      var c = hForestSpawns[i][0];
+      var r = hForestSpawns[i][1];
+      var grid = [[c,r],[c+1,r],[c+2,r],[c+3,r],[c+4,r],
+      [c,r+1],[c+1,r+1],[c+2,r+1],[c+3,r+1],[c+4,r+1],
+      [c,r+2],[c+1,r+2],[c+2,r+2],[c+3,r+2],[c+4,r+2],
+      [c,r+3],[c+1,r+3],[c+2,r+3],[c+3,r+3],[c+4,r+3],
+      [c,r+4],[c+1,r+4],[c+2,r+4],[c+3,r+4],[c+4,r+4]];
+      if(c < (mapSize-4) && r < (mapSize-4)){
+        for(var n in grid){
+          var tile = grid[n];
+          if(getTile(0,tile[0],tile[1]) >= 1 && getTile(0,tile[0],tile[1]) < 2){
+            count++;
+          }
+        }
+        if(count == grid.length){
+          var center = getCenter(grid[12][0],grid[12][1]);
+          for(var e in caveEntrances){
+            var ent = caveEntrances[e];
+            var cent = getCenter(ent[0],ent[1]);
+            var dist = getDistance({x:center[0],y:center[1]},{x:cent[0],y:cent[1]});
+            if(!best){
+              best = dist;
+              select = grid[12];
+            } else if(dist < best){
+              best = dist;
+              select = grid[12];
+            }
+          }
+        }
+      }
+    }
+    return select;
+  } else if(id == 6){ // teutons
     var select = [];
-    var gridSelect = [];
+    for(var i in mtnSpawns){
+      var count = 0;
+      var c = mtnSpawns[i][0];
+      var r = mtnSpawns[i][1];
+      var grid = [[c,r],[c+1,r],[c+2,r],[c+3,r],[c+4,r],
+      [c,r+1],[c+1,r+1],[c+2,r+1],[c+3,r+1],[c+4,r+1],
+      [c,r+2],[c+1,r+2],[c+2,r+2],[c+3,r+2],[c+4,r+2],
+      [c,r+3],[c+1,r+3],[c+2,r+3],[c+3,r+3],[c+4,r+3],
+      [c,r+4],[c+1,r+4],[c+2,r+4],[c+3,r+4],[c+4,r+4]];
+      if(c < (mapSize-4) && r < (mapSize-4)){
+        for(var n in grid){
+          var tile = grid[n];
+          if(getTile(0,tile[0],tile[1]) >= 4 && getTile(0,tile[0],tile[1]) < 7){
+            count++;
+          }
+        }
+        if(count == grid.length){
+          select.push(grid[12]);
+        }
+      }
+    }
+    var rand = Math.floor(Math.random() * select.length);
+    return select[rand];
+  } else if(id == 7){ // outlaws
+    var select = [];
     for(var i in hForestSpawns){
       var count = 0;
       var c = hForestSpawns[i][0];
@@ -990,81 +1025,13 @@ factionSpawn = function(id){
         }
         if(count == grid.length){
           select.push(grid[12]);
-          grid.splice(12,1);
-          gridSelect.push(grid);
         }
-      } else {
-        continue;
       }
     }
     var rand = Math.floor(Math.random() * select.length);
-    factionGrids.celts = gridSelect[rand];
     return select[rand];
-  } else if(id == 6){
+  } else if(id == 8){ // mercenaries
     var select = [];
-    var gridSelect = [];
-    for(var i in spawnPointsO){
-      var count = 0;
-      var c = spawnPointsO[i][0];
-      var r = spawnPointsO[i][1];
-      var grid = [[c,r],[c+1,r],[c+2,r],[c+3,r],[c+4,r],
-      [c,r+1],[c+1,r+1],[c+2,r+1],[c+3,r+1],[c+4,r+1],
-      [c,r+2],[c+1,r+2],[c+2,r+2],[c+3,r+2],[c+4,r+2],
-      [c,r+3],[c+1,r+3],[c+2,r+3],[c+3,r+3],[c+4,r+3],
-      [c,r+4],[c+1,r+4],[c+2,r+4],[c+3,r+4],[c+4,r+4]];
-      if(c < (mapSize-4) && r < (mapSize-4)){
-        for(var n in grid){
-          var tile = grid[n];
-          if(getTile(0,tile[0],tile[1]) >= 4 && getTile(0,tile[0],tile[1]) < 6){
-            count++;
-          }
-        }
-        if(count == grid.length){
-          select.push(grid[12]);
-          grid.splice(12,1);
-          gridSelect.push(grid);
-        }
-      } else {
-        continue;
-      }
-    }
-    var rand = Math.floor(Math.random() * select.length);
-    factionGrids.teutons = gridSelect[rand];
-    return select[rand];
-  } else if(id == 7){
-    var select = [];
-    var gridSelect = [];
-    for(var i in hForestSpawns){
-      var count = 0;
-      var c = hForestSpawns[i][0];
-      var r = hForestSpawns[i][1];
-      var grid = [[c,r],[c+1,r],[c+2,r],[c+3,r],[c+4,r],
-      [c,r+1],[c+1,r+1],[c+2,r+1],[c+3,r+1],[c+4,r+1],
-      [c,r+2],[c+1,r+2],[c+2,r+2],[c+3,r+2],[c+4,r+2],
-      [c,r+3],[c+1,r+3],[c+2,r+3],[c+3,r+3],[c+4,r+3],
-      [c,r+4],[c+1,r+4],[c+2,r+4],[c+3,r+4],[c+4,r+4]];
-      if(c < (mapSize-4) && r < (mapSize-4)){
-        for(var n in grid){
-          var tile = grid[n];
-          if(getTile(0,tile[0],tile[1]) >= 1 && getTile(0,tile[0],tile[1]) < 2){
-            count++;
-          }
-        }
-        if(count == grid.length){
-          select.push(grid[12]);
-          grid.splice(12,1);
-          gridSelect.push(grid);
-        }
-      } else {
-        continue;
-      }
-    }
-    var rand = Math.floor(Math.random() * select.length);
-    factionGrids.outlaws = gridSelect[rand];
-    return select[rand];
-  } else if(id == 8){
-    var select = [];
-    var gridSelect = [];
     for(var i in spawnPointsU){
       var count = 0;
       var c = spawnPointsU[i][0];
@@ -1083,8 +1050,6 @@ factionSpawn = function(id){
         }
         if(count == grid.length){
           select.push(grid[12]);
-          grid.splice(12,1);
-          gridSelect.push(grid);
         } else if(count >= grid.length-5){
           var exits = 0;
           for(var n in grid){
@@ -1103,16 +1068,11 @@ factionSpawn = function(id){
               }
             }
             select.push(grid[12]);
-            grid.splice(12,1);
-            gridSelect.push(grid);
           }
         }
-      } else {
-        continue;
       }
     }
     var rand = Math.floor(Math.random() * select.length);
-    factionGrids.mercenaries = gridSelect[rand];
     return select[rand];
   }
 }
@@ -1139,10 +1099,6 @@ day = 0;
 
 // weather
 
-// DATABASE
-var mongojs = require('mongojs');
-var db = mongojs('localhost:27017/myGame',['account','progress']);
-
 // NETWORKING
 var express = require('express');
 var app = express();
@@ -1163,31 +1119,6 @@ console.log("");
 console.log("###################################");
 
 SOCKET_LIST = {};
-
-// SERVER
-var isValidPassword = function(data,cb){
-  db.account.find({username:data.name,password:data.password},function(err,res){
-    if(res.length > 0)
-      cb(true);
-    else
-      cb(false);
-  });
-}
-
-var isUsernameTaken = function(data,cb){
-  db.account.find({username:data.name},function(err,res){
-    if(res.length > 0)
-      cb(true);
-    else
-      cb(false);
-  });
-}
-
-var addUser = function(data,cb){
-  db.account.insert({username:data.name,password:data.password},function(err){
-    cb();
-  });
-};
 
 // PLAYER
 Player = function(param){
@@ -1345,7 +1276,7 @@ Player = function(param){
           continue;
         }
       }
-      socket.emit('addToChat','<i>There is nothing to pick up.</i>');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>There is nothing to pick up.</i>'}));
     }
 
     // HORSE
@@ -1364,13 +1295,13 @@ Player = function(param){
               self.mounted = true;
               self.baseSpd += 3;
             } else {
-              socket.emit('addToChat','<i>Try again shortly.</i>');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>Try again shortly.</i>'}));
             }
           } else {
-            socket.emit('addToChat','<i>You are not wearing any riding gear.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are not wearing any riding gear.</i>'}));
           }
         } else {
-          socket.emit('addToChat','<i>You do not own a horse.</i>');
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not own a horse.</i>'}));
         }
       }
     }
@@ -1385,15 +1316,15 @@ Player = function(param){
             self.gear.weapon2 = self.gear.weapon;
             self.gear.weapon = switchwep;
             self.actionCooldown = 10;
-            socket.emit('addToChat','<i>You switch weapons to </i><b>' + self.gear.weapon.name + '</b>.');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You switch weapons to </i><b>' + self.gear.weapon.name + '</b>.'}));
           } else {
-            socket.emit('addToChat','<i>You have no secondary weapon equipped.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You have no secondary weapon equipped.</i>'}));
           }
         } else {
-          socket.emit('addToChat','<i>You have no weapons equipped.</i>');
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>You have no weapons equipped.</i>'}));
         }
       } else {
-        socket.emit('addToChat','<i>Try again shortly.</i>');
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>Try again shortly.</i>'}));
       }
     }
 
@@ -1667,9 +1598,9 @@ Player = function(param){
         all += relic;
       }
       if(all == ''){
-        socket.emit('addToChat','<i>You have nothing in your bag.</i>');
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>You have nothing in your bag.</i>'}));
       } else {
-        socket.emit('addToChat','<p>'+all+'</p>');
+        socket.write(JSON.stringify({msg:'addToChat',message:'<p>'+all+'</p>'}));
       }
     }
 
@@ -1721,8 +1652,8 @@ Player = function(param){
               self.working = false;
               self.fishing = false;
               self.inventory.fish++;
-              world[6][uLoc[1]][uLoc[0]]--;
-              socket.emit('addToChat','<i>You caught a fish.</i>');
+              tileChange(6,uLoc[0],uLoc[1],-1,true);
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>You caught a fish.</i>'}));
             } else {
               return;
             }
@@ -1742,8 +1673,8 @@ Player = function(param){
               self.working = false;
               self.fishing = false;
               self.inventory.fish++;
-              world[6][dLoc[1]][dLoc[0]]--;
-              socket.emit('addToChat','<i>You caught a fish.</i>');
+              tileChange(6,dLoc[0],dLoc[1],-1,true);
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>You caught a fish.</i>'}));
             } else {
               return;
             }
@@ -1763,8 +1694,8 @@ Player = function(param){
               self.working = false;
               self.fishing = false;
               self.inventory.fish++;
-              world[6][lLoc[1]][lLoc[0]]--;
-              socket.emit('addToChat','<i>You caught a fish.</i>');
+              tileChange(6,lLoc[0],lLoc[1],-1,true);
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>You caught a fish.</i>'}));
             } else {
               return;
             }
@@ -1784,8 +1715,8 @@ Player = function(param){
               self.working = false;
               self.fishing = false;
               self.inventory.fish++;
-              world[6][rLoc[1]][rLoc[0]]--;
-              socket.emit('addToChat','<i>You caught a fish.</i>');
+              tileChange(6,rLoc[0],rLoc[1],-1,true);
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>You caught a fish.</i>'}));
             } else {
               return;
             }
@@ -1800,8 +1731,8 @@ Player = function(param){
         self.working = true;
         setTimeout(function(){
           if(self.working){
-            world[0][loc[1]][loc[0]] = 7;
-            io.emit('mapEdit',world);
+            tileChange(0,loc[0],loc[1],7);
+            emit({msg:'mapEdit',world:world});
             self.working = false;
           } else {
             return;
@@ -1816,12 +1747,12 @@ Player = function(param){
         }
         setTimeout(function(){
           if(self.working){
-            world[6][loc[1]][loc[0]] -= 50; // ALPHA
+            tileChange(6,loc[0],loc[1],-50,true); // ALPHA
             self.inventory.wood += 50; // ALPHA
             self.working = false;
             self.chopping = false;
             if(getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 2 && getTile(6,loc[0],loc[1]) < 101){
-              world[0][loc[1]][loc[0]] += 1;
+              tileChange(0,loc[0],loc[1],1,true);
               for(var i in hForestSpawns){
                 if(hForestSpawns[i] == loc){
                   biomes.hForest--;
@@ -1831,10 +1762,10 @@ Player = function(param){
                   continue;
                 }
               }
-              io.emit('mapEdit',world);
+              emit({msg:'mapEdit',world:world});
             } else if(getTile(0,loc[0],loc[1]) >= 2 && getTile(0,loc[0],loc[1]) < 3 && getTile(6,loc[0],loc[1]) <= 0){
-              world[0][loc[1]][loc[0]] = 7;
-              io.emit('mapEdit',world);
+              tileChange(0,loc[0],loc[1],7);
+              emit({msg:'mapEdit',world:world});
             }
           } else {
             return;
@@ -1844,40 +1775,44 @@ Player = function(param){
       } else if(self.z == 0 && getTile(0,loc[0],loc[1]) >= 4 && getTile(0,loc[0],loc[1]) < 6){
         self.actionCooldown = 10;
         self.working = true;
+        var mult = 3;
         if(self.inventory.pickaxe > 0){
           self.mining = true;
+          mult = 1;
         }
         setTimeout(function(){
           if(self.working){
-            world[6][loc[1]][loc[0]] -= 50; // ALPHA
+            tileChange(6,loc[0],loc[1],-50,true); // ALPHA
             self.inventory.stone += 50; // ALPHA
             self.working = false;
             self.mining = false;
             if(getTile(0,loc[0],loc[1]) >= 4 && getTile(0,loc[0],loc[1]) < 5 && getTile(6,loc[0],loc[1]) <= 0){
-              world[0][loc[1]][loc[0]] = 7;
-              io.emit('mapEdit',world);
+              tileChange(0,loc[0],loc[1],7);
+              emit({msg:'mapEdit',world:world});
             }
           } else {
             return;
           }
-        },10000/self.strength);
+        },(10000*mult)/self.strength);
         // mine metal
       } else if(self.z == -1 && getTile(1,loc[0],loc[1]) >= 3 && getTile(1,loc[0],loc[1]) < 4){
         self.actionCooldown = 10;
         self.working = true;
+        var mult = 3;
         if(self.inventory.pickaxe > 0){
           self.mining = true;
+          mult = 1;
         }
         setTimeout(function(){
-          if(self.working){
-            world[7][loc[1]][loc[0]] -= 1;
-            self.inventory.stone += 1;
+          if(self.working && self.mining){
+            tileChange(7,loc[0],loc[1],-1,true);
+            //
             self.working = false;
             self.mining = false;
           } else {
             return;
           }
-        },10000/self.strength);
+        },(10000*mult)/self.strength);
         // farm
       } else if(self.z == 0 && getTile(0,loc[0],loc[1]) == 8){
         self.actionCooldown = 10;
@@ -1887,14 +1822,14 @@ Player = function(param){
           self.farming = true;
           setTimeout(function(){
             if(self.working && world[6][loc[1]][loc[0]] < 25){
-              world[6][loc[1]][loc[0]] += 25; // ALPHA, default:1
+              tileChange(6,loc[0],loc[1],25,true); // ALPHA, default:1
               self.working = false;
               self.farming = false;
               var count = 0;
               var plot = Building.list[f].plot;
               for(var i in plot){
                 var n = plot[i];
-                if(world[6][n[1]][n[0]] >= 25){
+                if(getTile(6,n[0],n[1]) >= 25){
                   count++;
                 } else {
                   continue;
@@ -1903,16 +1838,16 @@ Player = function(param){
               if(count == 9){
                 for(var i in plot){
                   var n = plot[i];
-                  world[0][n[1]][n[0]] = 9;
+                  tileChange(0,n[0],n[1],9);
                 }
-                io.emit('mapEdit',world);
+                emit({msg:'mapEdit',world:world});
               }
             } else {
               return;
             }
           },10000);
         } else {
-          socket.emit('addToChat','<i>It is too dark out for farmwork.</i>');
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>It is too dark out for farmwork.</i>'}));
         }
       } else if(self.z == 0 && getTile(0,loc[0],loc[1]) == 9){
         self.actionCooldown = 10;
@@ -1922,14 +1857,13 @@ Player = function(param){
           self.farming = true;
           setTimeout(function(){
             if(self.working && world[6][loc[1]][loc[0]] < 50){
-              world[6][loc[1]][loc[0]] += 25; // ALPHA, default:1
-              //io.emit('mapEdit',world);
+              tileChange(6,loc[0],loc[1],25,true); // ALPHA, default:1
               self.working = false;
               self.farming = false;
               var count = 0;
               var plot = f.plot;
               for(var i in plot){
-                if(world[6][plot[i][1]][plot[i][0]] >= 50){
+                if(getTile(6,plot[i][0],plot[i][1]) >= 50){
                   count++;
                 } else {
                   continue;
@@ -1937,16 +1871,16 @@ Player = function(param){
               }
               if(count == 9){
                 for(var i in plot){
-                  world[0][plot[i][1]][plot[i][0]] = 10;
+                  tileChange(0,plot[i][0],plot[i][1],10);
                 }
-                io.emit('mapEdit',world);
+                emit({msg:'mapEdit',world:world});
               }
             } else {
               return;
             }
           },10000);
         } else {
-          socket.emit('addToChat','<i>It is too dark out for farmwork.</i>');
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>It is too dark out for farmwork.</i>'}));
         }
       } else if(self.z == 0 && getTile(0,loc[0],loc[1]) == 10){
         self.actionCooldown = 10;
@@ -1955,13 +1889,13 @@ Player = function(param){
         self.farming = true;
         setTimeout(function(){
           if(self.working){
-            world[6][loc[1]][loc[0]] -= 1;
+            tileChange(6,loc[0],loc[1],-1,true);
             self.inventory.grain += 1;
             self.working = false;
             self.farming = false;
-            if(world[6][loc[1]][loc[0]] <= 0){
-              world[0][loc[1]][loc[0]] = 8;
-              io.emit('mapEdit', world);
+            if(getTile(6,loc[0],loc[1]) <= 0){
+              tileChange(0,loc[0],loc[1],8);
+              emit({msg:'mapEdit',world:world});
             }
           } else {
             return;
@@ -2100,10 +2034,10 @@ Player = function(param){
         self.inventory.torch--;
         self.hasTorch = torchId;
       } else {
-        SOCKET_LIST[self.id].emit('addToChat','<i>You cannot do that here.</i>');
+        SOCKET_LIST[self.id].emit({msg:'addToChat',message:'<i>You cannot do that here.</i>'});
       }
     } else {
-      SOCKET_LIST[self.id].emit('addToChat','<i>You have no torches.</i>');
+      SOCKET_LIST[self.id].emit({msg:'addToChat',message:'<i>You have no torches.</i>'});
     }
   }
 
@@ -2267,7 +2201,7 @@ Player = function(param){
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * self.drag;
-        socket.emit('bgm',{x:self.x,y:self.y,z:self.z});
+        socket.write(JSON.stringify({msg:'bgm',x:self.x,y:self.y,z:self.z}));
       } else if(tile >= 1 && tile < 2){
         self.innaWoods = true;
         self.onMtn = false;
@@ -2301,24 +2235,24 @@ Player = function(param){
         self.onMtn = false;
         self.maxSpd = self.baseSpd * self.drag;
         setTimeout(function(){
-          socket.emit('bgm',{x:self.x,y:self.y,z:self.z,b:b});
+          socket.write(JSON.stringify({msg:'bgm',x:self.x,y:self.y,z:self.z,b:b}));
         },100);
       } else if(getTile(0,loc[0],loc[1]) == 19){
         Building.list[b].occ++;
         self.z = 1;
-        socket.emit('addToChat','<i>🗝 You unlock the door.</i>');
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>🗝 You unlock the door.</i>'}));
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * self.drag;
         setTimeout(function(){
-          socket.emit('bgm',{x:self.x,y:self.y,z:self.z,b:b});
+          socket.write(JSON.stringify({msg:'bgm',x:self.x,y:self.y,z:self.z,b:b}));
         },100);
       } else if(getTile(0,loc[0],loc[1]) == 0){
         self.z = -3;
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = (self.baseSpd * 0.2) * self.drag;
-        socket.emit('bgm',{x:self.x,y:self.y,z:self.z});
+        socket.write(JSON.stringify({msg:'bgm',x:self.x,y:self.y,z:self.z}));
       } else {
         self.innaWoods = false;
         self.onMtn = false;
@@ -2330,14 +2264,14 @@ Player = function(param){
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = (self.baseSpd * 0.9) * self.drag;
-        socket.emit('bgm',{x:self.x,y:self.y,z:self.z});
+        socket.write(JSON.stringify({msg:'bgm',x:self.x,y:self.y,z:self.z}));
       }
     } else if(self.z == -2){
       if(getTile(8,loc[0],loc[1]) == 5){
         self.z = 1;
         self.y += (tileSize/2);
         self.facing = 'down';
-        socket.emit('bgm',{x:self.x,y:self.y,z:self.z,b:b2});
+        socket.write(JSON.stringify({msg:'bgm',x:self.x,y:self.y,z:self.z,b:b2}));
       }
     } else if(self.z == -3){
       if(self.breath > 0){
@@ -2351,30 +2285,30 @@ Player = function(param){
       if(getTile(0,loc[0],loc[1]) !== 0){
         self.z = 0;
         self.breath = self.breathMax;
-        socket.emit('bgm',{x:self.x,y:self.y,z:self.z});
+        socket.write(JSON.stringify({msg:'bgm',x:self.x,y:self.y,z:self.z}));
       }
     } else if(self.z == 1){
       if(getTile(0,loc[0],loc[1] - 1) == 14 || getTile(0,loc[0],loc[1] - 1) == 16  || getTile(0,loc[0],loc[1] - 1) == 19){
         Building.list[exit].occ--;
         self.z = 0;
-        socket.emit('bgm',{x:self.x,y:self.y,z:self.z});
+        socket.write(JSON.stringify({msg:'bgm',x:self.x,y:self.y,z:self.z}));
       } else if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4 || getTile(4,loc[0],loc[1]) == 7){
         self.z = 2;
         self.y += (tileSize/2);
         self.facing = 'down'
-        socket.emit('bgm',{x:self.x,y:self.y,z:self.z,b:b2});
+        socket.write(JSON.stringify({msg:'bgm',x:self.x,y:self.y,z:self.z,b:b2}));
       } else if(getTile(4,loc[0],loc[1]) == 5 || getTile(4,loc[0],loc[1]) == 6){
         self.z = -2;
         self.y += (tileSize/2);
         self.facing = 'down';
-        socket.emit('bgm',{x:self.x,y:self.y,z:self.z,b:b2});
+        socket.write(JSON.stringify({msg:'bgm',x:self.x,y:self.y,z:self.z,b:b2}));
       }
     } else if(self.z == 2){
       if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4){
         self.z = 1;
         self.y += (tileSize/2);
         self.facing = 'down';
-        socket.emit('bgm',{x:self.x,y:self.y,z:self.z,b:b2});
+        socket.write(JSON.stringify({msg:'bgm',x:self.x,y:self.y,z:self.z,b:b2}));
       }
     }
   }
@@ -2474,10 +2408,11 @@ Player = function(param){
 Player.list = {};
 
 Player.onConnect = function(socket,name){
-  socket.emit('tempus',{
+  socket.write(JSON.stringify({
+    msg:'tempus',
     tempus:tempus,
     nightfall:nightfall
-  })
+  }))
   var spawn = randomSpawnO();
   var player = Player({
     name:name,
@@ -2489,104 +2424,105 @@ Player.onConnect = function(socket,name){
       x:spawn[0],
       y:spawn[1]}
   });
-  console.log(player.id + ' spawned at : ' + spawn + ' z: 0')
-  // player control inputs
-  socket.on('keyPress',function(data){
-    if(data.inputId == 'left'){
-      player.pressingLeft = data.state;
-    } else if(data.inputId == 'right'){
-      player.pressingRight = data.state;
-    } else if(data.inputId == 'up'){
-      player.pressingUp = data.state;
-    } else if(data.inputId == 'down'){
-      player.pressingDown = data.state;
-    } else if(data.inputId == 'attack'){
-      player.pressingAttack = data.state;
-    } else if(data.inputId == 'e'){
-      player.pressingE = data.state;
-    } else if(data.inputId == 't'){
-      player.pressingT = data.state;
-    } else if(data.inputId == 'i'){
-      player.pressingI = data.state;
-    } else if(data.inputId == 'p'){
-      player.pressingP = data.state;
-    } else if(data.inputId == 'f'){
-      player.pressingF = data.state;
-    } else if(data.inputId == 'h'){
-      player.pressingH = data.state;
-    } else if(data.inputId == 'k'){
-      player.pressingK = data.state;
-    } else if(data.inputId == 'l'){
-      player.pressingL = data.state;
-    } else if(data.inputId == 'x'){
-      player.pressingX = data.state;
-    } else if(data.inputId == 'c'){
-      player.pressingC = data.state;
-    } else if(data.inputId == 'b'){
-      player.pressingB = data.state;
-    } else if(data.inputId == 'n'){
-      player.pressingN = data.state;
-    } else if(data.inputId == 'm'){
-      player.pressingM = data.state;
-    } else if(data.inputId == '1'){
-      player.pressing1 = data.state;
-    } else if(data.inputId == '2'){
-      player.pressing2 = data.state;
-    } else if(data.inputId == '3'){
-      player.pressing3 = data.state;
-    } else if(data.inputId == '4'){
-      player.pressing4 = data.state;
-    } else if(data.inputId == '5'){
-      player.pressing5 = data.state;
-    } else if(data.inputId == '6'){
-      player.pressing6 = data.state;
-    } else if(data.inputId == '7'){
-      player.pressing7 = data.state;
-    } else if(data.inputId == '8'){
-      player.pressing8 = data.state;
-    } else if(data.inputId == '9'){
-      player.pressing9 = data.state;
-    } else if(data.inputId == '0'){
-      player.pressing0 = data.state;
-    } else if(data.inputId == 'mouseAngle'){
-      player.mouseAngle = data.state;
-    }
-  });
+  console.log(player.id + ' spawned at : ' + spawn + ' z: 0');
 
-  socket.on('sendMsgToServer',function(data){
-    for(var i in SOCKET_LIST){
-      SOCKET_LIST[i].emit('addToChat','<b>' + data.name + ':</b> ' + data.message);
-    }
-  });
-
-  socket.on('sendPmToServer',function(data){
-    var recipient = null;
-    for(var i in Player.list){
-      if(Player.list[i].name == data.recip){
-        recipient = SOCKET_LIST[i];
+  socket.on('data',function(string){
+    var data = JSON.parse(string);
+    if(data.msg == 'keyPress'){
+      if(data.inputId == 'left'){
+        player.pressingLeft = data.state;
+      } else if(data.inputId == 'right'){
+        player.pressingRight = data.state;
+      } else if(data.inputId == 'up'){
+        player.pressingUp = data.state;
+      } else if(data.inputId == 'down'){
+        player.pressingDown = data.state;
+      } else if(data.inputId == 'attack'){
+        player.pressingAttack = data.state;
+      } else if(data.inputId == 'e'){
+        player.pressingE = data.state;
+      } else if(data.inputId == 't'){
+        player.pressingT = data.state;
+      } else if(data.inputId == 'i'){
+        player.pressingI = data.state;
+      } else if(data.inputId == 'p'){
+        player.pressingP = data.state;
+      } else if(data.inputId == 'f'){
+        player.pressingF = data.state;
+      } else if(data.inputId == 'h'){
+        player.pressingH = data.state;
+      } else if(data.inputId == 'k'){
+        player.pressingK = data.state;
+      } else if(data.inputId == 'l'){
+        player.pressingL = data.state;
+      } else if(data.inputId == 'x'){
+        player.pressingX = data.state;
+      } else if(data.inputId == 'c'){
+        player.pressingC = data.state;
+      } else if(data.inputId == 'b'){
+        player.pressingB = data.state;
+      } else if(data.inputId == 'n'){
+        player.pressingN = data.state;
+      } else if(data.inputId == 'm'){
+        player.pressingM = data.state;
+      } else if(data.inputId == '1'){
+        player.pressing1 = data.state;
+      } else if(data.inputId == '2'){
+        player.pressing2 = data.state;
+      } else if(data.inputId == '3'){
+        player.pressing3 = data.state;
+      } else if(data.inputId == '4'){
+        player.pressing4 = data.state;
+      } else if(data.inputId == '5'){
+        player.pressing5 = data.state;
+      } else if(data.inputId == '6'){
+        player.pressing6 = data.state;
+      } else if(data.inputId == '7'){
+        player.pressing7 = data.state;
+      } else if(data.inputId == '8'){
+        player.pressing8 = data.state;
+      } else if(data.inputId == '9'){
+        player.pressing9 = data.state;
+      } else if(data.inputId == '0'){
+        player.pressing0 = data.state;
+      } else if(data.inputId == 'mouseAngle'){
+        player.mouseAngle = data.state;
+      }
+    } else if(data.msg == 'msgToServer'){
+      for(var i in SOCKET_LIST){
+        SOCKET_LIST[i].emit({msg:'addToChat',message:'<b>' + data.name + ':</b> ' + data.message});
+      }
+    } else if(data.msg == 'pmToServer'){
+      var recipient = null;
+      for(var i in Player.list){
+        if(Player.list[i].name == data.recip){
+          recipient = SOCKET_LIST[i];
+        }
+      }
+      if(recipient == null){
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>' + data.recip + ' is not online.</i>'}));
+      } else {
+        recipient.write(JSON.stringify({msg:'addToChat',message:'<b>@' + player.name + '</b> whispers: <i>' + data.message + '</i>'}));
+        SOCKET_LIST[player.id].write(JSON.stringify({msg:'addToChat',message:'To ' + data.recip + ': <i>' + data.message + '</i>'}));
       }
     }
-    if(recipient == null){
-      socket.emit('addToChat','<i>' + data.recip + ' is not online.</i>');
-    } else {
-      recipient.emit('addToChat','<b>@' + player.name + '</b> whispers: <i>' + data.message + '</i>');
-      SOCKET_LIST[player.id].emit('addToChat','To ' + data.recip + ': <i>' + data.message + '</i>');
-    }
   });
 
-  socket.emit('newFaction',{
+  socket.write(JSON.stringify({
+    msg:'newFaction',
     houseList:House.list,
     kingdomList:Kingdom.list
-  });
+  }));
 
-  socket.emit('init',{
+  socket.write(JSON.stringify({
+    msg:'init',
     selfId:player.id,
     player:Player.getAllInitPack(),
     arrow:Arrow.getAllInitPack(),
     item:Item.getAllInitPack(),
     light:Light.getAllInitPack(),
     building:Building.getAllInitPack()
-  });
+  }));
   console.log('init player id: ' + player.id);
 };
 
@@ -2618,55 +2554,65 @@ Player.update = function(){
   return pack;
 };
 
-io = require('socket.io')(serv,{transports: ['websocket'], upgrade: false});
-io.sockets.on('connection', function(socket){
+var sockjs = require('sockjs');
+io = sockjs.createServer();
+io.installHandlers(serv, {prefix:'/io'});
+emit = function(data){
+  for(i in SOCKET_LIST){
+    SOCKET_LIST[i].write(JSON.stringify(data));
+  }
+}
+io.on('connection', function(socket){
   socket.id = Math.random();
   SOCKET_LIST[socket.id] = socket;
   console.log('Socket connected: ' + socket.id);
 
-  socket.on('signIn',function(data){
-    isValidPassword(data,function(res){
-      if(res){
-        Player.onConnect(socket, data.name);
-        socket.emit('signInResponse',{
-          success:true,
-          world: world,
-          tileSize: tileSize,
-          mapSize: mapSize,
-          tempus: tempus
-        });
-        console.log(data.name + ' logged in.');
-      } else {
-        socket.emit('signInResponse',{success:false});
-      }
-    })
-  });
-
-  socket.on('signUp',function(data){
-    if(data.name.length > 0){
-      isUsernameTaken(data,function(res){
+  socket.on('data',function(string){
+    var data = JSON.parse(string);
+    if(data.msg == 'signIn'){
+      isValidPassword(data,function(res){
         if(res){
-          socket.emit('signUpResponse',{success:false});
+          Player.onConnect(socket, data.name);
+          socket.write(JSON.stringify({
+            msg:'signInResponse',
+            success:true,
+            world: world,
+            tileSize: tileSize,
+            mapSize: mapSize,
+            tempus: tempus
+          }));
+          console.log(data.name + ' logged in.');
         } else {
-          addUser(data,function(){
-            socket.emit('signUpResponse',{success:true});
-            console.log(data.name + ' signed up.');
-          });
+          socket.write(JSON.stringify({msg:'signInResponse',success:false}));
         }
       })
-    } else {
-      socket.emit('signUpResponse',{success:false});
+    } else if(data.msg == 'signUp'){
+      if(data.name.length > 0){
+        isUsernameTaken(data.name,function(res){
+          if(res){
+            socket.write(JSON.stringify({
+              msg:'signUpResponse',
+              success:false}));
+          } else {
+            addUser(data,function(){
+              socket.write(JSON.stringify({
+                msg:'signUpResponse',
+                success:true
+              }));
+              console.log(data.name + ' signed up.');
+            });
+          }
+        })
+      } else {
+        socket.write(JSON.stringify({msg:'signUpResponse',success:false}));
+      }
+    } else if(data.msg == 'disconnect'){
+      delete SOCKET_LIST[socket.id];
+      Player.onDisconnect(socket);
+      console.log('Socket disconnected: ' + socket.id);
+    } else if(data.msg == 'evalCmd'){
+      EvalCmd(data);
     }
-  });
-
-  socket.on('disconnect',function(){
-    delete SOCKET_LIST[socket.id];
-    Player.onDisconnect(socket);
-    console.log('Socket disconnected: ' + socket.id);
-  });
-
-  socket.on('evalCmd',function(data){
-    EvalCmd(data);
   });
 });
 
@@ -2697,7 +2643,8 @@ var dayNight = function(){
   } else {
     nightfall = false;
   }
-  io.emit('tempus',{
+  emit({
+    msg:'tempus',
     tempus:tempus,
     nightfall:nightfall
   })
@@ -2733,12 +2680,10 @@ setInterval(function(){
     house:House.update()
   }
 
-  for(var i in SOCKET_LIST){
-    var socket = SOCKET_LIST[i];
-    socket.emit('init',initPack);
-    socket.emit('update',pack);
-    socket.emit('remove',removePack);
-  }
+
+  emit({msg:'init',pack:initPack});
+  emit({msg:'update',pack:pack});
+  emit({msg:'remove',pack:removePack});
 
   initPack.player = [];
   initPack.arrow = [];
@@ -2863,3 +2808,5 @@ Kingdom({
   name:'Papal States',
   flag:'🇻🇦'
 });
+
+dailyTally();
