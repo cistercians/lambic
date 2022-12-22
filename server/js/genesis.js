@@ -138,15 +138,15 @@ function genesis(){
       }
     };
 
-    allTileMaps.push(overworldTiles);
-    allTileMaps.push(underworldTiles);
-    allTileMaps.push(underwaterTiles);
-    allTileMaps.push(buildI);
-    allTileMaps.push(buildII);
-    allTileMaps.push(buildIII);
-    allTileMaps.push(resI);
-    allTileMaps.push(resII);
-    allTileMaps.push(buildIV);
+    allTileMaps.push(overworldTiles); // 0
+    allTileMaps.push(underworldTiles); // 1
+    allTileMaps.push(underwaterTiles); // 2
+    allTileMaps.push(buildI); // 3
+    allTileMaps.push(buildII); // 4
+    allTileMaps.push(buildIII); // 5
+    allTileMaps.push(resI); // 6
+    allTileMaps.push(resII); // 7
+    allTileMaps.push(buildIV); // 8
 
     return allTileMaps;
   };

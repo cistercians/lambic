@@ -17,7 +17,7 @@ EvalCmd = function(data){
       var garrison = 0;
       var stronghold = 0;
 
-      var all = '<b><u>TIER I</u><br>[Farm]</b>: /build farm<br><b>Lumbermill</b>: /build lumbermill<br><b>Mine</b>: /build mine<br><b>Hut</b>: /build hut<br><b>Cottage</b>: /build cottage<br><b>[Tavern]</b>: /build tavern<br><b>Tower</b>: /build tower<br><b>[Forge]</b>: /build forge<br><b>Fort</b>: /build fort<br><b>Outpost</b>: /build outpost<br><b>[Monastery]</b>: /build monastery<br><b>Road</b>: /build road<br>';
+      var all = '<b><u>TIER I</u><br>[Farm]</b>: /build farm<br><b>Lumbermill</b>: /build lumbermill<br><b>Mine</b>: /build mine<br><b>Hut</b>: /build hut<br><b>Cottage</b>: /build cottage<br><b>Villa</b>: /build villa<br><b>[Tavern]</b>: /build tavern<br><b>Tower</b>: /build tower<br><b>[Forge]</b>: /build forge<br><b>Fort</b>: /build fort<br><b>Outpost</b>: /build outpost<br><b>[Monastery]</b>: /build monastery<br><b>Road</b>: /build road<br>';
 
       for(var i in Building.list){
         var b = Building.list[i];
@@ -55,7 +55,7 @@ EvalCmd = function(data){
       if(monastery > 0 && stronghold > 0){
         all += '<b><u>TIER IV</u><br>Cathedral</b>: /build cathedral<br>';
       }
-      socket.emit('addToChat','<p>'+all+'</p>');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<p>' + all + '</p>'}));
     } else if(data.cmd.slice(0,5) == 'build' && data.cmd[5] == ' '){
       // farm
       if(data.cmd.slice(data.cmd.indexOf(' ') + 1) == 'farm' && z == 0){
@@ -93,7 +93,7 @@ EvalCmd = function(data){
             }
           },10000/player.strength);
         } else {
-          socket.emit('addToChat','<i>You cannot build that there.</i>');
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
         }
       } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) == 'mill' && z == 0){
         var plot = [[c,r],[c+1,r],[c,r-1],[c+1,r-1]];
@@ -155,10 +155,10 @@ EvalCmd = function(data){
               hp:150
             });
           } else {
-            socket.emit('addToChat','<i>You cannot build that there.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
           }
         } else {
-          socket.emit('addToChat','<i>You cannot build that there.</i>');
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
         }
       } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) == 'lumbermill' && z == 0){
         var plot = [[c,r],[c+1,r]];
@@ -219,10 +219,10 @@ EvalCmd = function(data){
               hp:100
             });
           } else {
-            socket.emit('addToChat','<i>You cannot build that there.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
           }
         } else {
-          socket.emit('addToChat','<i>You cannot build that there.</i>');
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
         }
       } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) == 'mine' && z == 0){
         var plot = [[c,r],[c+1,r],[c,r-1],[c+1,r-1]];
@@ -283,10 +283,10 @@ EvalCmd = function(data){
               hp:150
             });
           } else {
-            socket.emit('addToChat','<i>You cannot build that there.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
           }
         } else {
-          socket.emit('addToChat','<i>You cannot build that there.</i>');
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
         }
       } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) == 'hut' && z == 0){
         var plot = [[c,r],[c+1,r],[c,r-1],[c+1,r-1]];
@@ -347,10 +347,10 @@ EvalCmd = function(data){
               hp:150
             });
           } else {
-            socket.emit('addToChat','<i>You cannot build that there.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
           }
         } else {
-          socket.emit('addToChat','<i>You cannot build that there.</i>');
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
         }
       } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) == 'cottage' && z == 0){
         var plot = [[c,r],[c+1,r],[c+2,r],[c,r-1],[c+1,r-1],[c+2,r-1],[c,r-2],[c+1,r-2],[c+2,r-2]];
@@ -411,16 +411,16 @@ EvalCmd = function(data){
               hp:300
             });
           } else {
-            socket.emit('addToChat','<i>You cannot build that there.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
           }
         } else {
-          socket.emit('addToChat','<i>You cannot build that there.</i>');
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
         }
       } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) == 'fort' && z == 0){
         var plot = [[c,r]];
         if(getTile(0,c,r) == 7 || getTile(0,c,r) == 18){
           if(getTile(0,c,r-1) == 14 || getTile(c,r-1) == 16){
-            socket.emit('addToChat','<i>You cannot build that there.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
           } else {
             tileChange(0,c,r,11);
             tileChange(6,c,r,0);
@@ -450,7 +450,7 @@ EvalCmd = function(data){
         var plot = [[c,r]];
         if(getTile(0,c,r) == 7 || (getTile(0,c,r) >= 4 && getTile(0,c,r) < 6) || getTile(0,c,r) == 18){
           if(getTile(0,c,r-1) == 14 || getTile(c,r-1) == 16 || getTile(c,r-1) == 19){
-            socket.emit('addToChat','<i>You cannot build that there.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
           } else {
             tileChange(0,c,r,11);
             tileChange(6,c,r,0);
@@ -476,14 +476,14 @@ EvalCmd = function(data){
             });
           }
         } else {
-          socket.emit('addToChat','<i>You cannot build that there.</i>');
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
         }
       } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) == 'outpost' && z == 0){
         var plot = [[c,r]];
         var topPlot = [[c,r-1]];
         if(getTile(0,c,r) == 7){
           if(getTile(0,c,r-1) == 14 || getTile(0,c,r-1) == 16 || getTile(0,c,r-1) == 19 || getTile(5,c,r-1) != 0){
-            socket.emit('addToChat','<i>You cannot build that there.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
           } else {
             tileChange(0,c,r,11);
             tileChange(6,c,r,0);
@@ -509,7 +509,7 @@ EvalCmd = function(data){
             });
           }
         } else {
-          socket.emit('addToChat','<i>You cannot build that there.</i>');
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
         }
       } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) == 'guardtower' && z == 0){
         var plot = [[c,r],[c+1,r],[c,r-1],[c+1,r-1]];
@@ -523,7 +523,7 @@ EvalCmd = function(data){
         }
         if(count == 4){
           if(getTile(0,c,r-2) == 14 || getTile(0,c,r-2) == 16 || getTile(0,c,r-2) == 19 || getTile(5,c,r-2) != 0 || getTile(0,c+1,r-2) == 14 || getTile(0,c+1,r-2) == 16 || getTile(0,c+1,r-2) == 19 || getTile(5,c+1,r-2) != 0){
-            socket.emit('addToChat','<i>You cannot build that there.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
           } else {
             for(var i in plot){
               var n = plot[i];
@@ -552,7 +552,7 @@ EvalCmd = function(data){
             });
           }
         } else {
-          socket.emit('addToChat','<i>You cannot build that there.</i>');
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
         }
       } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) == 'tower' && z == 0){
         var plot = [[c,r],[c+1,r],[c+2,r],[c,r-1],[c+1,r-1],[c+2,r-1],[c,r-2],[c+1,r-2],[c+2,r-2]];
@@ -615,10 +615,10 @@ EvalCmd = function(data){
               hp:2000
             });
           } else {
-            socket.emit('addToChat','<i>You cannot build that there.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
           }
         } else {
-          socket.emit('addToChat','<i>You cannot build that there.</i>');
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
         }
       } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) == 'tavern' && z == 0){
         var plot = [[c+1,r],[c+2,r],[c+3,r],[c,r-1],[c+1,r-1],[c+2,r-1],[c+3,r-1],[c+4,r-1],[c,r-2],[c+1,r-2],[c+2,r-2],[c+3,r-2],[c+4,r-2],[c,r-3],[c+1,r-3],[c+2,r-3],[c+3,r-3]];
@@ -681,10 +681,10 @@ EvalCmd = function(data){
               hp:750
             });
           } else {
-            socket.emit('addToChat','<i>You cannot build that there.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
           }
         } else {
-          socket.emit('addToChat','<i>You cannot build that there.</i>');
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
         }
       } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) == 'monastery' && z == 0){
         var plot = [[c,r],[c+1,r],[c+2,r],[c+3,r],[c,r-1],[c+1,r-1],[c+2,r-1],[c+3,r-1],[c,r-2],[c+1,r-2],[c+2,r-2],[c+3,r-2],[c,r-3],[c+1,r-3]];
@@ -747,10 +747,10 @@ EvalCmd = function(data){
               hp:1000
             });
           } else {
-            socket.emit('addToChat','<i>You cannot build that there.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
           }
         } else {
-          socket.emit('addToChat','<i>You cannot build that there.</i>');
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
         }
       } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) == 'market' && z == 0){
         var plot = [[c+1,r],[c+2,r],[c+3,r],[c,r-1],[c+1,r-1],[c+2,r-1],[c+3,r-1],[c+4,r-1],[c,r-2],[c+1,r-2],[c+2,r-2],[c+3,r-2]];
@@ -813,10 +813,10 @@ EvalCmd = function(data){
               hp:750
             });
           } else {
-            socket.emit('addToChat','<i>You cannot build that there.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
           }
         } else {
-          socket.emit('addToChat','<i>You cannot build that there.</i>');
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
         }
       } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) == 'stable' && z == 0){
         var plot = [[c,r],[c+1,r],[c+2,r],[c+3,r],[c,r-1],[c+1,r-1],[c+2,r-1],[c+3,r-1],[c,r-2],[c+1,r-2],[c+2,r-2],[c+3,r-2]];
@@ -878,10 +878,10 @@ EvalCmd = function(data){
               hp:500
             });
           } else {
-            socket.emit('addToChat','<i>You cannot build that there.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
           }
         } else {
-          socket.emit('addToChat','<i>You cannot build that there.</i>');
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
         }
       } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) == 'dock' && z == 0){
         var plot = [];
@@ -904,7 +904,7 @@ EvalCmd = function(data){
           topPlot = [[c-1,r-1],[c,r-1],[c+1,r-1]];
           perim = [[c-1,r-1],[c,r-1],[c+1,r-1],[c+2,r],[c+2,r+1],[c-1,r-2],[c,r-2],[c+1,r-2],[c-2,r],[c-2,r+1]];
         } else {
-          socket.emit('addToChat','<i>You cannot build that there.</i>');
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
         }
         var count = 0;
         for(var i in plot){
@@ -965,10 +965,10 @@ EvalCmd = function(data){
               hp:750
             });
           } else {
-            socket.emit('addToChat','<i>You cannot build that there.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
           }
         } else {
-          socket.emit('addToChat','<i>You cannot build that there.</i>');
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
         }
       } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) == 'garrison' && z == 0){
         var plot = [[c,r],[c+1,r],[c+2,r],[c+3,r],[c,r-1],[c+1,r-1],[c+2,r-1],[c+3,r-1],[c,r-2],[c+1,r-2],[c+2,r-2],[c+3,r-2]];
@@ -1031,10 +1031,10 @@ EvalCmd = function(data){
               hp:1000
             });
           } else {
-            socket.emit('addToChat','<i>You cannot build that there.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
           }
         } else {
-          socket.emit('addToChat','<i>You cannot build that there.</i>');
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
         }
       } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) == 'forge' && z == 0){
         var plot = [[c,r],[c+1,r],[c+2,r],[c,r-1],[c+1,r-1],[c+2,r-1]];
@@ -1096,10 +1096,10 @@ EvalCmd = function(data){
               hp:500
             });
           } else {
-            socket.emit('addToChat','<i>You cannot build that there.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
           }
         } else {
-          socket.emit('addToChat','<i>You cannot build that there.</i>');
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
         }
       } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) == 'gate' && z == 0){
         var plot = [[c,r],[c+1,r]];
@@ -1137,10 +1137,10 @@ EvalCmd = function(data){
               hp:null
             });
           } else {
-            socket.emit('addToChat','<i>You cannot build that there.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
           }
         } else {
-          socket.emit('addToChat','<i>You cannot build that there.</i>');
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
         }
       } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) == 'road' && z == 0){
         if(getTile(0,c,r) == 7 || (getTile(0,c,r) >= 4 && getTile(0,c,r) < 6)){
@@ -1157,7 +1157,7 @@ EvalCmd = function(data){
             }
           },10000/player.strength);
         } else {
-          socket.emit('addToChat','<i>You cannot build that there.</i>');
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
         }
       } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) == 'stronghold' && z == 0){
         var plot = [[c+2,r],[c+3,r],[c+4,r],[c+5,r],
@@ -1230,13 +1230,13 @@ EvalCmd = function(data){
               hp:4000
             });
           } else {
-            socket.emit('addToChat','<i>You cannot build that there.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
           }
         } else {
-          socket.emit('addToChat','<i>You cannot build that there.</i>');
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
         }
       } else {
-        socket.emit('addToChat','<i>Invalid command.</i>');
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>Invalid command.</i>'}));
       }
     } else if(data.cmd == 'fire'){
       if(z != -3){
@@ -1251,7 +1251,7 @@ EvalCmd = function(data){
           f = [c,r+1];
         }
         if((z == 1 || z == 2) && getTile(4,f[0],f[1]) != 0){
-          socket.emit('addToChat','<i>You cannot place that there.</i>');
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot place that there.</i>'}));
         } else {
           var p = getCoords(f[0],f[1]);
           Campfire({
@@ -1263,11 +1263,11 @@ EvalCmd = function(data){
           });
         }
       } else {
-        socket.emit('addToChat','<i>You cannot start a fire here.</i>');
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot start a fire here.</i>'}));
       }
       // EQUIPPING
     } else if(data.cmd == 'equip'){
-      socket.emit('addToChat','<i>List all equippable items here.</i>');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>List all equippable items here.</i>'}));
     } else if(data.cmd.slice(0,5) == 'equip' && data.cmd[5] == ' '){
       if(player.mode != 'combat'){
         if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'huntingknife'){
@@ -1276,20 +1276,20 @@ EvalCmd = function(data){
               if(!player.gear.weapon){
                 player.gear.weapon = equip.huntingknife;
                 player.inventory.huntingknife--;
-                socket.emit('addToChat','<i>You equipped a </i><b>HuntingKnife</b>.');
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped a </i><b>HuntingKnife</b>.'}));
               } else {
                 if(player.gear.weapon2){
                   player.gear.weapon2.unequip(player.id);
                 }
                 player.gear.weapon2 = equip.huntingknife;
                 player.inventory.huntingknife--;
-                socket.emit('addToChat','<i>You equipped a </i><b>HuntingKnife </b><i>as your secondary weapon. Press X to switch.</i>');
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped a </i><b>HuntingKnife </b><i>as your secondary weapon. Press X to switch.</i>'}));
               }
             } else {
-              socket.emit('addToChat','<i>Must be wearing leather armor and not be mounted.</i>');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>Must be wearing leather armor and not be mounted.</i>'}));
             }
           } else {
-            socket.emit('addToChat','<i>You are not carrying a </i><b>HuntingKnife</b>.');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are not carrying a </i><b>HuntingKnife</b>.'}));
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'dague'){
           if(player.inventory.dague > 0){
@@ -1297,20 +1297,20 @@ EvalCmd = function(data){
               if(!player.gear.weapon){
                 player.gear.weapon = equip.dague;
                 player.inventory.dague--;
-                socket.emit('addToChat','<i>You equipped a </i><b>Dague</b>.');
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped a </i><b>Dague</b>.'}));
               } else {
                 if(player.gear.weapon2){
                   player.gear.weapon2.unequip(player.id);
                 }
                 player.gear.weapon2 = equip.dague;
                 player.inventory.dague--;
-                socket.emit('addToChat','<i>You equipped a </i><b>Dague </b><i>as your secondary weapon. Press X to switch.</i>');
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped a </i><b>Dague </b><i>as your secondary weapon. Press X to switch.</i>'}));
               }
             } else {
-              socket.emit('addToChat','<i>Must be wearing leather armor and not be mounted.</i>');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>Must be wearing leather armor and not be mounted.</i>'}));
             }
           } else {
-            socket.emit('addToChat','<i>You are not carrying a </i><b>Dague</b>.');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are not carrying a </i><b>Dague</b>.'}));
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'rondel'){
           if(player.inventory.rondel > 0){
@@ -1318,20 +1318,20 @@ EvalCmd = function(data){
               if(!player.gear.weapon){
                 player.gear.weapon = equip.rondel;
                 player.inventory.rondel--;
-                socket.emit('addToChat','<i>You equipped a </i><b>Rondel</b>.');
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped a </i><b>Rondel</b>.'}));
               } else {
                 if(player.gear.weapon2){
                   player.gear.weapon2.unequip(player.id);
                 }
                 player.gear.weapon2 = equip.rondel;
                 player.inventory.rondel--;
-                socket.emit('addToChat','<i>You equipped a </i><b>Rondel </b><i>as your secondary weapon. Press X to switch.</i>');
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped a </i><b>Rondel </b><i>as your secondary weapon. Press X to switch.</i>'}));
               }
             } else {
-              socket.emit('addToChat','<i>Must be wearing leather armor and not be mounted.</i>');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>Must be wearing leather armor and not be mounted.</i>'}));
             }
           } else {
-            socket.emit('addToChat','<i>You are not carrying a </i><b>Rondel</b>.');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are not carrying a </i><b>Rondel</b>.'}));
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'misericorde'){
           if(player.inventory.misericorde > 0){
@@ -1339,20 +1339,20 @@ EvalCmd = function(data){
               if(!player.gear.weapon){
                 player.gear.weapon = equip.misericorde;
                 player.inventory.misericorde--;
-                socket.emit('addToChat','<i>You equipped </i><b>Misericorde</b>.');
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped </i><b>Misericorde</b>.'}));
               } else {
                 if(player.gear.weapon2){
                   player.gear.weapon2.unequip(player.id);
                 }
                 player.gear.weapon2 = equip.misericorde;
                 player.inventory.misericorde--;
-                socket.emit('addToChat','<i>You equipped </i><b>Misericorde </b><i>as your secondary weapon. Press X to switch.</i>');
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped </i><b>Misericorde </b><i>as your secondary weapon. Press X to switch.</i>'}));
               }
             } else {
-              socket.emit('addToChat','<i>Must be wearing leather armor and not be mounted.</i>');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>Must be wearing leather armor and not be mounted.</i>'}));
             }
           } else {
-            socket.emit('addToChat','<i>You are not carrying </i><b>Misericorde</b>.');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are not carrying </i><b>Misericorde</b>.'}));
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'bastardsword'){
           if(player.inventory.bastardsword > 0){
@@ -1360,20 +1360,20 @@ EvalCmd = function(data){
               if(!player.gear.weapon){
                 player.gear.weapon = equip.bastardsword;
                 player.inventory.bastardsword--;
-                socket.emit('addToChat','<i>You equipped a </i><b>BastardSword</b>.');
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped a </i><b>BastardSword</b>.'}));
               } else {
                 if(player.gear.weapon2){
                   player.gear.weapon2.unequip(player.id);
                 }
                 player.gear.weapon2 = equip.bastardsword;
                 player.inventory.bastardsword--;
-                socket.emit('addToChat','<i>You equipped a </i><b>BastardSword </b><i>as your secondary weapon. Press X to switch.</i>');
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped a </i><b>BastardSword </b><i>as your secondary weapon. Press X to switch.</i>'}));
               }
             } else {
-              socket.emit('addToChat','<i>Must not be wearing cloth.</i>');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>Must not be wearing cloth.</i>'}));
             }
           } else {
-            socket.emit('addToChat','<i>You are not carrying a </i><b>BastardSword</b>.');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are not carrying a </i><b>BastardSword</b>.'}));
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'longsword'){
           if(player.inventory.longsword > 0){
@@ -1381,20 +1381,20 @@ EvalCmd = function(data){
               if(!player.gear.weapon){
                 player.gear.weapon = equip.longsword;
                 player.inventory.longsword--;
-                socket.emit('addToChat','<i>You equipped a </i><b>Longsword</b>.');
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped a </i><b>Longsword</b>.'}));
               } else {
                 if(player.gear.weapon2){
                   player.gear.weapon2.unequip(player.id);
                 }
                 player.gear.weapon2 = equip.longsword;
                 player.inventory.longsword--;
-                socket.emit('addToChat','<i>You equipped a </i><b>Longsword </b><i>as your secondary weapon. Press X to switch.</i>');
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped a </i><b>Longsword </b><i>as your secondary weapon. Press X to switch.</i>'}));
               }
             } else {
-              socket.emit('addToChat','<i>Must not be wearing cloth.</i>');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>Must not be wearing cloth.</i>'}));
             }
           } else {
-            socket.emit('addToChat','<i>You are not carrying a </i><b>Longsword</b>.');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are not carrying a </i><b>Longsword</b>.'}));
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'zweihander'){
           if(player.inventory.zweihander > 0){
@@ -1402,20 +1402,20 @@ EvalCmd = function(data){
               if(!player.gear.weapon){
                 player.gear.weapon = equip.zweihander;
                 player.inventory.zweihander--;
-                socket.emit('addToChat','<i>You equipped a </i><b>Zweihander</b>.');
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped a </i><b>Zweihander</b>.'}));
               } else {
                 if(player.gear.weapon2){
                   player.gear.weapon2.unequip(player.id);
                 }
                 player.gear.weapon2 = equip.zweihander;
                 player.inventory.zweihander--;
-                socket.emit('addToChat','<i>You equipped a </i><b>Zweihander </b><i>as your secondary weapon. Press X to switch.</i>');
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped a </i><b>Zweihander </b><i>as your secondary weapon. Press X to switch.</i>'}));
               }
             } else {
-              socket.emit('addToChat','<i>Must not be wearing cloth.</i>');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>Must not be wearing cloth.</i>'}));
             }
           } else {
-            socket.emit('addToChat','<i>You are not carrying a </i><b>Zweihander</b>.');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are not carrying a </i><b>Zweihander</b>.'}));
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'morallta'){
           if(player.inventory.morallta > 0){
@@ -1423,20 +1423,20 @@ EvalCmd = function(data){
               if(!player.gear.weapon){
                 player.gear.weapon = equip.morallta;
                 player.inventory.morallta--;
-                socket.emit('addToChat','<i>You equipped </i><b>Morallta</b>.');
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped </i><b>Morallta</b>.'}));
               } else {
                 if(player.gear.weapon2){
                   player.gear.weapon2.unequip(player.id);
                 }
                 player.gear.weapon2 = equip.morallta;
                 player.inventory.morallta--;
-                socket.emit('addToChat','<i>You equipped </i><b>Morallta </b><i>as your secondary weapon. Press X to switch.</i>');
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped </i><b>Morallta </b><i>as your secondary weapon. Press X to switch.</i>'}));
               }
             } else {
-              socket.emit('addToChat','<i>Must not be wearing cloth.</i>');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>Must not be wearing cloth.</i>'}));
             }
           } else {
-            socket.emit('addToChat','<i>You are not carrying </i><b>Morallta</b>.');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are not carrying </i><b>Morallta</b>.'}));
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'bow'){
           if(player.inventory.bow > 0){
@@ -1444,20 +1444,20 @@ EvalCmd = function(data){
               if(!player.gear.weapon){
                 player.gear.weapon = equip.bow;
                 player.inventory.bow--;
-                socket.emit('addToChat','<i>You equipped a </i><b>Bow</b>.');
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped a </i><b>Bow</b>.'}));
               } else {
                 if(player.gear.weapon2){
                   player.gear.weapon2.unequip(player.id);
                 }
                 player.gear.weapon2 = equip.bow;
                 player.inventory.bow--;
-                socket.emit('addToChat','<i>You equipped a </i><b>Bow </b><i>as your secondary weapon. Press X to switch.</i>');
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped a </i><b>Bow </b><i>as your secondary weapon. Press X to switch.</i>'}));
               }
             } else {
-              socket.emit('addToChat','<i>Must not be wearing cloth or plate armor.</i>');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>Must not be wearing cloth or plate armor.</i>'}));
             }
           } else {
-            socket.emit('addToChat','<i>You are not carrying a </i><b>Bow</b>.');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are not carrying a </i><b>Bow</b>.'}));
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'welshlongbow'){
           if(player.inventory.welshlongbow > 0){
@@ -1465,20 +1465,20 @@ EvalCmd = function(data){
               if(!player.gear.weapon){
                 player.gear.weapon = equip.welshlongbow;
                 player.inventory.welshlongbow--;
-                socket.emit('addToChat','<i>You equipped a </i><b>WelshLongbow</b>.');
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped a </i><b>WelshLongbow</b>.'}));
               } else {
                 if(player.gear.weapon2){
                   player.gear.weapon2.unequip(player.id);
                 }
                 player.gear.weapon2 = equip.welshlongbow;
                 player.inventory.welshlongbow--;
-                socket.emit('addToChat','<i>You equipped a </i><b>WelshLongbow </b><i>as your secondary weapon. Press X to switch.</i>');
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped a </i><b>WelshLongbow </b><i>as your secondary weapon. Press X to switch.</i>'}));
               }
             } else {
-              socket.emit('addToChat','<i>Must not be wearing cloth or plate armor.</i>');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>Must not be wearing cloth or plate armor.</i>'}));
             }
           } else {
-            socket.emit('addToChat','<i>You are not carrying a </i><b>WelshLongbow</b>.');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are not carrying a </i><b>WelshLongbow</b>.'}));
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'knightlance'){
           if(player.inventory.knightlance > 0){
@@ -1486,20 +1486,20 @@ EvalCmd = function(data){
               if(!player.gear.weapon){
                 player.gear.weapon = equip.knightlance;
                 player.inventory.knightlance--;
-                socket.emit('addToChat','<i>You equipped a </i><b>KnightLance</b>.');
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped a </i><b>KnightLance</b>.'}));
               } else {
                 if(player.gear.weapon2){
                   player.gear.weapon2.unequip(player.id);
                 }
                 player.gear.weapon2 = equip.knightlance;
                 player.inventory.knightlance--;
-                socket.emit('addToChat','<i>You equipped a </i><b>KnightLance </b><i>as your secondary weapon. Press X to switch.</i>');
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped a </i><b>KnightLance </b><i>as your secondary weapon. Press X to switch.</i>'}));
               }
             } else {
-              socket.emit('addToChat','<i>Must be mounted and wearing plate armor.</i>');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>Must be mounted and wearing plate armor.</i>'}));
             }
           } else {
-            socket.emit('addToChat','<i>You are not carrying a </i><b>KnightLance</b>.');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are not carrying a </i><b>KnightLance</b>.'}));
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'rusticlance'){
           if(player.inventory.rusticlance > 0){
@@ -1507,20 +1507,20 @@ EvalCmd = function(data){
               if(!player.gear.weapon){
                 player.gear.weapon = equip.rusticlance;
                 player.inventory.rusticlance--;
-                socket.emit('addToChat','<i>You equipped a </i><b>RusticLance</b>.');
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped a </i><b>RusticLance</b>.'}));
               } else {
                 if(player.gear.weapon2){
                   player.gear.weapon2.unequip(player.id);
                 }
                 player.gear.weapon2 = equip.rusticlance;
                 player.inventory.rusticlance--;
-                socket.emit('addToChat','<i>You equipped a </i><b>RusticLance </b><i>as your secondary weapon. Press X to switch.</i>');
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped a </i><b>RusticLance </b><i>as your secondary weapon. Press X to switch.</i>'}));
               }
             } else {
-              socket.emit('addToChat','<i>Must be mounted and wearing plate armor.</i>');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>Must be mounted and wearing plate armor.</i>'}));
             }
           } else {
-            socket.emit('addToChat','<i>You are not carrying a </i><b>RusticLance</b>.');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are not carrying a </i><b>RusticLance</b>.'}));
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'paladinlance'){
           if(player.inventory.paladinlance > 0){
@@ -1528,20 +1528,20 @@ EvalCmd = function(data){
               if(!player.gear.weapon){
                 player.gear.weapon = equip.paladinlance;
                 player.inventory.paladinlance--;
-                socket.emit('addToChat','<i>You equipped a </i><b>PaladinLance</b>.');
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped a </i><b>PaladinLance</b>.'}));
               } else {
                 if(player.gear.weapon2){
                   player.gear.weapon2.unequip(player.id);
                 }
                 player.gear.weapon2 = equip.paladinlance;
                 player.inventory.paladinlance--;
-                socket.emit('addToChat','<i>You equipped a </i><b>PaladinLance </b><i>as your secondary weapon. Press X to switch.</i>');
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped a </i><b>PaladinLance </b><i>as your secondary weapon. Press X to switch.</i>'}));
               }
             } else {
-              socket.emit('addToChat','<i>Must be mounted and wearing plate armor.</i>');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>Must be mounted and wearing plate armor.</i>'}));
             }
           } else {
-            socket.emit('addToChat','<i>You are not carrying a </i><b>PaladinLance</b>.');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are not carrying a </i><b>PaladinLance</b>.'}));
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'brigandine'){
           if(player.inventory.brigandine > 0){
@@ -1551,12 +1551,12 @@ EvalCmd = function(data){
               }
               player.gear.armor = equip.brigandine;
               player.inventory.brigandine--;
-              socket.emit('addToChat','<i>You equipped </i><b>Brigandine</b>.');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped </i><b>Brigandine</b>.'}));
             } else {
-              socket.emit('addToChat','<i>Must not have a lance equipped.</i>');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>Must not have a lance equipped.</i>'}));
             }
           } else {
-            socket.emit('addToChat','<i>You are not carrying </i><b>Brigandine</b>.');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are not carrying </i><b>Brigandine</b>.'}));
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'lamellar'){
           if(player.inventory.lamellar > 0){
@@ -1566,12 +1566,12 @@ EvalCmd = function(data){
               }
               player.gear.armor = equip.lamellar;
               player.inventory.lamellar--;
-              socket.emit('addToChat','<i>You equipped </i><b>Lamellar</b>.');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped </i><b>Lamellar</b>.'}));
             } else {
-              socket.emit('addToChat','<i>Must not have a lance equipped.</i>');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>Must not have a lance equipped.</i>'}));
             }
           } else {
-            socket.emit('addToChat','<i>You are not carrying </i><b>Lamellar</b>.');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are not carrying </i><b>Lamellar</b>.'}));
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'maille'){
           if(player.inventory.maille > 0){
@@ -1582,12 +1582,12 @@ EvalCmd = function(data){
               }
               player.gear.armor = equip.maille;
               player.inventory.maille--;
-              socket.emit('addToChat','<i>You equipped </i><b>Maille</b>.');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped </i><b>Maille</b>.'}));
             } else {
-              socket.emit('addToChat','<i>Must not have a dagger or lance equipped.</i>');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>Must not have a dagger or lance equipped.</i>'}));
             }
           } else {
-            socket.emit('addToChat','<i>You are not carrying </i><b>Maille</b>.');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are not carrying </i><b>Maille</b>.'}));
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'hauberk'){
           if(player.inventory.hauberk > 0){
@@ -1598,12 +1598,12 @@ EvalCmd = function(data){
               }
               player.gear.armor = equip.hauberk;
               player.inventory.hauberk--;
-              socket.emit('addToChat','<i>You equipped </i><b>Hauberk</b>.');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped </i><b>Hauberk</b>.'}));
             } else {
-              socket.emit('addToChat','<i>Must not have a dagger or lance equipped.</i>');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>Must not have a dagger or lance equipped.</i>'}));
             }
           } else {
-            socket.emit('addToChat','<i>You are not carrying </i><b>Hauberk</b>.');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are not carrying </i><b>Hauberk</b>.'}));
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'brynja'){
           if(player.inventory.brynja > 0){
@@ -1614,12 +1614,12 @@ EvalCmd = function(data){
               }
               player.gear.armor = equip.brynja;
               player.inventory.brynja--;
-              socket.emit('addToChat','<i>You equipped </i><b>Brynja</b>.');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped </i><b>Brynja</b>.'}));
             } else {
-              socket.emit('addToChat','<i>Must not have a dagger or lance equipped.</i>');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>Must not have a dagger or lance equipped.</i>'}));
             }
           } else {
-            socket.emit('addToChat','<i>You are not carrying </i><b>Brynja</b>.');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are not carrying </i><b>Brynja</b>.'}));
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'cuirass'){
           if(player.inventory.cuirass > 0){
@@ -1630,12 +1630,12 @@ EvalCmd = function(data){
               }
               player.gear.armor = equip.cuirass;
               player.inventory.cuirass--;
-              socket.emit('addToChat','<i>You equipped </i><b>Cuirass</b>.');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped </i><b>Cuirass</b>.'}));
             } else {
-              socket.emit('addToChat','<i>Must not have a dagger or bow equipped.</i>');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>Must not have a dagger or bow equipped.</i>'}));
             }
           } else {
-            socket.emit('addToChat','<i>You are not carrying </i><b>Cuirass</b>.');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are not carrying </i><b>Cuirass</b>.'}));
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'steelplate'){
           if(player.inventory.steelplate > 0){
@@ -1646,12 +1646,12 @@ EvalCmd = function(data){
               }
               player.gear.armor = equip.steelplate;
               player.inventory.steelplate--;
-              socket.emit('addToChat','<i>You equipped </i><b>SteelPlate</b>.');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped </i><b>SteelPlate</b>.'}));
             } else {
-              socket.emit('addToChat','<i>Must not have a dagger or bow equipped.</i>');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>Must not have a dagger or bow equipped.</i>'}));
             }
           } else {
-            socket.emit('addToChat','<i>You are not carrying </i><b>SteelPlate</b>.');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are not carrying </i><b>SteelPlate</b>.'}));
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'greenwichplate'){
           if(player.inventory.greenwichplate > 0){
@@ -1662,12 +1662,12 @@ EvalCmd = function(data){
               }
               player.gear.armor = equip.greenwichplate;
               player.inventory.greenwichplate--;
-              socket.emit('addToChat','<i>You equipped </i><b>GreenwichPlate</b>.');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped </i><b>GreenwichPlate</b>.'}));
             } else {
-              socket.emit('addToChat','<i>Must not have a dagger or bow equipped.</i>');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>Must not have a dagger or bow equipped.</i>'}));
             }
           } else {
-            socket.emit('addToChat','<i>You are not carrying </i><b>GreenwichPlate</b>.');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are not carrying </i><b>GreenwichPlate</b>.'}));
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'gothicplate'){
           if(player.inventory.gothicplate > 0){
@@ -1678,12 +1678,12 @@ EvalCmd = function(data){
               }
               player.gear.armor = equip.gothicplate;
               player.inventory.gothicplate--;
-              socket.emit('addToChat','<i>You equipped </i><b>GothicPlate</b>.');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped </i><b>GothicPlate</b>.'}));
             } else {
-              socket.emit('addToChat','<i>Must not have a dagger or bow equipped.</i>');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>Must not have a dagger or bow equipped.</i>'}));
             }
           } else {
-            socket.emit('addToChat','<i>You are not carrying </i><b>GothicPlate</b>.');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are not carrying </i><b>GothicPlate</b>.'}));
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'clericrobe'){
           if(player.inventory.clericrobe > 0){
@@ -1693,12 +1693,12 @@ EvalCmd = function(data){
               }
               player.gear.armor = equip.clericrobe;
               player.inventory.clericrobe--;
-              socket.emit('addToChat','<i>You equipped </i><b>ClericRobe</b>.');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped </i><b>ClericRobe</b>.'}));
             } else {
-              socket.emit('addToChat','<i>Must not be mounted or have a weapon equipped.</i>');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>Must not be mounted or have a weapon equipped.</i>'}));
             }
           } else {
-            socket.emit('addToChat','<i>You are not carrying </i><b>ClericRobe</b>.');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are not carrying </i><b>ClericRobe</b>.'}));
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'monkcowl'){
           if(player.inventory.monkcowl > 0){
@@ -1708,12 +1708,12 @@ EvalCmd = function(data){
               }
               player.gear.armor = equip.monkcowl;
               player.inventory.monkcowl--;
-              socket.emit('addToChat','<i>You equipped </i><b>MonkCowl</b>.');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped </i><b>MonkCowl</b>.'}));
             } else {
-              socket.emit('addToChat','<i>Must not be mounted and may only carry a dagger.</i>');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>Must not be mounted and may only carry a dagger.</i>'}));
             }
           } else {
-            socket.emit('addToChat','<i>You are not carrying </i><b>MonkCowl</b>.');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are not carrying </i><b>MonkCowl</b>.'}));
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'blackcloak'){
           if(player.inventory.blackcloak > 0){
@@ -1723,12 +1723,12 @@ EvalCmd = function(data){
               }
               player.gear.armor = equip.blackcloak;
               player.inventory.blackcloak--;
-              socket.emit('addToChat','<i>You equipped </i><b>BlackCloak</b>.');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped </i><b>BlackCloak</b>.'}));
             } else {
-              socket.emit('addToChat','<i>Must not be mounted and may only carry a dagger.</i>');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>Must not be mounted and may only carry a dagger.</i>'}));
             }
           } else {
-            socket.emit('addToChat','<i>You are not carrying </i><b>BlackCloak</b>.');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are not carrying </i><b>BlackCloak</b>.'}));
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'crown'){
           if(player.inventory.crown > 0){
@@ -1737,13 +1737,13 @@ EvalCmd = function(data){
             }
             player.gear.head = equip.crown;
             player.inventory.crown--;
-            socket.emit('addToChat','<i>You equipped </i><b>Crown</b>.');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped </i><b>Crown</b>.'}));
           } else {
-            socket.emit('addToChat','<i>You are not carrying </i><b>Crown</b>.');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are not carrying </i><b>Crown</b>.'}));
           }
         }
       } else {
-        socket.emit('addToChat','<i>You cannot equip gear while in combat.</i>');
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot equip gear while in combat.</i>'}));
       }
     } else if(data.cmd == 'unequip'){
       var all = '';
@@ -1769,18 +1769,18 @@ EvalCmd = function(data){
         all += accessory;
       }
       if(all == ''){
-        socket.emit('addToChat','<i>You have nothing equipped.</i>');
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>You have nothing equipped.</i>'}));
       } else {
-        socket.emit('addToChat','<p>'+all+'</p>');
+        socket.write(JSON.stringify({msg:'addToChat',message:'<p>'+all+'</p>'}));
       }
     } else if(data.cmd.slice(0,7) == 'unequip' && data.cmd[7] == ' '){
       if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'head'){
         if(player.gear.head){
           player.gear.head.unequip(player.id);
-          socket.emit('addToChat','<i>You unequip </i><b>' + player.gear.head.name + '</b>.');
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>You unequip </i><b>' + player.gear.head.name + '</b>.'}));
           player.gear.head = null;
         } else {
-          socket.emit('addToChat','<i>You are not wearing any headgear.</i>');
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are not wearing any headgear.</i>'}));
         }
       } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'armor'){
         if(player.gear.armor){
@@ -1790,57 +1790,243 @@ EvalCmd = function(data){
             player.mountCooldown = 200;
           }
           player.gear.armor.unequip(player.id);
-          socket.emit('addToChat','<i>You unequip </i><b>' + player.gear.armor.name + '</b>.');
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>You unequip </i><b>' + player.gear.armor.name + '</b>.'}));
           player.gear.armor = null;
         } else {
-          socket.emit('addToChat','<i>You are not wearing any armor.</i>');
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are not wearing any armor.</i>'}));
         }
       } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'weapon'){
         if(player.gear.weapon){
           player.gear.weapon.unequip(player.id);
           if(player.gear.weapon2){
-            socket.emit('addToChat','<i>You unequip </i><b>' + player.gear.weapon.name +
-            '</b><i> and switch weapons to </i><b>' + player.gear.weapon2.name + '</b>.');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You unequip </i><b>' + player.gear.weapon.name +
+            '</b><i> and switch weapons to </i><b>' + player.gear.weapon2.name + '</b>.'}));
             player.gear.weapon = player.gear.weapon2;
             player.gear.weapon2 = null;
           } else {
-            socket.emit('addToChat','<i>You unequip </i><b>' + player.gear.weapon.name + '</b>.');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You unequip </i><b>' + player.gear.weapon.name + '</b>.'}));
             player.gear.weapon = null;
           }
         } else {
-          socket.emit('addToChat','<i>You do not have any weapons equipped.</i>');
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have any weapons equipped.</i>'}));
         }
       } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'weapon2'){
         if(player.gear.weapon2){
           player.gear.weapon2.unequip(player.id);
-          socket.emit('addToChat','<i>You unequip </i><b>' + player.gear.weapon2.name + '</b>.');
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>You unequip </i><b>' + player.gear.weapon2.name + '</b>.'}));
           player.gear.weapon2 = null;
         } else {
-          socket.emit('addToChat','<i>You do not have a secondary weapon equipped.</i>');
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have a secondary weapon equipped.</i>'}));
         }
       } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1).toLowerCase() == 'accessory'){
         if(player.gear.accessory){
           player.gear.accessory.unequip(player.id);
-          socket.emit('addToChat','<i>You unequip </i><b>' + player.gear.accessory.name + '</b>.');
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>You unequip </i><b>' + player.gear.accessory.name + '</b>.'}));
           player.gear.accessory = null;
         } else {
-          socket.emit('addToChat','<i>You do not have an accessory equipped.</i>');
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have an accessory equipped.</i>'}));
         }
       }
     } else if(data.cmd == 'drop'){
-      socket.emit('addToChat','<p>/drop Quantity ItemName</p>');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<p>/drop Quantity ItemName</p>'}));
+    } else if(data.cmd == 'drop key'){
+      socket.write(JSON.stringify({msg:'addToChat',message:'<p>/drop key Number</p>'}));
+      for(var i = 0; i < player.inventory.keyRing.length; i++){
+        socket.write(JSON.stringify({msg:'addToChat',message:'<p>' + i+1 + ': ' + player.inventory.keyRing[i].name}));
+      }
+    } else if(data.cmd.slice(0,9) == 'drop key '){
+      var num = Number(data.cmd.slice(data.cmd[9])).toFixed(0) - 1;
+      if(num){
+        if(player.inventory.keyRing[num]){
+          var key = player.inventory.keyRing[num];
+          if(player.facing == 'up'){
+            if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
+              var chCoords = getCoords(c,r-1);
+              var ch = chestCheck(z,chCoords[0],chCoords[1],player.id);
+              if(ch){
+                if(player.inventory.keyRing[num].id == ch){
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot lock the chest without the key.</i>'}));
+                } else {
+                  Player.list[player.id].inventory.key--;
+                  Player.list[player.id].inventory.keyRing.splice(num,num);
+                  Item.list[ch].inventory.key++;
+                  Item.list[ch].inventory.keyRing.push(key);
+                }
+              } else {
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
+              }
+            } else if(isWalkable(z,c,r-1)){
+              var coords = getCoords(c,r-1);
+              Key({
+                z:z,
+                x:coords[0],
+                y:coords[1],
+                id:key.id,
+                name:key.name,
+                qty:1,
+                parent:player.id
+              });
+              Player.list[player.id].inventory.key--;
+              Player.list[player.id].inventory.keyRing.splice(num,num);
+            } else if(!isWalkable(z,c,r-1) && z == 0 && getTile(0,c,r-1) == 0){
+              var coords = getCoords(c,r-1);
+              Key({
+                z:-3,
+                x:coords[0],
+                y:coords[1],
+                id:key.id,
+                name:key.name,
+                qty:1,
+                parent:player.id
+              });
+              Player.list[player.id].inventory.key--;
+              Player.list[player.id].inventory.keyRing.splice(num,num);
+            }
+          } else if(player.facing == 'down'){
+            if(getItem(z,c,r+1) == 'LockedChest' || getItem(z,c,r+1) == 'Chest'){
+              var chCoords = getCoords(c,r+1);
+              var ch = chestCheck(z,chCoords[0],chCoords[1],player.id);
+              if(ch){
+                if(player.inventory.keyRing[num].id == ch){
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot lock the chest without the key.</i>'}));
+                } else {
+                  Player.list[player.id].inventory.key--;
+                  Player.list[player.id].inventory.keyRing.splice(num,num);
+                  Item.list[ch].inventory.key++;
+                  Item.list[ch].inventory.keyRing.push(key);
+                }
+              } else {
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
+              }
+            } else if(isWalkable(z,c,r+1)){
+              var coords = getCoords(c,r+1);
+              Key({
+                z:z,
+                x:coords[0],
+                y:coords[1],
+                id:key.id,
+                name:key.name,
+                qty:1,
+                parent:player.id
+              });
+              Player.list[player.id].inventory.key--;
+              Player.list[player.id].inventory.keyRing.splice(num,num);
+            } else if(!isWalkable(z,c,r+1) && z == 0 && getTile(0,c,r+1) == 0){
+              var coords = getCoords(c,r+1);
+              Key({
+                z:-3,
+                x:coords[0],
+                y:coords[1],
+                id:key.id,
+                name:key.name,
+                qty:1,
+                parent:player.id
+              });
+              Player.list[player.id].inventory.key--;
+              Player.list[player.id].inventory.keyRing.splice(num,num);
+            }
+          } else if(player.facing == 'left'){
+            if(getItem(z,c-1,r) == 'LockedChest' || getItem(z,c-1,r) == 'Chest'){
+              var chCoords = getCoords(c-1,r);
+              var ch = chestCheck(z,chCoords[0],chCoords[1],player.id);
+              if(ch){
+                if(player.inventory.keyRing[num].id == ch){
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot lock the chest without the key.</i>'}));
+                } else {
+                  Player.list[player.id].inventory.key--;
+                  Player.list[player.id].inventory.keyRing.splice(num,num);
+                  Item.list[ch].inventory.key++;
+                  Item.list[ch].inventory.keyRing.push(key);
+                }
+              } else {
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
+              }
+            } else if(isWalkable(z,c-1,r)){
+              var coords = getCoords(c-1,r);
+              Key({
+                z:z,
+                x:coords[0],
+                y:coords[1],
+                id:key.id,
+                name:key.name,
+                qty:1,
+                parent:player.id
+              });
+              Player.list[player.id].inventory.key--;
+              Player.list[player.id].inventory.keyRing.splice(num,num);
+            } else if(!isWalkable(z,c-1,r) && z == 0 && getTile(0,c-1,r) == 0){
+              var coords = getCoords(c-1,r);
+              Key({
+                z:-3,
+                x:coords[0],
+                y:coords[1],
+                id:key.id,
+                name:key.name,
+                qty:1,
+                parent:player.id
+              });
+              Player.list[player.id].inventory.key--;
+              Player.list[player.id].inventory.keyRing.splice(num,num);
+            }
+          } else if(player.facing == 'right'){
+            if(getItem(z,c+1,r) == 'LockedChest' || getItem(z,c+1,r) == 'Chest'){
+              var chCoords = getCoords(c+1,r);
+              var ch = chestCheck(z,chCoords[0],chCoords[1],player.id);
+              if(ch){
+                if(player.inventory.keyRing[num].id == ch){
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot lock the chest without the key.</i>'}));
+                } else {
+                  Player.list[player.id].inventory.key--;
+                  Player.list[player.id].inventory.keyRing.splice(num,num);
+                  Item.list[ch].inventory.key++;
+                  Item.list[ch].inventory.keyRing.push(key);
+                }
+              } else {
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
+              }
+            } else if(isWalkable(z,c+1,r)){
+              var coords = getCoords(c+1,r);
+              Key({
+                z:z,
+                x:coords[0],
+                y:coords[1],
+                id:key.id,
+                name:key.name,
+                qty:1,
+                parent:player.id
+              });
+              Player.list[player.id].inventory.key--;
+              Player.list[player.id].inventory.keyRing.splice(num,num);
+            } else if(!isWalkable(z,c+1,r) && z == 0 && getTile(0,c+1,r) == 0){
+              var coords = getCoords(c+1,r);
+              Key({
+                z:-3,
+                x:coords[0],
+                y:coords[1],
+                id:key.id,
+                name:key.name,
+                qty:1,
+                parent:player.id
+              });
+              Player.list[player.id].inventory.key--;
+              Player.list[player.id].inventory.keyRing.splice(num,num);
+            }
+          }
+        }
+      }
+
     } else if(data.cmd.slice(0,4) == 'drop' && data.cmd[4] == ' '){
       var target = String(data.cmd.slice(data.cmd.indexOf(' ') + 1)).toLowerCase();
       var q = Number(target.slice(0,target.indexOf(' '))).toFixed(0);
       var item = String(target.slice(target.indexOf(' ') + 1)).toLowerCase();
       if(q < 1){
-        socket.emit('addToChat','<i>Quantity must be greater than 0.</i>');
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>Quantity must be greater than 0.</i>'}));
       } else if(Number.isNaN(q/1)){
-        socket.emit('addToChat','<i>Quantity must be a number.</i>');
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>Quantity must be a number.</i>'}));
       } else {
         if(item == 'wood'){
           if(q > player.inventory.wood){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -1850,7 +2036,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.wood -= q;
                   Item.list[ch].inventory.wood += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -1881,7 +2067,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.wood -= q;
                   Item.list[ch].inventory.wood += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -1912,7 +2098,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.wood -= q;
                   Item.list[ch].inventory.wood += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -1943,7 +2129,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.wood -= q;
                   Item.list[ch].inventory.wood += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -1970,7 +2156,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'stone'){
           if(q > player.inventory.stone){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -1980,7 +2166,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.stone -= q;
                   Item.list[ch].inventory.stone += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -2011,7 +2197,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.stone -= q;
                   Item.list[ch].inventory.stone += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -2042,7 +2228,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.stone -= q;
                   Item.list[ch].inventory.stone += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -2073,7 +2259,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.stone -= q;
                   Item.list[ch].inventory.stone += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -2100,7 +2286,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'grain'){
           if(q > player.inventory.grain){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -2110,7 +2296,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.grain -= q;
                   Item.list[ch].inventory.grain += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -2141,7 +2327,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.grain -= q;
                   Item.list[ch].inventory.grain += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -2172,7 +2358,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.grain -= q;
                   Item.list[ch].inventory.grain += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -2203,7 +2389,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.grain -= q;
                   Item.list[ch].inventory.grain += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -2230,7 +2416,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'ironore'){
           if(q > player.inventory.ironore){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -2240,7 +2426,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.ironore -= q;
                   Item.list[ch].inventory.ironore += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -2271,7 +2457,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.ironore -= q;
                   Item.list[ch].inventory.ironore += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -2302,7 +2488,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.ironore -= q;
                   Item.list[ch].inventory.ironore += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -2333,7 +2519,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.ironore -= q;
                   Item.list[ch].inventory.ironore += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -2360,7 +2546,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'iron'){
           if(q > player.inventory.iron){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -2370,7 +2556,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.iron -= q;
                   Item.list[ch].inventory.iron += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -2401,7 +2587,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.iron -= q;
                   Item.list[ch].inventory.iron += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -2432,7 +2618,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.iron -= q;
                   Item.list[ch].inventory.iron += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -2463,7 +2649,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.iron -= q;
                   Item.list[ch].inventory.iron += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -2490,7 +2676,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'steel'){
           if(q > player.inventory.steel){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -2500,7 +2686,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.steel -= q;
                   Item.list[ch].inventory.steel += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -2531,7 +2717,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.steel -= q;
                   Item.list[ch].inventory.steel += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -2562,7 +2748,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.steel -= q;
                   Item.list[ch].inventory.steel += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -2593,7 +2779,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.steel -= q;
                   Item.list[ch].inventory.steel += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -2620,7 +2806,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'boarhide'){
           if(q > player.inventory.boarhide){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -2630,7 +2816,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.boarhide -= q;
                   Item.list[ch].inventory.boarhide += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -2661,7 +2847,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.boarhide -= q;
                   Item.list[ch].inventory.boarhide += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -2692,7 +2878,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.boarhide -= q;
                   Item.list[ch].inventory.boarhide += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -2723,7 +2909,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.boarhide -= q;
                   Item.list[ch].inventory.boarhide += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -2750,7 +2936,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'leather'){
           if(q > player.inventory.leather){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -2760,7 +2946,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.leather -= q;
                   Item.list[ch].inventory.leather += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -2791,7 +2977,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.leather -= q;
                   Item.list[ch].inventory.leather += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -2822,7 +3008,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.leather -= q;
                   Item.list[ch].inventory.leather += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -2853,7 +3039,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.leather -= q;
                   Item.list[ch].inventory.leather += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -2880,7 +3066,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'silverore'){
           if(q > player.inventory.silverore){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -2890,7 +3076,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.silverore -= q;
                   Item.list[ch].inventory.silverore += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -2921,7 +3107,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.silverore -= q;
                   Item.list[ch].inventory.silverore += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -2952,7 +3138,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.silverore -= q;
                   Item.list[ch].inventory.silverore += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -2983,7 +3169,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.silverore -= q;
                   Item.list[ch].inventory.silverore += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -3010,7 +3196,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'silver'){
           if(q > player.inventory.silver){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -3020,7 +3206,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.silver -= q;
                   Item.list[ch].inventory.silver += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -3051,7 +3237,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.silver -= q;
                   Item.list[ch].inventory.silver += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -3082,7 +3268,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.silver -= q;
                   Item.list[ch].inventory.silver += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -3113,7 +3299,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.silver -= q;
                   Item.list[ch].inventory.silver += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(!isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -3140,7 +3326,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'goldore'){
           if(q > player.inventory.goldore){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -3150,7 +3336,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.goldore -= q;
                   Item.list[ch].inventory.goldore += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -3181,7 +3367,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.goldore -= q;
                   Item.list[ch].inventory.goldore += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -3212,7 +3398,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.goldore -= q;
                   Item.list[ch].inventory.goldore += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -3243,7 +3429,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.goldore -= q;
                   Item.list[ch].inventory.goldore += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -3270,7 +3456,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'gold'){
           if(q > player.inventory.gold){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -3280,7 +3466,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.gold -= q;
                   Item.list[ch].inventory.gold += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -3311,7 +3497,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.gold -= q;
                   Item.list[ch].inventory.gold += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -3342,7 +3528,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.gold -= q;
                   Item.list[ch].inventory.gold += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -3373,7 +3559,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.gold -= q;
                   Item.list[ch].inventory.gold += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -3400,7 +3586,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'diamond'){
           if(q > player.inventory.diamond){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -3410,7 +3596,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.diamond -= q;
                   Item.list[ch].inventory.diamond += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -3441,7 +3627,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.diamond -= q;
                   Item.list[ch].inventory.diamond += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -3472,7 +3658,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.diamond -= q;
                   Item.list[ch].inventory.diamond += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -3503,7 +3689,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.diamond -= q;
                   Item.list[ch].inventory.diamond += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -3530,7 +3716,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'huntingknife'){
           if(q > player.inventory.huntingknife){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -3540,7 +3726,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.huntingknife -= q;
                   Item.list[ch].inventory.huntingknife += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -3571,7 +3757,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.huntingknife -= q;
                   Item.list[ch].inventory.huntingknife += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -3602,7 +3788,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.huntingknife -= q;
                   Item.list[ch].inventory.huntingknife += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -3633,7 +3819,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.huntingknife -= q;
                   Item.list[ch].inventory.huntingknife += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -3660,7 +3846,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'dague'){
           if(q > player.inventory.dague){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -3670,7 +3856,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.dague -= q;
                   Item.list[ch].inventory.dague += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -3701,7 +3887,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.dague -= q;
                   Item.list[ch].inventory.dague += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -3732,7 +3918,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.dague -= q;
                   Item.list[ch].inventory.dague += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -3763,7 +3949,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.dague -= q;
                   Item.list[ch].inventory.dague += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -3790,7 +3976,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'rondel'){
           if(q > player.inventory.rondel){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -3800,7 +3986,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.rondel -= q;
                   Item.list[ch].inventory.rondel += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -3831,7 +4017,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.rondel -= q;
                   Item.list[ch].inventory.rondel += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -3862,7 +4048,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.rondel -= q;
                   Item.list[ch].inventory.rondel += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -3893,7 +4079,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.rondel -= q;
                   Item.list[ch].inventory.rondel += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -3920,7 +4106,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'misericorde'){
           if(q > player.inventory.misericorde){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -3930,7 +4116,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.misericorde -= q;
                   Item.list[ch].inventory.misericorde += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -3961,7 +4147,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.misericorde -= q;
                   Item.list[ch].inventory.misericorde += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -3992,7 +4178,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.misericorde -= q;
                   Item.list[ch].inventory.misericorde += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -4023,7 +4209,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.misericorde -= q;
                   Item.list[ch].inventory.misericorde += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -4050,7 +4236,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'bastardsword'){
           if(q > player.inventory.bastardsword){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -4060,7 +4246,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.bastardsword -= q;
                   Item.list[ch].inventory.bastardsword += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -4091,7 +4277,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.bastardsword -= q;
                   Item.list[ch].inventory.bastardsword += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -4122,7 +4308,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.bastardsword -= q;
                   Item.list[ch].inventory.bastardsword += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -4153,7 +4339,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.bastardsword -= q;
                   Item.list[ch].inventory.bastardsword += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -4180,7 +4366,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'longsword'){
           if(q > player.inventory.longsword){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -4190,7 +4376,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.longsword -= q;
                   Item.list[ch].inventory.longsword += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -4221,7 +4407,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.longsword -= q;
                   Item.list[ch].inventory.longsword += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -4252,7 +4438,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.longsword -= q;
                   Item.list[ch].inventory.longsword += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -4283,7 +4469,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.longsword -= q;
                   Item.list[ch].inventory.longsword += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -4310,7 +4496,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'zweihander'){
           if(q > player.inventory.zweihander){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -4320,7 +4506,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.zweihander -= q;
                   Item.list[ch].inventory.zweihander += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -4351,7 +4537,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.zweihander -= q;
                   Item.list[ch].inventory.zweihander += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -4382,7 +4568,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.zweihander -= q;
                   Item.list[ch].inventory.zweihander += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -4413,7 +4599,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.zweihander -= q;
                   Item.list[ch].inventory.zweihander += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -4440,7 +4626,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'morallta'){
           if(q > player.inventory.morallta){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -4450,7 +4636,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.morallta -= q;
                   Item.list[ch].inventory.morallta += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -4481,7 +4667,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.morallta -= q;
                   Item.list[ch].inventory.morallta += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -4512,7 +4698,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.morallta -= q;
                   Item.list[ch].inventory.morallta += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -4543,7 +4729,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.morallta -= q;
                   Item.list[ch].inventory.morallta += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -4570,7 +4756,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'bow'){
           if(q > player.inventory.bow){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -4580,7 +4766,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.bow -= q;
                   Item.list[ch].inventory.bow += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -4611,7 +4797,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.bow -= q;
                   Item.list[ch].inventory.bow += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -4642,7 +4828,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.bow -= q;
                   Item.list[ch].inventory.bow += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -4673,7 +4859,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.bow -= q;
                   Item.list[ch].inventory.bow += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -4700,7 +4886,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'welshlongbow'){
           if(q > player.inventory.welshlongbow){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -4710,7 +4896,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.welshlongbow -= q;
                   Item.list[ch].inventory.welshlongbow += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -4741,7 +4927,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.welshlongbow -= q;
                   Item.list[ch].inventory.welshlongbow += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -4772,7 +4958,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.welshlongbow -= q;
                   Item.list[ch].inventory.welshlongbow += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -4803,7 +4989,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.welshlongbow -= q;
                   Item.list[ch].inventory.welshlongbow += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -4830,7 +5016,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'knightlance'){
           if(q > player.inventory.knightlance){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -4840,7 +5026,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.knightlance -= q;
                   Item.list[ch].inventory.knightlance += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -4871,7 +5057,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.knightlance -= q;
                   Item.list[ch].inventory.knightlance += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -4902,7 +5088,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.knightlance -= q;
                   Item.list[ch].inventory.knightlance += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -4933,7 +5119,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.knightlance -= q;
                   Item.list[ch].inventory.knightlance += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -4960,7 +5146,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'rusticlance'){
           if(q > player.inventory.rusticlance){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -4970,7 +5156,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.rusticlance -= q;
                   Item.list[ch].inventory.rusticlance += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -5001,7 +5187,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.rusticlance -= q;
                   Item.list[ch].inventory.rusticlance += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -5032,7 +5218,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.rusticlance -= q;
                   Item.list[ch].inventory.rusticlance += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -5063,7 +5249,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.rusticlance -= q;
                   Item.list[ch].inventory.rusticlance += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -5090,7 +5276,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'paladinlance'){
           if(q > player.inventory.paladinlance){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -5100,7 +5286,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.paladinlance -= q;
                   Item.list[ch].inventory.paladinlance += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -5131,7 +5317,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.paladinlance -= q;
                   Item.list[ch].inventory.paladinlance += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -5162,7 +5348,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.paladinlance -= q;
                   Item.list[ch].inventory.paladinlance += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -5193,7 +5379,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.paladinlance -= q;
                   Item.list[ch].inventory.paladinlance += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -5220,7 +5406,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'brigandine'){
           if(q > player.inventory.brigandine){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -5230,7 +5416,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.brigandine -= q;
                   Item.list[ch].inventory.brigandine += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -5261,7 +5447,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.brigandine -= q;
                   Item.list[ch].inventory.brigandine += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -5292,7 +5478,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.brigandine -= q;
                   Item.list[ch].inventory.brigandine += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -5323,7 +5509,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.brigandine -= q;
                   Item.list[ch].inventory.brigandine += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -5350,7 +5536,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'lamellar'){
           if(q > player.inventory.lamellar){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -5360,7 +5546,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.lamellar -= q;
                   Item.list[ch].inventory.lamellar += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -5391,7 +5577,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.lamellar -= q;
                   Item.list[ch].inventory.lamellar += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -5422,7 +5608,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.lamellar -= q;
                   Item.list[ch].inventory.lamellar += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -5453,7 +5639,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.lamellar -= q;
                   Item.list[ch].inventory.lamellar += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -5480,7 +5666,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'maille'){
           if(q > player.inventory.maille){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -5490,7 +5676,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.maille -= q;
                   Item.list[ch].inventory.maille += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -5521,7 +5707,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.maille -= q;
                   Item.list[ch].inventory.maille += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -5552,7 +5738,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.maille -= q;
                   Item.list[ch].inventory.maille += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -5583,7 +5769,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.maille -= q;
                   Item.list[ch].inventory.maille += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -5610,7 +5796,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'hauberk'){
           if(q > player.inventory.hauberk){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -5620,7 +5806,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.hauberk -= q;
                   Item.list[ch].inventory.hauberk += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -5651,7 +5837,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.hauberk -= q;
                   Item.list[ch].inventory.hauberk += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -5682,7 +5868,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.hauberk -= q;
                   Item.list[ch].inventory.hauberk += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -5713,7 +5899,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.hauberk -= q;
                   Item.list[ch].inventory.hauberk += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -5740,7 +5926,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'brynja'){
           if(q > player.inventory.brynja){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -5750,7 +5936,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.brynja -= q;
                   Item.list[ch].inventory.brynja += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -5781,7 +5967,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.brynja -= q;
                   Item.list[ch].inventory.brynja += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -5812,7 +5998,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.brynja -= q;
                   Item.list[ch].inventory.brynja += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -5843,7 +6029,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.brynja -= q;
                   Item.list[ch].inventory.brynja += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -5870,7 +6056,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'cuirass'){
           if(q > player.inventory.cuirass){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -5880,7 +6066,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.cuirass -= q;
                   Item.list[ch].inventory.cuirass += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -5911,7 +6097,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.cuirass -= q;
                   Item.list[ch].inventory.cuirass += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -5942,7 +6128,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.cuirass -= q;
                   Item.list[ch].inventory.cuirass += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -5973,7 +6159,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.cuirass -= q;
                   Item.list[ch].inventory.cuirass += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -6000,7 +6186,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'steelplate'){
           if(q > player.inventory.steelplate){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -6010,7 +6196,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.steelplate -= q;
                   Item.list[ch].inventory.steelplate += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -6041,7 +6227,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.steelplate -= q;
                   Item.list[ch].inventory.steelplate += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -6072,7 +6258,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.steelplate -= q;
                   Item.list[ch].inventory.steelplate += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -6103,7 +6289,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.steelplate -= q;
                   Item.list[ch].inventory.steelplate += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -6130,7 +6316,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'greenwichplate'){
           if(q > player.inventory.greenwichplate){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -6140,7 +6326,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.greenwichplate -= q;
                   Item.list[ch].inventory.greenwichplate += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -6171,7 +6357,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.greenwichplate -= q;
                   Item.list[ch].inventory.greenwichplate += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -6202,7 +6388,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.greenwichplate -= q;
                   Item.list[ch].inventory.greenwichplate += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -6233,7 +6419,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.greenwichplate -= q;
                   Item.list[ch].inventory.greenwichplate += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -6260,7 +6446,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'gothicplate'){
           if(q > player.inventory.gothicplate){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -6270,7 +6456,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.gothicplate -= q;
                   Item.list[ch].inventory.gothicplate += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -6301,7 +6487,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.gothicplate -= q;
                   Item.list[ch].inventory.gothicplate += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -6332,7 +6518,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.gothicplate -= q;
                   Item.list[ch].inventory.gothicplate += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -6363,7 +6549,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.gothicplate -= q;
                   Item.list[ch].inventory.gothicplate += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -6390,7 +6576,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'clericrobe'){
           if(q > player.inventory.clericrobe){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -6400,7 +6586,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.clericrobe -= q;
                   Item.list[ch].inventory.clericrobe += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -6431,7 +6617,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.clericrobe -= q;
                   Item.list[ch].inventory.clericrobe += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -6462,7 +6648,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.clericrobe -= q;
                   Item.list[ch].inventory.clericrobe += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -6493,7 +6679,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.clericrobe -= q;
                   Item.list[ch].inventory.clericrobe += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -6520,7 +6706,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'monkcowl'){
           if(q > player.inventory.monkcowl){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -6530,7 +6716,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.monkcowl -= q;
                   Item.list[ch].inventory.monkcowl += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -6561,7 +6747,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.monkcowl -= q;
                   Item.list[ch].inventory.monkcowl += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -6592,7 +6778,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.monkcowl -= q;
                   Item.list[ch].inventory.monkcowl += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -6623,7 +6809,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.monkcowl -= q;
                   Item.list[ch].inventory.monkcowl += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -6650,7 +6836,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'blackcloak'){
           if(q > player.inventory.blackcloak){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -6660,7 +6846,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.blackcloak -= q;
                   Item.list[ch].inventory.blackcloak += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -6691,7 +6877,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.blackcloak -= q;
                   Item.list[ch].inventory.blackcloak += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -6722,7 +6908,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.blackcloak -= q;
                   Item.list[ch].inventory.blackcloak += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -6753,7 +6939,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.blackcloak -= q;
                   Item.list[ch].inventory.blackcloak += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -6780,7 +6966,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'tome'){
           if(q > player.inventory.tome){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -6790,7 +6976,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.tome -= q;
                   Item.list[ch].inventory.tome += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -6821,7 +7007,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.tome -= q;
                   Item.list[ch].inventory.tome += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -6852,7 +7038,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.tome -= q;
                   Item.list[ch].inventory.tome += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -6883,7 +7069,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.tome -= q;
                   Item.list[ch].inventory.tome += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -6910,7 +7096,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'runicscroll'){
           if(q > player.inventory.runicscroll){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -6920,7 +7106,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.runicscroll -= q;
                   Item.list[ch].inventory.runicscroll += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -6951,7 +7137,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.runicscroll -= q;
                   Item.list[ch].inventory.runicscroll += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -6982,7 +7168,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.runicscroll -= q;
                   Item.list[ch].inventory.runicscroll += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -7013,7 +7199,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.runicscroll -= q;
                   Item.list[ch].inventory.runicscroll += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -7040,7 +7226,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'sacredtext'){
           if(q > player.inventory.sacredtext){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -7050,7 +7236,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.sacredtext -= q;
                   Item.list[ch].inventory.sacredtext += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -7081,7 +7267,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.sacredtext -= q;
                   Item.list[ch].inventory.sacredtext += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -7112,7 +7298,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.sacredtext -= q;
                   Item.list[ch].inventory.sacredtext += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -7143,7 +7329,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.sacredtext -= q;
                   Item.list[ch].inventory.sacredtext += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -7170,7 +7356,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'stoneaxe'){
           if(q > player.inventory.stoneaxe){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -7180,7 +7366,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.stoneaxe -= q;
                   Item.list[ch].inventory.stoneaxe += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -7211,7 +7397,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.stoneaxe -= q;
                   Item.list[ch].inventory.stoneaxe += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -7242,7 +7428,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.stoneaxe -= q;
                   Item.list[ch].inventory.stoneaxe += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -7273,7 +7459,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.stoneaxe -= q;
                   Item.list[ch].inventory.stoneaxe += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -7300,7 +7486,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'ironaxe'){
           if(q > player.inventory.ironaxe){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -7310,7 +7496,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.ironaxe -= q;
                   Item.list[ch].inventory.ironaxe += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -7341,7 +7527,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.ironaxe -= q;
                   Item.list[ch].inventory.ironaxe += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -7372,7 +7558,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.ironaxe -= q;
                   Item.list[ch].inventory.ironaxe += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -7403,7 +7589,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.ironaxe -= q;
                   Item.list[ch].inventory.ironaxe += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -7430,7 +7616,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'pickaxe'){
           if(q > player.inventory.pickaxe){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -7440,7 +7626,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.pickaxe -= q;
                   Item.list[ch].inventory.pickaxe += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -7471,7 +7657,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.pickaxe -= q;
                   Item.list[ch].inventory.pickaxe += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -7502,7 +7688,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.pickaxe -= q;
                   Item.list[ch].inventory.pickaxe += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -7533,7 +7719,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.pickaxe -= q;
                   Item.list[ch].inventory.pickaxe += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -7560,7 +7746,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'torch'){
           if(q > player.inventory.rondel){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -7570,7 +7756,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.torch -= q;
                   Item.list[ch].inventory.torch += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -7601,7 +7787,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.torch -= q;
                   Item.list[ch].inventory.torch += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -7632,7 +7818,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.torch -= q;
                   Item.list[ch].inventory.torch += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -7663,7 +7849,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.torch -= q;
                   Item.list[ch].inventory.torch += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -7690,7 +7876,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'bread'){
           if(q > player.inventory.bread){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -7700,7 +7886,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.bread -= q;
                   Item.list[ch].inventory.bread += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -7731,7 +7917,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.bread -= q;
                   Item.list[ch].inventory.bread += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -7762,7 +7948,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.bread -= q;
                   Item.list[ch].inventory.bread += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -7793,7 +7979,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.bread -= q;
                   Item.list[ch].inventory.bread += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -7820,7 +8006,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'fish'){
           if(q > player.inventory.fish){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -7830,7 +8016,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.fish -= q;
                   Item.list[ch].inventory.fish += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -7861,7 +8047,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.fish -= q;
                   Item.list[ch].inventory.fish += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -7892,7 +8078,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.fish -= q;
                   Item.list[ch].inventory.fish += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -7923,7 +8109,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.fish -= q;
                   Item.list[ch].inventory.fish += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -7950,7 +8136,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'lamb'){
           if(q > player.inventory.lamb){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -7960,7 +8146,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.lamb -= q;
                   Item.list[ch].inventory.lamb += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -7991,7 +8177,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.lamb -= q;
                   Item.list[ch].inventory.lamb += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -8022,7 +8208,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.lamb -= q;
                   Item.list[ch].inventory.lamb += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -8053,7 +8239,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.lamb -= q;
                   Item.list[ch].inventory.lamb += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -8080,7 +8266,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'boarmeat'){
           if(q > player.inventory.boarmeat){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -8090,7 +8276,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.boarmeat -= q;
                   Item.list[ch].inventory.boarmeat += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -8121,7 +8307,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.boarmeat -= q;
                   Item.list[ch].inventory.boarmeat += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -8152,7 +8338,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.boarmeat -= q;
                   Item.list[ch].inventory.boarmeat += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -8183,7 +8369,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.boarmeat -= q;
                   Item.list[ch].inventory.boarmeat += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -8210,7 +8396,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'venison'){
           if(q > player.inventory.venison){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -8220,7 +8406,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.venison -= q;
                   Item.list[ch].inventory.venison += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -8251,7 +8437,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.venison -= q;
                   Item.list[ch].inventory.venison += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -8282,7 +8468,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.venison -= q;
                   Item.list[ch].inventory.venison += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -8313,7 +8499,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.venison -= q;
                   Item.list[ch].inventory.venison += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -8340,7 +8526,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'poachedfish'){
           if(q > player.inventory.poachfish){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -8350,7 +8536,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.poachedfish -= q;
                   Item.list[ch].inventory.poachedfish += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -8381,7 +8567,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.poachedfish -= q;
                   Item.list[ch].inventory.poachedfish += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -8412,7 +8598,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.poachedfish -= q;
                   Item.list[ch].inventory.poachedfish += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -8443,7 +8629,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.poachedfish -= q;
                   Item.list[ch].inventory.poachedfish += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -8470,7 +8656,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'lambchop'){
           if(q > player.inventory.lambchop){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -8480,7 +8666,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.lambchop -= q;
                   Item.list[ch].inventory.lambchop += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -8511,7 +8697,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.lambchop -= q;
                   Item.list[ch].inventory.lambchop += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -8542,7 +8728,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.lambchop -= q;
                   Item.list[ch].inventory.lambchop += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -8573,7 +8759,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.lambchop -= q;
                   Item.list[ch].inventory.lambchop += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -8600,7 +8786,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'boarshank'){
           if(q > player.inventory.boarshank){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -8610,7 +8796,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.boarshank -= q;
                   Item.list[ch].inventory.boarshank += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -8641,7 +8827,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.boarshank -= q;
                   Item.list[ch].inventory.boarshank += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -8672,7 +8858,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.boarshank -= q;
                   Item.list[ch].inventory.boarshank += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -8703,7 +8889,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.boarshank -= q;
                   Item.list[ch].inventory.boarshank += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -8730,7 +8916,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'venisonloin'){
           if(q > player.inventory.venisonloin){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -8740,7 +8926,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.venisonloin -= q;
                   Item.list[ch].inventory.venisonloin += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -8771,7 +8957,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.venisonloin -= q;
                   Item.list[ch].inventory.venisonloin += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -8802,7 +8988,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.venisonloin -= q;
                   Item.list[ch].inventory.venisonloin += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -8833,7 +9019,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.venisonloin -= q;
                   Item.list[ch].inventory.venisonloin += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -8860,7 +9046,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'mead'){
           if(q > player.inventory.mead){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -8870,7 +9056,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.mead -= q;
                   Item.list[ch].inventory.mead += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -8901,7 +9087,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.mead -= q;
                   Item.list[ch].inventory.mead += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -8932,7 +9118,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.mead -= q;
                   Item.list[ch].inventory.mead += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -8963,7 +9149,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.mead -= q;
                   Item.list[ch].inventory.mead += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -8990,7 +9176,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'saison'){
           if(q > player.inventory.saison){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -9000,7 +9186,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.saison -= q;
                   Item.list[ch].inventory.saison += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -9031,7 +9217,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.saison -= q;
                   Item.list[ch].inventory.saison += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -9062,7 +9248,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.saison -= q;
                   Item.list[ch].inventory.saison += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -9093,7 +9279,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.saison -= q;
                   Item.list[ch].inventory.saison += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -9120,7 +9306,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'flanders'){
           if(q > player.inventory.flanders){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -9130,7 +9316,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.flanders -= q;
                   Item.list[ch].inventory.flanders += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -9161,7 +9347,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.flanders -= q;
                   Item.list[ch].inventory.flanders += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -9192,7 +9378,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.flanders -= q;
                   Item.list[ch].inventory.flanders += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -9223,7 +9409,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.flanders -= q;
                   Item.list[ch].inventory.flanders += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -9250,7 +9436,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'bieredegarde'){
           if(q > player.inventory.bieredegarde){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -9260,7 +9446,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.bieredegarde -= q;
                   Item.list[ch].inventory.bieredegarde += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -9291,7 +9477,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.bieredegarde -= q;
                   Item.list[ch].inventory.bieredegarde += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -9322,7 +9508,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.bieredegarde -= q;
                   Item.list[ch].inventory.bieredegarde += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -9353,7 +9539,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.bieredegarde -= q;
                   Item.list[ch].inventory.bieredegarde += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -9380,7 +9566,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'bordeaux'){
           if(q > player.inventory.bordeaux){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -9390,7 +9576,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.bordeaux -= q;
                   Item.list[ch].inventory.bordeaux += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -9421,7 +9607,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.bordeaux -= q;
                   Item.list[ch].inventory.bordeaux += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -9452,7 +9638,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.bordeaux -= q;
                   Item.list[ch].inventory.bordeaux += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -9483,7 +9669,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.bordeaux -= q;
                   Item.list[ch].inventory.bordeaux += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -9510,7 +9696,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'bourgogne'){
           if(q > player.inventory.bourgogne){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -9520,7 +9706,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.bourgogne -= q;
                   Item.list[ch].inventory.bourgogne += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -9551,7 +9737,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.bourgogne -= q;
                   Item.list[ch].inventory.bourgogne += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -9582,7 +9768,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.bourgogne -= q;
                   Item.list[ch].inventory.bourgogne += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -9613,7 +9799,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.bourgogne -= q;
                   Item.list[ch].inventory.bourgogne += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -9640,7 +9826,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'chianti'){
           if(q > player.inventory.chianti){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -9650,7 +9836,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.chianti -= q;
                   Item.list[ch].inventory.chianti += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -9681,7 +9867,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.chianti -= q;
                   Item.list[ch].inventory.chianti += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -9712,7 +9898,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.chianti -= q;
                   Item.list[ch].inventory.chianti += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -9743,7 +9929,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.chianti -= q;
                   Item.list[ch].inventory.chianti += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -9770,7 +9956,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'crown'){
           if(q > player.inventory.crown){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -9780,7 +9966,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.crown -= q;
                   Item.list[ch].inventory.crown += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -9811,7 +9997,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.crown -= q;
                   Item.list[ch].inventory.crown += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -9842,7 +10028,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.crown -= q;
                   Item.list[ch].inventory.crown += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -9873,7 +10059,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.crown -= q;
                   Item.list[ch].inventory.crown += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -9900,7 +10086,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'arrows'){
           if(q > player.inventory.arrows){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -9910,7 +10096,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.arrows -= q;
                   Item.list[ch].inventory.arrows += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -9941,7 +10127,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.arrows -= q;
                   Item.list[ch].inventory.arrows += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -9972,7 +10158,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.arrows -= q;
                   Item.list[ch].inventory.arrows += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -10003,7 +10189,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.arrows -= q;
                   Item.list[ch].inventory.arrows += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -10030,7 +10216,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'worldmap'){
           if(q > player.inventory.worldmap){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -10040,7 +10226,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.worldmap -= q;
                   Item.list[ch].inventory.worldmap += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -10071,7 +10257,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.worldmap -= q;
                   Item.list[ch].inventory.worldmap += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -10102,7 +10288,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.worldmap -= q;
                   Item.list[ch].inventory.worldmap += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -10133,7 +10319,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.worldmap -= q;
                   Item.list[ch].inventory.worldmap += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -10160,7 +10346,7 @@ EvalCmd = function(data){
           }
         } else if(item == 'relic'){
           if(q > player.inventory.relic){
-            socket.emit('addToChat','<i>You do not have that many.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have that many.</i>'}));
           } else {
             if(player.facing == 'up'){
               if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -10170,7 +10356,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.relic -= q;
                   Item.list[ch].inventory.relic += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r-1)){
                 var coords = getCoords(c,r-1);
@@ -10201,7 +10387,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.relic -= q;
                   Item.list[ch].inventory.relic += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c,r+1)){
                 var coords = getCoords(c,r+1);
@@ -10232,7 +10418,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.relic -= q;
                   Item.list[ch].inventory.relic += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c-1,r)){
                 var coords = getCoords(c-1,r);
@@ -10263,7 +10449,7 @@ EvalCmd = function(data){
                   Player.list[player.id].inventory.relic -= q;
                   Item.list[ch].inventory.relic += q;
                 } else {
-                  socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
                 }
               } else if(isWalkable(z,c+1,r)){
                 var coords = getCoords(c+1,r);
@@ -10289,19 +10475,19 @@ EvalCmd = function(data){
             }
           }
         } else {
-          socket.emit('addToChat','<i>Not a valid</i> <b>ItemName</b>');
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>Not a valid</i> <b>ItemName</b>'}));
         }
       }
     } else if(data.cmd == 'take'){
-      socket.emit('addToChat','<p>/take Quantity ItemName</p>');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<p>/take Quantity ItemName</p>'}));
     } else if(data.cmd.slice(0,4) == 'take' && data.cmd[4] == ' '){
       var target = String(data.cmd.slice(data.cmd.indexOf(' ') + 1)).toLowerCase();
       var q = Number(target.slice(0,target.indexOf(' '))).toFixed(0);
       var item = String(target.slice(target.indexOf(' ') + 1)).toLowerCase();
       if(q < 1){
-        socket.emit('addToChat','<i>Quantity must be greater than 0.</i>');
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>Quantity must be greater than 0.</i>'}));
       } else if(Number.isNaN(q/1)){
-        socket.emit('addToChat','<i>Quantity must be a number.</i>');
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>Quantity must be a number.</i>'}));
       } else {
         if(player.facing == 'up'){
           if(getItem(z,c,r-1) == 'LockedChest' || getItem(z,c,r-1) == 'Chest'){
@@ -10311,800 +10497,800 @@ EvalCmd = function(data){
               if(item == 'wood'){
                 if(q <= Item.list[ch].inventory.wood){
                   if(player.inventory.wood + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>Wood</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Wood</b>.'}));
                   } else {
                     Item.list[ch].inventory.wood -= q;
                     Player.list[id].inventory.wood += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Wood</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Wood</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>Wood</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>Wood</b>.'}));
                 }
               } else if(item == 'stone'){
                 if(q <= Item.list[ch].inventory.stone){
                   if(player.inventory.stone + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>Stone</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Stone</b>.'}));
                   } else {
                     Item.list[ch].inventory.stone -= q;
                     Player.list[id].inventory.stone += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Stone</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Stone</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>Stone</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>Stone</b>.'}));
                 }
               } else if(item == 'grain'){
                 if(q <= Item.list[ch].inventory.grain){
                   if(player.inventory.grain + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>Grain</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Grain</b>.'}));
                   } else {
                     Item.list[ch].inventory.grain -= q;
                     Player.list[id].inventory.grain += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Grain</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Grain</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>Grain</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>Grain</b>.'}));
                 }
               } else if(item == 'flour'){
                 if(q <= Item.list[ch].inventory.flour){
                   if(player.inventory.flour + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>Flour</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Flour</b>.'}));
                   } else {
                     Item.list[ch].inventory.flour -= q;
                     Player.list[id].inventory.flour += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Flour</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Flour</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>Flour</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>Flour</b>.'}));
                 }
               } else if(item == 'dough'){
                 if(q <= Item.list[ch].inventory.dough){
                   if(player.inventory.dough + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>Dough</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Dough</b>.'}));
                   } else {
                     Item.list[ch].inventory.dough -= q;
                     Player.list[id].inventory.dough += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Dough</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Dough</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>Dough</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>Dough</b>.'}));
                 }
               } else if(item == 'ironore'){
                 if(q <= Item.list[ch].inventory.ironore){
                   if(player.inventory.ironore + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>IronOre</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>IronOre</b>.'}));
                   } else {
                     Item.list[ch].inventory.ironore -= q;
                     Player.list[id].inventory.ironore += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>IronOre</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>IronOre</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>IronOre</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>IronOre</b>.'}));
                 }
               } else if(item == 'iron'){
                 if(q <= Item.list[ch].inventory.iron){
                   if(player.inventory.iron + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Iron</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Iron</b>.'}));
                   } else {
                     Item.list[ch].inventory.iron -= q;
                     Player.list[id].inventory.iron += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Iron</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Iron</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Iron</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Iron</b>.'}));
                 }
               } else if(item == 'steel'){
                 if(q <= Item.list[ch].inventory.steel){
                   if(player.inventory.steel + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Steel</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Steel</b>.'}));
                   } else {
                     Item.list[ch].inventory.steel -= q;
                     Player.list[id].inventory.steel += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Steel</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Steel</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Steel</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Steel</b>.'}));
                 }
               } else if(item == 'boarhide'){
                 if(q <= Item.list[ch].inventory.boarhide){
                   if(player.inventory.boarhide + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>BoarHide</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>BoarHide</b>.'}));
                   } else {
                     Item.list[ch].inventory.boarhide -= q;
                     Player.list[id].inventory.boarhide += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>BoarHide</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>BoarHide</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>BoarHide</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>BoarHide</b>.'}));
                 }
               } else if(item == 'leather'){
                 if(q <= Item.list[ch].inventory.leather){
                   if(player.inventory.leather + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>Leather</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Leather</b>.'}));
                   } else {
                     Item.list[ch].inventory.leather -= q;
                     Player.list[id].inventory.leather += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Leather</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Leather</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>Leather</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>Leather</b>.'}));
                 }
               } else if(item == 'silverore'){
                 if(q <= Item.list[ch].inventory.silverore){
                   if(player.inventory.silverore + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>SilverOre</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>SilverOre</b>.'}));
                   } else {
                     Item.list[ch].inventory.silverore -= q;
                     Player.list[id].inventory.silverore += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>SilverOre</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>SilverOre</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>SilverOre</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>SilverOre</b>.'}));
                 }
               } else if(item == 'silver'){
                 if(q <= Item.list[ch].inventory.silver){
                   Item.list[ch].inventory.silver -= q;
                   Player.list[id].inventory.silver += q;
-                  socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Silver</b> <i>from the chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Silver</b> <i>from the chest.</i>'}));
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>Silver</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>Silver</b>.'}));
                 }
               } else if(item == 'goldore'){
                 if(q <= Item.list[ch].inventory.goldore){
                   if(player.inventory.goldore + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>GoldOre</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>GoldOre</b>.'}));
                   } else {
                     Item.list[ch].inventory.goldore -= q;
                     Player.list[id].inventory.goldore += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>GoldOre</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>GoldOre</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>GoldOre</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>GoldOre</b>.'}));
                 }
               } else if(item == 'gold'){
                 if(q <= Item.list[ch].inventory.gold){
                   Item.list[ch].inventory.gold -= q;
                   Player.list[id].inventory.gold += q;
-                  socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Gold</b> <i>from the chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Gold</b> <i>from the chest.</i>'}));
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>Gold</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>Gold</b>.'}));
                 }
               } else if(item == 'diamond'){
                 if(q <= Item.list[ch].inventory.diamond){
                   Item.list[ch].inventory.diamond -= q;
                   Player.list[id].inventory.diamond += q;
-                  socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Diamond</b> <i>from the chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Diamond</b> <i>from the chest.</i>'}));
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Diamond</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Diamond</b>.'}));
                 }
               } else if(item == 'huntingknife'){
                 if(q <= Item.list[ch].inventory.huntingknife){
                   if(player.inventory.huntingknife + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>HuntingKnife</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>HuntingKnife</b>.'}));
                   } else {
                     Item.list[ch].inventory.huntingknife -= q;
                     Player.list[id].inventory.huntingknife += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>HuntingKnife</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>HuntingKnife</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>HuntingKnife</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>HuntingKnife</b>.'}));
                 }
               } else if(item == 'dague'){
                 if(q <= Item.list[ch].inventory.dague){
                   if(player.inventory.dague + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Dague</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Dague</b>.'}));
                   } else {
                     Item.list[ch].inventory.dague -= q;
                     Player.list[id].inventory.dague += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Dague</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Dague</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Dague</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Dague</b>.'}));
                 }
               } else if(item == 'rondel'){
                 if(q <= Item.list[ch].inventory.rondel){
                   if(player.inventory.rondel + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Rondel</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Rondel</b>.'}));
                   } else {
                     Item.list[ch].inventory.rondel -= q;
                     Player.list[id].inventory.rondel += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Rondel</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Rondel</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Rondel</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Rondel</b>.'}));
                 }
               } else if(item == 'misericorde'){
                 if(q <= Item.list[ch].inventory.misericorde){
                   if(player.inventory.misericorde + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Misericorde</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Misericorde</b>.'}));
                   } else {
                     Item.list[ch].inventory.misericorde -= q;
                     Player.list[id].inventory.misericorde += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Misericorde</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Misericorde</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Misericorde</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Misericorde</b>.'}));
                 }
               } else if(item == 'bastardsword'){
                 if(q <= Item.list[ch].inventory.bastardsword){
                   if(player.inventory.bastardsword + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>BastardSword</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>BastardSword</b>.'}));
                   } else {
                     Item.list[ch].inventory.bastardsword -= q;
                     Player.list[id].inventory.bastardsword += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>BastardSword</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>BastardSword</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>BastardSword</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>BastardSword</b>.'}));
                 }
               } else if(item == 'longsword'){
                 if(q <= Item.list[ch].inventory.longsword){
                   if(player.inventory.longsword + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Longsword</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Longsword</b>.'}));
                   } else {
                     Item.list[ch].inventory.longsword -= q;
                     Player.list[id].inventory.longsword += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Longsword</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Longsword</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Longsword</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Longsword</b>.'}));
                 }
               } else if(item == 'zweihander'){
                 if(q <= Item.list[ch].inventory.zweihander){
                   if(player.inventory.zweihander + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Zweihander</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Zweihander</b>.'}));
                   } else {
                     Item.list[ch].inventory.zweihander -= q;
                     Player.list[id].inventory.zweihander += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Zweihander</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Zweihander</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Zweihander</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Zweihander</b>.'}));
                 }
               } else if(item == 'morallta'){
                 if(q <= Item.list[ch].inventory.morallta){
                   if(player.inventory.morallta + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Morallta</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Morallta</b>.'}));
                   } else {
                     Item.list[ch].inventory.morallta -= q;
                     Player.list[id].inventory.morallta += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Morallta</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Morallta</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Morallta</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Morallta</b>.'}));
                 }
               } else if(item == 'bow'){
                 if(q <= Item.list[ch].inventory.bow){
                   if(player.inventory.bow + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Bow</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Bow</b>.'}));
                   } else {
                     Item.list[ch].inventory.bow -= q;
                     Player.list[id].inventory.bow += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Bow</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Bow</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Bow</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Bow</b>.'}));
                 }
               } else if(item == 'welshlongbow'){
                 if(q <= Item.list[ch].inventory.welshlongbow){
                   if(player.inventory.welshlongbow + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>WelshLongbow</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>WelshLongbow</b>.'}));
                   } else {
                     Item.list[ch].inventory.welshlongbow -= q;
                     Player.list[id].inventory.welshlongbow += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>WelshLongbow</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>WelshLongbow</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>WelshLongbow</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>WelshLongbow</b>.'}));
                 }
               } else if(item == 'knightlance'){
                 if(q <= Item.list[ch].inventory.knightlance){
                   if(player.inventory.knightlance + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>KnightLance</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>KnightLance</b>.'}));
                   } else {
                     Item.list[ch].inventory.knightlance -= q;
                     Player.list[id].inventory.knightlance += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>KnightLance</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>KnightLance</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>KnightLance</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>KnightLance</b>.'}));
                 }
               } else if(item == 'rusticlance'){
                 if(q <= Item.list[ch].inventory.rusticlance){
                   if(player.inventory.rusticlance + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>RusticLance</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>RusticLance</b>.'}));
                   } else {
                     Item.list[ch].inventory.rusticlance -= q;
                     Player.list[id].inventory.rusticlance += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>RusticLance</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>RusticLance</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>RusticLance</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>RusticLance</b>.'}));
                 }
               } else if(item == 'paladinlance'){
                 if(q <= Item.list[ch].inventory.paladinlance){
                   if(player.inventory.paladinlance + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>PaladinLance</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>PaladinLance</b>.'}));
                   } else {
                     Item.list[ch].inventory.paladinlance -= q;
                     Player.list[id].inventory.paladinlance += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>PaladinLance</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>PaladinLance</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>PaladinLance</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>PaladinLance</b>.'}));
                 }
               } else if(item == 'brigandine'){
                 if(q <= Item.list[ch].inventory.brigandine){
                   if(player.inventory.brigandine + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Brigandine</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Brigandine</b>.'}));
                   } else {
                     Item.list[ch].inventory.brigandine -= q;
                     Player.list[id].inventory.brigandine += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Brigandine</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Brigandine</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Brigandine</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Brigandine</b>.'}));
                 }
               } else if(item == 'lamellar'){
                 if(q <= Item.list[ch].inventory.lamellar){
                   if(player.inventory.lamellar + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Lamellar</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Lamellar</b>.'}));
                   } else {
                     Item.list[ch].inventory.lamellar -= q;
                     Player.list[id].inventory.lamellar += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Lamellar</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Lamellar</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Lamellar</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Lamellar</b>.'}));
                 }
               } else if(item == 'maille'){
                 if(q <= Item.list[ch].inventory.maille){
                   if(player.inventory.maille + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Maille</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Maille</b>.'}));
                   } else {
                     Item.list[ch].inventory.maille -= q;
                     Player.list[id].inventory.maille += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Maille</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Maille</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Maille</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Maille</b>.'}));
                 }
               } else if(item == 'hauberk'){
                 if(q <= Item.list[ch].inventory.hauberk){
                   if(player.inventory.hauberk + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Hauberk</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Hauberk</b>.'}));
                   } else {
                     Item.list[ch].inventory.hauberk -= q;
                     Player.list[id].inventory.hauberk += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Hauberk</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Hauberk</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Hauberk</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Hauberk</b>.'}));
                 }
               } else if(item == 'brynja'){
                 if(q <= Item.list[ch].inventory.brynja){
                   if(player.inventory.brynja + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Brynja</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Brynja</b>.'}));
                   } else {
                     Item.list[ch].inventory.brynja -= q;
                     Player.list[id].inventory.brynja += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Brynja</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Brynja</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Brynja</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Brynja</b>.'}));
                 }
               } else if(item == 'cuirass'){
                 if(q <= Item.list[ch].inventory.cuirass){
                   if(player.inventory.cuirass + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Cuirass</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Cuirass</b>.'}));
                   } else {
                     Item.list[ch].inventory.cuirass -= q;
                     Player.list[id].inventory.cuirass += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Cuirass</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Cuirass</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Cuirass</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Cuirass</b>.'}));
                 }
               } else if(item == 'steelplate'){
                 if(q <= Item.list[ch].inventory.steelplate){
                   if(player.inventory.steelplate + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>SteelPlate</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>SteelPlate</b>.'}));
                   } else {
                     Item.list[ch].inventory.steelplate -= q;
                     Player.list[id].inventory.steelplate += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>SteelPlate</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>SteelPlate</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>SteelPlate</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>SteelPlate</b>.'}));
                 }
               } else if(item == 'greenwichplate'){
                 if(q <= Item.list[ch].inventory.greenwichplate){
                   if(player.inventory.greenwichplate + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>GreenwichPlate</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>GreenwichPlate</b>.'}));
                   } else {
                     Item.list[ch].inventory.greenwichplate -= q;
                     Player.list[id].inventory.greenwichplate += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>GreenwichPlate</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>GreenwichPlate</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>GreenwichPlate</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>GreenwichPlate</b>.'}));
                 }
               } else if(item == 'gothicplate'){
                 if(q <= Item.list[ch].inventory.gothicplate){
                   if(player.inventory.gothicplate + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>GothicPlate</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>GothicPlate</b>.'}));
                   } else {
                     Item.list[ch].inventory.gothicplate -= q;
                     Player.list[id].inventory.gothicplate += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>GothicPlate</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>GothicPlate</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>GothicPlate</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>GothicPlate</b>.'}));
                 }
               } else if(item == 'clericrobe'){
                 if(q <= Item.list[ch].inventory.clericrobe){
                   if(player.inventory.clericrobe + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>ClericRobe</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>ClericRobe</b>.'}));
                   } else {
                     Item.list[ch].inventory.clericrobe -= q;
                     Player.list[id].inventory.clericrobe += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>ClericRobe</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>ClericRobe</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>ClericRobe</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>ClericRobe</b>.'}));
                 }
               } else if(item == 'monkcowl'){
                 if(q <= Item.list[ch].inventory.monkcowl){
                   if(player.inventory.monkcowl + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>MonkCowl</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>MonkCowl</b>.'}));
                   } else {
                     Item.list[ch].inventory.monkcowl -= q;
                     Player.list[id].inventory.monkcowl += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>MonkCowl</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>MonkCowl</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>MonkCowl</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>MonkCowl</b>.'}));
                 }
               } else if(item == 'blackcloak'){
                 if(q <= Item.list[ch].inventory.blackcloak){
                   if(player.inventory.blackcloak + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>BlackCloak</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>BlackCloak</b>.'}));
                   } else {
                     Item.list[ch].inventory.blackcloak -= q;
                     Player.list[id].inventory.blackcloak += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>BlackCloak</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>BlackCloak</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>BlackCloak</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>BlackCloak</b>.'}));
                 }
               } else if(item == 'tome'){
                 if(q <= Item.list[ch].inventory.tome){
                   if(player.inventory.tome + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Tome</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Tome</b>.'}));
                   } else {
                     Item.list[ch].inventory.tome -= q;
                     Player.list[id].inventory.tome += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Tome</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Tome</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Tome</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Tome</b>.'}));
                 }
               } else if(item == 'runicscroll'){
                 if(q <= Item.list[ch].inventory.runicscroll){
                   if(player.inventory.runicscroll + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>RunicScroll</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>RunicScroll</b>.'}));
                   } else {
                     Item.list[ch].inventory.runicscroll -= q;
                     Player.list[id].inventory.runicscroll += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>RunicScroll</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>RunicScroll</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>RunicScroll</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>RunicScroll</b>.'}));
                 }
               } else if(item == 'sacredtext'){
                 if(q <= Item.list[ch].inventory.sacredtext){
                   if(player.inventory.sacredtext + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>SacredText</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>SacredText</b>.'}));
                   } else {
                     Item.list[ch].inventory.sacredtext -= q;
                     Player.list[id].inventory.sacredtext += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>SacredText</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>SacredText</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>SacredText</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>SacredText</b>.'}));
                 }
               } else if(item == 'stoneaxe'){
                 if(q <= Item.list[ch].inventory.stoneaxe){
                   if(player.inventory.stoneaxe + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>StoneAxe</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>StoneAxe</b>.'}));
                   } else {
                     Item.list[ch].inventory.stoneaxe -= q;
                     Player.list[id].inventory.stoneaxe += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>StoneAxe</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>StoneAxe</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>StoneAxe</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>StoneAxe</b>.'}));
                 }
               } else if(item == 'ironaxe'){
                 if(q <= Item.list[ch].inventory.ironaxe){
                   if(player.inventory.ironaxe + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>IronAxe</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>IronAxe</b>.'}));
                   } else {
                     Item.list[ch].inventory.ironaxe -= q;
                     Player.list[id].inventory.ironaxe += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>IronAxe</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>IronAxe</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>IronAxe</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>IronAxe</b>.'}));
                 }
               } else if(item == 'pickaxe'){
                 if(q <= Item.list[ch].inventory.pickaxe){
                   if(player.inventory.pickaxe + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>PickAxe</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>PickAxe</b>.'}));
                   } else {
                     Item.list[ch].inventory.pickaxe -= q;
                     Player.list[id].inventory.pickaxe += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>PickAxe</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>PickAxe</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>PickAxe</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>PickAxe</b>.'}));
                 }
               } else if(item == 'torch'){
                 if(q <= Item.list[ch].inventory.torch){
                   if(player.inventory.torch + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Torch</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Torch</b>.'}));
                   } else {
                     Item.list[ch].inventory.torch -= q;
                     Player.list[id].inventory.torch += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Torch</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Torch</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Torch</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Torch</b>.'}));
                 }
               } else if(item == 'bread'){
                 if(q <= Item.list[ch].inventory.bread){
                   if(player.inventory.bread + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>Bread</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Bread</b>.'}));
                   } else {
                     Item.list[ch].inventory.bread -= q;
                     Player.list[id].inventory.bread += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Bread</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Bread</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>Bread</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>Bread</b>.'}));
                 }
               } else if(item == 'fish'){
                 if(q <= Item.list[ch].inventory.fish){
                   if(player.inventory.fish + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Fish</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Fish</b>.'}));
                   } else {
                     Item.list[ch].inventory.fish -= q;
                     Player.list[id].inventory.fish += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Fish</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Fish</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Fish</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Fish</b>.'}));
                 }
               } else if(item == 'lamb'){
                 if(q <= Item.list[ch].inventory.lamb){
                   if(player.inventory.lamb + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>Lamb</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Lamb</b>.'}));
                   } else {
                     Item.list[ch].inventory.lamb -= q;
                     Player.list[id].inventory.lamb += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Lamb</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Lamb</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Lamb</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Lamb</b>.'}));
                 }
               } else if(item == 'boarmeat'){
                 if(q <= Item.list[ch].inventory.boarmeat){
                   if(player.inventory.boarmeat + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>BoarMeat</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>BoarMeat</b>.'}));
                   } else {
                     Item.list[ch].inventory.boarmeat -= q;
                     Player.list[id].inventory.boarmeat += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>BoarMeat</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>BoarMeat</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>BoarMeat</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>BoarMeat</b>.'}));
                 }
               } else if(item == 'venison'){
                 if(q <= Item.list[ch].inventory.venison){
                   if(player.inventory.venison + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Venison</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Venison</b>.'}));
                   } else {
                     Item.list[ch].inventory.venison -= q;
                     Player.list[id].inventory.venison += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Venison</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Venison</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Venison</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Venison</b>.'}));
                 }
               } else if(item == 'poachedfish'){
                 if(q <= Item.list[ch].inventory.poachedfish){
                   if(player.inventory.poachedfish + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>PoachedFish</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>PoachedFish</b>.'}));
                   } else {
                     Item.list[ch].inventory.poachedfish -= q;
                     Player.list[id].inventory.poachedfish += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>PoachedFish</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>PoachedFish</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>PoachedFish</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>PoachedFish</b>.'}));
                 }
               } else if(item == 'lambchop'){
                 if(q <= Item.list[ch].inventory.lambchop){
                   if(player.inventory.lambchop + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>LambChop</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>LambChop</b>.'}));
                   } else {
                     Item.list[ch].inventory.lambchop -= q;
                     Player.list[id].inventory.lambchop += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>LambChop</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>LambChop</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>LambChop</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>LambChop</b>.'}));
                 }
               } else if(item == 'boarshank'){
                 if(q <= Item.list[ch].inventory.boarshank){
                   if(player.inventory.boarshank + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>BoarShank</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>BoarShank</b>.'}));
                   } else {
                     Item.list[ch].inventory.boarshank -= q;
                     Player.list[id].inventory.boarshank += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>BoarShank</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>BoarShank</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>BoarShank</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>BoarShank</b>.'}));
                 }
               } else if(item == 'venisonloin'){
                 if(q <= Item.list[ch].inventory.venisonloin){
                   if(player.inventory.venisonloin + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>VenisonLoin</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>VenisonLoin</b>.'}));
                   } else {
                     Item.list[ch].inventory.venisonloin -= q;
                     Player.list[id].inventory.venisonloin += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>VenisonLoin</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>VenisonLoin</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>VenisonLoin</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>VenisonLoin</b>.'}));
                 }
               } else if(item == 'mead'){
                 if(q <= Item.list[ch].inventory.mead){
                   if(player.inventory.mead + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Mead</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Mead</b>.'}));
                   } else {
                     Item.list[ch].inventory.mead -= q;
                     Player.list[id].inventory.mead += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Mead</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Mead</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Mead</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Mead</b>.'}));
                 }
               } else if(item == 'saison'){
                 if(q <= Item.list[ch].inventory.saison){
                   if(player.inventory.saison + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Saison</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Saison</b>.'}));
                   } else {
                     Item.list[ch].inventory.saison -= q;
                     Player.list[id].inventory.saison += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Saison</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Saison</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Saison</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Saison</b>.'}));
                 }
               } else if(item == 'flanders'){
                 if(q <= Item.list[ch].inventory.flanders){
                   if(player.inventory.flanders + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Flanders</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Flanders</b>.'}));
                   } else {
                     Item.list[ch].inventory.flanders -= q;
                     Player.list[id].inventory.flanders += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Flanders</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Flanders</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Flanders</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Flanders</b>.'}));
                 }
               } else if(item == 'bieredegarde'){
                 if(q <= Item.list[ch].inventory.bieredegarde){
                   if(player.inventory.bieredegarde + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>BiereDeGarde</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>BiereDeGarde</b>.'}));
                   } else {
                     Item.list[ch].inventory.bieredegarde -= q;
                     Player.list[id].inventory.bieredegarde += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>BiereDeGarde</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>BiereDeGarde</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>BiereDeGarde</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>BiereDeGarde</b>.'}));
                 }
               } else if(item == 'bordeaux'){
                 if(q <= Item.list[ch].inventory.bordeaux){
                   if(player.inventory.bordeaux + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Bordeaux</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Bordeaux</b>.'}));
                   } else {
                     Item.list[ch].inventory.bordeaux -= q;
                     Player.list[id].inventory.bordeaux += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Bordeaux</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Bordeaux</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Bordeaux</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Bordeaux</b>.'}));
                 }
               } else if(item == 'bourgogne'){
                 if(q <= Item.list[ch].inventory.bourgogne){
                   if(player.inventory.bourgogne + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Bourgogne</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Bourgogne</b>.'}));
                   } else {
                     Item.list[ch].inventory.bourgogne -= q;
                     Player.list[id].inventory.bourgogne += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Bourgogne</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Bourgogne</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Bourgogne</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Bourgogne</b>.'}));
                 }
               } else if(item == 'chianti'){
                 if(q <= Item.list[ch].inventory.chianti){
                   if(player.inventory.chianti + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Chianti</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Chianti</b>.'}));
                   } else {
                     Item.list[ch].inventory.chianti -= q;
                     Player.list[id].inventory.chianti += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Chianti</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Chianti</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Chianti</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Chianti</b>.'}));
                 }
               } else if(item == 'crown'){
                 if(q <= Item.list[ch].inventory.crown){
                   if(player.inventory.crown + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Crown</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Crown</b>.'}));
                   } else {
                     Item.list[ch].inventory.crown -= q;
                     Player.list[id].inventory.crown += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Crown</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Crown</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Crown</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Crown</b>.'}));
                 }
               } else if(item == 'arrows'){
                 if(q <= Item.list[ch].inventory.arrows){
                   if(player.inventory.arrows + q > 50){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Arrows</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Arrows</b>.'}));
                   } else {
                     Item.list[ch].inventory.arrows -= q;
                     Player.list[id].inventory.arrows += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Arrows</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Arrows</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Arrows</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Arrows</b>.'}));
                 }
               } else if(item == 'worldmap'){
                 if(q <= Item.list[ch].inventory.worldmap){
                   if(player.inventory.worldmap + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>WorldMap</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>WorldMap</b>.'}));
                   } else {
                     Item.list[ch].inventory.worldmap -= q;
                     Player.list[id].inventory.worldmap += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>WorldMap</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>WorldMap</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>WorldMap</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>WorldMap</b>.'}));
                 }
               } else if(item == 'relic'){
                 if(q <= Item.list[ch].inventory.relic){
                   if(player.inventory.relic + q > 1){
-                    socket.emit('addToChat','<i>You are already carrying a</i> <b>Relic</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying a</i> <b>Relic</b>.'}));
                   } else {
                     Item.list[ch].inventory.relic -= q;
                     Player.list[id].inventory.relic += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Relic</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Relic</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Relic</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Relic</b>.'}));
                 }
               } else {
-                socket.emit('addToChat','<i>Not a valid</i> <b>ItemName</b>.');
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>Not a valid</i> <b>ItemName</b>.'}));
               }
             } else {
-              socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
             }
           }
         } else if(player.facing == 'down'){
@@ -11115,800 +11301,800 @@ EvalCmd = function(data){
               if(item == 'wood'){
                 if(q <= Item.list[ch].inventory.wood){
                   if(player.inventory.wood + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>Wood</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Wood</b>.'}));
                   } else {
                     Item.list[ch].inventory.wood -= q;
                     Player.list[id].inventory.wood += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Wood</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Wood</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>Wood</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>Wood</b>.'}));
                 }
               } else if(item == 'stone'){
                 if(q <= Item.list[ch].inventory.stone){
                   if(player.inventory.stone + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>Stone</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Stone</b>.'}));
                   } else {
                     Item.list[ch].inventory.stone -= q;
                     Player.list[id].inventory.stone += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Stone</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Stone</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>Stone</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>Stone</b>.'}));
                 }
               } else if(item == 'grain'){
                 if(q <= Item.list[ch].inventory.grain){
                   if(player.inventory.grain + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>Grain</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Grain</b>.'}));
                   } else {
                     Item.list[ch].inventory.grain -= q;
                     Player.list[id].inventory.grain += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Grain</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Grain</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>Grain</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>Grain</b>.'}));
                 }
               } else if(item == 'flour'){
                 if(q <= Item.list[ch].inventory.flour){
                   if(player.inventory.flour + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>Flour</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Flour</b>.'}));
                   } else {
                     Item.list[ch].inventory.flour -= q;
                     Player.list[id].inventory.flour += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Flour</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Flour</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>Flour</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>Flour</b>.'}));
                 }
               } else if(item == 'dough'){
                 if(q <= Item.list[ch].inventory.dough){
                   if(player.inventory.dough + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>Dough</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Dough</b>.'}));
                   } else {
                     Item.list[ch].inventory.dough -= q;
                     Player.list[id].inventory.dough += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Dough</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Dough</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>Dough</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>Dough</b>.'}));
                 }
               } else if(item == 'ironore'){
                 if(q <= Item.list[ch].inventory.ironore){
                   if(player.inventory.ironore + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>IronOre</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>IronOre</b>.'}));
                   } else {
                     Item.list[ch].inventory.ironore -= q;
                     Player.list[id].inventory.ironore += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>IronOre</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>IronOre</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>IronOre</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>IronOre</b>.'}));
                 }
               } else if(item == 'iron'){
                 if(q <= Item.list[ch].inventory.iron){
                   if(player.inventory.iron + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Iron</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Iron</b>.'}));
                   } else {
                     Item.list[ch].inventory.iron -= q;
                     Player.list[id].inventory.iron += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Iron</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Iron</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Iron</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Iron</b>.'}));
                 }
               } else if(item == 'steel'){
                 if(q <= Item.list[ch].inventory.steel){
                   if(player.inventory.steel + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Steel</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Steel</b>.'}));
                   } else {
                     Item.list[ch].inventory.steel -= q;
                     Player.list[id].inventory.steel += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Steel</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Steel</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Steel</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Steel</b>.'}));
                 }
               } else if(item == 'boarhide'){
                 if(q <= Item.list[ch].inventory.boarhide){
                   if(player.inventory.boarhide + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>BoarHide</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>BoarHide</b>.'}));
                   } else {
                     Item.list[ch].inventory.boarhide -= q;
                     Player.list[id].inventory.boarhide += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>BoarHide</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>BoarHide</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>BoarHide</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>BoarHide</b>.'}));
                 }
               } else if(item == 'leather'){
                 if(q <= Item.list[ch].inventory.leather){
                   if(player.inventory.leather + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>Leather</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Leather</b>.'}));
                   } else {
                     Item.list[ch].inventory.leather -= q;
                     Player.list[id].inventory.leather += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Leather</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Leather</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>Leather</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>Leather</b>.'}));
                 }
               } else if(item == 'silverore'){
                 if(q <= Item.list[ch].inventory.silverore){
                   if(player.inventory.silverore + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>SilverOre</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>SilverOre</b>.'}));
                   } else {
                     Item.list[ch].inventory.silverore -= q;
                     Player.list[id].inventory.silverore += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>SilverOre</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>SilverOre</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>SilverOre</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>SilverOre</b>.'}));
                 }
               } else if(item == 'silver'){
                 if(q <= Item.list[ch].inventory.silver){
                   Item.list[ch].inventory.silver -= q;
                   Player.list[id].inventory.silver += q;
-                  socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Silver</b> <i>from the chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Silver</b> <i>from the chest.</i>'}));
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>Silver</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>Silver</b>.'}));
                 }
               } else if(item == 'goldore'){
                 if(q <= Item.list[ch].inventory.goldore){
                   if(player.inventory.goldore + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>GoldOre</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>GoldOre</b>.'}));
                   } else {
                     Item.list[ch].inventory.goldore -= q;
                     Player.list[id].inventory.goldore += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>GoldOre</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>GoldOre</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>GoldOre</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>GoldOre</b>.'}));
                 }
               } else if(item == 'gold'){
                 if(q <= Item.list[ch].inventory.gold){
                   Item.list[ch].inventory.gold -= q;
                   Player.list[id].inventory.gold += q;
-                  socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Gold</b> <i>from the chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Gold</b> <i>from the chest.</i>'}));
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>Gold</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>Gold</b>.'}));
                 }
               } else if(item == 'diamond'){
                 if(q <= Item.list[ch].inventory.diamond){
                   Item.list[ch].inventory.diamond -= q;
                   Player.list[id].inventory.diamond += q;
-                  socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Diamond</b> <i>from the chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Diamond</b> <i>from the chest.</i>'}));
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Diamond</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Diamond</b>.'}));
                 }
               } else if(item == 'huntingknife'){
                 if(q <= Item.list[ch].inventory.huntingknife){
                   if(player.inventory.huntingknife + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>HuntingKnife</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>HuntingKnife</b>.'}));
                   } else {
                     Item.list[ch].inventory.huntingknife -= q;
                     Player.list[id].inventory.huntingknife += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>HuntingKnife</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>HuntingKnife</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>HuntingKnife</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>HuntingKnife</b>.'}));
                 }
               } else if(item == 'dague'){
                 if(q <= Item.list[ch].inventory.dague){
                   if(player.inventory.dague + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Dague</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Dague</b>.'}));
                   } else {
                     Item.list[ch].inventory.dague -= q;
                     Player.list[id].inventory.dague += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Dague</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Dague</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Dague</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Dague</b>.'}));
                 }
               } else if(item == 'rondel'){
                 if(q <= Item.list[ch].inventory.rondel){
                   if(player.inventory.rondel + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Rondel</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Rondel</b>.'}));
                   } else {
                     Item.list[ch].inventory.rondel -= q;
                     Player.list[id].inventory.rondel += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Rondel</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Rondel</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Rondel</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Rondel</b>.'}));
                 }
               } else if(item == 'misericorde'){
                 if(q <= Item.list[ch].inventory.misericorde){
                   if(player.inventory.misericorde + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Misericorde</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Misericorde</b>.'}));
                   } else {
                     Item.list[ch].inventory.misericorde -= q;
                     Player.list[id].inventory.misericorde += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Misericorde</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Misericorde</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Misericorde</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Misericorde</b>.'}));
                 }
               } else if(item == 'bastardsword'){
                 if(q <= Item.list[ch].inventory.bastardsword){
                   if(player.inventory.bastardsword + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>BastardSword</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>BastardSword</b>.'}));
                   } else {
                     Item.list[ch].inventory.bastardsword -= q;
                     Player.list[id].inventory.bastardsword += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>BastardSword</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>BastardSword</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>BastardSword</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>BastardSword</b>.'}));
                 }
               } else if(item == 'longsword'){
                 if(q <= Item.list[ch].inventory.longsword){
                   if(player.inventory.longsword + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Longsword</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Longsword</b>.'}));
                   } else {
                     Item.list[ch].inventory.longsword -= q;
                     Player.list[id].inventory.longsword += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Longsword</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Longsword</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Longsword</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Longsword</b>.'}));
                 }
               } else if(item == 'zweihander'){
                 if(q <= Item.list[ch].inventory.zweihander){
                   if(player.inventory.zweihander + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Zweihander</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Zweihander</b>.'}));
                   } else {
                     Item.list[ch].inventory.zweihander -= q;
                     Player.list[id].inventory.zweihander += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Zweihander</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Zweihander</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Zweihander</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Zweihander</b>.'}));
                 }
               } else if(item == 'morallta'){
                 if(q <= Item.list[ch].inventory.morallta){
                   if(player.inventory.morallta + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Morallta</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Morallta</b>.'}));
                   } else {
                     Item.list[ch].inventory.morallta -= q;
                     Player.list[id].inventory.morallta += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Morallta</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Morallta</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Morallta</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Morallta</b>.'}));
                 }
               } else if(item == 'bow'){
                 if(q <= Item.list[ch].inventory.bow){
                   if(player.inventory.bow + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Bow</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Bow</b>.'}));
                   } else {
                     Item.list[ch].inventory.bow -= q;
                     Player.list[id].inventory.bow += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Bow</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Bow</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Bow</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Bow</b>.'}));
                 }
               } else if(item == 'welshlongbow'){
                 if(q <= Item.list[ch].inventory.welshlongbow){
                   if(player.inventory.welshlongbow + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>WelshLongbow</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>WelshLongbow</b>.'}));
                   } else {
                     Item.list[ch].inventory.welshlongbow -= q;
                     Player.list[id].inventory.welshlongbow += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>WelshLongbow</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>WelshLongbow</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>WelshLongbow</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>WelshLongbow</b>.'}));
                 }
               } else if(item == 'knightlance'){
                 if(q <= Item.list[ch].inventory.knightlance){
                   if(player.inventory.knightlance + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>KnightLance</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>KnightLance</b>.'}));
                   } else {
                     Item.list[ch].inventory.knightlance -= q;
                     Player.list[id].inventory.knightlance += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>KnightLance</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>KnightLance</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>KnightLance</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>KnightLance</b>.'}));
                 }
               } else if(item == 'rusticlance'){
                 if(q <= Item.list[ch].inventory.rusticlance){
                   if(player.inventory.rusticlance + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>RusticLance</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>RusticLance</b>.'}));
                   } else {
                     Item.list[ch].inventory.rusticlance -= q;
                     Player.list[id].inventory.rusticlance += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>RusticLance</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>RusticLance</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>RusticLance</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>RusticLance</b>.'}));
                 }
               } else if(item == 'paladinlance'){
                 if(q <= Item.list[ch].inventory.paladinlance){
                   if(player.inventory.paladinlance + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>PaladinLance</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>PaladinLance</b>.'}));
                   } else {
                     Item.list[ch].inventory.paladinlance -= q;
                     Player.list[id].inventory.paladinlance += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>PaladinLance</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>PaladinLance</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>PaladinLance</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>PaladinLance</b>.'}));
                 }
               } else if(item == 'brigandine'){
                 if(q <= Item.list[ch].inventory.brigandine){
                   if(player.inventory.brigandine + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Brigandine</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Brigandine</b>.'}));
                   } else {
                     Item.list[ch].inventory.brigandine -= q;
                     Player.list[id].inventory.brigandine += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Brigandine</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Brigandine</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Brigandine</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Brigandine</b>.'}));
                 }
               } else if(item == 'lamellar'){
                 if(q <= Item.list[ch].inventory.lamellar){
                   if(player.inventory.lamellar + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Lamellar</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Lamellar</b>.'}));
                   } else {
                     Item.list[ch].inventory.lamellar -= q;
                     Player.list[id].inventory.lamellar += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Lamellar</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Lamellar</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Lamellar</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Lamellar</b>.'}));
                 }
               } else if(item == 'maille'){
                 if(q <= Item.list[ch].inventory.maille){
                   if(player.inventory.maille + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Maille</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Maille</b>.'}));
                   } else {
                     Item.list[ch].inventory.maille -= q;
                     Player.list[id].inventory.maille += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Maille</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Maille</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Maille</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Maille</b>.'}));
                 }
               } else if(item == 'hauberk'){
                 if(q <= Item.list[ch].inventory.hauberk){
                   if(player.inventory.hauberk + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Hauberk</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Hauberk</b>.'}));
                   } else {
                     Item.list[ch].inventory.hauberk -= q;
                     Player.list[id].inventory.hauberk += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Hauberk</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Hauberk</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Hauberk</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Hauberk</b>.'}));
                 }
               } else if(item == 'brynja'){
                 if(q <= Item.list[ch].inventory.brynja){
                   if(player.inventory.brynja + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Brynja</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Brynja</b>.'}));
                   } else {
                     Item.list[ch].inventory.brynja -= q;
                     Player.list[id].inventory.brynja += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Brynja</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Brynja</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Brynja</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Brynja</b>.'}));
                 }
               } else if(item == 'cuirass'){
                 if(q <= Item.list[ch].inventory.cuirass){
                   if(player.inventory.cuirass + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Cuirass</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Cuirass</b>.'}));
                   } else {
                     Item.list[ch].inventory.cuirass -= q;
                     Player.list[id].inventory.cuirass += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Cuirass</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Cuirass</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Cuirass</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Cuirass</b>.'}));
                 }
               } else if(item == 'steelplate'){
                 if(q <= Item.list[ch].inventory.steelplate){
                   if(player.inventory.steelplate + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>SteelPlate</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>SteelPlate</b>.'}));
                   } else {
                     Item.list[ch].inventory.steelplate -= q;
                     Player.list[id].inventory.steelplate += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>SteelPlate</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>SteelPlate</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>SteelPlate</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>SteelPlate</b>.'}));
                 }
               } else if(item == 'greenwichplate'){
                 if(q <= Item.list[ch].inventory.greenwichplate){
                   if(player.inventory.greenwichplate + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>GreenwichPlate</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>GreenwichPlate</b>.'}));
                   } else {
                     Item.list[ch].inventory.greenwichplate -= q;
                     Player.list[id].inventory.greenwichplate += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>GreenwichPlate</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>GreenwichPlate</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>GreenwichPlate</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>GreenwichPlate</b>.'}));
                 }
               } else if(item == 'gothicplate'){
                 if(q <= Item.list[ch].inventory.gothicplate){
                   if(player.inventory.gothicplate + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>GothicPlate</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>GothicPlate</b>.'}));
                   } else {
                     Item.list[ch].inventory.gothicplate -= q;
                     Player.list[id].inventory.gothicplate += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>GothicPlate</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>GothicPlate</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>GothicPlate</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>GothicPlate</b>.'}));
                 }
               } else if(item == 'clericrobe'){
                 if(q <= Item.list[ch].inventory.clericrobe){
                   if(player.inventory.clericrobe + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>ClericRobe</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>ClericRobe</b>.'}));
                   } else {
                     Item.list[ch].inventory.clericrobe -= q;
                     Player.list[id].inventory.clericrobe += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>ClericRobe</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>ClericRobe</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>ClericRobe</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>ClericRobe</b>.'}));
                 }
               } else if(item == 'monkcowl'){
                 if(q <= Item.list[ch].inventory.monkcowl){
                   if(player.inventory.monkcowl + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>MonkCowl</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>MonkCowl</b>.'}));
                   } else {
                     Item.list[ch].inventory.monkcowl -= q;
                     Player.list[id].inventory.monkcowl += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>MonkCowl</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>MonkCowl</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>MonkCowl</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>MonkCowl</b>.'}));
                 }
               } else if(item == 'blackcloak'){
                 if(q <= Item.list[ch].inventory.blackcloak){
                   if(player.inventory.blackcloak + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>BlackCloak</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>BlackCloak</b>.'}));
                   } else {
                     Item.list[ch].inventory.blackcloak -= q;
                     Player.list[id].inventory.blackcloak += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>BlackCloak</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>BlackCloak</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>BlackCloak</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>BlackCloak</b>.'}));
                 }
               } else if(item == 'tome'){
                 if(q <= Item.list[ch].inventory.tome){
                   if(player.inventory.tome + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Tome</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Tome</b>.'}));
                   } else {
                     Item.list[ch].inventory.tome -= q;
                     Player.list[id].inventory.tome += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Tome</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Tome</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Tome</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Tome</b>.'}));
                 }
               } else if(item == 'runicscroll'){
                 if(q <= Item.list[ch].inventory.runicscroll){
                   if(player.inventory.runicscroll + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>RunicScroll</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>RunicScroll</b>.'}));
                   } else {
                     Item.list[ch].inventory.runicscroll -= q;
                     Player.list[id].inventory.runicscroll += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>RunicScroll</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>RunicScroll</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>RunicScroll</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>RunicScroll</b>.'}));
                 }
               } else if(item == 'sacredtext'){
                 if(q <= Item.list[ch].inventory.sacredtext){
                   if(player.inventory.sacredtext + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>SacredText</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>SacredText</b>.'}));
                   } else {
                     Item.list[ch].inventory.sacredtext -= q;
                     Player.list[id].inventory.sacredtext += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>SacredText</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>SacredText</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>SacredText</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>SacredText</b>.'}));
                 }
               } else if(item == 'stoneaxe'){
                 if(q <= Item.list[ch].inventory.stoneaxe){
                   if(player.inventory.stoneaxe + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>StoneAxe</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>StoneAxe</b>.'}));
                   } else {
                     Item.list[ch].inventory.stoneaxe -= q;
                     Player.list[id].inventory.stoneaxe += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>StoneAxe</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>StoneAxe</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>StoneAxe</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>StoneAxe</b>.'}));
                 }
               } else if(item == 'ironaxe'){
                 if(q <= Item.list[ch].inventory.ironaxe){
                   if(player.inventory.ironaxe + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>IronAxe</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>IronAxe</b>.'}));
                   } else {
                     Item.list[ch].inventory.ironaxe -= q;
                     Player.list[id].inventory.ironaxe += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>IronAxe</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>IronAxe</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>IronAxe</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>IronAxe</b>.'}));
                 }
               } else if(item == 'pickaxe'){
                 if(q <= Item.list[ch].inventory.pickaxe){
                   if(player.inventory.pickaxe + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>PickAxe</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>PickAxe</b>.'}));
                   } else {
                     Item.list[ch].inventory.pickaxe -= q;
                     Player.list[id].inventory.pickaxe += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>PickAxe</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>PickAxe</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>PickAxe</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>PickAxe</b>.'}));
                 }
               } else if(item == 'torch'){
                 if(q <= Item.list[ch].inventory.torch){
                   if(player.inventory.torch + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Torch</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Torch</b>.'}));
                   } else {
                     Item.list[ch].inventory.torch -= q;
                     Player.list[id].inventory.torch += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Torch</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Torch</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Torch</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Torch</b>.'}));
                 }
               } else if(item == 'bread'){
                 if(q <= Item.list[ch].inventory.bread){
                   if(player.inventory.bread + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>Bread</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Bread</b>.'}));
                   } else {
                     Item.list[ch].inventory.bread -= q;
                     Player.list[id].inventory.bread += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Bread</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Bread</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>Bread</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>Bread</b>.'}));
                 }
               } else if(item == 'fish'){
                 if(q <= Item.list[ch].inventory.fish){
                   if(player.inventory.fish + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Fish</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Fish</b>.'}));
                   } else {
                     Item.list[ch].inventory.fish -= q;
                     Player.list[id].inventory.fish += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Fish</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Fish</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Fish</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Fish</b>.'}));
                 }
               } else if(item == 'lamb'){
                 if(q <= Item.list[ch].inventory.lamb){
                   if(player.inventory.lamb + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>Lamb</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Lamb</b>.'}));
                   } else {
                     Item.list[ch].inventory.lamb -= q;
                     Player.list[id].inventory.lamb += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Lamb</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Lamb</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Lamb</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Lamb</b>.'}));
                 }
               } else if(item == 'boarmeat'){
                 if(q <= Item.list[ch].inventory.boarmeat){
                   if(player.inventory.boarmeat + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>BoarMeat</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>BoarMeat</b>.'}));
                   } else {
                     Item.list[ch].inventory.boarmeat -= q;
                     Player.list[id].inventory.boarmeat += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>BoarMeat</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>BoarMeat</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>BoarMeat</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>BoarMeat</b>.'}));
                 }
               } else if(item == 'venison'){
                 if(q <= Item.list[ch].inventory.venison){
                   if(player.inventory.venison + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Venison</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Venison</b>.'}));
                   } else {
                     Item.list[ch].inventory.venison -= q;
                     Player.list[id].inventory.venison += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Venison</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Venison</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Venison</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Venison</b>.'}));
                 }
               } else if(item == 'poachedfish'){
                 if(q <= Item.list[ch].inventory.poachedfish){
                   if(player.inventory.poachedfish + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>PoachedFish</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>PoachedFish</b>.'}));
                   } else {
                     Item.list[ch].inventory.poachedfish -= q;
                     Player.list[id].inventory.poachedfish += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>PoachedFish</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>PoachedFish</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>PoachedFish</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>PoachedFish</b>.'}));
                 }
               } else if(item == 'lambchop'){
                 if(q <= Item.list[ch].inventory.lambchop){
                   if(player.inventory.lambchop + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>LambChop</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>LambChop</b>.'}));
                   } else {
                     Item.list[ch].inventory.lambchop -= q;
                     Player.list[id].inventory.lambchop += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>LambChop</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>LambChop</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>LambChop</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>LambChop</b>.'}));
                 }
               } else if(item == 'boarshank'){
                 if(q <= Item.list[ch].inventory.boarshank){
                   if(player.inventory.boarshank + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>BoarShank</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>BoarShank</b>.'}));
                   } else {
                     Item.list[ch].inventory.boarshank -= q;
                     Player.list[id].inventory.boarshank += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>BoarShank</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>BoarShank</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>BoarShank</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>BoarShank</b>.'}));
                 }
               } else if(item == 'venisonloin'){
                 if(q <= Item.list[ch].inventory.venisonloin){
                   if(player.inventory.venisonloin + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>VenisonLoin</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>VenisonLoin</b>.'}));
                   } else {
                     Item.list[ch].inventory.venisonloin -= q;
                     Player.list[id].inventory.venisonloin += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>VenisonLoin</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>VenisonLoin</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>VenisonLoin</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>VenisonLoin</b>.'}));
                 }
               } else if(item == 'mead'){
                 if(q <= Item.list[ch].inventory.mead){
                   if(player.inventory.mead + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Mead</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Mead</b>.'}));
                   } else {
                     Item.list[ch].inventory.mead -= q;
                     Player.list[id].inventory.mead += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Mead</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Mead</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Mead</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Mead</b>.'}));
                 }
               } else if(item == 'saison'){
                 if(q <= Item.list[ch].inventory.saison){
                   if(player.inventory.saison + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Saison</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Saison</b>.'}));
                   } else {
                     Item.list[ch].inventory.saison -= q;
                     Player.list[id].inventory.saison += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Saison</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Saison</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Saison</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Saison</b>.'}));
                 }
               } else if(item == 'flanders'){
                 if(q <= Item.list[ch].inventory.flanders){
                   if(player.inventory.flanders + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Flanders</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Flanders</b>.'}));
                   } else {
                     Item.list[ch].inventory.flanders -= q;
                     Player.list[id].inventory.flanders += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Flanders</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Flanders</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Flanders</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Flanders</b>.'}));
                 }
               } else if(item == 'bieredegarde'){
                 if(q <= Item.list[ch].inventory.bieredegarde){
                   if(player.inventory.bieredegarde + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>BiereDeGarde</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>BiereDeGarde</b>.'}));
                   } else {
                     Item.list[ch].inventory.bieredegarde -= q;
                     Player.list[id].inventory.bieredegarde += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>BiereDeGarde</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>BiereDeGarde</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>BiereDeGarde</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>BiereDeGarde</b>.'}));
                 }
               } else if(item == 'bordeaux'){
                 if(q <= Item.list[ch].inventory.bordeaux){
                   if(player.inventory.bordeaux + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Bordeaux</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Bordeaux</b>.'}));
                   } else {
                     Item.list[ch].inventory.bordeaux -= q;
                     Player.list[id].inventory.bordeaux += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Bordeaux</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Bordeaux</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Bordeaux</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Bordeaux</b>.'}));
                 }
               } else if(item == 'bourgogne'){
                 if(q <= Item.list[ch].inventory.bourgogne){
                   if(player.inventory.bourgogne + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Bourgogne</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Bourgogne</b>.'}));
                   } else {
                     Item.list[ch].inventory.bourgogne -= q;
                     Player.list[id].inventory.bourgogne += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Bourgogne</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Bourgogne</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Bourgogne</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Bourgogne</b>.'}));
                 }
               } else if(item == 'chianti'){
                 if(q <= Item.list[ch].inventory.chianti){
                   if(player.inventory.chianti + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Chianti</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Chianti</b>.'}));
                   } else {
                     Item.list[ch].inventory.chianti -= q;
                     Player.list[id].inventory.chianti += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Chianti</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Chianti</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Chianti</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Chianti</b>.'}));
                 }
               } else if(item == 'crown'){
                 if(q <= Item.list[ch].inventory.crown){
                   if(player.inventory.crown + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Crown</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Crown</b>.'}));
                   } else {
                     Item.list[ch].inventory.crown -= q;
                     Player.list[id].inventory.crown += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Crown</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Crown</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Crown</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Crown</b>.'}));
                 }
               } else if(item == 'arrows'){
                 if(q <= Item.list[ch].inventory.arrows){
                   if(player.inventory.arrows + q > 50){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Arrows</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Arrows</b>.'}));
                   } else {
                     Item.list[ch].inventory.arrows -= q;
                     Player.list[id].inventory.arrows += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Arrows</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Arrows</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Arrows</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Arrows</b>.'}));
                 }
               } else if(item == 'worldmap'){
                 if(q <= Item.list[ch].inventory.worldmap){
                   if(player.inventory.worldmap + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>WorldMap</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>WorldMap</b>.'}));
                   } else {
                     Item.list[ch].inventory.worldmap -= q;
                     Player.list[id].inventory.worldmap += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>WorldMap</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>WorldMap</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>WorldMap</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>WorldMap</b>.'}));
                 }
               } else if(item == 'relic'){
                 if(q <= Item.list[ch].inventory.relic){
                   if(player.inventory.relic + q > 1){
-                    socket.emit('addToChat','<i>You are already carrying a</i> <b>Relic</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying a</i> <b>Relic</b>.'}));
                   } else {
                     Item.list[ch].inventory.relic -= q;
                     Player.list[id].inventory.relic += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Relic</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Relic</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Relic</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Relic</b>.'}));
                 }
               } else {
-                socket.emit('addToChat','<i>Not a valid</i> <b>ItemName</b>.');
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>Not a valid</i> <b>ItemName</b>.'}));
               }
             } else {
-              socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
             }
           }
         } else if(player.facing == 'left'){
@@ -11919,800 +12105,800 @@ EvalCmd = function(data){
               if(item == 'wood'){
                 if(q <= Item.list[ch].inventory.wood){
                   if(player.inventory.wood + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>Wood</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Wood</b>.'}));
                   } else {
                     Item.list[ch].inventory.wood -= q;
                     Player.list[id].inventory.wood += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Wood</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Wood</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>Wood</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>Wood</b>.'}));
                 }
               } else if(item == 'stone'){
                 if(q <= Item.list[ch].inventory.stone){
                   if(player.inventory.stone + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>Stone</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Stone</b>.'}));
                   } else {
                     Item.list[ch].inventory.stone -= q;
                     Player.list[id].inventory.stone += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Stone</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Stone</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>Stone</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>Stone</b>.'}));
                 }
               } else if(item == 'grain'){
                 if(q <= Item.list[ch].inventory.grain){
                   if(player.inventory.grain + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>Grain</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Grain</b>.'}));
                   } else {
                     Item.list[ch].inventory.grain -= q;
                     Player.list[id].inventory.grain += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Grain</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Grain</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>Grain</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>Grain</b>.'}));
                 }
               } else if(item == 'flour'){
                 if(q <= Item.list[ch].inventory.flour){
                   if(player.inventory.flour + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>Flour</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Flour</b>.'}));
                   } else {
                     Item.list[ch].inventory.flour -= q;
                     Player.list[id].inventory.flour += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Flour</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Flour</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>Flour</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>Flour</b>.'}));
                 }
               } else if(item == 'dough'){
                 if(q <= Item.list[ch].inventory.dough){
                   if(player.inventory.dough + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>Dough</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Dough</b>.'}));
                   } else {
                     Item.list[ch].inventory.dough -= q;
                     Player.list[id].inventory.dough += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Dough</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Dough</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>Dough</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>Dough</b>.'}));
                 }
               } else if(item == 'ironore'){
                 if(q <= Item.list[ch].inventory.ironore){
                   if(player.inventory.ironore + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>IronOre</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>IronOre</b>.'}));
                   } else {
                     Item.list[ch].inventory.ironore -= q;
                     Player.list[id].inventory.ironore += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>IronOre</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>IronOre</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>IronOre</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>IronOre</b>.'}));
                 }
               } else if(item == 'iron'){
                 if(q <= Item.list[ch].inventory.iron){
                   if(player.inventory.iron + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Iron</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Iron</b>.'}));
                   } else {
                     Item.list[ch].inventory.iron -= q;
                     Player.list[id].inventory.iron += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Iron</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Iron</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Iron</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Iron</b>.'}));
                 }
               } else if(item == 'steel'){
                 if(q <= Item.list[ch].inventory.steel){
                   if(player.inventory.steel + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Steel</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Steel</b>.'}));
                   } else {
                     Item.list[ch].inventory.steel -= q;
                     Player.list[id].inventory.steel += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Steel</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Steel</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Steel</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Steel</b>.'}));
                 }
               } else if(item == 'boarhide'){
                 if(q <= Item.list[ch].inventory.boarhide){
                   if(player.inventory.boarhide + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>BoarHide</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>BoarHide</b>.'}));
                   } else {
                     Item.list[ch].inventory.boarhide -= q;
                     Player.list[id].inventory.boarhide += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>BoarHide</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>BoarHide</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>BoarHide</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>BoarHide</b>.'}));
                 }
               } else if(item == 'leather'){
                 if(q <= Item.list[ch].inventory.leather){
                   if(player.inventory.leather + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>Leather</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Leather</b>.'}));
                   } else {
                     Item.list[ch].inventory.leather -= q;
                     Player.list[id].inventory.leather += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Leather</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Leather</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>Leather</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>Leather</b>.'}));
                 }
               } else if(item == 'silverore'){
                 if(q <= Item.list[ch].inventory.silverore){
                   if(player.inventory.silverore + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>SilverOre</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>SilverOre</b>.'}));
                   } else {
                     Item.list[ch].inventory.silverore -= q;
                     Player.list[id].inventory.silverore += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>SilverOre</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>SilverOre</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>SilverOre</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>SilverOre</b>.'}));
                 }
               } else if(item == 'silver'){
                 if(q <= Item.list[ch].inventory.silver){
                   Item.list[ch].inventory.silver -= q;
                   Player.list[id].inventory.silver += q;
-                  socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Silver</b> <i>from the chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Silver</b> <i>from the chest.</i>'}));
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>Silver</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>Silver</b>.'}));
                 }
               } else if(item == 'goldore'){
                 if(q <= Item.list[ch].inventory.goldore){
                   if(player.inventory.goldore + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>GoldOre</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>GoldOre</b>.'}));
                   } else {
                     Item.list[ch].inventory.goldore -= q;
                     Player.list[id].inventory.goldore += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>GoldOre</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>GoldOre</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>GoldOre</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>GoldOre</b>.'}));
                 }
               } else if(item == 'gold'){
                 if(q <= Item.list[ch].inventory.gold){
                   Item.list[ch].inventory.gold -= q;
                   Player.list[id].inventory.gold += q;
-                  socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Gold</b> <i>from the chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Gold</b> <i>from the chest.</i>'}));
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>Gold</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>Gold</b>.'}));
                 }
               } else if(item == 'diamond'){
                 if(q <= Item.list[ch].inventory.diamond){
                   Item.list[ch].inventory.diamond -= q;
                   Player.list[id].inventory.diamond += q;
-                  socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Diamond</b> <i>from the chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Diamond</b> <i>from the chest.</i>'}));
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Diamond</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Diamond</b>.'}));
                 }
               } else if(item == 'huntingknife'){
                 if(q <= Item.list[ch].inventory.huntingknife){
                   if(player.inventory.huntingknife + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>HuntingKnife</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>HuntingKnife</b>.'}));
                   } else {
                     Item.list[ch].inventory.huntingknife -= q;
                     Player.list[id].inventory.huntingknife += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>HuntingKnife</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>HuntingKnife</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>HuntingKnife</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>HuntingKnife</b>.'}));
                 }
               } else if(item == 'dague'){
                 if(q <= Item.list[ch].inventory.dague){
                   if(player.inventory.dague + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Dague</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Dague</b>.'}));
                   } else {
                     Item.list[ch].inventory.dague -= q;
                     Player.list[id].inventory.dague += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Dague</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Dague</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Dague</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Dague</b>.'}));
                 }
               } else if(item == 'rondel'){
                 if(q <= Item.list[ch].inventory.rondel){
                   if(player.inventory.rondel + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Rondel</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Rondel</b>.'}));
                   } else {
                     Item.list[ch].inventory.rondel -= q;
                     Player.list[id].inventory.rondel += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Rondel</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Rondel</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Rondel</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Rondel</b>.'}));
                 }
               } else if(item == 'misericorde'){
                 if(q <= Item.list[ch].inventory.misericorde){
                   if(player.inventory.misericorde + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Misericorde</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Misericorde</b>.'}));
                   } else {
                     Item.list[ch].inventory.misericorde -= q;
                     Player.list[id].inventory.misericorde += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Misericorde</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Misericorde</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Misericorde</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Misericorde</b>.'}));
                 }
               } else if(item == 'bastardsword'){
                 if(q <= Item.list[ch].inventory.bastardsword){
                   if(player.inventory.bastardsword + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>BastardSword</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>BastardSword</b>.'}));
                   } else {
                     Item.list[ch].inventory.bastardsword -= q;
                     Player.list[id].inventory.bastardsword += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>BastardSword</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>BastardSword</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>BastardSword</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>BastardSword</b>.'}));
                 }
               } else if(item == 'longsword'){
                 if(q <= Item.list[ch].inventory.longsword){
                   if(player.inventory.longsword + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Longsword</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Longsword</b>.'}));
                   } else {
                     Item.list[ch].inventory.longsword -= q;
                     Player.list[id].inventory.longsword += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Longsword</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Longsword</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Longsword</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Longsword</b>.'}));
                 }
               } else if(item == 'zweihander'){
                 if(q <= Item.list[ch].inventory.zweihander){
                   if(player.inventory.zweihander + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Zweihander</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Zweihander</b>.'}));
                   } else {
                     Item.list[ch].inventory.zweihander -= q;
                     Player.list[id].inventory.zweihander += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Zweihander</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Zweihander</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Zweihander</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Zweihander</b>.'}));
                 }
               } else if(item == 'morallta'){
                 if(q <= Item.list[ch].inventory.morallta){
                   if(player.inventory.morallta + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Morallta</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Morallta</b>.'}));
                   } else {
                     Item.list[ch].inventory.morallta -= q;
                     Player.list[id].inventory.morallta += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Morallta</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Morallta</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Morallta</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Morallta</b>.'}));
                 }
               } else if(item == 'bow'){
                 if(q <= Item.list[ch].inventory.bow){
                   if(player.inventory.bow + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Bow</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Bow</b>.'}));
                   } else {
                     Item.list[ch].inventory.bow -= q;
                     Player.list[id].inventory.bow += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Bow</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Bow</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Bow</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Bow</b>.'}));
                 }
               } else if(item == 'welshlongbow'){
                 if(q <= Item.list[ch].inventory.welshlongbow){
                   if(player.inventory.welshlongbow + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>WelshLongbow</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>WelshLongbow</b>.'}));
                   } else {
                     Item.list[ch].inventory.welshlongbow -= q;
                     Player.list[id].inventory.welshlongbow += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>WelshLongbow</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>WelshLongbow</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>WelshLongbow</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>WelshLongbow</b>.'}));
                 }
               } else if(item == 'knightlance'){
                 if(q <= Item.list[ch].inventory.knightlance){
                   if(player.inventory.knightlance + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>KnightLance</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>KnightLance</b>.'}));
                   } else {
                     Item.list[ch].inventory.knightlance -= q;
                     Player.list[id].inventory.knightlance += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>KnightLance</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>KnightLance</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>KnightLance</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>KnightLance</b>.'}));
                 }
               } else if(item == 'rusticlance'){
                 if(q <= Item.list[ch].inventory.rusticlance){
                   if(player.inventory.rusticlance + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>RusticLance</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>RusticLance</b>.'}));
                   } else {
                     Item.list[ch].inventory.rusticlance -= q;
                     Player.list[id].inventory.rusticlance += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>RusticLance</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>RusticLance</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>RusticLance</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>RusticLance</b>.'}));
                 }
               } else if(item == 'paladinlance'){
                 if(q <= Item.list[ch].inventory.paladinlance){
                   if(player.inventory.paladinlance + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>PaladinLance</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>PaladinLance</b>.'}));
                   } else {
                     Item.list[ch].inventory.paladinlance -= q;
                     Player.list[id].inventory.paladinlance += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>PaladinLance</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>PaladinLance</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>PaladinLance</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>PaladinLance</b>.'}));
                 }
               } else if(item == 'brigandine'){
                 if(q <= Item.list[ch].inventory.brigandine){
                   if(player.inventory.brigandine + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Brigandine</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Brigandine</b>.'}));
                   } else {
                     Item.list[ch].inventory.brigandine -= q;
                     Player.list[id].inventory.brigandine += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Brigandine</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Brigandine</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Brigandine</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Brigandine</b>.'}));
                 }
               } else if(item == 'lamellar'){
                 if(q <= Item.list[ch].inventory.lamellar){
                   if(player.inventory.lamellar + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Lamellar</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Lamellar</b>.'}));
                   } else {
                     Item.list[ch].inventory.lamellar -= q;
                     Player.list[id].inventory.lamellar += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Lamellar</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Lamellar</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Lamellar</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Lamellar</b>.'}));
                 }
               } else if(item == 'maille'){
                 if(q <= Item.list[ch].inventory.maille){
                   if(player.inventory.maille + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Maille</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Maille</b>.'}));
                   } else {
                     Item.list[ch].inventory.maille -= q;
                     Player.list[id].inventory.maille += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Maille</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Maille</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Maille</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Maille</b>.'}));
                 }
               } else if(item == 'hauberk'){
                 if(q <= Item.list[ch].inventory.hauberk){
                   if(player.inventory.hauberk + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Hauberk</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Hauberk</b>.'}));
                   } else {
                     Item.list[ch].inventory.hauberk -= q;
                     Player.list[id].inventory.hauberk += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Hauberk</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Hauberk</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Hauberk</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Hauberk</b>.'}));
                 }
               } else if(item == 'brynja'){
                 if(q <= Item.list[ch].inventory.brynja){
                   if(player.inventory.brynja + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Brynja</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Brynja</b>.'}));
                   } else {
                     Item.list[ch].inventory.brynja -= q;
                     Player.list[id].inventory.brynja += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Brynja</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Brynja</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Brynja</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Brynja</b>.'}));
                 }
               } else if(item == 'cuirass'){
                 if(q <= Item.list[ch].inventory.cuirass){
                   if(player.inventory.cuirass + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Cuirass</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Cuirass</b>.'}));
                   } else {
                     Item.list[ch].inventory.cuirass -= q;
                     Player.list[id].inventory.cuirass += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Cuirass</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Cuirass</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Cuirass</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Cuirass</b>.'}));
                 }
               } else if(item == 'steelplate'){
                 if(q <= Item.list[ch].inventory.steelplate){
                   if(player.inventory.steelplate + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>SteelPlate</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>SteelPlate</b>.'}));
                   } else {
                     Item.list[ch].inventory.steelplate -= q;
                     Player.list[id].inventory.steelplate += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>SteelPlate</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>SteelPlate</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>SteelPlate</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>SteelPlate</b>.'}));
                 }
               } else if(item == 'greenwichplate'){
                 if(q <= Item.list[ch].inventory.greenwichplate){
                   if(player.inventory.greenwichplate + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>GreenwichPlate</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>GreenwichPlate</b>.'}));
                   } else {
                     Item.list[ch].inventory.greenwichplate -= q;
                     Player.list[id].inventory.greenwichplate += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>GreenwichPlate</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>GreenwichPlate</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>GreenwichPlate</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>GreenwichPlate</b>.'}));
                 }
               } else if(item == 'gothicplate'){
                 if(q <= Item.list[ch].inventory.gothicplate){
                   if(player.inventory.gothicplate + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>GothicPlate</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>GothicPlate</b>.'}));
                   } else {
                     Item.list[ch].inventory.gothicplate -= q;
                     Player.list[id].inventory.gothicplate += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>GothicPlate</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>GothicPlate</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>GothicPlate</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>GothicPlate</b>.'}));
                 }
               } else if(item == 'clericrobe'){
                 if(q <= Item.list[ch].inventory.clericrobe){
                   if(player.inventory.clericrobe + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>ClericRobe</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>ClericRobe</b>.'}));
                   } else {
                     Item.list[ch].inventory.clericrobe -= q;
                     Player.list[id].inventory.clericrobe += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>ClericRobe</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>ClericRobe</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>ClericRobe</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>ClericRobe</b>.'}));
                 }
               } else if(item == 'monkcowl'){
                 if(q <= Item.list[ch].inventory.monkcowl){
                   if(player.inventory.monkcowl + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>MonkCowl</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>MonkCowl</b>.'}));
                   } else {
                     Item.list[ch].inventory.monkcowl -= q;
                     Player.list[id].inventory.monkcowl += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>MonkCowl</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>MonkCowl</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>MonkCowl</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>MonkCowl</b>.'}));
                 }
               } else if(item == 'blackcloak'){
                 if(q <= Item.list[ch].inventory.blackcloak){
                   if(player.inventory.blackcloak + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>BlackCloak</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>BlackCloak</b>.'}));
                   } else {
                     Item.list[ch].inventory.blackcloak -= q;
                     Player.list[id].inventory.blackcloak += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>BlackCloak</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>BlackCloak</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>BlackCloak</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>BlackCloak</b>.'}));
                 }
               } else if(item == 'tome'){
                 if(q <= Item.list[ch].inventory.tome){
                   if(player.inventory.tome + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Tome</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Tome</b>.'}));
                   } else {
                     Item.list[ch].inventory.tome -= q;
                     Player.list[id].inventory.tome += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Tome</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Tome</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Tome</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Tome</b>.'}));
                 }
               } else if(item == 'runicscroll'){
                 if(q <= Item.list[ch].inventory.runicscroll){
                   if(player.inventory.runicscroll + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>RunicScroll</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>RunicScroll</b>.'}));
                   } else {
                     Item.list[ch].inventory.runicscroll -= q;
                     Player.list[id].inventory.runicscroll += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>RunicScroll</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>RunicScroll</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>RunicScroll</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>RunicScroll</b>.'}));
                 }
               } else if(item == 'sacredtext'){
                 if(q <= Item.list[ch].inventory.sacredtext){
                   if(player.inventory.sacredtext + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>SacredText</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>SacredText</b>.'}));
                   } else {
                     Item.list[ch].inventory.sacredtext -= q;
                     Player.list[id].inventory.sacredtext += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>SacredText</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>SacredText</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>SacredText</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>SacredText</b>.'}));
                 }
               } else if(item == 'stoneaxe'){
                 if(q <= Item.list[ch].inventory.stoneaxe){
                   if(player.inventory.stoneaxe + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>StoneAxe</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>StoneAxe</b>.'}));
                   } else {
                     Item.list[ch].inventory.stoneaxe -= q;
                     Player.list[id].inventory.stoneaxe += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>StoneAxe</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>StoneAxe</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>StoneAxe</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>StoneAxe</b>.'}));
                 }
               } else if(item == 'ironaxe'){
                 if(q <= Item.list[ch].inventory.ironaxe){
                   if(player.inventory.ironaxe + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>IronAxe</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>IronAxe</b>.'}));
                   } else {
                     Item.list[ch].inventory.ironaxe -= q;
                     Player.list[id].inventory.ironaxe += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>IronAxe</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>IronAxe</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>IronAxe</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>IronAxe</b>.'}));
                 }
               } else if(item == 'pickaxe'){
                 if(q <= Item.list[ch].inventory.pickaxe){
                   if(player.inventory.pickaxe + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>PickAxe</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>PickAxe</b>.'}));
                   } else {
                     Item.list[ch].inventory.pickaxe -= q;
                     Player.list[id].inventory.pickaxe += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>PickAxe</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>PickAxe</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>PickAxe</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>PickAxe</b>.'}));
                 }
               } else if(item == 'torch'){
                 if(q <= Item.list[ch].inventory.torch){
                   if(player.inventory.torch + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Torch</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Torch</b>.'}));
                   } else {
                     Item.list[ch].inventory.torch -= q;
                     Player.list[id].inventory.torch += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Torch</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Torch</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Torch</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Torch</b>.'}));
                 }
               } else if(item == 'bread'){
                 if(q <= Item.list[ch].inventory.bread){
                   if(player.inventory.bread + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>Bread</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Bread</b>.'}));
                   } else {
                     Item.list[ch].inventory.bread -= q;
                     Player.list[id].inventory.bread += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Bread</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Bread</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>Bread</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>Bread</b>.'}));
                 }
               } else if(item == 'fish'){
                 if(q <= Item.list[ch].inventory.fish){
                   if(player.inventory.fish + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Fish</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Fish</b>.'}));
                   } else {
                     Item.list[ch].inventory.fish -= q;
                     Player.list[id].inventory.fish += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Fish</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Fish</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Fish</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Fish</b>.'}));
                 }
               } else if(item == 'lamb'){
                 if(q <= Item.list[ch].inventory.lamb){
                   if(player.inventory.lamb + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>Lamb</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Lamb</b>.'}));
                   } else {
                     Item.list[ch].inventory.lamb -= q;
                     Player.list[id].inventory.lamb += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Lamb</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Lamb</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Lamb</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Lamb</b>.'}));
                 }
               } else if(item == 'boarmeat'){
                 if(q <= Item.list[ch].inventory.boarmeat){
                   if(player.inventory.boarmeat + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>BoarMeat</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>BoarMeat</b>.'}));
                   } else {
                     Item.list[ch].inventory.boarmeat -= q;
                     Player.list[id].inventory.boarmeat += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>BoarMeat</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>BoarMeat</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>BoarMeat</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>BoarMeat</b>.'}));
                 }
               } else if(item == 'venison'){
                 if(q <= Item.list[ch].inventory.venison){
                   if(player.inventory.venison + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Venison</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Venison</b>.'}));
                   } else {
                     Item.list[ch].inventory.venison -= q;
                     Player.list[id].inventory.venison += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Venison</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Venison</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Venison</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Venison</b>.'}));
                 }
               } else if(item == 'poachedfish'){
                 if(q <= Item.list[ch].inventory.poachedfish){
                   if(player.inventory.poachedfish + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>PoachedFish</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>PoachedFish</b>.'}));
                   } else {
                     Item.list[ch].inventory.poachedfish -= q;
                     Player.list[id].inventory.poachedfish += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>PoachedFish</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>PoachedFish</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>PoachedFish</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>PoachedFish</b>.'}));
                 }
               } else if(item == 'lambchop'){
                 if(q <= Item.list[ch].inventory.lambchop){
                   if(player.inventory.lambchop + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>LambChop</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>LambChop</b>.'}));
                   } else {
                     Item.list[ch].inventory.lambchop -= q;
                     Player.list[id].inventory.lambchop += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>LambChop</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>LambChop</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>LambChop</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>LambChop</b>.'}));
                 }
               } else if(item == 'boarshank'){
                 if(q <= Item.list[ch].inventory.boarshank){
                   if(player.inventory.boarshank + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>BoarShank</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>BoarShank</b>.'}));
                   } else {
                     Item.list[ch].inventory.boarshank -= q;
                     Player.list[id].inventory.boarshank += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>BoarShank</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>BoarShank</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>BoarShank</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>BoarShank</b>.'}));
                 }
               } else if(item == 'venisonloin'){
                 if(q <= Item.list[ch].inventory.venisonloin){
                   if(player.inventory.venisonloin + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>VenisonLoin</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>VenisonLoin</b>.'}));
                   } else {
                     Item.list[ch].inventory.venisonloin -= q;
                     Player.list[id].inventory.venisonloin += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>VenisonLoin</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>VenisonLoin</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>VenisonLoin</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>VenisonLoin</b>.'}));
                 }
               } else if(item == 'mead'){
                 if(q <= Item.list[ch].inventory.mead){
                   if(player.inventory.mead + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Mead</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Mead</b>.'}));
                   } else {
                     Item.list[ch].inventory.mead -= q;
                     Player.list[id].inventory.mead += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Mead</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Mead</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Mead</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Mead</b>.'}));
                 }
               } else if(item == 'saison'){
                 if(q <= Item.list[ch].inventory.saison){
                   if(player.inventory.saison + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Saison</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Saison</b>.'}));
                   } else {
                     Item.list[ch].inventory.saison -= q;
                     Player.list[id].inventory.saison += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Saison</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Saison</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Saison</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Saison</b>.'}));
                 }
               } else if(item == 'flanders'){
                 if(q <= Item.list[ch].inventory.flanders){
                   if(player.inventory.flanders + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Flanders</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Flanders</b>.'}));
                   } else {
                     Item.list[ch].inventory.flanders -= q;
                     Player.list[id].inventory.flanders += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Flanders</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Flanders</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Flanders</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Flanders</b>.'}));
                 }
               } else if(item == 'bieredegarde'){
                 if(q <= Item.list[ch].inventory.bieredegarde){
                   if(player.inventory.bieredegarde + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>BiereDeGarde</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>BiereDeGarde</b>.'}));
                   } else {
                     Item.list[ch].inventory.bieredegarde -= q;
                     Player.list[id].inventory.bieredegarde += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>BiereDeGarde</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>BiereDeGarde</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>BiereDeGarde</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>BiereDeGarde</b>.'}));
                 }
               } else if(item == 'bordeaux'){
                 if(q <= Item.list[ch].inventory.bordeaux){
                   if(player.inventory.bordeaux + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Bordeaux</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Bordeaux</b>.'}));
                   } else {
                     Item.list[ch].inventory.bordeaux -= q;
                     Player.list[id].inventory.bordeaux += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Bordeaux</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Bordeaux</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Bordeaux</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Bordeaux</b>.'}));
                 }
               } else if(item == 'bourgogne'){
                 if(q <= Item.list[ch].inventory.bourgogne){
                   if(player.inventory.bourgogne + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Bourgogne</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Bourgogne</b>.'}));
                   } else {
                     Item.list[ch].inventory.bourgogne -= q;
                     Player.list[id].inventory.bourgogne += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Bourgogne</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Bourgogne</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Bourgogne</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Bourgogne</b>.'}));
                 }
               } else if(item == 'chianti'){
                 if(q <= Item.list[ch].inventory.chianti){
                   if(player.inventory.chianti + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Chianti</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Chianti</b>.'}));
                   } else {
                     Item.list[ch].inventory.chianti -= q;
                     Player.list[id].inventory.chianti += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Chianti</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Chianti</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Chianti</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Chianti</b>.'}));
                 }
               } else if(item == 'crown'){
                 if(q <= Item.list[ch].inventory.crown){
                   if(player.inventory.crown + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Crown</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Crown</b>.'}));
                   } else {
                     Item.list[ch].inventory.crown -= q;
                     Player.list[id].inventory.crown += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Crown</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Crown</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Crown</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Crown</b>.'}));
                 }
               } else if(item == 'arrows'){
                 if(q <= Item.list[ch].inventory.arrows){
                   if(player.inventory.arrows + q > 50){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Arrows</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Arrows</b>.'}));
                   } else {
                     Item.list[ch].inventory.arrows -= q;
                     Player.list[id].inventory.arrows += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Arrows</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Arrows</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Arrows</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Arrows</b>.'}));
                 }
               } else if(item == 'worldmap'){
                 if(q <= Item.list[ch].inventory.worldmap){
                   if(player.inventory.worldmap + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>WorldMap</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>WorldMap</b>.'}));
                   } else {
                     Item.list[ch].inventory.worldmap -= q;
                     Player.list[id].inventory.worldmap += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>WorldMap</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>WorldMap</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>WorldMap</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>WorldMap</b>.'}));
                 }
               } else if(item == 'relic'){
                 if(q <= Item.list[ch].inventory.relic){
                   if(player.inventory.relic + q > 1){
-                    socket.emit('addToChat','<i>You are already carrying a</i> <b>Relic</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying a</i> <b>Relic</b>.'}));
                   } else {
                     Item.list[ch].inventory.relic -= q;
                     Player.list[id].inventory.relic += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Relic</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Relic</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Relic</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Relic</b>.'}));
                 }
               } else {
-                socket.emit('addToChat','<i>Not a valid</i> <b>ItemName</b>.');
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>Not a valid</i> <b>ItemName</b>.'}));
               }
             } else {
-              socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
             }
           }
         } else if(player.facing == 'right'){
@@ -12723,800 +12909,800 @@ EvalCmd = function(data){
               if(item == 'wood'){
                 if(q <= Item.list[ch].inventory.wood){
                   if(player.inventory.wood + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>Wood</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Wood</b>.'}));
                   } else {
                     Item.list[ch].inventory.wood -= q;
                     Player.list[id].inventory.wood += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Wood</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Wood</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>Wood</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>Wood</b>.'}));
                 }
               } else if(item == 'stone'){
                 if(q <= Item.list[ch].inventory.stone){
                   if(player.inventory.stone + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>Stone</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Stone</b>.'}));
                   } else {
                     Item.list[ch].inventory.stone -= q;
                     Player.list[id].inventory.stone += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Stone</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Stone</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>Stone</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>Stone</b>.'}));
                 }
               } else if(item == 'grain'){
                 if(q <= Item.list[ch].inventory.grain){
                   if(player.inventory.grain + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>Grain</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Grain</b>.'}));
                   } else {
                     Item.list[ch].inventory.grain -= q;
                     Player.list[id].inventory.grain += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Grain</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Grain</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>Grain</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>Grain</b>.'}));
                 }
               } else if(item == 'flour'){
                 if(q <= Item.list[ch].inventory.flour){
                   if(player.inventory.flour + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>Flour</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Flour</b>.'}));
                   } else {
                     Item.list[ch].inventory.flour -= q;
                     Player.list[id].inventory.flour += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Flour</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Flour</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>Flour</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>Flour</b>.'}));
                 }
               } else if(item == 'dough'){
                 if(q <= Item.list[ch].inventory.dough){
                   if(player.inventory.dough + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>Dough</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Dough</b>.'}));
                   } else {
                     Item.list[ch].inventory.dough -= q;
                     Player.list[id].inventory.dough += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Dough</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Dough</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>Dough</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>Dough</b>.'}));
                 }
               } else if(item == 'ironore'){
                 if(q <= Item.list[ch].inventory.ironore){
                   if(player.inventory.ironore + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>IronOre</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>IronOre</b>.'}));
                   } else {
                     Item.list[ch].inventory.ironore -= q;
                     Player.list[id].inventory.ironore += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>IronOre</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>IronOre</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>IronOre</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>IronOre</b>.'}));
                 }
               } else if(item == 'iron'){
                 if(q <= Item.list[ch].inventory.iron){
                   if(player.inventory.iron + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Iron</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Iron</b>.'}));
                   } else {
                     Item.list[ch].inventory.iron -= q;
                     Player.list[id].inventory.iron += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Iron</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Iron</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Iron</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Iron</b>.'}));
                 }
               } else if(item == 'steel'){
                 if(q <= Item.list[ch].inventory.steel){
                   if(player.inventory.steel + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Steel</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Steel</b>.'}));
                   } else {
                     Item.list[ch].inventory.steel -= q;
                     Player.list[id].inventory.steel += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Steel</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Steel</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Steel</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Steel</b>.'}));
                 }
               } else if(item == 'boarhide'){
                 if(q <= Item.list[ch].inventory.boarhide){
                   if(player.inventory.boarhide + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>BoarHide</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>BoarHide</b>.'}));
                   } else {
                     Item.list[ch].inventory.boarhide -= q;
                     Player.list[id].inventory.boarhide += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>BoarHide</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>BoarHide</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>BoarHide</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>BoarHide</b>.'}));
                 }
               } else if(item == 'leather'){
                 if(q <= Item.list[ch].inventory.leather){
                   if(player.inventory.leather + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>Leather</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Leather</b>.'}));
                   } else {
                     Item.list[ch].inventory.leather -= q;
                     Player.list[id].inventory.leather += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Leather</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Leather</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>Leather</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>Leather</b>.'}));
                 }
               } else if(item == 'silverore'){
                 if(q <= Item.list[ch].inventory.silverore){
                   if(player.inventory.silverore + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>SilverOre</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>SilverOre</b>.'}));
                   } else {
                     Item.list[ch].inventory.silverore -= q;
                     Player.list[id].inventory.silverore += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>SilverOre</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>SilverOre</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>SilverOre</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>SilverOre</b>.'}));
                 }
               } else if(item == 'silver'){
                 if(q <= Item.list[ch].inventory.silver){
                   Item.list[ch].inventory.silver -= q;
                   Player.list[id].inventory.silver += q;
-                  socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Silver</b> <i>from the chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Silver</b> <i>from the chest.</i>'}));
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>Silver</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>Silver</b>.'}));
                 }
               } else if(item == 'goldore'){
                 if(q <= Item.list[ch].inventory.goldore){
                   if(player.inventory.goldore + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>GoldOre</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>GoldOre</b>.'}));
                   } else {
                     Item.list[ch].inventory.goldore -= q;
                     Player.list[id].inventory.goldore += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>GoldOre</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>GoldOre</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>GoldOre</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>GoldOre</b>.'}));
                 }
               } else if(item == 'gold'){
                 if(q <= Item.list[ch].inventory.gold){
                   Item.list[ch].inventory.gold -= q;
                   Player.list[id].inventory.gold += q;
-                  socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Gold</b> <i>from the chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Gold</b> <i>from the chest.</i>'}));
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>Gold</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>Gold</b>.'}));
                 }
               } else if(item == 'diamond'){
                 if(q <= Item.list[ch].inventory.diamond){
                   Item.list[ch].inventory.diamond -= q;
                   Player.list[id].inventory.diamond += q;
-                  socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Diamond</b> <i>from the chest.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Diamond</b> <i>from the chest.</i>'}));
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Diamond</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Diamond</b>.'}));
                 }
               } else if(item == 'huntingknife'){
                 if(q <= Item.list[ch].inventory.huntingknife){
                   if(player.inventory.huntingknife + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>HuntingKnife</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>HuntingKnife</b>.'}));
                   } else {
                     Item.list[ch].inventory.huntingknife -= q;
                     Player.list[id].inventory.huntingknife += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>HuntingKnife</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>HuntingKnife</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>HuntingKnife</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>HuntingKnife</b>.'}));
                 }
               } else if(item == 'dague'){
                 if(q <= Item.list[ch].inventory.dague){
                   if(player.inventory.dague + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Dague</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Dague</b>.'}));
                   } else {
                     Item.list[ch].inventory.dague -= q;
                     Player.list[id].inventory.dague += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Dague</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Dague</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Dague</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Dague</b>.'}));
                 }
               } else if(item == 'rondel'){
                 if(q <= Item.list[ch].inventory.rondel){
                   if(player.inventory.rondel + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Rondel</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Rondel</b>.'}));
                   } else {
                     Item.list[ch].inventory.rondel -= q;
                     Player.list[id].inventory.rondel += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Rondel</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Rondel</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Rondel</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Rondel</b>.'}));
                 }
               } else if(item == 'misericorde'){
                 if(q <= Item.list[ch].inventory.misericorde){
                   if(player.inventory.misericorde + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Misericorde</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Misericorde</b>.'}));
                   } else {
                     Item.list[ch].inventory.misericorde -= q;
                     Player.list[id].inventory.misericorde += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Misericorde</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Misericorde</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Misericorde</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Misericorde</b>.'}));
                 }
               } else if(item == 'bastardsword'){
                 if(q <= Item.list[ch].inventory.bastardsword){
                   if(player.inventory.bastardsword + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>BastardSword</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>BastardSword</b>.'}));
                   } else {
                     Item.list[ch].inventory.bastardsword -= q;
                     Player.list[id].inventory.bastardsword += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>BastardSword</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>BastardSword</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>BastardSword</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>BastardSword</b>.'}));
                 }
               } else if(item == 'longsword'){
                 if(q <= Item.list[ch].inventory.longsword){
                   if(player.inventory.longsword + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Longsword</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Longsword</b>.'}));
                   } else {
                     Item.list[ch].inventory.longsword -= q;
                     Player.list[id].inventory.longsword += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Longsword</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Longsword</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Longsword</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Longsword</b>.'}));
                 }
               } else if(item == 'zweihander'){
                 if(q <= Item.list[ch].inventory.zweihander){
                   if(player.inventory.zweihander + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Zweihander</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Zweihander</b>.'}));
                   } else {
                     Item.list[ch].inventory.zweihander -= q;
                     Player.list[id].inventory.zweihander += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Zweihander</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Zweihander</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Zweihander</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Zweihander</b>.'}));
                 }
               } else if(item == 'morallta'){
                 if(q <= Item.list[ch].inventory.morallta){
                   if(player.inventory.morallta + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Morallta</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Morallta</b>.'}));
                   } else {
                     Item.list[ch].inventory.morallta -= q;
                     Player.list[id].inventory.morallta += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Morallta</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Morallta</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Morallta</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Morallta</b>.'}));
                 }
               } else if(item == 'bow'){
                 if(q <= Item.list[ch].inventory.bow){
                   if(player.inventory.bow + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Bow</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Bow</b>.'}));
                   } else {
                     Item.list[ch].inventory.bow -= q;
                     Player.list[id].inventory.bow += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Bow</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Bow</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Bow</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Bow</b>.'}));
                 }
               } else if(item == 'welshlongbow'){
                 if(q <= Item.list[ch].inventory.welshlongbow){
                   if(player.inventory.welshlongbow + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>WelshLongbow</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>WelshLongbow</b>.'}));
                   } else {
                     Item.list[ch].inventory.welshlongbow -= q;
                     Player.list[id].inventory.welshlongbow += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>WelshLongbow</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>WelshLongbow</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>WelshLongbow</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>WelshLongbow</b>.'}));
                 }
               } else if(item == 'knightlance'){
                 if(q <= Item.list[ch].inventory.knightlance){
                   if(player.inventory.knightlance + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>KnightLance</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>KnightLance</b>.'}));
                   } else {
                     Item.list[ch].inventory.knightlance -= q;
                     Player.list[id].inventory.knightlance += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>KnightLance</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>KnightLance</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>KnightLance</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>KnightLance</b>.'}));
                 }
               } else if(item == 'rusticlance'){
                 if(q <= Item.list[ch].inventory.rusticlance){
                   if(player.inventory.rusticlance + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>RusticLance</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>RusticLance</b>.'}));
                   } else {
                     Item.list[ch].inventory.rusticlance -= q;
                     Player.list[id].inventory.rusticlance += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>RusticLance</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>RusticLance</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>RusticLance</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>RusticLance</b>.'}));
                 }
               } else if(item == 'paladinlance'){
                 if(q <= Item.list[ch].inventory.paladinlance){
                   if(player.inventory.paladinlance + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>PaladinLance</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>PaladinLance</b>.'}));
                   } else {
                     Item.list[ch].inventory.paladinlance -= q;
                     Player.list[id].inventory.paladinlance += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>PaladinLance</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>PaladinLance</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>PaladinLance</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>PaladinLance</b>.'}));
                 }
               } else if(item == 'brigandine'){
                 if(q <= Item.list[ch].inventory.brigandine){
                   if(player.inventory.brigandine + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Brigandine</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Brigandine</b>.'}));
                   } else {
                     Item.list[ch].inventory.brigandine -= q;
                     Player.list[id].inventory.brigandine += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Brigandine</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Brigandine</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Brigandine</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Brigandine</b>.'}));
                 }
               } else if(item == 'lamellar'){
                 if(q <= Item.list[ch].inventory.lamellar){
                   if(player.inventory.lamellar + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Lamellar</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Lamellar</b>.'}));
                   } else {
                     Item.list[ch].inventory.lamellar -= q;
                     Player.list[id].inventory.lamellar += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Lamellar</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Lamellar</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Lamellar</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Lamellar</b>.'}));
                 }
               } else if(item == 'maille'){
                 if(q <= Item.list[ch].inventory.maille){
                   if(player.inventory.maille + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Maille</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Maille</b>.'}));
                   } else {
                     Item.list[ch].inventory.maille -= q;
                     Player.list[id].inventory.maille += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Maille</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Maille</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Maille</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Maille</b>.'}));
                 }
               } else if(item == 'hauberk'){
                 if(q <= Item.list[ch].inventory.hauberk){
                   if(player.inventory.hauberk + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Hauberk</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Hauberk</b>.'}));
                   } else {
                     Item.list[ch].inventory.hauberk -= q;
                     Player.list[id].inventory.hauberk += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Hauberk</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Hauberk</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Hauberk</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Hauberk</b>.'}));
                 }
               } else if(item == 'brynja'){
                 if(q <= Item.list[ch].inventory.brynja){
                   if(player.inventory.brynja + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Brynja</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Brynja</b>.'}));
                   } else {
                     Item.list[ch].inventory.brynja -= q;
                     Player.list[id].inventory.brynja += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Brynja</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Brynja</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Brynja</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Brynja</b>.'}));
                 }
               } else if(item == 'cuirass'){
                 if(q <= Item.list[ch].inventory.cuirass){
                   if(player.inventory.cuirass + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Cuirass</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Cuirass</b>.'}));
                   } else {
                     Item.list[ch].inventory.cuirass -= q;
                     Player.list[id].inventory.cuirass += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Cuirass</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Cuirass</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Cuirass</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Cuirass</b>.'}));
                 }
               } else if(item == 'steelplate'){
                 if(q <= Item.list[ch].inventory.steelplate){
                   if(player.inventory.steelplate + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>SteelPlate</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>SteelPlate</b>.'}));
                   } else {
                     Item.list[ch].inventory.steelplate -= q;
                     Player.list[id].inventory.steelplate += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>SteelPlate</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>SteelPlate</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>SteelPlate</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>SteelPlate</b>.'}));
                 }
               } else if(item == 'greenwichplate'){
                 if(q <= Item.list[ch].inventory.greenwichplate){
                   if(player.inventory.greenwichplate + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>GreenwichPlate</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>GreenwichPlate</b>.'}));
                   } else {
                     Item.list[ch].inventory.greenwichplate -= q;
                     Player.list[id].inventory.greenwichplate += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>GreenwichPlate</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>GreenwichPlate</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>GreenwichPlate</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>GreenwichPlate</b>.'}));
                 }
               } else if(item == 'gothicplate'){
                 if(q <= Item.list[ch].inventory.gothicplate){
                   if(player.inventory.gothicplate + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>GothicPlate</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>GothicPlate</b>.'}));
                   } else {
                     Item.list[ch].inventory.gothicplate -= q;
                     Player.list[id].inventory.gothicplate += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>GothicPlate</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>GothicPlate</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>GothicPlate</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>GothicPlate</b>.'}));
                 }
               } else if(item == 'clericrobe'){
                 if(q <= Item.list[ch].inventory.clericrobe){
                   if(player.inventory.clericrobe + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>ClericRobe</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>ClericRobe</b>.'}));
                   } else {
                     Item.list[ch].inventory.clericrobe -= q;
                     Player.list[id].inventory.clericrobe += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>ClericRobe</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>ClericRobe</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>ClericRobe</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>ClericRobe</b>.'}));
                 }
               } else if(item == 'monkcowl'){
                 if(q <= Item.list[ch].inventory.monkcowl){
                   if(player.inventory.monkcowl + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>MonkCowl</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>MonkCowl</b>.'}));
                   } else {
                     Item.list[ch].inventory.monkcowl -= q;
                     Player.list[id].inventory.monkcowl += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>MonkCowl</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>MonkCowl</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>MonkCowl</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>MonkCowl</b>.'}));
                 }
               } else if(item == 'blackcloak'){
                 if(q <= Item.list[ch].inventory.blackcloak){
                   if(player.inventory.blackcloak + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>BlackCloak</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>BlackCloak</b>.'}));
                   } else {
                     Item.list[ch].inventory.blackcloak -= q;
                     Player.list[id].inventory.blackcloak += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>BlackCloak</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>BlackCloak</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>BlackCloak</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>BlackCloak</b>.'}));
                 }
               } else if(item == 'tome'){
                 if(q <= Item.list[ch].inventory.tome){
                   if(player.inventory.tome + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Tome</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Tome</b>.'}));
                   } else {
                     Item.list[ch].inventory.tome -= q;
                     Player.list[id].inventory.tome += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Tome</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Tome</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Tome</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Tome</b>.'}));
                 }
               } else if(item == 'runicscroll'){
                 if(q <= Item.list[ch].inventory.runicscroll){
                   if(player.inventory.runicscroll + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>RunicScroll</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>RunicScroll</b>.'}));
                   } else {
                     Item.list[ch].inventory.runicscroll -= q;
                     Player.list[id].inventory.runicscroll += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>RunicScroll</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>RunicScroll</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>RunicScroll</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>RunicScroll</b>.'}));
                 }
               } else if(item == 'sacredtext'){
                 if(q <= Item.list[ch].inventory.sacredtext){
                   if(player.inventory.sacredtext + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>SacredText</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>SacredText</b>.'}));
                   } else {
                     Item.list[ch].inventory.sacredtext -= q;
                     Player.list[id].inventory.sacredtext += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>SacredText</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>SacredText</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>SacredText</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>SacredText</b>.'}));
                 }
               } else if(item == 'stoneaxe'){
                 if(q <= Item.list[ch].inventory.stoneaxe){
                   if(player.inventory.stoneaxe + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>StoneAxe</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>StoneAxe</b>.'}));
                   } else {
                     Item.list[ch].inventory.stoneaxe -= q;
                     Player.list[id].inventory.stoneaxe += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>StoneAxe</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>StoneAxe</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>StoneAxe</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>StoneAxe</b>.'}));
                 }
               } else if(item == 'ironaxe'){
                 if(q <= Item.list[ch].inventory.ironaxe){
                   if(player.inventory.ironaxe + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>IronAxe</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>IronAxe</b>.'}));
                   } else {
                     Item.list[ch].inventory.ironaxe -= q;
                     Player.list[id].inventory.ironaxe += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>IronAxe</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>IronAxe</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>IronAxe</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>IronAxe</b>.'}));
                 }
               } else if(item == 'pickaxe'){
                 if(q <= Item.list[ch].inventory.pickaxe){
                   if(player.inventory.pickaxe + q > 10){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>PickAxe</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>PickAxe</b>.'}));
                   } else {
                     Item.list[ch].inventory.pickaxe -= q;
                     Player.list[id].inventory.pickaxe += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>PickAxe</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>PickAxe</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>PickAxe</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>PickAxe</b>.'}));
                 }
               } else if(item == 'torch'){
                 if(q <= Item.list[ch].inventory.torch){
                   if(player.inventory.torch + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Torch</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Torch</b>.'}));
                   } else {
                     Item.list[ch].inventory.torch -= q;
                     Player.list[id].inventory.torch += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Torch</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Torch</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Torch</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Torch</b>.'}));
                 }
               } else if(item == 'bread'){
                 if(q <= Item.list[ch].inventory.bread){
                   if(player.inventory.bread + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>Bread</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Bread</b>.'}));
                   } else {
                     Item.list[ch].inventory.bread -= q;
                     Player.list[id].inventory.bread += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Bread</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Bread</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that much</i> <b>Bread</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that much</i> <b>Bread</b>.'}));
                 }
               } else if(item == 'fish'){
                 if(q <= Item.list[ch].inventory.fish){
                   if(player.inventory.fish + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Fish</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Fish</b>.'}));
                   } else {
                     Item.list[ch].inventory.fish -= q;
                     Player.list[id].inventory.fish += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Fish</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Fish</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Fish</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Fish</b>.'}));
                 }
               } else if(item == 'lamb'){
                 if(q <= Item.list[ch].inventory.lamb){
                   if(player.inventory.lamb + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too much</i> <b>Lamb</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Lamb</b>.'}));
                   } else {
                     Item.list[ch].inventory.lamb -= q;
                     Player.list[id].inventory.lamb += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Lamb</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Lamb</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Lamb</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Lamb</b>.'}));
                 }
               } else if(item == 'boarmeat'){
                 if(q <= Item.list[ch].inventory.boarmeat){
                   if(player.inventory.boarmeat + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>BoarMeat</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>BoarMeat</b>.'}));
                   } else {
                     Item.list[ch].inventory.boarmeat -= q;
                     Player.list[id].inventory.boarmeat += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>BoarMeat</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>BoarMeat</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>BoarMeat</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>BoarMeat</b>.'}));
                 }
               } else if(item == 'venison'){
                 if(q <= Item.list[ch].inventory.venison){
                   if(player.inventory.venison + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Venison</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Venison</b>.'}));
                   } else {
                     Item.list[ch].inventory.venison -= q;
                     Player.list[id].inventory.venison += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Venison</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Venison</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Venison</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Venison</b>.'}));
                 }
               } else if(item == 'poachedfish'){
                 if(q <= Item.list[ch].inventory.poachedfish){
                   if(player.inventory.poachedfish + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>PoachedFish</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>PoachedFish</b>.'}));
                   } else {
                     Item.list[ch].inventory.poachedfish -= q;
                     Player.list[id].inventory.poachedfish += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>PoachedFish</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>PoachedFish</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>PoachedFish</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>PoachedFish</b>.'}));
                 }
               } else if(item == 'lambchop'){
                 if(q <= Item.list[ch].inventory.lambchop){
                   if(player.inventory.lambchop + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>LambChop</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>LambChop</b>.'}));
                   } else {
                     Item.list[ch].inventory.lambchop -= q;
                     Player.list[id].inventory.lambchop += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>LambChop</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>LambChop</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>LambChop</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>LambChop</b>.'}));
                 }
               } else if(item == 'boarshank'){
                 if(q <= Item.list[ch].inventory.boarshank){
                   if(player.inventory.boarshank + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>BoarShank</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>BoarShank</b>.'}));
                   } else {
                     Item.list[ch].inventory.boarshank -= q;
                     Player.list[id].inventory.boarshank += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>BoarShank</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>BoarShank</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>BoarShank</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>BoarShank</b>.'}));
                 }
               } else if(item == 'venisonloin'){
                 if(q <= Item.list[ch].inventory.venisonloin){
                   if(player.inventory.venisonloin + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>VenisonLoin</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>VenisonLoin</b>.'}));
                   } else {
                     Item.list[ch].inventory.venisonloin -= q;
                     Player.list[id].inventory.venisonloin += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>VenisonLoin</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>VenisonLoin</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>VenisonLoin</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>VenisonLoin</b>.'}));
                 }
               } else if(item == 'mead'){
                 if(q <= Item.list[ch].inventory.mead){
                   if(player.inventory.mead + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Mead</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Mead</b>.'}));
                   } else {
                     Item.list[ch].inventory.mead -= q;
                     Player.list[id].inventory.mead += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Mead</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Mead</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Mead</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Mead</b>.'}));
                 }
               } else if(item == 'saison'){
                 if(q <= Item.list[ch].inventory.saison){
                   if(player.inventory.saison + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Saison</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Saison</b>.'}));
                   } else {
                     Item.list[ch].inventory.saison -= q;
                     Player.list[id].inventory.saison += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Saison</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Saison</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Saison</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Saison</b>.'}));
                 }
               } else if(item == 'flanders'){
                 if(q <= Item.list[ch].inventory.flanders){
                   if(player.inventory.flanders + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Flanders</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Flanders</b>.'}));
                   } else {
                     Item.list[ch].inventory.flanders -= q;
                     Player.list[id].inventory.flanders += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Flanders</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Flanders</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Flanders</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Flanders</b>.'}));
                 }
               } else if(item == 'bieredegarde'){
                 if(q <= Item.list[ch].inventory.bieredegarde){
                   if(player.inventory.bieredegarde + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>BiereDeGarde</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>BiereDeGarde</b>.'}));
                   } else {
                     Item.list[ch].inventory.bieredegarde -= q;
                     Player.list[id].inventory.bieredegarde += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>BiereDeGarde</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>BiereDeGarde</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>BiereDeGarde</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>BiereDeGarde</b>.'}));
                 }
               } else if(item == 'bordeaux'){
                 if(q <= Item.list[ch].inventory.bordeaux){
                   if(player.inventory.bordeaux + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Bordeaux</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Bordeaux</b>.'}));
                   } else {
                     Item.list[ch].inventory.bordeaux -= q;
                     Player.list[id].inventory.bordeaux += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Bordeaux</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Bordeaux</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Bordeaux</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Bordeaux</b>.'}));
                 }
               } else if(item == 'bourgogne'){
                 if(q <= Item.list[ch].inventory.bourgogne){
                   if(player.inventory.bourgogne + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Bourgogne</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Bourgogne</b>.'}));
                   } else {
                     Item.list[ch].inventory.bourgogne -= q;
                     Player.list[id].inventory.bourgogne += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Bourgogne</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Bourgogne</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Bourgogne</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Bourgogne</b>.'}));
                 }
               } else if(item == 'chianti'){
                 if(q <= Item.list[ch].inventory.chianti){
                   if(player.inventory.chianti + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Chianti</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Chianti</b>.'}));
                   } else {
                     Item.list[ch].inventory.chianti -= q;
                     Player.list[id].inventory.chianti += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Chianti</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Chianti</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Chianti</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Chianti</b>.'}));
                 }
               } else if(item == 'crown'){
                 if(q <= Item.list[ch].inventory.crown){
                   if(player.inventory.crown + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Crown</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Crown</b>.'}));
                   } else {
                     Item.list[ch].inventory.crown -= q;
                     Player.list[id].inventory.crown += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Crown</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Crown</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Crown</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Crown</b>.'}));
                 }
               } else if(item == 'arrows'){
                 if(q <= Item.list[ch].inventory.arrows){
                   if(player.inventory.arrows + q > 50){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>Arrows</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Arrows</b>.'}));
                   } else {
                     Item.list[ch].inventory.arrows -= q;
                     Player.list[id].inventory.arrows += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Arrows</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Arrows</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Arrows</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Arrows</b>.'}));
                 }
               } else if(item == 'worldmap'){
                 if(q <= Item.list[ch].inventory.worldmap){
                   if(player.inventory.worldmap + q > 25){
-                    socket.emit('addToChat','<i>You are already carrying too many</i> <b>WorldMap</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>WorldMap</b>.'}));
                   } else {
                     Item.list[ch].inventory.worldmap -= q;
                     Player.list[id].inventory.worldmap += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>WorldMap</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>WorldMap</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>WorldMap</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>WorldMap</b>.'}));
                 }
               } else if(item == 'relic'){
                 if(q <= Item.list[ch].inventory.relic){
                   if(player.inventory.relic + q > 1){
-                    socket.emit('addToChat','<i>You are already carrying a</i> <b>Relic</b>.');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying a</i> <b>Relic</b>.'}));
                   } else {
                     Item.list[ch].inventory.relic -= q;
                     Player.list[id].inventory.relic += q;
-                    socket.emit('addToChat','<i>You took</i> ' + q + ' <b>Relic</b> <i>from the chest.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You took</i> ' + q + ' <b>Relic</b> <i>from the chest.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>The chest does not contain that many</i> <b>Relic</b>.');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>The chest does not contain that many</i> <b>Relic</b>.'}));
                 }
               } else {
-                socket.emit('addToChat','<i>Not a valid</i> <b>ItemName</b>.');
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>Not a valid</i> <b>ItemName</b>.'}));
               }
             } else {
-              socket.emit('addToChat','<i>You do not have the key to this chest.</i>');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not have the key to this chest.</i>'}));
             }
           }
         }
@@ -13549,20 +13735,20 @@ EvalCmd = function(data){
                 if(garr.type == 'garrison' && garr.house == player.house){
                   permit = true;
                 } else {
-                  socket.emit('addToChat','<i>You must be in a garrison.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You must be in a garrison.</i>'}));
                 }
               } else {
-                socket.emit('addToChat','<i>You must be in a garrison.</i>');
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>You must be in a garrison.</i>'}));
               }
             }
           } else {
-            socket.emit('addToChat','<i>You cannot give this order.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot give this order.</i>'}));
           }
         } else {
-          socket.emit('addToChat','<i>You have no garrison.</i>');
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>You have no garrison.</i>'}));
         }
       } else {
-        socket.emit('addToChat','<i>You must establish a House.</i>');
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>You must establish a House.</i>'}));
       }
       if(permit){
         var all = '<b>Footsoldier</b>: /train <i>Quantity</i> footsoldier<br><b>3 iron, 2 grain</b>';
@@ -13572,7 +13758,7 @@ EvalCmd = function(data){
         if(str > 0 && stb > 0){
           all += '<br><b>Cavalier</b>: /train <i>Quantity</i> cavalier<br><b>5 iron, 7 grain</b>';
         }
-        socket.emit('addToChat','<p>'+all+'</p>');
+        socket.write(JSON.stringify({msg:'addToChat',message:'<p>'+all+'</p>'}));
       }
     } else if(data.cmd.slice(0,5) == 'train' && data.cmd[5] == ' '){
       var permit = false;
@@ -13603,20 +13789,20 @@ EvalCmd = function(data){
                 if(garr.type == 'garrison' && garr.house == player.house){
                   permit = true;
                 } else {
-                  socket.emit('addToChat','<i>You must be in a garrison.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You must be in a garrison.</i>'}));
                 }
               } else {
-                socket.emit('addToChat','<i>You must be in a garrison.</i>');
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>You must be in a garrison.</i>'}));
               }
             }
           } else {
-            socket.emit('addToChat','<i>You cannot give this order.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot give this order.</i>'}));
           }
         } else {
-          socket.emit('addToChat','<i>You have no garrison.</i>');
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>You have no garrison.</i>'}));
         }
       } else {
-        socket.emit('addToChat','<i>You cannot give this order.</i>');
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot give this order.</i>'}));
       }
       if(permit){
         if(data.cmd.slice(data.cmd.indexOf(' ')+1).toLowerCase() == 'footsoldier'){
@@ -13631,7 +13817,7 @@ EvalCmd = function(data){
             Building.list[gar[0]].queue.push('skirmisher');
             console.log('Skirmisher in training');
           } else {
-            socket.emit('addToChat','<i>You have no stronghold.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You have no stronghold.</i>'}));
           }
         } else if(data.cmd.slice(data.cmd.indexOf(' ')+1).toLowerCase() == 'cavalier'){
           if(stb > 0){
@@ -13641,19 +13827,19 @@ EvalCmd = function(data){
               Building.list[gar[0]].queue.push('cavalier');
               console.log('Cavalier in training');
             } else {
-              socket.emit('addToChat','<i>You have no stronghold.</i>');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>You have no stronghold.</i>'}));
             }
           } else {
-            socket.emit('addToChat','<i>You have no stable.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You have no stable.</i>'}));
           }
         } else {
           var order = data.cmd.slice(data.cmd.indexOf(' ')+1);
           var q = Number(order.slice(0,order.indexOf(' '))).toFixed(0);
           var unit = order.slice(order.indexOf(' ')+1).toLowerCase();
           if(q < 1){
-            socket.emit('addToChat','<i>Quantity must be greater than 0.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>Quantity must be greater than 0.</i>'}));
           } else if(Number.isNaN(q/1)){
-            socket.emit('addToChat','<i>Quantity must be a number.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>Quantity must be a number.</i>'}));
           } else {
             var counter = 0;
             if(unit == 'footsoldier'){
@@ -13673,10 +13859,10 @@ EvalCmd = function(data){
                     }
                   }
                 } else {
-                  socket.emit('addToChat','<i>Not enough grain.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>Not enough grain.</i>'}));
                 }
               } else {
-                socket.emit('addToChat','<i>Not enough iron.</i>');
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>Not enough iron.</i>'}));
               }
             } else if(unit == 'skirmisher'){
               if(str > 0){
@@ -13696,13 +13882,13 @@ EvalCmd = function(data){
                       }
                     }
                   } else {
-                    socket.emit('addToChat','<i>Not enough grain.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>Not enough grain.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>Not enough iron.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>Not enough iron.</i>'}));
                 }
               } else {
-                socket.emit('addToChat','<i>You have no stronghold.</i>');
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>You have no stronghold.</i>'}));
               }
             } else if(unit == 'cavalier'){
               if(stb > 0){
@@ -13723,19 +13909,19 @@ EvalCmd = function(data){
                         }
                       }
                     } else {
-                      socket.emit('addToChat','<i>Not enough grain.</i>');
+                      socket.write(JSON.stringify({msg:'addToChat',message:'<i>Not enough grain.</i>'}));
                     }
                   } else {
-                    socket.emit('addToChat','<i>Not enough iron.</i>');
+                    socket.write(JSON.stringify({msg:'addToChat',message:'<i>Not enough iron.</i>'}));
                   }
                 } else {
-                  socket.emit('addToChat','<i>You have no stronghold.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>You have no stronghold.</i>'}));
                 }
               } else {
-                socket.emit('addToChat','<i>You have no stable.</i>');
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>You have no stable.</i>'}));
               }
             } else {
-              socket.emit('addToChat','<i>Invalid unit.</i>');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>Invalid unit.</i>'}));
             }
           }
         }
@@ -13744,7 +13930,7 @@ EvalCmd = function(data){
       if(player.house){
         // house report
       } else {
-        socket.emit('addToChat','<i>You do not belong to a House.</i>');
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not belong to a House.</i>'}));
       }
     } else if(data.cmd.slice(0,5) == 'house' && data.cmd[5] == ' '){
       var b = getBuilding(player.x,player.y);
@@ -13766,14 +13952,14 @@ EvalCmd = function(data){
                     var name = house.slice(0,house.indexOf(' '));
                     var f = Number(house.slice(house.indexOf(' ')+1)).toFixed(0);
                     if(Number.isNaN(f/1) || f < 0 || f > 69){
-                      socket.emit('addToChat','<i>Flag must be a number from 0 to 69.</i>');
+                      socket.write(JSON.stringify({msg:'addToChat',message:'<i>Flag must be a number from 0 to 69.</i>'}));
                     } else {
                       var flag = flags[f];
                       if(flag[1] == 0){
                         for(var i in House.list){
                           var h = House.list[i];
                           if(h.name == name){
-                            socket.emit('addToChat','<i>Name is taken.</i>');
+                            socket.write(JSON.stringify({msg:'addToChat',message:'<i>Name is taken.</i>'}));
                             return;
                           }
                           flags[f][1] = 1;
@@ -13791,14 +13977,14 @@ EvalCmd = function(data){
                           console.log(player.name + ' has established House ' + name);
                         }
                       } else {
-                        socket.emit('addToChat','<i>Flag is taken.</i>');
+                        socket.write(JSON.stringify({msg:'addToChat',message:'<i>Flag is taken.</i>'}));
                       }
                     }
                   } else {
                     for(var i in House.list){
                       var h = House.list[i];
                       if(h.name == house){
-                        socket.emit('addToChat','<i>Name is taken.</i>');
+                        socket.write(JSON.stringify({msg:'addToChat',message:'<i>Name is taken.</i>'}));
                         return;
                       }
                     }
@@ -13830,19 +14016,19 @@ EvalCmd = function(data){
                     console.log(player.name + ' has established House ' + house);
                   }
                 } else {
-                  socket.emit('addToChat','<i>There are too many Houses.</i>');
+                  socket.write(JSON.stringify({msg:'addToChat',message:'<i>There are too many Houses.</i>'}));
                 }
               } else {
-                socket.emit('addToChat','<i>Must be at the desk.</i>');
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>Must be at the desk.</i>'}));
               }
             } else {
-              socket.emit('addToChat','<i>Must be at the desk upstairs.</i>');
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>Must be at the desk upstairs.</i>'}));
             }
           } else {
-            socket.emit('addToChat','<i>Must be at your own Garrison.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>Must be at your own Garrison.</i>'}));
           }
         } else {
-          socket.emit('addToChat','<i>Must be at a Garrison.</i>');
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>Must be at a Garrison.</i>'}));
         }
       }
       // ALPHA HAX !!
@@ -13862,7 +14048,7 @@ EvalCmd = function(data){
       Player.list[data.id].y = y;
       // ALPHA HAX !!
     } else {
-      socket.emit('addToChat','<i>Invalid command.</i>');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>Invalid command.</i>'}));
     }
   }
 }

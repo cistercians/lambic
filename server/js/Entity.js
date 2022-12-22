@@ -321,7 +321,7 @@ Mine = function(param){
       var dist = self.getDistance({x:c[0],y:c[1]});
       if(dist <= 384){
         self.cave = cave;
-        console.log('Mine found a cave')
+        console.log('Mine found a cave');
       }
     }
     if(self.cave){
@@ -537,6 +537,7 @@ Tavern = function(param){
       }
       if(Player.list[s1].sex == 'm'){
         Building.list[b].serfs[s1] = s1;
+        Player.list[s1].work = {hq:b,spot:null};
       } else {
         if(building.type == 'mill'){
           Building.list[b].serfs[s1] = s1;
@@ -545,6 +546,7 @@ Tavern = function(param){
       }
       if(Player.list[s2].sex == 'm'){
         Building.list[b].serfs[s2] = s2;
+        Player.list[s2].work = {hq:b,spot:null};
       } else {
         if(building.type == 'mill'){
           Building.list[b].serfs[s2] = s2;
@@ -704,7 +706,6 @@ Character = function(param){
   self.home = param.home; // {z,loc}
   self.class = null;
   self.rank = null;
-  self.keys = [];
   self.gear = {
     head:null,
     armor:null,
@@ -712,73 +713,7 @@ Character = function(param){
     weapon2:null,
     accessory:null
   }
-  self.inventory = {
-    wood:0,
-    stone:0,
-    grain:0,
-    ironore:0,
-    iron:0,
-    steel:0,
-    boarhide:0,
-    leather:0,
-    silverore:0,
-    silver:0,
-    goldore:0,
-    gold:0,
-    diamond:0,
-    huntingknife:0,
-    dague:0,
-    rondel:0,
-    misericorde:0,
-    bastardsword:0,
-    longsword:0,
-    zweihander:0,
-    morallta:0,
-    bow:0,
-    welshlongbow:0,
-    knightlance:0,
-    rusticlance:0,
-    paladinlance:0,
-    brigandine:0,
-    lamellar:0,
-    maille:0,
-    hauberk:0,
-    brynja:0,
-    cuirass:0,
-    steelplate:0,
-    greenwichplate:0,
-    gothicplate:0,
-    clericrobe:0,
-    monkcowl:0,
-    blackcloak:0,
-    tome:0,
-    runicscroll:0,
-    sacredtext:0,
-    stoneaxe:0,
-    ironaxe:0,
-    pickaxe:0,
-    torch:0,
-    bread:0,
-    fish:0,
-    lamb:0,
-    boarmeat:0,
-    venison:0,
-    poachedfish:0,
-    lambchop:0,
-    boarshank:0,
-    venisonloin:0,
-    mead:0,
-    saison:0,
-    flanders:0,
-    bieredegarde:0,
-    bordeaux:0,
-    bourgogne:0,
-    chianti:0,
-    crown:0,
-    arrows:0,
-    worldmap:0,
-    relic:0
-  }
+  self.inventory = Inventory();
   self.stores = {
     grain:0,
     wood:0,
@@ -894,6 +829,8 @@ Character = function(param){
   self.path = null;
   self.pathCount = 0;
   self.pathEnd = null;
+  self.followPoint = null;
+  self.caveEntrance = null;
 
   self.move = function(target){ // [c,r]
     self.path = [target];
@@ -1513,184 +1450,226 @@ Character = function(param){
   self.lastDir = null;
   self.lastTarget = null;
 
-  self.moveTo = function(z,c,r){
+  self.moveTo = function(tz,tc,tr){
     var loc = getLoc(self.x,self.y);
-    var tLoc = [c,r];
+    var cen = getCenter(loc[0],loc[1]);
+    var tLoc = [tc,tr];
     if(loc.toString() != tLoc.toString()){
-      var dir = self.calcDir(loc,tLoc);
-      if(dir != self.lastDir){
-        self.lastDir = dir;
-      }
-      if(z == self.z){
-        if(self.z == 0){
-          if(dir == 'dr'){
-            var d = [loc[0],loc[1]+1];
-            if(isWalkable(self.z,d[0],d[1])){
-              self.move(d);
-            } else {
-              var r = [loc[0]+1,loc[1]];
-              if(isWalkable(self.z,r[0],r[1])){
-                self.move(r);
-              }
-            }
-          } else if(dir == 'rd'){
-            var r = [loc[0]+1,loc[1]];
-            if(isWalkable(self.z,r[0],r[1])){
-              self.move(r);
-            } else {
-              var d = [loc[0],loc[1]+1];
-              if(isWalkable(self.z,d[0],d[1])){
-                self.move(d);
-              }
-            }
-          } else if(dir == 'r'){
-            var r = [loc[0]+1,loc[1]];
-            if(isWalkable(self.z,r[0],r[1])){
-              self.move(r);
-            } else {
-              if(self.lastDir == 'ur' || self.lastDir == 'ru'){
-                var u = [loc[0],loc[1]-1];
-                if(isWalkable(self.z,u[0],u[1])){
-                  self.move(u);
-                }
-              } else {
-                var d = [loc[0],loc[1]+1];
-                if(isWalkable(self.z,d[0],d[1])){
-                  self.move(d);
-                }
-              }
-            }
-          } else if(dir == 'd'){
-            var d = [loc[0],loc[1]+1];
-            if(isWalkable(self.z,d[0],d[1])){
-              self.move(d);
-            } else {
-              if(self.lastDir == 'dr' || self.lastDir == 'rd'){
-                var r = [loc[0]+1,loc[1]];
-                if(isWalkable(self.z,r[0],r[1])){
-                  self.move(r);
-                } else {
-                  var l = [loc[0]-1,loc[1]];
-                  if(isWalkable(self.z,l[0],l[1])){
-                    self.move(l);
-                  }
-                }
-              }
-            }
-          } else if(dir == 'ru'){
-            var r = [loc[0]+1,loc[1]];
-            if(isWalkable(self.z,r[0],r[1])){
-              self.move(r);
-            } else {
-              var u = [loc[0],loc[1]-1];
-              if(isWalkable(self.z,u[0],u[1])){
-                self.move(u);
-              }
-            }
-          } else if(dir == 'ur'){
-            var u = [loc[0],loc[1]-1];
-            if(isWalkable(self.z,u[0],u[1])){
-              self.move(u);
-            } else {
-              var r = [loc[0]+1,loc[1]];
-              if(isWalkable(self.z,r[0],r[1])){
-                self.move(r);
-              }
-            }
-          } else if(dir == 'u'){
-            var u = [loc[0],loc[1]-1];
-            if(isWalkable(self.z,u[0],u[1])){
-              self.move(u);
-            } else {
-              if(self.lastDir == 'ur' || self.lastDir == 'ru'){
-                var r = [loc[0]+1,loc[1]];
-                if(isWalkable(self.z,r[0],r[1])){
-                  self.move(r);
-                }
-              } else {
-                var l = [loc[0]-1,loc[1]];
-                if(isWalkable(self.z,l[0],l[1])){
-                  self.move(l);
-                }
-              }
-            }
-          } else if(dir == 'lu'){
-            var l = [loc[0]-1,loc[1]];
-            if(isWalkable(self.z,l[0],l[1])){
-              self.move(l);
-            } else {
-              var u = [loc[0],loc[1]-1];
-              if(isWalkable(self.z,u[0],u[1])){
-                self.move(u);
-              }
-            }
-          } else if(dir == 'ul'){
-            var u = [loc[0],loc[1]-1];
-            if(isWalkable(self.z,u[0],u[1])){
-              self.move(u);
-            } else {
-              var l = [loc[0]-1,loc[1]];
-              if(isWalkable(self.z,l[0],l[1])){
-                self.move(l);
-              }
-            }
-          } else if(dir == 'ld'){
-            var l = [loc[0]-1,loc[1]];
-            if(isWalkable(self.z,l[0],l[1])){
-              self.move(l);
-            } else {
-              var d = [loc[0],loc[1]+1];
-              if(isWalkable(self.z,d[0],d[1])){
-                self.move(d);
-              }
-            }
-          } else if(dir == 'dl'){
-            var d = [loc[0],loc[1]+1];
-            if(isWalkable(self.z,d[0],d[1])){
-              self.move(d);
-            } else {
-              var l = [loc[0]-1,loc[1]];
-              if(isWalkable(self.z,l[0],l[1])){
-                self.move(l);
-              }
-            }
-          } else if(dir == 'l'){
-            var l = [loc[0]-1,loc[1]];
-            if(isWalkable(self.z,l[0],l[1])){
-              self.move(l);
-            } else {
-              if(self.lastDir == 'ul' || self.lastDir == 'lu'){
-                var u = [loc[0],loc[1]-1];
-                if(isWalkable(self.z,u[0],u[1])){
-                  self.move(u);
-                } else {
-                  var d = [loc[0],loc[1]+1];
-                  if(isWalkable(self.z,d[0],d[1])){
-                    self.move(d);
-                  }
-                }
-              }
-            }
-          }
-        } else if(self.z == -1){
-
+      if(tz == self.z){
+        if(self.z == -1){
+          //
         } else if(self.z == -2){
-          var cst = getCenter(start[0],start[1]);
-          var b = getBuilding(cst[0],cst[1]);
-          
+          var b = getBuilding(cen[0],cen[1]);
+          var tcen = getCenter(tLoc[0],tLoc[1]);
+          var tb = getBuilding(tcen[0],tcen[1]);
+          if(b !== tb){
+            tLoc = Building.list[tb].dstairs;
+          }
         } else if(self.z == 1){
-          var cst = getCenter(start[0],start[1]);
-          var b = getBuilding(cst[0],cst[1]);
-
+          var b = getBuilding(cen[0],cen[1]);
+          var tcen = getCenter(tLoc[0],tLoc[1]);
+          var tb = getBuilding(tcen[0],tcen[1]);
+          if(b !== tb){
+            tLoc = [Building.list[tb].entrance[0],Building.list[tb].entrance[1]+1];
+          }
         } else if(self.z == 2){
-          var cst = getCenter(start[0],start[1]);
-          var b = getBuilding(cst[0],cst[1]);
-
-        } else {
-
+          var b = getBuilding(cen[0],cen[1]);
+          var tcen = getCenter(tLoc[0],tLoc[1]);
+          var tb = getBuilding(tcen[0],tcen[1]);
+          if(b !== tb){
+            tLoc = Building.list[tb].ustairs;
+          }
+        } else if(self.z == -3) {
+          //
         }
       } else {
-
+        if(self.z == 0){
+          if(tz == 1 || tz == 2 || tz == -2){
+            var tcen = getCenter(tLoc[0],tLoc[1]);
+            var tb = getBuilding(tcen[0],tcen[1]);
+            tLoc = Building.list[tb].entrance;
+          }
+        } else if(self.z == -1){
+          tLoc = [self.caveEntrance[0],self.caveEntrance[1]+1];
+        } else if(self.z == -2){
+          var b = getBuilding(cen[0],cen[1]);
+          tLoc = Building.list[b].dstairs;
+        } else if(self.z == 1){
+          var b = getBuilding(cen[0],cen[1]);
+          if(tz == 0 || tz == -1){
+            tLoc = [Building.list[b].entrance[0],Building.list[b].entrance[1]+1];
+          } else {
+            var tcen = getCenter(tLoc[0],tLoc[1]);
+            var tb = getBuilding(tcen[0],tcen[1]);
+            if(b == tb){
+              if(tz == 2){
+                tLoc = [Building.list[b].ustairs];
+              } else if(tz == -2){
+                tLoc = [Building.list[b].dstairs];
+              }
+            } else {
+              tLoc = [Building.list[b].entrance[0],Building.list[b].entrance[1]+1];
+            }
+          }
+        } else if(self.z == 2){
+          var b = getBuilding(cen[0],cen[1]);
+          tLoc = Building.list[b].ustairs;
+        } else if(self.z == -3){
+          //
+        }
+      }
+    }
+    var dir = self.calcDir(loc,tLoc);
+    if(dir != self.lastDir){
+      self.lastDir = dir;
+    }
+    if(dir == 'dr'){
+      var d = [loc[0],loc[1]+1];
+      if(isWalkable(self.z,d[0],d[1])){
+        self.move(d);
+      } else {
+        var r = [loc[0]+1,loc[1]];
+        if(isWalkable(self.z,r[0],r[1])){
+          self.move(r);
+        }
+      }
+    } else if(dir == 'rd'){
+      var r = [loc[0]+1,loc[1]];
+      if(isWalkable(self.z,r[0],r[1])){
+        self.move(r);
+      } else {
+        var d = [loc[0],loc[1]+1];
+        if(isWalkable(self.z,d[0],d[1])){
+          self.move(d);
+        }
+      }
+    } else if(dir == 'r'){
+      var r = [loc[0]+1,loc[1]];
+      if(isWalkable(self.z,r[0],r[1])){
+        self.move(r);
+      } else {
+        if(self.lastDir == 'ur' || self.lastDir == 'ru'){
+          var u = [loc[0],loc[1]-1];
+          if(isWalkable(self.z,u[0],u[1])){
+            self.move(u);
+          }
+        } else {
+          var d = [loc[0],loc[1]+1];
+          if(isWalkable(self.z,d[0],d[1])){
+            self.move(d);
+          }
+        }
+      }
+    } else if(dir == 'd'){
+      var d = [loc[0],loc[1]+1];
+      if(isWalkable(self.z,d[0],d[1])){
+        self.move(d);
+      } else {
+        if(self.lastDir == 'dr' || self.lastDir == 'rd'){
+          var r = [loc[0]+1,loc[1]];
+          if(isWalkable(self.z,r[0],r[1])){
+            self.move(r);
+          } else {
+            var l = [loc[0]-1,loc[1]];
+            if(isWalkable(self.z,l[0],l[1])){
+              self.move(l);
+            }
+          }
+        }
+      }
+    } else if(dir == 'ru'){
+      var r = [loc[0]+1,loc[1]];
+      if(isWalkable(self.z,r[0],r[1])){
+        self.move(r);
+      } else {
+        var u = [loc[0],loc[1]-1];
+        if(isWalkable(self.z,u[0],u[1])){
+          self.move(u);
+        }
+      }
+    } else if(dir == 'ur'){
+      var u = [loc[0],loc[1]-1];
+      if(isWalkable(self.z,u[0],u[1])){
+        self.move(u);
+      } else {
+        var r = [loc[0]+1,loc[1]];
+        if(isWalkable(self.z,r[0],r[1])){
+          self.move(r);
+        }
+      }
+    } else if(dir == 'u'){
+      var u = [loc[0],loc[1]-1];
+      if(isWalkable(self.z,u[0],u[1])){
+        self.move(u);
+      } else {
+        if(self.lastDir == 'ur' || self.lastDir == 'ru'){
+          var r = [loc[0]+1,loc[1]];
+          if(isWalkable(self.z,r[0],r[1])){
+            self.move(r);
+          }
+        } else {
+          var l = [loc[0]-1,loc[1]];
+          if(isWalkable(self.z,l[0],l[1])){
+            self.move(l);
+          }
+        }
+      }
+    } else if(dir == 'lu'){
+      var l = [loc[0]-1,loc[1]];
+      if(isWalkable(self.z,l[0],l[1])){
+        self.move(l);
+      } else {
+        var u = [loc[0],loc[1]-1];
+        if(isWalkable(self.z,u[0],u[1])){
+          self.move(u);
+        }
+      }
+    } else if(dir == 'ul'){
+      var u = [loc[0],loc[1]-1];
+      if(isWalkable(self.z,u[0],u[1])){
+        self.move(u);
+      } else {
+        var l = [loc[0]-1,loc[1]];
+        if(isWalkable(self.z,l[0],l[1])){
+          self.move(l);
+        }
+      }
+    } else if(dir == 'ld'){
+      var l = [loc[0]-1,loc[1]];
+      if(isWalkable(self.z,l[0],l[1])){
+        self.move(l);
+      } else {
+        var d = [loc[0],loc[1]+1];
+        if(isWalkable(self.z,d[0],d[1])){
+          self.move(d);
+        }
+      }
+    } else if(dir == 'dl'){
+      var d = [loc[0],loc[1]+1];
+      if(isWalkable(self.z,d[0],d[1])){
+        self.move(d);
+      } else {
+        var l = [loc[0]-1,loc[1]];
+        if(isWalkable(self.z,l[0],l[1])){
+          self.move(l);
+        }
+      }
+    } else if(dir == 'l'){
+      var l = [loc[0]-1,loc[1]];
+      if(isWalkable(self.z,l[0],l[1])){
+        self.move(l);
+      } else {
+        if(self.lastDir == 'ul' || self.lastDir == 'lu'){
+          var u = [loc[0],loc[1]-1];
+          if(isWalkable(self.z,u[0],u[1])){
+            self.move(u);
+          } else {
+            var d = [loc[0],loc[1]+1];
+            if(isWalkable(self.z,d[0],d[1])){
+              self.move(d);
+            }
+          }
+        }
       }
     }
   }
@@ -1921,6 +1900,7 @@ Character = function(param){
     if(self.z == 0){
       if(getTile(0,loc[0],loc[1]) == 6){
         self.z = -1;
+        self.caveEntrance = loc;
         self.path = null;
         self.pathCount = 0;
         self.innaWoods = false;
@@ -1978,6 +1958,7 @@ Character = function(param){
       }
     } else if(self.z == -1){
       if(getTile(1,loc[0],loc[1]) == 2){
+        self.caveEntrance = null;
         self.z = 0;
         self.path = null;
         self.pathCount = 0;
@@ -2715,7 +2696,7 @@ Deer = function(param){
       if(self.innaWoods){
         self.action = null;
       } else {
-        self.moveTo([self.home.loc[0],self.home.loc[1]]);
+        self.moveTo(self.home.z,self.home.loc[0],self.home.loc[1]);
       }
     }
   }
@@ -2904,6 +2885,7 @@ Wolf = function(param){
       } else if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6 && self.onMtn){
         self.maxSpd = self.baseSpd * self.drag;
       } else if(getTile(0,loc[0],loc[1]) == 6){
+        self.caveEntrance = loc;
         self.z = -1;
         self.innaWoods = false;
         self.onMtn = false;
@@ -2924,6 +2906,7 @@ Wolf = function(param){
       }
     } else if(self.z == -1){
       if(getTile(1,loc[0],loc[1]) == 2){
+        self.caveEntrance = null;
         self.z = 0;
         self.innaWoods = false;
         self.onMtn = false;
@@ -3163,11 +3146,11 @@ SerfM = function(param){
 
   self.update = function(){
     var loc = getLoc(self.x,self.y);
-    var b = getBuilding(self.x,self.y);
     self.zoneCheck();
 
     if(self.z == 0){
       if(getTile(0,loc[0],loc[1]) == 6){
+        self.caveEntrance = loc;
         self.z = -1;
         self.path = null;
         self.pathCount = 0;
@@ -3201,6 +3184,7 @@ SerfM = function(param){
         self.onMtn = false;
         self.maxSpd = (self.baseSpd * 1.1) * self.drag;
       } else if(getTile(0,loc[0],loc[1]) == 14 || getTile(0,loc[0],loc[1]) == 16 || getTile(0,loc[0],loc[1]) == 19){
+        var b = getBuilding(self.x,self.y);
         Building.list[b].occ++;
         self.z = 1;
         self.path = null;
@@ -3222,6 +3206,7 @@ SerfM = function(param){
       }
     } else if(self.z == -1){
       if(getTile(1,loc[0],loc[1]) == 2){
+        self.caveEntrance = null;
         self.z = 0;
         self.path = null;
         self.pathCount = 0;
@@ -4142,6 +4127,7 @@ SerfF = function(param){
 
     if(self.z == 0){
       if(getTile(0,loc[0],loc[1]) == 6){
+        self.caveEntrance = loc;
         self.z = -1;
         self.path = null;
         self.pathCount = 0;
@@ -4196,6 +4182,7 @@ SerfF = function(param){
       }
     } else if(self.z == -1){
       if(getTile(1,loc[0],loc[1]) == 2){
+        self.caveEntrance = null;
         self.z = 0;
         self.path = null;
         self.pathCount = 0;
@@ -4290,195 +4277,134 @@ SerfF = function(param){
 
     // WORK
     if(self.mode == 'work'){
-      var hq = Building.list[self.work.hq];
-      if(!self.action){
-        if(Building.list[self.hut].built){ // if hut is built
-          var tDist = 0;
-          var avgDist = null;
-          for(var i in hq.resources){
-            var res = hq.resources[i];
-            var r = getCenter(res[0],res[1]);
-            var dist = getDistance({x:hq.x,y:hq.y},{x:r[0],y:r[1]});
-            tDist += dist;
-          }
-          avgDist = tDist/hq.resources.length;
-          var select = [];
-          for(var i in hq.resources){
-            var res = hq.resources[i];
-            var r = getCenter(res[0],res[1]);
-            var dist = getDistance({x:hq.x,y:hq.y},{x:r[0],y:r[1]});
-            if(dist <= avgDist){
-              select.push(res);
+      if(self.work){
+        var hq = Building.list[self.work.hq];
+        if(!self.action){
+          if(Building.list[self.hut].built){ // if hut is built
+            var tDist = 0;
+            var avgDist = null;
+            for(var i in hq.resources){
+              var res = hq.resources[i];
+              var r = getCenter(res[0],res[1]);
+              var dist = getDistance({x:hq.x,y:hq.y},{x:r[0],y:r[1]});
+              tDist += dist;
             }
-          }
-          self.work.spot = select[Math.floor(Math.random() * select.length)];
-          Building.list[self.work.hq].log[self.id] = self.work.spot;
-          self.action = 'task';
-          if(self.work.spot){
-            console.log(self.name + ' working @ ' + hq.type);
-          } else {
-            console.log(self.name + ' failed to find work spot @ ' + hq.type);
-          }
-        } else {
-          var hut = Building.list[self.hut];
-          var select = [];
-          for(var i in hut.plot){
-            var p = hut.plot[i];
-            var t = getTile(0,p[0],p[1]);
-            if(t == 11){
-              select.push(p);
-            }
-          }
-          self.work.spot = select[Math.floor(Math.random() * select.length)];
-          self.action = 'build';
-        }
-      } else if(self.action == 'build'){
-        var spot = self.work.spot;
-        var cs = getCenter(spot[0],spot[1]);
-        var build = getBuilding(cs[0],cs[1]);
-        if(Building.list[build].built){
-          self.work.spot = null;
-          self.action = null;
-        } else {
-          if(loc.toString() == spot.toString()){
-              var gt = getTile(0,spot[0],spot[1]);
-              if(gt == 11){
-                if(!self.building){
-                  Build(self.id);
-                }
-              } else {
-                var plot = Building.list[build].plot;
-                var select = [];
-                for(var i in plot){
-                  var p = plot[i];
-                  var t = getTile(0,p[0],p[1]);
-                  if(t == 11){
-                    select.push(p);
-                  }
-                }
-                self.work.spot = select[Math.floor(Math.random() * select.length)];
+            avgDist = tDist/hq.resources.length;
+            var select = [];
+            for(var i in hq.resources){
+              var res = hq.resources[i];
+              var r = getCenter(res[0],res[1]);
+              var dist = getDistance({x:hq.x,y:hq.y},{x:r[0],y:r[1]});
+              if(dist <= avgDist){
+                select.push(res);
               }
-          } else {
-            if(!self.path){
-              self.moveTo(0,spot[0],spot[1]);
             }
-          }
-        }
-      } else if(self.action == 'task'){
-        var spot = self.work.spot;
-        if(!spot){
-          self.action = null;
-        } else {
-          if(self.inventory.grain == 10){
-            var b = Building.list[self.work.hq];
-            var dropoff = [b.plot[0][0],b.plot[0][1]+1];
-            if(loc.toString() == dropoff.toString()){
-              self.facing = 'up';
-              self.inventory.grain -= 9;
-              if(Player.list[b.owner].house){
-                var h = Player.list[b.owner].house;
-                House.list[h].stores.grain += 6;
-              } else {
-                Player.list[b.owner].stores.grain += 6
-              }
-              self.inventory.flour += 3;
+            self.work.spot = select[Math.floor(Math.random() * select.length)];
+            Building.list[self.work.hq].log[self.id] = self.work.spot;
+            self.action = 'task';
+            if(self.work.spot){
+              console.log(self.name + ' working @ ' + hq.type);
             } else {
-              if(!self.path){
-                self.moveTo(0,dropoff[0],dropoff[1]);
+              console.log(self.name + ' failed to find work spot @ ' + hq.type);
+            }
+          } else {
+            var hut = Building.list[self.hut];
+            var select = [];
+            for(var i in hut.plot){
+              var p = hut.plot[i];
+              var t = getTile(0,p[0],p[1]);
+              if(t == 11){
+                select.push(p);
               }
             }
+            self.work.spot = select[Math.floor(Math.random() * select.length)];
+            self.action = 'build';
+          }
+        } else if(self.action == 'build'){
+          var spot = self.work.spot;
+          var cs = getCenter(spot[0],spot[1]);
+          var build = getBuilding(cs[0],cs[1]);
+          if(Building.list[build].built){
+            self.work.spot = null;
+            self.action = null;
           } else {
             if(loc.toString() == spot.toString()){
-              var tile = getTile(0,spot[0],spot[1]);
-              var res = getTile(6,spot[0],spot[1]);
-              self.working = true;
-              self.farming = true;
-              if(!self.workTimer){
-                self.workTimer = true;
-                setTimeout(function(){
-                  if(self.farming){
-                    var b = getBuilding(self.x,self.y);
-                    var f = Building.list[b];
-                    if(tile == 8){
-                      tileChange(6,spot[0],spot[1],1,true);
-                      var count = 0;
-                      var next = [];
-                      for(var i in f.plot){
-                        var p = f.plot[i];
-                        if(getTile(6,p[0],p[1]) >= 25){
-                          count++;
-                        } else {
-                          next.push(p);
-                        }
-                      }
-                      if(count == 9){
-                        for(var i in f.plot){
-                          var p = f.plot[i];
-                          tileChange(0,p[0],p[1],9);
-                        }
-                        mapEdit();
-                      } else {
-                        for(var n in hq.resources){
-                          var r = hq.resources[n];
-                          if(r.toString() == spot.toString()){
-                            Building.list[self.work.hq].resources.splice(n,1);
-                          }
-                        }
-                        var rand = Math.floor(Math.random() * next.length);
-                        self.work.spot = next[rand];
-                        Building.list[self.work.hq].log[self.id] = self.work.spot;
-                      }
-                    } else if(tile == 9){
-                      tileChange(6,spot[0],spot[1],1,true);
-                      var count = 0;
-                      var next = [];
-                      for(var i in f.plot){
-                        var p = f.plot[i];
-                        if(getTile(6,p[0],p[1]) >= 50){
-                          count++;
-                        }
-                      }
-                      if(count == 9){
-                        for(var i in f.plot){
-                          var p = f.plot[i];
-                          tileChange(0,p[0],p[1],10);
-                        }
-                        mapEdit();
-                      } else {
-                        for(var n in hq.resources){
-                          var r = hq.resources[n];
-                          if(r.toString() == spot.toString()){
-                            Building.list[self.work.hq].resources.splice(n,1);
-                          }
-                        }
-                        var rand = Math.floor(Math.random() * next.length);
-                        self.work.spot = next[rand];
-                        Building.list[self.work.hq].log[self.id] = self.work.spot;
-                      }
-                    } else {
-                      tileChange(6,spot[0],spot[1],-1,true);
-                      if(getTile(6,spot[0],spot[1]) == 0){
-                        tileChange(0,spot[0],spot[1],8);
+                var gt = getTile(0,spot[0],spot[1]);
+                if(gt == 11){
+                  if(!self.building){
+                    Build(self.id);
+                  }
+                } else {
+                  var plot = Building.list[build].plot;
+                  var select = [];
+                  for(var i in plot){
+                    var p = plot[i];
+                    var t = getTile(0,p[0],p[1]);
+                    if(t == 11){
+                      select.push(p);
+                    }
+                  }
+                  self.work.spot = select[Math.floor(Math.random() * select.length)];
+                }
+            } else {
+              if(!self.path){
+                self.moveTo(0,spot[0],spot[1]);
+              }
+            }
+          }
+        } else if(self.action == 'task'){
+          var spot = self.work.spot;
+          if(!spot){
+            self.action = null;
+          } else {
+            if(self.inventory.grain == 10){
+              var b = Building.list[self.work.hq];
+              var dropoff = [b.plot[0][0],b.plot[0][1]+1];
+              if(loc.toString() == dropoff.toString()){
+                self.facing = 'up';
+                self.inventory.grain -= 9;
+                if(Player.list[b.owner].house){
+                  var h = Player.list[b.owner].house;
+                  House.list[h].stores.grain += 6;
+                } else {
+                  Player.list[b.owner].stores.grain += 6
+                }
+                self.inventory.flour += 3;
+              } else {
+                if(!self.path){
+                  self.moveTo(0,dropoff[0],dropoff[1]);
+                }
+              }
+            } else {
+              if(loc.toString() == spot.toString()){
+                var tile = getTile(0,spot[0],spot[1]);
+                var res = getTile(6,spot[0],spot[1]);
+                self.working = true;
+                self.farming = true;
+                if(!self.workTimer){
+                  self.workTimer = true;
+                  setTimeout(function(){
+                    if(self.farming){
+                      var b = getBuilding(self.x,self.y);
+                      var f = Building.list[b];
+                      if(tile == 8){
+                        tileChange(6,spot[0],spot[1],1,true);
                         var count = 0;
                         var next = [];
                         for(var i in f.plot){
-                          var p = f.plot[i]
-                          var t = getTile(0,p[0],p[1]);
-                          if(t == 8){
+                          var p = f.plot[i];
+                          if(getTile(6,p[0],p[1]) >= 25){
                             count++;
                           } else {
                             next.push(p);
                           }
                         }
                         if(count == 9){
-                          for(var n in f.plot){
-                            var p = f.plot[n];
-                            if(p.toString() == spot.toString()){
-                              continue;
-                            } else {
-                              Building.list[self.work.hq].resources.push(p);
-                            }
+                          for(var i in f.plot){
+                            var p = f.plot[i];
+                            tileChange(0,p[0],p[1],9);
                           }
+                          mapEdit();
                         } else {
                           for(var n in hq.resources){
                             var r = hq.resources[n];
@@ -4490,63 +4416,126 @@ SerfF = function(param){
                           self.work.spot = next[rand];
                           Building.list[self.work.hq].log[self.id] = self.work.spot;
                         }
+                      } else if(tile == 9){
+                        tileChange(6,spot[0],spot[1],1,true);
+                        var count = 0;
+                        var next = [];
+                        for(var i in f.plot){
+                          var p = f.plot[i];
+                          if(getTile(6,p[0],p[1]) >= 50){
+                            count++;
+                          }
+                        }
+                        if(count == 9){
+                          for(var i in f.plot){
+                            var p = f.plot[i];
+                            tileChange(0,p[0],p[1],10);
+                          }
+                          mapEdit();
+                        } else {
+                          for(var n in hq.resources){
+                            var r = hq.resources[n];
+                            if(r.toString() == spot.toString()){
+                              Building.list[self.work.hq].resources.splice(n,1);
+                            }
+                          }
+                          var rand = Math.floor(Math.random() * next.length);
+                          self.work.spot = next[rand];
+                          Building.list[self.work.hq].log[self.id] = self.work.spot;
+                        }
+                      } else {
+                        tileChange(6,spot[0],spot[1],-1,true);
+                        if(getTile(6,spot[0],spot[1]) == 0){
+                          tileChange(0,spot[0],spot[1],8);
+                          var count = 0;
+                          var next = [];
+                          for(var i in f.plot){
+                            var p = f.plot[i]
+                            var t = getTile(0,p[0],p[1]);
+                            if(t == 8){
+                              count++;
+                            } else {
+                              next.push(p);
+                            }
+                          }
+                          if(count == 9){
+                            for(var n in f.plot){
+                              var p = f.plot[n];
+                              if(p.toString() == spot.toString()){
+                                continue;
+                              } else {
+                                Building.list[self.work.hq].resources.push(p);
+                              }
+                            }
+                          } else {
+                            for(var n in hq.resources){
+                              var r = hq.resources[n];
+                              if(r.toString() == spot.toString()){
+                                Building.list[self.work.hq].resources.splice(n,1);
+                              }
+                            }
+                            var rand = Math.floor(Math.random() * next.length);
+                            self.work.spot = next[rand];
+                            Building.list[self.work.hq].log[self.id] = self.work.spot;
+                          }
+                        }
+                        mapEdit();
                       }
-                      mapEdit();
                     }
-                  }
-                  self.workTimer = false;
-                  self.working = false;
-                  self.farming = false;
-                },10000/self.strength);
-              }
-            } else {
-              if(!self.path){
-                self.moveTo(0,spot[0],spot[1]);
+                    self.workTimer = false;
+                    self.working = false;
+                    self.farming = false;
+                  },10000/self.strength);
+                }
+              } else {
+                if(!self.path){
+                  self.moveTo(0,spot[0],spot[1]);
+                }
               }
             }
           }
-        }
-      } else if(self.action == 'clockout'){
-        self.working = false;
-        self.building = false;
-        self.farming = false;
-        self.chopping = false;
-        self.mining = false;
-        var b = Building.list[self.work.hq];
-        var drop = [b.plot[0][0],b.plot[0][1]+1];
-        if(loc.toString() == drop.toString()){
-          self.facing = 'up';
-          if(self.inventory.grain >= 3){
-            self.inventory.grain -= 3;
-            if(Player.list[b.owner].house){
-              var h = Player.list[b.owner].house;
-              House.list[h].stores.grain += 2;
+        } else if(self.action == 'clockout'){
+          self.working = false;
+          self.building = false;
+          self.farming = false;
+          self.chopping = false;
+          self.mining = false;
+          var b = Building.list[self.work.hq];
+          var drop = [b.plot[0][0],b.plot[0][1]+1];
+          if(loc.toString() == drop.toString()){
+            self.facing = 'up';
+            if(self.inventory.grain >= 3){
+              self.inventory.grain -= 3;
+              if(Player.list[b.owner].house){
+                var h = Player.list[b.owner].house;
+                House.list[h].stores.grain += 2;
+              } else {
+                Player.list[b.owner].stores.grain += 2
+              }
+              self.inventory.flour++;
             } else {
-              Player.list[b.owner].stores.grain += 2
+              self.mode = 'idle';
             }
-            self.inventory.flour++;
           } else {
-            self.mode = 'idle';
+            if(!self.path){
+              self.moveTo(0,drop[0],drop[1]);
+            }
           }
-        } else {
-          if(!self.path){
-            self.moveTo(0,drop[0],drop[1]);
-          }
-        }
-      } else if(self.action == 'combat'){
-        self.action = 'flee';
-      } else if(self.action == 'flee'){
-        if(self.combat.target){
-          var target = Player.list[self.combat.target];
-          if(target){
-            var tLoc = getLoc(target.x,target.y);
-            self.reposition(loc,tLoc);
+        } else if(self.action == 'combat'){
+          self.action = 'flee';
+        } else if(self.action == 'flee'){
+          if(self.combat.target){
+            var target = Player.list[self.combat.target];
+            if(target){
+              var tLoc = getLoc(target.x,target.y);
+              self.reposition(loc,tLoc);
+            } else {
+              self.combat.target = null;
+              self.action = null;
+            }
           } else {
-            self.combat.target = null;
             self.action = null;
           }
-        } else {
-          self.action = null;
         }
       }
       // IDLE
@@ -5059,7 +5048,6 @@ Cavalier = function(param){
   self.class = 'Cavalier';
   self.sex = 'm';
   self.military = true;
-  self.rank = '♞ ';
   self.spriteSize = tileSize*1.5;
   self.mounted = true;
   self.baseSpd = 6.5;
@@ -5071,7 +5059,7 @@ General = function(param){
   self.name = param.name;
   self.class = 'General';
   self.sex = 'm';
-  self.rank = '♜ ';
+  self.rank = '♞ ';
   self.spriteSize = tileSize*2;
   self.mounted = true;
   self.baseSpd = 6.5;
@@ -5911,15 +5899,15 @@ Wood = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.wood > 9){
-      socket.emit('addToChat','<i>You are already carrying too much</i> <b>Wood</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Wood</b>.'}));
     } else if(player.inventory.wood + self.qty > 10){
       var q = 10 - player.inventory.wood;
       self.qty -= q;
       Player.list[id].inventory.wood += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Wood</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>Wood</b>.'}));
     } else {
       Player.list[id].inventory.wood += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Wood</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>Wood</b>.'}));
       self.toRemove = true;
     }
   }
@@ -5939,15 +5927,15 @@ Stone = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.stone > 9){
-      socket.emit('addToChat','<i>You are already carrying too much</i> <b>Stone</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Stone</b>.'}));
     } else if(player.inventory.stone + self.qty > 10){
       var q = 10 - player.inventory.stone;
       self.qty -= q;
       Player.list[id].inventory.stone += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Stone</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>Stone</b>.'}));
     } else {
       Player.list[id].inventory.stone += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Stone</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>Stone</b>.'}));
       self.toRemove = true;
     }
   }
@@ -5982,15 +5970,15 @@ IronOre = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.ironore > 9){
-      socket.emit('addToChat','<i>You are already carrying too much</i> <b>IronOre</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>IronOre</b>.'}));
     } else if(player.inventory.ironore + self.qty > 10){
       var q = 10 - player.inventory.ironore;
       self.qty -= q;
       Player.list[id].inventory.ironore += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>IronOre</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>IronOre</b>.'}));
     } else {
       Player.list[id].inventory.ironore += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>IronOre</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>IronOre</b>.'}));
       self.toRemove = true;
     }
   }
@@ -6010,15 +5998,15 @@ Iron = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.iron > 9){
-      socket.emit('addToChat','<i>You are already carrying too much</i> <b>Iron</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Iron</b>.'}));
     } else if(player.inventory.iron + self.qty > 10){
       var q = 10 - player.inventory.iron;
       self.qty -= q;
       Player.list[id].inventory.iron += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Iron</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>Iron</b>.'}));
     } else {
       Player.list[id].inventory.iron += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Iron</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>Iron</b>.'}));
       self.toRemove = true;
     }
   }
@@ -6038,15 +6026,15 @@ Steel = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.steel > 9){
-      socket.emit('addToChat','<i>You are already carrying too much</i> <b>Steel</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Steel</b>.'}));
     } else if(player.inventory.steel + self.qty > 10){
       var q = 10 - player.inventory.steel;
       self.qty -= q;
       Player.list[id].inventory.steel += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Steel</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>Steel</b>.'}));
     } else {
       Player.list[id].inventory.steel += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Steel</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>Steel</b>.'}));
       self.toRemove = true;
     }
   }
@@ -6066,15 +6054,15 @@ BoarHide = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.boarhide > 24){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>BoarHide</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>BoarHide</b>.'}));
     } else if(player.inventory.boarhide + self.qty > 25){
       var q = 25 - player.inventory.boarhide;
       self.qty -= q;
       Player.list[id].inventory.boarhide += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>BoarHide</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>BoarHide</b>.'}));
     } else {
       Player.list[id].inventory.boarhide += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>BoarHide</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>BoarHide</b>.'}));
       self.toRemove = true;
     }
   }
@@ -6094,15 +6082,15 @@ Leather = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.leather > 24){
-      socket.emit('addToChat','<i>You are already carrying too much</i> <b>Leather</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Leather</b>.'}));
     } else if(player.inventory.leather + self.qty > 25){
       var q = 25 - player.inventory.leather;
       self.qty -= q;
       Player.list[id].inventory.leather += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Leather</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>Leather</b>.'}));
     } else {
       Player.list[id].inventory.leather += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Leather</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>Leather</b>.'}));
       self.toRemove = true;
     }
   }
@@ -6122,15 +6110,15 @@ SilverOre = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.silverore > 9){
-      socket.emit('addToChat','<i>You are already carrying too much</i> <b>SilverOre</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>SilverOre</b>.'}));
     } else if(player.inventory.silverore + self.qty > 10){
       var q = 10 - player.inventory.silverore;
       self.qty -= q;
       Player.list[id].inventory.silverore += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>SilverOre</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>SilverOre</b>.'}));
     } else {
       Player.list[id].inventory.silverore += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>SilverOre</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>SilverOre</b>.'}));
       self.toRemove = true;
     }
   }
@@ -6150,7 +6138,7 @@ Silver = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     Player.list[id].inventory.silver += self.qty;
-    socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Silver</b>.');
+    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>Silver</b>.'}));
     self.toRemove = true;
   }
   Item.list[self.id] = self;
@@ -6169,15 +6157,15 @@ GoldOre = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.goldore > 9){
-      socket.emit('addToChat','<i>You are already carrying too much</i> <b>GoldOre</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>GoldOre</b>.'}));
     } else if(player.inventory.goldore + self.qty > 10){
       var q = 10 - player.inventory.goldore;
       self.qty -= q;
       Player.list[id].inventory.goldore += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>GoldOre</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>GoldOre</b>.'}));
     } else {
       Player.list[id].inventory.goldore += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>GoldOre</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>GoldOre</b>.'}));
       self.toRemove = true;
     }
   }
@@ -6197,7 +6185,7 @@ Gold = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     Player.list[id].inventory.gold += self.qty;
-    socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Gold</b>.');
+    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>Gold</b>.'}));
     self.toRemove = true;
   }
   Item.list[self.id] = self;
@@ -6216,7 +6204,7 @@ Diamond = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     Player.list[id].inventory.diamond += self.qty;
-    socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Diamond</b>.');
+    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>Diamond</b>.'}));
     self.toRemove = true;
   }
   Item.list[self.id] = self;
@@ -6235,15 +6223,15 @@ HuntingKnife = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.huntingknife > 9){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>HuntingKnife</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>HuntingKnife</b>.'}));
     } else if(player.inventory.huntingknife + self.qty > 10){
       var q = 10 - player.inventory.huntingknife;
       self.qty -= q;
       Player.list[id].inventory.huntingknife += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>HuntingKnife</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>HuntingKnife</b>.'}));
     } else {
       Player.list[id].inventory.huntingknife += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>HuntingKnife</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>HuntingKnife</b>.'}));
       self.toRemove = true;
     }
   }
@@ -6262,15 +6250,15 @@ Dague = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.dague > 9){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Dague</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Dague</b>.'}));
     } else if(player.inventory.dague + self.qty > 10){
       var q = 10 - player.inventory.dague;
       self.qty -= q;
       Player.list[id].inventory.dague += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Dague</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>Dague</b>.'}));
     } else {
       Player.list[id].inventory.dague += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Dague</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>Dague</b>.'}));
       self.toRemove = true;
     }
   }
@@ -6289,15 +6277,15 @@ Rondel = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.rondel > 9){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Rondel</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Rondel</b>.'}));
     } else if(player.inventory.rondel + self.qty > 10){
       var q = 10 - player.inventory.rondel;
       self.qty -= q;
       Player.list[id].inventory.rondel += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Rondel</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>Rondel</b>.'}));
     } else {
       Player.list[id].inventory.rondel += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Rondel</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>Rondel</b>.'}));
       self.toRemove = true;
     }
   }
@@ -6316,15 +6304,15 @@ Misericorde = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.misericorde > 9){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Misericorde</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Misericorde</b>.'}));
     } else if(player.inventory.misericorde + self.qty > 10){
       var q = 10 - player.inventory.misericorde;
       self.qty -= q;
       Player.list[id].inventory.misericorde += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Misericorde</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>Misericorde</b>.'}));
     } else {
       Player.list[id].inventory.misericorde += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Misericorde</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>Misericorde</b>.'}));
       self.toRemove = true;
     }
   }
@@ -6344,15 +6332,15 @@ BastardSword = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.bastardsword > 9){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>BastardSword</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>BastardSword</b>.'}));
     } else if(player.inventory.bastardsword + self.qty > 10){
       var q = 10 - player.inventory.bastardsword;
       self.qty -= q;
       Player.list[id].inventory.bastardsword += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>BastardSword</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>BastardSword</b>.'}));
     } else {
       Player.list[id].inventory. bastardsword += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>BastardSword</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>BastardSword</b>.'}));
       self.toRemove = true;
     }
   }
@@ -6372,15 +6360,15 @@ Longsword = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.longsword > 9){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Longsword</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Longsword</b>.'}));
     } else if(player.inventory.longsword + self.qty > 10){
       var q = 10 - player.inventory.longsword;
       self.qty -= q;
       Player.list[id].inventory.longsword += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Longsword</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>Longsword</b>.'}));
     } else {
       Player.list[id].inventory.longsword += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Longsword</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>Longsword</b>.'}));
       self.toRemove = true;
     }
   }
@@ -6400,15 +6388,15 @@ Zweihander = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.zweihander > 9){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Zweihander</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Zweihander</b>.'}));
     } else if(player.inventory.zweihander + self.qty > 10){
       var q = 10 - player.inventory.zweihander;
       self.qty -= q;
       Player.list[id].inventory.zweihander += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Zweihander</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>Zweihander</b>.'}));
     } else {
       Player.list[id].inventory.zweihander += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Zweihander</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>Zweihander</b>.'}));
       self.toRemove = true;
     }
   }
@@ -6428,15 +6416,15 @@ Morallta = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.morallta > 9){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Morallta</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Morallta</b>.'}));
     } else if(player.inventory.morallta + self.qty > 10){
       var q = 10 - player.inventory.morallta;
       self.qty -= q;
       Player.list[id].inventory.morallta += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Morallta</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>Morallta</b>.'}));
     } else {
       Player.list[id].inventory.morallta += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Morallta</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>Morallta</b>.'}));
       self.toRemove = true;
     }
   }
@@ -6456,15 +6444,15 @@ Bow = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.bow > 9){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Bow</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Bow</b>.'}));
     } else if(player.inventory.bow + self.qty > 10){
       var q = 10 - player.inventory.bow;
       self.qty -= q;
       Player.list[id].inventory.bow += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Bow</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>Bow</b>.'}));
     } else {
       Player.list[id].inventory.bow += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Bow</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>Bow</b>.'}));
       self.toRemove = true;
     }
   }
@@ -6484,15 +6472,15 @@ WelshLongbow = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.welshlongbow > 9){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>WelshLongbow</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>WelshLongbow</b>.'}));
     } else if(player.inventory.welshlongbow + self.qty > 10){
       var q = 10 - player.inventory.welshlongbow;
       self.qty -= q;
       Player.list[id].inventory.welshlongbow += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>WelshLongbow</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>WelshLongbow</b>.'}));
     } else {
       Player.list[id].inventory.welshlongbow += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>WelshLongbow</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>WelshLongbow</b>.'}));
       self.toRemove = true;
     }
   }
@@ -6512,15 +6500,15 @@ KnightLance = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.knightlance > 9){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>KnightLance</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>KnightLance</b>.'}));
     } else if(player.inventory.knightlance + self.qty > 10){
       var q = 10 - player.inventory.knightlance;
       self.qty -= q;
       Player.list[id].inventory.knightlance += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>KnightLance</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>KnightLance</b>.'}));
     } else {
       Player.list[id].inventory.knightlance += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>KnightLance</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>KnightLance</b>.'}));
       self.toRemove = true;
     }
   }
@@ -6540,15 +6528,15 @@ RusticLance = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.rusticlance > 9){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>RusticLance</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>RusticLance</b>.'}));
     } else if(player.inventory.rusticlance + self.qty > 10){
       var q = 10 - player.inventory.rusticlance;
       self.qty -= q;
       Player.list[id].inventory.rusticlance += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>RusticLance</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>RusticLance</b>.'}));
     } else {
       Player.list[id].inventory.rusticlance += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>RusticLance</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>RusticLance</b>.'}));
       self.toRemove = true;
     }
   }
@@ -6568,15 +6556,15 @@ PaladinLance = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.paladinlance > 9){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>PaladinLance</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>PaladinLance</b>.'}));
     } else if(player.inventory.paladinlance + self.qty > 10){
       var q = 10 - player.inventory.paladinlance;
       self.qty -= q;
       Player.list[id].inventory.paladinlance += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>PaladinLance</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>PaladinLance</b>.'}));
     } else {
       Player.list[id].inventory.paladinlance += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>PaladinLance</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>PaladinLance</b>.'}));
       self.toRemove = true;
     }
   }
@@ -6596,15 +6584,15 @@ Brigandine = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.brigandine > 9){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Brigandine</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Brigandine</b>.'}));
     } else if(player.inventory.brigandine + self.qty > 10){
       var q = 10 - player.inventory.brigandine;
       self.qty -= q;
       Player.list[id].inventory.brigandine += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Brigandine</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>Brigandine</b>.'}));
     } else {
       Player.list[id].inventory.brigandine += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Brigandine</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>Brigandine</b>.'}));
       self.toRemove = true;
     }
   }
@@ -6624,15 +6612,15 @@ Lamellar = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.lamellar > 9){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Lamellar</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Lamellar</b>.'}));
     } else if(player.inventory.lamellar + self.qty > 10){
       var q = 10 - player.inventory.lamellar;
       self.qty -= q;
       Player.list[id].inventory.lamellar += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Lamellar</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>Lamellar</b>.'}));
     } else {
       Player.list[id].inventory.lamellar += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Lamellar</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>Lamellar</b>.'}));
       self.toRemove = true;
     }
   }
@@ -6652,15 +6640,15 @@ Maille = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.maille > 9){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Maille</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Maille</b>.'}));
     } else if(player.inventory.maille + self.qty > 10){
       var q = 10 - player.inventory.maille;
       self.qty -= q;
       Player.list[id].inventory.maille += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Maille</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>Maille</b>.'}));
     } else {
       Player.list[id].inventory.maille += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Maille</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>Maille</b>.'}));
       self.toRemove = true;
     }
   }
@@ -6681,15 +6669,15 @@ Hauberk = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.hauberk > 9){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Hauberk</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Hauberk</b>.'}));
     } else if(player.inventory.hauberk + self.qty > 10){
       var q = 10 - player.inventory.hauberk;
       self.qty -= q;
       Player.list[id].inventory.hauberk += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Hauberk</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>Hauberk</b>.'}));
     } else {
       Player.list[id].inventory.hauberk += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Hauberk</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>Hauberk</b>.'}));
       self.toRemove = true;
     }
   }
@@ -6708,15 +6696,15 @@ Brynja = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.brynja > 9){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Brynja</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Brynja</b>.'}));
     } else if(player.inventory.brynja + self.qty > 10){
       var q = 10 - player.inventory.brynja;
       self.qty -= q;
       Player.list[id].inventory.brynja += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Brynja</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>Brynja</b>.'}));
     } else {
       Player.list[id].inventory.brynja += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Brynja</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>Brynja</b>.'}));
       self.toRemove = true;
     }
   }
@@ -6736,15 +6724,15 @@ Cuirass = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.cuirass > 9){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Cuirass</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Cuirass</b>.'}));
     } else if(player.inventory.cuirass + self.qty > 10){
       var q = 10 - player.inventory.cuirass;
       self.qty -= q;
       Player.list[id].inventory.cuirass += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Cuirass</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>Cuirass</b>.'}));
     } else {
       Player.list[id].inventory.cuirass += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Cuirass</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>Cuirass</b>.'}));
       self.toRemove = true;
     }
   }
@@ -6764,15 +6752,15 @@ SteelPlate = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.steelplate > 9){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>SteelPlate</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>SteelPlate</b>.'}));
     } else if(player.inventory.steelplate + self.qty > 10){
       var q = 10 - player.inventory.steelplate;
       self.qty -= q;
       Player.list[id].inventory.steelplate += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>SteelPlate</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>SteelPlate</b>.'}));
     } else {
       Player.list[id].inventory.steelplate += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>SteelPlate</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>SteelPlate</b>.'}));
       self.toRemove = true;
     }
   }
@@ -6792,15 +6780,15 @@ GreenwichPlate = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.greenwichplate > 9){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>GreenwichPlate</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>GreenwichPlate</b>.'}));
     } else if(player.inventory.greenwichplate + self.qty > 10){
       var q = 10 - player.inventory.greenwichplate;
       self.qty -= q;
       Player.list[id].inventory.greenwichplate += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>GreenwichPlate</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>GreenwichPlate</b>.'}));
     } else {
       Player.list[id].inventory.greenwichplate += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>GreenwichPlate</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>GreenwichPlate</b>.'}));
       self.toRemove = true;
     }
   }
@@ -6820,15 +6808,15 @@ GothicPlate = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.gothicplate > 9){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>GothicPlate</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>GothicPlate</b>.'}));
     } else if(player.inventory.gothicplate + self.qty > 10){
       var q = 10 - player.inventory.gothicplate;
       self.qty -= q;
       Player.list[id].inventory.gothicplate += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>GothicPlate</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>GothicPlate</b>.'}));
     } else {
       Player.list[id].inventory.gothicplate += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>GothicPlate</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>GothicPlate</b>.'}));
       self.toRemove = true;
     }
   }
@@ -6848,15 +6836,15 @@ ClericRobe = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.clericrobe > 9){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>ClericRobe</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>ClericRobe</b>.'}));
     } else if(player.inventory.clericrobe + self.qty > 10){
       var q = 10 - player.inventory.clericrobe;
       self.qty -= q;
       Player.list[id].inventory.clericrobe += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>ClericRobe</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>ClericRobe</b>.'}));
     } else {
       Player.list[id].inventory.clericrobe += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>ClericRobe</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>ClericRobe</b>.'}));
       self.toRemove = true;
     }
   }
@@ -6876,15 +6864,15 @@ MonkCowl = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.monkcowl > 9){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>MonkCowl</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>MonkCowl</b>.'}));
     } else if(player.inventory.monkcowl + self.qty > 10){
       var q = 10 - player.inventory.monkcowl;
       self.qty -= q;
       Player.list[id].inventory.monkcowl += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>MonkCowl</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>MonkCowl</b>.'}));
     } else {
       Player.list[id].inventory.monkcowl += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>MonkCowl</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>MonkCowl</b>.'}));
       self.toRemove = true;
     }
   }
@@ -6904,15 +6892,15 @@ BlackCloak = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.blackcloak > 9){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>BlackCloak</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>BlackCloak</b>.'}));
     } else if(player.inventory.blackcloak + self.qty > 10){
       var q = 10 - player.inventory.blackcloak;
       self.qty -= q;
       Player.list[id].inventory.blackcloak += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>BlackCloak</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>BlackCloak</b>.'}));
     } else {
       Player.list[id].inventory.blackcloak += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>BlackCloak</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>BlackCloak</b>.'}));
       self.toRemove = true;
     }
   }
@@ -6932,15 +6920,15 @@ Tome = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.tome > 9){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Tome</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Tome</b>.'}));
     } else if(player.inventory.tome + self.qty > 10){
       var q = 10 - player.inventory.tome;
       self.qty -= q;
       Player.list[id].inventory.tome += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Tome</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>Tome</b>.'}));
     } else {
       Player.list[id].inventory.tome += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Tome</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>Tome</b>.'}));
       self.toRemove = true;
     }
   }
@@ -6960,15 +6948,15 @@ RunicScroll = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.runicscroll > 9){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>RunicScroll</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>RunicScroll</b>.'}));
     } else if(player.inventory.runicscroll + self.qty > 10){
       var q = 10 - player.inventory.runicscroll;
       self.qty -= q;
       Player.list[id].inventory.runicscroll += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>RunicScroll</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>RunicScroll</b>.'}));
     } else {
       Player.list[id].inventory.runicscroll += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>RunicScroll</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>RunicScroll</b>.'}));
       self.toRemove = true;
     }
   }
@@ -6988,15 +6976,15 @@ SacredText = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.sacredtext > 9){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>SacredText</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>SacredText</b>.'}));
     } else if(player.inventory.sacredtext + self.qty > 10){
       var q = 10 - player.inventory.sacredtext;
       self.qty -= q;
       Player.list[id].inventory.sacredtext += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>SacredText</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>SacredText</b>.'}));
     } else {
       Player.list[id].inventory.sacredtext += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>SacredText</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>SacredText</b>.'}));
       self.toRemove = true;
     }
   }
@@ -7016,15 +7004,15 @@ StoneAxe = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.stoneaxe > 9){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>StoneAxe</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>StoneAxe</b>.'}));
     } else if(player.inventory.stoneaxe + self.qty > 10){
       var q = 10 - player.inventory.stoneaxe;
       self.qty -= q;
       Player.list[id].inventory.stoneaxe += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>StoneAxe</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>StoneAxe</b>.'}));
     } else {
       Player.list[id].inventory.stoneaxe += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>StoneAxe</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>StoneAxe</b>.'}));
       self.toRemove = true;
     }
   }
@@ -7044,15 +7032,15 @@ IronAxe = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.ironaxe > 9){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>IronAxe</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>IronAxe</b>.'}));
     } else if(player.inventory.ironaxe + self.qty > 10){
       var q = 10 - player.inventory.ironaxe;
       self.qty -= q;
       Player.list[id].inventory.ironaxe += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>IronAxe</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>IronAxe</b>.'}));
     } else {
       Player.list[id].inventory.ironaxe += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>IronAxe</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>IronAxe</b>.'}));
       self.toRemove = true;
     }
   }
@@ -7072,15 +7060,15 @@ Pickaxe = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.pickaxe > 9){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>PickAxe</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>PickAxe</b>.'}));
     } else if(player.inventory.pickaxe + self.qty > 10){
       var q = 10 - player.inventory.pickaxe;
       self.qty -= q;
       Player.list[id].inventory.pickaxe += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Pickaxe</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>Pickaxe</b>.'}));
     } else {
       Player.list[id].inventory.pickaxe += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Pickaxe</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>Pickaxe</b>.'}));
       self.toRemove = true;
     }
   }
@@ -7093,9 +7081,15 @@ Pickaxe = function(param){
 Key = function(param){
   var self = Item(param);
   self.type = 'Key';
+  self.name = param.name;
   self.class = 'tool';
   self.rank = 1;
   self.canPickup = true;
+  self.pickup = function(id){
+    socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up a </i><b>Key</b>.'}));
+    Player.list[id].inventory.key++;
+    Player.list[id].inventory.keyRing.push({id:self.id,name:self.name});
+  }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   return self;
@@ -7112,15 +7106,15 @@ Torch = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.torch > 24){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Torch</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Torch</b>.'}));
     } else if(player.inventory.torch + self.qty > 25){
       var q = 25 - player.inventory.torch;
       self.qty -= q;
       Player.list[id].inventory.torch += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Torch</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>Torch</b>.'}));
     } else {
       Player.list[id].inventory.torch += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Torch</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>Torch</b>.'}));
       self.toRemove = true;
     }
   }
@@ -7637,73 +7631,7 @@ Chest = function(param){
   self.class = 'tool';
   self.rank = 0;
   self.canPickup = false;
-  self.inventory = {
-    wood:0,
-    stone:0,
-    grain:0,
-    ironore:0,
-    iron:0,
-    steel:0,
-    boarhide:0,
-    leather:0,
-    silverore:0,
-    silver:0,
-    goldore:0,
-    gold:0,
-    diamond:0,
-    huntingknife:0,
-    dague:0,
-    rondel:0,
-    misericorde:0,
-    bastardsword:0,
-    longsword:0,
-    zweihander:0,
-    morallta:0,
-    bow:0,
-    welshlongbow:0,
-    knightlance:0,
-    rusticlance:0,
-    paladinlance:0,
-    brigandine:0,
-    lamellar:0,
-    maille:0,
-    hauberk:0,
-    brynja:0,
-    cuirass:0,
-    steelplate:0,
-    greenwichplate:0,
-    gothicplate:0,
-    clericrobe:0,
-    monkcowl:0,
-    blackcloak:0,
-    tome:0,
-    runicscroll:0,
-    sacredtext:0,
-    stoneaxe:0,
-    ironaxe:0,
-    pickaxe:0,
-    torch:0,
-    bread:0,
-    fish:0,
-    lamb:0,
-    boarmeat:0,
-    venison:0,
-    poachedfish:0,
-    lambchop:0,
-    boarshank:0,
-    venisonloin:0,
-    mead:0,
-    saison:0,
-    flanders:0,
-    bieredegarde:0,
-    bordeaux:0,
-    bourgogne:0,
-    chianti:0,
-    crown:0,
-    arrows:0,
-    worldmap:0,
-    relic:0
-  }
+  self.inventory = Inventory();
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   self.blocker(self.type);
@@ -7717,73 +7645,7 @@ LockedChest = function(param){
   self.class = 'tool';
   self.rank = 0;
   self.canPickup = false;
-  self.inventory = {
-    wood:0,
-    stone:0,
-    grain:0,
-    ironore:0,
-    iron:0,
-    steel:0,
-    boarhide:0,
-    leather:0,
-    silverore:0,
-    silver:0,
-    goldore:0,
-    gold:0,
-    diamond:0,
-    huntingknife:0,
-    dague:0,
-    rondel:0,
-    misericorde:0,
-    bastardsword:0,
-    longsword:0,
-    zweihander:0,
-    morallta:0,
-    bow:0,
-    welshlongbow:0,
-    knightlance:0,
-    rusticlance:0,
-    paladinlance:0,
-    brigandine:0,
-    lamellar:0,
-    maille:0,
-    hauberk:0,
-    brynja:0,
-    cuirass:0,
-    steelplate:0,
-    greenwichplate:0,
-    gothicplate:0,
-    clericrobe:0,
-    monkcowl:0,
-    blackcloak:0,
-    tome:0,
-    runicscroll:0,
-    sacredtext:0,
-    stoneaxe:0,
-    ironaxe:0,
-    pickaxe:0,
-    torch:0,
-    bread:0,
-    fish:0,
-    lamb:0,
-    boarmeat:0,
-    venison:0,
-    poachedfish:0,
-    lambchop:0,
-    boarshank:0,
-    venisonloin:0,
-    mead:0,
-    saison:0,
-    flanders:0,
-    bieredegarde:0,
-    bordeaux:0,
-    bourgogne:0,
-    chianti:0,
-    crown:0,
-    arrows:0,
-    worldmap:0,
-    relic:0
-  }
+  self.inventory = Inventory();
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   self.blocker(self.type);
@@ -7801,15 +7663,15 @@ Bread = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.bread > 24){
-      socket.emit('addToChat','<i>You are already carrying too much</i> <b>Bread</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Bread</b>.'}));
     } else if(player.inventory.bread + self.qty > 25){
       var q = 25 - player.inventory.bread;
       self.qty -= q;
       Player.list[id].inventory.bread += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Bread</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>Bread</b>.'}));
     } else {
       Player.list[id].inventory.bread += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Bread</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>Bread</b>.'}));
       self.toRemove = true;
     }
   }
@@ -7829,15 +7691,15 @@ Fish = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.fish > 24){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Fish</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Fish</b>.'}));
     } else if(player.inventory.fish + self.qty > 25){
       var q = 25 - player.inventory.fish;
       self.qty -= q;
       Player.list[id].inventory.fish += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Fish</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>Fish</b>.'}));
     } else {
       Player.list[id].inventory.fish += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Fish</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>Fish</b>.'}));
       self.toRemove = true;
     }
   }
@@ -7857,15 +7719,15 @@ Lamb = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.lamb > 24){
-      socket.emit('addToChat','<i>You are already carrying too much</i> <b>Lamb</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Lamb</b>.'}));
     } else if(player.inventory.lamb + self.qty > 25){
       var q = 25 - player.inventory.lamb;
       self.qty -= q;
       Player.list[id].inventory.lamb += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Lamb</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>Lamb</b>.'}));
     } else {
       Player.list[id].inventory.lamb += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Lamb</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>Lamb</b>.'}));
       self.toRemove = true;
     }
   }
@@ -7885,15 +7747,15 @@ BoarMeat = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.boarmeat > 24){
-      socket.emit('addToChat','<i>You are already carrying too much</i> <b>BoarMeat</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>BoarMeat</b>.'}));
     } else if(player.inventory.boarmeat + self.qty > 25){
       var q = 25 - player.inventory.boarmeat;
       self.qty -= q;
       Player.list[id].inventory.boarmeat += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>BoarMeat</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>BoarMeat</b>.'}));
     } else {
       Player.list[id].inventory.boarmeat += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>BoarMeat</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>BoarMeat</b>.'}));
       self.toRemove = true;
     }
   }
@@ -7913,15 +7775,15 @@ Venison = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.venison > 24){
-      socket.emit('addToChat','<i>You are already carrying too much</i> <b>Venison</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Venison</b>.'}));
     } else if(player.inventory.venison + self.qty > 25){
       var q = 25 - player.inventory.venison;
       self.qty -= q;
       Player.list[id].inventory.venison += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Venison</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>Venison</b>.'}));
     } else {
       Player.list[id].inventory.venison += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Venison</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>Venison</b>.'}));
       self.toRemove = true;
     }
   }
@@ -7941,15 +7803,15 @@ PoachedFish = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.poachedfish > 24){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>PoachedFish</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>PoachedFish</b>.'}));
     } else if(player.inventory.poachedfish + self.qty > 25){
       var q = 25 - player.inventory.poachedfish;
       self.qty -= q;
       Player.list[id].inventory.poachedfish += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>PoachedFish</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>PoachedFish</b>.'}));
     } else {
       Player.list[id].inventory.poachedfish += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>PoachedFish</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>PoachedFish</b>.'}));
       self.toRemove = true;
     }
   }
@@ -7969,15 +7831,15 @@ LambChop = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.lambchop > 24){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>LambChop</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>LambChop</b>.'}));
     } else if(player.inventory.lambchop + self.qty > 25){
       var q = 25 - player.inventory.lambchop;
       self.qty -= q;
       Player.list[id].inventory.lambchop += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>LambChop</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>LambChop</b>.'}));
     } else {
       Player.list[id].inventory.lambchop += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>LambChop</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>LambChop</b>.'}));
       self.toRemove = true;
     }
   }
@@ -7997,15 +7859,15 @@ BoarShank = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.boarshank > 24){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>BoarShank</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>BoarShank</b>.'}));
     } else if(player.inventory.boarshank + self.qty > 25){
       var q = 25 - player.inventory.boarshank;
       self.qty -= q;
       Player.list[id].inventory.boarshank += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>BoarShank</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>BoarShank</b>.'}));
     } else {
       Player.list[id].inventory.boarshank += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>BoarShank</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>BoarShank</b>.'}));
       self.toRemove = true;
     }
   }
@@ -8025,15 +7887,15 @@ VenisonLoin = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.venisonloin > 24){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>VenisonLoin</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>VenisonLoin</b>.'}));
     } else if(player.inventory.venisonloin + self.qty > 25){
       var q = 25 - player.inventory.venisonloin;
       self.qty -= q;
       Player.list[id].inventory.venisonloin += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>VenisonLoin</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>VenisonLoin</b>.'}));
     } else {
       Player.list[id].inventory.venisonloin += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>VenisonLoin</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>VenisonLoin</b>.'}));
       self.toRemove = true;
     }
   }
@@ -8053,15 +7915,15 @@ Mead = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.mead > 24){
-      socket.emit('addToChat','<i>You are already carrying too much</i> <b>Mead</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too much</i> <b>Mead</b>.'}));
     } else if(player.inventory.mead + self.qty > 25){
       var q = 25 - player.inventory.mead;
       self.qty -= q;
       Player.list[id].inventory.mead += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Mead</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>Mead</b>.'}));
     } else {
       Player.list[id].inventory.mead += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Mead</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>Mead</b>.'}));
       self.toRemove = true;
     }
   }
@@ -8081,15 +7943,15 @@ Saison = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.saison > 24){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Saison</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Saison</b>.'}));
     } else if(player.inventory.saison + self.qty > 25){
       var q = 25 - player.inventory.saison;
       self.qty -= q;
       Player.list[id].inventory.saison += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Saison</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>Saison</b>.'}));
     } else {
       Player.list[id].inventory.saison += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Saison</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>Saison</b>.'}));
       self.toRemove = true;
     }
   }
@@ -8109,15 +7971,15 @@ Flanders = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.flanders > 24){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Flanders</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Flanders</b>.'}));
     } else if(player.inventory.flanders + self.qty > 25){
       var q = 25 - player.inventory.flanders;
       self.qty -= q;
       Player.list[id].inventory.flanders += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Flanders</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>Flanders</b>.'}));
     } else {
       Player.list[id].inventory.flanders += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Flanders</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>Flanders</b>.'}));
       self.toRemove = true;
     }
   }
@@ -8137,15 +7999,15 @@ BiereDeGarde = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.bieredegarde > 24){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>BiereDeGarde</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>BiereDeGarde</b>.'}));
     } else if(player.inventory.bieredegarde + self.qty > 25){
       var q = 25 - player.inventory.bieredegarde;
       self.qty -= q;
       Player.list[id].inventory.bieredegarde += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>BiereDeGarde</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>BiereDeGarde</b>.'}));
     } else {
       Player.list[id].inventory.bieredegarde += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>BiereDeGarde</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>BiereDeGarde</b>.'}));
       self.toRemove = true;
     }
   }
@@ -8165,15 +8027,15 @@ Bordeaux = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.bordeaux > 24){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Bordeaux</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Bordeaux</b>.'}));
     } else if(player.inventory.bordeaux + self.qty > 25){
       var q = 25 - player.inventory.bordeaux;
       self.qty -= q;
       Player.list[id].inventory.bordeaux += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Bordeaux</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>Bordeaux</b>.'}));
     } else {
       Player.list[id].inventory.bordeaux += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Bordeaux</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>Bordeaux</b>.'}));
       self.toRemove = true;
     }
   }
@@ -8193,15 +8055,15 @@ Bourgogne = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.bourgogne > 24){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Bourgogne</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Bourgogne</b>.'}));
     } else if(player.inventory.bourgogne + self.qty > 25){
       var q = 25 - player.inventory.bourgogne;
       self.qty -= q;
       Player.list[id].inventory.bourgogne += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Bourgogne</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>Bourgogne</b>.'}));
     } else {
       Player.list[id].inventory.bourgogne += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Bourgogne</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>Bourgogne</b>.'}));
       self.toRemove = true;
     }
   }
@@ -8221,15 +8083,15 @@ Chianti = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.chianti > 24){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Chianti</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Chianti</b>.'}));
     } else if(player.inventory.chianti + self.qty > 25){
       var q = 25 - player.inventory.chianti;
       self.qty -= q;
       Player.list[id].inventory.chianti += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Chianti</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>Chianti</b>.'}));
     } else {
       Player.list[id].inventory.chianti += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Chianti</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>Chianti</b>.'}));
       self.toRemove = true;
     }
   }
@@ -8249,15 +8111,15 @@ Crown = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.crown > 9){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Crown</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Crown</b>.'}));
     } else if(player.inventory.crown + self.qty > 10){
       var q = 10 - player.inventory.crown;
       self.qty -= q;
       Player.list[id].inventory.crown += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Crown</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>Crown</b>.'}));
     } else {
       Player.list[id].inventory.crown += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Crown</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>Crown</b>.'}));
       self.toRemove = true;
     }
   }
@@ -8277,15 +8139,15 @@ Arrows = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.arrows > 49){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>Arrows</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>Arrows</b>.'}));
     } else if(player.inventory.arrows + self.qty > 50){
       var q = 50 - player.inventory.arrows;
       self.qty -= q;
       Player.list[id].inventory.arrows += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>Arrows</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>Arrows</b>.'}));
     } else {
       Player.list[id].inventory.arrows += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>Arrows</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>Arrows</b>.'}));
       self.toRemove = true;
     }
   }
@@ -8305,15 +8167,15 @@ WorldMap = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.worldmap > 9){
-      socket.emit('addToChat','<i>You are already carrying too many</i> <b>WorldMap</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>WorldMap</b>.'}));
     } else if(player.inventory.worldmap + self.qty > 10){
       var q = 10 - player.inventory.worldmap;
       self.qty -= q;
       Player.list[id].inventory.worldmap += q;
-      socket.emit('addToChat','<i>You picked up</i> ' + q + ' <b>WorldMap</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>WorldMap</b>.'}));
     } else {
       Player.list[id].inventory.worldmap += self.qty;
-      socket.emit('addToChat','<i>You picked up</i> ' + self.qty + ' <b>WorldMap</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>WorldMap</b>.'}));
       self.toRemove = true;
     }
   }
@@ -8333,10 +8195,10 @@ Relic = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     if(player.inventory.relic > 0){
-      socket.emit('addToChat','<i>You are already carrying a</i> <b>Relic</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying a</i> <b>Relic</b>.'}));
     } else {
       Player.list[id].inventory.relic += self.qty;
-      socket.emit('addToChat','<i>You picked up the</i> <b>Relic</b>.');
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up the</i> <b>Relic</b>.'}));
       self.toRemove = true;
     }
   }

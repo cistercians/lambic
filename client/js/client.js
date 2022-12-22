@@ -33,6 +33,10 @@ socket.onmessage = function(event){
     getBgm(data.x,data.y,data.z,data.b);
   } else if(data.msg == 'addToChat'){
     chatText.innerHTML += '<div>' + data.message + '</div>';
+  } else if(data.msg == 'tileEdit'){
+    world[data.l][data.r][data.c] = data.tile;
+  } else if(data.msg == 'layerEdit'){
+    world[data.l] = data.layer;
   } else if(data.msg == 'mapEdit'){
     world = data.world;
   } else if(data.msg == 'init'){

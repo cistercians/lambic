@@ -114,6 +114,7 @@ Build = function(id){
               matrixChange(0,plot[i][0],plot[i][1],0);
               matrixChange(1,plot[i][0],plot[i][1]+1,0);
               tileChange(0,plot[i][0],plot[i][1],19);
+              Building.list[b].name = Player.list[Building.list[b].owner].name + "'s Cottage'";
               Building.list[b].entrance = [plot[i][0],plot[i][1]];
             }
           }
@@ -129,7 +130,10 @@ Build = function(id){
             qty:1,
             parent:b
           });
-          Player.list[Building.list[b].owner].keys.push(b);
+          Player.list[Building.list[b].owner].inventory.key++;
+          Player.list[Building.list[b].owner].inventory.keyRing.push({id:b,name:Building.list[b].name});
+        } else if(building.type == 'villa'){
+
         } else if(building.type == 'fort'){
           matrixChange(0,plot[0][0],plot[0][1],1);
           tileChange(0,plot[0][0],plot[0][1],13);
@@ -168,6 +172,7 @@ Build = function(id){
               matrixChange(1,plot[i][0],plot[i][1]+1,0);
               tileChange(0,plot[i][0],plot[i][1],19);
               tileChange(5,plot[i][0],plot[i][1],15);
+              Building.list[b].name = Player.list[Building.list[b].owner].name + "'s Tower'";
               Building.list[b].entrance = [plot[i][0],plot[i][1]];
             } else {
               matrixChange(0,plot[i][0],plot[i][1],1);
@@ -202,7 +207,8 @@ Build = function(id){
             qty:1,
             parent:b
           });
-          Player.list[Building.list[b].owner].keys.push(b);
+          Player.list[Building.list[b].owner].inventory.key++;
+          Player.list[Building.list[b].owner].inventory.keyRing.push({id:b,name:Building.list[b].name});
         } else if(building.type == 'tavern'){
           for(var i in plot){
             tileChange(3,plot[i][0],plot[i][1],String('tavern' + i));
@@ -632,6 +638,20 @@ Build = function(id){
           Goods4({
             x:g4[0],
             y:g4[1],
+            z:1,
+            qty:1,
+            parent:b
+          });
+          Goods1({
+            x:fp1[0],
+            y:fp1[1],
+            z:1,
+            qty:1,
+            parent:b
+          });
+          Goods4({
+            x:fp2[0],
+            y:fp2[1],
             z:1,
             qty:1,
             parent:b

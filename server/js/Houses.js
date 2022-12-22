@@ -261,7 +261,6 @@ Goths = function(param){
           z:0,
           house:self.id,
           home:{z:0,loc:sp1},
-          work:{hq:b,spot:null},
           hut:id
         });
       } else {
@@ -273,7 +272,6 @@ Goths = function(param){
           z:0,
           house:self.id,
           home:{z:0,loc:sp1},
-          work:{hq:b,spot:null},
           hut:id
         });
       }
@@ -286,7 +284,6 @@ Goths = function(param){
           z:0,
           house:self.id,
           home:{z:0,loc:sp2},
-          work:{hq:b,spot:null},
           hut:id
         });
       } else {
@@ -298,19 +295,22 @@ Goths = function(param){
           z:0,
           house:self.id,
           home:{z:0,loc:sp2},
-          work:{hq:b,spot:null},
           hut:id
         });
       }
       if(building.type == 'mill'){
         Building.list[b].serfs[s1] = s1;
+        Player.list[s1].work = {hq:b,spot:null};
         Building.list[b].serfs[s2] = s2;
+        Player.list[s2].work = {hq:b,spot:null};
       } else {
         if(Player.list[s1].sex == 'm'){
           Building.list[b].serfs[s1] = s1;
+          Player.list[s1].work = {hq:b,spot:null};
         }
         if(Player.list[s2].sex == 'm'){
           Building.list[b].serfs[s2] = s2;
+          Player.list[s2].work = {hq:b,spot:null};
         }
       }
       console.log('Serfs have spawned for Goths: ' + Building.list[b].type);
@@ -700,7 +700,6 @@ Franks = function(param){
           z:0,
           house:self.id,
           home:{z:0,loc:sp1},
-          work:{hq:b,spot:null},
           hut:id
         });
       } else {
@@ -712,7 +711,6 @@ Franks = function(param){
           z:0,
           house:self.id,
           home:{z:0,loc:sp1},
-          work:{hq:b,spot:null},
           hut:id
         });
       }
@@ -725,7 +723,6 @@ Franks = function(param){
           z:0,
           house:self.id,
           home:{z:0,loc:sp2},
-          work:{hq:b,spot:null},
           hut:id
         });
       } else {
@@ -737,19 +734,22 @@ Franks = function(param){
           z:0,
           house:self.id,
           home:{z:0,loc:sp2},
-          work:{hq:b,spot:null},
           hut:id
         });
       }
       if(building.type == 'mill'){
         Building.list[b].serfs[s1] = s1;
+        Player.list[s1].work = {hq:b,spot:null};
         Building.list[b].serfs[s2] = s2;
+        Player.list[s2].work = {hq:b,spot:null};
       } else {
         if(Player.list[s1].sex == 'm'){
           Building.list[b].serfs[s1] = s1;
+          Player.list[s1].work = {hq:b,spot:null};
         }
         if(Player.list[s2].sex == 'm'){
           Building.list[b].serfs[s2] = s2;
+          Player.list[s2].work = {hq:b,spot:null};
         }
       }
       console.log('Serfs have spawned for Franks: ' + Building.list[b].type);
@@ -1147,7 +1147,6 @@ Celts = function(param){
           z:0,
           house:self.id,
           home:{z:0,loc:sp1},
-          work:{hq:b,spot:null},
           hut:id
         });
       } else {
@@ -1159,7 +1158,6 @@ Celts = function(param){
           z:0,
           house:self.id,
           home:{z:0,loc:sp1},
-          work:{hq:b,spot:null},
           hut:id
         });
       }
@@ -1172,7 +1170,6 @@ Celts = function(param){
           z:0,
           house:self.id,
           home:{z:0,loc:sp2},
-          work:{hq:b,spot:null},
           hut:id
         });
       } else {
@@ -1184,19 +1181,22 @@ Celts = function(param){
           z:0,
           house:self.id,
           home:{z:0,loc:sp2},
-          work:{hq:b,spot:null},
           hut:id
         });
       }
       if(building.type == 'mill'){
         Building.list[b].serfs[s1] = s1;
+        Player.list[s1].work = {hq:b,spot:null};
         Building.list[b].serfs[s2] = s2;
+        Player.list[s2].work = {hq:b,spot:null};
       } else {
         if(Player.list[s1].sex == 'm'){
           Building.list[b].serfs[s1] = s1;
+          Player.list[s1].work = {hq:b,spot:null};
         }
         if(Player.list[s2].sex == 'm'){
           Building.list[b].serfs[s2] = s2;
+          Player.list[s2].work = {hq:b,spot:null};
         }
       }
       console.log('Serfs have spawned for Celts: ' + Building.list[b].type);
@@ -1551,7 +1551,6 @@ Teutons = function(param){
           z:0,
           house:self.id,
           home:{z:0,loc:sp1},
-          work:{hq:b,spot:null},
           hut:id
         });
       } else {
@@ -1563,7 +1562,6 @@ Teutons = function(param){
           z:0,
           house:self.id,
           home:{z:0,loc:sp1},
-          work:{hq:b,spot:null},
           hut:id
         });
       }
@@ -1576,7 +1574,6 @@ Teutons = function(param){
           z:0,
           house:self.id,
           home:{z:0,loc:sp2},
-          work:{hq:b,spot:null},
           hut:id
         });
       } else {
@@ -1588,19 +1585,22 @@ Teutons = function(param){
           z:0,
           house:self.id,
           home:{z:0,loc:sp2},
-          work:{hq:b,spot:null},
           hut:id
         });
       }
       if(building.type == 'mill'){
         Building.list[b].serfs[s1] = s1;
+        Player.list[s1].work = {hq:b,spot:null};
         Building.list[b].serfs[s2] = s2;
+        Player.list[s2].work = {hq:b,spot:null};
       } else {
         if(Player.list[s1].sex == 'm'){
           Building.list[b].serfs[s1] = s1;
+          Player.list[s1].work = {hq:b,spot:null};
         }
         if(Player.list[s2].sex == 'm'){
           Building.list[b].serfs[s2] = s2;
+          Player.list[s2].work = {hq:b,spot:null};
         }
       }
       console.log('Serfs have spawned for Teutons: ' + Building.list[b].type);

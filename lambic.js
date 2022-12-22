@@ -12,6 +12,7 @@ var fs = require('fs');
 var PF = require('pathfinding');
 require('./server/js/Database')
 require('./server/js/Entity');
+require('./server/js/Inventory');
 require('./server/js/Commands');
 require('./server/js/Equip');
 require('./server/js/Houses');
@@ -428,14 +429,10 @@ console.log('');
 
 //edit world tiles
 tileChange = function(l,c,r,n,incr=false){
-  if(!incr){
-    world[l][r][c] = n;
+  if(incr){
+    world[l][r][c] += n;
   } else {
-    if(n > 0){
-      world[l][r][c] += n;
-    } else {
-      world[l][r][c] -= n;
-    }
+    world[l][r][c] = n;
   }
 };
 
@@ -493,8 +490,16 @@ matrixChange = function(l,c,r,n){
 };
 
 // send mapEdit
-mapEdit = function(){
-  emit({msg:'mapEdit',world:world});
+mapEdit = function(l,c,r){
+  if(l){
+    if(c && r){
+      emit({msg:'tileEdit',l:l,c:c,r:r,tile:world[l][r][c]});
+    } else {
+      emit({msg:'layerEdit',l:l,layer:world[l]});
+    }
+  } else {
+    emit({msg:'mapEdit',world:world});
+  }
 }
 
 // get tile walkable status
@@ -598,9 +603,9 @@ getBuilding = function(x,y){
 // check if player has key to door from (x,y,player.id)
 keyCheck = function(x,y,p){
   var key = getBuilding(x,y);
-  var pKeys = Player.list[p].keys;
+  var pKeys = Player.list[p].inventory.keyRing;
   for(var i in pKeys){
-    if(pKeys[i] == key){
+    if(pKeys[i].id == key){
       return true;
     }
     return false;
@@ -613,8 +618,8 @@ chestCheck = function(z,x,y,p){
   for(var i in Item.list){
     var itm = Item.list[i];
     if(itm.type == 'LockedChest' && itm.z == z && itm.x == x && itm.y == y){
-      for(var k in player.inventory.keys){
-        var key = player.inventory.keys[k];
+      for(var k in player.inventory.keyRing){
+        var key = player.inventory.keyRing[k];
         if(itm.id == key){
           return itm.id;
         } else {
@@ -1333,8 +1338,8 @@ Player = function(param){
       self.actionCooldown += 10;
       var socket = SOCKET_LIST[self.id];
       var all = '';
-      if(self.keys.length > 0){
-        var keys = '<b>Keys</b>: ' + self.keys.length + '<br>';
+      if(self.inventory.key > 0){
+        var keys = '<b>Keys</b>: ' + self.inventory.key + '<br>';
         all += keys;
       }
       if(self.inventory.wood > 0){
@@ -1636,6 +1641,7 @@ Player = function(param){
     if(self.pressingF && self.actionCooldown == 0 && !self.working){
       var socket = SOCKET_LIST[self.id];
       var loc = getLoc(self.x,self.y);
+      var tile = getTile()
       var uLoc = getLoc(self.x,self.y-tileSize);
       var dLoc = getLoc(self.x,self.y+tileSize);
       var lLoc = getLoc(self.x-tileSize,self.y);
@@ -1653,7 +1659,7 @@ Player = function(param){
               self.fishing = false;
               self.inventory.fish++;
               tileChange(6,uLoc[0],uLoc[1],-1,true);
-              socket.write(JSON.stringify({msg:'addToChat',message:'<i>You caught a fish.</i>'}));
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>You caught a Fish.</i>'}));
             } else {
               return;
             }
@@ -1674,7 +1680,7 @@ Player = function(param){
               self.fishing = false;
               self.inventory.fish++;
               tileChange(6,dLoc[0],dLoc[1],-1,true);
-              socket.write(JSON.stringify({msg:'addToChat',message:'<i>You caught a fish.</i>'}));
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>You caught a Fish.</i>'}));
             } else {
               return;
             }
@@ -1695,7 +1701,7 @@ Player = function(param){
               self.fishing = false;
               self.inventory.fish++;
               tileChange(6,lLoc[0],lLoc[1],-1,true);
-              socket.write(JSON.stringify({msg:'addToChat',message:'<i>You caught a fish.</i>'}));
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>You caught a Fish.</i>'}));
             } else {
               return;
             }
@@ -1716,7 +1722,7 @@ Player = function(param){
               self.fishing = false;
               self.inventory.fish++;
               tileChange(6,rLoc[0],rLoc[1],-1,true);
-              socket.write(JSON.stringify({msg:'addToChat',message:'<i>You caught a fish.</i>'}));
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>You caught a Fish.</i>'}));
             } else {
               return;
             }
@@ -1749,12 +1755,15 @@ Player = function(param){
           if(self.working){
             tileChange(6,loc[0],loc[1],-50,true); // ALPHA
             self.inventory.wood += 50; // ALPHA
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You chopped 50 Wood.</i>'}));
             self.working = false;
             self.chopping = false;
-            if(getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 2 && getTile(6,loc[0],loc[1]) < 101){
+            var tile = getTile(0,loc[0],loc[1]);
+            var res = getTile(6,loc[0],loc[1]);
+            if(tile >= 1 && tile < 2 && res <= 100){
               tileChange(0,loc[0],loc[1],1,true);
               for(var i in hForestSpawns){
-                if(hForestSpawns[i] == loc){
+                if(hForestSpawns[i].toString() == loc.toString()){
                   biomes.hForest--;
                   hForestSpawns.splice(i,1);
                   return;
@@ -1784,6 +1793,7 @@ Player = function(param){
           if(self.working){
             tileChange(6,loc[0],loc[1],-50,true); // ALPHA
             self.inventory.stone += 50; // ALPHA
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You quarried 50 Stone.</i>'}));
             self.working = false;
             self.mining = false;
             if(getTile(0,loc[0],loc[1]) >= 4 && getTile(0,loc[0],loc[1]) < 5 && getTile(6,loc[0],loc[1]) <= 0){
@@ -1891,6 +1901,7 @@ Player = function(param){
           if(self.working){
             tileChange(6,loc[0],loc[1],-1,true);
             self.inventory.grain += 1;
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You harvested Grain.</i>'}));
             self.working = false;
             self.farming = false;
             if(getTile(6,loc[0],loc[1]) <= 0){
@@ -2424,7 +2435,7 @@ Player.onConnect = function(socket,name){
       x:spawn[0],
       y:spawn[1]}
   });
-  console.log(player.id + ' spawned at : ' + spawn + ' z: 0');
+  console.log(player.name + ' spawned at : ' + spawn + ' z: 0');
 
   socket.on('data',function(string){
     var data = JSON.parse(string);
@@ -2517,11 +2528,13 @@ Player.onConnect = function(socket,name){
   socket.write(JSON.stringify({
     msg:'init',
     selfId:player.id,
-    player:Player.getAllInitPack(),
-    arrow:Arrow.getAllInitPack(),
-    item:Item.getAllInitPack(),
-    light:Light.getAllInitPack(),
-    building:Building.getAllInitPack()
+    pack:{
+      player:Player.getAllInitPack(),
+      arrow:Arrow.getAllInitPack(),
+      item:Item.getAllInitPack(),
+      light:Light.getAllInitPack(),
+      building:Building.getAllInitPack()
+    }
   }));
   console.log('init player id: ' + player.id);
 };
