@@ -2403,9 +2403,7 @@ Player = function(param){
   }
 
   // !!! ALPHA HAX !!!
-  for(var i in self.inventory){
-    self.inventory[i] += 10;
-  }
+  
   self.hasHorse = true;
   self.knighted = true;
   // !!! ALPHA HAX !!!

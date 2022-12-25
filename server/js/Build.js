@@ -72,7 +72,7 @@ Build = function(id){
           var serf2 = null;
           var spot2 = Building.list[b].plot[3];
           for(var i in Player.list){
-            if(Player.list[i].hut && Player.list[i].hut == building.id){
+            if(Player.list[i].hut && Player.list[i].hut == b){
               if(!serf1){
                 serf1 = Player.list[i].id;
               } else {
@@ -131,7 +131,7 @@ Build = function(id){
             parent:b
           });
           Player.list[Building.list[b].owner].inventory.key++;
-          Player.list[Building.list[b].owner].inventory.keyRing.push({id:b,name:Building.list[b].name});
+          Player.list[building.owner].inventory.keyRing.push({id:b,name:building.name});
         } else if(building.type == 'villa'){
 
         } else if(building.type == 'fort'){
@@ -207,8 +207,8 @@ Build = function(id){
             qty:1,
             parent:b
           });
-          Player.list[Building.list[b].owner].inventory.key++;
-          Player.list[Building.list[b].owner].inventory.keyRing.push({id:b,name:Building.list[b].name});
+          Player.list[building.owner].inventory.key++;
+          Player.list[building.owner].inventory.keyRing.push({id:b,name:building.name});
         } else if(building.type == 'tavern'){
           for(var i in plot){
             tileChange(3,plot[i][0],plot[i][1],String('tavern' + i));
