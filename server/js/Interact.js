@@ -91,9 +91,9 @@ Interact = function(id,loc){
           }
         } else { // create house
           if(build.owner == id){
-            socket.emit('addToChat','<b><u>To establish a House</u></b>:<br>/house <i>HouseName</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<b><u>To establish a House</u></b>:<br>/house <i>HouseName</i>'}));
           } else {
-            socket.emit('addToChat','<i>This is not your Garrison.</i>');
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>This is not your Garrison.</i>'}));
           }
         }
       }

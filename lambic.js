@@ -2045,10 +2045,10 @@ Player = function(param){
         self.inventory.torch--;
         self.hasTorch = torchId;
       } else {
-        SOCKET_LIST[self.id].emit({msg:'addToChat',message:'<i>You cannot do that here.</i>'});
+        SOCKET_LIST[self.id].write({msg:'addToChat',message:'<i>You cannot do that here.</i>'});
       }
     } else {
-      SOCKET_LIST[self.id].emit({msg:'addToChat',message:'<i>You have no torches.</i>'});
+      SOCKET_LIST[self.id].write({msg:'addToChat',message:'<i>You have no torches.</i>'});
     }
   }
 
@@ -2403,7 +2403,7 @@ Player = function(param){
   }
 
   // !!! ALPHA HAX !!!
-  
+
   self.hasHorse = true;
   self.knighted = true;
   // !!! ALPHA HAX !!!
@@ -2498,9 +2498,7 @@ Player.onConnect = function(socket,name){
         player.mouseAngle = data.state;
       }
     } else if(data.msg == 'msgToServer'){
-      for(var i in SOCKET_LIST){
-        SOCKET_LIST[i].emit({msg:'addToChat',message:'<b>' + data.name + ':</b> ' + data.message});
-      }
+      emit({msg:'addToChat',message:'<b>' + data.name + ':</b> ' + data.message});
     } else if(data.msg == 'pmToServer'){
       var recipient = null;
       for(var i in Player.list){

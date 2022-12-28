@@ -14013,6 +14013,10 @@ EvalCmd = function(data){
                     });
                     Player.list[data.id].house = hid;
                     convertHouse(data.id);
+                    socket.write(JSON.stringify({
+                      msg:'newFaction',
+                      houseList:House.list,
+                    }));
                     console.log(player.name + ' has established House ' + house);
                   }
                 } else {
