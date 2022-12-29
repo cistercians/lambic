@@ -2914,7 +2914,7 @@ setInterval(function(){
     renderLightSources(3);
   }
   viewport.update(Player.list[selfId].x,Player.list[selfId].y);
-  console.log(getLoc(Player.list[selfId].x,Player.list[selfId].y));
+  //console.log(getLoc(Player.list[selfId].x,Player.list[selfId].y));
 },40);
 
 // RENDER MAP

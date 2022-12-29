@@ -13974,7 +13974,7 @@ EvalCmd = function(data){
                           });
                           Player.list[data.id].house = hid;
                           convertHouse(data.id);
-                          console.log(player.name + ' has established House ' + name);
+                          console.log(player.name + ' has established House ' + name + ', flag: ' + flag[0]);
                         }
                       } else {
                         socket.write(JSON.stringify({msg:'addToChat',message:'<i>Flag is taken.</i>'}));
