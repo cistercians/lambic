@@ -340,46 +340,6 @@ socket.onmessage = function(event){
   } else if(data.msg == 'newFaction'){
     houseList = data.houseList;
     kingdomList = data.kingdomlist;
-  } else if(data.msg == 'sprite'){
-    if(data == 'Serf'){
-      Player.list[selfId].sprite = maleserf;
-    } else if(data == 'Rogue'){
-      Player.list[selfId].sprite = rogue;
-    } else if(data == 'Hunter'){
-      Player.list[selfId].sprite = hunter;
-    } else if(data == 'Scout'){
-      Player.list[selfId].sprite = scout;
-    } else if(data == 'Ranger'){
-      Player.list[selfId].sprite = ranger;
-    } else if(data == 'Swordsman'){
-      Player.list[selfId].sprite = swordsman;
-    } else if(data == 'Archer'){
-      Player.list[selfId].sprite = archer;
-    } else if(data == 'Scout'){
-      Player.list[selfId].sprite = scout;
-    } else if(data == 'Horseman'){
-      Player.list[selfId].sprite = horseman;
-    } else if(data == 'MountedArcher'){
-      Player.list[selfId].sprite = mountedarcher;
-    } else if(data == 'Hero'){
-      Player.list[selfId].sprite = hero;
-    } else if(data == 'Templar'){
-      Player.list[selfId].sprite = templar;
-    } else if(data == 'Cavalry'){
-      Player.list[selfId].sprite = cavalry;
-    } else if(data == 'Knight'){
-      Player.list[selfId].sprite = knight;
-    } else if(data == 'Lancer'){
-      Player.list[selfId].sprite = lancer;
-    } else if(data == 'Crusader'){
-      Player.list[selfId].sprite = crusader;
-    } else if(data == 'Priest'){
-      Player.list[selfId].sprite = monk;
-    } else if(data == 'Mage'){
-      Player.list[selfId].sprite = mage;
-    } else if(data == 'Warlock'){
-      Player.list[selfId].sprite = warlock;
-    }
   }
 };
 
@@ -2805,7 +2765,7 @@ setInterval(function(){
   } else {
     cld++;
   }
-},4000);
+},2000);
 
 var inView = function(z,x,y,innaWoods){
   var top = (viewport.startTile[1] - 1) * tileSize;
@@ -3941,6 +3901,70 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
+          } else if(bTile == 'gothtower0'){
+            ctx.drawImage(
+              Img.gothtower0, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'gothtower1'){
+            ctx.drawImage(
+              Img.gothtower1, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'gothtower2'){
+            ctx.drawImage(
+              Img.gothtower2, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'gothtower3'){
+            ctx.drawImage(
+              Img.gothtower3, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'franktower0'){
+            ctx.drawImage(
+              Img.franktower0, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'franktower1'){
+            ctx.drawImage(
+              Img.franktower1, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'franktower2'){
+            ctx.drawImage(
+              Img.franktower2, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'franktower3'){
+            ctx.drawImage(
+              Img.franktower3, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
           } else if(bTile == 'tower0'){
             ctx.drawImage(
               Img.tower0, // image
@@ -4352,6 +4376,166 @@ var renderMap = function(){
           } else if(bTile == 'market11'){
             ctx.drawImage(
               Img.market11, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'gothmarket0'){
+            ctx.drawImage(
+              Img.gothmarket0, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'gothmarket1'){
+            ctx.drawImage(
+              Img.gothmarket1, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'gothmarket2'){
+            ctx.drawImage(
+              Img.gothmarket2, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'gothmarket3'){
+            ctx.drawImage(
+              Img.gothmarket3, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'gothmarket4'){
+            ctx.drawImage(
+              Img.gothmarket4, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'gothmarket5'){
+            ctx.drawImage(
+              Img.gothmarket5, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'gothmarket6'){
+            ctx.drawImage(
+              Img.gothmarket6, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'gothmarket7'){
+            ctx.drawImage(
+              Img.gothmarket7, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'frankmarket0'){
+            ctx.drawImage(
+              Img.frankmarket0, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'frankmarket1'){
+            ctx.drawImage(
+              Img.frankmarket1, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'frankmarket2'){
+            ctx.drawImage(
+              Img.frankmarket2, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'frankmarket3'){
+            ctx.drawImage(
+              Img.frankmarket3, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'frankmarket4'){
+            ctx.drawImage(
+              Img.frankmarket4, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'frankmarket5'){
+            ctx.drawImage(
+              Img.frankmarket5, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'frankmarket6'){
+            ctx.drawImage(
+              Img.frankmarket6, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'frankmarket7'){
+            ctx.drawImage(
+              Img.frankmarket7, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'frankmarket8'){
+            ctx.drawImage(
+              Img.frankmarket8, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'frankmarket9'){
+            ctx.drawImage(
+              Img.frankmarket9, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'frankmarket10'){
+            ctx.drawImage(
+              Img.frankmarket10, // image
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          } else if(bTile == 'frankmarket11'){
+            ctx.drawImage(
+              Img.frankmarket11, // image
               xOffset, // target x
               yOffset, // target y
               tileSize, // target width
@@ -5712,7 +5896,39 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        }else if(tile == 'tower9'){
+        } else if(tile == 'gothtower4'){
+          ctx.drawImage(
+            Img.gothtower4, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile == 'gothtower5'){
+          ctx.drawImage(
+            Img.gothtower5, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile == 'franktower4'){
+          ctx.drawImage(
+            Img.franktower4, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile == 'franktower5'){
+          ctx.drawImage(
+            Img.franktower5, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile == 'tower9'){
           ctx.drawImage(
             Img.tower9, // image
             xOffset, // target x
@@ -5848,7 +6064,55 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile == 'stable12'){
+        } else if(tile == 'gothmarket8'){
+          ctx.drawImage(
+            Img.gothmarket8, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile == 'gothmarket9'){
+          ctx.drawImage(
+            Img.gothmarket9, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile == 'frankmarket12'){
+          ctx.drawImage(
+            Img.frankmarket12, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile == 'frankmarket13'){
+          ctx.drawImage(
+            Img.frankmarket13, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile == 'frankmarket14'){
+          ctx.drawImage(
+            Img.frankmarket14, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile == 'frankmarket15'){
+          ctx.drawImage(
+            Img.frankmarket15, // image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        }  else if(tile == 'stable12'){
           ctx.drawImage(
             Img.stable12, // image
             xOffset, // target x

@@ -20,6 +20,7 @@ House = function(param){
       },rand)
     }
   }
+
   self.chapter = 0;
 
   self.stores = {
@@ -36,21 +37,64 @@ House = function(param){
   }
 
   self.military = {
-    territory:[],
-    patrol:[],
+    units:{
+      i:0,
+      ii:0
+    },
+    territory:[self.hq],
+    patrol:[self.hq],
+    scout:{
+      units:[],
+      points:[]
+    },
     alarm:null,
     campaign:{
       rally:null
     }
   }
 
+  self.getTerritory = function(){
+    var n = null;
+    var w = null;
+    var e = null;
+    var s = null;
+    for(var i in self.military.patrol){
+      var building = Building.list[self.military.patrol[i]];
+      if(!n || building.loc[1] < n){
+        n = building.loc[1];
+      }
+      if(!w || building.loc[0] < w){
+        w = building.loc[0];
+      }
+      if(!e || building.loc[0] > e){
+        e = building.loc[0];
+      }
+      if(!s || building.loc[1] > s){
+        s = building.loc[1];
+      }
+    }
+    var nw = [w,n];
+    var se = [e,s];
+    var area = getArea(nw,se,5);
+    return area;
+  }
   self.update = function(){
-
+    // tally military units
+    for(var i in Player.list){
+      var unit = Player.list[i];
+      if(unit.house == self.id && unit.military){
+        if(unit.rank == '♞ '){
+          self.military.units.ii++;
+        } else if(!unit.rank){
+          self.military.units.i++;
+        }
+      }
+    }
   }
 
   House.list[self.id] = self;
-
-  io.emit('newFaction',{
+  emit({
+    msg:'newFaction',
     houseList:House.list,
     kingdomList:Kingdom.list
   })
@@ -157,10 +201,10 @@ Goths = function(param){
     // objects
     fire:null
   }
-  self.newSerfs = function(b){
+  self.newSerfs = function(b,hq){
     var building = Building.list[b];
     var loc = getLoc(building.x,building.y);
-    var area = getArea(loc,self.hq,5);
+    var area = getArea(loc,hq,5);
     var select = [];
     var wselect = [];
     for(var i in area){
@@ -234,7 +278,7 @@ Goths = function(param){
         req:5,
         hp:150
       })
-      area = getArea(self.hq,self.hq,2);
+      area = getArea(hq,hq,2);
       var grid = [];
       for(var i in area){
         var s = area[i];
@@ -275,7 +319,35 @@ Goths = function(param){
           hut:id
         });
       }
-      if(s2 > 0.6){
+      if(building.type == 'mill'){
+        if(s2 > 0.6){
+          SerfM({
+            id:s2,
+            name:'Serf',
+            x:c2[0],
+            y:c2[1],
+            z:0,
+            house:self.id,
+            home:{z:0,loc:sp2},
+            hut:id
+          });
+        } else {
+          SerfF({
+            id:s2,
+            name:'Serf',
+            x:c2[0],
+            y:c2[1],
+            z:0,
+            house:self.id,
+            home:{z:0,loc:sp2},
+            hut:id
+          });
+        }
+        Building.list[b].serfs[s1] = s1;
+        Player.list[s1].work = {hq:b,spot:null};
+        Building.list[b].serfs[s2] = s2;
+        Player.list[s2].work = {hq:b,spot:null};
+      } else {
         SerfM({
           id:s2,
           name:'Serf',
@@ -286,24 +358,6 @@ Goths = function(param){
           home:{z:0,loc:sp2},
           hut:id
         });
-      } else {
-        SerfF({
-          id:s2,
-          name:'Serf',
-          x:c2[0],
-          y:c2[1],
-          z:0,
-          house:self.id,
-          home:{z:0,loc:sp2},
-          hut:id
-        });
-      }
-      if(building.type == 'mill'){
-        Building.list[b].serfs[s1] = s1;
-        Player.list[s1].work = {hq:b,spot:null};
-        Building.list[b].serfs[s2] = s2;
-        Player.list[s2].work = {hq:b,spot:null};
-      } else {
         if(Player.list[s1].sex == 'm'){
           Building.list[b].serfs[s1] = s1;
           Player.list[s1].work = {hq:b,spot:null};
@@ -567,11 +621,163 @@ Goths = function(param){
     }
     console.log('Goths: ' + self.hq);
   }
+  self.scout = function(start){
+    var points = [];
+    var grid = [];
+    var area = getArea(start,start,24);
+    for(var i in area){
+      var sc = getCenter(start[0],start[1]);
+      var t = area[i];
+      var gt = getTile(0,t[0],t[1]);
+      var tc = getCenter(t[0],t[1]);
+      var dist = getDistance({x:sc[0],y:sc[1]},{x:tc[0],y:tc[1]});
+      if(((gt >= 3 && gt < 4) || gt == 7) && dist > 768){
+        grid.push(t);
+      }
+    }
+    for(var i in grid){
+      var t = grid[i];
+      var tArea = getArea(t,t,12);
+      var count = 0;
+      for(var a in tArea){
+        var gt = getTile(0,a[0],a[1]);
+        if((gt >= 3 && gt < 4) || gt == 7){
+          count++;
+        }
+      }
+      if(count > (tArea.length * 0.75)){
+        points.push(t);
+      }
+    }
+    var rand = Math.floor(Math.random() * points.length);
+    var target = points[rand];
+    var units = [];
+    for(var i in Player.list){
+      var unit = Player.list[i];
+      if(unit.house == self.id && unit.type == 'npc' && unit.mounted){
+        units.push(unit.id);
+      }
+    }
+    rand = Math.floor(Math.random() * units.length);
+    Player.list[units[rand]].scout.target = target;
+    Player.list[units[rand]].scout.return = self.hq;
+    Player.list[units[rand]].mode = 'scout';
+    console.log(self.name + ' have sent a scout to ' + target);
+  }
+  self.expand = function(point){
+    console.log(self.name + ' are claiming new territory');
+    var fp = getCoords(point[0],point[1]);
+    var pc = point[0];
+    var pr = point[1];
+    Firepit({
+      x:fp[0],
+      y:fp[1],
+      z:0,
+      qty:1,
+      parent:self.id
+    });
+    var grid = [
+      [pc-2,pr-2],[pc-1,pr-2],[pc,pr-2],[pc+1,pr-2],[pc+2,pr-2],
+      [pc-2,pr-1],[pc+1,pr-1],[pc+2,pr-1],
+      [pc-2,pr],[pc+1,pr],[pc+2,pr]];
+    var rand = Math.floor(Math.random() * grid.length);
+    var twr = grid[rand];
+    var plot = [twr,[twr[0]+1,twr[1]],[twr[0],twr[1]+1],[twr[0]+1,twr[1]+1]];
+    var topPlot = [[twr[0],twr[1]-1],[twr[0]+1,twr[1]-1]];
+    for(var i in plot){
+      tileChange(0,plot[i][0],plot[i][1],11);
+      tileChange(6,plot[i][0],plot[i][1],0);
+    }
+    var coords = getCoords(twr[0],twr[1]);
+    Guardtower({
+      owner:self.id,
+      house:self.id,
+      kingdom:self.kingdom,
+      x:coords[0],
+      y:coords[1],
+      z:0,
+      type:'gothtower',
+      built:false,
+      plot:plot,
+      topPlot:topPlot
+    })
+  }
 
   var super_update = self.update;
   self.update = function(){
     super_update();
     // check for next chapter conditions
+    if(self.chapter == 0){
+      for(var b in Building.list){
+        var building = Building.list[b];
+        if(building.house == self.id && building.type == 'gothmarket' && building.built){
+          self.chapter = 1;
+        }
+      }
+      if(self.chapter == 0 && self.stores.grain >= 100){
+        var terr = self.getTerritory();
+        var plots = [];
+        for(var i in terr){
+          var t = terr[i];
+          var tc = t[0];
+          var tr = t[1];
+          var count = 0;
+          var grid = [
+            t,[tc+1,tr],[tc+2,tr],[tc+3,tr],[tc+4,tr],[tc+5,tr],
+            [tc,tr+1],[tc+1,tr+1],[tc+2,tr+1],[tc+3,tr+1],[tc+4,tr+1],[tc+5,tr+1],
+            [tc,tr+2],[tc+1,tr+2],[tc+2,tr+2],[tc+3,tr+2],[tc+4,tr+2],[tc+5,tr+2],
+            [tc,tr+3],[tc+1,tr+3],[tc+2,tr+3],[tc+3,tr+3],[tc+4,tr+3],[tc+5,tr+3]
+          ]
+          for(var g in grid){
+            var gt = getTile(0,grid[g][0],grid[g][1]);
+            if((gt >= 3 && gt < 4) || gt == 7){
+              count++
+            }
+          }
+          if(count == 24){
+            plots.push(grid);
+          }
+        }
+        if(plots.length > 0){
+          var rand = Math.floor(Math.random() * plots.length);
+          var select = plots[rand];
+          var plot = [select[7],select[8],select[9],select[10],select[13],select[14],select[15],select[16]];
+          var walls = [select[1],select[2],select[3],select[4]];
+          var topPlot = [select[2],select[3]];
+          var ent = plot[7];
+          var coords = getCoords(ent[0],ent[1]);
+          for(var i in plot){
+            var p = plot[i];
+            tileChange(0,p[0],p[1],11);
+            tileChange(6,p[0],p[1],0);
+          }
+          mapEdit();
+          Market({
+            owner:self.id,
+            house:self.id,
+            kingdom:self.kingdom,
+            x:coords[0],
+            y:coords[1],
+            z:0,
+            type:'gothmarket',
+            built:false,
+            plot:plot,
+            walls:walls,
+            topPlot:topPlot,
+            mats:{
+              wood:75,
+              stone:0
+            },
+            req:5,
+            hp:500
+          });
+        }
+      }
+    } else if(self.chapter == 1){
+      if(self.military.scout.units.length < self.military.territory.length){
+        self.scout(self.hq);
+      }
+    }
   }
   self.init();
 }
@@ -596,10 +802,10 @@ Franks = function(param){
     // objects
     fire:null
   }
-  self.newSerfs = function(b){
+  self.newSerfs = function(b,hq){
     var building = Building.list[b];
     var loc = getLoc(building.x,building.y);
-    var area = getArea(loc,self.hq,5);
+    var area = getArea(loc,hq,5);
     var select = [];
     var wselect = [];
     for(var i in area){
@@ -673,7 +879,7 @@ Franks = function(param){
         req:5,
         hp:150
       })
-      area = getArea(self.hq,self.hq,2);
+      area = getArea(hq,hq,2);
       var grid = [];
       for(var i in area){
         var s = area[i];
@@ -1028,6 +1234,87 @@ Franks = function(param){
     }
     console.log('Franks: ' + self.hq);
   }
+  self.scout = function(start){
+    var points = [];
+    var grid = [];
+    var area = getArea(start,start,24);
+    for(var i in area){
+      var sc = getCenter(start[0],start[1]);
+      var t = area[i];
+      var gt = getTile(0,t[0],t[1]);
+      var tc = getCenter(t[0],t[1]);
+      var dist = getDistance({x:sc[0],y:sc[1]},{x:tc[0],y:tc[1]});
+      if(((gt >= 3 && gt < 4) || gt == 7) && dist > 768){
+        grid.push(t);
+      }
+    }
+    for(var i in grid){
+      var t = grid[i];
+      var tArea = getArea(t,t,12);
+      var count = 0;
+      for(var a in tArea){
+        var gt = getTile(0,a[0],a[1]);
+        if((gt >= 3 && gt < 4) || gt == 7){
+          count++;
+        }
+      }
+      if(count > (tArea.length * 0.75)){
+        points.push(t);
+      }
+    }
+    var rand = Math.floor(Math.random() * points.length);
+    var target = points[rand];
+    var units = [];
+    for(var i in Player.list){
+      var unit = Player.list[i];
+      if(unit.house == self.id && unit.type == 'npc' && unit.mounted){
+        units.push(unit.id);
+      }
+    }
+    rand = Math.floor(Math.random() * units.length);
+    Player.list[units[rand]].scout.target = target;
+    Player.list[units[rand]].scout.return = self.hq;
+    Player.list[units[rand]].mode = 'scout';
+    console.log(self.name + ' have sent a scout to ' + target);
+  }
+  self.expand = function(point){
+    console.log(self.name + ' are claiming new territory');
+    var fp = getCoords(point[0],point[1]);
+    var pc = point[0];
+    var pr = point[1];
+    Firepit({
+      x:fp[0],
+      y:fp[1],
+      z:0,
+      qty:1,
+      parent:self.id
+    });
+    var grid = [
+      [pc-2,pr-2],[pc-1,pr-2],[pc,pr-2],[pc+1,pr-2],[pc+2,pr-2],
+      [pc-2,pr-1],[pc+1,pr-1],[pc+2,pr-1],
+      [pc-2,pr],[pc+1,pr],[pc+2,pr]];
+    var rand = Math.floor(Math.random() * grid.length);
+    var twr = grid[rand];
+    var plot = [twr,[twr[0]+1,twr[1]],[twr[0],twr[1]+1],[twr[0]+1,twr[1]+1]];
+    var topPlot = [[twr[0],twr[1]-1],[twr[0]+1,twr[1]-1]];
+    for(var i in plot){
+      tileChange(0,plot[i][0],plot[i][1],11);
+      tileChange(6,plot[i][0],plot[i][1],0);
+    }
+    var coords = getCoords(twr[0],twr[1]);
+    Guardtower({
+      owner:self.id,
+      house:self.id,
+      kingdom:self.kingdom,
+      x:coords[0],
+      y:coords[1],
+      z:0,
+      type:'franktower',
+      built:false,
+      plot:plot,
+      topPlot:topPlot
+    })
+  }
 
   var super_update = self.update;
   self.update = function(){
@@ -1043,10 +1330,10 @@ Celts = function(param){
     // objects
     fire:null
   }
-  self.newSerfs = function(b){
+  self.newSerfs = function(b,hq){
     var building = Building.list[b];
     var loc = getLoc(building.x,building.y);
-    var area = getArea(loc,self.hq,5);
+    var area = getArea(loc,hq,5);
     var select = [];
     var wselect = [];
     for(var i in area){
@@ -1120,7 +1407,7 @@ Celts = function(param){
         req:5,
         hp:150
       })
-      area = getArea(self.hq,self.hq,2);
+      area = getArea(hq,hq,2);
       var grid = [];
       for(var i in area){
         var s = area[i];
@@ -1432,6 +1719,87 @@ Celts = function(param){
     }
     console.log('Celts: ' + self.hq);
   }
+  self.scout = function(start){
+    var points = [];
+    var grid = [];
+    var area = getArea(start,start,24);
+    for(var i in area){
+      var sc = getCenter(start[0],start[1]);
+      var t = area[i];
+      var gt = getTile(0,t[0],t[1]);
+      var tc = getCenter(t[0],t[1]);
+      var dist = getDistance({x:sc[0],y:sc[1]},{x:tc[0],y:tc[1]});
+      if(gt >= 1 && gt < 2 && dist > 768){
+        grid.push(t);
+      }
+    }
+    for(var i in grid){
+      var t = grid[i];
+      var tArea = getArea(t,t,12);
+      var count = 0;
+      for(var a in tArea){
+        var gt = getTile(0,a[0],a[1]);
+        if(gt >= 1 && gt < 2){
+          count++;
+        }
+      }
+      if(count > (tArea.length * 0.75)){
+        points.push(t);
+      }
+    }
+    var rand = Math.floor(Math.random() * points.length);
+    var target = points[rand];
+    var units = [];
+    for(var i in Player.list){
+      var unit = Player.list[i];
+      if(unit.house == self.id && unit.type == 'npc' && unit.mounted){
+        units.push(unit.id);
+      }
+    }
+    rand = Math.floor(Math.random() * units.length);
+    Player.list[units[rand]].scout.target = target;
+    Player.list[units[rand]].scout.return = self.hq;
+    Player.list[units[rand]].mode = 'scout';
+    console.log(self.name + ' have sent a scout to ' + target);
+  }
+  self.expand = function(point){
+    console.log(self.name + ' are claiming new territory');
+    var fp = getCoords(point[0],point[1]);
+    var pc = point[0];
+    var pr = point[1];
+    Firepit({
+      x:fp[0],
+      y:fp[1],
+      z:0,
+      qty:1,
+      parent:self.id
+    });
+    var grid = [
+      [pc-2,pr-2],[pc-1,pr-2],[pc,pr-2],[pc+1,pr-2],[pc+2,pr-2],
+      [pc-2,pr-1],[pc+1,pr-1],[pc+2,pr-1],
+      [pc-2,pr],[pc+1,pr],[pc+2,pr]];
+    var rand = Math.floor(Math.random() * grid.length);
+    var twr = grid[rand];
+    var plot = [twr,[twr[0]+1,twr[1]],[twr[0],twr[1]+1],[twr[0]+1,twr[1]+1]];
+    var topPlot = [[twr[0],twr[1]-1],[twr[0]+1,twr[1]-1]];
+    for(var i in plot){
+      tileChange(0,plot[i][0],plot[i][1],11);
+      tileChange(6,plot[i][0],plot[i][1],0);
+    }
+    var coords = getCoords(twr[0],twr[1]);
+    Guardtower({
+      owner:self.id,
+      house:self.id,
+      kingdom:self.kingdom,
+      x:coords[0],
+      y:coords[1],
+      z:0,
+      type:'teutower',
+      built:false,
+      plot:plot,
+      topPlot:topPlot
+    })
+  }
 
   var super_update = self.update;
   self.update = function(){
@@ -1447,10 +1815,10 @@ Teutons = function(param){
     // objects
     fire:null
   }
-  self.newSerfs = function(b){
+  self.newSerfs = function(b,hq){
     var building = Building.list[b];
     var loc = getLoc(building.x,building.y);
-    var area = getArea(loc,self.hq,5);
+    var area = getArea(loc,hq,5);
     var select = [];
     var wselect = [];
     for(var i in area){
@@ -1524,7 +1892,7 @@ Teutons = function(param){
         req:5,
         hp:150
       })
-      area = getArea(self.hq,self.hq,2);
+      area = getArea(hq,hq,2);
       var grid = [];
       for(var i in area){
         var s = area[i];
@@ -1895,6 +2263,52 @@ Teutons = function(param){
     mapEdit();
     console.log('Teutons: ' + self.hq);
   }
+  self.scout = function(start){
+    var points = [];
+    var grid = [];
+    var area = getArea(start,start,24);
+    for(var i in area){
+      var sc = getCenter(start[0],start[1]);
+      var t = area[i];
+      var gt = getTile(0,t[0],t[1]);
+      var tc = getCenter(t[0],t[1]);
+      var dist = getDistance({x:sc[0],y:sc[1]},{x:tc[0],y:tc[1]});
+      if(gt >= 4 && gt < 7 && dist > 768){
+        grid.push(t);
+      }
+    }
+    for(var i in grid){
+      var t = grid[i];
+      var tArea = getArea(t,t,12);
+      var count = 0;
+      for(var a in tArea){
+        var gt = getTile(0,a[0],a[1]);
+        if(gt >= 4 && gt < 7){
+          count++;
+        }
+      }
+      if(count > (tArea.length * 0.75)){
+        points.push(t);
+      }
+    }
+    var rand = Math.floor(Math.random() * points.length);
+    var target = points[rand];
+    var units = [];
+    for(var i in Player.list){
+      var unit = Player.list[i];
+      if(unit.house == self.id && unit.type == 'npc' && unit.mounted){
+        units.push(unit.id);
+      }
+    }
+    rand = Math.floor(Math.random() * units.length);
+    Player.list[units[rand]].scout.target = target;
+    Player.list[units[rand]].scout.return = self.hq;
+    Player.list[units[rand]].mode = 'scout';
+    console.log(self.name + ' have sent a scout to ' + target);
+  }
+  self.expand = function(){
+
+  }
 
   var super_update = self.update;
   self.update = function(){
@@ -2133,7 +2547,7 @@ Kingdom = function(param){
   }
   Kingdom.list[self.id] = self;
 
-  io.emit('newFaction',{
+  emit('newFaction',{
     houseList:House.list,
     kingdomList:Kingdom.list
   })

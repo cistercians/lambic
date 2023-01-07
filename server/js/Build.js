@@ -163,6 +163,22 @@ Build = function(id){
             qty:1,
             parent:b
           })
+        } else if(building.type == 'gothgtower'){
+          for(var i in plot){
+            matrixChange(0,plot[i][0],plot[i][1],1);
+            tileChange(0,plot[i][0],plot[i][1],15);
+            tileChange(3,plot[i][0],plot[i][1],String('gothgtower' + i));
+          }
+          tileChange(5,top[0][0],top[0][1],'gothgtower4');
+          tileChange(5,top[1][0],top[1][1],'gothgtower5');
+        } else if(building.type == 'frankgtower'){
+          for(var i in plot){
+            matrixChange(0,plot[i][0],plot[i][1],1);
+            tileChange(0,plot[i][0],plot[i][1],15);
+            tileChange(3,plot[i][0],plot[i][1],String('frankgtower' + i));
+          }
+          tileChange(5,top[0][0],top[0][1],'frankgtower4');
+          tileChange(5,top[1][0],top[1][1],'franktower5');
         } else if(building.type == 'tower'){
           for(var i in plot){
             tileChange(3,plot[i][0],plot[i][1],String('tower' + i));
@@ -433,7 +449,7 @@ Build = function(id){
             x:sp1[0],
             y:sp1[1],
             z:1,
-            name:'Innkeeper ' + randomName('m'),
+            name:randomName('m'),
             house:Building.list[b].house,
             kingdom:Building.list[b].kingdom,
             home:{
@@ -520,7 +536,7 @@ Build = function(id){
             x:sp1[0],
             y:sp1[1],
             z:1,
-            name:'Father ' + randomName(),
+            name:randomName(),
             house:Building.list[b].house,
             kingdom:Building.list[b].kingdom,
             home:{
@@ -532,7 +548,7 @@ Build = function(id){
             x:sp2[0],
             y:sp2[1],
             z:1,
-            name:'Brother ' + randomName(),
+            name:randomName(),
             house:Building.list[b].house,
             kingdom:Building.list[b].kingdom,
             home:{
@@ -544,7 +560,7 @@ Build = function(id){
             x:sp3[0],
             y:sp3[1],
             z:1,
-            name:'Brother ' + randomName(),
+            name:randomName(),
             house:Building.list[b].house,
             kingdom:Building.list[b].kingdom,
             home:{
@@ -573,7 +589,7 @@ Build = function(id){
               tileChange(5,plot[i][0],plot[i][1],13);
             }
           }
-          var ii = 12;
+          var ii = 8;
           for(var i in top){
             var n = top[i];
             tileChange(5,n[0],n[1],String('market' + ii));
@@ -594,6 +610,7 @@ Build = function(id){
           var g2 = getCoords(walls[2][0],walls[2][1]);
           var g3 = getCoords(walls[3][0],walls[3][1]);
           var g4 = getCoords(walls[4][0],walls[4][1]);
+          var g5 = getCoords(plot[3][0],plot[3][1]);
           var fp1 = getCoords(plot[3][0],plot[3][1]+1);
           var fp2 = getCoords(plot[7][0],plot[7][1]+1);
           var cr1 = getCoords(plot[8][0],plot[8][1]);
@@ -642,20 +659,202 @@ Build = function(id){
             qty:1,
             parent:b
           });
-          Goods1({
+          Goods4({
+            x:g5[0],
+            y:g5[1],
+            z:1,
+            qty:1,
+            parent:b
+          })
+          Firepit({
             x:fp1[0],
             y:fp1[1],
+            z:0,
+            qty:1,
+            parent:b
+          });
+          Firepit({
+            x:fp2[0],
+            y:fp2[1],
+            z:0,
+            qty:1,
+            parent:b
+          });
+          WallTorch({
+            x:g1[0],
+            y:g1[1],
+            z:2,
+            qty:1,
+            parent:b
+          });
+          Stash1({
+            x:g2[0],
+            y:g2[1],
+            z:2,
+            qty:1,
+            parent:b
+          });
+          Stash2({
+            x:g3[0],
+            y:g3[1],
+            z:2,
+            qty:1,
+            parent:b
+          });
+          WallTorch({
+            x:g4[0],
+            y:g4[1],
+            z:2,
+            qty:1,
+            parent:b
+          });
+          Crates({
+            x:cr1[0],
+            y:cr1[1],
+            z:2,
+            qty:1,
+            parent:b
+          });
+          Desk({
+            x:d1[0],
+            y:d1[1],
+            z:2,
+            qty:1,
+            parent:b
+          });
+          Desk({
+            x:d2[0],
+            y:d2[1],
+            z:2,
+            qty:1,
+            parent:b
+          });
+          Crates({
+            x:cr2[0],
+            y:cr2[1],
+            z:2,
+            qty:1,
+            parent:b
+          });
+        } else if(Building.list[b].type == 'gothmarket'){
+          for(var i in plot){
+            tileChange(3,plot[i][0],plot[i][1],String('gothmarket' + i));
+            if(getTile(3,plot[i][0],plot[i][1]) == 'gothmarket2' ||
+            getTile(3,plot[i][0],plot[i][1]) == 'gothmarket3'){
+              matrixChange(1,plot[i][0],plot[i][1],0);
+              matrixChange(1,plot[i][0],plot[i][1]+1,0);
+              tileChange(0,plot[i][0],plot[i][1],14);
+              if(getTile(3,plot[i][0],plot[i][1]) == 'gothmarket3'){
+                Building.list[b].entrance = [plot[i][0],plot[i][1]];
+              }
+            } else {
+              matrixChange(0,plot[i][0],plot[i][1],1);
+              matrixChange(1,plot[i][0],plot[i][1],0);
+              matrixChange(2,plot[i][0],plot[i][1],0);
+              tileChange(0,plot[i][0],plot[i][1],13);
+              tileChange(5,plot[i][0],plot[i][1],13);
+            }
+          }
+          var ii = 12;
+          for(var i in top){
+            var n = top[i];
+            tileChange(5,n[0],n[1],String('gothmarket' + ii));
+            ii++;
+          }
+          for(var i in walls){
+            var n = walls[i];
+            tileChange(4,n[0],n[1],1);
+          }
+        } else if(building.type == 'frankmarket'){
+          for(var i in plot){
+            tileChange(3,plot[i][0],plot[i][1],String('frankmarket' + i));
+            if(getTile(3,plot[i][0],plot[i][1]) == 'frankmarket0' ||
+            getTile(3,plot[i][0],plot[i][1]) == 'frankmarket1' ||
+            getTile(3,plot[i][0],plot[i][1]) == 'frankmarket2'){
+              matrixChange(1,plot[i][0],plot[i][1],0);
+              matrixChange(1,plot[i][0],plot[i][1]+1,0);
+              tileChange(0,plot[i][0],plot[i][1],14);
+              if(getTile(3,plot[i][0],plot[i][1]) == 'frankmarket1'){
+                Building.list[b].entrance = [plot[i][0],plot[i][1]];
+              }
+            } else {
+              matrixChange(0,plot[i][0],plot[i][1],1);
+              matrixChange(1,plot[i][0],plot[i][1],0);
+              matrixChange(2,plot[i][0],plot[i][1],0);
+              tileChange(0,plot[i][0],plot[i][1],13);
+              tileChange(5,plot[i][0],plot[i][1],13);
+            }
+          }
+          var ii = 8;
+          for(var i in top){
+            var n = top[i];
+            tileChange(5,n[0],n[1],String('frankmarket' + ii));
+            ii++;
+          }
+          for(var i in walls){
+            var n = walls[i];
+            tileChange(4,n[0],n[1],1);
+          }
+          var g1 = getCoords(walls[1][0],walls[1][1]);
+          var g2 = getCoords(walls[2][0],walls[2][1]);
+          var g3 = getCoords(walls[3][0],walls[3][1]);
+          var g4 = getCoords(walls[4][0],walls[4][1]);
+          var g5 = getCoords(plot[3][0],plot[3][1]);
+          var fp1 = getCoords(plot[3][0],plot[3][1]+1);
+          var fp2 = getCoords(plot[7][0],plot[7][1]+1);
+          var cr1 = getCoords(plot[8][0],plot[8][1]);
+          var d1 = getCoords(plot[9][0],plot[9][1]);
+          var d2 = getCoords(plot[10][0],plot[10][1]);
+          var cr2 = getCoords(plot[11][0],plot[11][1]);
+          WallTorch({
+            x:g1[0],
+            y:g1[1],
+            z:1,
+            qty:1,
+            parent:b
+          });
+          Goods1({
+            x:g1[0],
+            y:g1[1],
+            z:1,
+            qty:1,
+            parent:b
+          });
+          Goods2({
+            x:g2[0],
+            y:g2[1],
+            z:1,
+            qty:1,
+            parent:b
+          });
+          Goods3({
+            x:g3[0],
+            y:g3[1],
+            z:1,
+            qty:1,
+            parent:b
+          });
+          WallTorch({
+            x:g4[0],
+            y:g4[1],
             z:1,
             qty:1,
             parent:b
           });
           Goods4({
-            x:fp2[0],
-            y:fp2[1],
+            x:g4[0],
+            y:g4[1],
             z:1,
             qty:1,
             parent:b
           });
+          Goods4({
+            x:g5[0],
+            y:g5[1],
+            z:1,
+            qty:1,
+            parent:b
+          })
           Firepit({
             x:fp1[0],
             y:fp1[1],
@@ -783,7 +982,7 @@ Build = function(id){
             x:sp[0],
             y:sp[1],
             z:0,
-            name:'Shipwright ' + randomName('m'),
+            name:randomName('m'),
             house:Building.list[b].house,
             kingdom:Building.list[b].kingdom,
             home:{
@@ -993,7 +1192,7 @@ Build = function(id){
             x:sp[0],
             y:sp[1],
             z:0,
-            name:'Smith ' + randomName('m'),
+            name:randomName('m'),
             house:Building.list[b].house,
             kingdom:Building.list[b].kingdom,
             forge:Building.list[b].id,

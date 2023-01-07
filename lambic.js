@@ -1086,7 +1086,7 @@ factionSpawn = function(id){
 var saveMap = false;
 
 if(saveMap){
-  fs.writeFile("./mapFiles/map.txt", world, function(err){
+  fs.writeFile("./maps/map.txt", JSON.stringify(world), function(err){
     if(err){
       return console.log(err);
     }
@@ -2615,14 +2615,13 @@ io.on('connection', function(socket){
       } else {
         socket.write(JSON.stringify({msg:'signUpResponse',success:false}));
       }
-    } else if(data.msg == 'disconnect'){
-      delete SOCKET_LIST[socket.id];
-      Player.onDisconnect(socket);
-      console.log('Socket disconnected: ' + socket.id);
     } else if(data.msg == 'evalCmd'){
       EvalCmd(data);
     }
   });
+  socket.onclose = function(){
+    Player.onDisconnect(socket);
+  }
 });
 
 // GAME STATE
@@ -2643,6 +2642,14 @@ var dayNight = function(){
       count++;
     }
     console.log('Population: ' + count);
+    if(saveMap){
+      fs.writeFile("./maps/map" + day + ".txt", JSON.stringify(world), function(err){
+        if(err){
+          return console.log(err);
+        }
+        console.log("Map file saved to '/mapfiles' folder.");
+      });
+    };
   }
   if(tempus == 'VIII.p' || tempus == 'IX.p' ||
   tempus == 'X.p' || tempus == 'XI.p' || tempus == 'XII.a' ||
@@ -2686,7 +2693,6 @@ setInterval(function(){
     item:Item.update(),
     light:Light.update(),
     building:Building.update(),
-    house:House.update()
   }
 
 
