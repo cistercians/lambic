@@ -4883,49 +4883,49 @@ var renderMap = function(){
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile == 'bsmith0'){
+          } else if(bTile == 'forge0'){
             ctx.drawImage(
-              Img.bsmith0, // image
+              Img.forge0, // image
               xOffset, // target x
               yOffset, // target y
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile == 'bsmith1'){
+          } else if(bTile == 'forge1'){
             ctx.drawImage(
-              Img.bsmith1, // image
+              Img.forge1, // image
               xOffset, // target x
               yOffset, // target y
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile == 'bsmith2'){
+          } else if(bTile == 'forge2'){
             ctx.drawImage(
-              Img.bsmith2, // image
+              Img.forge2, // image
               xOffset, // target x
               yOffset, // target y
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile == 'bsmith3'){
+          } else if(bTile == 'forge3'){
             ctx.drawImage(
-              Img.bsmith3, // image
+              Img.forge3, // image
               xOffset, // target x
               yOffset, // target y
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile == 'bsmith4'){
+          } else if(bTile == 'forge4'){
             ctx.drawImage(
-              Img.bsmith4, // image
+              Img.forge4, // image
               xOffset, // target x
               yOffset, // target y
               tileSize, // target width
               tileSize // target height
             );
-          } else if(bTile == 'bsmith5'){
+          } else if(bTile == 'forge5'){
             ctx.drawImage(
-              Img.bsmith5, // image
+              Img.forge5, // image
               xOffset, // target x
               yOffset, // target y
               tileSize, // target width
@@ -6184,17 +6184,17 @@ var renderTops = function(){
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile == 'bsmith6'){
+        } else if(tile == 'forge6'){
           ctx.drawImage(
-            Img.bsmith6, // image
+            Img.forge6, // image
             xOffset, // target x
             yOffset, // target y
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile == 'bsmith7'){
+        } else if(tile == 'forge7'){
           ctx.drawImage(
-            Img.bsmith7, // image
+            Img.forge7, // image
             xOffset, // target x
             yOffset, // target y
             tileSize, // target width

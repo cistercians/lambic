@@ -163,22 +163,38 @@ Build = function(id){
             qty:1,
             parent:b
           })
-        } else if(building.type == 'gothgtower'){
+        } else if(building.type == 'gothtower'){
           for(var i in plot){
             matrixChange(0,plot[i][0],plot[i][1],1);
             tileChange(0,plot[i][0],plot[i][1],15);
-            tileChange(3,plot[i][0],plot[i][1],String('gothgtower' + i));
+            tileChange(3,plot[i][0],plot[i][1],String('gothtower' + i));
           }
-          tileChange(5,top[0][0],top[0][1],'gothgtower4');
-          tileChange(5,top[1][0],top[1][1],'gothgtower5');
-        } else if(building.type == 'frankgtower'){
+          tileChange(5,top[0][0],top[0][1],'gothtower4');
+          tileChange(5,top[1][0],top[1][1],'gothtower5');
+        } else if(building.type == 'franktower'){
           for(var i in plot){
             matrixChange(0,plot[i][0],plot[i][1],1);
             tileChange(0,plot[i][0],plot[i][1],15);
-            tileChange(3,plot[i][0],plot[i][1],String('frankgtower' + i));
+            tileChange(3,plot[i][0],plot[i][1],String('franktower' + i));
           }
-          tileChange(5,top[0][0],top[0][1],'frankgtower4');
+          tileChange(5,top[0][0],top[0][1],'franktower4');
           tileChange(5,top[1][0],top[1][1],'franktower5');
+        } else if(building.type == 'celttower'){
+          for(var i in plot){
+            matrixChange(0,plot[i][0],plot[i][1],1);
+            tileChange(0,plot[i][0],plot[i][1],15);
+            tileChange(3,plot[i][0],plot[i][1],String('celttower' + i));
+          }
+          tileChange(5,top[0][0],top[0][1],'celttower4');
+          tileChange(5,top[1][0],top[1][1],'celttower5');
+        }  else if(building.type == 'teutower'){
+          for(var i in plot){
+            matrixChange(0,plot[i][0],plot[i][1],1);
+            tileChange(0,plot[i][0],plot[i][1],15);
+            tileChange(3,plot[i][0],plot[i][1],String('teutower' + i));
+          }
+          tileChange(5,top[0][0],top[0][1],'teutower4');
+          tileChange(5,top[1][0],top[1][1],'teutower5');
         } else if(building.type == 'tower'){
           for(var i in plot){
             tileChange(3,plot[i][0],plot[i][1],String('tower' + i));
@@ -544,7 +560,10 @@ Build = function(id){
               loc:[plot[13][0],plot[13][1]]
             }
           });
+          var m1 = Math.random();
+          var m2 = Math.random();
           Monk({
+            id:m1,
             x:sp2[0],
             y:sp2[1],
             z:1,
@@ -557,6 +576,7 @@ Build = function(id){
             }
           });
           Monk({
+            id:m2,
             x:sp3[0],
             y:sp3[1],
             z:1,
@@ -569,6 +589,7 @@ Build = function(id){
             }
           });
           Building.list[b].occ += 3;
+          Building.list[b].serfs = [m1,m2];
         } else if(building.type == 'market'){
           for(var i in plot){
             tileChange(3,plot[i][0],plot[i][1],String('market' + i));
@@ -589,7 +610,7 @@ Build = function(id){
               tileChange(5,plot[i][0],plot[i][1],13);
             }
           }
-          var ii = 8;
+          var ii = 12;
           for(var i in top){
             var n = top[i];
             tileChange(5,n[0],n[1],String('market' + ii));
@@ -785,7 +806,7 @@ Build = function(id){
               tileChange(5,plot[i][0],plot[i][1],13);
             }
           }
-          var ii = 8;
+          var ii = 12;
           for(var i in top){
             var n = top[i];
             tileChange(5,n[0],n[1],String('frankmarket' + ii));
@@ -978,7 +999,9 @@ Build = function(id){
             qty:1,
             parent:b
           });
+          var sh = Math.random();
           Shipwright({
+            id:sh,
             x:sp[0],
             y:sp[1],
             z:0,
@@ -990,6 +1013,7 @@ Build = function(id){
               loc:[plot[1][0],plot[1][1]]
             }
           });
+          Building.list[b].serfs = [sh];
         } else if(building.type == 'garrison'){
           for(var i in plot){
             tileChange(3,plot[i][0],plot[i][1],String('garrison' + i));
@@ -1188,7 +1212,9 @@ Build = function(id){
             qty:1,
             parent:b
           });
+          var bs = Math.random();
           Blacksmith({
+            id:bs,
             x:sp[0],
             y:sp[1],
             z:0,
@@ -1201,6 +1227,7 @@ Build = function(id){
               loc:[plot[4][0],plot[4][1]]
             }
           });
+          Building.list[b].serfs = [bs];
         } else if(building.type == 'stronghold'){
           for(var i in plot){
             tileChange(3,plot[i][0],plot[i][1],String('stronghold' + i));

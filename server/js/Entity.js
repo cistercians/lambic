@@ -137,31 +137,56 @@ Mill = function(param){
         console.log('Mill no tavern');
       }
     }
+    for(var i in self.farms){
+      var plot = self.farms[i];
+      var count = 0;
+      var add = [];
+      for(var n in plot){
+        var p = plot[n];
+        var gt = getTile(0,p[0],p[1]);
+        var gr = getTile(6,p[0],p[1]);
+        if((gt == 8 && gr < 25)){
+          count++;
+        } else if((gt == 9 && gr < 50) || gt == 10){
+          add.push(p);
+        }
+      }
+      if(count == 9){
+        for(var x in f.plot){
+          self.resources.push(f.plot[x]);
+        }
+      } else {
+        for(var x in add){
+          self.resources.push(add[x]);
+        }
+      }
+    }
   }
   self.findFarms = function(){
     for(var i in Building.list){
       var f = Building.list[i];
       var dist = getDistance({x:self.x,y:self.y},{x:f.x,y:f.y});
-      if(f.type == 'farm' && dist <= 384 && f.house == self.house){
+      if(f.type == 'farm' && dist <= 384 && f.house == self.house && !f.mill){
         self.farms[f.id] = f.plot;
         var count = 0;
         var add = [];
         for(var n in f.plot){
           var p = f.plot[n];
           var gt = getTile(0,p[0],p[1]);
-          if(gt == 8 || gt == 9){
+          var gr = getTile(6,p[0],p[1]);
+          if((gt == 8 && gr < 25)){
             count++;
-          } else {
+          } else if((gt == 9 && gr < 50) || gt == 10){
             add.push(p);
           }
         }
-        if(count > 0 && count < 9){
-          for(var r in add){
-            self.resources.push(add[r]);
+        if(count == 9){
+          for(var x in f.plot){
+            self.resources.push(f.plot[x]);
           }
         } else {
-          for(var r in f.plot){
-            self.resources.push(f.plot[r])
+          for(var x in add){
+            self.resources.push(add[x]);
           }
         }
       } else if(f.type == 'tavern' && dist <= 1280 && f.house == self.house && !self.tavern){
@@ -211,6 +236,7 @@ Lumbermill = function(param){
       } else {
         console.log('Lumbermill no tavern');
       }
+      self.getRes();
     }
   }
   self.findTavern = function(){
@@ -227,6 +253,7 @@ Lumbermill = function(param){
     var loc = getLoc(self.x,self.y);
     var loc1 = [loc[0]+1,loc[1]];
     var area = getArea(loc,loc1,6);
+    var res = [];
     for(var i in area){
       var r = area[i];
       var c = getCenter(r[0],r[1]);
@@ -234,10 +261,11 @@ Lumbermill = function(param){
       if(dist <= 384){
         var gt = getTile(0,r[0],r[1]);
         if(gt >= 1 && gt < 3){
-          self.resources.push(r);
+          res.push(r);
         }
       }
     }
+    self.resources = res;
     console.log('Lumbermill added ' + self.resources.length + ' resources');
   }
   self.getRes();
@@ -859,6 +887,9 @@ Character = function(param){
     self.path = [target];
   }
 
+  self.prevLoc = null; // [c,r]
+  self.stuck = 0;
+
   self.attack = function(dir){
     self.pressingAttack = true;
     self.working = false;
@@ -1088,18 +1119,12 @@ Character = function(param){
     if(!self.path){
       if(target){
         self.moveTo(target.z,target.loc[0],target.loc[1]);
-        console.log(self.class + ' ' + self.id + ' returning to target @ ' + target.toString());
       } else if(self.lastLoc){
         self.moveTo(self.lastLoc.z,self.lastLoc.loc[0],self.lastLoc.loc[1]);
-        console.log(self.class + ' ' + self.id + ' returning to last loc @ ' + self.lastLoc.loc.toString());
       } else if(self.tether){
         self.moveTo(self.tether.z,self.tether.loc[0],self.tether.loc[1]);
-        console.log(self.class + ' ' + self.id + ' returning to tether @ ' + self.tether.loc.toString());
       } else if(self.home){
         self.moveTo(self.home.z,self.home.loc[0],self.home.loc[1]);
-        console.log(self.class + ' ' + self.id + ' returning home @ ' + self.home.loc.toString());
-      } else {
-        console.log(self.class + ' ' + self.id + ' cant return');
       }
     }
   }
@@ -1462,6 +1487,9 @@ Character = function(param){
 
   self.moveTo = function(tz,tc,tr){
     var loc = getLoc(self.x,self.y);
+    if(!self.prevLoc){
+      self.prevLoc = loc;
+    }
     var cen = getCenter(loc[0],loc[1]);
     var tLoc = [tc,tr];
     if(loc.toString() != tLoc.toString()){
@@ -1688,6 +1716,23 @@ Character = function(param){
           }
         }
       }
+    }
+    var newLoc = getLoc(self.x,self.y);
+    if(newLoc.toString() !== loc.toString()){
+      self.prevLoc = loc;
+      loc = newLoc;
+    }
+    var diff = {
+      c:loc[0]-self.prevLoc[0],
+      r:loc[1]-self.prevLoc[1]
+    };
+    if((diff.c > -2 && diff.c < 2) && diff.r == 0 || (diff.r > -2 && diff.r < 2) && diff.c == 0){
+      self.stuck++;
+    }
+    if(self.stuck == 200){
+      console.log(self.name + ' is stuck! Getting unstuck...');
+      self.stuck = 0;
+      self.getPath(tz,tc,tr);
     }
   }
 
@@ -3440,13 +3485,16 @@ SerfM = function(param){
           self.action = null;
         } else {
           if(hq.type == 'mill'){
-            if(self.inventory.grain == 10){
+            if(self.inventory.grain >= 10){
               var b = Building.list[self.work.hq];
               var dropoff = [b.plot[0][0],b.plot[0][1]+1];
               if(loc.toString() == dropoff.toString()){
                 self.facing = 'up';
                 self.inventory.grain -= 9;
-                if(Player.list[b.owner].house){
+                if(House.list[b.owner]){
+                  House.list[b.owner].stores.grain += 6;
+                  console.log(House.list[b.owner].name + ' +6 Grain');
+                } else if(Player.list[b.owner].house){
                   var h = Player.list[b.owner].house;
                   House.list[h].stores.grain += 6;
                   console.log(House.list[h].name + ' +6 Grain');
@@ -3595,16 +3643,19 @@ SerfM = function(param){
               }
               return;
             }
-            if(self.inventory.wood == 10){
+            if(self.inventory.wood >= 10){
               var b = Building.list[self.work.hq];
               var dropoff = [b.plot[0][0],b.plot[0][1]+1];
               if(loc.toString() == dropoff.toString()){
                 self.facing = 'up';
                 self.inventory.wood -= 8;
-                if(Player.list[b.owner].house){
+                if(House.list[b.owner]){
+                  House.list[b.owner].stores.wood += 8;
+                  console.log(House.list[b.owner].name + ' +8 Wood');
+                } else if(Player.list[b.owner].house){
                   var h = Player.list[b.owner].house;
                   House.list[h].stores.wood += 8;
-                  console.log(House.list[h] + ' +8 Wood');
+                  console.log(House.list[h].name + ' +8 Wood');
                 } else {
                   Player.list[b.owner].stores.wood += 8
                   console.log(Player.list[b.owner].name + ' +8 Wood');
@@ -3624,6 +3675,8 @@ SerfM = function(param){
                   setTimeout(function(){
                     if(self.chopping){
                       tileChange(6,spot[0],spot[1],-1,true);
+                      self.inventory.wood += 10; // ALPHA
+                      console.log(self.name + ' chopped 10 Wood');
                       var res = getTile(6,spot[0],spot[1]);
                       if(res <= 0 ){
                         tileChange(0,spot[0],spot[1],1,true);
@@ -3656,13 +3709,16 @@ SerfM = function(param){
             }
           } else if(hq.type == 'mine'){
             if(hq.cave){ // metal
-              if(self.inventory.ironeore == 10){
+              if(self.inventory.ironeore >= 10){
                 var b = Building.list[self.work.hq];
                 var drop = [b.plot[0][0],b.plot[0][1]+1];
                 if(loc.toString() == drop.toString()){
                   self.facing = 'up';
                   self.inventory.ironore -= 9;
-                  if(Player.list[b.owner].house){
+                  if(House.list[b.owner]){
+                    House.list[b.owner].stores.ironore += 9;
+                    console.log(House.list[b.owner].name + ' +9 Iron Ore');
+                  } else if(Player.list[b.owner].house){
                     var h = Player.list[b.owner].house;
                     House.list[h].stores.ironore += 9;
                     console.log(House.list[h].name + ' +9 Iron Ore');
@@ -3675,13 +3731,16 @@ SerfM = function(param){
                     self.moveTo(0,drop[0],drop[1]);
                   }
                 }
-              } else if(self.inventory.silverore == 1){
+              } else if(self.inventory.silverore >= 1){
                 var b = Building.list[self.work.hq];
                 var drop = [b.plot[0][0],b.plot[0][1]+1];
                 if(loc.toString() == drop.toString()){
                   self.facing = 'up';
                   self.inventory.silverore--;
-                  if(Player.list[b.owner].house){
+                  if(House.list[b.owner]){
+                    House.list[b.owner].stores.silverore++;
+                    console.log(House.list[b.owner].name + ' +1 Silver Ore');
+                  } else if(Player.list[b.owner].house){
                     var h = Player.list[b.owner].house;
                     House.list[h].stores.silverore++;
                     console.log(House.list[h].name + ' +1 Silver Ore');
@@ -3694,13 +3753,16 @@ SerfM = function(param){
                     self.moveTo(0,drop[0],drop[1]);
                   }
                 }
-              } else if(self.inventory.goldore == 1){
+              } else if(self.inventory.goldore >= 1){
                 var b = Building.list[self.work.hq];
                 var drop = [b.plot[0][0],b.plot[0][1]+1];
                 if(loc.toString() == drop.toString()){
                   self.facing = 'up';
                   self.inventory.goldore--;
-                  if(Player.list[b.owner].house){
+                  if(House.list[b.owner]){
+                    House.list[b.owner].stores.goldore++;
+                    console.log(House.list[b.owner].name + ' +1 Gold Ore');
+                  } else if(Player.list[b.owner].house){
                     var h = Player.list[b.owner].house;
                     House.list[h].stores.goldore++;
                     console.log(House.list[h].name + ' +1 Gold Ore');
@@ -3713,13 +3775,16 @@ SerfM = function(param){
                     self.moveTo(0,drop[0],drop[1]);
                   }
                 }
-              } else if(self.inventory.diamond == 1){
+              } else if(self.inventory.diamond >= 1){
                 var b = Building.list[self.work.hq];
                 var drop = [b.plot[0][0],b.plot[0][1]+1];
                 if(loc.toString() == drop.toString()){
                   self.facing = 'up';
                   self.inventory.diamond--;
-                  if(Player.list[b.owner].house){
+                  if(House.list[b.owner]){
+                    House.list[b.owner].stores.diamond++;
+                    console.log(House.list[b.owner].name + ' +1 Diamond');
+                  } else if(Player.list[b.owner].house){
                     var h = Player.list[b.owner].house;
                     House.list[h].stores.diamond++;
                     console.log(House.list[h].name + ' +1 Diamond');
@@ -3744,12 +3809,16 @@ SerfM = function(param){
                         var roll = Math.random();
                         if(roll < 0.001){
                           self.inventory.diamond++;
+                          console.log(self.name + ' mined 1 Diamond');
                         } else if(roll < 0.01){
                           self.inventory.goldore++;
+                          console.log(self.name + ' mined 1 Gold Ore');
                         } else if(roll < 0.1){
                           self.inventory.silverore++;
+                          console.log(self.name + ' mined 1 Silver Ore');
                         } else if(roll < 0.5){
                           self.inventory.ironore++;
+                          console.log(self.name + ' mined 1 Iron Ore');
                         }
                         tileChange(7,spot[0],spot[1],-1,true);
                         var res = getTile(7,spot[0],spot[1]);
@@ -3803,17 +3872,22 @@ SerfM = function(param){
                 }
                 return;
               }
-              if(self.inventory.stone == 10){
+              if(self.inventory.stone >= 10){
                 var b = Building.list[self.work.hq];
                 var drop = [b.plot[0][0],b.plot[0][1]+1];
                 if(loc.toString() == drop.toString()){
                   self.facing = 'up';
                   self.inventory.stone -= 8;
-                  if(Player.list[b.owner].house){
+                  if(House.list[b.owner]){
+                    House.list[b.owner].stores.stone += 8;
+                    console.log(House.list[b.owner].name + ' +8 Stone');
+                  } else if(Player.list[b.owner].house){
                     var h = Player.list[b.owner].house;
                     House.list[h].stores.stone += 8;
+                    console.log(House.list[h].name + ' +8 Stone');
                   } else {
                     Player.list[b.owner].stores.stone += 8
+                    console.log(Player.list[b.owner].name + ' +8 Stone');
                   }
                 } else {
                   if(!self.path){
@@ -3830,6 +3904,8 @@ SerfM = function(param){
                     setTimeout(function(){
                       if(self.mining){
                         tileChange(6,spot[0],spot[1],-1,true);
+                        self.inventory.stone += 10; // ALPHA
+                        console.log(self.name + ' quarried 10 Stone');
                         var res = getTile(6,spot[0],spot[1]);
                         if(res <= 0){
                           tileChange(0,spot[0],spot[1],7);
@@ -3873,11 +3949,16 @@ SerfM = function(param){
           if(b.type == 'mill'){
             if(self.inventory.grain >= 3){
               self.inventory.grain -= 3;
-              if(Player.list[b.owner].house){
+              if(House.list[b.owner]){
+                House.list[b.owner].stores.grain += 2;
+                console.log(self.name + ' dropped off 2 Grain.');
+              } else if(Player.list[b.owner].house){
                 var h = Player.list[b.owner].house;
                 House.list[h].stores.grain += 2;
+                console.log(self.name + ' dropped off 2 Grain.');
               } else {
-                Player.list[b.owner].stores.grain += 2
+                Player.list[b.owner].stores.grain += 2;
+                console.log(self.name + ' dropped off 2 Grain.');
               }
               self.inventory.flour++;
             } else {
@@ -3886,11 +3967,16 @@ SerfM = function(param){
           } else if(b.type == 'lumbermill'){
             if(self.inventory.wood >= 3){
               self.inventory.wood -= 2;
-              if(Player.list[b.owner].house){
+              if(House.list[b.owner]){
+                House.list[b.owner].stores.wood += 2;
+                console.log(self.name + ' dropped off 2 Wood.');
+              } else if(Player.list[b.owner].house){
                 var h = Player.list[b.owner].house;
                 House.list[h].stores.wood += 2;
+                console.log(self.name + ' dropped off 2 Wood.');
               } else {
-                Player.list[b.owner].stores.wood += 2
+                Player.list[b.owner].stores.wood += 2;
+                console.log(self.name + ' dropped off 2 Wood.');
               }
             } else {
               self.mode = 'idle';
@@ -3899,35 +3985,55 @@ SerfM = function(param){
             if(b.cave){
               if(self.inventory.ironore >= 3){
                 self.inventory.ironore -= 2;
-                if(Player.list[b.owner].house){
+                if(House.list[b.owner]){
+                  House.list[b.owner].stores.ironore += 2;
+                  console.log(self.name + ' dropped off 2 Iron Ore.');
+                } else if(Player.list[b.owner].house){
                   var h = Player.list[b.owner].house;
                   House.list[h].stores.ironore += 2;
+                  console.log(self.name + ' dropped off 2 Iron Ore.');
                 } else {
-                  Player.list[b.owner].stores.stone += 2
+                  Player.list[b.owner].stores.stone += 2;
+                  console.log(self.name + ' dropped off 2 Iron Ore.');
                 }
               } else if(self.inventory.silverore > 0){
                 self.inventory.silverore--;
-                if(Player.list[b.owner].house){
+                if(House.list[b.owner]){
+                  House.list[b.owner].stores.silverore ++;
+                  console.log(self.name + ' dropped off 1 Silver Ore.');
+                } else if(Player.list[b.owner].house){
                   var h = Player.list[b.owner].house;
                   House.list[h].stores.silverore++;
+                  console.log(self.name + ' dropped off 1 Silver Ore.');
                 } else {
                   Player.list[b.owner].stores.silverore++;
+                  console.log(self.name + ' dropped off 1 Silver Ore.');
                 }
               } else if(self.inventory.goldore > 0){
                 self.inventory.goldore--;
-                if(Player.list[b.owner].house){
+                if(House.list[b.owner]){
+                  House.list[b.owner].stores.goldore ++;
+                  console.log(self.name + ' dropped off 1 Gold Ore.');
+                } else if(Player.list[b.owner].house){
                   var h = Player.list[b.owner].house;
                   House.list[h].stores.goldore++;
+                  console.log(self.name + ' dropped off 1 Gold Ore.');
                 } else {
                   Player.list[b.owner].stores.goldore++;
+                  console.log(self.name + ' dropped off 1 Gold Ore.');
                 }
               } else if(self.inventory.diamond > 0){
                 self.inventory.diamond--;
-                if(Player.list[b.owner].house){
+                if(House.list[b.owner]){
+                  House.list[b.owner].stores.ironore ++;
+                  console.log(self.name + ' dropped off 1 Diamond.');
+                } else if(Player.list[b.owner].house){
                   var h = Player.list[b.owner].house;
                   House.list[h].stores.diamond++;
+                  console.log(self.name + ' dropped off 1 Diamond.');
                 } else {
                   Player.list[b.owner].stores.diamond++;
+                  console.log(self.name + ' dropped off 1 Diamond.');
                 }
               } else {
                 self.mode = 'idle';
@@ -3935,11 +4041,16 @@ SerfM = function(param){
             } else {
               if(self.inventory.stone >= 3){
                 self.inventory.stone -= 2;
-                if(Player.list[b.owner].house){
+                if(House.list[b.owner]){
+                  House.list[b.owner].stores.stone += 2;
+                  console.log(self.name + ' dropped off 2 Stone.');
+                } else if(Player.list[b.owner].house){
                   var h = Player.list[b.owner].house;
                   House.list[h].stores.stone += 2;
+                  console.log(self.name + ' dropped off 2 Stone.');
                 } else {
-                  Player.list[b.owner].stores.stone += 2
+                  Player.list[b.owner].stores.stone += 2;
+                  console.log(self.name + ' dropped off 2 Stone.');
                 }
               } else {
                 self.mode = 'idle'

@@ -755,7 +755,6 @@ EvalCmd = function(data){
       } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) == 'market' && z == 0){
         var plot = [[c+1,r],[c+2,r],[c+3,r],[c,r-1],[c+1,r-1],[c+2,r-1],[c+3,r-1],[c+4,r-1],[c,r-2],[c+1,r-2],[c+2,r-2],[c+3,r-2]];
         var walls = [[c+4,r-2],[c,r-3],[c+1,r-3],[c+2,r-3],[c+3,r-3]];
-        var topPlot = [[c+4,r-2],[c,r-3],[c+1,r-3],[c+2,r-3],[c+3,r-3]];
         var perim = [[c,r-4],[c+1,r-4],[c+2,r-3],[c+2,r-4],[c+3,r-4],[c+4,r-4],[c-1,r-3],[c-1,r-2],[c-1,r-1],[c-1,r],[c,r],[c+1,r+1],[c+2,r+1],[c+3,r+1],[c+4,r],[c+4,r-3],[c+5,r-2],[c+5,r-1]];
         var count = 0;
         for(var i in plot){
@@ -804,7 +803,7 @@ EvalCmd = function(data){
               built:false,
               plot:plot,
               walls:walls,
-              topPlot:topPlot,
+              topPlot:walls,
               mats:{
                 wood:125,
                 stone:0
@@ -1831,8 +1830,10 @@ EvalCmd = function(data){
       socket.write(JSON.stringify({msg:'addToChat',message:'<p>/drop Quantity ItemName</p>'}));
     } else if(data.cmd == 'drop key'){
       socket.write(JSON.stringify({msg:'addToChat',message:'<p>/drop key Number</p>'}));
-      for(var i = 0; i < player.inventory.keyRing.length; i++){
-        socket.write(JSON.stringify({msg:'addToChat',message:'<p>' + i+1 + ': ' + player.inventory.keyRing[i].name}));
+      for(var i = 0; i < player.inventory.keyRing.length+1; i++){
+        var ii = 1;
+        socket.write(JSON.stringify({msg:'addToChat',message:'<p>' + ii + ': ' + player.inventory.keyRing[i].name}));
+        ii++;
       }
     } else if(data.cmd.slice(0,9) == 'drop key '){
       var num = Number(data.cmd.slice(data.cmd[9])).toFixed(0) - 1;

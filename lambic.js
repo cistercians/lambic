@@ -1641,7 +1641,7 @@ Player = function(param){
     if(self.pressingF && self.actionCooldown == 0 && !self.working){
       var socket = SOCKET_LIST[self.id];
       var loc = getLoc(self.x,self.y);
-      var tile = getTile()
+      var tile = getTile(0,loc[0],loc[1]);
       var uLoc = getLoc(self.x,self.y-tileSize);
       var dLoc = getLoc(self.x,self.y+tileSize);
       var lLoc = getLoc(self.x-tileSize,self.y);
@@ -1732,7 +1732,7 @@ Player = function(param){
           self.fishing = true;
         }
         // clear brush
-      } else if(self.z == 0 && getTile(0,loc[0],loc[1]) >= 3 && getTile(0,loc[0],loc[1]) < 4){
+      } else if(self.z == 0 && tile >= 3 && tile < 4){
         self.actionCooldown = 10;
         self.working = true;
         setTimeout(function(){
@@ -1745,7 +1745,7 @@ Player = function(param){
           }
         },3000/self.strength);
         // gather wood
-      } else if(self.z == 0 && (getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 3)){
+      } else if(self.z == 0 && (tile >= 1 && tile < 3)){
         self.actionCooldown = 10;
         self.working = true;
         if(self.inventory.stoneaxe > 0 || self.inventory.ironaxe > 0){
@@ -1772,7 +1772,7 @@ Player = function(param){
                 }
               }
               emit({msg:'mapEdit',world:world});
-            } else if(getTile(0,loc[0],loc[1]) >= 2 && getTile(0,loc[0],loc[1]) < 3 && getTile(6,loc[0],loc[1]) <= 0){
+            } else if(tile >= 2 && tile < 3 && getTile(6,loc[0],loc[1]) <= 0){
               tileChange(0,loc[0],loc[1],7);
               emit({msg:'mapEdit',world:world});
             }
@@ -1781,7 +1781,7 @@ Player = function(param){
           }
         },6000/self.strength);
         // gather stone
-      } else if(self.z == 0 && getTile(0,loc[0],loc[1]) >= 4 && getTile(0,loc[0],loc[1]) < 6){
+      } else if(self.z == 0 && tile >= 4 && tile < 6){
         self.actionCooldown = 10;
         self.working = true;
         var mult = 3;
@@ -1796,7 +1796,7 @@ Player = function(param){
             socket.write(JSON.stringify({msg:'addToChat',message:'<i>You quarried 50 Stone.</i>'}));
             self.working = false;
             self.mining = false;
-            if(getTile(0,loc[0],loc[1]) >= 4 && getTile(0,loc[0],loc[1]) < 5 && getTile(6,loc[0],loc[1]) <= 0){
+            if(tile >= 4 && tile < 5 && getTile(6,loc[0],loc[1]) <= 0){
               tileChange(0,loc[0],loc[1],7);
               emit({msg:'mapEdit',world:world});
             }
@@ -1824,71 +1824,84 @@ Player = function(param){
           }
         },(10000*mult)/self.strength);
         // farm
-      } else if(self.z == 0 && getTile(0,loc[0],loc[1]) == 8){
+      } else if(self.z == 0 && tile == 8){
         self.actionCooldown = 10;
         if(!nightfall){
-          var f = getBuilding(self.x,self.y);
-          self.working = true;
-          self.farming = true;
-          setTimeout(function(){
-            if(self.working && world[6][loc[1]][loc[0]] < 25){
-              tileChange(6,loc[0],loc[1],25,true); // ALPHA, default:1
-              self.working = false;
-              self.farming = false;
-              var count = 0;
-              var plot = Building.list[f].plot;
-              for(var i in plot){
-                var n = plot[i];
-                if(getTile(6,n[0],n[1]) >= 25){
-                  count++;
-                } else {
-                  continue;
-                }
-              }
-              if(count == 9){
-                for(var i in plot){
-                  var n = plot[i];
-                  tileChange(0,n[0],n[1],9);
-                }
-                emit({msg:'mapEdit',world:world});
-              }
-            } else {
-              return;
+          var f = Building.list[getBuilding(self.x,self.y)];
+          var count = 0;
+          for(var i in f.plot){
+            if(getTile(0,f.plot[i][0],f.plot[i][1]) == 8){
+              count++;
             }
-          },10000);
+          }
+          if(count == 9 && getTile(6,loc[0],loc[1]) < 25){
+            self.working = true;
+            self.farming = true;
+            setTimeout(function(){
+              if(self.working && self.farming){
+                tileChange(6,loc[0],loc[1],25,true); // ALPHA, default:1
+                self.working = false;
+                self.farming = false;
+                var count = 0;
+                for(var i in f.plot){
+                  var n = f.plot[i];
+                  if(getTile(6,n[0],n[1]) >= 25){
+                    count++;
+                  } else {
+                    continue;
+                  }
+                }
+                if(count == 9){
+                  for(var i in f.plot){
+                    var n = f.plot[i];
+                    tileChange(0,n[0],n[1],9);
+                  }
+                  emit({msg:'mapEdit',world:world});
+                }
+              } else {
+                return;
+              }
+            },10000);
+          } else {
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>There is no more work to be done here.</i>'}));
+          }
         } else {
           socket.write(JSON.stringify({msg:'addToChat',message:'<i>It is too dark out for farmwork.</i>'}));
         }
       } else if(self.z == 0 && getTile(0,loc[0],loc[1]) == 9){
         self.actionCooldown = 10;
         if(!nightfall){
-          var f = Building.list[getBuilding(self.x,self.y)];
-          self.working = true;
-          self.farming = true;
-          setTimeout(function(){
-            if(self.working && world[6][loc[1]][loc[0]] < 50){
-              tileChange(6,loc[0],loc[1],25,true); // ALPHA, default:1
-              self.working = false;
-              self.farming = false;
-              var count = 0;
-              var plot = f.plot;
-              for(var i in plot){
-                if(getTile(6,plot[i][0],plot[i][1]) >= 50){
-                  count++;
-                } else {
-                  continue;
-                }
-              }
-              if(count == 9){
+          if(getTile(6,loc[0],loc[1]) < 50){
+            var f = Building.list[getBuilding(self.x,self.y)];
+            self.working = true;
+            self.farming = true;
+            setTimeout(function(){
+              if(self.working && getTile(6,loc[0],loc[1]) < 50){
+                tileChange(6,loc[0],loc[1],25,true); // ALPHA, default:1
+                self.working = false;
+                self.farming = false;
+                var count = 0;
+                var plot = f.plot;
                 for(var i in plot){
-                  tileChange(0,plot[i][0],plot[i][1],10);
+                  if(getTile(6,plot[i][0],plot[i][1]) >= 50){
+                    count++;
+                  } else {
+                    continue;
+                  }
                 }
-                emit({msg:'mapEdit',world:world});
+                if(count == 9){
+                  for(var i in plot){
+                    tileChange(0,plot[i][0],plot[i][1],10);
+                  }
+                  emit({msg:'mapEdit',world:world});
+                }
+              } else {
+                return;
               }
-            } else {
-              return;
-            }
-          },10000);
+            },10000);
+          } else {
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>There is no more work to be done here.</i>'}));
+          }
         } else {
           socket.write(JSON.stringify({msg:'addToChat',message:'<i>It is too dark out for farmwork.</i>'}));
         }

@@ -157,7 +157,7 @@ Brotherhood = function(param){
     // fire
     var fireId = Math.random();
     var coords = getCoords(self.hq[0],self.hq[1]);
-    InfiniteFire({
+    Firepit({
       id:fireId,
       parent:self.id,
       x:coords[0],
@@ -264,6 +264,7 @@ Goths = function(param){
       Building({
         id:id,
         house:self.id,
+        owner:self.id,
         x:center[0],
         y:center[1],
         z:0,
@@ -419,7 +420,7 @@ Goths = function(param){
     // fire
     var fireId = Math.random();
     var coords = getCoords(self.hq[0],self.hq[1]);
-    InfiniteFire({
+    Firepit({
       id:fireId,
       parent:self.id,
       x:coords[0],
@@ -495,6 +496,7 @@ Goths = function(param){
       tileChange(5,m1top[1][0],m1top[1][1],'mill5');
       Mill({
         house:self.id,
+        owner:self.id,
         x:m1c[0],
         y:m1c[1],
         z:0,
@@ -535,6 +537,7 @@ Goths = function(param){
           var center = getCenter(fp[4][0],fp[4][1]);
           Farm({
             house:self.id,
+            owner:self.id,
             x:center[0],
             y:center[1],
             z:0,
@@ -567,6 +570,7 @@ Goths = function(param){
         tileChange(5,m2top[1][0],m2top[1][1],'mill5');
         Mill({
           house:self.id,
+          owner:self.id,
           x:m2c[0],
           y:m2c[1],
           z:0,
@@ -607,6 +611,7 @@ Goths = function(param){
             var center = getCenter(fp[4][0],fp[4][1]);
             Farm({
               house:self.id,
+              owner:self.id,
               x:center[0],
               y:center[1],
               z:0,
@@ -865,6 +870,7 @@ Franks = function(param){
       Building({
         id:id,
         house:self.id,
+        owner:self.id,
         x:center[0],
         y:center[1],
         z:0,
@@ -920,7 +926,35 @@ Franks = function(param){
           hut:id
         });
       }
-      if(s2 > 0.6){
+      if(building.type == 'mill'){
+        if(s2 > 0.6){
+          SerfM({
+            id:s2,
+            name:'Serf',
+            x:c2[0],
+            y:c2[1],
+            z:0,
+            house:self.id,
+            home:{z:0,loc:sp2},
+            hut:id
+          });
+        } else {
+          SerfF({
+            id:s2,
+            name:'Serf',
+            x:c2[0],
+            y:c2[1],
+            z:0,
+            house:self.id,
+            home:{z:0,loc:sp2},
+            hut:id
+          });
+        }
+        Building.list[b].serfs[s1] = s1;
+        Player.list[s1].work = {hq:b,spot:null};
+        Building.list[b].serfs[s2] = s2;
+        Player.list[s2].work = {hq:b,spot:null};
+      } else {
         SerfM({
           id:s2,
           name:'Serf',
@@ -931,24 +965,6 @@ Franks = function(param){
           home:{z:0,loc:sp2},
           hut:id
         });
-      } else {
-        SerfF({
-          id:s2,
-          name:'Serf',
-          x:c2[0],
-          y:c2[1],
-          z:0,
-          house:self.id,
-          home:{z:0,loc:sp2},
-          hut:id
-        });
-      }
-      if(building.type == 'mill'){
-        Building.list[b].serfs[s1] = s1;
-        Player.list[s1].work = {hq:b,spot:null};
-        Building.list[b].serfs[s2] = s2;
-        Player.list[s2].work = {hq:b,spot:null};
-      } else {
         if(Player.list[s1].sex == 'm'){
           Building.list[b].serfs[s1] = s1;
           Player.list[s1].work = {hq:b,spot:null};
@@ -1021,7 +1037,7 @@ Franks = function(param){
     // fire
     var fireId = Math.random();
     var coords = getCoords(self.hq[0],self.hq[1]);
-    InfiniteFire({
+    Firepit({
       id:fireId,
       parent:self.id,
       x:coords[0],
@@ -1108,6 +1124,7 @@ Franks = function(param){
       tileChange(5,m1top[1][0],m1top[1][1],'mill5');
       Mill({
         house:self.id,
+        owner:self.id,
         x:m1c[0],
         y:m1c[1],
         z:0,
@@ -1148,6 +1165,7 @@ Franks = function(param){
           var center = getCenter(fp[4][0],fp[4][1]);
           Farm({
             house:self.id,
+            owner:self.id,
             x:center[0],
             y:center[1],
             z:0,
@@ -1180,6 +1198,7 @@ Franks = function(param){
         tileChange(5,m2top[1][0],m2top[1][1],'mill5');
         Mill({
           house:self.id,
+          owner:self.id,
           x:m2c[0],
           y:m2c[1],
           z:0,
@@ -1220,6 +1239,7 @@ Franks = function(param){
             var center = getCenter(fp[4][0],fp[4][1]);
             Farm({
               house:self.id,
+              owner:self.id,
               x:center[0],
               y:center[1],
               z:0,
@@ -1393,6 +1413,7 @@ Celts = function(param){
       Building({
         id:id,
         house:self.id,
+        owner:self.id,
         x:center[0],
         y:center[1],
         z:0,
@@ -1448,7 +1469,35 @@ Celts = function(param){
           hut:id
         });
       }
-      if(s2 > 0.6){
+      if(building.type == 'mill'){
+        if(s2 > 0.6){
+          SerfM({
+            id:s2,
+            name:'Serf',
+            x:c2[0],
+            y:c2[1],
+            z:0,
+            house:self.id,
+            home:{z:0,loc:sp2},
+            hut:id
+          });
+        } else {
+          SerfF({
+            id:s2,
+            name:'Serf',
+            x:c2[0],
+            y:c2[1],
+            z:0,
+            house:self.id,
+            home:{z:0,loc:sp2},
+            hut:id
+          });
+        }
+        Building.list[b].serfs[s1] = s1;
+        Player.list[s1].work = {hq:b,spot:null};
+        Building.list[b].serfs[s2] = s2;
+        Player.list[s2].work = {hq:b,spot:null};
+      } else {
         SerfM({
           id:s2,
           name:'Serf',
@@ -1459,24 +1508,6 @@ Celts = function(param){
           home:{z:0,loc:sp2},
           hut:id
         });
-      } else {
-        SerfF({
-          id:s2,
-          name:'Serf',
-          x:c2[0],
-          y:c2[1],
-          z:0,
-          house:self.id,
-          home:{z:0,loc:sp2},
-          hut:id
-        });
-      }
-      if(building.type == 'mill'){
-        Building.list[b].serfs[s1] = s1;
-        Player.list[s1].work = {hq:b,spot:null};
-        Building.list[b].serfs[s2] = s2;
-        Player.list[s2].work = {hq:b,spot:null};
-      } else {
         if(Player.list[s1].sex == 'm'){
           Building.list[b].serfs[s1] = s1;
           Player.list[s1].work = {hq:b,spot:null};
@@ -1571,7 +1602,7 @@ Celts = function(param){
     // fire
     var fireId = Math.random();
     var coords = getCoords(self.hq[0],self.hq[1]);
-    InfiniteFire({
+    Firepit({
       id:fireId,
       parent:self.id,
       x:coords[0],
@@ -1669,6 +1700,7 @@ Celts = function(param){
       }
       Mine({
         house:self.id,
+        owner:self.id,
         x:m1c[0],
         y:m1c[1],
         z:0,
@@ -1701,6 +1733,7 @@ Celts = function(param){
         }
         Mine({
           house:self.id,
+          owner:self.id,
           x:m2c[0],
           y:m2c[1],
           z:0,
@@ -1794,7 +1827,7 @@ Celts = function(param){
       x:coords[0],
       y:coords[1],
       z:0,
-      type:'teutower',
+      type:'celttower',
       built:false,
       plot:plot,
       topPlot:topPlot
@@ -1878,6 +1911,7 @@ Teutons = function(param){
       Building({
         id:id,
         house:self.id,
+        owner:self.id,
         x:center[0],
         y:center[1],
         z:0,
@@ -1933,7 +1967,35 @@ Teutons = function(param){
           hut:id
         });
       }
-      if(s2 > 0.6){
+      if(building.type == 'mill'){
+        if(s2 > 0.6){
+          SerfM({
+            id:s2,
+            name:'Serf',
+            x:c2[0],
+            y:c2[1],
+            z:0,
+            house:self.id,
+            home:{z:0,loc:sp2},
+            hut:id
+          });
+        } else {
+          SerfF({
+            id:s2,
+            name:'Serf',
+            x:c2[0],
+            y:c2[1],
+            z:0,
+            house:self.id,
+            home:{z:0,loc:sp2},
+            hut:id
+          });
+        }
+        Building.list[b].serfs[s1] = s1;
+        Player.list[s1].work = {hq:b,spot:null};
+        Building.list[b].serfs[s2] = s2;
+        Player.list[s2].work = {hq:b,spot:null};
+      } else {
         SerfM({
           id:s2,
           name:'Serf',
@@ -1944,24 +2006,6 @@ Teutons = function(param){
           home:{z:0,loc:sp2},
           hut:id
         });
-      } else {
-        SerfF({
-          id:s2,
-          name:'Serf',
-          x:c2[0],
-          y:c2[1],
-          z:0,
-          house:self.id,
-          home:{z:0,loc:sp2},
-          hut:id
-        });
-      }
-      if(building.type == 'mill'){
-        Building.list[b].serfs[s1] = s1;
-        Player.list[s1].work = {hq:b,spot:null};
-        Building.list[b].serfs[s2] = s2;
-        Player.list[s2].work = {hq:b,spot:null};
-      } else {
         if(Player.list[s1].sex == 'm'){
           Building.list[b].serfs[s1] = s1;
           Player.list[s1].work = {hq:b,spot:null};
@@ -2034,7 +2078,7 @@ Teutons = function(param){
     // fire
     var fireId = Math.random();
     var coords = getCoords(self.hq[0],self.hq[1]);
-    InfiniteFire({
+    Firepit({
       id:fireId,
       parent:self.id,
       x:coords[0],
@@ -2115,6 +2159,7 @@ Teutons = function(param){
       }
       Mine({
         house:self.id,
+        owner:self.id,
         x:m1c[0],
         y:m1c[1],
         z:0,
@@ -2147,6 +2192,7 @@ Teutons = function(param){
         }
         Mine({
           house:self.id,
+          owner:self.id,
           x:m2c[0],
           y:m2c[1],
           z:0,
@@ -2208,6 +2254,7 @@ Teutons = function(param){
       tileChange(5,l1top[1][0],l1top[1][1],'lumbermill3');
       Lumbermill({
         house:self.id,
+        owner:self.id,
         x:l1c[0],
         y:l1c[1],
         z:0,
@@ -2244,6 +2291,7 @@ Teutons = function(param){
         tileChange(5,l2top[1][0],l2top[1][1],'lumbermill3');
         Lumbermill({
           house:self.id,
+          owner:self.id,
           x:l2c[0],
           y:l2c[1],
           z:0,
@@ -2472,7 +2520,7 @@ Mercenaries = function(param){
     // fire
     var fireId = Math.random();
     var coords = getCoords(self.hq[0],self.hq[1]);
-    InfiniteFire({
+    Firepit({
       id:fireId,
       parent:self.id,
       x:coords[0],
