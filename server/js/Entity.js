@@ -1571,7 +1571,29 @@ Character = function(param){
             tLoc = Building.list[tb].entrance;
           }
         } else if(self.z == -1){
-          tLoc = [self.caveEntrance[0],self.caveEntrance[1]+1];
+          // Check if caveEntrance exists before accessing it
+          if(self.caveEntrance && Array.isArray(self.caveEntrance) && self.caveEntrance.length >= 2){
+            tLoc = [self.caveEntrance[0],self.caveEntrance[1]+1];
+          } else {
+            // Fallback: find nearest cave entrance
+            if(global.caveEntrances && global.caveEntrances.length > 0){
+              var nearest = global.caveEntrances[0];
+              var minDist = Infinity;
+              for(var i = 0; i < global.caveEntrances.length; i++){
+                var ent = global.caveEntrances[i];
+                var dist = Math.abs(self.x - ent[0]*global.tileSize) + Math.abs(self.y - ent[1]*global.tileSize);
+                if(dist < minDist){
+                  minDist = dist;
+                  nearest = ent;
+                }
+              }
+              self.caveEntrance = nearest;
+              tLoc = [nearest[0], nearest[1]+1];
+            } else {
+              // No cave entrance found, stay in place
+              return;
+            }
+          }
         } else if(self.z == -2){
           var b = getBuilding(cen[0],cen[1]);
           tLoc = Building.list[b].dstairs;
