@@ -1179,7 +1179,8 @@ Character = function(param){
               var p = building.plot[i];
               var tile = getTile(0, p[0], p[1]);
               if(tile == 14 || tile == 16){ // Door tiles
-                self.moveTo(1, p[0], p[1]); // Path to door first
+                // Path to the tile OUTSIDE the door (one tile up from door) to trigger z-change
+                self.moveTo(1, p[0], p[1] - 1);
                 return; // Exit early, will continue after reaching door
               }
             }
@@ -2175,7 +2176,10 @@ Character = function(param){
     } else if(self.z == 1){
       if(getTile(0,loc[0],loc[1] - 1) == 14 || getTile(0,loc[0],loc[1] - 1) == 16  || getTile(0,loc[0],loc[1] - 1) == 19){
         var exit = getBuilding(self.x,self.y-tileSize);
-        Building.list[exit].occ--;
+        if(Building.list[exit]){
+          Building.list[exit].occ--;
+          console.log(self.name + ' exited building ' + Building.list[exit].type + ' (z=1 -> z=0)');
+        }
         self.z = 0;
         self.path = null;
         self.pathCount = 0;
@@ -3640,6 +3644,8 @@ SerfM = function(param){
   self.dayTimer = false;
   self.workTimer = false;
   self.idleCounter = 0; // Track how long serf has been without action
+  self.lastPos = {x: param.x, y: param.y}; // Track position for stuck detection
+  self.stuckCounter = 0; // Count frames stuck in same position
 
   // Assign Serf to appropriate work building
   self.assignWorkHQ = function(){
@@ -3773,13 +3779,16 @@ SerfM = function(param){
         self.maxSpd = (self.baseSpd * 1.1) * self.drag;
       } else if(getTile(0,loc[0],loc[1]) == 14 || getTile(0,loc[0],loc[1]) == 16 || getTile(0,loc[0],loc[1]) == 19){
         var b = getBuilding(self.x,self.y);
-        Building.list[b].occ++;
-        self.z = 1;
-        self.path = null;
-        self.pathCount = 0;
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = self.baseSpd * self.drag;
+        if(Building.list[b]){
+          Building.list[b].occ++;
+          self.z = 1;
+          self.path = null;
+          self.pathCount = 0;
+          self.innaWoods = false;
+          self.onMtn = false;
+          self.maxSpd = self.baseSpd * self.drag;
+          console.log(self.name + ' entered building ' + Building.list[b].type + ' (z=1)');
+        }
       } else if(getTile(0,loc[0],loc[1]) == 0){
         self.z = -3;
         self.path = null;
@@ -3848,7 +3857,10 @@ SerfM = function(param){
     } else if(self.z == 1){
       if(getTile(0,loc[0],loc[1] - 1) == 14 || getTile(0,loc[0],loc[1] - 1) == 16  || getTile(0,loc[0],loc[1] - 1) == 19){
         var exit = getBuilding(self.x,self.y-tileSize);
-        Building.list[exit].occ--;
+        if(Building.list[exit]){
+          Building.list[exit].occ--;
+          console.log(self.name + ' exited building ' + Building.list[exit].type + ' (z=1 -> z=0)');
+        }
         self.z = 0;
         self.path = null;
         self.pathCount = 0;
@@ -3904,7 +3916,7 @@ SerfM = function(param){
         self.mode = 'work';
         self.action = null;
           self.work.spot = null; // Clear previous work spot
-        console.log(self.name + ' heads to work');
+        console.log(self.name + ' heads to work (z=' + self.z + ', pos=' + self.x + ',' + self.y + ')');
         }
         self.dayTimer = false;
       },rand);
@@ -3937,8 +3949,49 @@ SerfM = function(param){
       self.idleTime--;
     }
 
+    // STUCK DETECTION - Check if Serf hasn't moved in a while
+    var dist = Math.sqrt(Math.pow(self.x - self.lastPos.x, 2) + Math.pow(self.y - self.lastPos.y, 2));
+    if(dist < 5){ // Moved less than 5 pixels
+      self.stuckCounter++;
+      if(self.stuckCounter > 120){ // Stuck for 2 seconds at 60fps
+        console.log(self.name + ' detected as stuck - resetting (pos: ' + self.x + ',' + self.y + ', mode: ' + self.mode + ', action: ' + self.action + ')');
+        self.path = null;
+        self.pathCount = 0;
+        self.action = null;
+        self.work.spot = null;
+        self.stuckCounter = 0;
+        // Clear movement keys
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
+      }
+    } else {
+      self.stuckCounter = 0; // Reset if moved
+    }
+    self.lastPos = {x: self.x, y: self.y};
+
     // WORK
     if(self.mode == 'work'){
+      // Check if inside building and need to exit first
+      if(self.z == 1 && !self.action){
+        var loc = getLoc(self.x, self.y);
+        var exitLoc = [loc[0], loc[1] - 1];
+        var exitCenter = getCenter(exitLoc[0], exitLoc[1]);
+        var distToExit = Math.sqrt(Math.pow(self.x - exitCenter[0], 2) + Math.pow(self.y - exitCenter[1], 2));
+        
+        console.log(self.name + ' is inside building (z=1), need to exit first. Distance to exit: ' + Math.floor(distToExit) + 'px');
+        
+        if(distToExit > 32){
+          // Not at exit yet, move there
+          console.log(self.name + ' moving to building exit at [' + exitLoc[0] + ',' + exitLoc[1] + ']');
+          self.moveTo(1, exitLoc[0], exitLoc[1]);
+          return;
+        } else {
+          console.log(self.name + ' is at exit, should transition on next frame');
+        }
+      }
+      
       // Ensure Serf has a work HQ assigned
       if(!self.work.hq){
         self.assignWorkHQ();
@@ -3962,7 +4015,7 @@ SerfM = function(param){
       if(!self.action){
         self.idleCounter++;
         if(self.idleCounter > 300){ // If no action for 5 seconds (300 frames at 60fps)
-          console.log(self.name + ' stuck without action, resetting...');
+          console.log(self.name + ' stuck without action for 300 frames (z=' + self.z + ', work.hq=' + self.work.hq + '), resetting...');
           self.mode = 'idle';
           self.action = null;
           self.idleCounter = 0;
@@ -4750,8 +4803,30 @@ SerfM = function(param){
         if(self.home){
           var loc = getLoc(self.x, self.y);
           if(self.z != self.home.z || loc.toString() != self.home.loc.toString()){
+            // Special case: If in cellar (z=-2) and home is outside (z=0), go upstairs first
+            if(self.z == -2 && self.home.z == 0 && !self.path){
+              var b = getBuilding(self.x, self.y);
+              if(b){
+                var building = Building.list[b];
+                if(building && building.dstairs){
+                  console.log(self.name + ' in cellar, going upstairs to exit');
+                  self.moveTo(-2, building.dstairs[0], building.dstairs[1]);
+                }
+              }
+            }
+            // Special case: If on second floor (z=2) and home is outside (z=0), go downstairs first
+            else if(self.z == 2 && self.home.z == 0 && !self.path){
+              var b = getBuilding(self.x, self.y);
+              if(b){
+                var building = Building.list[b];
+                if(building && building.ustairs){
+                  console.log(self.name + ' on second floor, going downstairs to exit');
+                  self.moveTo(2, building.ustairs[0], building.ustairs[1]);
+                }
+              }
+            }
             // Special case: If inside a building (z=1) and home is outside (z=0), exit first
-            if(self.z == 1 && self.home.z == 0 && !self.path){
+            else if(self.z == 1 && self.home.z == 0 && !self.path){
               // Find the door to exit
               var b = getBuilding(self.x, self.y);
               if(b){
@@ -4763,7 +4838,8 @@ SerfM = function(param){
                     var tile = getTile(0, p[0], p[1]);
                     if(tile == 14 || tile == 16){ // Door tiles
                       console.log(self.name + ' inside building, exiting to go home');
-                      self.moveTo(1, p[0], p[1]);
+                      // Path to the tile OUTSIDE the door (one tile up from door) to trigger z-change
+                      self.moveTo(1, p[0], p[1] - 1);
                       break;
                     }
                   }
@@ -4943,6 +5019,8 @@ SerfF = function(param){
   self.dayTimer = false;
   self.workTimer = false;
   self.idleCounter = 0; // Track how long serf has been without action
+  self.lastPos = {x: param.x, y: param.y}; // Track position for stuck detection
+  self.stuckCounter = 0; // Count frames stuck in same position
 
   // Assign Serf to appropriate work building (Female serfs can only work mills/farms)
   self.assignWorkHQ = function(){
@@ -5176,7 +5254,10 @@ SerfF = function(param){
     } else if(self.z == 1){
       if(getTile(0,loc[0],loc[1] - 1) == 14 || getTile(0,loc[0],loc[1] - 1) == 16  || getTile(0,loc[0],loc[1] - 1) == 19){
         var exit = getBuilding(self.x,self.y-tileSize);
-        Building.list[exit].occ--;
+        if(Building.list[exit]){
+          Building.list[exit].occ--;
+          console.log(self.name + ' exited building ' + Building.list[exit].type + ' (z=1 -> z=0)');
+        }
         self.z = 0;
         self.path = null;
         self.pathCount = 0;
@@ -5582,8 +5663,30 @@ SerfF = function(param){
         if(self.home){
           var loc = getLoc(self.x, self.y);
           if(self.z != self.home.z || loc.toString() != self.home.loc.toString()){
+            // Special case: If in cellar (z=-2) and home is outside (z=0), go upstairs first
+            if(self.z == -2 && self.home.z == 0 && !self.path){
+              var b = getBuilding(self.x, self.y);
+              if(b){
+                var building = Building.list[b];
+                if(building && building.dstairs){
+                  console.log(self.name + ' in cellar, going upstairs to exit');
+                  self.moveTo(-2, building.dstairs[0], building.dstairs[1]);
+                }
+              }
+            }
+            // Special case: If on second floor (z=2) and home is outside (z=0), go downstairs first
+            else if(self.z == 2 && self.home.z == 0 && !self.path){
+              var b = getBuilding(self.x, self.y);
+              if(b){
+                var building = Building.list[b];
+                if(building && building.ustairs){
+                  console.log(self.name + ' on second floor, going downstairs to exit');
+                  self.moveTo(2, building.ustairs[0], building.ustairs[1]);
+                }
+              }
+            }
             // Special case: If inside a building (z=1) and home is outside (z=0), exit first
-            if(self.z == 1 && self.home.z == 0 && !self.path){
+            else if(self.z == 1 && self.home.z == 0 && !self.path){
               // Find the door to exit
               var b = getBuilding(self.x, self.y);
               if(b){
@@ -5595,7 +5698,8 @@ SerfF = function(param){
                     var tile = getTile(0, p[0], p[1]);
                     if(tile == 14 || tile == 16){ // Door tiles
                       console.log(self.name + ' inside building, exiting to go home');
-                      self.moveTo(1, p[0], p[1]);
+                      // Path to the tile OUTSIDE the door (one tile up from door) to trigger z-change
+                      self.moveTo(1, p[0], p[1] - 1);
                       break;
                     }
                   }
@@ -5889,7 +5993,10 @@ Blacksmith = function(param){
     } else if(self.z == 1){
       if(getTile(0,loc[0],loc[1] - 1) == 14 || getTile(0,loc[0],loc[1] - 1) == 16  || getTile(0,loc[0],loc[1] - 1) == 19){
         var exit = getBuilding(self.x,self.y-tileSize);
-        Building.list[exit].occ--;
+        if(Building.list[exit]){
+          Building.list[exit].occ--;
+          console.log(self.name + ' exited building ' + Building.list[exit].type + ' (z=1 -> z=0)');
+        }
         self.z = 0;
         self.path = null;
         self.pathCount = 0;
