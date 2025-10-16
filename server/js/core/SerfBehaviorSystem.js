@@ -19,7 +19,7 @@ class SerfBehaviorSystem {
       BUILDING: 'building'  // construction projects
     };
     
-    this.debugMode = false; // Set to true for detailed logging
+    this.debugMode = false; // Disabled to reduce console spam
   }
 
   // Initialize a Serf with clean state
@@ -47,6 +47,23 @@ class SerfBehaviorSystem {
     if (!serf || !serf.behaviorState) {
       this.initializeSerf(serf);
       return;
+    }
+    
+    // Check if this is a fresh spawn with no work.hq
+    // This happens for enemy NPC Serfs that just spawned
+    if (!serf.work || !serf.work.hq) {
+      // Try to assign work, if it fails after initialization, fall back to old system
+      if (!serf.hasTriedInitialization) {
+        this.assignWorkHQ(serf);
+        serf.hasTriedInitialization = true;
+      }
+      
+      // If still no work.hq after trying, this Serf might need the old system
+      if (!serf.work || !serf.work.hq) {
+        this.log(serf, 'No work HQ available, skipping behavior system update');
+        // Don't update using new system, let old system handle it
+        return;
+      }
     }
 
     // Handle basic movement and terrain effects
@@ -172,6 +189,57 @@ class SerfBehaviorSystem {
         serf.innaWoods = false;
         serf.onMtn = false;
         serf.maxSpd = serf.baseSpd * serf.drag;
+      }
+    } 
+    else if (serf.z === 1) {
+      // Inside a building - check for exit
+      const exitTile = global.getTile(0, loc[0], loc[1] - 1);
+      if (exitTile === 14 || exitTile === 16 || exitTile === 19) {
+        const exit = global.getBuilding(serf.x, serf.y - global.tileSize);
+        const BuildingList = global.Building ? global.Building.list : {};
+        if (BuildingList[exit]) {
+          BuildingList[exit].occ--;
+        }
+        serf.z = 0;
+        serf.path = null;
+        serf.pathCount = 0;
+        serf.innaWoods = false;
+        serf.onMtn = false;
+        serf.maxSpd = serf.baseSpd * serf.drag;
+        this.log(serf, 'Exited building');
+      }
+    }
+    else if (serf.z === -1) {
+      // In cave - check for exit
+      if (global.getTile(1, loc[0], loc[1]) === 2) {
+        serf.caveEntrance = null;
+        serf.z = 0;
+        serf.path = null;
+        serf.pathCount = 0;
+        serf.innaWoods = false;
+        serf.onMtn = false;
+        serf.maxSpd = (serf.baseSpd * 0.9) * serf.drag;
+        this.log(serf, 'Exited cave');
+      }
+    }
+    else if (serf.z === -3) {
+      // Underwater - need to surface
+      if (serf.breath > 0) {
+        serf.breath -= 0.25;
+      } else {
+        serf.hp -= 0.5;
+      }
+      if (serf.hp <= 0) {
+        serf.die({cause: 'drowned'});
+        return;
+      }
+      // Surface if on land
+      if (global.getTile(0, loc[0], loc[1]) !== 0) {
+        serf.z = 0;
+        serf.path = null;
+        serf.pathCount = 0;
+        serf.breath = serf.breathMax;
+        this.log(serf, 'Surfaced from water');
       }
     }
     
@@ -322,6 +390,11 @@ class SerfBehaviorSystem {
     }
     
     if (serf.workTarget) {
+      // Ensure work target has z property
+      if (!serf.workTarget.z) {
+        serf.workTarget.z = 0; // Work is usually on overworld
+      }
+      
       // Move to work target
       this.moveToTarget(serf, serf.workTarget, () => {
         this.setState(serf, this.states.WORKING, 'arrived at work');
@@ -385,7 +458,11 @@ class SerfBehaviorSystem {
       return;
     }
     
-    const homeTarget = { x: serf.home.loc[0] * 64, y: serf.home.loc[1] * 64 };
+    const homeTarget = { 
+      x: serf.home.loc[0] * 64, 
+      y: serf.home.loc[1] * 64,
+      z: serf.home.z || 0
+    };
     this.moveToTarget(serf, homeTarget, () => {
       this.setState(serf, this.states.IDLE, 'arrived home');
     });
@@ -398,7 +475,11 @@ class SerfBehaviorSystem {
       return;
     }
     
-    const tavernTarget = { x: serf.tavern.x, y: serf.tavern.y };
+    const tavernTarget = { 
+      x: serf.tavern.x, 
+      y: serf.tavern.y,
+      z: 0 // Taverns are on overworld level, but you enter them at z=1
+    };
     this.moveToTarget(serf, tavernTarget, () => {
       this.setState(serf, this.states.AT_TAVERN, 'arrived at tavern');
     });
@@ -578,6 +659,26 @@ class SerfBehaviorSystem {
       return;
     }
     
+    // If in a building and target is outside, first move to the exit
+    if (serf.z === 1 && target.z !== 1) {
+      // Find the building exit by moving one tile up (north)
+      const loc = global.getLoc(serf.x, serf.y);
+      const exitLoc = [loc[0], loc[1] - 1];
+      const exitCenter = global.getCenter(exitLoc[0], exitLoc[1]);
+      const distToExit = this.getDistance(serf, {x: exitCenter[0], y: exitCenter[1]});
+      
+      if (distToExit > 32) {
+        // Not at exit yet, move there first
+        this.log(serf, 'Moving to building exit');
+        serf.path = [exitLoc];
+        serf.pathCount = 0;
+        serf.action = 'move';
+        return;
+      }
+      // At exit, will transition on next update
+      return;
+    }
+    
     // Use existing pathfinding system
     const start = global.getLoc(serf.x, serf.y);
     const end = global.getLoc(target.x, target.y);
@@ -588,6 +689,9 @@ class SerfBehaviorSystem {
         serf.path = path;
         serf.pathCount = 0;
         serf.action = 'move';
+        this.log(serf, `Pathfinding to [${end[0]},${end[1]}], path length: ${path.length}`);
+      } else {
+        this.log(serf, `Pathfinding failed to [${end[0]},${end[1]}]`);
       }
     }
   }

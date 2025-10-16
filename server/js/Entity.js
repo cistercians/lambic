@@ -3725,8 +3725,12 @@ SerfM = function(param){
     // Use new behavior system for Serf logic
     if (global.serfBehaviorSystem) {
       global.serfBehaviorSystem.updateSerf(self);
-      // Skip old logic when new system is active
-      return;
+      
+      // If behavior system handled it successfully, skip old logic
+      if (self.behaviorState && self.work && self.work.hq) {
+        return;
+      }
+      // Otherwise fall through to old logic for backwards compatibility
     }
     
     var loc = getLoc(self.x,self.y);
@@ -5044,8 +5048,12 @@ SerfF = function(param){
     // Use new behavior system for Serf logic
     if (global.serfBehaviorSystem) {
       global.serfBehaviorSystem.updateSerf(self);
-      // Skip old logic when new system is active
-      return;
+      
+      // If behavior system handled it successfully, skip old logic
+      if (self.behaviorState && self.work && self.work.hq) {
+        return;
+      }
+      // Otherwise fall through to old logic for backwards compatibility
     }
     
     var loc = getLoc(self.x,self.y);
