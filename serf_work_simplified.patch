@@ -1,0 +1,164 @@
+--- a/server/js/Entity.js
++++ b/server/js/Entity.js
+@@ -4059,945 +4059,60 @@ SerfM = function(param){
+     }
+     self.lastPos = {x: self.x, y: self.y};
+ 
+-    // SIMPLIFIED HOUSE BUILDING - Male serfs build their hut when work begins
+-    if(self.mode == 'work'){
+-      
+-      // Check if serf needs to build their hut
+-      if(!self.action){
+-        if(!self.hut || !Building.list[self.hut]){
+-          console.log(self.name + ' ERROR: has no hut assigned, switching to idle');
+-          self.mode = 'idle';
+-          return;
+-        }
+-        
+-        var hut = Building.list[self.hut];
+-        console.log('🏠 ' + self.name + ' checking hut ' + self.hut + ': built=' + hut.built + ', plot=' + (hut.plot ? hut.plot.length : 'none'));
+-        
+-        // If hut is not built yet, build it first
+-        if(!hut.built){
+-          var select = [];
+-          for(var i in hut.plot){
+-            var p = hut.plot[i];
+-            var t = getTile(0, p[0], p[1]);
+-            console.log('  🔍 Checking plot tile [' + p[0] + ',' + p[1] + ']: tile=' + t);
+-            if(t == 11){ // Foundation tile that needs building
+-              select.push(p);
+-            }
+-          }
+-          
+-          console.log('🏗️ ' + self.name + ' hut NOT built, found ' + select.length + ' foundation tiles (type 11)');
+-          
+-          if(select.length > 0){
+-            self.work.spot = select[Math.floor(Math.random() * select.length)];
+-            self.action = 'build';
+-            console.log('✅ ' + self.name + ' ASSIGNED to build hut at [' + self.work.spot[0] + ',' + self.work.spot[1] + ']');
+-          } else {
+-            console.log('❌ ' + self.name + ' ERROR: hut not built but no foundation tiles found!');
+-            self.mode = 'idle';
+-            self.action = null;
+-          }
+-        } else {
+-          // Hut is built, transition to economic work
+-          console.log('✅ ' + self.name + ' hut is complete, transitioning to economic work');
+-          
+-          // Make sure serf has a work assignment
+-          if(!self.work.hq){
+-            console.log('🏢 ' + self.name + ' has no work.hq, attempting to assign...');
+-            self.assignWorkHQ();
+-          }
+-          
+-          // If serf has a work assignment, transition to task
+-          if(self.work.hq && Building.list[self.work.hq]){
+-            self.action = 'task';
+-            self.work.spot = null; // Clear build spot, will be reassigned for economic work
+-            console.log('🔨 ' + self.name + ' transitioning to task at ' + Building.list[self.work.hq].type);
+-          } else {
+-            console.log('⚠️ ' + self.name + ' has no valid work assignment, switching to idle');
+-            self.mode = 'idle';
+-            self.action = null;
+-          }
+-        }
+-      } else if(self.action == 'build'){
+-        var spot = self.work.spot;
+-        if(spot){
+-          var cs = getCenter(spot[0],spot[1]);
+-          var build = getBuilding(cs[0],cs[1]);
+-          if(Building.list[build].built){
+-            self.work.spot = null;
+-            self.action = null;
+-          } else {
+-            if(loc.toString() == spot.toString()){
+-                var gt = getTile(0,spot[0],spot[1]);
+-                if(gt == 11){
+-                  if(!self.building){
+-                    Build(self.id);
+-                  }
+-                } else {
+-                  var plot = Building.list[build].plot;
+-                  var select = [];
+-                  for(var i in plot){
+-                    var p = plot[i];
+-                    var t = getTile(0,p[0],p[1]);
+-                    if(t == 11){
+-                      select.push(p);
+-                    }
+-                  }
+-                  self.work.spot = select[Math.floor(Math.random() * select.length)];
+-                }
+-            } else {
+-              if(!self.path){
+-                self.moveTo(0,spot[0],spot[1]);
+-              }
+-            }
+-          }
+-        } else {
+-          self.action = null;
+-        }
+-      } else if(self.action == 'task'){
+-        ...
+-        [~900 more lines of complex work/idle logic]
+-        ...
++    // ====================
++    // WORK MODE - Simple & Clean
++    // ====================
++    if(self.mode == 'work' && self.hut && Building.list[self.hut]){
++      var hut = Building.list[self.hut];
++      
++      // Priority 1: Build hut if not built
++      if(!hut.built){
++        var foundationTiles = hut.plot.filter(p => getTile(0, p[0], p[1]) == 11);
++        if(foundationTiles.length > 0){
++          if(!self.work.spot) self.work.spot = foundationTiles[Math.floor(Math.random() * foundationTiles.length)];
++          if(loc.toString() == self.work.spot.toString()){
++            if(!self.building) Build(self.id);
++          } else if(!self.path){
++            self.moveTo(0, self.work.spot[0], self.work.spot[1]);
++          }
++        }
++      }
++      // Priority 2: Do economic work once hut is built  
++      else if(self.work.hq && Building.list[self.work.hq]){
++        if(!self.work.spot){
++          var hq = Building.list[self.work.hq];
++          if(hq.resources && hq.resources.length > 0){
++            self.work.spot = hq.resources[Math.floor(Math.random() * hq.resources.length)];
++          }
++        }
++        if(self.work.spot && loc.toString() != self.work.spot.toString() && !self.path){
++          self.moveTo(0, self.work.spot[0], self.work.spot[1]);
++        }
++      }
++      // Priority 3: Find work if no assignment
++      else if(!self.work.hq){
++        self.assignWorkHQ();
++      }
++    }
++    
++    // ====================
++    // IDLE MODE - Simple Wandering
++    // ====================
++    else if(self.mode == 'idle'){
++      if(!self.action && self.home){
++        var cHome = getCenter(self.home.loc[0], self.home.loc[1]);
++        var hDist = self.getDistance({x:cHome[0], y:cHome[1]});
++        
++        if(hDist > self.wanderRange){
++          if(!self.path) self.return();
++        } else if(self.idleTime == 0 && !self.path){
++          var col = loc[0], row = loc[1];
++          var select = [[col,row-1],[col-1,row],[col,row+1],[col+1,row]];
++          var target = select[Math.floor(Math.random() * 4)];
++          if(target[0] >= 0 && target[0] < mapSize && target[1] >= 0 && target[1] < mapSize){
++            if(isWalkable(self.z, target[0], target[1])){
++              self.move(target);
++              self.idleTime = Math.floor(Math.random() * self.idleRange);
++            }
++          }
+         }
+       }
+     }
+

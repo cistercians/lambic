@@ -4097,10 +4097,53 @@ SerfM = function(param){
             self.action = null;
           }
         } else {
-          // Hut is built, switch to idle for now
-          console.log(self.name + ' hut is complete, switching to idle');
-          self.mode = 'idle';
-          self.action = null;
+          // Hut is built, transition to economic work
+          console.log('✅ ' + self.name + ' hut is complete, transitioning to economic work');
+          
+          // Make sure serf has a work assignment
+          if(!self.work.hq){
+            console.log('🏢 ' + self.name + ' has no work.hq, attempting to assign...');
+            self.assignWorkHQ();
+          }
+          
+          // If serf has a work assignment, assign a work spot and task action
+          if(self.work.hq && Building.list[self.work.hq]){
+            var hq = Building.list[self.work.hq];
+            
+            // Assign a work spot from hq resources (same logic as SerfF)
+            if(hq.resources && hq.resources.length > 0){
+              var tDist = 0;
+              var avgDist = null;
+              for(var i in hq.resources){
+                var res = hq.resources[i];
+                var r = getCenter(res[0],res[1]);
+                var dist = getDistance({x:hq.x,y:hq.y},{x:r[0],y:r[1]});
+                tDist += dist;
+              }
+              avgDist = tDist/hq.resources.length;
+              var select = [];
+              for(var i in hq.resources){
+                var res = hq.resources[i];
+                var r = getCenter(res[0],res[1]);
+                var dist = getDistance({x:hq.x,y:hq.y},{x:r[0],y:r[1]});
+                if(dist <= avgDist){
+                  select.push(res);
+                }
+              }
+              self.work.spot = select[Math.floor(Math.random() * select.length)];
+              Building.list[self.work.hq].log[self.id] = self.work.spot;
+              self.action = 'task';
+              console.log('🔨 ' + self.name + ' assigned to task at ' + hq.type + ' spot [' + self.work.spot[0] + ',' + self.work.spot[1] + ']');
+            } else {
+              console.log('⚠️ ' + self.name + ' work HQ has no resources available, switching to idle');
+              self.mode = 'idle';
+              self.action = null;
+            }
+          } else {
+            console.log('⚠️ ' + self.name + ' has no valid work assignment, switching to idle');
+            self.mode = 'idle';
+            self.action = null;
+          }
         }
       } else if(self.action == 'build'){
         var spot = self.work.spot;
@@ -4143,6 +4186,7 @@ SerfM = function(param){
         if(!spot){
           self.action = null;
         } else {
+          var hq = Building.list[self.work.hq];
           if(hq.type == 'mill'){
             if(self.inventory.grain >= 10){
               var b = Building.list[self.work.hq];
