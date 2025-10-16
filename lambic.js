@@ -2844,10 +2844,10 @@ const removePack = { player: [], arrow: [], item: [], light: [], building: [] };
 global.initPack = initPack;
 global.removePack = removePack;
 
-// Initialize Serf behavior system (temporarily disabled)
-// const SerfBehaviorSystem = require('./server/js/core/SerfBehaviorSystem.js');
-// global.serfBehaviorSystem = new SerfBehaviorSystem();
-global.serfBehaviorSystem = null; // Disabled to revert to old system
+// Initialize Serf behavior system
+const SerfBehaviorSystem = require('./server/js/core/SerfBehaviorSystem.js');
+global.serfBehaviorSystem = new SerfBehaviorSystem();
+console.log('✅ New SerfBehaviorSystem enabled!');
 
 // Initialize optimized game loop
 optimizedGameLoop.initialize(gameState, emit);

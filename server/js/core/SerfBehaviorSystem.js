@@ -19,7 +19,7 @@ class SerfBehaviorSystem {
       BUILDING: 'building'  // construction projects
     };
     
-    this.debugMode = true; // Enable detailed logging
+    this.debugMode = false; // Set to true for detailed logging
   }
 
   // Initialize a Serf with clean state
@@ -445,7 +445,8 @@ class SerfBehaviorSystem {
     let bestDistance = Infinity;
     
     // Look for work buildings in the same house
-    for (const [id, building] of Object.entries(Building.list)) {
+    const BuildingList = global.Building ? global.Building.list : (typeof Building !== 'undefined' ? Building.list : {});
+    for (const [id, building] of Object.entries(BuildingList)) {
       if (building.house === serf.house && 
           (building.type === 'mill' || building.type === 'lumbermill' || building.type === 'mine')) {
         const distance = this.getDistance(serf, building);
@@ -458,7 +459,8 @@ class SerfBehaviorSystem {
     
     if (bestHQ) {
       serf.work.hq = bestHQ;
-      this.log(serf, `Assigned to work at ${Building.list[bestHQ].type}`);
+      const BuildingList = global.Building ? global.Building.list : (typeof Building !== 'undefined' ? Building.list : {});
+      this.log(serf, `Assigned to work at ${BuildingList[bestHQ].type}`);
     } else {
       this.log(serf, `No work buildings found for house ${serf.house}`);
     }
@@ -471,7 +473,8 @@ class SerfBehaviorSystem {
       if (!serf.work.hq) return null;
     }
     
-    const hq = Building.list[serf.work.hq];
+    const BuildingList = global.Building ? global.Building.list : (typeof Building !== 'undefined' ? Building.list : {});
+    const hq = BuildingList[serf.work.hq];
     if (!hq) return null;
     
     // Check for building projects first
@@ -514,7 +517,8 @@ class SerfBehaviorSystem {
   findBuildingProject(serf) {
     if (!serf.house) return false;
     
-    for (const [id, building] of Object.entries(Building.list)) {
+    const BuildingList = global.Building ? global.Building.list : (typeof Building !== 'undefined' ? Building.list : {});
+    for (const [id, building] of Object.entries(BuildingList)) {
       if (building.house === serf.house && !building.built) {
         const distance = this.getDistance(serf, building);
         if (distance <= 1280) {
@@ -545,7 +549,8 @@ class SerfBehaviorSystem {
     let bestTavern = null;
     let bestDistance = Infinity;
     
-    for (const [id, building] of Object.entries(Building.list)) {
+    const BuildingList = global.Building ? global.Building.list : (typeof Building !== 'undefined' ? Building.list : {});
+    for (const [id, building] of Object.entries(BuildingList)) {
       if (building.house === serf.house && building.type === 'tavern') {
         const distance = this.getDistance(serf, building);
         if (distance < bestDistance) {
@@ -556,7 +561,8 @@ class SerfBehaviorSystem {
     }
     
     if (bestTavern) {
-      serf.tavern = Building.list[bestTavern];
+      const BuildingList = global.Building ? global.Building.list : (typeof Building !== 'undefined' ? Building.list : {});
+      serf.tavern = BuildingList[bestTavern];
       this.log(serf, 'Found tavern');
     } else {
       this.log(serf, 'No tavern found');
@@ -590,7 +596,8 @@ class SerfBehaviorSystem {
   performWork(serf) {
     if (serf.workType === this.workTypes.ECONOMIC) {
       // Economic work (mill, lumbermill, mine)
-      const hq = Building.list[serf.work.hq];
+      const BuildingList = global.Building ? global.Building.list : (typeof Building !== 'undefined' ? Building.list : {});
+      const hq = BuildingList[serf.work.hq];
       if (hq && hq.resources) {
         // Add resources to the building
         const resourceType = hq.type === 'mill' ? 'food' : 
@@ -608,7 +615,8 @@ class SerfBehaviorSystem {
   // Building performance
   performBuilding(serf) {
     // Find the building being constructed
-    for (const [id, building] of Object.entries(Building.list)) {
+    const BuildingList = global.Building ? global.Building.list : (typeof Building !== 'undefined' ? Building.list : {});
+    for (const [id, building] of Object.entries(BuildingList)) {
       if (building.house === serf.house && !building.built) {
         const distance = this.getDistance(serf, building);
         if (distance <= 1280) {
@@ -652,7 +660,8 @@ class SerfBehaviorSystem {
 
   isBuildingComplete(serf) {
     // Check if the building being constructed is complete
-    for (const [id, building] of Object.entries(Building.list)) {
+    const BuildingList = global.Building ? global.Building.list : (typeof Building !== 'undefined' ? Building.list : {});
+    for (const [id, building] of Object.entries(BuildingList)) {
       if (building.house === serf.house && !building.built) {
         return false; // Still has incomplete buildings
       }
