@@ -19,7 +19,7 @@ function genesis(){
   // smaller tiles for bigger map
   // should be a factor of canvas width/height
   var tile = 1;
-  var canvasSize = 128; // Changed from 256 (originally 512) for higher entity density
+  var canvasSize = 256; // Map size for testing
   var mapTiles = canvasSize / tile;
 
   // OVERWORLD

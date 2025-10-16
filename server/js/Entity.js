@@ -118,14 +118,20 @@ Mill = function(param){
     if(sr < 0.372){
       var grain = 0;
       if(self.tavern){
-        if(Player.list[self.owner].house){
+        // Check if owner still exists
+        if(!Player.list[self.owner]){
+          console.log('Mill owner no longer exists, skipping serf creation');
+        } else if(Player.list[self.owner].house){
           var h = Player.list[self.owner].house;
           grain = House.list[h].stores.grain;
+          if(grain >= s){
+            Building.list[self.tavern].newSerfs(self.id);
+          }
         } else {
           grain = Player.list[self.owner].stores.grain;
-        }
-        if(grain >= s){
-          Building.list[self.tavern].newSerfs(self.id);
+          if(grain >= s){
+            Building.list[self.tavern].newSerfs(self.id);
+          }
         }
       } else if(self.house >= 2 && self.house < 7){
         var hq = House.list[self.house].hq;
@@ -218,14 +224,20 @@ Lumbermill = function(param){
     if(sr < 0.372){
       var wood = 0;
       if(self.tavern){
-        if(Player.list[self.owner].house){
+        // Check if owner still exists
+        if(!Player.list[self.owner]){
+          console.log('Lumbermill owner no longer exists, skipping serf creation');
+        } else if(Player.list[self.owner].house){
           var h = Player.list[self.owner].house;
           wood = House.list[h].stores.wood;
+          if(wood >= s){
+            Building.list[self.tavern].newSerfs(self.id);
+          }
         } else {
           wood = Player.list[self.owner].stores.wood;
-        }
-        if(wood >= s){
-          Building.list[self.tavern].newSerfs(self.id);
+          if(wood >= s){
+            Building.list[self.tavern].newSerfs(self.id);
+          }
         }
       } else if(self.house >= 2 && self.house < 7){
         var hq = House.list[self.house].hq;
@@ -294,14 +306,20 @@ Mine = function(param){
       if(self.cave){
         var ore = 0;
         if(self.tavern){
-          if(Player.list[self.owner].house){
+          // Check if owner still exists
+          if(!Player.list[self.owner]){
+            console.log('Mine owner no longer exists, skipping serf creation');
+          } else if(Player.list[self.owner].house){
             var h = Player.list[self.owner].house;
             ore = House.list[h].stores.ironore;
+            if(ore >= s){
+              Building.list[self.tavern].newSerfs(self.id);
+            }
           } else {
             ore = Player.list[self.owner].stores.ironore;
-          }
-          if(ore >= s){
-            Building.list[self.tavern].newSerfs(self.id);
+            if(ore >= s){
+              Building.list[self.tavern].newSerfs(self.id);
+            }
           }
         } else if(self.house >= 2 && self.house < 7){
           var hq = House.list[self.house].hq;
@@ -315,14 +333,20 @@ Mine = function(param){
       } else {
         var stone = 0;
         if(self.tavern){
-          if(Player.list[self.owner].house){
+          // Check if owner still exists
+          if(!Player.list[self.owner]){
+            console.log('Mine owner no longer exists, skipping serf creation');
+          } else if(Player.list[self.owner].house){
             var h = Player.list[self.owner].house;
             stone = House.list[h].stores.stone;
+            if(stone >= s){
+              Building.list[self.tavern].newSerfs(self.id);
+            }
           } else {
             stone = Player.list[self.owner].stores.stone;
-          }
-          if(stone >= s){
-            Building.list[self.tavern].newSerfs(self.id);
+            if(stone >= s){
+              Building.list[self.tavern].newSerfs(self.id);
+            }
           }
         } else if(self.house >= 2 && self.house < 7){
           var hq = House.list[self.house].hq;
@@ -423,6 +447,12 @@ Tavern = function(param){
     }
   }
   self.newSerfs = function(b){
+    // Safety check: ensure owner still exists
+    if(!Player.list[self.owner]){
+      console.log('Tavern owner no longer exists, skipping serf creation');
+      return;
+    }
+    
     var building = Building.list[b];
     console.log('New serfs for ' + building.type);
     var loc = getLoc(self.x,self.y);
@@ -1179,8 +1209,8 @@ Character = function(param){
               var p = building.plot[i];
               var tile = getTile(0, p[0], p[1]);
               if(tile == 14 || tile == 16){ // Door tiles
-                // Path to the tile OUTSIDE the door (one tile up from door) to trigger z-change
-                self.moveTo(1, p[0], p[1] - 1);
+                // Path to the tile one tile DOWN from door (inside building, triggers exit when door is checked above)
+                self.moveTo(1, p[0], p[1] + 1);
                 return; // Exit early, will continue after reaching door
               }
             }
@@ -1552,6 +1582,11 @@ Character = function(param){
           var tcen = getCenter(tLoc[0],tLoc[1]);
           var tb = getBuilding(tcen[0],tcen[1]);
           if(b !== tb){
+            // Safety check: ensure target building exists and has an entrance
+            if(!Building.list[tb] || !Building.list[tb].entrance){
+              console.error(self.name + ' cannot path to building ' + tb + ' - building does not exist or has no entrance');
+              return;
+            }
             tLoc = [Building.list[tb].entrance[0],Building.list[tb].entrance[1]+1];
           }
         } else if(self.z == 2){
@@ -1559,6 +1594,11 @@ Character = function(param){
           var tcen = getCenter(tLoc[0],tLoc[1]);
           var tb = getBuilding(tcen[0],tcen[1]);
           if(b !== tb){
+            // Safety check: ensure target building exists and has upstairs
+            if(!Building.list[tb] || !Building.list[tb].ustairs){
+              console.error(self.name + ' cannot path to building ' + tb + ' - building does not exist or has no upstairs');
+              return;
+            }
             tLoc = Building.list[tb].ustairs;
           }
         } else if(self.z == -3) {
@@ -1569,6 +1609,11 @@ Character = function(param){
           if(tz == 1 || tz == 2 || tz == -2){
             var tcen = getCenter(tLoc[0],tLoc[1]);
             var tb = getBuilding(tcen[0],tcen[1]);
+            // Safety check: ensure target building exists and has an entrance
+            if(!Building.list[tb] || !Building.list[tb].entrance){
+              console.error(self.name + ' cannot enter building ' + tb + ' - building does not exist or has no entrance');
+              return;
+            }
             tLoc = Building.list[tb].entrance;
           }
         } else if(self.z == -1){
@@ -1597,27 +1642,71 @@ Character = function(param){
           }
         } else if(self.z == -2){
           var b = getBuilding(cen[0],cen[1]);
+          // Use dstairs (bidirectional cellar entrance/exit)
+          if(!Building.list[b] || !Building.list[b].dstairs){
+            console.error(self.name + ' cannot exit cellar - building ' + b + ' has no dstairs');
+            return;
+          }
           tLoc = Building.list[b].dstairs;
         } else if(self.z == 1){
           var b = getBuilding(cen[0],cen[1]);
           if(tz == 0 || tz == -1){
+            // Exiting building to ground level
+            if(!Building.list[b] || !Building.list[b].entrance){
+              console.error(self.name + ' cannot exit building ' + b + ' - no entrance defined');
+              return;
+            }
             tLoc = [Building.list[b].entrance[0],Building.list[b].entrance[1]+1];
           } else {
             var tcen = getCenter(tLoc[0],tLoc[1]);
             var tb = getBuilding(tcen[0],tcen[1]);
             if(b == tb){
+              // Moving to different floor in same building
               if(tz == 2){
-                tLoc = [Building.list[b].ustairs];
+                if(!Building.list[b] || !Building.list[b].ustairs){
+                  console.error(self.name + ' cannot go upstairs in building ' + b + ' - no ustairs defined');
+                  return;
+                }
+                tLoc = Building.list[b].ustairs;
               } else if(tz == -2){
-                tLoc = [Building.list[b].dstairs];
+                if(!Building.list[b] || !Building.list[b].dstairs){
+                  console.error(self.name + ' cannot go to cellar in building ' + b + ' - no dstairs defined');
+                  return;
+                }
+                tLoc = Building.list[b].dstairs;
               }
             } else {
+              // Moving to different building - exit current building first
+              if(!Building.list[b] || !Building.list[b].entrance){
+                console.error(self.name + ' cannot exit building ' + b + ' - no entrance defined');
+                return;
+              }
               tLoc = [Building.list[b].entrance[0],Building.list[b].entrance[1]+1];
             }
           }
         } else if(self.z == 2){
           var b = getBuilding(cen[0],cen[1]);
-          tLoc = Building.list[b].ustairs;
+          // When on second floor (z=2), need to go down to first floor (z=1) first
+          if(tz != 2){
+            // Going to a different z-level - use upstairs (bidirectional staircase)
+            if(!Building.list[b] || !Building.list[b].ustairs){
+              console.error(self.name + ' cannot go downstairs from z=2 in building ' + b + ' - no ustairs defined');
+              return;
+            }
+            tLoc = Building.list[b].ustairs;
+          } else {
+            // Moving within second floor to different building
+            var tcen = getCenter(tLoc[0],tLoc[1]);
+            var tb = getBuilding(tcen[0],tcen[1]);
+            if(b !== tb){
+              // Exit current building first by going downstairs via upstairs location
+              if(!Building.list[b] || !Building.list[b].ustairs){
+                console.error(self.name + ' cannot exit building ' + b + ' from z=2 - no ustairs defined');
+                return;
+              }
+              tLoc = Building.list[b].ustairs;
+            }
+          }
         } else if(self.z == -3){
           //
         }
@@ -3728,15 +3817,9 @@ SerfM = function(param){
   self.initializeSerf();
 
   self.update = function(){
-    // Use new behavior system for Serf logic
-    if (global.serfBehaviorSystem) {
-      global.serfBehaviorSystem.updateSerf(self);
-      
-      // If behavior system handled it successfully, skip old logic
-      if (self.behaviorState && self.work && self.work.hq) {
-        return;
-      }
-      // Otherwise fall through to old logic for backwards compatibility
+    // Use SIMPLIFIED behavior system - just handles basic movement and exits
+    if (global.simpleSerfBehavior) {
+      global.simpleSerfBehavior.update(self);
     }
     
     var loc = getLoc(self.x,self.y);
@@ -3911,12 +3994,13 @@ SerfM = function(param){
     if(tempus == 'VI.a' && self.mode != 'work' && !self.dayTimer){
       self.dayTimer = true;
       var rand = Math.floor(Math.random() * (3600000/(period*6)));
+      console.log(self.name + ' will start work in ' + (rand/1000).toFixed(1) + ' seconds (tempus=' + tempus + ', currentMode=' + self.mode + ')');
       setTimeout(function(){
         if(self.mode != 'work'){ // Double-check mode hasn't changed
         self.mode = 'work';
         self.action = null;
           self.work.spot = null; // Clear previous work spot
-        console.log(self.name + ' heads to work (z=' + self.z + ', pos=' + self.x + ',' + self.y + ')');
+        console.log('✅ ' + self.name + ' SWITCHED TO WORK MODE (z=' + self.z + ', pos=' + self.x + ',' + self.y + ', sex=' + self.sex + ')');
         }
         self.dayTimer = false;
       },rand);
@@ -3951,10 +4035,12 @@ SerfM = function(param){
 
     // STUCK DETECTION - Check if Serf hasn't moved in a while
     var dist = Math.sqrt(Math.pow(self.x - self.lastPos.x, 2) + Math.pow(self.y - self.lastPos.y, 2));
-    if(dist < 5){ // Moved less than 5 pixels
+    
+    // Only count as stuck if we have a path but aren't moving
+    if(self.path && self.pathCount < self.path.length && dist < 2){ // Moved less than 2 pixels
       self.stuckCounter++;
-      if(self.stuckCounter > 120){ // Stuck for 2 seconds at 60fps
-        console.log(self.name + ' detected as stuck - resetting (pos: ' + self.x + ',' + self.y + ', mode: ' + self.mode + ', action: ' + self.action + ')');
+      if(self.stuckCounter > 180){ // Stuck for 3 seconds at 60fps
+        console.log(self.name + ' stuck with active path - clearing (z=' + self.z + ', pathCount=' + self.pathCount + '/' + self.path.length + ')');
         self.path = null;
         self.pathCount = 0;
         self.action = null;
@@ -3965,138 +4051,56 @@ SerfM = function(param){
         self.pressingLeft = false;
         self.pressingDown = false;
         self.pressingUp = false;
+        // Reset idle time so serf can pick new destination quickly
+        self.idleTime = 0;
       }
     } else {
-      self.stuckCounter = 0; // Reset if moved
+      self.stuckCounter = 0; // Reset if moved or no path
     }
     self.lastPos = {x: self.x, y: self.y};
 
-    // WORK
+    // SIMPLIFIED HOUSE BUILDING - Male serfs build their hut when work begins
     if(self.mode == 'work'){
-      // Check if inside building and need to exit first
-      if(self.z == 1 && !self.action){
-        var loc = getLoc(self.x, self.y);
-        var exitLoc = [loc[0], loc[1] - 1];
-        var exitCenter = getCenter(exitLoc[0], exitLoc[1]);
-        var distToExit = Math.sqrt(Math.pow(self.x - exitCenter[0], 2) + Math.pow(self.y - exitCenter[1], 2));
-        
-        console.log(self.name + ' is inside building (z=1), need to exit first. Distance to exit: ' + Math.floor(distToExit) + 'px');
-        
-        if(distToExit > 32){
-          // Not at exit yet, move there
-          console.log(self.name + ' moving to building exit at [' + exitLoc[0] + ',' + exitLoc[1] + ']');
-          self.moveTo(1, exitLoc[0], exitLoc[1]);
-          return;
-        } else {
-          console.log(self.name + ' is at exit, should transition on next frame');
-        }
-      }
       
-      // Ensure Serf has a work HQ assigned
-      if(!self.work.hq){
-        self.assignWorkHQ();
-      }
-      
-      var hq = Building.list[self.work.hq];
-      if(!hq){
-        console.log(self.name + ' has invalid work HQ, reassigning...');
-        self.assignWorkHQ();
-        hq = Building.list[self.work.hq];
-        if(!hq){
-          // No valid work HQ, reset to idle mode
-          console.log(self.name + ' has no valid work HQ, switching to idle mode');
-          self.mode = 'idle';
-          self.action = null;
-          return;
-        }
-      }
-      
-      // Track how long serf has been without action
+      // Check if serf needs to build their hut
       if(!self.action){
-        self.idleCounter++;
-        if(self.idleCounter > 300){ // If no action for 5 seconds (300 frames at 60fps)
-          console.log(self.name + ' stuck without action for 300 frames (z=' + self.z + ', work.hq=' + self.work.hq + '), resetting...');
+        if(!self.hut || !Building.list[self.hut]){
+          console.log(self.name + ' ERROR: has no hut assigned, switching to idle');
           self.mode = 'idle';
-          self.action = null;
-          self.idleCounter = 0;
           return;
         }
-      } else {
-        self.idleCounter = 0; // Reset counter when serf has an action
-      }
-      
-      if(!self.action){
-        if(Building.list[self.hut].built){ // if hut is built
-          // Check for building projects first
-          if(self.house){
-            for(var i in Building.list){
-              var b = Building.list[i];
-              if(b.house == self.house && !b.built){ // check for any build projects
-                var dist = getDistance({x:self.x,y:self.y},{x:b.x,y:b.y});
-                if(dist <= 1280){
-                  var select = [];
-                  for(var j in b.plot){
-                    var p = b.plot[j];
-                    var t = getTile(0,p[0],p[1]);
-                    if(t == 11 || t == 11.5){
-                      select.push(p);
-                    }
-                  }
-                  if(select.length > 0){
-                    self.work.spot = select[Math.floor(Math.random() * select.length)];
-                    self.action = 'build';
-                    console.log(self.name + ' assigned to build ' + b.type);
-                    return;
-                  }
-                }
-              }
-            }
-          }
-          
-          // Assign to economic tasks
-          if(hq.resources && hq.resources.length > 0){
-          var select = [];
-          for(var i in hq.resources){
-            var res = hq.resources[i];
-            var r = getCenter(res[0],res[1]);
-            var dist = getDistance({x:hq.x,y:hq.y},{x:r[0],y:r[1]});
-              if(dist <= 1280){ // Only select nearby resources
-              select.push(res);
-            }
-          }
-            
-            if(select.length > 0){
-          self.work.spot = select[Math.floor(Math.random() * select.length)];
-          Building.list[self.work.hq].log[self.id] = self.work.spot;
-          self.action = 'task';
-              console.log(self.name + ' working @ ' + hq.type + ' (spot: ' + self.work.spot + ')');
-          } else {
-              console.log(self.name + ' no nearby work spots @ ' + hq.type);
-              self.action = null; // Reset action so serf will try to find work again
-          }
-        } else {
-            console.log(self.name + ' no resources available @ ' + hq.type);
-            self.action = null; // Reset action so serf will try to find work again
-          }
-        } else {
-          // Build hut first
-          var hut = Building.list[self.hut];
+        
+        var hut = Building.list[self.hut];
+        console.log('🏠 ' + self.name + ' checking hut ' + self.hut + ': built=' + hut.built + ', plot=' + (hut.plot ? hut.plot.length : 'none'));
+        
+        // If hut is not built yet, build it first
+        if(!hut.built){
           var select = [];
           for(var i in hut.plot){
             var p = hut.plot[i];
-            var t = getTile(0,p[0],p[1]);
-            if(t == 11){
+            var t = getTile(0, p[0], p[1]);
+            console.log('  🔍 Checking plot tile [' + p[0] + ',' + p[1] + ']: tile=' + t);
+            if(t == 11){ // Foundation tile that needs building
               select.push(p);
             }
           }
+          
+          console.log('🏗️ ' + self.name + ' hut NOT built, found ' + select.length + ' foundation tiles (type 11)');
+          
           if(select.length > 0){
-          self.work.spot = select[Math.floor(Math.random() * select.length)];
-          self.action = 'build';
-            console.log(self.name + ' building hut');
+            self.work.spot = select[Math.floor(Math.random() * select.length)];
+            self.action = 'build';
+            console.log('✅ ' + self.name + ' ASSIGNED to build hut at [' + self.work.spot[0] + ',' + self.work.spot[1] + ']');
           } else {
-            console.log(self.name + ' hut already built or no spots available');
-            self.action = null; // Reset action so serf will try to find work again
+            console.log('❌ ' + self.name + ' ERROR: hut not built but no foundation tiles found!');
+            self.mode = 'idle';
+            self.action = null;
           }
+        } else {
+          // Hut is built, switch to idle for now
+          console.log(self.name + ' hut is complete, switching to idle');
+          self.mode = 'idle';
+          self.action = null;
         }
       } else if(self.action == 'build'){
         var spot = self.work.spot;
@@ -4726,17 +4730,14 @@ SerfM = function(param){
       } else if(self.action == 'combat'){
         self.action = 'flee';
       } else if(self.action == 'flee'){
-        if(self.combat.target){
-          var target = Player.list[self.combat.target];
-          if(target){
-            var tLoc = getLoc(target.x,target.y);
-            self.reposition(loc,tLoc);
-          } else {
-            self.combat.target = null;
-            self.action = null;
-          }
+        // Use SimpleFlee system for reliable fleeing (same as deer)
+        if(global.simpleFlee){
+          global.simpleFlee.update(self);
         } else {
+          // Fallback: clear flee if no system available
           self.action = null;
+          self.combat.target = null;
+          self.baseSpd = 2;
         }
       }
       // IDLE
@@ -4838,8 +4839,8 @@ SerfM = function(param){
                     var tile = getTile(0, p[0], p[1]);
                     if(tile == 14 || tile == 16){ // Door tiles
                       console.log(self.name + ' inside building, exiting to go home');
-                      // Path to the tile OUTSIDE the door (one tile up from door) to trigger z-change
-                      self.moveTo(1, p[0], p[1] - 1);
+                      // Path to the tile one tile DOWN from door (inside building, triggers exit when door is checked above)
+                      self.moveTo(1, p[0], p[1] + 1);
                       break;
                     }
                   }
@@ -4987,17 +4988,14 @@ SerfM = function(param){
       } else if(self.action == 'combat'){
         self.action = 'flee';
       } else if(self.action == 'flee'){
-        if(self.combat.target){
-          var target = Player.list[self.combat.target];
-          if(target){
-            var tLoc = getLoc(target.x,target.y);
-            self.reposition(loc,tLoc);
-          } else {
-            self.combat.target = null;
-            self.action = null;
-          }
+        // Use SimpleFlee system for reliable fleeing (same as deer)
+        if(global.simpleFlee){
+          global.simpleFlee.update(self);
         } else {
+          // Fallback: clear flee if no system available
           self.action = null;
+          self.combat.target = null;
+          self.baseSpd = 2;
         }
       }
     }
@@ -5123,15 +5121,9 @@ SerfF = function(param){
   self.initializeSerf();
 
   self.update = function(){
-    // Use new behavior system for Serf logic
-    if (global.serfBehaviorSystem) {
-      global.serfBehaviorSystem.updateSerf(self);
-      
-      // If behavior system handled it successfully, skip old logic
-      if (self.behaviorState && self.work && self.work.hq) {
-        return;
-      }
-      // Otherwise fall through to old logic for backwards compatibility
+    // Use SIMPLIFIED behavior system - just handles basic movement and exits
+    if (global.simpleSerfBehavior) {
+      global.simpleSerfBehavior.update(self);
     }
     
     var loc = getLoc(self.x,self.y);
@@ -5698,8 +5690,8 @@ SerfF = function(param){
                     var tile = getTile(0, p[0], p[1]);
                     if(tile == 14 || tile == 16){ // Door tiles
                       console.log(self.name + ' inside building, exiting to go home');
-                      // Path to the tile OUTSIDE the door (one tile up from door) to trigger z-change
-                      self.moveTo(1, p[0], p[1] - 1);
+                      // Path to the tile one tile DOWN from door (inside building, triggers exit when door is checked above)
+                      self.moveTo(1, p[0], p[1] + 1);
                       break;
                     }
                   }
@@ -5841,17 +5833,14 @@ SerfF = function(param){
       } else if(self.action == 'combat'){
         self.action = 'flee';
       } else if(self.action == 'flee'){
-        if(self.combat.target){
-          var target = Player.list[self.combat.target];
-          if(target){
-            var tLoc = getLoc(target.x,target.y);
-            self.reposition(loc,tLoc);
-          } else {
-            self.combat.target = null;
-            self.action = null;
-          }
+        // Use SimpleFlee system for reliable fleeing (same as deer)
+        if(global.simpleFlee){
+          global.simpleFlee.update(self);
         } else {
+          // Fallback: clear flee if no system available
           self.action = null;
+          self.combat.target = null;
+          self.baseSpd = 2;
         }
       }
     }
@@ -6156,17 +6145,14 @@ Blacksmith = function(param){
       } else if(self.action == 'combat'){
         self.action = 'flee';
       } else if(self.action == 'flee'){
-        if(self.combat.target){
-          var target = Player.list[self.combat.target];
-          if(target){
-            var tLoc = getLoc(target.x,target.y);
-            self.reposition(loc,tLoc);
-          } else {
-            self.combat.target = null;
-            self.action = null;
-          }
+        // Use SimpleFlee system for reliable fleeing (same as deer)
+        if(global.simpleFlee){
+          global.simpleFlee.update(self);
         } else {
+          // Fallback: clear flee if no system available
           self.action = null;
+          self.combat.target = null;
+          self.baseSpd = 2;
         }
       }
     }

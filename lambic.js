@@ -2844,11 +2844,10 @@ const removePack = { player: [], arrow: [], item: [], light: [], building: [] };
 global.initPack = initPack;
 global.removePack = removePack;
 
-// Initialize Serf behavior system (TEMPORARILY DISABLED for debugging)
-// const SerfBehaviorSystem = require('./server/js/core/SerfBehaviorSystem.js');
-// global.serfBehaviorSystem = new SerfBehaviorSystem();
-global.serfBehaviorSystem = null;
-console.log('⚠️ SerfBehaviorSystem DISABLED - using old system');
+// Initialize SIMPLIFIED Serf behavior system - TEMPORARILY DISABLED for debugging
+const SimpleSerfBehavior = require('./server/js/core/SimpleSerfBehavior.js');
+global.simpleSerfBehavior = null; // DISABLED - let Entity.js handle everything
+console.log('⚠️ SimpleSerfBehavior DISABLED - using Entity.js logic');
 
 // Initialize optimized game loop
 optimizedGameLoop.initialize(gameState, emit);
