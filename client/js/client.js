@@ -2897,7 +2897,8 @@ setInterval(function(){
 
 // MAP TOOLS
 var getTile = function(l,c,r){
-  return world[l][r][c];
+  const value = world[l] && world[l][r] && world[l][r][c];
+  return value || 0;
 };
 
 // get loc from (x,y)

@@ -120,15 +120,7 @@ global.mapSize = gameState.mapSize;
 global.mapPx = gameState.mapPx;
 global.period = gameState.period;
 
-// Helper function to check if a destination is a doorway
-function isDoorwayDestination(x, y, z) {
-  if (z !== 0) return false;
-  const tile = getTile(0, x, y);
-  return tile === TERRAIN.DOOR_OPEN || tile === TERRAIN.DOOR_OPEN_ALT;
-}
-
-// Make isDoorwayDestination available globally
-global.isDoorwayDestination = isDoorwayDestination;
+// Note: isDoorwayDestination is already defined globally at the top of the file
 global.day = gameState.day;
 global.tick = gameState.tick;
 global.tempus = gameState.tempus;
@@ -165,10 +157,74 @@ let finder = new PF.AStarFinder({
 // Expose pathfinder globally for other modules
 global.finder = finder;
 
-// Path caching for frequently used routes
-const pathCache = new Map();
-const MAX_CACHE_SIZE = 1000;
-const CACHE_TTL = 30000; // 30 seconds
+// Path caching for frequently used routes (LRU implementation)
+class PathCache {
+  constructor(maxSize = 1000, ttl = 30000) {
+    this.cache = new Map();
+    this.maxSize = maxSize;
+    this.ttl = ttl;
+    this.lastCleanup = Date.now();
+    this.cleanupInterval = 60000; // Cleanup every 60 seconds
+  }
+
+  get(key) {
+    const entry = this.cache.get(key);
+    if (!entry) return null;
+    
+    // Check if expired
+    if (Date.now() - entry.timestamp > this.ttl) {
+      this.cache.delete(key);
+      return null;
+    }
+    
+    // LRU: Move to end by re-inserting
+    this.cache.delete(key);
+    this.cache.set(key, entry);
+    return entry.path;
+  }
+
+  set(key, path) {
+    // Remove oldest entry if at capacity
+    if (this.cache.size >= this.maxSize) {
+      const firstKey = this.cache.keys().next().value;
+      this.cache.delete(firstKey);
+    }
+    
+    this.cache.set(key, {
+      path: path,
+      timestamp: Date.now()
+    });
+  }
+
+  cleanup() {
+    const now = Date.now();
+    if (now - this.lastCleanup < this.cleanupInterval) return;
+    
+    this.lastCleanup = now;
+    const toDelete = [];
+    
+    for (const [key, entry] of this.cache.entries()) {
+      if (now - entry.timestamp > this.ttl) {
+        toDelete.push(key);
+      }
+    }
+    
+    toDelete.forEach(key => this.cache.delete(key));
+    if (toDelete.length > 0) {
+      console.log(`PathCache: Cleaned up ${toDelete.length} expired entries`);
+    }
+  }
+
+  clear() {
+    this.cache.clear();
+  }
+
+  get size() {
+    return this.cache.size;
+  }
+}
+
+const pathCache = new PathCache(1000, 30000);
 
 // Spawn points
 let spawnPointsO = [];
@@ -249,28 +305,51 @@ function getDistance(pt1, pt2) {
 }
 
 function tileChange(l, c, r, n, incr = false) {
-  global.tilemapSystem.updateTile(l, c, r, n, incr);
-  
-  // Update the local world array to keep it in sync
-  const newTileValue = global.tilemapSystem.getTile(l, c, r);
-  if (world[l] && world[l][r]) {
-    world[l][r][c] = newTileValue;
+  // Validate inputs
+  if (typeof l !== 'number' || typeof c !== 'number' || typeof r !== 'number') {
+    console.error('tileChange: Invalid input types', { l, c, r, n });
+    return;
   }
   
-  // Automatically emit tile update to all clients
-  emit({ msg: 'tileEdit', l, c, r, tile: newTileValue });
+  if (c < 0 || c >= mapSize || r < 0 || r >= mapSize) {
+    console.warn(`tileChange: Coordinates out of bounds [${l}][${c}][${r}] (mapSize: ${mapSize})`);
+    return;
+  }
+  
+  try {
+    global.tilemapSystem.updateTile(l, c, r, n, incr);
+    
+    // Update the local world array to keep it in sync
+    const newTileValue = global.tilemapSystem.getTile(l, c, r);
+    
+    // Ensure the world array structure exists
+    if (!world[l]) {
+      world[l] = [];
+    }
+    if (!world[l][r]) {
+      world[l][r] = [];
+    }
+    world[l][r][c] = newTileValue;
+    
+    // Automatically emit tile update to all clients
+    emit({ msg: 'tileEdit', l, c, r, tile: newTileValue });
+  } catch (error) {
+    console.error('tileChange error:', error, { l, c, r, n, incr });
+  }
 }
 
 function mapEdit(l, c, r) {
   if (l !== undefined) {
     if (c !== undefined && r !== undefined) {
       const tile = global.tilemapSystem.getTile(l, c, r);
-      // Update the local world array
-      if (world[l] && world[l][r]) {
-        world[l][r][c] = tile || 0;
-    } else {
-        console.log(`mapEdit: world array not initialized for [${l}][${r}][${c}]`);
-    }
+      // Ensure the world array structure exists
+      if (!world[l]) {
+        world[l] = [];
+      }
+      if (!world[l][r]) {
+        world[l][r] = [];
+      }
+      world[l][r][c] = tile || 0;
       emit({ msg: 'tileEdit', l, c, r, tile: tile || 0 });
   } else {
       // For layer editing, we'll need to reconstruct the layer from the tilemap
@@ -302,9 +381,33 @@ function mapEdit(l, c, r) {
 }
 
 function emit(data) {
-  for (const i in SOCKET_LIST) {
-    SOCKET_LIST[i].write(JSON.stringify(data));
+  if (!data || typeof data !== 'object') {
+    console.warn('emit: Invalid data', data);
+    return;
   }
+  
+  const jsonData = JSON.stringify(data);
+  const disconnectedSockets = [];
+  
+  for (const i in SOCKET_LIST) {
+    try {
+      const socket = SOCKET_LIST[i];
+      if (socket && typeof socket.write === 'function') {
+        socket.write(jsonData);
+      } else {
+        disconnectedSockets.push(i);
+      }
+    } catch (error) {
+      console.error(`emit: Error writing to socket ${i}:`, error.message);
+      disconnectedSockets.push(i);
+    }
+  }
+  
+  // Clean up disconnected sockets
+  disconnectedSockets.forEach(socketId => {
+    console.log(`emit: Removing disconnected socket ${socketId}`);
+    delete SOCKET_LIST[socketId];
+  });
 }
 global.emit = emit;
 // Expose utility functions for modules that expect globals
@@ -495,30 +598,13 @@ function canMoveDirectly(start, end, z = 0) {
 // Get cached path or compute new one
 function getCachedPath(start, end, z) {
   const key = `${start[0]},${start[1]},${end[0]},${end[1]},${z}`;
-  const cached = pathCache.get(key);
-  
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    return cached.path;
-  }
-  
-  return null;
+  return pathCache.get(key);
 }
 
 // Cache a computed path
 function cachePath(start, end, z, path) {
-  if (pathCache.size >= MAX_CACHE_SIZE) {
-    // Remove oldest entries
-    const entries = Array.from(pathCache.entries());
-    entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
-    const toRemove = entries.slice(0, Math.floor(MAX_CACHE_SIZE * 0.2));
-    toRemove.forEach(([key]) => pathCache.delete(key));
-  }
-  
   const key = `${start[0]},${start[1]},${end[0]},${end[1]},${z}`;
-  pathCache.set(key, {
-    path: path,
-    timestamp: Date.now()
-  });
+  pathCache.set(key, path);
 }
 
 // Multi-z pathfinding system for complex journeys
@@ -831,11 +917,22 @@ global.findZTransition = findZTransition;
 // ============================================================================
 
 function getBuilding(x, y) {
+  if (typeof x !== 'number' || typeof y !== 'number' || !isFinite(x) || !isFinite(y)) {
+    console.warn('getBuilding: Invalid coordinates', { x, y });
+    return null;
+  }
+  
   const loc = getLoc(x, y);
+  if (!loc || loc[0] < 0 || loc[0] >= mapSize || loc[1] < 0 || loc[1] >= mapSize) {
+    return null;
+  }
+  
   for (const i in Building.list) {
     const b = Building.list[i];
+    if (!b || !b.plot || !Array.isArray(b.plot)) continue;
+    
     for (let n = 0; n < b.plot.length; n++) {
-      if (b.plot[n][0] === loc[0] && b.plot[n][1] === loc[1]) {
+      if (b.plot[n] && b.plot[n][0] === loc[0] && b.plot[n][1] === loc[1]) {
         return b.id;
       }
     }
@@ -893,6 +990,8 @@ function gateCheck(x, y, house, kingdom) {
 // ============================================================================
 
 function allyCheck(playerId, otherId) {
+  if (playerId === otherId) return 2; // Same entity
+  
   const player = Player.list[playerId];
   const other = Player.list[otherId];
 
@@ -1099,7 +1198,7 @@ function entropy() {
 
         for (const [nTile, nRes] of neighbors) {
           if (nTile >= TERRAIN.HEAVY_FOREST && nTile < TERRAIN.BRUSH && nRes > 49) {
-            if (Math.random() < 0.1) { // FIXED BUG: was Math.random
+            if (Math.random() < 0.1) {
               toF.push([c, r]);
               break;
             }
@@ -1117,7 +1216,7 @@ function entropy() {
 
         for (const nTile of neighbors) {
           if (nTile >= TERRAIN.HEAVY_FOREST && nTile < TERRAIN.ROCKS) {
-            if (Math.random() < 0.15) { // FIXED BUG: was Math.random
+            if (Math.random() < 0.15) {
               toB.push([c, r]);
               break;
             }
@@ -2675,14 +2774,22 @@ io.on('connection', function(socket) {
           if (res) {
             Player.onConnect(socket, data.name);
             
-            // Log a sample tile to verify world array has building data
-            const sampleTile = world[0] && world[0][50] && world[0][50][50];
-            console.log(`Sending world to ${data.name}, sample tile [0][50][50]: ${sampleTile}`);
+            // Reconstruct world array from tilemapSystem to ensure it's fully in sync
+            const freshWorld = [];
+            for (let layer = 0; layer < 9; layer++) {
+              freshWorld[layer] = [];
+              for (let y = 0; y < mapSize; y++) {
+                freshWorld[layer][y] = [];
+                for (let x = 0; x < mapSize; x++) {
+                  freshWorld[layer][y][x] = global.tilemapSystem.getTile(layer, x, y);
+                }
+              }
+            }
             
             socket.write(JSON.stringify({
               msg: 'signInResponse',
               success: true,
-              world, // Send the maintained world array
+              world: freshWorld, // Send freshly reconstructed world array
               tileSize,
               mapSize,
               tempus
@@ -2751,7 +2858,10 @@ optimizedGameLoop.start();
 // Performance monitoring - log memory usage every 30 seconds
 setInterval(() => {
   const memUsage = process.memoryUsage();
-  console.log(`Memory usage: RSS=${Math.round(memUsage.rss/1024/1024)}MB, Heap=${Math.round(memUsage.heapUsed/1024/1024)}MB`);
+  console.log(`Memory usage: RSS=${Math.round(memUsage.rss/1024/1024)}MB, Heap=${Math.round(memUsage.heapUsed/1024/1024)}MB, PathCache=${pathCache.size} entries`);
+  
+  // Cleanup expired path cache entries
+  pathCache.cleanup();
 }, 30000);
 
 // Keep old interval for init/remove packs (less frequent)
