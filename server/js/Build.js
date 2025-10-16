@@ -11,7 +11,7 @@ Build = function(id){
   var building = Building.list[b];
   setTimeout(function(){
     var p = Player.list[id];
-    if(Player.list[id].working){
+    if(p && Player.list[id] && Player.list[id].working){
       var loc = getLoc(p.x,p.y);
       tileChange(6,loc[0],loc[1],10,true); // ALPHA, default:1
       Player.list[id].working = false;
@@ -59,14 +59,17 @@ Build = function(id){
             var n = walls[i];
             tileChange(4,n[0],n[1],1);
           }
-          var fp = getCoords(walls[1][0],walls[1][1]);
-          Fireplace({
-            x:fp[0],
-            y:fp[1],
-            z:1,
-            qty:1,
-            parent:b
-          });
+          // Only create fireplace if walls[1] exists
+          if(walls && walls[1]){
+            var fp = getCoords(walls[1][0],walls[1][1]);
+            Fireplace({
+              x:fp[0],
+              y:fp[1],
+              z:1,
+              qty:1,
+              parent:b
+            });
+          }
           var serf1 = null;
           var spot1 = Building.list[b].plot[2];
           var serf2 = null;
@@ -80,8 +83,12 @@ Build = function(id){
               }
             }
           }
-          Player.list[serf1].home = {z:1,loc:spot1};
-          Player.list[serf2].home = {z:1,loc:spot2};
+          if(serf1 && Player.list[serf1]){
+            Player.list[serf1].home = {z:1,loc:spot1};
+          }
+          if(serf2 && Player.list[serf2]){
+            Player.list[serf2].home = {z:1,loc:spot2};
+          }
         } else if(building.type == 'mill'){
           for(var i in plot){
             tileChange(0,plot[i][0],plot[i][1],13);
@@ -466,8 +473,8 @@ Build = function(id){
             y:sp1[1],
             z:1,
             name:randomName('m'),
-            house:Building.list[b].house,
-            kingdom:Building.list[b].kingdom,
+            house:Building.list[b].house || null,
+            kingdom:Building.list[b].kingdom || null,
             home:{
               z:1,
               loc:[plot[16][0],plot[16][1]]
@@ -1547,7 +1554,7 @@ Build = function(id){
         mapEdit();
       }
     }
-    if(p.type == 'npc'){
+    if(p && p.type == 'npc'){
       Player.list[id].workTimer = false;
     }
     if(Building.list[b].built){

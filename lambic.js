@@ -4,13 +4,32 @@
 //                                                                     //
 //      A   S O L I S   O R T V   V S Q V E   A D   O C C A S V M      //
 //                                                                     //
-//                      A game by Johan Argyne                         //
+//                      A game by Johan Argan                          //
 //                                                                     //
 /////////////////////////////////////////////////////////////////////////
 
-var fs = require('fs');
-var PF = require('pathfinding');
-require('./server/js/Database')
+const fs = require('fs').promises;
+const fsSync = require('fs');
+const PF = require('pathfinding');
+const express = require('express');
+const sockjs = require('sockjs');
+
+// Helper function to check if a destination is a doorway (must be defined before Entity.js)
+function isDoorwayDestination(x, y, z) {
+  if (z !== 0) return false;
+  // Use a simple check that doesn't depend on other functions
+  if (typeof global.tilemapSystem !== 'undefined') {
+    const tile = global.tilemapSystem.getTile(0, x, y);
+    return tile === 55 || tile === 56; // TERRAIN.DOOR_OPEN and TERRAIN.DOOR_OPEN_ALT values
+  }
+  return false;
+}
+
+// Make isDoorwayDestination available globally
+global.isDoorwayDestination = isDoorwayDestination;
+
+// Import modules
+require('./server/js/Database');
 require('./server/js/Entity');
 require('./server/js/Inventory');
 require('./server/js/Commands');
@@ -22,1120 +41,1247 @@ require('./server/js/Build');
 require('./server/js/Interact');
 require('./server/js/Econ');
 
-// BUILD MAP
-var genesis = require('./server/js/Genesis');
-var world = genesis.map;
-nightfall = true;
-tileSize = 64;
-mapSize = world[0].length;
-mapPx = mapSize * tileSize;
+// ============================================================================
+// CONSTANTS
+// ============================================================================
 
-// pathing
-var pathing = function(z){
-  var grid = createArray(mapSize,mapSize);
+const TERRAIN = {
+  WATER: 0,
+  HEAVY_FOREST: 1,
+  LIGHT_FOREST: 2,
+  BRUSH: 3,
+  ROCKS: 4,
+  MOUNTAIN: 5,
+  CAVE_ENTRANCE: 6,
+  EMPTY: 7,
+  FARM_SEED: 8,
+  FARM_GROWING: 9,
+  FARM_READY: 10,
+  BUILD_MARKER: 11,
+  BUILD_MARKER_ALT: 11.5,
+  DOOR_OPEN: 14,
+  DOOR_OPEN_ALT: 16,
+  ROAD: 18,
+  DOOR_LOCKED: 19
+};
 
-  if(z == 0){
-    for(x = 0; x < mapSize; x++){
-      for(y = 0; y < mapSize; y++){
-        if(world[0][y][x] == 0){
-          grid[y][x] = 1;
-        } else {
-          grid[y][x] = 0;
+const Z_LEVELS = {
+  UNDERWATER: -3,
+  CELLAR: -2,
+  UNDERWORLD: -1,
+  OVERWORLD: 0,
+  BUILDING_1: 1,
+  BUILDING_2: 2,
+  SHIP: 3
+};
+
+const TILE_SIZE = 64;
+const FACTION_IDS = {
+  BROTHERHOOD: 1,
+  GOTHS: 2,
+  NORSEMEN: 3,
+  FRANKS: 4,
+  CELTS: 5,
+  TEUTONS: 6,
+  OUTLAWS: 7,
+  MERCENARIES: 8
+};
+
+// ============================================================================
+// INITIALIZE GAME
+// ============================================================================
+
+// Import new modular systems
+const { gameState } = require('./server/js/core/GameState.js');
+const { CommandHandler } = require('./server/js/commands/CommandHandler.js');
+const { itemFactory } = require('./server/js/entities/ItemFactory.js');
+const OptimizedGameLoop = require('./server/js/core/OptimizedGameLoop.js');
+const SimpleCombat = require('./server/js/core/SimpleCombat.js');
+const { TilemapIntegration } = require('./server/js/core/TilemapIntegration.js');
+
+// Initialize game state
+const genesis = require('./server/js/genesis');
+let world = genesis.map;
+let caveEntrances = genesis.entrances || [];
+global.caveEntrances = caveEntrances;
+gameState.initializeWorld(world);
+
+// Initialize consolidated tilemap system
+console.log('Initializing consolidated tilemap system...');
+const tilemapIntegration = new TilemapIntegration();
+tilemapIntegration.initializeFromWorldArray(world, gameState.mapSize);
+global.tilemapSystem = tilemapIntegration;
+
+// Expose basic constants/globals needed by other modules (backward compatibility)
+global.TERRAIN = TERRAIN;
+global.Z_LEVELS = Z_LEVELS;
+global.tileSize = gameState.tileSize;
+global.mapSize = gameState.mapSize;
+global.mapPx = gameState.mapPx;
+global.period = gameState.period;
+
+// Helper function to check if a destination is a doorway
+function isDoorwayDestination(x, y, z) {
+  if (z !== 0) return false;
+  const tile = getTile(0, x, y);
+  return tile === TERRAIN.DOOR_OPEN || tile === TERRAIN.DOOR_OPEN_ALT;
+}
+
+// Make isDoorwayDestination available globally
+global.isDoorwayDestination = isDoorwayDestination;
+global.day = gameState.day;
+global.tick = gameState.tick;
+global.tempus = gameState.tempus;
+global.nightfall = gameState.nightfall;
+
+// Removed speed multiplier - just use baseSpd directly
+
+// Expose the new modular systems globally
+global.gameState = gameState;
+global.itemFactory = itemFactory;
+global.simpleCombat = new SimpleCombat();
+
+// Initialize SimpleFlee system
+const SimpleFlee = require('./server/js/core/SimpleFlee');
+global.simpleFlee = new SimpleFlee();
+
+// Create command handler after globals are set
+const commandHandler = new CommandHandler();
+
+// Create optimized game loop
+const optimizedGameLoop = new OptimizedGameLoop();
+
+const SOCKET_LIST = {};
+global.SOCKET_LIST = SOCKET_LIST;
+let io = null;
+// Configure A* pathfinder with better options
+let finder = new PF.AStarFinder({
+  allowDiagonal: true,
+  dontCrossCorners: true,
+  heuristic: PF.Heuristic.euclidean,
+  weight: 1.2
+});
+
+// Expose pathfinder globally for other modules
+global.finder = finder;
+
+// Path caching for frequently used routes
+const pathCache = new Map();
+const MAX_CACHE_SIZE = 1000;
+const CACHE_TTL = 30000; // 30 seconds
+
+// Spawn points
+let spawnPointsO = [];
+let spawnPointsU = [];
+let waterSpawns = [];
+let hForestSpawns = [];
+let mtnSpawns = [];
+// caveEntrances declared and populated after genesis loads (line ~105)
+
+// Biome tracking
+const biomes = {
+  water: 0,
+  forest: 0,
+  hForest: 0,
+  brush: 0,
+  rocks: 0,
+  mtn: 0
+};
+
+// Names for random generation
+const maleNames = [];
+const femaleNames = [];
+const surnames = [];
+
+// Zones for spatial partitioning
+let zones = createArray(64, 64);
+
+// Day/night cycle
+const cycle = ['XII.a','I.a','II.a','III.a','IV.a','V.a','VI.a','VII.a','VIII.a','IX.a','X.a',
+  'XI.a','XII.p','I.p','II.p','III.p','IV.p','V.p','VI.p','VII.p','VIII.p','IX.p','X.p','XI.p'];
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+function createArray(length) {
+  const arr = new Array(length || 0);
+  let i = length;
+
+  if (arguments.length > 1) {
+    const args = Array.prototype.slice.call(arguments, 1);
+    while (i--) {
+      arr[length - 1 - i] = createArray.apply(this, args);
+    }
+  }
+  return arr;
+}
+
+function getLoc(x, y) {
+  return [Math.floor(x / tileSize), Math.floor(y / tileSize)];
+}
+
+function getCoords(c, r) {
+  return [c * tileSize, r * tileSize];
+}
+
+function getCenter(c, r) {
+  return [(c * tileSize) + (tileSize / 2), (r * tileSize) + (tileSize / 2)];
+}
+
+function getTile(l, c, r) {
+  if (r >= 0 && r < mapSize && c >= 0 && c < mapSize) {
+    return global.tilemapSystem.getTile(l, c, r);
+  }
+  return undefined;
+}
+
+function getLocTile(l, x, y) {
+  if (x >= 0 && x <= mapPx && y >= 0 && y <= mapPx) {
+    const loc = getLoc(x, y);
+    return global.tilemapSystem.getTile(l, loc[0], loc[1]);
+  }
+  return undefined;
+}
+
+function getDistance(pt1, pt2) {
+  return Math.sqrt(Math.pow(pt1.x - pt2.x, 2) + Math.pow(pt1.y - pt2.y, 2));
+}
+
+function tileChange(l, c, r, n, incr = false) {
+  global.tilemapSystem.updateTile(l, c, r, n, incr);
+  
+  // Update the local world array to keep it in sync
+  const newTileValue = global.tilemapSystem.getTile(l, c, r);
+  if (world[l] && world[l][r]) {
+    world[l][r][c] = newTileValue;
+  }
+  
+  // Automatically emit tile update to all clients
+  emit({ msg: 'tileEdit', l, c, r, tile: newTileValue });
+}
+
+function mapEdit(l, c, r) {
+  if (l !== undefined) {
+    if (c !== undefined && r !== undefined) {
+      const tile = global.tilemapSystem.getTile(l, c, r);
+      // Update the local world array
+      if (world[l] && world[l][r]) {
+        world[l][r][c] = tile || 0;
+    } else {
+        console.log(`mapEdit: world array not initialized for [${l}][${r}][${c}]`);
+    }
+      emit({ msg: 'tileEdit', l, c, r, tile: tile || 0 });
+  } else {
+      // For layer editing, we'll need to reconstruct the layer from the tilemap
+      const layer = [];
+      for (let y = 0; y < mapSize; y++) {
+        layer[y] = [];
+        for (let x = 0; x < mapSize; x++) {
+          layer[y][x] = global.tilemapSystem.getTile(l, x, y);
+        }
+      }
+      // Update the local world array
+      world[l] = layer;
+      emit({ msg: 'layerEdit', l, layer: layer });
+    }
+  } else {
+    // For full map editing, we'll need to reconstruct the world array
+    const worldArray = [];
+    for (let layer = 0; layer < 9; layer++) {
+      worldArray[layer] = [];
+      for (let y = 0; y < mapSize; y++) {
+        worldArray[layer][y] = [];
+        for (let x = 0; x < mapSize; x++) {
+          worldArray[layer][y][x] = global.tilemapSystem.getTile(layer, x, y);
         }
       }
     }
-  } else if(z == -1){
-    for(x = 0; x < mapSize; x++){
-      for(y = 0; y < mapSize; y++){
-        if(world[1][y][x] == 1){
-          grid[y][x] = 1;
-        } else {
-          grid[y][x] = 0;
-        }
+    emit({ msg: 'mapEdit', world: worldArray });
+  }
+}
+
+function emit(data) {
+  for (const i in SOCKET_LIST) {
+    SOCKET_LIST[i].write(JSON.stringify(data));
+  }
+}
+global.emit = emit;
+// Expose utility functions for modules that expect globals
+global.getTile = getTile;
+global.getLoc = getLoc;
+global.getLocTile = getLocTile;
+global.getCenter = getCenter;
+global.getCoords = getCoords;
+global.getDistance = getDistance;
+global.tileChange = tileChange;
+global.mapEdit = mapEdit;
+global.getArea = getArea;
+global.getBuilding = getBuilding;
+global.keyCheck = keyCheck;
+global.chestCheck = chestCheck;
+global.gateCheck = gateCheck;
+global.allyCheck = allyCheck;
+
+function randomName(gender) {
+  if (gender === 'm') {
+    return maleNames[Math.floor(Math.random() * maleNames.length)];
+  } else if (gender === 'f') {
+    return femaleNames[Math.floor(Math.random() * femaleNames.length)];
+  } else {
+    return surnames[Math.floor(Math.random() * surnames.length)];
+  }
+}
+global.randomName = randomName;
+
+function getArea(loc1, loc2, margin = 0) {
+  if (!loc1 || !loc2) {
+    return [];
+  }
+  const c1 = loc1[0];
+  const c2 = loc2[0];
+  const r1 = loc1[1];
+  const r2 = loc2[1];
+
+  let tl, br;
+
+  if (c1 <= c2) {
+    if (r1 <= r2) {
+      tl = [c1 - margin, r1 - margin];
+      br = [c2 + margin, r2 + margin];
+    } else {
+      tl = [c1 - margin, r2 - margin];
+      br = [c2 + margin, r1 + margin];
+    }
+  } else {
+    if (r1 <= r2) {
+      tl = [c2 - margin, r1 - margin];
+      br = [c1 + margin, r2 + margin];
+    } else {
+      tl = [c2 - margin, r2 - margin];
+      br = [c1 + margin, r1 + margin];
+    }
+  }
+
+  const grid = [];
+  for (let y = tl[1]; y < br[1]; y++) {
+    for (let x = tl[0]; x < br[0]; x++) {
+      if (x >= 0 && x < mapSize && y >= 0 && y < mapSize) {
+        grid.push([x, y]);
       }
     }
-  } else if(z == 3){
-    for(x = 0; x < mapSize; x++){
-      for(y = 0; y < mapSize; y++){
-        if(world[0][y][x] == 0){
-          grid[y][x] = 0;
-        } else {
-          grid[y][x] = 1;
-        }
+  }
+  return grid;
+}
+
+// ============================================================================
+// PATHFINDING
+// ============================================================================
+
+function pathing(z) {
+  const grid = createArray(mapSize, mapSize);
+
+  if (z === 0) {
+    for (let x = 0; x < mapSize; x++) {
+      for (let y = 0; y < mapSize; y++) {
+        grid[y][x] = world[0][y][x] === 0 ? 1 : 0;
       }
     }
-  } else if(z == -3){
-    for(x = 0; x < mapSize; x++){
-      for(y = 0; y < mapSize; y++){
+  } else if (z === -1) {
+    for (let x = 0; x < mapSize; x++) {
+      for (let y = 0; y < mapSize; y++) {
+        grid[y][x] = world[1][y][x] === 1 ? 1 : 0;
+      }
+    }
+  } else if (z === 3) {
+    for (let x = 0; x < mapSize; x++) {
+      for (let y = 0; y < mapSize; y++) {
+        grid[y][x] = world[0][y][x] === 0 ? 0 : 1;
+      }
+    }
+  } else if (z === -3) {
+    for (let x = 0; x < mapSize; x++) {
+      for (let y = 0; y < mapSize; y++) {
         grid[y][x] = 0;
       }
     }
   } else {
-    for(x = 0; x < mapSize; x++){
-      for(y = 0; y < mapSize; y++){
+    for (let x = 0; x < mapSize; x++) {
+      for (let y = 0; y < mapSize; y++) {
         grid[y][x] = 1;
       }
     }
   }
   return grid;
-};
-
-// pathfinding
-var matrixO = pathing(0); // overworld
-var matrixU = pathing(-1); // underworld
-var matrixB1 = pathing(); // first floor buildings
-var matrixB2 = pathing(); // second floor buildings
-var matrixB3 = pathing(); // dungeons/cellars
-var matrixW = pathing(-3); // underwater
-var matrixS = pathing(3); // ships
-
-var gridO = new PF.Grid(matrixO); // z = 0
-var gridU = new PF.Grid(matrixU); // z = -1
-var gridB1 = new PF.Grid(matrixB1); // z = 1
-var gridB2 = new PF.Grid(matrixB2); // z = 2
-var gridB3 = new PF.Grid(matrixB3); // z = -2
-var gridW = new PF.Grid(matrixW); // z = -3
-var gridS = new PF.Grid(matrixS); // ships
-
-finder = new PF.AStarFinder();
-
-cloneGrid = function(g){
-  if(g == 0){
-    return gridO.clone();
-  } else if(g == -1){
-    return gridU.clone();
-  } else if(g == 1){
-    return gridB1.clone();
-  } else if(g == 2){
-    return gridB2.clone();
-  } else if(g == -2){
-    return gridB3.clone();
-  } else if(g == -3){
-    return gridW.clone();
-  } else if(g == 3){
-    return gridS.clone();
-  }
 }
 
-// entropy
-var entropy = function(){
-  // FLORA
-  // add res to trees and update
-  var toHF = [];
-  var toF = [];
-  var toB = [];
-  for(var c = 0; c < mapSize; c++){
-    for(var r = 0; r < mapSize; r++){
-      // fish
-      if(getTile(0,c,r) == 0){
-        if(Math.random() < 0.2){
-          world[6][r][c] = Math.ceil(Math.random() * 10);
-        } else {
-          world[6][r][c] = 0;
-        }
-        // tree growth
-      } else if(world[0][r][c] >= 1 && world[0][r][c] < 2 && day > 0){
-        if(world[6][r][c] < 300){
-          world[6][r][c] += Math.floor(Math.random() * 4);
-        }
-        // forest to heavy forest
-      } else if(world[0][r][c] >= 2 && world[0][r][c] < 3 && day > 0){
-        world[6][r][c] += Math.floor(Math.random() * 4);
-        if(world[6][r][c] > 100){
-          toHF.push([c,r]);
-        }
-      } else if(world[0][r][c] >= 3 && world[0][r][c] < 4 && c > 0 && c < mapSize && r > 0 && r < mapSize && day > 0){
-        var check = [getTile(0,c,r-1),getTile(6,c,r-1),getTile(0,c,r+1),getTile(6,c,r+1),getTile(0,c-1,r),getTile(6,c-1,r),getTile(0,c+1,r),getTile(6,c+1,r)];
-        if((check[0] >= 1 && check[0] < 3 && check[1] > 49) ||
-        (check[2] >= 1 || check[2] < 3 && check[3] > 49) ||
-        (check[4] >= 1 || check[4] < 3 && check[5] > 49) ||
-        (check[6] >= 1 || check[6] < 3 && check[7] > 49)){
-          if(Math.random < 0.1){
-            toF.push([c,r]);
-          }
-        }
-      } else if(world[0][r][c] == 7 && c > 0 && c < mapSize && r > 0 && r < mapSize && day > 0){
-        var check = [getTile(0,c,r-1),getTile(0,c,r+1),getTile(0,c-1,r),getTile(0,c+1,r)];
-        if((check[0] >= 1 && check[0] < 4) ||
-        (check[1] >= 1 && check[1] < 4) ||
-        (check[2] >= 1 && check[2] < 4) ||
-        (check[3] >= 1 && check[3] < 4)){
-          if(Math.random < 0.15){
-            toB.push([c,r]);
-          }
-        }
+const matrixO = pathing(0);
+const matrixU = pathing(-1);
+const matrixB1 = pathing();
+const matrixB2 = pathing();
+const matrixB3 = pathing();
+const matrixW = pathing(-3);
+const matrixS = pathing(3);
+
+const gridO = new PF.Grid(matrixO);
+const gridU = new PF.Grid(matrixU);
+const gridB1 = new PF.Grid(matrixB1);
+const gridB2 = new PF.Grid(matrixB2);
+const gridB3 = new PF.Grid(matrixB3);
+const gridW = new PF.Grid(matrixW);
+const gridS = new PF.Grid(matrixS);
+
+function cloneGrid(g, options = {}) {
+  // Use the new consolidated pathfinding system
+  const grid = global.tilemapSystem.pathfindingSystem.tilemapSystem.generatePathfindingGrid(g, options);
+  return new PF.Grid(grid);
+}
+
+// Path smoothing to reduce zigzag movement
+function smoothPath(path, z = 0) {
+  if (!path || path.length <= 2) return path;
+  
+  const smoothed = [path[0]];
+  let i = 0;
+  
+  while (i < path.length - 1) {
+    let j = i + 2;
+    
+    // Find the furthest point we can reach in a straight line
+    while (j < path.length && canMoveDirectly(path[i], path[j], z)) {
+      j++;
+    }
+    
+    // Add the furthest reachable point
+    smoothed.push(path[j - 1]);
+    i = j - 1;
+  }
+  
+  return smoothed;
+}
+
+// Check if we can move directly between two points without hitting obstacles
+function canMoveDirectly(start, end, z = 0) {
+  const dx = end[0] - start[0];
+  const dy = end[1] - start[1];
+  const steps = Math.max(Math.abs(dx), Math.abs(dy));
+  
+  if (steps === 0) return true;
+  
+  const stepX = dx / steps;
+  const stepY = dy / steps;
+  
+  for (let i = 1; i <= steps; i++) {
+    const x = Math.round(start[0] + stepX * i);
+    const y = Math.round(start[1] + stepY * i);
+    
+    // Check if this point is walkable
+    if (x < 0 || x >= mapSize || y < 0 || y >= mapSize) return false;
+    if (!isWalkable(z, x, y)) return false;
+    
+    // Check for other units at this position
+    const center = getCenter(x, y);
+    for (const playerId in Player.list) {
+      const player = Player.list[playerId];
+      if (player.z === z && Math.abs(player.x - center[0]) < 20 && Math.abs(player.y - center[1]) < 20) {
+        return false; // Another unit is blocking this path
       }
     }
   }
-
-  for(i in toHF){
-    world[0][toHF[i][1]][toHF[i][0]] -= 1;
-    biomes.hForest++;
-    hForestSpawns.push(toHF[i]);
-  }
-  for(i in toF){
-    world[0][toF[i][1]][toF[i][0]] -= 1;
-    world[6][toF[i][1]][toF[i][0]] = 50;
-    //biomes.forest++;
-  }
-  for(i in toB){
-    world[0][toB[i][1]][toB[i][0]] = 3 + Number((Math.random()*0.9).toFixed(2));
-    //biomes.brush++;
-  }
-
-  // FAUNA
-  var deerRatio = Math.floor(biomes.hForest/400);
-  var boarRatio = Math.floor(biomes.hForest/1600);
-  var wolfRatio = Math.floor(biomes.hForest/800);
-  var falconRatio = Math.floor(biomes.hForest/2400);
-
-  var deerPop = 0;
-  var boarPop = 0;
-  var wolfPop = 0;
-  var falconPop = 0;
-
-  for(i in Player.list){
-    var cl = Player.list[i].class;
-    if(cl == 'deer'){
-      deerPop++;
-    } else if(cl == 'boar'){
-      boarPop++;
-    } else if(cl == 'wolf'){
-      wolfPop++;
-    } else if(cl == 'falcon'){
-      falconPop++;
-    }
-  }
-  if(deerPop < deerRatio){
-    var num = 0;
-    if(day == 0){
-      num = Math.floor(deerRatio * 0.618);
-    } else {
-      num = Math.floor((deerRatio - deerPop) * 0.02);
-    }
-    for(var i = 0; i < num; i++){
-      var sp = randomSpawnHF();
-      var sLoc = getLoc(sp[0],sp[1]);
-      Deer({
-        x:sp[0],
-        y:sp[1],
-        z:0,
-        home:{
-          z:0,
-          loc:[sLoc[0],sLoc[1]]
-        }
-      });
-    }
-  }
-  if(boarPop < boarRatio){
-    var num = 0;
-    if(day == 0){
-      num = Math.floor(boarRatio * 0.618);
-    } else {
-      num = Math.floor((boarRatio - boarPop) * 0.02);
-    }
-    for(var i = 0; i < num; i++){
-      var sp = randomSpawnHF();
-      var sLoc = getLoc(sp[0],sp[1]);
-      Boar({
-        x:sp[0],
-        y:sp[1],
-        z:0,
-        home:{
-          z:0,
-          loc:[sLoc[0],sLoc[1]]
-        }
-      });
-    }
-  }
-  if(wolfPop < wolfRatio){
-    var num = 0;
-    if(day == 0){
-      num = Math.floor(wolfRatio * 0.618);
-    } else {
-      num = Math.floor((wolfRatio - wolfPop) * 0.02);
-    }
-    for(var i = 0; i < num; i++){
-      var sp = randomSpawnHF();
-      var sLoc = getLoc(sp[0],sp[1]);
-      Wolf({
-        x:sp[0],
-        y:sp[1],
-        z:0,
-        home:{
-          z:0,
-          loc:[sLoc[0],sLoc[1]]
-        }
-      });
-    }
-  }
-  if(falconPop < falconRatio){
-    var num = 0;
-    if(day == 0){
-      num = Math.floor(falconRatio * 0.618);
-    } else {
-      num = Math.floor((falconRatio - falconPop) * 0.01);
-    }
-    for(var i = 0; i < num; i++){
-      var sp = randomSpawnHF();
-      Falcon({
-        x:sp[0],
-        y:sp[1],
-        z:0,
-        falconry:false
-      });
-    }
-  }
-  emit({msg:'mapEdit',world:world});
-};
-
-// biome levels
-var biomes = {
-  water:0,
-  forest:0,
-  hForest:0,
-  brush:0,
-  rocks:0,
-  mtn:0
+  
+  return true;
 }
 
-// spawn points
-var spawnPointsO = []; // overworld
-var spawnPointsU = []; // underworld
-var waterSpawns = [];
-var hForestSpawns = [];
-var mtnSpawns = [];
-
-caveEntrances = [];
-
-// daily tally
-var dailyTally = function(){
-  for(var i in Building.list){
-    var b = Building.list[i];
-    if(b.built && (b.type == 'mill' || b.type == 'lumbermill' || b.type == 'mine')){
-      Building.list[i].tally();
-    }
+// Get cached path or compute new one
+function getCachedPath(start, end, z) {
+  const key = `${start[0]},${start[1]},${end[0]},${end[1]},${z}`;
+  const cached = pathCache.get(key);
+  
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.path;
   }
+  
+  return null;
 }
 
-// create n-dimensional array
-function createArray(length){
-  var arr = new Array(length || 0),
-      i = length;
-
-  if(arguments.length > 1){
-      var args = Array.prototype.slice.call(arguments, 1);
-      while(i--) arr[length-1 - i] = createArray.apply(this, args);
+// Cache a computed path
+function cachePath(start, end, z, path) {
+  if (pathCache.size >= MAX_CACHE_SIZE) {
+    // Remove oldest entries
+    const entries = Array.from(pathCache.entries());
+    entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
+    const toRemove = entries.slice(0, Math.floor(MAX_CACHE_SIZE * 0.2));
+    toRemove.forEach(([key]) => pathCache.delete(key));
   }
-  return arr;
-};
-
-// zones
-zones = createArray(64,64);
-
-for(x = 0; x < 64; x++){
-  for(y = 0; y < 64; y++){
-    zones[y][x] = {};
-  }
-};
-
-for(x = 0; x < mapSize; x++){
-  for(y = 0; y < mapSize; y++){
-    var tile = world[0][y][x];
-    var uTile = world[1][y][x];
-    if(tile !== 0){
-      spawnPointsO.push([x,y]);
-      if(tile >= 1 && tile < 2){
-        biomes.hForest++;
-        hForestSpawns.push([x,y]);
-      } else if(tile >= 2 && tile < 3){
-        biomes.forest++;
-      } else if(tile >= 3 && tile < 4){
-        biomes.brush++;
-      } else if(tile >= 4 && tile < 5){
-        biomes.rocks++;
-      } else if(tile >= 5 && tile < 6){
-        biomes.mtn++;
-        mtnSpawns.push([x,y]);
-      } else if(tile == 6){
-        biomes.mtn++;
-        caveEntrances.push([x,y]);
-      }
-    } else {
-      biomes.water++;
-      waterSpawns.push([x,y]);
-    }
-    if(uTile == 0){
-      spawnPointsU.push([x,y]);
-    } else {
-      continue;
-    }
-  }
+  
+  const key = `${start[0]},${start[1]},${end[0]},${end[1]},${z}`;
+  pathCache.set(key, {
+    path: path,
+    timestamp: Date.now()
+  });
 }
 
-// RANDOM NAME GENERATOR
-
-maleNames = [];
-femaleNames = [];
-surnames = [];
-
-fs.readFile('./malenames.txt', function(err, data){
-  if(err) throw err;
-  var lines = data.toString().split("\n");
-  for(var i in lines){
-    maleNames.push(lines[i]);
+// Multi-z pathfinding system for complex journeys
+function createMultiZPath(startZ, startLoc, targetZ, targetLoc) {
+  const path = [];
+  const waypoints = [];
+  
+  // Define z-level hierarchy and transitions
+  const zLevels = {
+    '-3': 'underwater',
+    '-2': 'cellar', 
+    '-1': 'cave',
+    '0': 'overworld',
+    '1': 'ground_floor',
+    '2': 'second_floor'
+  };
+  
+  // Find the optimal route through z-levels
+  const route = findOptimalZRoute(startZ, targetZ);
+  
+  if (route.length === 0) {
+    console.log('No valid route found between z-levels', startZ, 'and', targetZ);
+    return null;
   }
-});
-
-fs.readFile('./femalenames.txt', function(err, data){
-  if(err) throw err;
-  var lines = data.toString().split("\n");
-  for(var i in lines){
-    femaleNames.push(lines[i]);
+  
+  // Create waypoints for each transition
+  let currentZ = startZ;
+  let currentLoc = startLoc;
+  
+  for (let i = 0; i < route.length - 1; i++) {
+    const fromZ = route[i];
+    const toZ = route[i + 1];
+    
+    // Find transition point between these z-levels
+    const transition = findZTransition(fromZ, toZ, currentLoc, targetLoc);
+    
+    if (!transition) {
+      console.log('No transition found from', fromZ, 'to', toZ);
+      return null;
+    }
+    
+    waypoints.push({
+      z: fromZ,
+      loc: transition.from,
+      action: transition.action,
+      nextZ: toZ,
+      nextLoc: transition.to
+    });
+    
+    currentZ = toZ;
+    currentLoc = transition.to;
   }
-});
-
-fs.readFile('./surnames.txt', function(err, data){
-  if(err) throw err;
-  var lines = data.toString().split("\n");
-  for(var i in lines){
-    surnames.push(lines[i]);
-  }
-});
-
-randomName = function(x){
-  if(x == 'm'){
-    return maleNames[Math.floor(Math.random()*maleNames.length)];
-  } else if(x == 'f'){
-    return femaleNames[Math.floor(Math.random()*femaleNames.length)];
-  } else {
-    return surnames[Math.floor(Math.random()*surnames.length)];
-  }
-};
-
-console.log('#############');
-console.log('Terrain Data:');
-console.log('#############');
-console.log('');
-console.log(Number((biomes.water/(mapSize*mapSize))*100).toFixed() + '% Water');
-console.log(Number((biomes.hForest/(mapSize*mapSize))*100).toFixed() + '% Heavy Forest');
-console.log(Number((biomes.forest/(mapSize*mapSize))*100).toFixed() + '% Light Forest');
-console.log(Number((biomes.brush/(mapSize*mapSize))*100).toFixed() + '% Brush');
-console.log(Number((biomes.rocks/(mapSize*mapSize))*100).toFixed() + '% Rocks');
-console.log(Number((biomes.mtn/(mapSize*mapSize))*100).toFixed() + '% Mountains');
-console.log('');
-
-// MAP TOOLS
-
-//edit world tiles
-tileChange = function(l,c,r,n,incr=false){
-  if(incr){
-    world[l][r][c] += n;
-  } else {
-    world[l][r][c] = n;
-  }
-};
-
-matrixChange = function(l,c,r,n){
-  if(l == 0){
-    matrixO[r][c] = n;
-    if(n == 0){
-      gridO.setWalkableAt(c,r,true);
-    } else {
-      gridO.setWalkableAt(c,r,false);
-    }
-  } else if(l == -1){
-    matrixU[r][c] = n;
-    if(n == 0){
-      gridU.setWalkableAt(c,r,true);
-    } else {
-      gridU.setWalkableAt(c,r,false);
-    }
-  } else if(l == 1){
-    matrixB1[r][c] = n;
-    if(n == 0){
-      gridB1.setWalkableAt(c,r,true);
-    } else {
-      gridB1.setWalkableAt(c,r,false);
-    }
-  } else if(l == 2){
-    matrixB2[r][c] = n;
-    if(n == 0){
-      gridB2.setWalkableAt(c,r,true);
-    } else {
-      gridB2.setWalkableAt(c,r,false);
-    }
-  } else if(l == -2){
-    matrixB3[r][c] = n;
-    if(n == 0){
-      gridB3.setWalkableAt(c,r,true);
-    } else {
-      gridB3.setWalkableAt(c,r,false);
-    }
-  } else if(l == -3){
-    matrixW[r][c] = n;
-    if(n == 0){
-      gridW.setWalkableAt(c,r,true);
-    } else {
-      gridW.setWalkableAt(c,r,false);
-    }
-  } else if(l == 3){
-    matrixS[r][c] = n;
-    if(n == 0){
-      gridS.setWalkableAt(c,r,true);
-    } else {
-      gridS.setWalkableAt(c,r,false);
-    }
-  }
-};
-
-// send mapEdit
-mapEdit = function(l,c,r){
-  if(l){
-    if(c && r){
-      emit({msg:'tileEdit',l:l,c:c,r:r,tile:world[l][r][c]});
-    } else {
-      emit({msg:'layerEdit',l:l,layer:world[l]});
-    }
-  } else {
-    emit({msg:'mapEdit',world:world});
-  }
+  
+  // Add final destination
+  waypoints.push({
+    z: targetZ,
+    loc: targetLoc,
+    action: 'arrive',
+    nextZ: null,
+    nextLoc: null
+  });
+  
+  return waypoints;
 }
 
-// get tile walkable status
-isWalkable = function(z, c, r){
-  if(c < 0 || c > mapSize-1 || r < 0 || r > mapSize-1){
-    return false;
-  } else {
-    if(z == 0){
-      if(matrixO[r][c] == 0){
-        return true;
-      } else {
-        return false;
-      }
-    } else if(z == -1){
-      if(matrixU[r][c] == 0){
-        return true;
-      } else {
-        return false;
-      }
-    } else if(z == 1){
-      if(matrixB1[r][c] == 0){
-        return true;
-      } else {
-        return false;
-      }
-    } else if(z == 2){
-      if(matrixB2[r][c] == 0){
-        return true;
-      } else {
-        return false;
-      }
-    } else if(z == -2){
-      if(matrixB3[r][c] == 0){
-        return true;
-      } else {
-        return false;
+// Find optimal route through z-levels
+function findOptimalZRoute(startZ, targetZ) {
+  const routes = {
+    // Cave to second floor: cave -> overworld -> building entrance -> stairs -> second floor
+    '-1->2': [-1, 0, 1, 2],
+    // Cave to cellar: cave -> overworld -> building entrance -> cellar
+    '-1->-2': [-1, 0, 1, -2],
+    // Second floor to cave: second floor -> stairs -> ground floor -> exit -> overworld -> cave entrance -> cave
+    '2->-1': [2, 1, 0, -1],
+    // Cellar to cave: cellar -> stairs -> ground floor -> exit -> overworld -> cave entrance -> cave
+    '-2->-1': [-2, 1, 0, -1],
+    // Underwater to anywhere: underwater -> overworld -> [continue normal route]
+    '-3->0': [-3, 0],
+    '-3->1': [-3, 0, 1],
+    '-3->2': [-3, 0, 1, 2],
+    '-3->-1': [-3, 0, -1],
+    '-3->-2': [-3, 0, 1, -2]
+  };
+  
+  const key = `${startZ}->${targetZ}`;
+  if (routes[key]) {
+    return routes[key];
+  }
+  
+  // Default: direct transition if possible
+  if (Math.abs(startZ - targetZ) <= 1) {
+    return [startZ, targetZ];
+  }
+  
+  // Fallback: go through overworld
+  if (startZ !== 0) {
+    return [startZ, 0, targetZ];
+  }
+  
+  return [startZ, targetZ];
+}
+
+// Find transition points between z-levels
+function findZTransition(fromZ, toZ, fromLoc, targetLoc) {
+  if (fromZ === -1 && toZ === 0) {
+    // Cave to overworld: find nearest cave entrance
+    let bestEntrance = null;
+    let bestDistance = Infinity;
+    
+    for (const entrance of caveEntrances) {
+      const distance = getDistance(
+        {x: fromLoc[0], y: fromLoc[1]}, 
+        {x: entrance[0], y: entrance[1]}
+      );
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestEntrance = entrance;
       }
     }
+    
+    if (bestEntrance) {
+      return {
+        from: bestEntrance,
+        to: [bestEntrance[0], bestEntrance[1] + 1],
+        action: 'exit_cave'
+      };
+    }
   }
+  
+  if (fromZ === 0 && toZ === -1) {
+    // Overworld to cave: find nearest cave entrance to target
+    let bestEntrance = null;
+    let bestDistance = Infinity;
+    
+    for (const entrance of caveEntrances) {
+      const distance = getDistance(
+        {x: targetLoc[0], y: targetLoc[1]}, 
+        {x: entrance[0], y: entrance[1]}
+      );
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestEntrance = entrance;
+      }
+    }
+    
+    if (bestEntrance) {
+      return {
+        from: bestEntrance,
+        to: [bestEntrance[0], bestEntrance[1] + 1],
+        action: 'enter_cave'
+      };
+    }
+  }
+  
+  if (fromZ === 0 && toZ === 1) {
+    // Overworld to building: find building entrance
+    const center = getCenter(targetLoc[0], targetLoc[1]);
+    const building = getBuilding(center[0], center[1]);
+    
+    if (building && Building.list[building]) {
+      return {
+        from: Building.list[building].entrance,
+        to: [Building.list[building].entrance[0], Building.list[building].entrance[1] + 1],
+        action: 'enter_building'
+      };
+    }
+  }
+  
+  if (fromZ === 1 && toZ === 0) {
+    // Building to overworld: find building exit
+    const center = getCenter(fromLoc[0], fromLoc[1]);
+    const building = getBuilding(center[0], center[1]);
+    
+    if (building && Building.list[building]) {
+      return {
+        from: [Building.list[building].entrance[0], Building.list[building].entrance[1] + 1],
+        to: Building.list[building].entrance,
+        action: 'exit_building'
+      };
+    }
+  }
+  
+  if (fromZ === 1 && toZ === 2) {
+    // Ground floor to second floor: find stairs
+    const center = getCenter(fromLoc[0], fromLoc[1]);
+    const building = getBuilding(center[0], center[1]);
+    
+    if (building && Building.list[building] && Building.list[building].ustairs) {
+      return {
+        from: Building.list[building].ustairs,
+        to: Building.list[building].ustairs,
+        action: 'go_upstairs'
+      };
+    }
+  }
+  
+  if (fromZ === 2 && toZ === 1) {
+    // Second floor to ground floor: find stairs
+    const center = getCenter(fromLoc[0], fromLoc[1]);
+    const building = getBuilding(center[0], center[1]);
+    
+    if (building && Building.list[building] && Building.list[building].ustairs) {
+      return {
+        from: Building.list[building].ustairs,
+        to: Building.list[building].ustairs,
+        action: 'go_downstairs'
+      };
+    }
+  }
+  
+  if (fromZ === 1 && toZ === -2) {
+    // Ground floor to cellar: find stairs
+    const center = getCenter(fromLoc[0], fromLoc[1]);
+    const building = getBuilding(center[0], center[1]);
+    
+    if (building && Building.list[building] && Building.list[building].dstairs) {
+      return {
+        from: Building.list[building].dstairs,
+        to: Building.list[building].dstairs,
+        action: 'go_to_cellar'
+      };
+    }
+  }
+  
+  if (fromZ === -2 && toZ === 1) {
+    // Cellar to ground floor: find stairs
+    const center = getCenter(fromLoc[0], fromLoc[1]);
+    const building = getBuilding(center[0], center[1]);
+    
+    if (building && Building.list[building] && Building.list[building].dstairs) {
+      return {
+        from: Building.list[building].dstairs,
+        to: Building.list[building].dstairs,
+        action: 'go_from_cellar'
+      };
+    }
+  }
+  
+  return null;
 }
 
-getDistance = function(pt1,pt2){
-  return Math.sqrt(Math.pow(pt1.x-pt2.x,2) + Math.pow(pt1.y-pt2.y,2));
-}
+function matrixChange(l, c, r, n) {
+  const matrices = {
+    0: { matrix: matrixO, grid: gridO },
+    '-1': { matrix: matrixU, grid: gridU },
+    1: { matrix: matrixB1, grid: gridB1 },
+    2: { matrix: matrixB2, grid: gridB2 },
+    '-2': { matrix: matrixB3, grid: gridB3 },
+    '-3': { matrix: matrixW, grid: gridW },
+    3: { matrix: matrixS, grid: gridS }
+  };
 
-// get tile type from (l,c,r)
-// l == 'layer'
-// 0: Overworld, 1: Underworld,  2: Underwater, 3: BuildI, 4: BuildII, 5: BuildIII, 6: resI, 7: resII, 8: BuildIV
-getTile = function(l,c,r){
-  if(r >= 0 && r < mapSize && c >= 0 && c < mapSize){
-    return world[l][r][c];
-  } else {
+  // Bounds check
+  if (c < 0 || c >= mapSize || r < 0 || r >= mapSize) {
+    console.warn(`matrixChange out of bounds: [${c},${r}] (mapSize: ${mapSize})`);
     return;
   }
-};
 
-// get loc from (x,y)
-getLoc = function(x,y){
-  var loc = [Math.floor(x/tileSize),Math.floor(y/tileSize)];
-  return loc;
-};
-
-// get tile type from (l,x,y)
-getLocTile = function(l,x,y){
-  if(x >= 0 && x <= mapPx && y >= 0 && y <= mapPx){
-    var loc = getLoc(x,y);
-    return world[l][loc[1]][loc[0]];
-  }
-};
-
-// get item type from (z,c,r)
-getItem = function(z,c,r){
-  if(z == 0){
-    return matrixO[r][c];
-  } else if(z == -1){
-    return matrixU[r][c];
-  } else if(z == 1){
-    return matrixB1[r][c];
-  } else if(z == 2){
-    return matrixB2[r][c];
-  } else if(z == -2){
-    return matrixB3[r][c];
-  } else if(z == -3){
-    return matrixW[r][c];
+  const target = matrices[l];
+  if (target && target.matrix[r]) {
+    target.matrix[r][c] = n;
+    target.grid.setWalkableAt(c, r, n === 0);
+  } else if (target) {
+    console.warn(`matrixChange: matrix[${r}] undefined for layer ${l}`);
   }
 }
 
-// get building id from (x,y)
-getBuilding = function(x,y){
-  var loc = getLoc(x,y);
-  for(var i in Building.list){
-    var b = Building.list[i];
-    for(n = 0; n < b.plot.length; n++){
-      if(b.plot[n][0] == loc[0] && b.plot[n][1] == loc[1]){
+function isWalkable(z, c, r) {
+  if (c < 0 || c > mapSize - 1 || r < 0 || r > mapSize - 1) {
+    return false;
+  }
+
+  const matrices = {
+    0: matrixO,
+    '-1': matrixU,
+    1: matrixB1,
+    2: matrixB2,
+    '-2': matrixB3
+  };
+
+  const matrix = matrices[z];
+  return matrix ? matrix[r][c] === 0 : false;
+}
+
+function getItem(z, c, r) {
+  const matrices = {
+    0: matrixO,
+    '-1': matrixU,
+    1: matrixB1,
+    2: matrixB2,
+    '-2': matrixB3,
+    '-3': matrixW
+  };
+  return matrices[z]?.[r]?.[c];
+}
+// Pathfinding helpers for modules that expect globals
+global.isWalkable = isWalkable;
+global.matrixChange = matrixChange;
+global.cloneGrid = cloneGrid;
+global.getItem = getItem;
+global.smoothPath = smoothPath;
+global.getCachedPath = getCachedPath;
+global.cachePath = cachePath;
+global.createMultiZPath = createMultiZPath;
+global.findOptimalZRoute = findOptimalZRoute;
+global.findZTransition = findZTransition;
+
+// ============================================================================
+// BUILDING HELPERS
+// ============================================================================
+
+function getBuilding(x, y) {
+  const loc = getLoc(x, y);
+  for (const i in Building.list) {
+    const b = Building.list[i];
+    for (let n = 0; n < b.plot.length; n++) {
+      if (b.plot[n][0] === loc[0] && b.plot[n][1] === loc[1]) {
         return b.id;
       }
     }
   }
+  return null;
 }
 
-// check if player has key to door from (x,y,player.id)
-keyCheck = function(x,y,p){
-  var key = getBuilding(x,y);
-  var pKeys = Player.list[p].inventory.keyRing;
-  for(var i in pKeys){
-    if(pKeys[i].id == key){
+function keyCheck(x, y, playerId) {
+  const key = getBuilding(x, y);
+  const pKeys = Player.list[playerId]?.inventory.keyRing || [];
+
+  for (const i in pKeys) {
+    if (pKeys[i].id === key) {
       return true;
-    }
-    return false;
-  }
-}
-
-// returns chest id if player can access it from (z,x,y,player.id)
-chestCheck = function(z,x,y,p){
-  var player = Player.list[p];
-  for(var i in Item.list){
-    var itm = Item.list[i];
-    if(itm.type == 'LockedChest' && itm.z == z && itm.x == x && itm.y == y){
-      for(var k in player.inventory.keyRing){
-        var key = player.inventory.keyRing[k];
-        if(itm.id == key){
-          return itm.id;
-        } else {
-          continue;
-        }
-      }
-    } else if(itm.type == 'Chest' && itm.z == z && itm.x == x && itm.y == y){
-      return itm.id;
-    } else {
-      continue;
     }
   }
   return false;
 }
 
-// check if player can pass through closed gate
-gateCheck = function(x,y,h,k){
-  var gateH = Building.list[getBuilding(x,y)].house;
-  var gateK = Building.list[getBuilding(x,y)].kingdom;
-  if(k && k == gateK){
-    return true;
-  } else {
-    if(h && h == gateH){
-      return true;
-    } else {
-      return false;
+function chestCheck(z, x, y, playerId) {
+  const player = Player.list[playerId];
+  if (!player) return false;
+
+  for (const i in Item.list) {
+    const itm = Item.list[i];
+    if (itm.z === z && itm.x === x && itm.y === y) {
+      if (itm.type === 'LockedChest') {
+        for (const k in player.inventory.keyRing) {
+          const key = player.inventory.keyRing[k];
+          if (itm.id === key) {
+            return itm.id;
+          }
+        }
+      } else if (itm.type === 'Chest') {
+        return itm.id;
+      }
     }
   }
+  return false;
 }
 
-// check if same faction(2), ally(1), neutral(0), enemy(-1)
-allyCheck = function(p,id){
-  if(Player.list[p]){
-    var player = Player.list[p];
-    var other = Player.list[id]
-    var pHouse = House.list[player.house];
-    var oHouse = House.list[other.house];
+function gateCheck(x, y, house, kingdom) {
+  const buildingId = getBuilding(x, y);
+  if (!buildingId) return false;
 
-    if(pHouse){
-      if(pHouse.hostile){
-        if(oHouse){
-          if(player.house == other.house){
-            return 2;
-          } else {
-            for(var i in pHouse.allies){
-              if(pHouse.allies[i] == other.house){
-                return 1;
-              } else {
-                continue;
-              }
-            }
-            return -1;
-          }
-        } else {
-          return -1;
+  const building = Building.list[buildingId];
+  const gateH = building.house;
+  const gateK = building.kingdom;
+
+  return (kingdom && kingdom === gateK) || (house && house === gateH);
+}
+
+// ============================================================================
+// FACTION HELPERS
+// ============================================================================
+
+function allyCheck(playerId, otherId) {
+  const player = Player.list[playerId];
+  const other = Player.list[otherId];
+
+  if (!player || !other) return 0;
+
+  const pHouse = House.list[player.house];
+  const oHouse = House.list[other.house];
+
+  if (pHouse) {
+    if (pHouse.hostile) {
+      if (oHouse) {
+        if (player.house === other.house) return 2;
+
+        for (const i in pHouse.allies) {
+          if (pHouse.allies[i] === other.house) return 1;
         }
+        return -1;
       } else {
-        if(oHouse){
-          if(player.house == other.house){
-            return 2;
-          } else {
-            for(var i in pHouse.allies){
-              if(pHouse.allies[i] == other.house){
-                return 1;
-              } else {
-                continue;
-              }
-            }
-            if(oHouse.hostile){
-              return -1;
-            } else {
-              for(var i in pHouse.enemies){
-                if(pHouse.enemies[i] == other.house){
-                  return -1;
-                } else {
-                  continue;
-                }
-              }
-            }
-            return 0;
-          }
-        } else {
-          for(var i in pHouse.enemies){
-            if(pHouse.enemies[i] == id){
-              return -1;
-            } else {
-              continue;
-            }
-          }
-          return 0;
-        }
+        return -1;
       }
     } else {
-      if(oHouse){
-        if(oHouse.hostile){
-          return -1;
-        } else {
-          for(var i in oHouse.enemies){
-            if(oHouse.enemies[i] == p){
-              return -1;
-            } else {
-              continue;
-            }
-          }
-          return 0;
+      if (oHouse) {
+        if (player.house === other.house) return 2;
+
+        for (const i in pHouse.allies) {
+          if (pHouse.allies[i] === other.house) return 1;
         }
+
+        if (oHouse.hostile) return -1;
+
+        for (const i in pHouse.enemies) {
+          if (pHouse.enemies[i] === other.house) return -1;
+        }
+        return 0;
       } else {
-        for(var i in player.friends){
-          if(player.friends[i] == id){
-            return 1;
-          } else {
-            continue;
-          }
-        }
-        for(var i in player.enemies){
-          if(player.enemies[i] == id){
-            return -1;
-          } else {
-            continue;
-          }
+        for (const i in pHouse.enemies) {
+          if (pHouse.enemies[i] === otherId) return -1;
         }
         return 0;
       }
     }
-  }
-}
-
-
-// get random tile + its loc
-var randomTile = function(l){
-  var max = mapSize-1;
-  var c = Math.floor(Math.random() * max);
-  var r = Math.floor(Math.random() * max);
-  return [world[l][r][c],c,r];
-};
-
-// get (x,y) coords of tile from loc
-getCoords = function(c,r){
-  var coords = [c * tileSize, r * tileSize];
-  return coords;
-};
-
-// get (x,y) coords of tile from loc
-getCenter = function(c,r){
-  var coords = [(c * tileSize) + (tileSize/2), (r * tileSize) + (tileSize/2)];
-  return coords;
-};
-
-// get grid of a rectangular area
-getArea = function(loc1,loc2,margin=0){
-  var c1 = loc1[0];
-  var c2 = loc2[0];
-  var r1 = loc1[1];
-  var r2 = loc2[1];
-  var tl = [];
-  var br = [];
-  var c = 0;
-  var r = 0;
-  var grid = [];
-  if(c1 <= c2){
-    c = c2 - c1;
-    if(r1 <= r2){
-      r = r2 - r1;
-      tl = [c1-margin,r1-margin];
-      br = [c2+margin,r2+margin];
-    } else {
-      r = r1 - r2;
-      tl = [c1-margin,r2-margin];
-      br = [c2+margin,r1+margin];
-    }
   } else {
-    c = c1 - c2;
-    if(r1 <= r2){
-      r = r2 - r1;
-      tl = [c2-margin,r1-margin];
-      br = [c1+margin,r2+margin];
+    if (oHouse) {
+      if (oHouse.hostile) return -1;
+
+      for (const i in oHouse.enemies) {
+        if (oHouse.enemies[i] === playerId) return -1;
+      }
+      return 0;
     } else {
-      r = r1 - r2;
-      tl = [c2-margin,r2-margin];
-      br = [c1+margin,r1+margin];
-    }
-  }
-  for(var y = tl[1]; y < br[1]; y++){
-    for(var x = tl[0]; x < br[0]; x++){
-      if(x >= 0 && x < mapSize && y >= 0 && y < mapSize){
-        grid.push([x,y]);
+      // Both have no house - check if either is a wild animal (always hostile)
+      const wildAnimals = ['Wolf', 'Boar'];
+      if (wildAnimals.includes(player.class) || wildAnimals.includes(other.class)) {
+        return -1; // Hostile
       }
-    }
-  }
-  return grid;
-}
-
-// random spawner (Overworld)
-randomSpawnO = function(){
-  var rand = Math.floor(Math.random() * spawnPointsO.length);
-  var point = spawnPointsO[rand];
-  var spawn = getCenter(point[0],point[1]);
-  return spawn;
-};
-
-// random spawner (HForest)
-randomSpawnHF = function(){
-  var rand = Math.floor(Math.random() * hForestSpawns.length);
-  var point = hForestSpawns[rand];
-  var spawn = getCenter(point[0],point[1]);
-  return spawn;
-};
-
-// random spawner (Underworld)
-randomSpawnU = function(){
-  var rand = Math.floor(Math.random() * spawnPointsU.length);
-  var point = spawnPointsU[rand];
-  var spawn = getCenter(point[0],point[1]);
-  return spawn;
-};
-
-// faction spawner
-factionSpawn = function(id){
-  if(id == 1){ // brotherhood
-    var select = [];
-    for(var i in spawnPointsU){
-      var count = 0;
-      var c = spawnPointsU[i][0];
-      var r = spawnPointsU[i][1];
-      var grid = [[c,r],[c+1,r],[c+2,r],[c+3,r],
-      [c,r+1],[c+1,r+1],[c+2,r+1],[c+3,r+1],
-      [c,r+2],[c+1,r+2],[c+2,r+2],[c+3,r+2],
-      [c,r+3],[c+1,r+3],[c+2,r+3],[c+3,r+3]];
-      if(c < (mapSize-4) && r < (mapSize-4)){
-        for(var n in grid){
-          var tile = grid[n];
-          if(getTile(1,tile[0],tile[1]) == 0){
-            count++;
-          }
-        }
-        if(count == grid.length){
-          var r = Math.random();
-          if(r < 0.25){
-            select.push(grid[5]);
-          } else if(r < 0.5){
-            select.push(grid[6]);
-          } else if (r < 0.75){
-            select.push(grid[9]);
-          } else {
-            select.push(grid[10]);
-          }
-        }
+      
+      for (const i in player.friends) {
+        if (player.friends[i] === otherId) return 1;
       }
-    }
-    var rand = Math.floor(Math.random() * select.length);
-    return select[rand];
-  } else if(id == 2){ // goths
-    var select = [];
-    for(var i in spawnPointsO){
-      var count = 0;
-      var c = spawnPointsO[i][0];
-      var r = spawnPointsO[i][1];
-      var grid = [[c,r],[c+1,r],[c+2,r],[c+3,r],[c+4,r],
-      [c,r+1],[c+1,r+1],[c+2,r+1],[c+3,r+1],[c+4,r+1],
-      [c,r+2],[c+1,r+2],[c+2,r+2],[c+3,r+2],[c+4,r+2],
-      [c,r+3],[c+1,r+3],[c+2,r+3],[c+3,r+3],[c+4,r+3],
-      [c,r+4],[c+1,r+4],[c+2,r+4],[c+3,r+4],[c+4,r+4]];
-      if(c < (mapSize-4) && r < (mapSize-4)){
-        for(var n in grid){
-          var tile = grid[n];
-          if(getTile(0,tile[0],tile[1]) >= 3 && getTile(0,tile[0],tile[1]) < 4){
-            count++;
-          }
-        }
-        if(count == grid.length){
-          select.push(grid[12]);
-        }
+      for (const i in player.enemies) {
+        if (player.enemies[i] === otherId) return -1;
       }
+      return 0;
     }
-    var rand = Math.floor(Math.random() * select.length);
-    return select[rand];
-  } else if(id == 3){ // norsemen
-    var select = [];
-    for(var i in waterSpawns){
-      var count = 0;
-      var c = waterSpawns[i][0];
-      var r = waterSpawns[i][1];
-      var grid = [[c,r],[c+1,r],[c+2,r],[c+3,r],[c+4,r],
-      [c,r+1],[c+1,r+1],[c+2,r+1],[c+3,r+1],[c+4,r+1],
-      [c,r+2],[c+1,r+2],[c+2,r+2],[c+3,r+2],[c+4,r+2],
-      [c,r+3],[c+1,r+3],[c+2,r+3],[c+3,r+3],[c+4,r+3],
-      [c,r+4],[c+1,r+4],[c+2,r+4],[c+3,r+4],[c+4,r+4]];
-      if(c < (mapSize-4) && r < (mapSize-4)){
-        for(var n in grid){
-          var tile = grid[n];
-          if(getTile(0,tile[0],tile[1]) == 0){
-            count++;
-          }
-        }
-        if(count == grid.length){
-          select.push(grid[12]);
-        }
-      }
-    }
-    var rand = Math.floor(Math.random() * select.length);
-    return select[rand];
-  } else if(id == 4){ // franks
-    var select = [];
-    for(var i in spawnPointsO){
-      var count = 0;
-      var c = spawnPointsO[i][0];
-      var r = spawnPointsO[i][1];
-      var grid = [[c,r],[c+1,r],[c+2,r],[c+3,r],[c+4,r],
-      [c,r+1],[c+1,r+1],[c+2,r+1],[c+3,r+1],[c+4,r+1],
-      [c,r+2],[c+1,r+2],[c+2,r+2],[c+3,r+2],[c+4,r+2],
-      [c,r+3],[c+1,r+3],[c+2,r+3],[c+3,r+3],[c+4,r+3],
-      [c,r+4],[c+1,r+4],[c+2,r+4],[c+3,r+4],[c+4,r+4]];
-      if(c < (mapSize-4) && r < (mapSize-4)){
-        for(var n in grid){
-          var tile = grid[n];
-          if(getTile(0,tile[0],tile[1]) >= 3 && getTile(0,tile[0],tile[1]) < 4){
-            count++;
-          }
-        }
-        if(count == grid.length){
-          select.push(grid[12]);
-        }
-      } else {
-        continue;
-      }
-    }
-    var rand = Math.floor(Math.random() * select.length);
-    return select[rand];
-  } else if(id == 5){ // celts
-    var best = null;
-    var select = null;
-    for(var i in hForestSpawns){
-      var count = 0;
-      var c = hForestSpawns[i][0];
-      var r = hForestSpawns[i][1];
-      var grid = [[c,r],[c+1,r],[c+2,r],[c+3,r],[c+4,r],
-      [c,r+1],[c+1,r+1],[c+2,r+1],[c+3,r+1],[c+4,r+1],
-      [c,r+2],[c+1,r+2],[c+2,r+2],[c+3,r+2],[c+4,r+2],
-      [c,r+3],[c+1,r+3],[c+2,r+3],[c+3,r+3],[c+4,r+3],
-      [c,r+4],[c+1,r+4],[c+2,r+4],[c+3,r+4],[c+4,r+4]];
-      if(c < (mapSize-4) && r < (mapSize-4)){
-        for(var n in grid){
-          var tile = grid[n];
-          if(getTile(0,tile[0],tile[1]) >= 1 && getTile(0,tile[0],tile[1]) < 2){
-            count++;
-          }
-        }
-        if(count == grid.length){
-          var center = getCenter(grid[12][0],grid[12][1]);
-          for(var e in caveEntrances){
-            var ent = caveEntrances[e];
-            var cent = getCenter(ent[0],ent[1]);
-            var dist = getDistance({x:center[0],y:center[1]},{x:cent[0],y:cent[1]});
-            if(!best){
-              best = dist;
-              select = grid[12];
-            } else if(dist < best){
-              best = dist;
-              select = grid[12];
-            }
-          }
-        }
-      }
-    }
-    return select;
-  } else if(id == 6){ // teutons
-    var select = [];
-    for(var i in mtnSpawns){
-      var count = 0;
-      var c = mtnSpawns[i][0];
-      var r = mtnSpawns[i][1];
-      var grid = [[c,r],[c+1,r],[c+2,r],[c+3,r],[c+4,r],
-      [c,r+1],[c+1,r+1],[c+2,r+1],[c+3,r+1],[c+4,r+1],
-      [c,r+2],[c+1,r+2],[c+2,r+2],[c+3,r+2],[c+4,r+2],
-      [c,r+3],[c+1,r+3],[c+2,r+3],[c+3,r+3],[c+4,r+3],
-      [c,r+4],[c+1,r+4],[c+2,r+4],[c+3,r+4],[c+4,r+4]];
-      if(c < (mapSize-4) && r < (mapSize-4)){
-        for(var n in grid){
-          var tile = grid[n];
-          if(getTile(0,tile[0],tile[1]) >= 4 && getTile(0,tile[0],tile[1]) < 7){
-            count++;
-          }
-        }
-        if(count == grid.length){
-          select.push(grid[12]);
-        }
-      }
-    }
-    var rand = Math.floor(Math.random() * select.length);
-    return select[rand];
-  } else if(id == 7){ // outlaws
-    var select = [];
-    for(var i in hForestSpawns){
-      var count = 0;
-      var c = hForestSpawns[i][0];
-      var r = hForestSpawns[i][1];
-      var grid = [[c,r],[c+1,r],[c+2,r],[c+3,r],[c+4,r],
-      [c,r+1],[c+1,r+1],[c+2,r+1],[c+3,r+1],[c+4,r+1],
-      [c,r+2],[c+1,r+2],[c+2,r+2],[c+3,r+2],[c+4,r+2],
-      [c,r+3],[c+1,r+3],[c+2,r+3],[c+3,r+3],[c+4,r+3],
-      [c,r+4],[c+1,r+4],[c+2,r+4],[c+3,r+4],[c+4,r+4]];
-      if(c < (mapSize-4) && r < (mapSize-4)){
-        for(var n in grid){
-          var tile = grid[n];
-          if(getTile(0,tile[0],tile[1]) >= 1 && getTile(0,tile[0],tile[1]) < 2){
-            count++;
-          }
-        }
-        if(count == grid.length){
-          select.push(grid[12]);
-        }
-      }
-    }
-    var rand = Math.floor(Math.random() * select.length);
-    return select[rand];
-  } else if(id == 8){ // mercenaries
-    var select = [];
-    for(var i in spawnPointsU){
-      var count = 0;
-      var c = spawnPointsU[i][0];
-      var r = spawnPointsU[i][1];
-      var grid = [[c,r],[c+1,r],[c+2,r],[c+3,r],[c+4,r],
-      [c,r+1],[c+1,r+1],[c+2,r+1],[c+3,r+1],[c+4,r+1],
-      [c,r+2],[c+1,r+2],[c+2,r+2],[c+3,r+2],[c+4,r+2],
-      [c,r+3],[c+1,r+3],[c+2,r+3],[c+3,r+3],[c+4,r+3],
-      [c,r+4],[c+1,r+4],[c+2,r+4],[c+3,r+4],[c+4,r+4]];
-      if(c < (mapSize-4) && r < (mapSize-4)){
-        for(var n in grid){
-          var tile = grid[n];
-          if(getTile(1,tile[0],tile[1]) == 0 || getTile(1,tile[0],tile[1]) == 3){
-            count++;
-          }
-        }
-        if(count == grid.length){
-          select.push(grid[12]);
-        } else if(count >= grid.length-5){
-          var exits = 0;
-          for(var n in grid){
-            var tile = grid[n];
-            var t = getTile(1,tile[0],tile[1]);
-            if(t == 2){
-              exits++;
-            }
-          }
-          if(exits == 0){
-            for(var n in grid){
-              var tile = grid[n];
-              var t = getTile(1,tile[0],tile[1]);
-              if(t == 1){
-                tileChange(1,tile[0],tile[1],0);
-              }
-            }
-            select.push(grid[12]);
-          }
-        }
-      }
-    }
-    var rand = Math.floor(Math.random() * select.length);
-    return select[rand];
   }
 }
 
-// save map file?
-var saveMap = false;
+// ============================================================================
+// SPAWN HELPERS
+// ============================================================================
 
-if(saveMap){
-  fs.writeFile("./maps/map.txt", JSON.stringify(world), function(err){
-    if(err){
-      return console.log(err);
+function randomSpawnO() {
+  const rand = Math.floor(Math.random() * spawnPointsO.length);
+  const point = spawnPointsO[rand];
+  return getCenter(point[0], point[1]);
+}
+global.randomSpawnO = randomSpawnO;
+
+function randomSpawnHF() {
+  const rand = Math.floor(Math.random() * hForestSpawns.length);
+  const point = hForestSpawns[rand];
+  return getCenter(point[0], point[1]);
+}
+global.randomSpawnHF = randomSpawnHF;
+
+function randomSpawnU() {
+  if (!spawnPointsU || spawnPointsU.length === 0) {
+    // No underground spawns - use overworld instead
+    return randomSpawnO();
+  }
+  const rand = Math.floor(Math.random() * spawnPointsU.length);
+  const point = spawnPointsU[rand];
+  return getCenter(point[0], point[1]);
+}
+global.randomSpawnU = randomSpawnU;
+
+function factionSpawn(id) {
+  const configs = {
+    [FACTION_IDS.BROTHERHOOD]: { points: spawnPointsU, size: 4, terrainCheck: (t) => t === 0 },
+    [FACTION_IDS.GOTHS]: { points: spawnPointsO, size: 5, terrainCheck: (t) => t >= TERRAIN.BRUSH && t < TERRAIN.ROCKS },
+    [FACTION_IDS.NORSEMEN]: { points: waterSpawns, size: 5, terrainCheck: (t) => t === TERRAIN.WATER },
+    [FACTION_IDS.FRANKS]: { points: spawnPointsO, size: 5, terrainCheck: (t) => t >= TERRAIN.BRUSH && t < TERRAIN.ROCKS },
+    [FACTION_IDS.CELTS]: { points: hForestSpawns, size: 5, terrainCheck: (t) => t >= TERRAIN.HEAVY_FOREST && t < TERRAIN.LIGHT_FOREST, findClosest: true },
+    [FACTION_IDS.TEUTONS]: { points: mtnSpawns, size: 5, terrainCheck: (t) => t >= TERRAIN.ROCKS && t < TERRAIN.EMPTY },
+    [FACTION_IDS.OUTLAWS]: { points: hForestSpawns, size: 5, terrainCheck: (t) => t >= TERRAIN.HEAVY_FOREST && t < TERRAIN.LIGHT_FOREST },
+    [FACTION_IDS.MERCENARIES]: { points: spawnPointsU, size: 5, terrainCheck: (t) => t === 0 || t === 3 }
+  };
+
+  const config = configs[id];
+  if (!config) return null;
+
+  const select = [];
+
+  for (const i in config.points) {
+    let count = 0;
+    const c = config.points[i][0];
+    const r = config.points[i][1];
+
+    if (c >= mapSize - config.size || r >= mapSize - config.size) continue;
+
+    const grid = [];
+    for (let dy = 0; dy < config.size; dy++) {
+      for (let dx = 0; dx < config.size; dx++) {
+        grid.push([c + dx, r + dy]);
+      }
     }
-    console.log("Map file saved to '/mapfiles' folder.");
-  });
-};
 
-// day/night cycle
-tempus = 'XII.a';
-period = 360; // 1=1hr, 2=30m, 4=15m, 12=5m, 60=1m, 120=30s, 360=10s (number of game days per 24 hours)
-var cycle = ['XII.a','I.a','II.a','III.a','IV.a','V.a','VI.a','VII.a','VIII.a','IX.a','X.a',
-'XI.a','XII.p','I.p','II.p','III.p','IV.p','V.p','VI.p','VII.p','VIII.p','IX.p','X.p','XI.p'];
-var tick = 1;
-day = 0;
+    for (const n in grid) {
+      const tile = grid[n];
+      const terrain = getTile(id === FACTION_IDS.BROTHERHOOD || id === FACTION_IDS.MERCENARIES ? 1 : 0, tile[0], tile[1]);
+      if (config.terrainCheck(terrain)) {
+        count++;
+      }
+    }
 
-// weather
+    if (count === grid.length) {
+      const centerIdx = Math.floor(grid.length / 2);
+      select.push(grid[centerIdx]);
+    }
+  }
 
-// NETWORKING
-var express = require('express');
-var app = express();
-var serv = require('http').Server(app);
+  if (config.findClosest && select.length > 0) {
+    let best = null;
+    let bestSpawn = null;
 
-app.get('/',function(req, res) {
-  res.sendFile(__dirname + '/client/index.html');
-});
-app.use('/client',express.static(__dirname + '/client'));
+    for (const spawn of select) {
+      const center = getCenter(spawn[0], spawn[1]);
+      for (const ent of caveEntrances) {
+        const cent = getCenter(ent[0], ent[1]);
+        const dist = getDistance({ x: center[0], y: center[1] }, { x: cent[0], y: cent[1] });
 
-serv.listen(2000);
-console.log("###################################");
-console.log("");
-console.log("     ♜  S T R O N G H O D L ♜");
-console.log("");
-console.log("   A SOLIS ORTV VSQVE AD OCCASVM");
-console.log("");
-console.log("###################################");
+        if (!best || dist < best) {
+          best = dist;
+          bestSpawn = spawn;
+        }
+      }
+    }
+    return bestSpawn;
+  }
 
-SOCKET_LIST = {};
+  return select[Math.floor(Math.random() * select.length)];
+}
 
-// PLAYER
-Player = function(param){
-  var self = Character(param);
+// ============================================================================
+// ENTROPY (ECOSYSTEM SIMULATION)
+// ============================================================================
+
+function entropy() {
+  // FLORA
+  const toHF = [];
+  const toF = [];
+  const toB = [];
+
+  for (let c = 0; c < mapSize; c++) {
+    for (let r = 0; r < mapSize; r++) {
+      const tile = getTile(0, c, r);
+
+      // Fish spawning
+      if (tile === TERRAIN.WATER) {
+        world[6][r][c] = Math.random() < 0.2 ? Math.ceil(Math.random() * 10) : 0;
+      }
+      // Tree growth
+      else if (tile >= TERRAIN.HEAVY_FOREST && tile < TERRAIN.LIGHT_FOREST && day > 0) {
+        if (world[6][r][c] < 300) {
+          world[6][r][c] += Math.floor(Math.random() * 4);
+        }
+      }
+      // Forest to heavy forest
+      else if (tile >= TERRAIN.LIGHT_FOREST && tile < TERRAIN.BRUSH && day > 0) {
+        world[6][r][c] += Math.floor(Math.random() * 4);
+        if (world[6][r][c] > 100) {
+          toHF.push([c, r]);
+        }
+      }
+      // Brush spreading
+      else if (tile >= TERRAIN.BRUSH && tile < TERRAIN.ROCKS &&
+               c > 0 && c < mapSize && r > 0 && r < mapSize && day > 0) {
+        const neighbors = [
+          [getTile(0, c, r - 1), getTile(6, c, r - 1)],
+          [getTile(0, c, r + 1), getTile(6, c, r + 1)],
+          [getTile(0, c - 1, r), getTile(6, c - 1, r)],
+          [getTile(0, c + 1, r), getTile(6, c + 1, r)]
+        ];
+
+        for (const [nTile, nRes] of neighbors) {
+          if (nTile >= TERRAIN.HEAVY_FOREST && nTile < TERRAIN.BRUSH && nRes > 49) {
+            if (Math.random() < 0.1) { // FIXED BUG: was Math.random
+              toF.push([c, r]);
+              break;
+            }
+          }
+        }
+      }
+      // Empty land to brush
+      else if (tile === TERRAIN.EMPTY && c > 0 && c < mapSize && r > 0 && r < mapSize && day > 0) {
+        const neighbors = [
+          getTile(0, c, r - 1),
+          getTile(0, c, r + 1),
+          getTile(0, c - 1, r),
+          getTile(0, c + 1, r)
+        ];
+
+        for (const nTile of neighbors) {
+          if (nTile >= TERRAIN.HEAVY_FOREST && nTile < TERRAIN.ROCKS) {
+            if (Math.random() < 0.15) { // FIXED BUG: was Math.random
+              toB.push([c, r]);
+              break;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Apply flora changes
+  for (const i in toHF) {
+    world[0][toHF[i][1]][toHF[i][0]] -= 1;
+    biomes.hForest++;
+    hForestSpawns.push(toHF[i]);
+  }
+  for (const i in toF) {
+    world[0][toF[i][1]][toF[i][0]] -= 1;
+    world[6][toF[i][1]][toF[i][0]] = 50;
+  }
+  for (const i in toB) {
+    world[0][toB[i][1]][toB[i][0]] = TERRAIN.BRUSH + Number((Math.random() * 0.9).toFixed(2));
+  }
+
+  // FAUNA (2x spawn rates)
+  const animalRatios = {
+    deer: Math.floor(biomes.hForest / 200),  // 400/2 = 200
+    boar: Math.floor(biomes.hForest / 800),  // 1600/2 = 800
+    wolf: Math.floor(biomes.hForest / 400),  // 800/2 = 400
+    falcon: Math.floor(biomes.hForest / 1200) // 2400/2 = 1200
+  };
+
+  const animalPops = { deer: 0, boar: 0, wolf: 0, falcon: 0 };
+
+  for (const i in Player.list) {
+    const cl = Player.list[i].class;
+    if (animalPops[cl] !== undefined) {
+      animalPops[cl]++;
+    }
+  }
+
+  const spawnAnimal = (type, ratio, pop, AnimalConstructor) => {
+    if (pop < ratio) {
+      const num = day === 1
+        ? Math.floor(ratio * 0.618) // Initial spawn on day 1
+        : Math.floor((ratio - pop) * (type === 'falcon' ? 0.01 : 0.02));
+
+      console.log(`Spawning ${num} ${type}(s) (day: ${day}, ratio: ${ratio}, pop: ${pop}, hForest: ${biomes.hForest})`);
+
+      for (let i = 0; i < num; i++) {
+        const sp = randomSpawnHF();
+        const sLoc = getLoc(sp[0], sp[1]);
+        AnimalConstructor({
+          x: sp[0],
+          y: sp[1],
+          z: 0,
+          home: { z: 0, loc: [sLoc[0], sLoc[1]] },
+          falconry: type === 'falcon' ? false : undefined
+        });
+      }
+    } else {
+      console.log(`Skipping ${type} spawn (pop: ${pop} >= ratio: ${ratio}, hForest: ${biomes.hForest})`);
+    }
+  };
+
+  spawnAnimal('deer', animalRatios.deer, animalPops.deer, Deer);
+  spawnAnimal('boar', animalRatios.boar, animalPops.boar, Boar);
+  spawnAnimal('wolf', animalRatios.wolf, animalPops.wolf, Wolf);
+  spawnAnimal('falcon', animalRatios.falcon, animalPops.falcon, Falcon);
+
+  // Individual tile updates are handled by tileChange function
+}
+
+function dailyTally() {
+  for (const i in Building.list) {
+    const b = Building.list[i];
+    if (b.built && (b.type === 'mill' || b.type === 'lumbermill' || b.type === 'mine')) {
+      Building.list[i].tally();
+    }
+  }
+}
+
+// ============================================================================
+// INITIALIZE ZONES
+// ============================================================================
+
+// Zones are now managed by the tilemap system
+// The tilemap system automatically handles spatial partitioning
+zones = global.tilemapSystem.tilemapSystem.zones;
+global.zones = zones;
+
+// ============================================================================
+// SPATIAL SYSTEM (will be initialized after Player object is defined)
+// ============================================================================
+
+// ============================================================================
+// INITIALIZE BIOMES AND SPAWN POINTS
+// ============================================================================
+
+// Spawn points are now managed by the tilemap system
+// Get them from the consolidated system
+spawnPointsO = global.tilemapSystem.getSpawnPoints('overworld');
+spawnPointsU = global.tilemapSystem.getSpawnPoints('underworld');
+waterSpawns = global.tilemapSystem.getSpawnPoints('water');
+hForestSpawns = global.tilemapSystem.getSpawnPoints('heavyForest');
+mtnSpawns = global.tilemapSystem.getSpawnPoints('mountains');
+caveEntrances = global.tilemapSystem.getSpawnPoints('caveEntrances');
+
+// Update biome counts
+biomes.hForest = hForestSpawns.length;
+biomes.mtn = mtnSpawns.length;
+biomes.water = waterSpawns.length;
+biomes.forest = 0; // Will be calculated separately if needed
+biomes.brush = 0;  // Will be calculated separately if needed
+biomes.rocks = 0;  // Will be calculated separately if needed
+
+// ============================================================================
+// LOAD NAME FILES
+// ============================================================================
+
+try {
+  const maleData = fsSync.readFileSync('./malenames.txt', 'utf8');
+  maleNames.push(...maleData.split('\n').filter(Boolean));
+
+  const femaleData = fsSync.readFileSync('./femalenames.txt', 'utf8');
+  femaleNames.push(...femaleData.split('\n').filter(Boolean));
+
+  const surnameData = fsSync.readFileSync('./surnames.txt', 'utf8');
+  surnames.push(...surnameData.split('\n').filter(Boolean));
+} catch (err) {
+  console.error('Error loading name files:', err);
+}
+
+// ============================================================================
+// TERRAIN DATA DISPLAY
+// ============================================================================
+
+console.log('#############');
+console.log('Terrain Data:');
+console.log('#############');
+console.log('');
+console.log(Number((biomes.water / (mapSize * mapSize)) * 100).toFixed() + '% Water');
+console.log(Number((biomes.hForest / (mapSize * mapSize)) * 100).toFixed() + '% Heavy Forest');
+console.log(Number((biomes.forest / (mapSize * mapSize)) * 100).toFixed() + '% Light Forest');
+console.log(Number((biomes.brush / (mapSize * mapSize)) * 100).toFixed() + '% Brush');
+console.log(Number((biomes.rocks / (mapSize * mapSize)) * 100).toFixed() + '% Rocks');
+console.log(Number((biomes.mtn / (mapSize * mapSize)) * 100).toFixed() + '% Mountains');
+console.log('');
+
+// ============================================================================
+// PLAYER CLASS
+// ============================================================================
+
+const Player = function(param) {
+  const self = Character(param);
   self.type = 'player';
   self.name = param.name;
   self.hasHorse = false;
-  self.spriteSize = tileSize*1.5;
+  self.spriteSize = tileSize * 1.5;
   self.knighted = false;
   self.crowned = false;
   self.title = '';
   self.friendlyfire = false;
+
+  // Input state
   self.pressingE = false;
   self.pressingT = false;
   self.pressingI = false;
@@ -1159,6 +1305,7 @@ Player = function(param){
   self.pressing8 = false;
   self.pressing9 = false;
   self.pressing0 = false;
+
   self.mouseAngle = 0;
   self.mountCooldown = 0;
   self.switchCooldown = 0;
@@ -1168,1551 +1315,1463 @@ Player = function(param){
   self.spiritMax = 100;
   self.breath = 100;
   self.breathMax = 100;
-  self.strength = 10; // ALPHA, default: 1
+  self.strength = 10;
   self.dexterity = 1;
   self.ghost = false;
-  self.die = function(report){
-    if(report.id){
-      if(Player.list[report.id]){
-        Player.list[report.id].combat.target = null;
-        Player.list[report.id].action = null;
-      }
-      if(Player.list[report.id].name){
-        console.log(Player.list[report.id].name + ' has killed ' + self.name);
-      } else {
-        console.log(Player.list[report.id].class + ' has killed ' + self.name);
+  self.running = false; // Walk/run toggle
+
+  // Aggro check interval (cleaned up on disconnect)
+  self.aggroInterval = setInterval(() => {
+    self.checkAggro();
+  }, 1000);
+
+  self.die = function(report) {
+    if (report.id) {
+      const killer = Player.list[report.id];
+      if (killer) {
+        const killerName = killer.name || killer.class;
+        console.log(`${killerName} has killed ${self.name}`);
+        
+        // End combat for killer using simple combat system (DON'T clear combat.target before this!)
+        if (global.simpleCombat) {
+          global.simpleCombat.endCombat(killer);
+        }
       }
     } else {
-      console.log(self.name + ' has ' + report.cause);
+      console.log(`${self.name} has ${report.cause}`);
     }
-    self.hp = self.hpMax; // ALPHA replace this
-    var spawn = randomSpawnO(); // ALPHA replace this
-    self.x = spawn[0]; // ALPHA replace this
-    self.y = spawn[1]; // ALPHA replace this
-  }
 
-  self.checkAggro = function(){
-    if(!self.combat.target){
+    // End combat for killed player using simple combat system (DON'T clear combat.target before this!)
+    if (global.simpleCombat) {
+      global.simpleCombat.endCombat(self);
+    }
+
+    self.hp = self.hpMax;
+    const spawn = randomSpawnO();
+    self.x = spawn[0];
+    self.y = spawn[1];
+    self.z = 0; // Ensure respawn on overworld
+    
+    // Clear any remaining combat state (should already be cleared by endCombat)
+    self.combat.target = null;
+    self.action = null;
+    self.innaWoods = false;
+    self.onMtn = false;
+    self.path = null;
+    self.pathCount = 0;
+    
+    // Brief immunity after respawn (prevent immediate re-aggro)
+    self.respawnImmunity = true;
+    setTimeout(() => {
+      self.respawnImmunity = false;
+    }, 3000); // 3 seconds of immunity
+    
+    console.log(`${self.name} respawned at ${spawn} with immunity (action: ${self.action}, combat.target: ${self.combat.target})`);
+  };
+
+  self.checkAggro = function() {
+    // Skip aggro if player has respawn immunity
+    if (self.respawnImmunity) {
+      return;
+    }
+    
+    if (!self.combat.target) {
       self.action = null;
     }
-    for(var i in self.zGrid){
-      var zc = self.zGrid[i][0];
-      var zr = self.zGrid[i][1];
-      if(zc < 64 && zc > -1 && zr < 64 && zr > -1){
-        for(var n in zones[zr][zc]){
-          var p = Player.list[zones[zr][zc][n]];
-          if(p && p.z == self.z){
-            var pDist = self.getDistance({
-              x:p.x,
-              y:p.y
-            });
-            if(pDist <= p.aggroRange){ // in aggro range
-              var ally = allyCheck(self.id,p.id);
-              if(ally <= 0){ // is neutral or enemy
-                self.stealthCheck(p);
-                if(ally == -1 && p.type == 'npc' &&
-                (self.innaWoods == p.innaWoods || (!self.innaWoods && p.innaWoods))){ // is enemy, both in/out woods or not in woods and they are
-                  if(!self.stealthed){
-                    Player.list[p.id].combat.target = self.id;
-                    Player.list[p.id].action = 'combat';
-                    console.log(p.class + ' aggro @ ' + self.name);
-                  } else if(!self.revealed){
-                    Player.list[p.id].combat.target = self.id;
-                    Player.list[p.id].action = 'combat';
-                    console.log(p.class + ' aggro @ ' + self.name);
-                  }
-                }
-              }
-            }
+
+    for (const i in self.zGrid) {
+      const zc = self.zGrid[i][0];
+      const zr = self.zGrid[i][1];
+
+      if (zc < 0 || zc >= 64 || zr < 0 || zr >= 64) continue;
+
+      const zoneKey = `${zr},${zc}`;
+      const zoneEntities = zones.get(zoneKey) || new Set();
+      for (const entityId of zoneEntities) {
+        const p = Player.list[entityId];
+        if (!p || p.z !== self.z) continue;
+
+        const pDist = self.getDistance({ x: p.x, y: p.y });
+        if (pDist > p.aggroRange) continue;
+
+        const ally = allyCheck(self.id, p.id);
+        if (ally > 0) continue;
+
+        self.stealthCheck(p);
+
+        if (ally === -1 && p.type === 'npc' &&
+            (self.innaWoods === p.innaWoods || (!self.innaWoods && p.innaWoods))) {
+          if (!self.stealthed || self.revealed) {
+            Player.list[p.id].combat.target = self.id;
+            Player.list[p.id].action = 'combat';
+            console.log(`${p.class} aggro @ ${self.name}`);
           }
         }
       }
     }
-  }
+  };
 
-  setInterval(function(){
-    self.checkAggro();
-  },1000);
+  self.lightTorch = function(torchId) {
+    const socket = SOCKET_LIST[self.id];
 
-  self.update = function(){
+    if (self.hasTorch) {
+      Item.list[self.hasTorch].toRemove = true;
+      self.hasTorch = false;
+    } else if (self.inventory.torch > 0) {
+      if (self.z !== Z_LEVELS.UNDERWATER) {
+        LitTorch({
+          id: torchId,
+          parent: self.id,
+          x: self.x,
+          y: self.y,
+          z: self.z,
+          qty: 1,
+          innaWoods: self.innaWoods
+        });
+        self.inventory.torch--;
+        self.hasTorch = torchId;
+      } else {
+        socket.write(JSON.stringify({ msg: 'addToChat', message: '<i>You cannot do that here.</i>' }));
+      }
+    } else {
+      socket.write(JSON.stringify({ msg: 'addToChat', message: '<i>You have no torches.</i>' }));
+    }
+  };
+
+  self.updateSpd = function() {
+    // Set base speed (walk vs run)
+    if (self.running) {
+      self.baseSpd = 4;
+    } else {
+      self.baseSpd = 2;
+    }
+    
+    // Apply terrain modifiers BEFORE movement
+    const socket = SOCKET_LIST[self.id];
+    const loc = getLoc(self.x, self.y);
+    const currentTile = getTile(0, loc[0], loc[1]);
+    
+    // Set maxSpd based on terrain
+    if (self.z === Z_LEVELS.OVERWORLD) {
+      if (currentTile >= TERRAIN.HEAVY_FOREST && currentTile < TERRAIN.LIGHT_FOREST) {
+        self.innaWoods = true;
+        self.onMtn = false;
+        self.maxSpd = (self.baseSpd * 0.3) * self.drag;
+      } else if (currentTile >= TERRAIN.LIGHT_FOREST && currentTile < TERRAIN.ROCKS) {
+        self.innaWoods = false;
+        self.onMtn = false;
+        self.maxSpd = (self.baseSpd * 0.5) * self.drag;
+      } else if (currentTile >= TERRAIN.ROCKS && currentTile < TERRAIN.MOUNTAIN) {
+        self.innaWoods = false;
+        self.onMtn = false;
+        self.maxSpd = (self.baseSpd * 0.6) * self.drag;
+      } else if (currentTile >= TERRAIN.MOUNTAIN && currentTile < TERRAIN.CAVE_ENTRANCE) {
+        self.innaWoods = false;
+        self.maxSpd = (self.baseSpd * (self.onMtn ? 0.5 : 0.2)) * self.drag;
+        if (!self.onMtn) {
+          setTimeout(() => {
+            const checkTile = getTile(0, loc[0], loc[1]);
+            if (checkTile >= TERRAIN.MOUNTAIN && checkTile < TERRAIN.CAVE_ENTRANCE) {
+              self.onMtn = true;
+            }
+          }, 2000);
+        }
+      } else if (currentTile === TERRAIN.ROAD) {
+        self.innaWoods = false;
+        self.onMtn = false;
+        self.maxSpd = (self.baseSpd * 1.1) * self.drag;
+      } else {
+        self.innaWoods = false;
+        self.onMtn = false;
+        self.maxSpd = self.baseSpd * self.drag;
+      }
+    } else if (self.z === Z_LEVELS.UNDERWATER) {
+      // Underwater is VERY slow - disable running and apply heavy penalty
+      self.running = false; // Force walking underwater
+      self.baseSpd = 2; // Reset to walk speed
+      self.maxSpd = (self.baseSpd * 0.1) * self.drag; // 90% speed reduction
+      self.innaWoods = false;
+      self.onMtn = false;
+    } else {
+      // Other z-levels: use base speed
+      self.maxSpd = self.baseSpd * self.drag;
+    }
+    const offsets = {
+      right: [tileSize / 8, 0],
+      left: [-tileSize / 8, 0],
+      up: [0, -tileSize / 8],
+      down: [0, tileSize / 2]
+    };
+
+    const checkLocs = {
+      right: getLoc(self.x + offsets.right[0], self.y),
+      left: getLoc(self.x + offsets.left[0], self.y),
+      up: getLoc(self.x, self.y + offsets.up[1]),
+      down: getLoc(self.x, self.y + offsets.down[1])
+    };
+
+    const blocked = {
+      right: false,
+      left: false,
+      up: false,
+      down: false
+    };
+
+    const b = getBuilding(self.x, self.y);
+    const exit = getBuilding(self.x, self.y - tileSize);
+    const b2 = getBuilding(self.x, self.y + tileSize);
+
+    // Collision detection based on Z level
+    if (self.z === Z_LEVELS.OVERWORLD) {
+      for (const dir in checkLocs) {
+        const [c, r] = checkLocs[dir];
+        const tile = getTile(0, c, r);
+        const doorLocked = tile === TERRAIN.DOOR_LOCKED && !keyCheck(self.x + offsets[dir][0], self.y + offsets[dir][1], self.id);
+        // Allow stepping onto cave entrance tile (6) to trigger descent
+        const isBlocked = (!isWalkable(0, c, r) && tile !== TERRAIN.WATER && tile !== 6);
+        const gateBlocked = getTile(5, c, r) === 'gatec' && !gateCheck(self.x + offsets[dir][0], self.y + offsets[dir][1], self.house, self.kingdom);
+        const outOfBounds = (dir === 'right' && self.x + 10 > mapPx - tileSize) ||
+                           (dir === 'left' && self.x - 10 < 0) ||
+                           (dir === 'up' && self.y - 10 < 0) ||
+                           (dir === 'down' && self.y + 10 > mapPx - tileSize);
+
+        if ((doorLocked || isBlocked || gateBlocked || outOfBounds) && isWalkable(0, loc[0], loc[1])) {
+          blocked[dir] = true;
+        }
+      }
+    } else if (self.z === Z_LEVELS.UNDERWORLD) {
+      for (const dir in checkLocs) {
+        const [c, r] = checkLocs[dir];
+        const tile = getTile(1, c, r);
+        // Allow stepping onto cave exit tile (2) to trigger ascent
+        const isBlocked = (!isWalkable(-1, c, r) && tile !== 2);
+        const outOfBounds = (dir === 'right' && self.x + 10 > mapPx - tileSize) ||
+                           (dir === 'left' && self.x - 10 < 0) ||
+                           (dir === 'up' && self.y - 10 < 0) ||
+                           (dir === 'down' && self.y + 10 > mapPx - tileSize);
+
+        if (isBlocked || outOfBounds) {
+          blocked[dir] = true;
+        }
+      }
+    } else if (self.z === Z_LEVELS.BUILDING_1) {
+      for (const dir in checkLocs) {
+        const [c, r] = checkLocs[dir];
+        const isBlocked = !isWalkable(1, c, r);
+        const stairsBlocked = dir === 'up' && getTile(4, c, r) === 7 && !self.rank &&
+                             (Building.list[b]?.house === self.house || Building.list[b]?.kingdom === self.kingdom);
+
+        if (isBlocked || stairsBlocked) {
+          blocked[dir] = true;
+        }
+      }
+    } else if (self.z === Z_LEVELS.BUILDING_2) {
+      for (const dir in checkLocs) {
+        const [c, r] = checkLocs[dir];
+        if (!isWalkable(2, c, r)) {
+          blocked[dir] = true;
+        }
+      }
+    } else if (self.z === Z_LEVELS.CELLAR) {
+      for (const dir in checkLocs) {
+        const [c, r] = checkLocs[dir];
+        if (!isWalkable(-2, c, r)) {
+          blocked[dir] = true;
+        }
+      }
+    }
+
+    // Movement
+    if (self.pressingRight) {
+      self.facing = 'right';
+      self.stopWorking();
+      if (!blocked.right) self.x += self.maxSpd;
+    } else if (self.pressingLeft) {
+      self.facing = 'left';
+      self.stopWorking();
+      if (!blocked.left) self.x -= self.maxSpd;
+    }
+
+    if (self.pressingUp) {
+      self.facing = 'up';
+      self.stopWorking();
+      if (!blocked.up) self.y -= self.maxSpd;
+    } else if (self.pressingDown) {
+      self.facing = 'down';
+      self.stopWorking();
+      if (!blocked.down) self.y += self.maxSpd;
+    }
+
+    // Terrain effects and Z-level transitions
+    const tile = getTile(0, loc[0], loc[1]);
+
+    if (self.z === Z_LEVELS.OVERWORLD) {
+      self.handleOverworldTerrain(tile, loc, b, exit, socket);
+    } else if (self.z === Z_LEVELS.UNDERWORLD) {
+      if (getTile(1, loc[0], loc[1]) === 2) {
+        self.z = Z_LEVELS.OVERWORLD;
+        self.innaWoods = false;
+        self.onMtn = false;
+        self.maxSpd = (self.baseSpd * 0.9) * self.drag;
+        socket.write(JSON.stringify({ msg: 'bgm', x: self.x, y: self.y, z: self.z }));
+      }
+    } else if (self.z === Z_LEVELS.CELLAR) {
+      if (getTile(8, loc[0], loc[1]) === 5) {
+        self.z = Z_LEVELS.BUILDING_1;
+        self.y += tileSize / 2;
+        self.facing = 'down';
+        socket.write(JSON.stringify({ msg: 'bgm', x: self.x, y: self.y, z: self.z, b: b2 }));
+      }
+    } else if (self.z === Z_LEVELS.UNDERWATER) {
+      self.handleUnderwater(tile, socket);
+    } else if (self.z === Z_LEVELS.BUILDING_1) {
+      self.handleBuilding1(loc, exit, b2, socket);
+    } else if (self.z === Z_LEVELS.BUILDING_2) {
+      if (getTile(4, loc[0], loc[1]) === 3 || getTile(4, loc[0], loc[1]) === 4) {
+        self.z = Z_LEVELS.BUILDING_1;
+        self.y += tileSize / 2;
+        self.facing = 'down';
+        socket.write(JSON.stringify({ msg: 'bgm', x: self.x, y: self.y, z: self.z, b: b2 }));
+      }
+    }
+  };
+
+  self.stopWorking = function() {
+    self.working = false;
+    self.chopping = false;
+    self.mining = false;
+    self.farming = false;
+    self.building = false;
+    self.fishing = false;
+  };
+
+  self.handleOverworldTerrain = function(tile, loc, b, exit, socket) {
+    if (tile === TERRAIN.CAVE_ENTRANCE) {
+      self.z = Z_LEVELS.UNDERWORLD;
+      self.innaWoods = false;
+      self.onMtn = false;
+      self.maxSpd = self.baseSpd * self.drag;
+      socket.write(JSON.stringify({ msg: 'bgm', x: self.x, y: self.y, z: self.z }));
+    } else if (tile >= TERRAIN.HEAVY_FOREST && tile < TERRAIN.LIGHT_FOREST) {
+      self.innaWoods = true;
+      self.onMtn = false;
+      self.maxSpd = (self.baseSpd * 0.3) * self.drag;
+    } else if (tile >= TERRAIN.LIGHT_FOREST && tile < TERRAIN.ROCKS) {
+      self.innaWoods = false;
+      self.onMtn = false;
+      self.maxSpd = (self.baseSpd * 0.5) * self.drag;
+    } else if (tile >= TERRAIN.ROCKS && tile < TERRAIN.MOUNTAIN) {
+      self.innaWoods = false;
+      self.onMtn = false;
+      self.maxSpd = (self.baseSpd * 0.6) * self.drag;
+    } else if (tile >= TERRAIN.MOUNTAIN && tile < TERRAIN.CAVE_ENTRANCE) {
+      self.innaWoods = false;
+      self.maxSpd = (self.baseSpd * (self.onMtn ? 0.5 : 0.2)) * self.drag;
+
+      if (!self.onMtn) {
+        setTimeout(() => {
+          const currentTile = getTile(0, loc[0], loc[1]);
+          if (currentTile >= TERRAIN.MOUNTAIN && currentTile < TERRAIN.CAVE_ENTRANCE) {
+            self.onMtn = true;
+          }
+        }, 2000);
+      }
+    } else if (tile === TERRAIN.ROAD) {
+      self.innaWoods = false;
+      self.onMtn = false;
+      self.maxSpd = (self.baseSpd * 1.1) * self.drag;
+    } else if (tile === TERRAIN.DOOR_OPEN || tile === TERRAIN.DOOR_OPEN_ALT) {
+      Building.list[b].occ++;
+      self.z = Z_LEVELS.BUILDING_1;
+      self.innaWoods = false;
+      self.onMtn = false;
+      self.maxSpd = self.baseSpd * self.drag;
+      setTimeout(() => {
+        socket.write(JSON.stringify({ msg: 'bgm', x: self.x, y: self.y, z: self.z, b }));
+      }, 100);
+    } else if (tile === TERRAIN.DOOR_LOCKED) {
+      Building.list[b].occ++;
+      self.z = Z_LEVELS.BUILDING_1;
+      socket.write(JSON.stringify({ msg: 'addToChat', message: '<i>🗝 You unlock the door.</i>' }));
+      self.innaWoods = false;
+      self.onMtn = false;
+      self.maxSpd = self.baseSpd * self.drag;
+      setTimeout(() => {
+        socket.write(JSON.stringify({ msg: 'bgm', x: self.x, y: self.y, z: self.z, b }));
+      }, 100);
+    } else if (tile === TERRAIN.WATER) {
+      self.z = Z_LEVELS.UNDERWATER;
+      self.innaWoods = false;
+      self.onMtn = false;
+      self.maxSpd = (self.baseSpd * 0.2) * self.drag;
+      socket.write(JSON.stringify({ msg: 'bgm', x: self.x, y: self.y, z: self.z }));
+    } else {
+      self.innaWoods = false;
+      self.onMtn = false;
+      self.maxSpd = self.baseSpd * self.drag;
+    }
+  };
+
+  self.handleUnderwater = function(tile, socket) {
+    // Ensure underwater speed penalty is applied (handled in updateSpd now)
+    if (self.breath > 0) {
+      self.breath -= 0.25;
+    } else {
+      self.hp -= 0.5;
+    }
+
+    if (self.hp <= 0) {
+      self.die({ cause: 'drowned' });
+    }
+
+    const loc = getLoc(self.x, self.y);
+    if (getTile(0, loc[0], loc[1]) !== TERRAIN.WATER) {
+      // Surfaced from water
+      self.z = Z_LEVELS.OVERWORLD;
+      self.breath = self.breathMax;
+      self.innaWoods = false;
+      self.onMtn = false;
+      socket.write(JSON.stringify({ msg: 'bgm', x: self.x, y: self.y, z: self.z }));
+    }
+  };
+
+  self.handleBuilding1 = function(loc, exit, b2, socket) {
+    const exitTile = getTile(0, loc[0], loc[1] - 1);
+    if (exitTile === TERRAIN.DOOR_OPEN || exitTile === TERRAIN.DOOR_OPEN_ALT || exitTile === TERRAIN.DOOR_LOCKED) {
+      Building.list[exit].occ--;
+      self.z = Z_LEVELS.OVERWORLD;
+      socket.write(JSON.stringify({ msg: 'bgm', x: self.x, y: self.y, z: self.z }));
+    } else {
+      const stairs = getTile(4, loc[0], loc[1]);
+      if (stairs === 3 || stairs === 4 || stairs === 7) {
+        self.z = Z_LEVELS.BUILDING_2;
+        self.y += tileSize / 2;
+        self.facing = 'down';
+        socket.write(JSON.stringify({ msg: 'bgm', x: self.x, y: self.y, z: self.z, b: b2 }));
+      } else if (stairs === 5 || stairs === 6) {
+        self.z = Z_LEVELS.CELLAR;
+        self.y += tileSize / 2;
+        self.facing = 'down';
+        socket.write(JSON.stringify({ msg: 'bgm', x: self.x, y: self.y, z: self.z, b: b2 }));
+      }
+    }
+  };
+
+  self.update = function() {
     self.updateSpd();
     self.zoneCheck();
 
-    if(self.stealthed){
+    if (self.stealthed) {
       self.revealCheck();
     }
 
-    if(self.actionCooldown > 0){
-      self.actionCooldown--;
-    }
+    if (self.actionCooldown > 0) self.actionCooldown--;
+    if (self.attackCooldown > 0) self.attackCooldown--;
+    if (self.mountCooldown > 0) self.mountCooldown--;
+    if (self.switchCooldown > 0) self.switchCooldown--;
 
-    if(self.attackCooldown > 0){
-      self.attackCooldown--;
-    }
-
-    if(self.mountCooldown > 0){
-      self.mountCooldown--;
-    }
-
-    if(self.switchCooldown > 0){
-      self.switchCooldown--;
+    // COMBAT ESCAPE - Clear combat status if enemy is far away
+    if (self.action === 'combat' && self.combat.target) {
+      const target = Player.list[self.combat.target];
+      if (!target) {
+        // Target doesn't exist anymore
+        self.combat.target = null;
+        self.action = null;
+        console.log(self.name + ' combat cleared - target gone');
+      } else {
+        const distance = self.getDistance({ x: target.x, y: target.y });
+        const escapeRange = 768; // 12 tiles (increased from 8)
+        if (distance > escapeRange) {
+          // Escaped far enough - end combat for BOTH sides
+          console.log(self.name + ' escaped from ' + (target.name || target.class));
+          
+          // Use simple combat system to properly end combat
+          if (global.simpleCombat) {
+            global.simpleCombat.endCombat(self);
+          } else {
+            // Fallback: manually clear both sides
+            self.combat.target = null;
+            self.action = null;
+            if (target.combat && target.combat.target === self.id) {
+              target.combat.target = null;
+              target.action = null;
+            }
+          }
+          
+          const playerSocket = SOCKET_LIST[self.id];
+          if (playerSocket) {
+            playerSocket.write(JSON.stringify({ msg: 'addToChat', message: '<i>You escaped from combat.</i>' }));
+          }
+        }
+      }
     }
 
     // TORCH
-    if(self.pressingT && self.actionCooldown == 0){
+    if (self.pressingT && self.actionCooldown === 0) {
       self.lightTorch(Math.random());
       self.actionCooldown = 10;
     }
 
-    // INSPECT
-
     // PICKUP
-    if(self.pressingP && self.actionCooldown == 0 && !self.working){
-      var socket = SOCKET_LIST[self.id];
+    if (self.pressingP && self.actionCooldown === 0 && !self.working) {
+      const socket = SOCKET_LIST[self.id];
       self.actionCooldown = 10;
-      for(var i in Item.list){
-        var item = Item.list[i];
-        var dist = item.getDistance({x:self.x,y:self.y});
-        if(dist < tileSize && item.canPickup){
+
+      for (const i in Item.list) {
+        const item = Item.list[i];
+        const dist = item.getDistance({ x: self.x, y: self.y });
+
+        if (dist < tileSize && item.canPickup) {
           Item.list[i].toUpdate = true;
           Item.list[i].pickup(self.id);
           return;
-        } else {
-          continue;
         }
       }
-      socket.write(JSON.stringify({msg:'addToChat',message:'<i>There is nothing to pick up.</i>'}));
+      socket.write(JSON.stringify({ msg: 'addToChat', message: '<i>There is nothing to pick up.</i>' }));
     }
 
     // HORSE
-    if(self.pressingH && self.actionCooldown == 0 && !self.working){
-    var socket = SOCKET_LIST[self.id];
-      if(self.mounted){
+    if (self.pressingH && self.actionCooldown === 0 && !self.working) {
+      const socket = SOCKET_LIST[self.id];
+
+      if (self.mounted) {
         self.actionCooldown = 10;
         self.mounted = false;
         self.baseSpd -= 3;
         self.mountCooldown = 200;
       } else {
-        if(self.hasHorse){
-          if(self.gear.armor && self.gear.armor.type !== 'cloth'){
-            if(self.mountCooldown == 0){
+        if (self.hasHorse) {
+          if (self.gear.armor && self.gear.armor.type !== 'cloth') {
+            if (self.mountCooldown === 0) {
               self.actionCooldown = 10;
               self.mounted = true;
               self.baseSpd += 3;
             } else {
-              socket.write(JSON.stringify({msg:'addToChat',message:'<i>Try again shortly.</i>'}));
+              socket.write(JSON.stringify({ msg: 'addToChat', message: '<i>Try again shortly.</i>' }));
             }
           } else {
-            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are not wearing any riding gear.</i>'}));
+            socket.write(JSON.stringify({ msg: 'addToChat', message: '<i>You are not wearing any riding gear.</i>' }));
           }
         } else {
-          socket.write(JSON.stringify({msg:'addToChat',message:'<i>You do not own a horse.</i>'}));
+          socket.write(JSON.stringify({ msg: 'addToChat', message: '<i>You do not own a horse.</i>' }));
         }
       }
     }
 
     // SWITCH WEAPONS
-    if(self.pressingX && self.actionCooldown == 0){
-      var socket = SOCKET_LIST[self.id];
-      if(self.switchCooldown == 0){
-        if(self.gear.weapon){
-          if(self.gear.weapon2){
-            var switchwep = self.gear.weapon2;
+    if (self.pressingX && self.actionCooldown === 0) {
+      const socket = SOCKET_LIST[self.id];
+
+      if (self.switchCooldown === 0) {
+        if (self.gear.weapon) {
+          if (self.gear.weapon2) {
+            const switchwep = self.gear.weapon2;
             self.gear.weapon2 = self.gear.weapon;
             self.gear.weapon = switchwep;
             self.actionCooldown = 10;
-            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You switch weapons to </i><b>' + self.gear.weapon.name + '</b>.'}));
+            socket.write(JSON.stringify({ msg: 'addToChat', message: `<i>You switch weapons to </i><b>${self.gear.weapon.name}</b>.` }));
           } else {
-            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You have no secondary weapon equipped.</i>'}));
+            socket.write(JSON.stringify({ msg: 'addToChat', message: '<i>You have no secondary weapon equipped.</i>' }));
           }
         } else {
-          socket.write(JSON.stringify({msg:'addToChat',message:'<i>You have no weapons equipped.</i>'}));
+          socket.write(JSON.stringify({ msg: 'addToChat', message: '<i>You have no weapons equipped.</i>' }));
         }
       } else {
-        socket.write(JSON.stringify({msg:'addToChat',message:'<i>Try again shortly.</i>'}));
+        socket.write(JSON.stringify({ msg: 'addToChat', message: '<i>Try again shortly.</i>' }));
       }
     }
 
-    // BAG
-    if(self.pressingB && self.actionCooldown == 0){
+    // BAG (show inventory)
+    if (self.pressingB && self.actionCooldown === 0) {
       self.actionCooldown += 10;
-      var socket = SOCKET_LIST[self.id];
-      var all = '';
-      if(self.inventory.key > 0){
-        var keys = '<b>Keys</b>: ' + self.inventory.key + '<br>';
-        all += keys;
-      }
-      if(self.inventory.wood > 0){
-        var wood = '<b>Wood</b>: ' + self.inventory.wood + '<br>';
-        all += wood;
-      }
-      if(self.inventory.stone > 0){
-        var stone = '<b>Stone</b>: ' + self.inventory.stone + '<br>';
-        all += stone;
-      }
-      if(self.inventory.grain > 0){
-        var grain = '<b>Grain</b>: ' + self.inventory.grain + '<br>';
-        all += grain;
-      }
-      if(self.inventory.ironore > 0){
-        var ironore = '<b>IronOre</b>: ' + self.inventory.ironore + '<br>';
-        all += ironore;
-      }
-      if(self.inventory.ironbar > 0){
-        var ironbar = '<b>Iron</b>: ' + self.inventory.iron + '<br>';
-        all += ironbar;
-      }
-      if(self.inventory.steelbar > 0){
-        var steelbar = '<b>Steel</b>: ' + self.inventory.steel + '<br>';
-        all += steelbar;
-      }
-      if(self.inventory.boarhide > 0){
-        var boarhide = '<b>BoarHide</b>: ' + self.inventory.boarhide + '<br>';
-        all += boarhide;
-      }
-      if(self.inventory.leather > 0){
-        var leather = '<b>Leather</b>: ' + self.inventory.leather + '<br>';
-        all += leather;
-      }
-      if(self.inventory.silverore > 0){
-        var silverore = '<b>SilverOre</b>: ' + self.inventory.silverore + '<br>';
-        all += silverore;
-      }
-      if(self.inventory.silver > 0){
-        var silver = '<b>Silver</b>: ' + self.inventory.silver + '<br>';
-        all += silver;
-      }
-      if(self.inventory.goldore > 0){
-        var goldore = '<b>GoldOre</b>: ' + self.inventory.goldore + '<br>';
-        all += goldore;
-      }
-      if(self.inventory.gold > 0){
-        var gold = '<b>Gold</b>: ' + self.inventory.gold + '<br>';
-        all += gold;
-      }
-      if(self.inventory.diamond > 0){
-        var diamond = '<b>Diamond</b>: ' + self.inventory.diamond + '<br>';
-        all += diamond;
-      }
-      if(self.inventory.huntingknife > 0){
-        var huntingknife = '<b>HuntingKnife</b>: ' + self.inventory.huntingknife + '<br>';
-        all += huntingknife;
-      }
-      if(self.inventory.dague > 0){
-        var dague = '<b>Dague</b>: ' + self.inventory.dague + '<br>';
-        all += dague;
-      }
-      if(self.inventory.rondel > 0){
-        var rondel = '<b>Rondel</b>: ' + self.inventory.rondel + '<br>';
-        all += rondel;
-      }
-      if(self.inventory.misericorde > 0){
-        var misericorde = '<b>Misericorde</b>: ' + self.inventory.misericorde + '<br>';
-        all += misericorde;
-      }
-      if(self.inventory.bastardsword > 0){
-        var bastardsword = '<b>BastardSword</b>: ' + self.inventory.bastardsword + '<br>';
-        all += bastardsword;
-      }
-      if(self.inventory.longsword > 0){
-        var longsword = '<b>Longsword</b>: ' + self.inventory.longsword + '<br>';
-        all += longsword;
-      }
-      if(self.inventory.zweihander > 0){
-        var zweihander = '<b>Zweihander</b>: ' + self.inventory.zweihander + '<br>';
-        all += zweihander;
-      }
-      if(self.inventory.morallta > 0){
-        var morallta = '<b>Morallta</b>: ' + self.inventory.morallta + '<br>';
-        all += morallta;
-      }
-      if(self.inventory.bow > 0){
-        var bow = '<b>Bow</b>: ' + self.inventory.bow + '<br>';
-        all += bow;
-      }
-      if(self.inventory.welshlongbow > 0){
-        var welshlongbow = '<b>WelshLongbow</b>: ' + self.inventory.welshlongbow + '<br>';
-        all += welshlongbow;
-      }
-      if(self.inventory.knightlance > 0){
-        var knightlance = '<b>KnightLance</b>: ' + self.inventory.knightlance + '<br>';
-        all += knightlance;
-      }
-      if(self.inventory.rusticlance > 0){
-        var rusticlance = '<b>RusticLance</b>: ' + self.inventory.rusticlance + '<br>';
-        all += rusticlance;
-      }
-      if(self.inventory.paladinlance > 0){
-        var paladinlance = '<b>PaladinLance</b>: ' + self.inventory.paladinlance + '<br>';
-        all += paladinlance;
-      }
-      if(self.inventory.brigandine > 0){
-        var brigandine = '<b>Brigandine</b>: ' + self.inventory.brigandine + '<br>';
-        all += brigandine;
-      }
-      if(self.inventory.lamellar > 0){
-        var lamellar = '<b>Lamellar</b>: ' + self.inventory.lamellar + '<br>';
-        all += lamellar;
-      }
-      if(self.inventory.maille > 0){
-        var maille = '<b>Maille</b>: ' + self.inventory.maille + '<br>';
-        all += maille;
-      }
-      if(self.inventory.hauberk > 0){
-        var hauberk = '<b>Hauberk</b>: ' + self.inventory.hauberk + '<br>';
-        all += hauberk;
-      }
-      if(self.inventory.brynja > 0){
-        var brynja = '<b>Brynja</b>: ' + self.inventory.brynja + '<br>';
-        all += brynja;
-      }
-      if(self.inventory.cuirass > 0){
-        var cuirass = '<b>Cuirass</b>: ' + self.inventory.cuirass + '<br>';
-        all += cuirass;
-      }
-      if(self.inventory.steelplate > 0){
-        var steelplate = '<b>SteelPlate</b>: ' + self.inventory.steelplate + '<br>';
-        all += steelplate;
-      }
-      if(self.inventory.greenwichplate > 0){
-        var greenwichplate = '<b>GreenwichPlate</b>: ' + self.inventory.greenwichplate + '<br>';
-        all += greenwichplate;
-      }
-      if(self.inventory.gothicplate > 0){
-        var gothicplate = '<b>GothicPlate</b>: ' + self.inventory.gothicplate + '<br>';
-        all += gothicplate;
-      }
-      if(self.inventory.clericrobe > 0){
-        var clericrobe = '<b>ClericRobe</b>: ' + self.inventory.clericrobe + '<br>';
-        all += clericrobe;
-      }
-      if(self.inventory.monkcowl > 0){
-        var monkcowl = '<b>MonkCowl</b>: ' + self.inventory.monkcowl + '<br>';
-        all += monkcowl;
-      }
-      if(self.inventory.blackcloak > 0){
-        var blackcloak = '<b>BlackCloak</b>: ' + self.inventory.blackcloak + '<br>';
-        all += blackcloak;
-      }
-      if(self.inventory.tome > 0){
-        var tome = '<b>Tome</b>: ' + self.inventory.tome + '<br>';
-        all += tome;
-      }
-      if(self.inventory.runicscroll > 0){
-        var runicscroll = '<b>RunicScroll</b>: ' + self.inventory.runicscroll + '<br>';
-        all += runicscroll;
-      }
-      if(self.inventory.sacredtext > 0){
-        var sacredtext = '<b>SacredText</b>: ' + self.inventory.sacredtext + '<br>';
-        all += sacredtext;
-      }
-      if(self.inventory.stoneaxe > 0){
-        var stoneaxe = '<b>StoneAxe</b>: ' + self.inventory.stoneaxe + '<br>';
-        all += stoneaxe;
-      }
-      if(self.inventory.ironaxe > 0){
-        var ironaxe = '<b>IronAxe</b>: ' + self.inventory.ironaxe + '<br>';
-        all += ironaxe;
-      }
-      if(self.inventory.pickaxe > 0){
-        var pickaxe = '<b>PickAxe</b>: ' + self.inventory.pickaxe + '<br>';
-        all += pickaxe;
-      }
-      if(self.inventory.torch > 0){
-        var torch = '<b>Torch</b>: ' + self.inventory.torch + '<br>';
-        all += torch;
-      }
-      if(self.inventory.bread > 0){
-        var bread = '<b>Bread</b>: ' + self.inventory.bread + '<br>';
-        all += bread;
-      }
-      if(self.inventory.fish > 0){
-        var fish = '<b>Fish</b>: ' + self.inventory.fish + '<br>';
-        all += fish;
-      }
-      if(self.inventory.lamb > 0){
-        var lamb = '<b>Lamb</b>: ' + self.inventory.lamb + '<br>';
-        all += lamb;
-      }
-      if(self.inventory.boarmeat > 0){
-        var boarmeat = '<b>BoarMeat</b>: ' + self.inventory.boarmeat + '<br>';
-        all += boarmeat;
-      }
-      if(self.inventory.venison > 0){
-        var venison = '<b>Venison</b>: ' + self.inventory.venison + '<br>';
-        all += venison;
-      }
-      if(self.inventory.poachedfish > 0){
-        var poachedfish = '<b>PoachedFish</b>: ' + self.inventory.poachedfish + '<br>';
-        all += poachedfish;
-      }
-      if(self.inventory.lambchop > 0){
-        var lambchop = '<b>LambChop</b>: ' + self.inventory.lambchop + '<br>';
-        all += lambchop;
-      }
-      if(self.inventory.boarshank > 0){
-        var boarshank = '<b>BoarShank</b>: ' + self.inventory.boarshank + '<br>';
-        all += boarshank;
-      }
-      if(self.inventory.venisonloin > 0){
-        var venisonloin = '<b>VenisonLoin</b>: ' + self.inventory.venisonloin + '<br>';
-        all += venisonloin;
-      }
-      if(self.inventory.mead > 0){
-        var mead = '<b>Mead</b>: ' + self.inventory.mead + '<br>';
-        all += mead;
-      }
-      if(self.inventory.saison > 0){
-        var saison = '<b>Saison</b>: ' + self.inventory.saison + '<br>';
-        all += saison;
-      }
-      if(self.inventory.flanders > 0){
-        var flanders = '<b>Flanders</b>: ' + self.inventory.flanders + '<br>';
-        all += flanders;
-      }
-      if(self.inventory.bieredegarde > 0){
-        var bieredegarde = '<b>BiereDeGarde</b>: ' + self.inventory.bieredegarde + '<br>';
-        all += bieredegarde;
-      }
-      if(self.inventory.bordeaux > 0){
-        var bordeaux = '<b>Bordeaux</b>: ' + self.inventory.bordeaux + '<br>';
-        all += bordeaux;
-      }
-      if(self.inventory.bourgogne > 0){
-        var bourgogne = '<b>Bourgogne</b>: ' + self.inventory.bourgogne + '<br>';
-        all += bourgogne;
-      }
-      if(self.inventory.chianti > 0){
-        var chianti = '<b>Chianti</b>: ' + self.inventory.chianti + '<br>';
-        all += chianti;
-      }
-      if(self.inventory.crown > 0){
-        var crown = '<b>Crown</b>: ' + self.inventory.crown + '<br>';
-        all += crown;
-      }
-      if(self.inventory.worldmap > 0){
-        var worldmap = '<b>WorldMap</b>: ' + self.inventory.worldmap + '<br>';
-        all += worldmap;
-      }
-      if(self.inventory.arrows > 0){
-        var arrows = '<b>Arrows</b>: ' + self.inventory.arrows + '<br>';
-        all += arrows;
-      }
-      if(self.inventory.relic > 0){
-        var relic = '<b>Relic</b>: ' + self.inventory.relic + '<br>';
-        all += relic;
-      }
-      if(all == ''){
-        socket.write(JSON.stringify({msg:'addToChat',message:'<i>You have nothing in your bag.</i>'}));
+      const socket = SOCKET_LIST[self.id];
+      const items = [];
+
+      for (const key in self.inventory) {
+        if (self.inventory[key] > 0 && key !== 'keyRing') {
+          const displayName = key.charAt(0).toUpperCase() + key.slice(1);
+          items.push(`<b>${displayName}</b>: ${self.inventory[key]}`);
+        }
+      }
+
+      if (items.length === 0) {
+        socket.write(JSON.stringify({ msg: 'addToChat', message: '<i>You have nothing in your bag.</i>' }));
       } else {
-        socket.write(JSON.stringify({msg:'addToChat',message:'<p>'+all+'</p>'}));
+        socket.write(JSON.stringify({ msg: 'addToChat', message: `<p>${items.join('<br>')}</p>` }));
       }
     }
 
     // INTERACTIONS
-    if(self.pressingAttack && self.actionCooldown == 0 && !self.working){
-      var loc = getLoc(self.x,self.y);
-      var dir = null;
-      if(self.facing == 'down'){
-        dir = [loc[0],loc[1]+1];
-      } else if(self.facing == 'up'){
-        dir = [loc[0],loc[1]-1];
-      } else if(self.facing == 'left'){
-        dir = [loc[0]-1,loc[1]];
-      } else if(self.facing == 'right'){
-        dir = [loc[0]+1,loc[1]];
-      }
-      if(!isWalkable(self.z,dir[0],dir[1])){
-        Interact(self.id,dir);
-      } else {
-        if(self.gear.weapon && self.attackCooldown == 0 && self.z !== -3){
-          if(self.gear.weapon.type == 'bow' && self.inventory.arrows > 0){
-            self.shootArrow(self.mouseAngle);
-            self.attackCooldown += self.gear.weapon.attackrate/self.dexterity;
-          } else {
-            self.attack(self.facing);
-            self.attackCooldown += self.gear.weapon.attackrate/self.dexterity;
-          }
+    if (self.pressingAttack && self.actionCooldown === 0 && !self.working) {
+      const loc = getLoc(self.x, self.y);
+      const dirOffsets = {
+        down: [0, 1],
+        up: [0, -1],
+        left: [-1, 0],
+        right: [1, 0]
+      };
+
+      const offset = dirOffsets[self.facing];
+      const dir = [loc[0] + offset[0], loc[1] + offset[1]];
+
+      if (!isWalkable(self.z, dir[0], dir[1])) {
+        Interact(self.id, dir);
+      } else if (self.gear.weapon && self.attackCooldown === 0 && self.z !== Z_LEVELS.UNDERWATER) {
+        if (self.gear.weapon.type === 'bow' && self.inventory.arrows > 0) {
+          self.shootArrow(self.mouseAngle);
+          self.attackCooldown += self.gear.weapon.attackrate / self.dexterity;
+        } else {
+          self.attack(self.facing);
+          self.attackCooldown += self.gear.weapon.attackrate / self.dexterity;
         }
       }
     }
 
-    // WORK ACTIONS
-    if(self.pressingF && self.actionCooldown == 0 && !self.working){
-      var socket = SOCKET_LIST[self.id];
-      var loc = getLoc(self.x,self.y);
-      var tile = getTile(0,loc[0],loc[1]);
-      var uLoc = getLoc(self.x,self.y-tileSize);
-      var dLoc = getLoc(self.x,self.y+tileSize);
-      var lLoc = getLoc(self.x-tileSize,self.y);
-      var rLoc = getLoc(self.x+tileSize,self.y);
-      // fish
-      if(self.z == 0 && self.facing == 'up' && getTile(0,uLoc[0],uLoc[1]) == 0){
-        self.actionCooldown = 10;
-        if(getTile(6,uLoc[0],uLoc[1]) > 0){
-          var rand = Math.floor(Math.random() * 6000);
-          self.working = true;
-          self.fishing = true;
-          setTimeout(function(){
-            if(self.fishing){
-              self.working = false;
-              self.fishing = false;
-              self.inventory.fish++;
-              tileChange(6,uLoc[0],uLoc[1],-1,true);
-              socket.write(JSON.stringify({msg:'addToChat',message:'<i>You caught a Fish.</i>'}));
-            } else {
-              return;
-            }
-          },rand);
-        } else {
-          self.working = true;
-          self.fishing = true;
-        }
-      } else if(self.z == 0 && self.facing == 'down' && getTile(0,dLoc[0],dLoc[1]) == 0){
-        self.actionCooldown = 10;
-        if(getTile(6,dLoc[0],dLoc[1]) > 0){
-          var rand = Math.floor(Math.random() * 6000);
-          self.working = true;
-          self.fishing = true;
-          setTimeout(function(){
-            if(self.working){
-              self.working = false;
-              self.fishing = false;
-              self.inventory.fish++;
-              tileChange(6,dLoc[0],dLoc[1],-1,true);
-              socket.write(JSON.stringify({msg:'addToChat',message:'<i>You caught a Fish.</i>'}));
-            } else {
-              return;
-            }
-          },rand);
-        } else {
-          self.working = true;
-          self.fishing = true;
-        }
-      } else if(self.z == 0 && self.facing == 'left' && getTile(0,lLoc[0],lLoc[1]) == 0){
-        self.actionCooldown = 10;
-        if(getTile(6,lLoc[0],lLoc[1]) > 0){
-          var rand = Math.floor(Math.random() * 6000);
-          self.working = true;
-          self.fishing = true;
-          setTimeout(function(){
-            if(self.working){
-              self.working = false;
-              self.fishing = false;
-              self.inventory.fish++;
-              tileChange(6,lLoc[0],lLoc[1],-1,true);
-              socket.write(JSON.stringify({msg:'addToChat',message:'<i>You caught a Fish.</i>'}));
-            } else {
-              return;
-            }
-          },rand);
-        } else {
-          self.working = true;
-          self.fishing = true;
-        }
-      } else if(self.z == 0 && self.facing == 'right' && getTile(0,rLoc[0],rLoc[1]) == 0){
-        self.actionCooldown = 10;
-        if(getTile(6,rLoc[0],rLoc[1]) > 0){
-          var rand = Math.floor(Math.random() * 6000);
-          self.working = true;
-          self.fishing = true;
-          setTimeout(function(){
-            if(self.working){
-              self.working = false;
-              self.fishing = false;
-              self.inventory.fish++;
-              tileChange(6,rLoc[0],rLoc[1],-1,true);
-              socket.write(JSON.stringify({msg:'addToChat',message:'<i>You caught a Fish.</i>'}));
-            } else {
-              return;
-            }
-          },rand);
-        } else {
-          self.working = true;
-          self.fishing = true;
-        }
-        // clear brush
-      } else if(self.z == 0 && tile >= 3 && tile < 4){
-        self.actionCooldown = 10;
+    // WORK ACTIONS (F key)
+    if (self.pressingF && self.actionCooldown === 0 && !self.working) {
+      self.handleWorkAction();
+    }
+
+    // Update class based on gear
+    self.updateClass();
+  };
+
+  self.handleWorkAction = function() {
+    const socket = SOCKET_LIST[self.id];
+    const loc = getLoc(self.x, self.y);
+    const tile = getTile(0, loc[0], loc[1]);
+
+    const adjacentLocs = {
+      up: getLoc(self.x, self.y - tileSize),
+      down: getLoc(self.x, self.y + tileSize),
+      left: getLoc(self.x - tileSize, self.y),
+      right: getLoc(self.x + tileSize, self.y)
+    };
+
+    // Fishing
+    if (self.z === Z_LEVELS.OVERWORLD && getTile(0, adjacentLocs[self.facing][0], adjacentLocs[self.facing][1]) === TERRAIN.WATER) {
+      self.actionCooldown = 10;
+      const fishCount = getTile(6, adjacentLocs[self.facing][0], adjacentLocs[self.facing][1]);
+
+      if (fishCount > 0) {
+        const rand = Math.floor(Math.random() * 6000);
         self.working = true;
-        setTimeout(function(){
-          if(self.working){
-            tileChange(0,loc[0],loc[1],7);
-            emit({msg:'mapEdit',world:world});
+        self.fishing = true;
+
+        setTimeout(() => {
+          if (self.fishing) {
             self.working = false;
-          } else {
-            return;
+            self.fishing = false;
+            self.inventory.fish++;
+            tileChange(6, adjacentLocs[self.facing][0], adjacentLocs[self.facing][1], -1, true);
+            socket.write(JSON.stringify({ msg: 'addToChat', message: '<i>You caught a Fish.</i>' }));
           }
-        },3000/self.strength);
-        // gather wood
-      } else if(self.z == 0 && (tile >= 1 && tile < 3)){
-        self.actionCooldown = 10;
+        }, rand);
+      } else {
         self.working = true;
-        if(self.inventory.stoneaxe > 0 || self.inventory.ironaxe > 0){
-          self.chopping = true;
+        self.fishing = true;
+      }
+      return;
+    }
+
+    // Clear brush
+    if (self.z === Z_LEVELS.OVERWORLD && tile >= TERRAIN.BRUSH && tile < TERRAIN.ROCKS) {
+      self.actionCooldown = 10;
+      self.working = true;
+
+      setTimeout(() => {
+        if (self.working) {
+          tileChange(0, loc[0], loc[1], TERRAIN.EMPTY);
+          // Tile update automatically handled by tileChange function
+          self.working = false;
         }
-        setTimeout(function(){
-          if(self.working){
-            tileChange(6,loc[0],loc[1],-50,true); // ALPHA
-            self.inventory.wood += 50; // ALPHA
-            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You chopped 50 Wood.</i>'}));
-            self.working = false;
-            self.chopping = false;
-            var tile = getTile(0,loc[0],loc[1]);
-            var res = getTile(6,loc[0],loc[1]);
-            if(tile >= 1 && tile < 2 && res <= 100){
-              tileChange(0,loc[0],loc[1],1,true);
-              for(var i in hForestSpawns){
-                if(hForestSpawns[i].toString() == loc.toString()){
-                  biomes.hForest--;
-                  hForestSpawns.splice(i,1);
-                  return;
-                } else {
-                  continue;
-                }
+      }, 3000 / self.strength);
+      return;
+    }
+
+    // Gather wood
+    if (self.z === Z_LEVELS.OVERWORLD && tile >= TERRAIN.HEAVY_FOREST && tile < TERRAIN.BRUSH) {
+      self.actionCooldown = 10;
+      self.working = true;
+      if (self.inventory.stoneaxe > 0 || self.inventory.ironaxe > 0) {
+        self.chopping = true;
+      }
+
+      setTimeout(() => {
+        if (self.working) {
+          tileChange(6, loc[0], loc[1], -50, true);
+          self.inventory.wood += 50;
+          socket.write(JSON.stringify({ msg: 'addToChat', message: '<i>You chopped 50 Wood.</i>' }));
+          self.working = false;
+          self.chopping = false;
+
+          const currentTile = getTile(0, loc[0], loc[1]);
+          const res = getTile(6, loc[0], loc[1]);
+
+          if (currentTile >= TERRAIN.HEAVY_FOREST && currentTile < TERRAIN.LIGHT_FOREST && res <= 100) {
+            tileChange(0, loc[0], loc[1], 1, true);
+
+            for (const i in hForestSpawns) {
+              if (hForestSpawns[i].toString() === loc.toString()) {
+                biomes.hForest--;
+                hForestSpawns.splice(i, 1);
+                break;
               }
-              emit({msg:'mapEdit',world:world});
-            } else if(tile >= 2 && tile < 3 && getTile(6,loc[0],loc[1]) <= 0){
-              tileChange(0,loc[0],loc[1],7);
-              emit({msg:'mapEdit',world:world});
             }
-          } else {
-            return;
+            // Tile update automatically handled by tileChange function
+          } else if (currentTile >= TERRAIN.LIGHT_FOREST && currentTile < TERRAIN.BRUSH && res <= 0) {
+            tileChange(0, loc[0], loc[1], TERRAIN.EMPTY);
+            // Tile update automatically handled by tileChange function
           }
-        },6000/self.strength);
-        // gather stone
-      } else if(self.z == 0 && tile >= 4 && tile < 6){
-        self.actionCooldown = 10;
-        self.working = true;
-        var mult = 3;
-        if(self.inventory.pickaxe > 0){
-          self.mining = true;
-          mult = 1;
         }
-        setTimeout(function(){
-          if(self.working){
-            tileChange(6,loc[0],loc[1],-50,true); // ALPHA
-            self.inventory.stone += 50; // ALPHA
-            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You quarried 50 Stone.</i>'}));
-            self.working = false;
-            self.mining = false;
-            if(tile >= 4 && tile < 5 && getTile(6,loc[0],loc[1]) <= 0){
-              tileChange(0,loc[0],loc[1],7);
-              emit({msg:'mapEdit',world:world});
-            }
-          } else {
-            return;
+      }, 6000 / self.strength);
+      return;
+    }
+
+    // Gather stone
+    if (self.z === Z_LEVELS.OVERWORLD && tile >= TERRAIN.ROCKS && tile < TERRAIN.CAVE_ENTRANCE) {
+      self.actionCooldown = 10;
+      self.working = true;
+      const mult = self.inventory.pickaxe > 0 ? 1 : 3;
+
+      if (self.inventory.pickaxe > 0) {
+        self.mining = true;
+      }
+
+      setTimeout(() => {
+        if (self.working) {
+          tileChange(6, loc[0], loc[1], -50, true);
+          self.inventory.stone += 50;
+          socket.write(JSON.stringify({ msg: 'addToChat', message: '<i>You quarried 50 Stone.</i>' }));
+          self.working = false;
+          self.mining = false;
+
+          const currentTile = getTile(0, loc[0], loc[1]);
+          if (currentTile >= TERRAIN.ROCKS && currentTile < TERRAIN.MOUNTAIN && getTile(6, loc[0], loc[1]) <= 0) {
+            tileChange(0, loc[0], loc[1], TERRAIN.EMPTY);
+            // Tile update automatically handled by tileChange function
           }
-        },(10000*mult)/self.strength);
-        // mine metal
-      } else if(self.z == -1 && getTile(1,loc[0],loc[1]) >= 3 && getTile(1,loc[0],loc[1]) < 4){
-        self.actionCooldown = 10;
-        self.working = true;
-        var mult = 3;
-        if(self.inventory.pickaxe > 0){
-          self.mining = true;
-          mult = 1;
         }
-        setTimeout(function(){
-          if(self.working && self.mining){
-            tileChange(7,loc[0],loc[1],-1,true);
-            //
-            self.working = false;
-            self.mining = false;
-          } else {
-            return;
-          }
-        },(10000*mult)/self.strength);
-        // farm
-      } else if(self.z == 0 && tile == 8){
-        self.actionCooldown = 10;
-        if(!nightfall){
-          var f = Building.list[getBuilding(self.x,self.y)];
-          var count = 0;
-          for(var i in f.plot){
-            if(getTile(0,f.plot[i][0],f.plot[i][1]) == 8){
-              count++;
-            }
-          }
-          if(count == 9 && getTile(6,loc[0],loc[1]) < 25){
-            self.working = true;
-            self.farming = true;
-            setTimeout(function(){
-              if(self.working && self.farming){
-                tileChange(6,loc[0],loc[1],25,true); // ALPHA, default:1
-                self.working = false;
-                self.farming = false;
-                var count = 0;
-                for(var i in f.plot){
-                  var n = f.plot[i];
-                  if(getTile(6,n[0],n[1]) >= 25){
-                    count++;
-                  } else {
-                    continue;
-                  }
-                }
-                if(count == 9){
-                  for(var i in f.plot){
-                    var n = f.plot[i];
-                    tileChange(0,n[0],n[1],9);
-                  }
-                  emit({msg:'mapEdit',world:world});
-                }
-              } else {
-                return;
-              }
-            },10000);
-          } else {
-            socket.write(JSON.stringify({msg:'addToChat',message:'<i>There is no more work to be done here.</i>'}));
-          }
-        } else {
-          socket.write(JSON.stringify({msg:'addToChat',message:'<i>It is too dark out for farmwork.</i>'}));
+      }, (10000 * mult) / self.strength);
+      return;
+    }
+
+    // Mine metal (underworld)
+    if (self.z === Z_LEVELS.UNDERWORLD && getTile(1, loc[0], loc[1]) >= 3 && getTile(1, loc[0], loc[1]) < 4) {
+      self.actionCooldown = 10;
+      self.working = true;
+      const mult = self.inventory.pickaxe > 0 ? 1 : 3;
+
+      if (self.inventory.pickaxe > 0) {
+        self.mining = true;
+      }
+
+      setTimeout(() => {
+        if (self.working && self.mining) {
+          tileChange(7, loc[0], loc[1], -1, true);
+          self.working = false;
+          self.mining = false;
         }
-      } else if(self.z == 0 && getTile(0,loc[0],loc[1]) == 9){
-        self.actionCooldown = 10;
-        if(!nightfall){
-          if(getTile(6,loc[0],loc[1]) < 50){
-            var f = Building.list[getBuilding(self.x,self.y)];
-            self.working = true;
-            self.farming = true;
-            setTimeout(function(){
-              if(self.working && getTile(6,loc[0],loc[1]) < 50){
-                tileChange(6,loc[0],loc[1],25,true); // ALPHA, default:1
-                self.working = false;
-                self.farming = false;
-                var count = 0;
-                var plot = f.plot;
-                for(var i in plot){
-                  if(getTile(6,plot[i][0],plot[i][1]) >= 50){
-                    count++;
-                  } else {
-                    continue;
-                  }
-                }
-                if(count == 9){
-                  for(var i in plot){
-                    tileChange(0,plot[i][0],plot[i][1],10);
-                  }
-                  emit({msg:'mapEdit',world:world});
-                }
-              } else {
-                return;
-              }
-            },10000);
-          } else {
-            socket.write(JSON.stringify({msg:'addToChat',message:'<i>There is no more work to be done here.</i>'}));
-          }
-        } else {
-          socket.write(JSON.stringify({msg:'addToChat',message:'<i>It is too dark out for farmwork.</i>'}));
-        }
-      } else if(self.z == 0 && getTile(0,loc[0],loc[1]) == 10){
-        self.actionCooldown = 10;
-        var f = getBuilding(self.x,self.y);
-        self.working = true;
-        self.farming = true;
-        setTimeout(function(){
-          if(self.working){
-            tileChange(6,loc[0],loc[1],-1,true);
-            self.inventory.grain += 1;
-            socket.write(JSON.stringify({msg:'addToChat',message:'<i>You harvested Grain.</i>'}));
-            self.working = false;
-            self.farming = false;
-            if(getTile(6,loc[0],loc[1]) <= 0){
-              tileChange(0,loc[0],loc[1],8);
-              emit({msg:'mapEdit',world:world});
-            }
-          } else {
-            return;
-          }
-        },10000);
-        // build
-      } else if(self.z == 0 && (getTile(0,loc[0],loc[1]) == 11 || getTile(0,loc[0],loc[1]) == 11.5)){
+      }, (10000 * mult) / self.strength);
+      return;
+    }
+
+    // Farming actions
+    if (self.z === Z_LEVELS.OVERWORLD) {
+      if (tile === TERRAIN.FARM_SEED) {
+        self.handleFarmSeeding(loc, socket);
+      } else if (tile === TERRAIN.FARM_GROWING) {
+        self.handleFarmGrowing(loc, socket);
+      } else if (tile === TERRAIN.FARM_READY) {
+        self.handleFarmHarvest(loc, socket);
+      } else if (tile === TERRAIN.BUILD_MARKER || tile === TERRAIN.BUILD_MARKER_ALT) {
         Build(self.id);
-      } else {
-        return;
+      }
+    }
+  };
+
+  self.handleFarmSeeding = function(loc, socket) {
+    if (nightfall) {
+      socket.write(JSON.stringify({ msg: 'addToChat', message: '<i>It is too dark out for farmwork.</i>' }));
+      return;
+    }
+
+    self.actionCooldown = 10;
+    const f = Building.list[getBuilding(self.x, self.y)];
+    let count = 0;
+
+    for (const i in f.plot) {
+      if (getTile(0, f.plot[i][0], f.plot[i][1]) === TERRAIN.FARM_SEED) {
+        count++;
       }
     }
 
-    // CLASS
-    if(self.gear.head && self.gear.head.name == 'crown' && self.crowned){
+    if (count === 9 && getTile(6, loc[0], loc[1]) < 25) {
+      self.working = true;
+      self.farming = true;
+
+      setTimeout(() => {
+        if (self.working && self.farming) {
+          tileChange(6, loc[0], loc[1], 25, true);
+          self.working = false;
+          self.farming = false;
+
+          let readyCount = 0;
+          for (const i in f.plot) {
+            const n = f.plot[i];
+            if (getTile(6, n[0], n[1]) >= 25) {
+              readyCount++;
+            }
+          }
+
+          if (readyCount === 9) {
+            for (const i in f.plot) {
+              const n = f.plot[i];
+              tileChange(0, n[0], n[1], TERRAIN.FARM_GROWING);
+            }
+            // Tile update automatically handled by tileChange function
+          }
+        }
+      }, 10000);
+    } else {
+      socket.write(JSON.stringify({ msg: 'addToChat', message: '<i>There is no more work to be done here.</i>' }));
+    }
+  };
+
+  self.handleFarmGrowing = function(loc, socket) {
+    if (nightfall) {
+      socket.write(JSON.stringify({ msg: 'addToChat', message: '<i>It is too dark out for farmwork.</i>' }));
+      return;
+    }
+
+    if (getTile(6, loc[0], loc[1]) >= 50) {
+      socket.write(JSON.stringify({ msg: 'addToChat', message: '<i>There is no more work to be done here.</i>' }));
+      return;
+    }
+
+    self.actionCooldown = 10;
+    const f = Building.list[getBuilding(self.x, self.y)];
+    self.working = true;
+    self.farming = true;
+
+    setTimeout(() => {
+      if (self.working && getTile(6, loc[0], loc[1]) < 50) {
+        tileChange(6, loc[0], loc[1], 25, true);
+        self.working = false;
+        self.farming = false;
+
+        let readyCount = 0;
+        for (const i in f.plot) {
+          if (getTile(6, f.plot[i][0], f.plot[i][1]) >= 50) {
+            readyCount++;
+          }
+        }
+
+        if (readyCount === 9) {
+          for (const i in f.plot) {
+            tileChange(0, f.plot[i][0], f.plot[i][1], TERRAIN.FARM_READY);
+          }
+          // Tile update automatically handled by tileChange function
+        }
+      }
+    }, 10000);
+  };
+
+  self.handleFarmHarvest = function(loc, socket) {
+    self.actionCooldown = 10;
+    self.working = true;
+    self.farming = true;
+
+    setTimeout(() => {
+      if (self.working) {
+        tileChange(6, loc[0], loc[1], -1, true);
+        self.inventory.grain += 1;
+        socket.write(JSON.stringify({ msg: 'addToChat', message: '<i>You harvested Grain.</i>' }));
+        self.working = false;
+        self.farming = false;
+
+        if (getTile(6, loc[0], loc[1]) <= 0) {
+          tileChange(0, loc[0], loc[1], TERRAIN.FARM_SEED);
+          // Tile update automatically handled by tileChange function
+        }
+      }
+    }, 10000);
+  };
+
+  self.updateClass = function() {
+    if (self.gear.head?.name === 'crown' && self.crowned) {
       self.class = 'King';
       self.spriteSize = tileSize;
-    } else if(self.gear.armor){
-      if(self.gear.armor.type == 'leather'){
-        if(self.mounted && self.gear.weapon){
-          if(self.gear.weapon.type == 'bow'){
-            self.class = 'Ranger';
-            self.spriteSize = tileSize * 2;
-          } else {
-            self.class = 'Scout';
-            self.spriteSize = tileSize * 2;
-          }
-        } else if(self.mounted){
-          self.class = 'Scout';
+    } else if (self.gear.armor) {
+      const armorType = self.gear.armor.type;
+      const weaponType = self.gear.weapon?.type;
+
+      if (armorType === 'leather') {
+        if (self.mounted) {
+          self.class = weaponType === 'bow' ? 'Ranger' : 'Scout';
           self.spriteSize = tileSize * 2;
         } else {
-          if(self.gear.weapon){
-            if(self.gear.weapon.type == 'bow'){
-              self.class = 'Hunter';
-              self.spriteSize = tileSize * 1.5;
-            } else {
-              self.class = 'Rogue';
-              self.spriteSize = tileSize * 1.5;
-            }
-          } else {
-            self.class = 'Rogue';
-            self.spriteSize = tileSize * 1.5;
-          }
-        }
-      } else if(self.gear.armor.type == 'chainmail'){
-        if(self.mounted && self.gear.weapon){
-          if(self.gear.weapon.type == 'bow'){
-            self.class = 'MountedArcher';
-            self.spriteSize = tileSize * 2;
-          } else {
-            self.class = 'Horseman';
-            self.spriteSize = tileSize * 2;
-          }
-        } else if(self.mounted){
-          self.class = 'Horseman';
-          self.spriteSize = tileSize * 2;
-        } else if(self.gear.weapon){
-          if(self.gear.weapon.type == 'bow'){
-            self.class = 'Archer';
-            self.spriteSize = tileSize * 1.5;
-          } else {
-            self.class = 'Swordsman';
-            self.spriteSize = tileSize * 1.5;
-          }
-        } else {
-          self.class = 'Swordsman';
+          self.class = weaponType === 'bow' ? 'Hunter' : 'Rogue';
           self.spriteSize = tileSize * 1.5;
         }
-      } else if(self.gear.armor.type == 'plate'){
-        if(self.knighted){
-          if(self.mounted && self.gear.weapon){
-            if(self.gear.weapon.type == 'lance'){
-              self.class = 'Crusader';
-              self.spriteSize = tileSize * 3;
-            } else {
-              self.class = 'Knight';
-              self.spriteSize = tileSize * 2;
-            }
-          } else if(self.mounted){
-            self.class = 'Knight';
-            self.spriteSize = tileSize * 2;
+      } else if (armorType === 'chainmail') {
+        if (self.mounted) {
+          self.class = weaponType === 'bow' ? 'MountedArcher' : 'Horseman';
+          self.spriteSize = tileSize * 2;
+        } else {
+          self.class = weaponType === 'bow' ? 'Archer' : 'Swordsman';
+          self.spriteSize = tileSize * 1.5;
+        }
+      } else if (armorType === 'plate') {
+        if (self.knighted) {
+          if (self.mounted) {
+            self.class = weaponType === 'lance' ? 'Crusader' : 'Knight';
+            self.spriteSize = weaponType === 'lance' ? tileSize * 3 : tileSize * 2;
           } else {
             self.class = 'Templar';
             self.spriteSize = tileSize * 1.5;
           }
         } else {
-          if(self.mounted && self.gear.weapon){
-            if(self.gear.weapon.type == 'lance'){
-              self.class = 'Lancer';
-              self.spriteSize = tileSize * 3;
-            } else {
-              self.class = 'Cavalry';
-              self.spriteSize = tileSize * 2;
-            }
-          } else if(self.mounted){
-            self.class = 'Cavalry';
-            self.spriteSize = tileSize * 2;
+          if (self.mounted) {
+            self.class = weaponType === 'lance' ? 'Lancer' : 'Cavalry';
+            self.spriteSize = weaponType === 'lance' ? tileSize * 3 : tileSize * 2;
           } else {
             self.class = 'Hero';
             self.spriteSize = tileSize * 1.5;
           }
         }
-      } else if(self.gear.armor.type == 'cloth'){
-        if(self.gear.armor.name == 'MonkCowl'){
-          self.class = 'Mage';
-          self.spriteSize = tileSize * 1.5;
-        } else if(self.gear.armor.name == 'BlackCloak'){
-          self.class = 'Warlock';
-          self.spriteSize = tileSize * 1.5;
-        } else {
-          self.class = 'Priest';
-          self.spriteSize = tileSize;
-        }
+      } else if (armorType === 'cloth') {
+        const clothClasses = {
+          'MonkCowl': 'Mage',
+          'BlackCloak': 'Warlock'
+        };
+        self.class = clothClasses[self.gear.armor.name] || 'Priest';
+        self.spriteSize = self.class === 'Priest' ? tileSize : tileSize * 1.5;
       }
     } else {
       self.class = 'Serf';
       self.spriteSize = tileSize * 1.5;
     }
-  }
+  };
 
-  self.lightTorch = function(torchId){
-    if(self.hasTorch){
-      Item.list[self.hasTorch].toRemove = true;
-      self.hasTorch = false;
-    } else if(self.inventory.torch > 0){
-      if(self.z !== -3){
-        LitTorch({
-          id:torchId,
-          parent:self.id,
-          x:self.x,
-          y:self.y,
-          z:self.z,
-          qty:1,
-          innaWoods:self.innaWoods
-        })
-        self.inventory.torch--;
-        self.hasTorch = torchId;
-      } else {
-        SOCKET_LIST[self.id].write({msg:'addToChat',message:'<i>You cannot do that here.</i>'});
-      }
-    } else {
-      SOCKET_LIST[self.id].write({msg:'addToChat',message:'<i>You have no torches.</i>'});
-    }
-  }
-
-  // x,y movement
-  self.updateSpd = function(){
-    var socket = SOCKET_LIST[self.id];
-    var loc = getLoc(self.x, self.y);
-    var rLoc = getLoc(self.x + (tileSize/8), self.y);
-    var lLoc = getLoc(self.x - (tileSize/8), self.y);
-    var uLoc = getLoc(self.x, self.y - (tileSize/8));
-    var dLoc = getLoc(self.x, self.y + (tileSize/2));
-    var b = getBuilding(self.x,self.y);
-    var exit = getBuilding(self.x,self.y-tileSize);
-    var b2 = getBuilding(self.x,self.y+tileSize);
-    var rightBlocked = false;
-    var leftBlocked = false;
-    var upBlocked = false;
-    var downBlocked = false;
-
-    // outdoor collisions
-    if(self.z == 0){
-      if(((getTile(0,rLoc[0],rLoc[1]) == 19 && !keyCheck(self.x+(tileSize/2),self.y,self.id)) ||
-      (!isWalkable(0,rLoc[0],rLoc[1]) && getTile(0,rLoc[0],rLoc[1]) !== 0) ||
-      (self.x + 10) > (mapPx - tileSize)) && isWalkable(0,loc[0],loc[1])){
-        rightBlocked = true;
-      }
-      if(((getTile(0,lLoc[0],lLoc[1]) == 19 && !keyCheck(self.x-(tileSize/2),self.y,self.id)) || (!isWalkable(0,lLoc[0],lLoc[1]) && getTile(0,lLoc[0],lLoc[1]) !== 0) ||
-      (self.x - 10) < 0) && isWalkable(0,loc[0],loc[1])){
-        leftBlocked = true;
-      }
-      if(((getTile(0,uLoc[0],uLoc[1]) == 19 && !keyCheck(self.x,self.y-(tileSize/2),self.id)) || (!isWalkable(0,uLoc[0],uLoc[1]) && getTile(0,uLoc[0],uLoc[1]) !== 0) ||
-      (getTile(5,uLoc,uLoc[1]) == 'gatec' && !gateCheck(self.x,self.y-(tileSize/2),self.house,self.kingdom)) ||
-      (self.y - 10) < 0) && isWalkable(0,loc[0],loc[1])){
-        upBlocked = true;
-      }
-      if((getTile(0,dLoc[0],dLoc[1]) == 6 || (getTile(0,dLoc[0],dLoc[1]) == 19 && !keyCheck(self.x,self.y+(tileSize/2),self.id)) || (!isWalkable(0,dLoc[0],dLoc[1]) && getTile(0,dLoc[0],dLoc[1]) !== 0) ||
-      (getTile(5,dLoc[0],dLoc[1]) == 'gatec' && !gateCheck(self.x,self.y+(tileSize/2),self.house,self.kingdom)) ||
-      (self.y + 10) > (mapPx - tileSize)) && isWalkable(0,loc[0],loc[1])){
-        downBlocked = true;
-      }
-    }
-
-    // cave collisions
-    if(self.z == -1){
-      if(!isWalkable(-1,rLoc[0],rLoc[1]) || getTile(1,rLoc[0],rLoc[1]) == 2 || (self.x + 10) > (mapPx - tileSize)){
-        rightBlocked = true;
-      }
-      if(!isWalkable(-1,lLoc[0],lLoc[1]) || getTile(1,lLoc[0],lLoc[1]) == 2 || (self.x - 10) < 0){
-        leftBlocked = true;
-      }
-      if(!isWalkable(-1,uLoc[0],uLoc[1]) || getTile(1,uLoc[0],uLoc[1]) == 2 || (self.y - 10) < 0){
-        upBlocked = true;
-      }
-      if(!isWalkable(-1,dLoc[0],dLoc[1]) || (self.y + 10) > (mapPx - tileSize)){
-        downBlocked = true;
-      }
-    }
-
-    // indoor1 collisions
-    if(self.z == 1){
-      if(!isWalkable(1,rLoc[0],rLoc[1])){
-        rightBlocked = true;
-      }
-      if(!isWalkable(1,lLoc[0],lLoc[1])){
-        leftBlocked = true;
-      }
-      if(!isWalkable(1,uLoc[0],uLoc[1]) || (getTile(4,uLoc[0],uLoc[1]) == 7 && !self.rank &&
-      (Building.list[b].house == self.house || Building.list[b].kingdom == self.kingdom))){
-        upBlocked = true;
-      }
-      if(!isWalkable(1,dLoc[0],dLoc[1])){
-        downBlocked = true;
-      }
-    }
-
-    // indoor2 collisions
-    if(self.z == 2){
-      if(!isWalkable(2,rLoc[0],rLoc[1])){
-        rightBlocked = true;
-      }
-      if(!isWalkable(2,lLoc[0],lLoc[1])){
-        leftBlocked = true;
-      }
-      if(!isWalkable(2,uLoc[0],uLoc[1])){
-        upBlocked = true;
-      }
-      if(!isWalkable(2,dLoc[0],dLoc[1])){
-        downBlocked = true;
-      }
-    }
-
-    // cellar/dungeon collisions
-    if(self.z == -2){
-      if(!isWalkable(-2,rLoc[0],rLoc[1])){
-        rightBlocked = true;
-      }
-      if(!isWalkable(-2,lLoc[0],lLoc[1])){
-        leftBlocked = true;
-      }
-      if(!isWalkable(-2,uLoc[0],uLoc[1])){
-        upBlocked = true;
-      }
-      if(!isWalkable(-2,dLoc[0],dLoc[1])){
-        downBlocked = true;
-      }
-    }
-
-    if(self.pressingRight){
-      self.facing = 'right';
-      self.working = false;
-      self.chopping = false;
-      self.mining = false;
-      self.farming = false;
-      self.building = false;
-      self.fishing = false;
-      if(!rightBlocked){
-        self.x += self.maxSpd;
-      }
-    } else if(self.pressingLeft){
-      self.facing = 'left';
-      self.working = false;
-      self.chopping = false;
-      self.mining = false;
-      self.farming = false;
-      self.building = false;
-      self.fishing = false;
-      if(!leftBlocked){
-        self.x -= self.maxSpd;
-      }
-    }
-
-    if(self.pressingUp){
-      self.facing = 'up';
-      self.working = false;
-      self.chopping = false;
-      self.mining = false;
-      self.farming = false;
-      self.building = false;
-      self.fishing = false;
-      if(!upBlocked){
-        self.y -= self.maxSpd;
-      }
-    } else if(self.pressingDown){
-      self.facing = 'down';
-      self.working = false;
-      self.chopping = false;
-      self.mining = false;
-      self.farming = false;
-      self.building = false;
-      self.fishing = false;
-      if(!downBlocked){
-        self.y += self.maxSpd;
-      }
-    }
-
-    // terrain effects and z movement
-    if(self.z == 0){
-      var tile = getTile(0,loc[0],loc[1]);
-      if(tile == 6){
-        self.z = -1;
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = self.baseSpd * self.drag;
-        socket.write(JSON.stringify({msg:'bgm',x:self.x,y:self.y,z:self.z}));
-      } else if(tile >= 1 && tile < 2){
-        self.innaWoods = true;
-        self.onMtn = false;
-        self.maxSpd = (self.baseSpd * 0.3) * self.drag;
-      } else if(getTile(0,loc[0],loc[1]) >= 2 && getTile(0,loc[0],loc[1]) < 4){
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = (self.baseSpd * 0.5) * self.drag;
-      } else if(getTile(0,loc[0],loc[1]) >= 4 && getTile(0,loc[0],loc[1]) < 5){
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = (self.baseSpd * 0.6) * self.drag;
-      } else if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6 && !self.onMtn){
-        self.innaWoods = false;
-        self.maxSpd = (self.baseSpd * 0.2) * self.drag;
-        setTimeout(function(){
-          if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6){
-            self.onMtn = true;
-          }
-        },2000);
-      } else if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6 && self.onMtn){
-        self.maxSpd = (self.baseSpd * 0.5) * self.drag;
-      } else if(getTile(0,loc[0],loc[1]) == 18){
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = (self.baseSpd * 1.1) * self.drag;
-      } else if(getTile(0,loc[0],loc[1]) == 14 || getTile(0,loc[0],loc[1]) == 16){
-        Building.list[b].occ++;
-        self.z = 1;
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = self.baseSpd * self.drag;
-        setTimeout(function(){
-          socket.write(JSON.stringify({msg:'bgm',x:self.x,y:self.y,z:self.z,b:b}));
-        },100);
-      } else if(getTile(0,loc[0],loc[1]) == 19){
-        Building.list[b].occ++;
-        self.z = 1;
-        socket.write(JSON.stringify({msg:'addToChat',message:'<i>🗝 You unlock the door.</i>'}));
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = self.baseSpd * self.drag;
-        setTimeout(function(){
-          socket.write(JSON.stringify({msg:'bgm',x:self.x,y:self.y,z:self.z,b:b}));
-        },100);
-      } else if(getTile(0,loc[0],loc[1]) == 0){
-        self.z = -3;
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = (self.baseSpd * 0.2) * self.drag;
-        socket.write(JSON.stringify({msg:'bgm',x:self.x,y:self.y,z:self.z}));
-      } else {
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = self.baseSpd * self.drag;
-      }
-    } else if(self.z == -1){
-      if(getTile(1,loc[0],loc[1]) == 2){
-        self.z = 0;
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = (self.baseSpd * 0.9) * self.drag;
-        socket.write(JSON.stringify({msg:'bgm',x:self.x,y:self.y,z:self.z}));
-      }
-    } else if(self.z == -2){
-      if(getTile(8,loc[0],loc[1]) == 5){
-        self.z = 1;
-        self.y += (tileSize/2);
-        self.facing = 'down';
-        socket.write(JSON.stringify({msg:'bgm',x:self.x,y:self.y,z:self.z,b:b2}));
-      }
-    } else if(self.z == -3){
-      if(self.breath > 0){
-        self.breath -= 0.25;
-      } else {
-        self.hp -= 0.5;
-      }
-      if(self.hp <= 0){
-        self.die({cause:'drowned'});
-      }
-      if(getTile(0,loc[0],loc[1]) !== 0){
-        self.z = 0;
-        self.breath = self.breathMax;
-        socket.write(JSON.stringify({msg:'bgm',x:self.x,y:self.y,z:self.z}));
-      }
-    } else if(self.z == 1){
-      if(getTile(0,loc[0],loc[1] - 1) == 14 || getTile(0,loc[0],loc[1] - 1) == 16  || getTile(0,loc[0],loc[1] - 1) == 19){
-        Building.list[exit].occ--;
-        self.z = 0;
-        socket.write(JSON.stringify({msg:'bgm',x:self.x,y:self.y,z:self.z}));
-      } else if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4 || getTile(4,loc[0],loc[1]) == 7){
-        self.z = 2;
-        self.y += (tileSize/2);
-        self.facing = 'down'
-        socket.write(JSON.stringify({msg:'bgm',x:self.x,y:self.y,z:self.z,b:b2}));
-      } else if(getTile(4,loc[0],loc[1]) == 5 || getTile(4,loc[0],loc[1]) == 6){
-        self.z = -2;
-        self.y += (tileSize/2);
-        self.facing = 'down';
-        socket.write(JSON.stringify({msg:'bgm',x:self.x,y:self.y,z:self.z,b:b2}));
-      }
-    } else if(self.z == 2){
-      if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4){
-        self.z = 1;
-        self.y += (tileSize/2);
-        self.facing = 'down';
-        socket.write(JSON.stringify({msg:'bgm',x:self.x,y:self.y,z:self.z,b:b2}));
-      }
-    }
-  }
-
-  self.getInitPack = function(){
+  self.getInitPack = function() {
     return {
-      type:self.type,
-      name:self.name,
-      id:self.id,
-      house:self.house,
-      kingdom:self.kingdom,
-      x:self.x,
-      y:self.y,
-      z:self.z,
-      class:self.class,
-      rank:self.rank,
-      friends:self.friends,
-      enemies:self.enemies,
-      gear:self.gear,
-      inventory:{
-        arrows:self.inventory.arrows
-      },
-      spriteSize:self.spriteSize,
-      innaWoods:self.innaWoods,
-      facing:self.facing,
-      stealthed:self.stealthed,
-      revealed:self.revealed,
-      hp:self.hp,
-      hpMax:self.hpMax,
-      spirit:self.spirit,
-      spiritMax:self.spiritMax,
-      breath:self.breath,
-      breathMax:self.breathMax,
-      action:self.action,
-      ghost:self.ghost
+      type: self.type,
+      name: self.name,
+      id: self.id,
+      house: self.house,
+      kingdom: self.kingdom,
+      x: self.x,
+      y: self.y,
+      z: self.z,
+      class: self.class,
+      rank: self.rank,
+      friends: self.friends,
+      enemies: self.enemies,
+      gear: self.gear,
+      inventory: { arrows: self.inventory.arrows },
+      spriteSize: self.spriteSize,
+      innaWoods: self.innaWoods,
+      facing: self.facing,
+      stealthed: self.stealthed,
+      revealed: self.revealed,
+      hp: self.hp,
+      hpMax: self.hpMax,
+      spirit: self.spirit,
+      spiritMax: self.spiritMax,
+      breath: self.breath,
+      breathMax: self.breathMax,
+      action: self.action,
+      ghost: self.ghost
     };
-  }
+  };
 
-  self.getUpdatePack = function(){
+  self.getUpdatePack = function() {
     return {
-      id:self.id,
-      house:self.house,
-      kingdom:self.kingdom,
-      x:self.x,
-      y:self.y,
-      z:self.z,
-      class:self.class,
-      rank:self.rank,
-      friends:self.friends,
-      enemies:self.enemies,
-      gear:self.gear,
-      inventory:{
-        arrows:self.inventory.arrows
-      },
-      spriteSize:self.spriteSize,
-      innaWoods:self.innaWoods,
-      facing:self.facing,
-      stealthed:self.stealthed,
-      revealed:self.revealed,
-      pressingUp:self.pressingUp,
-      pressingDown:self.pressingDown,
-      pressingLeft:self.pressingLeft,
-      pressingRight:self.pressingRight,
-      pressingAttack:self.pressingAttack,
-      angle:self.mouseAngle,
-      working:self.working,
-      chopping:self.chopping,
-      mining:self.mining,
-      farming:self.farming,
-      building:self.building,
-      fishing:self.fishing,
-      hp:self.hp,
-      hpMax:self.hpMax,
-      spirit:self.spirit,
-      spiritMax:self.spiritMax,
-      breath:self.breath,
-      breathMax:self.breathMax,
-      action:self.action,
-      ghost:self.ghost
-    }
-  }
+      id: self.id,
+      house: self.house,
+      kingdom: self.kingdom,
+      x: self.x,
+      y: self.y,
+      z: self.z,
+      class: self.class,
+      rank: self.rank,
+      friends: self.friends,
+      enemies: self.enemies,
+      gear: self.gear,
+      inventory: { arrows: self.inventory.arrows },
+      spriteSize: self.spriteSize,
+      innaWoods: self.innaWoods,
+      facing: self.facing,
+      stealthed: self.stealthed,
+      revealed: self.revealed,
+      pressingUp: self.pressingUp,
+      pressingDown: self.pressingDown,
+      pressingLeft: self.pressingLeft,
+      pressingRight: self.pressingRight,
+      pressingAttack: self.pressingAttack,
+      angle: self.mouseAngle,
+      working: self.working,
+      chopping: self.chopping,
+      mining: self.mining,
+      farming: self.farming,
+      building: self.building,
+      fishing: self.fishing,
+      hp: self.hp,
+      hpMax: self.hpMax,
+      spirit: self.spirit,
+      spiritMax: self.spiritMax,
+      breath: self.breath,
+      breathMax: self.breathMax,
+      action: self.action,
+      ghost: self.ghost
+    };
+  };
 
-  // !!! ALPHA HAX !!!
-
+  // ALPHA HAX - Testing defaults
   self.hasHorse = true;
   self.knighted = true;
-  // !!! ALPHA HAX !!!
 
   Player.list[self.id] = self;
-
+  
+  // Add to spatial system
+  if (global.spatialSystem) {
+    global.spatialSystem.addEntity(self.id, self);
+  }
+  
   initPack.player.push(self.getInitPack());
+
   return self;
-}
+};
 
 Player.list = {};
+global.Player = Player;
 
-Player.onConnect = function(socket,name){
+// ============================================================================
+// INITIALIZE SPATIAL SYSTEM
+// ============================================================================
+
+// Initialize intelligent spatial partitioning system
+const SpatialIntegration = require('./server/js/core/SpatialIntegration');
+global.spatialSystem = new SpatialIntegration();
+global.spatialSystem.initialize();
+
+// Initialize building preview system
+const BuildingPreview = require('./server/js/core/BuildingPreview');
+global.buildingPreview = new BuildingPreview();
+
+Player.onConnect = function(socket, name) {
   socket.write(JSON.stringify({
-    msg:'tempus',
-    tempus:tempus,
-    nightfall:nightfall
-  }))
-  var spawn = randomSpawnO();
-  var player = Player({
-    name:name,
-    id:socket.id,
+    msg: 'tempus',
+    tempus,
+    nightfall
+  }));
+
+  const spawn = randomSpawnO();
+  const player = Player({
+    name,
+    id: socket.id,
     z: 0,
     x: spawn[0],
     y: spawn[1],
-    home:{z:0,
-      x:spawn[0],
-      y:spawn[1]}
+    home: { z: 0, x: spawn[0], y: spawn[1] }
   });
-  console.log(player.name + ' spawned at : ' + spawn + ' z: 0');
 
-  socket.on('data',function(string){
-    var data = JSON.parse(string);
-    if(data.msg == 'keyPress'){
-      if(data.inputId == 'left'){
-        player.pressingLeft = data.state;
-      } else if(data.inputId == 'right'){
-        player.pressingRight = data.state;
-      } else if(data.inputId == 'up'){
-        player.pressingUp = data.state;
-      } else if(data.inputId == 'down'){
-        player.pressingDown = data.state;
-      } else if(data.inputId == 'attack'){
-        player.pressingAttack = data.state;
-      } else if(data.inputId == 'e'){
-        player.pressingE = data.state;
-      } else if(data.inputId == 't'){
-        player.pressingT = data.state;
-      } else if(data.inputId == 'i'){
-        player.pressingI = data.state;
-      } else if(data.inputId == 'p'){
-        player.pressingP = data.state;
-      } else if(data.inputId == 'f'){
-        player.pressingF = data.state;
-      } else if(data.inputId == 'h'){
-        player.pressingH = data.state;
-      } else if(data.inputId == 'k'){
-        player.pressingK = data.state;
-      } else if(data.inputId == 'l'){
-        player.pressingL = data.state;
-      } else if(data.inputId == 'x'){
-        player.pressingX = data.state;
-      } else if(data.inputId == 'c'){
-        player.pressingC = data.state;
-      } else if(data.inputId == 'b'){
-        player.pressingB = data.state;
-      } else if(data.inputId == 'n'){
-        player.pressingN = data.state;
-      } else if(data.inputId == 'm'){
-        player.pressingM = data.state;
-      } else if(data.inputId == '1'){
-        player.pressing1 = data.state;
-      } else if(data.inputId == '2'){
-        player.pressing2 = data.state;
-      } else if(data.inputId == '3'){
-        player.pressing3 = data.state;
-      } else if(data.inputId == '4'){
-        player.pressing4 = data.state;
-      } else if(data.inputId == '5'){
-        player.pressing5 = data.state;
-      } else if(data.inputId == '6'){
-        player.pressing6 = data.state;
-      } else if(data.inputId == '7'){
-        player.pressing7 = data.state;
-      } else if(data.inputId == '8'){
-        player.pressing8 = data.state;
-      } else if(data.inputId == '9'){
-        player.pressing9 = data.state;
-      } else if(data.inputId == '0'){
-        player.pressing0 = data.state;
-      } else if(data.inputId == 'mouseAngle'){
-        player.mouseAngle = data.state;
-      }
-    } else if(data.msg == 'msgToServer'){
-      emit({msg:'addToChat',message:'<b>' + data.name + ':</b> ' + data.message});
-    } else if(data.msg == 'pmToServer'){
-      var recipient = null;
-      for(var i in Player.list){
-        if(Player.list[i].name == data.recip){
-          recipient = SOCKET_LIST[i];
+  console.log(`${player.name} spawned at: ${spawn} z: 0`);
+
+  socket.on('data', function(string) {
+    try {
+      const data = JSON.parse(string);
+
+      if(data.msg == 'keyPress'){
+        if(data.inputId == 'left'){
+          player.pressingLeft = data.state;
+        } else if(data.inputId == 'right'){
+          player.pressingRight = data.state;
+        } else if(data.inputId == 'up'){
+          player.pressingUp = data.state;
+        } else if(data.inputId == 'down'){
+          player.pressingDown = data.state;
+        } else if(data.inputId == 'attack'){
+          player.pressingAttack = data.state;
+        } else if(data.inputId == 'e'){
+          player.pressingE = data.state;
+        } else if(data.inputId == 't'){
+          player.pressingT = data.state;
+        } else if(data.inputId == 'i'){
+          player.pressingI = data.state;
+        } else if(data.inputId == 'p'){
+          player.pressingP = data.state;
+        } else if(data.inputId == 'f'){
+          player.pressingF = data.state;
+        } else if(data.inputId == 'h'){
+          player.pressingH = data.state;
+        } else if(data.inputId == 'k'){
+          player.pressingK = data.state;
+        } else if(data.inputId == 'l'){
+          player.pressingL = data.state;
+        } else if(data.inputId == 'x'){
+          player.pressingX = data.state;
+        } else if(data.inputId == 'c'){
+          player.pressingC = data.state;
+        } else if(data.inputId == 'b'){
+          player.pressingB = data.state;
+        } else if(data.inputId == 'n'){
+          player.pressingN = data.state;
+        } else if(data.inputId == 'm'){
+          player.pressingM = data.state;
+        } else if(data.inputId == '1'){
+          player.pressing1 = data.state;
+        } else if(data.inputId == '2'){
+          player.pressing2 = data.state;
+        } else if(data.inputId == '3'){
+          player.pressing3 = data.state;
+        } else if(data.inputId == '4'){
+          player.pressing4 = data.state;
+        } else if(data.inputId == '5'){
+          player.pressing5 = data.state;
+        } else if(data.inputId == '6'){
+          player.pressing6 = data.state;
+        } else if(data.inputId == '7'){
+          player.pressing7 = data.state;
+        } else if(data.inputId == '8'){
+          player.pressing8 = data.state;
+        } else if(data.inputId == '9'){
+          player.pressing9 = data.state;
+        } else if(data.inputId == '0'){
+          player.pressing0 = data.state;
+        } else if(data.inputId == 'shift'){
+          // Toggle running on keydown only (not keyup)
+          if(data.state){
+            // Can't run underwater
+            if(player.z === Z_LEVELS.UNDERWATER){
+              socket.write(JSON.stringify({ msg: 'addToChat', message: `<i>You can't run underwater!</i>` }));
+            } else {
+              player.running = !player.running;
+              const mode = player.running ? 'running' : 'walking';
+              socket.write(JSON.stringify({ msg: 'addToChat', message: `<i>Now ${mode}.</i>` }));
+            }
+          }
+        } else if(data.inputId == 'mouseAngle'){
+          player.mouseAngle = data.state;
+        }
+      } else if (data.msg === 'msgToServer') {
+        emit({ msg: 'addToChat', message: `<b>${data.name}:</b> ${data.message}` });
+      } else if (data.msg === 'pmToServer') {
+        let recipient = null;
+
+        for (const i in Player.list) {
+          if (Player.list[i].name === data.recip) {
+            recipient = SOCKET_LIST[i];
+            break;
+          }
+        }
+
+        if (!recipient) {
+          socket.write(JSON.stringify({ msg: 'addToChat', message: `<i>${data.recip} is not online.</i>` }));
+        } else {
+          recipient.write(JSON.stringify({ msg: 'addToChat', message: `<b>@${player.name}</b> whispers: <i>${data.message}</i>` }));
+          socket.write(JSON.stringify({ msg: 'addToChat', message: `To ${data.recip}: <i>${data.message}</i>` }));
         }
       }
-      if(recipient == null){
-        socket.write(JSON.stringify({msg:'addToChat',message:'<i>' + data.recip + ' is not online.</i>'}));
-      } else {
-        recipient.write(JSON.stringify({msg:'addToChat',message:'<b>@' + player.name + '</b> whispers: <i>' + data.message + '</i>'}));
-        SOCKET_LIST[player.id].write(JSON.stringify({msg:'addToChat',message:'To ' + data.recip + ': <i>' + data.message + '</i>'}));
-      }
+    } catch (e) {
+      console.error('Error parsing socket data:', e);
     }
   });
 
   socket.write(JSON.stringify({
-    msg:'newFaction',
-    houseList:House.list,
-    kingdomList:Kingdom.list
+    msg: 'newFaction',
+    houseList: House.list,
+    kingdomList: Kingdom.list
   }));
 
   socket.write(JSON.stringify({
-    msg:'init',
-    selfId:player.id,
-    pack:{
-      player:Player.getAllInitPack(),
-      arrow:Arrow.getAllInitPack(),
-      item:Item.getAllInitPack(),
-      light:Light.getAllInitPack(),
-      building:Building.getAllInitPack()
+    msg: 'init',
+    selfId: player.id,
+    pack: {
+      player: Player.getAllInitPack(),
+      arrow: Arrow.getAllInitPack(),
+      item: Item.getAllInitPack(),
+      light: Light.getAllInitPack(),
+      building: Building.getAllInitPack()
     }
   }));
-  console.log('init player id: ' + player.id);
+
+  console.log(`init player id: ${player.id}`);
 };
 
-Player.getAllInitPack = function(){
-  var players = [];
-  for(var i in Player.list)
-    players.push(Player.list[i].getInitPack());
-  return players;
-}
+Player.getAllInitPack = function() {
+  return Object.values(Player.list).map(p => p.getInitPack());
+};
 
-Player.onDisconnect = function(socket){
+Player.onDisconnect = function(socket) {
+  const player = Player.list[socket.id];
+
+  if (player) {
+    console.log(`Player ${player.name} (${socket.id}) disconnecting...`);
+    
+    // Clean up aggro interval
+    if (player.aggroInterval) {
+      clearInterval(player.aggroInterval);
+    }
+
+    // Remove from zones (using Map-based system)
+    if (player.zone) {
+      const zoneKey = `${player.zone[0]},${player.zone[1]}`;
+      const zoneSet = zones.get(zoneKey);
+      if (zoneSet) {
+        zoneSet.delete(player.id);
+        console.log(`Removed ${player.name} from zone ${zoneKey}`);
+      }
+    }
+    
+    // Remove from spatial system
+    if (global.spatialSystem) {
+      global.spatialSystem.removeEntity(socket.id);
+    }
+    
+    // Clear any combat state
+    if (player.combat && player.combat.target) {
+      const target = Player.list[player.combat.target];
+      if (target && target.combat && target.combat.target === player.id) {
+        target.combat.target = null;
+        target.action = null;
+      }
+    }
+  }
+
   delete Player.list[socket.id];
   removePack.player.push(socket.id);
-}
+  console.log(`Player ${socket.id} fully removed from game`);
+};
 
-Player.update = function(){
-  var pack = [];
-  for(var i in Player.list){
-    var player = Player.list[i];
+Player.update = function() {
+  const pack = [];
+
+  for (const i in Player.list) {
+    const player = Player.list[i];
     player.update();
-    if(player.toRemove){
+
+    if (player.toRemove) {
+      if (player.aggroInterval) {
+        clearInterval(player.aggroInterval);
+      }
+      if (player.zone) {
+        // Remove from zones (using Map-based system)
+        var zoneKey = player.zone[1] + ',' + player.zone[0];
+        var zoneSet = zones.get(zoneKey);
+        if (zoneSet) {
+          zoneSet.delete(player.id);
+        }
+      }
+      
+      // Remove from spatial system
+      if (global.spatialSystem) {
+        global.spatialSystem.removeEntity(i);
+      }
+      
       delete Player.list[i];
-      delete zones[player.zone[1]][player.zone[0]][player.id];
       removePack.player.push(player.id);
     } else {
+      // Update spatial system if player moved
+      if (global.spatialSystem) {
+        global.spatialSystem.updateEntity(i, player);
+      }
       pack.push(player.getUpdatePack());
     }
   }
+
   return pack;
 };
 
-var sockjs = require('sockjs');
-io = sockjs.createServer();
-io.installHandlers(serv, {prefix:'/io'});
-emit = function(data){
-  for(i in SOCKET_LIST){
-    SOCKET_LIST[i].write(JSON.stringify(data));
-  }
-}
-io.on('connection', function(socket){
-  socket.id = Math.random();
-  SOCKET_LIST[socket.id] = socket;
-  console.log('Socket connected: ' + socket.id);
+// ============================================================================
+// DAY/NIGHT CYCLE
+// ============================================================================
 
-  socket.on('data',function(string){
-    var data = JSON.parse(string);
-    if(data.msg == 'signIn'){
-      isValidPassword(data,function(res){
-        if(res){
-          Player.onConnect(socket, data.name);
-          socket.write(JSON.stringify({
-            msg:'signInResponse',
-            success:true,
-            world: world,
-            tileSize: tileSize,
-            mapSize: mapSize,
-            tempus: tempus
-          }));
-          console.log(data.name + ' logged in.');
-        } else {
-          socket.write(JSON.stringify({msg:'signInResponse',success:false}));
-        }
-      })
-    } else if(data.msg == 'signUp'){
-      if(data.name.length > 0){
-        isUsernameTaken(data.name,function(res){
-          if(res){
-            socket.write(JSON.stringify({
-              msg:'signUpResponse',
-              success:false}));
-          } else {
-            addUser(data,function(){
-              socket.write(JSON.stringify({
-                msg:'signUpResponse',
-                success:true
-              }));
-              console.log(data.name + ' signed up.');
-            });
-          }
-        })
-      } else {
-        socket.write(JSON.stringify({msg:'signUpResponse',success:false}));
-      }
-    } else if(data.msg == 'evalCmd'){
-      EvalCmd(data);
-    }
-  });
-  socket.onclose = function(){
-    Player.onDisconnect(socket);
-  }
-});
-
-// GAME STATE
-
-// day/night cycle
-var dayNight = function(){
+function dayNight() {
+  // Use original tick-based system
   tempus = cycle[tick];
-  if(tempus == 'XII.a'){
+  global.tempus = tempus;
+
+  if (tempus === 'XII.a') {
     day++;
+    global.day = day;
     dailyTally();
-    entropy();
     console.log('');
-    console.log('Day ' + day);
+    console.log(`Day ${day}`);
     console.log('');
 
-    var count = 0;
-    for(var i in Player.list){
-      count++;
+    const playerCount = Object.keys(Player.list).length;
+    console.log(`Population: ${playerCount}`);
+
+    // Optional: Save map
+    const saveMap = false;
+    if (saveMap) {
+      fs.writeFile(`./maps/map${day}.txt`, JSON.stringify(world))
+        .then(() => console.log("Map file saved to '/maps' folder."))
+        .catch(err => console.error("Error saving map:", err));
     }
-    console.log('Population: ' + count);
-    if(saveMap){
-      fs.writeFile("./maps/map" + day + ".txt", JSON.stringify(world), function(err){
-        if(err){
-          return console.log(err);
-        }
-        console.log("Map file saved to '/mapfiles' folder.");
-      });
-    };
   }
-  if(tempus == 'VIII.p' || tempus == 'IX.p' ||
-  tempus == 'X.p' || tempus == 'XI.p' || tempus == 'XII.a' ||
-  tempus == 'I.a' || tempus == 'II.a' || tempus == 'III.a' ||
-  tempus == 'IV.a'){
-    nightfall = true;
-  } else {
-    nightfall = false;
+
+  if (tempus === 'XII.p') {
+    entropy();
+    console.log('Entropy cycle complete (midnight)');
   }
-  emit({
-    msg:'tempus',
-    tempus:tempus,
-    nightfall:nightfall
-  })
+
+  nightfall = ['VIII.p', 'IX.p', 'X.p', 'XI.p', 'XII.a', 'I.a', 'II.a', 'III.a', 'IV.a'].includes(tempus);
+  global.nightfall = nightfall;
+
+  emit({ msg: 'tempus', tempus, nightfall });
   console.log(tempus);
 
   House.update;
   Kingdom.update;
 
-  if(tick < 23){
-    tick++;
-  } else {
-    tick = 0
-  }
-};
+  tick = tick < 23 ? tick + 1 : 0;
+  global.tick = tick;
+}
 
-// initiate day/night cycle
-setInterval(dayNight, 3600000/period);
-console.log('');
-console.log('Day ' + day + ' (' + period + 'x)');
-console.log('');
-console.log(tempus);
+// ============================================================================
+// NETWORKING
+// ============================================================================
 
-initPack = {player:[],arrow:[],item:[],light:[],building:[]};
-removePack = {player:[],arrow:[],item:[],light:[],building:[]};
+const app = express();
+const serv = require('http').Server(app);
 
-setInterval(function(){
-  var pack = {
-    player:Player.update(),
-    arrow:Arrow.update(),
-    item:Item.update(),
-    light:Light.update(),
-    building:Building.update(),
-  }
+app.get('/', function(req, res) {
+  res.sendFile(__dirname + '/client/index.html');
+});
 
+// Serve static files
+app.use('/client', express.static(__dirname + '/client'));
 
-  emit({msg:'init',pack:initPack});
-  emit({msg:'update',pack:pack});
-  emit({msg:'remove',pack:removePack});
+serv.listen(2000);
+console.log("###################################");
+console.log("");
+console.log("     ♜  S T R O N G H O D L ♜");
+console.log("");
+console.log("   A SOLIS ORTV VSQVE AD OCCASVM");
+console.log("");
+console.log("###################################");
 
+io = sockjs.createServer();
+io.installHandlers(serv, { prefix: '/io' });
+
+io.on('connection', function(socket) {
+  socket.id = Math.random();
+  SOCKET_LIST[socket.id] = socket;
+  console.log(`New connection: socket ${socket.id}`);
+  console.log(`Socket connected: ${socket.id}`);
+
+  socket.on('data', function(string) {
+    try {
+      const data = JSON.parse(string);
+
+      if (data.msg === 'signIn') {
+        console.log('Sign-in attempt:', data.name, data.password);
+        console.log('Data received:', JSON.stringify(data));
+        isValidPassword(data, function(res) {
+          console.log('Password validation result:', res);
+          if (res) {
+            Player.onConnect(socket, data.name);
+            
+            // Log a sample tile to verify world array has building data
+            const sampleTile = world[0] && world[0][50] && world[0][50][50];
+            console.log(`Sending world to ${data.name}, sample tile [0][50][50]: ${sampleTile}`);
+            
+            socket.write(JSON.stringify({
+              msg: 'signInResponse',
+              success: true,
+              world, // Send the maintained world array
+              tileSize,
+              mapSize,
+              tempus
+            }));
+            console.log(`${data.name} logged in.`);
+          } else {
+            console.log('Sign-in failed for:', data.name);
+            socket.write(JSON.stringify({ msg: 'signInResponse', success: false }));
+          }
+        });
+      } else if (data.msg === 'signUp') {
+        if (data.name.length > 0) {
+          isUsernameTaken(data.name, function(res) {
+            if (res) {
+              socket.write(JSON.stringify({ msg: 'signUpResponse', success: false }));
+            } else {
+              addUser(data, function() {
+                socket.write(JSON.stringify({ msg: 'signUpResponse', success: true }));
+                console.log(`${data.name} signed up.`);
+              });
+            }
+          });
+        } else {
+          socket.write(JSON.stringify({ msg: 'signUpResponse', success: false }));
+        }
+      } else if (data.msg === 'evalCmd') {
+        // Use original command system
+        EvalCmd(data);
+      }
+    } catch (e) {
+      console.error('Error parsing connection data:', e);
+    }
+  });
+
+  socket.on('close', function() {
+    console.log(`Socket ${socket.id} closed via 'close' event, calling onDisconnect...`);
+    Player.onDisconnect(socket);
+  });
+
+  socket.onclose = function() {
+    console.log(`Socket ${socket.id} closed via 'onclose', calling onDisconnect...`);
+    Player.onDisconnect(socket);
+  };
+});
+
+// ============================================================================
+// GAME LOOP
+// ============================================================================
+
+const initPack = { player: [], arrow: [], item: [], light: [], building: [] };
+const removePack = { player: [], arrow: [], item: [], light: [], building: [] };
+global.initPack = initPack;
+global.removePack = removePack;
+
+// Initialize Serf behavior system (temporarily disabled)
+// const SerfBehaviorSystem = require('./server/js/core/SerfBehaviorSystem.js');
+// global.serfBehaviorSystem = new SerfBehaviorSystem();
+global.serfBehaviorSystem = null; // Disabled to revert to old system
+
+// Initialize optimized game loop
+optimizedGameLoop.initialize(gameState, emit);
+
+// Start the optimized game loop (60 FPS)
+optimizedGameLoop.start();
+
+// Performance monitoring - log memory usage every 30 seconds
+setInterval(() => {
+  const memUsage = process.memoryUsage();
+  console.log(`Memory usage: RSS=${Math.round(memUsage.rss/1024/1024)}MB, Heap=${Math.round(memUsage.heapUsed/1024/1024)}MB`);
+}, 30000);
+
+// Keep old interval for init/remove packs (less frequent)
+setInterval(function() {
+  emit({ msg: 'init', pack: initPack });
+  emit({ msg: 'remove', pack: removePack });
+
+  // Temporarily disable spatial optimization to prevent lag spikes
+  // if (global.spatialSystem) {
+  //   // Only optimize every 30 seconds instead of every second
+  //   if (Date.now() % 30000 < 2000) {
+  //     global.spatialSystem.optimize();
+  //   }
+  //   // Only cleanup every 60 seconds instead of every second
+  //   if (Date.now() % 60000 < 2000) {
+  //     global.spatialSystem.cleanup();
+  //   }
+  // }
+
+  // Clear packs
   initPack.player = [];
   initPack.arrow = [];
   initPack.item = [];
@@ -2723,118 +2782,102 @@ setInterval(function(){
   removePack.item = [];
   removePack.light = [];
   removePack.building = [];
+}, 5000); // Much reduced frequency for init/remove packs to reduce lag
 
-},40);
+// ============================================================================
+// INITIALIZE GAME WORLD
+// ============================================================================
 
-// spawn fauna
+// Initiate day/night cycle
+setInterval(dayNight, 3600000 / period);
+
+// Initialize tempus properly before logging
+tempus = gameState.tempus;
+console.log('');
+console.log(`Day ${day} (${period}x)`);
+console.log('');
+console.log(tempus);
+
+// Spawn initial fauna
 entropy();
 
-// hide relics
-var rel1 = randomSpawnHF();
-var cr1 = getLoc(rel1[0],rel1[1]);
-Relic({
-  x:rel1[0],
-  y:rel1[1],
-  z:0,
-  qty:1
-});
-console.log('Relic hidden in the forest @ ' + cr1.toString());
-var rel2 = randomSpawnU();
-var cr2 = getLoc(rel2[0],rel2[1]);
-Relic({
-  x:rel2[0],
-  y:rel2[1],
-  z:-1,
-  qty:1
-});
-console.log('Relic hidden in the caves @ ' + cr2.toString());
-var wsp = waterSpawns[Math.floor(Math.random() * waterSpawns.length)];
-var rel3 = getCoords(wsp[0],wsp[1]);
-Relic({
-  x:rel3[0],
-  y:rel3[1],
-  z:-3,
-  qty:1
-});
-console.log('Relic hidden in the sea @ ' + wsp.toString());
+// Hide relics
+const rel1 = randomSpawnHF();
+const cr1 = getLoc(rel1[0], rel1[1]);
+Relic({ x: rel1[0], y: rel1[1], z: 0, qty: 1 });
+console.log(`Relic hidden in the forest @ ${cr1.toString()}`);
 
-// create NPC factions
-Brotherhood({
-  id:1,
-  type:'npc',
-  name:'Brotherhood',
-  flag:'',
-  hq:factionSpawn(1),
-  hostile:true
-});
+const rel2 = randomSpawnU();
+const cr2 = getLoc(rel2[0], rel2[1]);
+Relic({ x: rel2[0], y: rel2[1], z: -1, qty: 1 });
+console.log(`Relic hidden in the caves @ ${cr2.toString()}`);
 
-Goths({
-  id:2,
-  type:'npc',
-  name:'Goths',
-  flag:'',
-  hq:factionSpawn(2),
-  hostile:true
-});
+const wsp = waterSpawns[Math.floor(Math.random() * waterSpawns.length)];
+const rel3 = getCoords(wsp[0], wsp[1]);
+Relic({ x: rel3[0], y: rel3[1], z: -3, qty: 1 });
+console.log(`Relic hidden in the sea @ ${wsp.toString()}`);
 
-Norsemen({
-  id:3,
-  type:'npc',
-  name:'Norsemen',
-  flag:'',
-  hq:factionSpawn(3),
-  hostile:true
-});
+// Create NPC factions (only if valid spawn found)
+const brotherhoodHQ = factionSpawn(FACTION_IDS.BROTHERHOOD);
+if (brotherhoodHQ) {
+  Brotherhood({ id: FACTION_IDS.BROTHERHOOD, type: 'npc', name: 'Brotherhood', flag: '', hq: brotherhoodHQ, hostile: true });
+}
 
-Franks({
-  id:4,
-  type:'npc',
-  name:'Franks',
-  flag:'',
-  hq:factionSpawn(4),
-  hostile:true
-});
+const gothsHQ = factionSpawn(FACTION_IDS.GOTHS);
+if (gothsHQ) {
+  Goths({ id: FACTION_IDS.GOTHS, type: 'npc', name: 'Goths', flag: '', hq: gothsHQ, hostile: true });
+}
 
-Celts({
-  id:5,
-  type:'npc',
-  name:'Celts',
-  flag:'',
-  hq:factionSpawn(5),
-  hostile:true
-});
+const norsemenHQ = factionSpawn(FACTION_IDS.NORSEMEN);
+if (norsemenHQ) {
+  Norsemen({ id: FACTION_IDS.NORSEMEN, type: 'npc', name: 'Norsemen', flag: '', hq: norsemenHQ, hostile: true });
+}
 
-Teutons({
-  id:6,
-  type:'npc',
-  name:'Teutons',
-  flag:'',
-  hq:factionSpawn(6),
-  hostile:true
-});
+const franksHQ = factionSpawn(FACTION_IDS.FRANKS);
+if (franksHQ) {
+  Franks({ id: FACTION_IDS.FRANKS, type: 'npc', name: 'Franks', flag: '', hq: franksHQ, hostile: true });
+}
 
-Outlaws({
-  id:7,
-  type:'npc',
-  name:'Outlaws',
-  flag:'☠️',
-  hq:factionSpawn(7),
-  hostile:true
-});
+const celtsHQ = factionSpawn(FACTION_IDS.CELTS);
+if (celtsHQ) {
+  Celts({ id: FACTION_IDS.CELTS, type: 'npc', name: 'Celts', flag: '', hq: celtsHQ, hostile: true });
+}
 
-Mercenaries({
-  id:8,
-  type:'npc',
-  name:'Mercenaries',
-  flag:'',
-  hq:factionSpawn(8),
-  hostile:true
-});
+const teutonsHQ = factionSpawn(FACTION_IDS.TEUTONS);
+if (teutonsHQ) {
+  Teutons({ id: FACTION_IDS.TEUTONS, type: 'npc', name: 'Teutons', flag: '', hq: teutonsHQ, hostile: true });
+}
 
-Kingdom({
-  id:1,
-  name:'Papal States',
-  flag:'🇻🇦'
-});
+const outlawsHQ = factionSpawn(FACTION_IDS.OUTLAWS);
+if (outlawsHQ) {
+  Outlaws({ id: FACTION_IDS.OUTLAWS, type: 'npc', name: 'Outlaws', flag: '☠️', hq: outlawsHQ, hostile: true });
+}
+
+const mercenariesHQ = factionSpawn(FACTION_IDS.MERCENARIES);
+if (mercenariesHQ) {
+  Mercenaries({ id: FACTION_IDS.MERCENARIES, type: 'npc', name: 'Mercenaries', flag: '', hq: mercenariesHQ, hostile: true });
+}
+
+Kingdom({ id: 1, name: 'Papal States', flag: '🇻🇦' });
 
 dailyTally();
+
+// ============================================================================
+// EXPORTS (for modular use)
+// ============================================================================
+
+module.exports = {
+  Player,
+  getTile,
+  getLoc,
+  getCoords,
+  getCenter,
+  getDistance,
+  isWalkable,
+  allyCheck,
+  emit,
+  TERRAIN,
+  Z_LEVELS,
+  tileSize,
+  mapSize
+};

@@ -49,7 +49,7 @@ Inventory = function(param){
       stoneaxe:0,
       ironaxe:0,
       pickaxe:0,
-      torch:0,
+      torch:10,
       bread:0,
       fish:0,
       lamb:0,

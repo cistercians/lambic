@@ -481,7 +481,7 @@ Tavern = function(param){
         tileChange(0,p[0],p[1],11);
         tileChange(6,p[0],p[1],0);
       }
-      mapEdit();
+                          // Tile update automatically handled by tileChange function
       var center = getCoords(plot[3][0],plot[3][1]);
       var id = Math.random();
       Building({
@@ -764,7 +764,7 @@ Character = function(param){
   self.cleric = false;
   self.stealthed = false;
   self.revealed = false;
-  self.spriteSize = tileSize;
+  self.spriteSize = 64;
   self.facing = 'down';
   self.pressingRight = false;
   self.pressingLeft = false;
@@ -780,13 +780,13 @@ Character = function(param){
   self.farming = false;
   self.building = false;
   self.fishing = false;
-  self.baseSpd = 4;
-  self.maxSpd = 4;
+  self.baseSpd = 2;
+  self.maxSpd = 2;
   self.drag = 1;
   self.idleTime = 0;
   self.idleRange = 1000;
-  self.wanderRange = 256;
-  self.aggroRange = 256;
+  self.wanderRange = 2048; // Increased 8x from 256 (32 tiles leash range)
+  self.aggroRange = 256; // Half viewport (768px / 2 = 384px, ~6 tiles)
   self.actionCooldown = 0;
   self.attackCooldown = 0;
   self.hp = 100;
@@ -798,16 +798,37 @@ Character = function(param){
   self.fortitude = 0;
   self.attackrate = 50;
   self.dexterity = 1;
+  self.running = false; // NPCs can run in combat
   self.toRemove = false;
   self.die = function(report){ // report {id,cause}
     if(report.id){
       if(Player.list[report.id]){
-        Player.list[report.id].combat.target = null;
         console.log(Player.list[report.id].class + ' has killed ' + self.class);
+        
+        // End combat for killer using simple combat system (DON'T clear combat.target before this!)
+        if(global.simpleCombat){
+          global.simpleCombat.endCombat(Player.list[report.id]);
+        }
       } else {
         console.log(self.class + ' has ' + report.cause);
       }
     }
+    
+    // End combat for killed character using simple combat system (DON'T clear combat.target before this!)
+    if(global.simpleCombat){
+      global.simpleCombat.endCombat(self);
+    }
+    
+    // Clear any remaining combat state (should already be cleared by endCombat)
+    self.combat.target = null;
+    self.action = null;
+    
+    // Clean up aggro interval
+    if(self.aggroInterval){
+      clearInterval(self.aggroInterval);
+      self.aggroInterval = null;
+    }
+    
     if(self.house && self.house.type == 'npc'){
       var units = House.list[self.house].military.scout.units;
       if(units.length > 0){
@@ -884,7 +905,17 @@ Character = function(param){
     self.farming = false;
     self.chopping = false;
     self.mining = false;
+    
+    // Snap to current tile center before creating path (prevents drift)
+    var currentLoc = getLoc(self.x, self.y);
+    var currentCenter = getCenter(currentLoc[0], currentLoc[1]);
+    self.x = currentCenter[0];
+    self.y = currentCenter[1];
+    
+    // Set simple single-tile path
     self.path = [target];
+    self.pathCount = 0;
+    
   }
 
   self.prevLoc = null; // [c,r]
@@ -907,14 +938,16 @@ Character = function(param){
         var zc = self.zGrid[i][0];
         var zr = self.zGrid[i][1];
         if(zc < 64 && zc > -1 && zr < 64 && zr > -1){
-          for(var n in zones[zr][zc]){
-            var p = Player.list[zones[zr][zc][n]];
+          const zoneKey = `${zc},${zr}`;
+          const zoneEntities = zones.get(zoneKey) || new Set();
+          for(const entityId of zoneEntities){
+            var p = Player.list[entityId];
             if(p){
               var loc = getLoc(self.x,self.y);
               var dLoc = [loc[0],loc[1]+1];
               var pLoc = getLoc(p.x,p.y);
               if(pLoc.toString() == dLoc.toString()){
-                if(allyCheck(self.id,p.id) < 1 || self.friendlyfire){
+                if(allyCheck(self.id,p.id) < 0 || self.friendlyfire){
                   Player.list[p.id].hp -= dmg - p.fortitude;
                   Player.list[p.id].working = false;
                   Player.list[p.id].chopping = false;
@@ -948,14 +981,16 @@ Character = function(param){
         var zc = self.zGrid[i][0];
         var zr = self.zGrid[i][1];
         if(zc < 64 && zc > -1 && zr < 64 && zr > -1){
-          for(var n in zones[zr][zc]){
-            var p = Player.list[zones[zr][zc][n]];
+          const zoneKey = `${zc},${zr}`;
+          const zoneEntities = zones.get(zoneKey) || new Set();
+          for(const entityId of zoneEntities){
+            var p = Player.list[entityId];
             if(p){
               var loc = getLoc(self.x,self.y);
               var uLoc = [loc[0],loc[1]-1];
               var pLoc = getLoc(p.x,p.y);
               if(pLoc.toString() == uLoc.toString()){
-                if(allyCheck(self.id,p.id) < 1 || self.friendlyfire){
+                if(allyCheck(self.id,p.id) < 0 || self.friendlyfire){
                   Player.list[p.id].hp -= dmg - p.fortitude;
                   Player.list[p.id].working = false;
                   Player.list[p.id].chopping = false;
@@ -989,14 +1024,16 @@ Character = function(param){
         var zc = self.zGrid[i][0];
         var zr = self.zGrid[i][1];
         if(zc < 64 && zc > -1 && zr < 64 && zr > -1){
-          for(var n in zones[zr][zc]){
-            var p = Player.list[zones[zr][zc][n]];
+          const zoneKey = `${zc},${zr}`;
+          const zoneEntities = zones.get(zoneKey) || new Set();
+          for(const entityId of zoneEntities){
+            var p = Player.list[entityId];
             if(p){
               var loc = getLoc(self.x,self.y);
               var lLoc = [loc[0]-1,loc[1]];
               var pLoc = getLoc(p.x,p.y);
               if(pLoc.toString() == lLoc.toString()){
-                if(allyCheck(self.id,p.id) < 1 || self.friendlyfire){
+                if(allyCheck(self.id,p.id) < 0 || self.friendlyfire){
                   Player.list[p.id].hp -= dmg - p.fortitude;
                   Player.list[p.id].working = false;
                   Player.list[p.id].chopping = false;
@@ -1030,14 +1067,16 @@ Character = function(param){
         var zc = self.zGrid[i][0];
         var zr = self.zGrid[i][1];
         if(zc < 64 && zc > -1 && zr < 64 && zr > -1){
-          for(var n in zones[zr][zc]){
-            var p = Player.list[zones[zr][zc][n]];
+          const zoneKey = `${zc},${zr}`;
+          const zoneEntities = zones.get(zoneKey) || new Set();
+          for(const entityId of zoneEntities){
+            var p = Player.list[entityId];
             if(p){
               var loc = getLoc(self.x,self.y);
               var rLoc = [loc[0]+1,loc[1]];
               var pLoc = getLoc(p.x,p.y);
               if(pLoc.toString() == rLoc.toString()){
-                if(allyCheck(self.id,p.id) < 1 || self.friendlyfire){
+                if(allyCheck(self.id,p.id) < 0 || self.friendlyfire){
                   Player.list[p.id].hp -= dmg - p.fortitude;
                   Player.list[p.id].working = false;
                   Player.list[p.id].chopping = false;
@@ -1117,6 +1156,38 @@ Character = function(param){
   self.return = function(target){ // target = {z:z,loc:[c,r]}
     var loc = getLoc(self.x,self.y);
     if(!self.path){
+      // Determine destination z-level
+      var destZ = null;
+      if(target){
+        destZ = target.z;
+      } else if(self.lastLoc){
+        destZ = self.lastLoc.z;
+      } else if(self.tether){
+        destZ = self.tether.z;
+      } else if(self.home){
+        destZ = self.home.z;
+      }
+      
+      // Special case: If inside a building (z=1) and destination is outside (z=0), exit first
+      if(self.z == 1 && destZ == 0){
+        var b = getBuilding(self.x, self.y);
+        if(b){
+          var building = Building.list[b];
+          if(building && building.plot){
+            // Look for door tile in building plot
+            for(var i in building.plot){
+              var p = building.plot[i];
+              var tile = getTile(0, p[0], p[1]);
+              if(tile == 14 || tile == 16){ // Door tiles
+                self.moveTo(1, p[0], p[1]); // Path to door first
+                return; // Exit early, will continue after reaching door
+              }
+            }
+          }
+        }
+      }
+      
+      // Normal pathfinding
       if(target){
         self.moveTo(target.z,target.loc[0],target.loc[1]);
       } else if(self.lastLoc){
@@ -1300,15 +1371,29 @@ Character = function(param){
 
     if(!zn){
       self.zone = [zc,zr];
-      zones[zr][zc][self.id = self.id];
+      const zoneKey = `${zc},${zr}`;
+      if (!zones.has(zoneKey)) {
+        zones.set(zoneKey, new Set());
+      }
+      zones.get(zoneKey).add(self.id);
       self.zGrid = [
         [zc-1,zr-1],[zc,zr-1],[zc+1,zr-1],
         [zc-1,zr],self.zone,[zc+1,zr],
         [zc-1,zr+1],[zc,zr+1],[zc+1,zr+1]
       ];
     } else if(zn != [zc,zr]){
-      delete zones[zn[1]][zn[0]][self.id];
-      zones[zr][zc][self.id] = self.id;
+      // Remove from old zone
+      const oldZoneKey = `${zn[0]},${zn[1]}`;
+      if (zones.has(oldZoneKey)) {
+        zones.get(oldZoneKey).delete(self.id);
+      }
+      
+      // Add to new zone
+      const newZoneKey = `${zc},${zr}`;
+      if (!zones.has(newZoneKey)) {
+        zones.set(newZoneKey, new Set());
+      }
+      zones.get(newZoneKey).add(self.id);
       self.zone = [zc,zr];
       self.zGrid = [
         self.zone,[zc-1,zr-1],[zc,zr-1],
@@ -1367,61 +1452,19 @@ Character = function(param){
   }
 
   self.checkAggro = function(){
-    for(var i in self.zGrid){
-      var zc = self.zGrid[i][0];
-      var zr = self.zGrid[i][1];
-      if(zc < 64 && zc > -1 && zr < 64 && zr > -1){
-        for(var n in zones[zr][zc]){
-          var p = Player.list[zones[zr][zc][n]];
-          if(p && p.z == self.z){
-            var pDist = self.getDistance({
-              x:p.x,
-              y:p.y
-            });
-            if(pDist <= self.aggroRange){ // in aggro range
-              var ally = allyCheck(self.id,p.id);
-              if(self.innaWoods == p.innaWoods || (self.innaWoods && !p.innaWoods)){ // both in woods, both out of woods or in woods and they are not
-                if(ally <= 0){ // is neutral or enemy
-                  self.stealthCheck(p);
-                  if(!Player.list[p.id].stealthed || Player.list[p.id].revealed){ // is not stealthed or is revealed
-                    if(ally == -1){ // is enemy
-                      self.combat.target = p.id;
-                      if(self.hp < (self.hpMax * 0.1) || self.unarmed){
-                        self.action = 'flee';
-                      } else {
-                        if(self.mode == 'patrol' && !self.lastLoc){
-                          var loc = getLoc(self.x,self.y);
-                          self.lastLoc = {z:self.z,loc:loc};
-                        }
-                        self.action = 'combat';
-                      }
-                      if(p.type == 'npc' && pDist <= p.aggroRange && !p.action){
-                        Player.list[p.id].combat.target = self.id;
-                        Player.list[p.id].action = 'combat';
-                      }
-                    } else {
-                      continue;
-                    }
-                  }
-                }
-              } else { // not in woods and they are
-                if(ally == -1){ // is enemy
-                  if(p.type == 'npc' && pDist <= p.aggroRange){
-                    if(!self.stealthed){
-                      Player.list[p.id].combat.target = self.id;
-                      Player.list[p.id].action = 'combat';
-                    } else if(!self.revealed){
-                      Player.list[p.id].combat.target = self.id;
-                      Player.list[p.id].action = 'combat';
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
+    // Use SimpleCombat for aggro checking
+    if(global.simpleCombat){
+      global.simpleCombat.checkAggro(self);
     }
+  }
+  
+  // Start aggro checking interval for all NPCs (type is set to 'npc' in Character constructor)
+  if(self.type === 'npc'){
+    self.aggroInterval = setInterval(function(){
+      if(self.checkAggro){
+        self.checkAggro();
+      }
+    }, 100); // Check every 100ms for responsive aggro
   }
 
   self.calcDir = function(loc,tLoc){
@@ -1726,13 +1769,39 @@ Character = function(param){
       c:loc[0]-self.prevLoc[0],
       r:loc[1]-self.prevLoc[1]
     };
+    // Improved stuck detection
     if((diff.c > -2 && diff.c < 2) && diff.r == 0 || (diff.r > -2 && diff.r < 2) && diff.c == 0){
       self.stuck++;
+    } else {
+      self.stuck = Math.max(0, self.stuck - 1); // Gradually reduce stuck counter
     }
-    if(self.stuck == 200){
-      console.log(self.name + ' is stuck! Getting unstuck...');
+    
+    // Enhanced unstuck mechanism
+    if(self.stuck >= 150){
+      console.log(self.name + ' is stuck! Attempting unstuck...');
       self.stuck = 0;
+      
+      // Try different unstuck strategies
+      if(self.path && self.path.length > 0){
+        // Skip ahead in path
+        self.pathCount = Math.min(self.pathCount + 3, self.path.length - 1);
+      } else {
+        // Recalculate path
       self.getPath(tz,tc,tr);
+      }
+      
+      // If still stuck after multiple attempts, try random movement
+      if(self.stuck >= 200){
+        var randomDir = Math.floor(Math.random() * 4);
+        var offsets = [[0,-1], [1,0], [0,1], [-1,0]];
+        var offset = offsets[randomDir];
+        var newTarget = [loc[0] + offset[0], loc[1] + offset[1]];
+        
+        if(isWalkable(self.z, newTarget[0], newTarget[1])){
+          self.moveTo(newTarget);
+        }
+        self.stuck = 0;
+      }
     }
   }
 
@@ -1968,6 +2037,11 @@ Character = function(param){
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * self.drag;
+        // Clear movement to prevent loops
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
       } else if(getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 2){
         self.innaWoods = true;
         self.onMtn = false;
@@ -2006,6 +2080,11 @@ Character = function(param){
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * self.drag;
+        // Clear movement to prevent loops
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
       } else if(getTile(0,loc[0],loc[1]) == 0){
         self.z = -3;
         self.path = null;
@@ -2013,6 +2092,11 @@ Character = function(param){
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = (self.baseSpd * 0.2)  * self.drag;
+        // Clear movement to prevent loops
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
       } else {
         self.innaWoods = false;
         self.onMtn = false;
@@ -2027,6 +2111,11 @@ Character = function(param){
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = (self.baseSpd * 0.9)  * self.drag;
+        // Clear movement to prevent loops
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
       }
     } else if(self.z == -2){
       if(getTile(8,loc[0],loc[1]) == 5){
@@ -2035,6 +2124,11 @@ Character = function(param){
         self.pathCount = 0;
         self.y += (tileSize/2);
         self.facing = 'down';
+        // Clear movement to prevent infinite stair loops
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
       }
     } else if(self.z == -3){
       if(self.breath > 0){
@@ -2050,6 +2144,11 @@ Character = function(param){
         self.path = null;
         self.pathCount = 0;
         self.breath = self.breathMax;
+        // Clear movement to prevent loops
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
       }
     } else if(self.z == 1){
       if(getTile(0,loc[0],loc[1] - 1) == 14 || getTile(0,loc[0],loc[1] - 1) == 16  || getTile(0,loc[0],loc[1] - 1) == 19){
@@ -2058,18 +2157,33 @@ Character = function(param){
         self.z = 0;
         self.path = null;
         self.pathCount = 0;
+        // Clear movement to prevent loops
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
       } else if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4 || getTile(4,loc[0],loc[1]) == 7){
         self.z = 2;
         self.path = null;
         self.pathCount = 0;
         self.y += (tileSize/2);
-        self.facing = 'down'
+        self.facing = 'down';
+        // Clear movement to prevent infinite stair loops
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
       } else if(getTile(4,loc[0],loc[1]) == 5 || getTile(4,loc[0],loc[1]) == 6){
         self.z = -2;
         self.path = null;
         self.pathCount = 0;
         self.y += (tileSize/2);
         self.facing = 'down';
+        // Clear movement to prevent infinite stair loops
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
       }
     } else if(self.z == 2){
       if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4){
@@ -2078,6 +2192,11 @@ Character = function(param){
         self.pathCount = 0;
         self.y += (tileSize/2);
         self.facing = 'down';
+        // Clear movement to prevent infinite stair loops
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
       }
     }
 
@@ -2091,7 +2210,7 @@ Character = function(param){
         if(self.military){
           var min = Math.floor(House.list[self.house].military.patrol.length/3);
           var count = 0;
-          for(var i in Player.list){
+          for(const i of Object.keys(Player.list)){
             var p = Player.list[i];
             if(p.house == self.house && p.mode == 'patrol'){
               count++;
@@ -2122,50 +2241,16 @@ Character = function(param){
           }
         }
       } else if(self.action == 'combat'){
-        var target = Player.list[self.combat.target];
-        if(!target){
-          self.combat.target = null;
-          self.action = null;
+        // Use SimpleCombat for all combat logic
+        if(global.simpleCombat){
+          global.simpleCombat.update(self);
         } else {
-          if(self.unarmed){
-            self.action = 'flee';
-          } else if(self.ranged){
-            var tLoc = getLoc(target.x,target.y);
-            var dist = self.getDistance({
-              x:target.x,
-              y:target.y
-            })
-            if(dist < self.aggroRange/2){
-              self.reposition(loc,tLoc);
-            } else {
-              if(self.attackCooldown <= 0){
-                var angle = self.getAngle(target.x,target.y);
-                self.shootArrow(angle);
-              }
-              if(dist > self.aggroRange){
-                self.follow(target);
-              }
-            }
-          } else {
-            self.follow(target,true);
-          }
-          var cHome = getCenter(self.home.loc[0],self.home.loc[1]);
-          var hDist = self.getDistance({
-            x:cHome[0],
-            y:cHome[1]
-          });
-          var tDist = self.getDistance({
-            x:target.x,
-            y:target.y
-          });
-          if(hDist > self.wanderRange * 4 || tDist > self.aggroRange * 2){
-            self.combat.target = null;
+          // Fallback: clear invalid combat
+          if(!self.combat.target || !Player.list[self.combat.target]){
             self.action = null;
-            if(target.combat.target == self.id){
-              Player.list[target.id].combat.target = null;
-              Player.list[target.id].action = null;
-            }
-            console.log(self.class + ' returning from combat');
+            self.combat.target = null;
+            self.path = null;
+            self.pathCount = 0;
           }
         }
       } else if(self.action == 'flee'){
@@ -2182,6 +2267,26 @@ Character = function(param){
           } else {
             self.action = null;
           }
+        }
+      } else if(self.action == 'returning'){
+        // Returning home after exceeding leash range
+        if(self.home && self.home.loc){
+          var homeCoords = getCenter(self.home.loc[0], self.home.loc[1]);
+          var homeDist = self.getDistance({x: homeCoords[0], y: homeCoords[1]});
+          var leashRange = self.wanderRange || 2048;
+          
+          if(homeDist <= leashRange * 0.5){
+            // Back within safe range - resume normal behavior
+            console.log(self.class + ' returned home successfully');
+            self.action = null;
+            self.path = null;
+            self.pathCount = 0;
+          } else if(!self.path){
+            // No path and still far - move home
+            self.return();
+          }
+        } else {
+          self.action = null;
         }
       }
       // PATROL
@@ -2457,25 +2562,75 @@ Character = function(param){
     var b = getBuilding(cst[0],cst[1]);
     var cd = getCenter(c,r);
     var db = getBuilding(cd[0],cd[1]);
+    
+    // Use multi-z pathfinding for complex journeys
+    if(z != self.z && Math.abs(z - self.z) > 1){
+      console.log('Using multi-z pathfinding from z', self.z, 'to z', z);
+      var multiZPath = createMultiZPath(self.z, start, z, [c,r]);
+      
+      if(multiZPath && multiZPath.length > 0){
+        // Store the multi-z waypoints
+        self.multiZWaypoints = multiZPath;
+        self.currentWaypoint = 0;
+        
+        // Start with first waypoint
+        var firstWaypoint = multiZPath[0];
+        self.getPath(firstWaypoint.z, firstWaypoint.loc[0], firstWaypoint.loc[1]);
+        return;
+      }
+    }
+    
+    // Try to get cached path first
+    var cachedPath = getCachedPath(start, [c,r], z);
+    if(cachedPath){
+      self.path = cachedPath;
+      return;
+    }
+    
     if(z == self.z){
       if(self.z == 0){
         if(getLocTile(0,self.x,self.y) == 0){
-          var gridSb = cloneGrid(3);
-          var path = finder.findPath(start[0], start[1], c, r, gridSb);
+          var path = global.tilemapSystem.findPath(start, [c,r], 3);
+          if(path && path.length > 0){
+            path = smoothPath(path, z);
+            cachePath(start, [c,r], z, path);
+          }
           self.path = path;
         } else {
-          var gridOb = cloneGrid(0);
-          var path = finder.findPath(start[0], start[1], c, r, gridOb);
+          // Check if destination is a doorway
+          var isTargetDoorway = global.isDoorwayDestination(c, r, z);
+          var options = {};
+          
+          if (isTargetDoorway) {
+            // Allow pathfinding to the specific doorway
+            options.allowSpecificDoor = true;
+            options.targetDoor = [c, r];
+          } else {
+            // Avoid all doorways for general pathfinding
+            options.avoidDoors = true;
+          }
+          
+          var path = global.tilemapSystem.findPath(start, [c,r], 0, options);
+          if(path && path.length > 0){
+            path = smoothPath(path, z);
+            cachePath(start, [c,r], z, path);
+          }
           self.path = path;
         }
       } else if(self.z == -1){
-        var gridUb = cloneGrid(-1);
-        var path = finder.findPath(start[0], start[1], c, r, gridUb);
+        var path = global.tilemapSystem.findPath(start, [c,r], -1);
+        if(path && path.length > 0){
+          path = smoothPath(path, z);
+          cachePath(start, [c,r], z, path);
+        }
         self.path = path;
       } else if(self.z == -2){
         if(b == db){
-          var gridB3b = cloneGrid(-2);
-          var path = finder.findPath(start[0], start[1], c, r, gridB3b);
+          var path = global.tilemapSystem.findPath(start, [c,r], -2);
+          if(path && path.length > 0){
+            path = smoothPath(path, z);
+            cachePath(start, [c,r], z, path);
+          }
           self.path = path;
         } else {
           //var gridB3b = cloneGrid(-2);
@@ -2513,7 +2668,6 @@ Character = function(param){
       }
     } else {
       if(self.z == 0){ // outdoors
-        var gridOb = cloneGrid(0);
         if(z == -1){ // to cave
           var cave = [];
           var best = null;
@@ -2526,15 +2680,26 @@ Character = function(param){
               best = d;
             }
           }
-          var path = finder.findPath(start[0], start[1], cave[0], cave[1], gridOb);
+          // When pathfinding to cave entrance, allow the specific cave entrance
+          var options = {
+            allowSpecificDoor: true,
+            targetDoor: [cave[0], cave[1]]
+          };
+          var path = global.tilemapSystem.findPath(start, [cave[0], cave[1]], 0, options);
           self.path = path;
         } else { // to building
           var ent = Building.list[db].entrance;
-          var path = finder.findPath(start[0], start[1], ent[0], ent[1], gridOb);
+          // When pathfinding to a building entrance, allow the specific doorway
+          var options = {
+            allowSpecificDoor: true,
+            targetDoor: [ent[0], ent[1]]
+          };
+          var path = global.tilemapSystem.findPath(start, [ent[0], ent[1]], 0, options);
           self.path = path;
         }
       } else if(self.z == -1){ // cave
-        var gridUb = cloneGrid(-1);
+        var best = null;
+        var cave = [];
         for(i in caveEntrances){
           var e = getCoords(caveEntrances[i]);
           var d = self.getDistance({x:e[0],y:e[1]});
@@ -2543,7 +2708,7 @@ Character = function(param){
             best = d;
           }
         }
-        var path = finder.findPath(start[0], start[1], cave[0], cave[1]+1, gridUb);
+        var path = global.tilemapSystem.findPath(start, [cave[0], cave[1]+1], -1);
         self.path = path;
       } else if(self.z == 1){ // indoors
         //var gridB1b = cloneGrid(1);
@@ -2589,9 +2754,150 @@ Character = function(param){
   }
 
   self.updatePosition = function(){
+    // Clear movement flags if no path (units should be idle)
+    if(!self.path){
+      self.pressingRight = false;
+      self.pressingLeft = false;
+      self.pressingDown = false;
+      self.pressingUp = false;
+    }
+    
+    // Handle multi-z waypoint progression
+    if(self.multiZWaypoints && self.multiZWaypoints.length > 0){
+      var currentWaypoint = self.multiZWaypoints[self.currentWaypoint];
+      
+      // Check if we've reached the current waypoint
+      var loc = getLoc(self.x, self.y);
+      if(self.z == currentWaypoint.z && loc.toString() == currentWaypoint.loc.toString()){
+        console.log('Reached waypoint', self.currentWaypoint, 'action:', currentWaypoint.action);
+        
+        // Execute waypoint action
+        if(currentWaypoint.action == 'exit_cave'){
+          self.z = currentWaypoint.nextZ;
+          self.x = getCenter(currentWaypoint.nextLoc[0], currentWaypoint.nextLoc[1])[0];
+          self.y = getCenter(currentWaypoint.nextLoc[0], currentWaypoint.nextLoc[1])[1];
+        } else if(currentWaypoint.action == 'enter_cave'){
+          self.z = currentWaypoint.nextZ;
+          self.x = getCenter(currentWaypoint.nextLoc[0], currentWaypoint.nextLoc[1])[0];
+          self.y = getCenter(currentWaypoint.nextLoc[0], currentWaypoint.nextLoc[1])[1];
+        } else if(currentWaypoint.action == 'enter_building'){
+          self.z = currentWaypoint.nextZ;
+          self.x = getCenter(currentWaypoint.nextLoc[0], currentWaypoint.nextLoc[1])[0];
+          self.y = getCenter(currentWaypoint.nextLoc[0], currentWaypoint.nextLoc[1])[1];
+        } else if(currentWaypoint.action == 'exit_building'){
+          self.z = currentWaypoint.nextZ;
+          self.x = getCenter(currentWaypoint.nextLoc[0], currentWaypoint.nextLoc[1])[0];
+          self.y = getCenter(currentWaypoint.nextLoc[0], currentWaypoint.nextLoc[1])[1];
+        } else if(currentWaypoint.action == 'go_upstairs'){
+          self.z = currentWaypoint.nextZ;
+        } else if(currentWaypoint.action == 'go_downstairs'){
+          self.z = currentWaypoint.nextZ;
+        } else if(currentWaypoint.action == 'go_to_cellar'){
+          self.z = currentWaypoint.nextZ;
+        } else if(currentWaypoint.action == 'go_from_cellar'){
+          self.z = currentWaypoint.nextZ;
+        }
+        
+        // Move to next waypoint
+        self.currentWaypoint++;
+        
+        if(self.currentWaypoint < self.multiZWaypoints.length){
+          var nextWaypoint = self.multiZWaypoints[self.currentWaypoint];
+          self.getPath(nextWaypoint.z, nextWaypoint.loc[0], nextWaypoint.loc[1]);
+          return;
+        } else {
+          // Finished multi-z journey
+          self.multiZWaypoints = null;
+          self.currentWaypoint = 0;
+          self.path = null;
+          self.pathCount = 0;
+          return;
+        }
+      }
+    }
+    
     if(self.path){
       if(self.pathCount < self.path.length){
         var next = self.path[self.pathCount];
+        
+        // Check if next waypoint is still walkable (prevent getting stuck in loops)
+        var currentLoc = getLoc(self.x, self.y);
+        var isNextBlocked = !isWalkable(self.z, next[0], next[1]);
+        var isNotAtNext = currentLoc.toString() != next.toString();
+        
+        // Track waypoint history to detect oscillation (back-and-forth loops)
+        // Only for multi-waypoint paths - single-tile paths will naturally repeat
+        var isOscillating = false;
+        if(self.path.length > 1){
+          if(!self.waypointHistory){
+            self.waypointHistory = [];
+          }
+          self.waypointHistory.push(next.toString());
+          if(self.waypointHistory.length > 10){
+            self.waypointHistory.shift(); // Keep only last 10 waypoints
+          }
+          
+          // Check for oscillation pattern (same waypoint appears multiple times in recent history)
+          var waypointCounts = {};
+          for(var i = 0; i < self.waypointHistory.length; i++){
+            var wp = self.waypointHistory[i];
+            waypointCounts[wp] = (waypointCounts[wp] || 0) + 1;
+          }
+          for(var wp in waypointCounts){
+            if(waypointCounts[wp] >= 4){ // Same waypoint 4+ times in last 10 frames = oscillating
+              isOscillating = true;
+              break;
+            }
+          }
+        }
+        
+        // Also check if we've been stuck on the same waypoint for too long
+        if(!self.lastWaypoint || self.lastWaypoint.toString() != next.toString()){
+          self.lastWaypoint = next;
+          self.waypointStuckCounter = 0;
+        } else {
+          self.waypointStuckCounter = (self.waypointStuckCounter || 0) + 1;
+        }
+        
+        // If blocked OR stuck on same waypoint OR oscillating
+        if((isNextBlocked && isNotAtNext) || self.waypointStuckCounter > 60 || isOscillating){
+          // Next waypoint is blocked/unreachable - invalidate path and recalculate
+          if(!self.pathRecalcAttempts){
+            self.pathRecalcAttempts = 0;
+          }
+          self.pathRecalcAttempts++;
+          
+          // Only try to recalculate a few times to prevent infinite loops
+          if(self.pathRecalcAttempts < 3 && self.pathEnd){
+            var reason = isNextBlocked ? 'blocked' : (isOscillating ? 'oscillating' : 'stuck');
+            console.log((self.name || 'Entity') + ' path ' + reason + ' at waypoint ' + next + ', recalculating...');
+            self.path = null;
+            self.pathCount = 0;
+            self.lastWaypoint = null;
+            self.waypointStuckCounter = 0;
+            self.waypointHistory = []; // Clear oscillation history
+            self.getPath(self.pathEnd.z, self.pathEnd.loc[0], self.pathEnd.loc[1]);
+            return;
+          } else {
+            // Give up after 3 attempts
+            console.log((self.name || 'Entity') + ' path failed repeatedly, giving up');
+            self.path = null;
+            self.pathCount = 0;
+            // Don't clear pathEnd if going home - let home action handle retry
+            if(self.action != 'home'){
+              self.pathEnd = null;
+            }
+            self.pathRecalcAttempts = 0;
+            self.lastWaypoint = null;
+            self.waypointStuckCounter = 0;
+            self.waypointHistory = []; // Clear oscillation history
+            return;
+          }
+        } else if(self.pathRecalcAttempts > 0 && isWalkable(self.z, next[0], next[1])){
+          // Path is clear again, reset recalc counter
+          self.pathRecalcAttempts = 0;
+        }
+        
         //if(self.z == 0){ // sidestep doors in path
           //var tile = getTile(0,next[0],next[1]);
           //if((tile == 14 || tile == 16) && self.path[self.path.length-1].toString() != next.toString()){
@@ -2604,25 +2910,43 @@ Character = function(param){
         var diffX = dx - self.x;
         var diffY = dy - self.y;
 
+        // Clear movement keys at start of frame
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
+
+        // Move toward waypoint
+        var movedThisFrame = false;
         if(diffX >= self.maxSpd){
           self.x += self.maxSpd;
           self.pressingRight = true;
           self.facing = 'right';
+          movedThisFrame = true;
         } else if(diffX <= (0-self.maxSpd)){
           self.x -= self.maxSpd;
           self.pressingLeft = true;
           self.facing = 'left';
+          movedThisFrame = true;
         }
         if(diffY >= self.maxSpd){
           self.y += self.maxSpd;
           self.pressingDown = true;
           self.facing = 'down';
+          movedThisFrame = true;
         } else if(diffY <= (0-self.maxSpd)){
           self.y -= self.maxSpd;
           self.pressingUp = true;
           self.facing = 'up';
+          movedThisFrame = true;
         }
+        
+        // Check if reached waypoint (both X and Y within maxSpd range)
         if((diffX < self.maxSpd && diffX > (0-self.maxSpd)) && (diffY < self.maxSpd && diffY > (0-self.maxSpd))){
+          // Snap to exact waypoint position for precise tile alignment
+          self.x = dx;
+          self.y = dy;
+          // Clear movement flags immediately when waypoint reached
           self.pressingRight = false;
           self.pressingLeft = false;
           self.pressingDown = false;
@@ -2639,6 +2963,15 @@ Character = function(param){
         }
         self.path = null;
         self.pathCount = 0;
+        self.pathRecalcAttempts = 0;
+        self.lastWaypoint = null;
+        self.waypointStuckCounter = 0;
+        self.waypointHistory = []; // Clear oscillation history
+        // Clear movement keys when path ends
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
       }
     } else {
       return;
@@ -2730,7 +3063,7 @@ Sheep = function(param){
 Deer = function(param){
   var self = Character(param);
   self.class = 'Deer';
-  self.aggroRange = 384;
+  self.aggroRange = 256;
   self.stealthCheck = function(p){
     if(p.stealthed){
       var dist = self.getDistance({x:p.x,y:p.y});
@@ -2744,8 +3077,10 @@ Deer = function(param){
       var zc = self.zGrid[i][0];
       var zr = self.zGrid[i][1];
       if(zc < 64 && zc > -1 && zr < 64 && zr > -1){
-        for(var n in zones[zr][zc]){
-          var p = Player.list[zones[zr][zc][n]];
+        const zoneKey = `${zc},${zr}`;
+        const zoneEntities = zones.get(zoneKey) || new Set();
+        for(const entityId of zoneEntities){
+          var p = Player.list[entityId];
           if(p && p.z == self.z){
             var pDist = self.getDistance({
               x:p.x,
@@ -2765,8 +3100,12 @@ Deer = function(param){
   }
 
   setInterval(function(){
+    if(global.simpleCombat){
+      global.simpleCombat.checkAggro(self);
+    } else {
     self.checkAggro();
-  },1000);
+    }
+  },100); // Check every 100ms for faster response
 
   self.return = function(){
     if(!self.path){
@@ -2843,21 +3182,15 @@ Deer = function(param){
       } else if(self.action == 'combat'){
         self.action = 'flee';
       } else if(self.action == 'flee'){
-          if(self.combat.target){
-            var target = Player.list[self.combat.target];
-            if(target){
-              if(!self.path){
-                self.baseSpd = 6.5;
-                var tLoc = getLoc(target.x,target.y);
-                self.reposition(loc,tLoc);
-              }
-            } else {
-              self.combat.target = null;
-              self.action = null;
-            }
-          } else {
-            self.action = null;
-          }
+        // Use SimpleFlee system for reliable fleeing
+        if(global.simpleFlee){
+          global.simpleFlee.update(self);
+        } else {
+          // Fallback: clear flee if no system available
+          self.action = null;
+          self.combat.target = null;
+          self.baseSpd = 2;
+        }
       }
     }
     self.updatePosition();
@@ -2870,6 +3203,7 @@ Boar = function(param){
   self.baseSpd = 5;
   self.damage = 12;
   self.aggroRange = 128;
+  self.wanderRange = 256; // Tight leash - territorial defense (2x aggro range)
 }
 
 Wolf = function(param){
@@ -2877,7 +3211,8 @@ Wolf = function(param){
   self.class = 'Wolf';
   self.baseSpd = 5;
   self.damage = 10;
-  self.wanderRange = 1024;
+  self.wanderRange = 4096; // Increased 4x from 1024 (64 tiles)
+  self.aggroRange = 256; // Set initial aggro range
   self.nightmode = true;
   self.stealthCheck = function(p){
     if(p.stealthed){
@@ -2888,12 +3223,19 @@ Wolf = function(param){
     }
   }
   self.checkAggro = function(){
+    // Use SimpleCombat for wolf aggro
+    if(global.simpleCombat){
+      global.simpleCombat.checkAggro(self);
+    } else {
+      // Fallback to old wolf aggro logic
     for(var i in self.zGrid){
       var zc = self.zGrid[i][0];
       var zr = self.zGrid[i][1];
       if(zc < 64 && zc > -1 && zr < 64 && zr > -1){
-        for(var n in zones[zr][zc]){
-          var p = Player.list[zones[zr][zc][n]];
+          const zoneKey = `${zc},${zr}`;
+          const zoneEntities = zones.get(zoneKey) || new Set();
+          for(const entityId of zoneEntities){
+            var p = Player.list[entityId];
           if(p && p.z == self.z){
             var pDist = self.getDistance({
               x:p.x,
@@ -2912,6 +3254,7 @@ Wolf = function(param){
                   if(p.type == 'npc' && pDist <= p.aggroRange && p.action != 'combat'){
                     Player.list[p.id].combat.target = self.id;
                     Player.list[p.id].action = 'combat';
+                    }
                   }
                 }
               }
@@ -2923,19 +3266,23 @@ Wolf = function(param){
   }
 
   setInterval(function(){
+    if(global.simpleCombat){
+      global.simpleCombat.checkAggro(self);
+    } else {
     self.checkAggro();
-  },1000);
+    }
+  },100); // Check every 100ms for faster response
 
   self.update = function(){
     var loc = getLoc(self.x,self.y);
     self.zoneCheck();
     if(nightfall){
       self.nightmode = true;
-      self.aggroRange = 512;
+      self.aggroRange = 320; // Slightly more aggressive at night
       self.idleRange = 300;
     } else {
       self.nightmode = false;
-      self.aggroRange = 256;
+      self.aggroRange = 256; // Standard range during day
       self.idleRange = 1000;
     }
     if(self.idleTime > 0){
@@ -3030,6 +3377,11 @@ Wolf = function(param){
         }
       }
     } else if(self.action == 'combat'){
+      // Use SimpleCombat for wolf combat
+      if(global.simpleCombat){
+        global.simpleCombat.update(self);
+      } else {
+        // Fallback to old wolf combat logic
       if(self.nightmode){
         self.baseSpd = 7;
       } else {
@@ -3045,6 +3397,23 @@ Wolf = function(param){
             Player.list[target.id].action = null;
           }
         } else {
+          // Check leash range - don't chase too far from home
+          var homeCoords = getCenter(self.home.loc[0], self.home.loc[1]);
+          var homeDist = self.getDistance({x: homeCoords[0], y: homeCoords[1]});
+          var leashRange = self.wanderRange || 2048; // Default 32 tiles (4x increase)
+          
+          if(homeDist > leashRange){
+            // Too far from home - disengage and return
+            console.log(self.class + ' exceeded leash range, returning home');
+            self.combat.target = null;
+            self.action = 'returning'; // Set returning state to prevent re-aggro
+            self.baseSpd = 5;
+            if(target.combat.target == self.id){
+              Player.list[target.id].combat.target = null;
+              Player.list[target.id].action = null;
+            }
+            self.return(); // Go back home
+        } else {
           self.follow(target,true);
           var tDist = self.getDistance({
             x:target.x,
@@ -3057,28 +3426,56 @@ Wolf = function(param){
             if(target.combat.target == self.id){
               Player.list[target.id].combat.target = null;
               Player.list[target.id].action = null;
+              }
             }
           }
         }
       } else {
         self.combat.target = null;
         self.action = null;
+        }
       }
     } else if(self.action == 'flee'){
-      if(!self.path){
-        if(self.combat.target){
-          var target = Player.list[self.combat.target];
-          if(target){
-            self.baseSpd = 6;
-            var tLoc = getLoc(target.x,target.y);
-            self.reposition(loc,tLoc);
+      // Use SimpleFlee system for reliable fleeing
+      if(global.simpleFlee){
+        global.simpleFlee.update(self);
+      } else {
+        // Fallback to old reposition logic
+        if(!self.path){
+          if(self.combat.target){
+            var target = Player.list[self.combat.target];
+            if(target){
+              self.baseSpd = 6;
+              var tLoc = getLoc(target.x,target.y);
+              self.reposition(loc,tLoc);
+            } else {
+              self.combat.target = null;
+              self.action = null;
+            }
           } else {
-            self.combat.target = null;
             self.action = null;
           }
-        } else {
-          self.action = null;
         }
+      }
+    } else if(self.action == 'returning'){
+      // Returning home after leashing - check if we're back within leash range
+      if(self.home && self.home.loc){
+        var homeCoords = getCenter(self.home.loc[0], self.home.loc[1]);
+        var homeDist = self.getDistance({x: homeCoords[0], y: homeCoords[1]});
+        var leashRange = self.wanderRange || 2048;
+        
+        if(homeDist <= leashRange * 0.5){
+          // Back within safe range - resume normal behavior
+          console.log(self.class + ' returned home successfully');
+          self.action = null;
+          self.path = null;
+          self.pathCount = 0;
+        } else if(!self.path){
+          // No path and still far - move home
+          self.return();
+        }
+      } else {
+        self.action = null;
       }
     }
     self.updatePosition();
@@ -3090,8 +3487,8 @@ Falcon = function(param){
   self.class = 'Falcon';
   self.falconry = param.falconry;
   self.hp = null;
-  self.baseSpd = 3;
-  self.maxSpd = 3;
+  self.baseSpd = 1;
+  self.maxSpd = 1;
   self.spriteSize = tileSize*7;
   self.update = function(){
     if(!self.path){
@@ -3105,8 +3502,8 @@ Falcon = function(param){
       var diffY = dy - self.y;
 
       if(diffX >= self.maxSpd && diffY >= self.maxSpd){
-        self.x += self.maxSpd;
-        self.y += self.maxSpd;
+        self.x += self.maxSpd * (1);
+        self.y += self.maxSpd * (1);
         if(diffX > diffY){
           self.pressingRight = true;
           self.pressingLeft = false;
@@ -3121,8 +3518,8 @@ Falcon = function(param){
           self.facing = 'down';
         }
       } else if(diffX >= self.maxSpd && diffY <= (0-self.maxSpd)){
-        self.x += self.maxSpd;
-        self.y -= self.maxSpd;
+        self.x += self.maxSpd * (1);
+        self.y -= self.maxSpd * (1);
         if(diffX > diffY*(-1)){
           self.pressingRight = true;
           self.pressingLeft = false;
@@ -3137,8 +3534,8 @@ Falcon = function(param){
           self.facing = 'up';
         }
       } else if(diffX <= (0-self.maxSpd) && diffY >= self.maxSpd){
-        self.x -= self.maxSpd;
-        self.y += self.maxSpd;
+        self.x -= self.maxSpd * (1);
+        self.y += self.maxSpd * (1);
         if(diffX*(-1) > diffY){
           self.pressingRight = false;
           self.pressingLeft = true;
@@ -3153,8 +3550,8 @@ Falcon = function(param){
           self.facing = 'down';
         }
       } else if(diffX <= (0-self.maxSpd) && diffY <= (0-self.maxSpd)){
-        self.x -= self.maxSpd;
-        self.y -= self.maxSpd;
+        self.x -= self.maxSpd * (1);
+        self.y -= self.maxSpd * (1);
         if(diffX < diffY){
           self.pressingRight = false;
           self.pressingLeft = true;
@@ -3169,28 +3566,28 @@ Falcon = function(param){
           self.facing = 'up';
         }
       } else if(diffX >= self.maxSpd){
-        self.x += self.maxSpd;
+        self.x += self.maxSpd * (1);
         self.pressingRight = true;
         self.pressingLeft = false;
         self.pressingDown = false;
         self.pressingUp = false;
         self.facing = 'right';
       } else if(diffX <= (0-self.maxSpd)){
-        self.x -= self.maxSpd;
+        self.x -= self.maxSpd * (1);
         self.pressingRight = false;
         self.pressingLeft = true;
         self.pressingDown = false;
         self.pressingUp = false;
         self.facing = 'left';
       } else if(diffY >= self.maxSpd){
-        self.y += self.maxSpd;
+        self.y += self.maxSpd * (1);
         self.pressingRight = false;
         self.pressingLeft = false;
         self.pressingDown = true;
         self.pressingUp = false;
         self.facing = 'down';
       } else if(diffY <= (0-self.maxSpd)){
-        self.y -= self.maxSpd;
+        self.y -= self.maxSpd * (1);
         self.pressingRight = false;
         self.pressingLeft = false;
         self.pressingDown = false;
@@ -3220,8 +3617,96 @@ SerfM = function(param){
   self.work = {hq:null,spot:null}; // {hq,spot}
   self.dayTimer = false;
   self.workTimer = false;
+  self.idleCounter = 0; // Track how long serf has been without action
+
+  // Assign Serf to appropriate work building
+  self.assignWorkHQ = function(){
+    if(!self.house) return;
+    
+    var bestHQ = null;
+    var bestDistance = Infinity;
+    
+    // Look for work buildings in the same house
+    for(var i in Building.list){
+      var b = Building.list[i];
+      if(b.house == self.house && (b.type == 'mill' || b.type == 'lumbermill' || b.type == 'mine')){
+        var dist = getDistance({x:self.x,y:self.y},{x:b.x,y:b.y});
+        if(dist < bestDistance){
+          bestDistance = dist;
+          bestHQ = i;
+        }
+      }
+    }
+    
+    if(bestHQ){
+      self.work.hq = bestHQ;
+      console.log(self.name + ' assigned to work at ' + Building.list[bestHQ].type);
+    } else {
+      console.log(self.name + ' no work buildings found for house ' + self.house);
+    }
+  };
+
+  // Initialize Serf properly
+  self.initializeSerf = function(){
+    // Use new behavior system for initialization
+    if (global.serfBehaviorSystem) {
+      global.serfBehaviorSystem.initializeSerf(self);
+    } else {
+      // Fallback to old initialization
+      if(!self.work.hq){
+        self.assignWorkHQ();
+      }
+      
+      if(!self.tavern){
+        self.findTavern();
+      }
+      
+      if(!self.mode){
+        self.mode = 'idle';
+      }
+      
+      console.log(self.name + ' initialized - HQ: ' + (self.work.hq ? Building.list[self.work.hq].type : 'none') + 
+                  ', Tavern: ' + (self.tavern ? 'yes' : 'no') + ', Mode: ' + self.mode);
+    }
+  };
+
+  // Find nearest tavern
+  self.findTavern = function(){
+    if(!self.house) return;
+    
+    var bestTavern = null;
+    var bestDistance = Infinity;
+    
+    for(var i in Building.list){
+      var b = Building.list[i];
+      if(b.type == 'tavern' && b.house == self.house){
+        var dist = getDistance({x:self.x,y:self.y},{x:b.x,y:b.y});
+        if(dist < bestDistance && dist <= 1280){ // Within reasonable distance
+          bestDistance = dist;
+          bestTavern = i;
+        }
+      }
+    }
+    
+    if(bestTavern){
+      self.tavern = bestTavern;
+      console.log(self.name + ' found tavern ' + bestTavern);
+    } else {
+      console.log(self.name + ' no tavern found for house ' + self.house);
+    }
+  };
+
+  // Initialize the Serf
+  self.initializeSerf();
 
   self.update = function(){
+    // Use new behavior system for Serf logic
+    if (global.serfBehaviorSystem) {
+      global.serfBehaviorSystem.updateSerf(self);
+      // Skip old logic when new system is active
+      return;
+    }
+    
     var loc = getLoc(self.x,self.y);
     self.zoneCheck();
 
@@ -3276,6 +3761,11 @@ SerfM = function(param){
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = (self.baseSpd * 0.2)  * self.drag;
+        // Clear movement to prevent loops
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
       } else {
         self.innaWoods = false;
         self.onMtn = false;
@@ -3290,6 +3780,11 @@ SerfM = function(param){
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = (self.baseSpd * 0.9)  * self.drag;
+        // Clear movement to prevent loops
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
       }
     } else if(self.z == -2){
       if(getTile(8,loc[0],loc[1]) == 5){
@@ -3298,6 +3793,11 @@ SerfM = function(param){
         self.pathCount = 0;
         self.y += (tileSize/2);
         self.facing = 'down';
+        // Clear movement to prevent infinite stair loops
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
       }
     } else if(self.z == -3){
       if(self.breath > 0){
@@ -3313,6 +3813,11 @@ SerfM = function(param){
         self.path = null;
         self.pathCount = 0;
         self.breath = self.breathMax;
+        // Clear movement to prevent loops
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
       }
     } else if(self.z == 1){
       if(getTile(0,loc[0],loc[1] - 1) == 14 || getTile(0,loc[0],loc[1] - 1) == 16  || getTile(0,loc[0],loc[1] - 1) == 19){
@@ -3321,18 +3826,33 @@ SerfM = function(param){
         self.z = 0;
         self.path = null;
         self.pathCount = 0;
+        // Clear movement to prevent loops
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
       } else if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4 || getTile(4,loc[0],loc[1]) == 7){
         self.z = 2;
         self.path = null;
         self.pathCount = 0;
         self.y += (tileSize/2);
-        self.facing = 'down'
+        self.facing = 'down';
+        // Clear movement to prevent infinite stair loops
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
       } else if(getTile(4,loc[0],loc[1]) == 5 || getTile(4,loc[0],loc[1]) == 6){
         self.z = -2;
         self.path = null;
         self.pathCount = 0;
         self.y += (tileSize/2);
         self.facing = 'down';
+        // Clear movement to prevent infinite stair loops
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
       }
     } else if(self.z == 2){
       if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4){
@@ -3341,35 +3861,49 @@ SerfM = function(param){
         self.pathCount = 0;
         self.y += (tileSize/2);
         self.facing = 'down';
+        // Clear movement to prevent infinite stair loops
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
       }
     }
 
+    // Improved day/night transition logic
     if(tempus == 'VI.a' && self.mode != 'work' && !self.dayTimer){
       self.dayTimer = true;
       var rand = Math.floor(Math.random() * (3600000/(period*6)));
       setTimeout(function(){
+        if(self.mode != 'work'){ // Double-check mode hasn't changed
         self.mode = 'work';
         self.action = null;
-        self.dayTimer = false;
+          self.work.spot = null; // Clear previous work spot
         console.log(self.name + ' heads to work');
+        }
+        self.dayTimer = false;
       },rand);
-    } else if(tempus == 'VI.p' && self.action == 'task' && !self.dayTimer){
+    } else if(tempus == 'VI.p' && (self.action == 'task' || self.action == 'build') && !self.dayTimer){
       self.dayTimer = true;
       var rand = Math.floor(Math.random() * (3600000/(period*6)));
       setTimeout(function(){
+        if(self.action == 'task' || self.action == 'build'){
         self.action = 'clockout';
         self.work.spot = null;
-        self.dayTimer = false;
         console.log(self.name + ' is clocking out');
+        }
+        self.dayTimer = false;
       },rand);
-    } else if(tempus == 'XI.p' && self.action == 'tavern' && !self.dayTimer){
+    } else if(tempus == 'XI.p' && (self.action == 'tavern' || self.action == 'clockout') && !self.dayTimer){
       self.dayTimer = true;
       var rand = Math.floor(Math.random() * (3600000/(period/2)));
       setTimeout(function(){
+        if(self.action == 'tavern' || self.action == 'clockout'){
         self.tether = null;
-        self.action = null;
-        self.dayTimer = false;
+          self.action = 'home';
+          self.mode = 'idle';
         console.log(self.name + ' heads home for the night');
+        }
+        self.dayTimer = false;
       },rand);
     }
 
@@ -3379,9 +3913,42 @@ SerfM = function(param){
 
     // WORK
     if(self.mode == 'work'){
+      // Ensure Serf has a work HQ assigned
+      if(!self.work.hq){
+        self.assignWorkHQ();
+      }
+      
       var hq = Building.list[self.work.hq];
+      if(!hq){
+        console.log(self.name + ' has invalid work HQ, reassigning...');
+        self.assignWorkHQ();
+        hq = Building.list[self.work.hq];
+        if(!hq){
+          // No valid work HQ, reset to idle mode
+          console.log(self.name + ' has no valid work HQ, switching to idle mode');
+          self.mode = 'idle';
+          self.action = null;
+          return;
+        }
+      }
+      
+      // Track how long serf has been without action
+      if(!self.action){
+        self.idleCounter++;
+        if(self.idleCounter > 300){ // If no action for 5 seconds (300 frames at 60fps)
+          console.log(self.name + ' stuck without action, resetting...');
+          self.mode = 'idle';
+          self.action = null;
+          self.idleCounter = 0;
+          return;
+        }
+      } else {
+        self.idleCounter = 0; // Reset counter when serf has an action
+      }
+      
       if(!self.action){
         if(Building.list[self.hut].built){ // if hut is built
+          // Check for building projects first
           if(self.house){
             for(var i in Building.list){
               var b = Building.list[i];
@@ -3389,48 +3956,51 @@ SerfM = function(param){
                 var dist = getDistance({x:self.x,y:self.y},{x:b.x,y:b.y});
                 if(dist <= 1280){
                   var select = [];
-                  for(var i in b.plot){
-                    var p = b.plot[i];
+                  for(var j in b.plot){
+                    var p = b.plot[j];
                     var t = getTile(0,p[0],p[1]);
                     if(t == 11 || t == 11.5){
                       select.push(p);
                     }
+                  }
+                  if(select.length > 0){
                     self.work.spot = select[Math.floor(Math.random() * select.length)];
                     self.action = 'build';
+                    console.log(self.name + ' assigned to build ' + b.type);
                     return;
                   }
                 }
               }
             }
           }
-          var tDist = 0;
-          var avgDist = null;
-          for(var i in hq.resources){
-            var res = hq.resources[i];
-            var r = getCenter(res[0],res[1]);
-            var dist = getDistance({x:hq.x,y:hq.y},{x:r[0],y:r[1]});
-            tDist += dist;
-          }
-          avgDist = tDist/hq.resources.length;
+          
+          // Assign to economic tasks
+          if(hq.resources && hq.resources.length > 0){
           var select = [];
           for(var i in hq.resources){
             var res = hq.resources[i];
             var r = getCenter(res[0],res[1]);
             var dist = getDistance({x:hq.x,y:hq.y},{x:r[0],y:r[1]});
-            if(dist <= avgDist){
+              if(dist <= 1280){ // Only select nearby resources
               select.push(res);
             }
           }
-          console.log(hq.type + ' res: ' + select.length);
+            
+            if(select.length > 0){
           self.work.spot = select[Math.floor(Math.random() * select.length)];
           Building.list[self.work.hq].log[self.id] = self.work.spot;
           self.action = 'task';
-          if(self.work.spot){
-            console.log(self.name + ' working @ ' + hq.type);
+              console.log(self.name + ' working @ ' + hq.type + ' (spot: ' + self.work.spot + ')');
           } else {
-            console.log(self.name + ' failed to find work spot @ ' + hq.type);
+              console.log(self.name + ' no nearby work spots @ ' + hq.type);
+              self.action = null; // Reset action so serf will try to find work again
           }
         } else {
+            console.log(self.name + ' no resources available @ ' + hq.type);
+            self.action = null; // Reset action so serf will try to find work again
+          }
+        } else {
+          // Build hut first
           var hut = Building.list[self.hut];
           var select = [];
           for(var i in hut.plot){
@@ -3440,8 +4010,14 @@ SerfM = function(param){
               select.push(p);
             }
           }
+          if(select.length > 0){
           self.work.spot = select[Math.floor(Math.random() * select.length)];
           self.action = 'build';
+            console.log(self.name + ' building hut');
+          } else {
+            console.log(self.name + ' hut already built or no spots available');
+            self.action = null; // Reset action so serf will try to find work again
+          }
         }
       } else if(self.action == 'build'){
         var spot = self.work.spot;
@@ -3536,7 +4112,7 @@ SerfM = function(param){
                             var p = f.plot[i];
                             tileChange(0,p[0],p[1],9);
                           }
-                          mapEdit();
+                          // Tile update automatically handled by tileChange function
                         } else {
                           var res = getTile(6,spot[0],spot[1]);
                           if(res >= 25){
@@ -3566,7 +4142,7 @@ SerfM = function(param){
                             var p = f.plot[i];
                             tileChange(0,p[0],p[1],10);
                           }
-                          mapEdit();
+                          // Tile update automatically handled by tileChange function
                         } else {
                           var res = getTile(6,spot[0],spot[1]);
                           if(res >= 25){
@@ -3617,7 +4193,7 @@ SerfM = function(param){
                             Building.list[self.work.hq].log[self.id] = self.work.spot;
                           }
                         }
-                        mapEdit();
+                        // Tile update automatically handled by tileChange function
                       }
                     }
                     self.workTimer = false;
@@ -3680,7 +4256,7 @@ SerfM = function(param){
                       var res = getTile(6,spot[0],spot[1]);
                       if(res <= 0 ){
                         tileChange(0,spot[0],spot[1],1,true);
-                        mapEdit();
+                        // Tile update automatically handled by tileChange function
                         for(var i in hq.resources){
                           var f = hq.resources[i];
                           if(f.toString() == spot.toString()){
@@ -3692,7 +4268,7 @@ SerfM = function(param){
                         var gt = getTile(0,spot[0],spot[1]);
                         if(gt >= 1 && gt < 2){
                           tileChange(0,spot[0],spot[1],1,true);
-                          mapEdit();
+                          // Tile update automatically handled by tileChange function
                         }
                       }
                     }
@@ -3824,7 +4400,7 @@ SerfM = function(param){
                         var res = getTile(7,spot[0],spot[1]);
                         if(res <= 0){
                           tileChange(0,spot[0],spot[1],7);
-                          mapEdit();
+                          // Tile update automatically handled by tileChange function
                           for(var i in hq.resources){
                             var f = hq.resources[i];
                             if(f.toString() == spot.toString()){
@@ -3848,7 +4424,7 @@ SerfM = function(param){
                               matrixChange(1,r[0],r[1],0);
                               Building.list[self.work.hq].resources.push(r);
                             }
-                            mapEdit();
+                            // Tile update automatically handled by tileChange function
                           }
                           self.action = null;
                         }
@@ -3909,7 +4485,7 @@ SerfM = function(param){
                         var res = getTile(6,spot[0],spot[1]);
                         if(res <= 0){
                           tileChange(0,spot[0],spot[1],7);
-                          mapEdit();
+                          // Tile update automatically handled by tileChange function
                           for(var i in hq.resources){
                             var f = hq.resources[i];
                             if(f.toString() == spot.toString()){
@@ -3919,7 +4495,7 @@ SerfM = function(param){
                           self.action = null;
                         } else if(tile >= 5 && tile < 6 && res <= 50){
                           tileChange(0,spot[0],spot[1],-1,true);
-                          mapEdit();
+                          // Tile update automatically handled by tileChange function
                         }
                       }
                       self.workTimer = false;
@@ -3962,7 +4538,10 @@ SerfM = function(param){
               }
               self.inventory.flour++;
             } else {
+              // Not enough grain, transition to next action
+              console.log(self.name + ' not enough grain to drop off, transitioning');
               self.mode = 'idle';
+              self.action = null; // Clear action so serf can transition
             }
           } else if(b.type == 'lumbermill'){
             if(self.inventory.wood >= 3){
@@ -3979,7 +4558,10 @@ SerfM = function(param){
                 console.log(self.name + ' dropped off 2 Wood.');
               }
             } else {
+              // Not enough wood, transition to next action
+              console.log(self.name + ' not enough wood to drop off, transitioning');
               self.mode = 'idle';
+              self.action = null; // Clear action so serf can transition
             }
           } else if(b.type == 'mine'){
             if(b.cave){
@@ -4091,6 +4673,7 @@ SerfM = function(param){
             self.return();
           }
         } else if(self.idleTime == 0){
+          if(!self.path){  // Only create new wander if no current path
           var col = loc[0];
           var row = loc[1];
           var select = [[col,row-1],[col-1,row],[col,row+1],[col+1,row]];
@@ -4098,7 +4681,8 @@ SerfM = function(param){
           if(target[0] < mapSize && target[0] > -1 && target[1] < mapSize && target[1] > -1){
             if(isWalkable(self.z,target[0],target[1])){
               self.move(target);
-              self.idleTime += Math.floor(Math.random() * self.idleRange);
+                self.idleTime = Math.floor(Math.random() * self.idleRange);  // SET, not ADD
+              }
             }
           }
         }
@@ -4127,13 +4711,79 @@ SerfM = function(param){
               self.action = 'tavern';
               console.log(self.name + ' heads to the tavern');
             } else {
-              self.action = null;
+              self.action = 'home';
               console.log(self.name + ' heads home for the night');
             }
           }
         } else {
-          self.action = null;
+          self.action = 'home';
           console.log(self.name + ' heads home for the night');
+        }
+      } else if(self.action == 'home'){
+        // Navigate to home location
+        if(self.home){
+          var loc = getLoc(self.x, self.y);
+          if(self.z != self.home.z || loc.toString() != self.home.loc.toString()){
+            // Special case: If inside a building (z=1) and home is outside (z=0), exit first
+            if(self.z == 1 && self.home.z == 0 && !self.path){
+              // Find the door to exit
+              var b = getBuilding(self.x, self.y);
+              if(b){
+                var building = Building.list[b];
+                if(building && building.plot){
+                  // Look for door tile in building plot
+                  for(var i in building.plot){
+                    var p = building.plot[i];
+                    var tile = getTile(0, p[0], p[1]);
+                    if(tile == 14 || tile == 16){ // Door tiles
+                      console.log(self.name + ' inside building, exiting to go home');
+                      self.moveTo(1, p[0], p[1]);
+                      break;
+                    }
+                  }
+                }
+              }
+            }
+            
+            // Track how long we've been trying to go home
+            if(!self.homeAttempts){
+              self.homeAttempts = 0;
+            }
+            self.homeAttempts++;
+            
+            // If stuck trying to go home for too long, just become idle where we are
+            if(self.homeAttempts > 600){ // 10 seconds at 60fps
+              console.log(self.name + ' stuck trying to go home for too long, giving up');
+              self.action = null;
+              self.mode = 'idle';
+              self.homeAttempts = 0;
+              self.path = null; // Clear any bad path
+              self.tether = null; // Clear tether
+            } else {
+              // Try to path to home
+              if(!self.path){
+                self.moveTo(self.home.z, self.home.loc[0], self.home.loc[1]);
+              }
+              // If still no path after trying to create one, we might be stuck
+              if(!self.path && self.homeAttempts > 60){ // If no path after 1 second of trying
+                console.log(self.name + ' cannot create path home, clearing tether and retrying');
+                self.tether = null; // Clear tether in case it's blocking us
+                self.path = null;
+              }
+            }
+          } else {
+            // Arrived home, become idle
+            self.action = null;
+            self.mode = 'idle';
+            self.homeAttempts = 0;
+            console.log(self.name + ' has arrived home');
+          }
+        } else {
+          // No home location, just become idle
+          self.action = null;
+          self.mode = 'idle';
+          self.homeAttempts = 0;
+          console.log(self.name + ' has no home, staying idle');
         }
       } else if(self.action == 'market'){
         var market = Building.list[self.tavern].market;
@@ -4266,8 +4916,116 @@ SerfF = function(param){
   self.work = {hq:null,spot:null}; // {hq,spot}
   self.dayTimer = false;
   self.workTimer = false;
+  self.idleCounter = 0; // Track how long serf has been without action
+
+  // Assign Serf to appropriate work building (Female serfs can only work mills/farms)
+  self.assignWorkHQ = function(){
+    if(!self.house) return;
+    
+    var bestHQ = null;
+    var bestDistance = Infinity;
+    
+    // Look for work buildings in the same house (females can only work mills/farms)
+    for(var i in Building.list){
+      var b = Building.list[i];
+      if(b.house == self.house && (b.type == 'mill' || b.type == 'farm')){
+        var dist = getDistance({x:self.x,y:self.y},{x:b.x,y:b.y});
+        if(dist < bestDistance){
+          bestDistance = dist;
+          bestHQ = i;
+        }
+      }
+    }
+    
+    // If no work found in own house, try to find allied house work
+    if(!bestHQ && self.house){
+      var myHouse = House.list[self.house];
+      if(myHouse && myHouse.allies){
+        for(var i in Building.list){
+          var b = Building.list[i];
+          // Check if building is mill/farm and house is allied
+          if((b.type == 'mill' || b.type == 'farm') && b.house && myHouse.allies.indexOf(b.house) !== -1){
+            var dist = getDistance({x:self.x,y:self.y},{x:b.x,y:b.y});
+            if(dist < bestDistance && dist <= 2000){ // Within reasonable distance
+              bestDistance = dist;
+              bestHQ = i;
+            }
+          }
+        }
+      }
+    }
+    
+    if(bestHQ){
+      self.work.hq = bestHQ;
+      console.log(self.name + ' (female) assigned to work at ' + Building.list[bestHQ].type);
+    } else {
+      // No work available - serf will idle at home
+      console.log(self.name + ' (female) no suitable work found, will idle at home');
+      self.work.hq = null;
+    }
+  };
+
+  // Initialize Serf properly
+  self.initializeSerf = function(){
+    // Use new behavior system for initialization
+    if (global.serfBehaviorSystem) {
+      global.serfBehaviorSystem.initializeSerf(self);
+    } else {
+      // Fallback to old initialization
+      if(!self.work.hq){
+        self.assignWorkHQ();
+      }
+      
+      if(!self.tavern){
+        self.findTavern();
+      }
+      
+      if(!self.mode){
+        self.mode = 'idle';
+      }
+      
+      console.log(self.name + ' initialized - HQ: ' + (self.work.hq ? Building.list[self.work.hq].type : 'none') + 
+                  ', Tavern: ' + (self.tavern ? 'yes' : 'no') + ', Mode: ' + self.mode);
+    }
+  };
+
+  // Find nearest tavern
+  self.findTavern = function(){
+    if(!self.house) return;
+    
+    var bestTavern = null;
+    var bestDistance = Infinity;
+    
+    for(var i in Building.list){
+      var b = Building.list[i];
+      if(b.type == 'tavern' && b.house == self.house){
+        var dist = getDistance({x:self.x,y:self.y},{x:b.x,y:b.y});
+        if(dist < bestDistance && dist <= 1280){ // Within reasonable distance
+          bestDistance = dist;
+          bestTavern = i;
+        }
+      }
+    }
+    
+    if(bestTavern){
+      self.tavern = bestTavern;
+      console.log(self.name + ' found tavern ' + bestTavern);
+    } else {
+      console.log(self.name + ' no tavern found for house ' + self.house);
+    }
+  };
+
+  // Initialize the Serf
+  self.initializeSerf();
 
   self.update = function(){
+    // Use new behavior system for Serf logic
+    if (global.serfBehaviorSystem) {
+      global.serfBehaviorSystem.updateSerf(self);
+      // Skip old logic when new system is active
+      return;
+    }
+    
     var loc = getLoc(self.x,self.y);
     var b = getBuilding(self.x,self.y);
     self.zoneCheck();
@@ -4315,6 +5073,11 @@ SerfF = function(param){
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * self.drag;
+        // Clear movement to prevent loops
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
       } else if(getTile(0,loc[0],loc[1]) == 0){
         self.z = -3;
         self.path = null;
@@ -4322,6 +5085,11 @@ SerfF = function(param){
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = (self.baseSpd * 0.2)  * self.drag;
+        // Clear movement to prevent loops
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
       } else {
         self.innaWoods = false;
         self.onMtn = false;
@@ -4336,6 +5104,11 @@ SerfF = function(param){
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = (self.baseSpd * 0.9)  * self.drag;
+        // Clear movement to prevent loops
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
       }
     } else if(self.z == -2){
       if(getTile(8,loc[0],loc[1]) == 5){
@@ -4344,6 +5117,11 @@ SerfF = function(param){
         self.pathCount = 0;
         self.y += (tileSize/2);
         self.facing = 'down';
+        // Clear movement to prevent infinite stair loops
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
       }
     } else if(self.z == -3){
       if(self.breath > 0){
@@ -4359,6 +5137,11 @@ SerfF = function(param){
         self.path = null;
         self.pathCount = 0;
         self.breath = self.breathMax;
+        // Clear movement to prevent loops
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
       }
     } else if(self.z == 1){
       if(getTile(0,loc[0],loc[1] - 1) == 14 || getTile(0,loc[0],loc[1] - 1) == 16  || getTile(0,loc[0],loc[1] - 1) == 19){
@@ -4367,18 +5150,33 @@ SerfF = function(param){
         self.z = 0;
         self.path = null;
         self.pathCount = 0;
+        // Clear movement to prevent loops
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
       } else if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4 || getTile(4,loc[0],loc[1]) == 7){
         self.z = 2;
         self.path = null;
         self.pathCount = 0;
         self.y += (tileSize/2);
-        self.facing = 'down'
+        self.facing = 'down';
+        // Clear movement to prevent infinite stair loops
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
       } else if(getTile(4,loc[0],loc[1]) == 5 || getTile(4,loc[0],loc[1]) == 6){
         self.z = -2;
         self.path = null;
         self.pathCount = 0;
         self.y += (tileSize/2);
         self.facing = 'down';
+        // Clear movement to prevent infinite stair loops
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
       }
     } else if(self.z == 2){
       if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4){
@@ -4387,6 +5185,11 @@ SerfF = function(param){
         self.pathCount = 0;
         self.y += (tileSize/2);
         self.facing = 'down';
+        // Clear movement to prevent infinite stair loops
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
       }
     }
 
@@ -4412,7 +5215,7 @@ SerfF = function(param){
       var rand = Math.floor(Math.random() * (3600000/(period/2)));
       setTimeout(function(){
         self.tether = null;
-        self.action = null;
+        self.action = 'home';
         self.dayTimer = false;
         console.log(self.name + ' heads home for the night');
       },rand);
@@ -4551,7 +5354,7 @@ SerfF = function(param){
                             var p = f.plot[i];
                             tileChange(0,p[0],p[1],9);
                           }
-                          mapEdit();
+                          // Tile update automatically handled by tileChange function
                         } else {
                           for(var n in hq.resources){
                             var r = hq.resources[n];
@@ -4578,7 +5381,7 @@ SerfF = function(param){
                             var p = f.plot[i];
                             tileChange(0,p[0],p[1],10);
                           }
-                          mapEdit();
+                          // Tile update automatically handled by tileChange function
                         } else {
                           for(var n in hq.resources){
                             var r = hq.resources[n];
@@ -4626,7 +5429,7 @@ SerfF = function(param){
                             Building.list[self.work.hq].log[self.id] = self.work.spot;
                           }
                         }
-                        mapEdit();
+                        // Tile update automatically handled by tileChange function
                       }
                     }
                     self.workTimer = false;
@@ -4698,6 +5501,7 @@ SerfF = function(param){
             self.return();
           }
         } else if(self.idleTime == 0){
+          if(!self.path){  // Only create new wander if no current path
           var col = loc[0];
           var row = loc[1];
           var select = [[col,row-1],[col-1,row],[col,row+1],[col+1,row]];
@@ -4705,7 +5509,8 @@ SerfF = function(param){
           if(target[0] < mapSize && target[0] > -1 && target[1] < mapSize && target[1] > -1){
             if(isWalkable(self.z,target[0],target[1])){
               self.move(target);
-              self.idleTime += Math.floor(Math.random() * self.idleRange);
+                self.idleTime = Math.floor(Math.random() * self.idleRange);  // SET, not ADD
+              }
             }
           }
         }
@@ -4725,13 +5530,13 @@ SerfF = function(param){
                 self.action = 'tavern';
                 console.log(self.name + ' heads to the tavern');
               } else {
-                self.action = null;
+                self.action = 'home';
                 console.log(self.name + ' heads home for the night');
               }
             }
           } else {
             if(rand < 0.8){
-              self.action = null;
+              self.action = 'home';
               console.log(self.name + ' heads home for the night');
             } else {
               self.action = 'tavern';
@@ -4739,8 +5544,74 @@ SerfF = function(param){
             }
           }
         } else {
-          self.action = null;
+          self.action = 'home';
           console.log(self.name + ' heads home for the night');
+        }
+      } else if(self.action == 'home'){
+        // Navigate to home location
+        if(self.home){
+          var loc = getLoc(self.x, self.y);
+          if(self.z != self.home.z || loc.toString() != self.home.loc.toString()){
+            // Special case: If inside a building (z=1) and home is outside (z=0), exit first
+            if(self.z == 1 && self.home.z == 0 && !self.path){
+              // Find the door to exit
+              var b = getBuilding(self.x, self.y);
+              if(b){
+                var building = Building.list[b];
+                if(building && building.plot){
+                  // Look for door tile in building plot
+                  for(var i in building.plot){
+                    var p = building.plot[i];
+                    var tile = getTile(0, p[0], p[1]);
+                    if(tile == 14 || tile == 16){ // Door tiles
+                      console.log(self.name + ' inside building, exiting to go home');
+                      self.moveTo(1, p[0], p[1]);
+                      break;
+                    }
+                  }
+                }
+              }
+            }
+            
+            // Track how long we've been trying to go home
+            if(!self.homeAttempts){
+              self.homeAttempts = 0;
+            }
+            self.homeAttempts++;
+            
+            // If stuck trying to go home for too long, just become idle where we are
+            if(self.homeAttempts > 600){ // 10 seconds at 60fps
+              console.log(self.name + ' stuck trying to go home for too long, giving up');
+              self.action = null;
+              self.mode = 'idle';
+              self.homeAttempts = 0;
+              self.path = null; // Clear any bad path
+              self.tether = null; // Clear tether
+            } else {
+              // Try to path to home
+              if(!self.path){
+                self.moveTo(self.home.z, self.home.loc[0], self.home.loc[1]);
+              }
+              // If still no path after trying to create one, we might be stuck
+              if(!self.path && self.homeAttempts > 60){ // If no path after 1 second of trying
+                console.log(self.name + ' cannot create path home, clearing tether and retrying');
+                self.tether = null; // Clear tether in case it's blocking us
+                self.path = null;
+              }
+            }
+          } else {
+            // Arrived home, become idle
+            self.action = null;
+            self.mode = 'idle';
+            self.homeAttempts = 0;
+            console.log(self.name + ' has arrived home');
+          }
+        } else {
+          // No home location, just become idle
+          self.action = null;
+          self.mode = 'idle';
+          self.homeAttempts = 0;
+          console.log(self.name + ' has no home, staying idle');
         }
       } else if(self.action == 'market'){
         var market = Building.list[self.tavern].market;
@@ -4921,6 +5792,11 @@ Blacksmith = function(param){
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * self.drag;
+        // Clear movement to prevent loops
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
       } else if(getTile(0,loc[0],loc[1]) == 0){
         self.z = -3;
         self.path = null;
@@ -4928,6 +5804,11 @@ Blacksmith = function(param){
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = (self.baseSpd * 0.2)  * self.drag;
+        // Clear movement to prevent loops
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
       } else {
         self.innaWoods = false;
         self.onMtn = false;
@@ -4949,6 +5830,11 @@ Blacksmith = function(param){
         self.pathCount = 0;
         self.y += (tileSize/2);
         self.facing = 'down';
+        // Clear movement to prevent infinite stair loops
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
       }
     } else if(self.z == -3){
       if(self.breath > 0){
@@ -4964,6 +5850,11 @@ Blacksmith = function(param){
         self.path = null;
         self.pathCount = 0;
         self.breath = self.breathMax;
+        // Clear movement to prevent loops
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
       }
     } else if(self.z == 1){
       if(getTile(0,loc[0],loc[1] - 1) == 14 || getTile(0,loc[0],loc[1] - 1) == 16  || getTile(0,loc[0],loc[1] - 1) == 19){
@@ -4972,18 +5863,33 @@ Blacksmith = function(param){
         self.z = 0;
         self.path = null;
         self.pathCount = 0;
+        // Clear movement to prevent loops
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
       } else if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4 || getTile(4,loc[0],loc[1]) == 7){
         self.z = 2;
         self.path = null;
         self.pathCount = 0;
         self.y += (tileSize/2);
-        self.facing = 'down'
+        self.facing = 'down';
+        // Clear movement to prevent infinite stair loops
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
       } else if(getTile(4,loc[0],loc[1]) == 5 || getTile(4,loc[0],loc[1]) == 6){
         self.z = -2;
         self.path = null;
         self.pathCount = 0;
         self.y += (tileSize/2);
         self.facing = 'down';
+        // Clear movement to prevent infinite stair loops
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
       }
     } else if(self.z == 2){
       if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4){
@@ -4992,6 +5898,11 @@ Blacksmith = function(param){
         self.pathCount = 0;
         self.y += (tileSize/2);
         self.facing = 'down';
+        // Clear movement to prevent infinite stair loops
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
       }
     }
 
@@ -5092,6 +6003,7 @@ Blacksmith = function(param){
             self.return();
           }
         } else if(self.idleTime == 0){
+          if(!self.path){  // Only create new wander if no current path
           var col = loc[0];
           var row = loc[1];
           var select = [[col,row-1],[col-1,row],[col,row+1],[col+1,row]];
@@ -5099,7 +6011,8 @@ Blacksmith = function(param){
           if(target[0] < mapSize && target[0] > -1 && target[1] < mapSize && target[1] > -1){
             if(isWalkable(self.z,target[0],target[1])){
               self.move(target);
-              self.idleTime += Math.floor(Math.random() * self.idleRange);
+                self.idleTime = Math.floor(Math.random() * self.idleRange);  // SET, not ADD
+              }
             }
           }
         }
@@ -5844,8 +6757,10 @@ Arrow = function(param){
       var zc = self.zGrid[i][0];
       var zr = self.zGrid[i][1];
       if(zc < 64 && zc > -1 && zr < 64 && zr > -1){
-        for(var n in zones[zr][zc]){
-          var p = Player.list[zones[zr][zc][n]];
+        const zoneKey = `${zc},${zr}`;
+        const zoneEntities = zones.get(zoneKey) || new Set();
+        for(const entityId of zoneEntities){
+          var p = Player.list[entityId];
           if(p){
             if(self.getDistance(p) < 32 && self.z == p.z && self.parent != p.id){
               Player.list[p.id].hp -= Player.list[self.parent].dmg - p.fortitude;
@@ -8434,3 +9349,4 @@ Light.getAllInitPack = function(){
     lights.push(Light.list[i].getInitPack());
   return lights;
 }
+

@@ -297,7 +297,33 @@ Goths = function(param){
       var sp2 = grid[rand];
       var c2 = getCenter(sp2[0],sp2[1]);
       var work = {hq:b,spot:null};
-      if(s1 > 0.4){
+      // For lumbermill/mine, first serf MUST be male; for mill/farm, can be either
+      if(building.type == 'mill' || building.type == 'farm'){
+        if(s1 > 0.4){
+          SerfM({
+            id:s1,
+            name:'Serf',
+            x:c1[0],
+            y:c1[1],
+            z:0,
+            house:self.id,
+            home:{z:0,loc:sp1},
+            hut:id
+          });
+        } else {
+          SerfF({
+            id:s1,
+            name:'Serf',
+            x:c1[0],
+            y:c1[1],
+            z:0,
+            house:self.id,
+            home:{z:0,loc:sp1},
+            hut:id
+          });
+        }
+      } else {
+        // Lumbermill or mine - first serf must be male
         SerfM({
           id:s1,
           name:'Serf',
@@ -308,19 +334,9 @@ Goths = function(param){
           home:{z:0,loc:sp1},
           hut:id
         });
-      } else {
-        SerfF({
-          id:s1,
-          name:'Serf',
-          x:c1[0],
-          y:c1[1],
-          z:0,
-          house:self.id,
-          home:{z:0,loc:sp1},
-          hut:id
-        });
       }
-      if(building.type == 'mill'){
+      if(building.type == 'mill' || building.type == 'farm'){
+        // Mills and farms can have either gender
         if(s2 > 0.6){
           SerfM({
             id:s2,
@@ -349,20 +365,34 @@ Goths = function(param){
         Building.list[b].serfs[s2] = s2;
         Player.list[s2].work = {hq:b,spot:null};
       } else {
-        SerfM({
-          id:s2,
-          name:'Serf',
-          x:c2[0],
-          y:c2[1],
-          z:0,
-          house:self.id,
-          home:{z:0,loc:sp2},
-          hut:id
-        });
-        if(Player.list[s1].sex == 'm'){
-          Building.list[b].serfs[s1] = s1;
-          Player.list[s1].work = {hq:b,spot:null};
+        // Lumbermill or mine - second serf can be either, but only males get work assigned
+        if(s2 > 0.5){
+          SerfM({
+            id:s2,
+            name:'Serf',
+            x:c2[0],
+            y:c2[1],
+            z:0,
+            house:self.id,
+            home:{z:0,loc:sp2},
+            hut:id
+          });
+        } else {
+          SerfF({
+            id:s2,
+            name:'Serf',
+            x:c2[0],
+            y:c2[1],
+            z:0,
+            house:self.id,
+            home:{z:0,loc:sp2},
+            hut:id
+          });
         }
+        // First serf is always male, so always assign
+        Building.list[b].serfs[s1] = s1;
+        Player.list[s1].work = {hq:b,spot:null};
+        // Second serf only gets work if male
         if(Player.list[s2].sex == 'm'){
           Building.list[b].serfs[s2] = s2;
           Player.list[s2].work = {hq:b,spot:null};
@@ -903,7 +933,33 @@ Franks = function(param){
       var sp2 = grid[rand];
       var c2 = getCenter(sp2[0],sp2[1]);
       var work = {hq:b,spot:null};
-      if(s1 > 0.4){
+      // For lumbermill/mine, first serf MUST be male; for mill/farm, can be either
+      if(building.type == 'mill' || building.type == 'farm'){
+        if(s1 > 0.4){
+          SerfM({
+            id:s1,
+            name:'Serf',
+            x:c1[0],
+            y:c1[1],
+            z:0,
+            house:self.id,
+            home:{z:0,loc:sp1},
+            hut:id
+          });
+        } else {
+          SerfF({
+            id:s1,
+            name:'Serf',
+            x:c1[0],
+            y:c1[1],
+            z:0,
+            house:self.id,
+            home:{z:0,loc:sp1},
+            hut:id
+          });
+        }
+      } else {
+        // Lumbermill or mine - first serf must be male
         SerfM({
           id:s1,
           name:'Serf',
@@ -914,19 +970,9 @@ Franks = function(param){
           home:{z:0,loc:sp1},
           hut:id
         });
-      } else {
-        SerfF({
-          id:s1,
-          name:'Serf',
-          x:c1[0],
-          y:c1[1],
-          z:0,
-          house:self.id,
-          home:{z:0,loc:sp1},
-          hut:id
-        });
       }
-      if(building.type == 'mill'){
+      if(building.type == 'mill' || building.type == 'farm'){
+        // Mills and farms can have either gender
         if(s2 > 0.6){
           SerfM({
             id:s2,
@@ -955,20 +1001,34 @@ Franks = function(param){
         Building.list[b].serfs[s2] = s2;
         Player.list[s2].work = {hq:b,spot:null};
       } else {
-        SerfM({
-          id:s2,
-          name:'Serf',
-          x:c2[0],
-          y:c2[1],
-          z:0,
-          house:self.id,
-          home:{z:0,loc:sp2},
-          hut:id
-        });
-        if(Player.list[s1].sex == 'm'){
-          Building.list[b].serfs[s1] = s1;
-          Player.list[s1].work = {hq:b,spot:null};
+        // Lumbermill or mine - second serf can be either, but only males get work assigned
+        if(s2 > 0.5){
+          SerfM({
+            id:s2,
+            name:'Serf',
+            x:c2[0],
+            y:c2[1],
+            z:0,
+            house:self.id,
+            home:{z:0,loc:sp2},
+            hut:id
+          });
+        } else {
+          SerfF({
+            id:s2,
+            name:'Serf',
+            x:c2[0],
+            y:c2[1],
+            z:0,
+            house:self.id,
+            home:{z:0,loc:sp2},
+            hut:id
+          });
         }
+        // First serf is always male, so always assign
+        Building.list[b].serfs[s1] = s1;
+        Player.list[s1].work = {hq:b,spot:null};
+        // Second serf only gets work if male
         if(Player.list[s2].sex == 'm'){
           Building.list[b].serfs[s2] = s2;
           Player.list[s2].work = {hq:b,spot:null};
@@ -1446,7 +1506,33 @@ Celts = function(param){
       var sp2 = grid[rand];
       var c2 = getCenter(sp2[0],sp2[1]);
       var work = {hq:b,spot:null};
-      if(s1 > 0.4){
+      // For lumbermill/mine, first serf MUST be male; for mill/farm, can be either
+      if(building.type == 'mill' || building.type == 'farm'){
+        if(s1 > 0.4){
+          SerfM({
+            id:s1,
+            name:'Serf',
+            x:c1[0],
+            y:c1[1],
+            z:0,
+            house:self.id,
+            home:{z:0,loc:sp1},
+            hut:id
+          });
+        } else {
+          SerfF({
+            id:s1,
+            name:'Serf',
+            x:c1[0],
+            y:c1[1],
+            z:0,
+            house:self.id,
+            home:{z:0,loc:sp1},
+            hut:id
+          });
+        }
+      } else {
+        // Lumbermill or mine - first serf must be male
         SerfM({
           id:s1,
           name:'Serf',
@@ -1457,19 +1543,9 @@ Celts = function(param){
           home:{z:0,loc:sp1},
           hut:id
         });
-      } else {
-        SerfF({
-          id:s1,
-          name:'Serf',
-          x:c1[0],
-          y:c1[1],
-          z:0,
-          house:self.id,
-          home:{z:0,loc:sp1},
-          hut:id
-        });
       }
-      if(building.type == 'mill'){
+      if(building.type == 'mill' || building.type == 'farm'){
+        // Mills and farms can have either gender
         if(s2 > 0.6){
           SerfM({
             id:s2,
@@ -1498,20 +1574,34 @@ Celts = function(param){
         Building.list[b].serfs[s2] = s2;
         Player.list[s2].work = {hq:b,spot:null};
       } else {
-        SerfM({
-          id:s2,
-          name:'Serf',
-          x:c2[0],
-          y:c2[1],
-          z:0,
-          house:self.id,
-          home:{z:0,loc:sp2},
-          hut:id
-        });
-        if(Player.list[s1].sex == 'm'){
-          Building.list[b].serfs[s1] = s1;
-          Player.list[s1].work = {hq:b,spot:null};
+        // Lumbermill or mine - second serf can be either, but only males get work assigned
+        if(s2 > 0.5){
+          SerfM({
+            id:s2,
+            name:'Serf',
+            x:c2[0],
+            y:c2[1],
+            z:0,
+            house:self.id,
+            home:{z:0,loc:sp2},
+            hut:id
+          });
+        } else {
+          SerfF({
+            id:s2,
+            name:'Serf',
+            x:c2[0],
+            y:c2[1],
+            z:0,
+            house:self.id,
+            home:{z:0,loc:sp2},
+            hut:id
+          });
         }
+        // First serf is always male, so always assign
+        Building.list[b].serfs[s1] = s1;
+        Player.list[s1].work = {hq:b,spot:null};
+        // Second serf only gets work if male
         if(Player.list[s2].sex == 'm'){
           Building.list[b].serfs[s2] = s2;
           Player.list[s2].work = {hq:b,spot:null};
@@ -1944,7 +2034,33 @@ Teutons = function(param){
       var sp2 = grid[rand];
       var c2 = getCenter(sp2[0],sp2[1]);
       var work = {hq:b,spot:null};
-      if(s1 > 0.4){
+      // For lumbermill/mine, first serf MUST be male; for mill/farm, can be either
+      if(building.type == 'mill' || building.type == 'farm'){
+        if(s1 > 0.4){
+          SerfM({
+            id:s1,
+            name:'Serf',
+            x:c1[0],
+            y:c1[1],
+            z:0,
+            house:self.id,
+            home:{z:0,loc:sp1},
+            hut:id
+          });
+        } else {
+          SerfF({
+            id:s1,
+            name:'Serf',
+            x:c1[0],
+            y:c1[1],
+            z:0,
+            house:self.id,
+            home:{z:0,loc:sp1},
+            hut:id
+          });
+        }
+      } else {
+        // Lumbermill or mine - first serf must be male
         SerfM({
           id:s1,
           name:'Serf',
@@ -1955,19 +2071,9 @@ Teutons = function(param){
           home:{z:0,loc:sp1},
           hut:id
         });
-      } else {
-        SerfF({
-          id:s1,
-          name:'Serf',
-          x:c1[0],
-          y:c1[1],
-          z:0,
-          house:self.id,
-          home:{z:0,loc:sp1},
-          hut:id
-        });
       }
-      if(building.type == 'mill'){
+      if(building.type == 'mill' || building.type == 'farm'){
+        // Mills and farms can have either gender
         if(s2 > 0.6){
           SerfM({
             id:s2,
@@ -1996,20 +2102,34 @@ Teutons = function(param){
         Building.list[b].serfs[s2] = s2;
         Player.list[s2].work = {hq:b,spot:null};
       } else {
-        SerfM({
-          id:s2,
-          name:'Serf',
-          x:c2[0],
-          y:c2[1],
-          z:0,
-          house:self.id,
-          home:{z:0,loc:sp2},
-          hut:id
-        });
-        if(Player.list[s1].sex == 'm'){
-          Building.list[b].serfs[s1] = s1;
-          Player.list[s1].work = {hq:b,spot:null};
+        // Lumbermill or mine - second serf can be either, but only males get work assigned
+        if(s2 > 0.5){
+          SerfM({
+            id:s2,
+            name:'Serf',
+            x:c2[0],
+            y:c2[1],
+            z:0,
+            house:self.id,
+            home:{z:0,loc:sp2},
+            hut:id
+          });
+        } else {
+          SerfF({
+            id:s2,
+            name:'Serf',
+            x:c2[0],
+            y:c2[1],
+            z:0,
+            house:self.id,
+            home:{z:0,loc:sp2},
+            hut:id
+          });
         }
+        // First serf is always male, so always assign
+        Building.list[b].serfs[s1] = s1;
+        Player.list[s1].work = {hq:b,spot:null};
+        // Second serf only gets work if male
         if(Player.list[s2].sex == 'm'){
           Building.list[b].serfs[s2] = s2;
           Player.list[s2].work = {hq:b,spot:null};

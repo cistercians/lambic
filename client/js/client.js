@@ -34,11 +34,21 @@ socket.onmessage = function(event){
   } else if(data.msg == 'addToChat'){
     chatText.innerHTML += '<div>' + data.message + '</div>';
   } else if(data.msg == 'tileEdit'){
-    world[data.l][data.r][data.c] = data.tile;
+    if(world[data.l] && world[data.l][data.r]) {
+      world[data.l][data.r][data.c] = data.tile;
+    }
   } else if(data.msg == 'layerEdit'){
     world[data.l] = data.layer;
   } else if(data.msg == 'mapEdit'){
     world = data.world;
+  } else if(data.msg == 'buildingPreview'){
+    // Handle building preview
+    console.log('Client received buildingPreview message:', data);
+    if(window.buildingPreviewRenderer){
+      window.buildingPreviewRenderer.showPreview(data);
+    } else {
+      console.log('BuildingPreviewRenderer not found!');
+    }
   } else if(data.msg == 'init'){
     if(data.selfId)
       selfId = data.selfId;
@@ -134,8 +144,14 @@ socket.onmessage = function(event){
           p.breath = pack.breath;
         if(pack.breathMax != undefined)
           p.breathMax = pack.breathMax;
-        if(pack.action != undefined)
+        if(pack.action !== undefined) {
+          if(p.id === selfId && p.action === 'combat') {
+            console.log(`Player action update: old=${p.action}, new=${pack.action}, type=${typeof pack.action}`);
+          }
           p.action = pack.action;
+        } else if(p.id === selfId && p.action === 'combat') {
+          console.log(`Combat status: action field not in update pack, keeping old value: ${p.action}`);
+        }
         if(pack.ghost != undefined)
           p.ghost = pack.ghost;
 
@@ -639,8 +655,8 @@ var Player = function(initPack){
       y = (self.y - (tileSize/2)) - Player.list[selfId].y + HEIGHT/2;
     }
 
-    // hp and spirit bars
-    if(stealth < 1.5){
+    // hp and spirit bars (skip for non-combatant creatures)
+    if(stealth < 1.5 && self.class !== 'Falcon'){
       var barX = (self.x - (tileSize/2)) - Player.list[selfId].x + WIDTH/2;
       var barY = (self.y - (tileSize/2)) - Player.list[selfId].y + HEIGHT/2;
 
@@ -6732,6 +6748,8 @@ document.onkeydown = function(event){
       socket.send(JSON.stringify({msg:'keyPress',inputId:'9',state:true}));
     } else if(event.keyCode == 48){ // 0
       socket.send(JSON.stringify({msg:'keyPress',inputId:'0',state:true}));
+    } else if(event.keyCode == 16){ // shift
+      socket.send(JSON.stringify({msg:'keyPress',inputId:'shift',state:true}));
     }
   }
 }
@@ -6798,6 +6816,8 @@ document.onkeyup = function(event){
     socket.send(JSON.stringify({msg:'keyPress',inputId:'9',state:false}));
   } else if(event.keyCode == 48){ // 0
     socket.send(JSON.stringify({msg:'keyPress',inputId:'0',state:false}));
+  } else if(event.keyCode == 16){ // shift
+    socket.send(JSON.stringify({msg:'keyPress',inputId:'shift',state:false}));
   }
 }
 

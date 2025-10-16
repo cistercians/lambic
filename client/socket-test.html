@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Socket Test</title>
+</head>
+<body>
+    <h1>Socket Connection Test</h1>
+    <div id="status">Connecting...</div>
+    <button id="test-btn">Test Sign In</button>
+    <div id="messages"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script>
+        const status = document.getElementById('status');
+        const messages = document.getElementById('messages');
+        const testBtn = document.getElementById('test-btn');
+        
+        let socket = new SockJS('http://localhost:2000/io');
+        
+        socket.onopen = () => {
+            status.textContent = 'Connected!';
+            status.style.color = 'green';
+            console.log('Socket connected');
+        };
+        
+        socket.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            console.log('Received:', data);
+            messages.innerHTML += '<div>' + JSON.stringify(data, null, 2) + '</div>';
+        };
+        
+        socket.onclose = () => {
+            status.textContent = 'Disconnected';
+            status.style.color = 'red';
+            console.log('Socket disconnected');
+        };
+        
+        socket.onerror = (error) => {
+            status.textContent = 'Error: ' + error;
+            status.style.color = 'red';
+            console.error('Socket error:', error);
+        };
+        
+        testBtn.addEventListener('click', () => {
+            const message = {
+                msg: 'signIn',
+                name: 'testuser',
+                password: 'testpass'
+            };
+            console.log('Sending:', message);
+            socket.send(JSON.stringify(message));
+        });
+    </script>
+</body>
+</html>
+

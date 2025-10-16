@@ -17,7 +17,7 @@ EvalCmd = function(data){
       var garrison = 0;
       var stronghold = 0;
 
-      var all = '<b><u>TIER I</u><br>[Farm]</b>: /build farm<br><b>Lumbermill</b>: /build lumbermill<br><b>Mine</b>: /build mine<br><b>Hut</b>: /build hut<br><b>Cottage</b>: /build cottage<br><b>Villa</b>: /build villa<br><b>[Tavern]</b>: /build tavern<br><b>Tower</b>: /build tower<br><b>[Forge]</b>: /build forge<br><b>Fort</b>: /build fort<br><b>Outpost</b>: /build outpost<br><b>[Monastery]</b>: /build monastery<br><b>Road</b>: /build road<br>';
+      var all = '<b><u>TIER I</u><br>[Farm]</b>: /build farm<br><b>Lumbermill</b>: /build lumbermill<br><b>Mine</b>: /build mine<br><b>Hut</b>: /build hut<br><b>Cottage</b>: /build cottage<br><b>Villa</b>: /build villa<br><b>[Tavern]</b>: /build tavern<br><b>Tower</b>: /build tower<br><b>[Forge]</b>: /build forge<br><b>Fort</b>: /build fort<br><b>Outpost</b>: /build outpost<br><b>[Monastery]</b>: /build monastery<br><b>Road</b>: /build road<br><br><b>Building Preview:</b><br>Use <b>/preview [building]</b> to see where you can build<br>Example: <b>/preview tavern</b><br>';
 
       for(var i in Building.list){
         var b = Building.list[i];
@@ -56,6 +56,32 @@ EvalCmd = function(data){
         all += '<b><u>TIER IV</u><br>Cathedral</b>: /build cathedral<br>';
       }
       socket.write(JSON.stringify({msg:'addToChat',message:'<p>' + all + '</p>'}));
+    } else if(data.cmd.slice(0,7) == 'preview' && data.cmd[7] == ' '){
+      // Building preview system
+      const buildingType = data.cmd.slice(data.cmd.indexOf(' ') + 1);
+      console.log('Preview command received for building type:', buildingType);
+      
+      // Check if this is a valid building type
+      if(global.buildingPreview && global.buildingPreview.getBuildingDefinition(buildingType)){
+        const validation = global.buildingPreview.validateBuildingPlacement(buildingType, c, r, z);
+        const materialCheck = global.buildingPreview.checkMaterials(player, buildingType);
+        
+        console.log('Validation result:', validation);
+        console.log('Material check:', materialCheck);
+        
+        // Send preview data to client
+        socket.write(JSON.stringify({
+          msg: 'buildingPreview',
+          buildingType: buildingType,
+          canBuild: validation.canBuild && materialCheck.hasMaterials,
+          tiles: validation.tiles,
+          clearableTiles: validation.clearableTiles,
+          blockedTiles: validation.blockedTiles,
+          missingMaterials: materialCheck.missing
+        }));
+      } else {
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>Unknown building type. Use /build to see available buildings.</i>'}));
+      }
     } else if(data.cmd.slice(0,5) == 'build' && data.cmd[5] == ' '){
       // farm
       if(data.cmd.slice(data.cmd.indexOf(' ') + 1) == 'farm' && z == 0){
@@ -91,7 +117,7 @@ EvalCmd = function(data){
                 plot:plot
               });
             }
-          },10000/player.strength);
+          },Math.max(1000, 10000/player.strength)); // Cap minimum build time at 1 second
         } else {
           socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
         }
@@ -1154,7 +1180,7 @@ EvalCmd = function(data){
             } else {
               return;
             }
-          },10000/player.strength);
+          },Math.max(1000, 10000/player.strength)); // Cap minimum build time at 1 second
         } else {
           socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
         }
@@ -14038,20 +14064,82 @@ EvalCmd = function(data){
       }
       // ALPHA HAX !!
     } else if(data.cmd.slice(0,data.cmd.indexOf(' ')) == 'tport'){
-      var getZXY = data.cmd.slice(data.cmd.indexOf(' ')+1);
-      var getZ = getZXY.slice(0,getZXY.indexOf(','));
-      var getXY = getZXY.slice(getZXY.indexOf(',')+1);
-      var getX = getXY.slice(0,getXY.indexOf(','));
-      var getY = getXY.slice(getXY.indexOf(',')+1);
-      var coords = getCenter(Number(getX),Number(getY))
-      var z = Number(getZ);
-      var x = coords[0];
-      var y = coords[1];
+      try {
+        var getZXY = data.cmd.slice(data.cmd.indexOf(' ')+1);
+        var getZ = getZXY.slice(0,getZXY.indexOf(','));
+        var getXY = getZXY.slice(getZXY.indexOf(',')+1);
+        var getX = getXY.slice(0,getXY.indexOf(','));
+        var getY = getXY.slice(getXY.indexOf(',')+1);
+        var coords = getCenter(Number(getX),Number(getY));
+        var z = Number(getZ);
+        var x = coords[0];
+        var y = coords[1];
 
-      Player.list[data.id].z = z;
-      Player.list[data.id].x = x;
-      Player.list[data.id].y = y;
+        if(isNaN(z) || isNaN(x) || isNaN(y)){
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>Invalid format. Use: /tport z,col,row (e.g., /tport 0,100,200)</i>'}));
+        } else {
+          Player.list[data.id].z = z;
+          Player.list[data.id].x = x;
+          Player.list[data.id].y = y;
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>Teleported to [' + getX + ', ' + getY + '] z=' + z + '</i>'}));
+        }
+      } catch(e) {
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>Invalid format. Use: /tport z,col,row (e.g., /tport 0,100,200)</i>'}));
+      }
       // ALPHA HAX !!
+    } else if(data.cmd == 'testitem'){
+      // Spawn test items around the player for pickup testing
+      var loc = getLoc(player.x, player.y);
+      var coords = getCoords(loc[0], loc[1]);
+      
+      // Spawn wood item
+      Wood({
+        z: player.z,
+        x: coords[0] + 50,
+        y: coords[1],
+        qty: 5,
+        parent: player.id
+      });
+      
+      // Spawn stone item
+      Stone({
+        z: player.z,
+        x: coords[0] - 50,
+        y: coords[1],
+        qty: 3,
+        parent: player.id
+      });
+      
+      // Spawn iron item
+      Iron({
+        z: player.z,
+        x: coords[0],
+        y: coords[1] + 50,
+        qty: 2,
+        parent: player.id
+      });
+      
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>Test items spawned around you. Press P to pick them up!</i>'}));
+    } else if(data.cmd == 'caves'){
+      var msg = '<b>Cave Entrances:</b><br>';
+      if(global.caveEntrances && global.caveEntrances.length > 0){
+        for(var i = 0; i < global.caveEntrances.length; i++){
+          var e = global.caveEntrances[i];
+          msg += 'Cave ' + (i+1) + ': [' + e[0] + ', ' + e[1] + ']<br>';
+        }
+      } else {
+        msg += '<i>No cave entrances found.</i>';
+      }
+      socket.write(JSON.stringify({msg:'addToChat',message:msg}));
+    } else if(data.cmd == 'loc' || data.cmd == 'coords'){
+      var loc = getLoc(player.x, player.y);
+      var tile = getTile(player.z, loc[0], loc[1]);
+      var msg = '<b>Your Location:</b><br>';
+      msg += 'Tile: [' + loc[0] + ', ' + loc[1] + ']<br>';
+      msg += 'World: (' + Math.round(player.x) + ', ' + Math.round(player.y) + ')<br>';
+      msg += 'Z-Level: ' + player.z + '<br>';
+      msg += 'Tile Value: ' + tile;
+      socket.write(JSON.stringify({msg:'addToChat',message:msg}));
     } else {
       socket.write(JSON.stringify({msg:'addToChat',message:'<i>Invalid command.</i>'}));
     }

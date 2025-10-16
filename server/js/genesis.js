@@ -19,7 +19,7 @@ function genesis(){
   // smaller tiles for bigger map
   // should be a factor of canvas width/height
   var tile = 1;
-  var canvasSize = 512;
+  var canvasSize = 128; // Changed from 256 (originally 512) for higher entity density
   var mapTiles = canvasSize / tile;
 
   // OVERWORLD
@@ -294,9 +294,15 @@ function genesis(){
   }
 
   // "...And God saw that it was good."
-  return worldMaps;
+  return {
+    worldMaps: worldMaps,
+    entrances: entrances
+  };
 };
 
+const genesisResult = genesis();
+
 module.exports = {
-  map: genesis()
+  map: genesisResult.worldMaps,
+  entrances: genesisResult.entrances
 }
