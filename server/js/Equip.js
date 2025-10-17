@@ -5,8 +5,9 @@ equip = {
     type: 'dagger',
     dmg:15,
     attackrate:500,
+    strengthBonus: 1,
+    dexterityBonus: 2,
     unequip:function(id){
-      Player.list[i].gear.
       Player.list[id].inventory.huntingknife++;
     }
   },
@@ -15,6 +16,8 @@ equip = {
     type: 'dagger',
     dmg:20,
     attackrate:500,
+    strengthBonus: 2,
+    dexterityBonus: 3,
     unequip:function(id){
       Player.list[id].inventory.dague++;
     }
@@ -24,6 +27,8 @@ equip = {
     type: 'dagger',
     dmg:25,
     attackrate:500,
+    strengthBonus: 3,
+    dexterityBonus: 4,
     unequip:function(id){
       Player.list[id].inventory.rondel++;
     }
@@ -33,6 +38,8 @@ equip = {
     type: 'dagger',
     dmg:30,
     attackrate:500,
+    strengthBonus: 4,
+    dexterityBonus: 5,
     unequip:function(id){
       Player.list[id].inventory.misericorde++;
     }
@@ -42,6 +49,8 @@ equip = {
     type: 'sword',
     dmg:45,
     attackrate:500,
+    strengthBonus: 5,
+    dexterityBonus: 1,
     unequip:function(id){
       Player.list[id].inventory.bastardsword++;
     }
@@ -51,6 +60,8 @@ equip = {
     type: 'sword',
     dmg:50,
     attackrate:500,
+    strengthBonus: 6,
+    dexterityBonus: 2,
     unequip:function(id){
       Player.list[id].inventory.longsword++;
     }
@@ -60,6 +71,8 @@ equip = {
     type: 'sword',
     dmg:55,
     attackrate:500,
+    strengthBonus: 8,
+    dexterityBonus: 1,
     unequip:function(id){
       Player.list[id].inventory.zweihander++;
     }
@@ -69,6 +82,8 @@ equip = {
     type: 'sword',
     dmg:70,
     attackrate:500,
+    strengthBonus: 10,
+    dexterityBonus: 3,
     unequip:function(id){
       Player.list[id].inventory.morallta++;
     }
@@ -76,7 +91,9 @@ equip = {
   bow:{
     name: 'Bow',
     type: 'bow',
+    dmg: 15,
     attackrate:500,
+    dexterityBonus: 5,
     unequip:function(id){
       Player.list[id].inventory.bow++;
     }
@@ -84,7 +101,10 @@ equip = {
   welshlongbow:{
     name: 'WelshLongbow',
     type: 'bow',
+    dmg: 25,
     attackrate:500,
+    dexterityBonus: 8,
+    strengthBonus: 2,
     unequip:function(id){
       Player.list[id].inventory.welshlongbow++;
     }
@@ -94,6 +114,8 @@ equip = {
     type: 'lance',
     dmg:75,
     attackrate:500,
+    strengthBonus: 8,
+    hpBonus: 20,
     unequip:function(id){
       Player.list[id].inventory.knightlance++;
     }
@@ -103,6 +125,8 @@ equip = {
     type: 'lance',
     dmg:75,
     attackrate:500,
+    strengthBonus: 6,
+    hpBonus: 15,
     unequip:function(id){
       Player.list[id].inventory.rusticlance++;
     }
@@ -112,6 +136,8 @@ equip = {
     type: 'lance',
     dmg:100,
     attackrate:500,
+    strengthBonus: 12,
+    hpBonus: 30,
     unequip:function(id){
       Player.list[id].inventory.paladinlance++;
     }
@@ -121,6 +147,8 @@ equip = {
   brigandine:{
     name: 'Brigandine',
     type: 'leather',
+    defense: 5,
+    hpBonus: 10,
     unequip:function(id){
       Player.list[id].inventory.brigandine++;
     }
@@ -128,6 +156,8 @@ equip = {
   lamellar:{
     name: 'Lamellar',
     type: 'leather',
+    defense: 8,
+    hpBonus: 15,
     unequip:function(id){
       Player.list[id].inventory.lamellar++;
     }
@@ -135,6 +165,8 @@ equip = {
   maille:{
     name: 'Maille',
     type: 'chainmail',
+    defense: 10,
+    hpBonus: 20,
     unequip:function(id){
       Player.list[id].inventory.maille++;
     }
@@ -142,6 +174,8 @@ equip = {
   hauberk:{
     name: 'Hauberk',
     type: 'chainmail',
+    defense: 15,
+    hpBonus: 25,
     unequip:function(id){
       Player.list[id].inventory.hauberk++;
     }
@@ -149,6 +183,8 @@ equip = {
   brynja:{
     name: 'Brynja',
     type: 'chainmail',
+    defense: 18,
+    hpBonus: 30,
     unequip:function(id){
       Player.list[id].inventory.brynja++;
     }
@@ -156,6 +192,8 @@ equip = {
   cuirass:{
     name: 'Cuirass',
     type: 'plate',
+    defense: 20,
+    hpBonus: 35,
     unequip:function(id){
       Player.list[id].inventory.cuirass++;
     }
@@ -163,6 +201,8 @@ equip = {
   steelplate:{
     name: 'SteelPlate',
     type: 'plate',
+    defense: 25,
+    hpBonus: 40,
     unequip:function(id){
       Player.list[id].inventory.steelplate++;
     }
@@ -170,6 +210,8 @@ equip = {
   greenwichplate:{
     name: 'GreenwichPlate',
     type: 'plate',
+    defense: 30,
+    hpBonus: 50,
     unequip:function(id){
       Player.list[id].inventory.greenwichplate++;
     }
@@ -177,6 +219,8 @@ equip = {
   gothicplate:{
     name: 'GothicPlate',
     type: 'plate',
+    defense: 35,
+    hpBonus: 60,
     unequip:function(id){
       Player.list[id].inventory.gothicplate++;
     }
@@ -184,6 +228,9 @@ equip = {
   clericrobe:{
     name: 'ClericRobe',
     type: 'cloth',
+    defense: 3,
+    hpBonus: 20,
+    spiritBonus: 50,
     unequip:function(id){
       Player.list[id].inventory.clericrobe++;
     }
@@ -191,6 +238,9 @@ equip = {
   monkcowl:{
     name: 'MonkCowl',
     type: 'cloth',
+    defense: 5,
+    hpBonus: 25,
+    spiritBonus: 75,
     unequip:function(id){
       Player.list[id].inventory.monkcowl++;
     }
@@ -198,6 +248,9 @@ equip = {
   blackcloak:{
     name: 'BlackCloak',
     type: 'cloth',
+    defense: 2,
+    hpBonus: 15,
+    spiritBonus: 100,
     unequip:function(id){
       Player.list[id].inventory.blackcloak++;
     }

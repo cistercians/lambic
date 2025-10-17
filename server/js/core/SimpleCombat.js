@@ -23,6 +23,12 @@ class SimpleCombat {
       return;
     }
 
+    // Target on different z-level? End combat
+    if (target.z !== entity.z) {
+      this.endCombat(entity, target);
+      return;
+    }
+
     // Calculate distance
     const dx = target.x - entity.x;
     const dy = target.y - entity.y;

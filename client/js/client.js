@@ -33,6 +33,7 @@ socket.onmessage = function(event){
     getBgm(data.x,data.y,data.z,data.b);
   } else if(data.msg == 'addToChat'){
     chatText.innerHTML += '<div>' + data.message + '</div>';
+    chatText.scrollTop = chatText.scrollHeight; // Auto-scroll to bottom
   } else if(data.msg == 'tileEdit'){
     if(world[data.l] && world[data.l][data.r]) {
       world[data.l][data.r][data.c] = data.tile;
@@ -418,7 +419,19 @@ chatForm.onsubmit = function(e){
     }));
   }
   chatInput.value = '';
+  chatInput.blur(); // Auto-deselect after sending
 };
+
+// Auto-focus chat input when Enter is pressed
+document.addEventListener('keydown', function(e){
+  if(e.key === 'Enter' || e.keyCode === 13){
+    // Only focus if not already focused
+    if(document.activeElement !== chatInput){
+      e.preventDefault();
+      chatInput.focus();
+    }
+  }
+});
 
 // GAME
 

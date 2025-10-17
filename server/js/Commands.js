@@ -1301,6 +1301,7 @@ EvalCmd = function(data){
               if(!player.gear.weapon){
                 player.gear.weapon = equip.huntingknife;
                 player.inventory.huntingknife--;
+                recalculatePlayerStats(player.id);
                 socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped a </i><b>HuntingKnife</b>.'}));
               } else {
                 if(player.gear.weapon2){
@@ -1308,6 +1309,7 @@ EvalCmd = function(data){
                 }
                 player.gear.weapon2 = equip.huntingknife;
                 player.inventory.huntingknife--;
+                recalculatePlayerStats(player.id);
                 socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped a </i><b>HuntingKnife </b><i>as your secondary weapon. Press X to switch.</i>'}));
               }
             } else {
@@ -1576,6 +1578,7 @@ EvalCmd = function(data){
               }
               player.gear.armor = equip.brigandine;
               player.inventory.brigandine--;
+              recalculatePlayerStats(player.id);
               socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped </i><b>Brigandine</b>.'}));
             } else {
               socket.write(JSON.stringify({msg:'addToChat',message:'<i>Must not have a lance equipped.</i>'}));
@@ -1591,6 +1594,7 @@ EvalCmd = function(data){
               }
               player.gear.armor = equip.lamellar;
               player.inventory.lamellar--;
+              recalculatePlayerStats(player.id);
               socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped </i><b>Lamellar</b>.'}));
             } else {
               socket.write(JSON.stringify({msg:'addToChat',message:'<i>Must not have a lance equipped.</i>'}));
@@ -1607,6 +1611,7 @@ EvalCmd = function(data){
               }
               player.gear.armor = equip.maille;
               player.inventory.maille--;
+              recalculatePlayerStats(player.id);
               socket.write(JSON.stringify({msg:'addToChat',message:'<i>You equipped </i><b>Maille</b>.'}));
             } else {
               socket.write(JSON.stringify({msg:'addToChat',message:'<i>Must not have a dagger or lance equipped.</i>'}));
@@ -14140,6 +14145,232 @@ EvalCmd = function(data){
       msg += 'Z-Level: ' + player.z + '<br>';
       msg += 'Tile Value: ' + tile;
       socket.write(JSON.stringify({msg:'addToChat',message:msg}));
+    
+    // RESPAWN (for ghosts)
+    } else if(data.cmd === '/respawn'){
+      if(player.ghost){
+        // Respawn at home if player has one
+        if(player.home){
+          var homeCoords = getCenter(player.home.loc[0], player.home.loc[1]);
+          player.respawnFromGhost({x: homeCoords[0], y: homeCoords[1], z: player.home.z});
+          socket.write(JSON.stringify({msg:'addToChat',message:'<span style="color:#66ff66;">✨ Respawned at home</span>'}));
+        } else {
+          // No home set - respawn at random spawn
+          var spawn = randomSpawnO();
+          player.respawnFromGhost({x: spawn[0], y: spawn[1], z: 0});
+          socket.write(JSON.stringify({msg:'addToChat',message:'<span style="color:#ffaa66;">✨ Respawned at random location (no home set)</span>'}));
+        }
+      } else {
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are not a ghost</i>'}));
+      }
+    
+    // SET HOME
+    } else if(data.cmd === '/sethome'){
+      if(player.z === 1 || player.z === 2){
+        // Inside a building
+        var b = getBuilding(player.x, player.y);
+        if(b && Building.list[b]){
+          var building = Building.list[b];
+          if(building.owner === player.id){
+            // Player owns this building - set as home
+            var loc = getLoc(building.x, building.y);
+            player.home = {z: 1, loc: loc}; // Set to building first floor
+            socket.write(JSON.stringify({msg:'addToChat',message:'<span style="color:#66ff66;">✅ Home set to ' + building.type + ' at [' + loc[0] + ',' + loc[1] + ']</span>'}));
+            console.log(player.name + ' set home to ' + building.type + ' at [' + loc[0] + ',' + loc[1] + ']');
+          } else {
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ You do not own this building</i>'}));
+          }
+        } else {
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ Not inside a building</i>'}));
+        }
+      } else {
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ You must be inside a building to set home</i>'}));
+      }
+    
+    // PRICE CHECK
+    } else if(data.cmd.indexOf('$') === 0){
+      var resource = data.cmd.substring(1).toLowerCase().trim();
+      if(!resource){
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>Usage: $[item]<br>Example: $ironore<br><br>Items: grain, wood, stone, ironore, silverore, goldore, diamond, iron</i>'}));
+      } else {
+        var market = findNearestMarket(data.id);
+        if(!market){
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ No market found nearby</i>'}));
+        } else if(!market.orderbook[resource]){
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ Invalid resource: ' + resource + '</i>'}));
+        } else {
+          var book = market.orderbook[resource];
+          var emoji = market.resourceEmoji[resource] || '📦';
+          
+          // Sort to get best prices
+          book.asks.sort(function(a, b){ return a.price - b.price; });
+          book.bids.sort(function(a, b){ return b.price - a.price; });
+          
+          var bestAsk = book.asks.length > 0 ? book.asks[0].price : null;
+          var bestBid = book.bids.length > 0 ? book.bids[0].price : null;
+          
+          var message = '<b>' + emoji + ' ' + resource.toUpperCase() + ' PRICES</b><br>';
+          
+          if(bestAsk !== null){
+            message += '<span style="color:#ff6666;">SELL (Ask): ' + bestAsk + ' silver</span>';
+            if(book.asks[0].amount){
+              message += ' (' + book.asks[0].amount + ' available)';
+            }
+          } else {
+            message += '<span style="color:#888888;">SELL (Ask): No sellers</span>';
+          }
+          
+          message += '<br>';
+          
+          if(bestBid !== null){
+            message += '<span style="color:#66ff66;">BUY (Bid): ' + bestBid + ' silver</span>';
+            if(book.bids[0].amount){
+              message += ' (' + book.bids[0].amount + ' wanted)';
+            }
+          } else {
+            message += '<span style="color:#888888;">BUY (Bid): No buyers</span>';
+          }
+          
+          // Show spread if both exist
+          if(bestAsk !== null && bestBid !== null){
+            var spread = bestAsk - bestBid;
+            message += '<br><i>Spread: ' + spread + ' silver</i>';
+          }
+          
+          socket.write(JSON.stringify({msg:'addToChat',message: message}));
+        }
+      }
+    
+    // MARKET ORDERS
+    } else if(data.cmd.indexOf('/buy ') === 0){
+      var parts = data.cmd.split(' ');
+      if(parts.length === 4){
+        // /buy [amount] [item] [price]
+        var amount = parseInt(parts[1]);
+        var resource = parts[2].toLowerCase();
+        var price = parseInt(parts[3]);
+        
+        if(isNaN(amount) || isNaN(price)){
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ Usage: /buy [amount] [item] [price]<br>Example: /buy 100 grain 5</i>'}));
+        } else {
+          global.processBuyOrder(data.id, resource, amount, price);
+        }
+      } else {
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ Usage: /buy [amount] [item] [price]<br>Example: /buy 100 grain 5<br><br>Items: grain, wood, stone, ironore, silverore, goldore, diamond, iron</i>'}));
+      }
+    } else if(data.cmd.indexOf('/sell ') === 0){
+      var parts = data.cmd.split(' ');
+      if(parts.length === 4){
+        // /sell [amount] [item] [price]
+        var amount = parseInt(parts[1]);
+        var resource = parts[2].toLowerCase();
+        var price = parseInt(parts[3]);
+        
+        if(isNaN(amount) || isNaN(price)){
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ Usage: /sell [amount] [item] [price]<br>Example: /sell 50 wood 10</i>'}));
+        } else {
+          global.processSellOrder(data.id, resource, amount, price);
+        }
+      } else {
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ Usage: /sell [amount] [item] [price]<br>Example: /sell 50 wood 10<br><br>Items: grain, wood, stone, ironore, silverore, goldore, diamond, iron</i>'}));
+      }
+    } else if(data.cmd === '/orders'){
+      // Show player's active orders
+      var market = findNearestMarket(data.id);
+      if(!market){
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ No market found nearby</i>'}));
+      } else {
+        var message = '<b><u>📋 Your Active Orders</u></b><br>';
+        var hasOrders = false;
+        
+        for(var resource in market.orderbook){
+          var book = market.orderbook[resource];
+          var emoji = market.resourceEmoji[resource] || '📦';
+          
+          // Check buy orders
+          for(var i in book.bids){
+            var bid = book.bids[i];
+            if(bid.player === data.id){
+              hasOrders = true;
+              message += '<br><span style="color:#66ff66;">BUY ' + emoji + ' ' + resource.toUpperCase() + '</span>';
+              message += '<br>&nbsp;&nbsp;' + bid.amount + ' @ ' + bid.price + ' silver';
+              message += '<br>&nbsp;&nbsp;<i>ID: ' + bid.orderId.substr(0,8) + '</i>';
+            }
+          }
+          
+          // Check sell orders
+          for(var i in book.asks){
+            var ask = book.asks[i];
+            if(ask.player === data.id){
+              hasOrders = true;
+              message += '<br><span style="color:#ff6666;">SELL ' + emoji + ' ' + resource.toUpperCase() + '</span>';
+              message += '<br>&nbsp;&nbsp;' + ask.amount + ' @ ' + ask.price + ' silver';
+              message += '<br>&nbsp;&nbsp;<i>ID: ' + ask.orderId.substr(0,8) + '</i>';
+            }
+          }
+        }
+        
+        if(!hasOrders){
+          message += '<br><i>No active orders</i>';
+        } else {
+          message += '<br><br><i>Use /cancel [orderID] to cancel an order</i>';
+        }
+        
+        socket.write(JSON.stringify({msg:'addToChat',message: message}));
+      }
+    } else if(data.cmd.indexOf('/cancel ') === 0){
+      // Cancel an order
+      var orderId = data.cmd.substring(8).trim();
+      if(!orderId){
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ Usage: /cancel [orderID]<br>Use /orders to see your order IDs</i>'}));
+      } else {
+        var market = findNearestMarket(data.id);
+        if(!market){
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ No market found nearby</i>'}));
+        } else {
+          var found = false;
+          
+          for(var resource in market.orderbook){
+            var book = market.orderbook[resource];
+            var emoji = market.resourceEmoji[resource] || '📦';
+            
+            // Check buy orders
+            for(var i = 0; i < book.bids.length; i++){
+              var bid = book.bids[i];
+              if(bid.player === data.id && bid.orderId.indexOf(orderId) === 0){
+                // Cancel this buy order
+                player.stores.silver = (player.stores.silver || 0) + bid.reserved;
+                book.bids.splice(i, 1);
+                found = true;
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>✅ Cancelled BUY order for ' + emoji + ' ' + resource.toUpperCase() + '<br>Returned ' + bid.reserved + ' silver</i>'}));
+                break;
+              }
+            }
+            
+            if(found) break;
+            
+            // Check sell orders
+            for(var i = 0; i < book.asks.length; i++){
+              var ask = book.asks[i];
+              if(ask.player === data.id && ask.orderId.indexOf(orderId) === 0){
+                // Cancel this sell order
+                player.stores[resource] = (player.stores[resource] || 0) + ask.reserved;
+                book.asks.splice(i, 1);
+                found = true;
+                socket.write(JSON.stringify({msg:'addToChat',message:'<i>✅ Cancelled SELL order for ' + emoji + ' ' + resource.toUpperCase() + '<br>Returned ' + ask.reserved + ' ' + resource + '</i>'}));
+                break;
+              }
+            }
+            
+            if(found) break;
+          }
+          
+          if(!found){
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ Order not found. Use /orders to see your order IDs</i>'}));
+          }
+        }
+      }
+    
     } else {
       socket.write(JSON.stringify({msg:'addToChat',message:'<i>Invalid command.</i>'}));
     }

@@ -105,6 +105,7 @@ Mill = function(param){
   self.serfs = {};
   self.log = {};
   self.patrol = true;
+  self.dailyStores = {grain: 0}; // Track daily resource collection
   self.tally = function(){
     var f = 0;
     var s = 0;
@@ -129,8 +130,8 @@ Mill = function(param){
           }
         } else {
           grain = Player.list[self.owner].stores.grain;
-          if(grain >= s){
-            Building.list[self.tavern].newSerfs(self.id);
+        if(grain >= s){
+          Building.list[self.tavern].newSerfs(self.id);
           }
         }
       } else if(self.house >= 2 && self.house < 7){
@@ -145,22 +146,44 @@ Mill = function(param){
     }
     for(var i in self.farms){
       var plot = self.farms[i];
+      
+      // First, check if farm has any harvest tiles (type 10 with wheat)
+      var hasHarvest = false;
+      for(var n in plot){
+        var p = plot[n];
+        var gt = getTile(0,p[0],p[1]);
+        var gr = getTile(6,p[0],p[1]);
+        if(gt == 10 && gr > 0){
+          hasHarvest = true;
+          break;
+        }
+      }
+      
+      // Add tiles based on farm state
       var add = [];
       for(var n in plot){
         var p = plot[n];
         var gt = getTile(0,p[0],p[1]);
         var gr = getTile(6,p[0],p[1]);
-        // Only add tiles that need work:
-        // - Barren (type 8) with resources < 5
-        // - Growing (type 9) with resources < 10  
-        // - Harvest (type 10) with resources > 0
-        if((gt == 8 && gr < 5) || (gt == 9 && gr < 10) || (gt == 10 && gr > 0)){
+        
+        if(hasHarvest){
+          // Farm is in harvest mode - ONLY work on wheat tiles
+          if(gt == 10 && gr > 0){
           add.push(p);
         }
+        } else {
+          // Farm is in barren/growing mode - work on tiles that need it
+          // - Barren (type 8) with resources < 5
+          // - Growing (type 9) with resources < 10
+          if((gt == 8 && gr < 5) || (gt == 9 && gr < 10)){
+            add.push(p);
+          }
+        }
       }
+      
       // Add all workable tiles to resources
-      for(var x in add){
-        self.resources.push(add[x]);
+        for(var x in add){
+          self.resources.push(add[x]);
       }
     }
   }
@@ -207,6 +230,7 @@ Lumbermill = function(param){
   self.serfs = {};
   self.log = {};
   self.patrol = true;
+  self.dailyStores = {wood: 0}; // Track daily resource collection
   self.tally = function(){
     var r = 0;
     var s = 0;
@@ -231,8 +255,8 @@ Lumbermill = function(param){
           }
         } else {
           wood = Player.list[self.owner].stores.wood;
-          if(wood >= s){
-            Building.list[self.tavern].newSerfs(self.id);
+        if(wood >= s){
+          Building.list[self.tavern].newSerfs(self.id);
           }
         }
       } else if(self.house >= 2 && self.house < 7){
@@ -288,6 +312,7 @@ Mine = function(param){
   self.serfs = {};
   self.log = {};
   self.patrol = true;
+  self.dailyStores = {stone: 0, ironore: 0, silverore: 0, goldore: 0, diamond: 0}; // Track daily resource collection
   self.tally = function(){
     var r = 0;
     var s = 0;
@@ -313,8 +338,8 @@ Mine = function(param){
             }
           } else {
             ore = Player.list[self.owner].stores.ironore;
-            if(ore >= s){
-              Building.list[self.tavern].newSerfs(self.id);
+          if(ore >= s){
+            Building.list[self.tavern].newSerfs(self.id);
             }
           }
         } else if(self.house >= 2 && self.house < 7){
@@ -340,8 +365,8 @@ Mine = function(param){
             }
           } else {
             stone = Player.list[self.owner].stores.stone;
-            if(stone >= s){
-              Building.list[self.tavern].newSerfs(self.id);
+          if(stone >= s){
+            Building.list[self.tavern].newSerfs(self.id);
             }
           }
         } else if(self.house >= 2 && self.house < 7){
@@ -373,20 +398,24 @@ Mine = function(param){
       var dist = self.getDistance({x:c[0],y:c[1]});
       if(dist <= 384){
         self.cave = cave;
-        console.log('Mine found a cave');
+        console.log('Mine found a cave at [' + cave[0] + ',' + cave[1] + ']');
       }
     }
     if(self.cave){
+      // Ore mine - scan z=-1 cave layer for rocks (stored in tilemap layer 1)
       var loc = getLoc(self.x,self.y);
       var area = getArea(loc,self.cave,10);
       for(var i in area){
         var r = area[i];
-        if(getTile(1,r[0],r[1]) >= 3){
+        // Check cave layer 1 for rocks - cave tiles at z=-1 are stored in layer 1
+        var gt = getTile(1,r[0],r[1]); // Layer 1 contains cave tiles
+        if(gt >= 3 && gt <= 5){ // Rock tiles in caves (types 3, 4, 5)
           self.resources.push(r);
         }
       }
-      console.log('Mine added ' + self.resources.length + ' resources');
+      console.log('Ore mine added ' + self.resources.length + ' cave rock resources (z=-1, layer 1)');
     } else {
+      // Stone mine - scan z=0 for stone patches
       var loc = getLoc(self.x,self.y);
       var loc1 = [loc[0]+1,loc[1]-1];
       var area = getArea(loc,loc1,6);
@@ -401,7 +430,7 @@ Mine = function(param){
           }
         }
       }
-      console.log('Mine added ' + self.resources.length + ' resources');
+      console.log('Stone mine added ' + self.resources.length + ' stone resources (z=0)');
     }
   }
   self.getRes();
@@ -412,12 +441,141 @@ Outpost = function(param){
   var self = Building(param);
   self.patrol = true;
   self.damage = 5;
+  self.alertedEnemies = {}; // Track which enemies have been alerted about {enemyId: timestamp}
+  self.scanTimer = 0; // Check for enemies every 2 seconds
+  
+  self.update = function(){
+    // Scan for enemies every 2 seconds (120 frames at 60fps)
+    self.scanTimer++;
+    if(self.scanTimer >= 120){
+      self.scanTimer = 0;
+      
+      // Clean up old alerts (remove after 30 seconds)
+      var now = Date.now();
+      for(var enemyId in self.alertedEnemies){
+        if(now - self.alertedEnemies[enemyId] > 30000){
+          delete self.alertedEnemies[enemyId];
+        }
+      }
+      
+      // Scan for enemies within 12 tiles (768px)
+      var detectionRadius = 768;
+      for(var id in Player.list){
+        var enemy = Player.list[id];
+        if(!enemy || enemy.z !== 0) continue; // Only detect on overworld
+        
+        // Check if enemy
+        var alliance = allyCheck(self.owner, enemy.id);
+        if(alliance >= 0) continue; // Skip allies
+        
+        // Check distance
+        var dist = self.getDistance({x: enemy.x, y: enemy.y});
+        if(dist > detectionRadius) continue;
+        
+        // Check if already alerted recently
+        if(self.alertedEnemies[enemy.id]) continue;
+        
+        // ENEMY DETECTED! Send alert
+        self.alertedEnemies[enemy.id] = now;
+        var enemyLoc = getLoc(enemy.x, enemy.y);
+        var alertMsg = '⚠️ ALERT: ' + (enemy.class || 'Enemy') + ' detected near your outpost at [' + enemyLoc[0] + ',' + enemyLoc[1] + ']';
+        
+        // Send alert to owner
+        var ownerSocket = SOCKET_LIST[self.owner];
+        if(ownerSocket){
+          ownerSocket.write(JSON.stringify({msg:'addToChat', message: '<span style="color:orange;">' + alertMsg + '</span>'}));
+        }
+        
+        console.log('🚨 Outpost alert: ' + (enemy.class || 'Enemy') + ' at [' + enemyLoc[0] + ',' + enemyLoc[1] + ']');
+        
+        // Command nearby guards to respond
+        var responseRadius = 1280; // 20 tiles
+        for(var guardId in Player.list){
+          var guard = Player.list[guardId];
+          if(!guard || guard.z !== 0) continue;
+          
+          // Check if it's a military unit
+          if(!guard.military) continue;
+          
+          // Check if allied
+          var guardAlliance = allyCheck(self.owner, guard.id);
+          if(guardAlliance < 0) continue; // Not an ally
+          
+          // Check if in range
+          var guardDist = self.getDistance({x: guard.x, y: guard.y});
+          if(guardDist > responseRadius) continue;
+          
+          // Check if already in combat or busy
+          if(guard.action === 'combat' || guard.action === 'raid') continue;
+          
+          // Command guard to investigate threat
+          guard.action = 'defend';
+          guard.defend = {target: enemy.id, location: enemyLoc};
+          console.log('🛡️ ' + guard.class + ' responding to outpost alert');
+        }
+      }
+    }
+  }
 }
 
 Guardtower = function(param){
   var self = Building(param);
   self.patrol = true;
   self.damage = 10;
+  self.attackTimer = 0; // Fire every 2 seconds (120 frames at 60fps)
+  self.currentTarget = null;
+  
+  self.update = function(){
+    // Automated arrow defense - shoot enemies within 8 tiles
+    self.attackTimer++;
+    if(self.attackTimer >= 120){
+      self.attackTimer = 0;
+      
+      // Scan for enemies within 8 tiles (512px)
+      var attackRange = 512;
+      var nearestEnemy = null;
+      var nearestDist = Infinity;
+      
+      for(var id in Player.list){
+        var enemy = Player.list[id];
+        if(!enemy || enemy.z !== 0) continue; // Only target on overworld
+        
+        // Check if enemy
+        var alliance = allyCheck(self.owner, enemy.id);
+        if(alliance >= 0) continue; // Skip allies
+        
+        // Check distance
+        var dist = self.getDistance({x: enemy.x, y: enemy.y});
+        if(dist > attackRange) continue;
+        
+        // Track nearest enemy
+        if(dist < nearestDist){
+          nearestDist = dist;
+          nearestEnemy = enemy;
+        }
+      }
+      
+      // Fire arrow at nearest enemy
+      if(nearestEnemy){
+        var angle = Math.atan2(nearestEnemy.y - self.y, nearestEnemy.x - self.x);
+        
+        // Create arrow (unlimited ammo)
+        Arrow({
+          parent: self.id,
+          angle: angle,
+          x: self.x,
+          y: self.y,
+          z: 0,
+          spdX: Math.cos(angle) * 10,
+          spdY: Math.sin(angle) * 10,
+          damage: 10,
+          owner: self.owner
+        });
+        
+        console.log('🏹 Guardtower fires at ' + (nearestEnemy.class || nearestEnemy.name) + ' (' + Math.floor(nearestDist) + 'px)');
+      }
+    }
+  }
 }
 
 Tavern = function(param){
@@ -556,34 +714,34 @@ Tavern = function(param){
         });
       } else {
         // Mill - either gender (60% male)
-        if(s1 > 0.4){
-          SerfM({
-            id:s1,
-            name:randomName('m'),
-            x:c1[0],
-            y:c1[1],
-            z:2,
-            house:Player.list[self.owner].house,
-            kingdom:Player.list[self.owner].kingdom,
-            home:{z:2,loc:sp1},
-            work:{hq:b,spot:null},
-            hut:id,
-            tavern:self.id
-          });
-        } else {
-          SerfF({
-            id:s1,
-            name:randomName('f'),
-            x:c1[0],
-            y:c1[1],
-            z:2,
-            house:Player.list[self.owner].house,
-            kingdom:Player.list[self.owner].kingdom,
-            home:{z:2,loc:sp1},
-            hut:id,
-            tavern:self.id
-          });
-        }
+      if(s1 > 0.4){
+        SerfM({
+          id:s1,
+          name:randomName('m'),
+          x:c1[0],
+          y:c1[1],
+          z:2,
+          house:Player.list[self.owner].house,
+          kingdom:Player.list[self.owner].kingdom,
+          home:{z:2,loc:sp1},
+          work:{hq:b,spot:null},
+          hut:id,
+          tavern:self.id
+        });
+      } else {
+        SerfF({
+          id:s1,
+          name:randomName('f'),
+          x:c1[0],
+          y:c1[1],
+          z:2,
+          house:Player.list[self.owner].house,
+          kingdom:Player.list[self.owner].kingdom,
+          home:{z:2,loc:sp1},
+          hut:id,
+          tavern:self.id
+        });
+      }
       }
       
       // Second serf - either gender (40% male for variety)
@@ -637,12 +795,69 @@ Tavern = function(param){
       console.log('Serfs have spawned in the tavern: ' + Building.list[b].type);
     }
   }
+  
+  self.healTimer = 0; // Heal every 2 seconds (120 frames) - faster than monastery
+  self.update = function(){
+    // Passive healing aura for players inside tavern (faster than monastery)
+    self.healTimer++;
+    if(self.healTimer >= 120){
+      self.healTimer = 0;
+      
+      // Check all players to find those inside this tavern
+      for(var id in Player.list){
+        var entity = Player.list[id];
+        if(!entity || (entity.z !== 1 && entity.z !== 2)) continue; // Inside buildings (z=1 or z=2)
+        
+        // Check if entity is inside THIS tavern
+        var entityBuilding = getBuilding(entity.x, entity.y);
+        if(entityBuilding !== self.id) continue;
+        
+        // Taverns heal everyone (public house), no alliance check needed
+        
+        // Check if needs healing
+        if(entity.hp >= entity.hpMax) continue;
+        
+        // Heal 1 HP (faster rate than monastery)
+        entity.hp = Math.min(entity.hp + 1, entity.hpMax);
+      }
+    }
+  }
+  
   self.findBuildings();
 }
 
 Monastery = function(param){
   var self = Building(param);
   self.patrol = true;
+  self.healTimer = 0; // Heal every 3 seconds (180 frames at 60fps)
+  
+  self.update = function(){
+    // Passive healing aura for allied units/players inside monastery
+    self.healTimer++;
+    if(self.healTimer >= 180){
+      self.healTimer = 0;
+      
+      // Check all players to find those inside this monastery
+      for(var id in Player.list){
+        var entity = Player.list[id];
+        if(!entity || entity.z !== 1) continue; // Only inside buildings (z=1)
+        
+        // Check if entity is inside THIS monastery
+        var entityBuilding = getBuilding(entity.x, entity.y);
+        if(entityBuilding !== self.id) continue;
+        
+        // Check if allied
+        var alliance = allyCheck(self.owner, entity.id);
+        if(alliance < 0) continue; // Not an ally
+        
+        // Check if needs healing
+        if(entity.hp >= entity.hpMax) continue;
+        
+        // Heal 1 HP
+        entity.hp = Math.min(entity.hp + 1, entity.hpMax);
+      }
+    }
+  }
 }
 
 Market = function(param){
@@ -660,14 +875,77 @@ Market = function(param){
       }
     }
   }
-  self.orderbook = {};
+  
+  // Initialize orderbook with all resource types
+  self.orderbook = {
+    grain: {bids: [], asks: []},
+    wood: {bids: [], asks: []},
+    stone: {bids: [], asks: []},
+    ironore: {bids: [], asks: []},
+    silverore: {bids: [], asks: []},
+    goldore: {bids: [], asks: []},
+    diamond: {bids: [], asks: []},
+    iron: {bids: [], asks: []}
+  };
+  
+  // Resource emoji mapping for display
+  self.resourceEmoji = {
+    grain: '🌾',
+    wood: '🪵',
+    stone: '🪨',
+    ironore: '⛏️',
+    silverore: '⚪',
+    goldore: '🟡',
+    diamond: '💎',
+    iron: '⚔️'
+  };
+  
   self.findTavern();
 }
 
 Stable = function(param){
   var self = Building(param);
   self.patrol = true;
-  self.horses = 5;
+  self.horses = 5; // Available horses for rent
+  self.horseRegenTimer = 0; // Regenerate horses every hour (216000 frames at 60fps)
+  
+  self.update = function(){
+    // Passive: Regenerate horses over time (based on grain availability)
+    self.horseRegenTimer++;
+    if(self.horseRegenTimer >= 216000){ // 1 hour
+      self.horseRegenTimer = 0;
+      
+      if(self.horses >= 5) return; // Already at max capacity
+      
+      // Check if owner has grain for horse upkeep
+      var owner = Player.list[self.owner];
+      if(!owner) return;
+      
+      var grain = 0;
+      if(House.list[self.owner]){
+        grain = House.list[self.owner].stores.grain || 0;
+      } else if(owner.house && House.list[owner.house]){
+        grain = House.list[owner.house].stores.grain || 0;
+      } else {
+        grain = owner.stores.grain || 0;
+      }
+      
+      // Regenerate horse if enough grain
+      if(grain >= 10){
+        // Deduct grain
+        if(House.list[self.owner]){
+          House.list[self.owner].stores.grain -= 10;
+        } else if(owner.house && House.list[owner.house]){
+          House.list[owner.house].stores.grain -= 10;
+        } else {
+          owner.stores.grain -= 10;
+        }
+        
+        self.horses++;
+        console.log('🐴 Stable regenerated a horse (' + self.horses + '/5)');
+      }
+    }
+  }
 }
 
 Dock = function(param){
@@ -677,53 +955,117 @@ Dock = function(param){
 
 Garrison = function(param){
   var self = Building(param);
-  self.queue = [];
-  self.timer = 1000;
+  self.queue = []; // Keep for backward compatibility (can be used for manual recruitment later)
+  self.productionTimer = 0; // Produce units every 5 minutes (18000 frames at 60fps)
   self.patrol = true;
+  
   self.update = function(){
-    if(self.queue.length > 0){
-      if(self.timer > 0){
-        self.timer--;
-        if(self.timer == 0){
-          var sp = self.plot[7];
-          if(self.queue[0] == 'footsoldier'){
-            Footsoldier({
-              x:sp[0],
-              y:sp[1],
-              z:1,
-              house:Building.list[b].house,
-              kingdom:Building.list[b].kingdom,
-              home:{
-                z:1,
-                loc:[sp[0],sp[1]]
-              }
-            });
-          } else if(self.queue[0] == 'skirmisher'){
-            Skirmisher({
-              x:sp[0],
-              y:sp[1],
-              z:1,
-              house:Building.list[b].house,
-              kingdom:Building.list[b].kingdom,
-              home:{
-                z:1,
-                loc:[sp[0],sp[1]]
-              }
-            });
-          } else if(self.queue[0] == 'cavalier'){
-            Cavalier({
-              x:sp[0],
-              y:sp[1],
-              z:1,
-              house:Building.list[b].house,
-              kingdom:Building.list[b].kingdom,
-              home:{
-                z:1,
-                loc:[sp[0],sp[1]]
-              }
-            });
+    // Automated military production (only if owner has a House)
+    self.productionTimer++;
+    if(self.productionTimer >= 18000){
+      self.productionTimer = 0;
+      
+      // Check if owner has a House
+      var owner = Player.list[self.owner];
+      if(!owner) return;
+      
+      var house = null;
+      if(House.list[self.owner]){
+        house = House.list[self.owner];
+      } else if(owner.house && House.list[owner.house]){
+        house = House.list[owner.house];
+      } else {
+        // No house - garrisons can't produce units
+        return;
+      }
+      
+      // Check grain availability (production based on grain)
+      var grain = house.stores.grain || 0;
+      if(grain < 20) return; // Need at least 20 grain to produce a unit
+      
+      // Count current military units for this house
+      var militaryCount = 0;
+      for(var id in Player.list){
+        var unit = Player.list[id];
+        if(unit && unit.military && unit.house === house.id){
+          militaryCount++;
+        }
+      }
+      
+      // Determine max garrison size based on grain (1 unit per 50 grain available)
+      var maxGarrison = Math.floor(grain / 50);
+      if(militaryCount >= maxGarrison) return; // Already at capacity
+      
+      // Check for stable (needed for cavalry)
+      var hasStable = false;
+      for(var bid in Building.list){
+        var b = Building.list[bid];
+        if(b.type === 'stable' && b.house === house.id){
+          var dist = self.getDistance({x: b.x, y: b.y});
+          if(dist <= 1280){ // Stable within 20 tiles
+            hasStable = true;
+            break;
           }
         }
+      }
+      
+      // Determine unit type to produce (priority: footsoldier → skirmisher → cavalier)
+      var unitType = 'footsoldier';
+      var wood = house.stores.wood || 0;
+      var iron = house.stores.iron || 0;
+      
+      if(iron >= 10 && wood >= 20 && hasStable && grain >= 30){
+        unitType = 'cavalier';
+      } else if(iron >= 5 && wood >= 15 && grain >= 20){
+        unitType = 'skirmisher';
+      } else if(wood >= 10 && grain >= 20){
+        unitType = 'footsoldier';
+      } else {
+        return; // Not enough resources
+      }
+      
+      // Deduct resources and spawn unit
+      var sp = self.plot[7] || self.plot[0]; // Spawn location
+      var spCoords = getCenter(sp[0], sp[1]);
+      
+      if(unitType === 'footsoldier'){
+        house.stores.grain -= 20;
+        house.stores.wood -= 10;
+            Footsoldier({
+          x:spCoords[0],
+          y:spCoords[1],
+          z:1,
+          house:house.id,
+          kingdom:house.kingdom,
+          home:{z:1, loc:sp}
+        });
+        console.log('⚔️ Garrison produced Footsoldier for ' + house.name);
+      } else if(unitType === 'skirmisher'){
+        house.stores.grain -= 20;
+        house.stores.wood -= 15;
+        house.stores.iron -= 5;
+            Skirmisher({
+          x:spCoords[0],
+          y:spCoords[1],
+          z:1,
+          house:house.id,
+          kingdom:house.kingdom,
+          home:{z:1, loc:sp}
+        });
+        console.log('⚔️ Garrison produced Skirmisher for ' + house.name);
+      } else if(unitType === 'cavalier'){
+        house.stores.grain -= 30;
+        house.stores.wood -= 20;
+        house.stores.iron -= 10;
+            Cavalier({
+          x:spCoords[0],
+          y:spCoords[1],
+          z:1,
+          house:house.id,
+          kingdom:house.kingdom,
+          home:{z:1, loc:sp}
+        });
+        console.log('⚔️ Garrison produced Cavalier for ' + house.name);
       }
     }
   }
@@ -733,6 +1075,47 @@ Forge = function(param){
   var self = Building(param);
   self.patrol = true;
   self.blacksmith = null;
+  self.conversionTimer = 0; // Convert iron ore every 30 seconds (1800 frames at 60fps)
+  
+  self.update = function(){
+    // Passive iron ore to iron bar conversion
+    self.conversionTimer++;
+    if(self.conversionTimer >= 1800){
+      self.conversionTimer = 0;
+      
+      // Check if owner has iron ore to convert
+      var owner = Player.list[self.owner];
+      if(!owner) return;
+      
+      var ironOre = 0;
+      if(House.list[self.owner]){
+        // Owner is a House
+        ironOre = House.list[self.owner].stores.ironore || 0;
+        if(ironOre > 0){
+          House.list[self.owner].stores.ironore--;
+          House.list[self.owner].stores.iron = (House.list[self.owner].stores.iron || 0) + 1;
+          console.log('Forge converted 1 Iron Ore → 1 Iron Bar for ' + House.list[self.owner].name);
+        }
+      } else if(owner.house){
+        // Owner has a house
+        var h = owner.house;
+        ironOre = House.list[h].stores.ironore || 0;
+        if(ironOre > 0){
+          House.list[h].stores.ironore--;
+          House.list[h].stores.iron = (House.list[h].stores.iron || 0) + 1;
+          console.log('Forge converted 1 Iron Ore → 1 Iron Bar for ' + House.list[h].name);
+        }
+      } else {
+        // Owner is a player
+        ironOre = owner.stores.ironore || 0;
+        if(ironOre > 0){
+          owner.stores.ironore--;
+          owner.stores.iron = (owner.stores.iron || 0) + 1;
+          console.log('Forge converted 1 Iron Ore → 1 Iron Bar for ' + owner.name);
+        }
+      }
+    }
+  }
 }
 
 Gate = function(param){
@@ -749,7 +1132,113 @@ Gate = function(param){
 Stronghold = function(param){
   var self = Building(param);
   self.patrol = true;
-  self.damage = 10;
+  self.damage = 15; // Stronger than guardtower
+  self.garrisonedUnits = []; // Units inside stronghold (protected storage)
+  self.attackTimer = 0; // Fire every 1.5 seconds (90 frames at 60fps)
+  
+  self.update = function(){
+    // Long-range arrow defense - shoot enemies within 12 tiles
+    self.attackTimer++;
+    if(self.attackTimer >= 90){
+      self.attackTimer = 0;
+      
+      // Scan for enemies within 12 tiles (768px)
+      var attackRange = 768;
+      var nearestEnemy = null;
+      var nearestDist = Infinity;
+      
+      for(var id in Player.list){
+        var enemy = Player.list[id];
+        if(!enemy || enemy.z !== 0) continue; // Only target on overworld
+        
+        // Check if enemy
+        var alliance = allyCheck(self.owner, enemy.id);
+        if(alliance >= 0) continue; // Skip allies
+        
+        // Check distance
+        var dist = self.getDistance({x: enemy.x, y: enemy.y});
+        if(dist > attackRange) continue;
+        
+        // Track nearest enemy
+        if(dist < nearestDist){
+          nearestDist = dist;
+          nearestEnemy = enemy;
+        }
+      }
+      
+      // Fire arrow at nearest enemy
+      if(nearestEnemy){
+        var angle = Math.atan2(nearestEnemy.y - self.y, nearestEnemy.x - self.x);
+        
+        // Create arrow (unlimited ammo)
+        Arrow({
+          parent: self.id,
+          angle: angle,
+          x: self.x,
+          y: self.y,
+          z: 0,
+          spdX: Math.cos(angle) * 12,
+          spdY: Math.sin(angle) * 12,
+          damage: 15,
+          owner: self.owner
+        });
+        
+        console.log('🏰 Stronghold fires at ' + (nearestEnemy.class || nearestEnemy.name) + ' (' + Math.floor(nearestDist) + 'px)');
+      }
+    }
+  }
+  
+  // Method to garrison units (units enter stronghold for protection)
+  self.garrisonUnit = function(unitId){
+    var unit = Player.list[unitId];
+    if(!unit || !unit.military) return false;
+    
+    // Check if unit is close enough
+    var dist = self.getDistance({x: unit.x, y: unit.y});
+    if(dist > 128) return false; // Must be within 2 tiles
+    
+    // Check if allied
+    var alliance = allyCheck(self.owner, unitId);
+    if(alliance < 0) return false;
+    
+    // Add to garrison
+    self.garrisonedUnits.push({
+      id: unitId,
+      class: unit.class,
+      hp: unit.hp,
+      hpMax: unit.hpMax
+    });
+    
+    // Remove unit from active play (stored in stronghold)
+    unit.z = -999; // Special z-level for "stored" units
+    unit.garrisonedIn = self.id;
+    
+    console.log('🏰 ' + unit.class + ' garrisoned in stronghold');
+    return true;
+  }
+  
+  // Method to release garrisoned units
+  self.releaseUnit = function(index){
+    if(index < 0 || index >= self.garrisonedUnits.length) return false;
+    
+    var unitData = self.garrisonedUnits[index];
+    var unit = Player.list[unitData.id];
+    if(!unit) return false;
+    
+    // Release unit at stronghold entrance
+    var sp = self.plot[0];
+    var spCoords = getCenter(sp[0], sp[1]);
+    unit.x = spCoords[0];
+    unit.y = spCoords[1];
+    unit.z = 0;
+    delete unit.garrisonedIn;
+    
+    // Remove from garrison
+    self.garrisonedUnits.splice(index, 1);
+    
+    console.log('🏰 ' + unit.class + ' released from stronghold');
+    return true;
+  }
 }
 
 Building.list = {};
@@ -990,7 +1479,7 @@ Character = function(param){
           const zoneEntities = zones.get(zoneKey) || new Set();
           for(const entityId of zoneEntities){
             var p = Player.list[entityId];
-            if(p){
+            if(p && p.z === self.z){
               var loc = getLoc(self.x,self.y);
               var dLoc = [loc[0],loc[1]+1];
               var pLoc = getLoc(p.x,p.y);
@@ -1033,7 +1522,7 @@ Character = function(param){
           const zoneEntities = zones.get(zoneKey) || new Set();
           for(const entityId of zoneEntities){
             var p = Player.list[entityId];
-            if(p){
+            if(p && p.z === self.z){
               var loc = getLoc(self.x,self.y);
               var uLoc = [loc[0],loc[1]-1];
               var pLoc = getLoc(p.x,p.y);
@@ -1076,7 +1565,7 @@ Character = function(param){
           const zoneEntities = zones.get(zoneKey) || new Set();
           for(const entityId of zoneEntities){
             var p = Player.list[entityId];
-            if(p){
+            if(p && p.z === self.z){
               var loc = getLoc(self.x,self.y);
               var lLoc = [loc[0]-1,loc[1]];
               var pLoc = getLoc(p.x,p.y);
@@ -1119,7 +1608,7 @@ Character = function(param){
           const zoneEntities = zones.get(zoneKey) || new Set();
           for(const entityId of zoneEntities){
             var p = Player.list[entityId];
-            if(p){
+            if(p && p.z === self.z){
               var loc = getLoc(self.x,self.y);
               var rLoc = [loc[0]+1,loc[1]];
               var pLoc = getLoc(p.x,p.y);
@@ -1637,7 +2126,7 @@ Character = function(param){
         } else if(self.z == -1){
           // Check if caveEntrance exists before accessing it
           if(self.caveEntrance && Array.isArray(self.caveEntrance) && self.caveEntrance.length >= 2){
-            tLoc = [self.caveEntrance[0],self.caveEntrance[1]+1];
+          tLoc = [self.caveEntrance[0],self.caveEntrance[1]+1];
           } else {
             // Fallback: find nearest cave entrance
             if(global.caveEntrances && global.caveEntrances.length > 0){
@@ -1661,7 +2150,15 @@ Character = function(param){
         } else if(self.z == -2){
           var b = getBuilding(cen[0],cen[1]);
           // Use dstairs (bidirectional cellar entrance/exit)
-          if(!Building.list[b] || !Building.list[b].dstairs){
+          if(!b || !Building.list[b] || !Building.list[b].dstairs){
+            // Cannot find building - force to first floor as emergency fallback
+            if(!b){
+              console.warn(self.name + ' stuck at z=-2 with no building detected, forcing to z=1');
+              self.z = 1;
+              self.path = null;
+              self.pathCount = 0;
+              return;
+            }
             console.error(self.name + ' cannot exit cellar - building ' + b + ' has no dstairs');
             return;
           }
@@ -1670,7 +2167,15 @@ Character = function(param){
           var b = getBuilding(cen[0],cen[1]);
           if(tz == 0 || tz == -1){
             // Exiting building to ground level
-            if(!Building.list[b] || !Building.list[b].entrance){
+            if(!b || !Building.list[b] || !Building.list[b].entrance){
+              // Cannot find building - force to ground level as emergency fallback
+              if(!b){
+                console.warn(self.name + ' stuck at z=1 with no building detected, forcing to z=0');
+                self.z = 0;
+                self.path = null;
+                self.pathCount = 0;
+                return;
+              }
               console.error(self.name + ' cannot exit building ' + b + ' - no entrance defined');
               return;
             }
@@ -1695,7 +2200,15 @@ Character = function(param){
               }
             } else {
               // Moving to different building - exit current building first
-              if(!Building.list[b] || !Building.list[b].entrance){
+              if(!b || !Building.list[b] || !Building.list[b].entrance){
+                // Cannot find building - force to ground level as emergency fallback
+                if(!b){
+                  console.warn(self.name + ' stuck at z=1 with no building detected, forcing to z=0');
+                  self.z = 0;
+                  self.path = null;
+                  self.pathCount = 0;
+                  return;
+                }
                 console.error(self.name + ' cannot exit building ' + b + ' - no entrance defined');
                 return;
               }
@@ -1707,18 +2220,34 @@ Character = function(param){
           // When on second floor (z=2), need to go down to first floor (z=1) first
           if(tz != 2){
             // Going to a different z-level - use upstairs (bidirectional staircase)
-            if(!Building.list[b] || !Building.list[b].ustairs){
+            if(!b || !Building.list[b] || !Building.list[b].ustairs){
+              // Cannot find building - force to first floor as emergency fallback
+              if(!b){
+                console.warn(self.name + ' stuck at z=2 with no building detected, forcing to z=1');
+                self.z = 1;
+                self.path = null;
+                self.pathCount = 0;
+                return;
+              }
               console.error(self.name + ' cannot go downstairs from z=2 in building ' + b + ' - no ustairs defined');
               return;
             }
-            tLoc = Building.list[b].ustairs;
+          tLoc = Building.list[b].ustairs;
           } else {
             // Moving within second floor to different building
             var tcen = getCenter(tLoc[0],tLoc[1]);
             var tb = getBuilding(tcen[0],tcen[1]);
             if(b !== tb){
               // Exit current building first by going downstairs via upstairs location
-              if(!Building.list[b] || !Building.list[b].ustairs){
+              if(!b || !Building.list[b] || !Building.list[b].ustairs){
+                // Cannot find building - force to first floor as emergency fallback
+                if(!b){
+                  console.warn(self.name + ' stuck at z=2 with no building detected, forcing to z=1');
+                  self.z = 1;
+                  self.path = null;
+                  self.pathCount = 0;
+                  return;
+                }
                 console.error(self.name + ' cannot exit building ' + b + ' from z=2 - no ustairs defined');
                 return;
               }
@@ -2284,7 +2813,7 @@ Character = function(param){
       if(getTile(0,loc[0],loc[1] - 1) == 14 || getTile(0,loc[0],loc[1] - 1) == 16  || getTile(0,loc[0],loc[1] - 1) == 19){
         var exit = getBuilding(self.x,self.y-tileSize);
         if(Building.list[exit]){
-          Building.list[exit].occ--;
+        Building.list[exit].occ--;
           console.log(self.name + ' exited building ' + Building.list[exit].type + ' (z=1 -> z=0)');
         }
         self.z = 0;
@@ -2751,7 +3280,27 @@ Character = function(param){
           self.path = path;
         }
       } else if(self.z == -1){
-        var path = global.tilemapSystem.findPath(start, [c,r], -1);
+        // In cave - check if destination is a cave exit
+        var isTargetCaveExit = false;
+        for(var i in caveEntrances){
+          var ce = caveEntrances[i];
+          if(ce[0] == c && ce[1] == r){
+            isTargetCaveExit = true;
+            break;
+          }
+        }
+        
+        var options = {};
+        if(isTargetCaveExit){
+          // Allow pathfinding to the specific cave exit
+          options.allowSpecificDoor = true;
+          options.targetDoor = [c, r];
+        } else {
+          // Avoid all cave exits for general cave pathfinding
+          options.avoidCaveExits = true;
+        }
+        
+        var path = global.tilemapSystem.findPath(start, [c,r], -1, options);
         if(path && path.length > 0){
           path = smoothPath(path, z);
           cachePath(start, [c,r], z, path);
@@ -3000,10 +3549,24 @@ Character = function(param){
           }
           self.pathRecalcAttempts++;
           
-          // Only try to recalculate a few times to prevent infinite loops
-          if(self.pathRecalcAttempts < 3 && self.pathEnd){
+          // Calculate distance to target to determine how many retries to allow
+          var maxRetries = 3;
+          if(self.pathEnd){
+            var targetCoords = getCenter(self.pathEnd.loc[0], self.pathEnd.loc[1]);
+            var distToTarget = self.getDistance({x: targetCoords[0], y: targetCoords[1]});
+            // For close targets (< 6 tiles), allow more retries - they should be reachable
+            if(distToTarget < 384){ // Less than 6 tiles
+              maxRetries = 8;
+            }
+          }
+          
+          // Try to recalculate based on distance
+          if(self.pathRecalcAttempts < maxRetries && self.pathEnd){
             var reason = isNextBlocked ? 'blocked' : (isOscillating ? 'oscillating' : 'stuck');
-            console.log((self.name || 'Entity') + ' path ' + reason + ' at waypoint ' + next + ', recalculating...');
+            // Only log every 3rd attempt to reduce spam
+            if(self.pathRecalcAttempts % 3 == 1){
+              console.log((self.name || 'Entity') + ' path ' + reason + ' at waypoint ' + next + ', recalculating... (attempt ' + self.pathRecalcAttempts + '/' + maxRetries + ')');
+            }
             self.path = null;
             self.pathCount = 0;
             self.lastWaypoint = null;
@@ -3019,6 +3582,12 @@ Character = function(param){
             // Don't clear pathEnd if going home - let home action handle retry
             if(self.action != 'home'){
               self.pathEnd = null;
+            }
+            // If serf is working, clear their work spot so they get assigned a different one
+            if(self.work && self.work.spot && (self.action == 'task' || self.action == 'build')){
+              console.log((self.name || 'Entity') + ' clearing work spot after path failure at [' + self.work.spot[0] + ',' + self.work.spot[1] + '], current pos: [' + getLoc(self.x, self.y) + ']');
+              self.work.spot = null;
+              self.action = null; // Clear action to trigger new assignment
             }
             self.pathRecalcAttempts = 0;
             self.lastWaypoint = null;
@@ -3747,7 +4316,7 @@ SerfM = function(param){
   self.tether = null; // {z,loc}
   self.tavern = param.tavern;
   self.hut = param.hut;
-  self.work = {hq:null,spot:null}; // {hq,spot}
+  self.work = param.work || {hq:null,spot:null}; // Preserve work HQ from tavern spawn
   self.dayTimer = false;
   self.workTimer = false;
   self.idleCounter = 0; // Track how long serf has been without action
@@ -3775,7 +4344,16 @@ SerfM = function(param){
     
     if(bestHQ){
       self.work.hq = bestHQ;
-      console.log(self.name + ' assigned to work at ' + Building.list[bestHQ].type);
+      var buildingType = Building.list[bestHQ].type;
+      console.log(self.name + ' assigned to work at ' + buildingType);
+      
+      // Only miners need torches for caves
+      if(buildingType === 'mine' && Building.list[bestHQ].cave){
+        self.torchBearer = true;
+        console.log(self.name + ' is now a torch bearer (ore miner)');
+      } else {
+        self.torchBearer = false;
+      }
     } else {
       console.log(self.name + ' no work buildings found for house ' + self.house);
     }
@@ -3790,6 +4368,17 @@ SerfM = function(param){
       // Fallback to old initialization
       if(!self.work.hq){
         self.assignWorkHQ();
+      } else {
+        // Work HQ was provided by tavern spawn, set torchBearer appropriately (for miners)
+        if(self.sex == 'm'){
+          var buildingType = Building.list[self.work.hq].type;
+          if(buildingType === 'mine' && Building.list[self.work.hq].cave){
+            self.torchBearer = true;
+            console.log(self.name + ' is now a torch bearer (ore miner)');
+          } else {
+            self.torchBearer = false;
+          }
+        }
       }
       
       if(!self.tavern){
@@ -3842,6 +4431,15 @@ SerfM = function(param){
     
     var loc = getLoc(self.x,self.y);
     self.zoneCheck();
+    
+    // Torch bearer logic - auto-light torch in caves or at night
+    if(self.torchBearer){
+      if(!self.hasTorch){
+        if((self.z == 0 && nightfall) || self.z == -1 || self.z == -2){
+          self.lightTorch(Math.random());
+        }
+      }
+    }
 
     if(self.z == 0){
       if(getTile(0,loc[0],loc[1]) == 6){
@@ -3881,13 +4479,13 @@ SerfM = function(param){
       } else if(getTile(0,loc[0],loc[1]) == 14 || getTile(0,loc[0],loc[1]) == 16 || getTile(0,loc[0],loc[1]) == 19){
         var b = getBuilding(self.x,self.y);
         if(Building.list[b]){
-          Building.list[b].occ++;
-          self.z = 1;
-          self.path = null;
-          self.pathCount = 0;
-          self.innaWoods = false;
-          self.onMtn = false;
-          self.maxSpd = self.baseSpd * self.drag;
+        Building.list[b].occ++;
+        self.z = 1;
+        self.path = null;
+        self.pathCount = 0;
+        self.innaWoods = false;
+        self.onMtn = false;
+        self.maxSpd = self.baseSpd * self.drag;
           console.log(self.name + ' entered building ' + Building.list[b].type + ' (z=1)');
         }
       } else if(getTile(0,loc[0],loc[1]) == 0){
@@ -3959,7 +4557,7 @@ SerfM = function(param){
       if(getTile(0,loc[0],loc[1] - 1) == 14 || getTile(0,loc[0],loc[1] - 1) == 16  || getTile(0,loc[0],loc[1] - 1) == 19){
         var exit = getBuilding(self.x,self.y-tileSize);
         if(Building.list[exit]){
-          Building.list[exit].occ--;
+        Building.list[exit].occ--;
           console.log(self.name + ' exited building ' + Building.list[exit].type + ' (z=1 -> z=0)');
         }
         self.z = 0;
@@ -4061,7 +4659,7 @@ SerfM = function(param){
         console.log(self.name + ' stuck with active path - clearing (z=' + self.z + ', pathCount=' + self.pathCount + '/' + self.path.length + ')');
         self.path = null;
         self.pathCount = 0;
-        self.action = null;
+          self.action = null;
         self.work.spot = null;
         self.stuckCounter = 0;
         // Clear movement keys
@@ -4093,21 +4691,21 @@ SerfM = function(param){
         
         // If hut is not built yet, build it first
         if(!hut.built){
-          var select = [];
+                  var select = [];
           for(var i in hut.plot){
             var p = hut.plot[i];
             var t = getTile(0, p[0], p[1]);
             console.log('  🔍 Checking plot tile [' + p[0] + ',' + p[1] + ']: tile=' + t);
             if(t == 11){ // Foundation tile that needs building
-              select.push(p);
-            }
-          }
+                      select.push(p);
+                    }
+                  }
           
           console.log('🏗️ ' + self.name + ' hut NOT built, found ' + select.length + ' foundation tiles (type 11)');
           
-          if(select.length > 0){
-            self.work.spot = select[Math.floor(Math.random() * select.length)];
-            self.action = 'build';
+                  if(select.length > 0){
+                    self.work.spot = select[Math.floor(Math.random() * select.length)];
+                    self.action = 'build';
             console.log('✅ ' + self.name + ' ASSIGNED to build hut at [' + self.work.spot[0] + ',' + self.work.spot[1] + ']');
           } else {
             console.log('❌ ' + self.name + ' ERROR: hut not built but no foundation tiles found!');
@@ -4129,7 +4727,7 @@ SerfM = function(param){
             var hq = Building.list[self.work.hq];
             
             // Assign a work spot from hq resources (same logic as SerfF)
-            if(hq.resources && hq.resources.length > 0){
+          if(hq.resources && hq.resources.length > 0){
               var tDist = 0;
               var avgDist = null;
               for(var i in hq.resources){
@@ -4139,25 +4737,25 @@ SerfM = function(param){
                 tDist += dist;
               }
               avgDist = tDist/hq.resources.length;
-              var select = [];
-              for(var i in hq.resources){
-                var res = hq.resources[i];
-                var r = getCenter(res[0],res[1]);
-                var dist = getDistance({x:hq.x,y:hq.y},{x:r[0],y:r[1]});
+          var select = [];
+          for(var i in hq.resources){
+            var res = hq.resources[i];
+            var r = getCenter(res[0],res[1]);
+            var dist = getDistance({x:hq.x,y:hq.y},{x:r[0],y:r[1]});
                 if(dist <= avgDist){
-                  select.push(res);
-                }
-              }
-              self.work.spot = select[Math.floor(Math.random() * select.length)];
-              Building.list[self.work.hq].log[self.id] = self.work.spot;
-              self.action = 'task';
+              select.push(res);
+            }
+          }
+          self.work.spot = select[Math.floor(Math.random() * select.length)];
+          Building.list[self.work.hq].log[self.id] = self.work.spot;
+          self.action = 'task';
               console.log('🔨 ' + self.name + ' assigned to task at ' + hq.type + ' spot [' + self.work.spot[0] + ',' + self.work.spot[1] + ']');
-            } else {
+          } else {
               console.log('⚠️ ' + self.name + ' work HQ has no resources available, switching to idle');
               self.mode = 'idle';
               self.action = null;
-            }
-          } else {
+          }
+        } else {
             console.log('⚠️ ' + self.name + ' has no valid work assignment, switching to idle');
             self.mode = 'idle';
             self.action = null;
@@ -4212,17 +4810,22 @@ SerfM = function(param){
               if(loc.toString() == dropoff.toString()){
                 self.facing = 'up';
                 self.inventory.grain -= 9;
+                var grainDeposited = 6;
                 if(House.list[b.owner]){
-                  House.list[b.owner].stores.grain += 6;
+                  House.list[b.owner].stores.grain += grainDeposited;
                   console.log(House.list[b.owner].name + ' +6 Grain');
                 } else if(Player.list[b.owner].house){
                   var h = Player.list[b.owner].house;
-                  House.list[h].stores.grain += 6;
+                  House.list[h].stores.grain += grainDeposited;
                   console.log(House.list[h].name + ' +6 Grain');
                 } else {
-                  Player.list[b.owner].stores.grain += 6
+                  Player.list[b.owner].stores.grain += grainDeposited
                   console.log(Player.list[b.owner].name + ' +6 Grain');
                 }
+                // Track daily deposits
+                if(!b.dailyStores) b.dailyStores = {grain: 0};
+                b.dailyStores.grain += grainDeposited;
+                
                 self.inventory.flour += 3;
               } else {
                 if(!self.path){
@@ -4379,23 +4982,28 @@ SerfM = function(param){
               if(loc.toString() == dropoff.toString()){
                 self.facing = 'up';
                 self.inventory.wood -= 8;
+                var woodDeposited = 8;
                 if(House.list[b.owner]){
-                  House.list[b.owner].stores.wood += 8;
+                  House.list[b.owner].stores.wood += woodDeposited;
                   console.log(House.list[b.owner].name + ' +8 Wood');
-                } else if(Player.list[b.owner].house){
+                } else if(Player.list[b.owner] && Player.list[b.owner].house){
                   var h = Player.list[b.owner].house;
-                  House.list[h].stores.wood += 8;
+                  House.list[h].stores.wood += woodDeposited;
                   console.log(House.list[h].name + ' +8 Wood');
-                } else {
-                  Player.list[b.owner].stores.wood += 8
+                } else if(Player.list[b.owner]){
+                  Player.list[b.owner].stores.wood += woodDeposited
                   console.log(Player.list[b.owner].name + ' +8 Wood');
                 }
+                // Track daily deposits
+                if(!b.dailyStores) b.dailyStores = {wood: 0};
+                b.dailyStores.wood += woodDeposited;
               } else {
                 if(!self.path){
                   self.moveTo(0,dropoff[0],dropoff[1]);
                 }
               }
             } else {
+              // Check if already at work spot
               if(loc.toString() == spot.toString()){
                 var tile = getTile(0,spot[0],spot[1]);
                 self.working = true;
@@ -4439,23 +5047,27 @@ SerfM = function(param){
             }
           } else if(hq.type == 'mine'){
             if(hq.cave){ // metal
-              if(self.inventory.ironeore >= 10){
+              if(self.inventory.ironore >= 10){
                 var b = Building.list[self.work.hq];
                 var drop = [b.plot[0][0],b.plot[0][1]+1];
                 if(loc.toString() == drop.toString()){
                   self.facing = 'up';
                   self.inventory.ironore -= 9;
+                  var ironDeposited = 9;
                   if(House.list[b.owner]){
-                    House.list[b.owner].stores.ironore += 9;
+                    House.list[b.owner].stores.ironore += ironDeposited;
                     console.log(House.list[b.owner].name + ' +9 Iron Ore');
-                  } else if(Player.list[b.owner].house){
+                  } else if(Player.list[b.owner] && Player.list[b.owner].house){
                     var h = Player.list[b.owner].house;
-                    House.list[h].stores.ironore += 9;
+                    House.list[h].stores.ironore += ironDeposited;
                     console.log(House.list[h].name + ' +9 Iron Ore');
-                  } else {
-                    Player.list[b.owner].stores.ironore += 9;
+                  } else if(Player.list[b.owner]){
+                    Player.list[b.owner].stores.ironore += ironDeposited;
                     console.log(Player.list[b.owner].name + ' +9 Iron Ore');
                   }
+                  // Track daily deposits
+                  if(!b.dailyStores) b.dailyStores = {stone: 0, ironore: 0, silverore: 0, goldore: 0, diamond: 0};
+                  b.dailyStores.ironore += ironDeposited;
                 } else {
                   if(!self.path){
                     self.moveTo(0,drop[0],drop[1]);
@@ -4470,14 +5082,17 @@ SerfM = function(param){
                   if(House.list[b.owner]){
                     House.list[b.owner].stores.silverore++;
                     console.log(House.list[b.owner].name + ' +1 Silver Ore');
-                  } else if(Player.list[b.owner].house){
+                  } else if(Player.list[b.owner] && Player.list[b.owner].house){
                     var h = Player.list[b.owner].house;
                     House.list[h].stores.silverore++;
                     console.log(House.list[h].name + ' +1 Silver Ore');
-                  } else {
+                  } else if(Player.list[b.owner]){
                     Player.list[b.owner].stores.silverore++;
                     console.log(Player.list[b.owner].name + ' +1 Silver Ore');
                   }
+                  // Track daily deposits
+                  if(!b.dailyStores) b.dailyStores = {stone: 0, ironore: 0, silverore: 0, goldore: 0, diamond: 0};
+                  b.dailyStores.silverore++;
                 } else {
                   if(!self.path){
                     self.moveTo(0,drop[0],drop[1]);
@@ -4492,14 +5107,17 @@ SerfM = function(param){
                   if(House.list[b.owner]){
                     House.list[b.owner].stores.goldore++;
                     console.log(House.list[b.owner].name + ' +1 Gold Ore');
-                  } else if(Player.list[b.owner].house){
+                  } else if(Player.list[b.owner] && Player.list[b.owner].house){
                     var h = Player.list[b.owner].house;
                     House.list[h].stores.goldore++;
                     console.log(House.list[h].name + ' +1 Gold Ore');
-                  } else {
+                  } else if(Player.list[b.owner]){
                     Player.list[b.owner].stores.goldore++;
                     console.log(Player.list[b.owner].name + ' +1 Gold Ore');
                   }
+                  // Track daily deposits
+                  if(!b.dailyStores) b.dailyStores = {stone: 0, ironore: 0, silverore: 0, goldore: 0, diamond: 0};
+                  b.dailyStores.goldore++;
                 } else {
                   if(!self.path){
                     self.moveTo(0,drop[0],drop[1]);
@@ -4514,22 +5132,32 @@ SerfM = function(param){
                   if(House.list[b.owner]){
                     House.list[b.owner].stores.diamond++;
                     console.log(House.list[b.owner].name + ' +1 Diamond');
-                  } else if(Player.list[b.owner].house){
+                  } else if(Player.list[b.owner] && Player.list[b.owner].house){
                     var h = Player.list[b.owner].house;
                     House.list[h].stores.diamond++;
                     console.log(House.list[h].name + ' +1 Diamond');
-                  } else {
+                  } else if(Player.list[b.owner]){
                     Player.list[b.owner].stores.diamond++;
                     console.log(Player.list[b.owner].name + ' +1 Diamond');
                   }
+                  // Track daily deposits
+                  if(!b.dailyStores) b.dailyStores = {stone: 0, ironore: 0, silverore: 0, goldore: 0, diamond: 0};
+                  b.dailyStores.diamond++;
                 } else {
                   if(!self.path){
                     self.moveTo(0,drop[0],drop[1]);
                   }
                 }
               } else {
-                if(loc.toString() == spot.toString() && self.z == -1){
-                  var tile = getTile(0,spot[0],spot[1]);
+                // Ore mining - serfs need to go to cave (z=-1)
+                if(self.z == -1){
+                  // Already in cave, path to ore spot
+                  if(loc.toString() == spot.toString()){
+                  // Successfully reached spot - reset cave path attempts
+                  self.cavePathAttempts = 0;
+                  self.lastCaveTarget = null;
+                  
+                  var tile = getTile(1,spot[0],spot[1]); // Layer 1 for cave rocks
                   self.working = true;
                   self.mining = true;
                   if(!self.workTimer){
@@ -4588,6 +5216,44 @@ SerfM = function(param){
                       self.mining = false;
                     },10000/self.strength);
                   }
+                  } else {
+                    // In cave but not at spot yet - moveTo will handle pathfinding at z=-1
+                    if(!self.path){
+                      // Initialize oscillation detection for cave pathfinding
+                      if(!self.cavePathAttempts){
+                        self.cavePathAttempts = 0;
+                        self.lastCaveTarget = spot.toString();
+                      }
+                      
+                      // Check if we're repeatedly trying to path to the same spot (stuck)
+                      if(self.lastCaveTarget === spot.toString()){
+                        self.cavePathAttempts++;
+                        if(self.cavePathAttempts > 5){
+                          // Give up on this spot, find a new one
+                          console.log(self.name + ' stuck pathing to mine spot in cave, finding new spot');
+                          self.work.spot = null;
+                          self.action = null;
+                          self.cavePathAttempts = 0;
+                          self.lastCaveTarget = null;
+                          return;
+                        }
+                      } else {
+                        self.cavePathAttempts = 0;
+                        self.lastCaveTarget = spot.toString();
+                      }
+                      
+                      self.moveTo(-1,spot[0],spot[1]);
+                    }
+                  }
+                } else {
+                  // Not in cave yet (at z=0, z=1, or z=2) - path to cave entrance
+                  // moveTo will automatically handle building exits if at z=1 or z=2
+                  if(hq.cave){
+                    var caveEntrance = hq.cave;
+                    if(!self.path){
+                      self.moveTo(0,caveEntrance[0],caveEntrance[1]);
+                    }
+                  }
                 }
               }
             } else { // stone
@@ -4608,17 +5274,21 @@ SerfM = function(param){
                 if(loc.toString() == drop.toString()){
                   self.facing = 'up';
                   self.inventory.stone -= 8;
+                  var stoneDeposited = 8;
                   if(House.list[b.owner]){
-                    House.list[b.owner].stores.stone += 8;
+                    House.list[b.owner].stores.stone += stoneDeposited;
                     console.log(House.list[b.owner].name + ' +8 Stone');
-                  } else if(Player.list[b.owner].house){
+                  } else if(Player.list[b.owner] && Player.list[b.owner].house){
                     var h = Player.list[b.owner].house;
-                    House.list[h].stores.stone += 8;
+                    House.list[h].stores.stone += stoneDeposited;
                     console.log(House.list[h].name + ' +8 Stone');
-                  } else {
-                    Player.list[b.owner].stores.stone += 8
+                  } else if(Player.list[b.owner]){
+                    Player.list[b.owner].stores.stone += stoneDeposited
                     console.log(Player.list[b.owner].name + ' +8 Stone');
                   }
+                  // Track daily deposits
+                  if(!b.dailyStores) b.dailyStores = {stone: 0, ironore: 0, silverore: 0, goldore: 0, diamond: 0};
+                  b.dailyStores.stone += stoneDeposited;
                 } else {
                   if(!self.path){
                     self.moveTo(0,drop[0],drop[1]);
@@ -4679,17 +5349,22 @@ SerfM = function(param){
           if(b.type == 'mill'){
             if(self.inventory.grain >= 3){
               self.inventory.grain -= 3;
+              var grainDeposited = 2;
               if(House.list[b.owner]){
-                House.list[b.owner].stores.grain += 2;
+                House.list[b.owner].stores.grain += grainDeposited;
                 console.log(self.name + ' dropped off 2 Grain.');
               } else if(Player.list[b.owner].house){
                 var h = Player.list[b.owner].house;
-                House.list[h].stores.grain += 2;
+                House.list[h].stores.grain += grainDeposited;
                 console.log(self.name + ' dropped off 2 Grain.');
               } else {
-                Player.list[b.owner].stores.grain += 2;
+                Player.list[b.owner].stores.grain += grainDeposited;
                 console.log(self.name + ' dropped off 2 Grain.');
               }
+              // Track daily deposits
+              if(!b.dailyStores) b.dailyStores = {grain: 0};
+              b.dailyStores.grain += grainDeposited;
+              
               self.inventory.flour++;
             } else {
               // Not enough grain, transition to next action
@@ -4700,17 +5375,21 @@ SerfM = function(param){
           } else if(b.type == 'lumbermill'){
             if(self.inventory.wood >= 3){
               self.inventory.wood -= 2;
+              var woodDeposited = 2;
               if(House.list[b.owner]){
-                House.list[b.owner].stores.wood += 2;
+                House.list[b.owner].stores.wood += woodDeposited;
                 console.log(self.name + ' dropped off 2 Wood.');
               } else if(Player.list[b.owner].house){
                 var h = Player.list[b.owner].house;
-                House.list[h].stores.wood += 2;
+                House.list[h].stores.wood += woodDeposited;
                 console.log(self.name + ' dropped off 2 Wood.');
               } else {
-                Player.list[b.owner].stores.wood += 2;
+                Player.list[b.owner].stores.wood += woodDeposited;
                 console.log(self.name + ' dropped off 2 Wood.');
               }
+              // Track daily deposits
+              if(!b.dailyStores) b.dailyStores = {wood: 0};
+              b.dailyStores.wood += woodDeposited;
             } else {
               // Not enough wood, transition to next action
               console.log(self.name + ' not enough wood to drop off, transitioning');
@@ -4777,17 +5456,21 @@ SerfM = function(param){
             } else {
               if(self.inventory.stone >= 3){
                 self.inventory.stone -= 2;
+                var stoneDeposited = 2;
                 if(House.list[b.owner]){
-                  House.list[b.owner].stores.stone += 2;
+                  House.list[b.owner].stores.stone += stoneDeposited;
                   console.log(self.name + ' dropped off 2 Stone.');
                 } else if(Player.list[b.owner].house){
                   var h = Player.list[b.owner].house;
-                  House.list[h].stores.stone += 2;
+                  House.list[h].stores.stone += stoneDeposited;
                   console.log(self.name + ' dropped off 2 Stone.');
                 } else {
-                  Player.list[b.owner].stores.stone += 2;
+                  Player.list[b.owner].stores.stone += stoneDeposited;
                   console.log(self.name + ' dropped off 2 Stone.');
                 }
+                // Track daily deposits
+                if(!b.dailyStores) b.dailyStores = {stone: 0, ironore: 0};
+                b.dailyStores.stone += stoneDeposited;
               } else {
                 self.mode = 'idle'
               }
@@ -4804,9 +5487,9 @@ SerfM = function(param){
         // Use SimpleFlee system for reliable fleeing (same as deer)
         if(global.simpleFlee){
           global.simpleFlee.update(self);
-        } else {
+          } else {
           // Fallback: clear flee if no system available
-          self.action = null;
+            self.action = null;
           self.combat.target = null;
           self.baseSpd = 2;
         }
@@ -4948,9 +5631,9 @@ SerfM = function(param){
                   self.tether = null;
                   self.path = null;
                 } else if(self.homeAttempts % 60 == 0){ // Only log every 60 frames (1 second)
-                  console.log(self.name + ' cannot create path home, clearing tether and retrying');
-                  self.tether = null; // Clear tether in case it's blocking us
-                  self.path = null;
+                console.log(self.name + ' cannot create path home, clearing tether and retrying');
+                self.tether = null; // Clear tether in case it's blocking us
+                self.path = null;
                 }
               }
             }
@@ -4980,16 +5663,51 @@ SerfM = function(param){
           }
         } else {
           var inv = self.inventory;
-          // if has inventory, sell inventory
+          // if has inventory, sell inventory via market orderbook
+          var soldSomething = false;
+          
           if(inv.flour > 0){
-            // sell
+            // Sell flour at market price
+            var price = 3; // Base price for flour
+            global.processSellOrder(self.id, 'grain', inv.flour, price);
+            soldSomething = true;
           } else if(inv.wood > 0){
-            // sell
+            // Sell wood at market price
+            var price = 8; // Base price for wood
+            global.processSellOrder(self.id, 'wood', inv.wood, price);
+            soldSomething = true;
           } else if(inv.stone > 0){
-            // sell
+            // Sell stone at market price
+            var price = 10; // Base price for stone
+            global.processSellOrder(self.id, 'stone', inv.stone, price);
+            soldSomething = true;
           } else if(inv.ironore > 0){
-            // sell
-          } else {
+            // Sell iron ore at market price
+            var price = 15; // Base price for iron ore
+            global.processSellOrder(self.id, 'ironore', inv.ironore, price);
+            soldSomething = true;
+          } else if(inv.silverore > 0){
+            // Sell silver ore at market price
+            var price = 40; // Base price for silver ore
+            global.processSellOrder(self.id, 'silverore', inv.silverore, price);
+            soldSomething = true;
+          } else if(inv.goldore > 0){
+            // Sell gold ore at market price
+            var price = 80; // Base price for gold ore
+            global.processSellOrder(self.id, 'goldore', inv.goldore, price);
+            soldSomething = true;
+          } else if(inv.diamond > 0){
+            // Sell diamonds at market price
+            var price = 200; // Base price for diamonds
+            global.processSellOrder(self.id, 'diamond', inv.diamond, price);
+            soldSomething = true;
+          }
+          
+          if(soldSomething){
+            console.log(self.name + ' sold resources at market');
+          }
+          
+          if(!soldSomething){
             if(inv.silver > 0 || inv.gold > 0){
               // buy something nice
             }
@@ -5071,9 +5789,9 @@ SerfM = function(param){
         // Use SimpleFlee system for reliable fleeing (same as deer)
         if(global.simpleFlee){
           global.simpleFlee.update(self);
-        } else {
+          } else {
           // Fallback: clear flee if no system available
-          self.action = null;
+            self.action = null;
           self.combat.target = null;
           self.baseSpd = 2;
         }
@@ -5093,7 +5811,7 @@ SerfF = function(param){
   self.tether = null; // {z,loc}
   self.tavern = param.tavern;
   self.hut = param.hut;
-  self.work = {hq:null,spot:null}; // {hq,spot}
+  self.work = param.work || {hq:null,spot:null}; // Preserve work HQ from tavern spawn
   self.dayTimer = false;
   self.workTimer = false;
   self.idleCounter = 0; // Track how long serf has been without action
@@ -5156,6 +5874,17 @@ SerfF = function(param){
       // Fallback to old initialization
       if(!self.work.hq){
         self.assignWorkHQ();
+      } else {
+        // Work HQ was provided by tavern spawn, set torchBearer appropriately (for miners)
+        if(self.sex == 'm'){
+          var buildingType = Building.list[self.work.hq].type;
+          if(buildingType === 'mine' && Building.list[self.work.hq].cave){
+            self.torchBearer = true;
+            console.log(self.name + ' is now a torch bearer (ore miner)');
+          } else {
+            self.torchBearer = false;
+          }
+        }
       }
       
       if(!self.tavern){
@@ -5327,7 +6056,7 @@ SerfF = function(param){
       if(getTile(0,loc[0],loc[1] - 1) == 14 || getTile(0,loc[0],loc[1] - 1) == 16  || getTile(0,loc[0],loc[1] - 1) == 19){
         var exit = getBuilding(self.x,self.y-tileSize);
         if(Building.list[exit]){
-          Building.list[exit].occ--;
+        Building.list[exit].occ--;
           console.log(self.name + ' exited building ' + Building.list[exit].type + ' (z=1 -> z=0)');
         }
         self.z = 0;
@@ -5428,32 +6157,32 @@ SerfF = function(param){
           if(Building.list[self.hut].built){ // if hut is built
             // Check if there are any resources available
             if(hq.resources && hq.resources.length > 0){
-              var tDist = 0;
-              var avgDist = null;
-              for(var i in hq.resources){
-                var res = hq.resources[i];
-                var r = getCenter(res[0],res[1]);
-                var dist = getDistance({x:hq.x,y:hq.y},{x:r[0],y:r[1]});
-                tDist += dist;
+            var tDist = 0;
+            var avgDist = null;
+            for(var i in hq.resources){
+              var res = hq.resources[i];
+              var r = getCenter(res[0],res[1]);
+              var dist = getDistance({x:hq.x,y:hq.y},{x:r[0],y:r[1]});
+              tDist += dist;
+            }
+            avgDist = tDist/hq.resources.length;
+            var select = [];
+            for(var i in hq.resources){
+              var res = hq.resources[i];
+              var r = getCenter(res[0],res[1]);
+              var dist = getDistance({x:hq.x,y:hq.y},{x:r[0],y:r[1]});
+              if(dist <= avgDist){
+                select.push(res);
               }
-              avgDist = tDist/hq.resources.length;
-              var select = [];
-              for(var i in hq.resources){
-                var res = hq.resources[i];
-                var r = getCenter(res[0],res[1]);
-                var dist = getDistance({x:hq.x,y:hq.y},{x:r[0],y:r[1]});
-                if(dist <= avgDist){
-                  select.push(res);
-                }
-              }
+            }
               
               // Only assign task if we found a valid spot
               if(select.length > 0){
-                self.work.spot = select[Math.floor(Math.random() * select.length)];
-                Building.list[self.work.hq].log[self.id] = self.work.spot;
-                self.action = 'task';
-                console.log(self.name + ' working @ ' + hq.type);
-              } else {
+            self.work.spot = select[Math.floor(Math.random() * select.length)];
+            Building.list[self.work.hq].log[self.id] = self.work.spot;
+            self.action = 'task';
+              console.log(self.name + ' working @ ' + hq.type);
+            } else {
                 // No resources within average distance, try again next frame
                 self.idleTime = 30;
               }
@@ -5505,12 +6234,17 @@ SerfF = function(param){
               if(loc.toString() == dropoff.toString()){
                 self.facing = 'up';
                 self.inventory.grain -= 9;
+                var grainDeposited = 6;
                 if(Player.list[hq.owner].house){
                   var h = Player.list[hq.owner].house;
-                  House.list[h].stores.grain += 6;
+                  House.list[h].stores.grain += grainDeposited;
                 } else {
-                  Player.list[hq.owner].stores.grain += 6
+                  Player.list[hq.owner].stores.grain += grainDeposited
                 }
+                // Track daily deposits
+                if(!hq.dailyStores) hq.dailyStores = {grain: 0};
+                hq.dailyStores.grain += grainDeposited;
+                
                 self.inventory.flour += 3;
               } else {
                 if(!self.path){
@@ -5558,10 +6292,10 @@ SerfF = function(param){
                         } else {
                           var res = getTile(6,spot[0],spot[1]);
                           if(res >= 5){
-                            for(var n in hq.resources){
-                              var r = hq.resources[n];
-                              if(r.toString() == spot.toString()){
-                                Building.list[self.work.hq].resources.splice(n,1);
+                          for(var n in hq.resources){
+                            var r = hq.resources[n];
+                            if(r.toString() == spot.toString()){
+                              Building.list[self.work.hq].resources.splice(n,1);
                               }
                             }
                           }
@@ -5589,10 +6323,10 @@ SerfF = function(param){
                         } else {
                           var res = getTile(6,spot[0],spot[1]);
                           if(res >= 10){
-                            for(var n in hq.resources){
-                              var r = hq.resources[n];
-                              if(r.toString() == spot.toString()){
-                                Building.list[self.work.hq].resources.splice(n,1);
+                          for(var n in hq.resources){
+                            var r = hq.resources[n];
+                            if(r.toString() == spot.toString()){
+                              Building.list[self.work.hq].resources.splice(n,1);
                               }
                             }
                           }
@@ -5663,12 +6397,17 @@ SerfF = function(param){
             self.facing = 'up';
             if(self.inventory.grain >= 3){
               self.inventory.grain -= 3;
+              var grainDeposited = 2;
               if(Player.list[b.owner].house){
                 var h = Player.list[b.owner].house;
-                House.list[h].stores.grain += 2;
+                House.list[h].stores.grain += grainDeposited;
               } else {
-                Player.list[b.owner].stores.grain += 2
+                Player.list[b.owner].stores.grain += grainDeposited
               }
+              // Track daily deposits
+              if(!b.dailyStores) b.dailyStores = {grain: 0};
+              b.dailyStores.grain += grainDeposited;
+              
               self.inventory.flour++;
             } else {
               self.mode = 'idle';
@@ -5832,9 +6571,9 @@ SerfF = function(param){
                   self.tether = null;
                   self.path = null;
                 } else if(self.homeAttempts % 60 == 0){ // Only log every 60 frames (1 second)
-                  console.log(self.name + ' cannot create path home, clearing tether and retrying');
-                  self.tether = null; // Clear tether in case it's blocking us
-                  self.path = null;
+                console.log(self.name + ' cannot create path home, clearing tether and retrying');
+                self.tether = null; // Clear tether in case it's blocking us
+                self.path = null;
                 }
               }
             }
@@ -5864,10 +6603,26 @@ SerfF = function(param){
           }
         } else {
           var inv = self.inventory;
-          // if has inventory, sell inventory
+          // if has inventory, sell inventory via market orderbook
+          var soldSomething = false;
+          
           if(inv.bread > 0){
-            // sell
-          } else {
+            // Sell bread at market price
+            var price = 5; // Base price for bread
+            global.processSellOrder(self.id, 'grain', inv.bread, price);
+            soldSomething = true;
+          } else if(inv.flour > 0){
+            // Sell flour at market price
+            var price = 3; // Base price for flour
+            global.processSellOrder(self.id, 'grain', inv.flour, price);
+            soldSomething = true;
+          }
+          
+          if(soldSomething){
+            console.log(self.name + ' sold resources at market');
+          }
+          
+          if(!soldSomething){
             if(inv.silver > 0 || inv.gold > 0){
               // buy something nice
             }
@@ -5949,9 +6704,9 @@ SerfF = function(param){
         // Use SimpleFlee system for reliable fleeing (same as deer)
         if(global.simpleFlee){
           global.simpleFlee.update(self);
-        } else {
+          } else {
           // Fallback: clear flee if no system available
-          self.action = null;
+            self.action = null;
           self.combat.target = null;
           self.baseSpd = 2;
         }
@@ -5970,6 +6725,38 @@ Innkeeper = function(param){
   self.baseSpd = 3;
   self.torchBearer = true;
   self.unarmed = true;
+  self.leashCheckTimer = 0; // Check leash every 5 seconds (300 frames)
+  
+  var super_update = self.update;
+  self.update = function(){
+    // Leashing system - keep innkeeper near tavern
+    self.leashCheckTimer++;
+    if(self.leashCheckTimer >= 300){
+      self.leashCheckTimer = 0;
+      
+      if(self.home && self.home.loc){
+        var homeCoords = getCenter(self.home.loc[0], self.home.loc[1]);
+        var homeDist = self.getDistance({x: homeCoords[0], y: homeCoords[1]});
+        var leashRange = 640; // 10 tiles
+        
+        if(homeDist > leashRange && self.z === 0){
+          // Too far from tavern - return home
+          if(!self.path && self.action !== 'combat'){
+            console.log(self.name + ' wandered too far from tavern, returning home');
+            self.action = 'returning';
+            self.moveTo(self.home.z, self.home.loc[0], self.home.loc[1]);
+          }
+        } else if(self.action === 'returning' && homeDist <= leashRange * 0.5){
+          // Back near tavern - resume normal behavior
+          self.action = null;
+          self.path = null;
+        }
+      }
+    }
+    
+    // Call parent update
+    super_update();
+  }
 }
 
 Blacksmith = function(param){
@@ -6096,7 +6883,7 @@ Blacksmith = function(param){
       if(getTile(0,loc[0],loc[1] - 1) == 14 || getTile(0,loc[0],loc[1] - 1) == 16  || getTile(0,loc[0],loc[1] - 1) == 19){
         var exit = getBuilding(self.x,self.y-tileSize);
         if(Building.list[exit]){
-          Building.list[exit].occ--;
+        Building.list[exit].occ--;
           console.log(self.name + ' exited building ' + Building.list[exit].type + ' (z=1 -> z=0)');
         }
         self.z = 0;
@@ -6261,9 +7048,9 @@ Blacksmith = function(param){
         // Use SimpleFlee system for reliable fleeing (same as deer)
         if(global.simpleFlee){
           global.simpleFlee.update(self);
-        } else {
+          } else {
           // Fallback: clear flee if no system available
-          self.action = null;
+            self.action = null;
           self.combat.target = null;
           self.baseSpd = 2;
         }
@@ -9584,5 +10371,74 @@ Light.getAllInitPack = function(){
   for(var i in Light.list)
     lights.push(Light.list[i].getInitPack());
   return lights;
+}
+
+// SKELETON
+Skeleton = function(param){
+  var self = Item(param);
+  self.type = 'Skeleton';
+  self.class = 'Skeleton';
+  self.variation = param.variation || Math.floor(Math.random() * 2); // 0 or 1
+  self.canPickup = false;
+  self.blocker(0); // Skeletons don't block movement
+  
+  self.getInitPack = function(){
+    return {
+      id: self.id,
+      x: self.x,
+      y: self.y,
+      z: self.z,
+      type: self.type,
+      variation: self.variation
+    };
+  };
+  
+  self.getUpdatePack = function(){
+    return {
+      id: self.id,
+      x: self.x,
+      y: self.y,
+      z: self.z
+    };
+  };
+  
+  Item.list[self.id] = self;
+  return self;
+}
+
+// DROPPED ITEM (from death)
+DroppedItem = function(param){
+  var self = Item(param);
+  self.type = 'DroppedItem';
+  self.itemType = param.itemType; // 'inventory' or 'stores'
+  self.itemName = param.itemName; // grain, wood, longsword, etc
+  self.quantity = param.quantity;
+  self.canPickup = true;
+  self.blocker(0); // Dropped items don't block movement
+  
+  self.getInitPack = function(){
+    return {
+      id: self.id,
+      x: self.x,
+      y: self.y,
+      z: self.z,
+      type: self.type,
+      itemType: self.itemType,
+      itemName: self.itemName,
+      quantity: self.quantity
+    };
+  };
+  
+  self.getUpdatePack = function(){
+    return {
+      id: self.id,
+      x: self.x,
+      y: self.y,
+      z: self.z
+    };
+  };
+  
+  Item.list[self.id] = self;
+  return self;
 }
 

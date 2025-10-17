@@ -37,6 +37,23 @@ Build = function(id){
       }
       if(count == plot.length && !Building.list[b].built){
         Building.list[b].built = true;
+        
+        // Auto-set home for player when they build certain buildings (if no home set)
+        var owner = Player.list[building.owner];
+        if(owner && owner.type === 'player' && !owner.home){
+          var homeBuildings = ['hut', 'cottage', 'villa', 'tavern', 'tower', 'stronghold', 
+                               'gothhut', 'frankhut', 'celthut', 'teuthut'];
+          if(homeBuildings.indexOf(building.type) >= 0){
+            var loc = getLoc(building.x, building.y);
+            owner.home = {z: 1, loc: loc};
+            var socket = SOCKET_LIST[building.owner];
+            if(socket){
+              socket.write(JSON.stringify({msg:'addToChat',message:'<span style="color:#66ff66;">🏠 Home set to your new ' + building.type + '</span>'}));
+            }
+            console.log(owner.name + ' home auto-set to ' + building.type + ' at [' + loc[0] + ',' + loc[1] + ']');
+          }
+        }
+        
         if(building.house && building.patrol){
           var h = building.house;
           House.list[h].military.patrol.push(b.id);

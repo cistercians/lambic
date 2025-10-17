@@ -98,9 +98,11 @@ class TilemapSystem {
         // Apply pathfinding options
         if (options.avoidDoors && this.isDoorway(layer, x, y, tile)) {
           walkable = false;
+        } else if (options.avoidCaveExits && this.isCaveExit(layer, x, y)) {
+          walkable = false;
         } else if (options.allowSpecificDoor && options.targetDoor) {
           const [targetX, targetY] = options.targetDoor;
-          if (this.isDoorway(layer, x, y, tile) && !(x === targetX && y === targetY)) {
+          if ((this.isDoorway(layer, x, y, tile) || this.isCaveExit(layer, x, y)) && !(x === targetX && y === targetY)) {
             walkable = false;
           }
         }
@@ -130,6 +132,22 @@ class TilemapSystem {
   // Check if a tile is a doorway
   isDoorway(layer, x, y, tile) {
     return layer === 0 && (tile === 14 || tile === 16); // DOOR_OPEN or DOOR_OPEN_ALT
+  }
+
+  // Check if a tile is a cave exit (to avoid in cave pathfinding)
+  isCaveExit(layer, x, y) {
+    if (layer !== -1) return false; // Only applies to cave layer
+    
+    // Check if this coordinate matches any cave entrance
+    if (global.caveEntrances) {
+      for (let i = 0; i < global.caveEntrances.length; i++) {
+        const entrance = global.caveEntrances[i];
+        if (entrance[0] === x && entrance[1] === y) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   // Invalidate pathfinding cache

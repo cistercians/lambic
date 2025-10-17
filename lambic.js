@@ -317,22 +317,22 @@ function tileChange(l, c, r, n, incr = false) {
   }
   
   try {
-    global.tilemapSystem.updateTile(l, c, r, n, incr);
-    
-    // Update the local world array to keep it in sync
-    const newTileValue = global.tilemapSystem.getTile(l, c, r);
-    
-    // Ensure the world array structure exists
-    if (!world[l]) {
-      world[l] = [];
-    }
-    if (!world[l][r]) {
-      world[l][r] = [];
-    }
-    world[l][r][c] = newTileValue;
-    
-    // Automatically emit tile update to all clients
-    emit({ msg: 'tileEdit', l, c, r, tile: newTileValue });
+  global.tilemapSystem.updateTile(l, c, r, n, incr);
+  
+  // Update the local world array to keep it in sync
+  const newTileValue = global.tilemapSystem.getTile(l, c, r);
+  
+  // Ensure the world array structure exists
+  if (!world[l]) {
+    world[l] = [];
+  }
+  if (!world[l][r]) {
+    world[l][r] = [];
+  }
+  world[l][r][c] = newTileValue;
+  
+  // Automatically emit tile update to all clients
+  emit({ msg: 'tileEdit', l, c, r, tile: newTileValue });
   } catch (error) {
     console.error('tileChange error:', error, { l, c, r, n, incr });
   }
@@ -1425,6 +1425,9 @@ const Player = function(param) {
   }, 1000);
 
   self.die = function(report) {
+    var deathLocation = getLoc(self.x, self.y);
+    var deathZ = self.z;
+    
     if (report.id) {
       const killer = Player.list[report.id];
       if (killer) {
@@ -1444,33 +1447,194 @@ const Player = function(param) {
     if (global.simpleCombat) {
       global.simpleCombat.endCombat(self);
     }
-
-    self.hp = self.hpMax;
-    const spawn = randomSpawnO();
-    self.x = spawn[0];
-    self.y = spawn[1];
-    self.z = 0; // Ensure respawn on overworld
     
-    // Clear any remaining combat state (should already be cleared by endCombat)
-    self.combat.target = null;
-    self.action = null;
+    // SPAWN SKELETON AT DEATH LOCATION
+    var deathCoords = getCenter(deathLocation[0], deathLocation[1]);
+    Skeleton({
+      id: Math.random(),
+      x: deathCoords[0],
+      y: deathCoords[1],
+      z: deathZ,
+      variation: Math.floor(Math.random() * 2)
+    });
+    console.log(`💀 Skeleton spawned at [${deathLocation[0]},${deathLocation[1]}] z=${deathZ}`);
+    
+    // DROP AND SCATTER INVENTORY AND RESOURCES
+    var droppedItems = [];
+    
+    // Drop inventory items
+    if(self.inventory){
+      for(var item in self.inventory){
+        var qty = self.inventory[item];
+        if(qty > 0){
+          droppedItems.push({item: item, qty: qty, type: 'inventory'});
+          self.inventory[item] = 0;
+        }
+      }
+    }
+    
+    // Drop store resources (grain, wood, stone, ores, etc)
+    if(self.stores){
+      for(var resource in self.stores){
+        var qty = self.stores[resource];
+        if(qty > 0){
+          droppedItems.push({item: resource, qty: qty, type: 'stores'});
+          self.stores[resource] = 0;
+        }
+      }
+    }
+    
+    // Scatter items in random pattern around skeleton
+    if(droppedItems.length > 0){
+      console.log(`💀 ${self.name} dropped ${droppedItems.length} item types at [${deathLocation[0]},${deathLocation[1]}] z=${deathZ}`);
+      
+      for(var i in droppedItems){
+        var drop = droppedItems[i];
+        console.log(`  - ${drop.qty} ${drop.item}`);
+        
+        // Random offset from death location (within 2 tiles)
+        var offsetX = (Math.random() - 0.5) * tileSize * 2;
+        var offsetY = (Math.random() - 0.5) * tileSize * 2;
+        
+        DroppedItem({
+          id: Math.random(),
+          x: deathCoords[0] + offsetX,
+          y: deathCoords[1] + offsetY,
+          z: deathZ,
+          itemType: drop.type,
+          itemName: drop.item,
+          quantity: drop.qty
+        });
+      }
+    }
+    
+    // BROADCAST DEATH TO NEARBY PLAYERS
+    var killerName = null;
+    if(report.id){
+      var killer = Player.list[report.id];
+      if(killer){
+        killerName = killer.name || killer.class;
+      }
+    }
+    
+    var victimName = self.name || self.class;
+    var deathNotification = null;
+    
+    if(killerName){
+      deathNotification = '<span style="color:#ffaaaa;">⚔️ ' + killerName + ' has slain ' + victimName + '</span>';
+    } else if(report.cause){
+      deathNotification = '<span style="color:#ffaaaa;">☠️ ' + victimName + ' has ' + report.cause + '</span>';
+    }
+    
+    if(deathNotification){
+      // Broadcast to nearby players (within 20 tiles / 1280px)
+      var deathRadius = 1280;
+      for(var id in Player.list){
+        var nearbyPlayer = Player.list[id];
+        if(!nearbyPlayer || nearbyPlayer.id === self.id) continue;
+        if(nearbyPlayer.type !== 'player') continue;
+        if(nearbyPlayer.z !== deathZ) continue; // Same z-level only
+        
+        var dist = Math.sqrt(Math.pow(nearbyPlayer.x - self.x, 2) + Math.pow(nearbyPlayer.y - self.y, 2));
+        if(dist <= deathRadius){
+          var nearbySocket = SOCKET_LIST[id];
+          if(nearbySocket){
+            nearbySocket.write(JSON.stringify({msg:'addToChat',message: deathNotification}));
+          }
+        }
+      }
+    }
+    
+    // GHOST MODE FOR PLAYERS (NPCs respawn immediately)
+    if(self.type === 'player'){
+      // Enter ghost mode
+      self.ghost = true;
+      self.ghostTimer = 300; // 300 frames = 5 seconds at 60fps
+      self.hp = 1; // Ghost has minimal HP (can't die again)
+      
+      // Clear combat state
+      self.combat.target = null;
+      self.action = null;
+      self.path = null;
+      self.pathCount = 0;
+      
+      // Send death message with ghost instructions
+      var socket = SOCKET_LIST[self.id];
+      if(socket){
+        var deathMsg = '<span style="color:#ff0000;"><b>☠️ YOU DIED</b></span>';
+        if(report.id){
+          var killer = Player.list[report.id];
+          if(killer){
+            deathMsg += '<br>Killed by: ' + (killer.name || killer.class);
+          }
+        } else if(report.cause){
+          deathMsg += '<br>Cause: ' + report.cause;
+        }
+        if(droppedItems.length > 0){
+          deathMsg += '<br><i>Your items have been dropped at the death location</i>';
+        }
+        deathMsg += '<br><br><span style="color:#aaaaff;">👻 You are now a ghost. Move to where you want to respawn.</span>';
+        deathMsg += '<br><i>Auto-respawn in 5 seconds, or type /respawn to respawn at home</i>';
+        socket.write(JSON.stringify({msg:'addToChat',message: deathMsg}));
+      }
+      
+      console.log(`👻 ${self.name} entered ghost mode at [${deathLocation[0]},${deathLocation[1]}] z=${deathZ}`);
+    } else {
+      // NPC - immediate respawn
+      self.hp = self.hpMax;
+      const spawn = randomSpawnO();
+      self.x = spawn[0];
+      self.y = spawn[1];
+      self.z = 0;
+      
+      self.combat.target = null;
+      self.action = null;
+      self.innaWoods = false;
+      self.onMtn = false;
+      self.path = null;
+      self.pathCount = 0;
+      
+      console.log(`${self.name} (NPC) respawned at ${spawn}`);
+    }
+  };
+
+  // Ghost respawn handler
+  self.respawnFromGhost = function(location){
+    if(!self.ghost) return;
+    
+    self.ghost = false;
+    self.ghostTimer = 0;
+    self.hp = self.hpMax;
+    
+    if(location){
+      // Respawn at specified location
+      self.x = location.x;
+      self.y = location.y;
+      self.z = location.z || 0;
+    }
+    // else respawn at current ghost location
+    
+    // Clear ghost state
     self.innaWoods = false;
     self.onMtn = false;
-    self.path = null;
-    self.pathCount = 0;
     
-    // Brief immunity after respawn (prevent immediate re-aggro)
+    // Brief immunity after respawn
     self.respawnImmunity = true;
     setTimeout(() => {
       self.respawnImmunity = false;
-    }, 3000); // 3 seconds of immunity
+    }, 3000);
     
-    console.log(`${self.name} respawned at ${spawn} with immunity (action: ${self.action}, combat.target: ${self.combat.target})`);
+    var socket = SOCKET_LIST[self.id];
+    if(socket){
+      socket.write(JSON.stringify({msg:'addToChat',message:'<span style="color:#66ff66;">✨ You have respawned!</span>'}));
+    }
+    
+    console.log(`✨ ${self.name} respawned from ghost at [${getLoc(self.x, self.y)}] z=${self.z}`);
   };
-
+  
   self.checkAggro = function() {
-    // Skip aggro if player has respawn immunity
-    if (self.respawnImmunity) {
+    // Skip aggro if player has respawn immunity OR is a ghost
+    if (self.respawnImmunity || self.ghost) {
       return;
     }
     
@@ -1620,8 +1784,12 @@ const Player = function(param) {
     const exit = getBuilding(self.x, self.y - tileSize);
     const b2 = getBuilding(self.x, self.y + tileSize);
 
-    // Collision detection based on Z level
-    if (self.z === Z_LEVELS.OVERWORLD) {
+    // Ghosts ignore terrain collision (free movement)
+    if (self.ghost) {
+      // No collision checks for ghosts
+      // They can move through walls, trees, etc
+      // But they still respect z-level transitions for caves/buildings
+    } else if (self.z === Z_LEVELS.OVERWORLD) {
       for (const dir in checkLocs) {
         const [c, r] = checkLocs[dir];
         const tile = getTile(0, c, r);
@@ -2649,6 +2817,26 @@ Player.update = function() {
 
   for (const i in Player.list) {
     const player = Player.list[i];
+    
+    // Handle ghost timer countdown
+    if(player.ghost && player.ghostTimer > 0){
+      player.ghostTimer--;
+      
+      // Send timer update every second (60 frames)
+      if(player.ghostTimer % 60 === 0 && player.ghostTimer > 0){
+        var socket = SOCKET_LIST[i];
+        if(socket){
+          var seconds = Math.ceil(player.ghostTimer / 60);
+          socket.write(JSON.stringify({msg:'addToChat',message:'<span style="color:#aaaaff;">👻 Respawning in ' + seconds + ' second' + (seconds > 1 ? 's' : '') + '...</span>'}));
+        }
+      }
+      
+      // Auto-respawn when timer expires
+      if(player.ghostTimer <= 0){
+        player.respawnFromGhost();
+      }
+    }
+    
     player.update();
 
     if (player.toRemove) {
@@ -2684,6 +2872,607 @@ Player.update = function() {
 };
 
 // ============================================================================
+// EQUIPMENT STAT BONUSES
+// ============================================================================
+
+// Recalculate player stats based on equipped gear
+global.recalculatePlayerStats = function(playerId){
+  var player = Player.list[playerId];
+  if(!player || !player.gear) return;
+  
+  // Reset bonuses to base values
+  player.strength = 10; // Base strength
+  player.dexterity = 1; // Base dexterity
+  player.hpMax = player.hpNat || 100; // Base HP
+  player.spiritMax = player.spiritNat || 100; // Base spirit
+  player.defense = 0; // Base defense
+  
+  // Apply weapon bonuses
+  if(player.gear.weapon && equip[player.gear.weapon]){
+    var weapon = equip[player.gear.weapon];
+    player.damage = weapon.dmg || player.damage;
+    player.attackRate = weapon.attackrate || player.attackRate;
+    player.strength += weapon.strengthBonus || 0;
+    player.dexterity += weapon.dexterityBonus || 0;
+    player.hpMax += weapon.hpBonus || 0;
+  }
+  
+  // Apply armor bonuses
+  if(player.gear.armor && equip[player.gear.armor]){
+    var armor = equip[player.gear.armor];
+    player.defense += armor.defense || 0;
+    player.hpMax += armor.hpBonus || 0;
+    player.spiritMax += armor.spiritBonus || 0;
+  }
+  
+  // Apply head gear bonuses
+  if(player.gear.head && equip[player.gear.head]){
+    var head = equip[player.gear.head];
+    player.defense += head.defense || 0;
+    player.hpMax += head.hpBonus || 0;
+    player.spiritMax += head.spiritBonus || 0;
+  }
+  
+  // Ensure current HP/spirit don't exceed new max
+  if(player.hp > player.hpMax){
+    player.hp = player.hpMax;
+  }
+  if(player.spirit > player.spiritMax){
+    player.spirit = player.spiritMax;
+  }
+  
+  console.log(player.name + ' stats recalculated: STR=' + player.strength + ', DEX=' + player.dexterity + ', HP=' + player.hp + '/' + player.hpMax + ', DEF=' + player.defense);
+};
+
+// ============================================================================
+// MARKET ORDERBOOK SYSTEM
+// ============================================================================
+
+// Generate unique order ID
+function generateOrderId() {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2);
+}
+
+// Find nearest market building for a player
+global.findNearestMarket = function(playerId) {
+  var player = Player.list[playerId];
+  if(!player) return null;
+  
+  var nearestMarket = null;
+  var nearestDist = Infinity;
+  
+  for(var id in Building.list){
+    var building = Building.list[id];
+    if(building.type === 'market'){
+      var dist = getDistance({x: player.x, y: player.y}, {x: building.x, y: building.y});
+      if(dist < nearestDist){
+        nearestDist = dist;
+        nearestMarket = building;
+      }
+    }
+  }
+  
+  return nearestMarket;
+}
+
+// Broadcast message to all players inside a market building
+function broadcastToMarket(marketId, message) {
+  var market = Building.list[marketId];
+  if(!market) return;
+  
+  for(var id in Player.list){
+    var player = Player.list[id];
+    if(!player) continue;
+    
+    // Check if player is inside this market (z=1 or z=2)
+    if((player.z === 1 || player.z === 2)){
+      var playerBuilding = getBuilding(player.x, player.y);
+      if(playerBuilding === marketId){
+        var socket = SOCKET_LIST[id];
+        if(socket){
+          socket.write(JSON.stringify({msg:'addToChat', message: message}));
+        }
+      }
+    }
+  }
+}
+
+// Process buy limit order
+global.processBuyOrder = function(playerId, resource, amount, price){
+  var player = Player.list[playerId];
+  var socket = SOCKET_LIST[playerId];
+  if(!player || !socket) return;
+  
+  // Find nearest market
+  var market = findNearestMarket(playerId);
+  if(!market){
+    socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ No market found nearby</i>'}));
+    return;
+  }
+  
+  // Validate resource
+  if(!market.orderbook[resource]){
+    socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ Invalid resource: ' + resource + '</i>'}));
+    return;
+  }
+  
+  // Validate amount and price
+  if(amount <= 0 || price <= 0){
+    socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ Amount and price must be greater than 0</i>'}));
+    return;
+  }
+  
+  var book = market.orderbook[resource];
+  var emoji = market.resourceEmoji[resource] || '📦';
+  var remaining = amount;
+  var totalCost = 0;
+  var filled = [];
+  
+  // Sort asks (sell orders) by price (low to high)
+  book.asks.sort(function(a, b){ return a.price - b.price; });
+  
+  // Try to fill against existing sell orders
+  for(var i = 0; i < book.asks.length && remaining > 0; i++){
+    var ask = book.asks[i];
+    if(ask.price <= price){
+      // Can fill against this sell order
+      var fillAmount = Math.min(remaining, ask.amount);
+      var fillCost = fillAmount * ask.price;
+      
+      // Check if player has enough silver
+      var silver = player.stores.silver || 0;
+      if(silver < fillCost){
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ Not enough silver. Need ' + fillCost + ', have ' + silver + '</i>'}));
+        return;
+      }
+      
+      // Execute fill
+      player.stores.silver -= fillCost;
+      player.stores[resource] = (player.stores[resource] || 0) + fillAmount;
+      
+      // Pay seller
+      var seller = Player.list[ask.player];
+      if(seller){
+        seller.stores.silver = (seller.stores.silver || 0) + fillCost;
+        var sellerSocket = SOCKET_LIST[ask.player];
+        if(sellerSocket){
+          sellerSocket.write(JSON.stringify({msg:'addToChat',message:'<span style="color:#66ff66;">✅ Sold ' + fillAmount + ' ' + emoji + ' ' + resource + ' @ ' + ask.price + ' silver = ' + fillCost + ' silver</span>'}));
+        }
+      }
+      
+      // Broadcast fill to market
+      var buyerName = player.name || player.class || 'Trader';
+      broadcastToMarket(market.id, '<span style="color:#88ff88;">📊 ' + buyerName + ' bought ' + fillAmount + ' ' + emoji + ' ' + resource + ' @ ' + ask.price + ' silver</span>');
+      
+      remaining -= fillAmount;
+      totalCost += fillCost;
+      filled.push({amount: fillAmount, price: ask.price});
+      
+      // Update or remove sell order
+      ask.amount -= fillAmount;
+      if(ask.amount <= 0){
+        book.asks.splice(i, 1);
+        i--;
+      }
+    } else {
+      break; // No more fills possible at this price
+    }
+  }
+  
+  // Queue remainder as buy order (bid)
+  if(remaining > 0){
+    var totalRemainingCost = remaining * price;
+    var silver = player.stores.silver || 0;
+    if(silver < totalRemainingCost){
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ Not enough silver for full order. Need ' + totalRemainingCost + ' more, have ' + silver + '</i>'}));
+      return;
+    }
+    
+    // Reserve silver for the order
+    player.stores.silver -= totalRemainingCost;
+    
+    book.bids.push({
+      orderId: generateOrderId(),
+      player: playerId,
+      amount: remaining,
+      price: price,
+      reserved: totalRemainingCost
+    });
+    
+    // Sort bids (high to low)
+    book.bids.sort(function(a, b){ return b.price - a.price; });
+    
+    // Broadcast new bid to market
+    var buyerName = player.name || player.class || 'Trader';
+    broadcastToMarket(market.id, '<span style="color:#66ff66;">📊 New BID: ' + buyerName + ' wants ' + remaining + ' ' + emoji + ' ' + resource + ' @ ' + price + ' silver</span>');
+  }
+  
+  // Send feedback
+  var message = '<span style="color:#66ff66;">✅ BUY ORDER: ' + emoji + ' ' + resource.toUpperCase() + '</span>';
+  if(filled.length > 0){
+    message += '<br><b>Filled ' + (amount - remaining) + '/' + amount + '</b>';
+    for(var i in filled){
+      var f = filled[i];
+      message += '<br>&nbsp;&nbsp;' + f.amount + ' @ ' + f.price + ' silver';
+    }
+    message += '<br><b>Total cost: ' + totalCost + ' silver</b>';
+  }
+  if(remaining > 0){
+    message += '<br><b>Queued ' + remaining + ' @ ' + price + ' silver</b>';
+    message += '<br><i>(Reserved ' + (remaining * price) + ' silver)</i>';
+  }
+  socket.write(JSON.stringify({msg:'addToChat',message: message}));
+};
+
+// Process sell limit order
+global.processSellOrder = function(playerId, resource, amount, price){
+  var player = Player.list[playerId];
+  var socket = SOCKET_LIST[playerId];
+  if(!player || !socket) return;
+  
+  // Find nearest market
+  var market = findNearestMarket(playerId);
+  if(!market){
+    socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ No market found nearby</i>'}));
+    return;
+  }
+  
+  // Validate resource
+  if(!market.orderbook[resource]){
+    socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ Invalid resource: ' + resource + '</i>'}));
+    return;
+  }
+  
+  // Validate amount and price
+  if(amount <= 0 || price <= 0){
+    socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ Amount and price must be greater than 0</i>'}));
+    return;
+  }
+  
+  // Check if player has the resource
+  var playerAmount = player.stores[resource] || 0;
+  if(playerAmount < amount){
+    socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ Not enough ' + resource + '. Have ' + playerAmount + ', need ' + amount + '</i>'}));
+    return;
+  }
+  
+  var book = market.orderbook[resource];
+  var emoji = market.resourceEmoji[resource] || '📦';
+  var remaining = amount;
+  var totalEarned = 0;
+  var filled = [];
+  
+  // Sort bids (buy orders) by price (high to low)
+  book.bids.sort(function(a, b){ return b.price - a.price; });
+  
+  // Try to fill against existing buy orders
+  for(var i = 0; i < book.bids.length && remaining > 0; i++){
+    var bid = book.bids[i];
+    if(bid.price >= price){
+      // Can fill against this buy order
+      var fillAmount = Math.min(remaining, bid.amount);
+      var fillEarned = fillAmount * bid.price;
+      
+      // Execute fill
+      player.stores[resource] -= fillAmount;
+      player.stores.silver = (player.stores.silver || 0) + fillEarned;
+      
+      // Give buyer the resource
+      var buyer = Player.list[bid.player];
+      if(buyer){
+        buyer.stores[resource] = (buyer.stores[resource] || 0) + fillAmount;
+        // Return unused reserved silver
+        var unusedSilver = (bid.amount - fillAmount) * bid.price;
+        buyer.stores.silver = (buyer.stores.silver || 0) + unusedSilver;
+        
+        var buyerSocket = SOCKET_LIST[bid.player];
+        if(buyerSocket){
+          buyerSocket.write(JSON.stringify({msg:'addToChat',message:'<span style="color:#ff6666;">✅ Bought ' + fillAmount + ' ' + emoji + ' ' + resource + ' @ ' + bid.price + ' silver = ' + fillEarned + ' silver</span>'}));
+        }
+      }
+      
+      // Broadcast fill to market
+      var sellerName = player.name || player.class || 'Trader';
+      broadcastToMarket(market.id, '<span style="color:#ff8888;">📊 ' + sellerName + ' sold ' + fillAmount + ' ' + emoji + ' ' + resource + ' @ ' + bid.price + ' silver</span>');
+      
+      remaining -= fillAmount;
+      totalEarned += fillEarned;
+      filled.push({amount: fillAmount, price: bid.price});
+      
+      // Update or remove buy order
+      bid.amount -= fillAmount;
+      bid.reserved -= fillAmount * bid.price;
+      if(bid.amount <= 0){
+        book.bids.splice(i, 1);
+        i--;
+      }
+    } else {
+      break; // No more fills possible at this price
+    }
+  }
+  
+  // Queue remainder as sell order (ask)
+  if(remaining > 0){
+    // Reserve the resource
+    player.stores[resource] -= remaining;
+    
+    book.asks.push({
+      orderId: generateOrderId(),
+      player: playerId,
+      amount: remaining,
+      price: price,
+      reserved: remaining
+    });
+    
+    // Sort asks (low to high)
+    book.asks.sort(function(a, b){ return a.price - b.price; });
+    
+    // Broadcast new ask to market
+    var sellerName = player.name || player.class || 'Trader';
+    broadcastToMarket(market.id, '<span style="color:#ff6666;">📊 New ASK: ' + sellerName + ' selling ' + remaining + ' ' + emoji + ' ' + resource + ' @ ' + price + ' silver</span>');
+  }
+  
+  // Send feedback
+  var message = '<span style="color:#ff6666;">✅ SELL ORDER: ' + emoji + ' ' + resource.toUpperCase() + '</span>';
+  if(filled.length > 0){
+    message += '<br><b>Filled ' + (amount - remaining) + '/' + amount + '</b>';
+    for(var i in filled){
+      var f = filled[i];
+      message += '<br>&nbsp;&nbsp;' + f.amount + ' @ ' + f.price + ' silver';
+    }
+    message += '<br><b>Total earned: ' + totalEarned + ' silver</b>';
+  }
+  if(remaining > 0){
+    message += '<br><b>Queued ' + remaining + ' @ ' + price + ' silver</b>';
+    message += '<br><i>(Reserved ' + remaining + ' ' + resource + ')</i>';
+  }
+  socket.write(JSON.stringify({msg:'addToChat',message: message}));
+};
+
+// ============================================================================
+// RESOURCE REPORTING
+// ============================================================================
+
+function sendDailyResourceReport() {
+  // Send end-of-day resource reports to each player for THEIR buildings only
+  console.log('📊 Generating daily resource reports...');
+  var playerCount = 0;
+  var reportsSent = 0;
+  
+  for(var id in Player.list){
+    var player = Player.list[id];
+    if(!player || player.type !== 'player') continue; // Skip NPCs
+    
+    playerCount++;
+    var socket = SOCKET_LIST[id];
+    if(!socket){
+      console.log('⚠️ Player ' + (player.name || id) + ' has no socket');
+      continue;
+    }
+    
+    var reportData = {
+      grain: {daily: 0, buildings: []},
+      wood: {daily: 0, buildings: []},
+      stone: {daily: 0, buildings: []},
+      ironore: {daily: 0, buildings: []},
+      silverore: {daily: 0, buildings: []},
+      goldore: {daily: 0, buildings: []},
+      diamond: {daily: 0, buildings: []}
+    };
+    
+    var buildingsChecked = 0;
+    var buildingsOwned = 0;
+    
+    // Scan all buildings - include ones THIS player owns OR their House owns
+    for(var bid in Building.list){
+      var building = Building.list[bid];
+      buildingsChecked++;
+      
+      // Check if player owns this building directly OR through their House
+      var isOwned = (building.owner === player.id) || (player.house && building.house === player.house);
+      
+      // Debug: Show all economic buildings to see ownership
+      if((building.type === 'mill' || building.type === 'lumbermill' || building.type === 'mine')){
+        console.log('  🏗️ ' + building.type + ' owner=' + building.owner + ' house=' + building.house + ' isOwned=' + isOwned);
+      }
+      
+      if(!isOwned) continue;
+      
+      buildingsOwned++;
+      
+      // Skip if no daily tracking
+      if(!building.dailyStores){
+        console.log('⚠️ Building ' + building.type + ' (id: ' + bid + ') has no dailyStores');
+        continue;
+      }
+      
+      console.log('✅ Counting ' + building.type + ' (id: ' + bid + '): dailyStores=' + JSON.stringify(building.dailyStores));
+      
+      if(building.type === 'mill'){
+        if(building.dailyStores.grain > 0){
+          console.log('  📊 Adding ' + building.dailyStores.grain + ' grain to daily (was: ' + reportData.grain.daily + ')');
+          reportData.grain.daily += building.dailyStores.grain;
+          reportData.grain.buildings.push({type: 'Mill', amount: building.dailyStores.grain, id: bid});
+        }
+      } else if(building.type === 'lumbermill'){
+        if(building.dailyStores.wood > 0){
+          console.log('  📊 Adding ' + building.dailyStores.wood + ' wood to daily (was: ' + reportData.wood.daily + ')');
+          reportData.wood.daily += building.dailyStores.wood;
+          reportData.wood.buildings.push({type: 'Lumbermill', amount: building.dailyStores.wood, id: bid});
+        }
+      } else if(building.type === 'mine'){
+        if(building.dailyStores.stone > 0){
+          console.log('  📊 Adding ' + building.dailyStores.stone + ' stone to daily (was: ' + reportData.stone.daily + ')');
+          reportData.stone.daily += building.dailyStores.stone;
+          reportData.stone.buildings.push({type: 'Mine', amount: building.dailyStores.stone, id: bid});
+        }
+        if(building.dailyStores.ironore > 0){
+          console.log('  📊 Adding ' + building.dailyStores.ironore + ' ironore to daily (was: ' + reportData.ironore.daily + ')');
+          reportData.ironore.daily += building.dailyStores.ironore;
+          reportData.ironore.buildings.push({type: 'Mine', amount: building.dailyStores.ironore, id: bid});
+        }
+        if(building.dailyStores.silverore > 0){
+          console.log('  📊 Adding ' + building.dailyStores.silverore + ' silverore to daily (was: ' + reportData.silverore.daily + ')');
+          reportData.silverore.daily += building.dailyStores.silverore;
+          reportData.silverore.buildings.push({type: 'Mine', amount: building.dailyStores.silverore, id: bid});
+        }
+        if(building.dailyStores.goldore > 0){
+          console.log('  📊 Adding ' + building.dailyStores.goldore + ' goldore to daily (was: ' + reportData.goldore.daily + ')');
+          reportData.goldore.daily += building.dailyStores.goldore;
+          reportData.goldore.buildings.push({type: 'Mine', amount: building.dailyStores.goldore, id: bid});
+        }
+        if(building.dailyStores.diamond > 0){
+          console.log('  📊 Adding ' + building.dailyStores.diamond + ' diamond to daily (was: ' + reportData.diamond.daily + ')');
+          reportData.diamond.daily += building.dailyStores.diamond;
+          reportData.diamond.buildings.push({type: 'Mine', amount: building.dailyStores.diamond, id: bid});
+        }
+      }
+    }
+    
+    // Get total accumulated resources from House stores
+    var houseStores = {grain: 0, wood: 0, stone: 0, ironore: 0, silverore: 0, goldore: 0, diamond: 0, iron: 0};
+    if(player.house && House.list[player.house]){
+      var house = House.list[player.house];
+      houseStores.grain = house.stores.grain || 0;
+      houseStores.wood = house.stores.wood || 0;
+      houseStores.stone = house.stores.stone || 0;
+      houseStores.ironore = house.stores.ironore || 0;
+      houseStores.silverore = house.stores.silverore || 0;
+      houseStores.goldore = house.stores.goldore || 0;
+      houseStores.diamond = house.stores.diamond || 0;
+      houseStores.iron = house.stores.iron || 0;
+    } else if(House.list[player.id]){
+      // Player IS a house
+      var house = House.list[player.id];
+      houseStores.grain = house.stores.grain || 0;
+      houseStores.wood = house.stores.wood || 0;
+      houseStores.stone = house.stores.stone || 0;
+      houseStores.ironore = house.stores.ironore || 0;
+      houseStores.silverore = house.stores.silverore || 0;
+      houseStores.goldore = house.stores.goldore || 0;
+      houseStores.diamond = house.stores.diamond || 0;
+      houseStores.iron = house.stores.iron || 0;
+    } else {
+      // Player without house - use player stores
+      houseStores.grain = player.stores.grain || 0;
+      houseStores.wood = player.stores.wood || 0;
+      houseStores.stone = player.stores.stone || 0;
+      houseStores.ironore = player.stores.ironore || 0;
+      houseStores.silverore = player.stores.silverore || 0;
+      houseStores.goldore = player.stores.goldore || 0;
+      houseStores.diamond = player.stores.diamond || 0;
+      houseStores.iron = player.stores.iron || 0;
+    }
+    
+    // Build report message with TOTAL accumulated and daily contributions per building
+    var message = '<b><u>Daily Resource Report</u></b><br>';
+    var hasResources = false;
+    
+    // Show resource if either: gathered today OR has accumulated stockpile
+    if(reportData.grain.daily > 0 || houseStores.grain > 0){
+      hasResources = true;
+      message += '<br><b>Total Grain: ' + houseStores.grain + '</b>';
+      for(var i in reportData.grain.buildings){
+        var b = reportData.grain.buildings[i];
+        message += '<br>' + b.type + ': +' + b.amount;
+      }
+    }
+    
+    if(reportData.wood.daily > 0 || houseStores.wood > 0){
+      hasResources = true;
+      message += '<br><b>Total Wood: ' + houseStores.wood + '</b>';
+      for(var i in reportData.wood.buildings){
+        var b = reportData.wood.buildings[i];
+        message += '<br>' + b.type + ': +' + b.amount;
+      }
+    }
+    
+    if(reportData.stone.daily > 0 || houseStores.stone > 0){
+      hasResources = true;
+      message += '<br><b>Total Stone: ' + houseStores.stone + '</b>';
+      for(var i in reportData.stone.buildings){
+        var b = reportData.stone.buildings[i];
+        message += '<br>' + b.type + ': +' + b.amount;
+      }
+    }
+    
+    if(reportData.ironore.daily > 0 || houseStores.ironore > 0){
+      hasResources = true;
+      message += '<br><b>Total Iron Ore: ' + houseStores.ironore + '</b>';
+      for(var i in reportData.ironore.buildings){
+        var b = reportData.ironore.buildings[i];
+        message += '<br>' + b.type + ': +' + b.amount;
+      }
+    }
+    
+    if(reportData.silverore.daily > 0 || houseStores.silverore > 0){
+      hasResources = true;
+      message += '<br><b>Total Silver Ore: ' + houseStores.silverore + '</b>';
+      for(var i in reportData.silverore.buildings){
+        var b = reportData.silverore.buildings[i];
+        message += '<br>' + b.type + ': +' + b.amount;
+      }
+    }
+    
+    if(reportData.goldore.daily > 0 || houseStores.goldore > 0){
+      hasResources = true;
+      message += '<br><b>Total Gold Ore: ' + houseStores.goldore + '</b>';
+      for(var i in reportData.goldore.buildings){
+        var b = reportData.goldore.buildings[i];
+        message += '<br>' + b.type + ': +' + b.amount;
+      }
+    }
+    
+    if(reportData.diamond.daily > 0 || houseStores.diamond > 0){
+      hasResources = true;
+      message += '<br><b>Total Diamonds: ' + houseStores.diamond + '</b>';
+      for(var i in reportData.diamond.buildings){
+        var b = reportData.diamond.buildings[i];
+        message += '<br>' + b.type + ': +' + b.amount;
+      }
+    }
+    
+    // Show iron bars if any (from forge conversion)
+    if(houseStores.iron > 0){
+      message += '<br><b>Total Iron Bars: ' + houseStores.iron + '</b>';
+    }
+    
+    console.log('📋 Player ' + (player.name || id) + ': ' + buildingsOwned + ' buildings owned (checked ' + buildingsChecked + ' total)');
+    console.log('   Grain: ' + reportData.grain.daily + ', Wood: ' + reportData.wood.daily + ', Stone: ' + reportData.stone.daily + ', Iron Ore: ' + reportData.ironore.daily + ', Silver Ore: ' + reportData.silverore.daily + ', Gold Ore: ' + reportData.goldore.daily + ', Diamonds: ' + reportData.diamond.daily);
+    
+    if(hasResources){
+      socket.write(JSON.stringify({msg:'addToChat',message: message}));
+      reportsSent++;
+      console.log('✅ Report sent to ' + (player.name || id));
+    } else {
+      console.log('ℹ️ No resources collected for ' + (player.name || id));
+    }
+  }
+  
+  console.log('📊 Reports complete: ' + reportsSent + ' sent to ' + playerCount + ' players');
+}
+
+function resetDailyResourceTracking() {
+  // Reset daily stores for all buildings at start of work day
+  for(var id in Building.list){
+    var building = Building.list[id];
+    if(building.dailyStores){
+      if(building.type === 'mill'){
+        building.dailyStores.grain = 0;
+      } else if(building.type === 'lumbermill'){
+        building.dailyStores.wood = 0;
+      } else if(building.type === 'mine'){
+        building.dailyStores.stone = 0;
+        building.dailyStores.ironore = 0;
+        building.dailyStores.silverore = 0;
+        building.dailyStores.goldore = 0;
+        building.dailyStores.diamond = 0;
+      }
+    }
+  }
+}
+
+// ============================================================================
 // DAY/NIGHT CYCLE
 // ============================================================================
 
@@ -2696,6 +3485,7 @@ function dayNight() {
     day++;
     global.day = day;
     dailyTally();
+    resetDailyResourceTracking(); // Reset daily resource counters for new day
     console.log('');
     console.log(`Day ${day}`);
     console.log('');
@@ -2710,6 +3500,12 @@ function dayNight() {
         .then(() => console.log("Map file saved to '/maps' folder."))
         .catch(err => console.error("Error saving map:", err));
     }
+  }
+
+  if (tempus === 'VII.p') {
+    // Work day ends (after serfs clock out) - send resource reports
+    sendDailyResourceReport();
+    console.log('End of work day - resource reports sent');
   }
 
   if (tempus === 'XII.p') {
