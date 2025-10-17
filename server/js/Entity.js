@@ -145,26 +145,22 @@ Mill = function(param){
     }
     for(var i in self.farms){
       var plot = self.farms[i];
-      var count = 0;
       var add = [];
       for(var n in plot){
         var p = plot[n];
         var gt = getTile(0,p[0],p[1]);
         var gr = getTile(6,p[0],p[1]);
-        if((gt == 8 && gr < 25)){
-          count++;
-        } else if((gt == 9 && gr < 50) || gt == 10){
+        // Only add tiles that need work:
+        // - Barren (type 8) with resources < 5
+        // - Growing (type 9) with resources < 10  
+        // - Harvest (type 10) with resources > 0
+        if((gt == 8 && gr < 5) || (gt == 9 && gr < 10) || (gt == 10 && gr > 0)){
           add.push(p);
         }
       }
-      if(count == 9){
-        for(var x in f.plot){
-          self.resources.push(f.plot[x]);
-        }
-      } else {
-        for(var x in add){
-          self.resources.push(add[x]);
-        }
+      // Add all workable tiles to resources
+      for(var x in add){
+        self.resources.push(add[x]);
       }
     }
   }
@@ -541,7 +537,10 @@ Tavern = function(param){
       var sp2 = self.plot[14];
       var c2 = getCenter(sp2[0],sp2[1]);
       var work = {hq:b,spot:null};
-      if(s1 > 0.4){
+      
+      // For lumbermill/mine, first serf MUST be male; for mill, can be either
+      if(building.type == 'lumbermill' || building.type == 'mine'){
+        // First serf must be male
         SerfM({
           id:s1,
           name:randomName('m'),
@@ -556,19 +555,38 @@ Tavern = function(param){
           tavern:self.id
         });
       } else {
-        SerfF({
-          id:s1,
-          name:randomName('f'),
-          x:c1[0],
-          y:c1[1],
-          z:2,
-          house:Player.list[self.owner].house,
-          kingdom:Player.list[self.owner].kingdom,
-          home:{z:2,loc:sp1},
-          hut:id,
-          tavern:self.id
-        });
+        // Mill - either gender (60% male)
+        if(s1 > 0.4){
+          SerfM({
+            id:s1,
+            name:randomName('m'),
+            x:c1[0],
+            y:c1[1],
+            z:2,
+            house:Player.list[self.owner].house,
+            kingdom:Player.list[self.owner].kingdom,
+            home:{z:2,loc:sp1},
+            work:{hq:b,spot:null},
+            hut:id,
+            tavern:self.id
+          });
+        } else {
+          SerfF({
+            id:s1,
+            name:randomName('f'),
+            x:c1[0],
+            y:c1[1],
+            z:2,
+            house:Player.list[self.owner].house,
+            kingdom:Player.list[self.owner].kingdom,
+            home:{z:2,loc:sp1},
+            hut:id,
+            tavern:self.id
+          });
+        }
       }
+      
+      // Second serf - either gender (40% male for variety)
       if(s2 > 0.6){
         SerfM({
           id:s2,
@@ -4222,13 +4240,21 @@ SerfM = function(param){
                     if(self.farming){
                       var b = getBuilding(self.x,self.y);
                       var f = Building.list[b];
+                      // Safety check: ensure farm building still exists
+                      if(!f || !f.plot){
+                        console.log(self.name + ' farm building no longer exists, stopping work');
+                        self.workTimer = false;
+                        self.working = false;
+                        self.farming = false;
+                        return;
+                      }
                       if(tile == 8){
                         tileChange(6,spot[0],spot[1],1,true);
                         var count = 0;
                         var next = [];
                         for(var i in f.plot){
                           var p = f.plot[i];
-                          if(getTile(6,p[0],p[1]) >= 25){
+                          if(getTile(6,p[0],p[1]) >= 5){
                             count++;
                           } else {
                             next.push(p);
@@ -4242,7 +4268,7 @@ SerfM = function(param){
                           // Tile update automatically handled by tileChange function
                         } else {
                           var res = getTile(6,spot[0],spot[1]);
-                          if(res >= 25){
+                          if(res >= 5){
                             for(var n in hq.resources){
                               var r = hq.resources[n];
                               if(r.toString() == spot.toString()){
@@ -4260,7 +4286,7 @@ SerfM = function(param){
                         var next = [];
                         for(var i in f.plot){
                           var p = f.plot[i];
-                          if(getTile(6,p[0],p[1]) >= 50){
+                          if(getTile(6,p[0],p[1]) >= 10){
                             count++;
                           }
                         }
@@ -4268,11 +4294,12 @@ SerfM = function(param){
                           for(var i in f.plot){
                             var p = f.plot[i];
                             tileChange(0,p[0],p[1],10);
+                            tileChange(6,p[0],p[1],10); // Initialize harvest with 10 resources
                           }
                           // Tile update automatically handled by tileChange function
                         } else {
                           var res = getTile(6,spot[0],spot[1]);
-                          if(res >= 25){
+                          if(res >= 10){
                             for(var n in hq.resources){
                               var r = hq.resources[n];
                               if(r.toString() == spot.toString()){
@@ -4913,9 +4940,18 @@ SerfM = function(param){
               }
               // If still no path after trying to create one, we might be stuck
               if(!self.path && self.homeAttempts > 60){ // If no path after 1 second of trying
-                console.log(self.name + ' cannot create path home, clearing tether and retrying');
-                self.tether = null; // Clear tether in case it's blocking us
-                self.path = null;
+                if(self.homeAttempts > 180){ // Give up after 3 seconds of trying
+                  console.log(self.name + ' stuck trying to go home for too long, giving up');
+                  self.action = null;
+                  self.mode = 'idle';
+                  self.homeAttempts = 0;
+                  self.tether = null;
+                  self.path = null;
+                } else if(self.homeAttempts % 60 == 0){ // Only log every 60 frames (1 second)
+                  console.log(self.name + ' cannot create path home, clearing tether and retrying');
+                  self.tether = null; // Clear tether in case it's blocking us
+                  self.path = null;
+                }
               }
             }
           } else {
@@ -5390,31 +5426,40 @@ SerfF = function(param){
         var hq = Building.list[self.work.hq];
         if(!self.action){
           if(Building.list[self.hut].built){ // if hut is built
-            var tDist = 0;
-            var avgDist = null;
-            for(var i in hq.resources){
-              var res = hq.resources[i];
-              var r = getCenter(res[0],res[1]);
-              var dist = getDistance({x:hq.x,y:hq.y},{x:r[0],y:r[1]});
-              tDist += dist;
-            }
-            avgDist = tDist/hq.resources.length;
-            var select = [];
-            for(var i in hq.resources){
-              var res = hq.resources[i];
-              var r = getCenter(res[0],res[1]);
-              var dist = getDistance({x:hq.x,y:hq.y},{x:r[0],y:r[1]});
-              if(dist <= avgDist){
-                select.push(res);
+            // Check if there are any resources available
+            if(hq.resources && hq.resources.length > 0){
+              var tDist = 0;
+              var avgDist = null;
+              for(var i in hq.resources){
+                var res = hq.resources[i];
+                var r = getCenter(res[0],res[1]);
+                var dist = getDistance({x:hq.x,y:hq.y},{x:r[0],y:r[1]});
+                tDist += dist;
               }
-            }
-            self.work.spot = select[Math.floor(Math.random() * select.length)];
-            Building.list[self.work.hq].log[self.id] = self.work.spot;
-            self.action = 'task';
-            if(self.work.spot){
-              console.log(self.name + ' working @ ' + hq.type);
+              avgDist = tDist/hq.resources.length;
+              var select = [];
+              for(var i in hq.resources){
+                var res = hq.resources[i];
+                var r = getCenter(res[0],res[1]);
+                var dist = getDistance({x:hq.x,y:hq.y},{x:r[0],y:r[1]});
+                if(dist <= avgDist){
+                  select.push(res);
+                }
+              }
+              
+              // Only assign task if we found a valid spot
+              if(select.length > 0){
+                self.work.spot = select[Math.floor(Math.random() * select.length)];
+                Building.list[self.work.hq].log[self.id] = self.work.spot;
+                self.action = 'task';
+                console.log(self.name + ' working @ ' + hq.type);
+              } else {
+                // No resources within average distance, try again next frame
+                self.idleTime = 30;
+              }
             } else {
-              console.log(self.name + ' failed to find work spot @ ' + hq.type);
+              // No resources available at all, idle for a bit
+              self.idleTime = 60;
             }
           }
         } else if(self.action == 'build'){
@@ -5484,13 +5529,21 @@ SerfF = function(param){
                     if(self.farming){
                       var b = getBuilding(self.x,self.y);
                       var f = Building.list[b];
+                      // Safety check: ensure farm building still exists
+                      if(!f || !f.plot){
+                        console.log(self.name + ' farm building no longer exists, stopping work');
+                        self.workTimer = false;
+                        self.working = false;
+                        self.farming = false;
+                        return;
+                      }
                       if(tile == 8){
                         tileChange(6,spot[0],spot[1],1,true);
                         var count = 0;
                         var next = [];
                         for(var i in f.plot){
                           var p = f.plot[i];
-                          if(getTile(6,p[0],p[1]) >= 25){
+                          if(getTile(6,p[0],p[1]) >= 5){
                             count++;
                           } else {
                             next.push(p);
@@ -5503,10 +5556,13 @@ SerfF = function(param){
                           }
                           // Tile update automatically handled by tileChange function
                         } else {
-                          for(var n in hq.resources){
-                            var r = hq.resources[n];
-                            if(r.toString() == spot.toString()){
-                              Building.list[self.work.hq].resources.splice(n,1);
+                          var res = getTile(6,spot[0],spot[1]);
+                          if(res >= 5){
+                            for(var n in hq.resources){
+                              var r = hq.resources[n];
+                              if(r.toString() == spot.toString()){
+                                Building.list[self.work.hq].resources.splice(n,1);
+                              }
                             }
                           }
                           var rand = Math.floor(Math.random() * next.length);
@@ -5519,7 +5575,7 @@ SerfF = function(param){
                         var next = [];
                         for(var i in f.plot){
                           var p = f.plot[i];
-                          if(getTile(6,p[0],p[1]) >= 50){
+                          if(getTile(6,p[0],p[1]) >= 10){
                             count++;
                           }
                         }
@@ -5527,13 +5583,17 @@ SerfF = function(param){
                           for(var i in f.plot){
                             var p = f.plot[i];
                             tileChange(0,p[0],p[1],10);
+                            tileChange(6,p[0],p[1],10); // Initialize harvest with 10 resources
                           }
                           // Tile update automatically handled by tileChange function
                         } else {
-                          for(var n in hq.resources){
-                            var r = hq.resources[n];
-                            if(r.toString() == spot.toString()){
-                              Building.list[self.work.hq].resources.splice(n,1);
+                          var res = getTile(6,spot[0],spot[1]);
+                          if(res >= 10){
+                            for(var n in hq.resources){
+                              var r = hq.resources[n];
+                              if(r.toString() == spot.toString()){
+                                Building.list[self.work.hq].resources.splice(n,1);
+                              }
                             }
                           }
                           var rand = Math.floor(Math.random() * next.length);
@@ -5764,9 +5824,18 @@ SerfF = function(param){
               }
               // If still no path after trying to create one, we might be stuck
               if(!self.path && self.homeAttempts > 60){ // If no path after 1 second of trying
-                console.log(self.name + ' cannot create path home, clearing tether and retrying');
-                self.tether = null; // Clear tether in case it's blocking us
-                self.path = null;
+                if(self.homeAttempts > 180){ // Give up after 3 seconds of trying
+                  console.log(self.name + ' stuck trying to go home for too long, giving up');
+                  self.action = null;
+                  self.mode = 'idle';
+                  self.homeAttempts = 0;
+                  self.tether = null;
+                  self.path = null;
+                } else if(self.homeAttempts % 60 == 0){ // Only log every 60 frames (1 second)
+                  console.log(self.name + ' cannot create path home, clearing tether and retrying');
+                  self.tether = null; // Clear tether in case it's blocking us
+                  self.path = null;
+                }
               }
             }
           } else {
