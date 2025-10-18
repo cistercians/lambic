@@ -1,24 +1,119 @@
-var WIDTH = 768;
-var HEIGHT = 768;
+var WIDTH = window.innerWidth;
+var HEIGHT = window.innerHeight;
 var world = [];
 var tileSize = 0;
 var mapSize = 0;
 
+// Dynamic canvas sizing
+function resizeCanvas() {
+  WIDTH = window.innerWidth;
+  HEIGHT = window.innerHeight;
+  var ctx_canvas = document.getElementById('ctx');
+  var lighting_canvas = document.getElementById('lighting');
+  if (ctx_canvas) {
+    ctx_canvas.width = WIDTH;
+    ctx_canvas.height = HEIGHT;
+  }
+  if (lighting_canvas) {
+    lighting_canvas.width = WIDTH;
+    lighting_canvas.height = HEIGHT;
+  }
+  if (viewport) {
+    viewport.screen = [WIDTH, HEIGHT];
+  }
+}
+
+// Initialize canvas size on load
+window.addEventListener('load', function() {
+  resizeCanvas();
+});
+
+// Update canvas size on window resize
+window.addEventListener('resize', function() {
+  resizeCanvas();
+});
+
 var socket = SockJS('http://localhost:2000/io');
 socket.onopen = function(){
   console.log('Client connection opened');
+  // Request initial world data for login screen preview
+  socket.send(JSON.stringify({msg:'requestPreviewData'}));
 };
 socket.onmessage = function(event){
   var data = JSON.parse(event.data);
-  if(data.msg == 'signInResponse'){
+  if(data.msg == 'previewData'){
+    // Load world data for login screen preview (no selfId set)
+    console.log('Preview data received:', {
+      worldLayers: data.world ? data.world.length : 0,
+      tileSize: data.tileSize,
+      mapSize: data.mapSize,
+      players: data.pack.player ? data.pack.player.length : 0,
+      items: data.pack.item ? data.pack.item.length : 0,
+      buildings: data.pack.building ? data.pack.building.length : 0
+    });
+    
+    world = data.world;
+    tileSize = data.tileSize;
+    mapSize = data.mapSize;
+    tempus = data.tempus;
+    
+    // Load entities for preview
+    if(data.pack.player) {
+      for(i in data.pack.player){
+        new Player(data.pack.player[i]);
+      }
+      console.log('Loaded preview players, total in list:', Object.keys(Player.list).length);
+    }
+    if(data.pack.item) {
+      for(i in data.pack.item){
+        new Item(data.pack.item[i]);
+      }
+    }
+    if(data.pack.building) {
+      for(i in data.pack.building){
+        new Building(data.pack.building[i]);
+      }
+    }
+    
+    // Count falcons
+    var falconCount = 0;
+    for(var id in Player.list) {
+      if(Player.list[id].class === 'Falcon') {
+        falconCount++;
+      }
+    }
+    console.log('Falcons available for camera:', falconCount);
+    
+    // Start login camera system once data is loaded
+    if(loginCameraSystem && loginCameraSystem.isActive) {
+      console.log('Starting login camera system');
+      loginCameraSystem.start();
+    }
+  } else if(data.msg == 'signInResponse'){
     if(data.success){
       world = data.world;
       tileSize = data.tileSize;
       mapSize = data.mapSize;
       tempus = data.tempus;
-      signDiv.style.display = 'none';
-      gameDiv.style.display = 'inline-block';
-      UI.style.display = 'inline-block';
+      
+      // Stop cinematic camera and switch to player
+      if(window.loginCameraSystem) {
+        window.loginCameraSystem.stop();
+      }
+      
+      // Hide login overlay and show UI
+      var loginOverlay = document.getElementById('loginOverlay');
+      if(loginOverlay) {
+        loginOverlay.style.display = 'none';
+      }
+      
+      // Enable canvas interaction
+      var gameDiv = document.getElementById('gameDiv');
+      if(gameDiv) {
+        gameDiv.style.pointerEvents = 'auto';
+      }
+      
+      UI.style.display = 'block';
       var b = getBuilding(Player.list[selfId].x,Player.list[selfId].y);
       getBgm(Player.list[selfId].x,Player.list[selfId].y,Player.list[selfId].z,b);
     } else {
@@ -371,19 +466,24 @@ socket.onclose = function(event){
 };
 
 // SIGN IN
-var enterDiv = document.getElementById('enterDiv');
 var enterButton = document.getElementById('enter');
-var signDiv = document.getElementById('signDiv');
+var enterOverlay = document.getElementById('enterOverlay');
+var loginOverlay = document.getElementById('loginOverlay');
 var signDivUsername = document.getElementById('signDiv-username');
 var signDivPassword = document.getElementById('signDiv-password');
 var signDivSignIn = document.getElementById('signDiv-signIn');
 var signDivSignUp = document.getElementById('signDiv-signUp');
+var gameDiv = document.getElementById('gameDiv');
+var UI = document.getElementById('UI');
 
 enterButton.onclick = function(){
+  // Start audio (browser requires user interaction)
   ambPlayer(Amb.empty);
   bgmPlayer(title_bgm);
-  enterDiv.style.display = 'none';
-  signDiv.style.display = 'inline';
+  
+  // Hide enter screen and show login form
+  enterOverlay.style.display = 'none';
+  loginOverlay.style.display = 'block';
 };
 
 signDivSignIn.onclick = function(){
@@ -393,6 +493,115 @@ signDivSignIn.onclick = function(){
 signDivSignUp.onclick = function(){
   socket.send(JSON.stringify({msg:'signUp',name:signDivUsername.value,pass:signDivPassword.value}));
 };
+
+// LOGIN CAMERA SYSTEM
+var loginCameraSystem = {
+  isActive: true,
+  currentFalconId: null,
+  lockDuration: 10000, // 10 seconds locked on falcon
+  pauseDuration: 3000, // 3 seconds stationary
+  isLocked: false,
+  switchTimer: null,
+  cameraX: 0,
+  cameraY: 0,
+  
+  pickRandomFalcon: function() {
+    var falcons = [];
+    for(var i in Player.list) {
+      if(Player.list[i].class === 'Falcon') {
+        falcons.push(Player.list[i].id);
+      }
+    }
+    if(falcons.length > 0) {
+      var randomIndex = Math.floor(Math.random() * falcons.length);
+      return falcons[randomIndex];
+    }
+    return null;
+  },
+  
+  lockToFalcon: function(falconId) {
+    if(!falconId) {
+      falconId = this.pickRandomFalcon();
+    }
+    
+    if(falconId && Player.list[falconId]) {
+      this.currentFalconId = falconId;
+      this.isLocked = true;
+      this.cameraX = Player.list[falconId].x;
+      this.cameraY = Player.list[falconId].y;
+      console.log('Login camera: Locked to falcon', falconId);
+      
+      // Schedule unlock after lockDuration
+      var self = this;
+      this.switchTimer = setTimeout(function() {
+        self.unlock();
+      }, this.lockDuration);
+    } else {
+      // No falcon found, try again after a delay
+      var self = this;
+      this.switchTimer = setTimeout(function() {
+        self.start();
+      }, 1000);
+    }
+  },
+  
+  unlock: function() {
+    if(!this.isActive) return;
+    
+    console.log('Login camera: Unlocked, pausing');
+    this.isLocked = false;
+    // Store current position when unlocking
+    if(this.currentFalconId && Player.list[this.currentFalconId]) {
+      this.cameraX = Player.list[this.currentFalconId].x;
+      this.cameraY = Player.list[this.currentFalconId].y;
+    }
+    
+    // Schedule next falcon lock after pauseDuration
+    var self = this;
+    this.switchTimer = setTimeout(function() {
+      if(self.isActive) {
+        self.lockToFalcon(null);
+      }
+    }, this.pauseDuration);
+  },
+  
+  getCameraPosition: function() {
+    if(this.isLocked && this.currentFalconId && Player.list[this.currentFalconId]) {
+      // Follow the falcon
+      var falcon = Player.list[this.currentFalconId];
+      this.cameraX = falcon.x;
+      this.cameraY = falcon.y;
+    }
+    // If not locked, return the stored position (stationary)
+    // Ensure we always have valid numbers
+    return { 
+      x: this.cameraX || 0, 
+      y: this.cameraY || 0 
+    };
+  },
+  
+  start: function() {
+    console.log('Login camera: Starting cinematic mode');
+    this.isActive = true;
+    // Find a random falcon and start following
+    this.lockToFalcon(null);
+  },
+  
+  stop: function() {
+    console.log('Login camera: Stopping cinematic mode');
+    this.isActive = false;
+    this.isLocked = false;
+    if(this.switchTimer) {
+      clearTimeout(this.switchTimer);
+      this.switchTimer = null;
+    }
+  }
+};
+
+// Make it globally accessible
+window.loginCameraSystem = loginCameraSystem;
+
+// Login camera will be started automatically when preview data is received
 
 // CHAT & COMMANDS
 var chatText = document.getElementById('chat-text');
@@ -427,6 +636,11 @@ chatForm.onsubmit = function(e){
 
 // Auto-focus chat input when Enter is pressed
 document.addEventListener('keydown', function(e){
+  // Block all input during login
+  if(loginCameraSystem.isActive) {
+    return;
+  }
+  
   if(e.key === 'Enter' || e.keyCode === 13){
     // Only focus if not already focused
     if(document.activeElement !== chatInput){
@@ -518,6 +732,11 @@ var getBgm = function(x,y,z,b){
 };
 
 var stealthCheck = function(id){ // 0: not stealthed, 1: somewhat visible, 1.5: revealed, 2: totally stealthed
+  // During login mode, show all entities normally
+  if(!selfId) {
+    return 0;
+  }
+  
   var p = Player.list[id];
   if(p.stealthed){
     if(id == selfId){
@@ -571,6 +790,20 @@ setInterval(function(){
 var ctx = document.getElementById('ctx').getContext('2d');
 var lighting = document.getElementById('lighting').getContext('2d');
 ctx.font = '30px Arial';
+
+// Helper function to get camera position for rendering
+var getCameraPosition = function() {
+  if(loginCameraSystem && loginCameraSystem.isActive && !selfId) {
+    var cameraPos = loginCameraSystem.getCameraPosition();
+    if(cameraPos && cameraPos.x !== undefined && cameraPos.y !== undefined) {
+      return { x: cameraPos.x, y: cameraPos.y };
+    }
+  } else if(selfId && Player.list[selfId]) {
+    return { x: Player.list[selfId].x, y: Player.list[selfId].y };
+  }
+  // Default fallback
+  return { x: 0, y: 0 };
+};
 
 // BUILDINGS
 var Building = function(initPack){
@@ -645,37 +878,40 @@ var Player = function(initPack){
 
   self.draw = function(){
     var stealth = stealthCheck(self.id);
+    
+    // Get camera position (works for both logged in and login mode)
+    var cameraPos = getCameraPosition();
 
     var x = 0;
     var y = 0;
 
     if(self.spriteSize == tileSize * 1.5){
-      x = (self.x - (tileSize*0.75)) - Player.list[selfId].x + WIDTH/2;
-      y = (self.y - (tileSize*0.75)) - Player.list[selfId].y + HEIGHT/2;
+      x = (self.x - (tileSize*0.75)) - cameraPos.x + WIDTH/2;
+      y = (self.y - (tileSize*0.75)) - cameraPos.y + HEIGHT/2;
     } else if(self.spriteSize == tileSize * 2){
-      x = (self.x - tileSize) - Player.list[selfId].x + WIDTH/2;
-      y = (self.y - tileSize) - Player.list[selfId].y + HEIGHT/2;
+      x = (self.x - tileSize) - cameraPos.x + WIDTH/2;
+      y = (self.y - tileSize) - cameraPos.y + HEIGHT/2;
     } else if(self.spriteSize == tileSize * 3){
-      x = (self.x - (tileSize*1.5)) - Player.list[selfId].x + WIDTH/2;
-      y = (self.y - (tileSize*1.5)) - Player.list[selfId].y + HEIGHT/2;
+      x = (self.x - (tileSize*1.5)) - cameraPos.x + WIDTH/2;
+      y = (self.y - (tileSize*1.5)) - cameraPos.y + HEIGHT/2;
     } else if(self.spriteSize == tileSize * 7){
-      x = (self.x - (tileSize*3.5)) - Player.list[selfId].x + WIDTH/2;
-      y = (self.y - (tileSize*3.5)) - Player.list[selfId].y + HEIGHT/2;
+      x = (self.x - (tileSize*3.5)) - cameraPos.x + WIDTH/2;
+      y = (self.y - (tileSize*3.5)) - cameraPos.y + HEIGHT/2;
     } else if(self.spriteSize == tileSize * 10){
-      x = (self.x - (tileSize*5)) - Player.list[selfId].x + WIDTH/2;
-      y = (self.y - (tileSize*5)) - Player.list[selfId].y + HEIGHT/2;
+      x = (self.x - (tileSize*5)) - cameraPos.x + WIDTH/2;
+      y = (self.y - (tileSize*5)) - cameraPos.y + HEIGHT/2;
     } else if(self.spriteSize == tileSize * 12){
-      x = (self.x - (tileSize*6)) - Player.list[selfId].x + WIDTH/2;
-      y = (self.y - (tileSize*6)) - Player.list[selfId].y + HEIGHT/2;
+      x = (self.x - (tileSize*6)) - cameraPos.x + WIDTH/2;
+      y = (self.y - (tileSize*6)) - cameraPos.y + HEIGHT/2;
     } else {
-      x = (self.x - (tileSize/2)) - Player.list[selfId].x + WIDTH/2;
-      y = (self.y - (tileSize/2)) - Player.list[selfId].y + HEIGHT/2;
+      x = (self.x - (tileSize/2)) - cameraPos.x + WIDTH/2;
+      y = (self.y - (tileSize/2)) - cameraPos.y + HEIGHT/2;
     }
 
     // hp and spirit bars (skip for non-combatant creatures)
     if(stealth < 1.5 && self.class !== 'Falcon'){
-      var barX = (self.x - (tileSize/2)) - Player.list[selfId].x + WIDTH/2;
-      var barY = (self.y - (tileSize/2)) - Player.list[selfId].y + HEIGHT/2;
+      var barX = (self.x - (tileSize/2)) - cameraPos.x + WIDTH/2;
+      var barY = (self.y - (tileSize/2)) - cameraPos.y + HEIGHT/2;
 
       var hpWidth = 60 * self.hp / self.hpMax;
       var spiritWidth = null;
@@ -704,7 +940,7 @@ var Player = function(initPack){
       // username
       if(self.rank){
         var allied = allyCheck(self.id);
-        if(self.kingdom){
+        if(self.kingdom && kingdomList && kingdomList[self.kingdom]){
           if(allied == 2){
             ctx.fillStyle = 'lightskyblue';
           } else if(allied == 1){
@@ -717,7 +953,7 @@ var Player = function(initPack){
           ctx.font = '15px minion web';
           ctx.textAlign = 'center';
           ctx.fillText(kingdomList[self.kingdom].flag + ' ' + self.rank + self.name,barX + 30,barY - 40,100);
-        } else if(self.house){
+        } else if(self.house && houseList && houseList[self.house]){
           if(allied == 2){
             ctx.fillStyle = 'lightskyblue';
           } else if(allied == 1){
@@ -746,7 +982,7 @@ var Player = function(initPack){
         }
       } else if(self.name){
         var allied = allyCheck(self.id);
-        if(self.kingdom){
+        if(self.kingdom && kingdomList && kingdomList[self.kingdom]){
           if(allied == 2){
             ctx.fillStyle = 'lightskyblue';
           } else if(allied == 1){
@@ -759,7 +995,7 @@ var Player = function(initPack){
           ctx.font = '15px minion web';
           ctx.textAlign = 'center';
           ctx.fillText(kingdomList[self.kingdom].flag + ' ' + self.name,barX + 30,barY - 40,100);
-        } else if(self.house){
+        } else if(self.house && houseList && houseList[self.house]){
           if(allied == 2){
             ctx.fillStyle = 'lightskyblue';
           } else if(allied == 1){
@@ -1396,9 +1632,12 @@ var Arrow = function(initPack){
   self.innaWoods = initPack.innaWoods;
 
   self.draw = function(){
+    // Get camera position (works for both logged in and login mode)
+    var cameraPos = getCameraPosition();
+    
     function drawArrow(angle){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
 
       if(angle >= -120 && angle < -60){
         ctx.drawImage(Img.arrow1, x, y, tileSize, tileSize);
@@ -1439,9 +1678,12 @@ var Item = function(initPack){
   self.innaWoods = initPack.innaWoods;
 
   self.draw = function(){
+    // Get camera position (works for both logged in and login mode)
+    var cameraPos = getCameraPosition();
+    
     if(self.type == 'Wood'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       if(self.qty > 9){
         ctx.drawImage(
         Img.wood3,
@@ -1468,8 +1710,8 @@ var Item = function(initPack){
         );
       }
     } else if(self.type == 'Stone'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       if(self.qty > 9){
         ctx.drawImage(
         Img.stone2,
@@ -1488,8 +1730,8 @@ var Item = function(initPack){
         );
       }
     } else if(self.type == 'Grain'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       if(self.qty > 9){
         ctx.drawImage(
         Img.grain3,
@@ -1516,8 +1758,8 @@ var Item = function(initPack){
         );
       }
     } else if(self.type == 'IronOre'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.ore1,
       x,
@@ -1526,8 +1768,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'Iron'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       if(self.qty > 4){
         ctx.drawImage(
         Img.ironbars,
@@ -1546,8 +1788,8 @@ var Item = function(initPack){
         );
       }
     } else if(self.type == 'Steel'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       if(self.qty > 4){
         ctx.drawImage(
         Img.steelbars,
@@ -1566,8 +1808,8 @@ var Item = function(initPack){
         );
       }
     } else if(self.type == 'BoarHide'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       if(self.qty > 4){
         ctx.drawImage(
         Img.boarhides,
@@ -1586,8 +1828,8 @@ var Item = function(initPack){
         );
       }
     } else if(self.type == 'Leather'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       if(self.qty > 4){
         ctx.drawImage(
         Img.leathers,
@@ -1606,8 +1848,8 @@ var Item = function(initPack){
         );
       }
     } else if(self.type == 'SilverOre'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.ore1,
       x,
@@ -1616,8 +1858,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'Silver'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       if(self.qty > 999){
         ctx.drawImage(
         Img.silver9,
@@ -1692,8 +1934,8 @@ var Item = function(initPack){
         );
       }
     } else if(self.type == 'GoldOre'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.ore2,
       x,
@@ -1702,8 +1944,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'Gold'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       if(self.qty > 999){
         ctx.drawImage(
         Img.gold9,
@@ -1778,8 +2020,8 @@ var Item = function(initPack){
         );
       }
     } else if(self.type == 'Diamond'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       if(self.qty > 2){
         ctx.drawImage(
         Img.diamonds,
@@ -1798,8 +2040,8 @@ var Item = function(initPack){
         );
       }
     } else if(self.type == 'HuntingKnife'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.dagger1,
       x,
@@ -1808,8 +2050,8 @@ var Item = function(initPack){
       tileSize
       );
     }else if(self.type == 'Dague'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.dagger2,
       x,
@@ -1818,8 +2060,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'Rondel'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.dagger2,
       x,
@@ -1828,8 +2070,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'Misericorde'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.dagger3,
       x,
@@ -1838,8 +2080,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'BastardSword'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.sword1,
       x,
@@ -1848,8 +2090,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'Longsword'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.sword2,
       x,
@@ -1858,8 +2100,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'Zweihander'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.sword2,
       x,
@@ -1868,8 +2110,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'Morallta'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.sword3,
       x,
@@ -1878,8 +2120,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'Bow'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.bow,
       x,
@@ -1888,8 +2130,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'WelshLongbow'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.longbow,
       x,
@@ -1898,8 +2140,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'KnightLance'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.lance1,
       x,
@@ -1908,8 +2150,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'RusticLance'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.lance1,
       x,
@@ -1918,8 +2160,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'PaladinLance'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.lance2,
       x,
@@ -1928,8 +2170,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'Brigandine'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.leathergarb,
       x,
@@ -1938,8 +2180,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'Lamellar'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.leathergarb,
       x,
@@ -1948,8 +2190,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'Maille'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.chainmail,
       x,
@@ -1958,8 +2200,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'Hauberk'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.chainmail,
       x,
@@ -1968,8 +2210,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'Brynja'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.chainmail,
       x,
@@ -1978,8 +2220,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'Cuirass'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.plate1,
       x,
@@ -1988,8 +2230,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'SteelPlate'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.plate1,
       x,
@@ -1998,8 +2240,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'GreenwichPlate'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.plate2,
       x,
@@ -2008,8 +2250,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'GothicPlate'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.plate3,
       x,
@@ -2018,8 +2260,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'ClericRobe'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.robe1,
       x,
@@ -2028,8 +2270,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'MonkCowl'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.robe2,
       x,
@@ -2038,8 +2280,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'BlackCloak'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.robe3,
       x,
@@ -2048,8 +2290,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'Tome'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.tome,
       x,
@@ -2058,8 +2300,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'RunicScroll'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.scroll,
       x,
@@ -2068,8 +2310,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'SacredText'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.sacredtext,
       x,
@@ -2078,8 +2320,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'Stoneaxe' || self.type == 'IronAxe'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.axe,
       x,
@@ -2088,8 +2330,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'Pickaxe'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.pickaxe,
       x,
@@ -2098,8 +2340,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'Key'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.key,
       x,
@@ -2108,8 +2350,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'Torch'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
         Img.torch,
         x,
@@ -2118,8 +2360,8 @@ var Item = function(initPack){
         tileSize
       );
     } else if(self.type == 'LitTorch'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       torchFlame[flm],
       x,
@@ -2128,8 +2370,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'WallTorch'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       wtorchFlame[flm],
       x,
@@ -2138,8 +2380,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'Campfire'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       fireFlame[flm],
       x,
@@ -2148,8 +2390,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'Firepit'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       firepitFlame[flm],
       x,
@@ -2158,8 +2400,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'Fireplace'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       fireplaceFlame[flm],
       x,
@@ -2168,8 +2410,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'Furnace'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       forgeFlame[flm],
       x,
@@ -2178,8 +2420,8 @@ var Item = function(initPack){
       tileSize * 1.5
       );
     } else if(self.type == 'Barrel'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.barrel,
       x,
@@ -2188,8 +2430,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'Crates'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.crates,
       x,
@@ -2198,8 +2440,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'Bookshelf'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.bookshelf,
       x,
@@ -2208,8 +2450,8 @@ var Item = function(initPack){
       tileSize * 1.5
       );
     } else if(self.type == 'SuitArmor'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.suitarmor,
       x,
@@ -2218,8 +2460,8 @@ var Item = function(initPack){
       tileSize * 1.5
       );
     } else if(self.type == 'Anvil'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.anvil,
       x,
@@ -2228,8 +2470,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'Runestone'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.runestone,
       x,
@@ -2238,8 +2480,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'Dummy'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.dummy,
       x,
@@ -2248,8 +2490,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'Cross'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.cross,
       x,
@@ -2258,8 +2500,8 @@ var Item = function(initPack){
       tileSize * 1.5
       );
     } else if(self.type == 'Skeleton1'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.skeleton1,
       x,
@@ -2268,8 +2510,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'Skeleton2'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.skeleton2,
       x,
@@ -2278,8 +2520,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'Goods1'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.goods1,
       x,
@@ -2288,8 +2530,8 @@ var Item = function(initPack){
       tileSize * 1.5
       );
     } else if(self.type == 'Goods2'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.goods2,
       x,
@@ -2298,8 +2540,8 @@ var Item = function(initPack){
       tileSize * 1.5
       );
     } else if(self.type == 'Goods3'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.goods3,
       x,
@@ -2308,8 +2550,8 @@ var Item = function(initPack){
       tileSize * 1.5
       );
     } else if(self.type == 'Goods4'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.goods4,
       x,
@@ -2318,8 +2560,8 @@ var Item = function(initPack){
       tileSize * 1.5
       );
     } else if(self.type == 'Stash1'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.stash1,
       x,
@@ -2328,8 +2570,8 @@ var Item = function(initPack){
       tileSize * 1.5
       );
     } else if(self.type == 'Stash2'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.stash2,
       x,
@@ -2338,8 +2580,8 @@ var Item = function(initPack){
       tileSize * 1.5
       );
     } else if(self.type == 'Desk'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.desk,
       x,
@@ -2348,8 +2590,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'Swordrack'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.swordrack,
       x,
@@ -2358,8 +2600,8 @@ var Item = function(initPack){
       tileSize * 1.5
       );
     } else if(self.type == 'Bed'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.bed,
       x,
@@ -2368,8 +2610,8 @@ var Item = function(initPack){
       tileSize * 2
       );
     } else if(self.type == 'Jail'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.jail,
       x,
@@ -2378,8 +2620,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'JailDoor'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.jaildoor,
       x,
@@ -2388,8 +2630,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'Chains'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.chains,
       x,
@@ -2398,8 +2640,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'Throne'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.throne,
       x + (tileSize/2),
@@ -2408,8 +2650,8 @@ var Item = function(initPack){
       tileSize * 1.5
       );
     } else if(self.type == 'Banner'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.banner,
       x ,
@@ -2418,8 +2660,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'StagHead'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.staghead,
       x,
@@ -2428,8 +2670,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'Blood'){ // MUST ONLY SEE WITH TRACKER SKILL !!!
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.blood,
       x,
@@ -2438,8 +2680,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'Chest'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.chest,
       x,
@@ -2448,8 +2690,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'LockedChest'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.chest,
       x,
@@ -2458,8 +2700,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'Bread'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       if(self.qty > 4){
         ctx.drawImage(
         Img.breads,
@@ -2478,8 +2720,8 @@ var Item = function(initPack){
         );
       }
     } else if(self.type == 'Fish'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       if(self.qty > 4){
         ctx.drawImage(
         Img.fishes,
@@ -2498,8 +2740,8 @@ var Item = function(initPack){
         );
       }
     } else if(self.type == 'Lamb'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       if(self.qty > 4){
         ctx.drawImage(
         Img.rawmeats,
@@ -2518,8 +2760,8 @@ var Item = function(initPack){
         );
       }
     } else if(self.type == 'BoarMeat'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       if(self.qty > 4){
         ctx.drawImage(
         Img.rawmeats,
@@ -2538,8 +2780,8 @@ var Item = function(initPack){
         );
       }
     } else if(self.type == 'Venison'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       if(self.qty > 4){
         ctx.drawImage(
         Img.rawmeats,
@@ -2558,8 +2800,8 @@ var Item = function(initPack){
         );
       }
     } else if(self.type == 'PoachedFish'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       if(self.qty > 4){
         ctx.drawImage(
         Img.poachedfishes,
@@ -2578,8 +2820,8 @@ var Item = function(initPack){
         );
       }
     } else if(self.type == 'LambChop'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       if(self.qty > 4){
         ctx.drawImage(
         Img.cookedmeats,
@@ -2598,8 +2840,8 @@ var Item = function(initPack){
         );
       }
     } else if(self.type == 'BoarShank'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       if(self.qty > 4){
         ctx.drawImage(
         Img.cookedmeats,
@@ -2618,8 +2860,8 @@ var Item = function(initPack){
         );
       }
     } else if(self.type == 'VenisonLoin'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       if(self.qty > 4){
         ctx.drawImage(
         Img.cookedmeats,
@@ -2638,8 +2880,8 @@ var Item = function(initPack){
         );
       }
     } else if(self.type == 'Mead' || self.type == 'Saison'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       if(self.qty > 2){
         ctx.drawImage(
         Img.beers,
@@ -2658,8 +2900,8 @@ var Item = function(initPack){
         );
       }
     } else if(self.type == 'Flanders' || self.type == 'BiereDeGarde'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       if(self.qty > 2){
         ctx.drawImage(
         Img.bottles1,
@@ -2678,8 +2920,8 @@ var Item = function(initPack){
         );
       }
     } else if(self.type == 'Bordeaux' || self.type == 'Bourgogne' || self.type == 'Chianti'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       if(self.qty > 2){
         ctx.drawImage(
         Img.bottles2,
@@ -2698,8 +2940,8 @@ var Item = function(initPack){
         );
       }
     } else if(self.type == 'Crown'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.crown,
       x,
@@ -2708,8 +2950,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'Arrows'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.arrows,
       x,
@@ -2718,8 +2960,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'WorldMap'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.map,
       x,
@@ -2728,8 +2970,8 @@ var Item = function(initPack){
       tileSize
       );
     } else if(self.type == 'Relic'){
-      var x = self.x - Player.list[selfId].x + WIDTH/2;
-      var y = self.y - Player.list[selfId].y + HEIGHT/2;
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
       ctx.drawImage(
       Img.relic,
       x,
@@ -2801,6 +3043,11 @@ setInterval(function(){
 },2000);
 
 var inView = function(z,x,y,innaWoods){
+  // During login mode, use selfId if available
+  if(!selfId || !Player.list[selfId]) {
+    return false; // During login, use inViewLogin instead
+  }
+  
   var top = (viewport.startTile[1] - 1) * tileSize;
   var left = (viewport.startTile[0] - 1) * tileSize;
   var right = (viewport.endTile[0] + 2) * tileSize;
@@ -2812,6 +3059,20 @@ var inView = function(z,x,y,innaWoods){
     } else {
       return true;
     }
+  } else {
+    return false;
+  }
+}
+
+// Simplified inView for login camera (no player-specific logic)
+var inViewLogin = function(x,y){
+  var top = (viewport.startTile[1] - 1) * tileSize;
+  var left = (viewport.startTile[0] - 1) * tileSize;
+  var right = (viewport.endTile[0] + 2) * tileSize;
+  var bottom = (viewport.endTile[1] + 2) * tileSize;
+
+  if(x > left && x < right && y > top && y < bottom){
+    return true;
   } else {
     return false;
   }
@@ -2838,10 +3099,65 @@ var hasFire = function(z,x,y){
 }
 
 setInterval(function(){
-  if(!selfId) // check that player is signed in
+  // Check if we should render (either logged in or in login camera mode)
+  if(!selfId && !loginCameraSystem.isActive) {
     return;
+  }
+  
+  // Don't render until we have world data
+  if(!world || !tileSize || !mapSize) {
+    return;
+  }
+  
   ctx.clearRect(0,0,WIDTH,HEIGHT);
   renderMap();
+  
+  // In login mode, only render map, items, and falcons (skip player-specific checks)
+  if(loginCameraSystem.isActive && !selfId) {
+    // Render all items on ground level
+    for(var i in Item.list){
+      if(Item.list[i].z == 0) {
+        var itemInView = inViewLogin(Item.list[i].x, Item.list[i].y);
+        if(itemInView) {
+          Item.list[i].draw();
+        }
+      }
+    }
+    
+    // Render all non-falcon players on ground level
+    for(var i in Player.list){
+      if(Player.list[i].class != 'Falcon' && Player.list[i].z == 0){
+        var playerInView = inViewLogin(Player.list[i].x, Player.list[i].y);
+        if(playerInView){
+          Player.list[i].draw();
+        }
+      }
+    }
+    
+    renderTops();
+    
+    // Render falcons
+    for(var i in Player.list){
+      if(Player.list[i].class == 'Falcon'){
+        var falconInView = inViewLogin(Player.list[i].x, Player.list[i].y);
+        if(falconInView){
+          Player.list[i].draw();
+        }
+      }
+    }
+    
+    renderLighting();
+    if(!nightfall){
+      renderLightSources(1);
+    } else {
+      renderLightSources(2);
+    }
+    
+    // Update viewport with falcon camera position
+    var cameraPos = loginCameraSystem.getCameraPosition();
+    viewport.update(cameraPos.x, cameraPos.y);
+  } else if(selfId && Player.list[selfId]) {
+    // Normal game rendering when logged in
   for(var i in Item.list){
     if(inView(Item.list[i].z,Item.list[i].x,Item.list[i].y,Item.list[i].innaWoods)){
       if((Player.list[selfId].z == 1 || Player.list[selfId].z == 2) && (getBuilding(Item.list[i].x,Item.list[i].y) == getBuilding(Player.list[selfId].x,Player.list[selfId].y) || getBuilding(Item.list[i].x,Item.list[i].y+(tileSize * 1.1)) == getBuilding(Player.list[selfId].x,Player.list[selfId].y))){
@@ -2907,6 +3223,7 @@ setInterval(function(){
     renderLightSources(3);
   }
   viewport.update(Player.list[selfId].x,Player.list[selfId].y);
+  }
   //console.log(getLoc(Player.list[selfId].x,Player.list[selfId].y));
 },40);
 
@@ -2954,8 +3271,19 @@ getBuilding = function(x,y){
 
 // check if same faction(2), ally(1), neutral(0), enemy(-1)
 var allyCheck = function(id){
+  // During login mode, treat everyone as neutral
+  if(!selfId || !Player.list[selfId] || !houseList || !kingdomList) {
+    return 0;
+  }
+  
   var player = Player.list[selfId];
   var other = Player.list[id];
+  
+  // Safety check for houses
+  if(!houseList) {
+    return 0;
+  }
+  
   var pHouse = houseList[player.house];
   var oHouse = houseList[other.house];
 
@@ -3090,7 +3418,11 @@ var viewport = {
 
 // renderer
 var renderMap = function(){
-  var z = Player.list[selfId].z;
+  // During login mode, always render overworld (z=0) for falcon camera
+  var z = 0;
+  if(selfId && Player.list[selfId]) {
+    z = Player.list[selfId].z;
+  }
 
   // overworld
   if(z == 0){
@@ -3120,7 +3452,13 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-          if(!Player.list[selfId].innaWoods){
+          // During login mode, always show forest overlay (not innaWoods)
+          var innaWoods = false;
+          if(selfId && Player.list[selfId]) {
+            innaWoods = Player.list[selfId].innaWoods;
+          }
+          
+          if(!innaWoods){
             if(tile >= 1 && tile < 1.3){
               ctx.drawImage(
                 Img.hforest, // image
@@ -5868,7 +6206,13 @@ var renderMap = function(){
 };
 
 var renderTops = function(){
-  if(Player.list[selfId].z == 0){
+  // During login mode, always render tops for overworld (z=0)
+  var z = 0;
+  if(selfId && Player.list[selfId]) {
+    z = Player.list[selfId].z;
+  }
+  
+  if(z == 0){
     for (var c = viewport.startTile[0]; c < viewport.endTile[0]; c++){
       for (var r = viewport.startTile[1]; r < viewport.endTile[1]; r++){
         var xOffset = viewport.offset[0] + (c * tileSize);
@@ -6547,17 +6891,26 @@ var illuminate = function(x, y, radius, env){
 }
 
 var renderLightSources = function(env){
+  // Get camera position (works for both logged in and login mode)
+  var cameraPos = getCameraPosition();
+  
   for(i in Light.list){
     var light = Light.list[i];
-    var player = Player.list[selfId];
     var rnd = (0.05 * Math.sin(1.1 * Date.now() / 200) * flicker);
-    var x = light.x - player.x + WIDTH/2;
-    var y = light.y - player.y + HEIGHT/2;
-    if(light.z == player.z || light.z ==  99){
+    var x = light.x - cameraPos.x + WIDTH/2;
+    var y = light.y - cameraPos.y + HEIGHT/2;
+    
+    // During login mode, only render z=0 lights
+    var playerZ = 0;
+    if(selfId && Player.list[selfId]) {
+      playerZ = Player.list[selfId].z;
+    }
+    
+    if(light.z == playerZ || light.z == 99){
       illuminate(x,y,(45 * light.radius),env);
       illuminate(x,y,7,env);
       //remove darkness layer
-      if((light.z == 0 || light.z == -1 || light.z == -2 || light.z == 99) || ((light.z == 1 || light.z == 2) && !hasFire(player.z,player.x,player.y))){
+      if((light.z == 0 || light.z == -1 || light.z == -2 || light.z == 99) || ((light.z == 1 || light.z == 2) && !hasFire(playerZ,cameraPos.x,cameraPos.y))){
         lighting.save();
         lighting.globalCompositeOperation = 'destination-out';
         lighting.beginPath();
@@ -6570,7 +6923,12 @@ var renderLightSources = function(env){
 }
 
 var renderLighting = function(){
-  var z = Player.list[selfId].z;
+  // During login mode, always render lighting for overworld (z=0)
+  var z = 0;
+  if(selfId && Player.list[selfId]) {
+    z = Player.list[selfId].z;
+  }
+  
   if(z == 0){
     if(tempus == 'IX.p' || tempus == 'X.p' || tempus == 'XI.p' || tempus == 'XII.a' || tempus == 'I.a' || tempus == 'II.a' || tempus == 'III.a'){
       lighting.clearRect(0,0,WIDTH,HEIGHT);
@@ -6703,6 +7061,11 @@ var renderLighting = function(){
 
 // CONTROLS
 document.onkeydown = function(event){
+  // Block all game input during login
+  if(loginCameraSystem.isActive) {
+    return;
+  }
+  
   var chatFocus = (document.activeElement == chatInput);
   if(!chatFocus){
     if(event.keyCode == 68){ // d
@@ -6773,6 +7136,11 @@ document.onkeydown = function(event){
 }
 
 document.onkeyup = function(event){
+  // Block all game input during login
+  if(loginCameraSystem.isActive) {
+    return;
+  }
+  
   if(event.keyCode == 68){ // d
     socket.send(JSON.stringify({msg:'keyPress',inputId:'right',state:false}));
     Player.list[selfId].pressingRight = false;

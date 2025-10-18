@@ -1,44 +1,141 @@
 <style>
-  body {background-color:black;}
-  h1 {color:darkgray;text-align:center;}
-  h3 {color:darkgray;text-align:center;}
-  p {color:darkgray;text-align:center;}
-  input {background-color:black;color:darkgray;}
-  button {background-color:black;color:darkgray;}
-  #enter {margin-top:25%;}
+  body {
+    background-color: black;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+  h1 {color: white; text-align: center;}
+  h3 {color: white; text-align: center;}
+  p {color: white; text-align: center;}
+  input {
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    padding: 8px;
+    font-size: 14px;
+  }
+  button {
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    padding: 10px 20px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  button:hover {
+    background-color: rgba(50, 50, 50, 0.7);
+  }
+  
+  #enterOverlay {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: rgba(0, 0, 0, 0.7);
+    padding: 40px 80px;
+    border-radius: 10px;
+    z-index: 1000;
+    pointer-events: auto;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.9);
+  }
+  
+  #loginOverlay {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 350px;
+    background-color: rgba(0, 0, 0, 0.7);
+    padding: 30px 20px;
+    border-radius: 10px;
+    z-index: 1000;
+    pointer-events: auto;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.9);
+    display: none;
+  }
+  
+  #gameDiv {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+  }
+  
+  #ctx, #lighting {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+  
+  #lighting {
+    z-index: 1;
+  }
+  
+  #UI {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 350px;
+    display: none;
+    z-index: 100;
+    background-color: rgba(0, 0, 0, 0.85);
+    border-radius: 10px;
+    padding: 15px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.9);
+  }
+  
+  #chat-text {
+    color: white;
+    width: 100%;
+    height: 500px;
+    overflow-y: scroll;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    background-color: rgba(0, 0, 0, 0.5);
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+  }
+  
+  #chat-input {
+    width: calc(100% - 20px);
+  }
 </style>
 
 <div id="screen">
-  <div id="enterDiv">
+  <div id="enterOverlay">
     <center><button id="enter">ENTER</button></center>
   </div>
-  <div id="signDiv" style="display:none">
-    <br>
+  
+  <div id="loginOverlay">
     <center><img src='client/img/stronghold.png' height='225px' width='200px'></center>
     <br>
-    <h1>♜ S T R O N G H O D L ♜</h1>
-    <p><b>A SOLIS ORTV VSQVE AD OCCASVM</b></p>
+    <h1 style="font-size: 20px;">♜ S T R O N G H O D L ♜</h1>
+    <p style="font-size: 11px;"><b>A SOLIS ORTV VSQVE AD OCASVM</b></p>
     <br>
-    <p>USERNAME: </p><center><input id="signDiv-username" type="text"></input></center>
-    <p>PASSWORD: </p><center><input id="signDiv-password" type="text"></input></center>
+    <p style="font-size: 13px;">USERNAME: </p><center><input id="signDiv-username" type="text"></input></center>
+    <br>
+    <p style="font-size: 13px;">PASSWORD: </p><center><input id="signDiv-password" type="text"></input></center>
     <br>
     <center><button id="signDiv-signIn">SIGN IN</button></center>
     <br>
     <center><button id="signDiv-signUp">SIGN UP</button></center>
   </div>
 
-  <div id="gameDiv" style="display:none;">
-    <canvas id="ctx" width="768" height="768" style="position: absolute; left: 10; top: 10; z-index: 0;"></canvas>
-    <canvas id="lighting" width="768" height="768" style="position: absolute; left: 10; top: 10; z-index: 1;"></canvas>
+  <div id="gameDiv">
+    <canvas id="ctx" style="z-index: 0;"></canvas>
+    <canvas id="lighting" style="z-index: 1;"></canvas>
   </div>
 
-  <div id="UI" style="height:576px;display:none; position: absolute; left: 788; top: 10;">
+  <div id="UI">
     <div id="chat">
-      <div id="chat-text" style="color:darkgray;width:288px;height:550px;overflow-y:scroll;border:1px solid">
-      </div>
-
+      <div id="chat-text"></div>
       <form id="chat-form">
-        <input id="chat-input" type="text" style="width:288px"></input>
+        <input id="chat-input" type="text"></input>
       </form>
     </div>
   </div>

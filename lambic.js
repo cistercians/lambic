@@ -3700,7 +3700,100 @@ io.on('connection', function(socket) {
     try {
       const data = JSON.parse(string);
 
-      if (data.msg === 'signIn') {
+      if (data.msg === 'requestPreviewData') {
+        // Send world data for login screen preview (no authentication required)
+        console.log('Preview data requested');
+        
+        // Reconstruct world array from tilemapSystem
+        const freshWorld = [];
+        for (let layer = 0; layer < 9; layer++) {
+          freshWorld[layer] = [];
+          for (let y = 0; y < mapSize; y++) {
+            freshWorld[layer][y] = [];
+            for (let x = 0; x < mapSize; x++) {
+              freshWorld[layer][y][x] = global.tilemapSystem.getTile(layer, x, y);
+            }
+          }
+        }
+        
+        // Get all NPCs, falcons, and other entities for preview
+        const previewPack = {
+          player: [],
+          item: [],
+          building: []
+        };
+        
+        // Add all players/NPCs (especially falcons) to preview
+        for (const i in Player.list) {
+          const p = Player.list[i];
+          if (p.type === 'npc' || p.class === 'Falcon') {
+            previewPack.player.push({
+              id: p.id,
+              type: p.type,
+              name: p.name,
+              house: p.house,
+              kingdom: p.kingdom,
+              x: p.x,
+              y: p.y,
+              z: p.z,
+              class: p.class,
+              rank: p.rank,
+              friends: p.friends,
+              enemies: p.enemies,
+              gear: p.gear,
+              inventory: p.inventory,
+              stealthed: p.stealthed,
+              revealed: p.revealed,
+              innaWoods: p.innaWoods,
+              hp: p.hp,
+              hpMax: p.hpMax,
+              spirit: p.spirit,
+              spiritMax: p.spiritMax,
+              ghost: p.ghost,
+              spriteSize: p.spriteSize,
+              ranged: p.ranged,
+              action: p.action
+            });
+          }
+        }
+        
+        // Add items to preview
+        for (const i in Item.list) {
+          const item = Item.list[i];
+          previewPack.item.push({
+            id: item.id,
+            type: item.type,
+            x: item.x,
+            y: item.y,
+            z: item.z,
+            qty: item.qty,
+            innaWoods: item.innaWoods
+          });
+        }
+        
+        // Add buildings to preview
+        for (const i in Building.list) {
+          const b = Building.list[i];
+          previewPack.building.push({
+            id: b.id,
+            type: b.type,
+            hp: b.hp,
+            occ: b.occ,
+            plot: b.plot,
+            walls: b.walls
+          });
+        }
+        
+        socket.write(JSON.stringify({
+          msg: 'previewData',
+          world: freshWorld,
+          tileSize,
+          mapSize,
+          tempus,
+          pack: previewPack
+        }));
+        console.log('Preview data sent');
+      } else if (data.msg === 'signIn') {
         console.log('Sign-in attempt:', data.name, data.password);
         console.log('Data received:', JSON.stringify(data));
         isValidPassword(data, function(res) {
