@@ -1515,6 +1515,11 @@ Character = function(param){
   self.pathEnd = null;
   self.followPoint = null;
   self.caveEntrance = null;
+  
+  // Explicit z-transition system
+  self.transitionIntent = null; // 'enter_cave', 'exit_cave', 'enter_building', 'exit_building', etc.
+  self.transitionState = 'none'; // 'none', 'at_entrance', 'transitioning'
+  self.targetZLevel = null; // Destination z-level for cross-z navigation
 
   self.move = function(target){ // [c,r]
     self.working = false;
@@ -2201,6 +2206,10 @@ Character = function(param){
       } else {
         if(self.z == 0){
           if(tz == 1 || tz == 2 || tz == -2){
+            // Set intent to enter building
+            self.transitionIntent = 'enter_building';
+            self.targetZLevel = tz;
+            
             var tcen = getCenter(tLoc[0],tLoc[1]);
             var tb = getBuilding(tcen[0],tcen[1]);
             // Safety check: ensure target building exists and has an entrance
@@ -2209,9 +2218,17 @@ Character = function(param){
               return;
             }
             tLoc = Building.list[tb].entrance;
+          } else if(tz == -1){
+            // Set intent to enter cave
+            self.transitionIntent = 'enter_cave';
+            self.targetZLevel = -1;
+            // tLoc already set to cave entrance coordinates
           }
-        } else if(self.z == -1){
-          // Exiting cave (z=-1 to z=0) - path to the cave EXIT tile (entrance[1] + 1 on layer 1)
+        } else if(self.z == -1 && tz == 0){
+          // Exiting cave (z=-1 to z=0) - set intent and path to the cave EXIT tile
+          self.transitionIntent = 'exit_cave';
+          self.targetZLevel = 0;
+          
           // Check if caveEntrance exists before accessing it
           if(self.caveEntrance && Array.isArray(self.caveEntrance) && self.caveEntrance.length >= 2){
             tLoc = [self.caveEntrance[0], self.caveEntrance[1] + 1]; // Cave exit is one tile south
@@ -2238,6 +2255,9 @@ Character = function(param){
         } else if(self.z == -2){
           var b = getBuilding(cen[0],cen[1]);
           // Use dstairs (bidirectional cellar entrance/exit)
+          self.transitionIntent = 'go_upstairs_cellar';
+          self.targetZLevel = 1;
+          
           if(!b || !Building.list[b] || !Building.list[b].dstairs){
             // Cannot find building - force to first floor as emergency fallback
             if(!b){
@@ -2255,6 +2275,9 @@ Character = function(param){
           var b = getBuilding(cen[0],cen[1]);
           if(tz == 0 || tz == -1){
             // Exiting building to ground level
+            self.transitionIntent = 'exit_building';
+            self.targetZLevel = 0;
+            
             if(!b || !Building.list[b] || !Building.list[b].entrance){
               // Cannot find building - force to ground level as emergency fallback
               if(!b){
@@ -2274,12 +2297,18 @@ Character = function(param){
             if(b == tb){
               // Moving to different floor in same building
               if(tz == 2){
+                self.transitionIntent = 'go_upstairs';
+                self.targetZLevel = 2;
+                
                 if(!Building.list[b] || !Building.list[b].ustairs){
                   console.error(self.name + ' cannot go upstairs in building ' + b + ' - no ustairs defined');
                   return;
                 }
                 tLoc = Building.list[b].ustairs;
               } else if(tz == -2){
+                self.transitionIntent = 'go_to_cellar';
+                self.targetZLevel = -2;
+                
                 if(!Building.list[b] || !Building.list[b].dstairs){
                   console.error(self.name + ' cannot go to cellar in building ' + b + ' - no dstairs defined');
                   return;
@@ -2308,6 +2337,9 @@ Character = function(param){
           // When on second floor (z=2), need to go down to first floor (z=1) first
           if(tz != 2){
             // Going to a different z-level - use upstairs (bidirectional staircase)
+            self.transitionIntent = 'go_downstairs';
+            self.targetZLevel = tz;
+            
             if(!b || !Building.list[b] || !Building.list[b].ustairs){
               // Cannot find building - force to first floor as emergency fallback
               if(!b){
@@ -2777,18 +2809,17 @@ Character = function(param){
 
     if(self.z == 0){
       if(getTile(0,loc[0],loc[1]) == 6){
-        self.z = -1;
-        self.caveEntrance = loc;
-        // DON'T clear path - it needs to persist through z-transition
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = self.baseSpd * self.drag;
-        // Clear movement to prevent loops (except for ghosts)
-        if(!self.ghost){
-          self.pressingRight = false;
-          self.pressingLeft = false;
-          self.pressingDown = false;
-          self.pressingUp = false;
+        // At cave entrance - set state
+        self.transitionState = 'at_entrance';
+        
+        // For players, auto-set intent (backward compatibility)
+        if(self.type === 'player'){
+          self.transitionIntent = 'enter_cave';
+        }
+        
+        // Check intent to enter cave
+        if(self.transitionIntent === 'enter_cave' && self.isAtPathDestination()){
+          self.enterCave(loc);
         }
       } else if(getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 2){
         self.innaWoods = true;
@@ -2821,31 +2852,32 @@ Character = function(param){
         self.onMtn = false;
         self.maxSpd = (self.baseSpd * 1.1) * self.drag;
       } else if(getTile(0,loc[0],loc[1]) == 14 || getTile(0,loc[0],loc[1]) == 16 || getTile(0,loc[0],loc[1]) == 19){
-        Building.list[b].occ++;
-        self.z = 1;
-        // DON'T clear path - it needs to persist through z-transition
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = self.baseSpd * self.drag;
-        // Clear movement to prevent loops (except for ghosts)
-        if(!self.ghost){
-          self.pressingRight = false;
-          self.pressingLeft = false;
-          self.pressingDown = false;
-          self.pressingUp = false;
+        // At building door - set state
+        self.transitionState = 'at_entrance';
+        
+        // Players: automatic (backward compatibility)
+        if(self.type === 'player'){
+          self.transitionIntent = 'enter_building';
+        }
+        
+        // Check intent to enter building
+        if(self.transitionIntent === 'enter_building' && self.isAtPathDestination()){
+          self.enterBuilding(b);
         }
       } else if(getTile(0,loc[0],loc[1]) == 0 && !self.ghost){
         // Ghosts cannot go underwater
-        self.z = -3;
-        // DON'T clear path - it needs to persist through z-transition
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = (self.baseSpd * 0.2)  * self.drag;
-        // Clear movement to prevent loops
-        self.pressingRight = false;
-        self.pressingLeft = false;
-        self.pressingDown = false;
-        self.pressingUp = false;
+        // At water tile - set state
+        self.transitionState = 'at_entrance';
+        
+        // For players, auto-set intent (backward compatibility)
+        if(self.type === 'player'){
+          self.transitionIntent = 'enter_water';
+        }
+        
+        // Check intent to enter water
+        if(self.transitionIntent === 'enter_water'){
+          self.enterWater();
+        }
       } else {
         self.innaWoods = false;
         self.onMtn = false;
@@ -2853,39 +2885,33 @@ Character = function(param){
       }
     } else if(self.z == -1){
       if(getTile(1,loc[0],loc[1]) == 2){
-        // On cave exit tile - only exit if path is complete (no active navigation)
-        // This universal rule works for all entities without special cases
-        if(!self.path || self.path.length === 0){
-          self.caveEntrance = null;
-          self.z = 0;
-          // Clear path on successful exit (but this was already null/empty)
-          self.path = null;
-          self.pathCount = 0;
-          self.innaWoods = false;
-          self.onMtn = false;
-          self.maxSpd = (self.baseSpd * 0.9)  * self.drag;
-          // Clear movement to prevent loops (except for ghosts)
-          if(!self.ghost){
-            self.pressingRight = false;
-            self.pressingLeft = false;
-            self.pressingDown = false;
-            self.pressingUp = false;
-          }
+        // At cave exit - set state
+        self.transitionState = 'at_entrance';
+        
+        // For players, auto-set intent (backward compatibility)
+        if(self.type === 'player'){
+          self.transitionIntent = 'exit_cave';
         }
-        // If there IS a path, don't exit - continue into cave
+        
+        // Check intent to exit cave
+        if(self.transitionIntent === 'exit_cave' && self.isAtPathDestination()){
+          self.exitCave();
+        }
+        // If no intent or has path, stay in cave
       }
     } else if(self.z == -2){
       if(getTile(8,loc[0],loc[1]) == 5){
-        self.z = 1;
-        // DON'T clear path - preserve for cross-floor navigation
-        self.y += (tileSize/2);
-        self.facing = 'down';
-        // Clear movement to prevent infinite stair loops (except for ghosts)
-        if(!self.ghost){
-          self.pressingRight = false;
-          self.pressingLeft = false;
-          self.pressingDown = false;
-          self.pressingUp = false;
+        // At cellar stairs - set state
+        self.transitionState = 'at_entrance';
+        
+        // Players: automatic (backward compatibility)
+        if(self.type === 'player'){
+          self.transitionIntent = 'go_upstairs_cellar';
+        }
+        
+        // Check intent to go upstairs from cellar
+        if(self.transitionIntent === 'go_upstairs_cellar' && self.isAtPathDestination()){
+          self.goDownstairs(1); // Yes, goDownstairs(1) goes UP from cellar to floor 1
         }
       }
     } else if(self.z == -3){
@@ -2898,70 +2924,74 @@ Character = function(param){
         self.die({cause:'drowned'});
       }
       if(getTile(0,loc[0],loc[1]) != 0){
-        self.z = 0;
-        // DON'T clear path - preserve for navigation after surfacing
-        self.breath = self.breathMax;
-        // Clear movement to prevent loops (except for ghosts)
-        if(!self.ghost){
-          self.pressingRight = false;
-          self.pressingLeft = false;
-          self.pressingDown = false;
-          self.pressingUp = false;
+        // At land tile while underwater - set state
+        self.transitionState = 'at_entrance';
+        
+        // For players, auto-set intent (backward compatibility)
+        if(self.type === 'player'){
+          self.transitionIntent = 'surface_water';
+        }
+        
+        // Check intent to surface
+        if(self.transitionIntent === 'surface_water'){
+          self.surfaceFromWater();
         }
       }
     } else if(self.z == 1){
       if(getTile(0,loc[0],loc[1] - 1) == 14 || getTile(0,loc[0],loc[1] - 1) == 16  || getTile(0,loc[0],loc[1] - 1) == 19){
-        var exit = getBuilding(self.x,self.y-tileSize);
-        if(Building.list[exit]){
-        Building.list[exit].occ--;
-          console.log(self.name + ' exited building ' + Building.list[exit].type + ' (z=1 -> z=0)');
+        // At building exit - set state
+        self.transitionState = 'at_entrance';
+        
+        // For players, auto-set intent (backward compatibility)
+        if(self.type === 'player'){
+          self.transitionIntent = 'exit_building';
         }
-        self.z = 0;
-        // DON'T clear path - preserve for navigation after exiting building
-        // Clear movement to prevent loops (except for ghosts)
-        if(!self.ghost){
-          self.pressingRight = false;
-          self.pressingLeft = false;
-          self.pressingDown = false;
-          self.pressingUp = false;
+        
+        // Check intent to exit building
+        if(self.transitionIntent === 'exit_building' && self.isAtPathDestination()){
+        var exit = getBuilding(self.x,self.y-tileSize);
+          self.exitBuilding(exit);
         }
       } else if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4 || getTile(4,loc[0],loc[1]) == 7){
-        self.z = 2;
-        // DON'T clear path - preserve for multi-floor navigation
-        self.y += (tileSize/2);
-        self.facing = 'down';
-        // Clear movement to prevent infinite stair loops (except for ghosts)
-        if(!self.ghost){
-          self.pressingRight = false;
-          self.pressingLeft = false;
-          self.pressingDown = false;
-          self.pressingUp = false;
+        // At upstairs tile - set state
+        self.transitionState = 'at_entrance';
+        
+        // For players, auto-set intent (backward compatibility)
+        if(self.type === 'player'){
+          self.transitionIntent = 'go_upstairs';
+        }
+        
+        // Check intent to go upstairs
+        if(self.transitionIntent === 'go_upstairs' && self.isAtPathDestination()){
+          self.goUpstairs();
         }
       } else if(getTile(4,loc[0],loc[1]) == 5 || getTile(4,loc[0],loc[1]) == 6){
-        self.z = -2;
-        // DON'T clear path - preserve for cellar navigation
-        self.y += (tileSize/2);
-        self.facing = 'down';
-        // Clear movement to prevent infinite stair loops (except for ghosts)
-        if(!self.ghost){
-          self.pressingRight = false;
-          self.pressingLeft = false;
-          self.pressingDown = false;
-          self.pressingUp = false;
+        // At cellar stairs - set state
+        self.transitionState = 'at_entrance';
+        
+        // For players, auto-set intent (backward compatibility)
+        if(self.type === 'player'){
+          self.transitionIntent = 'go_to_cellar';
+        }
+        
+        // Check intent to go to cellar
+        if(self.transitionIntent === 'go_to_cellar' && self.isAtPathDestination()){
+          self.goDownstairs(-2);
         }
       }
     } else if(self.z == 2){
       if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4){
-        self.z = 1;
-        // DON'T clear path - preserve for multi-floor navigation
-        self.y += (tileSize/2);
-        self.facing = 'down';
-        // Clear movement to prevent infinite stair loops (except for ghosts)
-        if(!self.ghost){
-          self.pressingRight = false;
-          self.pressingLeft = false;
-          self.pressingDown = false;
-          self.pressingUp = false;
+        // At downstairs tile - set state
+        self.transitionState = 'at_entrance';
+        
+        // For players, auto-set intent (backward compatibility)
+        if(self.type === 'player'){
+          self.transitionIntent = 'go_downstairs';
+        }
+        
+        // Check intent to go downstairs
+        if(self.transitionIntent === 'go_downstairs' && self.isAtPathDestination()){
+          self.goDownstairs(1);
         }
       }
     }
@@ -3372,10 +3402,10 @@ Character = function(param){
             // Allow pathfinding to the specific doorway
             options.allowSpecificDoor = true;
             options.targetDoor = [c, r];
-          } else {
-            // Avoid all doorways for general pathfinding
-            options.avoidDoors = true;
           }
+          // Note: We don't avoid doors in pathfinding anymore
+          // The intent system prevents NPCs from accidentally entering buildings
+          // Doors must remain walkable for pathfinding around buildings
           
           var path = global.tilemapSystem.findPath(start, [c,r], 0, options);
           if(path && path.length > 0){
@@ -3405,10 +3435,10 @@ Character = function(param){
           // Allow pathfinding to the specific cave exit
           options.allowSpecificDoor = true;
           options.targetDoor = [c, r];
-        } else {
-          // Avoid all cave exits for general cave pathfinding
-          options.avoidCaveExits = true;
         }
+        // Note: We don't avoid cave exits in pathfinding anymore
+        // The intent system prevents NPCs from accidentally exiting caves
+        // Cave exits must remain walkable for pathfinding in caves
         
         // If starting from a cave exit, pass it as an allowed exception
         if(isStartCaveExit){
@@ -3556,6 +3586,168 @@ Character = function(param){
       }
     }
   }
+
+  // Explicit Z-Transition Methods
+  self.enterCave = function(entrance) {
+    console.log(self.name + ' entering cave at [' + entrance + ']');
+    self.z = -1;
+    self.caveEntrance = entrance;
+    self.path = null;
+    self.pathCount = 0;
+    self.transitionIntent = null;
+    self.transitionState = 'none';
+    self.innaWoods = false;
+    self.onMtn = false;
+    self.maxSpd = self.baseSpd * self.drag;
+    // Clear movement flags
+    if(!self.ghost){
+      self.pressingRight = false;
+      self.pressingLeft = false;
+      self.pressingDown = false;
+      self.pressingUp = false;
+    }
+  };
+
+  self.exitCave = function() {
+    console.log(self.name + ' exiting cave to z=0');
+    self.z = 0;
+    self.path = null;
+    self.pathCount = 0;
+    self.caveEntrance = null;
+    self.transitionIntent = null;
+    self.transitionState = 'none';
+    self.innaWoods = false;
+    self.onMtn = false;
+    self.maxSpd = (self.baseSpd * 0.9) * self.drag;
+    // Clear movement flags
+    if(!self.ghost){
+      self.pressingRight = false;
+      self.pressingLeft = false;
+      self.pressingDown = false;
+      self.pressingUp = false;
+    }
+  };
+
+  self.enterBuilding = function(buildingId) {
+    console.log(self.name + ' entering building ' + buildingId);
+    if(Building.list[buildingId]){
+      Building.list[buildingId].occ++;
+    }
+    self.z = 1;
+    self.path = null;
+    self.pathCount = 0;
+    self.transitionIntent = null;
+    self.transitionState = 'none';
+    self.innaWoods = false;
+    self.onMtn = false;
+    self.maxSpd = self.baseSpd * self.drag;
+    // Clear movement flags
+    if(!self.ghost){
+      self.pressingRight = false;
+      self.pressingLeft = false;
+      self.pressingDown = false;
+      self.pressingUp = false;
+    }
+  };
+
+  self.exitBuilding = function(buildingId) {
+    console.log(self.name + ' exiting building to z=0');
+    if(Building.list[buildingId]){
+      Building.list[buildingId].occ--;
+    }
+    self.z = 0;
+    self.path = null;
+    self.pathCount = 0;
+    self.transitionIntent = null;
+    self.transitionState = 'none';
+    self.maxSpd = self.baseSpd * self.drag;
+    // Clear movement flags
+    if(!self.ghost){
+      self.pressingRight = false;
+      self.pressingLeft = false;
+      self.pressingDown = false;
+      self.pressingUp = false;
+    }
+  };
+
+  self.goUpstairs = function() {
+    self.z = 2;
+    self.path = null;
+    self.pathCount = 0;
+    self.transitionIntent = null;
+    self.transitionState = 'none';
+    self.y += (tileSize/2);
+    self.facing = 'down';
+    // Clear movement flags
+    if(!self.ghost){
+      self.pressingRight = false;
+      self.pressingLeft = false;
+      self.pressingDown = false;
+      self.pressingUp = false;
+    }
+  };
+
+  self.goDownstairs = function(targetZ) {
+    self.z = targetZ; // Could be 1 or -2
+    self.path = null;
+    self.pathCount = 0;
+    self.transitionIntent = null;
+    self.transitionState = 'none';
+    self.y += (tileSize/2);
+    self.facing = 'down';
+    // Clear movement flags
+    if(!self.ghost){
+      self.pressingRight = false;
+      self.pressingLeft = false;
+      self.pressingDown = false;
+      self.pressingUp = false;
+    }
+  };
+
+  // Helper method to check if NPC is at their path destination
+  self.isAtPathDestination = function() {
+    if (!self.path || self.path.length === 0) return true;
+    
+    var loc = getLoc(self.x, self.y);
+    var finalDest = self.path[self.path.length - 1];
+    
+    return loc[0] === finalDest[0] && loc[1] === finalDest[1];
+  };
+
+  self.enterWater = function() {
+    self.z = -3;
+    self.path = null;
+    self.pathCount = 0;
+    self.transitionIntent = null;
+    self.transitionState = 'none';
+    self.innaWoods = false;
+    self.onMtn = false;
+    self.maxSpd = (self.baseSpd * 0.2) * self.drag;
+    // Clear movement flags
+    if(!self.ghost){
+      self.pressingRight = false;
+      self.pressingLeft = false;
+      self.pressingDown = false;
+      self.pressingUp = false;
+    }
+  };
+
+  self.surfaceFromWater = function() {
+    self.z = 0;
+    self.path = null;
+    self.pathCount = 0;
+    self.transitionIntent = null;
+    self.transitionState = 'none';
+    self.breath = self.breathMax;
+    self.maxSpd = self.baseSpd * self.drag;
+    // Clear movement flags
+    if(!self.ghost){
+      self.pressingRight = false;
+      self.pressingLeft = false;
+      self.pressingDown = false;
+      self.pressingUp = false;
+    }
+  };
 
   self.updatePosition = function(){
     // Clear movement flags if no path (units should be idle)
@@ -4179,13 +4371,13 @@ Wolf = function(param){
         // On cave exit tile - only exit if path is complete (no active navigation)
         // This universal rule works for all entities without special cases
         if(!self.path || self.path.length === 0){
-          self.caveEntrance = null;
-          self.z = 0;
+        self.caveEntrance = null;
+        self.z = 0;
           self.path = null;
           self.pathCount = 0;
-          self.innaWoods = false;
-          self.onMtn = false;
-          self.maxSpd = (self.baseSpd * 0.9)  * self.drag;
+        self.innaWoods = false;
+        self.onMtn = false;
+        self.maxSpd = (self.baseSpd * 0.9)  * self.drag;
         }
       }
     }
@@ -4593,13 +4785,13 @@ SerfM = function(param){
 
     if(self.z == 0){
       if(getTile(0,loc[0],loc[1]) == 6){
-        self.caveEntrance = loc;
-        self.z = -1;
-        // DON'T clear path - it needs to persist through z-transition
-        // self.path and self.pathCount should remain intact
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = self.baseSpd * self.drag;
+        // At cave entrance - set state
+        self.transitionState = 'at_entrance';
+        
+        // Check intent to enter cave
+        if(self.transitionIntent === 'enter_cave' && (!self.path || self.path.length === 0)){
+          self.enterCave(loc);
+        }
       } else if(getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 2){
         self.innaWoods = true;
         self.onMtn = false;
@@ -4660,21 +4852,21 @@ SerfM = function(param){
         // On cave exit tile - only exit if path is complete (no active navigation)
         // This universal rule works for all entities without special cases
         if(!self.path || self.path.length === 0){
-          self.caveEntrance = null;
-          self.z = 0;
+        self.caveEntrance = null;
+        self.z = 0;
           // Clear path on successful exit (but this was already null/empty)
-          self.path = null;
-          self.pathCount = 0;
-          self.innaWoods = false;
-          self.onMtn = false;
-          self.maxSpd = (self.baseSpd * 0.9)  * self.drag;
-          // Clear movement to prevent loops (except for ghosts)
-          if(!self.ghost){
-            self.pressingRight = false;
-            self.pressingLeft = false;
-            self.pressingDown = false;
-            self.pressingUp = false;
-          }
+        self.path = null;
+        self.pathCount = 0;
+        self.innaWoods = false;
+        self.onMtn = false;
+        self.maxSpd = (self.baseSpd * 0.9)  * self.drag;
+        // Clear movement to prevent loops (except for ghosts)
+        if(!self.ghost){
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
+        }
         }
         // If there IS a path, don't exit - continue into cave
       }
@@ -4756,16 +4948,12 @@ SerfM = function(param){
       }
     } else if(self.z == 2){
       if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4){
-        self.z = 1;
-        // DON'T clear path - preserve for multi-floor navigation
-        self.y += (tileSize/2);
-        self.facing = 'down';
-        // Clear movement to prevent infinite stair loops (except for ghosts)
-        if(!self.ghost){
-          self.pressingRight = false;
-          self.pressingLeft = false;
-          self.pressingDown = false;
-          self.pressingUp = false;
+        // At downstairs tile - set state
+        self.transitionState = 'at_entrance';
+        
+        // Check intent to go downstairs
+        if(self.transitionIntent === 'go_downstairs'){
+          self.goDownstairs(1);
         }
       }
     }
@@ -4974,7 +5162,7 @@ SerfM = function(param){
         }
       } else if(self.action == 'task'){
         var spot = self.work.spot;
-        var hq = Building.list[self.work.hq];
+          var hq = Building.list[self.work.hq];
         
         // Allow task action without spot if serf has resources to deposit
         var hasResourcesToDeposit = self.inventory.wood >= 1 || self.inventory.stone >= 1 || 
@@ -5159,19 +5347,19 @@ SerfM = function(param){
             
             // Only check tile validity when at the spot (to avoid premature clearing)
             if(spot && loc.toString() == spot.toString() && !self.workTimer){
-              var gt = getTile(0,spot[0],spot[1]);
-              if(gt >= 3){
+            var gt = getTile(0,spot[0],spot[1]);
+            if(gt >= 3){
                 // Tree is gone, clear spot and remove from resources
                 console.log(self.name + ' tree at spot [' + spot + '] is gone, clearing');
                 var depletedSpot = spot.toString(); // Store before nulling
-                self.work.spot = null;
+              self.work.spot = null;
                 spot = null;
-                for(var i in hq.resources){
-                  var f = hq.resources[i];
+              for(var i in hq.resources){
+                var f = hq.resources[i];
                   if(f && f.toString() == depletedSpot){
-                    Building.list[self.work.hq].resources.splice(i,1);
-                  }
+                  Building.list[self.work.hq].resources.splice(i,1);
                 }
+              }
                 // Continue to get new assignment
               }
             }
@@ -5276,6 +5464,13 @@ SerfM = function(param){
               if(self.inventory.ironore >= 1){
                 // Clear work spot - we're depositing, not gathering
                 self.work.spot = null;
+                
+                // Set intent to exit cave for deposit (if currently in cave)
+                if(self.z === -1){
+                  self.transitionIntent = 'exit_cave';
+                  self.targetZLevel = 0;
+                }
+                
                 var b = Building.list[self.work.hq];
                 var drop = [b.plot[0][0],b.plot[0][1]+1];
                 if(loc.toString() == drop.toString()){
@@ -5304,6 +5499,13 @@ SerfM = function(param){
               } else if(self.inventory.silverore >= 1){
                 // Clear work spot - we're depositing, not gathering
                 self.work.spot = null;
+                
+                // Set intent to exit cave for deposit (if currently in cave)
+                if(self.z === -1){
+                  self.transitionIntent = 'exit_cave';
+                  self.targetZLevel = 0;
+                }
+                
                 var b = Building.list[self.work.hq];
                 var drop = [b.plot[0][0],b.plot[0][1]+1];
                 if(loc.toString() == drop.toString()){
@@ -5331,6 +5533,13 @@ SerfM = function(param){
               } else if(self.inventory.goldore >= 1){
                 // Clear work spot - we're depositing, not gathering
                 self.work.spot = null;
+                
+                // Set intent to exit cave for deposit (if currently in cave)
+                if(self.z === -1){
+                  self.transitionIntent = 'exit_cave';
+                  self.targetZLevel = 0;
+                }
+                
                 var b = Building.list[self.work.hq];
                 var drop = [b.plot[0][0],b.plot[0][1]+1];
                 if(loc.toString() == drop.toString()){
@@ -5358,6 +5567,13 @@ SerfM = function(param){
               } else if(self.inventory.diamond >= 1){
                 // Clear work spot - we're depositing, not gathering
                 self.work.spot = null;
+                
+                // Set intent to exit cave for deposit (if currently in cave)
+                if(self.z === -1){
+                  self.transitionIntent = 'exit_cave';
+                  self.targetZLevel = 0;
+                }
+                
                 var b = Building.list[self.work.hq];
                 var drop = [b.plot[0][0],b.plot[0][1]+1];
                 if(loc.toString() == drop.toString()){
@@ -5497,7 +5713,12 @@ SerfM = function(param){
                   // moveTo will automatically handle building exits if at z=1 or z=2
                   if(hq.cave){
                     var caveEntrance = hq.cave;
-                    // Don't path if already at cave entrance on z=0 (waiting for auto z-transition)
+                    
+                    // Set intent to enter cave for mining
+                    self.transitionIntent = 'enter_cave';
+                    self.targetZLevel = -1;
+                    
+                    // Don't path if already at cave entrance on z=0 (waiting for transition)
                     var alreadyAtEntrance = (self.z === 0 && loc.toString() === caveEntrance.toString());
                     if(!self.path && !alreadyAtEntrance){
                       self.moveTo(0,caveEntrance[0],caveEntrance[1]);
@@ -5515,19 +5736,19 @@ SerfM = function(param){
               
               // Only check tile validity when at the spot (to avoid premature clearing)
               if(spot && loc.toString() == spot.toString() && !self.workTimer){
-                var gt = getTile(0,spot[0],spot[1]);
-                if(gt < 4 || gt > 6){
+              var gt = getTile(0,spot[0],spot[1]);
+              if(gt < 4 || gt > 6){
                   // Stone is gone, clear spot and remove from resources
                   console.log(self.name + ' stone at spot [' + spot + '] is gone, clearing');
                   var depletedSpot = spot.toString(); // Store before nulling
-                  self.work.spot = null;
+                self.work.spot = null;
                   spot = null;
-                  for(var i in hq.resources){
-                    var f = hq.resources[i];
+                for(var i in hq.resources){
+                  var f = hq.resources[i];
                     if(f && f.toString() == depletedSpot){
-                      Building.list[self.work.hq].resources.splice(i,1);
-                    }
+                    Building.list[self.work.hq].resources.splice(i,1);
                   }
+                }
                   // Continue to get new assignment
                 }
               }
@@ -6305,21 +6526,21 @@ SerfF = function(param){
         // On cave exit tile - only exit if path is complete (no active navigation)
         // This universal rule works for all entities without special cases
         if(!self.path || self.path.length === 0){
-          self.caveEntrance = null;
-          self.z = 0;
+        self.caveEntrance = null;
+        self.z = 0;
           // Clear path on successful exit (but this was already null/empty)
-          self.path = null;
-          self.pathCount = 0;
-          self.innaWoods = false;
-          self.onMtn = false;
-          self.maxSpd = (self.baseSpd * 0.9)  * self.drag;
-          // Clear movement to prevent loops (except for ghosts)
-          if(!self.ghost){
-            self.pressingRight = false;
-            self.pressingLeft = false;
-            self.pressingDown = false;
-            self.pressingUp = false;
-          }
+        self.path = null;
+        self.pathCount = 0;
+        self.innaWoods = false;
+        self.onMtn = false;
+        self.maxSpd = (self.baseSpd * 0.9)  * self.drag;
+        // Clear movement to prevent loops (except for ghosts)
+        if(!self.ghost){
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
+        }
         }
         // If there IS a path, don't exit - continue into cave
       }
@@ -7184,12 +7405,12 @@ Blacksmith = function(param){
         
         if(shouldExit){
           self.caveEnterCooldown = 0;
-          self.z = 0;
-          self.path = null;
-          self.pathCount = 0;
-          self.innaWoods = false;
-          self.onMtn = false;
-          self.maxSpd = (self.baseSpd * 0.9)  * self.drag;
+        self.z = 0;
+        self.path = null;
+        self.pathCount = 0;
+        self.innaWoods = false;
+        self.onMtn = false;
+        self.maxSpd = (self.baseSpd * 0.9)  * self.drag;
         }
       }
     } else if(self.z == -2){

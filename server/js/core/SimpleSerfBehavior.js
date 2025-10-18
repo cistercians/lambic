@@ -7,21 +7,11 @@ class SimpleSerfBehavior {
   }
 
   update(serf) {
-    // STEP 1: Handle z-level transitions (getting out of buildings)
-    this.handleZLevelTransitions(serf);
-    
-    // STEP 2: Let the old Entity.js code handle work mode - it has better exit logic
+    // Z-level transitions are now handled automatically by Entity.js intent system
     // Just do basic wandering when idle
     if (serf.mode !== 'work') {
       this.handleWandering(serf);
     }
-  }
-
-  handleZLevelTransitions(serf) {
-    // DEPRECATED: Z-level transitions are now handled by main Entity.js update logic
-    // This function is kept for compatibility but does nothing
-    // The universal path-preservation logic in Entity.js handles all z-transitions correctly
-    return;
   }
 
   handleHouseBuilding(serf) {
@@ -31,62 +21,13 @@ class SimpleSerfBehavior {
     
     console.log('🏗️ ' + serf.name + ' handleHouseBuilding: z=' + serf.z + ', loc=[' + loc[0] + ',' + loc[1] + '], path=' + (serf.path ? 'YES' : 'NO') + ', idleTime=' + serf.idleTime);
     
-    // If on second floor (z=2), actively look for stairs
-    if (serf.z === 2) {
-      // Clear any existing path - we need to find stairs
-      if (serf.path) {
-        serf.path = null;
-        serf.pathCount = 0;
-      }
-      
-      // Check adjacent tiles for stairs every frame
-      const stairChecks = [
-        [loc[0], loc[1] - 1], // north
-        [loc[0], loc[1] + 1], // south
-        [loc[0] - 1, loc[1]], // west
-        [loc[0] + 1, loc[1]]  // east
-      ];
-      
-      for (const checkLoc of stairChecks) {
-        const stairTile = global.getTile(4, checkLoc[0], checkLoc[1]);
-        if (stairTile === 3 || stairTile === 4) {
-          console.log('🪜 ' + serf.name + ' found stairs at [' + checkLoc[0] + ',' + checkLoc[1] + '], heading down');
-          serf.path = [checkLoc]; // Direct path to stairs
-          serf.pathCount = 0;
-          return;
-        }
-      }
-      
-      // No stairs found - just stand still and rely on automatic z-level transitions
-      console.log('⏸️  ' + serf.name + ' waiting for stairs (will rely on auto-transitions)');
-      return;
-    }
-    
-    // If on first floor (z=1), actively look for door
-    if (serf.z === 1) {
-      // Clear any existing path - we need to find door
-      if (serf.path) {
-        serf.path = null;
-        serf.pathCount = 0;
-      }
-      
-      // Check north for door every frame
-      const doorLoc = [loc[0], loc[1] - 1];
-      const doorTile = global.getTile(0, doorLoc[0], doorLoc[1]);
-      if (doorTile === 14 || doorTile === 16 || doorTile === 19) {
-        console.log('🚪✅ ' + serf.name + ' found door at [' + doorLoc[0] + ',' + doorLoc[1] + '], walking to it');
-        serf.path = [doorLoc]; // Direct path to door
-        serf.pathCount = 0;
-        return;
-      }
-      
-      // No door found - just stand still and rely on automatic z-level transitions
-      console.log('⏸️  ' + serf.name + ' waiting for door (will rely on auto-transitions)');
-      return;
-    }
-    
-    // If not on overworld yet, wait for transitions
+    // If not on overworld yet, path to exit
+    // The intent system will automatically handle transitions when serf reaches exit tiles
     if (serf.z !== 0) {
+      if (!serf.path) {
+        // Path to overworld - the intent system will handle the actual transition
+        serf.moveTo(0, loc[0], loc[1]);
+      }
       return;
     }
     
