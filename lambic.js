@@ -3790,6 +3790,7 @@ io.on('connection', function(socket) {
           tileSize,
           mapSize,
           tempus,
+          nightfall: global.nightfall,
           pack: previewPack
         }));
         console.log('Preview data sent');

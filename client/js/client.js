@@ -47,6 +47,8 @@ socket.onmessage = function(event){
       worldLayers: data.world ? data.world.length : 0,
       tileSize: data.tileSize,
       mapSize: data.mapSize,
+      tempus: data.tempus,
+      nightfall: data.nightfall,
       players: data.pack.player ? data.pack.player.length : 0,
       items: data.pack.item ? data.pack.item.length : 0,
       buildings: data.pack.building ? data.pack.building.length : 0
@@ -56,6 +58,7 @@ socket.onmessage = function(event){
     tileSize = data.tileSize;
     mapSize = data.mapSize;
     tempus = data.tempus;
+    nightfall = data.nightfall;
     
     // Load entities for preview
     if(data.pack.player) {
@@ -3150,10 +3153,11 @@ setInterval(function(){
     }
     
     renderLighting();
-    if(!nightfall){
-      renderLightSources(1);
-    } else {
+    // Render light sources (env: 1=daytime, 2=nighttime)
+    if(nightfall){
       renderLightSources(2);
+    } else {
+      renderLightSources(1);
     }
     
     // Update viewport with falcon camera position
