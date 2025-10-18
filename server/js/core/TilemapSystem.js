@@ -99,7 +99,12 @@ class TilemapSystem {
         if (options.avoidDoors && this.isDoorway(layer, x, y, tile)) {
           walkable = false;
         } else if (options.avoidCaveExits && this.isCaveExit(layer, x, y)) {
-          walkable = false;
+          // Check if this is the allowed start tile
+          if (options.allowStartTile && options.allowStartTile[0] === x && options.allowStartTile[1] === y) {
+            walkable = true;
+          } else {
+            walkable = false;
+          }
         } else if (options.allowSpecificDoor && options.targetDoor) {
           const [targetX, targetY] = options.targetDoor;
           if ((this.isDoorway(layer, x, y, tile) || this.isCaveExit(layer, x, y)) && !(x === targetX && y === targetY)) {
@@ -117,16 +122,29 @@ class TilemapSystem {
 
   // Check if a tile is walkable
   isWalkable(layer, x, y, tile) {
-    switch (layer) {
-      case 0: // Overworld
-        return tile === 0; // Only water (0) is walkable
-      case 1: // Underworld
-        return tile === 1; // Only cave floor (1) is walkable
-      case -1: // Underwater
-        return false; // Not walkable
-      default:
-        return true; // Building layers are generally walkable
+    // Tiles are walkable when their matrix value is 0 (not blocked)
+    // Map layer to z-level for matrix lookup
+    const layerToZ = {
+      0: 0,    // Overworld
+      1: -1,   // Underworld/Cave
+      2: -3,   // Underwater
+      3: 1,    // Building floor 1 (but use matrix lookup)
+      4: 1,    // Building floor 1 tiles
+      5: 1,    // Building floor 1 special
+      6: 0,    // Resource layer 1 (overworld resources)
+      7: -1,   // Resource layer 2 (cave resources)
+      8: -2    // Cellar/Building basement
+    };
+    
+    const z = layerToZ[layer];
+    
+    // Use the global matrix-based walkability check
+    if (typeof global.isWalkable === 'function' && z !== undefined) {
+      return global.isWalkable(z, x, y);
     }
+    
+    // Fallback: return false if we can't determine walkability
+    return false;
   }
 
   // Check if a tile is a doorway
@@ -136,13 +154,14 @@ class TilemapSystem {
 
   // Check if a tile is a cave exit (to avoid in cave pathfinding)
   isCaveExit(layer, x, y) {
-    if (layer !== -1) return false; // Only applies to cave layer
+    if (layer !== 1) return false; // Only applies to cave layer (worldMaps[1])
     
     // Check if this coordinate matches any cave entrance
+    // Note: Cave exits on layer 1 are at entrance[0], entrance[1]+1 (one tile south of overworld entrance)
     if (global.caveEntrances) {
       for (let i = 0; i < global.caveEntrances.length; i++) {
         const entrance = global.caveEntrances[i];
-        if (entrance[0] === x && entrance[1] === y) {
+        if (entrance[0] === x && entrance[1] + 1 === y) {
           return true;
         }
       }

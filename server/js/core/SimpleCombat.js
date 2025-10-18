@@ -28,6 +28,12 @@ class SimpleCombat {
       this.endCombat(entity, target);
       return;
     }
+    
+    // Target is a ghost? End combat (ghosts are invisible to NPCs)
+    if (target.ghost) {
+      this.endCombat(entity, target);
+      return;
+    }
 
     // Calculate distance
     const dx = target.x - entity.x;
@@ -166,6 +172,9 @@ class SimpleCombat {
       if (target.id === entity.id) continue;
       if (target.z !== entity.z) continue;
       
+      // Skip ghosts - they are invisible to all NPCs
+      if (target.ghost) continue;
+      
       // Skip non-combatant targets
       if (nonCombatClasses.includes(target.class)) continue;
 
@@ -177,11 +186,6 @@ class SimpleCombat {
 
       // Check alliance
       const ally = global.allyCheck ? global.allyCheck(entity.id, target.id) : -1;
-      
-      // Wolf-specific logging
-      if (entity.class === 'Wolf' && target.type === 'player') {
-        console.log(`🐺 Wolf checking player ${target.name}: dist=${Math.floor(distance)}px, ally=${ally}, range=${aggroRange}`);
-      }
       
       if (ally >= 0) continue;
 
@@ -242,8 +246,7 @@ class SimpleCombat {
     // Clear entity's combat state
     entity.action = null;
     entity.combat.target = null;
-    entity.path = null;
-    entity.pathCount = 0;
+    // DON'T clear path - entity might be navigating somewhere after combat
     entity._lastCombatAttack = 0;
     
     // Stop running when combat ends (NPCs only, players control their own running)
@@ -258,8 +261,7 @@ class SimpleCombat {
       console.log(`🔄 Clearing combat state for ${target.class} as well`);
       target.action = null;
       target.combat.target = null;
-      target.path = null;
-      target.pathCount = 0;
+      // DON'T clear path - target might be navigating somewhere after combat
       target._lastCombatAttack = 0;
       
       // Stop running when combat ends (NPCs only)

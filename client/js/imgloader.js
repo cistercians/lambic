@@ -806,15 +806,21 @@ Img.ghoststandl.src = '/client/img/chars/ghost/standl.png';
 Img.ghoststandr = new Image();
 Img.ghoststandr.src = '/client/img/chars/ghost/standr.png';
 
+// Ghost walk animations (just standing sprites in array format)
+var ghostwalkd = [Img.ghoststandd, Img.ghoststandd];
+var ghostwalku = [Img.ghoststandu, Img.ghoststandu];
+var ghostwalkl = [Img.ghoststandl, Img.ghoststandl];
+var ghostwalkr = [Img.ghoststandr, Img.ghoststandr];
+
 var ghost = {
   facedown: Img.ghoststandd,
   faceup: Img.ghoststandu,
   faceleft: Img.ghoststandl,
   faceright: Img.ghoststandr,
-  walkdown: Img.ghoststandd,
-  walkup: Img.ghoststandu,
-  walkleft: Img.ghoststandl,
-  walkright: Img.ghoststandr,
+  walkdown: ghostwalkd,
+  walkup: ghostwalku,
+  walkleft: ghostwalkl,
+  walkright: ghostwalkr,
 };
 
 // rogue
@@ -4220,6 +4226,8 @@ Img.axe = new Image();
 Img.axe.src = '/client/img/items/axe.png';
 Img.pickaxe = new Image();
 Img.pickaxe.src = '/client/img/items/pickaxe.png';
+Img.torch = new Image();
+Img.torch.src = '/client/img/items/torch.png';
 Img.torch1 = new Image();
 Img.torch1.src = '/client/img/items/torch1.png';
 Img.torch2 = new Image();

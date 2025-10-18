@@ -2077,7 +2077,8 @@ EvalCmd = function(data){
                   x:coords[0],
                   y:coords[1],
                   qty:Number(q),
-                  parent:player.id
+                  parent:player.id,
+                  innaWoods:player.innaWoods || false
                 });
                 Player.list[player.id].inventory.wood -= q;
               } else if(!isWalkable(z,c,r-1) && z == 0 && getTile(0,c,r-1) == 0){

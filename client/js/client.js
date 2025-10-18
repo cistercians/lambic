@@ -156,7 +156,10 @@ socket.onmessage = function(event){
         if(pack.ghost != undefined)
           p.ghost = pack.ghost;
 
-        if(p.class == 'Sheep'){
+        // Ghost mode overrides all sprite assignments
+        if(p.ghost){
+          p.sprite = ghost;
+        } else if(p.class == 'Sheep'){
           p.sprite = sheep;
         } else if(p.class == 'Deer'){
           p.sprite = deer;
@@ -634,7 +637,8 @@ var Player = function(initPack){
   self.hpMax = initPack.hpMax;
   self.spirit = initPack.spirit;
   self.spiritMax = initPack.spiritMax;
-  self.sprite = maleserf;
+  self.ghost = initPack.ghost || false;
+  self.sprite = self.ghost ? ghost : maleserf; // Use ghost sprite if in ghost mode
   self.spriteSize = initPack.spriteSize;
   self.ranged = initPack.ranged;
   self.action = initPack.action;

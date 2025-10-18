@@ -18,62 +18,10 @@ class SimpleSerfBehavior {
   }
 
   handleZLevelTransitions(serf) {
-    const loc = global.getLoc(serf.x, serf.y);
-    
-    // If on second floor (z=2), need to go down stairs to z=1 first
-    if (serf.z === 2) {
-      // Check if we're on a downstairs tile
-      const stairTile = global.getTile(4, loc[0], loc[1]);
-      if (stairTile === 3 || stairTile === 4) {
-        serf.z = 1;
-        serf.path = null;
-        serf.pathCount = 0;
-        serf.y += (global.tileSize / 2);
-        console.log(serf.name + ' went downstairs from z=2 to z=1');
-      }
-      return; // Don't do anything else while on second floor
-    }
-    
-    // If inside a building (z=1), check if we should exit
-    if (serf.z === 1) {
-      const exitTile = global.getTile(0, loc[0], loc[1] - 1);
-      if (exitTile === 14 || exitTile === 16 || exitTile === 19) {
-        const exit = global.getBuilding(serf.x, serf.y - global.tileSize);
-        const BuildingList = global.Building ? global.Building.list : {};
-        if (BuildingList[exit]) {
-          BuildingList[exit].occ--;
-        }
-        serf.z = 0;
-        serf.path = null;
-        serf.pathCount = 0;
-        console.log(serf.name + ' exited building to z=0');
-      }
-      return; // Don't do anything else while inside
-    }
-    
-    // If in cave (z=-1), check if we should exit
-    if (serf.z === -1) {
-      if (global.getTile(1, loc[0], loc[1]) === 2) {
-        serf.caveEntrance = null;
-        serf.z = 0;
-        serf.path = null;
-        serf.pathCount = 0;
-        if (this.debug) console.log(serf.name + ' exited cave to z=0');
-      }
-      return;
-    }
-    
-    // If underwater (z=-3), surface
-    if (serf.z === -3) {
-      if (global.getTile(0, loc[0], loc[1]) !== 0) {
-        serf.z = 0;
-        serf.path = null;
-        serf.pathCount = 0;
-        serf.breath = serf.breathMax;
-        if (this.debug) console.log(serf.name + ' surfaced to z=0');
-      }
-      return;
-    }
+    // DEPRECATED: Z-level transitions are now handled by main Entity.js update logic
+    // This function is kept for compatibility but does nothing
+    // The universal path-preservation logic in Entity.js handles all z-transitions correctly
+    return;
   }
 
   handleHouseBuilding(serf) {

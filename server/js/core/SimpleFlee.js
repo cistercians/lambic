@@ -17,8 +17,8 @@ class SimpleFlee {
 
     const target = global.Player.list[entity.combat.target];
     
-    // Target gone? Stop fleeing
-    if (!target) {
+    // Target gone or is a ghost? Stop fleeing (ghosts don't scare animals)
+    if (!target || target.ghost) {
       entity.combat.target = null;
       entity.action = null;
       entity.baseSpd = 2;

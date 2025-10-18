@@ -403,17 +403,22 @@ Mine = function(param){
     }
     if(self.cave){
       // Ore mine - scan z=-1 cave layer for rocks (stored in tilemap layer 1)
-      var loc = getLoc(self.x,self.y);
-      var area = getArea(loc,self.cave,10);
+      var caveEntranceCoords = getCenter(self.cave[0], self.cave[1]);
+      var area = getArea(self.cave,self.cave,10); // Area around cave entrance, not mine
       for(var i in area){
         var r = area[i];
         // Check cave layer 1 for rocks - cave tiles at z=-1 are stored in layer 1
         var gt = getTile(1,r[0],r[1]); // Layer 1 contains cave tiles
         if(gt >= 3 && gt <= 5){ // Rock tiles in caves (types 3, 4, 5)
+          // Verify rock is reachable from cave entrance
+          var rockCoords = getCenter(r[0], r[1]);
+          var dist = getDistance({x: caveEntranceCoords[0], y: caveEntranceCoords[1]}, {x: rockCoords[0], y: rockCoords[1]});
+          if(dist <= 640){ // Within 10 tiles of cave entrance
           self.resources.push(r);
         }
       }
-      console.log('Ore mine added ' + self.resources.length + ' cave rock resources (z=-1, layer 1)');
+      }
+      console.log('Ore mine added ' + self.resources.length + ' cave rock resources (z=-1, layer 1) near entrance [' + self.cave[0] + ',' + self.cave[1] + ']');
     } else {
       // Stone mine - scan z=0 for stone patches
       var loc = getLoc(self.x,self.y);
@@ -463,6 +468,9 @@ Outpost = function(param){
       for(var id in Player.list){
         var enemy = Player.list[id];
         if(!enemy || enemy.z !== 0) continue; // Only detect on overworld
+        
+        // Skip ghosts - they are invisible
+        if(enemy.ghost) continue;
         
         // Check if enemy
         var alliance = allyCheck(self.owner, enemy.id);
@@ -539,6 +547,9 @@ Guardtower = function(param){
       for(var id in Player.list){
         var enemy = Player.list[id];
         if(!enemy || enemy.z !== 0) continue; // Only target on overworld
+        
+        // Skip ghosts - they are invisible
+        if(enemy.ghost) continue;
         
         // Check if enemy
         var alliance = allyCheck(self.owner, enemy.id);
@@ -1151,6 +1162,9 @@ Stronghold = function(param){
         var enemy = Player.list[id];
         if(!enemy || enemy.z !== 0) continue; // Only target on overworld
         
+        // Skip ghosts - they are invisible
+        if(enemy.ghost) continue;
+        
         // Check if enemy
         var alliance = allyCheck(self.owner, enemy.id);
         if(alliance >= 0) continue; // Skip allies
@@ -1338,6 +1352,9 @@ Character = function(param){
   self.running = false; // NPCs can run in combat
   self.toRemove = false;
   self.die = function(report){ // report {id,cause}
+    var deathLocation = getLoc(self.x, self.y);
+    var deathZ = self.z;
+    
     if(report.id){
       if(Player.list[report.id]){
         console.log(Player.list[report.id].class + ' has killed ' + self.class);
@@ -1366,6 +1383,68 @@ Character = function(param){
       self.aggroInterval = null;
     }
     
+    // SPAWN SKELETON AT DEATH LOCATION (only for humanoid NPCs, not animals)
+    var animalClasses = ['Wolf', 'Deer', 'Boar', 'Sheep', 'Falcon'];
+    var isAnimal = animalClasses.includes(self.class);
+    
+    if(!isAnimal && global.Skeleton){
+      var deathCoords = getCenter(deathLocation[0], deathLocation[1]);
+      global.Skeleton({
+        id: Math.random(),
+        x: deathCoords[0],
+        y: deathCoords[1],
+        z: deathZ,
+        innaWoods: self.innaWoods || false
+      });
+      console.log(`💀 ${self.class} skeleton spawned at [${deathLocation[0]},${deathLocation[1]}] z=${deathZ}`);
+    }
+    
+    // DROP INVENTORY AND EQUIPPED ITEMS
+    var droppedItems = [];
+    
+    // Drop inventory items
+    if(self.inventory){
+      for(var item in self.inventory){
+        if(item === 'keyRing' || item === 'mapData') continue;
+        var qty = self.inventory[item];
+        if(qty > 0){
+          droppedItems.push({item: item, qty: qty});
+          self.inventory[item] = 0;
+        }
+      }
+    }
+    
+    // Drop store resources
+    if(self.stores){
+      for(var resource in self.stores){
+        var qty = self.stores[resource];
+        if(qty > 0){
+          droppedItems.push({item: resource, qty: qty});
+          self.stores[resource] = 0;
+        }
+      }
+    }
+    
+    // Scatter items around death location (all entities can drop items)
+    if(droppedItems.length > 0 && global.itemFactory){
+      var deathCoords = getCenter(deathLocation[0], deathLocation[1]);
+      console.log(`💀 ${self.class} dropped ${droppedItems.length} item types`);
+      for(var i in droppedItems){
+        var drop = droppedItems[i];
+        var offsetX = (Math.random() - 0.5) * tileSize * 2;
+        var offsetY = (Math.random() - 0.5) * tileSize * 2;
+        
+        global.itemFactory.createItem(drop.item, {
+          x: deathCoords[0] + offsetX,
+          y: deathCoords[1] + offsetY,
+          z: deathZ,
+          qty: drop.qty,
+          innaWoods: self.innaWoods || false
+        });
+      }
+    }
+    
+    // NPC respawning logic
     if(self.house && self.house.type == 'npc'){
       var units = House.list[self.house].military.scout.units;
       if(units.length > 0){
@@ -1679,7 +1758,8 @@ Character = function(param){
         x:self.x,
         y:self.y,
         z:self.z,
-        qty:1
+        qty:1,
+        innaWoods:self.innaWoods || false
       })
       self.hasTorch = torchId;
     }
@@ -2073,6 +2153,13 @@ Character = function(param){
     }
     var cen = getCenter(loc[0],loc[1]);
     var tLoc = [tc,tr];
+    
+    // Early return if already at target location on same z-level
+    // This prevents infinite pathing loops at z-transition tiles
+    if(loc.toString() === tLoc.toString() && tz === self.z){
+      return;
+    }
+    
     if(loc.toString() != tLoc.toString()){
       if(tz == self.z){
         if(self.z == -1){
@@ -2124,9 +2211,10 @@ Character = function(param){
             tLoc = Building.list[tb].entrance;
           }
         } else if(self.z == -1){
+          // Exiting cave (z=-1 to z=0) - path to the cave EXIT tile itself, not +1
           // Check if caveEntrance exists before accessing it
           if(self.caveEntrance && Array.isArray(self.caveEntrance) && self.caveEntrance.length >= 2){
-          tLoc = [self.caveEntrance[0],self.caveEntrance[1]+1];
+            tLoc = self.caveEntrance; // Path to the exit tile itself at z=-1
           } else {
             // Fallback: find nearest cave entrance
             if(global.caveEntrances && global.caveEntrances.length > 0){
@@ -2141,7 +2229,7 @@ Character = function(param){
                 }
               }
               self.caveEntrance = nearest;
-              tLoc = [nearest[0], nearest[1]+1];
+              tLoc = nearest; // Path to the exit tile itself at z=-1
             } else {
               // No cave entrance found, stay in place
               return;
@@ -2691,16 +2779,17 @@ Character = function(param){
       if(getTile(0,loc[0],loc[1]) == 6){
         self.z = -1;
         self.caveEntrance = loc;
-        self.path = null;
-        self.pathCount = 0;
+        // DON'T clear path - it needs to persist through z-transition
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * self.drag;
-        // Clear movement to prevent loops
-        self.pressingRight = false;
-        self.pressingLeft = false;
-        self.pressingDown = false;
-        self.pressingUp = false;
+        // Clear movement to prevent loops (except for ghosts)
+        if(!self.ghost){
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
+        }
       } else if(getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 2){
         self.innaWoods = true;
         self.onMtn = false;
@@ -2734,20 +2823,21 @@ Character = function(param){
       } else if(getTile(0,loc[0],loc[1]) == 14 || getTile(0,loc[0],loc[1]) == 16 || getTile(0,loc[0],loc[1]) == 19){
         Building.list[b].occ++;
         self.z = 1;
-        self.path = null;
-        self.pathCount = 0;
+        // DON'T clear path - it needs to persist through z-transition
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * self.drag;
-        // Clear movement to prevent loops
-        self.pressingRight = false;
-        self.pressingLeft = false;
-        self.pressingDown = false;
-        self.pressingUp = false;
-      } else if(getTile(0,loc[0],loc[1]) == 0){
+        // Clear movement to prevent loops (except for ghosts)
+        if(!self.ghost){
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
+        }
+      } else if(getTile(0,loc[0],loc[1]) == 0 && !self.ghost){
+        // Ghosts cannot go underwater
         self.z = -3;
-        self.path = null;
-        self.pathCount = 0;
+        // DON'T clear path - it needs to persist through z-transition
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = (self.baseSpd * 0.2)  * self.drag;
@@ -2763,31 +2853,40 @@ Character = function(param){
       }
     } else if(self.z == -1){
       if(getTile(1,loc[0],loc[1]) == 2){
-        self.caveEntrance = null;
-        self.z = 0;
-        self.path = null;
-        self.pathCount = 0;
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = (self.baseSpd * 0.9)  * self.drag;
-        // Clear movement to prevent loops
-        self.pressingRight = false;
-        self.pressingLeft = false;
-        self.pressingDown = false;
-        self.pressingUp = false;
+        // On cave exit tile - only exit if path is complete (no active navigation)
+        // This universal rule works for all entities without special cases
+        if(!self.path || self.path.length === 0){
+          self.caveEntrance = null;
+          self.z = 0;
+          // Clear path on successful exit (but this was already null/empty)
+          self.path = null;
+          self.pathCount = 0;
+          self.innaWoods = false;
+          self.onMtn = false;
+          self.maxSpd = (self.baseSpd * 0.9)  * self.drag;
+          // Clear movement to prevent loops (except for ghosts)
+          if(!self.ghost){
+            self.pressingRight = false;
+            self.pressingLeft = false;
+            self.pressingDown = false;
+            self.pressingUp = false;
+          }
+        }
+        // If there IS a path, don't exit - continue into cave
       }
     } else if(self.z == -2){
       if(getTile(8,loc[0],loc[1]) == 5){
         self.z = 1;
-        self.path = null;
-        self.pathCount = 0;
+        // DON'T clear path - preserve for cross-floor navigation
         self.y += (tileSize/2);
         self.facing = 'down';
-        // Clear movement to prevent infinite stair loops
-        self.pressingRight = false;
-        self.pressingLeft = false;
-        self.pressingDown = false;
-        self.pressingUp = false;
+        // Clear movement to prevent infinite stair loops (except for ghosts)
+        if(!self.ghost){
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
+        }
       }
     } else if(self.z == -3){
       if(self.breath > 0){
@@ -2800,14 +2899,15 @@ Character = function(param){
       }
       if(getTile(0,loc[0],loc[1]) != 0){
         self.z = 0;
-        self.path = null;
-        self.pathCount = 0;
+        // DON'T clear path - preserve for navigation after surfacing
         self.breath = self.breathMax;
-        // Clear movement to prevent loops
-        self.pressingRight = false;
-        self.pressingLeft = false;
-        self.pressingDown = false;
-        self.pressingUp = false;
+        // Clear movement to prevent loops (except for ghosts)
+        if(!self.ghost){
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
+        }
       }
     } else if(self.z == 1){
       if(getTile(0,loc[0],loc[1] - 1) == 14 || getTile(0,loc[0],loc[1] - 1) == 16  || getTile(0,loc[0],loc[1] - 1) == 19){
@@ -2817,48 +2917,52 @@ Character = function(param){
           console.log(self.name + ' exited building ' + Building.list[exit].type + ' (z=1 -> z=0)');
         }
         self.z = 0;
-        self.path = null;
-        self.pathCount = 0;
-        // Clear movement to prevent loops
-        self.pressingRight = false;
-        self.pressingLeft = false;
-        self.pressingDown = false;
-        self.pressingUp = false;
+        // DON'T clear path - preserve for navigation after exiting building
+        // Clear movement to prevent loops (except for ghosts)
+        if(!self.ghost){
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
+        }
       } else if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4 || getTile(4,loc[0],loc[1]) == 7){
         self.z = 2;
-        self.path = null;
-        self.pathCount = 0;
+        // DON'T clear path - preserve for multi-floor navigation
         self.y += (tileSize/2);
         self.facing = 'down';
-        // Clear movement to prevent infinite stair loops
-        self.pressingRight = false;
-        self.pressingLeft = false;
-        self.pressingDown = false;
-        self.pressingUp = false;
+        // Clear movement to prevent infinite stair loops (except for ghosts)
+        if(!self.ghost){
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
+        }
       } else if(getTile(4,loc[0],loc[1]) == 5 || getTile(4,loc[0],loc[1]) == 6){
         self.z = -2;
-        self.path = null;
-        self.pathCount = 0;
+        // DON'T clear path - preserve for cellar navigation
         self.y += (tileSize/2);
         self.facing = 'down';
-        // Clear movement to prevent infinite stair loops
-        self.pressingRight = false;
-        self.pressingLeft = false;
-        self.pressingDown = false;
-        self.pressingUp = false;
+        // Clear movement to prevent infinite stair loops (except for ghosts)
+        if(!self.ghost){
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
+        }
       }
     } else if(self.z == 2){
       if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4){
         self.z = 1;
-        self.path = null;
-        self.pathCount = 0;
+        // DON'T clear path - preserve for multi-floor navigation
         self.y += (tileSize/2);
         self.facing = 'down';
-        // Clear movement to prevent infinite stair loops
-        self.pressingRight = false;
-        self.pressingLeft = false;
-        self.pressingDown = false;
-        self.pressingUp = false;
+        // Clear movement to prevent infinite stair loops (except for ghosts)
+        if(!self.ghost){
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
+        }
       }
     }
 
@@ -3219,6 +3323,7 @@ Character = function(param){
 
   self.getPath = function(z,c,r){
     self.pathEnd = {z:z,loc:[c,r]};
+    self.pathLocked = false; // Clear path lock when starting new pathfinding
     var start = getLoc(self.x,self.y);
     var cst = getCenter(start[0],start[1]);
     var b = getBuilding(cst[0],cst[1]);
@@ -3281,12 +3386,17 @@ Character = function(param){
         }
       } else if(self.z == -1){
         // In cave - check if destination is a cave exit
+        // Note: Cave exits on layer 1 are at entrance[0], entrance[1]+1 (one tile south of overworld entrance)
         var isTargetCaveExit = false;
+        var isStartCaveExit = false;
+        
         for(var i in caveEntrances){
           var ce = caveEntrances[i];
-          if(ce[0] == c && ce[1] == r){
+          if(ce[0] == c && ce[1] + 1 == r){
             isTargetCaveExit = true;
-            break;
+          }
+          if(ce[0] == start[0] && ce[1] + 1 == start[1]){
+            isStartCaveExit = true;
           }
         }
         
@@ -3300,7 +3410,13 @@ Character = function(param){
           options.avoidCaveExits = true;
         }
         
-        var path = global.tilemapSystem.findPath(start, [c,r], -1, options);
+        // If starting from a cave exit, pass it as an allowed exception
+        if(isStartCaveExit){
+          options.allowStartTile = start;
+        }
+        
+        // Use layer 1 for cave (worldMaps[1] = Underworld)
+        var path = global.tilemapSystem.findPath(start, [c,r], 1, options);
         if(path && path.length > 0){
           path = smoothPath(path, z);
           cachePath(start, [c,r], z, path);
@@ -3390,7 +3506,13 @@ Character = function(param){
             best = d;
           }
         }
-        var path = global.tilemapSystem.findPath(start, [cave[0], cave[1]+1], -1);
+        // Path to the cave exit tile (which is at cave[0], cave[1]+1 on layer 1)
+        var options = {
+          allowSpecificDoor: true,
+          targetDoor: [cave[0], cave[1] + 1]
+        };
+        // Use layer 1 for cave (worldMaps[1] = Underworld)
+        var path = global.tilemapSystem.findPath(start, [cave[0], cave[1] + 1], 1, options);
         self.path = path;
       } else if(self.z == 1){ // indoors
         //var gridB1b = cloneGrid(1);
@@ -3543,6 +3665,25 @@ Character = function(param){
         
         // If blocked OR stuck on same waypoint OR oscillating
         if((isNextBlocked && isNotAtNext) || self.waypointStuckCounter > 60 || isOscillating){
+          // OSCILLATION DETECTED - Lock in current path to prevent alternating
+          if(isOscillating){
+            // Mark path as locked - don't recalculate again
+            if(!self.pathLocked){
+              console.log((self.name || 'Entity') + ' oscillation detected, locking onto current path');
+              self.pathLocked = true;
+              self.waypointHistory = []; // Clear history
+              // Skip this waypoint and move to next one
+              self.pathCount++;
+              return;
+            } else {
+              // Path is locked, skip problematic waypoint
+              console.log((self.name || 'Entity') + ' skipping oscillating waypoint (path locked)');
+              self.pathCount++;
+              self.waypointHistory = []; // Clear history
+              return;
+            }
+          }
+          
           // Next waypoint is blocked/unreachable - invalidate path and recalculate
           if(!self.pathRecalcAttempts){
             self.pathRecalcAttempts = 0;
@@ -3562,7 +3703,7 @@ Character = function(param){
           
           // Try to recalculate based on distance
           if(self.pathRecalcAttempts < maxRetries && self.pathEnd){
-            var reason = isNextBlocked ? 'blocked' : (isOscillating ? 'oscillating' : 'stuck');
+            var reason = isNextBlocked ? 'blocked' : 'stuck';
             // Only log every 3rd attempt to reduce spam
             if(self.pathRecalcAttempts % 3 == 1){
               console.log((self.name || 'Entity') + ' path ' + reason + ' at waypoint ' + next + ', recalculating... (attempt ' + self.pathRecalcAttempts + '/' + maxRetries + ')');
@@ -3593,6 +3734,7 @@ Character = function(param){
             self.lastWaypoint = null;
             self.waypointStuckCounter = 0;
             self.waypointHistory = []; // Clear oscillation history
+            self.pathLocked = false; // Clear lock when giving up
             return;
           }
         } else if(self.pathRecalcAttempts > 0 && isWalkable(self.z, next[0], next[1])){
@@ -3669,6 +3811,7 @@ Character = function(param){
         self.lastWaypoint = null;
         self.waypointStuckCounter = 0;
         self.waypointHistory = []; // Clear oscillation history
+        self.pathLocked = false; // Clear lock when path completes
         // Clear movement keys when path ends
         self.pressingRight = false;
         self.pressingLeft = false;
@@ -4013,6 +4156,7 @@ Wolf = function(param){
       } else if(getTile(0,loc[0],loc[1]) == 6){
         self.caveEntrance = loc;
         self.z = -1;
+        // DON'T clear path - it needs to persist through z-transition
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * self.drag;
@@ -4032,11 +4176,17 @@ Wolf = function(param){
       }
     } else if(self.z == -1){
       if(getTile(1,loc[0],loc[1]) == 2){
-        self.caveEntrance = null;
-        self.z = 0;
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = (self.baseSpd * 0.9)  * self.drag;
+        // On cave exit tile - only exit if path is complete (no active navigation)
+        // This universal rule works for all entities without special cases
+        if(!self.path || self.path.length === 0){
+          self.caveEntrance = null;
+          self.z = 0;
+          self.path = null;
+          self.pathCount = 0;
+          self.innaWoods = false;
+          self.onMtn = false;
+          self.maxSpd = (self.baseSpd * 0.9)  * self.drag;
+        }
       }
     }
 
@@ -4445,8 +4595,8 @@ SerfM = function(param){
       if(getTile(0,loc[0],loc[1]) == 6){
         self.caveEntrance = loc;
         self.z = -1;
-        self.path = null;
-        self.pathCount = 0;
+        // DON'T clear path - it needs to persist through z-transition
+        // self.path and self.pathCount should remain intact
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * self.drag;
@@ -4481,8 +4631,7 @@ SerfM = function(param){
         if(Building.list[b]){
         Building.list[b].occ++;
         self.z = 1;
-        self.path = null;
-        self.pathCount = 0;
+        // DON'T clear path - preserve for navigation through buildings
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * self.drag;
@@ -4490,16 +4639,17 @@ SerfM = function(param){
         }
       } else if(getTile(0,loc[0],loc[1]) == 0){
         self.z = -3;
-        self.path = null;
-        self.pathCount = 0;
+        // DON'T clear path - preserve for underwater navigation
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = (self.baseSpd * 0.2)  * self.drag;
-        // Clear movement to prevent loops
-        self.pressingRight = false;
-        self.pressingLeft = false;
-        self.pressingDown = false;
-        self.pressingUp = false;
+        // Clear movement to prevent loops (except for ghosts)
+        if(!self.ghost){
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
+        }
       } else {
         self.innaWoods = false;
         self.onMtn = false;
@@ -4507,31 +4657,40 @@ SerfM = function(param){
       }
     } else if(self.z == -1){
       if(getTile(1,loc[0],loc[1]) == 2){
-        self.caveEntrance = null;
-        self.z = 0;
-        self.path = null;
-        self.pathCount = 0;
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = (self.baseSpd * 0.9)  * self.drag;
-        // Clear movement to prevent loops
-        self.pressingRight = false;
-        self.pressingLeft = false;
-        self.pressingDown = false;
-        self.pressingUp = false;
+        // On cave exit tile - only exit if path is complete (no active navigation)
+        // This universal rule works for all entities without special cases
+        if(!self.path || self.path.length === 0){
+          self.caveEntrance = null;
+          self.z = 0;
+          // Clear path on successful exit (but this was already null/empty)
+          self.path = null;
+          self.pathCount = 0;
+          self.innaWoods = false;
+          self.onMtn = false;
+          self.maxSpd = (self.baseSpd * 0.9)  * self.drag;
+          // Clear movement to prevent loops (except for ghosts)
+          if(!self.ghost){
+            self.pressingRight = false;
+            self.pressingLeft = false;
+            self.pressingDown = false;
+            self.pressingUp = false;
+          }
+        }
+        // If there IS a path, don't exit - continue into cave
       }
     } else if(self.z == -2){
       if(getTile(8,loc[0],loc[1]) == 5){
         self.z = 1;
-        self.path = null;
-        self.pathCount = 0;
+        // DON'T clear path - preserve for cross-floor navigation
         self.y += (tileSize/2);
         self.facing = 'down';
-        // Clear movement to prevent infinite stair loops
-        self.pressingRight = false;
-        self.pressingLeft = false;
-        self.pressingDown = false;
-        self.pressingUp = false;
+        // Clear movement to prevent infinite stair loops (except for ghosts)
+        if(!self.ghost){
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
+        }
       }
     } else if(self.z == -3){
       if(self.breath > 0){
@@ -4544,14 +4703,15 @@ SerfM = function(param){
       }
       if(getTile(0,loc[0],loc[1]) != 0){
         self.z = 0;
-        self.path = null;
-        self.pathCount = 0;
+        // DON'T clear path - preserve for navigation after surfacing
         self.breath = self.breathMax;
-        // Clear movement to prevent loops
-        self.pressingRight = false;
-        self.pressingLeft = false;
-        self.pressingDown = false;
-        self.pressingUp = false;
+        // Clear movement to prevent loops (except for ghosts)
+        if(!self.ghost){
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
+        }
       }
     } else if(self.z == 1){
       if(getTile(0,loc[0],loc[1] - 1) == 14 || getTile(0,loc[0],loc[1] - 1) == 16  || getTile(0,loc[0],loc[1] - 1) == 19){
@@ -4561,48 +4721,52 @@ SerfM = function(param){
           console.log(self.name + ' exited building ' + Building.list[exit].type + ' (z=1 -> z=0)');
         }
         self.z = 0;
-        self.path = null;
-        self.pathCount = 0;
-        // Clear movement to prevent loops
-        self.pressingRight = false;
-        self.pressingLeft = false;
-        self.pressingDown = false;
-        self.pressingUp = false;
+        // DON'T clear path - preserve for navigation after exiting building
+        // Clear movement to prevent loops (except for ghosts)
+        if(!self.ghost){
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
+        }
       } else if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4 || getTile(4,loc[0],loc[1]) == 7){
         self.z = 2;
-        self.path = null;
-        self.pathCount = 0;
+        // DON'T clear path - preserve for multi-floor navigation
         self.y += (tileSize/2);
         self.facing = 'down';
-        // Clear movement to prevent infinite stair loops
-        self.pressingRight = false;
-        self.pressingLeft = false;
-        self.pressingDown = false;
-        self.pressingUp = false;
+        // Clear movement to prevent infinite stair loops (except for ghosts)
+        if(!self.ghost){
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
+        }
       } else if(getTile(4,loc[0],loc[1]) == 5 || getTile(4,loc[0],loc[1]) == 6){
         self.z = -2;
-        self.path = null;
-        self.pathCount = 0;
+        // DON'T clear path - preserve for cellar navigation
         self.y += (tileSize/2);
         self.facing = 'down';
-        // Clear movement to prevent infinite stair loops
-        self.pressingRight = false;
-        self.pressingLeft = false;
-        self.pressingDown = false;
-        self.pressingUp = false;
+        // Clear movement to prevent infinite stair loops (except for ghosts)
+        if(!self.ghost){
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
+        }
       }
     } else if(self.z == 2){
       if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4){
         self.z = 1;
-        self.path = null;
-        self.pathCount = 0;
+        // DON'T clear path - preserve for multi-floor navigation
         self.y += (tileSize/2);
         self.facing = 'down';
-        // Clear movement to prevent infinite stair loops
-        self.pressingRight = false;
-        self.pressingLeft = false;
-        self.pressingDown = false;
-        self.pressingUp = false;
+        // Clear movement to prevent infinite stair loops (except for ghosts)
+        if(!self.ghost){
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
+        }
       }
     }
 
@@ -4726,8 +4890,19 @@ SerfM = function(param){
           if(self.work.hq && Building.list[self.work.hq]){
             var hq = Building.list[self.work.hq];
             
+            // Don't assign new task if serf has resources to deposit
+            var hasResourcesToDeposit = self.inventory.wood >= 1 || self.inventory.stone >= 1 || 
+                                        self.inventory.ironore >= 1 || self.inventory.silverore >= 1 || 
+                                        self.inventory.goldore >= 1 || self.inventory.diamond >= 1 ||
+                                        self.inventory.grain >= 1;
+            
+            if(hasResourcesToDeposit){
+              // Set action to 'task' but don't assign new spot - let deposit logic handle it
+              self.action = 'task';
+              console.log('📦 ' + self.name + ' has resources to deposit, setting task mode without new spot');
+            }
             // Assign a work spot from hq resources (same logic as SerfF)
-          if(hq.resources && hq.resources.length > 0){
+            else if(hq.resources && hq.resources.length > 0){
               var tDist = 0;
               var avgDist = null;
               for(var i in hq.resources){
@@ -4799,10 +4974,17 @@ SerfM = function(param){
         }
       } else if(self.action == 'task'){
         var spot = self.work.spot;
-        if(!spot){
+        var hq = Building.list[self.work.hq];
+        
+        // Allow task action without spot if serf has resources to deposit
+        var hasResourcesToDeposit = self.inventory.wood >= 1 || self.inventory.stone >= 1 || 
+                                    self.inventory.ironore >= 1 || self.inventory.silverore >= 1 || 
+                                    self.inventory.goldore >= 1 || self.inventory.diamond >= 1 ||
+                                    self.inventory.grain >= 1;
+        
+        if(!spot && !hasResourcesToDeposit){
           self.action = null;
-        } else {
-          var hq = Building.list[self.work.hq];
+        } else if(hq) {
           if(hq.type == 'mill'){
             if(self.inventory.grain >= 10){
               var b = Building.list[self.work.hq];
@@ -4965,8 +5147,20 @@ SerfM = function(param){
               }
             }
           } else if(hq.type == 'lumbermill'){
+            var spot = self.work.spot;
+            
+            // Need a spot for lumbermill work
+            if(!spot && self.inventory.wood < 3){
+              console.log(self.name + ' at lumbermill with no spot and not enough wood to deposit');
+              self.action = null;
+              return;
+            }
+            
+            // Only check tile validity if not actively working
+            if(!self.workTimer && spot){
             var gt = getTile(0,spot[0],spot[1]);
             if(gt >= 3){
+                // Tree is gone, clear spot
               self.work.spot = null;
               for(var i in hq.resources){
                 var f = hq.resources[i];
@@ -4975,8 +5169,11 @@ SerfM = function(param){
                 }
               }
               return;
+              }
             }
             if(self.inventory.wood >= 10){
+              // Clear work spot - we're depositing, not gathering
+              self.work.spot = null;
               var b = Building.list[self.work.hq];
               var dropoff = [b.plot[0][0],b.plot[0][1]+1];
               if(loc.toString() == dropoff.toString()){
@@ -5003,6 +5200,13 @@ SerfM = function(param){
                 }
               }
             } else {
+              // Need a spot to chop wood
+              if(!spot){
+                console.log(self.name + ' at lumbermill with no spot and no wood to deposit');
+                self.action = null;
+                return;
+              }
+              
               // Check if already at work spot
               if(loc.toString() == spot.toString()){
                 var tile = getTile(0,spot[0],spot[1]);
@@ -5047,23 +5251,39 @@ SerfM = function(param){
             }
           } else if(hq.type == 'mine'){
             if(hq.cave){ // metal
-              if(self.inventory.ironore >= 10){
+              var spot = self.work.spot;
+              
+              // Check if serf has ore to deposit first (priority over getting new spot)
+              var hasOreToDeposit = self.inventory.ironore >= 1 || self.inventory.silverore >= 1 || 
+                                    self.inventory.goldore >= 1 || self.inventory.diamond >= 1;
+              
+              // Only assign new spot if no ore to deposit
+              if(!spot && !hasOreToDeposit && hq.resources && hq.resources.length > 0){
+                var rand = Math.floor(Math.random() * hq.resources.length);
+                self.work.spot = hq.resources[rand];
+                spot = self.work.spot;
+                console.log(self.name + ' assigned ore mine spot ['+spot[0]+','+spot[1]+'] at z=' + self.z);
+              }
+              
+              if(self.inventory.ironore >= 1){
+                // Clear work spot - we're depositing, not gathering
+                self.work.spot = null;
                 var b = Building.list[self.work.hq];
                 var drop = [b.plot[0][0],b.plot[0][1]+1];
                 if(loc.toString() == drop.toString()){
                   self.facing = 'up';
-                  self.inventory.ironore -= 9;
-                  var ironDeposited = 9;
+                  var ironDeposited = self.inventory.ironore;
+                  self.inventory.ironore = 0;
                   if(House.list[b.owner]){
                     House.list[b.owner].stores.ironore += ironDeposited;
-                    console.log(House.list[b.owner].name + ' +9 Iron Ore');
+                    console.log(House.list[b.owner].name + ' +' + ironDeposited + ' Iron Ore');
                   } else if(Player.list[b.owner] && Player.list[b.owner].house){
                     var h = Player.list[b.owner].house;
                     House.list[h].stores.ironore += ironDeposited;
-                    console.log(House.list[h].name + ' +9 Iron Ore');
+                    console.log(House.list[h].name + ' +' + ironDeposited + ' Iron Ore');
                   } else if(Player.list[b.owner]){
                     Player.list[b.owner].stores.ironore += ironDeposited;
-                    console.log(Player.list[b.owner].name + ' +9 Iron Ore');
+                    console.log(Player.list[b.owner].name + ' +' + ironDeposited + ' Iron Ore');
                   }
                   // Track daily deposits
                   if(!b.dailyStores) b.dailyStores = {stone: 0, ironore: 0, silverore: 0, goldore: 0, diamond: 0};
@@ -5074,6 +5294,8 @@ SerfM = function(param){
                   }
                 }
               } else if(self.inventory.silverore >= 1){
+                // Clear work spot - we're depositing, not gathering
+                self.work.spot = null;
                 var b = Building.list[self.work.hq];
                 var drop = [b.plot[0][0],b.plot[0][1]+1];
                 if(loc.toString() == drop.toString()){
@@ -5099,6 +5321,8 @@ SerfM = function(param){
                   }
                 }
               } else if(self.inventory.goldore >= 1){
+                // Clear work spot - we're depositing, not gathering
+                self.work.spot = null;
                 var b = Building.list[self.work.hq];
                 var drop = [b.plot[0][0],b.plot[0][1]+1];
                 if(loc.toString() == drop.toString()){
@@ -5124,6 +5348,8 @@ SerfM = function(param){
                   }
                 }
               } else if(self.inventory.diamond >= 1){
+                // Clear work spot - we're depositing, not gathering
+                self.work.spot = null;
                 var b = Building.list[self.work.hq];
                 var drop = [b.plot[0][0],b.plot[0][1]+1];
                 if(loc.toString() == drop.toString()){
@@ -5149,14 +5375,35 @@ SerfM = function(param){
                   }
                 }
               } else {
+                // No ore to deposit - continue mining
                 // Ore mining - serfs need to go to cave (z=-1)
+                
+                // If no spot assigned, can't continue (serf needs task assignment)
+                if(!spot){
+                  console.log(self.name + ' at ore mine with no spot and no ore to deposit, z=' + self.z);
+                  self.action = null; // Let the !action block assign a new task
+                  return;
+                }
+                
                 if(self.z == -1){
+                  // Only check tile validity if not actively working
+                  if(!self.workTimer){
+                    var gt = getTile(1,spot[0],spot[1]);
+                    if(gt < 3 || gt > 5){
+                      // Rock is gone, clear spot
+                      self.work.spot = null;
+                      for(var i in hq.resources){
+                        var f = hq.resources[i];
+                        if(f.toString() == spot.toString()){
+                          Building.list[self.work.hq].resources.splice(i,1);
+                        }
+                      }
+                      return;
+                    }
+                  }
+                  
                   // Already in cave, path to ore spot
                   if(loc.toString() == spot.toString()){
-                  // Successfully reached spot - reset cave path attempts
-                  self.cavePathAttempts = 0;
-                  self.lastCaveTarget = null;
-                  
                   var tile = getTile(1,spot[0],spot[1]); // Layer 1 for cave rocks
                   self.working = true;
                   self.mining = true;
@@ -5164,6 +5411,7 @@ SerfM = function(param){
                     self.workTimer = true;
                     setTimeout(function(){
                       if(self.mining){
+                        // Mine ore - random chance for different ores
                         var roll = Math.random();
                         if(roll < 0.001){
                           self.inventory.diamond++;
@@ -5177,11 +5425,15 @@ SerfM = function(param){
                         } else if(roll < 0.5){
                           self.inventory.ironore++;
                           console.log(self.name + ' mined 1 Iron Ore');
+                        } else {
+                          // 50% chance to get nothing (mining is hard!)
+                          console.log(self.name + ' mined but found nothing this time');
                         }
+                        // Always deplete the resource and complete the work cycle
                         tileChange(7,spot[0],spot[1],-1,true);
                         var res = getTile(7,spot[0],spot[1]);
                         if(res <= 0){
-                          tileChange(0,spot[0],spot[1],7);
+                          tileChange(1,spot[0],spot[1],1); // Change layer 1 (cave floor) to floor tile
                           // Tile update automatically handled by tileChange function
                           for(var i in hq.resources){
                             var f = hq.resources[i];
@@ -5208,6 +5460,8 @@ SerfM = function(param){
                             }
                             // Tile update automatically handled by tileChange function
                           }
+                          // Clear spot AND action so serf will deposit ore
+                          self.work.spot = null;
                           self.action = null;
                         }
                       }
@@ -5217,32 +5471,13 @@ SerfM = function(param){
                     },10000/self.strength);
                   }
                   } else {
-                    // In cave but not at spot yet - moveTo will handle pathfinding at z=-1
+                    // In cave but not at spot yet - path to ore rock
                     if(!self.path){
-                      // Initialize oscillation detection for cave pathfinding
-                      if(!self.cavePathAttempts){
-                        self.cavePathAttempts = 0;
-                        self.lastCaveTarget = spot.toString();
-                      }
-                      
-                      // Check if we're repeatedly trying to path to the same spot (stuck)
-                      if(self.lastCaveTarget === spot.toString()){
-                        self.cavePathAttempts++;
-                        if(self.cavePathAttempts > 5){
-                          // Give up on this spot, find a new one
-                          console.log(self.name + ' stuck pathing to mine spot in cave, finding new spot');
-                          self.work.spot = null;
-                          self.action = null;
-                          self.cavePathAttempts = 0;
-                          self.lastCaveTarget = null;
-                          return;
-                        }
-                      } else {
-                        self.cavePathAttempts = 0;
-                        self.lastCaveTarget = spot.toString();
-                      }
-                      
+                      console.log(self.name + ' at z=-1 ['+loc[0]+','+loc[1]+'] pathing to ore spot ['+spot[0]+','+spot[1]+']');
                       self.moveTo(-1,spot[0],spot[1]);
+                      if(!self.path){
+                        console.log(self.name + ' failed to create path to ore spot in cave');
+                      }
                     }
                   }
                 } else {
@@ -5250,15 +5485,27 @@ SerfM = function(param){
                   // moveTo will automatically handle building exits if at z=1 or z=2
                   if(hq.cave){
                     var caveEntrance = hq.cave;
-                    if(!self.path){
+                    // Don't path if already at cave entrance on z=0 (waiting for auto z-transition)
+                    var alreadyAtEntrance = (self.z === 0 && loc.toString() === caveEntrance.toString());
+                    if(!self.path && !alreadyAtEntrance){
                       self.moveTo(0,caveEntrance[0],caveEntrance[1]);
                     }
                   }
                 }
               }
             } else { // stone
+              // Need a spot to mine stone
+              if(!spot){
+                console.log(self.name + ' at stone mine with no spot and no stone to deposit');
+                self.action = null;
+                return;
+              }
+              
+              // Only check tile validity if not actively working
+              if(!self.workTimer){
               var gt = getTile(0,spot[0],spot[1]);
               if(gt < 4 || gt > 6){
+                  // Stone is gone, clear spot
                 self.work.spot = null;
                 for(var i in hq.resources){
                   var f = hq.resources[i];
@@ -5267,8 +5514,11 @@ SerfM = function(param){
                   }
                 }
                 return;
+                }
               }
               if(self.inventory.stone >= 10){
+                // Clear work spot - we're depositing, not gathering
+                self.work.spot = null;
                 var b = Building.list[self.work.hq];
                 var drop = [b.plot[0][0],b.plot[0][1]+1];
                 if(loc.toString() == drop.toString()){
@@ -5663,48 +5913,65 @@ SerfM = function(param){
           }
         } else {
           var inv = self.inventory;
-          // if has inventory, sell inventory via market orderbook
-          var soldSomething = false;
-          
+          // if has inventory, sell inventory via market orderbook (ONCE per market visit)
+          if(!self.hasPlacedMarketOrder){
+            var soldSomething = false;
+            
           if(inv.flour > 0){
-            // Sell flour at market price
-            var price = 3; // Base price for flour
-            global.processSellOrder(self.id, 'grain', inv.flour, price);
-            soldSomething = true;
+              // Transfer flour to stores, then sell
+              self.stores.grain = (self.stores.grain || 0) + inv.flour;
+              inv.flour = 0;
+              var price = 3; // Base price for flour
+              global.processSellOrder(self.id, 'grain', self.stores.grain, price);
+              soldSomething = true;
           } else if(inv.wood > 0){
-            // Sell wood at market price
-            var price = 8; // Base price for wood
-            global.processSellOrder(self.id, 'wood', inv.wood, price);
-            soldSomething = true;
+              // Transfer wood to stores, then sell
+              self.stores.wood = (self.stores.wood || 0) + inv.wood;
+              inv.wood = 0;
+              var price = 8; // Base price for wood
+              global.processSellOrder(self.id, 'wood', self.stores.wood, price);
+              soldSomething = true;
           } else if(inv.stone > 0){
-            // Sell stone at market price
-            var price = 10; // Base price for stone
-            global.processSellOrder(self.id, 'stone', inv.stone, price);
-            soldSomething = true;
+              // Transfer stone to stores, then sell
+              self.stores.stone = (self.stores.stone || 0) + inv.stone;
+              inv.stone = 0;
+              var price = 10; // Base price for stone
+              global.processSellOrder(self.id, 'stone', self.stores.stone, price);
+              soldSomething = true;
           } else if(inv.ironore > 0){
-            // Sell iron ore at market price
-            var price = 15; // Base price for iron ore
-            global.processSellOrder(self.id, 'ironore', inv.ironore, price);
-            soldSomething = true;
-          } else if(inv.silverore > 0){
-            // Sell silver ore at market price
-            var price = 40; // Base price for silver ore
-            global.processSellOrder(self.id, 'silverore', inv.silverore, price);
-            soldSomething = true;
-          } else if(inv.goldore > 0){
-            // Sell gold ore at market price
-            var price = 80; // Base price for gold ore
-            global.processSellOrder(self.id, 'goldore', inv.goldore, price);
-            soldSomething = true;
-          } else if(inv.diamond > 0){
-            // Sell diamonds at market price
-            var price = 200; // Base price for diamonds
-            global.processSellOrder(self.id, 'diamond', inv.diamond, price);
-            soldSomething = true;
-          }
-          
-          if(soldSomething){
-            console.log(self.name + ' sold resources at market');
+              // Transfer ironore to stores, then sell
+              self.stores.ironore = (self.stores.ironore || 0) + inv.ironore;
+              inv.ironore = 0;
+              var price = 15; // Base price for iron ore
+              global.processSellOrder(self.id, 'ironore', self.stores.ironore, price);
+              soldSomething = true;
+            } else if(inv.silverore > 0){
+              // Transfer silverore to stores, then sell
+              self.stores.silverore = (self.stores.silverore || 0) + inv.silverore;
+              inv.silverore = 0;
+              var price = 40; // Base price for silver ore
+              global.processSellOrder(self.id, 'silverore', self.stores.silverore, price);
+              soldSomething = true;
+            } else if(inv.goldore > 0){
+              // Transfer goldore to stores, then sell
+              self.stores.goldore = (self.stores.goldore || 0) + inv.goldore;
+              inv.goldore = 0;
+              var price = 80; // Base price for gold ore
+              global.processSellOrder(self.id, 'goldore', self.stores.goldore, price);
+              soldSomething = true;
+            } else if(inv.diamond > 0){
+              // Transfer diamond to stores, then sell
+              self.stores.diamond = (self.stores.diamond || 0) + inv.diamond;
+              inv.diamond = 0;
+              var price = 200; // Base price for diamonds
+              global.processSellOrder(self.id, 'diamond', self.stores.diamond, price);
+              soldSomething = true;
+            }
+            
+            if(soldSomething){
+              self.hasPlacedMarketOrder = true; // Mark that we've sold, don't sell again
+              console.log(self.name + ' sold resources at market');
+            }
           }
           
           if(!soldSomething){
@@ -5717,6 +5984,7 @@ SerfM = function(param){
               setTimeout(function(){
                 self.tether = null;
                 self.action = 'tavern';
+                self.hasPlacedMarketOrder = false; // Reset for next market visit
                 self.dayTimer = false;
                 console.log(self.name + ' heads to the tavern');
               },rand);
@@ -5943,8 +6211,8 @@ SerfF = function(param){
       if(getTile(0,loc[0],loc[1]) == 6){
         self.caveEntrance = loc;
         self.z = -1;
-        self.path = null;
-        self.pathCount = 0;
+        // DON'T clear path - it needs to persist through z-transition
+        // self.path and self.pathCount should remain intact
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * self.drag;
@@ -5977,28 +6245,30 @@ SerfF = function(param){
       } else if(getTile(0,loc[0],loc[1]) == 14 || getTile(0,loc[0],loc[1]) == 16 || getTile(0,loc[0],loc[1]) == 19){
         Building.list[b].occ++;
         self.z = 1;
-        self.path = null;
-        self.pathCount = 0;
+        // DON'T clear path - preserve for building navigation
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * self.drag;
-        // Clear movement to prevent loops
-        self.pressingRight = false;
-        self.pressingLeft = false;
-        self.pressingDown = false;
-        self.pressingUp = false;
+        // Clear movement to prevent loops (except for ghosts)
+        if(!self.ghost){
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
+        }
       } else if(getTile(0,loc[0],loc[1]) == 0){
         self.z = -3;
-        self.path = null;
-        self.pathCount = 0;
+        // DON'T clear path - preserve for underwater navigation
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = (self.baseSpd * 0.2)  * self.drag;
-        // Clear movement to prevent loops
-        self.pressingRight = false;
-        self.pressingLeft = false;
-        self.pressingDown = false;
-        self.pressingUp = false;
+        // Clear movement to prevent loops (except for ghosts)
+        if(!self.ghost){
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
+        }
       } else {
         self.innaWoods = false;
         self.onMtn = false;
@@ -6006,31 +6276,40 @@ SerfF = function(param){
       }
     } else if(self.z == -1){
       if(getTile(1,loc[0],loc[1]) == 2){
-        self.caveEntrance = null;
-        self.z = 0;
-        self.path = null;
-        self.pathCount = 0;
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = (self.baseSpd * 0.9)  * self.drag;
-        // Clear movement to prevent loops
-        self.pressingRight = false;
-        self.pressingLeft = false;
-        self.pressingDown = false;
-        self.pressingUp = false;
+        // On cave exit tile - only exit if path is complete (no active navigation)
+        // This universal rule works for all entities without special cases
+        if(!self.path || self.path.length === 0){
+          self.caveEntrance = null;
+          self.z = 0;
+          // Clear path on successful exit (but this was already null/empty)
+          self.path = null;
+          self.pathCount = 0;
+          self.innaWoods = false;
+          self.onMtn = false;
+          self.maxSpd = (self.baseSpd * 0.9)  * self.drag;
+          // Clear movement to prevent loops (except for ghosts)
+          if(!self.ghost){
+            self.pressingRight = false;
+            self.pressingLeft = false;
+            self.pressingDown = false;
+            self.pressingUp = false;
+          }
+        }
+        // If there IS a path, don't exit - continue into cave
       }
     } else if(self.z == -2){
       if(getTile(8,loc[0],loc[1]) == 5){
         self.z = 1;
-        self.path = null;
-        self.pathCount = 0;
+        // DON'T clear path - preserve for cross-floor navigation
         self.y += (tileSize/2);
         self.facing = 'down';
-        // Clear movement to prevent infinite stair loops
-        self.pressingRight = false;
-        self.pressingLeft = false;
-        self.pressingDown = false;
-        self.pressingUp = false;
+        // Clear movement to prevent infinite stair loops (except for ghosts)
+        if(!self.ghost){
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
+        }
       }
     } else if(self.z == -3){
       if(self.breath > 0){
@@ -6043,14 +6322,15 @@ SerfF = function(param){
       }
       if(getTile(0,loc[0],loc[1]) != 0){
         self.z = 0;
-        self.path = null;
-        self.pathCount = 0;
+        // DON'T clear path - preserve for navigation after surfacing
         self.breath = self.breathMax;
-        // Clear movement to prevent loops
-        self.pressingRight = false;
-        self.pressingLeft = false;
-        self.pressingDown = false;
-        self.pressingUp = false;
+        // Clear movement to prevent loops (except for ghosts)
+        if(!self.ghost){
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
+        }
       }
     } else if(self.z == 1){
       if(getTile(0,loc[0],loc[1] - 1) == 14 || getTile(0,loc[0],loc[1] - 1) == 16  || getTile(0,loc[0],loc[1] - 1) == 19){
@@ -6060,48 +6340,52 @@ SerfF = function(param){
           console.log(self.name + ' exited building ' + Building.list[exit].type + ' (z=1 -> z=0)');
         }
         self.z = 0;
-        self.path = null;
-        self.pathCount = 0;
-        // Clear movement to prevent loops
-        self.pressingRight = false;
-        self.pressingLeft = false;
-        self.pressingDown = false;
-        self.pressingUp = false;
+        // DON'T clear path - preserve for navigation after exiting building
+        // Clear movement to prevent loops (except for ghosts)
+        if(!self.ghost){
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
+        }
       } else if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4 || getTile(4,loc[0],loc[1]) == 7){
         self.z = 2;
-        self.path = null;
-        self.pathCount = 0;
+        // DON'T clear path - preserve for multi-floor navigation
         self.y += (tileSize/2);
         self.facing = 'down';
-        // Clear movement to prevent infinite stair loops
-        self.pressingRight = false;
-        self.pressingLeft = false;
-        self.pressingDown = false;
-        self.pressingUp = false;
+        // Clear movement to prevent infinite stair loops (except for ghosts)
+        if(!self.ghost){
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
+        }
       } else if(getTile(4,loc[0],loc[1]) == 5 || getTile(4,loc[0],loc[1]) == 6){
         self.z = -2;
-        self.path = null;
-        self.pathCount = 0;
+        // DON'T clear path - preserve for cellar navigation
         self.y += (tileSize/2);
         self.facing = 'down';
-        // Clear movement to prevent infinite stair loops
-        self.pressingRight = false;
-        self.pressingLeft = false;
-        self.pressingDown = false;
-        self.pressingUp = false;
+        // Clear movement to prevent infinite stair loops (except for ghosts)
+        if(!self.ghost){
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
+        }
       }
     } else if(self.z == 2){
       if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4){
         self.z = 1;
-        self.path = null;
-        self.pathCount = 0;
+        // DON'T clear path - preserve for multi-floor navigation
         self.y += (tileSize/2);
         self.facing = 'down';
-        // Clear movement to prevent infinite stair loops
-        self.pressingRight = false;
-        self.pressingLeft = false;
-        self.pressingDown = false;
-        self.pressingUp = false;
+        // Clear movement to prevent infinite stair loops (except for ghosts)
+        if(!self.ghost){
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
+        }
       }
     }
 
@@ -6603,23 +6887,30 @@ SerfF = function(param){
           }
         } else {
           var inv = self.inventory;
-          // if has inventory, sell inventory via market orderbook
-          var soldSomething = false;
-          
+          // if has inventory, sell inventory via market orderbook (ONCE per market visit)
+          if(!self.hasPlacedMarketOrder){
+            var soldSomething = false;
+            
           if(inv.bread > 0){
-            // Sell bread at market price
-            var price = 5; // Base price for bread
-            global.processSellOrder(self.id, 'grain', inv.bread, price);
-            soldSomething = true;
-          } else if(inv.flour > 0){
-            // Sell flour at market price
-            var price = 3; // Base price for flour
-            global.processSellOrder(self.id, 'grain', inv.flour, price);
-            soldSomething = true;
-          }
-          
-          if(soldSomething){
-            console.log(self.name + ' sold resources at market');
+              // Transfer bread to stores, then sell
+              self.stores.grain = (self.stores.grain || 0) + inv.bread;
+              inv.bread = 0;
+              var price = 5; // Base price for bread
+              global.processSellOrder(self.id, 'grain', self.stores.grain, price);
+              soldSomething = true;
+            } else if(inv.flour > 0){
+              // Transfer flour to stores, then sell
+              self.stores.grain = (self.stores.grain || 0) + inv.flour;
+              inv.flour = 0;
+              var price = 3; // Base price for flour
+              global.processSellOrder(self.id, 'grain', self.stores.grain, price);
+              soldSomething = true;
+            }
+            
+            if(soldSomething){
+              self.hasPlacedMarketOrder = true; // Mark that we've sold, don't sell again
+              console.log(self.name + ' sold resources at market');
+            }
           }
           
           if(!soldSomething){
@@ -6632,6 +6923,7 @@ SerfF = function(param){
               setTimeout(function(){
                 self.tether = null;
                 self.action = null;
+                self.hasPlacedMarketOrder = false; // Reset for next market visit
                 self.dayTimer = false;
                 console.log(self.name + ' heads home for the night');
               },rand);
@@ -6776,8 +7068,7 @@ Blacksmith = function(param){
     if(self.z == 0){
       if(getTile(0,loc[0],loc[1]) == 6){
         self.z = -1;
-        self.path = null;
-        self.pathCount = 0;
+        // DON'T clear path - preserve for cave navigation
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * self.drag;
@@ -6810,54 +7101,84 @@ Blacksmith = function(param){
       } else if(getTile(0,loc[0],loc[1]) == 14 || getTile(0,loc[0],loc[1]) == 16 || getTile(0,loc[0],loc[1]) == 19){
         Building.list[b].occ++;
         self.z = 1;
-        self.path = null;
-        self.pathCount = 0;
+        // DON'T clear path - preserve for building navigation
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd * self.drag;
-        // Clear movement to prevent loops
-        self.pressingRight = false;
-        self.pressingLeft = false;
-        self.pressingDown = false;
-        self.pressingUp = false;
+        // Clear movement to prevent loops (except for ghosts)
+        if(!self.ghost){
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
+        }
       } else if(getTile(0,loc[0],loc[1]) == 0){
         self.z = -3;
-        self.path = null;
-        self.pathCount = 0;
+        // DON'T clear path - preserve for underwater navigation
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = (self.baseSpd * 0.2)  * self.drag;
-        // Clear movement to prevent loops
-        self.pressingRight = false;
-        self.pressingLeft = false;
-        self.pressingDown = false;
-        self.pressingUp = false;
+        // Clear movement to prevent loops (except for ghosts)
+        if(!self.ghost){
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
+        }
       } else {
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = self.baseSpd  * self.drag;
       }
     } else if(self.z == -1){
+      // Decrement cave enter cooldown
+      if(self.caveEnterCooldown > 0){
+        self.caveEnterCooldown--;
+      }
+      
       if(getTile(1,loc[0],loc[1]) == 2){
-        self.z = 0;
-        self.path = null;
-        self.pathCount = 0;
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = (self.baseSpd * 0.9)  * self.drag;
+        // On cave exit tile - check if we should exit
+        var shouldExit = true;
+        
+        // Don't exit if just entered (cooldown active)
+        if(self.caveEnterCooldown > 0){
+          shouldExit = false;
+        }
+        // Don't exit if we have a path going deeper into the cave
+        else if(self.path && self.path.length > 0){
+          shouldExit = false;
+        }
+        // Special case: serfs in work mode with cave work spot and no ore
+        else if(self.mode === 'work' && self.work && self.work.spot){
+          var hq = Building.list[self.work.hq];
+          if(hq && hq.cave && !self.inventory.ironore && !self.inventory.silverore && !self.inventory.goldore && !self.inventory.diamond){
+            shouldExit = false;
+          }
+        }
+        
+        if(shouldExit){
+          self.caveEnterCooldown = 0;
+          self.z = 0;
+          self.path = null;
+          self.pathCount = 0;
+          self.innaWoods = false;
+          self.onMtn = false;
+          self.maxSpd = (self.baseSpd * 0.9)  * self.drag;
+        }
       }
     } else if(self.z == -2){
       if(getTile(8,loc[0],loc[1]) == 5){
         self.z = 1;
-        self.path = null;
-        self.pathCount = 0;
+        // DON'T clear path - preserve for cross-floor navigation
         self.y += (tileSize/2);
         self.facing = 'down';
-        // Clear movement to prevent infinite stair loops
-        self.pressingRight = false;
-        self.pressingLeft = false;
-        self.pressingDown = false;
-        self.pressingUp = false;
+        // Clear movement to prevent infinite stair loops (except for ghosts)
+        if(!self.ghost){
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
+        }
       }
     } else if(self.z == -3){
       if(self.breath > 0){
@@ -6870,14 +7191,15 @@ Blacksmith = function(param){
       }
       if(getTile(0,loc[0],loc[1]) != 0){
         self.z = 0;
-        self.path = null;
-        self.pathCount = 0;
+        // DON'T clear path - preserve for navigation after surfacing
         self.breath = self.breathMax;
-        // Clear movement to prevent loops
-        self.pressingRight = false;
-        self.pressingLeft = false;
-        self.pressingDown = false;
-        self.pressingUp = false;
+        // Clear movement to prevent loops (except for ghosts)
+        if(!self.ghost){
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
+        }
       }
     } else if(self.z == 1){
       if(getTile(0,loc[0],loc[1] - 1) == 14 || getTile(0,loc[0],loc[1] - 1) == 16  || getTile(0,loc[0],loc[1] - 1) == 19){
@@ -6887,48 +7209,53 @@ Blacksmith = function(param){
           console.log(self.name + ' exited building ' + Building.list[exit].type + ' (z=1 -> z=0)');
         }
         self.z = 0;
-        self.path = null;
-        self.pathCount = 0;
-        // Clear movement to prevent loops
-        self.pressingRight = false;
-        self.pressingLeft = false;
-        self.pressingDown = false;
-        self.pressingUp = false;
+        // DON'T clear path - preserve for navigation after exiting building
+        // Clear movement to prevent loops (except for ghosts)
+        if(!self.ghost){
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
+        }
       } else if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4 || getTile(4,loc[0],loc[1]) == 7){
         self.z = 2;
-        self.path = null;
-        self.pathCount = 0;
+        // DON'T clear path - preserve for multi-floor navigation
         self.y += (tileSize/2);
         self.facing = 'down';
-        // Clear movement to prevent infinite stair loops
-        self.pressingRight = false;
-        self.pressingLeft = false;
-        self.pressingDown = false;
-        self.pressingUp = false;
+        // Clear movement to prevent infinite stair loops (except for ghosts)
+        if(!self.ghost){
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
+        }
       } else if(getTile(4,loc[0],loc[1]) == 5 || getTile(4,loc[0],loc[1]) == 6){
         self.z = -2;
-        self.path = null;
-        self.pathCount = 0;
+        // DON'T clear path - preserve for cellar navigation
         self.y += (tileSize/2);
         self.facing = 'down';
-        // Clear movement to prevent infinite stair loops
-        self.pressingRight = false;
-        self.pressingLeft = false;
-        self.pressingDown = false;
-        self.pressingUp = false;
+        // Clear movement to prevent infinite stair loops (except for ghosts)
+        if(!self.ghost){
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
+        }
       }
     } else if(self.z == 2){
       if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4){
         self.z = 1;
-        self.path = null;
+        // DON'T clear path - preserve for multi-floor navigation
         self.pathCount = 0;
         self.y += (tileSize/2);
         self.facing = 'down';
-        // Clear movement to prevent infinite stair loops
-        self.pressingRight = false;
-        self.pressingLeft = false;
-        self.pressingDown = false;
-        self.pressingUp = false;
+        // Clear movement to prevent infinite stair loops (except for ghosts)
+        if(!self.ghost){
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
+        }
       }
     }
 
@@ -10376,9 +10703,9 @@ Light.getAllInitPack = function(){
 // SKELETON
 Skeleton = function(param){
   var self = Item(param);
-  self.type = 'Skeleton';
-  self.class = 'Skeleton';
   self.variation = param.variation || Math.floor(Math.random() * 2); // 0 or 1
+  self.type = self.variation === 0 ? 'Skeleton1' : 'Skeleton2'; // Match client expectations
+  self.class = 'Skeleton';
   self.canPickup = false;
   self.blocker(0); // Skeletons don't block movement
   
@@ -10389,7 +10716,7 @@ Skeleton = function(param){
       y: self.y,
       z: self.z,
       type: self.type,
-      variation: self.variation
+      innaWoods: self.innaWoods || false
     };
   };
   
@@ -10398,13 +10725,18 @@ Skeleton = function(param){
       id: self.id,
       x: self.x,
       y: self.y,
-      z: self.z
+      z: self.z,
+      innaWoods: self.innaWoods || false
     };
   };
   
   Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
   return self;
 }
+
+// Export Skeleton globally for NPC death system
+global.Skeleton = Skeleton;
 
 // DROPPED ITEM (from death)
 DroppedItem = function(param){
@@ -10439,6 +10771,7 @@ DroppedItem = function(param){
   };
   
   Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
   return self;
 }
 
