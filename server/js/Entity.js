@@ -2211,10 +2211,10 @@ Character = function(param){
             tLoc = Building.list[tb].entrance;
           }
         } else if(self.z == -1){
-          // Exiting cave (z=-1 to z=0) - path to the cave EXIT tile itself, not +1
+          // Exiting cave (z=-1 to z=0) - path to the cave EXIT tile (entrance[1] + 1 on layer 1)
           // Check if caveEntrance exists before accessing it
           if(self.caveEntrance && Array.isArray(self.caveEntrance) && self.caveEntrance.length >= 2){
-            tLoc = self.caveEntrance; // Path to the exit tile itself at z=-1
+            tLoc = [self.caveEntrance[0], self.caveEntrance[1] + 1]; // Cave exit is one tile south
           } else {
             // Fallback: find nearest cave entrance
             if(global.caveEntrances && global.caveEntrances.length > 0){
@@ -2229,7 +2229,7 @@ Character = function(param){
                 }
               }
               self.caveEntrance = nearest;
-              tLoc = nearest; // Path to the exit tile itself at z=-1
+              tLoc = [nearest[0], nearest[1] + 1]; // Cave exit is one tile south
             } else {
               // No cave entrance found, stay in place
               return;
@@ -4986,29 +4986,30 @@ SerfM = function(param){
           self.action = null;
         } else if(hq) {
           if(hq.type == 'mill'){
-            if(self.inventory.grain >= 10){
+            if(self.inventory.grain >= 1){
               var b = Building.list[self.work.hq];
               var dropoff = [b.plot[0][0],b.plot[0][1]+1];
               if(loc.toString() == dropoff.toString()){
                 self.facing = 'up';
-                self.inventory.grain -= 9;
-                var grainDeposited = 6;
+                var grainDeposited = self.inventory.grain;
+                self.inventory.grain = 0;
                 if(House.list[b.owner]){
                   House.list[b.owner].stores.grain += grainDeposited;
-                  console.log(House.list[b.owner].name + ' +6 Grain');
+                  console.log(House.list[b.owner].name + ' +' + grainDeposited + ' Grain');
                 } else if(Player.list[b.owner].house){
                   var h = Player.list[b.owner].house;
                   House.list[h].stores.grain += grainDeposited;
-                  console.log(House.list[h].name + ' +6 Grain');
+                  console.log(House.list[h].name + ' +' + grainDeposited + ' Grain');
                 } else {
                   Player.list[b.owner].stores.grain += grainDeposited
-                  console.log(Player.list[b.owner].name + ' +6 Grain');
+                  console.log(Player.list[b.owner].name + ' +' + grainDeposited + ' Grain');
                 }
                 // Track daily deposits
                 if(!b.dailyStores) b.dailyStores = {grain: 0};
                 b.dailyStores.grain += grainDeposited;
                 
-                self.inventory.flour += 3;
+                // Convert deposited grain to flour (3:1 ratio - 3 grain = 1 flour)
+                self.inventory.flour += Math.floor(grainDeposited / 3);
               } else {
                 if(!self.path){
                   self.moveTo(0,dropoff[0],dropoff[1]);
@@ -5149,47 +5150,50 @@ SerfM = function(param){
           } else if(hq.type == 'lumbermill'){
             var spot = self.work.spot;
             
-            // Need a spot for lumbermill work
-            if(!spot && self.inventory.wood < 3){
-              console.log(self.name + ' at lumbermill with no spot and not enough wood to deposit');
-              self.action = null;
-              return;
+            // If no spot and no wood, we need a new assignment - don't clear action
+            if(!spot && self.inventory.wood < 1){
+              // Just log and continue - spot will be assigned by mode logic
+              console.log(self.name + ' at lumbermill needs spot assignment');
+              // Don't clear action or return - let the flow continue
             }
             
-            // Only check tile validity if not actively working
-            if(!self.workTimer && spot){
-            var gt = getTile(0,spot[0],spot[1]);
-            if(gt >= 3){
-                // Tree is gone, clear spot
-              self.work.spot = null;
-              for(var i in hq.resources){
-                var f = hq.resources[i];
-                if(f.toString() == spot.toString()){
-                  Building.list[self.work.hq].resources.splice(i,1);
+            // Only check tile validity when at the spot (to avoid premature clearing)
+            if(spot && loc.toString() == spot.toString() && !self.workTimer){
+              var gt = getTile(0,spot[0],spot[1]);
+              if(gt >= 3){
+                // Tree is gone, clear spot and remove from resources
+                console.log(self.name + ' tree at spot [' + spot + '] is gone, clearing');
+                var depletedSpot = spot.toString(); // Store before nulling
+                self.work.spot = null;
+                spot = null;
+                for(var i in hq.resources){
+                  var f = hq.resources[i];
+                  if(f && f.toString() == depletedSpot){
+                    Building.list[self.work.hq].resources.splice(i,1);
+                  }
                 }
-              }
-              return;
+                // Continue to get new assignment
               }
             }
-            if(self.inventory.wood >= 10){
+            if(self.inventory.wood >= 1){
               // Clear work spot - we're depositing, not gathering
               self.work.spot = null;
               var b = Building.list[self.work.hq];
               var dropoff = [b.plot[0][0],b.plot[0][1]+1];
               if(loc.toString() == dropoff.toString()){
                 self.facing = 'up';
-                self.inventory.wood -= 8;
-                var woodDeposited = 8;
+                var woodDeposited = self.inventory.wood;
+                self.inventory.wood = 0;
                 if(House.list[b.owner]){
                   House.list[b.owner].stores.wood += woodDeposited;
-                  console.log(House.list[b.owner].name + ' +8 Wood');
+                  console.log(House.list[b.owner].name + ' +' + woodDeposited + ' Wood');
                 } else if(Player.list[b.owner] && Player.list[b.owner].house){
                   var h = Player.list[b.owner].house;
                   House.list[h].stores.wood += woodDeposited;
-                  console.log(House.list[h].name + ' +8 Wood');
+                  console.log(House.list[h].name + ' +' + woodDeposited + ' Wood');
                 } else if(Player.list[b.owner]){
                   Player.list[b.owner].stores.wood += woodDeposited
-                  console.log(Player.list[b.owner].name + ' +8 Wood');
+                  console.log(Player.list[b.owner].name + ' +' + woodDeposited + ' Wood');
                 }
                 // Track daily deposits
                 if(!b.dailyStores) b.dailyStores = {wood: 0};
@@ -5202,8 +5206,7 @@ SerfM = function(param){
             } else {
               // Need a spot to chop wood
               if(!spot){
-                console.log(self.name + ' at lumbermill with no spot and no wood to deposit');
-                self.action = null;
+                // Don't immediately fail - spot assignment happens in mode logic
                 return;
               }
               
@@ -5246,6 +5249,11 @@ SerfM = function(param){
               } else {
                 if(!self.path){
                   self.moveTo(0,spot[0],spot[1]);
+                  if(!self.path){
+                    console.log(self.name + ' failed to create path to wood spot - clearing spot to try again');
+                    self.work.spot = null;
+                    self.action = null;
+                  }
                 }
               }
             }
@@ -5473,10 +5481,14 @@ SerfM = function(param){
                   } else {
                     // In cave but not at spot yet - path to ore rock
                     if(!self.path){
-                      console.log(self.name + ' at z=-1 ['+loc[0]+','+loc[1]+'] pathing to ore spot ['+spot[0]+','+spot[1]+']');
+                      var currentLoc = getLoc(self.x, self.y);
+                      console.log(self.name + ' at z=-1 ['+currentLoc[0]+','+currentLoc[1]+'] pathing to ore spot ['+spot[0]+','+spot[1]+']');
                       self.moveTo(-1,spot[0],spot[1]);
                       if(!self.path){
-                        console.log(self.name + ' failed to create path to ore spot in cave');
+                        console.log(self.name + ' failed to create path to ore spot in cave - clearing spot to try again');
+                        // Clear the unreachable spot so a new one can be assigned
+                        self.work.spot = null;
+                        self.action = null;
                       }
                     }
                   }
@@ -5495,46 +5507,49 @@ SerfM = function(param){
               }
             } else { // stone
               // Need a spot to mine stone
-              if(!spot){
-                console.log(self.name + ' at stone mine with no spot and no stone to deposit');
-                self.action = null;
-                return;
+              if(!spot && self.inventory.stone < 1){
+                // Just log - spot assignment happens in mode logic
+                console.log(self.name + ' at stone mine needs spot assignment');
+                // Don't clear action or return
               }
               
-              // Only check tile validity if not actively working
-              if(!self.workTimer){
-              var gt = getTile(0,spot[0],spot[1]);
-              if(gt < 4 || gt > 6){
-                  // Stone is gone, clear spot
-                self.work.spot = null;
-                for(var i in hq.resources){
-                  var f = hq.resources[i];
-                  if(f.toString() == spot.toString()){
-                    Building.list[self.work.hq].resources.splice(i,1);
+              // Only check tile validity when at the spot (to avoid premature clearing)
+              if(spot && loc.toString() == spot.toString() && !self.workTimer){
+                var gt = getTile(0,spot[0],spot[1]);
+                if(gt < 4 || gt > 6){
+                  // Stone is gone, clear spot and remove from resources
+                  console.log(self.name + ' stone at spot [' + spot + '] is gone, clearing');
+                  var depletedSpot = spot.toString(); // Store before nulling
+                  self.work.spot = null;
+                  spot = null;
+                  for(var i in hq.resources){
+                    var f = hq.resources[i];
+                    if(f && f.toString() == depletedSpot){
+                      Building.list[self.work.hq].resources.splice(i,1);
+                    }
                   }
-                }
-                return;
+                  // Continue to get new assignment
                 }
               }
-              if(self.inventory.stone >= 10){
+              if(self.inventory.stone >= 1){
                 // Clear work spot - we're depositing, not gathering
                 self.work.spot = null;
                 var b = Building.list[self.work.hq];
                 var drop = [b.plot[0][0],b.plot[0][1]+1];
                 if(loc.toString() == drop.toString()){
                   self.facing = 'up';
-                  self.inventory.stone -= 8;
-                  var stoneDeposited = 8;
+                  var stoneDeposited = self.inventory.stone;
+                  self.inventory.stone = 0;
                   if(House.list[b.owner]){
                     House.list[b.owner].stores.stone += stoneDeposited;
-                    console.log(House.list[b.owner].name + ' +8 Stone');
+                    console.log(House.list[b.owner].name + ' +' + stoneDeposited + ' Stone');
                   } else if(Player.list[b.owner] && Player.list[b.owner].house){
                     var h = Player.list[b.owner].house;
                     House.list[h].stores.stone += stoneDeposited;
-                    console.log(House.list[h].name + ' +8 Stone');
+                    console.log(House.list[h].name + ' +' + stoneDeposited + ' Stone');
                   } else if(Player.list[b.owner]){
                     Player.list[b.owner].stores.stone += stoneDeposited
-                    console.log(Player.list[b.owner].name + ' +8 Stone');
+                    console.log(Player.list[b.owner].name + ' +' + stoneDeposited + ' Stone');
                   }
                   // Track daily deposits
                   if(!b.dailyStores) b.dailyStores = {stone: 0, ironore: 0, silverore: 0, goldore: 0, diamond: 0};
@@ -5545,6 +5560,12 @@ SerfM = function(param){
                   }
                 }
               } else {
+                // Need a spot to mine
+                if(!spot){
+                  // Don't immediately fail - spot assignment happens in mode logic
+                  return;
+                }
+                
                 if(loc.toString() == spot.toString()){
                   var tile = getTile(0,spot[0],spot[1]);
                   self.working = true;
@@ -5580,6 +5601,11 @@ SerfM = function(param){
                 } else {
                   if(!self.path){
                     self.moveTo(0,spot[0],spot[1]);
+                    if(!self.path){
+                      console.log(self.name + ' failed to create path to stone spot - clearing spot to try again');
+                      self.work.spot = null;
+                      self.action = null;
+                    }
                   }
                 }
               }

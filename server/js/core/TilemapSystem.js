@@ -95,21 +95,24 @@ class TilemapSystem {
         const tile = this.getTile(layer, x, y);
         let walkable = this.isWalkable(layer, x, y, tile);
         
-        // Apply pathfinding options
-        if (options.avoidDoors && this.isDoorway(layer, x, y, tile)) {
+        // Apply pathfinding options (order matters - most specific first)
+        
+        // FIRST: Check if this is an explicitly allowed tile (highest priority)
+        const isAllowedStart = options.allowStartTile && options.allowStartTile[0] === x && options.allowStartTile[1] === y;
+        const isAllowedTarget = options.targetDoor && options.targetDoor[0] === x && options.targetDoor[1] === y;
+        
+        if (isAllowedStart || isAllowedTarget) {
+          walkable = true; // Explicitly allowed tiles are always walkable
+        }
+        // SECOND: Apply avoidance rules
+        else if (options.avoidDoors && this.isDoorway(layer, x, y, tile)) {
           walkable = false;
         } else if (options.avoidCaveExits && this.isCaveExit(layer, x, y)) {
-          // Check if this is the allowed start tile
-          if (options.allowStartTile && options.allowStartTile[0] === x && options.allowStartTile[1] === y) {
-            walkable = true;
-          } else {
-            walkable = false;
-          }
-        } else if (options.allowSpecificDoor && options.targetDoor) {
-          const [targetX, targetY] = options.targetDoor;
-          if ((this.isDoorway(layer, x, y, tile) || this.isCaveExit(layer, x, y)) && !(x === targetX && y === targetY)) {
-            walkable = false;
-          }
+          walkable = false;
+        }
+        // THIRD: Block all doors/exits except specific targets  
+        else if (options.allowSpecificDoor && (this.isDoorway(layer, x, y, tile) || this.isCaveExit(layer, x, y))) {
+          walkable = false;
         }
         
         grid[y][x] = walkable ? 1 : 0;

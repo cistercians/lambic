@@ -60,6 +60,26 @@ class PathfindingSystem {
       const grid = this.tilemapSystem.generatePathfindingGrid(layer, options);
       const pfGrid = new PF.Grid(grid);
       
+      // Validate start and end positions
+      if (start[0] < 0 || start[0] >= grid[0].length || start[1] < 0 || start[1] >= grid.length) {
+        console.error(`Pathfinding: start position [${start}] out of bounds (grid size: ${grid[0].length}x${grid.length})`);
+        return null;
+      }
+      if (end[0] < 0 || end[0] >= grid[0].length || end[1] < 0 || end[1] >= grid.length) {
+        console.error(`Pathfinding: end position [${end}] out of bounds (grid size: ${grid[0].length}x${grid.length})`);
+        return null;
+      }
+      
+      // Check if start/end are walkable
+      if (grid[start[1]][start[0]] === 0) {
+        console.error(`Pathfinding FAIL: start [${start}] not walkable on layer ${layer}, options:`, JSON.stringify(options));
+        return null;
+      }
+      if (grid[end[1]][end[0]] === 0) {
+        console.error(`Pathfinding FAIL: end [${end}] not walkable on layer ${layer}, options:`, JSON.stringify(options));
+        return null;
+      }
+      
       // Find path with timeout protection
       const path = this.finder.findPath(start[0], start[1], end[0], end[1], pfGrid);
       
@@ -76,6 +96,8 @@ class PathfindingSystem {
         this.cachePath(start, end, layer, smoothedPath, options);
         
         return smoothedPath;
+      } else {
+        console.error(`Pathfinding FAIL: no path found from [${start}] to [${end}] on layer ${layer}`);
       }
     } catch (error) {
       console.error('Pathfinding error:', error);
