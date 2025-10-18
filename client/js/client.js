@@ -3134,9 +3134,12 @@ setInterval(function(){
       }
     }
     
+    // Render forest overlay (trees should cover ground entities)
+    renderForest();
+    
     renderTops();
     
-    // Render falcons
+    // Render falcons (flying above trees)
     for(var i in Player.list){
       if(Player.list[i].class == 'Falcon'){
         var falconInView = inViewLogin(Player.list[i].x, Player.list[i].y);
@@ -6693,11 +6696,19 @@ var renderTops = function(){
 };
 
 var renderForest = function(){
-  var pLoc = getLoc(Player.list[selfId].x,Player.list[selfId].y);
+  // Get camera position (works for both logged in and login mode)
+  var cameraPos = getCameraPosition();
+  var pLoc = getLoc(cameraPos.x, cameraPos.y);
   var pc = pLoc[0];
   var pr = pLoc[1];
 
-  if(Player.list[selfId].z == 0){
+  // During login mode, always render forest for overworld (z=0)
+  var z = 0;
+  if(selfId && Player.list[selfId]) {
+    z = Player.list[selfId].z;
+  }
+
+  if(z == 0){
     for (var c = viewport.startTile[0]; c < viewport.endTile[0]; c++){
       for (var r = viewport.startTile[1]; r < viewport.endTile[1]; r++){
         var xOffset = viewport.offset[0] + (c * tileSize);

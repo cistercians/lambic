@@ -31,6 +31,11 @@ class BaseItem {
     return false;
   }
   
+  // Distance calculation method (inherited from old Entity system)
+  getDistance(pt) {
+    return Math.sqrt(Math.pow(this.x - pt.x, 2) + Math.pow(this.y - pt.y, 2));
+  }
+  
   register() {
     if (global.Item && global.Item.list) {
       global.Item.list[this.id] = this;
