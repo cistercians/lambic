@@ -14148,7 +14148,7 @@ EvalCmd = function(data){
       socket.write(JSON.stringify({msg:'addToChat',message:msg}));
     
     // RESPAWN (for ghosts)
-    } else if(data.cmd === '/respawn'){
+    } else if(data.cmd === 'respawn' || data.cmd === '/respawn'){
       if(player.ghost){
         // Respawn at home if player has one
         if(player.home){
@@ -14260,6 +14260,7 @@ EvalCmd = function(data){
         socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ Usage: /buy [amount] [item] [price]<br>Example: /buy 100 grain 5<br><br>Items: grain, wood, stone, ironore, silverore, goldore, diamond, iron</i>'}));
       }
     } else if(data.cmd.indexOf('/sell ') === 0){
+      console.log('DEBUG: /sell command detected, parts:', data.cmd.split(' '));
       var parts = data.cmd.split(' ');
       if(parts.length === 4){
         // /sell [amount] [item] [price]
@@ -14267,9 +14268,12 @@ EvalCmd = function(data){
         var resource = parts[2].toLowerCase();
         var price = parseInt(parts[3]);
         
+        console.log('DEBUG: Parsed /sell - amount:', amount, 'resource:', resource, 'price:', price);
+        
         if(isNaN(amount) || isNaN(price)){
           socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ Usage: /sell [amount] [item] [price]<br>Example: /sell 50 wood 10</i>'}));
         } else {
+          console.log('DEBUG: Calling global.processSellOrder, function exists:', typeof global.processSellOrder);
           global.processSellOrder(data.id, resource, amount, price);
         }
       } else {

@@ -651,10 +651,12 @@ Build = function(id){
               tileChange(4,n[0],n[1],1);
             }
           }
-          var g1 = getCoords(walls[1][0],walls[1][1]);
-          var g2 = getCoords(walls[2][0],walls[2][1]);
-          var g3 = getCoords(walls[3][0],walls[3][1]);
-          var g4 = getCoords(walls[4][0],walls[4][1]);
+          var wt1 = getCoords(walls[1][0],walls[1][1]); // WallTorch at wall position
+          var g1 = getCoords(walls[1][0],walls[1][1]+1); // Goods one tile south for player access
+          var g2 = getCoords(walls[2][0],walls[2][1]+1); // Goods one tile south for player access
+          var g3 = getCoords(walls[3][0],walls[3][1]+1); // Goods one tile south for player access
+          var wt4 = getCoords(walls[4][0],walls[4][1]); // WallTorch at wall position
+          var g4 = getCoords(walls[4][0],walls[4][1]+1); // Goods one tile south for player access
           var g5 = getCoords(plot[3][0],plot[3][1]);
           var fp1 = getCoords(plot[3][0],plot[3][1]+1);
           var fp2 = getCoords(plot[7][0],plot[7][1]+1);
@@ -663,8 +665,8 @@ Build = function(id){
           var d2 = getCoords(plot[10][0],plot[10][1]);
           var cr2 = getCoords(plot[11][0],plot[11][1]);
           WallTorch({
-            x:g1[0],
-            y:g1[1],
+            x:wt1[0],
+            y:wt1[1],
             z:1,
             qty:1,
             parent:b
@@ -691,8 +693,8 @@ Build = function(id){
             parent:b
           });
           WallTorch({
-            x:g4[0],
-            y:g4[1],
+            x:wt4[0],
+            y:wt4[1],
             z:1,
             qty:1,
             parent:b
@@ -840,10 +842,12 @@ Build = function(id){
             var n = walls[i];
             tileChange(4,n[0],n[1],1);
           }
-          var g1 = getCoords(walls[1][0],walls[1][1]);
-          var g2 = getCoords(walls[2][0],walls[2][1]);
-          var g3 = getCoords(walls[3][0],walls[3][1]);
-          var g4 = getCoords(walls[4][0],walls[4][1]);
+          var wt1 = getCoords(walls[1][0],walls[1][1]); // WallTorch at wall position
+          var g1 = getCoords(walls[1][0],walls[1][1]+1); // Goods one tile south for player access
+          var g2 = getCoords(walls[2][0],walls[2][1]+1); // Goods one tile south for player access
+          var g3 = getCoords(walls[3][0],walls[3][1]+1); // Goods one tile south for player access
+          var wt4 = getCoords(walls[4][0],walls[4][1]); // WallTorch at wall position
+          var g4 = getCoords(walls[4][0],walls[4][1]+1); // Goods one tile south for player access
           var g5 = getCoords(plot[3][0],plot[3][1]);
           var fp1 = getCoords(plot[3][0],plot[3][1]+1);
           var fp2 = getCoords(plot[7][0],plot[7][1]+1);
@@ -852,8 +856,8 @@ Build = function(id){
           var d2 = getCoords(plot[10][0],plot[10][1]);
           var cr2 = getCoords(plot[11][0],plot[11][1]);
           WallTorch({
-            x:g1[0],
-            y:g1[1],
+            x:wt1[0],
+            y:wt1[1],
             z:1,
             qty:1,
             parent:b
@@ -880,8 +884,8 @@ Build = function(id){
             parent:b
           });
           WallTorch({
-            x:g4[0],
-            y:g4[1],
+            x:wt4[0],
+            y:wt4[1],
             z:1,
             qty:1,
             parent:b

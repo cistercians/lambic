@@ -253,6 +253,12 @@ socket.onmessage = function(event){
         }
         if(pack.ghost != undefined)
           p.ghost = pack.ghost;
+        if(pack.kills != undefined)
+          p.kills = pack.kills;
+        if(pack.skulls != undefined)
+          p.skulls = pack.skulls;
+        if(pack.spriteScale != undefined)
+          p.spriteScale = pack.spriteScale;
 
         // Ghost mode overrides all sprite assignments
         if(p.ghost){
@@ -455,6 +461,99 @@ socket.onmessage = function(event){
         getBgm(p.x,p.y,p.z,b);
       }
     }
+  } else if(data.msg == 'ghostMode'){
+    // Handle ghost mode audio/visual changes
+    if(data.active && Player.list[selfId]){
+      // Player just became ghost - play death music immediately
+      AudioCtrl.playlist = null; // Force change
+      bgmPlayer(defeat_bgm, false, false); // Play Defeat.mp3 once
+      ambPlayer(Amb.spirits); // Play spirits ambience
+      console.log('Ghost mode activated: playing death music');
+    } else if(!data.active && Player.list[selfId]){
+      // Player respawned - immediately switch to normal music and ambience
+      // Stop current music and force immediate change
+      AudioCtrl.bgm.pause();
+      AudioCtrl.bgm.currentTime = 0;
+      AudioCtrl.playlist = null; // Force playlist change
+      
+      // Stop current ambience and force immediate change
+      AudioCtrl.amb.pause();
+      AudioCtrl.amb.currentTime = 0;
+      AudioCtrl.amb.src = null; // Force ambience change
+      
+      var p = Player.list[selfId];
+      // Directly determine and play normal ambience based on location
+      var building = Building.list[getBuilding(p.x, p.y)];
+      
+      // Set ambient sound based on location
+      if(p.z == 0){
+        if(nightfall){
+          ambPlayer(Amb.forest);
+        } else {
+          ambPlayer(Amb.nature);
+        }
+      } else if(p.z == -1){
+        ambPlayer(Amb.cave);
+      } else if(p.z == 1 || p.z == 2){
+        if(building && building.type == 'monastery'){
+          ambPlayer(Amb.empty);
+        } else if(hasFire(p.z, p.x, p.y)){
+          if(building && building.occ < 4){
+            ambPlayer(Amb.fire);
+          } else if(building && building.occ < 6){
+            ambPlayer(Amb.hush);
+          } else {
+            ambPlayer(Amb.chatter);
+          }
+        } else {
+          ambPlayer();
+        }
+      } else if(p.z == -2){
+        if(building && building.type == 'tavern'){
+          ambPlayer(Amb.empty);
+        } else {
+          ambPlayer(Amb.evil);
+        }
+      } else if(p.z == -3){
+        ambPlayer(Amb.underwater);
+      }
+      
+      if(p.z == 0){
+        if(nightfall && tempus != 'IV.a'){
+          bgmPlayer(overworld_night_bgm);
+        } else if(tempus == 'IV.a' || tempus == 'V.a' || tempus == 'VI.a' ||
+        tempus == 'VII.a' || tempus == 'VIII.a' || tempus == 'IX.a'){
+          bgmPlayer(overworld_morning_bgm);
+        } else {
+          bgmPlayer(overworld_day_bgm);
+        }
+      } else if(p.z == -1){
+        bgmPlayer(cave_bgm);
+      } else if(p.z == 1 || p.z == 2){
+        if(building && building.type == 'stronghold'){
+          if(nightfall){
+            bgmPlayer(stronghold_night_bgm);
+          } else {
+            bgmPlayer(stronghold_day_bgm);
+          }
+        } else if(building && building.type == 'garrison'){
+          bgmPlayer(garrison_bgm);
+        } else if(building && building.type == 'tavern'){
+          bgmPlayer(tavern_bgm);
+        } else if(building && building.type == 'monastery'){
+          bgmPlayer(monastery_bgm);
+        } else {
+          bgmPlayer(indoors_bgm);
+        }
+      } else if(p.z == -2){
+        if(building && building.type == 'tavern'){
+          // No music in tavern cellar
+        } else {
+          bgmPlayer(dungeons_bgm);
+        }
+      }
+      console.log('Ghost mode deactivated: immediately switched to normal music');
+    }
   } else if(data.msg == 'newFaction'){
     houseList = data.houseList;
     kingdomList = data.kingdomlist;
@@ -656,6 +755,12 @@ document.addEventListener('keydown', function(e){
 // GAME
 
 var soundscape = function(x,y,z,b){
+  // Check ghost mode first - overrides all other ambience
+  if(Player.list[selfId] && Player.list[selfId].ghost){
+    ambPlayer(Amb.spirits); // Play spirits.mp3
+    return; // Skip other checks
+  }
+  
   // outdoors
   if(z == 0){
     if(nightfall){
@@ -691,6 +796,24 @@ var soundscape = function(x,y,z,b){
 };
 
 var getBgm = function(x,y,z,b){
+  // Check ghost mode first - overrides all other music
+  if(Player.list[selfId] && Player.list[selfId].ghost){
+    // Play Defeat.mp3 once, don't loop
+    // Use the global defeat_bgm playlist defined in audioloader.js
+    if(AudioCtrl.playlist !== defeat_bgm){
+      // Force change to ghost music
+      AudioCtrl.playlist = null; // Clear playlist to force change
+      bgmPlayer(defeat_bgm, false, false); // Third param = don't loop
+    }
+    soundscape(x,y,z,{}); // Still handle ghost ambience
+    return; // Skip other checks
+  }
+  
+  // If we were in ghost mode, force music change
+  if(AudioCtrl.playlist === defeat_bgm){
+    AudioCtrl.playlist = null; // Clear playlist to force change on respawn
+  }
+  
   var building = Building.list[b];
   soundscape(x,y,z,building);
   // outdoors
@@ -878,41 +1001,30 @@ var Player = function(initPack){
   self.spriteSize = initPack.spriteSize;
   self.ranged = initPack.ranged;
   self.action = initPack.action;
+  self.kills = initPack.kills || 0;
+  self.skulls = initPack.skulls || '';
+  self.spriteScale = initPack.spriteScale || 1.0;
 
   self.draw = function(){
+    // Phase 2: Ghost Invisibility - Don't render other players' ghosts
+    if(self.ghost && self.id !== selfId){
+      return; // Other players' ghosts are invisible
+    }
+    
     var stealth = stealthCheck(self.id);
     
     // Get camera position (works for both logged in and login mode)
     var cameraPos = getCameraPosition();
 
-    var x = 0;
-    var y = 0;
+    // Phase 6: Apply sprite scaling for fauna minibosses
+    var scaledSpriteSize = self.spriteSize * (self.spriteScale || 1.0);
+    
+    // Center the sprite based on scaled size
+    var x = (self.x - (scaledSpriteSize/2)) - cameraPos.x + WIDTH/2;
+    var y = (self.y - (scaledSpriteSize/2)) - cameraPos.y + HEIGHT/2;
 
-    if(self.spriteSize == tileSize * 1.5){
-      x = (self.x - (tileSize*0.75)) - cameraPos.x + WIDTH/2;
-      y = (self.y - (tileSize*0.75)) - cameraPos.y + HEIGHT/2;
-    } else if(self.spriteSize == tileSize * 2){
-      x = (self.x - tileSize) - cameraPos.x + WIDTH/2;
-      y = (self.y - tileSize) - cameraPos.y + HEIGHT/2;
-    } else if(self.spriteSize == tileSize * 3){
-      x = (self.x - (tileSize*1.5)) - cameraPos.x + WIDTH/2;
-      y = (self.y - (tileSize*1.5)) - cameraPos.y + HEIGHT/2;
-    } else if(self.spriteSize == tileSize * 7){
-      x = (self.x - (tileSize*3.5)) - cameraPos.x + WIDTH/2;
-      y = (self.y - (tileSize*3.5)) - cameraPos.y + HEIGHT/2;
-    } else if(self.spriteSize == tileSize * 10){
-      x = (self.x - (tileSize*5)) - cameraPos.x + WIDTH/2;
-      y = (self.y - (tileSize*5)) - cameraPos.y + HEIGHT/2;
-    } else if(self.spriteSize == tileSize * 12){
-      x = (self.x - (tileSize*6)) - cameraPos.x + WIDTH/2;
-      y = (self.y - (tileSize*6)) - cameraPos.y + HEIGHT/2;
-    } else {
-      x = (self.x - (tileSize/2)) - cameraPos.x + WIDTH/2;
-      y = (self.y - (tileSize/2)) - cameraPos.y + HEIGHT/2;
-    }
-
-    // hp and spirit bars (skip for non-combatant creatures)
-    if(stealth < 1.5 && self.class !== 'Falcon'){
+    // hp and spirit bars (skip for non-combatant creatures and ghosts)
+    if(stealth < 1.5 && self.class !== 'Falcon' && !self.ghost){
       var barX = (self.x - (tileSize/2)) - cameraPos.x + WIDTH/2;
       var barY = (self.y - (tileSize/2)) - cameraPos.y + HEIGHT/2;
 
@@ -955,7 +1067,8 @@ var Player = function(initPack){
           }
           ctx.font = '15px minion web';
           ctx.textAlign = 'center';
-          ctx.fillText(kingdomList[self.kingdom].flag + ' ' + self.rank + self.name,barX + 30,barY - 40,100);
+          var displayName = (self.skulls || '') + (self.skulls ? ' ' : '') + kingdomList[self.kingdom].flag + ' ' + self.rank + self.name;
+          ctx.fillText(displayName,barX + 30,barY - 40,100);
         } else if(self.house && houseList && houseList[self.house]){
           if(allied == 2){
             ctx.fillStyle = 'lightskyblue';
@@ -968,7 +1081,8 @@ var Player = function(initPack){
           }
           ctx.font = '15px minion web';
           ctx.textAlign = 'center';
-          ctx.fillText(houseList[self.house].flag + ' ' + self.rank + self.name,barX + 30,barY - 40,100);
+          var displayName = (self.skulls || '') + (self.skulls ? ' ' : '') + houseList[self.house].flag + ' ' + self.rank + self.name;
+          ctx.fillText(displayName,barX + 30,barY - 40,100);
         } else {
           if(allied == 2){
             ctx.fillStyle = 'lightskyblue';
@@ -981,7 +1095,8 @@ var Player = function(initPack){
           }
           ctx.font = '15px minion web';
           ctx.textAlign = 'center';
-          ctx.fillText(self.rank + self.name,barX + 30,barY - 40,100);
+          var displayName = (self.skulls || '') + (self.skulls ? ' ' : '') + self.rank + self.name;
+          ctx.fillText(displayName,barX + 30,barY - 40,100);
         }
       } else if(self.name){
         var allied = allyCheck(self.id);
@@ -997,7 +1112,8 @@ var Player = function(initPack){
           }
           ctx.font = '15px minion web';
           ctx.textAlign = 'center';
-          ctx.fillText(kingdomList[self.kingdom].flag + ' ' + self.name,barX + 30,barY - 40,100);
+          var displayName = (self.skulls || '') + (self.skulls ? ' ' : '') + kingdomList[self.kingdom].flag + ' ' + self.name;
+          ctx.fillText(displayName,barX + 30,barY - 40,100);
         } else if(self.house && houseList && houseList[self.house]){
           if(allied == 2){
             ctx.fillStyle = 'lightskyblue';
@@ -1010,7 +1126,8 @@ var Player = function(initPack){
           }
           ctx.font = '15px minion web';
           ctx.textAlign = 'center';
-          ctx.fillText(houseList[self.house].flag + ' ' + self.name,barX + 30,barY - 40,100);
+          var displayName = (self.skulls || '') + (self.skulls ? ' ' : '') + houseList[self.house].flag + ' ' + self.name;
+          ctx.fillText(displayName,barX + 30,barY - 40,100);
         } else {
           if(allied == 2){
             ctx.fillStyle = 'lightskyblue';
@@ -1023,8 +1140,17 @@ var Player = function(initPack){
           }
           ctx.font = '15px minion web';
           ctx.textAlign = 'center';
-          ctx.fillText(self.name,barX + 30,barY - 40,100);
+          var displayName = (self.skulls || '') + (self.skulls ? ' ' : '') + self.name;
+          ctx.fillText(displayName,barX + 30,barY - 40,100);
         }
+      }
+      
+      // Phase 5 & 6: Display skulls for fauna minibosses (above HP bar)
+      if(self.skulls && !self.name){
+        ctx.font = '20px minion web';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = 'white';
+        ctx.fillText(self.skulls, barX + 30, barY - 45);
       }
 
       // status
@@ -1037,488 +1163,92 @@ var Player = function(initPack){
       }
     }
 
-    // character sprite
-    if(stealth == 2){ // totally stealthed
-      if(self.pressingAttack){
-        if((self.gear.weapon && self.gear.weapon.type == 'bow') || self.ranged){
-          if(self.angle > 45 && self.angle <= 115){
-            ctx.drawImage(
-              self.sprite.attackdbst2,
-              x,
-              y,
-              self.spriteSize,
-              self.spriteSize
-            );
-          } else if(self.angle > -135 && self.angle <= -15){
-            ctx.drawImage(
-              self.sprite.attackubst2,
-              x,
-              y,
-              self.spriteSize,
-              self.spriteSize
-            );
-          } else if(self.angle > 115 || self.angle <= -135){
-            ctx.drawImage(
-              self.sprite.attacklbst2,
-              x,
-              y,
-              self.spriteSize,
-              self.spriteSize
-            );
-          } else if(self.angle > -15 || self.angle <= 45){
-            ctx.drawImage(
-              self.sprite.attackrbst2,
-              x,
-              y,
-              self.spriteSize,
-              self.spriteSize
-            );
-          }
-        } else {
-          if(self.facing == 'down'){
-            ctx.drawImage(
-              self.sprite.attackdst2,
-              x,
-              y,
-              self.spriteSize,
-              self.spriteSize
-            );
-          } else if(self.facing == 'up'){
-            ctx.drawImage(
-              self.sprite.attackust2,
-              x,
-              y,
-              self.spriteSize,
-              self.spriteSize
-            );
-          } else if(self.facing == 'left'){
-            ctx.drawImage(
-              self.sprite.attacklst2,
-              x,
-              y,
-              self.spriteSize,
-              self.spriteSize
-            );
-          } else if(self.facing == 'right'){
-            ctx.drawImage(
-              self.sprite.attackrst2,
-              x,
-              y,
-              self.spriteSize,
-              self.spriteSize
-            );
-          }
-        }
-      } else if(self.pressingAttack && self.type == 'npc'){
-        if(self.facing == 'down'){
-          ctx.drawImage(
-            self.sprite.attackdst2,
-            x,
-            y,
-            self.spriteSize,
-            self.spriteSize
-          );
-        } else if(self.facing == 'up'){
-          ctx.drawImage(
-            self.sprite.attackust2,
-            x,
-            y,
-            self.spriteSize,
-            self.spriteSize
-          );
-        } else if(self.facing == 'left'){
-          ctx.drawImage(
-            self.sprite.attacklst2,
-            x,
-            y,
-            self.spriteSize,
-            self.spriteSize
-          );
-        } else if(self.facing == 'right'){
-          ctx.drawImage(
-            self.sprite.attackrst2,
-            x,
-            y,
-            self.spriteSize,
-            self.spriteSize
-          );
-        }
-      } else if(self.facing == 'down' && !self.pressingDown){
-        ctx.drawImage(
-          self.sprite.facedownst2,
-          x,
-          y,
-          self.spriteSize,
-          self.spriteSize
-        );
-      } else if(self.pressingDown){
-        ctx.drawImage(
-          self.sprite.walkdownst2[wlk],
-          x,
-          y,
-          self.spriteSize,
-          self.spriteSize
-        );
-      } else if(self.facing == 'up' && !self.pressingUp){
-        ctx.drawImage(
-          self.sprite.faceupst2,
-          x,
-          y,
-          self.spriteSize,
-          self.spriteSize
-        );
-      } else if(self.pressingUp){
-        ctx.drawImage(
-          self.sprite.walkupst2[wlk],
-          x,
-          y,
-          self.spriteSize,
-          self.spriteSize
-        );
-      } else if(self.facing == 'left' && !self.pressingLeft){
-        ctx.drawImage(
-          self.sprite.faceleftst2,
-          x,
-          y,
-          self.spriteSize,
-          self.spriteSize
-        );
-      } else if(self.pressingLeft){
-        ctx.drawImage(
-          self.sprite.walkleftst2[wlk],
-          x,
-          y,
-          self.spriteSize,
-          self.spriteSize
-        );
-      } else if(self.facing == 'right' && !self.pressingRight){
-        ctx.drawImage(
-          self.sprite.facerightst2,
-          x,
-          y,
-          self.spriteSize,
-          self.spriteSize
-        );
-      } else if(self.pressingRight){
-        ctx.drawImage(
-          self.sprite.walkrightst2[wlk],
-          x,
-          y,
-          self.spriteSize,
-          self.spriteSize
-        );
-      }
-    } else if(stealth < 2 && stealth >= 1){ // somewhat visible
-      if(self.pressingAttack){
-        if((self.gear.weapon && self.gear.weapon.type == 'bow') || self.ranged){
-          if(self.angle > 45 && self.angle <= 115){
-            ctx.drawImage(
-              self.sprite.attackdbst,
-              x,
-              y,
-              self.spriteSize,
-              self.spriteSize
-            );
-          } else if(self.angle > -135 && self.angle <= -15){
-            ctx.drawImage(
-              self.sprite.attackubst,
-              x,
-              y,
-              self.spriteSize,
-              self.spriteSize
-            );
-          } else if(self.angle > 115 || self.angle <= -135){
-            ctx.drawImage(
-              self.sprite.attacklbst,
-              x,
-              y,
-              self.spriteSize,
-              self.spriteSize
-            );
-          } else if(self.angle > -15 || self.angle <= 45){
-            ctx.drawImage(
-              self.sprite.attackrbst,
-              x,
-              y,
-              self.spriteSize,
-              self.spriteSize
-            );
-          }
-        } else {
-          if(self.facing == 'down'){
-            ctx.drawImage(
-              self.sprite.attackdst,
-              x,
-              y,
-              self.spriteSize,
-              self.spriteSize
-            );
-          } else if(self.facing == 'up'){
-            ctx.drawImage(
-              self.sprite.attackust,
-              x,
-              y,
-              self.spriteSize,
-              self.spriteSize
-            );
-          } else if(self.facing == 'left'){
-            ctx.drawImage(
-              self.sprite.attacklst,
-              x,
-              y,
-              self.spriteSize,
-              self.spriteSize
-            );
-          } else if(self.facing == 'right'){
-            ctx.drawImage(
-              self.sprite.attackrst,
-              x,
-              y,
-              self.spriteSize,
-              self.spriteSize
-            );
-          }
-        }
-      } else if(self.pressingAttack && self.type == 'npc'){
-        if(self.facing == 'down'){
-          ctx.drawImage(
-            self.sprite.attackdst,
-            x,
-            y,
-            self.spriteSize,
-            self.spriteSize
-          );
-        } else if(self.facing == 'up'){
-          ctx.drawImage(
-            self.sprite.attackust,
-            x,
-            y,
-            self.spriteSize,
-            self.spriteSize
-          );
-        } else if(self.facing == 'left'){
-          ctx.drawImage(
-            self.sprite.attacklst,
-            x,
-            y,
-            self.spriteSize,
-            self.spriteSize
-          );
-        } else if(self.facing == 'right'){
-          ctx.drawImage(
-            self.sprite.attackrst,
-            x,
-            y,
-            self.spriteSize,
-            self.spriteSize
-          );
-        }
-      } else if(self.facing == 'down' && !self.pressingDown){
-        ctx.drawImage(
-          self.sprite.facedownst,
-          x,
-          y,
-          self.spriteSize,
-          self.spriteSize
-        );
-      } else if(self.pressingDown){
-        ctx.drawImage(
-          self.sprite.walkdownst[wlk],
-          x,
-          y,
-          self.spriteSize,
-          self.spriteSize
-        );
-      } else if(self.facing == 'up' && !self.pressingUp){
-        ctx.drawImage(
-          self.sprite.faceupst,
-          x,
-          y,
-          self.spriteSize,
-          self.spriteSize
-        );
-      } else if(self.pressingUp){
-        ctx.drawImage(
-          self.sprite.walkupst[wlk],
-          x,
-          y,
-          self.spriteSize,
-          self.spriteSize
-        );
-      } else if(self.facing == 'left' && !self.pressingLeft){
-        ctx.drawImage(
-          self.sprite.faceleftst,
-          x,
-          y,
-          self.spriteSize,
-          self.spriteSize
-        );
-      } else if(self.pressingLeft){
-        ctx.drawImage(
-          self.sprite.walkleftst[wlk],
-          x,
-          y,
-          self.spriteSize,
-          self.spriteSize
-        );
-      } else if(self.facing == 'right' && !self.pressingRight){
-        ctx.drawImage(
-          self.sprite.facerightst,
-          x,
-          y,
-          self.spriteSize,
-          self.spriteSize
-        );
-      } else if(self.pressingRight){
-        ctx.drawImage(
-          self.sprite.walkrightst[wlk],
-          x,
-          y,
-          self.spriteSize,
-          self.spriteSize
-        );
-      }
+    // Apply transparency based on stealth level
+    if(stealth == 2){ // fully stealthed to enemies
+      ctx.globalAlpha = 0.3; // 30% visible (maximum transparency)
+    } else if(stealth == 1.5){ // revealed to enemies
+      ctx.globalAlpha = 0.7; // 70% visible (minimal transparency)
+    } else if(stealth == 1){ // self-view or ally-view
+      ctx.globalAlpha = 0.7; // 70% visible (minimal transparency)
     } else { // not stealthed
+      ctx.globalAlpha = 1.0; // fully visible
+    }
+    
+    // character sprite (now using regular sprites only)
       if(self.pressingAttack){
         if((self.gear.weapon && self.gear.weapon.type == 'bow') || self.ranged){
           if(self.angle > 45 && self.angle <= 115){
             ctx.drawImage(
-              self.sprite.attackdb,
+            self.sprite.attackdb,
               x,
               y,
-              self.spriteSize,
-              self.spriteSize
+            scaledSpriteSize,
+            scaledSpriteSize
             );
           } else if(self.angle > -135 && self.angle <= -15){
             ctx.drawImage(
-              self.sprite.attackub,
+            self.sprite.attackub,
               x,
               y,
-              self.spriteSize,
-              self.spriteSize
+            scaledSpriteSize,
+            scaledSpriteSize
             );
           } else if(self.angle > 115 || self.angle <= -135){
             ctx.drawImage(
-              self.sprite.attacklb,
+            self.sprite.attacklb,
               x,
               y,
-              self.spriteSize,
-              self.spriteSize
+            scaledSpriteSize,
+            scaledSpriteSize
             );
           } else if(self.angle > -15 || self.angle <= 45){
             ctx.drawImage(
-              self.sprite.attackrb,
+            self.sprite.attackrb,
               x,
               y,
-              self.spriteSize,
-              self.spriteSize
+            scaledSpriteSize,
+            scaledSpriteSize
             );
           }
         } else {
           if(self.facing == 'down'){
             ctx.drawImage(
-              self.sprite.attackd,
+            self.sprite.attackd,
               x,
               y,
-              self.spriteSize,
-              self.spriteSize
+            scaledSpriteSize,
+            scaledSpriteSize
             );
           } else if(self.facing == 'up'){
             ctx.drawImage(
-              self.sprite.attacku,
+            self.sprite.attacku,
               x,
               y,
-              self.spriteSize,
-              self.spriteSize
+            scaledSpriteSize,
+            scaledSpriteSize
             );
           } else if(self.facing == 'left'){
             ctx.drawImage(
-              self.sprite.attackl,
+            self.sprite.attackl,
               x,
               y,
-              self.spriteSize,
-              self.spriteSize
+            scaledSpriteSize,
+            scaledSpriteSize
             );
           } else if(self.facing == 'right'){
             ctx.drawImage(
-              self.sprite.attackr,
+            self.sprite.attackr,
               x,
               y,
-              self.spriteSize,
-              self.spriteSize
+            scaledSpriteSize,
+            scaledSpriteSize
             );
           }
-        }
-      } else if(self.chopping){
-        ctx.drawImage(
-          self.sprite.chopping[wrk],
-          x,
-          y,
-          self.spriteSize,
-          self.spriteSize
-        );
-      } else if(self.mining){
-        ctx.drawImage(
-          self.sprite.mining[wrk],
-          x,
-          y,
-          self.spriteSize,
-          self.spriteSize
-        );
-      } else if(self.farming){
-        ctx.drawImage(
-          self.sprite.farming[wrk],
-          x,
-          y,
-          self.spriteSize,
-          self.spriteSize
-        );
-      } else if(self.building){
-        ctx.drawImage(
-          self.sprite.building[wrk],
-          x,
-          y,
-          self.spriteSize,
-          self.spriteSize
-        );
-      } else if(self.fishing){
-        if(self.facing == 'down'){
-          ctx.drawImage(
-            self.sprite.fishingd,
-            x,
-            y,
-            self.spriteSize,
-            self.spriteSize
-          );
-        } else if(self.facing == 'up'){
-          ctx.drawImage(
-            self.sprite.fishingu,
-            x,
-            y,
-            self.spriteSize,
-            self.spriteSize
-          );
-        } else if(self.facing == 'left'){
-          ctx.drawImage(
-            self.sprite.fishingl,
-            x,
-            y,
-            self.spriteSize,
-            self.spriteSize
-          );
-        } else if(self.facing == 'right'){
-          ctx.drawImage(
-            self.sprite.fishingr,
-            x,
-            y,
-            self.spriteSize,
-            self.spriteSize
-          );
         }
       } else if(self.pressingAttack && self.type == 'npc'){
         if(self.facing == 'down'){
           ctx.drawImage(
-            self.sprite.attackd,
+          self.sprite.attackd,
             x,
             y,
             self.spriteSize,
@@ -1526,7 +1256,7 @@ var Player = function(initPack){
           );
         } else if(self.facing == 'up'){
           ctx.drawImage(
-            self.sprite.attacku,
+          self.sprite.attacku,
             x,
             y,
             self.spriteSize,
@@ -1534,7 +1264,7 @@ var Player = function(initPack){
           );
         } else if(self.facing == 'left'){
           ctx.drawImage(
-            self.sprite.attackl,
+          self.sprite.attackl,
             x,
             y,
             self.spriteSize,
@@ -1542,7 +1272,7 @@ var Player = function(initPack){
           );
         } else if(self.facing == 'right'){
           ctx.drawImage(
-            self.sprite.attackr,
+          self.sprite.attackr,
             x,
             y,
             self.spriteSize,
@@ -1551,7 +1281,7 @@ var Player = function(initPack){
         }
       } else if(self.facing == 'down' && !self.pressingDown){
         ctx.drawImage(
-          self.sprite.facedown,
+        self.sprite.facedown,
           x,
           y,
           self.spriteSize,
@@ -1559,7 +1289,7 @@ var Player = function(initPack){
         );
       } else if(self.pressingDown){
         ctx.drawImage(
-          self.sprite.walkdown[wlk],
+        self.sprite.walkdown[wlk],
           x,
           y,
           self.spriteSize,
@@ -1567,7 +1297,7 @@ var Player = function(initPack){
         );
       } else if(self.facing == 'up' && !self.pressingUp){
         ctx.drawImage(
-          self.sprite.faceup,
+        self.sprite.faceup,
           x,
           y,
           self.spriteSize,
@@ -1575,7 +1305,7 @@ var Player = function(initPack){
         );
       } else if(self.pressingUp){
         ctx.drawImage(
-          self.sprite.walkup[wlk],
+        self.sprite.walkup[wlk],
           x,
           y,
           self.spriteSize,
@@ -1583,7 +1313,7 @@ var Player = function(initPack){
         );
       } else if(self.facing == 'left' && !self.pressingLeft){
         ctx.drawImage(
-          self.sprite.faceleft,
+        self.sprite.faceleft,
           x,
           y,
           self.spriteSize,
@@ -1591,7 +1321,7 @@ var Player = function(initPack){
         );
       } else if(self.pressingLeft){
         ctx.drawImage(
-          self.sprite.walkleft[wlk],
+        self.sprite.walkleft[wlk],
           x,
           y,
           self.spriteSize,
@@ -1599,7 +1329,7 @@ var Player = function(initPack){
         );
       } else if(self.facing == 'right' && !self.pressingRight){
         ctx.drawImage(
-          self.sprite.faceright,
+        self.sprite.faceright,
           x,
           y,
           self.spriteSize,
@@ -1607,20 +1337,21 @@ var Player = function(initPack){
         );
       } else if(self.pressingRight){
         ctx.drawImage(
-          self.sprite.walkright[wlk],
+        self.sprite.walkright[wlk],
           x,
           y,
           self.spriteSize,
           self.spriteSize
         );
       }
-    }
-  }
+    
+    // Reset transparency
+    ctx.globalAlpha = 1.0;
+  };
 
   Player.list[self.id] = self;
   return self;
 }
-
 Player.list = {};
 
 // ARROWS
@@ -6906,6 +6637,11 @@ var illuminate = function(x, y, radius, env){
 }
 
 var renderLightSources = function(env){
+  // Skip lighting effects for ghosts
+  if(selfId && Player.list[selfId] && Player.list[selfId].ghost){
+    return; // No lighting effects in ghost mode
+  }
+  
   // Get camera position (works for both logged in and login mode)
   var cameraPos = getCameraPosition();
   
@@ -6942,6 +6678,14 @@ var renderLighting = function(){
   var z = 0;
   if(selfId && Player.list[selfId]) {
     z = Player.list[selfId].z;
+  }
+  
+  // Ghost mode overrides all other lighting effects
+  if(selfId && Player.list[selfId] && Player.list[selfId].ghost){
+    lighting.clearRect(0,0,WIDTH,HEIGHT);
+    lighting.fillStyle = "rgba(255, 255, 255, 0.65)"; // Very bright, washed out white
+    lighting.fillRect(0,0,WIDTH,HEIGHT);
+    return; // Skip all other lighting effects
   }
   
   if(z == 0){

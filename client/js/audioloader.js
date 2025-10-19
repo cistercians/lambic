@@ -1,14 +1,21 @@
-var bgmPlayer = function(playlist,next=false){
+var bgmPlayer = function(playlist,next=false,loop=true){
   if(!next && playlist == AudioCtrl.playlist){
     return;
   } else {
     AudioCtrl.playlist = playlist;
+    AudioCtrl.bgmLoop = loop; // Track loop setting
     var src = playlist[Math.floor(Math.random() * playlist.length)];
     AudioCtrl.bgm.src = src;
     AudioCtrl.bgm.play();
-    console.log('Playing bgm: ' + src);
-    AudioCtrl.bgm.onended = function(){
-      bgmPlayer(playlist,next=true);
+    console.log('Playing bgm: ' + src + (loop ? ' (looping)' : ' (single play)'));
+    
+    // Always clear previous handler first
+    AudioCtrl.bgm.onended = null;
+    
+    if(loop){
+      AudioCtrl.bgm.onended = function(){
+        bgmPlayer(playlist,true,loop);
+      }
     }
   }
 };
@@ -28,6 +35,7 @@ var ambPlayer = function(src){
 
 AudioCtrl = {};
 AudioCtrl.playlist = null;
+AudioCtrl.bgmLoop = true;
 AudioCtrl.bgm = new Audio();
 AudioCtrl.amb = new Audio();
 
@@ -393,6 +401,10 @@ var title_bgm = [
   Bgm.moriar,
   Bgm.saltarello2,
   Bgm.saltarello3
+];
+
+var defeat_bgm = [
+  Bgm.defeat
 ];
 
 Amb = {};

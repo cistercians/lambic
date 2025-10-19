@@ -887,28 +887,37 @@ Market = function(param){
     }
   }
   
-  // Initialize orderbook with all resource types
-  self.orderbook = {
-    grain: {bids: [], asks: []},
-    wood: {bids: [], asks: []},
-    stone: {bids: [], asks: []},
-    ironore: {bids: [], asks: []},
-    silverore: {bids: [], asks: []},
-    goldore: {bids: [], asks: []},
-    diamond: {bids: [], asks: []},
-    iron: {bids: [], asks: []}
+  // Dynamic orderbook - creates entries on-demand for ANY tradeable item
+  self.orderbook = {};
+  
+  // Helper to ensure orderbook entry exists for any item
+  self.getOrderbook = function(itemType) {
+    if(!self.orderbook[itemType]){
+      self.orderbook[itemType] = {bids: [], asks: []};
+    }
+    return self.orderbook[itemType];
   };
   
-  // Resource emoji mapping for display
+  // Expanded emoji mapping for ALL tradeable items
   self.resourceEmoji = {
-    grain: '🌾',
-    wood: '🪵',
-    stone: '🪨',
-    ironore: '⛏️',
-    silverore: '⚪',
-    goldore: '🟡',
-    diamond: '💎',
-    iron: '⚔️'
+    // Resources
+    grain: '🌾', wood: '🪵', stone: '🪨',
+    ironore: '⛏️', silverore: '⚪', goldore: '🟡',
+    diamond: '💎', iron: '⚔️', steel: '🗡️',
+    leather: '🧥',
+    // Weapons
+    sword: '⚔️', bow: '🏹', arrows: '➡️',
+    // Armor
+    ironarmor: '🛡️', steelarmor: '🛡️',
+    // Tools
+    torch: '🔦', pickaxe: '⛏️',
+    // Consumables
+    bread: '🍞', fish: '🐟', flour: '🌾'
+  };
+  
+  // Helper to get emoji for any item (with fallback)
+  self.getItemEmoji = function(itemType) {
+    return self.resourceEmoji[itemType] || '📦';
   };
   
   self.findTavern();
@@ -1351,17 +1360,53 @@ Character = function(param){
   self.dexterity = 1;
   self.running = false; // NPCs can run in combat
   self.toRemove = false;
+  
+  // Phase 5: Kill tracking for NPCs
+  self.kills = 0;
+  self.skulls = '';
+  
+  // Phase 6: Sprite scaling for fauna minibosses
+  self.spriteScale = 1.0;
+  
   self.die = function(report){ // report {id,cause}
     var deathLocation = getLoc(self.x, self.y);
     var deathZ = self.z;
     
+    // Phase 5: Kill Tracking for NPCs
+    var killerName = 'Unknown';
     if(report.id){
       if(Player.list[report.id]){
-        console.log(Player.list[report.id].class + ' has killed ' + self.class);
+        var killer = Player.list[report.id];
+        killerName = killer.name || killer.class;
+        console.log(killerName + ' has killed ' + self.class);
+        
+        // Track kill and award skulls
+        killer.kills = (killer.kills || 0) + 1;
+        
+        // Update skull display based on kill count (simplified)
+        if(killer.kills >= 10){
+          killer.skulls = '☠️'; // Skull and crossbones
+        } else if(killer.kills >= 3){
+          killer.skulls = '💀'; // Single skull
+        }
+        
+        console.log(killerName + ' now has ' + killer.kills + ' kills ' + killer.skulls);
+        
+        // Phase 6: Fauna Miniboss Growth
+        if(killer.class === 'Boar' || killer.class === 'Wolf'){
+          // Increase sprite size at key thresholds (max 2x at 10 kills)
+          if(killer.kills >= 10){
+            killer.spriteScale = 2.0; // Double size
+          } else if(killer.kills >= 3){
+            killer.spriteScale = 1.5; // Larger at first skull
+          }
+          
+          console.log('⚠️ ' + killer.class + ' is now a miniboss with ' + killer.kills + ' kills (size: ' + killer.spriteScale + 'x)');
+        }
         
         // End combat for killer using simple combat system (DON'T clear combat.target before this!)
         if(global.simpleCombat){
-          global.simpleCombat.endCombat(Player.list[report.id]);
+          global.simpleCombat.endCombat(killer);
         }
       } else {
         console.log(self.class + ' has ' + report.cause);
@@ -1397,6 +1442,25 @@ Character = function(param){
         innaWoods: self.innaWoods || false
       });
       console.log(`💀 ${self.class} skeleton spawned at [${deathLocation[0]},${deathLocation[1]}] z=${deathZ}`);
+    }
+    
+    // Phase 4: Death Broadcasts to nearby players
+    var deathCoords = getCenter(deathLocation[0], deathLocation[1]);
+    var broadcastRadius = 640; // 10 tiles
+    for(var id in Player.list){
+      var nearbyPlayer = Player.list[id];
+      if(!nearbyPlayer || nearbyPlayer.z !== deathZ) continue;
+      if(nearbyPlayer.id === self.id) continue; // Skip self
+      
+      var dist = getDistance({x: nearbyPlayer.x, y: nearbyPlayer.y}, {x: deathCoords[0], y: deathCoords[1]});
+      if(dist <= broadcastRadius){
+        var socket = SOCKET_LIST[id];
+        if(socket){
+          var victimName = self.name || self.class;
+          var message = '<span style="color:#ff6666;">☠️ ' + victimName + ' was killed by ' + killerName + '</span>';
+          socket.write(JSON.stringify({msg:'addToChat', message: message}));
+        }
+      }
     }
     
     // DROP INVENTORY AND EQUIPPED ITEMS
@@ -2028,26 +2092,19 @@ Character = function(param){
 
   self.stealthCheck = function(p){
     if(p.stealthed){
-      var loc = getLoc(self.x,self.y);
-      var pLoc = getLoc(p.x,p.y);
-      if(self.facing == 'up'){
-        var uLoc = [loc[0],loc[1]-1];
-        if(pLoc.toString() == uLoc.toString()){
+      var dist = self.getDistance({x:p.x, y:p.y});
+      if(dist <= tileSize * 2){ // Within 2 tiles
+        var loc = getLoc(self.x, self.y);
+        var pLoc = getLoc(p.x, p.y);
+        
+        // Check if facing the stealthed character
+        if(self.facing == 'up' && pLoc[1] < loc[1]){
           Player.list[p.id].revealed = true;
-        }
-      } else if(self.facing == 'right'){
-        var rLoc = [loc[0]+1,loc[1]];
-        if(pLoc.toString() == rLoc.toString()){
+        } else if(self.facing == 'down' && pLoc[1] > loc[1]){
           Player.list[p.id].revealed = true;
-        }
-      } else if(self.facing == 'down'){
-        var dLoc = [loc[0],loc[1]+1];
-        if(pLoc.toString() == dLoc.toString()){
+        } else if(self.facing == 'left' && pLoc[0] < loc[0]){
           Player.list[p.id].revealed = true;
-        }
-      } else if(self.facing == 'left'){
-        var lLoc = [loc[0]-1,loc[1]];
-        if(pLoc.toString() == lLoc.toString()){
+        } else if(self.facing == 'right' && pLoc[0] > loc[0]){
           Player.list[p.id].revealed = true;
         }
       }
@@ -2055,22 +2112,29 @@ Character = function(param){
   }
 
   self.revealCheck = function(){
+    // Day + not in woods = revealed
     if(self.z == 0 || self.z == 1 || self.z == 2){
       if(!nightfall && !self.innaWoods){
         self.revealed = true;
         return;
       }
     }
-    for(i in Light.list){
-      var light = Light.list[i];
-      if(self.z == light.z){
-        var d = self.getDistance({x:light.x,y:light.y});
-        if(d <= light.radius * 50){
-          self.revealed = true;
-          return;
+    
+    // Light sources ALWAYS reveal at night (even in woods)
+    if(nightfall || self.z == -1 || self.z == -2){
+      for(i in Light.list){
+        var light = Light.list[i];
+        if(self.z == light.z){
+          var d = self.getDistance({x:light.x,y:light.y});
+          if(d <= light.radius * 50){
+            self.revealed = true;
+            return;
+          }
         }
       }
     }
+    
+    // Otherwise, fully stealthed (night or in woods, away from lights)
     self.revealed = false;
   }
 
@@ -4041,7 +4105,10 @@ Character = function(param){
       spirit:self.spirit,
       spiritMax:self.spiritMax,
       action:self.action,
-      ghost:self.ghost
+      ghost:self.ghost,
+      kills:self.kills,
+      skulls:self.skulls,
+      spriteScale:self.spriteScale
     }
   }
 
@@ -4080,7 +4147,10 @@ Character = function(param){
       spirit:self.spirit,
       spiritMax:self.spiritMax,
       action:self.action,
-      ghost:self.ghost
+      ghost:self.ghost,
+      kills:self.kills,
+      skulls:self.skulls,
+      spriteScale:self.spriteScale
     }
   }
 
@@ -4095,6 +4165,7 @@ Character = function(param){
 Sheep = function(param){
   var self = Character(param);
   self.class = 'Sheep';
+  return self;
 }
 
 Deer = function(param){
@@ -4232,6 +4303,7 @@ Deer = function(param){
     }
     self.updatePosition();
   }
+  return self;
 }
 
 Boar = function(param){
@@ -4241,6 +4313,7 @@ Boar = function(param){
   self.damage = 12;
   self.aggroRange = 128;
   self.wanderRange = 256; // Tight leash - territorial defense (2x aggro range)
+  return self;
 }
 
 Wolf = function(param){
@@ -4524,6 +4597,7 @@ Wolf = function(param){
     }
     self.updatePosition();
   }
+  return self;
 }
 
 Falcon = function(param){
@@ -4644,6 +4718,7 @@ Falcon = function(param){
       }
     }
   }
+  return self;
 }
 
 // UNITS
@@ -5179,25 +5254,30 @@ SerfM = function(param){
               var dropoff = [b.plot[0][0],b.plot[0][1]+1];
               if(loc.toString() == dropoff.toString()){
                 self.facing = 'up';
-                var grainDeposited = self.inventory.grain;
+                var totalGrain = self.inventory.grain;
+                var buildingShare = Math.floor(totalGrain * 0.85); // 85% to building
+                var serfWage = totalGrain - buildingShare;         // 15% wage for serf
+                
                 self.inventory.grain = 0;
+                self.stores.grain = (self.stores.grain || 0) + serfWage; // Keep wage
+                
                 if(House.list[b.owner]){
-                  House.list[b.owner].stores.grain += grainDeposited;
-                  console.log(House.list[b.owner].name + ' +' + grainDeposited + ' Grain');
+                  House.list[b.owner].stores.grain += buildingShare;
+                  console.log(House.list[b.owner].name + ' +' + buildingShare + ' Grain (' + self.name + ' kept ' + serfWage + ' as wage)');
                 } else if(Player.list[b.owner].house){
                   var h = Player.list[b.owner].house;
-                  House.list[h].stores.grain += grainDeposited;
-                  console.log(House.list[h].name + ' +' + grainDeposited + ' Grain');
+                  House.list[h].stores.grain += buildingShare;
+                  console.log(House.list[h].name + ' +' + buildingShare + ' Grain (' + self.name + ' kept ' + serfWage + ' as wage)');
                 } else {
-                  Player.list[b.owner].stores.grain += grainDeposited
-                  console.log(Player.list[b.owner].name + ' +' + grainDeposited + ' Grain');
+                  Player.list[b.owner].stores.grain += buildingShare;
+                  console.log(Player.list[b.owner].name + ' +' + buildingShare + ' Grain (' + self.name + ' kept ' + serfWage + ' as wage)');
                 }
-                // Track daily deposits
+                // Track daily deposits (building share only)
                 if(!b.dailyStores) b.dailyStores = {grain: 0};
-                b.dailyStores.grain += grainDeposited;
+                b.dailyStores.grain += buildingShare;
                 
-                // Convert deposited grain to flour (3:1 ratio - 3 grain = 1 flour)
-                self.inventory.flour += Math.floor(grainDeposited / 3);
+                // Convert deposited grain to flour (3:1 ratio - uses building's share only)
+                self.inventory.flour += Math.floor(buildingShare / 3);
               } else {
                 if(!self.path){
                   self.moveTo(0,dropoff[0],dropoff[1]);
@@ -5370,22 +5450,27 @@ SerfM = function(param){
               var dropoff = [b.plot[0][0],b.plot[0][1]+1];
               if(loc.toString() == dropoff.toString()){
                 self.facing = 'up';
-                var woodDeposited = self.inventory.wood;
+                var totalWood = self.inventory.wood;
+                var buildingShare = Math.floor(totalWood * 0.85); // 85% to building
+                var serfWage = totalWood - buildingShare;         // 15% wage for serf
+                
                 self.inventory.wood = 0;
+                self.stores.wood = (self.stores.wood || 0) + serfWage; // Keep wage
+                
                 if(House.list[b.owner]){
-                  House.list[b.owner].stores.wood += woodDeposited;
-                  console.log(House.list[b.owner].name + ' +' + woodDeposited + ' Wood');
+                  House.list[b.owner].stores.wood += buildingShare;
+                  console.log(House.list[b.owner].name + ' +' + buildingShare + ' Wood (' + self.name + ' kept ' + serfWage + ' as wage)');
                 } else if(Player.list[b.owner] && Player.list[b.owner].house){
                   var h = Player.list[b.owner].house;
-                  House.list[h].stores.wood += woodDeposited;
-                  console.log(House.list[h].name + ' +' + woodDeposited + ' Wood');
+                  House.list[h].stores.wood += buildingShare;
+                  console.log(House.list[h].name + ' +' + buildingShare + ' Wood (' + self.name + ' kept ' + serfWage + ' as wage)');
                 } else if(Player.list[b.owner]){
-                  Player.list[b.owner].stores.wood += woodDeposited
-                  console.log(Player.list[b.owner].name + ' +' + woodDeposited + ' Wood');
+                  Player.list[b.owner].stores.wood += buildingShare;
+                  console.log(Player.list[b.owner].name + ' +' + buildingShare + ' Wood (' + self.name + ' kept ' + serfWage + ' as wage)');
                 }
-                // Track daily deposits
+                // Track daily deposits (building share only)
                 if(!b.dailyStores) b.dailyStores = {wood: 0};
-                b.dailyStores.wood += woodDeposited;
+                b.dailyStores.wood += buildingShare;
               } else {
                 if(!self.path){
                   self.moveTo(0,dropoff[0],dropoff[1]);
@@ -5475,22 +5560,27 @@ SerfM = function(param){
                 var drop = [b.plot[0][0],b.plot[0][1]+1];
                 if(loc.toString() == drop.toString()){
                   self.facing = 'up';
-                  var ironDeposited = self.inventory.ironore;
+                  var totalIron = self.inventory.ironore;
+                  var buildingShare = Math.floor(totalIron * 0.85); // 85% to building
+                  var serfWage = totalIron - buildingShare;         // 15% wage for serf
+                  
                   self.inventory.ironore = 0;
+                  self.stores.ironore = (self.stores.ironore || 0) + serfWage; // Keep wage
+                  
                   if(House.list[b.owner]){
-                    House.list[b.owner].stores.ironore += ironDeposited;
-                    console.log(House.list[b.owner].name + ' +' + ironDeposited + ' Iron Ore');
+                    House.list[b.owner].stores.ironore += buildingShare;
+                    console.log(House.list[b.owner].name + ' +' + buildingShare + ' Iron Ore (' + self.name + ' kept ' + serfWage + ' as wage)');
                   } else if(Player.list[b.owner] && Player.list[b.owner].house){
                     var h = Player.list[b.owner].house;
-                    House.list[h].stores.ironore += ironDeposited;
-                    console.log(House.list[h].name + ' +' + ironDeposited + ' Iron Ore');
+                    House.list[h].stores.ironore += buildingShare;
+                    console.log(House.list[h].name + ' +' + buildingShare + ' Iron Ore (' + self.name + ' kept ' + serfWage + ' as wage)');
                   } else if(Player.list[b.owner]){
-                    Player.list[b.owner].stores.ironore += ironDeposited;
-                    console.log(Player.list[b.owner].name + ' +' + ironDeposited + ' Iron Ore');
+                    Player.list[b.owner].stores.ironore += buildingShare;
+                    console.log(Player.list[b.owner].name + ' +' + buildingShare + ' Iron Ore (' + self.name + ' kept ' + serfWage + ' as wage)');
                   }
-                  // Track daily deposits
+                  // Track daily deposits (building share only)
                   if(!b.dailyStores) b.dailyStores = {stone: 0, ironore: 0, silverore: 0, goldore: 0, diamond: 0};
-                  b.dailyStores.ironore += ironDeposited;
+                  b.dailyStores.ironore += buildingShare;
                 } else {
                   if(!self.path){
                     self.moveTo(0,drop[0],drop[1]);
@@ -5759,22 +5849,27 @@ SerfM = function(param){
                 var drop = [b.plot[0][0],b.plot[0][1]+1];
                 if(loc.toString() == drop.toString()){
                   self.facing = 'up';
-                  var stoneDeposited = self.inventory.stone;
+                  var totalStone = self.inventory.stone;
+                  var buildingShare = Math.floor(totalStone * 0.85); // 85% to building
+                  var serfWage = totalStone - buildingShare;         // 15% wage for serf
+                  
                   self.inventory.stone = 0;
+                  self.stores.stone = (self.stores.stone || 0) + serfWage; // Keep wage
+                  
                   if(House.list[b.owner]){
-                    House.list[b.owner].stores.stone += stoneDeposited;
-                    console.log(House.list[b.owner].name + ' +' + stoneDeposited + ' Stone');
+                    House.list[b.owner].stores.stone += buildingShare;
+                    console.log(House.list[b.owner].name + ' +' + buildingShare + ' Stone (' + self.name + ' kept ' + serfWage + ' as wage)');
                   } else if(Player.list[b.owner] && Player.list[b.owner].house){
                     var h = Player.list[b.owner].house;
-                    House.list[h].stores.stone += stoneDeposited;
-                    console.log(House.list[h].name + ' +' + stoneDeposited + ' Stone');
+                    House.list[h].stores.stone += buildingShare;
+                    console.log(House.list[h].name + ' +' + buildingShare + ' Stone (' + self.name + ' kept ' + serfWage + ' as wage)');
                   } else if(Player.list[b.owner]){
-                    Player.list[b.owner].stores.stone += stoneDeposited
-                    console.log(Player.list[b.owner].name + ' +' + stoneDeposited + ' Stone');
+                    Player.list[b.owner].stores.stone += buildingShare;
+                    console.log(Player.list[b.owner].name + ' +' + buildingShare + ' Stone (' + self.name + ' kept ' + serfWage + ' as wage)');
                   }
-                  // Track daily deposits
+                  // Track daily deposits (building share only)
                   if(!b.dailyStores) b.dailyStores = {stone: 0, ironore: 0, silverore: 0, goldore: 0, diamond: 0};
-                  b.dailyStores.stone += stoneDeposited;
+                  b.dailyStores.stone += buildingShare;
                 } else {
                   if(!self.path){
                     self.moveTo(0,drop[0],drop[1]);
@@ -5871,22 +5966,27 @@ SerfM = function(param){
             }
           } else if(b.type == 'lumbermill'){
             if(self.inventory.wood >= 3){
-              self.inventory.wood -= 2;
-              var woodDeposited = 2;
+              var totalWood = 3;
+              var buildingShare = Math.floor(totalWood * 0.85); // 2 wood to building
+              var serfWage = totalWood - buildingShare;          // 1 wood wage
+              
+              self.inventory.wood -= totalWood;
+              self.stores.wood = (self.stores.wood || 0) + serfWage;
+              
               if(House.list[b.owner]){
-                House.list[b.owner].stores.wood += woodDeposited;
-                console.log(self.name + ' dropped off 2 Wood.');
+                House.list[b.owner].stores.wood += buildingShare;
+                console.log(self.name + ' dropped off ' + buildingShare + ' Wood, kept ' + serfWage + ' as wage.');
               } else if(Player.list[b.owner].house){
                 var h = Player.list[b.owner].house;
-                House.list[h].stores.wood += woodDeposited;
-                console.log(self.name + ' dropped off 2 Wood.');
+                House.list[h].stores.wood += buildingShare;
+                console.log(self.name + ' dropped off ' + buildingShare + ' Wood, kept ' + serfWage + ' as wage.');
               } else {
-                Player.list[b.owner].stores.wood += woodDeposited;
-                console.log(self.name + ' dropped off 2 Wood.');
+                Player.list[b.owner].stores.wood += buildingShare;
+                console.log(self.name + ' dropped off ' + buildingShare + ' Wood, kept ' + serfWage + ' as wage.');
               }
-              // Track daily deposits
+              // Track daily deposits (building share only)
               if(!b.dailyStores) b.dailyStores = {wood: 0};
-              b.dailyStores.wood += woodDeposited;
+              b.dailyStores.wood += buildingShare;
             } else {
               // Not enough wood, transition to next action
               console.log(self.name + ' not enough wood to drop off, transitioning');
@@ -6022,22 +6122,26 @@ SerfM = function(param){
         if(self.tavern){
           if(Building.list[self.tavern].market){
             var inv = self.inventory;
-            if(inv.flour > 0 || inv.wood > 0 || inv.stone > 0 || inv.ironore > 0){
+            var hasItemsToSell = (inv.flour > 0 || inv.wood > 0 || inv.stone > 0 || inv.ironore > 0 || 
+                                   inv.silverore > 0 || inv.goldore > 0 || inv.diamond > 0);
+            var hasMoneyToBuy = (self.stores.silver || 0) > 20;
+            
+            // Phase 4: Increased market frequency
+            // 80% chance if have items to sell
+            // 40% chance if have money to buy
+            // 15% chance to go anyway (check prices, socialize)
+            if(hasItemsToSell || (hasMoneyToBuy && rand < 0.4) || rand < 0.15){
               self.action = 'market';
               console.log(self.name + ' heads to the market');
+            } else if(rand > 0.85){
+              self.action = 'home';
+              console.log(self.name + ' heads home for the night');
             } else {
-              if(rand < 0.2 && (inv.gold > 0 || inv.silver > 0)){
-                self.action = 'market';
-                console.log(self.name + ' heads to the market');
-              } else if(rand > 0.9){
-                self.action = null;
-                console.log(self.name + ' heads home for the night');
-              } else {
-                self.action = 'tavern';
-                console.log(self.name + ' heads to the tavern');
-              }
+              self.action = 'tavern';
+              console.log(self.name + ' heads to the tavern');
             }
           } else {
+            // No market - normal tavern/home choice
             if(rand < 0.6){
               self.action = 'tavern';
               console.log(self.name + ' heads to the tavern');
@@ -6165,66 +6269,140 @@ SerfM = function(param){
             var soldSomething = false;
             
           if(inv.flour > 0){
-              // Transfer flour to stores, then sell
-              self.stores.grain = (self.stores.grain || 0) + inv.flour;
+              // Transfer flour to stores, then sell 75%, keep 25%
+              var totalFlour = inv.flour;
+              var sellAmount = Math.floor(totalFlour * 0.75); // Sell 75%
+              var keepAmount = totalFlour - sellAmount;        // Keep 25%
+              
+              self.stores.grain = (self.stores.grain || 0) + keepAmount;
               inv.flour = 0;
-              var price = 3; // Base price for flour
-              global.processSellOrder(self.id, 'grain', self.stores.grain, price);
-              soldSomething = true;
+              
+              if(sellAmount > 0){
+                var price = global.getCompetitiveAskPrice(market, 'grain') || 3;
+                global.processSellOrder(self.id, 'grain', sellAmount, price);
+                console.log(self.name + ' sold ' + sellAmount + ' grain @ ' + price + ' silver, kept ' + keepAmount);
+                soldSomething = true;
+              }
           } else if(inv.wood > 0){
-              // Transfer wood to stores, then sell
-              self.stores.wood = (self.stores.wood || 0) + inv.wood;
+              // Transfer wood to stores, then sell 75%, keep 25%
+              var totalWood = inv.wood;
+              var sellAmount = Math.floor(totalWood * 0.75);
+              var keepAmount = totalWood - sellAmount;
+              
+              self.stores.wood = (self.stores.wood || 0) + keepAmount;
               inv.wood = 0;
-              var price = 8; // Base price for wood
-              global.processSellOrder(self.id, 'wood', self.stores.wood, price);
-              soldSomething = true;
+              
+              if(sellAmount > 0){
+                var price = global.getCompetitiveAskPrice(market, 'wood') || 8;
+                global.processSellOrder(self.id, 'wood', sellAmount, price);
+                console.log(self.name + ' sold ' + sellAmount + ' wood @ ' + price + ' silver, kept ' + keepAmount);
+                soldSomething = true;
+              }
           } else if(inv.stone > 0){
-              // Transfer stone to stores, then sell
-              self.stores.stone = (self.stores.stone || 0) + inv.stone;
+              // Transfer stone to stores, then sell 75%, keep 25%
+              var totalStone = inv.stone;
+              var sellAmount = Math.floor(totalStone * 0.75);
+              var keepAmount = totalStone - sellAmount;
+              
+              self.stores.stone = (self.stores.stone || 0) + keepAmount;
               inv.stone = 0;
-              var price = 10; // Base price for stone
-              global.processSellOrder(self.id, 'stone', self.stores.stone, price);
-              soldSomething = true;
+              
+              if(sellAmount > 0){
+                var price = global.getCompetitiveAskPrice(market, 'stone') || 10;
+                global.processSellOrder(self.id, 'stone', sellAmount, price);
+                console.log(self.name + ' sold ' + sellAmount + ' stone @ ' + price + ' silver, kept ' + keepAmount);
+                soldSomething = true;
+              }
           } else if(inv.ironore > 0){
-              // Transfer ironore to stores, then sell
-              self.stores.ironore = (self.stores.ironore || 0) + inv.ironore;
+              // Transfer ironore to stores, then sell 75%, keep 25%
+              var totalOre = inv.ironore;
+              var sellAmount = Math.floor(totalOre * 0.75);
+              var keepAmount = totalOre - sellAmount;
+              
+              self.stores.ironore = (self.stores.ironore || 0) + keepAmount;
               inv.ironore = 0;
-              var price = 15; // Base price for iron ore
-              global.processSellOrder(self.id, 'ironore', self.stores.ironore, price);
-              soldSomething = true;
+              
+              if(sellAmount > 0){
+                var price = global.getCompetitiveAskPrice(market, 'ironore') || 15;
+                global.processSellOrder(self.id, 'ironore', sellAmount, price);
+                console.log(self.name + ' sold ' + sellAmount + ' ironore @ ' + price + ' silver, kept ' + keepAmount);
+                soldSomething = true;
+              }
             } else if(inv.silverore > 0){
-              // Transfer silverore to stores, then sell
+              // Precious ore - sell 100% (no keeping, goes entirely to building owner)
               self.stores.silverore = (self.stores.silverore || 0) + inv.silverore;
               inv.silverore = 0;
-              var price = 40; // Base price for silver ore
+              
+              var price = global.getCompetitiveAskPrice(market, 'silverore') || 40;
               global.processSellOrder(self.id, 'silverore', self.stores.silverore, price);
+              console.log(self.name + ' sold ' + self.stores.silverore + ' silverore @ ' + price + ' silver (precious ore - no keeping)');
               soldSomething = true;
             } else if(inv.goldore > 0){
-              // Transfer goldore to stores, then sell
+              // Precious ore - sell 100% (no keeping, goes entirely to building owner)
               self.stores.goldore = (self.stores.goldore || 0) + inv.goldore;
               inv.goldore = 0;
-              var price = 80; // Base price for gold ore
+              
+              var price = global.getCompetitiveAskPrice(market, 'goldore') || 80;
               global.processSellOrder(self.id, 'goldore', self.stores.goldore, price);
+              console.log(self.name + ' sold ' + self.stores.goldore + ' goldore @ ' + price + ' silver (precious ore - no keeping)');
               soldSomething = true;
             } else if(inv.diamond > 0){
-              // Transfer diamond to stores, then sell
+              // Precious gem - sell 100% (no keeping, goes entirely to building owner)
               self.stores.diamond = (self.stores.diamond || 0) + inv.diamond;
               inv.diamond = 0;
-              var price = 200; // Base price for diamonds
+              
+              var price = global.getCompetitiveAskPrice(market, 'diamond') || 200;
               global.processSellOrder(self.id, 'diamond', self.stores.diamond, price);
+              console.log(self.name + ' sold ' + self.stores.diamond + ' diamond @ ' + price + ' silver (precious gem - no keeping)');
               soldSomething = true;
             }
             
             if(soldSomething){
               self.hasPlacedMarketOrder = true; // Mark that we've sold, don't sell again
-              console.log(self.name + ' sold resources at market');
             }
           }
           
-          if(!soldSomething){
-            if(inv.silver > 0 || inv.gold > 0){
-              // buy something nice
+          // Phase 5: NPC Buying Behavior
+          if(!soldSomething && (self.stores.silver || 0) > 30){
+            var rand = Math.random();
+            var desiredResource = null;
+            
+            // Determine what to buy based on serf's work
+            if(self.work && self.work.hq){
+              var hqBuilding = Building.list[self.work.hq];
+              if(hqBuilding){
+                // Buy resources related to work building
+                if(hqBuilding.type === 'mill'){
+                  if(rand < 0.5) desiredResource = 'grain'; // Buy more grain to process
+                } else if(hqBuilding.type === 'lumbermill'){
+                  if(rand < 0.5) desiredResource = 'wood';
+                } else if(hqBuilding.type === 'mine'){
+                  if(rand < 0.3) desiredResource = 'ironore';
+                  else if(rand < 0.5) desiredResource = 'silverore';
+                }
+              }
             }
+            
+            // Random chance to buy consumables or tools
+            if(!desiredResource && rand < 0.3){
+              var buyables = ['grain', 'wood', 'stone', 'bread', 'torch'];
+              desiredResource = buyables[Math.floor(Math.random() * buyables.length)];
+            }
+            
+            if(desiredResource){
+              var price = global.getCompetitiveBidPrice(market, desiredResource) || 5;
+              var maxSpend = Math.floor((self.stores.silver || 0) * 0.4); // Spend max 40% of silver
+              var buyAmount = Math.floor(maxSpend / price);
+              
+              if(buyAmount > 0){
+                global.processBuyOrder(self.id, desiredResource, buyAmount, price);
+                console.log(self.name + ' placed buy order for ' + buyAmount + ' ' + desiredResource + ' @ ' + price + ' silver');
+                self.hasPlacedMarketOrder = true;
+              }
+            }
+          }
+          
+          if(!self.hasPlacedMarketOrder){
             if(!self.dayTimer){
               self.dayTimer = true;
               var rand = Math.floor(Math.random() * (3600000/(period/3)));

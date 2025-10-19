@@ -129,45 +129,71 @@ Interact = function(id,loc){
       var b = getBuilding(c[0],c[1]);
       var build = Building.list[b];
       if(build && build.type == 'market'){
-        var message = '<b><u>📊 Market Orderbook</u></b><br>';
-        message += '<i>Use /buy [amount] [item] [price] or /sell [amount] [item] [price]</i><br>';
+        var message = '<b><u>📊 MARKET ORDERBOOK</u></b><br>';
+        message += '<i style="color:#aaaaaa;">Quick price check: type <b>$itemname</b> (e.g. $grain, $wood)</i><br>';
+        message += '<i style="color:#aaaaaa;">Place orders: <b>/buy [amt] [item] [price]</b> or <b>/sell [amt] [item] [price]</b></i><br>';
         
         var hasOrders = false;
+        var resources = [];
         
-        // Display each resource's orderbook
+        // Collect all resources with orders
         for(var resource in build.orderbook){
           var book = build.orderbook[resource];
-          var emoji = build.resourceEmoji[resource] || '📦';
-          
           if(book.bids.length > 0 || book.asks.length > 0){
-            hasOrders = true;
-            message += '<br><b>' + emoji + ' ' + resource.toUpperCase() + '</b>';
-            
-            // Show best 3 sell orders (asks) - sorted low to high
-            if(book.asks.length > 0){
-              message += '<br>&nbsp;&nbsp;<span style="color:#ff6666;">SELL:</span>';
-              for(var i = 0; i < Math.min(3, book.asks.length); i++){
-                var ask = book.asks[i];
-                message += '<br>&nbsp;&nbsp;&nbsp;&nbsp;' + ask.amount + ' @ ' + ask.price + ' silver';
-              }
+            resources.push(resource);
+          }
+        }
+        
+        // Sort resources alphabetically for consistent display
+        resources.sort();
+        
+        for(var r in resources){
+          var resource = resources[r];
+          var book = build.orderbook[resource];
+          var emoji = build.getItemEmoji ? build.getItemEmoji(resource) : (build.resourceEmoji[resource] || '📦');
+          
+          hasOrders = true;
+          message += '<br><b>' + emoji + ' ' + resource.toUpperCase() + '</b>';
+          
+          // Sort and show best 3 sell orders (asks) - LOW TO HIGH
+          if(book.asks.length > 0){
+            book.asks.sort(function(a, b){ return a.price - b.price; });
+            message += '<br>&nbsp;&nbsp;<span style="color:#ff6666;">SELL (Ask):</span>';
+            for(var i = 0; i < Math.min(3, book.asks.length); i++){
+              var ask = book.asks[i];
+              message += '<br>&nbsp;&nbsp;&nbsp;&nbsp;' + ask.amount + ' @ <b>' + ask.price + ' silver</b>';
             }
-            
-            // Show best 3 buy orders (bids) - sorted high to low
-            if(book.bids.length > 0){
-              message += '<br>&nbsp;&nbsp;<span style="color:#66ff66;">BUY:</span>';
-              for(var i = 0; i < Math.min(3, book.bids.length); i++){
-                var bid = book.bids[i];
-                message += '<br>&nbsp;&nbsp;&nbsp;&nbsp;' + bid.amount + ' @ ' + bid.price + ' silver';
-              }
+            if(book.asks.length > 3){
+              message += '<br>&nbsp;&nbsp;&nbsp;&nbsp;<i>... +' + (book.asks.length - 3) + ' more</i>';
+            }
+          }
+          
+          // Sort and show best 3 buy orders (bids) - HIGH TO LOW
+          if(book.bids.length > 0){
+            book.bids.sort(function(a, b){ return b.price - a.price; });
+            message += '<br>&nbsp;&nbsp;<span style="color:#66ff66;">BUY (Bid):</span>';
+            for(var i = 0; i < Math.min(3, book.bids.length); i++){
+              var bid = book.bids[i];
+              message += '<br>&nbsp;&nbsp;&nbsp;&nbsp;' + bid.amount + ' @ <b>' + bid.price + ' silver</b>';
+            }
+            if(book.bids.length > 3){
+              message += '<br>&nbsp;&nbsp;&nbsp;&nbsp;<i>... +' + (book.bids.length - 3) + ' more</i>';
             }
           }
         }
         
         if(!hasOrders){
-          message += '<br><i>No active orders</i>';
+          message += '<br><i>📭 No active orders in this market</i>';
+          message += '<br><br><b>Be the first to trade!</b>';
+          message += '<br>Example: <b>/sell 100 grain 5</b> (sell 100 grain at 5 silver each)';
+          message += '<br>Example: <b>/buy 50 wood 8</b> (buy 50 wood at 8 silver each)';
         }
         
-        message += '<br><br><i>Type /orders to see your orders</i>';
+        message += '<br><br><i>📋 Commands:</i>';
+        message += '<br><b>/orders</b> - View your active orders';
+        message += '<br><b>/cancel [orderID]</b> - Cancel an order';
+        message += '<br><b>$[item]</b> - Quick price check (e.g. $grain)';
+        
         socket.write(JSON.stringify({msg:'addToChat',message: message}));
       }
     } else if(item == 'Desk'){
