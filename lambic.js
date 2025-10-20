@@ -93,7 +93,6 @@ const FACTION_IDS = {
 
 // Import new modular systems
 const { gameState } = require('./server/js/core/GameState.js');
-const { CommandHandler } = require('./server/js/commands/CommandHandler.js');
 const { itemFactory } = require('./server/js/entities/ItemFactory.js');
 const OptimizedGameLoop = require('./server/js/core/OptimizedGameLoop.js');
 const SimpleCombat = require('./server/js/core/SimpleCombat.js');
@@ -136,9 +135,6 @@ global.simpleCombat = new SimpleCombat();
 // Initialize SimpleFlee system
 const SimpleFlee = require('./server/js/core/SimpleFlee');
 global.simpleFlee = new SimpleFlee();
-
-// Create command handler after globals are set
-const commandHandler = new CommandHandler();
 
 // Create optimized game loop
 const optimizedGameLoop = new OptimizedGameLoop();
@@ -1422,6 +1418,10 @@ const Player = function(param) {
   self.godMode = false;
   self.godModeReturnPos = null;
   
+  // Movement optimization: Only revalidate terrain when moved significantly
+  self.lastTerrainCheck = { x: param.x || 0, y: param.y || 0 };
+  self.currentTerrain = null;
+  
   // Phase 5: Kill tracking
   self.kills = 0;
   self.skulls = '';
@@ -1805,6 +1805,34 @@ const Player = function(param) {
     }
   };
 
+  // Helper: Apply terrain speed modifiers (consolidated logic)
+  self.applyTerrainSpeed = function(tile) {
+    if (tile >= TERRAIN.HEAVY_FOREST && tile < TERRAIN.LIGHT_FOREST) {
+      self.innaWoods = true;
+      self.onMtn = false;
+      self.maxSpd = (self.baseSpd * 0.3) * self.drag;
+    } else if (tile >= TERRAIN.LIGHT_FOREST && tile < TERRAIN.ROCKS) {
+      self.innaWoods = false;
+      self.onMtn = false;
+      self.maxSpd = (self.baseSpd * 0.5) * self.drag;
+    } else if (tile >= TERRAIN.ROCKS && tile < TERRAIN.MOUNTAIN) {
+      self.innaWoods = false;
+      self.onMtn = false;
+      self.maxSpd = (self.baseSpd * 0.6) * self.drag;
+    } else if (tile >= TERRAIN.MOUNTAIN && tile < TERRAIN.CAVE_ENTRANCE) {
+      self.innaWoods = false;
+      self.maxSpd = (self.baseSpd * (self.onMtn ? 0.5 : 0.2)) * self.drag;
+    } else if (tile === TERRAIN.ROAD) {
+      self.innaWoods = false;
+      self.onMtn = false;
+      self.maxSpd = (self.baseSpd * 1.1) * self.drag;
+    } else {
+      self.innaWoods = false;
+      self.onMtn = false;
+      self.maxSpd = self.baseSpd * self.drag;
+    }
+  };
+
   self.lightTorch = function(torchId) {
     const socket = SOCKET_LIST[self.id];
 
@@ -1833,8 +1861,23 @@ const Player = function(param) {
   };
 
   self.updateSpd = function() {
+    // OPTIMIZATION: Only check terrain if moved significantly (> half a tile)
+    const movedDistance = getDistance(
+      { x: self.x, y: self.y },
+      { x: self.lastTerrainCheck.x, y: self.lastTerrainCheck.y }
+    );
+    
+    // Skip terrain validation if haven't moved much
+    if (movedDistance < tileSize / 2 && self.currentTerrain !== null) {
+      return; // Use cached terrain settings
+    }
+    
+    // Update position tracking
+    self.lastTerrainCheck = { x: self.x, y: self.y };
+    
     const loc = getLoc(self.x, self.y);
     const currentTile = getTile(0, loc[0], loc[1]);
+    self.currentTerrain = currentTile; // Cache for next check
     
     // Apply terrain modifiers BEFORE movement
     const socket = SOCKET_LIST[self.id];
@@ -1863,37 +1906,17 @@ const Player = function(param) {
     
     // Set maxSpd based on terrain - non-ghosts only
     if (!self.ghost && self.z === Z_LEVELS.OVERWORLD) {
-      if (currentTile >= TERRAIN.HEAVY_FOREST && currentTile < TERRAIN.LIGHT_FOREST) {
-        self.innaWoods = true;
-        self.onMtn = false;
-        self.maxSpd = (self.baseSpd * 0.3) * self.drag;
-      } else if (currentTile >= TERRAIN.LIGHT_FOREST && currentTile < TERRAIN.ROCKS) {
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = (self.baseSpd * 0.5) * self.drag;
-      } else if (currentTile >= TERRAIN.ROCKS && currentTile < TERRAIN.MOUNTAIN) {
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = (self.baseSpd * 0.6) * self.drag;
-      } else if (currentTile >= TERRAIN.MOUNTAIN && currentTile < TERRAIN.CAVE_ENTRANCE) {
-        self.innaWoods = false;
-        self.maxSpd = (self.baseSpd * (self.onMtn ? 0.5 : 0.2)) * self.drag;
-        if (!self.onMtn) {
-          setTimeout(() => {
-            const checkTile = getTile(0, loc[0], loc[1]);
-            if (checkTile >= TERRAIN.MOUNTAIN && checkTile < TERRAIN.CAVE_ENTRANCE) {
-              self.onMtn = true;
-            }
-          }, 2000);
-        }
-      } else if (currentTile === TERRAIN.ROAD) {
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = (self.baseSpd * 1.1) * self.drag;
-      } else {
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = self.baseSpd * self.drag;
+      // Use consolidated terrain speed logic
+      self.applyTerrainSpeed(currentTile);
+      
+      // Special handling for mountains (delayed onMtn flag)
+      if (currentTile >= TERRAIN.MOUNTAIN && currentTile < TERRAIN.CAVE_ENTRANCE && !self.onMtn) {
+        setTimeout(() => {
+          const checkTile = getTile(0, loc[0], loc[1]);
+          if (checkTile >= TERRAIN.MOUNTAIN && checkTile < TERRAIN.CAVE_ENTRANCE) {
+            self.onMtn = true;
+          }
+        }, 2000);
       }
     } else if (!self.ghost && self.z === Z_LEVELS.UNDERWATER) {
       // Underwater is VERY slow - disable running and apply heavy penalty
@@ -2095,34 +2118,6 @@ const Player = function(param) {
       self.onMtn = false;
       self.maxSpd = self.baseSpd * self.drag;
       socket.write(JSON.stringify({ msg: 'bgm', x: self.x, y: self.y, z: self.z }));
-    } else if (tile >= TERRAIN.HEAVY_FOREST && tile < TERRAIN.LIGHT_FOREST) {
-      self.innaWoods = true;
-      self.onMtn = false;
-      self.maxSpd = (self.baseSpd * 0.3) * self.drag;
-    } else if (tile >= TERRAIN.LIGHT_FOREST && tile < TERRAIN.ROCKS) {
-      self.innaWoods = false;
-      self.onMtn = false;
-      self.maxSpd = (self.baseSpd * 0.5) * self.drag;
-    } else if (tile >= TERRAIN.ROCKS && tile < TERRAIN.MOUNTAIN) {
-      self.innaWoods = false;
-      self.onMtn = false;
-      self.maxSpd = (self.baseSpd * 0.6) * self.drag;
-    } else if (tile >= TERRAIN.MOUNTAIN && tile < TERRAIN.CAVE_ENTRANCE) {
-      self.innaWoods = false;
-      self.maxSpd = (self.baseSpd * (self.onMtn ? 0.5 : 0.2)) * self.drag;
-
-      if (!self.onMtn) {
-        setTimeout(() => {
-          const currentTile = getTile(0, loc[0], loc[1]);
-          if (currentTile >= TERRAIN.MOUNTAIN && currentTile < TERRAIN.CAVE_ENTRANCE) {
-            self.onMtn = true;
-          }
-        }, 2000);
-      }
-    } else if (tile === TERRAIN.ROAD) {
-      self.innaWoods = false;
-      self.onMtn = false;
-      self.maxSpd = (self.baseSpd * 1.1) * self.drag;
     } else if (tile === TERRAIN.DOOR_OPEN || tile === TERRAIN.DOOR_OPEN_ALT) {
       Building.list[b].occ++;
       self.z = Z_LEVELS.BUILDING_1;
@@ -4051,10 +4046,7 @@ const removePack = { player: [], arrow: [], item: [], light: [], building: [] };
 global.initPack = initPack;
 global.removePack = removePack;
 
-// Initialize SIMPLIFIED Serf behavior system - TEMPORARILY DISABLED for debugging
-const SimpleSerfBehavior = require('./server/js/core/SimpleSerfBehavior.js');
-global.simpleSerfBehavior = null; // DISABLED - let Entity.js handle everything
-console.log('⚠️ SimpleSerfBehavior DISABLED - using Entity.js logic');
+// Serf behavior logic is integrated into Entity.js (SerfM/SerfF classes)
 
 // Initialize optimized game loop
 optimizedGameLoop.initialize(gameState, emit);
