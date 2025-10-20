@@ -481,6 +481,14 @@ socket.onmessage = function(event){
           b.occ = pack.occ;
       }
     }
+    
+    // Check if we need to update music after exiting god mode
+    if(godModeCamera.needsMusicUpdate && Player.list[selfId]){
+      godModeCamera.needsMusicUpdate = false;
+      var p = Player.list[selfId];
+      var b = getBuilding(p.x, p.y);
+      getBgm(p.x, p.y, p.z, b);
+    }
   } else if(data.msg == 'remove'){
     // {player:[12323],arrow:[12323,123123]}
     for(var i = 0 ; i < data.pack.player.length; i++){
@@ -501,7 +509,17 @@ socket.onmessage = function(event){
   } else if(data.msg == 'tempus'){
     tempus = data.tempus;
     nightfall = data.nightfall;
-    if(Player.list[selfId]){
+    
+    // Update music based on god mode camera or player position
+    if(godModeCamera.isActive){
+      // In god mode - use camera position
+      var z = godModeCamera.cameraZ;
+      var x = godModeCamera.cameraX;
+      var y = godModeCamera.cameraY;
+      var b = (z == 1 || z == 2) ? getBuilding(x, y) : null;
+      getBgm(x, y, z, b);
+    } else if(Player.list[selfId]){
+      // Normal mode - use player position
       var p = Player.list[selfId];
       if(p.z == 0 && (tempus == 'IV.a' || tempus == 'V.a' || tempus == 'X.a' || tempus == 'VIII.p')){
         getBgm(p.x,p.y,p.z);
@@ -515,9 +533,14 @@ socket.onmessage = function(event){
     if(data.active){
       // Start god mode spectator camera
       godModeCamera.start(data.cameraX, data.cameraY, data.cameraZ, data.factionHQs);
+      
+      // Update music/ambience for initial god mode position
+      var b = (data.cameraZ == 1 || data.cameraZ == 2) ? getBuilding(data.cameraX, data.cameraY) : null;
+      getBgm(data.cameraX, data.cameraY, data.cameraZ, b);
     } else {
       // Stop god mode camera
       godModeCamera.stop();
+      godModeCamera.needsMusicUpdate = true; // Flag for next update cycle
     }
   } else if(data.msg == 'ghostMode'){
     // Handle ghost mode audio/visual changes
@@ -770,6 +793,7 @@ var godModeCamera = {
   speed: 16, // Movement speed (fast spectator mode)
   factionHQs: [],
   currentFactionIndex: -1, // -1 means not viewing a faction
+  needsMusicUpdate: false, // Flag to update music after exiting god mode
   
   // Movement flags (like player movement)
   pressingUp: false,
@@ -809,6 +833,7 @@ var godModeCamera = {
     this.pressingDown = false;
     this.pressingLeft = false;
     this.pressingRight = false;
+    // needsMusicUpdate flag is set when stopping, will be checked in next update
   },
   
   update: function() {
@@ -837,6 +862,10 @@ var godModeCamera = {
   changeZ: function(dz) {
     this.cameraZ = Math.max(-3, Math.min(3, this.cameraZ + dz));
     console.log('God mode z-layer:', this.cameraZ);
+    
+    // Update music/ambience when z-level changes
+    var b = (this.cameraZ == 1 || this.cameraZ == 2) ? getBuilding(this.cameraX, this.cameraY) : null;
+    getBgm(this.cameraX, this.cameraY, this.cameraZ, b);
   },
   
   cycleFaction: function(direction) {
@@ -879,6 +908,10 @@ var godModeCamera = {
     this.cameraX = faction.x;
     this.cameraY = faction.y;
     this.cameraZ = faction.z;
+    
+    // Update music/ambience for new faction HQ location and z-level
+    var b = (this.cameraZ == 1 || this.cameraZ == 2) ? getBuilding(this.cameraX, this.cameraY) : null;
+    getBgm(this.cameraX, this.cameraY, this.cameraZ, b);
     
     // Display faction name in chat
     if(chatMessages) {
