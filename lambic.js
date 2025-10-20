@@ -210,9 +210,6 @@ class PathCache {
     }
     
     toDelete.forEach(key => this.cache.delete(key));
-    if (toDelete.length > 0) {
-      console.log(`PathCache: Cleaned up ${toDelete.length} expired entries`);
-    }
   }
 
   clear() {
@@ -405,7 +402,6 @@ function emit(data) {
   
   // Clean up disconnected sockets
   disconnectedSockets.forEach(socketId => {
-    console.log(`emit: Removing disconnected socket ${socketId}`);
     delete SOCKET_LIST[socketId];
   });
 }
@@ -1348,22 +1344,6 @@ try {
 } catch (err) {
   console.error('Error loading name files:', err);
 }
-
-// ============================================================================
-// TERRAIN DATA DISPLAY
-// ============================================================================
-
-console.log('#############');
-console.log('Terrain Data:');
-console.log('#############');
-console.log('');
-console.log(Number((biomes.water / (mapSize * mapSize)) * 100).toFixed() + '% Water');
-console.log(Number((biomes.hForest / (mapSize * mapSize)) * 100).toFixed() + '% Heavy Forest');
-console.log(Number((biomes.forest / (mapSize * mapSize)) * 100).toFixed() + '% Light Forest');
-console.log(Number((biomes.brush / (mapSize * mapSize)) * 100).toFixed() + '% Brush');
-console.log(Number((biomes.rocks / (mapSize * mapSize)) * 100).toFixed() + '% Rocks');
-console.log(Number((biomes.mtn / (mapSize * mapSize)) * 100).toFixed() + '% Mountains');
-console.log('');
 
 // ============================================================================
 // PLAYER CLASS
@@ -3012,7 +2992,6 @@ Player.onDisconnect = function(socket) {
   const player = Player.list[socket.id];
 
   if (player) {
-    console.log(`Player ${player.name} (${socket.id}) disconnecting...`);
     
     // Clean up aggro interval
     if (player.aggroInterval) {
@@ -3046,7 +3025,6 @@ Player.onDisconnect = function(socket) {
 
   delete Player.list[socket.id];
   removePack.player.push(socket.id);
-  console.log(`Player ${socket.id} fully removed from game`);
 };
 
 Player.update = function() {
@@ -3563,7 +3541,6 @@ function sendDailyResourceReport() {
     playerCount++;
     var socket = SOCKET_LIST[id];
     if(!socket){
-      console.log('⚠️ Player ' + (player.name || id) + ' has no socket');
       continue;
     }
     
@@ -3872,8 +3849,6 @@ io.installHandlers(serv, { prefix: '/io' });
 io.on('connection', function(socket) {
   socket.id = Math.random();
   SOCKET_LIST[socket.id] = socket;
-  console.log(`New connection: socket ${socket.id}`);
-  console.log(`Socket connected: ${socket.id}`);
 
   socket.on('data', function(string) {
     try {
@@ -4032,12 +4007,10 @@ io.on('connection', function(socket) {
   });
 
   socket.on('close', function() {
-    console.log(`Socket ${socket.id} closed via 'close' event, calling onDisconnect...`);
     Player.onDisconnect(socket);
   });
 
   socket.onclose = function() {
-    console.log(`Socket ${socket.id} closed via 'onclose', calling onDisconnect...`);
     Player.onDisconnect(socket);
   };
 });
@@ -4064,9 +4037,6 @@ optimizedGameLoop.start();
 
 // Performance monitoring - log memory usage every 30 seconds
 setInterval(() => {
-  const memUsage = process.memoryUsage();
-  console.log(`Memory usage: RSS=${Math.round(memUsage.rss/1024/1024)}MB, Heap=${Math.round(memUsage.heapUsed/1024/1024)}MB, PathCache=${pathCache.size} entries`);
-  
   // Cleanup expired path cache entries
   pathCache.cleanup();
 }, 30000);

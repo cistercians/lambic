@@ -59,15 +59,11 @@ EvalCmd = function(data){
     } else if(data.cmd.slice(0,7) == 'preview' && data.cmd[7] == ' '){
       // Building preview system
       const buildingType = data.cmd.slice(data.cmd.indexOf(' ') + 1);
-      console.log('Preview command received for building type:', buildingType);
       
       // Check if this is a valid building type
       if(global.buildingPreview && global.buildingPreview.getBuildingDefinition(buildingType)){
         const validation = global.buildingPreview.validateBuildingPlacement(buildingType, c, r, z);
         const materialCheck = global.buildingPreview.checkMaterials(player, buildingType);
-        
-        console.log('Validation result:', validation);
-        console.log('Material check:', materialCheck);
         
         // Send preview data to client
         socket.write(JSON.stringify({
@@ -13842,13 +13838,11 @@ EvalCmd = function(data){
           House.list[player.house].stores.iron -= 3 ;
           House.list[player.house].stores.grain -= 2;
           Building.list[gar[0]].queue.push('footsoldier');
-          console.log('Footsoldier in training');
         } else if(data.cmd.slice(data.cmd.indexOf(' ')+1).toLowerCase() == 'skirmisher'){
           if(str > 0){
             House.list[player.house].stores.iron -= 5 ;
             House.list[player.house].stores.grain -= 3;
             Building.list[gar[0]].queue.push('skirmisher');
-            console.log('Skirmisher in training');
           } else {
             socket.write(JSON.stringify({msg:'addToChat',message:'<i>You have no stronghold.</i>'}));
           }
@@ -13858,7 +13852,6 @@ EvalCmd = function(data){
               House.list[player.house].stores.iron -= 5 ;
               House.list[player.house].stores.grain -= 7;
               Building.list[gar[0]].queue.push('cavalier');
-              console.log('Cavalier in training');
             } else {
               socket.write(JSON.stringify({msg:'addToChat',message:'<i>You have no stronghold.</i>'}));
             }
@@ -13885,7 +13878,6 @@ EvalCmd = function(data){
                   for(var i = 0; i < q; i++){
                     var id = gar[counter];
                     Building.list[id].queue.push('footsoldier');
-                    console.log('Footsoldier in training');
                     counter++;
                     if(counter == gar.length){
                       counter = 0;
@@ -13908,7 +13900,6 @@ EvalCmd = function(data){
                     for(var i = 0; i < q; i++){
                       var id = gar[counter];
                       Building.list[id].queue.push('skirmisher');
-                      console.log('Skirmisher in training');
                       counter++;
                       if(counter == gar.length){
                         counter = 0;
@@ -13935,7 +13926,6 @@ EvalCmd = function(data){
                       for(var i = 0; i < q; i++){
                         var id = gar[counter];
                         Building.list[id].queue.push('cavalier');
-                        console.log('Cavalier in training');
                         counter++;
                         if(counter == gar.length){
                           counter = 0;

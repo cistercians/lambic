@@ -89,7 +89,6 @@ Farm = function(param){
           Building.list[m.id].resources.push(self.plot[p]);
         }
         self.mill = m.id;
-        console.log('Farm found mill ' + m.id);
         return;
       }
     }
@@ -121,7 +120,7 @@ Mill = function(param){
       if(self.tavern){
         // Check if owner still exists
         if(!Player.list[self.owner]){
-          console.log('Mill owner no longer exists, skipping serf creation');
+          // Mill owner no longer exists, skip serf creation
         } else if(Player.list[self.owner].house){
           var h = Player.list[self.owner].house;
           grain = House.list[h].stores.grain;
@@ -140,8 +139,6 @@ Mill = function(param){
         if(grain >= s){
           House.list[self.house].newSerfs(self.id,hq);
         }
-      } else {
-        console.log('Mill no tavern');
       }
     }
     for(var i in self.farms){
@@ -216,7 +213,6 @@ Mill = function(param){
         }
       } else if(f.type == 'tavern' && dist <= 1280 && f.house == self.house && !self.tavern){
         self.tavern = f.id;
-        console.log('Mill found tavern ' + f.id);
       }
     }
   }
@@ -246,7 +242,7 @@ Lumbermill = function(param){
       if(self.tavern){
         // Check if owner still exists
         if(!Player.list[self.owner]){
-          console.log('Lumbermill owner no longer exists, skipping serf creation');
+          // Lumbermill owner no longer exists, skip serf creation
         } else if(Player.list[self.owner].house){
           var h = Player.list[self.owner].house;
           wood = House.list[h].stores.wood;
@@ -265,8 +261,6 @@ Lumbermill = function(param){
         if(wood >= s){
           House.list[self.house].newSerfs(self.id,hq);
         }
-      } else {
-        console.log('Lumbermill no tavern');
       }
       self.getRes();
     }
@@ -277,7 +271,6 @@ Lumbermill = function(param){
       var dist = getDistance({x:self.x,y:self.y},{x:t.x,y:t.y});
       if(t.type == 'tavern' && dist <= 1280 && t.house == self.house){
         self.tavern = t.id;
-        console.log('Lumbermill found tavern ' + t.id);
       }
     }
   }
@@ -298,7 +291,6 @@ Lumbermill = function(param){
       }
     }
     self.resources = res;
-    console.log('Lumbermill added ' + self.resources.length + ' resources');
   }
   self.getRes();
   self.findTavern();
@@ -329,7 +321,7 @@ Mine = function(param){
         if(self.tavern){
           // Check if owner still exists
           if(!Player.list[self.owner]){
-            console.log('Mine owner no longer exists, skipping serf creation');
+            // Mine owner no longer exists, skip serf creation
           } else if(Player.list[self.owner].house){
             var h = Player.list[self.owner].house;
             ore = House.list[h].stores.ironore;
@@ -348,15 +340,13 @@ Mine = function(param){
           if(ore >= s){
             House.list[self.house].newSerfs(self.id,hq);
           }
-        } else {
-          console.log('Mine no tavern');
         }
       } else {
         var stone = 0;
         if(self.tavern){
           // Check if owner still exists
           if(!Player.list[self.owner]){
-            console.log('Mine owner no longer exists, skipping serf creation');
+            // Mine owner no longer exists, skip serf creation
           } else if(Player.list[self.owner].house){
             var h = Player.list[self.owner].house;
             stone = House.list[h].stores.stone;
@@ -375,8 +365,6 @@ Mine = function(param){
           if(stone >= s){
             House.list[self.house].newSerfs(self.id,hq);
           }
-        } else {
-          console.log('Mine no tavern');
         }
       }
     }
@@ -387,7 +375,6 @@ Mine = function(param){
       var dist = getDistance({x:self.x,y:self.y},{x:t.x,y:t.y});
       if(t.type == 'tavern' && dist <= 1280 && t.house == self.house){
         self.tavern = t.id;
-        console.log('Mine found tavern ' + t.id);
       }
     }
   }
@@ -398,7 +385,6 @@ Mine = function(param){
       var dist = self.getDistance({x:c[0],y:c[1]});
       if(dist <= 384){
         self.cave = cave;
-        console.log('Mine found a cave at [' + cave[0] + ',' + cave[1] + ']');
       }
     }
     if(self.cave){
@@ -418,7 +404,6 @@ Mine = function(param){
         }
       }
       }
-      console.log('Ore mine added ' + self.resources.length + ' cave rock resources (z=-1, layer 1) near entrance [' + self.cave[0] + ',' + self.cave[1] + ']');
     } else {
       // Stone mine - scan z=0 for stone patches
       var loc = getLoc(self.x,self.y);
@@ -435,7 +420,6 @@ Mine = function(param){
           }
         }
       }
-      console.log('Stone mine added ' + self.resources.length + ' stone resources (z=0)');
     }
   }
   self.getRes();
@@ -601,11 +585,9 @@ Tavern = function(param){
         if(b.type == 'mill' || b.type == 'lumbermill' || b.type == 'mine' || b.type == 'market'){
           if(!b.tavern){
             Building.list[i].tavern = self.id;
-            console.log('Tavern found ' + b.type + ' ' + b.id);
           }
           if(b.type == 'market'){
             self.market = b.id;
-            console.log('Tavern found market ' + b.id);
           }
         }
       }
@@ -614,12 +596,11 @@ Tavern = function(param){
   self.newSerfs = function(b){
     // Safety check: ensure owner still exists
     if(!Player.list[self.owner]){
-      console.log('Tavern owner no longer exists, skipping serf creation');
+      // Tavern owner no longer exists, skip serf creation
       return;
     }
     
     var building = Building.list[b];
-    console.log('New serfs for ' + building.type);
     var loc = getLoc(self.x,self.y);
     var mLoc = getLoc(building.x,building.y);
     var area = getArea(loc,mLoc,5);
@@ -803,7 +784,6 @@ Tavern = function(param){
         }
       }
       self.occ += 2;
-      console.log('Serfs have spawned in the tavern: ' + Building.list[b].type);
     }
   }
   
@@ -4831,7 +4811,6 @@ SerfM = function(param){
     
     if(bestTavern){
       self.tavern = bestTavern;
-      console.log(self.name + ' found tavern ' + bestTavern);
     } else {
       console.log(self.name + ' no tavern found for house ' + self.house);
     }
@@ -6621,7 +6600,6 @@ SerfF = function(param){
     
     if(bestTavern){
       self.tavern = bestTavern;
-      console.log(self.name + ' found tavern ' + bestTavern);
     } else {
       console.log(self.name + ' no tavern found for house ' + self.house);
     }

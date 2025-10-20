@@ -971,8 +971,8 @@ class TilemapSystem {
     
     // Farm density potential (Franks)
     if (priorities.farmDensityPotential) {
-      // Count all farmable terrain: grass, light forest, brush
-      const farmableCount = (terrainCounts[7] || 0) + (terrainCounts[3] || 0) + (terrainCounts[4] || 0);
+      // Count all farmable terrain: grass, brush
+      const farmableCount = (terrainCounts[7] || 0) + (terrainCounts[3] || 0);
       const farmablePercentage = farmableCount / area.length;
       score += priorities.farmDensityPotential * farmablePercentage * 100;
     }
