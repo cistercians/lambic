@@ -8520,8 +8520,31 @@ Arrow = function(param){
   self.spdX = Math.cos(param.angle/180*Math.PI) * 50;
   self.spdY = Math.sin(param.angle/180*Math.PI) * 50;
   self.parent = param.parent;
-  self.innaWoods = Player.list[self.parent].innaWoods;
-  self.zGrid = Player.list[self.parent].zGrid;
+  
+  // Check if parent is a player or building/entity
+  var parentEntity = Player.list[self.parent];
+  if(parentEntity){
+    self.innaWoods = parentEntity.innaWoods;
+    self.zGrid = parentEntity.zGrid;
+    self.damage = parentEntity.dmg; // Store parent's damage
+    self.parentX = parentEntity.x; // Store parent's position for collision checks
+    self.parentY = parentEntity.y;
+  } else {
+    // Parent is not a player (e.g., building like guardtower)
+    self.innaWoods = false;
+    // Calculate zGrid based on arrow's position
+    var loc = getLoc(self.x, self.y);
+    var zc = Math.floor(loc[0]/8);
+    var zr = Math.floor(loc[1]/8);
+    self.zGrid = [
+      [zc-1,zr-1],[zc,zr-1],[zc+1,zr-1],
+      [zc-1,zr],[zc,zr],[zc+1,zr],
+      [zc-1,zr+1],[zc,zr+1],[zc+1,zr+1]
+    ];
+    self.damage = param.damage || 10; // Use provided damage or default to 10
+    self.parentX = self.x; // Store spawn position for collision checks
+    self.parentY = self.y;
+  }
 
   self.timer = 0;
   self.toRemove = false;
@@ -8546,15 +8569,21 @@ Arrow = function(param){
           var p = Player.list[entityId];
           if(p){
             if(self.getDistance(p) < 32 && self.z == p.z && self.parent != p.id){
-              Player.list[p.id].hp -= Player.list[self.parent].dmg - p.fortitude;
+              Player.list[p.id].hp -= self.damage - p.fortitude;
               Player.list[p.id].working = false;
               Player.list[p.id].chopping = false;
               Player.list[p.id].mining = false;
               Player.list[p.id].farming = false;
               Player.list[p.id].building = false;
               Player.list[p.id].fishing = false;
-              Player.list[self.parent].stealthed = false;
-              Player.list[self.parent].revealed = false;
+              
+              // Only update parent stealth if parent is a player
+              var parentPlayer = Player.list[self.parent];
+              if(parentPlayer){
+                parentPlayer.stealthed = false;
+                parentPlayer.revealed = false;
+              }
+              
               Player.list[p.id].combat.target = self.id;
               Player.list[p.id].action = 'combat';
               Player.list[p.id].stealthed = false;
@@ -8572,10 +8601,10 @@ Arrow = function(param){
     if(self.x == 0 || self.x == mapPx || self.y == 0 || self.y == mapPx){
       self.toRemove = true;
     } else if(self.z == 0 && getLocTile(0,self.x,self.y) == 5 &&
-    getLocTile(0,Player.list[self.parent].x,Player.list[self.parent].y) != 5){
+    getLocTile(0,self.parentX,self.parentY) != 5){
       self.toRemove = true;
     } else if(self.z == 0 && getLocTile(0,self.x,self.y) == 1 &&
-    getLocTile(0,Player.list[self.parent].x,Player.list[self.parent].y) != 1){
+    getLocTile(0,self.parentX,self.parentY) != 1){
       self.toRemove = true;
     } else if(self.z == 0 && (getLocTile(0,self.x,self.y) == 13 ||
     getLocTile(0,self.x,self.y) == 14 || getLocTile(0,self.x,self.y) == 15 ||

@@ -329,7 +329,7 @@ class TilemapSystem {
         preferOpenGrass: true // Prefer wide open grass areas for farm placement
       },
       lumbermill: {
-        plotSize: [2, 2],
+        plotSize: [2, 1],
         wallTiles: 2,
         validTerrain: [TERRAIN.GRASS, TERRAIN.HEAVY_FOREST, TERRAIN.LIGHT_FOREST],
         clearanceRadius: 1,
@@ -461,11 +461,16 @@ class TilemapSystem {
       }
     }
     
-    // Check plot tiles are valid terrain
+    // Check plot tiles are valid terrain AND walkable
     for (const plotTile of plot) {
       const terrain = this.getTile(0, plotTile[0], plotTile[1]);
       const terrainFloor = Math.floor(terrain);
       if (!requirements.validTerrain.includes(terrainFloor)) {
+        return false;
+      }
+      
+      // Check if tile is walkable (catches firepits, buildings, blocking objects)
+      if (!global.isWalkable(0, plotTile[0], plotTile[1])) {
         return false;
       }
     }
@@ -567,6 +572,14 @@ class TilemapSystem {
   // Generate wall tiles for building
   generateWalls(plot, wallCount) {
     if (wallCount === 0 || plot.length === 0) return [];
+    
+    // For 2x1 buildings (lumbermill) with 2 walls, place one row above
+    if (plot.length === 2 && wallCount === 2) {
+      return [
+        [plot[0][0], plot[0][1] - 1], // Above plot[0]
+        [plot[1][0], plot[1][1] - 1]  // Above plot[1]
+      ];
+    }
     
     // For 2x2 buildings with 2 walls, use top row
     if (plot.length === 4 && wallCount === 2) {

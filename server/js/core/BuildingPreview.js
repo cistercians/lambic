@@ -22,7 +22,7 @@ class BuildingPreview {
       },
       mill: {
         name: 'Lumbermill',
-        plot: [[0,0],[1,0],[0,-1],[1,-1]], // 2x2
+        plot: [[0,0],[1,0]], // 2x1 (horizontal)
         requiredTiles: [TERRAIN.EMPTY],
         clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
         blockedTiles: [TERRAIN.WATER, TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, TERRAIN.ROCKS],
