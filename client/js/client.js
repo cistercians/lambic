@@ -7616,8 +7616,11 @@ var renderLighting = function(){
 
 // CONTROLS
 document.onkeydown = function(event){
-  // God mode camera controls (handle BEFORE other inputs)
-  if (godModeCamera.isActive) {
+  // Check if chat is focused (needs to be checked early for godmode)
+  var chatFocus = (document.activeElement == chatInput);
+  
+  // God mode camera controls (handle BEFORE other inputs, but AFTER chat check)
+  if (godModeCamera.isActive && !chatFocus) {
     if (event.keyCode === 87) { // W - Move up
       godModeCamera.pressingUp = true;
       event.preventDefault();
@@ -7651,7 +7654,12 @@ document.onkeydown = function(event){
       event.preventDefault();
       return;
     } else if (event.keyCode === 13) { // Enter - Allow chat (for /godmode exit)
-      // Fall through to normal chat handling
+      // Focus chat input to allow typing /godmode to exit
+      if(document.activeElement !== chatInput){
+        event.preventDefault();
+        chatInput.focus();
+      }
+      return;
     } else {
       // Block all other inputs in god mode
       event.preventDefault();
@@ -7664,7 +7672,7 @@ document.onkeydown = function(event){
     return;
   }
   
-  var chatFocus = (document.activeElement == chatInput);
+  // chatFocus already declared at top of function
   if(!chatFocus){
     if(event.keyCode == 68){ // d
       socket.send(JSON.stringify({msg:'keyPress',inputId:'right',state:true}));
