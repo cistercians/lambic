@@ -2199,7 +2199,7 @@ const Player = function(param) {
     if (self.mountCooldown > 0) self.mountCooldown--;
     if (self.switchCooldown > 0) self.switchCooldown--;
     
-    // Phase 7: Passive HP/Spirit Regeneration
+    // Passive HP/Spirit Regeneration (also implemented in Character for NPCs)
     if(!self.ghost && self.hp < self.hpMax){
       // Regenerate HP at ~0.0042 per frame = 0.25 HP/second at 60fps
       self.hp = Math.min(self.hp + 0.0042, self.hpMax);

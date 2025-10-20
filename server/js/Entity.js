@@ -4057,6 +4057,18 @@ Character = function(param){
     } else {
       return;
     }
+    
+    // Passive HP Regeneration for all characters (NPCs and Players)
+    if(!self.ghost && self.hp < self.hpMax){
+      // Regenerate HP at ~0.0042 per frame = 0.25 HP/second at 60fps
+      self.hp = Math.min(self.hp + 0.0042, self.hpMax);
+    }
+    
+    // Passive Spirit Regeneration (if character has spirit)
+    if(!self.ghost && self.spirit && self.spiritMax && self.spirit < self.spiritMax){
+      // Regenerate Spirit at ~0.0017 per frame = 0.1 Spirit/second at 60fps
+      self.spirit = Math.min(self.spirit + 0.0017, self.spiritMax);
+    }
   }
 
   self.getInitPack = function(){
