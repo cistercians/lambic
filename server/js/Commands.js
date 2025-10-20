@@ -14147,37 +14147,134 @@ EvalCmd = function(data){
       msg += 'Tile Value: ' + tile;
       socket.write(JSON.stringify({msg:'addToChat',message:msg}));
     
+    // GOD MODE (spectator camera)
+    } else if(data.cmd === 'godmode' || data.cmd === '/godmode'){
+      if(player.godMode){
+        // Exit god mode - restore player
+        player.godMode = false;
+        player.x = player.godModeReturnPos.x;
+        player.y = player.godModeReturnPos.y;
+        player.z = player.godModeReturnPos.z;
+        player.godModeReturnPos = null;
+        
+        // Restore normal HP if it was set to 0
+        if(player.hp <= 0){
+          player.hp = player.hpMax;
+        }
+        
+        socket.write(JSON.stringify({
+          msg: 'godMode',
+          active: false
+        }));
+        socket.write(JSON.stringify({
+          msg: 'addToChat',
+          message: 'ℹ️ God mode disabled'
+        }));
+        console.log(`${player.name} exited god mode`);
+      } else {
+        // Enter god mode - save position
+        player.godMode = true;
+        player.godModeReturnPos = {
+          x: player.x,
+          y: player.y,
+          z: player.z,
+          hp: player.hp
+        };
+        
+        // End all combat involving this player
+        if(global.simpleCombat){
+          global.simpleCombat.endCombat(player);
+        }
+        
+        // Clear combat target
+        if(player.combat){
+          player.combat.target = null;
+        }
+        
+        // Clear all NPCs targeting this player
+        for(var id in Player.list){
+          var npc = Player.list[id];
+          if(npc && npc.combat && npc.combat.target === player.id){
+            npc.combat.target = null;
+            npc.action = null;
+          }
+        }
+        
+        // Move player to unreachable coordinates (far off map) to prevent interaction
+        player.x = -10000;
+        player.y = -10000;
+        player.z = 100; // Unreachable z-layer
+        
+        // Debug: Check faction HQs
+        console.log(`God mode: Sending ${(global.factionHQs || []).length} faction HQs to client`);
+        if(global.factionHQs && global.factionHQs.length > 0) {
+          console.log('Faction HQs:', global.factionHQs.map(hq => hq.name).join(', '));
+        }
+        
+        socket.write(JSON.stringify({
+          msg: 'godMode',
+          active: true,
+          cameraX: player.godModeReturnPos.x,
+          cameraY: player.godModeReturnPos.y,
+          cameraZ: player.godModeReturnPos.z,
+          factionHQs: global.factionHQs || []
+        }));
+        socket.write(JSON.stringify({
+          msg: 'addToChat',
+          message: 'ℹ️ God mode enabled - WASD to move camera, ↑↓ arrows for z-layer, ←→ arrows to cycle factions'
+        }));
+        console.log(`${player.name} entered god mode`);
+      }
+    
     // RESPAWN (for ghosts)
     } else if(data.cmd === 'respawn' || data.cmd === '/respawn'){
+      console.log(`Respawn command received from ${player.name}, ghost: ${player.ghost}`);
       if(player.ghost){
+        // Send ghost mode deactivate message to client
+        socket.write(JSON.stringify({msg:'ghostMode',active:false}));
+        
         // Respawn at home if player has one
         if(player.home){
           var homeCoords = getCenter(player.home.loc[0], player.home.loc[1]);
-          player.respawnFromGhost({x: homeCoords[0], y: homeCoords[1], z: player.home.z});
-          socket.write(JSON.stringify({msg:'addToChat',message:'<span style="color:#66ff66;">✨ Respawned at home</span>'}));
+          player.respawnFromGhost({x: homeCoords[0], y: homeCoords[1], z: player.home.z}, true); // true = manual respawn
+          socket.write(JSON.stringify({msg:'addToChat',message:'<span style="color:#66ff66;">ℹ️ Respawned at home</span>'}));
+          console.log(`${player.name} respawned at home via command`);
         } else {
           // No home set - respawn at random spawn
           var spawn = randomSpawnO();
-          player.respawnFromGhost({x: spawn[0], y: spawn[1], z: 0});
-          socket.write(JSON.stringify({msg:'addToChat',message:'<span style="color:#ffaa66;">✨ Respawned at random location (no home set)</span>'}));
+          player.respawnFromGhost({x: spawn[0], y: spawn[1], z: 0}, true); // true = manual respawn
+          socket.write(JSON.stringify({msg:'addToChat',message:'<span style="color:#ffaa66;">ℹ️ Respawned at random location (no home set)</span>'}));
+          console.log(`${player.name} respawned at random location via command`);
         }
       } else {
         socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are not a ghost</i>'}));
       }
     
     // SET HOME
-    } else if(data.cmd === '/sethome'){
+    } else if(data.cmd === 'sethome' || data.cmd === '/sethome'){
       if(player.z === 1 || player.z === 2){
         // Inside a building
         var b = getBuilding(player.x, player.y);
         if(b && Building.list[b]){
           var building = Building.list[b];
           if(building.owner === player.id){
-            // Player owns this building - set as home
-            var loc = getLoc(building.x, building.y);
-            player.home = {z: 1, loc: loc}; // Set to building first floor
-            socket.write(JSON.stringify({msg:'addToChat',message:'<span style="color:#66ff66;">✅ Home set to ' + building.type + ' at [' + loc[0] + ',' + loc[1] + ']</span>'}));
-            console.log(player.name + ' set home to ' + building.type + ' at [' + loc[0] + ',' + loc[1] + ']');
+            // Player owns this building - set home to tile below fireplace
+            var homeBuildings = ['hut', 'cottage', 'tavern', 'tower', 'stronghold'];
+            if(homeBuildings.indexOf(building.type) >= 0){
+              // Find fireplace location from walls
+              var walls = building.walls;
+              var fireplaceWall = building.type === 'tower' ? walls[2] : walls[1];
+              var homeTile = [fireplaceWall[0], fireplaceWall[1] + 1]; // One tile south of fireplace
+              
+              // For tavern, always use z=2 (upstairs), others use z=1
+              var homeZ = building.type === 'tavern' ? 2 : 1;
+              player.home = {z: homeZ, loc: homeTile};
+              
+              socket.write(JSON.stringify({msg:'addToChat',message:'<span style="color:#66ff66;">✅ Home set to ' + building.type + '</span>'}));
+              console.log(player.name + ' set home to ' + building.type + ' at [' + homeTile[0] + ',' + homeTile[1] + '] z=' + homeZ);
+            } else {
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ This building type cannot be set as home</i>'}));
+            }
           } else {
             socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ You do not own this building</i>'}));
           }
@@ -14194,9 +14291,15 @@ EvalCmd = function(data){
       if(!resource){
         socket.write(JSON.stringify({msg:'addToChat',message:'<i>Usage: $[item]<br>Example: $ironore<br><br>Items: grain, wood, stone, ironore, silverore, goldore, diamond, iron</i>'}));
       } else {
-        var market = findNearestMarket(data.id);
-        if(!market){
-          socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ No market found nearby</i>'}));
+        // Check if player is in a market building
+        if(player.z !== 1 && player.z !== 2){
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ You must be inside a market to check prices</i>'}));
+          return;
+        }
+        var buildingId = getBuilding(player.x, player.y);
+        var market = buildingId ? Building.list[buildingId] : null;
+        if(!market || market.type !== 'market'){
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ You must be inside a market to check prices</i>'}));
         } else if(!market.orderbook[resource]){
           socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ Invalid resource: ' + resource + '</i>'}));
         } else {
@@ -14244,6 +14347,18 @@ EvalCmd = function(data){
     
     // MARKET ORDERS
     } else if(data.cmd.indexOf('/buy ') === 0){
+      // Check if player is in a market building
+      if(player.z !== 1 && player.z !== 2){
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ You must be inside a market to place orders</i>'}));
+        return;
+      }
+      var buildingId = getBuilding(player.x, player.y);
+      var market = buildingId ? Building.list[buildingId] : null;
+      if(!market || market.type !== 'market'){
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ You must be inside a market to place orders</i>'}));
+        return;
+      }
+      
       var parts = data.cmd.split(' ');
       if(parts.length === 4){
         // /buy [amount] [item] [price]
@@ -14254,13 +14369,24 @@ EvalCmd = function(data){
         if(isNaN(amount) || isNaN(price)){
           socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ Usage: /buy [amount] [item] [price]<br>Example: /buy 100 grain 5</i>'}));
         } else {
-          global.processBuyOrder(data.id, resource, amount, price);
+          global.processBuyOrder(data.id, market, resource, amount, price);
         }
       } else {
         socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ Usage: /buy [amount] [item] [price]<br>Example: /buy 100 grain 5<br><br>Items: grain, wood, stone, ironore, silverore, goldore, diamond, iron</i>'}));
       }
     } else if(data.cmd.indexOf('/sell ') === 0){
-      console.log('DEBUG: /sell command detected, parts:', data.cmd.split(' '));
+      // Check if player is in a market building
+      if(player.z !== 1 && player.z !== 2){
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ You must be inside a market to place orders</i>'}));
+        return;
+      }
+      var buildingId = getBuilding(player.x, player.y);
+      var market = buildingId ? Building.list[buildingId] : null;
+      if(!market || market.type !== 'market'){
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ You must be inside a market to place orders</i>'}));
+        return;
+      }
+      
       var parts = data.cmd.split(' ');
       if(parts.length === 4){
         // /sell [amount] [item] [price]
@@ -14268,22 +14394,24 @@ EvalCmd = function(data){
         var resource = parts[2].toLowerCase();
         var price = parseInt(parts[3]);
         
-        console.log('DEBUG: Parsed /sell - amount:', amount, 'resource:', resource, 'price:', price);
-        
         if(isNaN(amount) || isNaN(price)){
           socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ Usage: /sell [amount] [item] [price]<br>Example: /sell 50 wood 10</i>'}));
         } else {
-          console.log('DEBUG: Calling global.processSellOrder, function exists:', typeof global.processSellOrder);
-          global.processSellOrder(data.id, resource, amount, price);
+          global.processSellOrder(data.id, market, resource, amount, price);
         }
       } else {
         socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ Usage: /sell [amount] [item] [price]<br>Example: /sell 50 wood 10<br><br>Items: grain, wood, stone, ironore, silverore, goldore, diamond, iron</i>'}));
       }
     } else if(data.cmd === '/orders'){
-      // Show player's active orders
-      var market = findNearestMarket(data.id);
-      if(!market){
-        socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ No market found nearby</i>'}));
+      // Check if player is in a market building
+      if(player.z !== 1 && player.z !== 2){
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ You must be inside a market to view orders</i>'}));
+        return;
+      }
+      var buildingId = getBuilding(player.x, player.y);
+      var market = buildingId ? Building.list[buildingId] : null;
+      if(!market || market.type !== 'market'){
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ You must be inside a market to view orders</i>'}));
       } else {
         var message = '<b><u>📋 Your Active Orders</u></b><br>';
         var hasOrders = false;
@@ -14329,9 +14457,15 @@ EvalCmd = function(data){
       if(!orderId){
         socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ Usage: /cancel [orderID]<br>Use /orders to see your order IDs</i>'}));
       } else {
-        var market = findNearestMarket(data.id);
-        if(!market){
-          socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ No market found nearby</i>'}));
+        // Check if player is in a market building
+        if(player.z !== 1 && player.z !== 2){
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ You must be inside a market to cancel orders</i>'}));
+          return;
+        }
+        var buildingId = getBuilding(player.x, player.y);
+        var market = buildingId ? Building.list[buildingId] : null;
+        if(!market || market.type !== 'market'){
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ You must be inside a market to cancel orders</i>'}));
         } else {
           var found = false;
           

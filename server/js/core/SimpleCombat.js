@@ -34,6 +34,12 @@ class SimpleCombat {
       this.endCombat(entity, target);
       return;
     }
+    
+    // Target is in god mode? End combat (spectator mode - not in game)
+    if (target.godMode) {
+      this.endCombat(entity, target);
+      return;
+    }
 
     // Calculate distance
     const dx = target.x - entity.x;
@@ -87,6 +93,13 @@ class SimpleCombat {
 
       if (timeSince >= cooldownMs) {
         // ATTACK!
+        // Skip damage if target is in god mode or is a ghost
+        if(target.godMode || target.ghost){
+          // End combat with invulnerable target
+          this.endCombat(entity);
+          return;
+        }
+        
         const damage = entity.damage || 10;
         target.hp -= damage;
         entity._lastCombatAttack = now;

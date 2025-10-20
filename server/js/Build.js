@@ -38,19 +38,43 @@ Build = function(id){
       if(count == plot.length && !Building.list[b].built){
         Building.list[b].built = true;
         
-        // Auto-set home for player when they build certain buildings (if no home set)
+        // Building completion messages for player
         var owner = Player.list[building.owner];
-        if(owner && owner.type === 'player' && !owner.home){
-          var homeBuildings = ['hut', 'cottage', 'villa', 'tavern', 'tower', 'stronghold', 
-                               'gothhut', 'frankhut', 'celthut', 'teuthut'];
-          if(homeBuildings.indexOf(building.type) >= 0){
-            var loc = getLoc(building.x, building.y);
-            owner.home = {z: 1, loc: loc};
-            var socket = SOCKET_LIST[building.owner];
-            if(socket){
-              socket.write(JSON.stringify({msg:'addToChat',message:'<span style="color:#66ff66;">🏠 Home set to your new ' + building.type + '</span>'}));
+        if(owner && owner.type === 'player'){
+          var socket = SOCKET_LIST[building.owner];
+          
+          // Residential buildings auto-set as home on first build
+          var residentialBuildings = ['hut', 'cottage', 'tavern', 'tower', 'stronghold'];
+          var isResidential = residentialBuildings.indexOf(building.type) >= 0;
+          
+          if(isResidential){
+            // Residential building
+            if(!owner.home){
+              // No home set - auto-set to this residential building
+              // Home is the tile below the fireplace
+              var fireplaceWall = building.type === 'tower' ? walls[2] : walls[1];
+              var fireplaceTile = fireplaceWall; // [col, row]
+              var homeTile = [fireplaceTile[0], fireplaceTile[1] + 1]; // One tile south of fireplace
+              
+              // For tavern, use z=2 (upstairs), others use z=1
+              var homeZ = building.type === 'tavern' ? 2 : 1;
+              owner.home = {z: homeZ, loc: homeTile};
+              
+              if(socket){
+                socket.write(JSON.stringify({msg:'addToChat',message:'<span style="color:#66ff66;">🏠 Home set to your new ' + building.type + '</span>'}));
+              }
+              console.log(owner.name + ' home auto-set to ' + building.type + ' at [' + homeTile[0] + ',' + homeTile[1] + '] z=' + homeZ);
+            } else {
+              // Already has a home - notify they can change it
+              if(socket){
+                socket.write(JSON.stringify({msg:'addToChat',message:'<span style="color:#ffaa66;">ℹ️ Your ' + building.type + ' is complete! Use /sethome to set it as your home.</span>'}));
+              }
             }
-            console.log(owner.name + ' home auto-set to ' + building.type + ' at [' + loc[0] + ',' + loc[1] + ']');
+          } else {
+            // Non-residential building - just show completion message
+            if(socket){
+              socket.write(JSON.stringify({msg:'addToChat',message:'<span style="color:#66ff66;">ℹ️ Your ' + building.type + ' is complete!</span>'}));
+            }
           }
         }
         
@@ -651,12 +675,12 @@ Build = function(id){
               tileChange(4,n[0],n[1],1);
             }
           }
-          var wt1 = getCoords(walls[1][0],walls[1][1]); // WallTorch at wall position
-          var g1 = getCoords(walls[1][0],walls[1][1]+1); // Goods one tile south for player access
-          var g2 = getCoords(walls[2][0],walls[2][1]+1); // Goods one tile south for player access
-          var g3 = getCoords(walls[3][0],walls[3][1]+1); // Goods one tile south for player access
-          var wt4 = getCoords(walls[4][0],walls[4][1]); // WallTorch at wall position
-          var g4 = getCoords(walls[4][0],walls[4][1]+1); // Goods one tile south for player access
+          var wt1 = getCoords(walls[1][0],walls[1][1]);
+          var g1 = getCoords(walls[1][0],walls[1][1]); // Goods on wall
+          var g2 = getCoords(walls[2][0],walls[2][1]); // Goods on wall
+          var g3 = getCoords(walls[3][0],walls[3][1]); // Goods on wall
+          var wt4 = getCoords(walls[4][0],walls[4][1]);
+          var g4 = getCoords(walls[4][0],walls[4][1]); // Goods on wall
           var g5 = getCoords(plot[3][0],plot[3][1]);
           var fp1 = getCoords(plot[3][0],plot[3][1]+1);
           var fp2 = getCoords(plot[7][0],plot[7][1]+1);
@@ -842,12 +866,12 @@ Build = function(id){
             var n = walls[i];
             tileChange(4,n[0],n[1],1);
           }
-          var wt1 = getCoords(walls[1][0],walls[1][1]); // WallTorch at wall position
-          var g1 = getCoords(walls[1][0],walls[1][1]+1); // Goods one tile south for player access
-          var g2 = getCoords(walls[2][0],walls[2][1]+1); // Goods one tile south for player access
-          var g3 = getCoords(walls[3][0],walls[3][1]+1); // Goods one tile south for player access
-          var wt4 = getCoords(walls[4][0],walls[4][1]); // WallTorch at wall position
-          var g4 = getCoords(walls[4][0],walls[4][1]+1); // Goods one tile south for player access
+          var wt1 = getCoords(walls[1][0],walls[1][1]);
+          var g1 = getCoords(walls[1][0],walls[1][1]); // Goods on wall
+          var g2 = getCoords(walls[2][0],walls[2][1]); // Goods on wall
+          var g3 = getCoords(walls[3][0],walls[3][1]); // Goods on wall
+          var wt4 = getCoords(walls[4][0],walls[4][1]);
+          var g4 = getCoords(walls[4][0],walls[4][1]); // Goods on wall
           var g5 = getCoords(plot[3][0],plot[3][1]);
           var fp1 = getCoords(plot[3][0],plot[3][1]+1);
           var fp2 = getCoords(plot[7][0],plot[7][1]+1);

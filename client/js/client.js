@@ -21,6 +21,28 @@ function resizeCanvas() {
   if (viewport) {
     viewport.screen = [WIDTH, HEIGHT];
   }
+  
+  // Update UI sizes based on tileSize
+  if(tileSize > 0){
+    var skillsBar = document.getElementById('skills-bar');
+    var chatMessagesContainer = document.getElementById('chat-messages-container');
+    var chatInputWrapper = document.getElementById('chat-input-wrapper');
+    
+    var skillsBarHeight = tileSize * 1.1; // Reduced from 1.2
+    var chatInputHeight = 50; // Fixed height for input
+    
+    if(skillsBar){
+      skillsBar.style.height = skillsBarHeight + 'px';
+    }
+    if(chatInputWrapper){
+      chatInputWrapper.style.height = chatInputHeight + 'px';
+      chatInputWrapper.style.bottom = skillsBarHeight + 'px';
+    }
+    if(chatMessagesContainer){
+      chatMessagesContainer.style.height = (tileSize * 3) + 'px';
+      chatMessagesContainer.style.bottom = (skillsBarHeight + chatInputHeight) + 'px';
+    }
+  }
 }
 
 // Initialize canvas size on load
@@ -59,6 +81,9 @@ socket.onmessage = function(event){
     mapSize = data.mapSize;
     tempus = data.tempus;
     nightfall = data.nightfall;
+    
+    // Update UI sizing now that tileSize is known
+    resizeCanvas();
     
     // Load entities for preview
     if(data.pack.player) {
@@ -99,6 +124,9 @@ socket.onmessage = function(event){
       mapSize = data.mapSize;
       tempus = data.tempus;
       
+      // Update UI sizing now that tileSize is known
+      resizeCanvas();
+      
       // Stop cinematic camera and switch to player
       if(window.loginCameraSystem) {
         window.loginCameraSystem.stop();
@@ -116,7 +144,17 @@ socket.onmessage = function(event){
         gameDiv.style.pointerEvents = 'auto';
       }
       
-      UI.style.display = 'block';
+      // Show UI elements
+      var skillsBar = document.getElementById('skills-bar');
+      var chatMessagesContainer = document.getElementById('chat-messages-container');
+      var chatInputWrapper = document.getElementById('chat-input-wrapper');
+      if(skillsBar) skillsBar.style.display = 'flex';
+      if(chatMessagesContainer) chatMessagesContainer.style.display = 'block';
+      if(chatInputWrapper) chatInputWrapper.style.display = 'block';
+      
+      // Start initial chat hide timer
+      resetChatHideTimer();
+      
       var b = getBuilding(Player.list[selfId].x,Player.list[selfId].y);
       getBgm(Player.list[selfId].x,Player.list[selfId].y,Player.list[selfId].z,b);
     } else {
@@ -130,8 +168,19 @@ socket.onmessage = function(event){
   } else if(data.msg == 'bgm'){
     getBgm(data.x,data.y,data.z,data.b);
   } else if(data.msg == 'addToChat'){
-    chatText.innerHTML += '<div>' + data.message + '</div>';
-    chatText.scrollTop = chatText.scrollHeight; // Auto-scroll to bottom
+    chatMessages.innerHTML += '<div>' + data.message + '</div>';
+    // Force scroll to absolute bottom
+    setTimeout(function(){
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }, 0);
+    resetChatHideTimer(); // Show chat and restart hide timer
+  } else if(data.msg == 'openMarket'){
+    // Open market UI with orderbook data
+    currentMarketData = data;
+    if(marketPopup){
+      marketPopup.style.display = 'block';
+      updateMarketDisplay();
+    }
   } else if(data.msg == 'tileEdit'){
     if(world[data.l] && world[data.l][data.r]) {
       world[data.l][data.r][data.c] = data.tile;
@@ -461,6 +510,15 @@ socket.onmessage = function(event){
         getBgm(p.x,p.y,p.z,b);
       }
     }
+  } else if(data.msg == 'godMode'){
+    // Handle god mode camera
+    if(data.active){
+      // Start god mode spectator camera
+      godModeCamera.start(data.cameraX, data.cameraY, data.cameraZ, data.factionHQs);
+    } else {
+      // Stop god mode camera
+      godModeCamera.stop();
+    }
   } else if(data.msg == 'ghostMode'){
     // Handle ghost mode audio/visual changes
     if(data.active && Player.list[selfId]){
@@ -703,15 +761,219 @@ var loginCameraSystem = {
 // Make it globally accessible
 window.loginCameraSystem = loginCameraSystem;
 
+// God Mode Camera System (similar to loginCameraSystem)
+var godModeCamera = {
+  isActive: false,
+  cameraX: 0,
+  cameraY: 0,
+  cameraZ: 0,
+  speed: 16, // Movement speed (fast spectator mode)
+  factionHQs: [],
+  currentFactionIndex: -1, // -1 means not viewing a faction
+  
+  // Movement flags (like player movement)
+  pressingUp: false,
+  pressingDown: false,
+  pressingLeft: false,
+  pressingRight: false,
+  
+  getCameraPosition: function() {
+    return {
+      x: this.cameraX,
+      y: this.cameraY,
+      z: this.cameraZ
+    };
+  },
+  
+  start: function(startX, startY, startZ, factionHQs) {
+    console.log('God mode camera: Starting spectator mode');
+    this.isActive = true;
+    this.cameraX = startX;
+    this.cameraY = startY;
+    this.cameraZ = startZ;
+    this.factionHQs = factionHQs || [];
+    this.currentFactionIndex = -1;
+    this.pressingUp = false;
+    this.pressingDown = false;
+    this.pressingLeft = false;
+    this.pressingRight = false;
+    console.log('Loaded', this.factionHQs.length, 'faction HQs');
+  },
+  
+  stop: function() {
+    console.log('God mode camera: Stopping spectator mode');
+    this.isActive = false;
+    this.factionHQs = [];
+    this.currentFactionIndex = -1;
+    this.pressingUp = false;
+    this.pressingDown = false;
+    this.pressingLeft = false;
+    this.pressingRight = false;
+  },
+  
+  update: function() {
+    if(!this.isActive) return;
+    
+    // Smooth camera movement based on pressed keys
+    if(this.pressingUp) {
+      this.cameraY -= this.speed;
+    }
+    if(this.pressingDown) {
+      this.cameraY += this.speed;
+    }
+    if(this.pressingLeft) {
+      this.cameraX -= this.speed;
+    }
+    if(this.pressingRight) {
+      this.cameraX += this.speed;
+    }
+    
+    // Keep within map bounds
+    var maxPos = mapSize * tileSize;
+    this.cameraX = Math.max(0, Math.min(maxPos, this.cameraX));
+    this.cameraY = Math.max(0, Math.min(maxPos, this.cameraY));
+  },
+  
+  changeZ: function(dz) {
+    this.cameraZ = Math.max(-3, Math.min(3, this.cameraZ + dz));
+    console.log('God mode z-layer:', this.cameraZ);
+  },
+  
+  cycleFaction: function(direction) {
+    console.log('cycleFaction called, direction:', direction, 'HQs available:', this.factionHQs.length);
+    
+    if(this.factionHQs.length === 0) {
+      console.log('No faction HQs available');
+      if(chatMessages) {
+        chatMessages.innerHTML += '<div>⚠️ No faction HQs available</div>';
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+      return;
+    }
+    
+    // Cycle through factions
+    if(direction > 0) {
+      // Right arrow - next faction
+      this.currentFactionIndex++;
+      if(this.currentFactionIndex >= this.factionHQs.length) {
+        this.currentFactionIndex = 0;
+      }
+    } else {
+      // Left arrow - previous faction
+      this.currentFactionIndex--;
+      if(this.currentFactionIndex < 0) {
+        this.currentFactionIndex = this.factionHQs.length - 1;
+      }
+    }
+    
+    console.log('New faction index:', this.currentFactionIndex);
+    
+    // Snap to faction HQ
+    var faction = this.factionHQs[this.currentFactionIndex];
+    if(!faction) {
+      console.error('Faction not found at index:', this.currentFactionIndex);
+      return;
+    }
+    
+    console.log('Snapping to faction:', faction);
+    this.cameraX = faction.x;
+    this.cameraY = faction.y;
+    this.cameraZ = faction.z;
+    
+    // Display faction name in chat
+    if(chatMessages) {
+      chatMessages.innerHTML += '<div>📍 Viewing: ' + faction.name + ' HQ</div>';
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+    
+    console.log('Camera now at:', this.cameraX, this.cameraY, 'z=' + this.cameraZ);
+  }
+};
+
+window.godModeCamera = godModeCamera;
+
 // Login camera will be started automatically when preview data is received
 
 // CHAT & COMMANDS
-var chatText = document.getElementById('chat-text');
+var chatMessagesContainer = document.getElementById('chat-messages-container');
+var chatMessages = document.getElementById('chat-messages');
+var chatInputWrapper = document.getElementById('chat-input-wrapper');
 var chatInput = document.getElementById('chat-input');
 var chatForm = document.getElementById('chat-form');
+var chatHideTimer = null;
+
+// INVENTORY UI
+var inventoryButton = document.getElementById('inventory-button');
+var inventoryPopup = document.getElementById('inventory-popup');
+var inventoryGrid = document.getElementById('inventory-grid');
+var inventoryClose = document.getElementById('inventory-close');
+
+// MARKET UI
+var marketPopup = document.getElementById('market-popup');
+var marketClose = document.getElementById('market-close');
+var marketOrderbook = document.getElementById('market-orderbook');
+var marketPlayerOrdersList = document.getElementById('market-player-orders-list');
+var marketItemSelect = document.getElementById('market-item-select');
+var marketAmount = document.getElementById('market-amount');
+var marketPrice = document.getElementById('market-price');
+var marketBuyBtn = document.getElementById('market-buy-btn');
+var marketSellBtn = document.getElementById('market-sell-btn');
+var currentMarketData = null;
+
+// Chat auto-hide functionality
+function resetChatHideTimer(){
+  // Clear existing timer
+  if(chatHideTimer){
+    clearTimeout(chatHideTimer);
+  }
+  
+  // Show chat messages container
+  if(chatMessagesContainer){
+    chatMessagesContainer.classList.remove('hidden');
+    chatMessagesContainer.style.display = 'block';
+  }
+  
+  // Set new timer to hide entire messages box after 5 seconds
+  chatHideTimer = setTimeout(function(){
+    if(chatMessagesContainer && document.activeElement !== chatInput){
+      chatMessagesContainer.classList.add('hidden');
+      // Actually hide the element after transition
+      setTimeout(function(){
+        if(chatMessagesContainer.classList.contains('hidden')){
+          chatMessagesContainer.style.display = 'none';
+        }
+      }, 300);
+    }
+  }, 5000);
+}
+
+// Chat focus/blur handlers
+chatInput.addEventListener('focus', function(){
+  // Show chat messages when focusing input
+  if(chatMessagesContainer){
+    chatMessagesContainer.classList.remove('hidden');
+    chatMessagesContainer.style.display = 'block';
+  }
+  // Clear hide timer while typing
+  if(chatHideTimer){
+    clearTimeout(chatHideTimer);
+  }
+});
+
+chatInput.addEventListener('blur', function(){
+  // Restart hide timer when unfocusing
+  resetChatHideTimer();
+});
 
 chatForm.onsubmit = function(e){
   e.preventDefault();
+  
+  // If input is empty or only whitespace, just blur
+  if(!chatInput.value || chatInput.value.trim() === ''){
+    chatInput.blur();
+    return;
+  }
+  
   if(chatInput.value[0] == '/'){ // command
     socket.send(JSON.stringify({
       msg:'evalCmd',
@@ -736,11 +998,436 @@ chatForm.onsubmit = function(e){
   chatInput.blur(); // Auto-deselect after sending
 };
 
+// Inventory button click handler
+if(inventoryButton){
+  inventoryButton.onclick = function(){
+    if(inventoryPopup.style.display === 'none' || !inventoryPopup.style.display){
+      inventoryPopup.style.display = 'block';
+      updateInventoryDisplay();
+    } else {
+      inventoryPopup.style.display = 'none';
+    }
+  };
+}
+
+if(inventoryClose){
+  inventoryClose.onclick = function(){
+    inventoryPopup.style.display = 'none';
+  };
+}
+
+// Market UI event handlers
+if(marketClose){
+  marketClose.onclick = function(){
+    marketPopup.style.display = 'none';
+  };
+}
+
+if(marketBuyBtn){
+  marketBuyBtn.onclick = function(){
+    var item = marketItemSelect.value;
+    var amount = parseInt(marketAmount.value);
+    var price = parseInt(marketPrice.value);
+    
+    if(!item || isNaN(amount) || isNaN(price)){
+      alert('Please fill in all fields');
+      return;
+    }
+    
+    if(amount <= 0 || price <= 0){
+      alert('Amount and price must be greater than 0');
+      return;
+    }
+    
+    socket.send(JSON.stringify({msg:'evalCmd',cmd:'/buy ' + amount + ' ' + item + ' ' + price}));
+    
+    // Clear inputs
+    marketAmount.value = '';
+    marketPrice.value = '';
+    
+    // Close market after short delay to see confirmation
+    setTimeout(function(){ marketPopup.style.display = 'none'; }, 500);
+  };
+}
+
+if(marketSellBtn){
+  marketSellBtn.onclick = function(){
+    var item = marketItemSelect.value;
+    var amount = parseInt(marketAmount.value);
+    var price = parseInt(marketPrice.value);
+    
+    if(!item || isNaN(amount) || isNaN(price)){
+      alert('Please fill in all fields');
+      return;
+    }
+    
+    if(amount <= 0 || price <= 0){
+      alert('Amount and price must be greater than 0');
+      return;
+    }
+    
+    socket.send(JSON.stringify({msg:'evalCmd',cmd:'/sell ' + amount + ' ' + item + ' ' + price}));
+    
+    // Clear inputs
+    marketAmount.value = '';
+    marketPrice.value = '';
+    
+    // Close market after short delay to see confirmation
+    setTimeout(function(){ marketPopup.style.display = 'none'; }, 500);
+  };
+}
+
+// Helper function to get the appropriate image for an item based on type and quantity
+function getInventoryItemImage(itemType, qty){
+  // Convert to lowercase for consistent comparison
+  var type = itemType.toLowerCase();
+  
+  if(type === 'worldmap'){
+    return Img.map;
+  } else if(type === 'dague' || type === 'huntingknife'){
+    return qty > 2 ? Img.dagger3 : qty > 1 ? Img.dagger2 : Img.dagger1;
+  } else if(type === 'rondel'){
+    return Img.dagger2;
+  } else if(type === 'misericorde'){
+    return Img.dagger3;
+  } else if(type === 'bastardsword'){
+    return Img.sword1;
+  } else if(type === 'longsword' || type === 'zweihander'){
+    return Img.sword2;
+  } else if(type === 'morallta'){
+    return Img.sword3;
+  } else if(type === 'bow'){
+    return Img.bow;
+  } else if(type === 'welshlongbow'){
+    return Img.longbow;
+  } else if(type === 'knightlance' || type === 'rusticlance'){
+    return Img.lance1;
+  } else if(type === 'paladinlance'){
+    return Img.lance2;
+  } else if(type === 'brigandine' || type === 'lamellar'){
+    return Img.leathergarb;
+  } else if(type === 'maille' || type === 'hauberk' || type === 'brynja'){
+    return Img.chainmail;
+  } else if(type === 'cuirass' || type === 'steelplate'){
+    return Img.plate1;
+  } else if(type === 'greenwichplate'){
+    return Img.plate2;
+  } else if(type === 'gothicplate'){
+    return Img.plate3;
+  } else if(type === 'clericrobe'){
+    return Img.robe1;
+  } else if(type === 'monkcowl'){
+    return Img.robe2;
+  } else if(type === 'blackcloak'){
+    return Img.robe3;
+  } else if(type === 'tome'){
+    return Img.tome;
+  } else if(type === 'runicscroll'){
+    return Img.scroll;
+  } else if(type === 'sacredtext'){
+    return Img.sacredtext;
+  } else if(type === 'stoneaxe' || type === 'ironaxe'){
+    return Img.axe;
+  } else if(type === 'pickaxe'){
+    return Img.pickaxe;
+  } else if(type === 'key'){
+    return Img.key;
+  } else if(type === 'saison' || type === 'mead' || type === 'beer' || type === 'flanders' || type === 'bieredegarde' || type === 'bordeaux' || type === 'bourgogne' || type === 'chianti'){
+    return qty > 2 ? Img.beers : Img.beer;
+  } else if(type === 'wood'){
+    return qty > 9 ? Img.wood3 : qty > 4 ? Img.wood2 : Img.wood1;
+  } else if(type === 'stone'){
+    return qty > 9 ? Img.stone2 : Img.stone1;
+  } else if(type === 'grain'){
+    return qty > 9 ? Img.grain3 : qty > 4 ? Img.grain2 : Img.grain1;
+  } else if(type === 'ironore'){
+    return qty > 4 ? Img.ore2 : Img.ore1;
+  } else if(type === 'iron'){
+    return qty > 4 ? Img.ironbars : Img.ironbar;
+  } else if(type === 'steel'){
+    return qty > 4 ? Img.steelbars : Img.steelbar;
+  } else if(type === 'boarhide'){
+    return qty > 4 ? Img.boarhides : Img.boarhide;
+  } else if(type === 'leather'){
+    return qty > 4 ? Img.leathers : Img.leather;
+  } else if(type === 'silverore'){
+    return Img.ore1;
+  } else if(type === 'silver'){
+    var silverImg = [Img.silver1,Img.silver2,Img.silver3,Img.silver4,Img.silver5,Img.silver6,Img.silver7,Img.silver8,Img.silver9];
+    if(qty > 999) return Img.silver9;
+    else if(qty > 499) return Img.silver8;
+    else if(qty > 249) return Img.silver7;
+    else if(qty > 99) return Img.silver6;
+    else if(qty > 49) return Img.silver5;
+    else if(qty > 24) return Img.silver4;
+    else if(qty > 9) return Img.silver3;
+    else if(qty > 4) return Img.silver2;
+    else return Img.silver1;
+  } else if(type === 'goldore'){
+    return Img.ore2;
+  } else if(type === 'gold'){
+    if(qty > 999) return Img.gold9;
+    else if(qty > 499) return Img.gold8;
+    else if(qty > 249) return Img.gold7;
+    else if(qty > 99) return Img.gold6;
+    else if(qty > 49) return Img.gold5;
+    else if(qty > 24) return Img.gold4;
+    else if(qty > 9) return Img.gold3;
+    else if(qty > 4) return Img.gold2;
+    else return Img.gold1;
+  } else if(type === 'diamond'){
+    return qty > 2 ? Img.diamonds : Img.diamond;
+  } else if(type === 'arrows'){
+    return Img.arrows;
+  } else if(type === 'fish'){
+    return qty > 4 ? Img.fishes : Img.fish;
+  } else if(type === 'bread'){
+    return qty > 4 ? Img.breads : Img.bread;
+  } else if(type === 'rawmeat' || type === 'venison' || type === 'lamb' || type === 'boarmeat'){
+    return qty > 4 ? Img.rawmeats : Img.rawmeat;
+  } else if(type === 'cookedmeat' || type === 'lambchop' || type === 'boarshank' || type === 'venisonloin'){
+    return qty > 4 ? Img.cookedmeats : Img.cookedmeat;
+  } else if(type === 'poachedfish'){
+    return qty > 4 ? Img.poachedfishes : Img.poachedfish;
+  } else if(type === 'torch'){
+    return Img.torch;
+  } else if(type === 'crown'){
+    return Img.crown;
+  } else if(type === 'relic'){
+    return Img.relic;
+  }
+  return null;
+}
+
+// Inventory display function - uses same rendering as dropped items
+function updateInventoryDisplay(){
+  if(!Player.list[selfId]) return;
+  
+  var player = Player.list[selfId];
+  inventoryGrid.innerHTML = '';
+  
+  // Display all inventory items
+  var inventoryItems = [
+    {type: 'worldmap', name: 'WorldMap'},
+    {type: 'arrows', name: 'Arrows'},
+    {type: 'dague', name: 'Dague'},
+    {type: 'longsword', name: 'Longsword'},
+    {type: 'bow', name: 'Bow'},
+    {type: 'brigandine', name: 'Brigandine'},
+    {type: 'maille', name: 'Maille'},
+    {type: 'steelplate', name: 'SteelPlate'},
+    {type: 'fish', name: 'Fish'},
+    {type: 'bread', name: 'Bread'},
+    {type: 'saison', name: 'Saison'},
+    {type: 'rawmeat', name: 'RawMeat'},
+    {type: 'cookedmeat', name: 'CookedMeat'},
+    {type: 'wood', name: 'Wood'},
+    {type: 'stone', name: 'Stone'},
+    {type: 'grain', name: 'Grain'},
+    {type: 'ironore', name: 'IronOre'},
+    {type: 'iron', name: 'Iron'},
+    {type: 'gold', name: 'Gold'},
+    {type: 'silver', name: 'Silver'},
+    {type: 'diamond', name: 'Diamond'},
+    {type: 'torch', name: 'Torch'},
+    {type: 'beer', name: 'Beer'}
+  ];
+  
+  inventoryItems.forEach(function(item){
+    var count = player.inventory[item.type];
+    if(count && count > 0){
+      var itemDiv = document.createElement('div');
+      itemDiv.className = 'inventory-item';
+      
+      // Create tooltip
+      var tooltip = document.createElement('div');
+      tooltip.className = 'inventory-item-tooltip';
+      tooltip.textContent = '[' + item.name + '] x' + count;
+      itemDiv.appendChild(tooltip);
+      
+      // Get the appropriate image based on item type and quantity
+      var itemImg = getInventoryItemImage(item.type, count);
+      if(itemImg){
+        var img = document.createElement('img');
+        img.src = itemImg.src;
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.objectFit = 'contain';
+        itemDiv.appendChild(img);
+      } else {
+        // Fallback: show item name as text if no image exists
+        var placeholder = document.createElement('div');
+        placeholder.style.fontSize = '12px';
+        placeholder.style.color = 'white';
+        placeholder.style.textAlign = 'center';
+        placeholder.style.padding = '10px';
+        placeholder.textContent = item.name;
+        itemDiv.appendChild(placeholder);
+      }
+      
+      inventoryGrid.appendChild(itemDiv);
+    }
+  });
+  
+  if(inventoryGrid.innerHTML === ''){
+    inventoryGrid.innerHTML = '<p style="color:#888;padding:20px;">Your inventory is empty</p>';
+  }
+}
+
+// Market UI Functions
+function getItemEmoji(itemType){
+  var emojis = {
+    grain: '🌾', wood: '🪵', stone: '🪨', ironore: '⛏️', iron: '🔩',
+    silverore: '✨', silver: '💍', goldore: '⭐', gold: '👑', diamond: '💎',
+    bread: '🍞', fish: '🐟', torch: '🔦', arrows: '🏹', beer: '🍺'
+  };
+  return emojis[itemType] || '📦';
+}
+
+function updateMarketDisplay(){
+  if(!currentMarketData) return;
+  
+  var orderbook = currentMarketData.orderbook;
+  var playerOrders = currentMarketData.playerOrders;
+  
+  // Clear displays
+  marketOrderbook.innerHTML = '';
+  marketPlayerOrdersList.innerHTML = '';
+  
+  // Display orderbook
+  var resources = Object.keys(orderbook).sort();
+  
+  for(var r in resources){
+    var resource = resources[r];
+    var book = orderbook[resource];
+    
+    if(book.bids.length > 0 || book.asks.length > 0){
+      var resourceBlock = document.createElement('div');
+      resourceBlock.className = 'market-resource-block';
+      
+      var emoji = getItemEmoji(resource);
+      var title = document.createElement('h4');
+      title.style.margin = '0 0 10px 0';
+      title.textContent = emoji + ' ' + resource.toUpperCase();
+      resourceBlock.appendChild(title);
+      
+      // Sort and display sell orders (asks - low to high)
+      var sortedAsks = book.asks.slice().sort(function(a, b){ return a.price - b.price; });
+      if(sortedAsks.length > 0){
+        var sellHeader = document.createElement('div');
+        sellHeader.style.color = '#ff6666';
+        sellHeader.style.fontWeight = 'bold';
+        sellHeader.style.marginBottom = '5px';
+        sellHeader.textContent = 'SELL ORDERS';
+        resourceBlock.appendChild(sellHeader);
+        
+        var showAsks = sortedAsks.slice(0, 3);
+        for(var i in showAsks){
+          var ask = showAsks[i];
+          var orderDiv = document.createElement('div');
+          orderDiv.className = 'market-order sell';
+          orderDiv.textContent = ask.amount + ' @ ' + ask.price + ' silver';
+          resourceBlock.appendChild(orderDiv);
+        }
+        
+        if(sortedAsks.length > 3){
+          var more = document.createElement('div');
+          more.style.fontSize = '12px';
+          more.style.color = '#888';
+          more.textContent = '... +' + (sortedAsks.length - 3) + ' more';
+          resourceBlock.appendChild(more);
+        }
+      }
+      
+      // Sort and display buy orders (bids - high to low)
+      var sortedBids = book.bids.slice().sort(function(a, b){ return b.price - a.price; });
+      if(sortedBids.length > 0){
+        var buyHeader = document.createElement('div');
+        buyHeader.style.color = '#66ff66';
+        buyHeader.style.fontWeight = 'bold';
+        buyHeader.style.marginTop = '10px';
+        buyHeader.style.marginBottom = '5px';
+        buyHeader.textContent = 'BUY ORDERS';
+        resourceBlock.appendChild(buyHeader);
+        
+        var showBids = sortedBids.slice(0, 3);
+        for(var i in showBids){
+          var bid = showBids[i];
+          var orderDiv = document.createElement('div');
+          orderDiv.className = 'market-order buy';
+          orderDiv.textContent = bid.amount + ' @ ' + bid.price + ' silver';
+          resourceBlock.appendChild(orderDiv);
+        }
+        
+        if(sortedBids.length > 3){
+          var more = document.createElement('div');
+          more.style.fontSize = '12px';
+          more.style.color = '#888';
+          more.textContent = '... +' + (sortedBids.length - 3) + ' more';
+          resourceBlock.appendChild(more);
+        }
+      }
+      
+      marketOrderbook.appendChild(resourceBlock);
+    }
+  }
+  
+  if(marketOrderbook.innerHTML === ''){
+    marketOrderbook.innerHTML = '<p style="color:#888;padding:20px;">No active orders in this market</p>';
+  }
+  
+  // Display player's orders
+  if(playerOrders && playerOrders.length > 0){
+    for(var i in playerOrders){
+      var order = playerOrders[i];
+      var orderDiv = document.createElement('div');
+      orderDiv.className = 'player-order';
+      
+      var emoji = getItemEmoji(order.resource);
+      var typeColor = order.type === 'buy' ? '#66ff66' : '#ff6666';
+      var typeText = order.type.toUpperCase();
+      
+      var cancelBtn = document.createElement('button');
+      cancelBtn.className = 'cancel-order-btn';
+      cancelBtn.textContent = 'Cancel';
+      cancelBtn.onclick = function(orderId){
+        return function(){
+          socket.send(JSON.stringify({msg:'evalCmd',cmd:'/cancel ' + orderId.substr(0,8)}));
+          setTimeout(function(){ marketPopup.style.display = 'none'; }, 100);
+        };
+      }(order.orderId);
+      orderDiv.appendChild(cancelBtn);
+      
+      var orderText = document.createElement('div');
+      orderText.innerHTML = '<span style="color:' + typeColor + '">' + typeText + '</span> ' + 
+                           emoji + ' ' + order.resource + '<br>' +
+                           order.amount + ' @ ' + order.price + ' silver';
+      orderDiv.appendChild(orderText);
+      
+      marketPlayerOrdersList.appendChild(orderDiv);
+    }
+  } else {
+    marketPlayerOrdersList.innerHTML = '<p style="color:#888;padding:10px;font-size:12px;">No active orders</p>';
+  }
+}
+
 // Auto-focus chat input when Enter is pressed
 document.addEventListener('keydown', function(e){
   // Block all input during login
   if(loginCameraSystem.isActive) {
     return;
+  }
+  
+  // Close popups on ESC
+  if(e.key === 'Escape'){
+    if(marketPopup && marketPopup.style.display === 'block'){
+      marketPopup.style.display = 'none';
+      return;
+    }
+    if(inventoryPopup && inventoryPopup.style.display === 'block'){
+      inventoryPopup.style.display = 'none';
+      return;
+    }
   }
   
   if(e.key === 'Enter' || e.keyCode === 13){
@@ -919,16 +1606,42 @@ ctx.font = '30px Arial';
 
 // Helper function to get camera position for rendering
 var getCameraPosition = function() {
+  // Priority 1: God mode camera (highest priority)
+  if (godModeCamera && godModeCamera.isActive) {
+    return godModeCamera.getCameraPosition();
+  }
+  
+  // Priority 2: Login camera system
   if(loginCameraSystem && loginCameraSystem.isActive && !selfId) {
     var cameraPos = loginCameraSystem.getCameraPosition();
     if(cameraPos && cameraPos.x !== undefined && cameraPos.y !== undefined) {
       return { x: cameraPos.x, y: cameraPos.y };
     }
-  } else if(selfId && Player.list[selfId]) {
+  }
+  
+  // Priority 3: Follow player
+  if(selfId && Player.list[selfId]) {
     return { x: Player.list[selfId].x, y: Player.list[selfId].y };
   }
+  
   // Default fallback
   return { x: 0, y: 0 };
+};
+
+// Helper function to get current z-layer for rendering
+var getCurrentZ = function() {
+  // God mode has its own z-layer
+  if (godModeCamera && godModeCamera.isActive) {
+    return godModeCamera.cameraZ;
+  }
+  
+  // Otherwise use player z
+  if (selfId && Player.list[selfId]) {
+    return Player.list[selfId].z;
+  }
+  
+  // Default to overworld
+  return 0;
 };
 
 // BUILDINGS
@@ -1006,6 +1719,11 @@ var Player = function(initPack){
   self.spriteScale = initPack.spriteScale || 1.0;
 
   self.draw = function(){
+    // God mode: Hide the player's own character
+    if(godModeCamera.isActive && self.id === selfId){
+      return;
+    }
+    
     // Phase 2: Ghost Invisibility - Don't render other players' ghosts
     if(self.ghost && self.id !== selfId){
       return; // Other players' ghosts are invisible
@@ -1175,11 +1893,55 @@ var Player = function(initPack){
     }
     
     // character sprite (now using regular sprites only)
-      if(self.pressingAttack){
+      // Work animations (chopping, mining, farming, building, fishing)
+      if(self.chopping && self.sprite.chopping){
+            ctx.drawImage(
+          self.sprite.chopping[wrk],
+              x,
+              y,
+              self.spriteSize,
+              self.spriteSize
+            );
+      } else if(self.mining && self.sprite.mining){
+            ctx.drawImage(
+          self.sprite.mining[wrk],
+              x,
+              y,
+              self.spriteSize,
+              self.spriteSize
+            );
+      } else if(self.farming && self.sprite.farming){
+            ctx.drawImage(
+          self.sprite.farming[wrk],
+              x,
+              y,
+              self.spriteSize,
+              self.spriteSize
+            );
+      } else if(self.building && self.sprite.building){
+            ctx.drawImage(
+          self.sprite.building[wrk],
+              x,
+              y,
+              self.spriteSize,
+              self.spriteSize
+            );
+      } else if(self.fishing && self.sprite.fishingd){
+        // Fishing has directional sprites
+        if(self.facing == 'down'){
+          ctx.drawImage(self.sprite.fishingd, x, y, self.spriteSize, self.spriteSize);
+        } else if(self.facing == 'up'){
+          ctx.drawImage(self.sprite.fishingu, x, y, self.spriteSize, self.spriteSize);
+        } else if(self.facing == 'left'){
+          ctx.drawImage(self.sprite.fishingl, x, y, self.spriteSize, self.spriteSize);
+        } else if(self.facing == 'right'){
+          ctx.drawImage(self.sprite.fishingr, x, y, self.spriteSize, self.spriteSize);
+        }
+      } else if(self.pressingAttack){
         if((self.gear.weapon && self.gear.weapon.type == 'bow') || self.ranged){
           if(self.angle > 45 && self.angle <= 115){
             ctx.drawImage(
-            self.sprite.attackdb,
+              self.sprite.attackdb,
               x,
               y,
             scaledSpriteSize,
@@ -1187,7 +1949,7 @@ var Player = function(initPack){
             );
           } else if(self.angle > -135 && self.angle <= -15){
             ctx.drawImage(
-            self.sprite.attackub,
+              self.sprite.attackub,
               x,
               y,
             scaledSpriteSize,
@@ -1195,7 +1957,7 @@ var Player = function(initPack){
             );
           } else if(self.angle > 115 || self.angle <= -135){
             ctx.drawImage(
-            self.sprite.attacklb,
+              self.sprite.attacklb,
               x,
               y,
             scaledSpriteSize,
@@ -1203,7 +1965,7 @@ var Player = function(initPack){
             );
           } else if(self.angle > -15 || self.angle <= 45){
             ctx.drawImage(
-            self.sprite.attackrb,
+              self.sprite.attackrb,
               x,
               y,
             scaledSpriteSize,
@@ -1213,7 +1975,7 @@ var Player = function(initPack){
         } else {
           if(self.facing == 'down'){
             ctx.drawImage(
-            self.sprite.attackd,
+              self.sprite.attackd,
               x,
               y,
             scaledSpriteSize,
@@ -1221,7 +1983,7 @@ var Player = function(initPack){
             );
           } else if(self.facing == 'up'){
             ctx.drawImage(
-            self.sprite.attacku,
+              self.sprite.attacku,
               x,
               y,
             scaledSpriteSize,
@@ -1229,7 +1991,7 @@ var Player = function(initPack){
             );
           } else if(self.facing == 'left'){
             ctx.drawImage(
-            self.sprite.attackl,
+              self.sprite.attackl,
               x,
               y,
             scaledSpriteSize,
@@ -1237,7 +1999,7 @@ var Player = function(initPack){
             );
           } else if(self.facing == 'right'){
             ctx.drawImage(
-            self.sprite.attackr,
+              self.sprite.attackr,
               x,
               y,
             scaledSpriteSize,
@@ -1248,7 +2010,7 @@ var Player = function(initPack){
       } else if(self.pressingAttack && self.type == 'npc'){
         if(self.facing == 'down'){
           ctx.drawImage(
-          self.sprite.attackd,
+            self.sprite.attackd,
             x,
             y,
             self.spriteSize,
@@ -1256,7 +2018,7 @@ var Player = function(initPack){
           );
         } else if(self.facing == 'up'){
           ctx.drawImage(
-          self.sprite.attacku,
+            self.sprite.attacku,
             x,
             y,
             self.spriteSize,
@@ -1264,7 +2026,7 @@ var Player = function(initPack){
           );
         } else if(self.facing == 'left'){
           ctx.drawImage(
-          self.sprite.attackl,
+            self.sprite.attackl,
             x,
             y,
             self.spriteSize,
@@ -1272,7 +2034,7 @@ var Player = function(initPack){
           );
         } else if(self.facing == 'right'){
           ctx.drawImage(
-          self.sprite.attackr,
+            self.sprite.attackr,
             x,
             y,
             self.spriteSize,
@@ -1281,7 +2043,7 @@ var Player = function(initPack){
         }
       } else if(self.facing == 'down' && !self.pressingDown){
         ctx.drawImage(
-        self.sprite.facedown,
+          self.sprite.facedown,
           x,
           y,
           self.spriteSize,
@@ -1289,7 +2051,7 @@ var Player = function(initPack){
         );
       } else if(self.pressingDown){
         ctx.drawImage(
-        self.sprite.walkdown[wlk],
+          self.sprite.walkdown[wlk],
           x,
           y,
           self.spriteSize,
@@ -1297,7 +2059,7 @@ var Player = function(initPack){
         );
       } else if(self.facing == 'up' && !self.pressingUp){
         ctx.drawImage(
-        self.sprite.faceup,
+          self.sprite.faceup,
           x,
           y,
           self.spriteSize,
@@ -1305,7 +2067,7 @@ var Player = function(initPack){
         );
       } else if(self.pressingUp){
         ctx.drawImage(
-        self.sprite.walkup[wlk],
+          self.sprite.walkup[wlk],
           x,
           y,
           self.spriteSize,
@@ -1313,7 +2075,7 @@ var Player = function(initPack){
         );
       } else if(self.facing == 'left' && !self.pressingLeft){
         ctx.drawImage(
-        self.sprite.faceleft,
+          self.sprite.faceleft,
           x,
           y,
           self.spriteSize,
@@ -1321,7 +2083,7 @@ var Player = function(initPack){
         );
       } else if(self.pressingLeft){
         ctx.drawImage(
-        self.sprite.walkleft[wlk],
+          self.sprite.walkleft[wlk],
           x,
           y,
           self.spriteSize,
@@ -1329,7 +2091,7 @@ var Player = function(initPack){
         );
       } else if(self.facing == 'right' && !self.pressingRight){
         ctx.drawImage(
-        self.sprite.faceright,
+          self.sprite.faceright,
           x,
           y,
           self.spriteSize,
@@ -1337,13 +2099,13 @@ var Player = function(initPack){
         );
       } else if(self.pressingRight){
         ctx.drawImage(
-        self.sprite.walkright[wlk],
+          self.sprite.walkright[wlk],
           x,
           y,
           self.spriteSize,
           self.spriteSize
         );
-      }
+  }
     
     // Reset transparency
     ctx.globalAlpha = 1.0;
@@ -2787,7 +3549,14 @@ var inView = function(z,x,y,innaWoods){
   var right = (viewport.endTile[0] + 2) * tileSize;
   var bottom = (viewport.endTile[1] + 2) * tileSize;
 
-  if(z == Player.list[selfId].z && x > left && x < right && y > top && y < bottom){
+  // In god mode, use camera z-layer instead of player z
+  var currentZ = godModeCamera.isActive ? godModeCamera.cameraZ : Player.list[selfId].z;
+  
+  if(z == currentZ && x > left && x < right && y > top && y < bottom){
+    // In god mode, ignore innaWoods check (always show everything)
+    if(godModeCamera.isActive){
+      return true;
+    }
     if(z == 0 && innaWoods && !Player.list[selfId].innaWoods){
       return false;
     } else {
@@ -2833,6 +3602,9 @@ var hasFire = function(z,x,y){
 }
 
 setInterval(function(){
+  // Update god mode camera position
+  godModeCamera.update();
+  
   // Check if we should render (either logged in or in login camera mode)
   if(!selfId && !loginCameraSystem.isActive) {
     return;
@@ -2896,11 +3668,17 @@ setInterval(function(){
     viewport.update(cameraPos.x, cameraPos.y);
   } else if(selfId && Player.list[selfId]) {
     // Normal game rendering when logged in
+  var currentZ = getCurrentZ();
   for(var i in Item.list){
     if(inView(Item.list[i].z,Item.list[i].x,Item.list[i].y,Item.list[i].innaWoods)){
-      if((Player.list[selfId].z == 1 || Player.list[selfId].z == 2) && (getBuilding(Item.list[i].x,Item.list[i].y) == getBuilding(Player.list[selfId].x,Player.list[selfId].y) || getBuilding(Item.list[i].x,Item.list[i].y+(tileSize * 1.1)) == getBuilding(Player.list[selfId].x,Player.list[selfId].y))){
+      // In god mode, render all items on current z-layer
+      if(godModeCamera.isActive){
+        if(Item.list[i].z == currentZ){
+          Item.list[i].draw();
+        }
+      } else if((currentZ == 1 || currentZ == 2) && (getBuilding(Item.list[i].x,Item.list[i].y) == getBuilding(Player.list[selfId].x,Player.list[selfId].y) || getBuilding(Item.list[i].x,Item.list[i].y+(tileSize * 1.1)) == getBuilding(Player.list[selfId].x,Player.list[selfId].y))){
         Item.list[i].draw();
-      } else if(Player.list[selfId].z != 1 && Player.list[selfId].z != 2){
+      } else if(currentZ != 1 && currentZ != 2){
         Item.list[i].draw();
       } else {
         continue;
@@ -2912,9 +3690,14 @@ setInterval(function(){
   for(var i in Player.list){
     if(Player.list[i].class != 'Falcon'){
       if(inView(Player.list[i].z,Player.list[i].x,Player.list[i].y,Player.list[i].innaWoods)){
-        if((Player.list[selfId].z == 1 || Player.list[selfId].z == 2) && (getBuilding(Player.list[i].x,Player.list[i].y) == getBuilding(Player.list[selfId].x,Player.list[selfId].y))){
+        // In god mode, render all entities on current z-layer
+        if(godModeCamera.isActive){
+          if(Player.list[i].z == currentZ){
+            Player.list[i].draw();
+          }
+        } else if((currentZ == 1 || currentZ == 2) && (getBuilding(Player.list[i].x,Player.list[i].y) == getBuilding(Player.list[selfId].x,Player.list[selfId].y))){
           Player.list[i].draw();
-        } else if(Player.list[selfId].z != 1 && Player.list[selfId].z != 2){
+        } else if(currentZ != 1 && currentZ != 2){
           Player.list[i].draw();
         } else {
           continue;
@@ -2926,9 +3709,14 @@ setInterval(function(){
   }
   for(var i in Arrow.list){
     if(inView(Arrow.list[i].z,Arrow.list[i].x,Arrow.list[i].y,Arrow.list[i].innaWoods)){
-      if((Player.list[selfId].z == 1 || Player.list[selfId].z == 2) && (getBuilding(Item.list[i].x,Item.list[i].y) == getBuilding(Arrow.list[selfId].x,Arrow.list[selfId].y))){
+      // In god mode, render all arrows on current z-layer
+      if(godModeCamera.isActive){
+        if(Arrow.list[i].z == currentZ){
+          Arrow.list[i].draw();
+        }
+      } else if((currentZ == 1 || currentZ == 2) && (getBuilding(Item.list[i].x,Item.list[i].y) == getBuilding(Arrow.list[selfId].x,Arrow.list[selfId].y))){
         Arrow.list[i].draw();
-      } else if(Player.list[selfId].z != 1 && Player.list[selfId].z != 2){
+      } else if(currentZ != 1 && currentZ != 2){
         Arrow.list[i].draw();
       } else {
         continue;
@@ -2937,30 +3725,50 @@ setInterval(function(){
       continue;
     }
   }
-  if(Player.list[selfId].innaWoods){
-    renderForest();
+  // Render forest overlay on z=0
+  // - In god mode: always render (full visibility)
+  // - Normal play: only when innaWoods (transparent overlay near player)
+  if(currentZ == 0){
+    if(godModeCamera.isActive){
+      renderForest();
+    } else if(Player.list[selfId] && Player.list[selfId].innaWoods){
+      renderForest();
+    }
   }
   renderTops();
   for(var i in Player.list){
     if(Player.list[i].class == 'Falcon'){
       if(inView(Player.list[i].z,Player.list[i].x,Player.list[i].y,false)){
-        Player.list[i].draw();
+        // In god mode, only render falcons on current z-layer
+        if(godModeCamera.isActive){
+          if(Player.list[i].z == currentZ){
+            Player.list[i].draw();
+          }
+        } else {
+          Player.list[i].draw();
+        }
       }
     }
   }
   renderLighting();
-  if(Player.list[selfId].z == 0){
+  if(currentZ == 0){
     if(nightfall){
       renderLightSources(2);
     } else {
       renderLightSources(1);
     }
-  } else if(Player.list[selfId].z == 1 || Player.list[selfId].z == 2){
+  } else if(currentZ == 1 || currentZ == 2){
     renderLightSources(1);
-  } else if(Player.list[selfId].z == -1 || Player.list[selfId].z == -2){
+  } else if(currentZ == -1 || currentZ == -2){
     renderLightSources(3);
   }
+  
+  // Update viewport position
+  if(godModeCamera.isActive){
+    viewport.update(godModeCamera.cameraX, godModeCamera.cameraY);
+  } else {
   viewport.update(Player.list[selfId].x,Player.list[selfId].y);
+  }
   }
   //console.log(getLoc(Player.list[selfId].x,Player.list[selfId].y));
 },40);
@@ -3156,11 +3964,8 @@ var viewport = {
 
 // renderer
 var renderMap = function(){
-  // During login mode, always render overworld (z=0) for falcon camera
-  var z = 0;
-  if(selfId && Player.list[selfId]) {
-    z = Player.list[selfId].z;
-  }
+  // Get current z-layer (supports login camera, god mode, and normal play)
+  var z = getCurrentZ();
 
   // overworld
   if(z == 0){
@@ -3190,9 +3995,10 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
-          // During login mode, always show forest overlay (not innaWoods)
+          // In god mode or login mode, always show forest overlay (not innaWoods)
+          // Normal play: check player's innaWoods status
           var innaWoods = false;
-          if(selfId && Player.list[selfId]) {
+          if(selfId && Player.list[selfId] && !godModeCamera.isActive) {
             innaWoods = Player.list[selfId].innaWoods;
           }
           
@@ -5944,11 +6750,8 @@ var renderMap = function(){
 };
 
 var renderTops = function(){
-  // During login mode, always render tops for overworld (z=0)
-  var z = 0;
-  if(selfId && Player.list[selfId]) {
-    z = Player.list[selfId].z;
-  }
+  // Get current z-layer (works for login camera, god mode, and normal play)
+  var z = getCurrentZ();
   
   if(z == 0){
     for (var c = viewport.startTile[0]; c < viewport.endTile[0]; c++){
@@ -6437,13 +7240,13 @@ var renderForest = function(){
   var pc = pLoc[0];
   var pr = pLoc[1];
 
-  // During login mode, always render forest for overworld (z=0)
-  var z = 0;
-  if(selfId && Player.list[selfId]) {
-    z = Player.list[selfId].z;
+  // Get current z-layer (supports god mode, login mode, and normal play)
+  var z = getCurrentZ();
+  if(z != 0){
+    return; // Only render forest on overworld
   }
 
-  if(z == 0){
+  // Render forest for overworld (z=0)
     for (var c = viewport.startTile[0]; c < viewport.endTile[0]; c++){
       for (var r = viewport.startTile[1]; r < viewport.endTile[1]; r++){
         var xOffset = viewport.offset[0] + (c * tileSize);
@@ -6603,7 +7406,6 @@ var renderForest = function(){
               tileSize, // target width
               tileSize * 1.5 // target height
             );
-          }
         }
       }
     }
@@ -6651,11 +7453,8 @@ var renderLightSources = function(env){
     var x = light.x - cameraPos.x + WIDTH/2;
     var y = light.y - cameraPos.y + HEIGHT/2;
     
-    // During login mode, only render z=0 lights
-    var playerZ = 0;
-    if(selfId && Player.list[selfId]) {
-      playerZ = Player.list[selfId].z;
-    }
+    // Get current z-layer (works for login camera, god mode, and normal play)
+    var playerZ = getCurrentZ();
     
     if(light.z == playerZ || light.z == 99){
       illuminate(x,y,(45 * light.radius),env);
@@ -6674,11 +7473,8 @@ var renderLightSources = function(env){
 }
 
 var renderLighting = function(){
-  // During login mode, always render lighting for overworld (z=0)
-  var z = 0;
-  if(selfId && Player.list[selfId]) {
-    z = Player.list[selfId].z;
-  }
+  // Get current z-layer (works for login camera, god mode, and normal play)
+  var z = getCurrentZ();
   
   // Ghost mode overrides all other lighting effects
   if(selfId && Player.list[selfId] && Player.list[selfId].ghost){
@@ -6820,6 +7616,49 @@ var renderLighting = function(){
 
 // CONTROLS
 document.onkeydown = function(event){
+  // God mode camera controls (handle BEFORE other inputs)
+  if (godModeCamera.isActive) {
+    if (event.keyCode === 87) { // W - Move up
+      godModeCamera.pressingUp = true;
+      event.preventDefault();
+      return;
+    } else if (event.keyCode === 83) { // S - Move down
+      godModeCamera.pressingDown = true;
+      event.preventDefault();
+      return;
+    } else if (event.keyCode === 65) { // A - Move left
+      godModeCamera.pressingLeft = true;
+      event.preventDefault();
+      return;
+    } else if (event.keyCode === 68) { // D - Move right
+      godModeCamera.pressingRight = true;
+      event.preventDefault();
+      return;
+    } else if (event.keyCode === 38) { // Up Arrow - Increase z
+      godModeCamera.changeZ(1);
+      event.preventDefault();
+      return;
+    } else if (event.keyCode === 40) { // Down Arrow - Decrease z
+      godModeCamera.changeZ(-1);
+      event.preventDefault();
+      return;
+    } else if (event.keyCode === 37) { // Left Arrow - Previous faction
+      godModeCamera.cycleFaction(-1);
+      event.preventDefault();
+      return;
+    } else if (event.keyCode === 39) { // Right Arrow - Next faction
+      godModeCamera.cycleFaction(1);
+      event.preventDefault();
+      return;
+    } else if (event.keyCode === 13) { // Enter - Allow chat (for /godmode exit)
+      // Fall through to normal chat handling
+    } else {
+      // Block all other inputs in god mode
+      event.preventDefault();
+      return;
+    }
+  }
+  
   // Block all game input during login
   if(loginCameraSystem.isActive) {
     return;
@@ -6863,7 +7702,13 @@ document.onkeydown = function(event){
     } else if(event.keyCode == 67){ // c
       socket.send(JSON.stringify({msg:'keyPress',inputId:'c',state:true}));
     } else if(event.keyCode == 66){ // b
-      socket.send(JSON.stringify({msg:'keyPress',inputId:'b',state:true}));
+      // Open inventory popup
+      if(inventoryPopup && inventoryPopup.style.display !== 'block'){
+        inventoryPopup.style.display = 'block';
+        updateInventoryDisplay();
+      } else if(inventoryPopup){
+        inventoryPopup.style.display = 'none';
+      }
     } else if(event.keyCode == 78){ // n
       socket.send(JSON.stringify({msg:'keyPress',inputId:'n',state:true}));
     } else if(event.keyCode == 77){ // m
@@ -6895,6 +7740,27 @@ document.onkeydown = function(event){
 }
 
 document.onkeyup = function(event){
+  // God mode camera controls - release keys
+  if (godModeCamera.isActive) {
+    if (event.keyCode === 87) { // W
+      godModeCamera.pressingUp = false;
+      event.preventDefault();
+      return;
+    } else if (event.keyCode === 83) { // S
+      godModeCamera.pressingDown = false;
+      event.preventDefault();
+      return;
+    } else if (event.keyCode === 65) { // A
+      godModeCamera.pressingLeft = false;
+      event.preventDefault();
+      return;
+    } else if (event.keyCode === 68) { // D
+      godModeCamera.pressingRight = false;
+      event.preventDefault();
+      return;
+    }
+  }
+  
   // Block all game input during login
   if(loginCameraSystem.isActive) {
     return;
@@ -6936,7 +7802,7 @@ document.onkeyup = function(event){
   } else if(event.keyCode == 67){ // c
     socket.send(JSON.stringify({msg:'keyPress',inputId:'c',state:false}));
   } else if(event.keyCode == 66){ // b
-    socket.send(JSON.stringify({msg:'keyPress',inputId:'b',state:false}));
+    // B key handled on keydown only
   } else if(event.keyCode == 78){ // n
     socket.send(JSON.stringify({msg:'keyPress',inputId:'n',state:false}));
   } else if(event.keyCode == 77){ // m

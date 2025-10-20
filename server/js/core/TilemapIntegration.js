@@ -196,6 +196,29 @@ class TilemapIntegration {
     this.pathfindingSystem = new PathfindingSystem(this.tilemapSystem);
     this.initialized = true;
   }
+
+  // Building placement proxy methods
+  findBuildingSpot(buildingType, centerTile, searchRadius, customRequirements = {}) {
+    if (!this.initialized) {
+      throw new Error('Tilemap system not initialized');
+    }
+    return this.tilemapSystem.findBuildingSpot(buildingType, centerTile, searchRadius, customRequirements);
+  }
+
+  findMultipleBuildingSpots(buildingType, centerTile, searchRadius, count, customRequirements = {}) {
+    if (!this.initialized) {
+      throw new Error('Tilemap system not initialized');
+    }
+    return this.tilemapSystem.findMultipleBuildingSpots(buildingType, centerTile, searchRadius, count, customRequirements);
+  }
+
+  // Faction HQ placement proxy method
+  findFactionHQ(factionName, excludedLocations = []) {
+    if (!this.initialized) {
+      throw new Error('Tilemap system not initialized');
+    }
+    return this.tilemapSystem.findFactionHQ(factionName, excludedLocations);
+  }
 }
 
 module.exports = { TilemapIntegration };

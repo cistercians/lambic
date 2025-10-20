@@ -201,58 +201,17 @@ Goths = function(param){
     // objects
     fire:null
   }
+  
   self.newSerfs = function(b,hq){
     var building = Building.list[b];
     var loc = getLoc(building.x,building.y);
-    var area = getArea(loc,hq,5);
-    var select = [];
-    var wselect = [];
-    for(var i in area){
-      var t = area[i];
-      var c = t[0];
-      var r = t[1];
-      var plot = [[c,r+1],[c+1,r+1],t,[c+1,r]];
-      var perim = [[c-1,r-1],[c,r-1],[c+1,r-1],[c+2,r-1],[c-1,r],[c+2,r],[c-1,r+1],[c+2,r+1],[c-1,r+2],[c,r+2],[c+1,r+2],[c+2,r+2]];
-      var walls = [[c,r-1],[c+1,r-1]];
-      var count = 0;
-      for(var n in plot){
-        var p = getTile(0,plot[n][0],plot[n][1]);
-        if((p >= 3 && p < 4) || p == 7){
-          count++;
-        }
-      }
-      var ex = perim[2];
-      if(count == 4 && getTile(0,ex[0],ex[1]) != 0){
-        count = 0;
-        for(var n in perim){
-          var m = getTile(0,perim[n][0],perim[n][1]);
-          var tm = getTile(5,perim[n][0],perim[n][1]);
-          if(m != 11 &&
-          m != 11.5 &&
-          m != 12 &&
-          m != 12.5 &&
-          m != 13 &&
-          m != 14 &&
-          m != 15 &&
-          m != 16 &&
-          m != 17 &&
-          m != 19 &&
-          m != 20 &&
-          m != 20.5 &&
-          (tm == 0 || tm == 'dock6' || tm == 'dock7' || tm == 'dock8')){
-            count++;
-          }
-        }
-        if(count == 12){
-          select.push(plot);
-          wselect.push(walls);
-        }
-      }
-    }
-    if(select.length > 0){
-      var rand = Math.floor(Math.random() * select.length);
-      var plot = select[rand];
-      var walls = wselect[rand];
+    
+    // Use new building placement system
+    var hutSpot = global.tilemapSystem.findBuildingSpot('gothhut', loc, 5);
+    
+    if(hutSpot){
+      var plot = hutSpot.plot;
+      var walls = hutSpot.walls;
       for(var i in plot){
         var p = plot[i];
         tileChange(0,p[0],p[1],11);
@@ -490,32 +449,22 @@ Goths = function(param){
         })
       }
     }
-    area = getArea(grid[0],grid[grid.length-1],5);
-    var plots = [];
-    for(var i in area){
-      var t = area[i];
-      var c = t[0];
-      var r = t[1];
-      var plot = [[c,r+1],[c+1,r+1],t,[c+1,r]];
-      var count = 0;
-      for(var n in plot){
-        var p = getTile(0,plot[n][0],plot[n][1]);
-        if(p >= 3 && p < 4){
-          count++;
-        }
-      }
-      if(count == 4){
-        plots.push(plot)
-      }
-    }
+    
+    // Use new building placement system for mills (tight radius for compact base)
+    var excludedTiles = [self.hq]; // Start with HQ location
+    var millSpot1 = global.tilemapSystem.findBuildingSpot('mill', self.hq, 5, {
+      excludeTiles: excludedTiles
+    });
+    
     var m1 = null;
     var m2 = null;
-    if(plots.length > 0){
-      var rand = Math.floor(Math.random() * plots.length);
-      m1 = plots[rand];
-      var m1top = [[m1[2][0],m1[2][1]-1],[m1[3][0],m1[3][1]-1]];
+    if(millSpot1){
+      m1 = millSpot1.plot;
+      var m1top = millSpot1.topPlot;
       var m1c = getCenter(m1[0][0],m1[0][1]);
-      plots.splice(rand,1);
+      
+      // Add mill plot to excluded tiles
+      excludedTiles.push(...m1);
       for(var i in m1){
         var n = m1[i];
         tileChange(0,n[0],n[1],13);
@@ -524,7 +473,9 @@ Goths = function(param){
       }
       tileChange(5,m1top[0][0],m1top[0][1],'mill4');
       tileChange(5,m1top[1][0],m1top[1][1],'mill5');
+      var mill1Id = Math.random();
       Mill({
+        id:mill1Id,
         house:self.id,
         owner:self.id,
         x:m1c[0],
@@ -541,55 +492,45 @@ Goths = function(param){
         req:5,
         hp:150
       });
-      area = getArea(m1[0],m1[3],4);
-      for(var i in area){
-        var f = area[i];
-        var fc = f[0];
-        var fr = f[1];
-        var fp = [f,[fc+1,fr],[fc+2,fr],[fc,fr+1],[fc+1,fr+1],[fc+2,fr+1],[fc,fr+2],[fc+1,fr+2],[fc+2,fr+2]];
-        var count = 0;
+      
+      
+      // Place farm near mill using new system
+      var farmSpot = global.tilemapSystem.findBuildingSpot('farm', m1[0], 4, {
+        excludeTiles: excludedTiles
+      });
+      if(farmSpot){
+        var fp = farmSpot.plot;
+        excludedTiles.push(...fp);
         for(var p in fp){
-          var t = getTile(0,fp[p][0],fp[p][1]);
-          if(!isWalkable(0,fp[p][0],fp[p][1]) || t == 8){
-            break;
-          } else {
-            if(t >= 3 && t < 4){
-              count++;
-            }
-          }
+          var n = fp[p];
+          tileChange(0,n[0],n[1],8);
+          tileChange(6,n[0],n[1],0);
         }
-        if(count >= 7){
-          for(var p in fp){
-            var n = fp[p];
-            tileChange(0,n[0],n[1],8);
-            tileChange(6,n[0],n[1],0);
-          }
-          var center = getCenter(fp[4][0],fp[4][1]);
-          Farm({
-            house:self.id,
-            owner:self.id,
-            x:center[0],
-            y:center[1],
-            z:0,
-            type:'farm',
-            built:true,
-            plot:fp
-          });
-        }
+        var center = getCenter(fp[4][0],fp[4][1]);
+        Farm({
+          house:self.id,
+          owner:self.id,
+          x:center[0],
+          y:center[1],
+          z:0,
+          type:'farm',
+          built:true,
+          plot:fp
+        });
+        // Farm auto-links to mill via findMill()
       }
-      if(plots.length > 0){
-        var best = 0;
-        for(var i in plots){
-          var p = plots[i];
-          var cen = getCenter(p[0][0],p[0][1]);
-          var dist = getDistance({x:m1c[0],y:m1c[1]},{x:cen[0],y:cen[1]});
-          if(dist > best){
-            best = i;
-          }
-        }
-        m2 = plots[best];
-        var m2top = [[m2[2][0],m2[2][1]-1],[m2[3][0],m2[3][1]-1]];
+      
+      // Place second mill using new system (if possible)
+      var millSpot2 = global.tilemapSystem.findBuildingSpot('mill', self.hq, 5, {
+        excludedTiles: excludedTiles
+      });
+      
+      if(millSpot2){
+        m2 = millSpot2.plot;
+        var m2top = millSpot2.topPlot;
         var m2c = getCenter(m2[0][0],m2[0][1]);
+        excludedTiles.push(...m2);
+        
         for(var i in m2){
           var n = m2[i];
           tileChange(0,n[0],n[1],13);
@@ -598,7 +539,9 @@ Goths = function(param){
         }
         tileChange(5,m2top[0][0],m2top[0][1],'mill4');
         tileChange(5,m2top[1][0],m2top[1][1],'mill5');
+        var mill2Id = Math.random();
         Mill({
+          id:mill2Id,
           house:self.id,
           owner:self.id,
           x:m2c[0],
@@ -615,41 +558,31 @@ Goths = function(param){
           req:5,
           hp:150
         });
-        area = getArea(m2[0],m2[3],3);
-        for(var i in area){
-          var f = area[i];
-          var fc = f[0];
-          var fr = f[1];
-          var fp = [f,[fc+1,fr],[fc+2,fr],[fc,fr+1],[fc+1,fr+1],[fc+2,fr+1],[fc,fr+2],[fc+1,fr+2],[fc+2,fr+2]];
-          var count = 0;
-          for(var p in fp){
-            var t = getTile(0,fp[p][0],fp[p][1]);
-            if(!isWalkable(0,fp[p][0],fp[p][1]) || t == 8){
-              break;
-            } else {
-              if(t >= 3 && t < 4){
-                count++;
-              }
-            }
+        
+        
+        // Place farm near second mill
+        var farmSpot2 = global.tilemapSystem.findBuildingSpot('farm', m2[0], 4, {
+          excludeTiles: excludedTiles
+        });
+        if(farmSpot2){
+          var fp2 = farmSpot2.plot;
+          for(var p in fp2){
+            var n = fp2[p];
+            tileChange(0,n[0],n[1],8);
+            tileChange(6,n[0],n[1],0);
           }
-          if(count >= 7){
-            for(var p in fp){
-              var n = fp[p];
-              tileChange(0,n[0],n[1],8);
-              tileChange(6,n[0],n[1],0);
-            }
-            var center = getCenter(fp[4][0],fp[4][1]);
-            Farm({
-              house:self.id,
-              owner:self.id,
-              x:center[0],
-              y:center[1],
-              z:0,
-              type:'farm',
-              built:true,
-              plot:fp
-            });
-          }
+          var center2 = getCenter(fp2[4][0],fp2[4][1]);
+          Farm({
+            house:self.id,
+            owner:self.id,
+            x:center2[0],
+            y:center2[1],
+            z:0,
+            type:'farm',
+            built:true,
+            plot:fp2
+          });
+          // Farm auto-links to mill via findMill()
         }
       }
       mapEdit();
@@ -840,55 +773,13 @@ Franks = function(param){
   self.newSerfs = function(b,hq){
     var building = Building.list[b];
     var loc = getLoc(building.x,building.y);
-    var area = getArea(loc,hq,5);
-    var select = [];
-    var wselect = [];
-    for(var i in area){
-      var t = area[i];
-      var c = t[0];
-      var r = t[1];
-      var plot = [[c,r+1],[c+1,r+1],t,[c+1,r]];
-      var perim = [[c-1,r-1],[c,r-1],[c+1,r-1],[c+2,r-1],[c-1,r],[c+2,r],[c-1,r+1],[c+2,r+1],[c-1,r+2],[c,r+2],[c+1,r+2],[c+2,r+2]];
-      var walls = [[c,r-1],[c+1,r-1]];
-      var count = 0;
-      for(var n in plot){
-        var p = getTile(0,plot[n][0],plot[n][1]);
-        if((p >= 3 && p < 4) || p == 7){
-          count++;
-        }
-      }
-      var ex = perim[2];
-      if(count == 4 && getTile(0,ex[0],ex[1]) != 0){
-        count = 0;
-        for(var n in perim){
-          var m = getTile(0,perim[n][0],perim[n][1]);
-          var tm = getTile(5,perim[n][0],perim[n][1]);
-          if(m != 11 &&
-          m != 11.5 &&
-          m != 12 &&
-          m != 12.5 &&
-          m != 13 &&
-          m != 14 &&
-          m != 15 &&
-          m != 16 &&
-          m != 17 &&
-          m != 19 &&
-          m != 20 &&
-          m != 20.5 &&
-          (tm == 0 || tm == 'dock6' || tm == 'dock7' || tm == 'dock8')){
-            count++;
-          }
-        }
-        if(count == 12){
-          select.push(plot);
-          wselect.push(walls);
-        }
-      }
-    }
-    if(select.length > 0){
-      var rand = Math.floor(Math.random() * select.length);
-      var plot = select[rand];
-      var walls = wselect[rand];
+    
+    // Use new building placement system
+    var hutSpot = global.tilemapSystem.findBuildingSpot('frankhut', loc, 5);
+    
+    if(hutSpot){
+      var plot = hutSpot.plot;
+      var walls = hutSpot.walls;
       for(var i in plot){
         var p = plot[i];
         tileChange(0,p[0],p[1],11);
@@ -1148,32 +1039,21 @@ Franks = function(param){
         })
       }
     }
-    area = getArea(grid[0],grid[grid.length-1],5);
-    var plots = [];
-    for(var i in area){
-      var t = area[i];
-      var c = t[0];
-      var r = t[1];
-      var plot = [[c,r+1],[c+1,r+1],t,[c+1,r]];
-      var count = 0;
-      for(var n in plot){
-        var p = getTile(0,plot[n][0],plot[n][1]);
-        if(p >= 3 && p < 4){
-          count++;
-        }
-      }
-      if(count == 4){
-        plots.push(plot)
-      }
-    }
+    
+    // Use new building placement system for mills (tight radius for compact base)
+    var excludedTiles = [self.hq];
+    var millSpot1 = global.tilemapSystem.findBuildingSpot('mill', self.hq, 5, {
+      excludeTiles: excludedTiles
+    });
+    
     var m1 = null;
     var m2 = null;
-    if(plots.length > 0){
-      var rand = Math.floor(Math.random() * plots.length);
-      m1 = plots[rand];
-      var m1top = [[m1[2][0],m1[2][1]-1],[m1[3][0],m1[3][1]-1]];
+    if(millSpot1){
+      m1 = millSpot1.plot;
+      var m1top = millSpot1.topPlot;
       var m1c = getCenter(m1[0][0],m1[0][1]);
-      plots.splice(rand,1);
+      excludedTiles.push(...m1);
+      
       for(var i in m1){
         var n = m1[i];
         tileChange(0,n[0],n[1],13);
@@ -1182,7 +1062,9 @@ Franks = function(param){
       }
       tileChange(5,m1top[0][0],m1top[0][1],'mill4');
       tileChange(5,m1top[1][0],m1top[1][1],'mill5');
+      var frankMill1Id = Math.random();
       Mill({
+        id:frankMill1Id,
         house:self.id,
         owner:self.id,
         x:m1c[0],
@@ -1199,55 +1081,45 @@ Franks = function(param){
         req:5,
         hp:150
       });
-      area = getArea(m1[0],m1[3],4);
-      for(var i in area){
-        var f = area[i];
-        var fc = f[0];
-        var fr = f[1];
-        var fp = [f,[fc+1,fr],[fc+2,fr],[fc,fr+1],[fc+1,fr+1],[fc+2,fr+1],[fc,fr+2],[fc+1,fr+2],[fc+2,fr+2]];
-        var count = 0;
+      
+      
+      // Place farm near mill
+      var farmSpot = global.tilemapSystem.findBuildingSpot('farm', m1[0], 4, {
+        excludeTiles: excludedTiles
+      });
+      if(farmSpot){
+        var fp = farmSpot.plot;
+        excludedTiles.push(...fp);
         for(var p in fp){
-          var t = getTile(0,fp[p][0],fp[p][1]);
-          if(!isWalkable(0,fp[p][0],fp[p][1]) || t == 8){
-            break;
-          } else {
-            if(t >= 3 && t < 4){
-              count++;
-            }
-          }
+          var n = fp[p];
+          tileChange(0,n[0],n[1],8);
+          tileChange(6,n[0],n[1],0);
         }
-        if(count >= 7){
-          for(var p in fp){
-            var n = fp[p];
-            tileChange(0,n[0],n[1],8);
-            tileChange(6,n[0],n[1],0);
-          }
-          var center = getCenter(fp[4][0],fp[4][1]);
-          Farm({
-            house:self.id,
-            owner:self.id,
-            x:center[0],
-            y:center[1],
-            z:0,
-            type:'farm',
-            built:true,
-            plot:fp
-          });
-        }
+        var center = getCenter(fp[4][0],fp[4][1]);
+        Farm({
+          house:self.id,
+          owner:self.id,
+          x:center[0],
+          y:center[1],
+          z:0,
+          type:'farm',
+          built:true,
+          plot:fp
+        });
+        // Farm auto-links to mill via findMill()
       }
-      if(plots.length > 0){
-        var best = 0;
-        for(var i in plots){
-          var p = plots[i];
-          var cen = getCenter(p[0][0],p[0][1]);
-          var dist = getDistance({x:m1c[0],y:m1c[1]},{x:cen[0],y:cen[1]});
-          if(dist > best){
-            best = i;
-          }
-        }
-        m2 = plots[best];
-        var m2top = [[m2[2][0],m2[2][1]-1],[m2[3][0],m2[3][1]-1]];
+      
+      // Place second mill
+      var millSpot2 = global.tilemapSystem.findBuildingSpot('mill', self.hq, 5, {
+        excludeTiles: excludedTiles
+      });
+      
+      if(millSpot2){
+        m2 = millSpot2.plot;
+        var m2top = millSpot2.topPlot;
         var m2c = getCenter(m2[0][0],m2[0][1]);
+        excludedTiles.push(...m2);
+        
         for(var i in m2){
           var n = m2[i];
           tileChange(0,n[0],n[1],13);
@@ -1256,7 +1128,9 @@ Franks = function(param){
         }
         tileChange(5,m2top[0][0],m2top[0][1],'mill4');
         tileChange(5,m2top[1][0],m2top[1][1],'mill5');
+        var frankMill2Id = Math.random();
         Mill({
+          id:frankMill2Id,
           house:self.id,
           owner:self.id,
           x:m2c[0],
@@ -1273,41 +1147,31 @@ Franks = function(param){
           req:5,
           hp:150
         });
-        area = getArea(m2[0],m2[3],3);
-        for(var i in area){
-          var f = area[i];
-          var fc = f[0];
-          var fr = f[1];
-          var fp = [f,[fc+1,fr],[fc+2,fr],[fc,fr+1],[fc+1,fr+1],[fc+2,fr+1],[fc,fr+2],[fc+1,fr+2],[fc+2,fr+2]];
-          var count = 0;
-          for(var p in fp){
-            var t = getTile(0,fp[p][0],fp[p][1]);
-            if(!isWalkable(0,fp[p][0],fp[p][1]) || t == 8){
-              break;
-            } else {
-              if(t >= 3 && t < 4){
-                count++;
-              }
-            }
+        
+        
+        // Place farm near second mill
+        var farmSpot2 = global.tilemapSystem.findBuildingSpot('farm', m2[0], 4, {
+          excludedTiles: excludedTiles
+        });
+        if(farmSpot2){
+          var fp2 = farmSpot2.plot;
+          for(var p in fp2){
+            var n = fp2[p];
+            tileChange(0,n[0],n[1],8);
+            tileChange(6,n[0],n[1],0);
           }
-          if(count >= 7){
-            for(var p in fp){
-              var n = fp[p];
-              tileChange(0,n[0],n[1],8);
-              tileChange(6,n[0],n[1],0);
-            }
-            var center = getCenter(fp[4][0],fp[4][1]);
-            Farm({
-              house:self.id,
-              owner:self.id,
-              x:center[0],
-              y:center[1],
-              z:0,
-              type:'farm',
-              built:true,
-              plot:fp
-            });
-          }
+          var center2 = getCenter(fp2[4][0],fp2[4][1]);
+          Farm({
+            house:self.id,
+            owner:self.id,
+            x:center2[0],
+            y:center2[1],
+            z:0,
+            type:'farm',
+            built:true,
+            plot:fp2
+          });
+          // Farm auto-links to mill via findMill()
         }
       }
       mapEdit();
@@ -1413,55 +1277,13 @@ Celts = function(param){
   self.newSerfs = function(b,hq){
     var building = Building.list[b];
     var loc = getLoc(building.x,building.y);
-    var area = getArea(loc,hq,5);
-    var select = [];
-    var wselect = [];
-    for(var i in area){
-      var t = area[i];
-      var c = t[0];
-      var r = t[1];
-      var plot = [[c,r+1],[c+1,r+1],t,[c+1,r]];
-      var perim = [[c-1,r-1],[c,r-1],[c+1,r-1],[c+2,r-1],[c-1,r],[c+2,r],[c-1,r+1],[c+2,r+1],[c-1,r+2],[c,r+2],[c+1,r+2],[c+2,r+2]];
-      var walls = [[c,r-1],[c+1,r-1]];
-      var count = 0;
-      for(var n in plot){
-        var p = getTile(0,plot[n][0],plot[n][1]);
-        if((p >= 1 && p < 4) || p == 7){
-          count++;
-        }
-      }
-      var ex = perim[10];
-      if(count == 4 && getTile(0,ex[0],ex[1]) != 0){
-        count = 0;
-        for(var n in perim){
-          var m = getTile(0,perim[n][0],perim[n][1]);
-          var tm = getTile(5,perim[n][0],perim[n][1]);
-          if(m != 11 &&
-          m != 11.5 &&
-          m != 12 &&
-          m != 12.5 &&
-          m != 13 &&
-          m != 14 &&
-          m != 15 &&
-          m != 16 &&
-          m != 17 &&
-          m != 19 &&
-          m != 20 &&
-          m != 20.5 &&
-          (tm == 0 || tm == 'dock6' || tm == 'dock7' || tm == 'dock8')){
-            count++;
-          }
-        }
-        if(count == 12){
-          select.push(plot);
-          wselect.push(walls);
-        }
-      }
-    }
-    if(select.length > 0){
-      var rand = Math.floor(Math.random() * select.length);
-      var plot = select[rand];
-      var walls = wselect[rand];
+    
+    // Use new building placement system
+    var hutSpot = global.tilemapSystem.findBuildingSpot('celthut', loc, 5);
+    
+    if(hutSpot){
+      var plot = hutSpot.plot;
+      var walls = hutSpot.walls;
       for(var i in plot){
         var p = plot[i];
         tileChange(0,p[0],p[1],11);
@@ -1732,6 +1554,7 @@ Celts = function(param){
         })
       }
     }
+    // Find nearest cave entrance
     var chq = getCenter(self.hq[0],self.hq[1]);
     var best = null;
     var cave = null;
@@ -1749,46 +1572,28 @@ Celts = function(param){
         }
       }
     }
-    area = getArea(cave,cave,4);
-    var plots = [];
-    for(var i in area){
-      var t = area[i];
-      var c = t[0];
-      var r = t[1];
-      var plot = [[c,r+1],[c+1,r+1],t,[c+1,r]];
-      var blocker = [[c,r-1],[c+1,r-1]];
-      var count = 0;
-      for(var b in blocker){
-        var bl = blocker[b];
-        if(getTile(0,bl[0],bl[1]) == 6){
-          count++;
-        }
-      }
-      if(count == 0){
-        for(var n in plot){
-          var p = getTile(0,plot[n][0],plot[n][1]);
-          if(p >= 4 && p < 6){
-            count++;
-          }
-        }
-        if(count == 4){
-          plots.push(plot)
-        }
-      }
-    }
+    
+    // Use new building placement system for mines near cave
+    var excludedTiles = [self.hq];
+    var mineSpot1 = global.tilemapSystem.findBuildingSpot('mine', cave, 4, {
+      excludeTiles: excludedTiles
+    });
+    
     var m1 = null;
     var m2 = null;
-    if(plots.length > 0){
-      var rand = Math.floor(Math.random() * plots.length);
-      m1 = plots[rand];
+    if(mineSpot1){
+      m1 = mineSpot1.plot;
       var m1c = getCenter(m1[0][0],m1[0][1]);
-      plots.splice(rand,1);
+      excludedTiles.push(...m1);
+      
       for(var i in m1){
         tileChange(0,m1[i][0],m1[i][1],13);
         tileChange(3,m1[i][0],m1[i][1],String('mine' + i));
         matrixChange(0,m1[i][0],m1[i][1],1);
       }
+      var celtMine1Id = Math.random();
       Mine({
+        id:celtMine1Id,
         house:self.id,
         owner:self.id,
         x:m1c[0],
@@ -1804,24 +1609,25 @@ Celts = function(param){
         req:5,
         hp:150
       });
-      if(plots.length > 0){
-        var high = 0;
-        for(var i in plots){
-          var p = plots[i];
-          var cen = getCenter(p[0][0],p[0][1]);
-          var dist = getDistance({x:m1c[0],y:m1c[1]},{x:cen[0],y:cen[1]});
-          if(dist > high){
-            high = i;
-          }
-        }
-        m2 = plots[high];
-        var m2c = getCenter(m1[0][0],m1[0][1]);
+      
+      
+      // Place second mine
+      var mineSpot2 = global.tilemapSystem.findBuildingSpot('mine', cave, 4, {
+        excludeTiles: excludedTiles
+      });
+      
+      if(mineSpot2){
+        m2 = mineSpot2.plot;
+        var m2c = getCenter(m2[0][0],m2[0][1]);
+        
         for(var i in m2){
           tileChange(0,m2[i][0],m2[i][1],13);
           tileChange(3,m2[i][0],m2[i][1],String('mine' + i));
           matrixChange(0,m2[i][0],m2[i][1],1);
         }
+        var celtMine2Id = Math.random();
         Mine({
+          id:celtMine2Id,
           house:self.id,
           owner:self.id,
           x:m2c[0],
@@ -1837,6 +1643,7 @@ Celts = function(param){
           req:5,
           hp:150
         });
+        
       }
       mapEdit();
     }
@@ -1941,55 +1748,13 @@ Teutons = function(param){
   self.newSerfs = function(b,hq){
     var building = Building.list[b];
     var loc = getLoc(building.x,building.y);
-    var area = getArea(loc,hq,5);
-    var select = [];
-    var wselect = [];
-    for(var i in area){
-      var t = area[i];
-      var c = t[0];
-      var r = t[1];
-      var plot = [[c,r+1],[c+1,r+1],t,[c+1,r]];
-      var perim = [[c-1,r-1],[c,r-1],[c+1,r-1],[c+2,r-1],[c-1,r],[c+2,r],[c-1,r+1],[c+2,r+1],[c-1,r+2],[c,r+2],[c+1,r+2],[c+2,r+2]];
-      var walls = [[c,r-1],[c+1,r-1]];
-      var count = 0;
-      for(var n in plot){
-        var p = getTile(0,plot[n][0],plot[n][1]);
-        if((p >= 1 && p < 5) || p == 7){
-          count++;
-        }
-      }
-      var ex = perim[2];
-      if(count == 4 && getTile(0,ex[0],ex[1]) != 0){
-        count = 0;
-        for(var n in perim){
-          var m = getTile(0,perim[n][0],perim[n][1]);
-          var tm = getTile(5,perim[n][0],perim[n][1]);
-          if(m != 11 &&
-          m != 11.5 &&
-          m != 12 &&
-          m != 12.5 &&
-          m != 13 &&
-          m != 14 &&
-          m != 15 &&
-          m != 16 &&
-          m != 17 &&
-          m != 19 &&
-          m != 20 &&
-          m != 20.5 &&
-          (tm == 0 || tm == 'dock6' || tm == 'dock7' || tm == 'dock8')){
-            count++;
-          }
-        }
-        if(count == 12){
-          select.push(plot);
-          wselect.push(walls);
-        }
-      }
-    }
-    if(select.length > 0){
-      var rand = Math.floor(Math.random() * select.length);
-      var plot = select[rand];
-      var walls = wselect[rand];
+    
+    // Use new building placement system
+    var hutSpot = global.tilemapSystem.findBuildingSpot('teuthut', loc, 5);
+    
+    if(hutSpot){
+      var plot = hutSpot.plot;
+      var walls = hutSpot.walls;
       for(var i in plot){
         var p = plot[i];
         tileChange(0,p[0],p[1],11);
@@ -2238,46 +2003,28 @@ Teutons = function(param){
         })
       }
     }
-    area = getArea(grid[0],grid[grid.length-1],10);
-    var plots = [];
-    for(var i in area){
-      var t = area[i];
-      var c = t[0];
-      var r = t[1];
-      var plot = [[c,r+1],[c+1,r+1],t,[c+1,r]];
-      var blocker = [[c,r-1],[c+1,r-1]];
-      var count = 0;
-      for(var b in blocker){
-        var bl = blocker[b];
-        if(getTile(0,bl[0],bl[1]) == 6){
-          count++;
-        }
-      }
-      if(count == 0){
-        for(var n in plot){
-          var p = getTile(0,plot[n][0],plot[n][1]);
-          if(p >= 4 && p < 6){
-            count++;
-          }
-        }
-        if(count > 0 && count < 4){
-          plots.push(plot)
-        }
-      }
-    }
+    
+    // Use new building placement system for mines
+    var excludedTiles = [];
+    
+    // Find first mine spot
+    const mineSpot1 = global.tilemapSystem.findBuildingSpot('mine', self.hq, 5);
     var m1 = null;
     var m2 = null;
-    if(plots.length > 0){
-      var rand = Math.floor(Math.random() * plots.length);
-      m1 = plots[rand];
+    
+    if(mineSpot1){
+      m1 = mineSpot1.plot;
       var m1c = getCenter(m1[0][0],m1[0][1]);
-      plots.splice(rand,1);
+      excludedTiles.push(...m1);
+      
       for(var i in m1){
         tileChange(0,m1[i][0],m1[i][1],13);
         tileChange(3,m1[i][0],m1[i][1],String('mine' + i));
         matrixChange(0,m1[i][0],m1[i][1],1);
       }
+      var teutMine1Id = Math.random();
       Mine({
+        id:teutMine1Id,
         house:self.id,
         owner:self.id,
         x:m1c[0],
@@ -2293,24 +2040,24 @@ Teutons = function(param){
         req:5,
         hp:150
       });
-      if(plots.length > 0){
-        var best = 0;
-        for(var i in plots){
-          var p = plots[i];
-          var cen = getCenter(p[0][0],p[0][1]);
-          var dist = getDistance({x:m1c[0],y:m1c[1]},{x:cen[0],y:cen[1]});
-          if(dist > best){
-            best = i;
-          }
-        }
-        m2 = plots[best];
-        var m2c = getCenter(m1[0][0],m1[0][1]);
+      
+      // Find second mine spot (excluding first mine's tiles)
+      const mineSpot2 = global.tilemapSystem.findBuildingSpot('mine', self.hq, 5, {
+        excludeTiles: excludedTiles.map(t => `${t[0]},${t[1]}`)
+      });
+      
+      if(mineSpot2){
+        m2 = mineSpot2.plot;
+        var m2c = getCenter(m2[0][0],m2[0][1]);
+        
         for(var i in m2){
           tileChange(0,m2[i][0],m2[i][1],13);
           tileChange(3,m2[i][0],m2[i][1],String('mine' + i));
           matrixChange(0,m2[i][0],m2[i][1],1);
         }
+        var teutMine2Id = Math.random();
         Mine({
+          id:teutMine2Id,
           house:self.id,
           owner:self.id,
           x:m2c[0],
@@ -2328,43 +2075,21 @@ Teutons = function(param){
         });
       }
     }
-    plots = [];
-    for(var i in area){
-      var t = area[i];
-      var c = t[0];
-      var r = t[1];
-      var plot = [[c,r],[c+1,r]];
-      var topPlot = [[c,r-1],[c+1,r-1]];
-      var perim = [[c,r-1],[c+1,r-1],[c-1,r],[c+2,r],[c,r+1],[c+1,r+1]];
-      var count = 0;
-      if(r > 0 && c < mapSize-1){
-        for(var i in plot){
-          var n = getTile(0,plot[i][0],plot[i][1]);
-          if(n >= 1 && n < 3){
-            count++;
-          }
-        }
-        if(count == 1){
-          count = 0;
-          for(var i in perim){
-            if(getTile(0,perim[i][0],perim[i][1]) != 13){
-              count++;
-            }
-          }
-          if(count == 6){
-            plots.push(plot);
-          }
-        }
-      }
-    }
+    
+    // Use new building placement system for lumbermills
+    // Find first lumbermill spot
+    const lumbermillSpot1 = global.tilemapSystem.findBuildingSpot('lumbermill', self.hq, 5, {
+      excludeTiles: excludedTiles.map(t => `${t[0]},${t[1]}`)
+    });
     var l1 = null;
     var l2 = null;
-    if(plots.length > 0){
-      var rand = Math.floor(Math.random() * plots.length);
-      l1 = plots[rand];
-      var l1top = [[l1[0][0],l1[0][1]-1],[l1[1][0],l1[1][1]-1]];
+    
+    if(lumbermillSpot1){
+      l1 = lumbermillSpot1.plot;
+      var l1top = lumbermillSpot1.topPlot;
       var l1c = getCenter(l1[0][0],l1[0][1]);
-      plots.splice(rand,1);
+      excludedTiles.push(...l1);
+      
       for(var i in l1){
         tileChange(0,l1[i][0],l1[i][1],13);
         tileChange(3,l1[i][0],l1[i][1],String('lumbermill' + i));
@@ -2372,7 +2097,9 @@ Teutons = function(param){
       }
       tileChange(5,l1top[0][0],l1top[0][1],'lumbermill2');
       tileChange(5,l1top[1][0],l1top[1][1],'lumbermill3');
+      var teutLumber1Id = Math.random();
       Lumbermill({
+        id:teutLumber1Id,
         house:self.id,
         owner:self.id,
         x:l1c[0],
@@ -2389,19 +2116,17 @@ Teutons = function(param){
         req:5,
         hp:100
       });
-      if(plots.length > 0){
-        var best = 0;
-        for(var i in plots){
-          var p = plots[i];
-          var cen = getCenter(p[0][0],p[0][1]);
-          var dist = getDistance({x:l1c[0],y:l1c[1]},{x:cen[0],y:cen[1]});
-          if(dist > best){
-            best = i;
-          }
-        }
-        l2 = plots[best];
-        var l2top = [[l2[0][0],l2[0][1]-1],[l2[1][0],l2[1][1]-1]];
-        var l2c = getCenter(m1[0][0],m1[0][1]);
+      
+      // Find second lumbermill spot (excluding first lumbermill's tiles)
+      const lumbermillSpot2 = global.tilemapSystem.findBuildingSpot('lumbermill', self.hq, 5, {
+        excludeTiles: excludedTiles.map(t => `${t[0]},${t[1]}`)
+      });
+      
+      if(lumbermillSpot2){
+        l2 = lumbermillSpot2.plot;
+        var l2top = lumbermillSpot2.topPlot;
+        var l2c = getCenter(l2[0][0],l2[0][1]);
+        
         for(var i in l2){
           tileChange(0,l2[i][0],l2[i][1],13);
           tileChange(3,l2[i][0],l2[i][1],String('lumbermill' + i));
@@ -2409,7 +2134,9 @@ Teutons = function(param){
         }
         tileChange(5,l2top[0][0],l2top[0][1],'lumbermill2');
         tileChange(5,l2top[1][0],l2top[1][1],'lumbermill3');
+        var teutLumber2Id = Math.random();
         Lumbermill({
+          id:teutLumber2Id,
           house:self.id,
           owner:self.id,
           x:l2c[0],
@@ -2425,7 +2152,7 @@ Teutons = function(param){
           },
           req:5,
           hp:100
-        })
+        });
       }
     }
     mapEdit();
@@ -2715,7 +2442,8 @@ Kingdom = function(param){
   }
   Kingdom.list[self.id] = self;
 
-  emit('newFaction',{
+  emit({
+    msg:'newFaction',
     houseList:House.list,
     kingdomList:Kingdom.list
   })

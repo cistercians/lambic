@@ -124,11 +124,50 @@ Interact = function(id,loc){
     if(item == 'Anvil'){
 
     } else if(item == 'Goods1' || item == 'Goods2' || item == 'Goods3' || item == 'Goods4'){
-      // Market goods on first floor (z=1) - display orderbook
-      var c = getCenter(loc[0],loc[1]);
-      var b = getBuilding(c[0],c[1]);
+      // Market goods on first floor (z=1) - open market UI
+      var b = getBuilding(player.x, player.y);
       var build = Building.list[b];
       if(build && build.type == 'market'){
+        // Send market data to client to open UI
+        var playerOrders = [];
+        for(var resource in build.orderbook){
+          var book = build.orderbook[resource];
+          
+          // Collect player's buy orders
+          for(var i in book.bids){
+            if(book.bids[i].player === id){
+              playerOrders.push({
+                type: 'buy',
+                resource: resource,
+                amount: book.bids[i].amount,
+                price: book.bids[i].price,
+                orderId: book.bids[i].orderId
+              });
+            }
+          }
+          
+          // Collect player's sell orders
+          for(var i in book.asks){
+            if(book.asks[i].player === id){
+              playerOrders.push({
+                type: 'sell',
+                resource: resource,
+                amount: book.asks[i].amount,
+                price: book.asks[i].price,
+                orderId: book.asks[i].orderId
+              });
+            }
+          }
+        }
+        
+        socket.write(JSON.stringify({
+          msg: 'openMarket',
+          marketId: b,
+          orderbook: build.orderbook,
+          playerOrders: playerOrders
+        }));
+        
+        // Also send chat message for now (backward compatibility)
         var message = '<b><u>📊 MARKET ORDERBOOK</u></b><br>';
         message += '<i style="color:#aaaaaa;">Quick price check: type <b>$itemname</b> (e.g. $grain, $wood)</i><br>';
         message += '<i style="color:#aaaaaa;">Place orders: <b>/buy [amt] [item] [price]</b> or <b>/sell [amt] [item] [price]</b></i><br>';

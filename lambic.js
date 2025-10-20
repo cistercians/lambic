@@ -1391,7 +1391,6 @@ const Player = function(param) {
   self.pressingL = false;
   self.pressingX = false;
   self.pressingC = false;
-  self.pressingB = false;
   self.pressingN = false;
   self.pressingM = false;
   self.pressing1 = false;
@@ -1418,6 +1417,10 @@ const Player = function(param) {
   self.dexterity = 1;
   self.ghost = false;
   self.running = false; // Walk/run toggle
+  
+  // God mode (spectator camera)
+  self.godMode = false;
+  self.godModeReturnPos = null;
   
   // Phase 5: Kill tracking
   self.kills = 0;
@@ -1705,7 +1708,7 @@ const Player = function(param) {
   };
 
   // Ghost respawn handler
-  self.respawnFromGhost = function(location){
+  self.respawnFromGhost = function(location, isManualRespawn){
     if(!self.ghost) return;
     
     self.ghost = false;
@@ -1719,6 +1722,11 @@ const Player = function(param) {
       self.z = location.z || 0;
     }
     // else respawn at current ghost location
+    
+    // Only face up if manually respawning via command (toward fireplace at home)
+    if(isManualRespawn){
+      self.facing = 'up';
+    }
     
     // Clear ghost state
     self.innaWoods = false;
@@ -1749,8 +1757,8 @@ const Player = function(param) {
   };
   
   self.checkAggro = function() {
-    // Skip aggro completely if player has respawn immunity OR is a ghost
-    if (self.respawnImmunity || self.ghost) {
+    // Skip aggro completely if player has respawn immunity, is a ghost, OR is in god mode
+    if (self.respawnImmunity || self.ghost || self.godMode) {
       return;
     }
     
@@ -1926,13 +1934,13 @@ const Player = function(param) {
     // Ghosts ignore all terrain collision, only blocked by map bounds
     if (self.ghost) {
       // Block map bounds for all z-levels
-      for (const dir in checkLocs) {
+        for (const dir in checkLocs) {
         const outOfBounds = (dir === 'right' && self.x + 10 > mapPx - tileSize) ||
                            (dir === 'left' && self.x - 10 < 0) ||
                            (dir === 'up' && self.y - 10 < 0) ||
                            (dir === 'down' && self.y + 10 > mapPx - tileSize);
         if (outOfBounds) {
-          blocked[dir] = true;
+            blocked[dir] = true;
         }
       }
     } else {
@@ -2149,6 +2157,11 @@ const Player = function(param) {
   };
 
   self.handleUnderwater = function(tile, socket) {
+    // Skip drowning damage in god mode
+    if(self.godMode){
+      return;
+    }
+    
     // Ensure underwater speed penalty is applied (handled in updateSpd now)
     if (self.breath > 0) {
       self.breath -= 0.25;
@@ -2328,26 +2341,6 @@ const Player = function(param) {
       }
     }
 
-    // BAG (show inventory)
-    if (self.pressingB && self.actionCooldown === 0) {
-      self.actionCooldown += 10;
-      const socket = SOCKET_LIST[self.id];
-      const items = [];
-
-      for (const key in self.inventory) {
-        if (self.inventory[key] > 0 && key !== 'keyRing') {
-          const displayName = key.charAt(0).toUpperCase() + key.slice(1);
-          items.push(`<b>${displayName}</b>: ${self.inventory[key]}`);
-        }
-      }
-
-      if (items.length === 0) {
-        socket.write(JSON.stringify({ msg: 'addToChat', message: '<i>You have nothing in your bag.</i>' }));
-      } else {
-        socket.write(JSON.stringify({ msg: 'addToChat', message: `<p>${items.join('<br>')}</p>` }));
-      }
-    }
-
     // INTERACTIONS (disabled for ghosts)
     if (self.pressingAttack && self.actionCooldown === 0 && !self.working && !self.ghost) {
       const loc = getLoc(self.x, self.y);
@@ -2362,6 +2355,7 @@ const Player = function(param) {
       const dir = [loc[0] + offset[0], loc[1] + offset[1]];
 
       if (!isWalkable(self.z, dir[0], dir[1])) {
+        // Check the wall tile for items (e.g., Goods on market walls)
         Interact(self.id, dir);
       } else if (self.gear.weapon && self.attackCooldown === 0 && self.z !== Z_LEVELS.UNDERWATER) {
         if (self.gear.weapon.type === 'bow' && self.inventory.arrows > 0) {
@@ -2753,7 +2747,7 @@ const Player = function(param) {
       friends: self.friends,
       enemies: self.enemies,
       gear: self.gear,
-      inventory: { arrows: self.inventory.arrows },
+      inventory: self.inventory,
       spriteSize: self.spriteSize,
       innaWoods: self.innaWoods,
       facing: self.facing,
@@ -2786,7 +2780,7 @@ const Player = function(param) {
       friends: self.friends,
       enemies: self.enemies,
       gear: self.gear,
-      inventory: { arrows: self.inventory.arrows },
+      inventory: self.inventory,
       spriteSize: self.spriteSize,
       innaWoods: self.innaWoods,
       facing: self.facing,
@@ -2868,6 +2862,17 @@ Player.onConnect = function(socket, name) {
   });
 
   console.log(`${player.name} spawned at: ${spawn} z: 0`);
+  
+  // ALPHA Testing: Give player starting items
+  player.inventory.worldmap = 1;
+  player.inventory.dague = 1;
+  player.inventory.longsword = 1;
+  player.inventory.bow = 1;
+  player.inventory.brigandine = 1;
+  player.inventory.maille = 1;
+  player.inventory.steelplate = 1;
+  player.inventory.bread = 2;
+  player.inventory.saison = 1;
 
   socket.on('data', function(string) {
     try {
@@ -2904,8 +2909,6 @@ Player.onConnect = function(socket, name) {
           player.pressingX = data.state;
         } else if(data.inputId == 'c'){
           player.pressingC = data.state;
-        } else if(data.inputId == 'b'){
-          player.pressingB = data.state;
         } else if(data.inputId == 'n'){
           player.pressingN = data.state;
         } else if(data.inputId == 'm'){
@@ -2940,8 +2943,7 @@ Player.onConnect = function(socket, name) {
               socket.write(JSON.stringify({ msg: 'addToChat', message: `<i>You can't run underwater!</i>` }));
             } else {
               player.running = !player.running;
-              const mode = player.running ? 'running' : 'walking';
-              socket.write(JSON.stringify({ msg: 'addToChat', message: `<i>Now ${mode}.</i>` }));
+              // No message - user doesn't need running/walking notification
             }
           }
         } else if(data.inputId == 'mouseAngle'){
@@ -3303,17 +3305,10 @@ global.getCompetitiveBidPrice = function(marketId, resource) {
 };
 
 // Process buy limit order
-global.processBuyOrder = function(playerId, resource, amount, price){
+global.processBuyOrder = function(playerId, market, resource, amount, price){
   var player = Player.list[playerId];
   var socket = SOCKET_LIST[playerId];
-  if(!player || !socket) return;
-  
-  // Find nearest market
-  var market = findNearestMarket(playerId);
-  if(!market){
-    socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ No market found nearby</i>'}));
-    return;
-  }
+  if(!player || !socket || !market) return;
   
   // Validate amount and price
   if(amount <= 0 || price <= 0){
@@ -3432,17 +3427,10 @@ global.processBuyOrder = function(playerId, resource, amount, price){
 };
 
 // Process sell limit order
-global.processSellOrder = function(playerId, resource, amount, price){
+global.processSellOrder = function(playerId, market, resource, amount, price){
   var player = Player.list[playerId];
   var socket = SOCKET_LIST[playerId];
-  if(!player || !socket) return;
-  
-  // Find nearest market
-  var market = findNearestMarket(playerId);
-  if(!market){
-    socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ No market found nearby</i>'}));
-    return;
-  }
+  if(!player || !socket || !market) return;
   
   // Validate amount and price
   if(amount <= 0 || price <= 0){
@@ -4146,48 +4134,102 @@ const rel3 = getCoords(wsp[0], wsp[1]);
 Relic({ x: rel3[0], y: rel3[1], z: -3, qty: 1 });
 console.log(`Relic hidden in the sea @ ${wsp.toString()}`);
 
-// Create NPC factions (only if valid spawn found)
-const brotherhoodHQ = factionSpawn(FACTION_IDS.BROTHERHOOD);
+// Create NPC factions using intelligent HQ placement
+const excludedHQs = []; // Track placed HQs to ensure spacing
+
+const brotherhoodHQ = global.tilemapSystem.findFactionHQ('brotherhood', excludedHQs);
 if (brotherhoodHQ) {
-  Brotherhood({ id: FACTION_IDS.BROTHERHOOD, type: 'npc', name: 'Brotherhood', flag: '', hq: brotherhoodHQ, hostile: true });
+  console.log(`Brotherhood HQ @ ${brotherhoodHQ.tile} (score: ${brotherhoodHQ.score.toFixed(1)})`);
+  excludedHQs.push(brotherhoodHQ.tile);
+  Brotherhood({ id: FACTION_IDS.BROTHERHOOD, type: 'npc', name: 'Brotherhood', flag: '', hq: brotherhoodHQ.tile, hostile: true });
 }
 
-const gothsHQ = factionSpawn(FACTION_IDS.GOTHS);
+const gothsHQ = global.tilemapSystem.findFactionHQ('goths', excludedHQs);
 if (gothsHQ) {
-  Goths({ id: FACTION_IDS.GOTHS, type: 'npc', name: 'Goths', flag: '', hq: gothsHQ, hostile: true });
+  console.log(`Goths HQ @ ${gothsHQ.tile} (score: ${gothsHQ.score.toFixed(1)})`);
+  excludedHQs.push(gothsHQ.tile);
+  Goths({ id: FACTION_IDS.GOTHS, type: 'npc', name: 'Goths', flag: '', hq: gothsHQ.tile, hostile: true });
 }
 
-const norsemenHQ = factionSpawn(FACTION_IDS.NORSEMEN);
+const norsemenHQ = global.tilemapSystem.findFactionHQ('norsemen', excludedHQs);
 if (norsemenHQ) {
-  Norsemen({ id: FACTION_IDS.NORSEMEN, type: 'npc', name: 'Norsemen', flag: '', hq: norsemenHQ, hostile: true });
+  console.log(`Norsemen HQ @ ${norsemenHQ.tile} (score: ${norsemenHQ.score.toFixed(1)})`);
+  excludedHQs.push(norsemenHQ.tile);
+  Norsemen({ id: FACTION_IDS.NORSEMEN, type: 'npc', name: 'Norsemen', flag: '', hq: norsemenHQ.tile, hostile: true });
 }
 
-const franksHQ = factionSpawn(FACTION_IDS.FRANKS);
+const franksHQ = global.tilemapSystem.findFactionHQ('franks', excludedHQs);
 if (franksHQ) {
-  Franks({ id: FACTION_IDS.FRANKS, type: 'npc', name: 'Franks', flag: '', hq: franksHQ, hostile: true });
+  console.log(`Franks HQ @ ${franksHQ.tile} (score: ${franksHQ.score.toFixed(1)})`);
+  excludedHQs.push(franksHQ.tile);
+  Franks({ id: FACTION_IDS.FRANKS, type: 'npc', name: 'Franks', flag: '', hq: franksHQ.tile, hostile: true });
 }
 
-const celtsHQ = factionSpawn(FACTION_IDS.CELTS);
+const celtsHQ = global.tilemapSystem.findFactionHQ('celts', excludedHQs);
 if (celtsHQ) {
-  Celts({ id: FACTION_IDS.CELTS, type: 'npc', name: 'Celts', flag: '', hq: celtsHQ, hostile: true });
+  console.log(`Celts HQ @ ${celtsHQ.tile} (score: ${celtsHQ.score.toFixed(1)})`);
+  excludedHQs.push(celtsHQ.tile);
+  Celts({ id: FACTION_IDS.CELTS, type: 'npc', name: 'Celts', flag: '', hq: celtsHQ.tile, hostile: true });
 }
 
-const teutonsHQ = factionSpawn(FACTION_IDS.TEUTONS);
+const teutonsHQ = global.tilemapSystem.findFactionHQ('teutons', excludedHQs);
 if (teutonsHQ) {
-  Teutons({ id: FACTION_IDS.TEUTONS, type: 'npc', name: 'Teutons', flag: '', hq: teutonsHQ, hostile: true });
+  console.log(`Teutons HQ @ ${teutonsHQ.tile} (score: ${teutonsHQ.score.toFixed(1)})`);
+  excludedHQs.push(teutonsHQ.tile);
+  Teutons({ id: FACTION_IDS.TEUTONS, type: 'npc', name: 'Teutons', flag: '', hq: teutonsHQ.tile, hostile: true });
 }
 
-const outlawsHQ = factionSpawn(FACTION_IDS.OUTLAWS);
+const outlawsHQ = global.tilemapSystem.findFactionHQ('outlaws', excludedHQs);
 if (outlawsHQ) {
-  Outlaws({ id: FACTION_IDS.OUTLAWS, type: 'npc', name: 'Outlaws', flag: '☠️', hq: outlawsHQ, hostile: true });
+  console.log(`Outlaws HQ @ ${outlawsHQ.tile} (score: ${outlawsHQ.score.toFixed(1)})`);
+  excludedHQs.push(outlawsHQ.tile);
+  Outlaws({ id: FACTION_IDS.OUTLAWS, type: 'npc', name: 'Outlaws', flag: '☠️', hq: outlawsHQ.tile, hostile: true });
 }
 
-const mercenariesHQ = factionSpawn(FACTION_IDS.MERCENARIES);
+const mercenariesHQ = global.tilemapSystem.findFactionHQ('mercenaries', excludedHQs);
 if (mercenariesHQ) {
-  Mercenaries({ id: FACTION_IDS.MERCENARIES, type: 'npc', name: 'Mercenaries', flag: '', hq: mercenariesHQ, hostile: true });
+  console.log(`Mercenaries HQ @ ${mercenariesHQ.tile} (score: ${mercenariesHQ.score.toFixed(1)})`);
+  excludedHQs.push(mercenariesHQ.tile);
+  Mercenaries({ id: FACTION_IDS.MERCENARIES, type: 'npc', name: 'Mercenaries', flag: '', hq: mercenariesHQ.tile, hostile: true });
 }
 
 Kingdom({ id: 1, name: 'Papal States', flag: '🇻🇦' });
+
+// Store faction HQs globally for god mode cycling
+global.factionHQs = [];
+if(brotherhoodHQ) {
+  const coords = getCenter(brotherhoodHQ.tile[0], brotherhoodHQ.tile[1]);
+  global.factionHQs.push({ name: 'Brotherhood', x: coords[0], y: coords[1], z: -1 });
+}
+if(gothsHQ) {
+  const coords = getCenter(gothsHQ.tile[0], gothsHQ.tile[1]);
+  global.factionHQs.push({ name: 'Goths', x: coords[0], y: coords[1], z: 0 });
+}
+if(norsemenHQ) {
+  const coords = getCenter(norsemenHQ.tile[0], norsemenHQ.tile[1]);
+  global.factionHQs.push({ name: 'Norsemen', x: coords[0], y: coords[1], z: 0 });
+}
+if(franksHQ) {
+  const coords = getCenter(franksHQ.tile[0], franksHQ.tile[1]);
+  global.factionHQs.push({ name: 'Franks', x: coords[0], y: coords[1], z: 0 });
+}
+if(celtsHQ) {
+  const coords = getCenter(celtsHQ.tile[0], celtsHQ.tile[1]);
+  global.factionHQs.push({ name: 'Celts', x: coords[0], y: coords[1], z: 0 });
+}
+if(teutonsHQ) {
+  const coords = getCenter(teutonsHQ.tile[0], teutonsHQ.tile[1]);
+  global.factionHQs.push({ name: 'Teutons', x: coords[0], y: coords[1], z: 0 });
+}
+if(outlawsHQ) {
+  const coords = getCenter(outlawsHQ.tile[0], outlawsHQ.tile[1]);
+  global.factionHQs.push({ name: 'Outlaws', x: coords[0], y: coords[1], z: 0 });
+}
+if(mercenariesHQ) {
+  const coords = getCenter(mercenariesHQ.tile[0], mercenariesHQ.tile[1]);
+  global.factionHQs.push({ name: 'Mercenaries', x: coords[0], y: coords[1], z: -1 });
+}
+console.log(`Stored ${global.factionHQs.length} faction HQs for god mode`);
 
 dailyTally();
 

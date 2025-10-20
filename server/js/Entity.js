@@ -5184,10 +5184,18 @@ SerfM = function(param){
               select.push(res);
             }
           }
-          self.work.spot = select[Math.floor(Math.random() * select.length)];
-          Building.list[self.work.hq].log[self.id] = self.work.spot;
-          self.action = 'task';
-              console.log('🔨 ' + self.name + ' assigned to task at ' + hq.type + ' spot [' + self.work.spot[0] + ',' + self.work.spot[1] + ']');
+          
+          // Check if any spots were found
+          if(select.length > 0){
+            self.work.spot = select[Math.floor(Math.random() * select.length)];
+            Building.list[self.work.hq].log[self.id] = self.work.spot;
+            self.action = 'task';
+            console.log('🔨 ' + self.name + ' assigned to task at ' + hq.type + ' spot [' + self.work.spot[0] + ',' + self.work.spot[1] + ']');
+          } else {
+            console.log('⚠️ ' + self.name + ' no nearby resources found, switching to idle');
+            self.mode = 'idle';
+            self.action = null;
+          }
           } else {
               console.log('⚠️ ' + self.name + ' work HQ has no resources available, switching to idle');
               self.mode = 'idle';
@@ -6278,8 +6286,8 @@ SerfM = function(param){
               inv.flour = 0;
               
               if(sellAmount > 0){
-                var price = global.getCompetitiveAskPrice(market, 'grain') || 3;
-                global.processSellOrder(self.id, 'grain', sellAmount, price);
+                var price = global.getCompetitiveAskPrice(m, 'grain') || 3;
+                global.processSellOrder(self.id, m, 'grain', sellAmount, price);
                 console.log(self.name + ' sold ' + sellAmount + ' grain @ ' + price + ' silver, kept ' + keepAmount);
                 soldSomething = true;
               }
@@ -6293,8 +6301,8 @@ SerfM = function(param){
               inv.wood = 0;
               
               if(sellAmount > 0){
-                var price = global.getCompetitiveAskPrice(market, 'wood') || 8;
-                global.processSellOrder(self.id, 'wood', sellAmount, price);
+                var price = global.getCompetitiveAskPrice(m, 'wood') || 8;
+                global.processSellOrder(self.id, m, 'wood', sellAmount, price);
                 console.log(self.name + ' sold ' + sellAmount + ' wood @ ' + price + ' silver, kept ' + keepAmount);
                 soldSomething = true;
               }
@@ -6308,8 +6316,8 @@ SerfM = function(param){
               inv.stone = 0;
               
               if(sellAmount > 0){
-                var price = global.getCompetitiveAskPrice(market, 'stone') || 10;
-                global.processSellOrder(self.id, 'stone', sellAmount, price);
+                var price = global.getCompetitiveAskPrice(m, 'stone') || 10;
+                global.processSellOrder(self.id, m, 'stone', sellAmount, price);
                 console.log(self.name + ' sold ' + sellAmount + ' stone @ ' + price + ' silver, kept ' + keepAmount);
                 soldSomething = true;
               }
@@ -6323,8 +6331,8 @@ SerfM = function(param){
               inv.ironore = 0;
               
               if(sellAmount > 0){
-                var price = global.getCompetitiveAskPrice(market, 'ironore') || 15;
-                global.processSellOrder(self.id, 'ironore', sellAmount, price);
+                var price = global.getCompetitiveAskPrice(m, 'ironore') || 15;
+                global.processSellOrder(self.id, m, 'ironore', sellAmount, price);
                 console.log(self.name + ' sold ' + sellAmount + ' ironore @ ' + price + ' silver, kept ' + keepAmount);
                 soldSomething = true;
               }
@@ -6333,8 +6341,8 @@ SerfM = function(param){
               self.stores.silverore = (self.stores.silverore || 0) + inv.silverore;
               inv.silverore = 0;
               
-              var price = global.getCompetitiveAskPrice(market, 'silverore') || 40;
-              global.processSellOrder(self.id, 'silverore', self.stores.silverore, price);
+              var price = global.getCompetitiveAskPrice(m, 'silverore') || 40;
+              global.processSellOrder(self.id, m, 'silverore', self.stores.silverore, price);
               console.log(self.name + ' sold ' + self.stores.silverore + ' silverore @ ' + price + ' silver (precious ore - no keeping)');
               soldSomething = true;
             } else if(inv.goldore > 0){
@@ -6342,8 +6350,8 @@ SerfM = function(param){
               self.stores.goldore = (self.stores.goldore || 0) + inv.goldore;
               inv.goldore = 0;
               
-              var price = global.getCompetitiveAskPrice(market, 'goldore') || 80;
-              global.processSellOrder(self.id, 'goldore', self.stores.goldore, price);
+              var price = global.getCompetitiveAskPrice(m, 'goldore') || 80;
+              global.processSellOrder(self.id, m, 'goldore', self.stores.goldore, price);
               console.log(self.name + ' sold ' + self.stores.goldore + ' goldore @ ' + price + ' silver (precious ore - no keeping)');
               soldSomething = true;
             } else if(inv.diamond > 0){
@@ -6351,8 +6359,8 @@ SerfM = function(param){
               self.stores.diamond = (self.stores.diamond || 0) + inv.diamond;
               inv.diamond = 0;
               
-              var price = global.getCompetitiveAskPrice(market, 'diamond') || 200;
-              global.processSellOrder(self.id, 'diamond', self.stores.diamond, price);
+              var price = global.getCompetitiveAskPrice(m, 'diamond') || 200;
+              global.processSellOrder(self.id, m, 'diamond', self.stores.diamond, price);
               console.log(self.name + ' sold ' + self.stores.diamond + ' diamond @ ' + price + ' silver (precious gem - no keeping)');
               soldSomething = true;
             }
@@ -6390,12 +6398,12 @@ SerfM = function(param){
             }
             
             if(desiredResource){
-              var price = global.getCompetitiveBidPrice(market, desiredResource) || 5;
+              var price = global.getCompetitiveBidPrice(m, desiredResource) || 5;
               var maxSpend = Math.floor((self.stores.silver || 0) * 0.4); // Spend max 40% of silver
               var buyAmount = Math.floor(maxSpend / price);
               
               if(buyAmount > 0){
-                global.processBuyOrder(self.id, desiredResource, buyAmount, price);
+                global.processBuyOrder(self.id, m, desiredResource, buyAmount, price);
                 console.log(self.name + ' placed buy order for ' + buyAmount + ' ' + desiredResource + ' @ ' + price + ' silver');
                 self.hasPlacedMarketOrder = true;
               }
@@ -7321,14 +7329,14 @@ SerfF = function(param){
               self.stores.grain = (self.stores.grain || 0) + inv.bread;
               inv.bread = 0;
               var price = 5; // Base price for bread
-              global.processSellOrder(self.id, 'grain', self.stores.grain, price);
+              global.processSellOrder(self.id, m, 'grain', self.stores.grain, price);
               soldSomething = true;
             } else if(inv.flour > 0){
               // Transfer flour to stores, then sell
               self.stores.grain = (self.stores.grain || 0) + inv.flour;
               inv.flour = 0;
               var price = 3; // Base price for flour
-              global.processSellOrder(self.id, 'grain', self.stores.grain, price);
+              global.processSellOrder(self.id, m, 'grain', self.stores.grain, price);
               soldSomething = true;
             }
             
