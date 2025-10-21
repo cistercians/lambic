@@ -117,7 +117,10 @@ class FactionAI {
   
   // Load faction-specific strategy module (use house.name for faction identification)
   loadStrategy() {
-    switch(this.house.name) {
+    // Handle faction names that might have numbers (e.g., "Outlaws 1", "Outlaws 2")
+    const baseName = this.house.name.replace(/\s+\d+$/, ''); // Remove trailing numbers
+    
+    switch(baseName) {
       case 'Celts': return new CeltsStrategy(this.house, this.profile);
       case 'Teutons': return new TeutonsStrategy(this.house, this.profile);
       case 'Franks': return new FranksStrategy(this.house, this.profile);
