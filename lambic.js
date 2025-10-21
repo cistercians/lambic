@@ -4180,15 +4180,22 @@ if (teutonsHQ) {
   Teutons({ id: FACTION_IDS.TEUTONS, type: 'npc', name: 'Teutons', flag: '', hq: teutonsHQ.tile, hostile: true });
 }
 
-// Spawn 5 Outlaw groups
-for (let i = 0; i < 5; i++) {
+// Spawn Outlaws - keep spawning until no more valid locations with 50-tile spacing
+let outlawCount = 0;
+let maxOutlawAttempts = 50; // Safety limit to prevent infinite loop
+let consecutiveFailures = 0;
+
+while (consecutiveFailures < 3 && outlawCount < maxOutlawAttempts) {
   const outlawsHQ = global.mapAnalyzer.findFactionHQ('Outlaws', excludedHQs);
   if (outlawsHQ) {
     excludedHQs.push(outlawsHQ.tile);
+    outlawCount++;
+    consecutiveFailures = 0; // Reset failure counter on success
+    
     Outlaws({ 
-      id: FACTION_IDS.OUTLAWS + i, // Use different IDs for each group
+      id: FACTION_IDS.OUTLAWS + outlawCount - 1, // Use different IDs for each group
       type: 'npc', 
-      name: `Outlaws ${i + 1}`, // Name them Outlaws 1, Outlaws 2, etc.
+      name: `Outlaws ${outlawCount}`, // Name them Outlaws 1, Outlaws 2, etc.
       flag: '☠️', 
       hq: outlawsHQ.tile, 
       hostile: true 
@@ -4196,8 +4203,15 @@ for (let i = 0; i < 5; i++) {
     
     // Track for godmode
     const coords = getCenter(outlawsHQ.tile[0], outlawsHQ.tile[1]);
-    global.factionHQs.push({ name: `Outlaws ${i + 1}`, x: coords[0], y: coords[1], z: 0 });
+    global.factionHQs.push({ name: `Outlaws ${outlawCount}`, x: coords[0], y: coords[1], z: 0 });
+  } else {
+    consecutiveFailures++;
   }
+}
+
+console.log(`✓ Spawned ${outlawCount} Outlaw camps across the map`);
+if (outlawCount === 0) {
+  console.warn('⚠️ WARNING: No Outlaw camps could be spawned - check heavy forest availability');
 }
 
 const mercenariesHQ = global.mapAnalyzer.findFactionHQ('Mercenaries', excludedHQs);

@@ -2591,6 +2591,82 @@ Outlaws = function(param){
       qty:1
     });
     self.scene.fire = fireId;
+    
+    // Spawn 1-3 random huts around the firepit (standard 2x2 huts like serfs build)
+    var numHuts = Math.floor(Math.random() * 3) + 1; // 1, 2, or 3 huts
+    var excludedTiles = [firepitLoc]; // Don't build on the fire
+    
+    for(var i = 0; i < numHuts; i++){
+      // Use tilemap system to find a valid hut location near the firepit
+      var hutSpot = global.tilemapSystem.findBuildingSpot('hut', firepitLoc, 5, {
+        excludeTiles: excludedTiles
+      });
+      
+      if(hutSpot && hutSpot.plot){
+        var plot = hutSpot.plot;
+        var walls = hutSpot.walls || [[plot[0][0],plot[0][1]-2],[plot[1][0],plot[1][1]-2]];
+        var center = getCenter(plot[0][0], plot[0][1]);
+        
+        // Update terrain tiles exactly like Build.js does for completed huts
+        for(var j = 0; j < plot.length; j++){
+          matrixChange(0, plot[j][0], plot[j][1], 1);
+          matrixChange(1, plot[j][0], plot[j][1], 0);
+          tileChange(0, plot[j][0], plot[j][1], 13);
+          tileChange(3, plot[j][0], plot[j][1], String('hut' + j));
+          // Set entrance tile (hut1 is the entrance)
+          if(getTile(3, plot[j][0], plot[j][1]) == 'hut1'){
+            tileChange(0, plot[j][0], plot[j][1], 14);
+            matrixChange(0, plot[j][0], plot[j][1], 0);
+            matrixChange(1, plot[j][0], plot[j][1]+1, 0);
+          }
+        }
+        
+        // Add walls
+        for(var j in walls){
+          var n = walls[j];
+          tileChange(4, n[0], n[1], 1);
+        }
+        
+        // Create the hut building (pre-built for Outlaws)
+        var hutId = Math.random();
+        Building({
+          id: hutId,
+          house: self.id,
+          owner: self.id,
+          x: center[0],
+          y: center[1],
+          z: 0,
+          type: 'hut',
+          built: true,
+          plot: plot,
+          walls: walls,
+          entrance: null, // Will be set by tile logic above
+          mats: { wood: 30, stone: 0 },
+          req: 5,
+          hp: 150
+        });
+        
+        // Add fireplace inside the hut
+        if(walls && walls[1]){
+          var fp = getCoords(walls[1][0], walls[1][1]);
+          Fireplace({
+            x: fp[0],
+            y: fp[1],
+            z: 1,
+            qty: 1,
+            parent: hutId
+          });
+        }
+        
+        // Add plot to excluded tiles so next hut doesn't overlap
+        excludedTiles.push(...plot);
+        
+        console.log(`Outlaws hut ${i+1} placed at [${plot[0]}]`);
+      } else {
+        console.log(`Outlaws: Could not find spot for hut ${i+1}`);
+      }
+    }
+    
     // pawns
     for(var i = 0; i < 3; i++){
       var rand = Math.floor(Math.random() * grid.length);

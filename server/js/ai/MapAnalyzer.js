@@ -63,10 +63,11 @@ class MapAnalyzer {
       
       Outlaws: {
         searchLayer: 0,
-        requiredTerrain: [1, 2], // Heavy forest
+        requiredTerrain: [1], // Heavy forest only
         minTerrainPercentage: 0.10, // Lowered to allow more forest locations
         evaluationRadius: 15,
-        priorities: { maximumConcealment: 50, rockAccess: 20, isolation: 30 }
+        priorities: { maximumConcealment: 50, rockAccess: 20, isolation: 30 },
+        minSpacing: 50 // Outlaws need large spacing between camps
       },
       
       Mercenaries: {
@@ -196,8 +197,8 @@ class MapAnalyzer {
     let excludedCount = 0;
     let rejectedReasons = {};
     
-    // Use smaller spacing for underground factions (same z-level can be closer)
-    const minSpacing = requirements.searchLayer === 1 ? 8 : 10; // Reduced from 12/15 to encourage better distribution
+    // Use custom minSpacing if specified, otherwise use default of 30 tiles
+    const minSpacing = requirements.minSpacing || 30;
     
     for (const point of shuffledPoints) {
       // Check distance from excluded locations
@@ -327,10 +328,10 @@ class MapAnalyzer {
       return this.getForestSpawnPoints();
     }
     
-    // Outlaws want forest
+    // Outlaws want heavy forest only (deep concealment)
     if (factionName === 'Outlaws') {
-      console.log(`  ${factionName}: Forest faction, searching forest points...`);
-      return this.getForestSpawnPoints();
+      console.log(`  ${factionName}: Heavy forest faction, searching heavy forest points...`);
+      return this.getHeavyForestSpawnPoints();
     }
     
     // Goths want grass/brush areas (buildable terrain)
@@ -627,6 +628,22 @@ class MapAnalyzer {
     }
     console.log(`MapAnalyzer: Found ${forests.length} forest spawn points`);
     return forests;
+  }
+  
+  getHeavyForestSpawnPoints() {
+    const heavyForests = [];
+    const minEdgeDistance = 5; // Match boundary padding
+    // Use fine grid (every 3 tiles) to catch heavy forest areas
+    for (let c = minEdgeDistance; c < this.mapSize - minEdgeDistance; c += 3) {
+      for (let r = minEdgeDistance; r < this.mapSize - minEdgeDistance; r += 3) {
+        const terrain = this.getTerrain(c, r, 0);
+        if (terrain >= 1.0 && terrain < 2.0) { // HEAVY_FOREST only (1.0-1.99)
+          heavyForests.push([c, r]);
+        }
+      }
+    }
+    console.log(`MapAnalyzer: Found ${heavyForests.length} heavy forest spawn points`);
+    return heavyForests;
   }
   
   getMountainSpawnPoints() {

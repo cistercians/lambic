@@ -282,7 +282,7 @@ class TilemapSystem {
       hut: {
         plotSize: [2, 2],
         wallTiles: 2,
-        validTerrain: [TERRAIN.GRASS, TERRAIN.LIGHT_FOREST, TERRAIN.EMPTY],
+        validTerrain: [TERRAIN.GRASS, TERRAIN.LIGHT_FOREST, TERRAIN.HEAVY_FOREST, TERRAIN.EMPTY],
         clearanceRadius: 1,
         excludeBuildings: true,
         hasUpperFloor: false
@@ -827,7 +827,7 @@ class TilemapSystem {
       },
       
       outlaws: {
-        requiredTerrain: [TERRAIN.HEAVY_FOREST],
+        requiredTerrain: [TERRAIN.HEAVY_FOREST], // Heavy forest only
         searchLayer: 0,
         minTerrainPercentage: 0.55, // Forest bandits but more flexible
         searchRadius: 30,
