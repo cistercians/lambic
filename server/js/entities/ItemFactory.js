@@ -7,35 +7,115 @@ class ItemFactory {
       // Resources
       wood: { maxStack: 10, class: 'resource', rank: 0 },
       stone: { maxStack: 10, class: 'resource', rank: 0 },
+      grain: { maxStack: 10, class: 'resource', rank: 0 },
       ironore: { maxStack: 10, class: 'resource', rank: 0 },
       iron: { maxStack: 10, class: 'resource', rank: 0 },
+      steel: { maxStack: 10, class: 'resource', rank: 1 },
       silverore: { maxStack: 10, class: 'resource', rank: 0 },
       silver: { maxStack: 10, class: 'resource', rank: 0 },
       goldore: { maxStack: 10, class: 'resource', rank: 0 },
       gold: { maxStack: 10, class: 'resource', rank: 0 },
       diamond: { maxStack: 5, class: 'resource', rank: 2 },
+      boarhide: { maxStack: 10, class: 'resource', rank: 0 },
+      leather: { maxStack: 10, class: 'resource', rank: 0 },
       
       // Tools
       pickaxe: { maxStack: 1, class: 'tool', rank: 0 },
       stoneaxe: { maxStack: 1, class: 'tool', rank: 0 },
       ironaxe: { maxStack: 1, class: 'tool', rank: 0 },
+      huntingknife: { maxStack: 1, class: 'tool', rank: 0 },
+      torch: { maxStack: 10, class: 'tool', rank: 0 },
       
       // Weapons
       dague: { maxStack: 1, class: 'weapon', rank: 0 },
       rondel: { maxStack: 1, class: 'weapon', rank: 0 },
+      misericorde: { maxStack: 1, class: 'weapon', rank: 0 },
+      bastardsword: { maxStack: 1, class: 'weapon', rank: 1 },
       longsword: { maxStack: 1, class: 'weapon', rank: 1 },
+      zweihander: { maxStack: 1, class: 'weapon', rank: 1 },
+      morallta: { maxStack: 1, class: 'weapon', rank: 1 },
+      bow: { maxStack: 1, class: 'weapon', rank: 0 },
+      welshlongbow: { maxStack: 1, class: 'weapon', rank: 1 },
+      knightlance: { maxStack: 1, class: 'weapon', rank: 1 },
+      rusticlance: { maxStack: 1, class: 'weapon', rank: 0 },
+      paladinlance: { maxStack: 1, class: 'weapon', rank: 2 },
+      arrows: { maxStack: 50, class: 'weapon', rank: 0 },
       
       // Armor
       brigandine: { maxStack: 1, class: 'armor', rank: 0 },
+      lamellar: { maxStack: 1, class: 'armor', rank: 0 },
       maille: { maxStack: 1, class: 'armor', rank: 1 },
+      hauberk: { maxStack: 1, class: 'armor', rank: 1 },
+      brynja: { maxStack: 1, class: 'armor', rank: 1 },
+      cuirass: { maxStack: 1, class: 'armor', rank: 1 },
+      steelplate: { maxStack: 1, class: 'armor', rank: 2 },
+      greenwichplate: { maxStack: 1, class: 'armor', rank: 2 },
+      gothicplate: { maxStack: 1, class: 'armor', rank: 2 },
+      clericrobe: { maxStack: 1, class: 'armor', rank: 0 },
+      monkcowl: { maxStack: 1, class: 'armor', rank: 0 },
+      blackcloak: { maxStack: 1, class: 'armor', rank: 1 },
       
-      // Food
+      // Magic items
+      tome: { maxStack: 1, class: 'magic', rank: 0 },
+      runicscroll: { maxStack: 1, class: 'magic', rank: 1 },
+      sacredtext: { maxStack: 1, class: 'magic', rank: 2 },
+      
+      // Food & Consumables
       bread: { maxStack: 20, class: 'food', rank: 0 },
       meat: { maxStack: 15, class: 'food', rank: 0 },
+      fish: { maxStack: 20, class: 'food', rank: 0 },
+      lamb: { maxStack: 15, class: 'food', rank: 0 },
+      boarmeat: { maxStack: 15, class: 'food', rank: 0 },
+      venison: { maxStack: 15, class: 'food', rank: 0 },
+      poachedfish: { maxStack: 10, class: 'food', rank: 0 },
+      lambchop: { maxStack: 10, class: 'food', rank: 1 },
+      boarshank: { maxStack: 10, class: 'food', rank: 1 },
+      venisonloin: { maxStack: 10, class: 'food', rank: 1 },
+      mead: { maxStack: 10, class: 'drink', rank: 0 },
+      saison: { maxStack: 10, class: 'drink', rank: 0 },
+      flanders: { maxStack: 10, class: 'drink', rank: 1 },
+      bieredegarde: { maxStack: 10, class: 'drink', rank: 1 },
+      bordeaux: { maxStack: 10, class: 'drink', rank: 2 },
+      bourgogne: { maxStack: 10, class: 'drink', rank: 2 },
+      chianti: { maxStack: 10, class: 'drink', rank: 2 },
+      
+      // Environment objects
+      barrel: { maxStack: 1, class: 'environment', rank: 0 },
+      crates: { maxStack: 1, class: 'environment', rank: 0 },
+      bookshelf: { maxStack: 1, class: 'environment', rank: 0 },
+      suitarmor: { maxStack: 1, class: 'environment', rank: 0 },
+      anvil: { maxStack: 1, class: 'environment', rank: 0 },
+      runestone: { maxStack: 1, class: 'environment', rank: 0 },
+      dummy: { maxStack: 1, class: 'environment', rank: 0 },
+      cross: { maxStack: 1, class: 'environment', rank: 0 },
+      skeleton1: { maxStack: 1, class: 'environment', rank: 0 },
+      skeleton2: { maxStack: 1, class: 'environment', rank: 0 },
+      goods1: { maxStack: 1, class: 'environment', rank: 0 },
+      goods2: { maxStack: 1, class: 'environment', rank: 0 },
+      goods3: { maxStack: 1, class: 'environment', rank: 0 },
+      goods4: { maxStack: 1, class: 'environment', rank: 0 },
+      stash1: { maxStack: 1, class: 'environment', rank: 0 },
+      stash2: { maxStack: 1, class: 'environment', rank: 0 },
+      desk: { maxStack: 1, class: 'environment', rank: 0 },
+      swordrack: { maxStack: 1, class: 'environment', rank: 0 },
+      bed: { maxStack: 1, class: 'environment', rank: 0 },
+      jail: { maxStack: 1, class: 'environment', rank: 0 },
+      jaildoor: { maxStack: 1, class: 'environment', rank: 0 },
+      chains: { maxStack: 1, class: 'environment', rank: 0 },
+      throne: { maxStack: 1, class: 'environment', rank: 0 },
+      banner: { maxStack: 1, class: 'environment', rank: 0 },
+      staghead: { maxStack: 1, class: 'environment', rank: 0 },
+      blood: { maxStack: 1, class: 'environment', rank: 0 },
+      
+      // Containers
+      chest: { maxStack: 1, class: 'tool', rank: 0 },
+      lockedchest: { maxStack: 1, class: 'tool', rank: 0 },
       
       // Special items
       key: { maxStack: 50, class: 'key', rank: 0 },
-      torch: { maxStack: 10, class: 'tool', rank: 0 }
+      crown: { maxStack: 1, class: 'special', rank: 3 },
+      worldmap: { maxStack: 1, class: 'special', rank: 0 },
+      relic: { maxStack: 1, class: 'special', rank: 3 }
     };
   }
   

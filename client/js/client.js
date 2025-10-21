@@ -2210,6 +2210,9 @@ var Item = function(initPack){
     // Get camera position (works for both logged in and login mode)
     var cameraPos = getCameraPosition();
     
+    // All items are now spawned with getCoords() at tile top-left [c*tileSize, r*tileSize]
+    // Since drawImage draws from top-left and items are tileSize x tileSize, they align perfectly with tiles
+    
     if(self.type == 'Wood'){
       var x = self.x - cameraPos.x + WIDTH/2;
       var y = self.y - cameraPos.y + HEIGHT/2;

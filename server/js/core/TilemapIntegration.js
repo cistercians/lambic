@@ -219,6 +219,28 @@ class TilemapIntegration {
     }
     return this.tilemapSystem.findFactionHQ(factionName, excludedLocations);
   }
+
+  // Resource assessment proxy methods (for faction initialization)
+  assessBaseResources(hq, radius, z = 0) {
+    if (!this.initialized) {
+      throw new Error('Tilemap system not initialized');
+    }
+    return this.tilemapSystem.assessBaseResources(hq, radius, z);
+  }
+
+  countNearbyTerrain(tile, terrainTypes, radius, z = 0) {
+    if (!this.initialized) {
+      throw new Error('Tilemap system not initialized');
+    }
+    return this.tilemapSystem.countNearbyTerrain(tile, terrainTypes, radius, z);
+  }
+
+  getDistanceToNearestBuilding(tile, buildingType) {
+    if (!this.initialized) {
+      throw new Error('Tilemap system not initialized');
+    }
+    return this.tilemapSystem.getDistanceToNearestBuilding(tile, buildingType);
+  }
 }
 
 module.exports = { TilemapIntegration };

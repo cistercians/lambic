@@ -1136,6 +1136,93 @@ class TilemapSystem {
     
     return false;
   }
+
+  // Assess resources available within a faction's base radius
+  assessBaseResources(hq, radius, z = 0) {
+    const area = global.getArea(hq, hq, radius);
+    const resources = {
+      heavyForest: 0,
+      lightForest: 0,
+      totalForest: 0,
+      grass: 0,
+      rocks: 0,
+      mountains: 0,
+      water: 0,
+      caveEntrances: [],
+      buildableSpace: 0
+    };
+    
+    const hqCenter = global.getCenter(hq[0], hq[1]);
+    
+    // Count terrain types
+    for (const tile of area) {
+      const terrain = Math.floor(this.getTile(z, tile[0], tile[1]));
+      
+      if (terrain === 1) resources.heavyForest++;
+      else if (terrain === 2) resources.lightForest++;
+      else if (terrain === 7) resources.grass++;
+      else if (terrain === 4) resources.rocks++;
+      else if (terrain === 5) resources.mountains++;
+      else if (terrain === 0) resources.water++;
+      
+      if (terrain === 7 || terrain === 3) resources.buildableSpace++;
+    }
+    
+    resources.totalForest = resources.heavyForest + resources.lightForest;
+    
+    // Find cave entrances within radius
+    if (global.caveEntrances) {
+      for (const cave of global.caveEntrances) {
+        const caveCenter = global.getCenter(cave[0], cave[1]);
+        const dist = global.getDistance(
+          { x: hqCenter[0], y: hqCenter[1] },
+          { x: caveCenter[0], y: caveCenter[1] }
+        );
+        const distInTiles = Math.floor(dist / global.tileSize);
+        
+        if (distInTiles <= radius) {
+          resources.caveEntrances.push({ tile: cave, distance: dist, distInTiles: distInTiles });
+        }
+      }
+    }
+    
+    return resources;
+  }
+
+  // Count specific terrain types near a tile
+  countNearbyTerrain(tile, terrainTypes, radius, z = 0) {
+    const area = global.getArea(tile, tile, radius);
+    let count = 0;
+    
+    for (const t of area) {
+      const terrain = Math.floor(this.getTile(z, t[0], t[1]));
+      if (terrainTypes.includes(terrain)) {
+        count++;
+      }
+    }
+    
+    return count;
+  }
+
+  // Find distance to nearest building of specific type
+  getDistanceToNearestBuilding(tile, buildingType) {
+    const tileCenter = global.getCenter(tile[0], tile[1]);
+    let nearestDist = Infinity;
+    
+    for (const buildingId in global.Building.list) {
+      const building = global.Building.list[buildingId];
+      if (building.type === buildingType) {
+        const buildingCenter = global.getCenter(building.plot[0][0], building.plot[0][1]);
+        const dist = global.getDistance(
+          { x: tileCenter[0], y: tileCenter[1] },
+          { x: buildingCenter[0], y: buildingCenter[1] }
+        );
+        nearestDist = Math.min(nearestDist, dist);
+      }
+    }
+    
+    return nearestDist;
+  }
 }
 
 module.exports = { TilemapSystem };

@@ -450,6 +450,14 @@ Goths = function(param){
       }
     }
     
+    // GOTHS INITIALIZATION: Farming + Stone Mining
+    const BASE_RADIUS = 10;
+    const MIN_ROCKS_FOR_MINE = 15;
+    const MIN_FOREST_FOR_LUMBERMILL = 10;
+    
+    const resources = global.tilemapSystem.assessBaseResources(self.hq, BASE_RADIUS, 0);
+    console.log(`Goths @ [${self.hq}]: Grass=${resources.grass}, Forest=${resources.totalForest}, Rocks=${resources.rocks}`);
+    
     // Use new building placement system for mills (tight radius for compact base)
     var excludedTiles = [self.hq]; // Start with HQ location
     var millSpot1 = global.tilemapSystem.findBuildingSpot('mill', self.hq, 5, {
@@ -585,9 +593,105 @@ Goths = function(param){
           // Farm auto-links to mill via findMill()
         }
       }
-      mapEdit();
     }
-    console.log('Goths: ' + self.hq);
+    
+    // Track what was built
+    var millsBuilt = 0;
+    var farmsBuilt = 0;
+    
+    if(m1){
+      millsBuilt++;
+      if(farmSpot){
+        farmsBuilt++;
+      }
+    }
+    if(m2){
+      millsBuilt++;
+      if(farmSpot2){
+        farmsBuilt++;
+      }
+    }
+    
+    // PRIORITY 2: Build stone mine if enough rocks
+    if(resources.rocks >= MIN_ROCKS_FOR_MINE){
+      const mineSpot = global.tilemapSystem.findBuildingSpot('mine', self.hq, 7, {
+        excludeTiles: excludedTiles
+      });
+      
+      if(mineSpot){
+        const plot = mineSpot.plot;
+        const center = getCenter(plot[0][0], plot[0][1]);
+        
+        for(var i in plot){
+          tileChange(0,plot[i][0],plot[i][1],13);
+          tileChange(3,plot[i][0],plot[i][1],String('mine' + i));
+          matrixChange(0,plot[i][0],plot[i][1],1);
+        }
+        
+        Mine({
+          id:Math.random(),
+          house:self.id,
+          owner:self.id,
+          x:center[0],
+          y:center[1],
+          z:0,
+          type:'mine',
+          built:true,
+          plot:plot,
+          mats:{wood:40, stone:0},
+          req:5,
+          hp:150
+        });
+        
+        console.log(`Goths: Stone mine built at [${plot[0]}]`);
+      }
+    }
+    
+    // PRIORITY 3: Build lumbermill if enough forest
+    if(resources.totalForest >= MIN_FOREST_FOR_LUMBERMILL){
+      const lumberSpot = global.tilemapSystem.findBuildingSpot('lumbermill', self.hq, 7, {
+        excludeTiles: excludedTiles
+      });
+      
+      if(lumberSpot){
+        const plot = lumberSpot.plot;
+        const nearbyForest = global.tilemapSystem.countNearbyTerrain(plot[0], [1, 2], 5, 0);
+        
+        if(nearbyForest >= 8){
+          const topPlot = lumberSpot.topPlot;
+          const center = getCenter(plot[0][0], plot[0][1]);
+          
+          for(var i in plot){
+            tileChange(0,plot[i][0],plot[i][1],13);
+            tileChange(3,plot[i][0],plot[i][1],String('lumbermill' + i));
+            matrixChange(0,plot[i][0],plot[i][1],1);
+          }
+          tileChange(5,topPlot[0][0],topPlot[0][1],'lumbermill2');
+          tileChange(5,topPlot[1][0],topPlot[1][1],'lumbermill3');
+          
+          Lumbermill({
+            id:Math.random(),
+            house:self.id,
+            owner:self.id,
+            x:center[0],
+            y:center[1],
+            z:0,
+            type:'lumbermill',
+            built:true,
+            plot:plot,
+            topPlot:topPlot,
+            mats:{wood:25, stone:0},
+            req:5,
+            hp:100
+          });
+          
+          console.log(`Goths: Lumbermill built at [${plot[0]}] (${nearbyForest} forest nearby)`);
+        }
+      }
+    }
+    
+    mapEdit();
+    console.log(`Goths initialization complete: ${millsBuilt} mills, ${farmsBuilt} farms`);
   }
   self.scout = function(start){
     var points = [];
@@ -997,6 +1101,15 @@ Franks = function(param){
       qty:1
     });
     self.scene.fire = fireId;
+    
+    // FRANKS INITIALIZATION: Heavy Farming + Opportunistic Resources
+    const BASE_RADIUS = 12;
+    const MIN_FOREST_FOR_LUMBERMILL = 15;
+    const MIN_ROCKS_FOR_MINE = 20;
+    
+    const resources = global.tilemapSystem.assessBaseResources(self.hq, BASE_RADIUS, 0);
+    console.log(`Franks @ [${self.hq}]: Grass=${resources.grass}, Forest=${resources.totalForest}, Rocks=${resources.rocks}, Caves=${resources.caveEntrances.length}`);
+    
     // pawns
     for(var i = 0; i < 4; i++){
       var rand = Math.floor(Math.random() * grid.length);
@@ -1174,9 +1287,141 @@ Franks = function(param){
           // Farm auto-links to mill via findMill()
         }
       }
-      mapEdit();
     }
-    console.log('Franks: ' + self.hq);
+    
+    // Track primary buildings
+    var millsBuilt = 0;
+    var farmsBuilt = 0;
+    if(m1){
+      millsBuilt++;
+      if(farmSpot){
+        farmsBuilt++;
+      }
+    }
+    if(m2){
+      millsBuilt++;
+      if(farmSpot2){
+        farmsBuilt++;
+      }
+    }
+    
+    // SECONDARY BUILDINGS: Opportunistic resource exploitation
+    
+    // Build lumbermill if enough forest
+    if(resources.totalForest >= MIN_FOREST_FOR_LUMBERMILL){
+      const lumberSpot = global.tilemapSystem.findBuildingSpot('lumbermill', self.hq, 8, {
+        excludedTiles: excludedTiles
+      });
+      
+      if(lumberSpot){
+        const plot = lumberSpot.plot;
+        const nearbyForest = global.tilemapSystem.countNearbyTerrain(plot[0], [1, 2], 5, 0);
+        
+        if(nearbyForest >= 8){
+          const topPlot = lumberSpot.topPlot;
+          const center = getCenter(plot[0][0], plot[0][1]);
+          
+          for(var i in plot){
+            tileChange(0,plot[i][0],plot[i][1],13);
+            tileChange(3,plot[i][0],plot[i][1],String('lumbermill' + i));
+            matrixChange(0,plot[i][0],plot[i][1],1);
+          }
+          tileChange(5,topPlot[0][0],topPlot[0][1],'lumbermill2');
+          tileChange(5,topPlot[1][0],topPlot[1][1],'lumbermill3');
+          
+          Lumbermill({
+            id:Math.random(),
+            house:self.id,
+            owner:self.id,
+            x:center[0],
+            y:center[1],
+            z:0,
+            type:'lumbermill',
+            built:true,
+            plot:plot,
+            topPlot:topPlot,
+            mats:{wood:25, stone:0},
+            req:5,
+            hp:100
+          });
+          
+          console.log(`Franks: Lumbermill built (${nearbyForest} forest nearby)`);
+        }
+      }
+    }
+    
+    // Build ore mine if cave in radius
+    if(resources.caveEntrances.length > 0){
+      const cave = resources.caveEntrances[0].tile;
+      const mineSpot = global.tilemapSystem.findBuildingSpot('mine', cave, 6, {
+        excludeTiles: excludedTiles
+      });
+      
+      if(mineSpot){
+        const plot = mineSpot.plot;
+        const center = getCenter(plot[0][0], plot[0][1]);
+        
+        for(var i in plot){
+          tileChange(0,plot[i][0],plot[i][1],13);
+          tileChange(3,plot[i][0],plot[i][1],String('mine' + i));
+          matrixChange(0,plot[i][0],plot[i][1],1);
+        }
+        
+        Mine({
+          id:Math.random(),
+          house:self.id,
+          owner:self.id,
+          x:center[0],
+          y:center[1],
+          z:0,
+          type:'mine',
+          built:true,
+          plot:plot,
+          mats:{wood:40, stone:0},
+          req:5,
+          hp:150
+        });
+        
+        console.log(`Franks: Ore mine built near cave`);
+      }
+    }
+    // Build stone mine if enough rocks  
+    else if(resources.rocks >= MIN_ROCKS_FOR_MINE){
+      const mineSpot = global.tilemapSystem.findBuildingSpot('mine', self.hq, 8, {
+        excludeTiles: excludedTiles
+      });
+      
+      if(mineSpot){
+        const plot = mineSpot.plot;
+        const center = getCenter(plot[0][0], plot[0][1]);
+        
+        for(var i in plot){
+          tileChange(0,plot[i][0],plot[i][1],13);
+          tileChange(3,plot[i][0],plot[i][1],String('mine' + i));
+          matrixChange(0,plot[i][0],plot[i][1],1);
+        }
+        
+        Mine({
+          id:Math.random(),
+          house:self.id,
+          owner:self.id,
+          x:center[0],
+          y:center[1],
+          z:0,
+          type:'mine',
+          built:true,
+          plot:plot,
+          mats:{wood:40, stone:0},
+          req:5,
+          hp:150
+        });
+        
+        console.log(`Franks: Stone mine built`);
+      }
+    }
+    
+    mapEdit();
+    console.log(`Franks initialization complete: ${millsBuilt} mills, ${farmsBuilt} farms`);
   }
   self.scout = function(start){
     var points = [];
@@ -1503,6 +1748,17 @@ Celts = function(param){
     }
   }
   self.init = function(){
+    // CELTS INITIALIZATION: Mining Specialists
+    // Base radius: 9 tiles
+    // Priority: 2 ore mines near cave entrance
+    
+    const BASE_RADIUS = 9;
+    
+    // Assess available resources
+    const resources = global.tilemapSystem.assessBaseResources(self.hq, BASE_RADIUS, 0);
+    console.log(`Celts @ [${self.hq}]: Forest=${resources.totalForest}, Rocks=${resources.rocks}, Caves=${resources.caveEntrances.length}`);
+    
+    // Spawn initial units
     var grid = [];
     var area = getArea(self.hq,self.hq,5);
     for(var i in area){
@@ -1511,7 +1767,8 @@ Celts = function(param){
         grid.push(t);
       }
     }
-    // fire
+    
+    // Create firepit at HQ
     var fireId = Math.random();
     var coords = getCoords(self.hq[0],self.hq[1]);
     Firepit({
@@ -1523,7 +1780,8 @@ Celts = function(param){
       qty:1
     });
     self.scene.fire = fireId;
-    // pawns
+    
+    // Spawn 4 initial units
     for(var i = 0; i < 4; i++){
       var rand = Math.floor(Math.random() * grid.length);
       var select = grid[rand];
@@ -1536,10 +1794,7 @@ Celts = function(param){
           y:c[1],
           z:0,
           house:self.id,
-          home:{
-            z:0,
-            loc:select
-          }
+          home:{z:0, loc:select}
         })
       } else {
         CeltSpear({
@@ -1547,107 +1802,63 @@ Celts = function(param){
           y:c[1],
           z:0,
           house:self.id,
-          home:{
-            z:0,
-            loc:select
-          }
+          home:{z:0, loc:select}
         })
       }
     }
-    // Find nearest cave entrance
-    var chq = getCenter(self.hq[0],self.hq[1]);
-    var best = null;
-    var cave = null;
-    for(var i in caveEntrances){
-      var e = caveEntrances[i];
-      var ce = getCenter(e[0],e[1]);
-      var dist = getDistance({x:chq[0],y:chq[1]},{x:ce[0],y:ce[1]});
-      if(!best){
-        best = dist;
-        cave = e;
-      } else {
-        if(dist < best){
-          best = dist;
-          cave = e;
-        }
-      }
-    }
     
-    // Use new building placement system for mines near cave
+    // PRIORITY 1: Build 2 ore mines near cave entrance
+    var minesBuilt = 0;
     var excludedTiles = [self.hq];
-    var mineSpot1 = global.tilemapSystem.findBuildingSpot('mine', cave, 4, {
-      excludeTiles: excludedTiles
-    });
     
-    var m1 = null;
-    var m2 = null;
-    if(mineSpot1){
-      m1 = mineSpot1.plot;
-      var m1c = getCenter(m1[0][0],m1[0][1]);
-      excludedTiles.push(...m1);
+    if(resources.caveEntrances.length > 0){
+      // Use nearest cave
+      const cave = resources.caveEntrances[0].tile;
+      console.log(`Celts: Cave entrance at [${cave}], ${resources.caveEntrances[0].distInTiles} tiles away`);
       
-      for(var i in m1){
-        tileChange(0,m1[i][0],m1[i][1],13);
-        tileChange(3,m1[i][0],m1[i][1],String('mine' + i));
-        matrixChange(0,m1[i][0],m1[i][1],1);
-      }
-      var celtMine1Id = Math.random();
-      Mine({
-        id:celtMine1Id,
-        house:self.id,
-        owner:self.id,
-        x:m1c[0],
-        y:m1c[1],
-        z:0,
-        type:'mine',
-        built:true,
-        plot:m1,
-        mats:{
-          wood:40,
-          stone:0
-        },
-        req:5,
-        hp:150
-      });
-      
-      
-      // Place second mine
-      var mineSpot2 = global.tilemapSystem.findBuildingSpot('mine', cave, 4, {
+      // Try increasing search radius until we place 2 mines
+      for(let searchRadius = 4; searchRadius <= 6 && minesBuilt < 2; searchRadius++){
+        const mineSpot = global.tilemapSystem.findBuildingSpot('mine', cave, searchRadius, {
         excludeTiles: excludedTiles
       });
       
-      if(mineSpot2){
-        m2 = mineSpot2.plot;
-        var m2c = getCenter(m2[0][0],m2[0][1]);
-        
-        for(var i in m2){
-          tileChange(0,m2[i][0],m2[i][1],13);
-          tileChange(3,m2[i][0],m2[i][1],String('mine' + i));
-          matrixChange(0,m2[i][0],m2[i][1],1);
-        }
-        var celtMine2Id = Math.random();
+        if(mineSpot){
+          const plot = mineSpot.plot;
+          const center = getCenter(plot[0][0], plot[0][1]);
+          excludedTiles.push(...plot);
+          
+          for(var i in plot){
+            tileChange(0,plot[i][0],plot[i][1],13);
+            tileChange(3,plot[i][0],plot[i][1],String('mine' + i));
+            matrixChange(0,plot[i][0],plot[i][1],1);
+          }
+          
         Mine({
-          id:celtMine2Id,
+            id:Math.random(),
           house:self.id,
           owner:self.id,
-          x:m2c[0],
-          y:m2c[1],
+            x:center[0],
+            y:center[1],
           z:0,
           type:'mine',
           built:true,
-          plot:m2,
-          mats:{
-            wood:40,
-            stone:0
-          },
+            plot:plot,
+            mats:{wood:40, stone:0},
           req:5,
           hp:150
         });
         
+          minesBuilt++;
+          console.log(`Celts: Ore mine #${minesBuilt} built at [${plot[0]}]`);
       }
+      }
+      
       mapEdit();
+    } else {
+      console.error('⚠️ Celts: NO CAVE ENTRANCE in radius - faction incomplete!');
     }
-    console.log('Celts: ' + self.hq);
+    
+    console.log(`Celts initialization complete: ${minesBuilt}/2 ore mines built`);
   }
   self.scout = function(start){
     var points = [];
@@ -1952,6 +2163,20 @@ Teutons = function(param){
     }
   }
   self.init = function(){
+    // TEUTONS INITIALIZATION: Ore + Stone Mining + Lumber
+    // Base radius: 10 tiles
+    // Priority: 1) Ore mines (if cave), 2) Stone mines, 3) Lumbermills (if forest)
+    
+    const BASE_RADIUS = 10;
+    const MAX_MINES = 2;
+    const MIN_FOREST_FOR_LUMBERMILL = 12;
+    const MIN_FOREST_PER_LUMBERMILL = 8;
+    
+    // Assess available resources
+    const resources = global.tilemapSystem.assessBaseResources(self.hq, BASE_RADIUS, 0);
+    console.log(`Teutons @ [${self.hq}]: Forest=${resources.totalForest}, Rocks=${resources.rocks}, Mountains=${resources.mountains}, Caves=${resources.caveEntrances.length}`);
+    
+    // Spawn initial units
     var grid = [];
     var area = getArea(self.hq,self.hq,5);
     for(var i in area){
@@ -1960,7 +2185,8 @@ Teutons = function(param){
         grid.push(t);
       }
     }
-    // fire
+    
+    // Create firepit at HQ
     var fireId = Math.random();
     var coords = getCoords(self.hq[0],self.hq[1]);
     Firepit({
@@ -1972,7 +2198,8 @@ Teutons = function(param){
       qty:1
     });
     self.scene.fire = fireId;
-    // pawns
+    
+    // Spawn 4 initial units
     for(var i = 0; i < 4; i++){
       var rand = Math.floor(Math.random() * grid.length);
       var select = grid[rand];
@@ -1985,10 +2212,7 @@ Teutons = function(param){
           y:c[1],
           z:0,
           house:self.id,
-          home:{
-            z:0,
-            loc:select
-          }
+          home:{z:0, loc:select}
         })
       } else {
         TeutonBow({
@@ -1996,167 +2220,151 @@ Teutons = function(param){
           y:c[1],
           z:0,
           house:self.id,
-          home:{
-            z:0,
-            loc:select
-          }
+          home:{z:0, loc:select}
         })
       }
     }
     
-    // Use new building placement system for mines
-    var excludedTiles = [];
+    var minesBuilt = 0;
+    var excludedTiles = [self.hq];
     
-    // Find first mine spot
-    const mineSpot1 = global.tilemapSystem.findBuildingSpot('mine', self.hq, 5);
-    var m1 = null;
-    var m2 = null;
-    
-    if(mineSpot1){
-      m1 = mineSpot1.plot;
-      var m1c = getCenter(m1[0][0],m1[0][1]);
-      excludedTiles.push(...m1);
+    // PRIORITY 1: Build ore mines if cave entrance present (within 6 tiles)
+    if(resources.caveEntrances.length > 0){
+      const cave = resources.caveEntrances[0].tile;
+      console.log(`Teutons: Cave entrance found at [${cave}], ${resources.caveEntrances[0].distInTiles} tiles away`);
       
-      for(var i in m1){
-        tileChange(0,m1[i][0],m1[i][1],13);
-        tileChange(3,m1[i][0],m1[i][1],String('mine' + i));
-        matrixChange(0,m1[i][0],m1[i][1],1);
-      }
-      var teutMine1Id = Math.random();
+      // Try to place 2 ore mines near cave
+      for(let searchRadius = 4; searchRadius <= 6 && minesBuilt < MAX_MINES; searchRadius++){
+        const mineSpot = global.tilemapSystem.findBuildingSpot('mine', cave, searchRadius, {
+          excludeTiles: excludedTiles
+        });
+        
+        if(mineSpot){
+          const plot = mineSpot.plot;
+          const center = getCenter(plot[0][0], plot[0][1]);
+          excludedTiles.push(...plot);
+          
+          for(var i in plot){
+            tileChange(0,plot[i][0],plot[i][1],13);
+            tileChange(3,plot[i][0],plot[i][1],String('mine' + i));
+            matrixChange(0,plot[i][0],plot[i][1],1);
+          }
+          
       Mine({
-        id:teutMine1Id,
+            id:Math.random(),
         house:self.id,
         owner:self.id,
-        x:m1c[0],
-        y:m1c[1],
+            x:center[0],
+            y:center[1],
         z:0,
         type:'mine',
         built:true,
-        plot:m1,
-        mats:{
-          wood:40,
-          stone:0
-        },
+            plot:plot,
+            mats:{wood:40, stone:0},
         req:5,
         hp:150
       });
       
-      // Find second mine spot (excluding first mine's tiles)
-      const mineSpot2 = global.tilemapSystem.findBuildingSpot('mine', self.hq, 5, {
-        excludeTiles: excludedTiles.map(t => `${t[0]},${t[1]}`)
-      });
-      
-      if(mineSpot2){
-        m2 = mineSpot2.plot;
-        var m2c = getCenter(m2[0][0],m2[0][1]);
-        
-        for(var i in m2){
-          tileChange(0,m2[i][0],m2[i][1],13);
-          tileChange(3,m2[i][0],m2[i][1],String('mine' + i));
-          matrixChange(0,m2[i][0],m2[i][1],1);
+          minesBuilt++;
+          console.log(`Teutons: Ore mine #${minesBuilt} built near cave`);
         }
-        var teutMine2Id = Math.random();
+      }
+    }
+    
+    // PRIORITY 2: Build stone mines to fill remaining mine slots
+    if(minesBuilt < MAX_MINES && (resources.rocks > 0 || resources.mountains > 0)){
+      for(let searchRadius = 5; searchRadius <= 8 && minesBuilt < MAX_MINES; searchRadius++){
+        const mineSpot = global.tilemapSystem.findBuildingSpot('mine', self.hq, searchRadius, {
+          excludeTiles: excludedTiles
+        });
+        
+        if(mineSpot){
+          const plot = mineSpot.plot;
+          const center = getCenter(plot[0][0], plot[0][1]);
+          excludedTiles.push(...plot);
+          
+          for(var i in plot){
+            tileChange(0,plot[i][0],plot[i][1],13);
+            tileChange(3,plot[i][0],plot[i][1],String('mine' + i));
+            matrixChange(0,plot[i][0],plot[i][1],1);
+          }
+          
         Mine({
-          id:teutMine2Id,
+            id:Math.random(),
           house:self.id,
           owner:self.id,
-          x:m2c[0],
-          y:m2c[1],
+            x:center[0],
+            y:center[1],
           z:0,
           type:'mine',
           built:true,
-          plot:m2,
-          mats:{
-            wood:40,
-            stone:0
-          },
+            plot:plot,
+            mats:{wood:40, stone:0},
           req:5,
           hp:150
         });
+          
+          minesBuilt++;
+          console.log(`Teutons: Stone mine #${minesBuilt} built at [${plot[0]}]`);
+        }
       }
     }
     
-    // Use new building placement system for lumbermills
-    // Find first lumbermill spot
-    const lumbermillSpot1 = global.tilemapSystem.findBuildingSpot('lumbermill', self.hq, 5, {
-      excludeTiles: excludedTiles.map(t => `${t[0]},${t[1]}`)
-    });
-    var l1 = null;
-    var l2 = null;
-    
-    if(lumbermillSpot1){
-      l1 = lumbermillSpot1.plot;
-      var l1top = lumbermillSpot1.topPlot;
-      var l1c = getCenter(l1[0][0],l1[0][1]);
-      excludedTiles.push(...l1);
+    // PRIORITY 3: Build lumbermills if enough forest
+    var lumbermillsBuilt = 0;
+    if(resources.totalForest >= MIN_FOREST_FOR_LUMBERMILL){
+      console.log(`Teutons: ${resources.totalForest} forest tiles, attempting lumbermills`);
       
-      for(var i in l1){
-        tileChange(0,l1[i][0],l1[i][1],13);
-        tileChange(3,l1[i][0],l1[i][1],String('lumbermill' + i));
-        matrixChange(0,l1[i][0],l1[i][1],1);
-      }
-      tileChange(5,l1top[0][0],l1top[0][1],'lumbermill2');
-      tileChange(5,l1top[1][0],l1top[1][1],'lumbermill3');
-      var teutLumber1Id = Math.random();
-      Lumbermill({
-        id:teutLumber1Id,
-        house:self.id,
-        owner:self.id,
-        x:l1c[0],
-        y:l1c[1],
-        z:0,
-        type:'lumbermill',
-        built:true,
-        plot:l1,
-        topPlot:l1top,
-        mats:{
-          wood:25,
-          stone:0
-        },
-        req:5,
-        hp:100
-      });
-      
-      // Find second lumbermill spot (excluding first lumbermill's tiles)
-      const lumbermillSpot2 = global.tilemapSystem.findBuildingSpot('lumbermill', self.hq, 5, {
-        excludeTiles: excludedTiles.map(t => `${t[0]},${t[1]}`)
-      });
-      
-      if(lumbermillSpot2){
-        l2 = lumbermillSpot2.plot;
-        var l2top = lumbermillSpot2.topPlot;
-        var l2c = getCenter(l2[0][0],l2[0][1]);
+      for(let searchRadius = 5; searchRadius <= 8 && lumbermillsBuilt < 2; searchRadius++){
+        const lumberSpot = global.tilemapSystem.findBuildingSpot('lumbermill', self.hq, searchRadius, {
+          excludeTiles: excludedTiles
+        });
         
-        for(var i in l2){
-          tileChange(0,l2[i][0],l2[i][1],13);
-          tileChange(3,l2[i][0],l2[i][1],String('lumbermill' + i));
-          matrixChange(0,l2[i][0],l2[i][1],1);
-        }
-        tileChange(5,l2top[0][0],l2top[0][1],'lumbermill2');
-        tileChange(5,l2top[1][0],l2top[1][1],'lumbermill3');
-        var teutLumber2Id = Math.random();
+        if(lumberSpot){
+          const plot = lumberSpot.plot;
+          
+          // Verify this spot has enough nearby forest
+          const nearbyForest = global.tilemapSystem.countNearbyTerrain(plot[0], [1, 2], 5, 0);
+          if(nearbyForest >= MIN_FOREST_PER_LUMBERMILL){
+            const topPlot = lumberSpot.topPlot;
+            const center = getCenter(plot[0][0], plot[0][1]);
+            excludedTiles.push(...plot);
+            
+            for(var i in plot){
+              tileChange(0,plot[i][0],plot[i][1],13);
+              tileChange(3,plot[i][0],plot[i][1],String('lumbermill' + i));
+              matrixChange(0,plot[i][0],plot[i][1],1);
+            }
+            tileChange(5,topPlot[0][0],topPlot[0][1],'lumbermill2');
+            tileChange(5,topPlot[1][0],topPlot[1][1],'lumbermill3');
+            
         Lumbermill({
-          id:teutLumber2Id,
+              id:Math.random(),
           house:self.id,
           owner:self.id,
-          x:l2c[0],
-          y:l2c[1],
+              x:center[0],
+              y:center[1],
           z:0,
           type:'lumbermill',
           built:true,
-          plot:l2,
-          topPlot:l2top,
-          mats:{
-            wood:25,
-            stone:0
-          },
+              plot:plot,
+              topPlot:topPlot,
+              mats:{wood:25, stone:0},
           req:5,
           hp:100
         });
+            
+            lumbermillsBuilt++;
+            console.log(`Teutons: Lumbermill #${lumbermillsBuilt} built at [${plot[0]}] (${nearbyForest} forest nearby)`);
       }
     }
+      }
+    } else {
+      console.log(`Teutons: Only ${resources.totalForest} forest tiles, skipping lumbermills`);
+    }
+    
     mapEdit();
-    console.log('Teutons: ' + self.hq);
+    console.log(`Teutons initialization complete: ${minesBuilt}/2 mines, ${lumbermillsBuilt} lumbermills`);
   }
   self.scout = function(start){
     var points = [];
@@ -2407,7 +2615,72 @@ Mercenaries = function(param){
         })
       }
     }
-    console.log('Mercenaries: ' + self.hq);
+    
+    // MERCENARIES INITIALIZATION: Random objects around firepit
+    const BASE_RADIUS = 6;
+    const objectTypes = ['barrel', 'crates', 'stash2'];
+    
+    // Place 5 random objects within radius using direct constructors
+    for(let i = 0; i < 5 && grid.length > 0; i++){
+      const randIndex = Math.floor(Math.random() * grid.length);
+      const tile = grid[randIndex];
+      grid.splice(randIndex, 1);
+      
+      const roll = Math.random();
+      const coords = getCoords(tile[0], tile[1]);
+      
+      if(roll < 0.33){
+        Barrel({
+          id: Math.random(),
+          x: coords[0],
+          y: coords[1],
+          z: -1,
+          qty: 1
+        });
+        console.log(`Mercenaries: Placed Barrel at [${tile}]`);
+      } else if(roll < 0.66){
+        Crates({
+          id: Math.random(),
+          x: coords[0],
+          y: coords[1],
+          z: -1,
+          qty: 1
+        });
+        console.log(`Mercenaries: Placed Crates at [${tile}]`);
+      } else {
+        Stash2({
+          id: Math.random(),
+          x: coords[0],
+          y: coords[1],
+          z: -1,
+          qty: 1
+        });
+        console.log(`Mercenaries: Placed Stash2 at [${tile}]`);
+      }
+    }
+    
+    // Place locked chest 1-2 tiles from firepit
+    const chestDistance = (Math.random() > 0.5) ? 1 : 2;
+    const chestArea = getArea(self.hq, self.hq, chestDistance);
+    const validChestSpots = chestArea.filter(t => 
+      isWalkable(-1, t[0], t[1]) && t.toString() != self.hq.toString()
+    );
+    
+    if(validChestSpots.length > 0){
+      const chestTile = validChestSpots[Math.floor(Math.random() * validChestSpots.length)];
+      const chestCoords = getCoords(chestTile[0], chestTile[1]);
+      
+      LockedChest({
+        id: Math.random(),
+        x: chestCoords[0],
+        y: chestCoords[1],
+        z: -1,
+        qty: 1
+      });
+      console.log(`Mercenaries: Locked chest placed ${chestDistance} tiles from firepit at [${chestTile}]`);
+    }
+    
+    console.log('Mercenaries initialization complete: firepit + 5 objects + locked chest');
   }
 
   var super_update = self.update;

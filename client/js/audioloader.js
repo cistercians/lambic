@@ -21,12 +21,15 @@ var bgmPlayer = function(playlist,next=false,loop=true){
 };
 
 var ambPlayer = function(src){
-  if(src == AudioCtrl.amb.src){
+  // Track current ambience separately to avoid browser URL resolution issues
+  if(src == AudioCtrl.currentAmb){
     return;
   } else if(!src){
     AudioCtrl.amb.src = "";
+    AudioCtrl.currentAmb = null;
   } else {
     AudioCtrl.amb.src = src;
+    AudioCtrl.currentAmb = src; // Track the current ambience
     AudioCtrl.amb.loop = true;
     AudioCtrl.amb.play();
     console.log('Playing ambience: ' + src);
@@ -35,6 +38,7 @@ var ambPlayer = function(src){
 
 AudioCtrl = {};
 AudioCtrl.playlist = null;
+AudioCtrl.currentAmb = null; // Track current ambience separately
 AudioCtrl.bgmLoop = true;
 AudioCtrl.bgm = new Audio();
 AudioCtrl.amb = new Audio();
