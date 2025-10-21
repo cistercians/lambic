@@ -1677,6 +1677,29 @@ var getCurrentZ = function() {
   return 0;
 };
 
+// Zoom system for buildings/caves
+var currentZoom = 1.0;
+var buildingZoom = 2.0; // 100% zoom in (2x) for buildings and cellars
+var caveZoom = 1.5; // 50% zoom in (1.5x) for caves only
+
+// Helper function to get target zoom based on current z-level
+var getTargetZoom = function() {
+  var z = getCurrentZ();
+  
+  // Zoom in when inside buildings and cellars (z=1,2,-2)
+  if (z === 1 || z === 2 || z === -2) {
+    return buildingZoom;
+  }
+  
+  // Zoom in for caves (z=-1)
+  if (z === -1) {
+    return caveZoom;
+  }
+  
+  // Normal zoom for overworld (z=0)
+  return 1.0;
+};
+
 // BUILDINGS
 var Building = function(initPack){
   var self = {};
@@ -3651,7 +3674,17 @@ setInterval(function(){
     return;
   }
   
+  // Update zoom based on current z-level (buildings/caves)
+  currentZoom = getTargetZoom();
+  
   ctx.clearRect(0,0,WIDTH,HEIGHT);
+  
+  // Apply zoom transform
+  ctx.save();
+  ctx.translate(WIDTH/2, HEIGHT/2);
+  ctx.scale(currentZoom, currentZoom);
+  ctx.translate(-WIDTH/2, -HEIGHT/2);
+  
   renderMap();
   
   // In login mode, only render map, items, and falcons (skip player-specific checks)
@@ -3806,6 +3839,10 @@ setInterval(function(){
   viewport.update(Player.list[selfId].x,Player.list[selfId].y);
   }
   }
+  
+  // Restore canvas transform after rendering
+  ctx.restore();
+  
   //console.log(getLoc(Player.list[selfId].x,Player.list[selfId].y));
 },40);
 
@@ -7499,6 +7536,12 @@ var renderLightSources = function(env){
       if((light.z == 0 || light.z == -1 || light.z == -2 || light.z == 99) || ((light.z == 1 || light.z == 2) && !hasFire(playerZ,cameraPos.x,cameraPos.y))){
         lighting.save();
         lighting.globalCompositeOperation = 'destination-out';
+        
+        // Apply zoom transform for the light cutout arc
+        lighting.translate(WIDTH/2, HEIGHT/2);
+        lighting.scale(currentZoom, currentZoom);
+        lighting.translate(-WIDTH/2, -HEIGHT/2);
+        
         lighting.beginPath();
         lighting.arc(x, y, ((45 * light.radius) * (1 + rnd)) * env, 0, 2 * Math.PI, false);
         lighting.fill();
@@ -7512,11 +7555,18 @@ var renderLighting = function(){
   // Get current z-layer (works for login camera, god mode, and normal play)
   var z = getCurrentZ();
   
+  // Apply zoom transform to lighting canvas (matching main canvas)
+  lighting.save();
+  lighting.translate(WIDTH/2, HEIGHT/2);
+  lighting.scale(currentZoom, currentZoom);
+  lighting.translate(-WIDTH/2, -HEIGHT/2);
+  
   // Ghost mode overrides all other lighting effects
   if(selfId && Player.list[selfId] && Player.list[selfId].ghost){
     lighting.clearRect(0,0,WIDTH,HEIGHT);
     lighting.fillStyle = "rgba(255, 255, 255, 0.65)"; // Very bright, washed out white
     lighting.fillRect(0,0,WIDTH,HEIGHT);
+    lighting.restore(); // Restore transform before returning
     return; // Skip all other lighting effects
   }
   
@@ -7648,6 +7698,9 @@ var renderLighting = function(){
     lighting.fillStyle = "rgba(0, 48, 99, 0.9)"; // underwater
     lighting.fillRect(0,0,WIDTH,HEIGHT);
   }
+  
+  // Restore lighting canvas transform
+  lighting.restore();
 }
 
 // CONTROLS
