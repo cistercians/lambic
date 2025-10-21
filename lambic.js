@@ -4141,6 +4141,9 @@ console.log(`Relic hidden in the sea @ ${wsp.toString()}`);
 // Create NPC factions using MapAnalyzer for optimal placement
 const excludedHQs = []; // Track placed HQs to ensure spacing
 
+// Store faction HQs globally for god mode cycling
+global.factionHQs = [];
+
 const brotherhoodHQ = global.mapAnalyzer.findFactionHQ('Brotherhood', excludedHQs);
 if (brotherhoodHQ) {
   excludedHQs.push(brotherhoodHQ.tile);
@@ -4177,10 +4180,24 @@ if (teutonsHQ) {
   Teutons({ id: FACTION_IDS.TEUTONS, type: 'npc', name: 'Teutons', flag: '', hq: teutonsHQ.tile, hostile: true });
 }
 
-const outlawsHQ = global.mapAnalyzer.findFactionHQ('Outlaws', excludedHQs);
-if (outlawsHQ) {
-  excludedHQs.push(outlawsHQ.tile);
-  Outlaws({ id: FACTION_IDS.OUTLAWS, type: 'npc', name: 'Outlaws', flag: '☠️', hq: outlawsHQ.tile, hostile: true });
+// Spawn 5 Outlaw groups
+for (let i = 0; i < 5; i++) {
+  const outlawsHQ = global.mapAnalyzer.findFactionHQ('Outlaws', excludedHQs);
+  if (outlawsHQ) {
+    excludedHQs.push(outlawsHQ.tile);
+    Outlaws({ 
+      id: FACTION_IDS.OUTLAWS + i, // Use different IDs for each group
+      type: 'npc', 
+      name: `Outlaws ${i + 1}`, // Name them Outlaws 1, Outlaws 2, etc.
+      flag: '☠️', 
+      hq: outlawsHQ.tile, 
+      hostile: true 
+    });
+    
+    // Track for godmode
+    const coords = getCenter(outlawsHQ.tile[0], outlawsHQ.tile[1]);
+    global.factionHQs.push({ name: `Outlaws ${i + 1}`, x: coords[0], y: coords[1], z: 0 });
+  }
 }
 
 const mercenariesHQ = global.mapAnalyzer.findFactionHQ('Mercenaries', excludedHQs);
@@ -4191,8 +4208,6 @@ if (mercenariesHQ) {
 
 Kingdom({ id: 1, name: 'Papal States', flag: '🇻🇦' });
 
-// Store faction HQs globally for god mode cycling
-global.factionHQs = [];
 if(brotherhoodHQ) {
   const coords = getCenter(brotherhoodHQ.tile[0], brotherhoodHQ.tile[1]);
   global.factionHQs.push({ name: 'Brotherhood', x: coords[0], y: coords[1], z: -1 });
@@ -4216,10 +4231,6 @@ if(celtsHQ) {
 if(teutonsHQ) {
   const coords = getCenter(teutonsHQ.tile[0], teutonsHQ.tile[1]);
   global.factionHQs.push({ name: 'Teutons', x: coords[0], y: coords[1], z: 0 });
-}
-if(outlawsHQ) {
-  const coords = getCenter(outlawsHQ.tile[0], outlawsHQ.tile[1]);
-  global.factionHQs.push({ name: 'Outlaws', x: coords[0], y: coords[1], z: 0 });
 }
 if(mercenariesHQ) {
   const coords = getCenter(mercenariesHQ.tile[0], mercenariesHQ.tile[1]);
