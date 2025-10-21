@@ -2961,6 +2961,29 @@ Player.onConnect = function(socket, name) {
             socket.write(JSON.stringify({ msg: 'addToChat', message: `To ${data.recip}: <i>${data.message}</i>` }));
           }
         }
+      } else if (data.msg === 'requestWorldMap') {
+        const player = Player.list[socket.id];
+        if (player) {
+          // Check if player has a worldmap item
+          if (player.inventory.worldmap > 0) {
+            // Send the terrain data (layer 0 is the overworld terrain)
+            socket.write(JSON.stringify({
+              msg: 'worldMapData',
+              terrain: world[0],
+              mapSize: gameState.mapSize,
+              playerX: player.x,
+              playerY: player.y,
+              playerZ: player.z,
+              tileSize: gameState.tileSize
+            }));
+          } else {
+            // Player doesn't have a worldmap
+            socket.write(JSON.stringify({
+              msg: 'addToChat',
+              message: '<span style="color:#ff6666;">You need a WorldMap item to use this feature.</span>'
+            }));
+          }
+        }
       }
     } catch (e) {
       console.error('Error parsing socket data:', e);

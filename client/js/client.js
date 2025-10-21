@@ -174,6 +174,9 @@ socket.onmessage = function(event){
       chatMessages.scrollTop = chatMessages.scrollHeight;
     }, 0);
     resetChatHideTimer(); // Show chat and restart hide timer
+  } else if(data.msg == 'worldMapData'){
+    // Render the world map
+    renderWorldMap(data.terrain, data.mapSize, data.playerX, data.playerY, data.tileSize);
   } else if(data.msg == 'openMarket'){
     // Open market UI with orderbook data
     currentMarketData = data;
@@ -946,6 +949,12 @@ var marketPopup = document.getElementById('market-popup');
 var marketClose = document.getElementById('market-close');
 var marketOrderbook = document.getElementById('market-orderbook');
 var marketPlayerOrdersList = document.getElementById('market-player-orders-list');
+
+// WORLDMAP UI
+var worldmapPopup = document.getElementById('worldmap-popup');
+var worldmapClose = document.getElementById('worldmap-close');
+var worldmapCanvas = document.getElementById('worldmap-canvas');
+var worldmapCtx = worldmapCanvas ? worldmapCanvas.getContext('2d') : null;
 var marketItemSelect = document.getElementById('market-item-select');
 var marketAmount = document.getElementById('market-amount');
 var marketPrice = document.getElementById('market-price');
@@ -1046,6 +1055,13 @@ if(inventoryButton){
 if(inventoryClose){
   inventoryClose.onclick = function(){
     inventoryPopup.style.display = 'none';
+  };
+}
+
+// WorldMap close button handler
+if(worldmapClose){
+  worldmapClose.onclick = function(){
+    worldmapPopup.style.display = 'none';
   };
 }
 
@@ -1307,6 +1323,78 @@ function updateInventoryDisplay(){
   }
 }
 
+// WorldMap Rendering Function
+function renderWorldMap(terrainData, mapSize, playerX, playerY, playerTileSize) {
+  if (!worldmapCtx || !terrainData) return;
+  
+  // Clear the canvas
+  worldmapCtx.clearRect(0, 0, worldmapCanvas.width, worldmapCanvas.height);
+  
+  // Calculate scale to fit the entire map in the canvas
+  var canvasSize = Math.min(worldmapCanvas.width, worldmapCanvas.height);
+  var pixelSize = canvasSize / mapSize;
+  
+  // Function to get terrain color based on value range
+  function getTerrainColor(value) {
+    if (value == null || value === undefined) return '#449944'; // Default grass
+    
+    var terrainType = Math.floor(value); // Get the integer part for range (1.5 -> 1)
+    
+    // Map terrain type to color
+    if (terrainType === 0) return '#4466ff';  // Water - blue
+    if (terrainType === 1) return '#114411';  // Heavy Forest - dark green
+    if (terrainType === 2) return '#228822';  // Light Forest - medium green
+    if (terrainType === 3) return '#449944';  // Brush/Grass - darker green
+    if (terrainType === 4) return '#555555';  // Rocks - dark gray
+    if (terrainType === 5) return '#999999';  // Mountain - light grey
+    if (terrainType === 6) return '#888888';  // Cave entrance - gray
+    if (terrainType === 7) return '#449944';  // Empty - darker green/grass
+    
+    // Building-related tiles (farms, build markers, doors, floors, roads, etc.)
+    if (terrainType >= 8 && terrainType <= 19) return '#442211';  // Dark brown
+    
+    // Any other unknown values
+    return '#449944'; // Default darker green/grass
+  }
+  
+  // Draw terrain
+  for (var r = 0; r < mapSize; r++) {
+    for (var c = 0; c < mapSize; c++) {
+      var terrainValue = (terrainData[r] && terrainData[r][c] !== undefined) ? terrainData[r][c] : 7;
+      var color = getTerrainColor(terrainValue);
+      
+      worldmapCtx.fillStyle = color;
+      worldmapCtx.fillRect(
+        c * pixelSize,
+        r * pixelSize,
+        Math.ceil(pixelSize),
+        Math.ceil(pixelSize)
+      );
+    }
+  }
+  
+  // Draw player position as red X
+  var playerCol = Math.floor(playerX / playerTileSize);
+  var playerRow = Math.floor(playerY / playerTileSize);
+  
+  // Draw X marker - much larger and bolder
+  worldmapCtx.strokeStyle = '#ff0000';
+  worldmapCtx.lineWidth = Math.max(3, pixelSize * 1.2);
+  worldmapCtx.lineCap = 'round';
+  
+  var markerSize = pixelSize * 5; // Increased from 1.5 to 5
+  var centerX = (playerCol + 0.5) * pixelSize;
+  var centerY = (playerRow + 0.5) * pixelSize;
+  
+  // Draw X
+  worldmapCtx.beginPath();
+  worldmapCtx.moveTo(centerX - markerSize / 2, centerY - markerSize / 2);
+  worldmapCtx.lineTo(centerX + markerSize / 2, centerY + markerSize / 2);
+  worldmapCtx.moveTo(centerX + markerSize / 2, centerY - markerSize / 2);
+  worldmapCtx.lineTo(centerX - markerSize / 2, centerY + markerSize / 2);
+  worldmapCtx.stroke();
+}
+
 // Market UI Functions
 function getItemEmoji(itemType){
   var emojis = {
@@ -1453,6 +1541,10 @@ document.addEventListener('keydown', function(e){
   
   // Close popups on ESC
   if(e.key === 'Escape'){
+    if(worldmapPopup && worldmapPopup.style.display === 'block'){
+      worldmapPopup.style.display = 'none';
+      return;
+    }
     if(marketPopup && marketPopup.style.display === 'block'){
       marketPopup.style.display = 'none';
       return;
@@ -7809,7 +7901,14 @@ document.onkeydown = function(event){
     } else if(event.keyCode == 78){ // n
       socket.send(JSON.stringify({msg:'keyPress',inputId:'n',state:true}));
     } else if(event.keyCode == 77){ // m
-      socket.send(JSON.stringify({msg:'keyPress',inputId:'m',state:true}));
+      // Open or close worldmap popup
+      if(worldmapPopup && worldmapPopup.style.display !== 'block'){
+        worldmapPopup.style.display = 'block';
+        // Request worldmap data from server
+        socket.send(JSON.stringify({msg:'requestWorldMap'}));
+      } else if(worldmapPopup){
+        worldmapPopup.style.display = 'none';
+      }
     } else if(event.keyCode == 49){ // 1
       socket.send(JSON.stringify({msg:'keyPress',inputId:'1',state:true}));
     } else if(event.keyCode == 50){ // 2
@@ -7903,7 +8002,7 @@ document.onkeyup = function(event){
   } else if(event.keyCode == 78){ // n
     socket.send(JSON.stringify({msg:'keyPress',inputId:'n',state:false}));
   } else if(event.keyCode == 77){ // m
-    socket.send(JSON.stringify({msg:'keyPress',inputId:'m',state:false}));
+    // M key handled on keydown only
   } else if(event.keyCode == 49){ // 1
     socket.send(JSON.stringify({msg:'keyPress',inputId:'1',state:false}));
   } else if(event.keyCode == 50){ // 2

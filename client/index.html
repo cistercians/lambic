@@ -464,6 +464,84 @@
   .cancel-order-btn:hover {
     background-color: rgba(220, 120, 120, 0.7);
   }
+
+  /* WorldMap Popup */
+  #worldmap-popup {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90%;
+    max-width: 850px;
+    max-height: 90vh;
+    background-color: rgba(0, 0, 0, 0.9);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 10px;
+    padding: 20px;
+    z-index: 2000;
+    display: none;
+    color: white;
+    overflow-y: auto;
+  }
+
+  #worldmap-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+  }
+
+  #worldmap-close {
+    cursor: pointer;
+    font-size: 24px;
+    color: rgba(255, 255, 255, 0.7);
+    transition: color 0.2s;
+  }
+
+  #worldmap-close:hover {
+    color: #ff6666;
+  }
+
+  #worldmap-canvas {
+    display: block;
+    margin: 0 auto;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background-color: rgba(0, 0, 0, 0.5);
+    max-width: 100%;
+    height: auto;
+  }
+
+  #worldmap-info {
+    margin-top: 15px;
+    padding: 10px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 5px;
+    font-size: 14px;
+    text-align: center;
+  }
+
+  .worldmap-legend {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+  }
+
+  .worldmap-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+  }
+
+  .worldmap-legend-color {
+    width: 16px;
+    height: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+  }
 </style>
 
 <div id="screen">
@@ -565,6 +643,51 @@
           <div id="market-player-orders">
             <h3>Your Active Orders</h3>
             <div id="market-player-orders-list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- WorldMap Popup (hidden) -->
+    <div id="worldmap-popup" style="display: none;">
+      <div id="worldmap-header">
+        <h3 style="margin: 0;">🗺️ World Map</h3>
+        <div id="worldmap-close">✕</div>
+      </div>
+      <canvas id="worldmap-canvas" width="700" height="700"></canvas>
+      <div id="worldmap-info">
+        <div class="worldmap-legend">
+          <div class="worldmap-legend-item">
+            <div class="worldmap-legend-color" style="background-color: #4466ff;"></div>
+            <span>Water</span>
+          </div>
+          <div class="worldmap-legend-item">
+            <div class="worldmap-legend-color" style="background-color: #114411;"></div>
+            <span>Heavy Forest</span>
+          </div>
+          <div class="worldmap-legend-item">
+            <div class="worldmap-legend-color" style="background-color: #228822;"></div>
+            <span>Light Forest</span>
+          </div>
+          <div class="worldmap-legend-item">
+            <div class="worldmap-legend-color" style="background-color: #449944;"></div>
+            <span>Brush/Grass</span>
+          </div>
+          <div class="worldmap-legend-item">
+            <div class="worldmap-legend-color" style="background-color: #442211;"></div>
+            <span>Buildings</span>
+          </div>
+          <div class="worldmap-legend-item">
+            <div class="worldmap-legend-color" style="background-color: #555555;"></div>
+            <span>Rocks</span>
+          </div>
+          <div class="worldmap-legend-item">
+            <div class="worldmap-legend-color" style="background-color: #999999;"></div>
+            <span>Mountains</span>
+          </div>
+          <div class="worldmap-legend-item">
+            <div class="worldmap-legend-color" style="background-color: #ff0000;"></div>
+            <span>Your Position (X)</span>
           </div>
         </div>
       </div>
