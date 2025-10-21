@@ -307,43 +307,71 @@ class MapAnalyzer {
       console.log(`  ${factionName}: No caves found, falling back to forest points`);
     }
     
-    // For other factions, use terrain-based search based on PRIMARY required terrain
+    // FACTION-SPECIFIC SEARCH STRATEGIES (prevent clustering by using different search areas)
+    
     // Norsemen want coastal (water + grass mix) - prioritize water
-    if (requirements.requiredTerrain.includes(0) && requirements.priorities.waterAccess) {
+    if (factionName === 'Norsemen') {
       console.log(`  ${factionName}: Coastal faction, searching water points...`);
       return this.getWaterSpawnPoints();
     }
-    // Teutons accept almost anything - use diverse search
-    else if (requirements.requiredTerrain.length > 4) {
-      console.log(`  ${factionName}: Flexible terrain, searching all overworld + forest points...`);
-      const grassPoints = this.getOverworldSpawnPoints();
-      const forestPoints = this.getForestSpawnPoints();
-      return [...grassPoints, ...forestPoints]; // Combine both
-    }
+    
     // Franks specifically want brush fields
-    else if (requirements.requiredTerrain.length === 1 && requirements.requiredTerrain.includes(3)) {
+    if (factionName === 'Franks') {
       console.log(`  ${factionName}: Brush field faction, searching brush areas...`);
-      return this.getBrushFieldSpawnPoints(); // Brush field points
+      return this.getBrushFieldSpawnPoints();
     }
-    // Goths want grass/brush
-    else if (requirements.requiredTerrain.includes(3) || requirements.requiredTerrain.includes(7)) {
-      console.log(`  ${factionName}: Grass/brush faction, searching buildable areas...`);
-      return this.getOverworldSpawnPoints(); // Grass/brush points
-    }
-    // Celts, Outlaws want forest
-    else if (requirements.requiredTerrain.includes(1) || requirements.requiredTerrain.includes(2)) {
+    
+    // Celts want forest (if not using caves)
+    if (factionName === 'Celts') {
       console.log(`  ${factionName}: Forest faction, searching forest points...`);
       return this.getForestSpawnPoints();
     }
-    // Mountains/rocks
-    else if (requirements.requiredTerrain.includes(4) || requirements.requiredTerrain.includes(5)) {
-      return this.getMountainSpawnPoints();
+    
+    // Outlaws want forest
+    if (factionName === 'Outlaws') {
+      console.log(`  ${factionName}: Forest faction, searching forest points...`);
+      return this.getForestSpawnPoints();
     }
-    // Fallback
-    else {
-      console.warn(`No specific spawn points for terrain ${requirements.requiredTerrain}, using overworld`);
+    
+    // Goths want grass/brush areas (buildable terrain)
+    if (factionName === 'Goths') {
+      console.log(`  ${factionName}: Grass/brush faction, searching buildable areas...`);
       return this.getOverworldSpawnPoints();
     }
+    
+    // Teutons want diverse terrain - use ALL terrain types for maximum distribution
+    if (factionName === 'Teutons') {
+      console.log(`  ${factionName}: Flexible faction, searching ALL terrain types for maximum distribution...`);
+      const allPoints = [
+        ...this.getOverworldSpawnPoints(),
+        ...this.getForestSpawnPoints(),
+        ...this.getMountainSpawnPoints(),
+        ...this.getWaterSpawnPoints(),
+        ...this.getBrushFieldSpawnPoints()
+      ];
+      console.log(`  ${factionName}: Combined ${allPoints.length} points from all terrain types`);
+      return allPoints;
+    }
+    
+    // Brotherhood - use diverse search but prioritize different areas than Teutons
+    if (factionName === 'Brotherhood') {
+      console.log(`  ${factionName}: Religious faction, searching grass + mountain areas...`);
+      const grassPoints = this.getOverworldSpawnPoints();
+      const mountainPoints = this.getMountainSpawnPoints();
+      return [...grassPoints, ...mountainPoints];
+    }
+    
+    // Mercenaries - use different combination
+    if (factionName === 'Mercenaries') {
+      console.log(`  ${factionName}: Mercenary faction, searching forest + brush areas...`);
+      const forestPoints = this.getForestSpawnPoints();
+      const brushPoints = this.getBrushFieldSpawnPoints();
+      return [...forestPoints, ...brushPoints];
+    }
+    
+    // Fallback for unknown factions
+    console.warn(`No specific spawn strategy for faction ${factionName}, using overworld`);
+    return this.getOverworldSpawnPoints();
   }
   
   // Evaluate if a location is suitable for faction HQ
@@ -586,9 +614,9 @@ class MapAnalyzer {
   getForestSpawnPoints() {
     const forests = [];
     const minEdgeDistance = 5; // Match boundary padding
-    // Use fine grid (every 2 tiles) to catch all forest areas
-    for (let c = minEdgeDistance; c < this.mapSize - minEdgeDistance; c += 2) {
-      for (let r = minEdgeDistance; r < this.mapSize - minEdgeDistance; r += 2) {
+    // Use fine grid (every 3 tiles) to catch forest areas while avoiding too many points
+    for (let c = minEdgeDistance; c < this.mapSize - minEdgeDistance; c += 3) {
+      for (let r = minEdgeDistance; r < this.mapSize - minEdgeDistance; r += 3) {
         const terrain = this.getTerrain(c, r, 0);
         if (terrain >= 1.0 && terrain < 2.0) { // HEAVY_FOREST (1.0-1.99)
           forests.push([c, r]);
@@ -603,8 +631,8 @@ class MapAnalyzer {
   
   getMountainSpawnPoints() {
     const mountains = [];
-    for (let c = 5; c < this.mapSize - 5; c += 5) {
-      for (let r = 5; r < this.mapSize - 5; r += 5) {
+    for (let c = 5; c < this.mapSize - 5; c += 3) {
+      for (let r = 5; r < this.mapSize - 5; r += 3) {
         const terrain = this.getTerrain(c, r, 0);
         if (terrain >= 4.0 && terrain < 5.0) { // ROCKS (4.0-4.99)
           mountains.push([c, r]);
@@ -620,9 +648,9 @@ class MapAnalyzer {
   getWaterSpawnPoints() {
     const water = [];
     const minEdgeDistance = 5; // Match boundary padding
-    // Use fine grid (every 2 tiles) to find all water areas
-    for (let c = minEdgeDistance; c < this.mapSize - minEdgeDistance; c += 2) {
-      for (let r = minEdgeDistance; r < this.mapSize - minEdgeDistance; r += 2) {
+    // Use fine grid (every 3 tiles) to find water areas while avoiding too many points
+    for (let c = minEdgeDistance; c < this.mapSize - minEdgeDistance; c += 3) {
+      for (let r = minEdgeDistance; r < this.mapSize - minEdgeDistance; r += 3) {
         const terrain = this.getTerrain(c, r, 0);
         if (terrain >= 0.0 && terrain < 1.0) { // WATER (0.0-0.99)
           water.push([c, r]);
@@ -638,9 +666,9 @@ class MapAnalyzer {
     const points = [];
     // Match boundary padding (5 tiles) - evaluation check handles faction-specific safety
     
-    // Use fine grid (every 2 tiles) to catch all pockets of buildable terrain
-    for (let c = 5; c < this.mapSize - 5; c += 2) {
-      for (let r = 5; r < this.mapSize - 5; r += 2) {
+    // Use fine grid (every 3 tiles) to catch buildable terrain while avoiding too many points
+    for (let c = 5; c < this.mapSize - 5; c += 3) {
+      for (let r = 5; r < this.mapSize - 5; r += 3) {
         const terrain = this.getTerrain(c, r, 0);
         
         // Include ALL buildable terrain: accept any terrain >= 1.0 (not water)

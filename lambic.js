@@ -114,7 +114,6 @@ global.tilemapSystem = tilemapIntegration;
 
 // Initialize map analyzer for AI faction placement
 const MapAnalyzer = require('./server/js/ai/MapAnalyzer');
-global.mapAnalyzer = new MapAnalyzer();
 
 // Expose basic constants/globals needed by other modules (backward compatibility)
 global.TERRAIN = TERRAIN;
@@ -123,6 +122,9 @@ global.tileSize = gameState.tileSize;
 global.mapSize = gameState.mapSize;
 global.mapPx = gameState.mapPx;
 global.period = gameState.period;
+
+// NOW initialize MapAnalyzer after globals are set
+global.mapAnalyzer = new MapAnalyzer();
 
 // Note: isDoorwayDestination is already defined globally at the top of the file
 global.day = gameState.day;
@@ -2964,16 +2966,21 @@ Player.onConnect = function(socket, name) {
       } else if (data.msg === 'requestWorldMap') {
         const player = Player.list[socket.id];
         if (player) {
-          // Check if player has a worldmap item
-          if (player.inventory.worldmap > 0) {
+          // Check if player has a worldmap item OR is in godmode
+          if (player.inventory.worldmap > 0 || player.godMode) {
+            // For godmode players, use center of map as position if no valid position
+            let playerX = player.x || gameState.mapSize * gameState.tileSize / 2;
+            let playerY = player.y || gameState.mapSize * gameState.tileSize / 2;
+            let playerZ = player.z || 0;
+            
             // Send the terrain data (layer 0 is the overworld terrain)
             socket.write(JSON.stringify({
               msg: 'worldMapData',
               terrain: world[0],
               mapSize: gameState.mapSize,
-              playerX: player.x,
-              playerY: player.y,
-              playerZ: player.z,
+              playerX: playerX,
+              playerY: playerY,
+              playerZ: playerZ,
               tileSize: gameState.tileSize
             }));
           } else {

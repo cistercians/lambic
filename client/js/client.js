@@ -175,7 +175,10 @@ socket.onmessage = function(event){
     }, 0);
     resetChatHideTimer(); // Show chat and restart hide timer
   } else if(data.msg == 'worldMapData'){
-    // Render the world map
+    // Show worldmap popup and render the world map
+    if(worldmapPopup){
+      worldmapPopup.style.display = 'block';
+    }
     renderWorldMap(data.terrain, data.mapSize, data.playerX, data.playerY, data.tileSize);
   } else if(data.msg == 'openMarket'){
     // Open market UI with orderbook data
@@ -1343,11 +1346,11 @@ function renderWorldMap(terrainData, mapSize, playerX, playerY, playerTileSize) 
     // Map terrain type to color
     if (terrainType === 0) return '#4466ff';  // Water - blue
     if (terrainType === 1) return '#114411';  // Heavy Forest - dark green
-    if (terrainType === 2) return '#228822';  // Light Forest - medium green
-    if (terrainType === 3) return '#449944';  // Brush/Grass - darker green
+    if (terrainType === 2) return '#1a661a';  // Light Forest - medium-dark green (between heavy forest and old light forest)
+    if (terrainType === 3) return '#228822';  // Brush/Grass - medium green (was light forest color)
     if (terrainType === 4) return '#555555';  // Rocks - dark gray
     if (terrainType === 5) return '#999999';  // Mountain - light grey
-    if (terrainType === 6) return '#888888';  // Cave entrance - gray
+    if (terrainType === 6) return '#000000';  // Cave entrance - black
     if (terrainType === 7) return '#449944';  // Empty - darker green/grass
     
     // Building-related tiles (farms, build markers, doors, floors, roads, etc.)
@@ -7841,6 +7844,16 @@ document.onkeydown = function(event){
         chatInput.focus();
       }
       return;
+    } else if (event.keyCode === 77) { // M - Allow worldmap in godmode
+      // If worldmap is open, close it. Otherwise request data from server
+      if(worldmapPopup && worldmapPopup.style.display === 'block'){
+        worldmapPopup.style.display = 'none';
+      } else {
+        // Request worldmap data from server (only show popup if player has worldmap)
+        socket.send(JSON.stringify({msg:'requestWorldMap'}));
+      }
+      event.preventDefault();
+      return;
     } else {
       // Block all other inputs in god mode
       event.preventDefault();
@@ -7898,17 +7911,16 @@ document.onkeydown = function(event){
       } else if(inventoryPopup){
         inventoryPopup.style.display = 'none';
       }
+    } else if(event.keyCode == 77){ // m
+      // If worldmap is open, close it. Otherwise request data from server
+      if(worldmapPopup && worldmapPopup.style.display === 'block'){
+        worldmapPopup.style.display = 'none';
+      } else {
+        // Request worldmap data from server (only show popup if player has worldmap)
+        socket.send(JSON.stringify({msg:'requestWorldMap'}));
+      }
     } else if(event.keyCode == 78){ // n
       socket.send(JSON.stringify({msg:'keyPress',inputId:'n',state:true}));
-    } else if(event.keyCode == 77){ // m
-      // Open or close worldmap popup
-      if(worldmapPopup && worldmapPopup.style.display !== 'block'){
-        worldmapPopup.style.display = 'block';
-        // Request worldmap data from server
-        socket.send(JSON.stringify({msg:'requestWorldMap'}));
-      } else if(worldmapPopup){
-        worldmapPopup.style.display = 'none';
-      }
     } else if(event.keyCode == 49){ // 1
       socket.send(JSON.stringify({msg:'keyPress',inputId:'1',state:true}));
     } else if(event.keyCode == 50){ // 2
