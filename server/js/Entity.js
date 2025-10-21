@@ -136,7 +136,7 @@ Mill = function(param){
       } else if(self.house >= 2 && self.house < 7){
         var hq = House.list[self.house].hq;
         grain = House.list[self.house].stores.grain;
-        if(grain >= s){
+        if(grain >= s && House.list[self.house].newSerfs){
           House.list[self.house].newSerfs(self.id,hq);
         }
       }
@@ -258,7 +258,7 @@ Lumbermill = function(param){
       } else if(self.house >= 2 && self.house < 7){
         var hq = House.list[self.house].hq;
         wood = House.list[self.house].stores.wood;
-        if(wood >= s){
+        if(wood >= s && House.list[self.house].newSerfs){
           House.list[self.house].newSerfs(self.id,hq);
         }
       }
@@ -337,7 +337,7 @@ Mine = function(param){
         } else if(self.house >= 2 && self.house < 7){
           var hq = House.list[self.house].hq;
           ore = House.list[self.house].stores.ironore;
-          if(ore >= s){
+          if(ore >= s && House.list[self.house].newSerfs){
             House.list[self.house].newSerfs(self.id,hq);
           }
         }
@@ -362,7 +362,7 @@ Mine = function(param){
         } else if(self.house >= 2 && self.house < 7){
           var hq = House.list[self.house].hq;
           stone = House.list[self.house].stores.stone;
-          if(stone >= s){
+          if(stone >= s && House.list[self.house].newSerfs){
             House.list[self.house].newSerfs(self.id,hq);
           }
         }

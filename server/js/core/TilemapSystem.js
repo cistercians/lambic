@@ -273,8 +273,8 @@ class TilemapSystem {
   // Building placement requirements by type
   getBuildingRequirements() {
     const TERRAIN = {
-      EMPTY: 0, WATER: 1, HEAVY_FOREST: 2, LIGHT_FOREST: 3, BRUSH: 4,
-      ROCKS: 5, MOUNTAIN: 6, GRASS: 7, FARM_SEED: 8, FARM_PLANTED: 9,
+      WATER: 0, HEAVY_FOREST: 1, LIGHT_FOREST: 2, BRUSH: 3,
+      ROCKS: 4, MOUNTAIN: 5, CAVE_ENTRANCE: 6, GRASS: 7, FARM_SEED: 8, FARM_PLANTED: 9,
       FARM_GROW: 10, ROAD: 18
     };
     
@@ -676,7 +676,7 @@ class TilemapSystem {
       const searchArea = global.getArea(tile, tile, 2);
       for (const t of searchArea) {
         const terrain = this.getTile(0, t[0], t[1]);
-        if (terrain === 2 || terrain === 3) { // HEAVY_FOREST or LIGHT_FOREST
+        if (terrain === 1 || terrain === 2) { // HEAVY_FOREST or LIGHT_FOREST
           forestCount++;
         }
       }
@@ -719,13 +719,13 @@ class TilemapSystem {
   // Faction HQ requirements by faction name
   getFactionHQRequirements() {
     const TERRAIN = {
-      EMPTY: 0, WATER: 1, HEAVY_FOREST: 2, LIGHT_FOREST: 3, BRUSH: 4,
-      ROCKS: 5, MOUNTAIN: 6, GRASS: 7
+      WATER: 0, HEAVY_FOREST: 1, LIGHT_FOREST: 2, BRUSH: 3,
+      ROCKS: 4, MOUNTAIN: 5, CAVE_ENTRANCE: 6, GRASS: 7
     };
     
     return {
       brotherhood: {
-        requiredTerrain: [TERRAIN.EMPTY], // Cave floor only
+        requiredTerrain: [0], // Cave floor only
         searchLayer: 1, // Underworld (z=-1)
         minTerrainPercentage: 0.9,
         searchRadius: 20,
@@ -899,7 +899,23 @@ class TilemapSystem {
     
     if (layer === 1) {
       return this.spawnPoints.underworld;
-    } else if (requirements.requiredTerrain.includes(2)) {
+    }
+    
+    // Special case: If faction requires a nearby feature, search from those points
+    // This fixes Celts spawning far from caves
+    if (requirements.requiresNearby && requirements.requiresNearby.feature) {
+      const feature = requirements.requiresNearby.feature;
+      
+      if (feature === 'caveEntrance' && this.spawnPoints.caveEntrances) {
+        console.log(`${factionName}: Searching from cave entrance spawn points`);
+        return this.spawnPoints.caveEntrances;
+      } else if (feature === 'forest' && this.spawnPoints.heavyForest) {
+        return this.spawnPoints.heavyForest;
+      }
+    }
+    
+    // Default terrain-based search
+    if (requirements.requiredTerrain.includes(2)) {
       return this.spawnPoints.heavyForest;
     } else if (requirements.requiredTerrain.includes(6)) {
       return this.spawnPoints.mountains;
@@ -1083,7 +1099,7 @@ class TilemapSystem {
           const checkY = tile[1] + dy;
           if (checkX >= 0 && checkX < this.mapSize && checkY >= 0 && checkY < this.mapSize) {
             const terrain = Math.floor(this.getTile(layer, checkX, checkY));
-            if (terrain === 2 || terrain === 3) { // Heavy or light forest
+            if (terrain === 1 || terrain === 2) { // Heavy or light forest
               const forestCenter = global.getCenter(checkX, checkY);
               const dist = global.getDistance(
                 { x: tileCenter[0], y: tileCenter[1] },
@@ -1103,7 +1119,7 @@ class TilemapSystem {
           const checkY = tile[1] + dy;
           if (checkX >= 0 && checkX < this.mapSize && checkY >= 0 && checkY < this.mapSize) {
             const terrain = Math.floor(this.getTile(layer, checkX, checkY));
-            if (terrain === 1) { // Water
+            if (terrain === 0) { // Water
               const waterCenter = global.getCenter(checkX, checkY);
               const dist = global.getDistance(
                 { x: tileCenter[0], y: tileCenter[1] },

@@ -103,11 +103,40 @@ House = function(param){
 
 House.list = {};
 
+// Helper: Find safe location for firepit (avoids blocking important tiles like cave entrances)
+function findSafeFirepitLocation(hq, z, grid) {
+  // Check if HQ tile is a cave entrance (terrain 6) - if so, use adjacent tile
+  if(z === 0 && global.getTile && global.getTile(0, hq[0], hq[1]) === 6){
+    console.log(`HQ at [${hq}] is a cave entrance - placing firepit adjacent`);
+    // Use first available tile from grid (already validated as walkable)
+    if(grid && grid.length > 0){
+      return grid[0]; // Return tile coords, not pixel coords
+    }
+  }
+  
+  // Default: place at HQ
+  return hq;
+}
+
 House.update = function(){
   for(var i in House.list){
     var house = House.list[i];
     if(house.update){
       house.update();
+    }
+  }
+}
+
+// Faction AI evaluation (called once per in-game day)
+House.evaluateAI = function(){
+  for(var i in House.list){
+    var house = House.list[i];
+    if(house.ai && house.ai.evaluateAndAct){
+      try {
+        house.ai.evaluateAndAct();
+      } catch (error) {
+        console.error(`Error in ${house.name} AI:`, error);
+      }
     }
   }
 }
@@ -167,7 +196,11 @@ Brotherhood = function(param){
     });
     self.scene.fire = fireId;
     // pawns
-    for(var i = 0; i < 3; i++){
+    if(grid.length < 3){
+      console.warn(`Brotherhood: Insufficient walkable space at HQ [${self.hq}], only ${grid.length} tiles available`);
+    }
+    const spawnCount = Math.min(3, grid.length);
+    for(var i = 0; i < spawnCount; i++){
       var rand = Math.floor(Math.random() * grid.length);
       var select = grid[rand];
       grid.splice(rand,1);
@@ -192,6 +225,15 @@ Brotherhood = function(param){
     // check for next chapter conditions
   }
   self.init();
+  
+  // Initialize AI controller for Brotherhood (underground - no building goals)
+  const FactionAI = require('./ai/FactionAI');
+  Object.defineProperty(self, 'ai', {
+    value: new FactionAI(self),
+    writable: true,
+    enumerable: false,
+    configurable: true
+  });
 }
 
 // GOTHS
@@ -406,9 +448,10 @@ Goths = function(param){
         grid.push(t);
       }
     }
-    // fire
+    // fire (avoid blocking cave entrances)
     var fireId = Math.random();
-    var coords = getCoords(self.hq[0],self.hq[1]);
+    var firepitLoc = findSafeFirepitLocation(self.hq, 0, grid);
+    var coords = getCoords(firepitLoc[0], firepitLoc[1]);
     Firepit({
       id:fireId,
       parent:self.id,
@@ -852,6 +895,20 @@ Goths = function(param){
     }
   }
   self.init();
+  
+  // Initialize AI controller for Goths
+  const FactionAI = require('./ai/FactionAI');
+  Object.defineProperty(self, 'ai', {
+    value: new FactionAI(self),
+    writable: true,
+    enumerable: false, // Exclude from JSON.stringify
+    configurable: true
+  });
+  
+  // Give starting resources for AI-driven development
+  self.stores.wood = 100;
+  self.stores.stone = 60;
+  self.stores.grain = 50;
 }
 
 // NORSEMEN
@@ -865,6 +922,20 @@ Norsemen = function(param){
   self.init = function(){
 
   }
+  
+  // Initialize AI controller for Norsemen
+  const FactionAI = require('./ai/FactionAI');
+  Object.defineProperty(self, 'ai', {
+    value: new FactionAI(self),
+    writable: true,
+    enumerable: false, // Exclude from JSON.stringify
+    configurable: true
+  });
+  
+  // Give starting resources for AI-driven development
+  self.stores.wood = 100;
+  self.stores.stone = 60;
+  self.stores.grain = 50;
 }
 
 // FRANKS
@@ -1089,9 +1160,10 @@ Franks = function(param){
         grid.push(t);
       }
     }
-    // fire
+    // fire (avoid blocking cave entrances)
     var fireId = Math.random();
-    var coords = getCoords(self.hq[0],self.hq[1]);
+    var firepitLoc = findSafeFirepitLocation(self.hq, 0, grid);
+    var coords = getCoords(firepitLoc[0], firepitLoc[1]);
     Firepit({
       id:fireId,
       parent:self.id,
@@ -1510,6 +1582,20 @@ Franks = function(param){
     super_update();
   }
   self.init();
+  
+  // Initialize AI controller for Franks
+  const FactionAI = require('./ai/FactionAI');
+  Object.defineProperty(self, 'ai', {
+    value: new FactionAI(self),
+    writable: true,
+    enumerable: false, // Exclude from JSON.stringify
+    configurable: true
+  });
+  
+  // Give starting resources for AI-driven development
+  self.stores.wood = 100;
+  self.stores.stone = 60;
+  self.stores.grain = 50;
 }
 
 // CELTS
@@ -1768,9 +1854,10 @@ Celts = function(param){
       }
     }
     
-    // Create firepit at HQ
+    // Create firepit (avoid blocking cave entrances)
     var fireId = Math.random();
-    var coords = getCoords(self.hq[0],self.hq[1]);
+    var firepitLoc = findSafeFirepitLocation(self.hq, 0, grid);
+    var coords = getCoords(firepitLoc[0], firepitLoc[1]);
     Firepit({
       id:fireId,
       parent:self.id,
@@ -1947,6 +2034,20 @@ Celts = function(param){
     super_update();
   }
   self.init();
+  
+  // Initialize AI controller for Celts
+  const FactionAI = require('./ai/FactionAI');
+  Object.defineProperty(self, 'ai', {
+    value: new FactionAI(self),
+    writable: true,
+    enumerable: false, // Exclude from JSON.stringify
+    configurable: true
+  });
+  
+  // Give starting resources for AI-driven development
+  self.stores.wood = 100;
+  self.stores.stone = 60;
+  self.stores.grain = 50;
 }
 
 // TEUTONS
@@ -2186,9 +2287,10 @@ Teutons = function(param){
       }
     }
     
-    // Create firepit at HQ
+    // Create firepit (avoid blocking cave entrances)
     var fireId = Math.random();
-    var coords = getCoords(self.hq[0],self.hq[1]);
+    var firepitLoc = findSafeFirepitLocation(self.hq, 0, grid);
+    var coords = getCoords(firepitLoc[0], firepitLoc[1]);
     Firepit({
       id:fireId,
       parent:self.id,
@@ -2418,6 +2520,20 @@ Teutons = function(param){
     super_update();
   }
   self.init();
+  
+  // Initialize AI controller for Teutons
+  const FactionAI = require('./ai/FactionAI');
+  Object.defineProperty(self, 'ai', {
+    value: new FactionAI(self),
+    writable: true,
+    enumerable: false, // Exclude from JSON.stringify
+    configurable: true
+  });
+  
+  // Give starting resources for AI-driven development
+  self.stores.wood = 100;
+  self.stores.stone = 60;
+  self.stores.grain = 50;
 }
 
 // OUTLAWS
@@ -2462,9 +2578,10 @@ Outlaws = function(param){
         grid.push(t);
       }
     }
-    // fire
+    // fire (avoid blocking cave entrances)
     var fireId = Math.random();
-    var coords = getCoords(self.hq[0],self.hq[1]);
+    var firepitLoc = findSafeFirepitLocation(self.hq, 0, grid);
+    var coords = getCoords(firepitLoc[0], firepitLoc[1]);
     InfiniteFire({
       id:fireId,
       parent:self.id,
@@ -2513,6 +2630,15 @@ Outlaws = function(param){
     super_update();
   }
   self.init();
+  
+  // Initialize AI controller for Outlaws (no building goals for now)
+  const FactionAI = require('./ai/FactionAI');
+  Object.defineProperty(self, 'ai', {
+    value: new FactionAI(self),
+    writable: true,
+    enumerable: false,
+    configurable: true
+  });
 }
 
 // MERCENARIES
@@ -2688,6 +2814,15 @@ Mercenaries = function(param){
     super_update();
   }
   self.init();
+  
+  // Initialize AI controller for Mercenaries (underground - no building goals)
+  const FactionAI = require('./ai/FactionAI');
+  Object.defineProperty(self, 'ai', {
+    value: new FactionAI(self),
+    writable: true,
+    enumerable: false,
+    configurable: true
+  });
 }
 
 Kingdom = function(param){

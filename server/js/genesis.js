@@ -19,7 +19,7 @@ function genesis(){
   // smaller tiles for bigger map
   // should be a factor of canvas width/height
   var tile = 1;
-  var canvasSize = 256; // Map size for testing
+  var canvasSize = 320; // Map size (320×320 = 102,400 tiles)
   var mapTiles = canvasSize / tile;
 
   // OVERWORLD

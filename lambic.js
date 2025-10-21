@@ -112,6 +112,10 @@ const tilemapIntegration = new TilemapIntegration();
 tilemapIntegration.initializeFromWorldArray(world, gameState.mapSize);
 global.tilemapSystem = tilemapIntegration;
 
+// Initialize map analyzer for AI faction placement
+const MapAnalyzer = require('./server/js/ai/MapAnalyzer');
+global.mapAnalyzer = new MapAnalyzer();
+
 // Expose basic constants/globals needed by other modules (backward compatibility)
 global.TERRAIN = TERRAIN;
 global.Z_LEVELS = Z_LEVELS;
@@ -4104,61 +4108,53 @@ const rel3 = getCoords(wsp[0], wsp[1]);
 Relic({ x: rel3[0], y: rel3[1], z: -3, qty: 1 });
 console.log(`Relic hidden in the sea @ ${wsp.toString()}`);
 
-// Create NPC factions using intelligent HQ placement
+// Create NPC factions using MapAnalyzer for optimal placement
 const excludedHQs = []; // Track placed HQs to ensure spacing
 
-const brotherhoodHQ = global.tilemapSystem.findFactionHQ('brotherhood', excludedHQs);
+const brotherhoodHQ = global.mapAnalyzer.findFactionHQ('Brotherhood', excludedHQs);
 if (brotherhoodHQ) {
-  console.log(`Brotherhood HQ @ ${brotherhoodHQ.tile} (score: ${brotherhoodHQ.score.toFixed(1)})`);
   excludedHQs.push(brotherhoodHQ.tile);
   Brotherhood({ id: FACTION_IDS.BROTHERHOOD, type: 'npc', name: 'Brotherhood', flag: '', hq: brotherhoodHQ.tile, hostile: true });
 }
 
-const gothsHQ = global.tilemapSystem.findFactionHQ('goths', excludedHQs);
+const gothsHQ = global.mapAnalyzer.findFactionHQ('Goths', excludedHQs);
 if (gothsHQ) {
-  console.log(`Goths HQ @ ${gothsHQ.tile} (score: ${gothsHQ.score.toFixed(1)})`);
   excludedHQs.push(gothsHQ.tile);
   Goths({ id: FACTION_IDS.GOTHS, type: 'npc', name: 'Goths', flag: '', hq: gothsHQ.tile, hostile: true });
 }
 
-const norsemenHQ = global.tilemapSystem.findFactionHQ('norsemen', excludedHQs);
+const norsemenHQ = global.mapAnalyzer.findFactionHQ('Norsemen', excludedHQs);
 if (norsemenHQ) {
-  console.log(`Norsemen HQ @ ${norsemenHQ.tile} (score: ${norsemenHQ.score.toFixed(1)})`);
   excludedHQs.push(norsemenHQ.tile);
   Norsemen({ id: FACTION_IDS.NORSEMEN, type: 'npc', name: 'Norsemen', flag: '', hq: norsemenHQ.tile, hostile: true });
 }
 
-const franksHQ = global.tilemapSystem.findFactionHQ('franks', excludedHQs);
+const franksHQ = global.mapAnalyzer.findFactionHQ('Franks', excludedHQs);
 if (franksHQ) {
-  console.log(`Franks HQ @ ${franksHQ.tile} (score: ${franksHQ.score.toFixed(1)})`);
   excludedHQs.push(franksHQ.tile);
   Franks({ id: FACTION_IDS.FRANKS, type: 'npc', name: 'Franks', flag: '', hq: franksHQ.tile, hostile: true });
 }
 
-const celtsHQ = global.tilemapSystem.findFactionHQ('celts', excludedHQs);
+const celtsHQ = global.mapAnalyzer.findFactionHQ('Celts', excludedHQs);
 if (celtsHQ) {
-  console.log(`Celts HQ @ ${celtsHQ.tile} (score: ${celtsHQ.score.toFixed(1)})`);
   excludedHQs.push(celtsHQ.tile);
   Celts({ id: FACTION_IDS.CELTS, type: 'npc', name: 'Celts', flag: '', hq: celtsHQ.tile, hostile: true });
 }
 
-const teutonsHQ = global.tilemapSystem.findFactionHQ('teutons', excludedHQs);
+const teutonsHQ = global.mapAnalyzer.findFactionHQ('Teutons', excludedHQs);
 if (teutonsHQ) {
-  console.log(`Teutons HQ @ ${teutonsHQ.tile} (score: ${teutonsHQ.score.toFixed(1)})`);
   excludedHQs.push(teutonsHQ.tile);
   Teutons({ id: FACTION_IDS.TEUTONS, type: 'npc', name: 'Teutons', flag: '', hq: teutonsHQ.tile, hostile: true });
 }
 
-const outlawsHQ = global.tilemapSystem.findFactionHQ('outlaws', excludedHQs);
+const outlawsHQ = global.mapAnalyzer.findFactionHQ('Outlaws', excludedHQs);
 if (outlawsHQ) {
-  console.log(`Outlaws HQ @ ${outlawsHQ.tile} (score: ${outlawsHQ.score.toFixed(1)})`);
   excludedHQs.push(outlawsHQ.tile);
   Outlaws({ id: FACTION_IDS.OUTLAWS, type: 'npc', name: 'Outlaws', flag: '☠️', hq: outlawsHQ.tile, hostile: true });
 }
 
-const mercenariesHQ = global.tilemapSystem.findFactionHQ('mercenaries', excludedHQs);
+const mercenariesHQ = global.mapAnalyzer.findFactionHQ('Mercenaries', excludedHQs);
 if (mercenariesHQ) {
-  console.log(`Mercenaries HQ @ ${mercenariesHQ.tile} (score: ${mercenariesHQ.score.toFixed(1)})`);
   excludedHQs.push(mercenariesHQ.tile);
   Mercenaries({ id: FACTION_IDS.MERCENARIES, type: 'npc', name: 'Mercenaries', flag: '', hq: mercenariesHQ.tile, hostile: true });
 }

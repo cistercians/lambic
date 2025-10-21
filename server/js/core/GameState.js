@@ -78,6 +78,11 @@ class GameState {
     if (this.tick >= this.period) {
       this.tick = 1;
       this.day++;
+      
+      // Trigger faction AI evaluation on new day
+      if (typeof House !== 'undefined' && House.evaluateAI) {
+        House.evaluateAI();
+      }
     }
   }
 
