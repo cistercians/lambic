@@ -180,6 +180,47 @@ socket.onmessage = function(event){
       worldmapPopup.style.display = 'block';
     }
     renderWorldMap(data.terrain, data.mapSize, data.playerX, data.playerY, data.tileSize);
+  } else if(data.msg == 'gearUpdate'){
+    // Update client-side gear, inventory, and class data
+    if(Player.list[selfId]){
+      if(data.gear){
+        Player.list[selfId].gear = data.gear;
+      }
+      if(data.inventory){
+        Player.list[selfId].inventory = data.inventory;
+      }
+      if(data.class){
+        Player.list[selfId].class = data.class;
+        // Update sprite based on new class
+        if(data.class.toLowerCase() === 'serf'){
+          Player.list[selfId].sprite = Player.list[selfId].sex === 'f' ? femaleserf : maleserf;
+        } else {
+          // Try to load sprite for the new class
+          var classLower = data.class.toLowerCase();
+          if(Img[classLower + 'd']){
+            Player.list[selfId].sprite = {
+              facedown: Img[classLower + 'd'],
+              faceup: Img[classLower + 'u'],
+              faceleft: Img[classLower + 'l'],
+              faceright: Img[classLower + 'r'],
+              walkdown: [Img[classLower + 'd']],
+              walkup: [Img[classLower + 'u']],
+              walkleft: [Img[classLower + 'l']],
+              walkright: [Img[classLower + 'r']],
+              attackd: Img[classLower + 'attackd'],
+              attacku: Img[classLower + 'attacku'],
+              attackl: Img[classLower + 'attackl'],
+              attackr: Img[classLower + 'attackr']
+            };
+          }
+        }
+      }
+      // Refresh both displays when gear changes
+      updateInventoryDisplay();
+      if(characterPopup && characterPopup.style.display === 'block'){
+        updateCharacterDisplay(true); // Force full update including sprite
+      }
+    }
   } else if(data.msg == 'openMarket'){
     // Open market UI with orderbook data
     currentMarketData = data;
@@ -947,6 +988,27 @@ var inventoryPopup = document.getElementById('inventory-popup');
 var inventoryGrid = document.getElementById('inventory-grid');
 var inventoryClose = document.getElementById('inventory-close');
 
+// CHARACTER UI
+var characterPopup = document.getElementById('character-popup');
+var characterClose = document.getElementById('character-close');
+
+// CONTEXT MENU UI
+var itemContextMenu = document.getElementById('item-context-menu');
+var dropQuantityModal = document.getElementById('drop-quantity-modal');
+var dropQuantityInput = document.getElementById('drop-quantity-input');
+var dropConfirmBtn = document.getElementById('drop-confirm-btn');
+var dropCancelBtn = document.getElementById('drop-cancel-btn');
+
+// Store current context for item actions
+var currentContextItem = null;
+
+// Character sheet update interval
+var characterSheetUpdateInterval = null;
+
+// Prevent multiple rapid clicks on same item
+var lastClickedItem = null;
+var lastClickTime = 0;
+
 // MARKET UI
 var marketPopup = document.getElementById('market-popup');
 var marketClose = document.getElementById('market-close');
@@ -1060,6 +1122,35 @@ if(inventoryClose){
     inventoryPopup.style.display = 'none';
   };
 }
+
+// Character button handler
+if(characterClose){
+  characterClose.onclick = function(){
+    characterPopup.style.display = 'none';
+    // Stop real-time updates
+    if(characterSheetUpdateInterval){
+      clearInterval(characterSheetUpdateInterval);
+      characterSheetUpdateInterval = null;
+    }
+  };
+}
+
+// Context menu handlers
+if(dropCancelBtn){
+  dropCancelBtn.onclick = function(){
+    dropQuantityModal.style.display = 'none';
+    currentContextItem = null;
+  };
+}
+
+// Hide context menu when clicking outside
+document.addEventListener('click', function(e){
+  if(itemContextMenu && itemContextMenu.style.display === 'block'){
+    if(!itemContextMenu.contains(e.target)){
+      itemContextMenu.style.display = 'none';
+    }
+  }
+});
 
 // WorldMap close button handler
 if(worldmapClose){
@@ -1251,6 +1342,56 @@ function getInventoryItemImage(itemType, qty){
   return null;
 }
 
+// Helper functions for item rarity
+function getItemRank(itemType){
+  // Map item types to their ranks (matching ItemFactory.js)
+  var ranks = {
+    // rank 0 - Common
+    wood: 0, stone: 0, grain: 0, ironore: 0, iron: 0, silverore: 0, silver: 0,
+    goldore: 0, gold: 0, boarhide: 0, leather: 0, pickaxe: 0, stoneaxe: 0,
+    ironaxe: 0, huntingknife: 0, torch: 0, dague: 0, rondel: 0, misericorde: 0,
+    bow: 0, rusticlance: 0, arrows: 0, brigandine: 0, lamellar: 0, tome: 0,
+    bread: 0, meat: 0, fish: 0, lamb: 0, boarmeat: 0, venison: 0, poachedfish: 0,
+    mead: 0, saison: 0, barrel: 0, chest: 0, lockedchest: 0, key: 0, worldmap: 0,
+    // rank 1 - Rare
+    steel: 1, bastardsword: 1, longsword: 1, zweihander: 1, morallta: 1,
+    welshlongbow: 1, knightlance: 1, maille: 1, hauberk: 1, brynja: 1, cuirass: 1,
+    blackcloak: 1, runicscroll: 1, lambchop: 1, boarshank: 1, venisonloin: 1,
+    flanders: 1, bieredegarde: 1,
+    // rank 2 - Lore
+    diamond: 2, paladinlance: 2, steelplate: 2, greenwichplate: 2, gothicplate: 2,
+    sacredtext: 2, bordeaux: 2, bourgogne: 2, chianti: 2,
+    // rank 3 - Mythic
+    crown: 3, relic: 3
+  };
+  return ranks[itemType] || 0;
+}
+
+function getRarityName(rank){
+  var rarities = ['Common', 'Rare', 'Lore', 'Mythic'];
+  return rarities[rank] || 'Common';
+}
+
+function getRarityColor(rank){
+  var colors = {
+    0: '#ffffff', // Common - white
+    1: '#00ff00', // Rare - green
+    2: '#0080ff', // Lore - blue
+    3: '#a020f0'  // Mythic - purple
+  };
+  return colors[rank] || '#ffffff';
+}
+
+function getRarityBorderColor(rank){
+  var colors = {
+    0: '#808080', // Common - gray
+    1: '#00ff00', // Rare - green
+    2: '#0080ff', // Lore - blue
+    3: '#a020f0'  // Mythic - purple
+  };
+  return colors[rank] || '#808080';
+}
+
 // Inventory display function - uses same rendering as dropped items
 function updateInventoryDisplay(){
   if(!Player.list[selfId]) return;
@@ -1258,31 +1399,86 @@ function updateInventoryDisplay(){
   var player = Player.list[selfId];
   inventoryGrid.innerHTML = '';
   
-  // Display all inventory items
+  // Display all inventory items - comprehensive list
   var inventoryItems = [
+    // Special items
     {type: 'worldmap', name: 'WorldMap'},
-    {type: 'arrows', name: 'Arrows'},
+    {type: 'crown', name: 'Crown'},
+    {type: 'relic', name: 'Relic'},
+    {type: 'key', name: 'Key'},
+    // Weapons
+    {type: 'huntingknife', name: 'HuntingKnife'},
     {type: 'dague', name: 'Dague'},
+    {type: 'rondel', name: 'Rondel'},
+    {type: 'misericorde', name: 'Misericorde'},
+    {type: 'bastardsword', name: 'BastardSword'},
     {type: 'longsword', name: 'Longsword'},
+    {type: 'zweihander', name: 'Zweihander'},
+    {type: 'morallta', name: 'Morallta'},
     {type: 'bow', name: 'Bow'},
+    {type: 'welshlongbow', name: 'WelshLongbow'},
+    {type: 'rusticlance', name: 'RusticLance'},
+    {type: 'knightlance', name: 'KnightLance'},
+    {type: 'paladinlance', name: 'PaladinLance'},
+    {type: 'arrows', name: 'Arrows'},
+    // Armor
     {type: 'brigandine', name: 'Brigandine'},
+    {type: 'lamellar', name: 'Lamellar'},
     {type: 'maille', name: 'Maille'},
+    {type: 'hauberk', name: 'Hauberk'},
+    {type: 'brynja', name: 'Brynja'},
+    {type: 'cuirass', name: 'Cuirass'},
     {type: 'steelplate', name: 'SteelPlate'},
-    {type: 'fish', name: 'Fish'},
-    {type: 'bread', name: 'Bread'},
-    {type: 'saison', name: 'Saison'},
-    {type: 'rawmeat', name: 'RawMeat'},
-    {type: 'cookedmeat', name: 'CookedMeat'},
+    {type: 'greenwichplate', name: 'GreenwichPlate'},
+    {type: 'gothicplate', name: 'GothicPlate'},
+    {type: 'clericrobe', name: 'ClericRobe'},
+    {type: 'monkcowl', name: 'MonkCowl'},
+    {type: 'blackcloak', name: 'BlackCloak'},
+    // Tools
+    {type: 'pickaxe', name: 'Pickaxe'},
+    {type: 'stoneaxe', name: 'StoneAxe'},
+    {type: 'ironaxe', name: 'IronAxe'},
+    {type: 'torch', name: 'Torch'},
+    // Resources
     {type: 'wood', name: 'Wood'},
     {type: 'stone', name: 'Stone'},
     {type: 'grain', name: 'Grain'},
     {type: 'ironore', name: 'IronOre'},
     {type: 'iron', name: 'Iron'},
-    {type: 'gold', name: 'Gold'},
+    {type: 'steel', name: 'Steel'},
+    {type: 'silverore', name: 'SilverOre'},
     {type: 'silver', name: 'Silver'},
+    {type: 'goldore', name: 'GoldOre'},
+    {type: 'gold', name: 'Gold'},
     {type: 'diamond', name: 'Diamond'},
-    {type: 'torch', name: 'Torch'},
-    {type: 'beer', name: 'Beer'}
+    {type: 'boarhide', name: 'BoarHide'},
+    {type: 'leather', name: 'Leather'},
+    // Food
+    {type: 'bread', name: 'Bread'},
+    {type: 'meat', name: 'Meat'},
+    {type: 'fish', name: 'Fish'},
+    {type: 'lamb', name: 'Lamb'},
+    {type: 'boarmeat', name: 'BoarMeat'},
+    {type: 'venison', name: 'Venison'},
+    {type: 'poachedfish', name: 'PoachedFish'},
+    {type: 'lambchop', name: 'LambChop'},
+    {type: 'boarshank', name: 'BoarShank'},
+    {type: 'venisonloin', name: 'VenisonLoin'},
+    // Drinks
+    {type: 'mead', name: 'Mead'},
+    {type: 'saison', name: 'Saison'},
+    {type: 'flanders', name: 'Flanders'},
+    {type: 'bieredegarde', name: 'BiereDeGarde'},
+    {type: 'bordeaux', name: 'Bordeaux'},
+    {type: 'bourgogne', name: 'Bourgogne'},
+    {type: 'chianti', name: 'Chianti'},
+    // Magic items
+    {type: 'tome', name: 'Tome'},
+    {type: 'runicscroll', name: 'RunicScroll'},
+    {type: 'sacredtext', name: 'SacredText'},
+    // Containers
+    {type: 'chest', name: 'Chest'},
+    {type: 'lockedchest', name: 'LockedChest'}
   ];
   
   inventoryItems.forEach(function(item){
@@ -1291,10 +1487,23 @@ function updateInventoryDisplay(){
       var itemDiv = document.createElement('div');
       itemDiv.className = 'inventory-item';
       
-      // Create tooltip
+      // Get item rank and set border color
+      var rank = getItemRank(item.type);
+      var borderColor = getRarityBorderColor(rank);
+      var rarityColor = getRarityColor(rank);
+      itemDiv.style.borderColor = borderColor;
+      itemDiv.style.borderWidth = '2px';
+      
+      // Store item data for click handlers
+      itemDiv.dataset.itemType = item.type;
+      itemDiv.dataset.itemName = item.name;
+      itemDiv.dataset.itemCount = count;
+      itemDiv.dataset.itemRank = rank;
+      
+      // Create tooltip with rarity color
       var tooltip = document.createElement('div');
       tooltip.className = 'inventory-item-tooltip';
-      tooltip.textContent = '[' + item.name + '] x' + count;
+      tooltip.innerHTML = '<span style="color:' + rarityColor + '">[' + item.name + ']</span> x' + count;
       itemDiv.appendChild(tooltip);
       
       // Get the appropriate image based on item type and quantity
@@ -1305,17 +1514,36 @@ function updateInventoryDisplay(){
         img.style.width = '100%';
         img.style.height = '100%';
         img.style.objectFit = 'contain';
+        img.style.pointerEvents = 'none'; // Allow clicks to pass through to parent
         itemDiv.appendChild(img);
       } else {
         // Fallback: show item name as text if no image exists
         var placeholder = document.createElement('div');
         placeholder.style.fontSize = '12px';
-        placeholder.style.color = 'white';
+        placeholder.style.color = rarityColor;
         placeholder.style.textAlign = 'center';
         placeholder.style.padding = '10px';
+        placeholder.style.pointerEvents = 'none'; // Allow clicks to pass through to parent
         placeholder.textContent = item.name;
         itemDiv.appendChild(placeholder);
       }
+      
+      // Left click handler - use/equip item
+      (function(itemType, itemName){
+        itemDiv.onclick = function(e){
+          e.stopPropagation();
+          handleItemLeftClick(itemType, itemName);
+        };
+      })(item.type, item.name);
+      
+      // Right click handler - context menu
+      (function(itemType, itemName, itemCount){
+        itemDiv.oncontextmenu = function(e){
+          e.preventDefault();
+          e.stopPropagation();
+          showItemContextMenu(e, itemType, itemName, itemCount);
+        };
+      })(item.type, item.name, count);
       
       inventoryGrid.appendChild(itemDiv);
     }
@@ -1323,6 +1551,353 @@ function updateInventoryDisplay(){
   
   if(inventoryGrid.innerHTML === ''){
     inventoryGrid.innerHTML = '<p style="color:#888;padding:20px;">Your inventory is empty</p>';
+  }
+}
+
+// Item click handlers
+function handleItemLeftClick(itemType, itemName){
+  // Determine action based on item type
+  var rank = getItemRank(itemType);
+  
+  // Check if it's equippable (weapons, armor)
+  var weaponTypes = ['dague', 'rondel', 'misericorde', 'bastardsword', 'longsword', 'zweihander', 'morallta', 'bow', 'welshlongbow', 'knightlance', 'rusticlance', 'paladinlance', 'huntingknife'];
+  var armorTypes = ['brigandine', 'lamellar', 'maille', 'hauberk', 'brynja', 'cuirass', 'steelplate', 'greenwichplate', 'gothicplate', 'clericrobe', 'monkcowl', 'blackcloak'];
+  var headTypes = ['crown'];
+  
+  if(weaponTypes.indexOf(itemType) !== -1 || armorTypes.indexOf(itemType) !== -1 || headTypes.indexOf(itemType) !== -1){
+    // Equip the item (server will send gearUpdate which triggers inventory refresh)
+    socket.send(JSON.stringify({msg: 'equipItem', itemType: itemType}));
+  } else {
+    // For other items (consumables), use them
+    socket.send(JSON.stringify({msg: 'useItem', itemType: itemType}));
+    // Refresh inventory after consuming (no gearUpdate for consumables)
+    setTimeout(function(){
+      updateInventoryDisplay();
+      if(characterPopup && characterPopup.style.display === 'block'){
+        updateCharacterDisplay();
+      }
+    }, 100);
+  }
+}
+
+function showItemContextMenu(e, itemType, itemName, count){
+  currentContextItem = {type: itemType, name: itemName, count: count};
+  
+  // Position and show context menu
+  itemContextMenu.style.left = e.pageX + 'px';
+  itemContextMenu.style.top = e.pageY + 'px';
+  itemContextMenu.style.display = 'block';
+  
+  // Clear and rebuild context menu
+  itemContextMenu.innerHTML = '';
+  
+  var rank = getItemRank(itemType);
+  var weaponTypes = ['dague', 'rondel', 'misericorde', 'bastardsword', 'longsword', 'zweihander', 'morallta', 'bow', 'welshlongbow', 'knightlance', 'rusticlance', 'paladinlance', 'huntingknife'];
+  var armorTypes = ['brigandine', 'lamellar', 'maille', 'hauberk', 'brynja', 'cuirass', 'steelplate', 'greenwichplate', 'gothicplate', 'clericrobe', 'monkcowl', 'blackcloak'];
+  var headTypes = ['crown'];
+  var consumableTypes = ['bread', 'meat', 'fish', 'lamb', 'boarmeat', 'venison', 'poachedfish', 'lambchop', 'boarshank', 'venisonloin', 'mead', 'saison', 'flanders', 'bieredegarde', 'bordeaux', 'bourgogne', 'chianti'];
+  
+  // Add appropriate action option
+  if(weaponTypes.indexOf(itemType) !== -1 || armorTypes.indexOf(itemType) !== -1 || headTypes.indexOf(itemType) !== -1){
+    var equipOption = document.createElement('div');
+    equipOption.className = 'context-menu-item';
+    equipOption.textContent = 'Equip';
+    equipOption.onclick = function(){
+      socket.send(JSON.stringify({msg: 'equipItem', itemType: itemType}));
+      itemContextMenu.style.display = 'none';
+      // Server will send gearUpdate which triggers refresh
+    };
+    itemContextMenu.appendChild(equipOption);
+  } else if(consumableTypes.indexOf(itemType) !== -1){
+    var useOption = document.createElement('div');
+    useOption.className = 'context-menu-item';
+    useOption.textContent = 'Use';
+    useOption.onclick = function(){
+      socket.send(JSON.stringify({msg: 'useItem', itemType: itemType}));
+      itemContextMenu.style.display = 'none';
+      // Refresh inventory after using consumable
+      setTimeout(function(){
+        updateInventoryDisplay();
+      }, 100);
+    };
+    itemContextMenu.appendChild(useOption);
+  }
+  
+  // Add drop option
+  var dropOption = document.createElement('div');
+  dropOption.className = 'context-menu-item';
+  dropOption.textContent = 'Drop';
+  dropOption.onclick = function(){
+    itemContextMenu.style.display = 'none';
+    if(count > 1){
+      // Show quantity modal
+      dropQuantityInput.value = 1;
+      dropQuantityInput.max = count;
+      dropQuantityModal.style.display = 'block';
+    } else {
+      // Drop single item immediately
+      socket.send(JSON.stringify({msg: 'dropItem', itemType: itemType, quantity: 1}));
+      // Refresh inventory
+      setTimeout(function(){
+        updateInventoryDisplay();
+      }, 100);
+    }
+  };
+  itemContextMenu.appendChild(dropOption);
+  
+  // Add cancel option
+  var cancelOption = document.createElement('div');
+  cancelOption.className = 'context-menu-item';
+  cancelOption.textContent = 'Cancel';
+  cancelOption.onclick = function(){
+    itemContextMenu.style.display = 'none';
+  };
+  itemContextMenu.appendChild(cancelOption);
+}
+
+// Drop quantity confirm handler
+if(dropConfirmBtn){
+  dropConfirmBtn.onclick = function(){
+    if(currentContextItem){
+      var quantity = parseInt(dropQuantityInput.value) || 1;
+      quantity = Math.max(1, Math.min(quantity, currentContextItem.count));
+      socket.send(JSON.stringify({msg: 'dropItem', itemType: currentContextItem.type, quantity: quantity}));
+      dropQuantityModal.style.display = 'none';
+      currentContextItem = null;
+      // Refresh inventory
+      setTimeout(function(){
+        updateInventoryDisplay();
+      }, 100);
+    }
+  };
+}
+
+// Character display function - full update (call when opening sheet or after equipment changes)
+function updateCharacterDisplay(fullUpdate){
+  if(!Player.list[selfId]) return;
+  
+  var player = Player.list[selfId];
+  
+  // Always update HP/Spirit bars (real-time)
+  updateCharacterBars(player);
+  
+  // Only do full update when needed (opening sheet, equipment change)
+  if(fullUpdate !== false){
+    // Update character name
+    var characterNameEl = document.getElementById('character-name');
+    if(characterNameEl){
+      characterNameEl.textContent = player.name || 'Character';
+    }
+    
+    // Update house affiliation
+    var characterHouseEl = document.getElementById('character-house');
+    if(characterHouseEl){
+      if(player.house && houseList && houseList[player.house]){
+        characterHouseEl.textContent = houseList[player.house].name || 'Neutral';
+      } else if(player.kingdom && kingdomList && kingdomList[player.kingdom]){
+        characterHouseEl.textContent = kingdomList[player.kingdom].name || 'Neutral';
+      } else {
+        characterHouseEl.textContent = 'Neutral';
+      }
+    }
+    
+    // Update sprite display
+    updateCharacterSprite(player);
+    
+    updateCharacterStats(player);
+  }
+}
+
+// Update just the HP/Spirit bars (called frequently)
+function updateCharacterBars(player){
+  // Update HP bar
+  var hpPercent = Math.max(0, Math.min(100, (player.hp / player.hpMax) * 100));
+  var hpBar = document.getElementById('character-hp-bar');
+  var hpText = document.getElementById('character-hp-text');
+  if(hpBar){
+    hpBar.style.width = hpPercent + '%';
+  }
+  if(hpText){
+    hpText.textContent = Math.floor(player.hp) + ' / ' + Math.floor(player.hpMax);
+  }
+  
+  // Update Spirit bar (show only if player has spirit)
+  var spiritContainer = document.getElementById('character-spirit-container');
+  if(player.spirit !== null && player.spirit !== undefined){
+    if(spiritContainer){
+      spiritContainer.style.display = 'block';
+      var spiritPercent = Math.max(0, Math.min(100, (player.spirit / player.spiritMax) * 100));
+      var spiritBar = document.getElementById('character-spirit-bar');
+      var spiritText = document.getElementById('character-spirit-text');
+      if(spiritBar){
+        spiritBar.style.width = spiritPercent + '%';
+      }
+      if(spiritText){
+        spiritText.textContent = Math.floor(player.spirit) + ' / ' + Math.floor(player.spiritMax);
+      }
+    }
+  } else {
+    if(spiritContainer){
+      spiritContainer.style.display = 'none';
+    }
+  }
+}
+
+// Update character stats and equipment (called less frequently)
+function updateCharacterStats(player){
+  
+  // Calculate attack and defense from gear
+  var attack = 0;
+  var defense = 0;
+  var strBonus = 0;
+  var dexBonus = 0;
+  var spiritBonus = 0;
+  
+  if(player.gear){
+    if(player.gear.weapon && player.gear.weapon.dmg){
+      attack += player.gear.weapon.dmg;
+      strBonus += player.gear.weapon.strengthBonus || 0;
+      dexBonus += player.gear.weapon.dexterityBonus || 0;
+      spiritBonus += player.gear.weapon.spiritBonus || 0;
+    }
+    if(player.gear.weapon2 && player.gear.weapon2.dmg){
+      attack += player.gear.weapon2.dmg;
+      strBonus += player.gear.weapon2.strengthBonus || 0;
+      dexBonus += player.gear.weapon2.dexterityBonus || 0;
+      spiritBonus += player.gear.weapon2.spiritBonus || 0;
+    }
+    if(player.gear.armor && player.gear.armor.defense){
+      defense += player.gear.armor.defense;
+      strBonus += player.gear.armor.strengthBonus || 0;
+      dexBonus += player.gear.armor.dexterityBonus || 0;
+      spiritBonus += player.gear.armor.spiritBonus || 0;
+    }
+    if(player.gear.head){
+      strBonus += player.gear.head.strengthBonus || 0;
+      dexBonus += player.gear.head.dexterityBonus || 0;
+      spiritBonus += player.gear.head.spiritBonus || 0;
+    }
+    if(player.gear.accessory){
+      strBonus += player.gear.accessory.strengthBonus || 0;
+      dexBonus += player.gear.accessory.dexterityBonus || 0;
+      spiritBonus += player.gear.accessory.spiritBonus || 0;
+    }
+  }
+  
+  document.getElementById('stat-attack').textContent = attack;
+  document.getElementById('stat-defense').textContent = defense;
+  
+  // Update stats
+  var baseStr = player.strength || 1;
+  var baseDex = player.dexterity || 0;
+  var baseSpirit = player.spirit || 0;
+  
+  document.getElementById('stat-strength').innerHTML = baseStr + (strBonus > 0 ? ' <span class="stat-bonus">(+' + strBonus + ')</span>' : '');
+  document.getElementById('stat-dexterity').innerHTML = baseDex + (dexBonus > 0 ? ' <span class="stat-bonus">(+' + dexBonus + ')</span>' : '');
+  document.getElementById('stat-spirit').innerHTML = baseSpirit + (spiritBonus > 0 ? ' <span class="stat-bonus">(+' + spiritBonus + ')</span>' : '');
+  
+  // Update equipment slots
+  updateEquipmentSlot('equipment-weapon', player.gear ? player.gear.weapon : null, 'Main Hand');
+  updateEquipmentSlot('equipment-weapon2', player.gear ? player.gear.weapon2 : null, 'Off Hand');
+  updateEquipmentSlot('equipment-head', player.gear ? player.gear.head : null, 'Head');
+  updateEquipmentSlot('equipment-armor', player.gear ? player.gear.armor : null, 'Body');
+  updateEquipmentSlot('equipment-accessory', player.gear ? player.gear.accessory : null, 'Accessory');
+}
+
+// Update character sprite display
+function updateCharacterSprite(player){
+  var canvas = document.getElementById('character-sprite-canvas');
+  if(!canvas) return;
+  
+  var ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+  // Draw player sprite (use standing down sprite from sprite object)
+  if(player.sprite && player.sprite.facedown){
+    // Draw sprite centered and scaled up 2x (64x64 -> 128x128)
+    ctx.drawImage(player.sprite.facedown, 0, 0, 128, 128);
+  } else if(player.sprite){
+    // Fallback to any available sprite
+    var spriteImg = player.sprite.facedown || player.sprite.faceup || player.sprite.faceleft || player.sprite.faceright;
+    if(spriteImg){
+      ctx.drawImage(spriteImg, 0, 0, 128, 128);
+    }
+  }
+}
+
+function updateEquipmentSlot(slotId, item, slotLabel){
+  var slot = document.getElementById(slotId);
+  if(!slot) return;
+  
+  slot.innerHTML = '<div class="equipment-slot-label">' + slotLabel + '</div>';
+  
+  if(item && item.name){
+    var itemType = item.name.toLowerCase().replace(/\s+/g, '');
+    var rank = getItemRank(itemType);
+    var borderColor = getRarityBorderColor(rank);
+    var rarityColor = getRarityColor(rank);
+    
+    slot.style.borderColor = borderColor;
+    
+    var itemContainer = document.createElement('div');
+    itemContainer.className = 'equipment-slot-item';
+    itemContainer.style.position = 'relative';
+    
+    // Add tooltip
+    var tooltip = document.createElement('div');
+    tooltip.className = 'inventory-item-tooltip';
+    tooltip.style.opacity = 0;
+    tooltip.style.position = 'absolute';
+    tooltip.style.bottom = '100%';
+    tooltip.style.left = '50%';
+    tooltip.style.transform = 'translateX(-50%)';
+    tooltip.style.whiteSpace = 'nowrap';
+    tooltip.innerHTML = '<span style="color:' + rarityColor + '">[' + item.name + ']</span>';
+    
+    // Show/hide tooltip on hover
+    itemContainer.onmouseenter = function(){
+      tooltip.style.opacity = 1;
+    };
+    itemContainer.onmouseleave = function(){
+      tooltip.style.opacity = 0;
+    };
+    
+    itemContainer.appendChild(tooltip);
+    
+    // Try to get item image
+    var itemImg = getInventoryItemImage(itemType, 1);
+    if(itemImg){
+      var img = document.createElement('img');
+      img.src = itemImg.src;
+      itemContainer.appendChild(img);
+    }
+    
+    var nameSpan = document.createElement('span');
+    nameSpan.className = 'equipment-slot-name';
+    nameSpan.style.color = rarityColor;
+    nameSpan.textContent = item.name;
+    itemContainer.appendChild(nameSpan);
+    
+    slot.appendChild(itemContainer);
+    
+    // Add click to unequip
+    slot.onclick = function(){
+      socket.send(JSON.stringify({msg: 'unequipItem', slot: slotId.replace('equipment-', '')}));
+      // Refresh displays
+      setTimeout(function(){
+        updateCharacterDisplay();
+        if(inventoryPopup && inventoryPopup.style.display === 'block'){
+          updateInventoryDisplay();
+        }
+      }, 100);
+    };
+  } else {
+    slot.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+    var emptySpan = document.createElement('div');
+    emptySpan.className = 'equipment-slot-empty';
+    emptySpan.textContent = 'Empty';
+    slot.appendChild(emptySpan);
+    slot.onclick = null;
   }
 }
 
@@ -7902,7 +8477,30 @@ document.onkeydown = function(event){
     } else if(event.keyCode == 88){ // x
       socket.send(JSON.stringify({msg:'keyPress',inputId:'x',state:true}));
     } else if(event.keyCode == 67){ // c
-      socket.send(JSON.stringify({msg:'keyPress',inputId:'c',state:true}));
+      // Open character popup
+      if(characterPopup && characterPopup.style.display !== 'block'){
+        characterPopup.style.display = 'block';
+        updateCharacterDisplay();
+        // Start real-time updates for HP/Spirit bars
+        if(characterSheetUpdateInterval){
+          clearInterval(characterSheetUpdateInterval);
+        }
+        characterSheetUpdateInterval = setInterval(function(){
+          if(characterPopup && characterPopup.style.display === 'block' && Player.list[selfId]){
+            updateCharacterBars(Player.list[selfId]); // Only update bars, not full sheet
+          } else {
+            clearInterval(characterSheetUpdateInterval);
+            characterSheetUpdateInterval = null;
+          }
+        }, 100); // Update 10 times per second
+      } else if(characterPopup){
+        characterPopup.style.display = 'none';
+        // Stop updates when closed
+        if(characterSheetUpdateInterval){
+          clearInterval(characterSheetUpdateInterval);
+          characterSheetUpdateInterval = null;
+        }
+      }
     } else if(event.keyCode == 66){ // b
       // Open inventory popup
       if(inventoryPopup && inventoryPopup.style.display !== 'block'){
@@ -8008,7 +8606,7 @@ document.onkeyup = function(event){
   } else if(event.keyCode == 88){ // x
     socket.send(JSON.stringify({msg:'keyPress',inputId:'x',state:false}));
   } else if(event.keyCode == 67){ // c
-    socket.send(JSON.stringify({msg:'keyPress',inputId:'c',state:false}));
+    // C key handled on keydown only
   } else if(event.keyCode == 66){ // b
     // B key handled on keydown only
   } else if(event.keyCode == 78){ // n

@@ -26,6 +26,7 @@ class FactionAI {
     this.resourcePlanner = new ResourcePlanner();
     this.currentGoalChain = null;
     this.activeGoals = [];
+    this.lastEvaluatedDay = 0; // Track last day evaluated to prevent duplicates
     
     // Load faction profile and strategy (use house.name for faction type)
     this.profile = FactionProfiles[house.name] || FactionProfiles.Goths;
@@ -138,6 +139,13 @@ class FactionAI {
   // Called once per in-game day
   evaluateAndAct() {
     const day = global.day || 1;
+    
+    // Prevent multiple evaluations on the same day
+    if (this.lastEvaluatedDay === day) {
+      return;
+    }
+    this.lastEvaluatedDay = day;
+    
     console.log(`${this.house.name} AI: Evaluating (Day ${day})`);
     
     // Update territory knowledge

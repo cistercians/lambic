@@ -133,6 +133,32 @@ class ItemFactory {
     });
   }
   
+  // Rarity system helpers
+  static getRarityName(rank) {
+    const rarities = ['Common', 'Rare', 'Lore', 'Mythic'];
+    return rarities[rank] || 'Common';
+  }
+  
+  static getRarityColor(rank) {
+    const colors = {
+      0: '#ffffff', // Common - white
+      1: '#00ff00', // Rare - green
+      2: '#0080ff', // Lore - blue
+      3: '#a020f0'  // Mythic - purple
+    };
+    return colors[rank] || '#ffffff';
+  }
+  
+  static getRarityBorderColor(rank) {
+    const colors = {
+      0: '#808080', // Common - gray
+      1: '#00ff00', // Rare - green
+      2: '#0080ff', // Lore - blue
+      3: '#a020f0'  // Mythic - purple
+    };
+    return colors[rank] || '#808080';
+  }
+  
   // Convenience methods for common items
   createWood(param) { return this.createItem('wood', param); }
   createStone(param) { return this.createItem('stone', param); }

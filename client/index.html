@@ -260,6 +260,8 @@
     gap: 10px;
     max-height: 60vh;
     overflow-y: auto;
+    padding-top: 40px;
+    margin-top: -40px;
   }
 
   .inventory-item {
@@ -302,6 +304,182 @@
   
   .inventory-item:hover .inventory-item-tooltip {
     opacity: 1;
+  }
+
+  /* Character Popup */
+  #character-popup {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 700px;
+    max-height: 85vh;
+    background-color: rgba(0, 0, 0, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 10px;
+    padding: 20px;
+    z-index: 300;
+    pointer-events: auto;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.9);
+    overflow-y: auto;
+  }
+
+  #character-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    color: white;
+  }
+
+  #character-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+  }
+
+  #character-close:hover {
+    color: #ff6666;
+  }
+
+  #character-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  #character-stats {
+    color: white;
+  }
+
+  #character-stats h4 {
+    margin: 0 0 10px 0;
+    color: #ffd700;
+    font-size: 16px;
+  }
+
+  .stat-line {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 14px;
+  }
+
+  .stat-bonus {
+    color: #00ff00;
+  }
+
+  #character-equipment {
+    color: white;
+  }
+
+  #character-equipment h4 {
+    margin: 0 0 10px 0;
+    color: #ffd700;
+    font-size: 16px;
+  }
+
+  .equipment-slot {
+    position: relative;
+    background-color: rgba(0, 0, 0, 0.5);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 5px;
+    padding: 10px;
+    margin-bottom: 10px;
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+  }
+
+  .equipment-slot:hover {
+    background-color: rgba(50, 50, 50, 0.7);
+  }
+
+  .equipment-slot-label {
+    font-size: 12px;
+    color: #888;
+    margin-bottom: 5px;
+  }
+
+  .equipment-slot-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .equipment-slot-item img {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+  }
+
+  .equipment-slot-name {
+    font-size: 14px;
+  }
+
+  .equipment-slot-empty {
+    color: #666;
+    font-style: italic;
+    font-size: 12px;
+  }
+
+  /* Item Context Menu */
+  #item-context-menu {
+    position: fixed;
+    background-color: rgba(0, 0, 0, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 5px;
+    padding: 5px 0;
+    z-index: 1000;
+    min-width: 120px;
+  }
+
+  .context-menu-item {
+    padding: 8px 15px;
+    color: white;
+    cursor: pointer;
+    font-size: 14px;
+  }
+
+  .context-menu-item:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+
+  /* Drop Quantity Modal */
+  #drop-quantity-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: rgba(0, 0, 0, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 10px;
+    padding: 20px;
+    z-index: 1001;
+    min-width: 300px;
+  }
+
+  #drop-quantity-modal h4 {
+    color: white;
+    margin: 0 0 15px 0;
+  }
+
+  #drop-quantity-input {
+    width: 100%;
+    margin-bottom: 15px;
+  }
+
+  .modal-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
   }
 
   /* Market Popup */
@@ -604,6 +782,92 @@
         <button id="inventory-close">✕</button>
       </div>
       <div id="inventory-grid"></div>
+    </div>
+    
+    <!-- Character Popup (hidden) -->
+    <div id="character-popup" style="display: none;">
+      <div id="character-header">
+        <h3 style="margin: 0;" id="character-name">Character</h3>
+        <button id="character-close">✕</button>
+      </div>
+      <div id="character-house" style="text-align: center; color: #aaa; font-size: 14px; margin-bottom: 15px;">Neutral</div>
+      <div id="character-content">
+        <div id="character-stats">
+          <div id="character-sprite-container" style="text-align: center; margin-bottom: 20px;">
+            <canvas id="character-sprite-canvas" width="128" height="128" style="image-rendering: pixelated; border: 2px solid rgba(255,255,255,0.3); border-radius: 5px; background-color: rgba(0,0,0,0.3);"></canvas>
+          </div>
+          
+          <div style="margin-bottom: 15px;">
+            <div style="position: relative; background-color: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.3); border-radius: 5px; height: 30px; margin-bottom: 8px;">
+              <div id="character-hp-bar" style="position: absolute; top: 0; left: 0; height: 100%; background: linear-gradient(to right, #ff4444, #44ff44); border-radius: 5px; width: 100%;"></div>
+              <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 14px; font-weight: bold; text-shadow: 1px 1px 2px black;" id="character-hp-text">100 / 100</div>
+            </div>
+            
+            <div id="character-spirit-container" style="position: relative; background-color: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.3); border-radius: 5px; height: 24px; display: none;">
+              <div id="character-spirit-bar" style="position: absolute; top: 0; left: 0; height: 100%; background: linear-gradient(to right, #4444ff, #8888ff); border-radius: 5px; width: 100%;"></div>
+              <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 12px; font-weight: bold; text-shadow: 1px 1px 2px black;" id="character-spirit-text">0 / 0</div>
+            </div>
+          </div>
+          
+          <h4>Stats</h4>
+          <div class="stat-line">
+            <span>Attack:</span>
+            <span id="stat-attack">0</span>
+          </div>
+          <div class="stat-line">
+            <span>Defense:</span>
+            <span id="stat-defense">0</span>
+          </div>
+          <div class="stat-line">
+            <span>Strength:</span>
+            <span id="stat-strength">1</span>
+          </div>
+          <div class="stat-line">
+            <span>Dexterity:</span>
+            <span id="stat-dexterity">0</span>
+          </div>
+          <div class="stat-line">
+            <span>Spirit:</span>
+            <span id="stat-spirit">0</span>
+          </div>
+        </div>
+        <div id="character-equipment">
+          <h4>Equipment</h4>
+          <div class="equipment-slot" id="equipment-weapon">
+            <div class="equipment-slot-label">Main Hand</div>
+            <div class="equipment-slot-empty">Empty</div>
+          </div>
+          <div class="equipment-slot" id="equipment-weapon2">
+            <div class="equipment-slot-label">Off Hand</div>
+            <div class="equipment-slot-empty">Empty</div>
+          </div>
+          <div class="equipment-slot" id="equipment-head">
+            <div class="equipment-slot-label">Head</div>
+            <div class="equipment-slot-empty">Empty</div>
+          </div>
+          <div class="equipment-slot" id="equipment-armor">
+            <div class="equipment-slot-label">Body</div>
+            <div class="equipment-slot-empty">Empty</div>
+          </div>
+          <div class="equipment-slot" id="equipment-accessory">
+            <div class="equipment-slot-label">Accessory</div>
+            <div class="equipment-slot-empty">Empty</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Item Context Menu (hidden) -->
+    <div id="item-context-menu" style="display: none;"></div>
+    
+    <!-- Drop Quantity Modal (hidden) -->
+    <div id="drop-quantity-modal" style="display: none;">
+      <h4>Drop Item</h4>
+      <input type="number" id="drop-quantity-input" min="1" placeholder="Quantity">
+      <div class="modal-buttons">
+        <button id="drop-confirm-btn">Drop</button>
+        <button id="drop-cancel-btn">Cancel</button>
+      </div>
     </div>
     
     <!-- Market Popup (hidden) -->

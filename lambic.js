@@ -2991,6 +2991,212 @@ Player.onConnect = function(socket, name) {
             }));
           }
         }
+      } else if (data.msg === 'equipItem') {
+        const player = Player.list[socket.id];
+        if (player && data.itemType) {
+          const itemType = data.itemType;
+          
+          // Check if player has the item
+          if (player.inventory[itemType] && player.inventory[itemType] > 0) {
+            const item = equip[itemType];
+            if (item) {
+              // Determine which slot to equip to
+              // Get item rarity color
+              const { ItemFactory, itemFactory } = require('./server/js/entities/ItemFactory');
+              const itemConfig = itemFactory.itemConfigs[itemType];
+              const rank = itemConfig ? itemConfig.rank : 0;
+              const rarityColor = ItemFactory.getRarityColor(rank);
+              
+              if (item.type === 'dagger' || item.type === 'sword' || item.type === 'bow' || item.type === 'lance') {
+                // Unequip current weapon if exists (Main Hand)
+                if (player.gear.weapon) {
+                  player.gear.weapon.unequip(player.id);
+                }
+                player.gear.weapon = item;
+                player.inventory[itemType]--;
+                socket.write(JSON.stringify({
+                  msg: 'addToChat',
+                  message: `<i>You equipped</i> <b style="color:${rarityColor}">[${item.name}]</b>.`
+                }));
+                // Send gear, inventory, and class update to client
+                socket.write(JSON.stringify({
+                  msg: 'gearUpdate',
+                  gear: player.gear,
+                  inventory: player.inventory,
+                  class: player.class
+                }));
+              } else if (item.type === 'leather' || item.type === 'chainmail' || item.type === 'plate' || item.type === 'cloth') {
+                // Unequip current armor if exists
+                if (player.gear.armor) {
+                  player.gear.armor.unequip(player.id);
+                }
+                player.gear.armor = item;
+                player.inventory[itemType]--;
+                socket.write(JSON.stringify({
+                  msg: 'addToChat',
+                  message: `<i>You equipped</i> <b style="color:${rarityColor}">[${item.name}]</b>.`
+                }));
+                // Send gear, inventory, and class update to client
+                socket.write(JSON.stringify({
+                  msg: 'gearUpdate',
+                  gear: player.gear,
+                  inventory: player.inventory,
+                  class: player.class
+                }));
+              } else if (item.type === 'head') {
+                // Unequip current head if exists
+                if (player.gear.head) {
+                  player.gear.head.unequip(player.id);
+                }
+                player.gear.head = item;
+                player.inventory[itemType]--;
+                socket.write(JSON.stringify({
+                  msg: 'addToChat',
+                  message: `<i>You equipped</i> <b style="color:${rarityColor}">[${item.name}]</b>.`
+                }));
+                // Send gear, inventory, and class update to client
+                socket.write(JSON.stringify({
+                  msg: 'gearUpdate',
+                  gear: player.gear,
+                  inventory: player.inventory,
+                  class: player.class
+                }));
+              }
+            } else {
+              socket.write(JSON.stringify({
+                msg: 'addToChat',
+                message: '<i>That item cannot be equipped.</i>'
+              }));
+            }
+          } else {
+            socket.write(JSON.stringify({
+              msg: 'addToChat',
+              message: '<i>You do not have that item.</i>'
+            }));
+          }
+        }
+      } else if (data.msg === 'unequipItem') {
+        const player = Player.list[socket.id];
+        if (player && data.slot) {
+          const slot = data.slot;
+          if (player.gear[slot]) {
+            const itemName = player.gear[slot].name;
+            const itemType = itemName.toLowerCase().replace(/\s+/g, '');
+            
+            // Get item rarity color
+            const { ItemFactory, itemFactory } = require('./server/js/entities/ItemFactory');
+            const itemConfig = itemFactory.itemConfigs[itemType];
+            const rank = itemConfig ? itemConfig.rank : 0;
+            const rarityColor = ItemFactory.getRarityColor(rank);
+            
+            player.gear[slot].unequip(player.id);
+            player.gear[slot] = null;
+            socket.write(JSON.stringify({
+              msg: 'addToChat',
+              message: `<i>You unequipped</i> <b style="color:${rarityColor}">[${itemName}]</b>.`
+            }));
+            // Send gear, inventory, and class update to client
+            socket.write(JSON.stringify({
+              msg: 'gearUpdate',
+              gear: player.gear,
+              inventory: player.inventory,
+              class: player.class
+            }));
+          }
+        }
+      } else if (data.msg === 'dropItem') {
+        const player = Player.list[socket.id];
+        if (player && data.itemType && data.quantity) {
+          const itemType = data.itemType;
+          const quantity = Math.min(parseInt(data.quantity), player.inventory[itemType] || 0);
+          
+          if (quantity > 0) {
+            // Get item info for colored message
+            const { ItemFactory, itemFactory } = require('./server/js/entities/ItemFactory');
+            const itemConfig = itemFactory.itemConfigs[itemType];
+            const rank = itemConfig ? itemConfig.rank : 0;
+            const rarityColor = ItemFactory.getRarityColor(rank);
+            const itemName = itemType.charAt(0).toUpperCase() + itemType.slice(1);
+            
+            // Remove from inventory
+            player.inventory[itemType] -= quantity;
+            
+            // Create dropped item in world
+            const droppedItem = itemFactory.createItem(itemType, {
+              x: player.x,
+              y: player.y,
+              z: player.z,
+              qty: quantity
+            });
+            
+            if (droppedItem) {
+              socket.write(JSON.stringify({
+                msg: 'addToChat',
+                message: `<i>You dropped</i> ${quantity} <b style="color:${rarityColor}">[${itemName}]</b>.`
+              }));
+            }
+          }
+        }
+      } else if (data.msg === 'useItem') {
+        const player = Player.list[socket.id];
+        if (player && data.itemType) {
+          const itemType = data.itemType;
+          
+          // Check if player has the item
+          if (player.inventory[itemType] && player.inventory[itemType] > 0) {
+            // Get item info for colored message
+            const { ItemFactory, itemFactory } = require('./server/js/entities/ItemFactory');
+            const itemConfig = itemFactory.itemConfigs[itemType];
+            const rank = itemConfig ? itemConfig.rank : 0;
+            const rarityColor = ItemFactory.getRarityColor(rank);
+            const itemName = itemType.charAt(0).toUpperCase() + itemType.slice(1);
+            
+            // Handle consumables
+            const consumables = ['bread', 'meat', 'fish', 'lamb', 'boarmeat', 'venison', 'poachedfish', 'lambchop', 'boarshank', 'venisonloin'];
+            const drinks = ['mead', 'saison', 'flanders', 'bieredegarde', 'bordeaux', 'bourgogne', 'chianti'];
+            
+            if (consumables.indexOf(itemType) !== -1) {
+              // Restore HP based on food quality
+              let hpRestore = 20; // Basic food
+              if (['lambchop', 'boarshank', 'venisonloin'].indexOf(itemType) !== -1) {
+                hpRestore = 40; // Cooked food
+              }
+              if (['poachedfish'].indexOf(itemType) !== -1) {
+                hpRestore = 30; // Prepared fish
+              }
+              
+              player.hp = Math.min(player.hp + hpRestore, player.hpMax);
+              player.inventory[itemType]--;
+              
+              socket.write(JSON.stringify({
+                msg: 'addToChat',
+                message: `<i>You consumed</i> <b style="color:${rarityColor}">[${itemName}]</b> <i>and restored</i> <span style="color:#00ff00;">${hpRestore} HP</span>.`
+              }));
+            } else if (drinks.indexOf(itemType) !== -1) {
+              // Restore HP based on drink quality
+              let hpRestore = 10; // Basic drinks
+              if (['flanders', 'bieredegarde'].indexOf(itemType) !== -1) {
+                hpRestore = 20; // Quality beer
+              }
+              if (['bordeaux', 'bourgogne', 'chianti'].indexOf(itemType) !== -1) {
+                hpRestore = 30; // Fine wine
+              }
+              
+              player.hp = Math.min(player.hp + hpRestore, player.hpMax);
+              player.inventory[itemType]--;
+              
+              socket.write(JSON.stringify({
+                msg: 'addToChat',
+                message: `<i>You drank</i> <b style="color:${rarityColor}">[${itemName}]</b> <i>and restored</i> <span style="color:#00ff00;">${hpRestore} HP</span>.`
+              }));
+            } else {
+              socket.write(JSON.stringify({
+                msg: 'addToChat',
+                message: '<i>You cannot use that item.</i>'
+              }));
+            }
+          }
+        }
       }
     } catch (e) {
       console.error('Error parsing socket data:', e);

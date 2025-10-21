@@ -89,6 +89,31 @@ class BaseItem {
     return this.type.charAt(0).toUpperCase() + this.type.slice(1).replace(/([A-Z])/g, ' $1');
   }
   
+  getRarity() {
+    const rarities = ['Common', 'Rare', 'Lore', 'Mythic'];
+    return rarities[this.rank] || 'Common';
+  }
+  
+  getRarityColor() {
+    const colors = {
+      0: '#ffffff', // Common - white
+      1: '#00ff00', // Rare - green
+      2: '#0080ff', // Lore - blue
+      3: '#a020f0'  // Mythic - purple
+    };
+    return colors[this.rank] || '#ffffff';
+  }
+  
+  getRarityBorderColor() {
+    const colors = {
+      0: '#808080', // Common - gray
+      1: '#00ff00', // Rare - green
+      2: '#0080ff', // Lore - blue
+      3: '#a020f0'  // Mythic - purple
+    };
+    return colors[this.rank] || '#808080';
+  }
+  
   getInitPack() {
     return {
       id: this.id,
