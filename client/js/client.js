@@ -1928,8 +1928,11 @@ function renderWorldMap(terrainData, mapSize, playerX, playerY, playerTileSize) 
     if (terrainType === 6) return '#000000';  // Cave entrance - black
     if (terrainType === 7) return '#449944';  // Empty - darker green/grass
     
-    // Building-related tiles (farms, build markers, doors, floors, roads, etc.)
-    if (terrainType >= 8 && terrainType <= 19) return '#442211';  // Dark brown
+    // Farm tiles (seed, growing, ready) - darker orange
+    if (terrainType >= 8 && terrainType <= 10) return '#dd8822';  // Darker orange
+    
+    // Other building-related tiles (build markers, doors, floors, roads, etc.)
+    if (terrainType >= 11 && terrainType <= 19) return '#442211';  // Dark brown
     
     // Any other unknown values
     return '#449944'; // Default darker green/grass
