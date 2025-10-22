@@ -8994,7 +8994,6 @@ document.onclick = function(event) {
         // Check if placement is valid
         if (buildPreviewData.valid) {
           // Execute build command with tile coordinates
-          console.log('Sending buildAt:', buildPreviewType, 'at', buildPreviewData.tileX, buildPreviewData.tileY);
           socket.send(JSON.stringify({
             msg: 'buildAt',
             buildingType: buildPreviewType,
