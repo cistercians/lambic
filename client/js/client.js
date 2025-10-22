@@ -2440,7 +2440,7 @@ var Player = function(initPack){
   self.spiritMax = initPack.spiritMax;
   self.ghost = initPack.ghost || false;
   self.sprite = self.ghost ? ghost : maleserf; // Use ghost sprite if in ghost mode
-  self.spriteSize = initPack.spriteSize;
+  self.spriteSize = initPack.spriteSize || 64; // Default to 64 if not provided
   self.ranged = initPack.ranged;
   self.action = initPack.action;
   self.kills = initPack.kills || 0;
@@ -2463,8 +2463,9 @@ var Player = function(initPack){
     // Get camera position (works for both logged in and login mode)
     var cameraPos = getCameraPosition();
 
-    // Phase 6: Apply sprite scaling for fauna minibosses
-    var scaledSpriteSize = self.spriteSize * (self.spriteScale || 1.0);
+    // Phase 6: Apply sprite scaling ONLY for fauna minibosses (Wolf, Boar)
+    var shouldScale = (self.class === 'Wolf' || self.class === 'Boar') && self.spriteScale;
+    var scaledSpriteSize = shouldScale ? (self.spriteSize * self.spriteScale) : self.spriteSize;
     
     // Center the sprite based on scaled size
     var x = (self.x - (scaledSpriteSize/2)) - cameraPos.x + WIDTH/2;
@@ -2622,7 +2623,7 @@ var Player = function(initPack){
     }
     
     // character sprite (now using regular sprites only)
-      // Work animations (chopping, mining, farming, building, fishing)
+      // Work animations (chopping, mining, farming, building, fishing) - use normal size for humans
       if(self.chopping && self.sprite.chopping){
             ctx.drawImage(
           self.sprite.chopping[wrk],
@@ -2775,64 +2776,64 @@ var Player = function(initPack){
           self.sprite.facedown,
           x,
           y,
-          self.spriteSize,
-          self.spriteSize
+          scaledSpriteSize,
+          scaledSpriteSize
         );
       } else if(self.pressingDown){
         ctx.drawImage(
           self.sprite.walkdown[wlk],
           x,
           y,
-          self.spriteSize,
-          self.spriteSize
+          scaledSpriteSize,
+          scaledSpriteSize
         );
       } else if(self.facing == 'up' && !self.pressingUp){
         ctx.drawImage(
           self.sprite.faceup,
           x,
           y,
-          self.spriteSize,
-          self.spriteSize
+          scaledSpriteSize,
+          scaledSpriteSize
         );
       } else if(self.pressingUp){
         ctx.drawImage(
           self.sprite.walkup[wlk],
           x,
           y,
-          self.spriteSize,
-          self.spriteSize
+          scaledSpriteSize,
+          scaledSpriteSize
         );
       } else if(self.facing == 'left' && !self.pressingLeft){
         ctx.drawImage(
           self.sprite.faceleft,
           x,
           y,
-          self.spriteSize,
-          self.spriteSize
+          scaledSpriteSize,
+          scaledSpriteSize
         );
       } else if(self.pressingLeft){
         ctx.drawImage(
           self.sprite.walkleft[wlk],
           x,
           y,
-          self.spriteSize,
-          self.spriteSize
+          scaledSpriteSize,
+          scaledSpriteSize
         );
       } else if(self.facing == 'right' && !self.pressingRight){
         ctx.drawImage(
           self.sprite.faceright,
           x,
           y,
-          self.spriteSize,
-          self.spriteSize
+          scaledSpriteSize,
+          scaledSpriteSize
         );
       } else if(self.pressingRight){
         ctx.drawImage(
           self.sprite.walkright[wlk],
           x,
           y,
-          self.spriteSize,
-          self.spriteSize
+          scaledSpriteSize,
+          scaledSpriteSize
         );
   }
     

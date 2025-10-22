@@ -1443,11 +1443,11 @@ const Player = function(param) {
         
         // Phase 6: Fauna Miniboss Growth
         if(killer.class === 'Boar' || killer.class === 'Wolf'){
-          // Increase sprite size at key thresholds (max 2x at 10 kills)
+          // Increase sprite size at key thresholds
           if(killer.kills >= 10){
-            killer.spriteScale = 2.0; // Double size
+            killer.spriteScale = 1.6; // 60% larger at 10 kills
           } else if(killer.kills >= 3){
-            killer.spriteScale = 1.5; // Larger at first skull
+            killer.spriteScale = 1.3; // 30% larger at 3 kills
           }
           
           console.log(`⚠️ ${killer.class} is now a miniboss with ${killer.kills} kills (size: ${killer.spriteScale}x)`);
@@ -1591,7 +1591,7 @@ const Player = function(param) {
     if(self.type === 'player'){
       // Enter ghost mode
       self.ghost = true;
-      self.ghostTimer = 7200; // 7200 frames = 2 minutes at 60fps
+      self.ghostTimer = 5400; // 5400 frames = 1 minute 30 seconds at 60fps
       self.hp = 1; // Ghost has minimal HP (can't die again)
       self.baseSpd = 4; // Fixed ghost speed (run speed)
       self.maxSpd = 4;
@@ -1640,7 +1640,7 @@ const Player = function(param) {
           deathMsg += '<br><i>Your items have been dropped at the death location</i>';
         }
         deathMsg += '<br><br><span style="color:#aaaaff;">👻 You are now a ghost. Move to where you want to respawn.</span>';
-        deathMsg += '<br><i>Auto-respawn in 2 minutes, or type /respawn to respawn at home</i>';
+        deathMsg += '<br><i>Auto-respawn in 1:30, or type /respawn to respawn at home</i>';
         socket.write(JSON.stringify({msg:'addToChat',message: deathMsg}));
         // Trigger ghost mode audio/visual
         socket.write(JSON.stringify({msg:'ghostMode', active: true}));
@@ -3330,10 +3330,10 @@ Player.update = function() {
       player.ghostTimer--;
       
       // First message: announce total time (only once at start)
-      if(player.ghostTimer === 7199){ // First frame
+      if(player.ghostTimer === 5399){ // First frame
         var socket = SOCKET_LIST[i];
         if(socket){
-          socket.write(JSON.stringify({msg:'addToChat',message:'<span style="color:#aaaaff;">👻 You are dead. Respawning in 2 minutes...</span>'}));
+          socket.write(JSON.stringify({msg:'addToChat',message:'<span style="color:#aaaaff;">👻 You are dead. Respawning in 1:30...</span>'}));
         }
       }
       

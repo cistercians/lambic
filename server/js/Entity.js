@@ -1374,11 +1374,11 @@ Character = function(param){
         
         // Phase 6: Fauna Miniboss Growth
         if(killer.class === 'Boar' || killer.class === 'Wolf'){
-          // Increase sprite size at key thresholds (max 2x at 10 kills)
+          // Increase sprite size at key thresholds
           if(killer.kills >= 10){
-            killer.spriteScale = 2.0; // Double size
+            killer.spriteScale = 1.6; // 60% larger at 10 kills
           } else if(killer.kills >= 3){
-            killer.spriteScale = 1.5; // Larger at first skull
+            killer.spriteScale = 1.3; // 30% larger at 3 kills
           }
           
           console.log('⚠️ ' + killer.class + ' is now a miniboss with ' + killer.kills + ' kills (size: ' + killer.spriteScale + 'x)');
@@ -7489,6 +7489,7 @@ Blacksmith = function(param){
   self.unarmed = true;
   self.forge = param.forge;
   self.work = 100;
+  self.spriteSize = tileSize * 1.5; // Same as SerfM - 1.5x size (96px)
 
   self.update = function(){
     var loc = getLoc(self.x,self.y);
@@ -7815,7 +7816,11 @@ Blacksmith = function(param){
     }
     self.updatePosition();
   }
+  
+  Player.list[self.id] = self;
+  initPack.player.push(self.getInitPack());
   Building.list[self.forge].blacksmith = self.id;
+  return self;
 }
 
 Monk = function(param){
