@@ -1529,41 +1529,16 @@ const Player = function(param) {
     if(droppedItems.length > 0){
       console.log(`💀 ${self.name} dropped ${droppedItems.length} item types at [${deathLocation[0]},${deathLocation[1]}] z=${deathZ}`);
       
-      // Map item names to their constructor functions
-      var itemConstructors = {
-        // Resources
-        wood: Wood,
-        stone: Stone,
-        grain: Grain,
-        ironore: IronOre,
-        iron: Iron,
-        steel: Steel,
-        silverore: SilverOre,
-        silver: Silver,
-        goldore: GoldOre,
-        gold: Gold,
-        diamond: Diamond,
-        leather: Leather,
-        // Tools & consumables
-        torch: Torch,
-        arrows: Arrows,
-        // Food
-        bread: Bread,
-        fish: Fish
-      };
-      
       for(var i in droppedItems){
         var drop = droppedItems[i];
-        console.log(`  - ${drop.qty} ${drop.item}`);
         
         // Random offset from death location (within 2 tiles)
         var offsetX = (Math.random() - 0.5) * tileSize * 2;
         var offsetY = (Math.random() - 0.5) * tileSize * 2;
         
-        // Create the appropriate item type
-        var ItemConstructor = itemConstructors[drop.item];
-        if(ItemConstructor){
-          ItemConstructor({
+        // Use itemFactory to create all items (now properly compatible with Item system)
+        if(global.itemFactory){
+          global.itemFactory.createItem(drop.item, {
             id: Math.random(),
             x: deathCoords[0] + offsetX,
             y: deathCoords[1] + offsetY,
@@ -1571,8 +1546,6 @@ const Player = function(param) {
             qty: drop.qty,
             innaWoods: self.innaWoods || false
           });
-        } else {
-          console.log(`  ⚠️ No constructor found for item: ${drop.item}`);
         }
       }
     }
@@ -4357,6 +4330,8 @@ const initPack = { player: [], arrow: [], item: [], light: [], building: [] };
 const removePack = { player: [], arrow: [], item: [], light: [], building: [] };
 global.initPack = initPack;
 global.removePack = removePack;
+
+// Note: global.Item will be set by Entity.js when Item constructor is defined
 
 // Initialize SIMPLIFIED Serf behavior system - TEMPORARILY DISABLED for debugging
 const SimpleSerfBehavior = require('./server/js/core/SimpleSerfBehavior.js');

@@ -126,11 +126,81 @@ class ItemFactory {
       return null;
     }
     
-    return new BaseItem(type, config.maxStack, {
+    // Use the global Item constructor from Entity.js instead of BaseItem
+    if (!global.Item) {
+      console.error('Item constructor not available');
+      return null;
+    }
+    
+    console.log(`ItemFactory creating ${type} at [${param.x}, ${param.y}] z=${param.z} qty=${param.qty}`);
+    
+    // Capitalize first letter for type (client expects 'Wood' not 'wood')
+    const capitalizedType = type.charAt(0).toUpperCase() + type.slice(1);
+    
+    const item = global.Item({
       ...param,
-      class: config.class,
-      rank: config.rank
+      qty: param.qty || 1
     });
+    
+    // Set additional properties from config
+    item.type = capitalizedType; // Client expects capitalized types
+    item.class = config.class;
+    item.rank = config.rank;
+    item.canPickup = true;
+    
+    // Simple pickup function for all items
+    item.pickup = function(playerId) {
+      const player = global.Player.list[playerId];
+      const socket = global.SOCKET_LIST[playerId];
+      
+      if (!player || !socket) return;
+      
+      const currentAmount = player.inventory[type] || 0;
+      const maxStack = config.maxStack;
+      
+      if (currentAmount >= maxStack) {
+        socket.write(JSON.stringify({
+          msg: 'addToChat',
+          message: `<i>You are already carrying too much</i> <b>${type}</b>.`
+        }));
+        return;
+      }
+      
+      const canTake = Math.min(item.qty, maxStack - currentAmount);
+      const remaining = item.qty - canTake;
+      
+      // Update player inventory
+      player.inventory[type] = currentAmount + canTake;
+      
+      // Update item quantity
+      item.qty = remaining;
+      
+      // Remove item if completely picked up
+      if (remaining <= 0) {
+        item.toRemove = true;
+      }
+      
+      // Send feedback to player
+      socket.write(JSON.stringify({
+        msg: 'addToChat',
+        message: `<i>You picked up</i> ${canTake} <b>${type}</b>.`
+      }));
+    };
+    
+    // Register with Item.list and initPack
+    console.log(`  Registering item ${item.id} in Item.list (before: ${!!global.Item.list[item.id]})`);
+    global.Item.list[item.id] = item;
+    console.log(`  Registration complete (after: ${!!global.Item.list[item.id]})`);
+    
+    if (global.initPack && global.initPack.item) {
+      console.log(`  Adding to initPack (initPack.item length before: ${global.initPack.item.length})`);
+      global.initPack.item.push(item.getInitPack());
+      console.log(`  Added to initPack (initPack.item length after: ${global.initPack.item.length})`);
+    } else {
+      console.log(`  ⚠️ initPack not available: initPack=${!!global.initPack}, initPack.item=${!!(global.initPack && global.initPack.item)}`);
+    }
+    
+    return item;
   }
   
   // Rarity system helpers

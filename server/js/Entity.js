@@ -470,7 +470,7 @@ Outpost = function(param){
         // ENEMY DETECTED! Send alert
         self.alertedEnemies[enemy.id] = now;
         var enemyLoc = getLoc(enemy.x, enemy.y);
-        var alertMsg = '⚠️ ALERT: ' + (enemy.class || 'Enemy') + ' detected near your outpost at [' + enemyLoc[0] + ',' + enemyLoc[1] + ']';
+        var alertMsg = '⚠️ ALERT: ' + (enemy.name || enemy.class || 'Enemy') + ' detected near your outpost at [' + enemyLoc[0] + ',' + enemyLoc[1] + ']';
         
         // Send alert to owner
         var ownerSocket = SOCKET_LIST[self.owner];
@@ -8726,6 +8726,7 @@ Item = function(param){
 }
 
 Item.list = {};
+global.Item = Item;
 
 Item.update = function(){
   var pack = [];
