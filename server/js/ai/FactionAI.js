@@ -32,8 +32,6 @@ class FactionAI {
     this.profile = FactionProfiles[house.name] || FactionProfiles.Goths;
     this.strategy = this.loadStrategy();
     
-    console.log(`FactionAI: Initialized for ${house.name}`);
-    
     // Perform initial territory scan
     this.initialTerritoryScan();
   }
@@ -88,7 +86,6 @@ class FactionAI {
           discoveredAt: Date.now()
         });
       });
-      console.log(`${this.house.name}: Initial scan found ${caveLocations.length} cave(s)`);
     }
     
     if (forestClusters.length > 0) {
@@ -100,7 +97,6 @@ class FactionAI {
         density: forestCount,
         discoveredAt: Date.now()
       });
-      console.log(`${this.house.name}: Initial scan found forest (${forestCount} tiles)`);
     }
     
     if (rockClusters.length > 0) {
@@ -112,7 +108,6 @@ class FactionAI {
         density: rockCount,
         discoveredAt: Date.now()
       });
-      console.log(`${this.house.name}: Initial scan found rocks (${rockCount} tiles)`);
     }
   }
   
@@ -131,7 +126,6 @@ class FactionAI {
       case 'Outlaws': return new OutlawsStrategy(this.house, this.profile);
       case 'Mercenaries': return new MercenariesStrategy(this.house, this.profile);
       default:
-        console.log(`FactionAI: Using default strategy for ${this.house.name}`);
         return new FactionStrategy(this.house, this.profile);
     }
   }
@@ -145,8 +139,6 @@ class FactionAI {
       return;
     }
     this.lastEvaluatedDay = day;
-    
-    console.log(`${this.house.name} AI: Evaluating (Day ${day})`);
     
     // Update territory knowledge
     this.territory.updateTerritory();
@@ -182,18 +174,11 @@ class FactionAI {
     
     if (validGoals.length > 0) {
       const topGoal = validGoals[0];
-      console.log(`${this.house.name}: Selecting goal ${topGoal.type} (utility: ${topGoal.utility.toFixed(1)})`);
       
       // Create goal chain to resolve dependencies
       this.currentGoalChain = GoalChain.create(this.house, topGoal);
       
-      // Log the plan
-      const summary = this.currentGoalChain.getSummary();
-      console.log(`${this.house.name}: Goal chain has ${summary.totalSteps} steps: ${summary.remaining.join(' → ')}`);
-      
       this.executeCurrentGoal();
-    } else {
-      console.log(`${this.house.name}: No valid goals to pursue`);
     }
   }
   
@@ -202,37 +187,21 @@ class FactionAI {
     const goal = this.currentGoalChain.getCurrentGoal();
     
     if (!goal) {
-      console.log(`${this.house.name}: Goal chain complete`);
       this.currentGoalChain = null;
       return;
     }
     
     if (goal.canExecute(this.house)) {
-      console.log(`${this.house.name}: Executing ${goal.type}`);
-      
       try {
         goal.execute(this.house);
         goal.status = 'COMPLETED';
         this.currentGoalChain.advance();
-        
-        // Log progress
-        const progress = (this.currentGoalChain.getProgress() * 100).toFixed(0);
-        console.log(`${this.house.name}: Goal chain ${progress}% complete`);
-        
       } catch (error) {
         console.error(`${this.house.name}: Error executing ${goal.type}:`, error);
         goal.status = 'FAILED';
         this.currentGoalChain = null; // Abort chain on error
       }
     } else {
-      // Goal is blocked
-      const blocking = goal.getBlockingFactors(this.house);
-      console.log(`${this.house.name}: Goal ${goal.type} blocked by:`, 
-        blocking.map(b => b.type === 'RESOURCE' 
-          ? `${b.resource}(need ${b.need}, have ${b.have})`
-          : `building:${b.value}`
-        ).join(', ')
-      );
       
       goal.status = 'BLOCKED';
       

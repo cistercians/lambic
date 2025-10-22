@@ -252,7 +252,6 @@ function genesis(){
 
   // edit underworld
   idEntrances();
-  console.log(entrances); // for admin testing
 
   // random walk caves
   for(i = 0; i < entrances.length; i++){

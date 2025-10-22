@@ -322,7 +322,7 @@ class TilemapSystem {
       mill: {
         plotSize: [2, 2],
         wallTiles: 2,
-        validTerrain: [TERRAIN.GRASS, TERRAIN.LIGHT_FOREST],
+        validTerrain: [TERRAIN.GRASS, TERRAIN.LIGHT_FOREST, TERRAIN.BRUSH],
         clearanceRadius: 1,
         excludeBuildings: true,
         hasUpperFloor: true,
@@ -348,7 +348,7 @@ class TilemapSystem {
       farm: {
         plotSize: [3, 3],
         wallTiles: 0,
-        validTerrain: [TERRAIN.GRASS, TERRAIN.LIGHT_FOREST],
+        validTerrain: [TERRAIN.GRASS, TERRAIN.LIGHT_FOREST, TERRAIN.BRUSH],
         clearanceRadius: 0,
         excludeBuildings: true,
         hasUpperFloor: false,

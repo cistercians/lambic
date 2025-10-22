@@ -3,7 +3,6 @@
 
 class SimpleCombat {
   constructor() {
-    console.log('🔧 SimpleCombat (ultra-minimal) initialized');
   }
 
   // Main combat update - called every frame for entities with action='combat'
@@ -111,7 +110,6 @@ class SimpleCombat {
         }, 200); // 200ms attack animation
 
         if (entity.class === 'Boar') {
-          console.log(`🐗 Boar attacking: dist=${Math.floor(distance)}px, attackRange=${attackRange}px`);
         }
         console.log(`⚔️ ${entity.class} hits ${target.class} for ${damage}dmg (HP: ${target.hp}/${target.hpMax})`);
 
@@ -159,7 +157,6 @@ class SimpleCombat {
         const targetLoc = global.getLoc(target.x, target.y);
         
         if (entity.class === 'Boar') {
-          console.log(`🐗 Boar chasing: dist=${Math.floor(distance)}px, attackRange=${attackRange}px, moving to [${targetLoc}]`);
         }
         
         entity.moveTo(target.z, targetLoc[0], targetLoc[1]);
@@ -248,12 +245,10 @@ class SimpleCombat {
   endCombat(entity, target) {
     if (!entity) return;
 
-    console.log(`🛑 endCombat called for ${entity.class} (target: ${entity.combat?.target || 'none'})`);
 
     // If target not provided, look it up from entity's combat state
     if (!target && entity.combat && entity.combat.target) {
       target = Player.list[entity.combat.target];
-      console.log(`🔍 Found target from combat state: ${target ? target.class : 'not found'}`);
     }
 
     // Clear entity's combat state
@@ -271,7 +266,6 @@ class SimpleCombat {
 
     // Clear target's combat state if they were targeting this entity
     if (target && target.combat && target.combat.target === entity.id) {
-      console.log(`🔄 Clearing combat state for ${target.class} as well`);
       target.action = null;
       target.combat.target = null;
       // DON'T clear path - target might be navigating somewhere after combat
@@ -297,7 +291,6 @@ class SimpleCombat {
       }
     }
 
-    console.log(`✅ ${entity.class} combat ended`);
   }
 }
 

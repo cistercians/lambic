@@ -19,7 +19,6 @@ class SimpleSerfBehavior {
     const loc = global.getLoc(serf.x, serf.y);
     const BuildingList = global.Building ? global.Building.list : {};
     
-    console.log('🏗️ ' + serf.name + ' handleHouseBuilding: z=' + serf.z + ', loc=[' + loc[0] + ',' + loc[1] + '], path=' + (serf.path ? 'YES' : 'NO') + ', idleTime=' + serf.idleTime);
     
     // If not on overworld yet, path to exit
     // The intent system will automatically handle transitions when serf reaches exit tiles
@@ -33,7 +32,6 @@ class SimpleSerfBehavior {
     
     // Check if serf has a hut assigned
     if (!serf.hut || !BuildingList[serf.hut]) {
-      console.log(serf.name + ' ERROR: in work mode but no hut assigned, switching to idle');
       serf.mode = 'idle';
       return;
     }
@@ -42,7 +40,6 @@ class SimpleSerfBehavior {
     
     // If hut is already built, switch to idle
     if (hut.built) {
-      console.log(serf.name + ' hut is complete, switching to idle');
       serf.mode = 'idle';
       serf.action = null;
       return;
@@ -63,9 +60,7 @@ class SimpleSerfBehavior {
         const randomTile = buildableTiles[Math.floor(Math.random() * buildableTiles.length)];
         serf.work.spot = randomTile;
         serf.action = 'build';
-        console.log(serf.name + ' ASSIGNED to build hut at [' + randomTile[0] + ',' + randomTile[1] + '] (' + buildableTiles.length + ' tiles remaining)');
       } else {
-        console.log(serf.name + ' ERROR: hut has no buildable foundation tiles, switching to idle');
         serf.mode = 'idle';
       }
       return;
@@ -83,19 +78,16 @@ class SimpleSerfBehavior {
         if (gt === 11) {
           // Start building if not already building
           if (!serf.building) {
-            console.log(serf.name + ' starting to build at [' + spot[0] + ',' + spot[1] + ']');
             global.Build(serf.id);
           }
         } else {
           // Tile already built, find a new one
-          console.log(serf.name + ' tile already built, finding new spot');
           serf.action = null;
           serf.work.spot = null;
         }
       } else {
         // Not at the spot yet, path to it
         if (!serf.path) {
-          console.log(serf.name + ' pathing to build spot [' + spot[0] + ',' + spot[1] + ']');
           serf.moveTo(0, spot[0], spot[1]);
         }
       }

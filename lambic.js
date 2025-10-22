@@ -2830,6 +2830,56 @@ global.spatialSystem.initialize();
 const BuildingPreview = require('./server/js/core/BuildingPreview');
 global.buildingPreview = new BuildingPreview();
 
+// Helper function to find neutral taverns for player spawning
+function findNeutralTaverns() {
+  const neutralTaverns = [];
+  let totalTaverns = 0;
+  let builtTaverns = 0;
+  let unownedTaverns = 0;
+  let hostileTaverns = 0;
+  
+  for (const id in Building.list) {
+    const building = Building.list[id];
+    
+    // Check if it's a tavern
+    if (building.type === 'tavern') {
+      totalTaverns++;
+      
+      if (building.built) {
+        builtTaverns++;
+        
+        // Check if owner exists
+        if (building.owner) {
+          // Check if owner is a House (faction)
+          if (House.list[building.owner]) {
+            const house = House.list[building.owner];
+            // House is acceptable if it's not hostile (hostile means it attacks neutral players)
+            if (!house.hostile) {
+              console.log(`Found neutral tavern owned by House ${house.name}`);
+              neutralTaverns.push(building);
+            } else {
+              hostileTaverns++;
+              console.log(`Skipping hostile tavern owned by House ${house.name}`);
+            }
+          } else {
+            // Owner is not a House, so it's player-owned
+            // If the player doesn't exist in Player.list (disconnected), treat as friendly
+            console.log(`Found player-owned tavern (owner ${Player.list[building.owner] ? 'online' : 'offline'})`);
+            neutralTaverns.push(building);
+          }
+        } else {
+          unownedTaverns++;
+          console.log(`Found unowned built tavern`);
+        }
+      }
+    }
+  }
+  
+  console.log(`Tavern search: ${totalTaverns} total, ${builtTaverns} built, ${unownedTaverns} unowned, ${hostileTaverns} hostile, ${neutralTaverns.length} neutral`);
+  
+  return neutralTaverns;
+}
+
 Player.onConnect = function(socket, name) {
   socket.write(JSON.stringify({
     msg: 'tempus',
@@ -2837,17 +2887,61 @@ Player.onConnect = function(socket, name) {
     nightfall
   }));
 
-  const spawn = randomSpawnO();
+  // Try to find neutral taverns first
+  const neutralTaverns = findNeutralTaverns();
+  let spawnX, spawnY, spawnZ, homeZ, homeLoc;
+
+  if (neutralTaverns.length > 0) {
+    // Randomly select a neutral tavern
+    const randomIndex = Math.floor(Math.random() * neutralTaverns.length);
+    const tavern = neutralTaverns[randomIndex];
+    
+    // Calculate spawn point: upstairs (z=2), one tile below fireplace
+    // Fireplace is at walls[1] for taverns
+    if (tavern.walls && tavern.walls[1]) {
+      const fireplaceWall = tavern.walls[1];
+      homeLoc = [fireplaceWall[0], fireplaceWall[1] + 1]; // One tile south
+      const homeCoords = getCoords(homeLoc[0], homeLoc[1]);
+      
+      spawnX = homeCoords[0];
+      spawnY = homeCoords[1];
+      spawnZ = 2; // Upstairs
+      homeZ = 2;
+      
+      console.log(`${name} spawned at tavern ${tavern.id} at [${homeLoc[0]},${homeLoc[1]}] z:${spawnZ}`);
+    } else {
+      // Fallback if tavern doesn't have walls defined
+      const spawn = randomSpawnO();
+      spawnX = spawn[0];
+      spawnY = spawn[1];
+      spawnZ = 0;
+      homeZ = 0;
+      homeLoc = getLoc(spawnX, spawnY);
+      
+      console.log(`${name} spawned at random location (tavern walls undefined): ${spawn} z:0`);
+    }
+  } else {
+    // No neutral taverns found - use default spawn
+    const spawn = randomSpawnO();
+    spawnX = spawn[0];
+    spawnY = spawn[1];
+    spawnZ = 0;
+    homeZ = 0;
+    homeLoc = getLoc(spawnX, spawnY);
+    
+    console.log(`${name} spawned at random location (no neutral taverns): ${spawn} z:0`);
+  }
+
   const player = Player({
     name,
     id: socket.id,
-    z: 0,
-    x: spawn[0],
-    y: spawn[1],
-    home: { z: 0, x: spawn[0], y: spawn[1] }
+    z: spawnZ,
+    x: spawnX,
+    y: spawnY,
+    home: { z: homeZ, loc: homeLoc }
   });
 
-  console.log(`${player.name} spawned at: ${spawn} z: 0`);
+  console.log(`${player.name} fully initialized`);
   
   // ALPHA Testing: Give player starting items
   player.inventory.worldmap = 1;

@@ -399,7 +399,6 @@ Goths = function(param){
           Player.list[s2].work = {hq:b,spot:null};
         }
       }
-      console.log('Serfs have spawned for Goths: ' + Building.list[b].type);
     }
   }
   self.spawn = function(cl,spawn){
@@ -499,7 +498,6 @@ Goths = function(param){
     const MIN_FOREST_FOR_LUMBERMILL = 10;
     
     const resources = global.tilemapSystem.assessBaseResources(self.hq, BASE_RADIUS, 0);
-    console.log(`Goths @ [${self.hq}]: Grass=${resources.grass}, Forest=${resources.totalForest}, Rocks=${resources.rocks}`);
     
     // Use new building placement system for mills (tight radius for compact base)
     var excludedTiles = [self.hq]; // Start with HQ location
@@ -685,8 +683,6 @@ Goths = function(param){
           req:5,
           hp:150
         });
-        
-        console.log(`Goths: Stone mine built at [${plot[0]}]`);
       }
     }
     
@@ -728,7 +724,6 @@ Goths = function(param){
             hp:100
           });
           
-          console.log(`Goths: Lumbermill built at [${plot[0]}] (${nearbyForest} forest nearby)`);
         }
       }
     }
@@ -1417,7 +1412,6 @@ Franks = function(param){
             hp:100
           });
           
-          console.log(`Franks: Lumbermill built (${nearbyForest} forest nearby)`);
         }
       }
     }
@@ -1454,7 +1448,6 @@ Franks = function(param){
           hp:150
         });
         
-        console.log(`Franks: Ore mine built near cave`);
       }
     }
     // Build stone mine if enough rocks  
@@ -1936,7 +1929,6 @@ Celts = function(param){
         });
         
           minesBuilt++;
-          console.log(`Celts: Ore mine #${minesBuilt} built at [${plot[0]}]`);
       }
       }
       
@@ -2368,7 +2360,6 @@ Teutons = function(param){
       });
       
           minesBuilt++;
-          console.log(`Teutons: Ore mine #${minesBuilt} built near cave`);
         }
       }
     }
@@ -2646,24 +2637,8 @@ Outlaws = function(param){
           hp: 150
         });
         
-        // Add fireplace inside the hut
-        if(walls && walls[1]){
-          var fp = getCoords(walls[1][0], walls[1][1]);
-          Fireplace({
-            x: fp[0],
-            y: fp[1],
-            z: 1,
-            qty: 1,
-            parent: hutId
-          });
-        }
-        
         // Add plot to excluded tiles so next hut doesn't overlap
         excludedTiles.push(...plot);
-        
-        console.log(`Outlaws hut ${i+1} placed at [${plot[0]}]`);
-      } else {
-        console.log(`Outlaws: Could not find spot for hut ${i+1}`);
       }
     }
     
@@ -2698,7 +2673,6 @@ Outlaws = function(param){
         })
       }
     }
-    console.log('Outlaws: ' + self.hq);
   }
 
   var super_update = self.update;

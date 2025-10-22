@@ -82,7 +82,6 @@ class MapAnalyzer {
   
   // Analyze entire map and score all potential HQ locations
   analyzeMap() {
-    console.log('MapAnalyzer: Scanning map for optimal faction placement...');
     const candidates = [];
     
     // Scan map in a grid pattern (every 5 tiles to reduce computation)
@@ -97,8 +96,6 @@ class MapAnalyzer {
     
     // Sort by total score (best locations first)
     const sorted = candidates.sort((a, b) => b.score.total - a.score.total);
-    
-    console.log(`MapAnalyzer: Found ${sorted.length} suitable locations`);
     this.analysisCache = sorted;
     
     return sorted;
@@ -170,15 +167,11 @@ class MapAnalyzer {
       return null;
     }
     
-    console.log(`MapAnalyzer: Finding HQ for ${factionName}...`);
-    console.log(`  Required terrain: ${requirements.requiredTerrain}, min: ${(requirements.minTerrainPercentage*100)}%`);
-    
     // Reset debug flag for this faction search
     this._debugLogged = false;
     
     // Get search points based on faction requirements
     const searchPoints = this.getSearchPointsForFaction(factionName, requirements);
-    console.log(`  Searching ${searchPoints.length} potential locations`);
     
     // CRITICAL: Randomize search points to prevent clustering in same areas
     // Use proper Fisher-Yates shuffle instead of sort() which has bias
@@ -187,10 +180,6 @@ class MapAnalyzer {
       const j = Math.floor(Math.random() * (i + 1));
       [shuffledPoints[i], shuffledPoints[j]] = [shuffledPoints[j], shuffledPoints[i]];
     }
-    
-    // DEBUG: Log first few shuffled points to verify randomization
-    console.log(`DEBUG: First 5 shuffled points:`, shuffledPoints.slice(0, 5));
-    console.log(`DEBUG: Last 5 shuffled points:`, shuffledPoints.slice(-5));
     
     const validLocations = [];
     let testedCount = 0;
@@ -224,27 +213,17 @@ class MapAnalyzer {
       if (testedCount >= 500) break;
     }
     
-    if (excludedCount > 0) {
-      console.log(`  Excluded ${excludedCount} locations due to spacing`);
-    }
-    
-    if (validLocations.length === 0 && testedCount > 0) {
-      console.log(`  Tested ${testedCount} locations, none valid. Reasons:`, rejectedReasons);
-    }
-    
     // Sort by score and return best
     validLocations.sort((a, b) => b.score - a.score);
     
     if (validLocations.length > 0) {
-      console.log(`MapAnalyzer: ${factionName} HQ at [${validLocations[0].tile}] (score: ${validLocations[0].score.toFixed(1)})`);
+      console.log(`${factionName} HQ: [${validLocations[0].tile}]`);
       return validLocations[0];
     }
     
     // FALLBACK: If Celts failed with caves (due to spacing), retry with forest
     if (requirements.preferCaves && searchPoints.length < 10) {
-      console.log(`  ${factionName}: Cave search failed, retrying with forest points...`);
       const forestPoints = this.getForestSpawnPoints();
-      console.log(`  Searching ${forestPoints.length} forest locations`);
       
       // Randomize fallback search too - use proper Fisher-Yates shuffle
       const shuffledForestPoints = [...forestPoints];
@@ -288,86 +267,44 @@ class MapAnalyzer {
   
   // Get search points based on faction requirements
   getSearchPointsForFaction(factionName, requirements) {
-    console.log(`  ${factionName} terrain search: ${requirements.requiredTerrain}, layer: ${requirements.searchLayer}`);
     const layer = requirements.searchLayer;
     
     // Underground factions (layer 1 = world[1] = z:-1)
     if (layer === 1) {
-      console.log(`  ${factionName}: Underground faction, getting underworld points...`);
       return this.getUnderworldSpawnPoints();
     }
     
     // CRITICAL: For Celts, try caves first, fallback to forest
     if (requirements.preferCaves) {
-      console.log(`  ${factionName}: Prefers caves, trying cave entrances first...`);
       const cavePoints = this.getCaveEntrancePoints();
       if (cavePoints.length > 0) {
-        console.log(`  ${factionName}: Using ${cavePoints.length} cave entrance points`);
         return cavePoints;
       }
-      console.log(`  ${factionName}: No caves found, falling back to forest points`);
     }
     
     // FACTION-SPECIFIC SEARCH STRATEGIES (prevent clustering by using different search areas)
+    if (factionName === 'Norsemen') return this.getWaterSpawnPoints();
+    if (factionName === 'Franks') return this.getBrushFieldSpawnPoints();
+    if (factionName === 'Celts') return this.getForestSpawnPoints();
+    if (factionName === 'Outlaws') return this.getHeavyForestSpawnPoints();
+    if (factionName === 'Goths') return this.getOverworldSpawnPoints();
     
-    // Norsemen want coastal (water + grass mix) - prioritize water
-    if (factionName === 'Norsemen') {
-      console.log(`  ${factionName}: Coastal faction, searching water points...`);
-      return this.getWaterSpawnPoints();
-    }
-    
-    // Franks specifically want brush fields
-    if (factionName === 'Franks') {
-      console.log(`  ${factionName}: Brush field faction, searching brush areas...`);
-      return this.getBrushFieldSpawnPoints();
-    }
-    
-    // Celts want forest (if not using caves)
-    if (factionName === 'Celts') {
-      console.log(`  ${factionName}: Forest faction, searching forest points...`);
-      return this.getForestSpawnPoints();
-    }
-    
-    // Outlaws want heavy forest only (deep concealment)
-    if (factionName === 'Outlaws') {
-      console.log(`  ${factionName}: Heavy forest faction, searching heavy forest points...`);
-      return this.getHeavyForestSpawnPoints();
-    }
-    
-    // Goths want grass/brush areas (buildable terrain)
-    if (factionName === 'Goths') {
-      console.log(`  ${factionName}: Grass/brush faction, searching buildable areas...`);
-      return this.getOverworldSpawnPoints();
-    }
-    
-    // Teutons want diverse terrain - use ALL terrain types for maximum distribution
     if (factionName === 'Teutons') {
-      console.log(`  ${factionName}: Flexible faction, searching ALL terrain types for maximum distribution...`);
-      const allPoints = [
+      return [
         ...this.getOverworldSpawnPoints(),
         ...this.getForestSpawnPoints(),
         ...this.getMountainSpawnPoints(),
         ...this.getWaterSpawnPoints(),
         ...this.getBrushFieldSpawnPoints()
       ];
-      console.log(`  ${factionName}: Combined ${allPoints.length} points from all terrain types`);
-      return allPoints;
     }
     
-    // Brotherhood - use diverse search but prioritize different areas than Teutons
     if (factionName === 'Brotherhood') {
-      console.log(`  ${factionName}: Religious faction, searching grass + mountain areas...`);
-      const grassPoints = this.getOverworldSpawnPoints();
-      const mountainPoints = this.getMountainSpawnPoints();
-      return [...grassPoints, ...mountainPoints];
+      return [...this.getOverworldSpawnPoints(), ...this.getMountainSpawnPoints()];
     }
     
-    // Mercenaries - use different combination
     if (factionName === 'Mercenaries') {
-      console.log(`  ${factionName}: Mercenary faction, searching forest + brush areas...`);
-      const forestPoints = this.getForestSpawnPoints();
-      const brushPoints = this.getBrushFieldSpawnPoints();
-      return [...forestPoints, ...brushPoints];
+      return [...this.getForestSpawnPoints(), ...this.getBrushFieldSpawnPoints()];
     }
     
     // Fallback for unknown factions
@@ -432,7 +369,6 @@ class MapAnalyzer {
     // DEBUG: Log first evaluation for each faction
     if (!this._debugLogged) {
       this._debugLogged = true;
-      console.log(`  Sample at [${tile}]: terrainCounts=`, terrainCounts, `validPercent=${(terrainPercentage*100).toFixed(1)}%`);
     }
     
     // Check minimum terrain requirement
@@ -581,7 +517,6 @@ class MapAnalyzer {
         cave[0] >= minEdgeDistance && cave[0] < this.mapSize - minEdgeDistance &&
         cave[1] >= minEdgeDistance && cave[1] < this.mapSize - minEdgeDistance
       );
-      console.log(`MapAnalyzer: Filtered cave entrances: ${filteredCaves.length}/${allCaves.length} (removed ${allCaves.length - filteredCaves.length} edge caves)`);
       return filteredCaves;
     }
     
@@ -608,7 +543,6 @@ class MapAnalyzer {
       }
     }
     
-    console.log(`MapAnalyzer: Terrain scan for caves, sample:`, terrainSample, `found: ${caves.length}`);
     return caves;
   }
   
@@ -626,7 +560,6 @@ class MapAnalyzer {
         }
       }
     }
-    console.log(`MapAnalyzer: Found ${forests.length} forest spawn points`);
     return forests;
   }
   
@@ -642,7 +575,6 @@ class MapAnalyzer {
         }
       }
     }
-    console.log(`MapAnalyzer: Found ${heavyForests.length} heavy forest spawn points`);
     return heavyForests;
   }
   
@@ -658,7 +590,6 @@ class MapAnalyzer {
         }
       }
     }
-    console.log(`MapAnalyzer: Found ${mountains.length} mountain/rock spawn points`);
     return mountains;
   }
   
@@ -675,7 +606,6 @@ class MapAnalyzer {
       }
     }
     
-    console.log(`MapAnalyzer: Found ${water.length} water spawn points`);
     return water;
   }
   
@@ -696,7 +626,6 @@ class MapAnalyzer {
       }
     }
     
-    console.log(`MapAnalyzer: Found ${points.length} overworld spawn points`);
     return points;
   }
   
@@ -716,7 +645,6 @@ class MapAnalyzer {
       }
     }
     
-    console.log(`MapAnalyzer: Found ${points.length} brush field spawn points`);
     return points;
   }
   
@@ -726,8 +654,6 @@ class MapAnalyzer {
       const allPoints = global.tilemapSystem.getSpawnPoints('underworld');
       
       // Don't pre-filter underground points - evaluation check will handle boundaries
-      // Cave systems may have different coordinate distribution than surface
-      console.log(`MapAnalyzer: Using ${allPoints.length} underworld spawn points (no pre-filtering)`);
       return allPoints;
     }
     
@@ -753,9 +679,6 @@ class MapAnalyzer {
       }
     }
     
-    console.log('MapAnalyzer: Manual underworld scan, terrain sample:', terrainSample);
-    console.log(`MapAnalyzer: Found ${points.length} underworld spawn points`);
-    
     return points;
   }
   
@@ -765,8 +688,6 @@ class MapAnalyzer {
     const candidates = this.analysisCache || this.analyzeMap();
     const selected = [];
     const minDistance = 40; // Minimum tiles between faction HQs
-    
-    console.log(`MapAnalyzer: Selecting ${numFactions} HQ locations with ${minDistance} tile spacing...`);
     
     for (const candidate of candidates) {
       if (selected.length >= numFactions) break;
@@ -778,7 +699,6 @@ class MapAnalyzer {
       
       if (!tooClose) {
         selected.push(candidate);
-        console.log(`MapAnalyzer: Selected HQ at [${candidate.tile}] (score: ${candidate.score.total})`);
       }
     }
     

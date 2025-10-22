@@ -9,14 +9,12 @@ class TilemapMigration {
 
   // Migrate from old world array to new TilemapSystem
   migrateFromWorldArray(worldArray, mapSize) {
-    console.log('Starting tilemap migration...');
     const startTime = Date.now();
     
     const tilemapSystem = new TilemapSystem(mapSize);
     
     // Migrate all layers
     for (let layer = 0; layer < worldArray.length; layer++) {
-      console.log(`Migrating layer ${layer}...`);
       
       if (worldArray[layer]) {
         for (let y = 0; y < mapSize; y++) {
@@ -36,8 +34,6 @@ class TilemapMigration {
     this.migrateSpawnPoints(tilemapSystem, worldArray, mapSize);
     
     const endTime = Date.now();
-    console.log(`Migration completed in ${endTime - startTime}ms`);
-    console.log(`Memory usage:`, tilemapSystem.getMemoryUsage());
     
     this.migrationComplete = true;
     return tilemapSystem;
@@ -45,7 +41,6 @@ class TilemapMigration {
 
   // Migrate spawn points and biome data
   migrateSpawnPoints(tilemapSystem, worldArray, mapSize) {
-    console.log('Migrating spawn points...');
     
     for (let x = 0; x < mapSize; x++) {
       for (let y = 0; y < mapSize; y++) {
@@ -75,15 +70,6 @@ class TilemapMigration {
         }
       }
     }
-    
-    console.log('Spawn points migrated:', {
-      overworld: tilemapSystem.getSpawnPoints('overworld').length,
-      underworld: tilemapSystem.getSpawnPoints('underworld').length,
-      water: tilemapSystem.getSpawnPoints('water').length,
-      heavyForest: tilemapSystem.getSpawnPoints('heavyForest').length,
-      mountains: tilemapSystem.getSpawnPoints('mountains').length,
-      caveEntrances: tilemapSystem.getSpawnPoints('caveEntrances').length
-    });
   }
 
   // Create backward compatibility functions
@@ -111,7 +97,6 @@ class TilemapMigration {
 
   // Performance comparison
   comparePerformance(oldWorld, newTilemapSystem, iterations = 1000) {
-    console.log('Running performance comparison...');
     
     const testCoords = [];
     for (let i = 0; i < iterations; i++) {
@@ -138,10 +123,6 @@ class TilemapMigration {
     }
     const newTime = Date.now() - newStart;
     
-    console.log(`Performance comparison (${iterations} operations):`);
-    console.log(`Old system: ${oldTime}ms`);
-    console.log(`New system: ${newTime}ms`);
-    console.log(`Improvement: ${((oldTime - newTime) / oldTime * 100).toFixed(1)}%`);
     
     return {
       oldTime,
