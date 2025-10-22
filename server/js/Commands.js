@@ -5,8 +5,9 @@ EvalCmd = function(data){
     var world = data.world;
     var loc = getLoc(player.x,player.y);
     var z = player.z;
-    var c = loc[0];
-    var r = loc[1];
+    // Allow overriding coordinates for GUI building placement
+    var c = data.overrideC !== undefined ? data.overrideC : loc[0];
+    var r = data.overrideR !== undefined ? data.overrideR : loc[1];
 
     // BUILDING
     if(data.cmd == 'build'){

@@ -4,23 +4,16 @@
 class BuildingPreview {
   constructor() {
     this.buildingDefinitions = {
+      // Tier I Buildings
       farm: {
         name: 'Farm',
-        plot: [[0,0],[1,0],[2,0],[0,-1],[1,-1],[2,-1],[0,-2],[1,-2],[2,-2]], // 3x3 - matches Commands.js
-        requiredTiles: [TERRAIN.EMPTY], // Can only build on empty tiles
-        clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST], // Can clear these
+        plot: [[0,0],[1,0],[2,0],[0,-1],[1,-1],[2,-1],[0,-2],[1,-2],[2,-2]], // 3x3
+        requiredTiles: [TERRAIN.EMPTY],
+        clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
         blockedTiles: [TERRAIN.WATER, TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, TERRAIN.ROCKS],
         materials: { wood: 50, stone: 25 }
       },
-      tavern: {
-        name: 'Tavern',
-        plot: [[1,0],[2,0],[3,0],[0,-1],[1,-1],[2,-1],[3,-1],[4,-1],[0,-2],[1,-2],[2,-2],[3,-2],[4,-2],[0,-3],[1,-3],[2,-3],[3,-3]], // 5x4 irregular shape - matches Commands.js
-        requiredTiles: [TERRAIN.EMPTY, TERRAIN.BRUSH], // Can build on empty or brush
-        clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
-        blockedTiles: [TERRAIN.WATER, TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, TERRAIN.ROCKS],
-        materials: { wood: 125, stone: 0 }
-      },
-      mill: {
+      lumbermill: {
         name: 'Lumbermill',
         plot: [[0,0],[1,0]], // 2x1 (horizontal)
         requiredTiles: [TERRAIN.EMPTY],
@@ -31,7 +24,7 @@ class BuildingPreview {
       mine: {
         name: 'Mine',
         plot: [[0,0],[1,0],[0,-1],[1,-1]], // 2x2
-        requiredTiles: [TERRAIN.EMPTY, TERRAIN.ROCKS], // Can build on empty or rocks
+        requiredTiles: [TERRAIN.EMPTY, TERRAIN.ROCKS],
         clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
         blockedTiles: [TERRAIN.WATER, TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN],
         materials: { wood: 60, stone: 80 }
@@ -52,45 +45,13 @@ class BuildingPreview {
         blockedTiles: [TERRAIN.WATER, TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, TERRAIN.ROCKS],
         materials: { wood: 40, stone: 20 }
       },
-      stronghold: {
-        name: 'Stronghold',
-        plot: [[2,0],[3,0],[4,0],[5,0],[0,-1],[1,-1],[2,-1],[3,-1],[4,-1],[5,-1],[6,-1],[7,-1],[0,-2],[1,-2],[2,-2],[3,-2],[4,-2],[5,-2],[6,-2],[7,-2],[0,-3],[1,-3],[2,-3],[3,-3],[4,-3],[5,-3],[6,-3],[7,-3],[0,-4],[1,-4],[2,-4],[3,-4],[4,-4],[5,-4],[6,-4],[7,-4],[0,-5],[1,-5],[2,-5],[3,-5],[4,-5],[5,-5],[6,-5],[7,-5],[1,-6],[2,-6],[3,-6],[4,-6],[5,-6],[6,-6],[7,-6],[1,-7],[2,-7],[3,-7],[4,-7],[5,-7],[6,-7],[7,-7]], // Large irregular shape
+      tavern: {
+        name: 'Tavern',
+        plot: [[1,0],[2,0],[3,0],[0,-1],[1,-1],[2,-1],[3,-1],[4,-1],[0,-2],[1,-2],[2,-2],[3,-2],[4,-2],[0,-3],[1,-3],[2,-3],[3,-3]], // 5x4 irregular
         requiredTiles: [TERRAIN.EMPTY, TERRAIN.BRUSH],
         clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
         blockedTiles: [TERRAIN.WATER, TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, TERRAIN.ROCKS],
-        materials: { wood: 200, stone: 300 }
-      },
-      garrison: {
-        name: 'Garrison',
-        plot: [[0,0],[1,0],[2,0],[3,0],[0,-1],[1,-1],[2,-1],[3,-1],[0,-2],[1,-2],[2,-2],[3,-2]], // 4x3
-        requiredTiles: [TERRAIN.EMPTY, TERRAIN.BRUSH],
-        clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
-        blockedTiles: [TERRAIN.WATER, TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, TERRAIN.ROCKS],
-        materials: { wood: 150, stone: 100 }
-      },
-      monastery: {
-        name: 'Monastery',
-        plot: [[0,0],[1,0],[2,0],[3,0],[4,0],[0,-1],[1,-1],[2,-1],[3,-1],[4,-1],[0,-2],[1,-2],[2,-2],[3,-2],[4,-2],[0,-3],[1,-3],[2,-3],[3,-3],[4,-3]], // 5x4
-        requiredTiles: [TERRAIN.EMPTY, TERRAIN.BRUSH],
-        clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
-        blockedTiles: [TERRAIN.WATER, TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, TERRAIN.ROCKS],
-        materials: { wood: 180, stone: 120 }
-      },
-      forge: {
-        name: 'Forge',
-        plot: [[0,0],[1,0],[2,0],[0,-1],[1,-1],[2,-1]], // 3x2 - matches Commands.js
-        requiredTiles: [TERRAIN.EMPTY, TERRAIN.BRUSH],
-        clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
-        blockedTiles: [TERRAIN.WATER, TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, TERRAIN.ROCKS],
-        materials: { wood: 80, stone: 60 }
-      },
-      villa: {
-        name: 'Villa',
-        plot: [[0,0],[1,0],[2,0],[0,-1],[1,-1],[2,-1],[0,-2],[1,-2],[2,-2]], // 3x3
-        requiredTiles: [TERRAIN.EMPTY],
-        clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
-        blockedTiles: [TERRAIN.WATER, TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, TERRAIN.ROCKS],
-        materials: { wood: 80, stone: 60 }
+        materials: { wood: 125, stone: 0 }
       },
       tower: {
         name: 'Tower',
@@ -131,6 +92,82 @@ class BuildingPreview {
         clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
         blockedTiles: [TERRAIN.WATER, TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, TERRAIN.ROCKS],
         materials: { wood: 200, stone: 300 }
+      },
+      
+      // Tier II Buildings (require prerequisites)
+      mill: {
+        name: 'Mill',
+        plot: [[0,0],[1,0],[0,-1],[1,-1]], // 2x2
+        requiredTiles: [TERRAIN.EMPTY],
+        clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
+        blockedTiles: [TERRAIN.WATER, TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, TERRAIN.ROCKS],
+        materials: { wood: 60, stone: 30 }
+      },
+      dock: {
+        name: 'Dock',
+        plot: [[0,0],[1,0],[2,0],[0,-1],[1,-1],[2,-1],[0,-2],[1,-2],[2,-2],[0,-3],[1,-3],[2,-3]], // 3x4
+        requiredTiles: [TERRAIN.EMPTY, TERRAIN.WATER],
+        clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
+        blockedTiles: [TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, TERRAIN.ROCKS],
+        materials: { wood: 80, stone: 40 }
+      },
+      stable: {
+        name: 'Stable',
+        plot: [[0,0],[1,0],[2,0],[0,-1],[1,-1],[2,-1],[0,-2],[1,-2],[2,-2]], // 3x3
+        requiredTiles: [TERRAIN.EMPTY],
+        clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
+        blockedTiles: [TERRAIN.WATER, TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, TERRAIN.ROCKS],
+        materials: { wood: 100, stone: 50 }
+      },
+      market: {
+        name: 'Market',
+        plot: [[0,0],[1,0],[2,0],[0,-1],[1,-1],[2,-1],[0,-2],[1,-2],[2,-2]], // 3x3
+        requiredTiles: [TERRAIN.EMPTY],
+        clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
+        blockedTiles: [TERRAIN.WATER, TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, TERRAIN.ROCKS],
+        materials: { wood: 150, stone: 75 }
+      },
+      garrison: {
+        name: 'Garrison',
+        plot: [[0,0],[1,0],[2,0],[3,0],[0,-1],[1,-1],[2,-1],[3,-1],[0,-2],[1,-2],[2,-2],[3,-2]], // 4x3
+        requiredTiles: [TERRAIN.EMPTY, TERRAIN.BRUSH],
+        clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
+        blockedTiles: [TERRAIN.WATER, TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, TERRAIN.ROCKS],
+        materials: { wood: 150, stone: 100 }
+      },
+      
+      // Tier III Buildings (require Garrison)
+      stronghold: {
+        name: 'Stronghold',
+        plot: [[2,0],[3,0],[4,0],[5,0],[0,-1],[1,-1],[2,-1],[3,-1],[4,-1],[5,-1],[6,-1],[7,-1],[0,-2],[1,-2],[2,-2],[3,-2],[4,-2],[5,-2],[6,-2],[7,-2],[0,-3],[1,-3],[2,-3],[3,-3],[4,-3],[5,-3],[6,-3],[7,-3],[0,-4],[1,-4],[2,-4],[3,-4],[4,-4],[5,-4],[6,-4],[7,-4],[0,-5],[1,-5],[2,-5],[3,-5],[4,-5],[5,-5],[6,-5],[7,-5],[1,-6],[2,-6],[3,-6],[4,-6],[5,-6],[6,-6],[7,-6],[1,-7],[2,-7],[3,-7],[4,-7],[5,-7],[6,-7],[7,-7]], // Large irregular
+        requiredTiles: [TERRAIN.EMPTY, TERRAIN.BRUSH],
+        clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
+        blockedTiles: [TERRAIN.WATER, TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, TERRAIN.ROCKS],
+        materials: { wood: 200, stone: 300 }
+      },
+      wall: {
+        name: 'Wall',
+        plot: [[0,0]], // 1x1
+        requiredTiles: [TERRAIN.EMPTY],
+        clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
+        blockedTiles: [TERRAIN.WATER, TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, TERRAIN.ROCKS],
+        materials: { wood: 30, stone: 40 }
+      },
+      gate: {
+        name: 'Gate',
+        plot: [[0,0]], // 1x1
+        requiredTiles: [TERRAIN.EMPTY],
+        clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
+        blockedTiles: [TERRAIN.WATER, TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, TERRAIN.ROCKS],
+        materials: { wood: 50, stone: 60 }
+      },
+      guardtower: {
+        name: 'Guard Tower',
+        plot: [[0,0],[1,0],[0,-1],[1,-1]], // 2x2
+        requiredTiles: [TERRAIN.EMPTY],
+        clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
+        blockedTiles: [TERRAIN.WATER, TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, TERRAIN.ROCKS],
+        materials: { wood: 100, stone: 120 }
       }
     };
   }

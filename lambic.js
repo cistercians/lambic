@@ -3011,6 +3011,134 @@ Player.onConnect = function(socket, name) {
             socket.write(JSON.stringify({ msg: 'addToChat', message: `To ${data.recip}: <i>${data.message}</i>` }));
           }
         }
+      } else if (data.msg === 'requestBuildMenu') {
+        const player = Player.list[socket.id];
+        if (player && player.type === 'player') {
+          // Define all buildings with tier, costs, and dependency logic
+          // Tier I - all available from start (except Villa - no assets)
+          const tier1Buildings = [
+            {type: 'farm', name: 'Farm', wood: 50, stone: 25, tier: 1},
+            {type: 'lumbermill', name: 'Lumbermill', wood: 75, stone: 40, tier: 1},
+            {type: 'mine', name: 'Mine', wood: 60, stone: 80, tier: 1},
+            {type: 'hut', name: 'Hut', wood: 25, stone: 10, tier: 1},
+            {type: 'cottage', name: 'Cottage', wood: 40, stone: 20, tier: 1},
+            {type: 'tavern', name: 'Tavern', wood: 125, stone: 0, tier: 1},
+            {type: 'tower', name: 'Tower', wood: 30, stone: 50, tier: 1},
+            {type: 'forge', name: 'Forge', wood: 50, stone: 100, tier: 1},
+            {type: 'fort', name: 'Fort', wood: 120, stone: 150, tier: 1},
+            {type: 'outpost', name: 'Outpost', wood: 60, stone: 80, tier: 1},
+            {type: 'monastery', name: 'Monastery', wood: 200, stone: 300, tier: 1}
+          ];
+          
+          // Check player's built buildings for tier unlocks
+          let hasTavern = false;
+          let hasForge = false;
+          let hasGarrison = false;
+          
+          for (const id in Building.list) {
+            const building = Building.list[id];
+            if (building.owner === player.id && building.built) {
+              if (building.type === 'tavern') hasTavern = true;
+              if (building.type === 'forge') hasForge = true;
+              if (building.type === 'garrison') hasGarrison = true;
+            }
+          }
+          
+          // Tier II - requires specific Tier I buildings
+          const tier2Buildings = [];
+          if (hasTavern) {
+            tier2Buildings.push({type: 'dock', name: 'Dock', wood: 80, stone: 40, tier: 2});
+            tier2Buildings.push({type: 'stable', name: 'Stable', wood: 100, stone: 50, tier: 2});
+            tier2Buildings.push({type: 'market', name: 'Market', wood: 150, stone: 75, tier: 2});
+          }
+          if (hasForge) {
+            tier2Buildings.push({type: 'garrison', name: 'Garrison', wood: 150, stone: 100, tier: 2});
+          }
+          
+          // Tier III - requires Garrison
+          const tier3Buildings = [];
+          if (hasGarrison) {
+            tier3Buildings.push({type: 'stronghold', name: 'Stronghold', wood: 200, stone: 300, tier: 3});
+            tier3Buildings.push({type: 'wall', name: 'Wall', wood: 30, stone: 40, tier: 3});
+            tier3Buildings.push({type: 'gate', name: 'Gate', wood: 50, stone: 60, tier: 3});
+            tier3Buildings.push({type: 'guardtower', name: 'Guard Tower', wood: 100, stone: 120, tier: 3});
+          }
+          
+          // Combine all available buildings
+          const allBuildings = [...tier1Buildings, ...tier2Buildings, ...tier3Buildings];
+          
+          // Get player resources
+          const playerWood = player.inventory.wood || 0;
+          const playerStone = player.inventory.stone || 0;
+          
+          // Mark each building with unlocked status
+          const buildingsData = allBuildings.map(b => ({
+            ...b,
+            unlocked: true // All buildings in their respective tiers are unlocked
+          }));
+          
+          // Send response
+          socket.write(JSON.stringify({
+            msg: 'buildMenuData',
+            buildings: buildingsData,
+            playerWood: playerWood,
+            playerStone: playerStone
+          }));
+        }
+      } else if (data.msg === 'startBuildPreview') {
+        const player = Player.list[socket.id];
+        if (player && player.type === 'player' && data.buildingType) {
+          const loc = getLoc(player.x, player.y);
+          const z = player.z;
+          const c = loc[0];
+          const r = loc[1];
+          
+          // Use BuildingPreview if available
+          if (global.buildingPreview) {
+            const validation = global.buildingPreview.validateBuildingPlacement(data.buildingType, c, r, z);
+            
+            socket.write(JSON.stringify({
+              msg: 'buildPreviewData',
+              buildingType: data.buildingType,
+              valid: validation.tiles || [],
+              clearable: validation.clearableTiles || [],
+              blocked: validation.blockedTiles || []
+            }));
+          }
+        }
+      } else if (data.msg === 'requestBuildValidation') {
+        const player = Player.list[socket.id];
+        if (player && player.type === 'player' && data.buildingType && data.tileX !== undefined && data.tileY !== undefined) {
+          const z = player.z;
+          
+          if (global.buildingPreview) {
+            const validation = global.buildingPreview.validateBuildingPlacement(data.buildingType, data.tileX, data.tileY, z);
+            
+            socket.write(JSON.stringify({
+              msg: 'buildValidationData',
+              buildingType: data.buildingType,
+              tileX: data.tileX,
+              tileY: data.tileY,
+              valid: validation.tiles || [],
+              clearable: validation.clearableTiles || [],
+              blocked: validation.blockedTiles || []
+            }));
+          }
+        }
+      } else if (data.msg === 'buildAt') {
+        // Build at specific tile coordinates
+        const player = Player.list[socket.id];
+        if (player && player.type === 'player' && data.buildingType && data.tileX !== undefined && data.tileY !== undefined) {
+          // Execute build command at the specified tile coordinates
+          const buildCmd = 'build ' + data.buildingType;
+          EvalCmd({
+            id: socket.id,
+            cmd: buildCmd,
+            world: world,
+            overrideC: data.tileX,
+            overrideR: data.tileY
+          });
+        }
       } else if (data.msg === 'requestWorldMap') {
         const player = Player.list[socket.id];
         if (player) {

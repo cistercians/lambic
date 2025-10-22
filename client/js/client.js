@@ -180,6 +180,18 @@ socket.onmessage = function(event){
       worldmapPopup.style.display = 'block';
     }
     renderWorldMap(data.terrain, data.mapSize, data.playerX, data.playerY, data.tileSize);
+  } else if(data.msg == 'buildMenuData'){
+    // Show build menu and render building tiles
+    if(buildMenuPopup){
+      buildMenuPopup.style.display = 'block';
+    }
+    renderBuildMenu(data.buildings, data.playerWood, data.playerStone);
+      } else if(data.msg == 'buildPreviewData'){
+        // Preview data received - preview is now active and will follow cursor
+        buildPreviewData = data;
+      } else if(data.msg == 'buildValidationData'){
+        // Validation data received
+        buildPreviewData = data;
   } else if(data.msg == 'gearUpdate'){
     // Update client-side gear, inventory, and class data
     if(Player.list[selfId]){
@@ -1020,6 +1032,19 @@ var worldmapPopup = document.getElementById('worldmap-popup');
 var worldmapClose = document.getElementById('worldmap-close');
 var worldmapCanvas = document.getElementById('worldmap-canvas');
 var worldmapCtx = worldmapCanvas ? worldmapCanvas.getContext('2d') : null;
+
+// Build Menu variables
+var buildMenuPopup = document.getElementById('build-menu-popup');
+var buildMenuClose = document.getElementById('build-menu-close');
+var buildMenuContent = document.getElementById('build-menu-content');
+var buildPreviewMode = false;
+var buildPreviewType = null;
+var buildPreviewData = null;
+var buildPreviewValidation = null;
+
+// Mouse position tracking
+var mousePos = { x: 0, y: 0 };
+
 var marketItemSelect = document.getElementById('market-item-select');
 var marketAmount = document.getElementById('market-amount');
 var marketPrice = document.getElementById('market-price');
@@ -1156,6 +1181,19 @@ document.addEventListener('click', function(e){
 if(worldmapClose){
   worldmapClose.onclick = function(){
     worldmapPopup.style.display = 'none';
+  };
+}
+
+// Build Menu close button
+if(buildMenuClose){
+  buildMenuClose.onclick = function(){
+    buildMenuPopup.style.display = 'none';
+    // Cancel preview mode if active
+    if(buildPreviewMode){
+      buildPreviewMode = false;
+      buildPreviewType = null;
+      buildPreviewData = null;
+    }
   };
 }
 
@@ -1974,6 +2012,273 @@ function renderWorldMap(terrainData, mapSize, playerX, playerY, playerTileSize) 
   worldmapCtx.moveTo(centerX + markerSize / 2, centerY - markerSize / 2);
   worldmapCtx.lineTo(centerX - markerSize / 2, centerY + markerSize / 2);
   worldmapCtx.stroke();
+}
+
+// Build Menu rendering function
+function renderBuildMenu(buildings, playerWood, playerStone) {
+  if (!buildMenuContent) return;
+  
+  // Clear existing content
+  buildMenuContent.innerHTML = '';
+  
+  // Organize buildings by tier
+  var tier1 = [];
+  var tier2 = [];
+  var tier3 = [];
+  
+  for (var i = 0; i < buildings.length; i++) {
+    var building = buildings[i];
+    if (building.tier === 1) {
+      tier1.push(building);
+    } else if (building.tier === 2) {
+      tier2.push(building);
+    } else if (building.tier === 3) {
+      tier3.push(building);
+    }
+  }
+  
+  // Helper function to create building tile
+  function createBuildingTile(building) {
+    var tile = document.createElement('div');
+    tile.className = 'building-tile';
+    
+    // Check if player can afford
+    var canAfford = (playerWood >= building.wood) && (playerStone >= building.stone);
+    
+    if (!building.unlocked || !canAfford) {
+      tile.classList.add('unaffordable');
+    }
+    
+    // Building name
+    var nameDiv = document.createElement('div');
+    nameDiv.className = 'building-tile-name';
+    nameDiv.textContent = building.name;
+    tile.appendChild(nameDiv);
+    
+    // Building costs
+    var costsDiv = document.createElement('div');
+    costsDiv.className = 'building-tile-costs';
+    
+    // Wood cost
+    var woodCost = document.createElement('div');
+    woodCost.className = 'building-cost-item ' + (playerWood >= building.wood ? 'sufficient' : 'insufficient');
+    woodCost.innerHTML = '<span>🪵 Wood:</span><span>' + building.wood + '</span>';
+    costsDiv.appendChild(woodCost);
+    
+    // Stone cost
+    var stoneCost = document.createElement('div');
+    stoneCost.className = 'building-cost-item ' + (playerStone >= building.stone ? 'sufficient' : 'insufficient');
+    stoneCost.innerHTML = '<span>🪨 Stone:</span><span>' + building.stone + '</span>';
+    costsDiv.appendChild(stoneCost);
+    
+    tile.appendChild(costsDiv);
+    
+    // Command
+    var commandDiv = document.createElement('div');
+    commandDiv.className = 'building-tile-command';
+    commandDiv.textContent = '/build ' + building.type;
+    tile.appendChild(commandDiv);
+    
+    // Click handler - only if unlocked and affordable
+    if (building.unlocked && canAfford) {
+      tile.onclick = (function(bType) {
+        return function() {
+          // Enter preview mode
+          buildPreviewMode = true;
+          buildPreviewType = bType;
+          buildMenuPopup.style.display = 'none';
+          
+          // Request preview data from server
+          socket.send(JSON.stringify({
+            msg: 'startBuildPreview',
+            buildingType: bType
+          }));
+        };
+      })(building.type);
+    }
+    
+    return tile;
+  }
+  
+  // Render Tier I
+  if (tier1.length > 0) {
+    var tier1Header = document.createElement('div');
+    tier1Header.className = 'build-tier-header';
+    tier1Header.textContent = 'TIER I';
+    buildMenuContent.appendChild(tier1Header);
+    
+    for (var i = 0; i < tier1.length; i++) {
+      buildMenuContent.appendChild(createBuildingTile(tier1[i]));
+    }
+  }
+  
+  // Render Tier II
+  if (tier2.length > 0) {
+    var tier2Header = document.createElement('div');
+    tier2Header.className = 'build-tier-header';
+    tier2Header.textContent = 'TIER II';
+    buildMenuContent.appendChild(tier2Header);
+    
+    for (var i = 0; i < tier2.length; i++) {
+      buildMenuContent.appendChild(createBuildingTile(tier2[i]));
+    }
+  }
+  
+  // Render Tier III
+  if (tier3.length > 0) {
+    var tier3Header = document.createElement('div');
+    tier3Header.className = 'build-tier-header';
+    tier3Header.textContent = 'TIER III';
+    buildMenuContent.appendChild(tier3Header);
+    
+    for (var i = 0; i < tier3.length; i++) {
+      buildMenuContent.appendChild(createBuildingTile(tier3[i]));
+    }
+  }
+}
+
+// Building Preview Rendering Function
+function renderBuildingPreview() {
+  if (!buildPreviewMode || !buildPreviewType || !selfId || !Player.list[selfId]) {
+    return;
+  }
+  
+  // Get mouse position relative to canvas
+  var canvas = document.getElementById('ctx');
+  if (!canvas) return;
+  
+  var rect = canvas.getBoundingClientRect();
+  var mouseX = mousePos.x - rect.left;
+  var mouseY = mousePos.y - rect.top;
+  
+  // Convert to world coordinates using viewport offset
+  var worldX = mouseX - viewport.offset[0];
+  var worldY = mouseY - viewport.offset[1];
+  
+  // Snap to tile grid - this will be the player's standing position (plot origin [0,0])
+  var playerTileX = Math.floor(worldX / tileSize);
+  var playerTileY = Math.floor(worldY / tileSize);
+  
+  // Get building definition for plot
+  var buildingDef = getBuildingDefinition(buildPreviewType);
+  if (!buildingDef) return;
+  
+  // Check if all tiles are valid
+  var allValid = true;
+  var hasAnyInvalid = false;
+  
+  // Draw preview tiles
+  ctx.save();
+  ctx.globalAlpha = 0.6;
+  
+  for (var i = 0; i < buildingDef.plot.length; i++) {
+    var plotTile = buildingDef.plot[i];
+    // Add offset from player position (which is the origin [0,0] of the building plot)
+    var previewTileX = playerTileX + plotTile[0];
+    var previewTileY = playerTileY + plotTile[1];
+    
+    // Convert to screen coordinates using viewport offset
+    var screenX = previewTileX * tileSize + viewport.offset[0];
+    var screenY = previewTileY * tileSize + viewport.offset[1];
+    
+    // Determine tile color based on validation
+    var tileColor = '#ff6666'; // Default red for blocked
+    var isValid = isValidTileForBuilding(previewTileX, previewTileY);
+    var isClearable = isClearableTile(previewTileX, previewTileY);
+    
+    if (isValid || isClearable) {
+      tileColor = '#66ff66'; // Green for valid/clearable
+    } else {
+      tileColor = '#ff6666'; // Red for blocked
+      hasAnyInvalid = true;
+      allValid = false;
+    }
+    
+    // Draw preview tile
+    ctx.fillStyle = tileColor;
+    ctx.fillRect(screenX, screenY, tileSize, tileSize);
+  }
+  
+  ctx.restore();
+  
+  // Store current validation state for click handler
+  // tileX and tileY represent where the player would stand (the origin of the building plot)
+  buildPreviewData = {
+    tileX: playerTileX,
+    tileY: playerTileY,
+    valid: allValid
+  };
+}
+
+// Helper functions for tile validation
+function isValidTileForBuilding(tileX, tileY) {
+  // Simplified validation - check if tile is empty or grass
+  if (world[0] && world[0][tileY] && world[0][tileY][tileX] !== undefined) {
+    var terrainValue = world[0][tileY][tileX];
+    var terrainType = Math.floor(terrainValue);
+    return terrainType === 7; // Empty/Grass
+  }
+  return false;
+}
+
+function isClearableTile(tileX, tileY) {
+  // Check if tile can be cleared (brush, light forest)
+  if (world[0] && world[0][tileY] && world[0][tileY][tileX] !== undefined) {
+    var terrainValue = world[0][tileY][tileX];
+    var terrainType = Math.floor(terrainValue);
+    return terrainType === 3 || terrainType === 2; // Brush or Light Forest
+  }
+  return false;
+}
+
+function getBuildingDefinition(buildingType) {
+  // Building plot definitions (simplified)
+  var buildingPlots = {
+    'farm': [[0,0],[1,0],[2,0],[0,-1],[1,-1],[2,-1],[0,-2],[1,-2],[2,-2]], // 3x3
+    'hut': [[0,0]], // 1x1
+    'cottage': [[0,0],[1,0],[0,-1],[1,-1]], // 2x2
+    'tavern': [[1,0],[2,0],[3,0],[0,-1],[1,-1],[2,-1],[3,-1],[4,-1],[0,-2],[1,-2],[2,-2],[3,-2],[4,-2],[0,-3],[1,-3],[2,-3],[3,-3]], // 5x4 irregular
+    'tower': [[0,0]], // 1x1
+    'forge': [[0,0],[1,0],[0,-1],[1,-1]], // 2x2
+    'fort': [[0,0],[1,0],[2,0],[0,-1],[1,-1],[2,-1],[0,-2],[1,-2],[2,-2]], // 3x3
+    'outpost': [[0,0],[1,0],[0,-1],[1,-1]], // 2x2
+    'monastery': [[0,0],[1,0],[2,0],[3,0],[0,-1],[1,-1],[2,-1],[3,-1],[0,-2],[1,-2],[2,-2],[3,-2],[0,-3],[1,-3],[2,-3],[3,-3]], // 4x4
+    'lumbermill': [[0,0],[1,0]], // 2x1
+    'mine': [[0,0],[1,0],[0,-1],[1,-1]], // 2x2
+    'dock': [[0,0],[1,0],[2,0],[0,-1],[1,-1],[2,-1],[0,-2],[1,-2],[2,-2],[0,-3],[1,-3],[2,-3]], // 3x4
+    'stable': [[0,0],[1,0],[2,0],[0,-1],[1,-1],[2,-1],[0,-2],[1,-2],[2,-2]], // 3x3
+    'market': [[0,0],[1,0],[2,0],[0,-1],[1,-1],[2,-1],[0,-2],[1,-2],[2,-2]], // 3x3
+    'garrison': [[0,0],[1,0],[2,0],[3,0],[0,-1],[1,-1],[2,-1],[3,-1],[0,-2],[1,-2],[2,-2],[3,-2]], // 4x3
+    'stronghold': [[2,0],[3,0],[4,0],[5,0],[0,-1],[1,-1],[2,-1],[3,-1],[4,-1],[5,-1],[6,-1],[7,-1],[0,-2],[1,-2],[2,-2],[3,-2],[4,-2],[5,-2],[6,-2],[7,-2],[0,-3],[1,-3],[2,-3],[3,-3],[4,-3],[5,-3],[6,-3],[7,-3],[0,-4],[1,-4],[2,-4],[3,-4],[4,-4],[5,-4],[6,-4],[7,-4],[0,-5],[1,-5],[2,-5],[3,-5],[4,-5],[5,-5],[6,-5],[7,-5],[1,-6],[2,-6],[3,-6],[4,-6],[5,-6],[6,-6],[7,-6],[1,-7],[2,-7],[3,-7],[4,-7],[5,-7],[6,-7],[7,-7]], // Large irregular
+    'wall': [[0,0]], // 1x1
+    'gate': [[0,0]], // 1x1
+    'guardtower': [[0,0],[1,0],[0,-1],[1,-1]] // 2x2
+  };
+  
+  return {
+    plot: buildingPlots[buildingType] || [[0,0]]
+  };
+}
+
+function isValidBuildingPlacement(tileX, tileY) {
+  if (!buildPreviewType) return false;
+  
+  var buildingDef = getBuildingDefinition(buildPreviewType);
+  if (!buildingDef) return false;
+  
+  // Check all tiles in the building plot
+  for (var i = 0; i < buildingDef.plot.length; i++) {
+    var plotTile = buildingDef.plot[i];
+    var checkTileX = tileX + plotTile[0];
+    var checkTileY = tileY + plotTile[1];
+    
+    // Check if tile is valid or clearable
+    if (!isValidTileForBuilding(checkTileX, checkTileY) && !isClearableTile(checkTileX, checkTileY)) {
+      return false;
+    }
+  }
+  
+  return true;
 }
 
 // Market UI Functions
@@ -4511,6 +4816,11 @@ setInterval(function(){
     viewport.update(godModeCamera.cameraX, godModeCamera.cameraY);
   } else {
   viewport.update(Player.list[selfId].x,Player.list[selfId].y);
+  }
+  
+  // Render building preview that follows mouse cursor
+  if(buildPreviewMode && buildPreviewType){
+    renderBuildingPreview();
   }
   }
   
@@ -8521,7 +8831,21 @@ document.onkeydown = function(event){
         // Request worldmap data from server (only show popup if player has worldmap)
         socket.send(JSON.stringify({msg:'requestWorldMap'}));
       }
-    } else if(event.keyCode == 78){ // n
+  } else if(event.keyCode == 85){ // u - Build Menu
+    // If build menu is open, close it. Otherwise request data from server
+    if(buildMenuPopup && buildMenuPopup.style.display === 'block'){
+      buildMenuPopup.style.display = 'none';
+    } else {
+      // Request build menu data from server
+      socket.send(JSON.stringify({msg:'requestBuildMenu'}));
+    }
+  } else if(event.keyCode == 27){ // Escape - Cancel preview mode
+    if(buildPreviewMode){
+      buildPreviewMode = false;
+      buildPreviewType = null;
+      buildPreviewData = null;
+    }
+  } else if(event.keyCode == 78){ // n
       socket.send(JSON.stringify({msg:'keyPress',inputId:'n',state:true}));
     } else if(event.keyCode == 49){ // 1
       socket.send(JSON.stringify({msg:'keyPress',inputId:'1',state:true}));
@@ -8643,6 +8967,10 @@ document.onkeyup = function(event){
 }
 
 document.onmousemove = function(event){
+  // Track mouse position for building preview
+  mousePos.x = event.clientX;
+  mousePos.y = event.clientY;
+  
   if(selfId){
     var x = -250 + event.clientX - 8;
     var y = -250 + event.clientY - 8;
@@ -8651,6 +8979,50 @@ document.onmousemove = function(event){
   }
 }
 
-document.oncontextmenu = function(event){
-  //event.preventDefault();
-}
+// Mouse click handlers for building placement
+document.onclick = function(event) {
+  if (buildPreviewMode && buildPreviewType && buildPreviewData) {
+    // Check if click is on canvas
+    var canvas = document.getElementById('ctx');
+    if (canvas) {
+      var rect = canvas.getBoundingClientRect();
+      var clickX = event.clientX - rect.left;
+      var clickY = event.clientY - rect.top;
+      
+      // Only handle clicks within canvas bounds
+      if (clickX >= 0 && clickX <= canvas.width && clickY >= 0 && clickY <= canvas.height) {
+        // Check if placement is valid
+        if (buildPreviewData.valid) {
+          // Execute build command with tile coordinates
+          console.log('Sending buildAt:', buildPreviewType, 'at', buildPreviewData.tileX, buildPreviewData.tileY);
+          socket.send(JSON.stringify({
+            msg: 'buildAt',
+            buildingType: buildPreviewType,
+            tileX: buildPreviewData.tileX,
+            tileY: buildPreviewData.tileY
+          }));
+          
+          // Exit preview mode
+          buildPreviewMode = false;
+          buildPreviewType = null;
+          buildPreviewData = null;
+        } else {
+          // Invalid placement - exit preview mode
+          buildPreviewMode = false;
+          buildPreviewType = null;
+          buildPreviewData = null;
+        }
+      }
+    }
+  }
+};
+
+document.oncontextmenu = function(event) {
+  if (buildPreviewMode) {
+    // Right click cancels preview mode
+    event.preventDefault();
+    buildPreviewMode = false;
+    buildPreviewType = null;
+    buildPreviewData = null;
+  }
+};
