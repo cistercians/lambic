@@ -999,6 +999,8 @@ var inventoryButton = document.getElementById('inventory-button');
 var inventoryPopup = document.getElementById('inventory-popup');
 var inventoryGrid = document.getElementById('inventory-grid');
 var inventoryClose = document.getElementById('inventory-close');
+var characterButton = document.getElementById('character-button');
+var buildMenuButton = document.getElementById('build-menu-button');
 
 // CHARACTER UI
 var characterPopup = document.getElementById('character-popup');
@@ -1145,6 +1147,43 @@ if(inventoryButton){
 if(inventoryClose){
   inventoryClose.onclick = function(){
     inventoryPopup.style.display = 'none';
+  };
+}
+
+// Character button click handler
+if(characterButton){
+  characterButton.onclick = function(){
+    if(characterPopup.style.display === 'none' || !characterPopup.style.display){
+      characterPopup.style.display = 'block';
+      updateCharacterDisplay();
+      // Start real-time updates
+      if(!characterSheetUpdateInterval){
+        characterSheetUpdateInterval = setInterval(function(){
+          if(characterPopup.style.display === 'block'){
+            updateCharacterDisplay();
+          }
+        }, 1000);
+      }
+    } else {
+      characterPopup.style.display = 'none';
+      // Stop real-time updates
+      if(characterSheetUpdateInterval){
+        clearInterval(characterSheetUpdateInterval);
+        characterSheetUpdateInterval = null;
+      }
+    }
+  };
+}
+
+// Build menu button click handler
+if(buildMenuButton){
+  buildMenuButton.onclick = function(){
+    if(buildMenuPopup && buildMenuPopup.style.display === 'block'){
+      buildMenuPopup.style.display = 'none';
+    } else {
+      // Request build menu data from server
+      socket.send(JSON.stringify({msg:'requestBuildMenu'}));
+    }
   };
 }
 
@@ -8844,8 +8883,8 @@ document.onkeydown = function(event){
       buildPreviewMode = false;
       buildPreviewType = null;
       buildPreviewData = null;
-    }
-  } else if(event.keyCode == 78){ // n
+      }
+    } else if(event.keyCode == 78){ // n
       socket.send(JSON.stringify({msg:'keyPress',inputId:'n',state:true}));
     } else if(event.keyCode == 49){ // 1
       socket.send(JSON.stringify({msg:'keyPress',inputId:'1',state:true}));

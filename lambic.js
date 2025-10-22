@@ -3397,6 +3397,25 @@ Player.onConnect = function(socket, name) {
     }
   }));
 
+  // Send welcome message
+  const welcomeMessage = `
+    <div style="text-align: center; padding: 10px; color: #FFFFFF;">
+      <p style="margin: 3px 0; color: #888888;">════════════════════════════════</p>
+      <p style="margin: 5px 0; color: #FFD700; font-size: 18px; font-weight: bold;">♜ STRONGHODL ♜</p>
+      <p style="margin: 3px 0; color: #CCCCCC; font-size: 12px;">A SOLIS ORTV VSQVE AD OCCASVM</p>
+      <p style="margin: 5px 0; color: #FFFFFF;">Server: <span style="color: #4CAF50; font-weight: bold;">${global.serverName}</span></p>
+      <p style="margin: 3px 0; color: #888888;">════════════════════════════════</p>
+      <p style="margin: 2px 0; color: #CCCCCC;"><span style="color: #FFD700; font-weight: bold;">Hotkeys:</span> <b>B</b> Inventory • <b>C</b> Character • <b>U</b> Build • <b>M</b> Map</p>
+      <p style="margin: 2px 0; color: #CCCCCC;"><span style="color: #FFD700; font-weight: bold;">Commands:</span> <b>/help</b> • <b>/build</b> • <b>/craft</b></p>
+      <p style="margin: 3px 0; color: #888888;">════════════════════════════════</p>
+    </div>
+  `;
+  
+  socket.write(JSON.stringify({
+    msg: 'addToChat',
+    message: welcomeMessage
+  }));
+
   console.log(`init player id: ${player.id}`);
 };
 
@@ -4284,12 +4303,40 @@ app.get('/', function(req, res) {
 // Serve static files
 app.use('/client', express.static(__dirname + '/client'));
 
+// Generate and store server name
+function generateServerName() {
+  try {
+    const surnames = fsSync.readFileSync('./surnames.txt', 'utf-8').split('\n').filter(name => name.trim());
+    // Filter names between 4-5 letters
+    const validNames = surnames.filter(name => {
+      const trimmed = name.trim();
+      return trimmed.length >= 4 && trimmed.length <= 5;
+    });
+    
+    if (validNames.length > 0) {
+      const randomName = validNames[Math.floor(Math.random() * validNames.length)].trim();
+      return randomName;
+    }
+    return 'Lambic'; // Fallback name
+  } catch (error) {
+    console.error('Error reading surnames.txt:', error);
+    return 'Lambic';
+  }
+}
+
+// Initialize server name (generates fresh on each startup)
+let serverName = generateServerName();
+gameState.serverName = serverName;
+global.serverName = serverName;
+
 serv.listen(2000);
 console.log("###################################");
 console.log("");
 console.log("     ♜  S T R O N G H O D L ♜");
 console.log("");
 console.log("   A SOLIS ORTV VSQVE AD OCCASVM");
+console.log("");
+console.log(`      Server Name: ${serverName}`);
 console.log("");
 console.log("###################################");
 
