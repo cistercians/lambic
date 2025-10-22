@@ -5270,11 +5270,11 @@ SerfM = function(param){
                 if(House.list[b.owner]){
                   House.list[b.owner].stores.grain += buildingShare;
                   console.log(House.list[b.owner].name + ' +' + buildingShare + ' Grain (' + self.name + ' kept ' + serfWage + ' as wage)');
-                } else if(Player.list[b.owner].house){
+                } else if(Player.list[b.owner] && Player.list[b.owner].house){
                   var h = Player.list[b.owner].house;
                   House.list[h].stores.grain += buildingShare;
                   console.log(House.list[h].name + ' +' + buildingShare + ' Grain (' + self.name + ' kept ' + serfWage + ' as wage)');
-                } else {
+                } else if(Player.list[b.owner]){
                   Player.list[b.owner].stores.grain += buildingShare;
                   console.log(Player.list[b.owner].name + ' +' + buildingShare + ' Grain (' + self.name + ' kept ' + serfWage + ' as wage)');
                 }
@@ -5951,11 +5951,11 @@ SerfM = function(param){
               if(House.list[b.owner]){
                 House.list[b.owner].stores.grain += grainDeposited;
                 console.log(self.name + ' dropped off 2 Grain.');
-              } else if(Player.list[b.owner].house){
+              } else if(Player.list[b.owner] && Player.list[b.owner].house){
                 var h = Player.list[b.owner].house;
                 House.list[h].stores.grain += grainDeposited;
                 console.log(self.name + ' dropped off 2 Grain.');
-              } else {
+              } else if(Player.list[b.owner]){
                 Player.list[b.owner].stores.grain += grainDeposited;
                 console.log(self.name + ' dropped off 2 Grain.');
               }
@@ -6006,11 +6006,11 @@ SerfM = function(param){
                 if(House.list[b.owner]){
                   House.list[b.owner].stores.ironore += 2;
                   console.log(self.name + ' dropped off 2 Iron Ore.');
-                } else if(Player.list[b.owner].house){
+                } else if(Player.list[b.owner] && Player.list[b.owner].house){
                   var h = Player.list[b.owner].house;
                   House.list[h].stores.ironore += 2;
                   console.log(self.name + ' dropped off 2 Iron Ore.');
-                } else {
+                } else if(Player.list[b.owner]){
                   Player.list[b.owner].stores.stone += 2;
                   console.log(self.name + ' dropped off 2 Iron Ore.');
                 }
@@ -6019,11 +6019,11 @@ SerfM = function(param){
                 if(House.list[b.owner]){
                   House.list[b.owner].stores.silverore ++;
                   console.log(self.name + ' dropped off 1 Silver Ore.');
-                } else if(Player.list[b.owner].house){
+                } else if(Player.list[b.owner] && Player.list[b.owner].house){
                   var h = Player.list[b.owner].house;
                   House.list[h].stores.silverore++;
                   console.log(self.name + ' dropped off 1 Silver Ore.');
-                } else {
+                } else if(Player.list[b.owner]){
                   Player.list[b.owner].stores.silverore++;
                   console.log(self.name + ' dropped off 1 Silver Ore.');
                 }
@@ -6032,11 +6032,11 @@ SerfM = function(param){
                 if(House.list[b.owner]){
                   House.list[b.owner].stores.goldore ++;
                   console.log(self.name + ' dropped off 1 Gold Ore.');
-                } else if(Player.list[b.owner].house){
+                } else if(Player.list[b.owner] && Player.list[b.owner].house){
                   var h = Player.list[b.owner].house;
                   House.list[h].stores.goldore++;
                   console.log(self.name + ' dropped off 1 Gold Ore.');
-                } else {
+                } else if(Player.list[b.owner]){
                   Player.list[b.owner].stores.goldore++;
                   console.log(self.name + ' dropped off 1 Gold Ore.');
                 }
@@ -6045,11 +6045,11 @@ SerfM = function(param){
                 if(House.list[b.owner]){
                   House.list[b.owner].stores.ironore ++;
                   console.log(self.name + ' dropped off 1 Diamond.');
-                } else if(Player.list[b.owner].house){
+                } else if(Player.list[b.owner] && Player.list[b.owner].house){
                   var h = Player.list[b.owner].house;
                   House.list[h].stores.diamond++;
                   console.log(self.name + ' dropped off 1 Diamond.');
-                } else {
+                } else if(Player.list[b.owner]){
                   Player.list[b.owner].stores.diamond++;
                   console.log(self.name + ' dropped off 1 Diamond.');
                 }
@@ -6063,11 +6063,11 @@ SerfM = function(param){
                 if(House.list[b.owner]){
                   House.list[b.owner].stores.stone += stoneDeposited;
                   console.log(self.name + ' dropped off 2 Stone.');
-                } else if(Player.list[b.owner].house){
+                } else if(Player.list[b.owner] && Player.list[b.owner].house){
                   var h = Player.list[b.owner].house;
                   House.list[h].stores.stone += stoneDeposited;
                   console.log(self.name + ' dropped off 2 Stone.');
-                } else {
+                } else if(Player.list[b.owner]){
                   Player.list[b.owner].stores.stone += stoneDeposited;
                   console.log(self.name + ' dropped off 2 Stone.');
                 }
@@ -7115,7 +7115,7 @@ SerfF = function(param){
               if(Player.list[b.owner].house){
                 var h = Player.list[b.owner].house;
                 House.list[h].stores.grain += grainDeposited;
-              } else {
+              } else if(Player.list[b.owner]){
                 Player.list[b.owner].stores.grain += grainDeposited
               }
               // Track daily deposits
