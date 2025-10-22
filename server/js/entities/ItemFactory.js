@@ -132,8 +132,6 @@ class ItemFactory {
       return null;
     }
     
-    console.log(`ItemFactory creating ${type} at [${param.x}, ${param.y}] z=${param.z} qty=${param.qty}`);
-    
     // Capitalize first letter for type (client expects 'Wood' not 'wood')
     const capitalizedType = type.charAt(0).toUpperCase() + type.slice(1);
     
@@ -188,16 +186,10 @@ class ItemFactory {
     };
     
     // Register with Item.list and initPack
-    console.log(`  Registering item ${item.id} in Item.list (before: ${!!global.Item.list[item.id]})`);
     global.Item.list[item.id] = item;
-    console.log(`  Registration complete (after: ${!!global.Item.list[item.id]})`);
     
     if (global.initPack && global.initPack.item) {
-      console.log(`  Adding to initPack (initPack.item length before: ${global.initPack.item.length})`);
       global.initPack.item.push(item.getInitPack());
-      console.log(`  Added to initPack (initPack.item length after: ${global.initPack.item.length})`);
-    } else {
-      console.log(`  ⚠️ initPack not available: initPack=${!!global.initPack}, initPack.item=${!!(global.initPack && global.initPack.item)}`);
     }
     
     return item;

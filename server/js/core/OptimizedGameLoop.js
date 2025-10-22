@@ -58,6 +58,13 @@ class OptimizedGameLoop {
     const cappedDeltaTime = Math.min(deltaTime, this.targetFrameTime * 2);
     this.accumulator += cappedDeltaTime;
     
+    // CRITICAL FIX: Cap accumulator to prevent massive catch-up when tab was inactive
+    // Max 5 frames worth of accumulation = max 5 updates per game loop iteration
+    const maxAccumulator = this.targetFrameTime * 5; // ~83ms at 60fps
+    if(this.accumulator > maxAccumulator){
+      this.accumulator = maxAccumulator;
+    }
+    
     // Update performance stats
     this.performanceOptimizer.updateFPS();
     this.updateFrameTimeHistory(deltaTime);

@@ -3396,6 +3396,11 @@ Character = function(param){
   }
 
   self.getPath = function(z,c,r){
+    // Check pathfinding cooldown to prevent spam
+    if(self.pathCooldown && self.pathCooldown > 0){
+      return; // Skip pathfinding while on cooldown
+    }
+    
     self.pathEnd = {z:z,loc:[c,r]};
     self.pathLocked = false; // Clear path lock when starting new pathfinding
     var start = getLoc(self.x,self.y);
@@ -3952,8 +3957,7 @@ Character = function(param){
             self.getPath(self.pathEnd.z, self.pathEnd.loc[0], self.pathEnd.loc[1]);
             return;
           } else {
-            // Give up after 3 attempts
-            console.log((self.name || 'Entity') + ' path failed repeatedly, giving up');
+            // Give up after max attempts - add cooldown to prevent immediate retry
             self.path = null;
             self.pathCount = 0;
             // Don't clear pathEnd if going home - let home action handle retry
@@ -3962,7 +3966,6 @@ Character = function(param){
             }
             // If serf is working, clear their work spot so they get assigned a different one
             if(self.work && self.work.spot && (self.action == 'task' || self.action == 'build')){
-              console.log((self.name || 'Entity') + ' clearing work spot after path failure at [' + self.work.spot[0] + ',' + self.work.spot[1] + '], current pos: [' + getLoc(self.x, self.y) + ']');
               self.work.spot = null;
               self.action = null; // Clear action to trigger new assignment
             }
@@ -3971,6 +3974,10 @@ Character = function(param){
             self.waypointStuckCounter = 0;
             self.waypointHistory = []; // Clear oscillation history
             self.pathLocked = false; // Clear lock when giving up
+            
+            // Add pathfinding cooldown to prevent immediate retry (reduce CPU load)
+            if(!self.pathCooldown) self.pathCooldown = 0;
+            self.pathCooldown = 180; // 3 seconds at 60fps before trying again
             return;
           }
         } else if(self.pathRecalcAttempts > 0 && isWalkable(self.z, next[0], next[1])){
@@ -5975,11 +5982,11 @@ SerfM = function(param){
               if(House.list[b.owner]){
                 House.list[b.owner].stores.wood += buildingShare;
                 console.log(self.name + ' dropped off ' + buildingShare + ' Wood, kept ' + serfWage + ' as wage.');
-              } else if(Player.list[b.owner].house){
+              } else if(Player.list[b.owner] && Player.list[b.owner].house){
                 var h = Player.list[b.owner].house;
                 House.list[h].stores.wood += buildingShare;
                 console.log(self.name + ' dropped off ' + buildingShare + ' Wood, kept ' + serfWage + ' as wage.');
-              } else {
+              } else if(Player.list[b.owner]){
                 Player.list[b.owner].stores.wood += buildingShare;
                 console.log(self.name + ' dropped off ' + buildingShare + ' Wood, kept ' + serfWage + ' as wage.');
               }

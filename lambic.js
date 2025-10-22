@@ -2177,6 +2177,7 @@ const Player = function(param) {
     if (self.attackCooldown > 0) self.attackCooldown--;
     if (self.mountCooldown > 0) self.mountCooldown--;
     if (self.switchCooldown > 0) self.switchCooldown--;
+    if (self.pathCooldown > 0) self.pathCooldown--;
     
     // Passive HP/Spirit Regeneration (also implemented in Character for NPCs)
     if(!self.ghost && self.hp < self.hpMax){
@@ -2806,49 +2807,29 @@ global.buildingPreview = new BuildingPreview();
 // Helper function to find neutral taverns for player spawning
 function findNeutralTaverns() {
   const neutralTaverns = [];
-  let totalTaverns = 0;
-  let builtTaverns = 0;
-  let unownedTaverns = 0;
-  let hostileTaverns = 0;
   
   for (const id in Building.list) {
     const building = Building.list[id];
     
     // Check if it's a tavern
-    if (building.type === 'tavern') {
-      totalTaverns++;
-      
-      if (building.built) {
-        builtTaverns++;
-        
-        // Check if owner exists
-        if (building.owner) {
-          // Check if owner is a House (faction)
-          if (House.list[building.owner]) {
-            const house = House.list[building.owner];
-            // House is acceptable if it's not hostile (hostile means it attacks neutral players)
-            if (!house.hostile) {
-              console.log(`Found neutral tavern owned by House ${house.name}`);
-              neutralTaverns.push(building);
-            } else {
-              hostileTaverns++;
-              console.log(`Skipping hostile tavern owned by House ${house.name}`);
-            }
-          } else {
-            // Owner is not a House, so it's player-owned
-            // If the player doesn't exist in Player.list (disconnected), treat as friendly
-            console.log(`Found player-owned tavern (owner ${Player.list[building.owner] ? 'online' : 'offline'})`);
+    if (building.type === 'tavern' && building.built) {
+      // Check if owner exists
+      if (building.owner) {
+        // Check if owner is a House (faction)
+        if (House.list[building.owner]) {
+          const house = House.list[building.owner];
+          // House is acceptable if it's not hostile (hostile means it attacks neutral players)
+          if (!house.hostile) {
             neutralTaverns.push(building);
           }
         } else {
-          unownedTaverns++;
-          console.log(`Found unowned built tavern`);
+          // Owner is not a House, so it's player-owned
+          // If the player doesn't exist in Player.list (disconnected), treat as friendly
+          neutralTaverns.push(building);
         }
       }
     }
   }
-  
-  console.log(`Tavern search: ${totalTaverns} total, ${builtTaverns} built, ${unownedTaverns} unowned, ${hostileTaverns} hostile, ${neutralTaverns.length} neutral`);
   
   return neutralTaverns;
 }
@@ -3336,6 +3317,10 @@ Player.onDisconnect = function(socket) {
 
 Player.update = function() {
   const pack = [];
+  
+  // Frame counter for update throttling
+  if(!Player._updateFrame) Player._updateFrame = 0;
+  Player._updateFrame++;
 
   for (const i in Player.list) {
     const player = Player.list[i];
@@ -3367,7 +3352,37 @@ Player.update = function() {
       }
     }
     
-    player.update();
+    // PERFORMANCE OPTIMIZATION: Skip updates for idle/low-priority NPCs
+    var shouldUpdate = true;
+    if(player.type === 'npc'){
+      // Always update if in combat or has a path
+      if(player.action === 'combat' || player.path){
+        shouldUpdate = true;
+      }
+      // Update working NPCs every 3rd frame (they're mostly stationary)
+      else if(player.working){
+        shouldUpdate = (Player._updateFrame % 3 === 0);
+      }
+      // Update peaceful NPCs (Deer, Sheep, Boar) only every 6th frame
+      else if(player.class === 'Deer' || player.class === 'Sheep' || player.class === 'Boar'){
+        shouldUpdate = (Player._updateFrame % 6 === 0);
+      }
+      // Update serfs/trappers every 4th frame when idle
+      else if(player.class === 'Serf' || player.class === 'SerfM' || player.class === 'SerfF' || player.class === 'Trapper'){
+        shouldUpdate = (Player._updateFrame % 4 === 0);
+      }
+      // Update other NPCs (faction units) every 2nd frame when idle
+      else {
+        shouldUpdate = (Player._updateFrame % 2 === 0);
+      }
+    } else {
+      // Always update human players every frame
+      shouldUpdate = true;
+    }
+    
+    if(shouldUpdate){
+      player.update();
+    }
 
     if (player.toRemove) {
       if (player.aggroInterval) {
