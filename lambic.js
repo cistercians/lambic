@@ -1357,7 +1357,7 @@ try {
 
 const Player = function(param) {
   const self = Character(param);
-  self.type = 'player';
+  self.type = param.type || 'player';
   self.name = param.name;
   self.hasHorse = false;
   self.spriteSize = tileSize * 1.5;
@@ -1365,6 +1365,13 @@ const Player = function(param) {
   self.crowned = false;
   self.title = '';
   self.friendlyfire = false;
+  
+  // Spectator-specific setup
+  if (self.type === 'spectator') {
+    self.visible = param.visible !== undefined ? param.visible : false;
+    self.godMode = true; // Spectators have god-like view permissions
+    // Spectators don't need combat/inventory/movement logic
+  }
 
   // Input state
   self.pressingE = false;
@@ -2752,7 +2759,6 @@ const Player = function(param) {
       pressingRight: self.pressingRight,
       pressingAttack: self.pressingAttack,
       angle: self.mouseAngle,
-      working: self.working,
       chopping: self.chopping,
       mining: self.mining,
       farming: self.farming,
@@ -2834,7 +2840,9 @@ function findNeutralTaverns() {
   return neutralTaverns;
 }
 
-Player.onConnect = function(socket, name) {
+Player.onConnect = function(socket, name, playerType) {
+  playerType = playerType || 'player'; // Default to normal player
+  
   socket.write(JSON.stringify({
     msg: 'tempus',
     tempus,
@@ -3420,7 +3428,10 @@ Player.onConnect = function(socket, name) {
 };
 
 Player.getAllInitPack = function() {
-  return Object.values(Player.list).map(p => p.getInitPack());
+  // Filter out spectators - they should not be visible
+  return Object.values(Player.list)
+    .filter(p => p.type !== 'spectator')
+    .map(p => p.getInitPack());
 };
 
 Player.onDisconnect = function(socket) {
@@ -3528,7 +3539,7 @@ Player.update = function() {
     }
     
     if(shouldUpdate){
-      player.update();
+    player.update();
     }
 
     if (player.toRemove) {
@@ -3556,7 +3567,10 @@ Player.update = function() {
       if (global.spatialSystem) {
         global.spatialSystem.updateEntity(i, player);
       }
-      pack.push(player.getUpdatePack());
+      // Don't send spectators in update packs - they should be invisible
+      if(player.type !== 'spectator'){
+        pack.push(player.getUpdatePack());
+      }
     }
   }
 
@@ -4494,6 +4508,97 @@ io.on('connection', function(socket) {
         } else {
           socket.write(JSON.stringify({ msg: 'signUpResponse', success: false }));
         }
+      } else if (data.msg === 'spectate') {
+        // Spectate mode with authentication
+        isValidPassword(data, function(res) {
+          if (res) {
+            // Authentication successful - create spectator
+            socket.write(JSON.stringify({
+              msg: 'tempus',
+              tempus,
+              nightfall
+            }));
+            
+            // Create spectator player entity
+            const player = Player({
+              name: data.name,
+              id: socket.id,
+              type: 'spectator',
+              x: 0,
+              y: 0,
+              z: 0,
+              visible: false
+            });
+            
+            console.log(`${data.name} created as spectator`);
+            
+            // Reconstruct world array for spectator
+            const freshWorld = [];
+            for (let layer = 0; layer < 9; layer++) {
+              freshWorld[layer] = [];
+              for (let y = 0; y < mapSize; y++) {
+                freshWorld[layer][y] = [];
+                for (let x = 0; x < mapSize; x++) {
+                  freshWorld[layer][y][x] = global.tilemapSystem.getTile(layer, x, y);
+                }
+              }
+            }
+            
+            console.log('Sending spectateResponse to client');
+            socket.write(JSON.stringify({
+              msg: 'spectateResponse',
+              success: true,
+              world: freshWorld,
+              tileSize,
+              mapSize,
+              tempus
+            }));
+            
+            console.log('Sending faction data to client');
+            // Send faction data
+            socket.write(JSON.stringify({
+              msg: 'newFaction',
+              houseList: House.list,
+              kingdomList: Kingdom.list
+            }));
+            
+            console.log('Sending init pack to client with selfId:', player.id);
+            // Send init pack with all entities
+            socket.write(JSON.stringify({
+              msg: 'init',
+              selfId: player.id,
+              pack: {
+                player: Player.getAllInitPack(),
+                arrow: Arrow.getAllInitPack(),
+                item: Item.getAllInitPack(),
+                light: Light.getAllInitPack(),
+                building: Building.getAllInitPack()
+              }
+            }));
+            
+            console.log(`${data.name} joined as spectator.`);
+          } else {
+            console.log('Spectate failed for:', data.name);
+            socket.write(JSON.stringify({ msg: 'spectateResponse', success: false }));
+          }
+        });
+      } else if (data.msg === 'spectatorChat') {
+        const player = Player.list[socket.id];
+        if(player && player.type === 'spectator'){
+          // Broadcast to all spectators only
+          const spectatorMessage = `<b>[SPECTATING] ${player.name}:</b> ${data.message}`;
+          for(var i in Player.list){
+            if(Player.list[i].type === 'spectator'){
+              var spectatorSocket = SOCKET_LIST[i];
+              if(spectatorSocket){
+                spectatorSocket.write(JSON.stringify({
+                  msg: 'spectatorChatMessage',
+                  message: spectatorMessage
+                }));
+              }
+            }
+          }
+        }
       } else if (data.msg === 'evalCmd') {
         // Use original command system
         EvalCmd(data);
@@ -4651,9 +4756,9 @@ let maxOutlawAttempts = 50; // Safety limit to prevent infinite loop
 let consecutiveFailures = 0;
 
 while (consecutiveFailures < 3 && outlawCount < maxOutlawAttempts) {
-  const outlawsHQ = global.mapAnalyzer.findFactionHQ('Outlaws', excludedHQs);
-  if (outlawsHQ) {
-    excludedHQs.push(outlawsHQ.tile);
+const outlawsHQ = global.mapAnalyzer.findFactionHQ('Outlaws', excludedHQs);
+if (outlawsHQ) {
+  excludedHQs.push(outlawsHQ.tile);
     outlawCount++;
     consecutiveFailures = 0; // Reset failure counter on success
     

@@ -63,6 +63,7 @@ socket.onopen = function(){
 };
 socket.onmessage = function(event){
   var data = JSON.parse(event.data);
+  
   if(data.msg == 'previewData'){
     // Load world data for login screen preview (no selfId set)
     console.log('Preview data received:', {
@@ -160,6 +161,49 @@ socket.onmessage = function(event){
     } else {
       alert('Sign-in failed.')
     }
+  } else if(data.msg == 'spectateResponse'){
+    console.log('Spectate response received:', data.success);
+    if(data.success){
+      world = data.world;
+      tileSize = data.tileSize;
+      mapSize = data.mapSize;
+      tempus = data.tempus;
+      
+      console.log('World data loaded, tileSize:', tileSize, 'mapSize:', mapSize);
+      
+      // Update UI sizing
+      resizeCanvas();
+      
+      // Stop login camera
+      if(window.loginCameraSystem) {
+        console.log('Stopping login camera');
+        window.loginCameraSystem.stop();
+      }
+      
+      // Hide login overlay
+      var loginOverlay = document.getElementById('loginOverlay');
+      if(loginOverlay) {
+        loginOverlay.style.display = 'none';
+      }
+      
+      // Show only chat for spectators
+      var chatMessagesContainer = document.getElementById('chat-messages-container');
+      var chatInputWrapper = document.getElementById('chat-input-wrapper');
+      if(chatMessagesContainer) chatMessagesContainer.style.display = 'block';
+      if(chatInputWrapper) chatInputWrapper.style.display = 'block';
+      
+      // Activate spectate camera (will start fully in init handler)
+      if(window.spectateCameraSystem) {
+        window.spectateCameraSystem.isActive = true;
+      }
+      
+      // Start chat hide timer for spectators
+      resetChatHideTimer();
+      
+      console.log('Spectate response complete, waiting for init...');
+    } else {
+      alert('Spectate failed - invalid credentials.');
+    }
   } else if(data.msg == 'signUpResponse'){
     if(data.success){
       alert('Sign-up successful.')
@@ -174,6 +218,13 @@ socket.onmessage = function(event){
       chatMessages.scrollTop = chatMessages.scrollHeight;
     }, 0);
     resetChatHideTimer(); // Show chat and restart hide timer
+  } else if(data.msg == 'spectatorChatMessage'){
+    // Display spectator chat with distinct styling
+    chatMessages.innerHTML += '<div style="color: #4CAF50;">' + data.message + '</div>';
+    setTimeout(function(){
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }, 0);
+    resetChatHideTimer();
   } else if(data.msg == 'worldMapData'){
     // Show worldmap popup and render the world map
     if(worldmapPopup){
@@ -274,6 +325,21 @@ socket.onmessage = function(event){
     }
     for(i in data.pack.building){
       new Building(data.pack.building[i]);
+    }
+    
+    // If spectate mode is active, start camera after entities are loaded
+    if(spectateCameraSystem && spectateCameraSystem.isActive) {
+      console.log('Init received, starting spectate camera in 500ms...');
+      setTimeout(function(){
+        console.log('Starting spectate camera now');
+        spectateCameraSystem.start();
+        
+        // Update BGM for spectate mode
+        if(Player.list[selfId]){
+          var spectator = Player.list[selfId];
+          getBgm(spectator.x, spectator.y, spectator.z, null);
+        }
+      }, 500);
     }
   } else if(data.msg == 'update'){
     // { player : [{id:123,number:'1',x:0,y:0},{id:1,x:0,y:0}] arrow : []}
@@ -736,6 +802,11 @@ signDivSignUp.onclick = function(){
   socket.send(JSON.stringify({msg:'signUp',name:signDivUsername.value,pass:signDivPassword.value}));
 };
 
+var signDivSpectate = document.getElementById('signDiv-spectate');
+signDivSpectate.onclick = function(){
+  socket.send(JSON.stringify({msg:'spectate',name:signDivUsername.value,pass:signDivPassword.value}));
+};
+
 // LOGIN CAMERA SYSTEM
 var loginCameraSystem = {
   isActive: true,
@@ -842,6 +913,302 @@ var loginCameraSystem = {
 
 // Make it globally accessible
 window.loginCameraSystem = loginCameraSystem;
+
+// SPECTATE CAMERA SYSTEM
+var spectateCameraSystem = {
+  isActive: false,
+  currentTargetId: null,
+  cameraX: 0,
+  cameraY: 0,
+  cameraZ: 0,
+  lockDuration: 5000, // 5 seconds minimum lock time
+  lastPriorityLevel: 'other', // Start at lowest priority
+  lockStartTime: 0,
+  lastTargetCheckTime: 0, // Track when we last checked for new targets
+  targetCheckInterval: 1000, // Check for new targets every 1 second
+  innaWoods: true, // Can see through heavy forest
+  isPanning: false, // Whether we're currently panning to a new target
+  isTransitioning: false, // Whether we're transitioning to a new target
+  panSpeed: 25, // Base panning speed
+  lockDistance: 100, // Distance at which we lock onto target
+  initialDistance: 0, // Distance when starting to pan to new target
+  baseSpeed: 15, // Calculated speed based on initial distance
+  
+  evaluateCharacterPriority: function(character) {
+    if (!character) {
+      return null;
+    }
+    
+    // Exclude spectators and Falcons only
+    if (character.type === 'spectator' || character.class === 'Falcon') {
+      return null;
+    }
+    
+    // Simplified 3-tier priority system
+    // Tier 1: COMBAT - Most interesting, highest priority (use action property like the combat icon does)
+    if (character.action === 'combat') {
+      return 'combat';
+    }
+    
+    // Tier 2: ECONOMIC - Working, fleeing
+    if (character.working === true || character.action === 'flee') {
+      return 'economic';
+    }
+    
+    // Tier 3: OTHER - Moving, idle, etc.
+    return 'other';
+  },
+  
+  selectBestTarget: function() {
+    let combatTargets = [];
+    let economicTargets = [];
+    let otherTargets = [];
+    
+    for (var id in Player.list) {
+      var character = Player.list[id];
+      var priority = this.evaluateCharacterPriority(character);
+      
+      if (priority === 'combat') {
+        combatTargets.push(id);
+      } else if (priority === 'economic') {
+        economicTargets.push(id);
+      } else if (priority === 'other') {
+        otherTargets.push(id);
+      }
+    }
+    
+    // Return best available target by priority tier
+    if (combatTargets.length > 0) {
+      // Pick random combat target to add variety
+      var randomIndex = Math.floor(Math.random() * combatTargets.length);
+      return { id: combatTargets[randomIndex], priority: 'combat' };
+    } else if (economicTargets.length > 0) {
+      var randomIndex = Math.floor(Math.random() * economicTargets.length);
+      return { id: economicTargets[randomIndex], priority: 'economic' };
+    } else if (otherTargets.length > 0) {
+      var randomIndex = Math.floor(Math.random() * otherTargets.length);
+      return { id: otherTargets[randomIndex], priority: 'other' };
+    }
+    
+    return { id: null, priority: null };
+  },
+  
+  setNewTarget: function(targetId) {
+    if (!targetId || !Player.list[targetId]) {
+      return;
+    }
+    
+    var target = Player.list[targetId];
+    
+    // Calculate initial distance to new target
+    var dx = target.x - this.cameraX;
+    var dy = target.y - this.cameraY;
+    this.initialDistance = Math.sqrt(dx * dx + dy * dy);
+    
+    // Only recalculate speed if we're not already panning
+    // If we're mid-pan, keep the current speed and just redirect
+    if (!this.isTransitioning || this.baseSpeed === 0) {
+      // Calculate speed based on initial distance
+      // Within viewport (~800 units): moderate glide (15-25 speed)
+      // Across map (2000+ units): fast pan (40-80 speed)
+      if (this.initialDistance < 800) {
+        // Close by - moderate glide
+        this.baseSpeed = 15 + (this.initialDistance / 800) * 10; // 15-25
+      } else if (this.initialDistance < 2000) {
+        // Medium distance - fast speed
+        this.baseSpeed = 25 + ((this.initialDistance - 800) / 1200) * 15; // 25-40
+      } else {
+        // Far away - very fast pan
+        this.baseSpeed = 40 + ((this.initialDistance - 2000) / 2000) * 40; // 40-80, capped
+        this.baseSpeed = Math.min(this.baseSpeed, 80); // Max speed 80
+      }
+    }
+    // If already transitioning, keep current baseSpeed and just change target
+    // This creates smooth redirection without jerky speed changes
+    
+    // Mark that we're transitioning to a new target
+    this.isTransitioning = true;
+    this.currentTargetId = targetId;
+  },
+  
+  updateCamera: function() {
+    if (!this.currentTargetId || !Player.list[this.currentTargetId]) {
+      return;
+    }
+    
+    var target = Player.list[this.currentTargetId];
+    
+    // Calculate distance to target
+    var dx = target.x - this.cameraX;
+    var dy = target.y - this.cameraY;
+    var dist = Math.sqrt(dx * dx + dy * dy);
+    
+    // Determine movement style based on distance
+    if (dist > 300) {
+      // Far away - use directional baseSpeed for fast, smooth approach
+      var dirX = dx / dist;
+      var dirY = dy / dist;
+      this.cameraX += dirX * this.baseSpeed;
+      this.cameraY += dirY * this.baseSpeed;
+      this.isPanning = true;
+      this.isTransitioning = true;
+    } else if (dist > 100) {
+      // Medium distance - blend between baseSpeed and interpolation
+      var dirX = dx / dist;
+      var dirY = dy / dist;
+      var blendFactor = (dist - 100) / 200; // 1.0 at 300, 0.0 at 100
+      var speedMultiplier = 0.2 + (blendFactor * 0.8); // 0.2 to 1.0
+      this.cameraX += dirX * this.baseSpeed * speedMultiplier;
+      this.cameraY += dirY * this.baseSpeed * speedMultiplier;
+      this.isPanning = true;
+      this.isTransitioning = true;
+    } else {
+      // Close - use smooth interpolation for stable following
+      var followSpeed = 0.18; // 18% interpolation per frame
+      this.cameraX += dx * followSpeed;
+      this.cameraY += dy * followSpeed;
+      this.isPanning = (dist > 2);
+      this.isTransitioning = false;
+    }
+    
+    // Smoothly interpolate z-level
+    var targetZ = target.z || 0;
+    if (Math.abs(this.cameraZ - targetZ) > 0.1) {
+      this.cameraZ = this.cameraZ + (targetZ - this.cameraZ) * 0.2;
+    } else {
+      this.cameraZ = targetZ;
+    }
+  },
+  
+  update: function() {
+    if (!this.isActive) return;
+    
+    var currentTime = Date.now();
+    var lockElapsed = currentTime - this.lockStartTime;
+    var timeSinceLastCheck = currentTime - this.lastTargetCheckTime;
+    
+    // Get current target's priority
+    var currentPriority = null;
+    if (this.currentTargetId && Player.list[this.currentTargetId]) {
+      currentPriority = this.evaluateCharacterPriority(Player.list[this.currentTargetId]);
+    }
+    
+    // Check if current target is invalid
+    if (currentPriority === null) {
+      // Current target is invalid, find new one immediately
+      this.lastTargetCheckTime = currentTime;
+      var newTarget = this.selectBestTarget();
+      if (newTarget.id) {
+        this.setNewTarget(newTarget.id);
+        this.lastPriorityLevel = newTarget.priority;
+        this.lockStartTime = currentTime;
+      }
+      this.updateCamera();
+      return;
+    }
+    
+    // Only check for new targets every 1 second to avoid lag
+    var shouldCheckTargets = (timeSinceLastCheck >= this.targetCheckInterval);
+    
+    if (shouldCheckTargets) {
+      this.lastTargetCheckTime = currentTime;
+      var newTarget = this.selectBestTarget();
+      
+      // RULE 1: COMBAT is king - always switch to combat immediately from any lower priority
+      if (newTarget.priority === 'combat' && this.lastPriorityLevel !== 'combat') {
+        this.setNewTarget(newTarget.id);
+        this.lastPriorityLevel = 'combat';
+        this.lockStartTime = currentTime;
+      }
+      // RULE 2: If watching combat, stay locked until combat ends
+      else if (this.lastPriorityLevel === 'combat') {
+        if (currentPriority === 'combat') {
+          // Still in combat - only switch to another combat after 30s for variety
+          if (newTarget.priority === 'combat' && newTarget.id !== this.currentTargetId && lockElapsed >= 30000) {
+            this.setNewTarget(newTarget.id);
+            this.lockStartTime = currentTime;
+          }
+        } else {
+          // Combat ended - immediately look for new combat, otherwise start timer
+          if (newTarget.priority === 'combat') {
+            this.setNewTarget(newTarget.id);
+            this.lastPriorityLevel = 'combat';
+            this.lockStartTime = currentTime;
+          } else {
+            // No more combat available - switch to next best after brief delay
+            this.lastPriorityLevel = currentPriority;
+            this.lockStartTime = currentTime;
+          }
+        }
+      }
+      // RULE 3: If watching economic, switch to combat immediately or other economic after 10s
+      else if (this.lastPriorityLevel === 'economic') {
+        if (lockElapsed >= 10000 && newTarget.id) {
+          this.setNewTarget(newTarget.id);
+          this.lastPriorityLevel = newTarget.priority;
+          this.lockStartTime = currentTime;
+        }
+      }
+      // RULE 4: If watching other, cycle every 5 seconds
+      else {
+        if (lockElapsed >= this.lockDuration && newTarget.id) {
+          this.setNewTarget(newTarget.id);
+          this.lastPriorityLevel = newTarget.priority;
+          this.lockStartTime = currentTime;
+        }
+      }
+    }
+    
+    // Always update camera position to follow target (every frame)
+    this.updateCamera();
+  },
+  
+  start: function() {
+    this.isActive = true;
+    var startTime = Date.now();
+    
+    // Find initial target
+    var initialTarget = this.selectBestTarget();
+    
+    if (initialTarget.id) {
+      // Initialize camera at target position first
+      var target = Player.list[initialTarget.id];
+      if (target) {
+        this.cameraX = target.x;
+        this.cameraY = target.y;
+        this.cameraZ = target.z || 0;
+      }
+      
+      // Now set the target (this will calculate baseSpeed, but since we're already at target, it won't matter)
+      this.currentTargetId = initialTarget.id;
+      this.lastPriorityLevel = initialTarget.priority;
+      this.baseSpeed = 15; // Default speed for initial target
+    } else {
+      // No valid target - default to map center
+      this.cameraX = (mapSize * tileSize) / 2;
+      this.cameraY = (mapSize * tileSize) / 2;
+      this.cameraZ = 0;
+    }
+    
+    this.lockStartTime = startTime;
+    this.lastTargetCheckTime = startTime;
+  },
+  
+  stop: function() {
+    this.isActive = false;
+    this.currentTargetId = null;
+  },
+  
+  getCameraPosition: function() {
+    return {
+      x: this.cameraX,
+      y: this.cameraY,
+      z: this.cameraZ
+    };
+  }
+};
+
+window.spectateCameraSystem = spectateCameraSystem;
 
 // God Mode Camera System (similar to loginCameraSystem)
 var godModeCamera = {
@@ -1108,7 +1475,14 @@ chatForm.onsubmit = function(e){
     return;
   }
   
-  if(chatInput.value[0] == '/'){ // command
+  // If in spectate mode, redirect all messages to spectator chat
+  if(spectateCameraSystem && spectateCameraSystem.isActive) {
+    console.log('Sending spectator chat:', chatInput.value);
+    socket.send(JSON.stringify({
+      msg:'spectatorChat',
+      message:chatInput.value
+    }));
+  } else if(chatInput.value[0] == '/'){ // command
     socket.send(JSON.stringify({
       msg:'evalCmd',
       id:selfId,
@@ -2459,6 +2833,23 @@ function updateMarketDisplay(){
 
 // Auto-focus chat input when Enter is pressed
 document.addEventListener('keydown', function(e){
+  // In spectate mode, allow Enter for chat and ESC to exit
+  if(spectateCameraSystem && spectateCameraSystem.isActive) {
+    if(e.key === 'Escape'){
+      spectateCameraSystem.stop();
+      socket.close();
+      location.reload();
+      return;
+    }
+    if(e.key === 'Enter' || e.keyCode === 13){
+      if(document.activeElement !== chatInput){
+        e.preventDefault();
+        chatInput.focus();
+      }
+    }
+    return;
+  }
+  
   // Block all input during login
   if(loginCameraSystem.isActive) {
     return;
@@ -2656,12 +3047,17 @@ ctx.font = '30px Arial';
 
 // Helper function to get camera position for rendering
 var getCameraPosition = function() {
-  // Priority 1: God mode camera (highest priority)
+  // Priority 1: Spectate camera (highest priority)
+  if (spectateCameraSystem && spectateCameraSystem.isActive) {
+    return spectateCameraSystem.getCameraPosition();
+  }
+  
+  // Priority 2: God mode camera
   if (godModeCamera && godModeCamera.isActive) {
     return godModeCamera.getCameraPosition();
   }
   
-  // Priority 2: Login camera system
+  // Priority 3: Login camera system
   if(loginCameraSystem && loginCameraSystem.isActive && !selfId) {
     var cameraPos = loginCameraSystem.getCameraPosition();
     if(cameraPos && cameraPos.x !== undefined && cameraPos.y !== undefined) {
@@ -2669,7 +3065,7 @@ var getCameraPosition = function() {
     }
   }
   
-  // Priority 3: Follow player
+  // Priority 4: Follow player
   if(selfId && Player.list[selfId]) {
     return { x: Player.list[selfId].x, y: Player.list[selfId].y };
   }
@@ -2680,6 +3076,11 @@ var getCameraPosition = function() {
 
 // Helper function to get current z-layer for rendering
 var getCurrentZ = function() {
+  // Spectate camera has its own z-layer
+  if (spectateCameraSystem && spectateCameraSystem.isActive) {
+    return Math.round(spectateCameraSystem.cameraZ);
+  }
+  
   // God mode has its own z-layer
   if (godModeCamera && godModeCamera.isActive) {
     return godModeCamera.cameraZ;
@@ -4626,12 +5027,19 @@ var inView = function(z,x,y,innaWoods){
   var right = (viewport.endTile[0] + 2) * tileSize;
   var bottom = (viewport.endTile[1] + 2) * tileSize;
 
-  // In god mode, use camera z-layer instead of player z
-  var currentZ = godModeCamera.isActive ? godModeCamera.cameraZ : Player.list[selfId].z;
+  // In spectate or god mode, use camera z-layer instead of player z
+  var currentZ;
+  if(spectateCameraSystem.isActive){
+    currentZ = spectateCameraSystem.cameraZ;
+  } else if(godModeCamera.isActive){
+    currentZ = godModeCamera.cameraZ;
+  } else {
+    currentZ = Player.list[selfId].z;
+  }
   
   if(z == currentZ && x > left && x < right && y > top && y < bottom){
-    // In god mode, ignore innaWoods check (always show everything)
-    if(godModeCamera.isActive){
+    // In spectate or god mode, ignore innaWoods check (always show everything)
+    if(spectateCameraSystem.isActive || godModeCamera.isActive){
       return true;
     }
     if(z == 0 && innaWoods && !Player.list[selfId].innaWoods){
@@ -4682,8 +5090,8 @@ setInterval(function(){
   // Update god mode camera position
   godModeCamera.update();
   
-  // Check if we should render (either logged in or in login camera mode)
-  if(!selfId && !loginCameraSystem.isActive) {
+  // Check if we should render (either logged in, in login camera mode, or spectating)
+  if(!selfId && !loginCameraSystem.isActive && !spectateCameraSystem.isActive) {
     return;
   }
   
@@ -4705,8 +5113,97 @@ setInterval(function(){
   
   renderMap();
   
-  // In login mode, only render map, items, and falcons (skip player-specific checks)
-  if(loginCameraSystem.isActive && !selfId) {
+  // In spectate mode, render EXACTLY like god mode does (copy-paste from normal rendering)
+  if(spectateCameraSystem.isActive) {
+    // Update spectate camera (target selection and movement)
+    spectateCameraSystem.update();
+    
+    var currentZ = getCurrentZ();
+    
+    // ITEMS - exact god mode logic
+    for(var i in Item.list){
+      if(inView(Item.list[i].z,Item.list[i].x,Item.list[i].y,Item.list[i].innaWoods)){
+        if(Item.list[i].z == currentZ){
+          Item.list[i].draw();
+        }
+      } else {
+        continue;
+      }
+    }
+    
+    // PLAYERS - exact god mode logic
+    for(var i in Player.list){
+      if(Player.list[i].class != 'Falcon'){
+        if(inView(Player.list[i].z,Player.list[i].x,Player.list[i].y,Player.list[i].innaWoods)){
+          if(Player.list[i].z == currentZ){
+            Player.list[i].draw();
+          }
+        } else {
+          continue;
+        }
+      }
+    }
+    
+    // ARROWS - exact god mode logic
+    for(var i in Arrow.list){
+      if(inView(Arrow.list[i].z,Arrow.list[i].x,Arrow.list[i].y,Arrow.list[i].innaWoods)){
+        if(Arrow.list[i].z == currentZ){
+          Arrow.list[i].draw();
+        }
+      } else {
+        continue;
+      }
+    }
+    
+    // FOREST - only on z=0, exact god mode logic
+    if(currentZ == 0){
+      renderForest();
+    }
+    renderTops();
+    
+    // FALCONS - exact god mode logic
+    for(var i in Player.list){
+      if(Player.list[i].class == 'Falcon'){
+        if(inView(Player.list[i].z,Player.list[i].x,Player.list[i].y,false)){
+          if(Player.list[i].z == currentZ){
+            Player.list[i].draw();
+          }
+        } else {
+          continue;
+        }
+      }
+    }
+    
+    // BUILDINGS - exact god mode logic
+    for(var i in Building.list){
+      if(inView(Building.list[i].z,Building.list[i].x,Building.list[i].y)){
+        if(Building.list[i].z == currentZ){
+          Building.list[i].draw();
+        }
+      } else {
+        continue;
+      }
+    }
+    
+    renderLighting();
+    
+    // LIGHT SOURCES - exact god mode logic
+    if(currentZ == 0){
+      if(nightfall){
+        renderLightSources(2);
+      } else {
+        renderLightSources(1);
+      }
+    } else if(currentZ == 1 || currentZ == 2){
+      renderLightSources(1);
+    } else if(currentZ == -1 || currentZ == -2){
+      renderLightSources(3);
+    }
+    
+    // Update viewport
+    var cameraPos = spectateCameraSystem.getCameraPosition();
+    viewport.update(cameraPos.x, cameraPos.y);
+  } else if(loginCameraSystem.isActive && !selfId) {
     // Render all items on ground level
     for(var i in Item.list){
       if(Item.list[i].z == 0) {
@@ -8789,6 +9286,22 @@ document.onkeydown = function(event){
     }
   }
   
+  // Block all gameplay controls in spectate mode except ESC and Enter
+  if(spectateCameraSystem && spectateCameraSystem.isActive) {
+    if(event.keyCode == 27){ // ESC - Exit spectate mode
+      spectateCameraSystem.stop();
+      // Disconnect and return to login
+      socket.close();
+      location.reload(); // Reload page to return to login screen
+      return;
+    } else if(event.keyCode == 13){ // Enter - Allow chat
+      // Allow chat input focus
+      return;
+    }
+    // Block all other keys
+    return;
+  }
+  
   // Block all game input during login
   if(loginCameraSystem.isActive) {
     return;
@@ -9064,3 +9577,4 @@ document.oncontextmenu = function(event) {
     buildPreviewData = null;
   }
 };
+
