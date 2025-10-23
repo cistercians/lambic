@@ -1,4 +1,4 @@
-TAFFY = require('taffy');
+TAFFY = require('taffydb').taffy;
 
 ACCOUNTS = TAFFY([
   {"name":"lol","pass":"lol"}

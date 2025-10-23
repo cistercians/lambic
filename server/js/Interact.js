@@ -85,12 +85,16 @@ Interact = function(id,loc){
               }
             } else {
               Player.list[id].inventory.stone -= 2;
-              if(Player.list[building.owner].house){
-                var house = Player.list[building.owner].house;
-                House.list[house].stores.stone += 2;
-              } else {
-                Player.list[building.owner].stores.stone += 2;
+              // Check if building owner still exists before accessing their data
+              if(Player.list[building.owner]){
+                if(Player.list[building.owner].house){
+                  var house = Player.list[building.owner].house;
+                  House.list[house].stores.stone += 2;
+                } else {
+                  Player.list[building.owner].stores.stone += 2;
+                }
               }
+              // If owner doesn't exist, stone is simply removed from depositor's inventory
             }
             // Track daily deposits
             if(!building.dailyStores) building.dailyStores = {stone: 0, ironore: 0};
@@ -98,7 +102,7 @@ Interact = function(id,loc){
             
             // Show deposit feedback
             var message = '<i>Deposited <b>' + stoneDeposited + ' Stone</b>';
-            if(building.owner === id){
+            if(building.owner === id && Player.list[building.owner]){
               // Only show building total to owner
               var totalStone = Player.list[building.owner].house ? 
                 House.list[Player.list[building.owner].house].stores.stone : 
