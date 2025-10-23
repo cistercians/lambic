@@ -2774,7 +2774,10 @@ const Player = function(param) {
       ghost: self.ghost,
       kills: self.kills,
       skulls: self.skulls,
-      spriteScale: self.spriteScale
+      spriteScale: self.spriteScale,
+      working: self.working ? true : false, // For spectate camera priority
+      combat: (self.combat && self.combat.target) ? true : false, // For spectate camera priority
+      fleeing: self.fleeing ? true : false // For spectate camera priority
     };
   };
 
@@ -4562,11 +4565,11 @@ io.on('connection', function(socket) {
               kingdomList: Kingdom.list
             }));
             
-            console.log('Sending init pack to client with selfId:', player.id);
-            // Send init pack with all entities
+            console.log('Sending init pack to spectator (no selfId)');
+            // Send init pack with all entities - NO selfId for spectators
             socket.write(JSON.stringify({
               msg: 'init',
-              selfId: player.id,
+              selfId: null, // Spectators don't have a player character
               pack: {
                 player: Player.getAllInitPack(),
                 arrow: Arrow.getAllInitPack(),
@@ -4574,6 +4577,23 @@ io.on('connection', function(socket) {
                 light: Light.getAllInitPack(),
                 building: Building.getAllInitPack()
               }
+            }));
+            
+            // Send spectator welcome message
+            const spectatorWelcome = `
+              <div style="text-align: center; padding: 10px; color: #FFFFFF;">
+                <p style="margin: 3px 0; color: #888888;">════════════════════════════════</p>
+                <p style="margin: 5px 0; color: #4CAF50; font-size: 18px; font-weight: bold;">👁️ SPECTATE MODE 👁️</p>
+                <p style="margin: 5px 0; color: #FFFFFF;">Server: <span style="color: #4CAF50; font-weight: bold;">${global.serverName}</span></p>
+                <p style="margin: 3px 0; color: #888888;">════════════════════════════════</p>
+                <p style="margin: 2px 0; color: #CCCCCC;"><span style="color: #FFD700; font-weight: bold;">Controls:</span> <b>ESC</b> Exit Spectate • <b>Enter</b> Chat</p>
+                <p style="margin: 3px 0; color: #888888;">════════════════════════════════</p>
+              </div>
+            `;
+            
+            socket.write(JSON.stringify({
+              msg: 'addToChat',
+              message: spectatorWelcome
             }));
             
             console.log(`${data.name} joined as spectator.`);

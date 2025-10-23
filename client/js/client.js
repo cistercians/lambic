@@ -310,10 +310,12 @@ socket.onmessage = function(event){
   } else if(data.msg == 'init'){
     if(data.selfId)
       selfId = data.selfId;
+    console.log('Init received - selfId:', selfId, 'Players:', data.pack.player ? data.pack.player.length : 0);
     // { player : [{id:123,number:'1',x:0,y:0},{id:1,x:0,y:0}] arrow : []}
     for(i in data.pack.player){
       new Player(data.pack.player[i]);
     }
+    console.log('Players loaded into Player.list:', Object.keys(Player.list).length);
     for(i in data.pack.arrow){
       new Arrow(data.pack.arrow[i]);
     }
@@ -334,11 +336,7 @@ socket.onmessage = function(event){
         console.log('Starting spectate camera now');
         spectateCameraSystem.start();
         
-        // Update BGM for spectate mode
-        if(Player.list[selfId]){
-          var spectator = Player.list[selfId];
-          getBgm(spectator.x, spectator.y, spectator.z, null);
-        }
+        // Spectators don't have a selfId or player character, music is handled by camera
       }, 500);
     }
   } else if(data.msg == 'update'){
@@ -395,6 +393,10 @@ socket.onmessage = function(event){
           p.angle = pack.angle;
         if(pack.working != undefined)
           p.working = pack.working;
+        if(pack.combat != undefined)
+          p.combat = pack.combat;
+        if(pack.fleeing != undefined)
+          p.fleeing = pack.fleeing;
         if(pack.chopping != undefined)
           p.chopping = pack.chopping;
         if(pack.mining != undefined)
@@ -921,7 +923,7 @@ var spectateCameraSystem = {
   cameraX: 0,
   cameraY: 0,
   cameraZ: 0,
-  lockDuration: 5000, // 5 seconds minimum lock time
+  lockDuration: 8000, // 8 seconds minimum lock time
   lastPriorityLevel: 'other', // Start at lowest priority
   lockStartTime: 0,
   lastTargetCheckTime: 0, // Track when we last checked for new targets
@@ -933,6 +935,14 @@ var spectateCameraSystem = {
   lockDistance: 100, // Distance at which we lock onto target
   initialDistance: 0, // Distance when starting to pan to new target
   baseSpeed: 15, // Calculated speed based on initial distance
+  targetX: 0, // Target position we're panning to
+  targetY: 0,
+  targetZ: 0,
+  pendingTargetId: null, // ID of target we're panning towards
+  transitionStartTime: 0, // When the current transition started
+  minTransitionDuration: 2000, // Minimum 2 seconds before allowing another switch (except combat)
+  lastDebugLog: 0, // For debug logging
+  lastBgmUpdate: 0, // Track when we last updated BGM
   
   evaluateCharacterPriority: function(character) {
     if (!character) {
@@ -945,13 +955,13 @@ var spectateCameraSystem = {
     }
     
     // Simplified 3-tier priority system
-    // Tier 1: COMBAT - Most interesting, highest priority (use action property like the combat icon does)
-    if (character.action === 'combat') {
+    // Tier 1: COMBAT - Most interesting, highest priority
+    if (character.combat === true || character.action === 'combat') {
       return 'combat';
     }
     
     // Tier 2: ECONOMIC - Working, fleeing
-    if (character.working === true || character.action === 'flee') {
+    if (character.working === true || character.fleeing === true || character.action === 'flee') {
       return 'economic';
     }
     
@@ -975,6 +985,21 @@ var spectateCameraSystem = {
       } else if (priority === 'other') {
         otherTargets.push(id);
       }
+    }
+    
+    // Debug: Log target counts every 5 seconds
+    var now = Date.now();
+    if (!this.lastDebugLog || now - this.lastDebugLog > 5000) {
+      console.log('Spectate targets - Combat:', combatTargets.length, 'Economic:', economicTargets.length, 'Other:', otherTargets.length);
+      
+      // Sample a few economic targets to see why they're classified as economic
+      if (economicTargets.length > 0) {
+        var sampleId = economicTargets[0];
+        var sample = Player.list[sampleId];
+        console.log('Sample economic target:', sample.name, 'working:', sample.working, 'combat:', sample.combat, 'fleeing:', sample.fleeing, 'action:', sample.action);
+      }
+      
+      this.lastDebugLog = now;
     }
     
     // Return best available target by priority tier
@@ -1005,33 +1030,41 @@ var spectateCameraSystem = {
     var dy = target.y - this.cameraY;
     this.initialDistance = Math.sqrt(dx * dx + dy * dy);
     
+    // Debug: Log target switches
+    console.log('Camera switching to:', target.name, 'Distance:', Math.round(this.initialDistance), 'Was transitioning:', this.isTransitioning);
+    
     // Only recalculate speed if we're not already panning
     // If we're mid-pan, keep the current speed and just redirect
     if (!this.isTransitioning || this.baseSpeed === 0) {
       // Calculate speed based on initial distance
-      // Within viewport (~800 units): moderate glide (15-25 speed)
-      // Across map (2000+ units): fast pan (40-80 speed)
+      // Within viewport (~800 units): moderate glide (30-50 speed)
+      // Across map (2000+ units): very fast pan (90-200 speed)
       if (this.initialDistance < 800) {
         // Close by - moderate glide
-        this.baseSpeed = 15 + (this.initialDistance / 800) * 10; // 15-25
+        this.baseSpeed = 30 + (this.initialDistance / 800) * 20; // 30-50
       } else if (this.initialDistance < 2000) {
         // Medium distance - fast speed
-        this.baseSpeed = 25 + ((this.initialDistance - 800) / 1200) * 15; // 25-40
+        this.baseSpeed = 50 + ((this.initialDistance - 800) / 1200) * 40; // 50-90
       } else {
         // Far away - very fast pan
-        this.baseSpeed = 40 + ((this.initialDistance - 2000) / 2000) * 40; // 40-80, capped
-        this.baseSpeed = Math.min(this.baseSpeed, 80); // Max speed 80
+        this.baseSpeed = 90 + ((this.initialDistance - 2000) / 3000) * 110; // 90-200, capped
+        this.baseSpeed = Math.min(this.baseSpeed, 200); // Max speed 200
       }
+      console.log('New baseSpeed calculated:', Math.round(this.baseSpeed));
+    } else {
+      console.log('Mid-transition redirect, keeping baseSpeed:', Math.round(this.baseSpeed));
     }
     // If already transitioning, keep current baseSpeed and just change target
     // This creates smooth redirection without jerky speed changes
     
-    // Mark that we're transitioning to a new target
-    this.isTransitioning = true;
+    // Directly switch to the new target - no pending system
     this.currentTargetId = targetId;
+    this.isTransitioning = true;
+    this.transitionStartTime = Date.now();
   },
   
   updateCamera: function() {
+    // Check if we have a valid target
     if (!this.currentTargetId || !Player.list[this.currentTargetId]) {
       return;
     }
@@ -1043,40 +1076,68 @@ var spectateCameraSystem = {
     var dy = target.y - this.cameraY;
     var dist = Math.sqrt(dx * dx + dy * dy);
     
-    // Determine movement style based on distance
-    if (dist > 300) {
-      // Far away - use directional baseSpeed for fast, smooth approach
-      var dirX = dx / dist;
-      var dirY = dy / dist;
-      this.cameraX += dirX * this.baseSpeed;
-      this.cameraY += dirY * this.baseSpeed;
-      this.isPanning = true;
-      this.isTransitioning = true;
-    } else if (dist > 100) {
-      // Medium distance - blend between baseSpeed and interpolation
-      var dirX = dx / dist;
-      var dirY = dy / dist;
-      var blendFactor = (dist - 100) / 200; // 1.0 at 300, 0.0 at 100
-      var speedMultiplier = 0.2 + (blendFactor * 0.8); // 0.2 to 1.0
-      this.cameraX += dirX * this.baseSpeed * speedMultiplier;
-      this.cameraY += dirY * this.baseSpeed * speedMultiplier;
-      this.isPanning = true;
-      this.isTransitioning = true;
-    } else {
-      // Close - use smooth interpolation for stable following
-      var followSpeed = 0.18; // 18% interpolation per frame
-      this.cameraX += dx * followSpeed;
-      this.cameraY += dy * followSpeed;
-      this.isPanning = (dist > 2);
+    // Use a dead zone to lock on target and stop moving
+    if (dist < 15) {
+      this.isPanning = false;
       this.isTransitioning = false;
+      // Locked on - stop moving the camera
+      return;
     }
+    
+    // Prevent division by zero
+    if (dist < 0.1) {
+      return;
+    }
+    
+    // Calculate direction
+    var dirX = dx / dist;
+    var dirY = dy / dist;
+    
+    // Determine speed based on distance and whether we're transitioning
+    var currentSpeed;
+    
+    if (this.isTransitioning) {
+      // Transitioning to new target - use baseSpeed with distance-based deceleration
+      if (dist > 300) {
+        currentSpeed = this.baseSpeed;
+      } else if (dist > 100) {
+        var slowdownFactor = dist / 300;
+        currentSpeed = this.baseSpeed * Math.max(0.2, slowdownFactor);
+      } else {
+        // Close enough - switch to gentle following
+        currentSpeed = this.baseSpeed * 0.2;
+        this.isTransitioning = false;
+      }
+    } else {
+      // Normal following mode - gentle tracking
+      if (dist > 100) {
+        currentSpeed = Math.min(dist * 0.18, 12);
+      } else if (dist > 40) {
+        currentSpeed = dist * 0.14;
+      } else {
+        currentSpeed = dist * 0.10;
+      }
+    }
+    
+    // Apply smooth directional movement
+    this.cameraX += dirX * currentSpeed;
+    this.cameraY += dirY * currentSpeed;
+    this.isPanning = (dist > 15);
     
     // Smoothly interpolate z-level
     var targetZ = target.z || 0;
+    var oldZ = this.cameraZ;
     if (Math.abs(this.cameraZ - targetZ) > 0.1) {
       this.cameraZ = this.cameraZ + (targetZ - this.cameraZ) * 0.2;
     } else {
       this.cameraZ = targetZ;
+    }
+    
+    // Update BGM when z-level changes or periodically
+    if (Math.abs(oldZ - this.cameraZ) > 0.5 || !this.lastBgmUpdate || Date.now() - this.lastBgmUpdate > 5000) {
+      var b = (this.cameraZ == 1 || this.cameraZ == 2) ? getBuilding(this.cameraX, this.cameraY) : null;
+      getBgm(this.cameraX, this.cameraY, Math.round(this.cameraZ), b);
+      this.lastBgmUpdate = Date.now();
     }
   },
   
@@ -1095,17 +1156,27 @@ var spectateCameraSystem = {
     
     // Check if current target is invalid
     if (currentPriority === null) {
-      // Current target is invalid, find new one immediately
-      this.lastTargetCheckTime = currentTime;
-      var newTarget = this.selectBestTarget();
-      if (newTarget.id) {
-        this.setNewTarget(newTarget.id);
-        this.lastPriorityLevel = newTarget.priority;
-        this.lockStartTime = currentTime;
+      // Current target is invalid, but don't switch during transitions unless enough time has passed
+      var timeSinceTransitionStart = currentTime - this.transitionStartTime;
+      
+      // Only switch to new target if we're not transitioning OR we've been transitioning for at least 2 seconds
+      if (!this.isTransitioning || timeSinceTransitionStart >= 2000) {
+        this.lastTargetCheckTime = currentTime;
+        var newTarget = this.selectBestTarget();
+        if (newTarget.id) {
+          this.setNewTarget(newTarget.id);
+          this.lastPriorityLevel = newTarget.priority;
+          this.lockStartTime = currentTime;
+        }
       }
       this.updateCamera();
       return;
     }
+    
+    // CRITICAL: Don't switch targets while camera is still transitioning (prevents snapping mid-pan)
+    // ONLY allow combat to interrupt a transition, and enforce minimum transition duration
+    var timeSinceTransitionStart = currentTime - this.transitionStartTime;
+    var allowTargetSwitch = !this.isTransitioning || (timeSinceTransitionStart >= this.minTransitionDuration);
     
     // Only check for new targets every 1 second to avoid lag
     var shouldCheckTargets = (timeSinceLastCheck >= this.targetCheckInterval);
@@ -1114,8 +1185,9 @@ var spectateCameraSystem = {
       this.lastTargetCheckTime = currentTime;
       var newTarget = this.selectBestTarget();
       
-      // RULE 1: COMBAT is king - always switch to combat immediately from any lower priority
-      if (newTarget.priority === 'combat' && this.lastPriorityLevel !== 'combat') {
+      // RULE 1: COMBAT is king - always switch to combat immediately
+      // But respect transitions to avoid snapping
+      if (newTarget.priority === 'combat' && this.lastPriorityLevel !== 'combat' && allowTargetSwitch) {
         this.setNewTarget(newTarget.id);
         this.lastPriorityLevel = 'combat';
         this.lockStartTime = currentTime;
@@ -1123,35 +1195,44 @@ var spectateCameraSystem = {
       // RULE 2: If watching combat, stay locked until combat ends
       else if (this.lastPriorityLevel === 'combat') {
         if (currentPriority === 'combat') {
-          // Still in combat - only switch to another combat after 30s for variety
-          if (newTarget.priority === 'combat' && newTarget.id !== this.currentTargetId && lockElapsed >= 30000) {
+          // Still in combat - stay locked on current target
+          // Only switch to another combat after 40s AND if allowed to switch
+          if (newTarget.priority === 'combat' && newTarget.id !== this.currentTargetId && lockElapsed >= 40000 && allowTargetSwitch) {
             this.setNewTarget(newTarget.id);
             this.lockStartTime = currentTime;
           }
+          // Stay locked - don't switch away from combat
         } else {
-          // Combat ended - immediately look for new combat, otherwise start timer
-          if (newTarget.priority === 'combat') {
-            this.setNewTarget(newTarget.id);
-            this.lastPriorityLevel = 'combat';
-            this.lockStartTime = currentTime;
-          } else {
-            // No more combat available - switch to next best after brief delay
-            this.lastPriorityLevel = currentPriority;
-            this.lockStartTime = currentTime;
+          // Combat ended - wait 3 seconds before looking for new targets (to see combat conclusion)
+          if (lockElapsed >= 3000) {
+            if (newTarget.priority === 'combat' && allowTargetSwitch) {
+              // Found new combat - switch to it
+              this.setNewTarget(newTarget.id);
+              this.lastPriorityLevel = 'combat';
+              this.lockStartTime = currentTime;
+            } else if (allowTargetSwitch) {
+              // No combat available - switch priority level and start new timer
+              this.lastPriorityLevel = newTarget.priority || 'other';
+              this.lockStartTime = currentTime;
+              if (newTarget.id) {
+                this.setNewTarget(newTarget.id);
+              }
+            }
           }
+          // Otherwise stay on the target for 3 seconds after combat ends
         }
       }
-      // RULE 3: If watching economic, switch to combat immediately or other economic after 10s
+      // RULE 3: If watching economic, switch to combat immediately or other economic after 15s
       else if (this.lastPriorityLevel === 'economic') {
-        if (lockElapsed >= 10000 && newTarget.id) {
+        if (lockElapsed >= 15000 && newTarget.id && allowTargetSwitch) {
           this.setNewTarget(newTarget.id);
           this.lastPriorityLevel = newTarget.priority;
           this.lockStartTime = currentTime;
         }
       }
-      // RULE 4: If watching other, cycle every 5 seconds
+      // RULE 4: If watching other, cycle every 8 seconds
       else {
-        if (lockElapsed >= this.lockDuration && newTarget.id) {
+        if (lockElapsed >= this.lockDuration && newTarget.id && allowTargetSwitch) {
           this.setNewTarget(newTarget.id);
           this.lastPriorityLevel = newTarget.priority;
           this.lockStartTime = currentTime;
@@ -1192,6 +1273,11 @@ var spectateCameraSystem = {
     
     this.lockStartTime = startTime;
     this.lastTargetCheckTime = startTime;
+    
+    // Initialize BGM for starting position
+    var b = (this.cameraZ == 1 || this.cameraZ == 2) ? getBuilding(this.cameraX, this.cameraY) : null;
+    getBgm(this.cameraX, this.cameraY, Math.round(this.cameraZ), b);
+    this.lastBgmUpdate = startTime;
   },
   
   stop: function() {
@@ -5017,8 +5103,11 @@ setInterval(function(){
 },2000);
 
 var inView = function(z,x,y,innaWoods){
-  // During login mode, use selfId if available
-  if(!selfId || !Player.list[selfId]) {
+  // Check if we're in a special mode (spectate or god mode)
+  var inSpecialMode = spectateCameraSystem.isActive || godModeCamera.isActive;
+  
+  // During login mode (not spectate, not god mode, no selfId), return false
+  if(!inSpecialMode && (!selfId || !Player.list[selfId])) {
     return false; // During login, use inViewLogin instead
   }
   
@@ -5039,7 +5128,7 @@ var inView = function(z,x,y,innaWoods){
   
   if(z == currentZ && x > left && x < right && y > top && y < bottom){
     // In spectate or god mode, ignore innaWoods check (always show everything)
-    if(spectateCameraSystem.isActive || godModeCamera.isActive){
+    if(inSpecialMode){
       return true;
     }
     if(z == 0 && innaWoods && !Player.list[selfId].innaWoods){
