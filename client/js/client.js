@@ -180,6 +180,15 @@ socket.onmessage = function(event){
         window.loginCameraSystem.stop();
       }
       
+      // Stop all audio (login music, ambience) when entering spectate mode
+      if(window.AudioCtrl) {
+        AudioCtrl.bgm.pause();
+        AudioCtrl.bgm.currentTime = 0;
+        AudioCtrl.amb.pause();
+        AudioCtrl.amb.currentTime = 0;
+        AudioCtrl.playlist = null;
+      }
+      
       // Hide login overlay
       var loginOverlay = document.getElementById('loginOverlay');
       if(loginOverlay) {
@@ -1133,10 +1142,11 @@ var spectateCameraSystem = {
       this.cameraZ = targetZ;
     }
     
-    // Update BGM when z-level changes or periodically
+    // Update ambience only (no BGM) when z-level changes or periodically
     if (Math.abs(oldZ - this.cameraZ) > 0.5 || !this.lastBgmUpdate || Date.now() - this.lastBgmUpdate > 5000) {
       var b = (this.cameraZ == 1 || this.cameraZ == 2) ? getBuilding(this.cameraX, this.cameraY) : null;
-      getBgm(this.cameraX, this.cameraY, Math.round(this.cameraZ), b);
+      // Only update ambience, not background music (to avoid constant music changes)
+      soundscape(this.cameraX, this.cameraY, Math.round(this.cameraZ), b);
       this.lastBgmUpdate = Date.now();
     }
   },
@@ -1274,9 +1284,9 @@ var spectateCameraSystem = {
     this.lockStartTime = startTime;
     this.lastTargetCheckTime = startTime;
     
-    // Initialize BGM for starting position
+    // Initialize ambience only (no BGM) for starting position
     var b = (this.cameraZ == 1 || this.cameraZ == 2) ? getBuilding(this.cameraX, this.cameraY) : null;
-    getBgm(this.cameraX, this.cameraY, Math.round(this.cameraZ), b);
+    soundscape(this.cameraX, this.cameraY, Math.round(this.cameraZ), b);
     this.lastBgmUpdate = startTime;
   },
   
