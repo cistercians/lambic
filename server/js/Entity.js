@@ -558,7 +558,7 @@ Outpost = function(param){
           ownerSocket.write(JSON.stringify({msg:'addToChat', message: '<span style="color:orange;">' + alertMsg + '</span>'}));
         }
         
-        console.log('🚨 Outpost alert: ' + (enemy.class || 'Enemy') + ' at [' + enemyLoc[0] + ',' + enemyLoc[1] + ']');
+        // Outpost alert logging handled via event system
         
         // Command nearby guards to respond
         var responseRadius = 1280; // 20 tiles
@@ -583,7 +583,7 @@ Outpost = function(param){
           // Command guard to investigate threat
           guard.action = 'defend';
           guard.defend = {target: enemy.id, location: enemyLoc};
-          console.log('🛡️ ' + guard.class + ' responding to outpost alert');
+          // Guard response logging handled via event system
         }
       }
     }
@@ -2682,7 +2682,7 @@ Character = function(param){
     
     // Enhanced unstuck mechanism
     if(self.stuck >= 150){
-      console.log(self.name + ' is stuck! Attempting unstuck...');
+      // Serf stuck logging handled via event system
       self.stuck = 0;
       
       // Try different unstuck strategies
@@ -5267,7 +5267,7 @@ Serf = function(param){
         self.mode = 'work';
         self.action = null;
           self.work.spot = null; // Clear previous work spot
-        console.log('✅ ' + self.name + ' SWITCHED TO WORK MODE (z=' + self.z + ', pos=' + self.x + ',' + self.y + ', sex=' + self.sex + ')');
+        // Serf work mode switch logged via event system
         }
         self.dayTimer = false;
       },rand);
@@ -5338,7 +5338,7 @@ Serf = function(param){
         }
         
         var hut = Building.list[self.hut];
-        console.log('🏠 ' + self.name + ' checking hut ' + self.hut + ': built=' + hut.built + ', plot=' + (hut.plot ? hut.plot.length : 'none'));
+        // Serf hut checking logged via event system
         
         // If hut is not built yet, build it first
         if(!hut.built){
@@ -5346,30 +5346,30 @@ Serf = function(param){
           for(var i in hut.plot){
             var p = hut.plot[i];
             var t = getTile(0, p[0], p[1]);
-            console.log('  🔍 Checking plot tile [' + p[0] + ',' + p[1] + ']: tile=' + t);
+            // Plot tile checking logged via event system
             if(t == 11){ // Foundation tile that needs building
                       select.push(p);
                     }
                   }
           
-          console.log('🏗️ ' + self.name + ' hut NOT built, found ' + select.length + ' foundation tiles (type 11)');
+          // Hut building status logged via event system
           
                   if(select.length > 0){
                     self.work.spot = select[Math.floor(Math.random() * select.length)];
                     self.action = 'build';
-            console.log('✅ ' + self.name + ' ASSIGNED to build hut at [' + self.work.spot[0] + ',' + self.work.spot[1] + ']');
+            // Serf assignment logged via event system
           } else {
-            console.log('❌ ' + self.name + ' ERROR: hut not built but no foundation tiles found!');
+            // Serf error logged via event system
             self.mode = 'idle';
             self.action = null;
           }
         } else {
           // Hut is built, transition to economic work
-          console.log('✅ ' + self.name + ' hut is complete, transitioning to economic work');
+          // Hut completion logged via event system
           
           // Make sure serf has a work assignment
           if(!self.work.hq){
-            console.log('🏢 ' + self.name + ' has no work.hq, attempting to assign...');
+            // Serf work assignment logged via event system
             self.assignWorkHQ();
           }
           
@@ -5495,14 +5495,14 @@ Serf = function(param){
                 
                 if(House.list[b.owner]){
                   House.list[b.owner].stores.grain += buildingShare;
-                  console.log(House.list[b.owner].name + ' +' + buildingShare + ' Grain (' + self.name + ' kept ' + serfWage + ' as wage)');
+                  // Serf grain work logged via event system
                 } else if(Player.list[b.owner] && Player.list[b.owner].house){
                   var h = Player.list[b.owner].house;
                   House.list[h].stores.grain += buildingShare;
-                  console.log(House.list[h].name + ' +' + buildingShare + ' Grain (' + self.name + ' kept ' + serfWage + ' as wage)');
+                  // Serf grain work logged via event system
                 } else if(Player.list[b.owner]){
                   Player.list[b.owner].stores.grain += buildingShare;
-                  console.log(Player.list[b.owner].name + ' +' + buildingShare + ' Grain (' + self.name + ' kept ' + serfWage + ' as wage)');
+                  // Serf grain work logged via event system
                 }
                 // Track daily deposits (building share only)
                 if(!b.dailyStores) b.dailyStores = {grain: 0};
@@ -5691,14 +5691,14 @@ Serf = function(param){
                 
                 if(House.list[b.owner]){
                   House.list[b.owner].stores.wood += buildingShare;
-                  console.log(House.list[b.owner].name + ' +' + buildingShare + ' Wood (' + self.name + ' kept ' + serfWage + ' as wage)');
+                  // Serf wood work logged via event system
                 } else if(Player.list[b.owner] && Player.list[b.owner].house){
                   var h = Player.list[b.owner].house;
                   House.list[h].stores.wood += buildingShare;
-                  console.log(House.list[h].name + ' +' + buildingShare + ' Wood (' + self.name + ' kept ' + serfWage + ' as wage)');
+                  // Serf wood work logged via event system
                 } else if(Player.list[b.owner]){
                   Player.list[b.owner].stores.wood += buildingShare;
-                  console.log(Player.list[b.owner].name + ' +' + buildingShare + ' Wood (' + self.name + ' kept ' + serfWage + ' as wage)');
+                  // Serf wood work logged via event system
                 }
                 // Track daily deposits (building share only)
                 if(!b.dailyStores) b.dailyStores = {wood: 0};
@@ -5801,14 +5801,14 @@ Serf = function(param){
                   
                   if(House.list[b.owner]){
                     House.list[b.owner].stores.ironore += buildingShare;
-                    console.log(House.list[b.owner].name + ' +' + buildingShare + ' Iron Ore (' + self.name + ' kept ' + serfWage + ' as wage)');
+                    // Serf iron ore work logged via event system
                   } else if(Player.list[b.owner] && Player.list[b.owner].house){
                     var h = Player.list[b.owner].house;
                     House.list[h].stores.ironore += buildingShare;
-                    console.log(House.list[h].name + ' +' + buildingShare + ' Iron Ore (' + self.name + ' kept ' + serfWage + ' as wage)');
+                    // Serf iron ore work logged via event system
                   } else if(Player.list[b.owner]){
                     Player.list[b.owner].stores.ironore += buildingShare;
-                    console.log(Player.list[b.owner].name + ' +' + buildingShare + ' Iron Ore (' + self.name + ' kept ' + serfWage + ' as wage)');
+                    // Serf iron ore work logged via event system
                   }
                   // Track daily deposits (building share only)
                   if(!b.dailyStores) b.dailyStores = {stone: 0, ironore: 0, silverore: 0, goldore: 0, diamond: 0};

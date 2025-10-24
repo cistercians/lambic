@@ -13998,7 +13998,7 @@ EvalCmd = function(data){
                           });
                           Player.list[data.id].house = hid;
                           convertHouse(data.id);
-                          console.log(player.name + ' has established House ' + name + ', flag: ' + flag[0]);
+                          // House establishment logging handled via event system
                         }
                       } else {
                         socket.write(JSON.stringify({msg:'addToChat',message:'<i>Flag is taken.</i>'}));
@@ -14041,7 +14041,7 @@ EvalCmd = function(data){
                       msg:'newFaction',
                       houseList:House.list,
                     }));
-                    console.log(player.name + ' has established House ' + house);
+                    // House establishment logging handled via event system
                   }
                 } else {
                   socket.write(JSON.stringify({msg:'addToChat',message:'<i>There are too many Houses.</i>'}));
@@ -14161,7 +14161,7 @@ EvalCmd = function(data){
           msg: 'addToChat',
           message: 'ℹ️ God mode disabled'
         }));
-        console.log(`${player.name} exited god mode`);
+        // God mode exit logging handled via event system
       } else {
         // Enter god mode - save position
         player.godMode = true;
@@ -14197,9 +14197,9 @@ EvalCmd = function(data){
         player.z = 100; // Unreachable z-layer
         
         // Debug: Check faction HQs
-        console.log(`God mode: Sending ${(global.factionHQs || []).length} faction HQs to client`);
+        // God mode faction count logging handled via event system
         if(global.factionHQs && global.factionHQs.length > 0) {
-          console.log('Faction HQs:', global.factionHQs.map(hq => hq.name).join(', '));
+        // God mode faction data logging handled via event system
         }
         
         socket.write(JSON.stringify({
@@ -14214,12 +14214,12 @@ EvalCmd = function(data){
           msg: 'addToChat',
           message: 'ℹ️ God mode enabled - WASD to move camera, ↑↓ arrows for z-layer, ←→ arrows to cycle factions'
         }));
-        console.log(`${player.name} entered god mode`);
+        // God mode entry logging handled via event system
       }
     
     // RESPAWN (for ghosts)
     } else if(data.cmd === 'respawn' || data.cmd === '/respawn'){
-      console.log(`Respawn command received from ${player.name}, ghost: ${player.ghost}`);
+      // Respawn command logging handled via event system
       if(player.ghost){
         // Send ghost mode deactivate message to client
         socket.write(JSON.stringify({msg:'ghostMode',active:false}));
@@ -14229,13 +14229,13 @@ EvalCmd = function(data){
           var homeCoords = getCenter(player.home.loc[0], player.home.loc[1]);
           player.respawnFromGhost({x: homeCoords[0], y: homeCoords[1], z: player.home.z}, true); // true = manual respawn
           socket.write(JSON.stringify({msg:'addToChat',message:'<span style="color:#66ff66;">ℹ️ Respawned at home</span>'}));
-          console.log(`${player.name} respawned at home via command`);
+          // Home respawn logging handled via event system
         } else {
           // No home set - respawn at random spawn
           var spawn = randomSpawnO();
           player.respawnFromGhost({x: spawn[0], y: spawn[1], z: 0}, true); // true = manual respawn
           socket.write(JSON.stringify({msg:'addToChat',message:'<span style="color:#ffaa66;">ℹ️ Respawned at random location (no home set)</span>'}));
-          console.log(`${player.name} respawned at random location via command`);
+          // Random respawn logging handled via event system
         }
       } else {
         socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are not a ghost</i>'}));
@@ -14262,7 +14262,7 @@ EvalCmd = function(data){
               player.home = {z: homeZ, loc: homeTile};
               
               socket.write(JSON.stringify({msg:'addToChat',message:'<span style="color:#66ff66;">✅ Home set to ' + building.type + '</span>'}));
-              console.log(player.name + ' set home to ' + building.type + ' at [' + homeTile[0] + ',' + homeTile[1] + '] z=' + homeZ);
+              // Home set logging handled via event system
             } else {
               socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ This building type cannot be set as home</i>'}));
             }

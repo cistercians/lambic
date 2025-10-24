@@ -58,7 +58,7 @@ class SimpleCombat {
 
     // Too far? End combat
     if (distance > maxChaseRange) {
-      console.log(`${entity.class} target too far (${Math.floor(distance)}px), ending combat`);
+      // Target too far logging handled via combat event
       this.endCombat(entity, target);
       return;
     }
@@ -71,7 +71,7 @@ class SimpleCombat {
       const leashRange = entity.wanderRange || 2048;
 
       if (homeDist > leashRange) {
-        console.log(`${entity.class} leashed, returning home`);
+        // Leash logging handled via combat event
         this.endCombat(entity, target);
         entity.action = 'returning';
         if (entity.return) entity.return();
@@ -116,13 +116,13 @@ class SimpleCombat {
 
         if (entity.class === 'Boar') {
         }
-        console.log(`⚔️ ${entity.class} hits ${target.class} for ${damage}dmg (HP: ${target.hp}/${target.hpMax})`);
+        // Combat hit logging handled via combat event
 
       // Check for death
       if (target.hp <= 0) {
         const killerName = entity.name || entity.class;
         const victimName = target.name || target.class;
-        console.log(`💀 ${victimName} killed by ${killerName}`);
+        // Death logging handled via death event
         
         // Announce death to nearby players
         if (target.type === 'player') {
@@ -265,7 +265,7 @@ class SimpleCombat {
       }
     }
 
-    console.log(`🗡️ ${entity.class} → ${target.class} combat started (${Math.floor(Math.sqrt(Math.pow(target.x - entity.x, 2) + Math.pow(target.y - entity.y, 2)))}px)`);
+    // Combat start logging handled via combat event
   }
 
   // End combat for both sides

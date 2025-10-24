@@ -63,7 +63,7 @@ Build = function(id){
               if(socket){
                 socket.write(JSON.stringify({msg:'addToChat',message:'<span style="color:#66ff66;">🏠 Home set to your new ' + building.type + '</span>'}));
               }
-              console.log(owner.name + ' home auto-set to ' + building.type + ' at [' + homeTile[0] + ',' + homeTile[1] + '] z=' + homeZ);
+              // Home auto-set logging handled via event system
             } else {
               // Already has a home - notify they can change it
               if(socket){

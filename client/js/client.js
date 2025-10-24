@@ -322,8 +322,21 @@ socket.onmessage = function(event){
       console.log('BuildingPreviewRenderer not found!');
     }
   } else if(data.msg == 'init'){
-    selfId = data.selfId; // Set selfId (can be null for spectators)
+    // Only update selfId if this is an initial init message (has selfId)
+    if(data.selfId !== undefined) {
+      selfId = data.selfId;
+    }
     console.log('Init received - selfId:', selfId, 'Players:', data.pack.player ? data.pack.player.length : 0);
+    
+    // Only clear entities if this is an initial init message (has selfId)
+    if(data.selfId !== undefined) {
+      Player.list = {};
+      Arrow.list = {};
+      Item.list = {};
+      Light.list = {};
+      Building.list = {};
+    }
+    
     // { player : [{id:123,number:'1',x:0,y:0},{id:1,x:0,y:0}] arrow : []}
     for(i in data.pack.player){
       new Player(data.pack.player[i]);
@@ -1603,6 +1616,13 @@ chatForm.onsubmit = function(e){
       message:chatInput.value.slice(chatInput.value.indexOf(' ') + 1)
     }));
   } else { // chat
+    // Check if player exists before sending chat message
+    if(!selfId || !Player.list[selfId]){
+      console.log('Cannot send chat: no valid player');
+      chatInput.value = '';
+      chatInput.blur();
+      return;
+    }
     socket.send(JSON.stringify({
       msg:'msgToServer',
       name:Player.list[selfId].name,
@@ -8214,6 +8234,10 @@ var renderMap = function(){
       }
     }
   } else if(z == 1){
+    // Check if selfId exists and player is in the list
+    if(!selfId || !Player.list[selfId]){
+      return; // Exit early if no valid player
+    }
     var pBuilding = getBuilding(Player.list[selfId].x,Player.list[selfId].y);
     var dark = ctx.createPattern(Img.void, "repeat");
     ctx.rect(0,0,WIDTH,HEIGHT);
@@ -8339,6 +8363,10 @@ var renderMap = function(){
       }
     }
   } else if(z == 2){
+    // Check if selfId exists and player is in the list
+    if(!selfId || !Player.list[selfId]){
+      return; // Exit early if no valid player
+    }
     var pBuilding = getBuilding(Player.list[selfId].x,Player.list[selfId].y);
     var dark = ctx.createPattern(Img.void, "repeat");
     ctx.rect(0,0,WIDTH,HEIGHT);
@@ -9343,6 +9371,14 @@ document.onkeydown = function(event){
   // Check if chat is focused (needs to be checked early for godmode)
   var chatFocus = (document.activeElement == chatInput);
   
+  // Check if player exists before processing game input
+  if(!selfId || !Player.list[selfId]){
+    // Only allow chat and god mode controls if no valid player
+    if(!chatFocus && !godModeCamera.isActive){
+      return;
+    }
+  }
+  
   // God mode camera controls (handle BEFORE other inputs, but AFTER chat check)
   if (godModeCamera.isActive && !chatFocus) {
     if (event.keyCode === 87) { // W - Move up
@@ -9541,6 +9577,14 @@ document.onkeydown = function(event){
 }
 
 document.onkeyup = function(event){
+  // Check if player exists before processing game input
+  if(!selfId || !Player.list[selfId]){
+    // Only allow god mode controls if no valid player
+    if(!godModeCamera.isActive){
+      return;
+    }
+  }
+  
   // God mode camera controls - release keys
   if (godModeCamera.isActive) {
     if (event.keyCode === 87) { // W
