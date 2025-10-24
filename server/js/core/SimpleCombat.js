@@ -103,6 +103,11 @@ class SimpleCombat {
         target.hp -= damage;
         entity._lastCombatAttack = now;
         
+        // Create combat attack event
+        if(global.eventManager){
+          global.eventManager.combatAttack(entity, target, damage, { x: target.x, y: target.y, z: target.z });
+        }
+        
         // Trigger attack animation
         entity.pressingAttack = true;
         setTimeout(() => {

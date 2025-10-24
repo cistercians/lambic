@@ -14501,6 +14501,42 @@ EvalCmd = function(data){
         }
       }
     
+    } else if(data.cmd == 'testevents'){
+      // Test command for event system
+      if(global.eventManager){
+        // Test different event types
+        global.eventManager.createEvent({
+          category: global.eventManager.categories.COMBAT,
+          subject: player.id,
+          subjectName: player.name,
+          action: 'tested combat event',
+          communication: global.eventManager.commModes.PLAYER,
+          message: '<span style="color:#ff6666;">⚔️ Test combat event!</span>',
+          log: '[TEST] Combat event created',
+          position: { x: player.x, y: player.y, z: player.z }
+        });
+        
+        global.eventManager.createEvent({
+          category: global.eventManager.categories.ECONOMIC,
+          subject: player.id,
+          subjectName: player.name,
+          action: 'tested economic event',
+          quantity: 100,
+          communication: global.eventManager.commModes.NONE,
+          log: '[TEST] Economic event created',
+          position: { x: player.x, y: player.y, z: player.z }
+        });
+        
+        // Get event stats
+        const stats = global.eventManager.getEventStats(60000); // Last minute
+        socket.write(JSON.stringify({
+          msg: 'addToChat',
+          message: `<span style="color:#66ff66;">✅ Event system test complete! Stats: ${stats.total} events, ${stats.combatHotspots.length} combat hotspots</span>`
+        }));
+      } else {
+        socket.write(JSON.stringify({msg:'addToChat',message:'<span style="color:#ff6666;">❌ Event system not initialized!</span>'}));
+      }
+    
     } else {
       socket.write(JSON.stringify({msg:'addToChat',message:'<i>Invalid command.</i>'}));
     }

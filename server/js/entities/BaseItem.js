@@ -82,6 +82,11 @@ class BaseItem {
       msg: 'addToChat',
       message: `<i>You picked up</i> ${canTake} <b>${this.getDisplayName()}</b>.`
     }));
+    
+    // Create item pickup event
+    if(global.eventManager){
+      global.eventManager.itemPickedUp(this, player, { x: this.x, y: this.y, z: this.z });
+    }
   }
   
   getDisplayName() {

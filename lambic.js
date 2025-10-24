@@ -143,6 +143,10 @@ global.simpleCombat = new SimpleCombat();
 const SimpleFlee = require('./server/js/core/SimpleFlee');
 global.simpleFlee = new SimpleFlee();
 
+// Initialize Event Manager
+const EventManager = require('./server/js/core/EventManager');
+global.eventManager = new EventManager();
+
 // Create command handler after globals are set
 const commandHandler = new CommandHandler();
 
@@ -1469,6 +1473,12 @@ const Player = function(param) {
       global.simpleCombat.endCombat(self);
     }
     
+    // Create death event
+    if (global.eventManager) {
+      const killer = report.id ? Player.list[report.id] : null;
+      global.eventManager.death(self, killer, { x: self.x, y: self.y, z: deathZ });
+    }
+    
     // SPAWN SKELETON AT DEATH LOCATION
     var deathCoords = getCenter(deathLocation[0], deathLocation[1]);
     Skeleton({
@@ -2207,6 +2217,11 @@ const Player = function(param) {
           // Escaped far enough - end combat for BOTH sides
           console.log(self.name + ' escaped from ' + (target.name || target.class));
           
+          // Create combat escape event
+          if(global.eventManager){
+            global.eventManager.combatEscape(self, target, { x: self.x, y: self.y, z: self.z });
+          }
+          
           // Use simple combat system to properly end combat
           if (global.simpleCombat) {
             global.simpleCombat.endCombat(self);
@@ -2405,6 +2420,12 @@ const Player = function(param) {
           tileChange(6, loc[0], loc[1], -50, true);
           self.inventory.wood += 50;
           socket.write(JSON.stringify({ msg: 'addToChat', message: '<i>You chopped 50 Wood.</i>' }));
+          
+          // Create economic event for wood gathering
+          if (global.eventManager) {
+            global.eventManager.resourceGathered(self, 'wood', 50, { x: self.x, y: self.y, z: self.z });
+          }
+          
           self.working = false;
           self.chopping = false;
 
@@ -4287,6 +4308,20 @@ function dayNight() {
 
   nightfall = ['VIII.p', 'IX.p', 'X.p', 'XI.p', 'XII.a', 'I.a', 'II.a', 'III.a', 'IV.a'].includes(tempus);
   global.nightfall = nightfall;
+
+  // Track day/night transitions for events
+  if (global.eventManager) {
+    const wasNight = global.lastNightfall;
+    if (nightfall !== wasNight) {
+      // Transition occurred
+      if (nightfall) {
+        global.eventManager.dayNightTransition('Nightfall', true);
+      } else {
+        global.eventManager.dayNightTransition('Dawn', false);
+      }
+    }
+    global.lastNightfall = nightfall;
+  }
 
   emit({ msg: 'tempus', tempus, nightfall });
   console.log(tempus);

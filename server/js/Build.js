@@ -78,6 +78,11 @@ Build = function(id){
           }
         }
         
+        // Create building completion event
+        if(global.eventManager){
+          global.eventManager.buildingCompleted(building, owner, { x: building.x, y: building.y, z: building.z });
+        }
+        
         if(building.house && building.patrol){
           var h = building.house;
           House.list[h].military.patrol.push(b.id);

@@ -234,6 +234,11 @@ socket.onmessage = function(event){
       chatMessages.scrollTop = chatMessages.scrollHeight;
     }, 0);
     resetChatHideTimer();
+  } else if(data.msg == 'spectatorEvent'){
+    // Process event for intelligent camera director
+    if(window.spectatorDirector){
+      window.spectatorDirector.processEvent(data.event);
+    }
   } else if(data.msg == 'worldMapData'){
     // Show worldmap popup and render the world map
     if(worldmapPopup){
@@ -343,6 +348,13 @@ socket.onmessage = function(event){
       setTimeout(function(){
         console.log('Starting spectate camera now');
         spectateCameraSystem.start();
+        
+        // Initialize SpectatorDirector for intelligent camera control
+        if(typeof SpectatorDirector !== 'undefined'){
+          window.spectatorDirector = new SpectatorDirector();
+          window.spectatorDirector.start();
+          console.log('SpectatorDirector initialized');
+        }
         
         // Spectators don't have a selfId or player character, music is handled by camera
       }, 500);
