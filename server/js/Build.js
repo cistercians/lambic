@@ -11,7 +11,7 @@ Build = function(id){
   var building = Building.list[b];
   setTimeout(function(){
     var p = Player.list[id];
-    if(p && Player.list[id] && Player.list[id].working){
+    if(p){
       var loc = getLoc(p.x,p.y);
       tileChange(6,loc[0],loc[1],10,true); // ALPHA, default:1
       Player.list[id].working = false;

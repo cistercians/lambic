@@ -1366,12 +1366,7 @@ const Player = function(param) {
   self.title = '';
   self.friendlyfire = false;
   
-  // Spectator-specific setup
-  if (self.type === 'spectator') {
-    self.visible = param.visible !== undefined ? param.visible : false;
-    self.godMode = true; // Spectators have god-like view permissions
-    // Spectators don't need combat/inventory/movement logic
-  }
+  // Spectators are no longer Player entities - they're just camera viewers
 
   // Input state
   self.pressingE = false;
@@ -3431,9 +3426,8 @@ Player.onConnect = function(socket, name, playerType) {
 };
 
 Player.getAllInitPack = function() {
-  // Filter out spectators - they should not be visible
+  // Return all players (spectators are no longer Player entities)
   return Object.values(Player.list)
-    .filter(p => p.type !== 'spectator')
     .map(p => p.getInitPack());
 };
 
@@ -3570,10 +3564,8 @@ Player.update = function() {
       if (global.spatialSystem) {
         global.spatialSystem.updateEntity(i, player);
       }
-      // Don't send spectators in update packs - they should be invisible
-      if(player.type !== 'spectator'){
-        pack.push(player.getUpdatePack());
-      }
+      // Send all players in update packs (spectators are no longer Player entities)
+      pack.push(player.getUpdatePack());
     }
   }
 
@@ -4522,18 +4514,16 @@ io.on('connection', function(socket) {
               nightfall
             }));
             
-            // Create spectator player entity
-            const player = Player({
+            // Track spectator without creating a Player entity
+            // Spectators are just camera viewers, no game entity needed
+            global.spectators = global.spectators || {};
+            global.spectators[socket.id] = {
               name: data.name,
               id: socket.id,
-              type: 'spectator',
-              x: 0,
-              y: 0,
-              z: 0,
-              visible: false
-            });
+              type: 'spectator'
+            };
             
-            console.log(`${data.name} created as spectator`);
+            console.log(`${data.name} joined as spectator (no entity spawned)`);
             
             // Reconstruct world array for spectator
             const freshWorld = [];
@@ -4603,19 +4593,17 @@ io.on('connection', function(socket) {
           }
         });
       } else if (data.msg === 'spectatorChat') {
-        const player = Player.list[socket.id];
-        if(player && player.type === 'spectator'){
+        const spectator = global.spectators && global.spectators[socket.id];
+        if(spectator){
           // Broadcast to all spectators only
-          const spectatorMessage = `<b>[SPECTATING] ${player.name}:</b> ${data.message}`;
-          for(var i in Player.list){
-            if(Player.list[i].type === 'spectator'){
-              var spectatorSocket = SOCKET_LIST[i];
-              if(spectatorSocket){
-                spectatorSocket.write(JSON.stringify({
-                  msg: 'spectatorChatMessage',
-                  message: spectatorMessage
-                }));
-              }
+          const spectatorMessage = `<b>[SPECTATING] ${spectator.name}:</b> ${data.message}`;
+          for(var i in global.spectators){
+            var spectatorSocket = SOCKET_LIST[i];
+            if(spectatorSocket){
+              spectatorSocket.write(JSON.stringify({
+                msg: 'spectatorChatMessage',
+                message: spectatorMessage
+              }));
             }
           }
         }
@@ -4629,10 +4617,22 @@ io.on('connection', function(socket) {
   });
 
   socket.on('close', function() {
+    // Clean up spectators
+    if(global.spectators && global.spectators[socket.id]){
+      console.log(`${global.spectators[socket.id].name} disconnected from spectate mode`);
+      delete global.spectators[socket.id];
+    }
+    
     Player.onDisconnect(socket);
   });
 
   socket.onclose = function() {
+    // Clean up spectators
+    if(global.spectators && global.spectators[socket.id]){
+      console.log(`${global.spectators[socket.id].name} disconnected from spectate mode`);
+      delete global.spectators[socket.id];
+    }
+    
     Player.onDisconnect(socket);
   };
 });

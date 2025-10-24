@@ -6,12 +6,21 @@ class SimpleFlee {
     console.log('🏃 SimpleFlee initialized');
   }
 
+  // Helper function to restore original speed when fleeing ends
+  restoreSpeed(entity) {
+    if (entity._originalBaseSpd !== undefined) {
+      entity.baseSpd = entity._originalBaseSpd;
+      entity.maxSpd = entity._originalBaseSpd;
+      delete entity._originalBaseSpd; // Clean up
+    }
+  }
+
   // Main flee update - called every frame for entities with action='flee'
   update(entity) {
     // Validate flee state
     if (!entity.combat || !entity.combat.target) {
+      this.restoreSpeed(entity);
       entity.action = null;
-      entity.baseSpd = 2;
       return;
     }
 
@@ -19,14 +28,37 @@ class SimpleFlee {
     
     // Target gone or is a ghost? Stop fleeing (ghosts don't scare animals)
     if (!target || target.ghost) {
+      this.restoreSpeed(entity);
       entity.combat.target = null;
       entity.action = null;
-      entity.baseSpd = 2;
       return;
     }
 
-    // Set flee speed
-    entity.baseSpd = 6;
+    // Simple cooldown to prevent rapid oscillation (only after moves)
+    if (!entity.fleeCooldown) {
+      entity.fleeCooldown = 0;
+    }
+    
+    if (entity.fleeCooldown > 0) {
+      entity.fleeCooldown--;
+      // Don't return here - still allow flee logic to run
+    }
+
+    // Set flee speed - use character's run speed
+    // Wolves have different speeds for day/night
+    if (entity.class === 'Wolf') {
+      // Store original baseSpd before changing it (only once)
+      if (!entity._originalBaseSpd) {
+        entity._originalBaseSpd = entity.baseSpd;
+      }
+      entity.baseSpd = global.nightfall ? 7 : 6; // 7 at night, 6 during day
+    } else {
+      // Store original baseSpd before changing it (only once)
+      if (!entity._originalBaseSpd) {
+        entity._originalBaseSpd = entity.baseSpd;
+      }
+      entity.baseSpd = entity.runSpd || 6;
+    }
 
     // Calculate distance from threat
     const dx = target.x - entity.x;
@@ -35,9 +67,18 @@ class SimpleFlee {
 
     // Far enough? Stop fleeing
     if (distance > 512) {
+      this.restoreSpeed(entity);
       entity.combat.target = null;
       entity.action = null;
-      entity.baseSpd = 2;
+      
+      // Special behavior for deer - try to find forest
+      if (entity.class === 'Deer' && entity.findNearestForest) {
+        var forestLoc = entity.findNearestForest();
+        if (forestLoc) {
+          entity.moveTo(entity.z, forestLoc[0], forestLoc[1]);
+          console.log('Deer fleeing to forest at [' + forestLoc[0] + ',' + forestLoc[1] + ']');
+        }
+      }
       return;
     }
 
@@ -50,59 +91,83 @@ class SimpleFlee {
     
     // Normalize
     const magnitude = Math.sqrt(awayX * awayX + awayY * awayY);
-    const dirX = magnitude > 0 ? awayX / magnitude : 0;
-    const dirY = magnitude > 0 ? awayY / magnitude : 0;
+    let dirX = magnitude > 0 ? awayX / magnitude : 0;
+    let dirY = magnitude > 0 ? awayY / magnitude : 0;
 
-    // Pick tile to flee to (one tile away in the opposite direction)
+    // For deer, try to flee toward forest if very close
+    if (entity.class === 'Deer' && entity.findNearestForest) {
+      var forestLoc = entity.findNearestForest();
+      if (forestLoc) {
+        var forestDx = forestLoc[0] - loc[0];
+        var forestDy = forestLoc[1] - loc[1];
+        var forestDist = Math.sqrt(forestDx * forestDx + forestDy * forestDy);
+        
+        // Only blend if forest is very close (within 3 tiles)
+        if (forestDist <= 3 && forestDist > 0) {
+          var forestDirX = forestDx / forestDist;
+          var forestDirY = forestDy / forestDist;
+          
+          // Blend flee direction with forest direction (90% flee, 10% forest)
+          var blendedX = (dirX * 0.9) + (forestDirX * 0.1);
+          var blendedY = (dirY * 0.9) + (forestDirY * 0.1);
+          
+          // Normalize blended direction
+          var blendedMag = Math.sqrt(blendedX * blendedX + blendedY * blendedY);
+          if (blendedMag > 0) {
+            dirX = blendedX / blendedMag;
+            dirY = blendedY / blendedMag;
+          }
+        }
+      }
+    }
+
+    // Choose the strongest direction (cardinal only for stability)
+    const mapSize = global.mapSize || 128;
     let fleeCol = loc[0];
     let fleeRow = loc[1];
 
-    if (Math.abs(dirX) > Math.abs(dirY)) {
-      // Flee horizontally
-      if (dirX > 0) {
-        fleeCol = loc[0] + 1; // Flee right
-      } else {
-        fleeCol = loc[0] - 1; // Flee left
+    // Calculate which direction is strongest
+    let bestDir = null;
+    let bestScore = -Infinity;
+    
+    const directions = [
+      {name: 'right', dx: 1, dy: 0},
+      {name: 'left', dx: -1, dy: 0},
+      {name: 'down', dx: 0, dy: 1},
+      {name: 'up', dx: 0, dy: -1}
+    ];
+    
+    for (const dir of directions) {
+      // Calculate how well this direction aligns with flee direction
+      const alignment = (dir.dx * dirX) + (dir.dy * dirY);
+      
+      // Check if this direction is walkable
+      const checkCol = loc[0] + dir.dx;
+      const checkRow = loc[1] + dir.dy;
+      
+      if (checkCol < 0 || checkCol >= mapSize || checkRow < 0 || checkRow >= mapSize) {
+        continue; // Out of bounds
       }
+      
+      if (!global.isWalkable(entity.z, checkCol, checkRow)) {
+        continue; // Not walkable
+      }
+      
+      // Score this direction
+      const score = alignment;
+      
+      if (score > bestScore) {
+        bestScore = score;
+        bestDir = dir;
+      }
+    }
+    
+    // If we found a good direction, use it
+    if (bestDir) {
+      fleeCol = loc[0] + bestDir.dx;
+      fleeRow = loc[1] + bestDir.dy;
     } else {
-      // Flee vertically
-      if (dirY > 0) {
-        fleeRow = loc[1] + 1; // Flee down
-      } else {
-        fleeRow = loc[1] - 1; // Flee up
-      }
-    }
-
-    // Bounds check
-    const mapSize = global.mapSize || 128;
-    if (fleeCol < 0 || fleeCol >= mapSize || fleeRow < 0 || fleeRow >= mapSize) {
-      // Hit edge - try perpendicular direction
-      if (Math.abs(dirX) > Math.abs(dirY)) {
-        // Was trying horizontal, try vertical
-        fleeCol = loc[0];
-        fleeRow = dirY > 0 ? loc[1] + 1 : loc[1] - 1;
-      } else {
-        // Was trying vertical, try horizontal
-        fleeRow = loc[1];
-        fleeCol = dirX > 0 ? loc[0] + 1 : loc[0] - 1;
-      }
-    }
-
-    // Final bounds check
-    if (fleeCol < 0 || fleeCol >= mapSize || fleeRow < 0 || fleeRow >= mapSize) {
-      // Still out of bounds, stay put
-      return;
-    }
-
-    // Check if target tile is walkable
-    if (global.isWalkable(entity.z, fleeCol, fleeRow)) {
-      // No active path? Create one
-      if (!entity.path) {
-        entity.path = [[fleeCol, fleeRow]];
-        entity.pathCount = 0;
-      }
-    } else {
-      // Blocked - try adjacent tiles in a pattern
+      // No good direction found - try any walkable adjacent tile
       const adjacentTiles = [
         [loc[0] + 1, loc[1]],     // right
         [loc[0] - 1, loc[1]],     // left
@@ -118,17 +183,22 @@ class SimpleFlee {
       for (const tile of adjacentTiles) {
         if (tile[0] >= 0 && tile[0] < mapSize && tile[1] >= 0 && tile[1] < mapSize) {
           if (global.isWalkable(entity.z, tile[0], tile[1])) {
-            if (!entity.path) {
-              entity.path = [tile];
-              entity.pathCount = 0;
-              break;
-            }
+            fleeCol = tile[0];
+            fleeRow = tile[1];
+            break;
           }
         }
       }
+    }
+
+    // Create simple path if we don't have one
+    if (!entity.path) {
+      entity.path = [[fleeCol, fleeRow]];
+      entity.pathCount = 0;
+      // Set cooldown only when creating new path (changing direction)
+      entity.fleeCooldown = 30; // 30 frames = 0.5 seconds at 60fps
     }
   }
 }
 
 module.exports = SimpleFlee;
-

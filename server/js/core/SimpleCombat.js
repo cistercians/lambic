@@ -148,11 +148,15 @@ class SimpleCombat {
     } else {
       // OUT OF RANGE? Chase!
       if (!entity.path && entity.moveTo) {
-        // NPCs run when chasing in combat
+        // NPCs run when chasing in combat - use their runSpd
         if (entity.type === 'npc' && !entity.running) {
           entity.running = true;
-          entity.baseSpd = 4;
-          entity.maxSpd = 4;
+          // Store original baseSpd before changing it
+          if (!entity._originalBaseSpd) {
+            entity._originalBaseSpd = entity.baseSpd;
+          }
+          entity.baseSpd = entity.runSpd || 6; // Use NPC's runSpd, fallback to 6
+          entity.maxSpd = entity.runSpd || 6;
         }
         const targetLoc = global.getLoc(target.x, target.y);
         
@@ -185,8 +189,17 @@ class SimpleCombat {
       // Skip ghosts - they are invisible to all NPCs
       if (target.ghost) continue;
       
+      // Skip spectators - they are invisible and invulnerable
+      if (target.type === 'spectator') continue;
+      
       // Skip non-combatant targets
       if (nonCombatClasses.includes(target.class)) continue;
+      
+      // Only wolves can target prey animals (deer)
+      if (target.isPrey && entity.class !== 'Wolf') continue;
+      
+      // Serfs should not target prey animals (deer)
+      if (target.isPrey && entity.class === 'Serf') continue;
 
       const dx = target.x - entity.x;
       const dy = target.y - entity.y;
@@ -210,9 +223,18 @@ class SimpleCombat {
     // Skip peaceful units
     const peaceful = ['Serf', 'SerfM', 'SerfF', 'Deer', 'Sheep'];
     if (peaceful.includes(entity.class)) {
+      // Serfs should not flee from prey animals (deer)
+      if (target.isPrey && entity.class === 'Serf') {
+        return; // Don't start combat or flee
+      }
       entity.action = 'flee';
       entity.combat.target = target.id;
       return;
+    }
+    
+    // Only wolves can attack prey animals
+    if (target.isPrey && entity.class !== 'Wolf') {
+      return; // Don't start combat
     }
 
     entity.action = 'combat';
@@ -260,8 +282,9 @@ class SimpleCombat {
     // Stop running when combat ends (NPCs only, players control their own running)
     if (entity.type === 'npc' && entity.running) {
       entity.running = false;
-      entity.baseSpd = 2;
-      entity.maxSpd = 2;
+      // Restore original baseSpd - we need to store it when combat starts
+      entity.baseSpd = entity._originalBaseSpd || 2;
+      entity.maxSpd = entity._originalBaseSpd || 2;
     }
 
     // Clear target's combat state if they were targeting this entity
@@ -274,8 +297,8 @@ class SimpleCombat {
       // Stop running when combat ends (NPCs only)
       if (target.type === 'npc' && target.running) {
         target.running = false;
-        target.baseSpd = 2;
-        target.maxSpd = 2;
+        target.baseSpd = target._originalBaseSpd || 2;
+        target.maxSpd = target._originalBaseSpd || 2;
       }
       
       // Send escape message to player

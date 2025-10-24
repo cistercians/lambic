@@ -317,8 +317,7 @@ socket.onmessage = function(event){
       console.log('BuildingPreviewRenderer not found!');
     }
   } else if(data.msg == 'init'){
-    if(data.selfId)
-      selfId = data.selfId;
+    selfId = data.selfId; // Set selfId (can be null for spectators)
     console.log('Init received - selfId:', selfId, 'Players:', data.pack.player ? data.pack.player.length : 0);
     // { player : [{id:123,number:'1',x:0,y:0},{id:1,x:0,y:0}] arrow : []}
     for(i in data.pack.player){
@@ -3291,6 +3290,11 @@ var Player = function(initPack){
   self.draw = function(){
     // God mode: Hide the player's own character
     if(godModeCamera.isActive && self.id === selfId){
+      return;
+    }
+    
+    // Spectate mode: Hide spectator characters
+    if(spectateCameraSystem.isActive && self.type === 'spectator'){
       return;
     }
     

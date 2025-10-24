@@ -52,6 +52,10 @@ Building = function(param){
   self.hp = param.hp;
   self.occ = 0;
 
+  // Spot tracking for work assignments
+  self.assignedSpots = {}; // {serfId: [col,row]}
+  self.availableResources = []; // Copy of resources for tracking
+
   self.getInitPack = function(){
     return {
       id:self.id,
@@ -68,6 +72,82 @@ Building = function(param){
       occ:self.occ
     }
   }
+
+  // Method to mark spot as assigned
+  self.assignSpot = function(serfId, spot){
+    self.assignedSpots[serfId] = spot;
+  };
+
+  // Method to release spot
+  self.releaseSpot = function(serfId){
+    delete self.assignedSpots[serfId];
+  };
+
+  // Method to check if spot is available
+  self.isSpotAvailable = function(spot){
+    for(var id in self.assignedSpots){
+      var assigned = self.assignedSpots[id];
+      if(assigned[0] === spot[0] && assigned[1] === spot[1]){
+        return false;
+      }
+    }
+    return true;
+  };
+
+  // Method to update resources list (call after resource depletion)
+  self.updateResources = function(){
+    if(!self.resources) return;
+    
+    // Filter out depleted resources based on building type
+    if(self.type === 'lumbermill'){
+      self.resources = self.resources.filter(r => {
+        var tile = getTile(0, r[0], r[1]);
+        return tile >= 1 && tile < 2; // Has trees
+      });
+    } else if(self.type === 'mine'){
+      self.resources = self.resources.filter(r => {
+        var tile = getTile(1, r[0], r[1]);
+        return tile >= 2 && tile < 5; // Has ore/stone
+      });
+    } else if(self.type === 'mill' || self.type === 'farm'){
+      // Farms are handled specially (see below)
+      self.updateFarmResources();
+    }
+  };
+
+  // Special farm resource tracking
+  self.updateFarmResources = function(){
+    if(self.type !== 'mill' && self.type !== 'farm') return;
+    
+    var barren = [];
+    var growing = [];
+    var wheat = [];
+    
+    for(var i in self.plot){
+      var p = self.plot[i];
+      var tile = getTile(0, p[0], p[1]);
+      var res = getTile(6, p[0], p[1]);
+      
+      if(tile === 8){ // Barren/Growing phase
+        if(res < 50){
+          barren.push(p); // Needs planting/watering
+        } else {
+          growing.push(p); // Still growing, maxed resources
+        }
+      } else if(tile === 9){ // Wheat ready
+        wheat.push(p);
+      }
+    }
+    
+    // Assign based on farm state
+    if(wheat.length > 0){
+      // Wheat mode - only assign wheat tiles
+      self.resources = wheat;
+    } else {
+      // Growing mode - only assign barren tiles (not maxed)
+      self.resources = barren;
+    }
+  };
 
   Building.list[self.id] = self;
 
@@ -1321,6 +1401,7 @@ Character = function(param){
   self.building = false;
   self.fishing = false;
   self.baseSpd = 2;
+  self.runSpd = 6; // Running/fleeing speed
   self.maxSpd = 2;
   self.drag = 1;
   self.idleTime = 0;
@@ -4170,7 +4251,10 @@ Sheep = function(param){
 Deer = function(param){
   var self = Character(param);
   self.class = 'Deer';
+  self.isPrey = true; // Prey animal
+  self.isNonCombatant = true; // Doesn't trigger outposts
   self.aggroRange = 256;
+  self.runSpd = 6; // Deer flee speed (original value)
   self.stealthCheck = function(p){
     if(p.stealthed){
       var dist = self.getDistance({x:p.x,y:p.y});
@@ -4214,15 +4298,64 @@ Deer = function(param){
     }
   },100); // Check every 100ms for faster response
 
+  // Find nearest heavy forest area
+  self.findNearestForest = function(){
+    var loc = getLoc(self.x, self.y);
+    var bestForest = null;
+    var bestDistance = Infinity;
+    
+    // Search in expanding radius for heavy forest (tile type 1)
+    for(var radius = 1; radius <= 20; radius++){
+      for(var dx = -radius; dx <= radius; dx++){
+        for(var dy = -radius; dy <= radius; dy++){
+          // Only check perimeter of current radius
+          if(Math.abs(dx) !== radius && Math.abs(dy) !== radius && radius > 1) continue;
+          
+          var checkCol = loc[0] + dx;
+          var checkRow = loc[1] + dy;
+          
+          // Bounds check
+          if(checkCol < 0 || checkCol >= mapSize || checkRow < 0 || checkRow >= mapSize) continue;
+          
+          // Check if this tile is heavy forest
+          if(getTile(0, checkCol, checkRow) >= 1 && getTile(0, checkCol, checkRow) < 2){
+            var dist = Math.sqrt(dx*dx + dy*dy);
+            if(dist < bestDistance){
+              bestDistance = dist;
+              bestForest = [checkCol, checkRow];
+            }
+          }
+        }
+      }
+      
+      // If we found a forest within reasonable distance, use it
+      if(bestForest && bestDistance <= 10){
+        break;
+      }
+    }
+    
+    return bestForest;
+  };
+
   self.return = function(){
     if(!self.path){
       if(self.innaWoods){
+        // Already in forest, just idle
         self.action = null;
       } else {
-        self.moveTo(self.home.z,self.home.loc[0],self.home.loc[1]);
+        // Find nearest forest instead of returning to home
+        var forestLoc = self.findNearestForest();
+        if(forestLoc){
+          self.moveTo(self.z, forestLoc[0], forestLoc[1]);
+          console.log('Deer seeking forest at [' + forestLoc[0] + ',' + forestLoc[1] + ']');
+        } else {
+          // No forest found, just idle where we are
+          self.action = null;
+          console.log('Deer: no forest found, idling in place');
+        }
       }
     }
-  }
+  };
 
   self.update = function(){
     var loc = getLoc(self.x,self.y);
@@ -4267,7 +4400,10 @@ Deer = function(param){
 
     if(self.mode == 'idle'){
       if(!self.action){
-        self.baseSpd = 4;
+        // Don't reset speed if we're fleeing (SimpleFlee manages our speed)
+        if(self.action !== 'flee'){
+          self.baseSpd = 2; // Deer base speed should be 2
+        }
         if(!self.innaWoods){
           if(!self.path){
             self.return();
@@ -4296,7 +4432,6 @@ Deer = function(param){
           // Fallback: clear flee if no system available
           self.action = null;
           self.combat.target = null;
-          self.baseSpd = 2;
         }
       }
     }
@@ -4309,6 +4444,7 @@ Boar = function(param){
   var self = Character(param);
   self.class = 'Boar';
   self.baseSpd = 5;
+  self.runSpd = 7; // Boar run speed
   self.damage = 12;
   self.aggroRange = 128;
   self.wanderRange = 256; // Tight leash - territorial defense (2x aggro range)
@@ -4318,7 +4454,8 @@ Boar = function(param){
 Wolf = function(param){
   var self = Character(param);
   self.class = 'Wolf';
-  self.baseSpd = 5;
+  self.baseSpd = 3;
+  self.runSpd = 6; // Default wolf run speed (day), SimpleFlee will override with day/night logic
   self.damage = 10;
   self.wanderRange = 4096; // Increased 4x from 1024 (64 tiles)
   self.aggroRange = 256; // Set initial aggro range
@@ -4455,7 +4592,7 @@ Wolf = function(param){
     }
 
     if(!self.action){
-      self.baseSpd = 5;
+      self.baseSpd = 3;
       if(!self.nightmode && self.z == 0){
         var t = getTile(0,loc[0],loc[1]);
         if(t >= 2 && !self.path){
@@ -4497,12 +4634,12 @@ Wolf = function(param){
       if(global.simpleCombat){
         global.simpleCombat.update(self);
       } else {
-        // Fallback to old wolf combat logic
-      if(self.nightmode){
-        self.baseSpd = 7;
-      } else {
-        self.baseSpd = 6;
-      }
+        // Fallback to old wolf combat logic - use runSpd
+        if(self.nightmode){
+          self.baseSpd = 7; // Night speed
+        } else {
+          self.baseSpd = 6; // Day speed
+        }
       var target = Player.list[self.combat.target];
       if(target){
         if(target.hasTorch || getTile(target.z == 1)){
@@ -4523,7 +4660,7 @@ Wolf = function(param){
             console.log(self.class + ' exceeded leash range, returning home');
             self.combat.target = null;
             self.action = 'returning'; // Set returning state to prevent re-aggro
-            self.baseSpd = 5;
+            self.baseSpd = 3;
             if(target.combat.target == self.id){
               Player.list[target.id].combat.target = null;
               Player.list[target.id].action = null;
@@ -4538,7 +4675,7 @@ Wolf = function(param){
           if(tDist > self.aggroRange * 1.5){
             self.combat.target = null;
             self.action = null;
-            self.baseSpd = 5;
+            self.baseSpd = 3;
             if(target.combat.target == self.id){
               Player.list[target.id].combat.target = null;
               Player.list[target.id].action = null;
@@ -4722,22 +4859,24 @@ Falcon = function(param){
 
 // UNITS
 
-SerfM = function(param){
+Serf = function(param){
   var self = Character(param);
   self.name = param.name;
-  self.class = 'SerfM';
-  self.sex = 'm';
+  self.sex = param.sex || 'm';
+  self.class = self.sex === 'f' ? 'SerfF' : 'SerfM'; // Visual distinction
   self.spriteSize = tileSize*1.5;
   self.unarmed = true;
   self.tether = null; // {z,loc}
   self.tavern = param.tavern;
   self.hut = param.hut;
-  self.work = param.work || {hq:null,spot:null}; // Preserve work HQ from tavern spawn
+  self.work = param.work || {hq:null, spot:null, assignedSpot:null};
   self.dayTimer = false;
   self.workTimer = false;
   self.idleCounter = 0; // Track how long serf has been without action
   self.lastPos = {x: param.x, y: param.y}; // Track position for stuck detection
   self.stuckCounter = 0; // Count frames stuck in same position
+  self.torchBearer = false; // Set during assignWorkHQ
+  self.isNonCombatant = true; // Civilian - doesn't trigger outposts
 
   // Assign Serf to appropriate work building
   self.assignWorkHQ = function(){
@@ -4746,10 +4885,20 @@ SerfM = function(param){
     var bestHQ = null;
     var bestDistance = Infinity;
     
+    // Gender restrictions
+    var validBuildingTypes = [];
+    if(self.sex === 'f'){
+      // Females: only mills and farms
+      validBuildingTypes = ['mill', 'farm'];
+    } else {
+      // Males: all economic buildings
+      validBuildingTypes = ['mill', 'farm', 'lumbermill', 'mine'];
+    }
+    
     // Look for work buildings in the same house
     for(var i in Building.list){
       var b = Building.list[i];
-      if(b.house == self.house && (b.type == 'mill' || b.type == 'lumbermill' || b.type == 'mine')){
+      if(b.house == self.house && validBuildingTypes.indexOf(b.type) !== -1){
         var dist = getDistance({x:self.x,y:self.y},{x:b.x,y:b.y});
         if(dist < bestDistance){
           bestDistance = dist;
@@ -4758,10 +4907,28 @@ SerfM = function(param){
       }
     }
     
+    // If no work found in own house and female, try allied houses
+    if(!bestHQ && self.sex === 'f' && self.house){
+      var myHouse = House.list[self.house];
+      if(myHouse && myHouse.allies){
+        for(var i in Building.list){
+          var b = Building.list[i];
+          // Check if building is mill/farm and house is allied
+          if((b.type === 'mill' || b.type === 'farm') && b.house && myHouse.allies.indexOf(b.house) !== -1){
+            var dist = getDistance({x:self.x,y:self.y},{x:b.x,y:b.y});
+            if(dist < bestDistance && dist <= 2000){ // Within reasonable distance
+              bestDistance = dist;
+              bestHQ = i;
+            }
+          }
+        }
+      }
+    }
+    
     if(bestHQ){
       self.work.hq = bestHQ;
       var buildingType = Building.list[bestHQ].type;
-      console.log(self.name + ' assigned to work at ' + buildingType);
+      console.log(self.name + ' (' + self.sex + ') assigned to work at ' + buildingType);
       
       // Only miners need torches for caves
       if(buildingType === 'mine' && Building.list[bestHQ].cave){
@@ -4771,7 +4938,8 @@ SerfM = function(param){
         self.torchBearer = false;
       }
     } else {
-      console.log(self.name + ' no work buildings found for house ' + self.house);
+      console.log(self.name + ' (' + self.sex + ') no suitable work found for house ' + self.house);
+      self.work.hq = null;
     }
   };
 
@@ -4786,14 +4954,12 @@ SerfM = function(param){
         self.assignWorkHQ();
       } else {
         // Work HQ was provided by tavern spawn, set torchBearer appropriately (for miners)
-        if(self.sex == 'm'){
           var buildingType = Building.list[self.work.hq].type;
           if(buildingType === 'mine' && Building.list[self.work.hq].cave){
             self.torchBearer = true;
             console.log(self.name + ' is now a torch bearer (ore miner)');
           } else {
             self.torchBearer = false;
-          }
         }
       }
       
@@ -4805,7 +4971,7 @@ SerfM = function(param){
         self.mode = 'idle';
       }
       
-      console.log(self.name + ' initialized - HQ: ' + (self.work.hq ? Building.list[self.work.hq].type : 'none') + 
+      console.log(self.name + ' (' + self.sex + ') initialized - HQ: ' + (self.work.hq ? Building.list[self.work.hq].type : 'none') + 
                   ', Tavern: ' + (self.tavern ? 'yes' : 'no') + ', Mode: ' + self.mode);
     }
   };
@@ -4835,6 +5001,66 @@ SerfM = function(param){
     }
   };
 
+  // Unified work assignment (Daily Spot System)
+  self.assignDailyWorkSpot = function(){
+    if(!self.work.hq || !Building.list[self.work.hq]) return false;
+    
+    var hq = Building.list[self.work.hq];
+    
+    // If serf already has assigned spot for today, reuse it
+    if(self.work.assignedSpot && hq.assignedSpots[self.id]){
+      var spot = self.work.assignedSpot;
+      
+      // Verify spot still valid (has resources)
+      var stillValid = false;
+      if(hq.resources){
+        for(var i in hq.resources){
+          var r = hq.resources[i];
+          if(r[0] === spot[0] && r[1] === spot[1]){
+            stillValid = true;
+            break;
+          }
+        }
+      }
+      
+      if(stillValid){
+        self.work.spot = spot;
+        return true;
+      } else {
+        // Spot depleted, release it and get new one
+        hq.releaseSpot(self.id);
+        self.work.assignedSpot = null;
+      }
+    }
+    
+    // Update building resources before assigning
+    if(hq.updateResources){
+      hq.updateResources();
+    }
+    
+    // Find available unassigned spots
+    if(!hq.resources || hq.resources.length === 0) return false;
+    
+    var availableSpots = [];
+    for(var i in hq.resources){
+      var res = hq.resources[i];
+      if(hq.isSpotAvailable(res)){
+        availableSpots.push(res);
+      }
+    }
+    
+    if(availableSpots.length === 0) return false;
+    
+    // Assign random available spot
+    var selected = availableSpots[Math.floor(Math.random() * availableSpots.length)];
+    self.work.assignedSpot = selected;
+    self.work.spot = selected;
+    hq.assignSpot(self.id, selected);
+    
+    console.log(self.name + ' assigned daily spot at ' + hq.type + ': [' + selected[0] + ',' + selected[1] + ']');
+    return true;
+  };
+
   // Initialize the Serf
   self.initializeSerf();
 
@@ -4858,12 +5084,12 @@ SerfM = function(param){
 
     if(self.z == 0){
       if(getTile(0,loc[0],loc[1]) == 6){
-        // At cave entrance - set state
-        self.transitionState = 'at_entrance';
-        
-        // Check intent to enter cave
-        if(self.transitionIntent === 'enter_cave' && (!self.path || self.path.length === 0)){
-          self.enterCave(loc);
+        // Cave entrance - enter only if no active path
+        if(!self.path || self.path.length === 0){
+          self.caveEntrance = loc;
+          self.z = -1;
+          self.path = null;
+          self.pathCount = 0;
         }
       } else if(getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 2){
         self.innaWoods = true;
@@ -6094,7 +6320,11 @@ SerfM = function(param){
           // Fallback: clear flee if no system available
             self.action = null;
           self.combat.target = null;
-          self.baseSpd = 2;
+          // Restore original speed when fleeing ends
+          if (self._originalBaseSpd !== undefined) {
+            self.baseSpd = self._originalBaseSpd;
+            delete self._originalBaseSpd;
+          }
         }
       }
       // IDLE
@@ -6492,7 +6722,11 @@ SerfM = function(param){
           // Fallback: clear flee if no system available
             self.action = null;
           self.combat.target = null;
-          self.baseSpd = 2;
+          // Restore original speed when fleeing ends
+          if (self._originalBaseSpd !== undefined) {
+            self.baseSpd = self._originalBaseSpd;
+            delete self._originalBaseSpd;
+          }
         }
       }
     }
@@ -6500,7 +6734,18 @@ SerfM = function(param){
   }
 }
 
+// Backward-compatible aliases
+SerfM = function(param){
+  param.sex = 'm';
+  return Serf(param);
+};
+
 SerfF = function(param){
+  param.sex = 'f';
+  return Serf(param);
+};
+
+Innkeeper = function(param){
   var self = Character(param);
   self.name = param.name;
   self.class = 'SerfF';
@@ -6575,14 +6820,12 @@ SerfF = function(param){
         self.assignWorkHQ();
       } else {
         // Work HQ was provided by tavern spawn, set torchBearer appropriately (for miners)
-        if(self.sex == 'm'){
           var buildingType = Building.list[self.work.hq].type;
           if(buildingType === 'mine' && Building.list[self.work.hq].cave){
             self.torchBearer = true;
             console.log(self.name + ' is now a torch bearer (ore miner)');
           } else {
             self.torchBearer = false;
-          }
         }
       }
       
@@ -6594,7 +6837,7 @@ SerfF = function(param){
         self.mode = 'idle';
       }
       
-      console.log(self.name + ' initialized - HQ: ' + (self.work.hq ? Building.list[self.work.hq].type : 'none') + 
+      console.log(self.name + ' (' + self.sex + ') initialized - HQ: ' + (self.work.hq ? Building.list[self.work.hq].type : 'none') + 
                   ', Tavern: ' + (self.tavern ? 'yes' : 'no') + ', Mode: ' + self.mode);
     }
   };
@@ -6622,6 +6865,66 @@ SerfF = function(param){
     } else {
       console.log(self.name + ' no tavern found for house ' + self.house);
     }
+  };
+
+  // Unified work assignment (Daily Spot System)
+  self.assignDailyWorkSpot = function(){
+    if(!self.work.hq || !Building.list[self.work.hq]) return false;
+    
+    var hq = Building.list[self.work.hq];
+    
+    // If serf already has assigned spot for today, reuse it
+    if(self.work.assignedSpot && hq.assignedSpots[self.id]){
+      var spot = self.work.assignedSpot;
+      
+      // Verify spot still valid (has resources)
+      var stillValid = false;
+      if(hq.resources){
+        for(var i in hq.resources){
+          var r = hq.resources[i];
+          if(r[0] === spot[0] && r[1] === spot[1]){
+            stillValid = true;
+            break;
+          }
+        }
+      }
+      
+      if(stillValid){
+        self.work.spot = spot;
+        return true;
+      } else {
+        // Spot depleted, release it and get new one
+        hq.releaseSpot(self.id);
+        self.work.assignedSpot = null;
+      }
+    }
+    
+    // Update building resources before assigning
+    if(hq.updateResources){
+      hq.updateResources();
+    }
+    
+    // Find available unassigned spots
+    if(!hq.resources || hq.resources.length === 0) return false;
+    
+    var availableSpots = [];
+    for(var i in hq.resources){
+      var res = hq.resources[i];
+      if(hq.isSpotAvailable(res)){
+        availableSpots.push(res);
+      }
+    }
+    
+    if(availableSpots.length === 0) return false;
+    
+    // Assign random available spot
+    var selected = availableSpots[Math.floor(Math.random() * availableSpots.length)];
+    self.work.assignedSpot = selected;
+    self.work.spot = selected;
+    hq.assignSpot(self.id, selected);
+    
+    console.log(self.name + ' assigned daily spot at ' + hq.type + ': [' + selected[0] + ',' + selected[1] + ']');
+    return true;
   };
 
   // Initialize the Serf
@@ -7430,7 +7733,11 @@ SerfF = function(param){
           // Fallback: clear flee if no system available
             self.action = null;
           self.combat.target = null;
-          self.baseSpd = 2;
+          // Restore original speed when fleeing ends
+          if (self._originalBaseSpd !== undefined) {
+            self.baseSpd = self._originalBaseSpd;
+            delete self._originalBaseSpd;
+          }
         }
       }
     }
@@ -7445,8 +7752,10 @@ Innkeeper = function(param){
   self.sex = 'm';
   self.spriteSize = tileSize*1.5;
   self.baseSpd = 3;
+  self.runSpd = 5; // Innkeeper run speed
   self.torchBearer = true;
   self.unarmed = true;
+  self.isNonCombatant = true; // Civilian NPC
   self.leashCheckTimer = 0; // Check leash every 5 seconds (300 frames)
   
   var super_update = self.update;
@@ -7487,9 +7796,12 @@ Blacksmith = function(param){
   self.class = 'SerfM';
   self.sex = 'm';
   self.unarmed = true;
+  self.isNonCombatant = true; // Civilian NPC
   self.forge = param.forge;
   self.work = 100;
   self.spriteSize = tileSize * 1.5; // Same as SerfM - 1.5x size (96px)
+  self.baseSpd = 3;
+  self.runSpd = 5; // Blacksmith run speed
 
   self.update = function(){
     var loc = getLoc(self.x,self.y);
@@ -7810,7 +8122,11 @@ Blacksmith = function(param){
           // Fallback: clear flee if no system available
             self.action = null;
           self.combat.target = null;
-          self.baseSpd = 2;
+          // Restore original speed when fleeing ends
+          if (self._originalBaseSpd !== undefined) {
+            self.baseSpd = self._originalBaseSpd;
+            delete self._originalBaseSpd;
+          }
         }
       }
     }
@@ -7830,6 +8146,8 @@ Monk = function(param){
   self.sex = 'm';
   self.cleric = true;
   self.baseSpd = 2;
+  self.runSpd = 4; // Monk run speed
+  self.isNonCombatant = true; // Civilian NPC
 }
 
 Bishop = function(param){
@@ -7840,6 +8158,8 @@ Bishop = function(param){
   self.rank = '♝ ';
   self.cleric = true;
   self.baseSpd = 2;
+  self.runSpd = 4; // Bishop run speed
+  self.isNonCombatant = true; // Civilian NPC
 }
 
 Friar = function(param){
@@ -7851,6 +8171,7 @@ Friar = function(param){
   self.mounted = true;
   self.cleric = true;
   self.baseSpd = 2;
+  self.runSpd = 4; // Friar run speed
   self.torchBearer = true;
 }
 
@@ -7861,8 +8182,10 @@ Shipwright = function(param){
   self.sex = 'm';
   self.spriteSize = tileSize*1.5;
   self.baseSpd = 3;
+  self.runSpd = 5; // Shipwright run speed
   self.torchBearer = true;
   self.unarmed = true;
+  self.isNonCombatant = true; // Civilian NPC
 }
 
 Footsoldier = function(param){
@@ -7873,6 +8196,7 @@ Footsoldier = function(param){
   self.military = true;
   self.spriteSize = tileSize*1.5;
   self.baseSpd = 3.5;
+  self.runSpd = 6; // Footsoldier run speed
   self.damage = 10;
 }
 
@@ -7884,6 +8208,7 @@ Skirmisher = function(param){
   self.military = true;
   self.spriteSize = tileSize*1.5;
   self.baseSpd = 3.5;
+  self.runSpd = 6; // Skirmisher run speed
   self.damage = 15;
 }
 
@@ -7896,6 +8221,7 @@ Cavalier = function(param){
   self.spriteSize = tileSize*1.5;
   self.mounted = true;
   self.baseSpd = 6.5;
+  self.runSpd = 8; // Cavalier run speed
   self.damage = 20;
 }
 
@@ -7908,6 +8234,7 @@ General = function(param){
   self.spriteSize = tileSize*2;
   self.mounted = true;
   self.baseSpd = 6.5;
+  self.runSpd = 8; // General run speed
   self.damage = 25;
 }
 
@@ -7921,6 +8248,7 @@ Warden = function(param){
   self.mounted = true;
   self.ranged = true;
   self.baseSpd = 7;
+  self.runSpd = 9; // Warden run speed
   self.torchBearer = true;
   self.damage = 20;
 }
@@ -7931,6 +8259,8 @@ SwissGuard = function(param){
   self.class = 'SwissGuard';
   self.sex = 'm';
   self.spriteSize = tileSize*2;
+  self.baseSpd = 3;
+  self.runSpd = 5; // Swiss Guard run speed
   self.damage = 15;
 }
 
@@ -7941,6 +8271,7 @@ Hospitaller = function(param){
   self.sex = 'm';
   self.spriteSize = tileSize*1.5;
   self.baseSpd = 3;
+  self.runSpd = 5; // Hospitaller run speed
   self.damage = 20;
 }
 
@@ -7952,6 +8283,7 @@ ImperialKnight = function(param){
   self.rank = '♞ ';
   self.mounted = true;
   self.baseSpd = 6;
+  self.runSpd = 8; // Imperial Knight run speed
   self.spriteSize = tileSize*3;
   self.damage = 25;
 }
@@ -8362,6 +8694,7 @@ TeutonicKnight = function(param){
   self.rank = '♞ ';
   self.mounted = true;
   self.baseSpd = 6;
+  self.runSpd = 8; // Teutonic Knight run speed
   self.spriteSize = tileSize*3;
   self.damage = 25;
 }
@@ -8373,6 +8706,7 @@ Prior = function(param){
   self.sex = 'm';
   self.cleric = true;
   self.baseSpd = 2;
+  self.runSpd = 4; // Prior run speed
   self.torchBearer = true;
 }
 
@@ -8385,7 +8719,8 @@ Archbishop = function(param){
   self.spriteSize = tileSize*1.5;
   self.cleric = true;
   self.baseSpd = 3.5;
-  self.torchBearer = true;s
+  self.runSpd = 5; // Archbishop run speed
+  self.torchBearer = true;
 }
 
 Hochmeister = function(param){
@@ -8396,6 +8731,7 @@ Hochmeister = function(param){
   self.rank = '♜ ';
   self.spriteSize = tileSize*1.5;
   self.baseSpd = 3;
+  self.runSpd = 5; // Hochmeister run speed
   self.torchBearer = true;
   self.damage = 25;
 }
@@ -8406,6 +8742,8 @@ Trapper = function(param){
   self.class = 'Trapper';
   self.sex = 'm';
   self.spriteSize = tileSize*1.5;
+  self.baseSpd = 3;
+  self.runSpd = 5; // Trapper run speed
   self.damage = 10;
   self.stealthed = true;
   self.stealthTimer = false;
@@ -8432,6 +8770,8 @@ Outlaw = function(param){
   self.class = 'Outlaw';
   self.sex = 'm';
   self.spriteSize = tileSize*1.5;
+  self.baseSpd = 3;
+  self.runSpd = 5; // Outlaw run speed
   self.ranged = true;
   self.torchBearer = true;
   self.damage = 5;
@@ -8445,6 +8785,7 @@ Poacher = function(param){
   self.rank = '♞ ';
   self.mounted = true;
   self.baseSpd = 7;
+  self.runSpd = 9; // Poacher run speed
   self.spriteSize = tileSize*2;
   self.ranged = true;
   self.torchBearer = true;
@@ -8457,6 +8798,8 @@ Cutthroat = function(param){
   self.class = 'Cutthroat';
   self.sex = 'm';
   self.spriteSize = tileSize*1.5;
+  self.baseSpd = 3;
+  self.runSpd = 5; // Cutthroat run speed
   self.damage = 10;
   self.stealthed = true;
   self.stealthTimer = false;
