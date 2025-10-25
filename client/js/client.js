@@ -244,7 +244,7 @@ socket.onmessage = function(event){
     if(worldmapPopup){
       worldmapPopup.style.display = 'block';
     }
-    renderWorldMap(data.terrain, data.mapSize, data.playerX, data.playerY, data.tileSize);
+    renderWorldMap(data.terrain, data.mapSize, data.playerX, data.playerY, data.tileSize, data.features);
   } else if(data.msg == 'buildMenuData'){
     // Show build menu and render building tiles
     if(buildMenuPopup){
@@ -1724,6 +1724,101 @@ if(worldmapClose){
   };
 }
 
+// WorldMap mouse hover functionality
+if(worldmapCanvas){
+  var hoveredFeature = null;
+  
+  worldmapCanvas.addEventListener('mousemove', function(event) {
+    if (!window.worldMapFeatures || window.worldMapFeatures.length === 0) {
+      console.log('🖱️ No features available for hover detection');
+      return;
+    }
+    
+    var rect = worldmapCanvas.getBoundingClientRect();
+    var mouseX = event.clientX - rect.left;
+    var mouseY = event.clientY - rect.top;
+    
+    // Convert mouse coordinates to map coordinates
+    var mapX = mouseX / window.worldMapPixelSize;
+    var mapY = mouseY / window.worldMapPixelSize;
+    
+    // Debug: log mouse position occasionally
+    if (Math.floor(mapX) % 10 === 0 && Math.floor(mapY) % 10 === 0) {
+      console.log(`🖱️ Mouse at map coords: ${mapX.toFixed(1)}, ${mapY.toFixed(1)} (tile: ${Math.floor(mapX)}, ${Math.floor(mapY)})`);
+    }
+    
+    // Find feature under mouse
+    var featureUnderMouse = null;
+    for (var i = 0; i < window.worldMapFeatures.length; i++) {
+      var feature = window.worldMapFeatures[i];
+      if (feature.tileArray && feature.bounds) {
+        // Check if mouse is within feature bounds
+        if (mapX >= feature.bounds.minC && mapX <= feature.bounds.maxC &&
+            mapY >= feature.bounds.minR && mapY <= feature.bounds.maxR) {
+          
+          // Check if mouse is actually on a tile belonging to this feature
+          var tileCol = Math.floor(mapX);
+          var tileRow = Math.floor(mapY);
+          
+          // Check if this tile is in the feature's tileArray
+          if (feature.tileArray) {
+            for (var j = 0; j < feature.tileArray.length; j++) {
+              var tile = feature.tileArray[j];
+              if (tile[0] === tileCol && tile[1] === tileRow) {
+                featureUnderMouse = feature;
+                break;
+              }
+            }
+          }
+          
+          if (featureUnderMouse) break;
+        }
+      }
+    }
+    
+    // If we found a different feature, redraw the map with highlighting
+    if (featureUnderMouse !== hoveredFeature) {
+      hoveredFeature = featureUnderMouse;
+      
+      // Debug logging
+      if (featureUnderMouse) {
+        console.log(`🖱️ Hovering over: ${featureUnderMouse.name} (${featureUnderMouse.type})`);
+      }
+      
+      // Get current map data and redraw with highlighting
+      if (window.lastWorldMapData) {
+        renderWorldMapWithHighlight(
+          window.lastWorldMapData.terrain,
+          window.lastWorldMapData.mapSize,
+          window.lastWorldMapData.playerX,
+          window.lastWorldMapData.playerY,
+          window.lastWorldMapData.tileSize,
+          window.lastWorldMapData.features,
+          hoveredFeature
+        );
+      }
+    }
+  });
+  
+  worldmapCanvas.addEventListener('mouseleave', function() {
+    if (hoveredFeature) {
+      hoveredFeature = null;
+      // Redraw without highlighting
+      if (window.lastWorldMapData) {
+        renderWorldMapWithHighlight(
+          window.lastWorldMapData.terrain,
+          window.lastWorldMapData.mapSize,
+          window.lastWorldMapData.playerX,
+          window.lastWorldMapData.playerY,
+          window.lastWorldMapData.tileSize,
+          window.lastWorldMapData.features,
+          null
+        );
+      }
+    }
+  });
+}
+
 // Build Menu close button
 if(buildMenuClose){
   buildMenuClose.onclick = function(){
@@ -2480,7 +2575,23 @@ function updateEquipmentSlot(slotId, item, slotLabel){
 }
 
 // WorldMap Rendering Function
-function renderWorldMap(terrainData, mapSize, playerX, playerY, playerTileSize) {
+function renderWorldMap(terrainData, mapSize, playerX, playerY, playerTileSize, features) {
+  // Store data for mouse hover functionality
+  window.lastWorldMapData = {
+    terrain: terrainData,
+    mapSize: mapSize,
+    playerX: playerX,
+    playerY: playerY,
+    tileSize: playerTileSize,
+    features: features
+  };
+  
+  // Render with no highlighting
+  renderWorldMapWithHighlight(terrainData, mapSize, playerX, playerY, playerTileSize, features, null);
+}
+
+// Enhanced WorldMap Rendering Function with highlighting support
+function renderWorldMapWithHighlight(terrainData, mapSize, playerX, playerY, playerTileSize, features, highlightedFeature) {
   if (!worldmapCtx || !terrainData) return;
   
   // Clear the canvas
@@ -2489,6 +2600,11 @@ function renderWorldMap(terrainData, mapSize, playerX, playerY, playerTileSize) 
   // Calculate scale to fit the entire map in the canvas
   var canvasSize = Math.min(worldmapCanvas.width, worldmapCanvas.height);
   var pixelSize = canvasSize / mapSize;
+  
+  // Store features and scale for mouse hover detection
+  window.worldMapFeatures = features || [];
+  window.worldMapPixelSize = pixelSize;
+  window.worldMapCanvasSize = canvasSize;
   
   // Function to get terrain color based on value range
   function getTerrainColor(value) {
@@ -2532,6 +2648,39 @@ function renderWorldMap(terrainData, mapSize, playerX, playerY, playerTileSize) 
     }
   }
   
+  // Draw highlighted feature overlay
+  if (highlightedFeature && highlightedFeature.tileArray) {
+    worldmapCtx.fillStyle = 'rgba(255, 255, 0, 0.3)'; // Yellow highlight with transparency
+    
+    highlightedFeature.tileArray.forEach(function(tile) {
+      var c = tile[0];
+      var r = tile[1];
+      worldmapCtx.fillRect(
+        c * pixelSize,
+        r * pixelSize,
+        Math.ceil(pixelSize),
+        Math.ceil(pixelSize)
+      );
+    });
+    
+    // Draw feature border
+    worldmapCtx.strokeStyle = '#ffff00';
+    worldmapCtx.lineWidth = Math.max(2, pixelSize * 0.3);
+    worldmapCtx.beginPath();
+    
+    // Draw border around highlighted feature
+    var bounds = highlightedFeature.bounds;
+    if (bounds) {
+      worldmapCtx.rect(
+        bounds.minC * pixelSize,
+        bounds.minR * pixelSize,
+        (bounds.maxC - bounds.minC + 1) * pixelSize,
+        (bounds.maxR - bounds.minR + 1) * pixelSize
+      );
+    }
+    worldmapCtx.stroke();
+  }
+  
   // Draw player position as red X
   var playerCol = Math.floor(playerX / playerTileSize);
   var playerRow = Math.floor(playerY / playerTileSize);
@@ -2552,6 +2701,27 @@ function renderWorldMap(terrainData, mapSize, playerX, playerY, playerTileSize) 
   worldmapCtx.moveTo(centerX + markerSize / 2, centerY - markerSize / 2);
   worldmapCtx.lineTo(centerX - markerSize / 2, centerY + markerSize / 2);
   worldmapCtx.stroke();
+  
+  // Draw feature names at their centroids (only for highlighted feature)
+  if (features && features.length > 0 && highlightedFeature) {
+    worldmapCtx.font = `${Math.max(12, pixelSize * 0.8)}px Arial`;
+    worldmapCtx.textAlign = 'center';
+    worldmapCtx.textBaseline = 'middle';
+    
+    // Only draw name for the highlighted feature
+    if (highlightedFeature.center && highlightedFeature.name) {
+      var centerX = highlightedFeature.center[0] * pixelSize;
+      var centerY = highlightedFeature.center[1] * pixelSize;
+      
+      // Draw text shadow for better visibility
+      worldmapCtx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      worldmapCtx.fillText(highlightedFeature.name, centerX + 1, centerY + 1);
+      
+      // Draw text in white
+      worldmapCtx.fillStyle = '#ffffff';
+      worldmapCtx.fillText(highlightedFeature.name, centerX, centerY);
+    }
+  }
 }
 
 // Build Menu rendering function
@@ -3319,6 +3489,19 @@ var Player = function(initPack){
   self.skulls = initPack.skulls || '';
   self.spriteScale = initPack.spriteScale || 1.0;
 
+  // Helper function to check if an image is loaded and valid
+  function isImageValid(img) {
+    return img && img.complete && img.naturalWidth > 0 && !img.error;
+  }
+
+  // Helper function to safely draw an image
+  function safeDrawImage(img, x, y, width, height) {
+    if (isImageValid(img)) {
+      ctx.drawImage(img, x, y, width, height);
+    }
+    // Don't draw anything if image is not loaded - just skip rendering
+  }
+
   self.draw = function(){
     // God mode: Hide the player's own character
     if(godModeCamera.isActive && self.id === selfId){
@@ -3502,7 +3685,7 @@ var Player = function(initPack){
     // character sprite (now using regular sprites only)
       // Work animations (chopping, mining, farming, building, fishing) - use normal size for humans
       if(self.chopping && self.sprite.chopping){
-            ctx.drawImage(
+            safeDrawImage(
           self.sprite.chopping[wrk],
               x,
               y,
@@ -3510,7 +3693,7 @@ var Player = function(initPack){
               self.spriteSize
             );
       } else if(self.mining && self.sprite.mining){
-            ctx.drawImage(
+            safeDrawImage(
           self.sprite.mining[wrk],
               x,
               y,
@@ -3518,7 +3701,7 @@ var Player = function(initPack){
               self.spriteSize
             );
       } else if(self.farming && self.sprite.farming){
-            ctx.drawImage(
+            safeDrawImage(
           self.sprite.farming[wrk],
               x,
               y,
@@ -3526,7 +3709,7 @@ var Player = function(initPack){
               self.spriteSize
             );
       } else if(self.building && self.sprite.building){
-            ctx.drawImage(
+            safeDrawImage(
           self.sprite.building[wrk],
               x,
               y,
@@ -3536,18 +3719,18 @@ var Player = function(initPack){
       } else if(self.fishing && self.sprite.fishingd){
         // Fishing has directional sprites
         if(self.facing == 'down'){
-          ctx.drawImage(self.sprite.fishingd, x, y, self.spriteSize, self.spriteSize);
+          safeDrawImage(self.sprite.fishingd, x, y, self.spriteSize, self.spriteSize);
         } else if(self.facing == 'up'){
-          ctx.drawImage(self.sprite.fishingu, x, y, self.spriteSize, self.spriteSize);
+          safeDrawImage(self.sprite.fishingu, x, y, self.spriteSize, self.spriteSize);
         } else if(self.facing == 'left'){
-          ctx.drawImage(self.sprite.fishingl, x, y, self.spriteSize, self.spriteSize);
+          safeDrawImage(self.sprite.fishingl, x, y, self.spriteSize, self.spriteSize);
         } else if(self.facing == 'right'){
-          ctx.drawImage(self.sprite.fishingr, x, y, self.spriteSize, self.spriteSize);
+          safeDrawImage(self.sprite.fishingr, x, y, self.spriteSize, self.spriteSize);
         }
       } else if(self.pressingAttack){
         if((self.gear.weapon && self.gear.weapon.type == 'bow') || self.ranged){
           if(self.angle > 45 && self.angle <= 115){
-            ctx.drawImage(
+            safeDrawImage(
               self.sprite.attackdb,
               x,
               y,
@@ -3555,7 +3738,7 @@ var Player = function(initPack){
             scaledSpriteSize
             );
           } else if(self.angle > -135 && self.angle <= -15){
-            ctx.drawImage(
+            safeDrawImage(
               self.sprite.attackub,
               x,
               y,
@@ -3563,7 +3746,7 @@ var Player = function(initPack){
             scaledSpriteSize
             );
           } else if(self.angle > 115 || self.angle <= -135){
-            ctx.drawImage(
+            safeDrawImage(
               self.sprite.attacklb,
               x,
               y,
@@ -3571,7 +3754,7 @@ var Player = function(initPack){
             scaledSpriteSize
             );
           } else if(self.angle > -15 || self.angle <= 45){
-            ctx.drawImage(
+            safeDrawImage(
               self.sprite.attackrb,
               x,
               y,
@@ -3581,7 +3764,7 @@ var Player = function(initPack){
           }
         } else {
           if(self.facing == 'down'){
-            ctx.drawImage(
+            safeDrawImage(
               self.sprite.attackd,
               x,
               y,
@@ -3589,7 +3772,7 @@ var Player = function(initPack){
             scaledSpriteSize
             );
           } else if(self.facing == 'up'){
-            ctx.drawImage(
+            safeDrawImage(
               self.sprite.attacku,
               x,
               y,
@@ -3597,7 +3780,7 @@ var Player = function(initPack){
             scaledSpriteSize
             );
           } else if(self.facing == 'left'){
-            ctx.drawImage(
+            safeDrawImage(
               self.sprite.attackl,
               x,
               y,
@@ -3605,7 +3788,7 @@ var Player = function(initPack){
             scaledSpriteSize
             );
           } else if(self.facing == 'right'){
-            ctx.drawImage(
+            safeDrawImage(
               self.sprite.attackr,
               x,
               y,
@@ -3616,7 +3799,7 @@ var Player = function(initPack){
         }
       } else if(self.pressingAttack && self.type == 'npc'){
         if(self.facing == 'down'){
-          ctx.drawImage(
+          safeDrawImage(
             self.sprite.attackd,
             x,
             y,
@@ -3624,7 +3807,7 @@ var Player = function(initPack){
             self.spriteSize
           );
         } else if(self.facing == 'up'){
-          ctx.drawImage(
+          safeDrawImage(
             self.sprite.attacku,
             x,
             y,
@@ -3632,7 +3815,7 @@ var Player = function(initPack){
             self.spriteSize
           );
         } else if(self.facing == 'left'){
-          ctx.drawImage(
+          safeDrawImage(
             self.sprite.attackl,
             x,
             y,
@@ -3640,7 +3823,7 @@ var Player = function(initPack){
             self.spriteSize
           );
         } else if(self.facing == 'right'){
-          ctx.drawImage(
+          safeDrawImage(
             self.sprite.attackr,
             x,
             y,
@@ -3649,7 +3832,7 @@ var Player = function(initPack){
           );
         }
       } else if(self.facing == 'down' && !self.pressingDown){
-        ctx.drawImage(
+        safeDrawImage(
           self.sprite.facedown,
           x,
           y,
@@ -3657,7 +3840,7 @@ var Player = function(initPack){
           scaledSpriteSize
         );
       } else if(self.pressingDown){
-        ctx.drawImage(
+        safeDrawImage(
           self.sprite.walkdown[wlk],
           x,
           y,
@@ -3665,7 +3848,7 @@ var Player = function(initPack){
           scaledSpriteSize
         );
       } else if(self.facing == 'up' && !self.pressingUp){
-        ctx.drawImage(
+        safeDrawImage(
           self.sprite.faceup,
           x,
           y,
@@ -3673,7 +3856,7 @@ var Player = function(initPack){
           scaledSpriteSize
         );
       } else if(self.pressingUp){
-        ctx.drawImage(
+        safeDrawImage(
           self.sprite.walkup[wlk],
           x,
           y,
@@ -3681,7 +3864,7 @@ var Player = function(initPack){
           scaledSpriteSize
         );
       } else if(self.facing == 'left' && !self.pressingLeft){
-        ctx.drawImage(
+        safeDrawImage(
           self.sprite.faceleft,
           x,
           y,
@@ -3689,7 +3872,7 @@ var Player = function(initPack){
           scaledSpriteSize
         );
       } else if(self.pressingLeft){
-        ctx.drawImage(
+        safeDrawImage(
           self.sprite.walkleft[wlk],
           x,
           y,
@@ -3697,7 +3880,7 @@ var Player = function(initPack){
           scaledSpriteSize
         );
       } else if(self.facing == 'right' && !self.pressingRight){
-        ctx.drawImage(
+        safeDrawImage(
           self.sprite.faceright,
           x,
           y,
@@ -3705,14 +3888,14 @@ var Player = function(initPack){
           scaledSpriteSize
         );
       } else if(self.pressingRight){
-        ctx.drawImage(
+        safeDrawImage(
           self.sprite.walkright[wlk],
           x,
           y,
           scaledSpriteSize,
           scaledSpriteSize
         );
-  }
+      }
     
     // Reset transparency
     ctx.globalAlpha = 1.0;

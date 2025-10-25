@@ -1,11 +1,15 @@
 // Territory Management System
 // Dynamically calculates and manages faction territory boundaries
 
+const NameGenerator = require('../core/NameGenerator');
+
 class TerritoryManager {
   constructor(house) {
     this.house = house;
     this.coreBase = null;
     this.outposts = [];
+    this.nameGenerator = new NameGenerator();
+    this.townName = null;
   }
   
   // Recalculate territory based on current buildings
@@ -244,6 +248,127 @@ class TerritoryManager {
     const dx = point1[0] - point2[0];
     const dy = point1[1] - point2[1];
     return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  // Generate town name for this faction
+  generateTownName() {
+    if (!this.townName) {
+      this.townName = this.nameGenerator.generateTownName();
+    }
+    return this.townName;
+  }
+
+  // Create territory zones for core base and outposts
+  createTerritoryZones() {
+    if (!this.coreBase) {
+      this.updateTerritory();
+    }
+
+    const zones = [];
+
+    // Create core base zone
+    if (this.coreBase) {
+      const baseZone = {
+        id: `faction_${this.house.id}_base`,
+        type: 'faction_territory',
+        name: `${this.house.name} Territory (${this.generateTownName()})`,
+        faction: this.house.name,
+        tiles: this.calculateTerritoryTiles(),
+        tileArray: this.calculateTerritoryTiles(),
+        center: this.coreBase.center,
+        bounds: this.calculateTerritoryBounds(),
+        size: this.coreBase.buildings.length,
+        isOutpost: false
+      };
+      zones.push(baseZone);
+    }
+
+    // Create outpost zones
+    this.outposts.forEach((outpost, index) => {
+      const outpostZone = {
+        id: `faction_${this.house.id}_outpost_${index}`,
+        type: 'faction_outpost',
+        name: `${this.house.name} Outpost`,
+        faction: this.house.name,
+        tiles: this.calculateOutpostTiles(outpost),
+        tileArray: this.calculateOutpostTiles(outpost),
+        center: outpost.center,
+        bounds: this.calculateOutpostBounds(outpost),
+        size: outpost.buildings.length,
+        isOutpost: true
+      };
+      zones.push(outpostZone);
+    });
+
+    return zones;
+  }
+
+  // Calculate all tiles within core territory
+  calculateTerritoryTiles() {
+    if (!this.coreBase) return [];
+
+    const tiles = [];
+    const center = this.coreBase.center;
+    const radius = this.coreBase.radius;
+
+    // Create circular territory
+    for (let c = center[0] - radius; c <= center[0] + radius; c++) {
+      for (let r = center[1] - radius; r <= center[1] + radius; r++) {
+        const dist = this.getDistance(center, [c, r]);
+        if (dist <= radius) {
+          tiles.push([c, r]);
+        }
+      }
+    }
+
+    return tiles;
+  }
+
+  // Calculate tiles for an outpost
+  calculateOutpostTiles(outpost) {
+    const tiles = [];
+    const center = outpost.center;
+    const radius = 8; // Smaller radius for outposts
+
+    // Create circular outpost area
+    for (let c = center[0] - radius; c <= center[0] + radius; c++) {
+      for (let r = center[1] - radius; r <= center[1] + radius; r++) {
+        const dist = this.getDistance(center, [c, r]);
+        if (dist <= radius) {
+          tiles.push([c, r]);
+        }
+      }
+    }
+
+    return tiles;
+  }
+
+  // Calculate bounding box for core territory
+  calculateTerritoryBounds() {
+    if (!this.coreBase) return null;
+
+    const center = this.coreBase.center;
+    const radius = this.coreBase.radius;
+
+    return {
+      minC: center[0] - radius,
+      maxC: center[0] + radius,
+      minR: center[1] - radius,
+      maxR: center[1] + radius
+    };
+  }
+
+  // Calculate bounding box for an outpost
+  calculateOutpostBounds(outpost) {
+    const center = outpost.center;
+    const radius = 8;
+
+    return {
+      minC: center[0] - radius,
+      maxC: center[0] + radius,
+      minR: center[1] - radius,
+      maxR: center[1] + radius
+    };
   }
 }
 

@@ -14537,6 +14537,53 @@ EvalCmd = function(data){
         socket.write(JSON.stringify({msg:'addToChat',message:'<span style="color:#ff6666;">❌ Event system not initialized!</span>'}));
       }
     
+    } else if(data.cmd == 'testzones'){
+      // Test command for zone system
+      if(global.zoneManager){
+        const stats = global.zoneManager.getStats();
+        const currentTile = getLoc(player.x, player.y);
+        const currentZone = global.zoneManager.getZoneAt(currentTile);
+        
+        let message = `<span style="color:#66ff66;">🗺️ Zone System Stats:<br/>`;
+        message += `Total Zones: ${stats.totalZones}<br/>`;
+        message += `Geographic: ${stats.geographicZones}<br/>`;
+        message += `Faction Territories: ${stats.factionZones}<br/>`;
+        message += `Outposts: ${stats.outpostZones}<br/>`;
+        message += `Players in Zones: ${stats.playersInZones}<br/>`;
+        message += `Indexed Tiles: ${stats.indexedTiles}<br/>`;
+        
+        if(currentZone){
+          message += `<br/>📍 Current Zone: <b>${currentZone.name}</b><br/>`;
+          message += `Type: ${currentZone.type}<br/>`;
+          message += `Size: ${currentZone.size} tiles</span>`;
+        } else {
+          message += `<br/>📍 Current Zone: <i>None</i></span>`;
+        }
+        
+        socket.write(JSON.stringify({
+          msg: 'addToChat',
+          message: message
+        }));
+        
+        // Test nearby zones
+        const nearbyZones = global.zoneManager.getZonesNear(currentTile, 5);
+        if(nearbyZones.length > 0){
+          let nearbyMessage = `<span style="color:#66ff66;">🔍 Nearby Zones (within 5 tiles):<br/>`;
+          nearbyZones.forEach(zone => {
+            nearbyMessage += `• ${zone.name} (${zone.type})<br/>`;
+          });
+          nearbyMessage += `</span>`;
+          
+          socket.write(JSON.stringify({
+            msg: 'addToChat',
+            message: nearbyMessage
+          }));
+        }
+        
+      } else {
+        socket.write(JSON.stringify({msg:'addToChat',message:'<span style="color:#ff6666;">❌ Zone system not initialized!</span>'}));
+      }
+    
     } else {
       socket.write(JSON.stringify({msg:'addToChat',message:'<i>Invalid command.</i>'}));
     }

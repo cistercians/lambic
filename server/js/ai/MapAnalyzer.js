@@ -1,11 +1,16 @@
 // Map Analysis System
-// Unified system for all location analysis: HQ placement, building sites, expansion
+// Unified system for all location analysis: HQ placement, building sites, expansion, geography
+
+const TerrainSegmentation = require('../core/TerrainSegmentation');
+const NameGenerator = require('../core/NameGenerator');
 
 class MapAnalyzer {
   constructor() {
     this.mapSize = global.mapSize || 100;
     this.analysisCache = null;
     this.factionRequirements = this.getFactionRequirements();
+    this.nameGenerator = new NameGenerator();
+    this.geographicFeatures = null;
   }
   
   // Get faction-specific requirements (consolidated from TilemapSystem)
@@ -772,6 +777,48 @@ class MapAnalyzer {
     const dx = point1[0] - point2[0];
     const dy = point1[1] - point2[1];
     return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  // Analyze geography and identify terrain features
+  analyzeGeography(mapData) {
+    console.log('🗺️ Starting geographic analysis...');
+    
+    if (this.geographicFeatures) {
+      console.log('📋 Using cached geographic features');
+      return this.geographicFeatures;
+    }
+    
+    const segmentation = new TerrainSegmentation(mapData);
+    segmentation.nameGenerator = this.nameGenerator; // Pass NameGenerator
+    const features = segmentation.identifyAllFeatures();
+    const namedFeatures = this.nameGenerator.assignNames(features);
+    
+    this.geographicFeatures = namedFeatures;
+    
+    console.log(`✅ Geographic analysis complete: ${namedFeatures.length} features identified`);
+    return namedFeatures;
+  }
+
+  // Get geographic features by type
+  getFeaturesByType(type) {
+    if (!this.geographicFeatures) return [];
+    return this.geographicFeatures.filter(feature => feature.type === type);
+  }
+
+  // Get geographic feature statistics
+  getGeographyStats() {
+    if (!this.geographicFeatures) return null;
+    
+    const stats = {};
+    this.geographicFeatures.forEach(feature => {
+      if (!stats[feature.type]) {
+        stats[feature.type] = { count: 0, totalSize: 0 };
+      }
+      stats[feature.type].count++;
+      stats[feature.type].totalSize += feature.size;
+    });
+    
+    return stats;
   }
 }
 

@@ -1662,6 +1662,7 @@ Character = function(param){
   self.action = null;
 
   self.lastLoc = null; // {z,loc}
+  self.currentZone = null; // Track current zone for notifications
 
   self.dialogue = {};
 

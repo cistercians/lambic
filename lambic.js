@@ -114,6 +114,7 @@ global.tilemapSystem = tilemapIntegration;
 
 // Initialize map analyzer for AI faction placement
 const MapAnalyzer = require('./server/js/ai/MapAnalyzer');
+const ZoneManager = require('./server/js/core/ZoneManager');
 
 // Expose basic constants/globals needed by other modules (backward compatibility)
 global.TERRAIN = TERRAIN;
@@ -125,6 +126,14 @@ global.period = gameState.period;
 
 // NOW initialize MapAnalyzer after globals are set
 global.mapAnalyzer = new MapAnalyzer();
+
+// Initialize terrain segmentation and zone management
+console.log('🗺️ Analyzing terrain features...');
+const geographicFeatures = global.mapAnalyzer.analyzeGeography(world[0]);
+
+console.log('🏰 Initializing zone manager...');
+global.zoneManager = new ZoneManager();
+global.zoneManager.addGeographicFeatures(geographicFeatures);
 
 // Note: isDoorwayDestination is already defined globally at the top of the file
 global.day = gameState.day;
@@ -3344,7 +3353,8 @@ Player.onConnect = function(socket, name, playerType) {
               playerX: playerX,
               playerY: playerY,
               playerZ: playerZ,
-              tileSize: gameState.tileSize
+              tileSize: gameState.tileSize,
+              features: global.mapAnalyzer ? global.mapAnalyzer.geographicFeatures : []
             }));
           } else {
             // Player doesn't have a worldmap
@@ -3647,6 +3657,11 @@ Player.onDisconnect = function(socket) {
     }
   }
 
+  // Clear player's zone tracking
+  if (global.zoneManager) {
+    global.zoneManager.clearPlayerZone(socket.id);
+  }
+
   delete Player.list[socket.id];
   removePack.player.push(socket.id);
 };
@@ -3718,6 +3733,32 @@ Player.update = function() {
     
     if(shouldUpdate){
     player.update();
+    }
+
+    // Check for zone transitions
+    if (global.zoneManager && !player.toRemove) {
+      const currentTile = getLoc(player.x, player.y);
+      const zoneTransition = global.zoneManager.checkPlayerZoneTransition(player.id, currentTile);
+      
+      if (zoneTransition && zoneTransition.entered) {
+        const newZone = zoneTransition.entered;
+        
+        // Send zone entry notification via EventManager
+        if (global.eventManager) {
+          global.eventManager.createEvent({
+            category: global.eventManager.categories.ENVIRONMENT,
+            subject: player.id,
+            subjectName: player.name,
+            action: 'entered zone',
+            target: newZone.id,
+            targetName: newZone.name,
+            communication: global.eventManager.commModes.PLAYER,
+            message: `<i>You have entered <b>${newZone.name}</b></i>`,
+            log: `${player.name} entered ${newZone.name}`,
+            position: { x: player.x, y: player.y, z: player.z }
+          });
+        }
+      }
     }
 
     if (player.toRemove) {
