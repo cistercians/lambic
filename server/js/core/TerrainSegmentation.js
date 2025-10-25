@@ -66,6 +66,12 @@ class TerrainSegmentation {
               tiles.forEach(tile => {
                 this.visited.add(`${tile[0]},${tile[1]}`);
               });
+            } else {
+              // Feature is too small - mark tiles as visited but don't create a zone
+              // These will be filled in later by fillDeadZones()
+              tiles.forEach(tile => {
+                this.visited.add(`${tile[0]},${tile[1]}`);
+              });
             }
           }
         }
@@ -75,7 +81,10 @@ class TerrainSegmentation {
     // Detect adjacent features for compound naming
     this.detectAdjacentFeatures();
     
-    // Post-process mountains and rocks into mountain ranges
+    // Fill dead zones by assigning small features to surrounding zones
+    this.fillDeadZones();
+    
+    // Post-process mountains and rocks into mountain ranges (after all features are created)
     this.processMountainRanges();
     
     // Split very large features that span across the map
@@ -315,127 +324,209 @@ class TerrainSegmentation {
 
   // Process mountains, hills, and rocks into mountain ranges and hill groups
   processMountainRanges() {
-    const mountainPeaks = Array.from(this.features.values()).filter(f => f.type === 'mountain_peak');
-    const hillPeaks = Array.from(this.features.values()).filter(f => f.type === 'hill_peak');
+    // First, find all rock formations on the map
+    const rockFormations = this.findRockFormations();
     
+    // Get all existing mountain_peak features
+    const mountainPeaks = Array.from(this.features.values()).filter(f => f.type === 'mountain_peak');
+    
+    // Track which mountain peaks have been processed
     const processedPeaks = new Set();
     
-    // Process mountain peaks
-    for (const peak of mountainPeaks) {
-      if (processedPeaks.has(peak.id)) continue;
+    // Process each rock formation
+    for (const rockFormation of rockFormations) {
+      // Find mountain peaks that are within or adjacent to this rock formation
+      const peaksInFormation = mountainPeaks.filter(peak => 
+        !processedPeaks.has(peak.id) && 
+        this.isMountainPeakInRockFormation(peak, rockFormation)
+      );
       
-      // Find adjacent rock tiles around this mountain peak
-      const adjacentRockTiles = this.findAdjacentRockTiles(peak);
-      
-      if (adjacentRockTiles.length > 0) {
-        // Find other mountain peaks that share the same rock base
-        const connectedPeaks = mountainPeaks.filter(p => 
-          !processedPeaks.has(p.id) && 
-          this.peaksShareRockBase(p, peak, adjacentRockTiles)
-        );
-        
-        // Create mountain range or single mountain
-        if (connectedPeaks.length > 1) {
-          this.createMountainRange([peak, ...connectedPeaks], adjacentRockTiles);
-        } else {
-          this.createSingleMountain(peak, adjacentRockTiles);
-        }
-        
-        // Mark all connected peaks as processed
-        connectedPeaks.forEach(p => processedPeaks.add(p.id));
-        processedPeaks.add(peak.id);
+      if (peaksInFormation.length === 0) {
+        // No mountains in this rock formation - mark these tiles as unzoned for dead zone filling
+        rockFormation.forEach(tile => {
+          const tileKey = `${tile[0]},${tile[1]}`;
+          this.visited.delete(tileKey);
+        });
+        continue;
+      } else if (peaksInFormation.length === 1) {
+        // Single mountain peak - create a mountain
+        this.createMountainFromPeak(peaksInFormation[0], rockFormation);
+        processedPeaks.add(peaksInFormation[0].id);
       } else {
-        // No adjacent rocks - create standalone mountain
-        this.createSingleMountain(peak, []);
+        // Multiple mountain peaks - create a mountain range
+        this.createMountainRangeFromPeaks(peaksInFormation, rockFormation);
+        peaksInFormation.forEach(peak => processedPeaks.add(peak.id));
       }
     }
     
-    // Process hill peaks
-    for (const peak of hillPeaks) {
-      if (processedPeaks.has(peak.id)) continue;
-      
-      // Find adjacent rock tiles around this hill peak
-      const adjacentRockTiles = this.findAdjacentRockTiles(peak);
-      
-      if (adjacentRockTiles.length > 0) {
-        // Find other hill peaks that share the same rock base
-        const connectedPeaks = hillPeaks.filter(p => 
-          !processedPeaks.has(p.id) && 
-          this.peaksShareRockBase(p, peak, adjacentRockTiles)
-        );
-        
-        // Create hill group or single hill
-        if (connectedPeaks.length > 1) {
-          this.createHillGroup([peak, ...connectedPeaks], adjacentRockTiles);
-        } else {
-          this.createSingleHill(peak, adjacentRockTiles);
-        }
-        
-        // Mark all connected peaks as processed
-        connectedPeaks.forEach(p => processedPeaks.add(p.id));
-        processedPeaks.add(peak.id);
-      } else {
-        // No adjacent rocks - create standalone hill
-        this.createSingleHill(peak, []);
-      }
+    // Handle any mountain peaks that weren't matched to rock formations
+    const unmatchedPeaks = mountainPeaks.filter(peak => !processedPeaks.has(peak.id));
+    for (const peak of unmatchedPeaks) {
+      // Create standalone mountain without rock base
+      this.createMountainFromPeak(peak, []);
     }
     
     // Remove original mountain_peak and hill_peak features
-    mountainPeaks.forEach(peak => this.features.delete(peak.id));
-    hillPeaks.forEach(peak => this.features.delete(peak.id));
+    const mountainPeaksToRemove = Array.from(this.features.values()).filter(f => f.type === 'mountain_peak');
+    const hillPeaksToRemove = Array.from(this.features.values()).filter(f => f.type === 'hill_peak');
+    
+    mountainPeaksToRemove.forEach(peak => this.features.delete(peak.id));
+    hillPeaksToRemove.forEach(peak => this.features.delete(peak.id));
   }
 
-  // Find rock tiles adjacent to a peak feature using flood-fill
-  findAdjacentRockTiles(peak) {
-    const rockTiles = [];
+  // Find all rock formations on the map
+  findRockFormations() {
+    const rockFormations = [];
     const visited = new Set();
-    const queue = [];
     
-    // Start flood-fill from each peak tile
+    // Scan the map for rock tiles
+    for (let r = 0; r < this.mapSize; r++) {
+      for (let c = 0; c < this.mapSize; c++) {
+        const tileKey = `${c},${r}`;
+        
+        if (visited.has(tileKey)) continue;
+        
+        const terrain = Math.floor(this.getTile(c, r));
+        if (terrain === 4) { // ROCKS
+          // Found a rock tile - flood-fill to find the entire rock formation
+          const rockFormation = this.floodFillRockFormation([c, r], visited);
+          if (rockFormation.length > 0) {
+            rockFormations.push(rockFormation);
+          }
+        }
+      }
+    }
+    
+    return rockFormations;
+  }
+
+  // Flood-fill to find a complete rock formation
+  floodFillRockFormation(startTile, visited) {
+    const rockFormation = [];
+    const queue = [startTile];
+    
+    while (queue.length > 0) {
+      const [c, r] = queue.shift();
+      const tileKey = `${c},${r}`;
+      
+      if (visited.has(tileKey)) continue;
+      visited.add(tileKey);
+      
+      const terrain = Math.floor(this.getTile(c, r));
+      if (terrain === 4) { // ROCKS
+        rockFormation.push([c, r]);
+        
+        // Check all 8 directions for more rock tiles
+        for (let dc = -1; dc <= 1; dc++) {
+          for (let dr = -1; dr <= 1; dr++) {
+            if (dc === 0 && dr === 0) continue;
+            
+            const checkC = c + dc;
+            const checkR = r + dr;
+            const checkKey = `${checkC},${checkR}`;
+            
+            if (checkC >= 0 && checkC < this.mapSize && 
+                checkR >= 0 && checkR < this.mapSize && 
+                !visited.has(checkKey)) {
+              queue.push([checkC, checkR]);
+            }
+          }
+        }
+      }
+    }
+    
+    return rockFormation;
+  }
+
+  // Check if a mountain peak is within or adjacent to a rock formation
+  isMountainPeakInRockFormation(peak, rockFormation) {
+    const rockSet = new Set(rockFormation.map(tile => `${tile[0]},${tile[1]}`));
+    
     for (const [c, r] of peak.tileArray) {
-      // Check all 8 directions around each peak tile
+      // Check if mountain tile is within rock formation
+      if (rockSet.has(`${c},${r}`)) {
+        return true;
+      }
+      
+      // Check if mountain tile is adjacent to rock formation
       for (let dc = -1; dc <= 1; dc++) {
         for (let dr = -1; dr <= 1; dr++) {
           if (dc === 0 && dr === 0) continue;
           
           const checkC = c + dc;
           const checkR = r + dr;
-          const tileKey = `${checkC},${checkR}`;
-          
-          if (visited.has(tileKey)) continue;
-          visited.add(tileKey);
-          
-          // Check if this tile is rock terrain
-          const terrain = this.getTile(checkC, checkR);
-          if (terrain === 4) { // ROCKS
-            rockTiles.push([checkC, checkR]);
-            queue.push([checkC, checkR]); // Add to queue for further expansion
+          if (rockSet.has(`${checkC},${checkR}`)) {
+            return true;
           }
         }
       }
     }
     
-    // Continue flood-fill from discovered rock tiles
-    while (queue.length > 0) {
-      const [currentC, currentR] = queue.shift();
+    return false;
+  }
+
+  // Create a mountain range from multiple peaks and their shared rock base
+  createMountainRangeFromPeaks(peaks, rockFormation) {
+    const rangeId = `mountain_range_${Date.now()}_${Math.random()}`;
+    const allTiles = [...rockFormation];
+    
+    // Add all mountain peaks
+    peaks.forEach(peak => {
+      allTiles.push(...peak.tileArray);
+    });
+    
+    const bounds = this.calculateCentroidAndBounds(allTiles);
+    
+    const mountainRange = {
+      id: rangeId,
+      type: 'mountain_range',
+      baseName: 'Mountains',
+      tileArray: allTiles,
+      tiles: new Set(allTiles.map(tile => `${tile[0]},${tile[1]}`)),
+      size: allTiles.length,
+      center: bounds.centroid,
+      bounds: bounds.bounds,
+      name: null // Will be set by name generator
+    };
+    
+    this.features.set(rangeId, mountainRange);
+  }
+
+  // Find adjacent rock tiles using flood-fill
+  findAdjacentRockTiles(mountainTiles) {
+    const rockTiles = [];
+    const visited = new Set();
+    
+    // Start flood-fill from each mountain tile
+    for (const [c, r] of mountainTiles) {
+      const queue = [[c, r]];
       
-      // Check all 8 directions around current rock tile
-      for (let dc = -1; dc <= 1; dc++) {
-        for (let dr = -1; dr <= 1; dr++) {
-          if (dc === 0 && dr === 0) continue;
+      while (queue.length > 0) {
+        const [currentC, currentR] = queue.shift();
+        const tileKey = `${currentC},${currentR}`;
+        
+        if (visited.has(tileKey)) continue;
+        visited.add(tileKey);
+        
+        const terrain = Math.floor(this.getTile(currentC, currentR));
+        if (terrain === 4) { // ROCKS
+          rockTiles.push([currentC, currentR]);
           
-          const checkC = currentC + dc;
-          const checkR = currentR + dr;
-          const tileKey = `${checkC},${checkR}`;
-          
-          if (visited.has(tileKey)) continue;
-          visited.add(tileKey);
-          
-          // Check if this tile is rock terrain
-          const terrain = this.getTile(checkC, checkR);
-          if (terrain === 4) { // ROCKS
-            rockTiles.push([checkC, checkR]);
-            queue.push([checkC, checkR]); // Continue expanding
+          // Check all 8 directions for more rock tiles
+          for (let dc = -1; dc <= 1; dc++) {
+            for (let dr = -1; dr <= 1; dr++) {
+              if (dc === 0 && dr === 0) continue;
+              
+              const checkC = currentC + dc;
+              const checkR = currentR + dr;
+              const checkKey = `${checkC},${checkR}`;
+              
+              if (checkC >= 0 && checkC < this.mapSize && 
+                  checkR >= 0 && checkR < this.mapSize && 
+                  !visited.has(checkKey)) {
+                queue.push([checkC, checkR]);
+              }
+            }
           }
         }
       }
@@ -444,15 +535,102 @@ class TerrainSegmentation {
     return rockTiles;
   }
 
+  // Create a mountain from a peak and its rock base
+  createMountainFromPeak(peak, rockTiles) {
+    const mountainId = `mountain_${Date.now()}_${Math.random()}`;
+    const allTiles = [...peak.tileArray, ...rockTiles];
+    
+    const bounds = this.calculateCentroidAndBounds(allTiles);
+    
+    const mountain = {
+      id: mountainId,
+      type: 'mountain',
+      baseName: 'Mount',
+      tileArray: allTiles,
+      tiles: new Set(allTiles.map(tile => `${tile[0]},${tile[1]}`)),
+      size: allTiles.length,
+      center: bounds.centroid,
+      bounds: bounds.bounds,
+      name: null // Will be set by name generator
+    };
+    
+    this.features.set(mountainId, mountain);
+  }
+
+  // Create a mountain from a rock formation and mountain group
+  createMountainFromRockFormation(rockFormation, mountainGroup) {
+    const mountainId = `mountain_${Date.now()}_${Math.random()}`;
+    const allTiles = [...rockFormation, ...mountainGroup];
+    
+    const bounds = this.calculateCentroidAndBounds(allTiles);
+    
+    const mountain = {
+      id: mountainId,
+      type: 'mountain',
+      baseName: 'Mount',
+      tileArray: allTiles,
+      tiles: new Set(allTiles.map(tile => `${tile[0]},${tile[1]}`)),
+      size: allTiles.length,
+      center: bounds.centroid,
+      bounds: bounds.bounds,
+      name: null // Will be set by name generator
+    };
+    
+    this.features.set(mountainId, mountain);
+  }
+
+  // Create a mountain range from a rock formation and multiple mountain groups
+  createMountainRangeFromRockFormation(rockFormation, mountainGroups) {
+    const rangeId = `mountain_range_${Date.now()}_${Math.random()}`;
+    const allTiles = [...rockFormation];
+    
+    // Add all mountain groups
+    mountainGroups.forEach(group => {
+      allTiles.push(...group);
+    });
+    
+    const bounds = this.calculateCentroidAndBounds(allTiles);
+    
+    const mountainRange = {
+      id: rangeId,
+      type: 'mountain_range',
+      baseName: 'Mountains',
+      tileArray: allTiles,
+      tiles: new Set(allTiles.map(tile => `${tile[0]},${tile[1]}`)),
+      size: allTiles.length,
+      center: bounds.centroid,
+      bounds: bounds.bounds,
+      name: null // Will be set by name generator
+    };
+    
+    this.features.set(rangeId, mountainRange);
+  }
+
   // Check if two peaks share the same rock base
   peaksShareRockBase(peak1, peak2, rockTiles) {
     // Check if peak2 is within reasonable distance of peak1
-    const maxDistance = 15; // Maximum distance between peaks sharing rock base
+    const maxDistance = 20; // Increased from 15
     
+    // First check if peaks are close enough
+    let peaksClose = false;
     for (const [c1, r1] of peak1.tileArray) {
       for (const [c2, r2] of peak2.tileArray) {
         const distance = Math.sqrt(Math.pow(c1 - c2, 2) + Math.pow(r1 - r2, 2));
         if (distance <= maxDistance) {
+          peaksClose = true;
+          break;
+        }
+      }
+      if (peaksClose) break;
+    }
+    
+    if (!peaksClose) return false;
+    
+    // Check if peak2 is adjacent to any of the rock tiles around peak1
+    for (const [c2, r2] of peak2.tileArray) {
+      for (const [rockC, rockR] of rockTiles) {
+        const distance = Math.sqrt(Math.pow(c2 - rockC, 2) + Math.pow(r2 - rockR, 2));
+        if (distance <= 3) { // Peak2 is close to rock base of peak1
           return true;
         }
       }
@@ -586,6 +764,266 @@ class TerrainSegmentation {
         });
       }
     }
+  }
+
+  // Fill dead zones by assigning unzoned tiles to surrounding zones
+  fillDeadZones() {
+    const unzonedTiles = [];
+    
+    // Find all tiles that aren't part of any zone
+    for (let r = 0; r < this.mapSize; r++) {
+      for (let c = 0; c < this.mapSize; c++) {
+        const tileKey = `${c},${r}`;
+        
+        // Check if this tile is part of any existing zone
+        let isPartOfZone = false;
+        for (const [zoneId, zone] of this.features) {
+          if (zone.tiles && zone.tiles.has(tileKey)) {
+            isPartOfZone = true;
+            break;
+          }
+        }
+        
+        if (!isPartOfZone) {
+          unzonedTiles.push([c, r]);
+        }
+      }
+    }
+    
+    // Group unzoned tiles into contiguous patches
+    const unzonedPatches = this.groupUnzonedTiles(unzonedTiles);
+    
+    // Assign each patch to the nearest zone
+    for (const patch of unzonedPatches) {
+      this.assignPatchToNearestZone(patch);
+    }
+  }
+
+  // Group unzoned tiles into contiguous patches
+  groupUnzonedTiles(unzonedTiles) {
+    const patches = [];
+    const visited = new Set();
+    
+    for (const tile of unzonedTiles) {
+      const tileKey = `${tile[0]},${tile[1]}`;
+      if (visited.has(tileKey)) continue;
+      
+      // Use flood-fill to find contiguous patch
+      const patch = this.floodFillPatch(tile, visited);
+      if (patch.length > 0) {
+        patches.push(patch);
+      }
+    }
+    
+    return patches;
+  }
+
+  // Flood-fill to find contiguous patch of unzoned tiles
+  floodFillPatch(startTile, visited) {
+    const patch = [];
+    const queue = [startTile];
+    
+    while (queue.length > 0) {
+      const [c, r] = queue.shift();
+      const tileKey = `${c},${r}`;
+      
+      if (visited.has(tileKey)) continue;
+      visited.add(tileKey);
+      patch.push([c, r]);
+      
+      // Check 4 directions for adjacent unzoned tiles
+      const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+      for (const [dc, dr] of directions) {
+        const newC = c + dc;
+        const newR = r + dr;
+        const newKey = `${newC},${newR}`;
+        
+        if (newC >= 0 && newC < this.mapSize && 
+            newR >= 0 && newR < this.mapSize && 
+            !visited.has(newKey)) {
+          
+          // Check if this tile is also unzoned
+          let isPartOfZone = false;
+          for (const [zoneId, zone] of this.features) {
+            if (zone.tiles && zone.tiles.has(newKey)) {
+              isPartOfZone = true;
+              break;
+            }
+          }
+          
+          if (!isPartOfZone) {
+            queue.push([newC, newR]);
+          }
+        }
+      }
+    }
+    
+    return patch;
+  }
+
+  // Assign a patch of unzoned tiles to the nearest zone
+  assignPatchToNearestZone(patch) {
+    if (patch.length === 0) return;
+    
+    // First, check if this patch is completely surrounded by a single zone
+    const surroundingZone = this.findCompletelySurroundingZone(patch);
+    if (surroundingZone) {
+      this.assignPatchToZone(patch, surroundingZone);
+      return;
+    }
+    
+    // If not completely surrounded, find zones that actually touch this patch
+    const touchingZones = this.findTouchingZones(patch);
+    
+    if (touchingZones.length === 0) {
+      // No touching zones found - leave as dead zone
+      return;
+    }
+    
+    // Filter out water zones if patch contains non-water tiles
+    const patchTerrainType = this.getTile(patch[0][0], patch[0][1]);
+    const isWaterPatch = patchTerrainType === 0;
+    
+    let validZones = touchingZones;
+    if (!isWaterPatch) {
+      // Non-water patches cannot be assigned to water zones
+      validZones = touchingZones.filter(zone => 
+        zone.type !== 'sea' && zone.type !== 'lake' && 
+        zone.type !== 'water' && zone.type !== 'waters'
+      );
+    }
+    
+    if (validZones.length === 0) {
+      // No valid zones found - leave as dead zone
+      return;
+    }
+    
+    // Assign to the zone with the most touching tiles
+    let bestZone = validZones[0];
+    let maxTouchingTiles = 0;
+    
+    for (const zone of validZones) {
+      const touchingTiles = this.countTouchingTiles(patch, zone);
+      if (touchingTiles > maxTouchingTiles) {
+        maxTouchingTiles = touchingTiles;
+        bestZone = zone;
+      }
+    }
+    
+    this.assignPatchToZone(patch, bestZone);
+  }
+
+  // Find zone that completely surrounds the patch
+  findCompletelySurroundingZone(patch) {
+    const patchBounds = this.calculateBounds(patch);
+    
+    for (const [zoneId, zone] of this.features) {
+      const zoneBounds = zone.bounds;
+      
+      // Check if patch is completely within zone bounds (with 1-tile margin)
+      const isCompletelySurrounded = 
+        patchBounds.minC >= zoneBounds.minC - 1 &&
+        patchBounds.maxC <= zoneBounds.maxC + 1 &&
+        patchBounds.minR >= zoneBounds.minR - 1 &&
+        patchBounds.maxR <= zoneBounds.maxR + 1;
+      
+      if (isCompletelySurrounded) {
+        // Double-check that patch is actually surrounded by zone tiles
+        let surroundedCount = 0;
+        for (const [c, r] of patch) {
+          const directions = [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [-1, 1], [1, -1], [1, 1]];
+          let hasAdjacentZoneTile = false;
+          
+          for (const [dc, dr] of directions) {
+            const checkC = c + dc;
+            const checkR = r + dr;
+            const checkKey = `${checkC},${checkR}`;
+            
+            if (zone.tiles && zone.tiles.has(checkKey)) {
+              hasAdjacentZoneTile = true;
+              break;
+            }
+          }
+          
+          if (hasAdjacentZoneTile) {
+            surroundedCount++;
+          }
+        }
+        
+        // If most patch tiles are adjacent to this zone, consider it surrounded
+        if (surroundedCount >= patch.length * 0.8) {
+          return zone;
+        }
+      }
+    }
+    
+    return null;
+  }
+
+  // Find zones that actually touch the patch
+  findTouchingZones(patch) {
+    const touchingZones = [];
+    
+    for (const [zoneId, zone] of this.features) {
+      let touchesPatch = false;
+      
+      for (const [c, r] of patch) {
+        const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+        for (const [dc, dr] of directions) {
+          const checkC = c + dc;
+          const checkR = r + dr;
+          const checkKey = `${checkC},${checkR}`;
+          
+          if (zone.tiles && zone.tiles.has(checkKey)) {
+            touchesPatch = true;
+            break;
+          }
+        }
+        if (touchesPatch) break;
+      }
+      
+      if (touchesPatch) {
+        touchingZones.push(zone);
+      }
+    }
+    
+    return touchingZones;
+  }
+
+  // Count how many patch tiles are touching the zone
+  countTouchingTiles(patch, zone) {
+    let touchingCount = 0;
+    
+    for (const [c, r] of patch) {
+      const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+      for (const [dc, dr] of directions) {
+        const checkC = c + dc;
+        const checkR = r + dr;
+        const checkKey = `${checkC},${checkR}`;
+        
+        if (zone.tiles && zone.tiles.has(checkKey)) {
+          touchingCount++;
+          break; // Count each patch tile only once
+        }
+      }
+    }
+    
+    return touchingCount;
+  }
+
+  // Assign patch to a specific zone
+  assignPatchToZone(patch, zone) {
+    // Add patch tiles to the zone
+    patch.forEach(tile => {
+      const tileKey = `${tile[0]},${tile[1]}`;
+      zone.tiles.add(tileKey);
+      zone.tileArray.push(tile);
+    });
+    
+    // Update zone properties
+    zone.size = zone.tileArray.length;
+    zone.center = this.calculateCenter(zone.tileArray);
+    zone.bounds = this.calculateBounds(zone.tileArray);
   }
 
   // Check if a feature should be split
@@ -906,3 +1344,4 @@ class TerrainSegmentation {
 }
 
 module.exports = TerrainSegmentation;
+
