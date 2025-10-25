@@ -8417,11 +8417,18 @@ var renderMap = function(){
       }
     }
   } else if(z == 1){
-    // Check if selfId exists and player is in the list
-    if(!selfId || !Player.list[selfId]){
-      return; // Exit early if no valid player
+    // In spectate mode, use camera position instead of selfId
+    var cameraX, cameraY;
+    if(spectateCameraSystem && spectateCameraSystem.isActive) {
+      cameraX = spectateCameraSystem.cameraX;
+      cameraY = spectateCameraSystem.cameraY;
+    } else if(!selfId || !Player.list[selfId]){
+      return; // Exit early if no valid player and not in spectate mode
+    } else {
+      cameraX = Player.list[selfId].x;
+      cameraY = Player.list[selfId].y;
     }
-    var pBuilding = getBuilding(Player.list[selfId].x,Player.list[selfId].y);
+    var pBuilding = getBuilding(cameraX, cameraY);
     var dark = ctx.createPattern(Img.void, "repeat");
     ctx.rect(0,0,WIDTH,HEIGHT);
     ctx.fillStyle = dark;
@@ -8546,11 +8553,18 @@ var renderMap = function(){
       }
     }
   } else if(z == 2){
-    // Check if selfId exists and player is in the list
-    if(!selfId || !Player.list[selfId]){
-      return; // Exit early if no valid player
+    // In spectate mode, use camera position instead of selfId
+    var cameraX, cameraY;
+    if(spectateCameraSystem && spectateCameraSystem.isActive) {
+      cameraX = spectateCameraSystem.cameraX;
+      cameraY = spectateCameraSystem.cameraY;
+    } else if(!selfId || !Player.list[selfId]){
+      return; // Exit early if no valid player and not in spectate mode
+    } else {
+      cameraX = Player.list[selfId].x;
+      cameraY = Player.list[selfId].y;
     }
-    var pBuilding = getBuilding(Player.list[selfId].x,Player.list[selfId].y);
+    var pBuilding = getBuilding(cameraX, cameraY);
     var dark = ctx.createPattern(Img.void, "repeat");
     ctx.rect(0,0,WIDTH,HEIGHT);
     ctx.fillStyle = dark;

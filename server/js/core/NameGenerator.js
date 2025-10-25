@@ -99,6 +99,8 @@ class NameGenerator {
         return `${baseName} Hill`;
       case 'hill_group':
         return `${baseName} Hills`;
+      case 'hill_cluster':
+        return `${baseName} Hills`;
       case 'hill_peak':
         return `${baseName} Hill`;
       case 'island':
@@ -222,6 +224,8 @@ class NameGenerator {
       case 'hill':
         return formattedName.replace(' Hill', '');
       case 'hill_group':
+        return formattedName.replace(' Hills', '');
+      case 'hill_cluster':
         return formattedName.replace(' Hills', '');
       case 'hill_peak':
         return formattedName.replace(' Hill', '');

@@ -846,7 +846,7 @@ Bettinelli
 Bettini
 Bettiza
 Beukema
-Beul¾
+Beul
 Bevis
 Beyer
 Beyleveld
@@ -7645,7 +7645,7 @@ Provost
 Prugger
 Prunea
 Prys
-Psaquale
+Pasquale
 Psara
 Psaros
 Psaroulakis

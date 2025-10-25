@@ -172,11 +172,8 @@ class TerrainSegmentation {
         
       case 5: // MOUNTAIN
         if (size < 3) return null; // Too small
-        if (size < 8) {
-          // Small mountain groups become hills
-          return { type: 'hill_peak', baseName: 'Hill' };
-        }
-        // Larger mountain groups become mountain peaks
+        // All mountain groups become mountain_peak initially
+        // Hills will be determined later during mountain processing
         return { type: 'mountain_peak', baseName: 'Mount' };
         
       case 7: // EMPTY/GRASS
@@ -330,48 +327,81 @@ class TerrainSegmentation {
     // Get all existing mountain_peak features
     const mountainPeaks = Array.from(this.features.values()).filter(f => f.type === 'mountain_peak');
     
-    // Track which mountain peaks have been processed
+    // Separate mountains into proper mountains and hills based on size
+    const properMountains = mountainPeaks.filter(peak => peak.size >= 8);
+    const hills = mountainPeaks.filter(peak => peak.size < 8);
+    
+    // Track which peaks have been processed
     const processedPeaks = new Set();
     
     // Process each rock formation
     for (const rockFormation of rockFormations) {
-      // Find mountain peaks that are within or adjacent to this rock formation
-      const peaksInFormation = mountainPeaks.filter(peak => 
+      // Find proper mountains that are within or adjacent to this rock formation
+      const properMountainsInFormation = properMountains.filter(peak => 
         !processedPeaks.has(peak.id) && 
         this.isMountainPeakInRockFormation(peak, rockFormation)
       );
       
-      if (peaksInFormation.length === 0) {
-        // No mountains in this rock formation - mark these tiles as unzoned for dead zone filling
+      // Find hills that are within or adjacent to this rock formation
+      const hillsInFormation = hills.filter(peak => 
+        !processedPeaks.has(peak.id) && 
+        this.isMountainPeakInRockFormation(peak, rockFormation)
+      );
+      
+      const allPeaksInFormation = [...properMountainsInFormation, ...hillsInFormation];
+      
+      if (allPeaksInFormation.length === 0) {
+        // No mountains or hills in this rock formation - mark these tiles as unzoned for dead zone filling
         rockFormation.forEach(tile => {
           const tileKey = `${tile[0]},${tile[1]}`;
           this.visited.delete(tileKey);
         });
         continue;
-      } else if (peaksInFormation.length === 1) {
-        // Single mountain peak - create a mountain
-        this.createMountainFromPeak(peaksInFormation[0], rockFormation);
-        processedPeaks.add(peaksInFormation[0].id);
+      } else if (allPeaksInFormation.length === 1) {
+        // Single peak - create mountain or hill based on size
+        const peak = allPeaksInFormation[0];
+        if (peak.size >= 8) {
+          this.createMountainFromPeak(peak, rockFormation);
+        } else {
+          this.createHillFromPeak(peak, rockFormation);
+        }
+        processedPeaks.add(peak.id);
       } else {
-        // Multiple mountain peaks - create a mountain range
-        this.createMountainRangeFromPeaks(peaksInFormation, rockFormation);
-        peaksInFormation.forEach(peak => processedPeaks.add(peak.id));
+        // Multiple peaks - check if we have mountains, hills, or mixed
+        const hasMountains = properMountainsInFormation.length > 0;
+        const hasHills = hillsInFormation.length > 0;
+        
+        if (hasMountains && hasHills) {
+          // Mixed mountains and hills - create mountain range (mountains take precedence)
+          this.createMountainRangeFromPeaks(allPeaksInFormation, rockFormation);
+        } else if (hasMountains) {
+          // Only mountains - create mountain range
+          this.createMountainRangeFromPeaks(properMountainsInFormation, rockFormation);
+        } else {
+          // Only hills - create hill cluster
+          this.createHillClusterFromPeaks(hillsInFormation, rockFormation);
+        }
+        
+        allPeaksInFormation.forEach(peak => processedPeaks.add(peak.id));
       }
     }
     
-    // Handle any mountain peaks that weren't matched to rock formations
+    // Handle any peaks that weren't matched to rock formations
     const unmatchedPeaks = mountainPeaks.filter(peak => !processedPeaks.has(peak.id));
+    
     for (const peak of unmatchedPeaks) {
-      // Create standalone mountain without rock base
-      this.createMountainFromPeak(peak, []);
+      // Create standalone mountain or hill without rock base based on size
+      if (peak.size >= 8) {
+        this.createMountainFromPeak(peak, []);
+      } else {
+        this.createHillFromPeak(peak, []);
+      }
     }
     
-    // Remove original mountain_peak and hill_peak features
+    // Remove original mountain_peak features
     const mountainPeaksToRemove = Array.from(this.features.values()).filter(f => f.type === 'mountain_peak');
-    const hillPeaksToRemove = Array.from(this.features.values()).filter(f => f.type === 'hill_peak');
     
     mountainPeaksToRemove.forEach(peak => this.features.delete(peak.id));
-    hillPeaksToRemove.forEach(peak => this.features.delete(peak.id));
   }
 
   // Find all rock formations on the map
@@ -465,6 +495,67 @@ class TerrainSegmentation {
     return false;
   }
 
+  // Create a hill from a peak and its rock base
+  createHillFromPeak(peak, rockFormation) {
+    const hillId = `hill_${Date.now()}_${Math.random()}`;
+    const allTiles = [...peak.tileArray, ...rockFormation];
+    
+    const bounds = this.calculateCentroidAndBounds(allTiles);
+    
+    const hill = {
+      id: hillId,
+      type: 'hill',
+      baseName: 'Hill',
+      tileArray: allTiles,
+      tiles: new Set(allTiles.map(tile => `${tile[0]},${tile[1]}`)),
+      size: allTiles.length,
+      center: bounds.centroid,
+      bounds: bounds.bounds,
+      name: null // Will be set by name generator
+    };
+    
+    this.features.set(hillId, hill);
+    
+    // Ensure all tiles are marked as visited to prevent double-assignment
+    allTiles.forEach(tile => {
+      const tileKey = `${tile[0]},${tile[1]}`;
+      this.visited.add(tileKey);
+    });
+  }
+
+  // Create a hill cluster from multiple hill peaks and their shared rock base
+  createHillClusterFromPeaks(peaks, rockFormation) {
+    const clusterId = `hill_cluster_${Date.now()}_${Math.random()}`;
+    const allTiles = [...rockFormation];
+    
+    // Add all hill peaks
+    peaks.forEach(peak => {
+      allTiles.push(...peak.tileArray);
+    });
+    
+    const bounds = this.calculateCentroidAndBounds(allTiles);
+    
+    const hillCluster = {
+      id: clusterId,
+      type: 'hill_cluster',
+      baseName: 'Hills',
+      tileArray: allTiles,
+      tiles: new Set(allTiles.map(tile => `${tile[0]},${tile[1]}`)),
+      size: allTiles.length,
+      center: bounds.centroid,
+      bounds: bounds.bounds,
+      name: null // Will be set by name generator
+    };
+    
+    this.features.set(clusterId, hillCluster);
+    
+    // Ensure all tiles are marked as visited to prevent double-assignment
+    allTiles.forEach(tile => {
+      const tileKey = `${tile[0]},${tile[1]}`;
+      this.visited.add(tileKey);
+    });
+  }
+
   // Create a mountain range from multiple peaks and their shared rock base
   createMountainRangeFromPeaks(peaks, rockFormation) {
     const rangeId = `mountain_range_${Date.now()}_${Math.random()}`;
@@ -490,6 +581,12 @@ class TerrainSegmentation {
     };
     
     this.features.set(rangeId, mountainRange);
+    
+    // Ensure all tiles are marked as visited to prevent double-assignment
+    allTiles.forEach(tile => {
+      const tileKey = `${tile[0]},${tile[1]}`;
+      this.visited.add(tileKey);
+    });
   }
 
   // Find adjacent rock tiles using flood-fill
@@ -555,6 +652,12 @@ class TerrainSegmentation {
     };
     
     this.features.set(mountainId, mountain);
+    
+    // Ensure all tiles are marked as visited to prevent double-assignment
+    allTiles.forEach(tile => {
+      const tileKey = `${tile[0]},${tile[1]}`;
+      this.visited.add(tileKey);
+    });
   }
 
   // Create a mountain from a rock formation and mountain group

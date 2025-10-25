@@ -3743,8 +3743,8 @@ Player.update = function() {
       if (zoneTransition && zoneTransition.entered) {
         const newZone = zoneTransition.entered;
         
-        // Send zone entry notification via EventManager
-        if (global.eventManager) {
+        // Only send zone entry notifications when player is on overworld (z=0)
+        if (player.z === 0 && global.eventManager) {
           global.eventManager.createEvent({
             category: global.eventManager.categories.ENVIRONMENT,
             subject: player.id,
