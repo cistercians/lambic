@@ -3251,6 +3251,41 @@ Character = function(param){
             self.action = null;
           }
         }
+      } else if(self.action == 'retreat'){
+        // Retreat action - move to retreat target without fighting back
+        if(self.retreatTarget){
+          var targetPos = self.retreatTarget;
+          var currentPos = [self.x, self.y];
+          var distance = Math.sqrt(
+            Math.pow(targetPos[0] - currentPos[0], 2) + 
+            Math.pow(targetPos[1] - currentPos[1], 2)
+          );
+          
+          // If close enough to retreat target, clear retreat action
+          if(distance <= 5){
+            self.action = null;
+            self.retreatTarget = null;
+            // Clear combat targets
+            if(self.combat){
+              self.combat.target = null;
+            }
+            return;
+          }
+          
+          // Move toward retreat target
+          if(!self.path){
+            self.moveTo(targetPos[0], targetPos[1]);
+          }
+          
+          // If attacked while retreating, don't fight back - keep fleeing
+          if(self.combat && self.combat.target){
+            // Clear combat target to prevent fighting back
+            self.combat.target = null;
+          }
+        } else {
+          // No retreat target, clear action
+          self.action = null;
+        }
       } else if(self.action == 'returning'){
         // Returning home after exceeding leash range
         if(self.home && self.home.loc){

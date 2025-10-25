@@ -6,6 +6,8 @@ const TerritoryManager = require('./TerritoryManager');
 const ResourcePlanner = require('./ResourcePlanner');
 const GoalChain = require('./GoalChain');
 const FactionProfiles = require('./FactionProfiles');
+const ScoutingParty = require('./ScoutingParty');
+const FollowBehavior = require('./FollowBehavior');
 
 // Strategy modules
 const FactionStrategy = require('./strategies/FactionStrategy');
@@ -27,6 +29,8 @@ class FactionAI {
     this.currentGoalChain = null;
     this.activeGoals = [];
     this.lastEvaluatedDay = 0; // Track last day evaluated to prevent duplicates
+    this.activeScoutingParties = []; // Track active scouting expeditions
+    this.activeAttackForces = []; // Track active military expeditions
     
     // Load faction profile and strategy (use house.name for faction type)
     this.profile = FactionProfiles[house.name] || FactionProfiles.Goths;
@@ -154,6 +158,10 @@ class FactionAI {
     
     // Otherwise, evaluate new goals
     this.evaluateNewGoals();
+    
+    // Update active scouting parties and attack forces
+    this.updateScoutingParties();
+    this.updateAttackForces();
   }
   
   // Evaluate and select new goals
@@ -235,6 +243,211 @@ class FactionAI {
       knowledge: this.knowledge.getStats(),
       resources: this.house.stores
     };
+  }
+
+  // Deploy a scouting party to a target zone
+  deployScoutingParty(targetZone, resourceType) {
+    // Select leader (prefer mounted military unit)
+    const leader = this.selectScoutLeader();
+    if (!leader) {
+      console.log(`${this.house.name}: No suitable leader available for scouting party`);
+      return null;
+    }
+    
+    // Select 2 backup units
+    const backups = this.selectBackupUnits(2, leader);
+    if (backups.length < 2) {
+      console.log(`${this.house.name}: Not enough backup units for scouting party (need 2, have ${backups.length})`);
+      return null;
+    }
+    
+    // Mark leader with banner emoji
+    leader.name = `🚩 ${leader.name}`;
+    
+    // Create party
+    const party = new ScoutingParty(leader, backups, targetZone, resourceType);
+    this.activeScoutingParties.push(party);
+    
+    // Assign behaviors
+    leader.scoutingParty = party;
+    backups.forEach(unit => {
+      unit.followBehavior = new FollowBehavior(unit, leader);
+      unit.scoutingParty = party;
+    });
+    
+    console.log(`${this.house.name}: Deployed scouting party to ${targetZone.name} for ${resourceType}`);
+    return party;
+  }
+
+  // Select the best leader for a scouting party (prefer mounted units)
+  selectScoutLeader() {
+    const militaryUnits = this.getMilitaryUnits();
+    
+    // Prefer mounted units
+    const mountedUnits = militaryUnits.filter(unit => 
+      unit.name && (
+        unit.name.includes('cavalier') || 
+        unit.name.includes('cavalry') || 
+        unit.name.includes('horseman') ||
+        unit.name.includes('knight') ||
+        unit.name.includes('mounted')
+      )
+    );
+    
+    if (mountedUnits.length > 0) {
+      return mountedUnits[0];
+    }
+    
+    // Fall back to any military unit
+    return militaryUnits.length > 0 ? militaryUnits[0] : null;
+  }
+
+  // Select backup units for scouting party
+  selectBackupUnits(count, excludeLeader) {
+    const militaryUnits = this.getMilitaryUnits();
+    const availableUnits = militaryUnits.filter(unit => unit.id !== excludeLeader.id);
+    
+    return availableUnits.slice(0, count);
+  }
+
+  // Get all military units belonging to this faction
+  getMilitaryUnits() {
+    const militaryUnits = [];
+    
+    for (const [id, player] of Object.entries(Player.list)) {
+      if (player.toRemove || !player.house || player.house.id !== this.house.id) continue;
+      
+      // Check if unit is military (not serf, not civilian)
+      if (player.name && !player.name.includes('serf') && !player.name.includes('civilian')) {
+        militaryUnits.push(player);
+      }
+    }
+    
+    return militaryUnits;
+  }
+
+  // Update all active scouting parties
+  updateScoutingParties() {
+    for (let i = this.activeScoutingParties.length - 1; i >= 0; i--) {
+      const party = this.activeScoutingParties[i];
+      party.update();
+      
+      // Remove completed parties
+      if (party.status === 'completed' || party.status === 'failed') {
+        this.activeScoutingParties.splice(i, 1);
+      }
+    }
+  }
+
+  // Handle scouting party completion
+  onScoutingComplete(targetZone, purpose, enemiesFound) {
+    if (enemiesFound) {
+      console.log(`${this.house.name}: Scouting party found enemies in ${targetZone.name}, planning attack force`);
+      this.planAttackForce(targetZone);
+    } else {
+      console.log(`${this.house.name}: Scouting party reports ${targetZone.name} is clear, planning outpost`);
+      this.planOutpost(targetZone, purpose);
+    }
+  }
+
+  // Handle scouting party failure
+  onScoutingFailed(targetZone, purpose) {
+    console.log(`${this.house.name}: Scouting party failed in ${targetZone.name}, marking as hostile`);
+    // Mark zone as hostile for future reference
+    this.knowledge.reportDiscovery(null, {
+      type: 'ENEMY',
+      location: targetZone.center,
+      threatLevel: 'high',
+      tiles: targetZone.tileArray
+    });
+  }
+
+  // Plan attack force for contested zone
+  planAttackForce(targetZone) {
+    const attackForce = this.assembleAttackForce(targetZone.center, 'high');
+    if (attackForce) {
+      this.deployAttackForce(attackForce, targetZone);
+    }
+  }
+
+  // Plan outpost construction
+  planOutpost(targetZone, resourceType) {
+    // This will be implemented when we create OutpostPlanner
+    console.log(`${this.house.name}: Planning outpost in ${targetZone.name} for ${resourceType}`);
+  }
+
+  // Assemble attack force based on threat level
+  assembleAttackForce(targetLocation, threatLevel) {
+    const militaryUnits = this.getMilitaryUnits();
+    
+    // Determine force size based on threat level
+    let forceSize;
+    switch (threatLevel) {
+      case 'low': forceSize = 3; break;
+      case 'medium': forceSize = 5; break;
+      case 'high': forceSize = 8; break;
+      default: forceSize = 5;
+    }
+    
+    // Limit by available units
+    forceSize = Math.min(forceSize, militaryUnits.length);
+    
+    if (forceSize < 3) {
+      console.log(`${this.house.name}: Not enough military units for attack force (need 3, have ${militaryUnits.length})`);
+      return null;
+    }
+    
+    // Select strongest units
+    const selectedUnits = militaryUnits.slice(0, forceSize);
+    
+    return {
+      units: selectedUnits,
+      target: targetLocation,
+      threatLevel: threatLevel,
+      status: 'assembled'
+    };
+  }
+
+  // Deploy attack force to target zone
+  deployAttackForce(force, targetZone) {
+    console.log(`${this.house.name}: Deploying attack force to ${targetZone.name}`);
+    
+    // Set all units to move to target zone
+    force.units.forEach(unit => {
+      unit.moveTo(targetZone.center[0], targetZone.center[1]);
+      unit.action = 'combat'; // Ready for combat
+    });
+    
+    force.status = 'deployed';
+    this.activeAttackForces.push(force);
+  }
+
+  // Update all active attack forces
+  updateAttackForces() {
+    for (let i = this.activeAttackForces.length - 1; i >= 0; i--) {
+      const force = this.activeAttackForces[i];
+      
+      // Check if force has reached target
+      const allAtTarget = force.units.every(unit => {
+        if (unit.toRemove) return true; // Consider dead units as "at target"
+        
+        const distance = Math.sqrt(
+          Math.pow(unit.x - force.target[0], 2) + 
+          Math.pow(unit.y - force.target[1], 2)
+        );
+        return distance <= 10;
+      });
+      
+      if (allAtTarget && force.status === 'deployed') {
+        force.status = 'engaged';
+        console.log(`${this.house.name}: Attack force engaged at target`);
+      }
+      
+      // Remove completed forces
+      if (force.status === 'completed' || force.status === 'defeated') {
+        this.activeAttackForces.splice(i, 1);
+      }
+    }
   }
 }
 

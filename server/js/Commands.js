@@ -14584,6 +14584,105 @@ EvalCmd = function(data){
         socket.write(JSON.stringify({msg:'addToChat',message:'<span style="color:#ff6666;">❌ Zone system not initialized!</span>'}));
       }
     
+    } else if(data.cmd == 'testscouting'){
+      // Test command for scouting system
+      if(player.house && player.house.ai){
+        const ai = player.house.ai;
+        const currentTile = getLoc(player.x, player.y);
+        const currentZone = global.zoneManager ? global.zoneManager.getZoneAt(currentTile) : null;
+        
+        let message = `<span style="color:#66ff66;">🚩 Scouting System Test:<br/>`;
+        message += `Faction: ${player.house.name}<br/>`;
+        message += `Active Scouting Parties: ${ai.activeScoutingParties.length}<br/>`;
+        message += `Active Attack Forces: ${ai.activeAttackForces.length}<br/>`;
+        
+        if(ai.activeScoutingParties.length > 0){
+          message += `<br/>📋 Active Scouting Parties:<br/>`;
+          ai.activeScoutingParties.forEach((party, index) => {
+            const status = party.getStatus();
+            message += `${index + 1}. ${status.leader} → ${status.targetZone}<br/>`;
+            message += `   Status: ${status.status}, Timer: ${status.idleTimer}<br/>`;
+          });
+        }
+        
+        if(currentZone && global.zoneManager){
+          const adjacentZones = global.zoneManager.getAdjacentZones(currentZone.id);
+          message += `<br/>🗺️ Adjacent Zones: ${adjacentZones.length}<br/>`;
+          
+          // Test resource gap detection
+          const resourceGaps = [];
+          ['stone', 'wood', 'grain', 'iron'].forEach(resource => {
+            if(ai.knowledge.identifyResourceGap(resource)){
+              resourceGaps.push(resource);
+            }
+          });
+          
+          if(resourceGaps.length > 0){
+            message += `⚠️ Resource Gaps: ${resourceGaps.join(', ')}<br/>`;
+            
+            // Test scouting party deployment for first gap
+            const testResource = resourceGaps[0];
+            const suitableZones = ai.knowledge.findZonesWithResource(testResource, adjacentZones);
+            
+            if(suitableZones.length > 0){
+              message += `🎯 Suitable zones for ${testResource}: ${suitableZones.length}<br/>`;
+              message += `Best: ${suitableZones[0].zone.name} (density: ${suitableZones[0].density})<br/>`;
+              
+              // Offer to deploy test scouting party
+              message += `<br/>💡 Use <b>/deployscout ${testResource}</b> to deploy test party</span>`;
+            } else {
+              message += `❌ No suitable zones found for ${testResource}</span>`;
+            }
+          } else {
+            message += `✅ No resource gaps detected</span>`;
+          }
+        } else {
+          message += `<br/>❌ No current zone or zone manager</span>`;
+        }
+        
+        socket.write(JSON.stringify({
+          msg: 'addToChat',
+          message: message
+        }));
+        
+      } else {
+        socket.write(JSON.stringify({msg:'addToChat',message:'<span style="color:#ff6666;">❌ No faction AI available!</span>'}));
+      }
+    
+    } else if(data.cmd == 'deployscout'){
+      // Deploy test scouting party
+      if(player.house && player.house.ai){
+        const resourceType = data.args ? data.args[0] : 'stone';
+        const ai = player.house.ai;
+        const currentTile = getLoc(player.x, player.y);
+        const currentZone = global.zoneManager ? global.zoneManager.getZoneAt(currentTile) : null;
+        
+        if(!currentZone){
+          socket.write(JSON.stringify({msg:'addToChat',message:'<span style="color:#ff6666;">❌ Not in a zone!</span>'}));
+          return;
+        }
+        
+        const adjacentZones = global.zoneManager.getAdjacentZones(currentZone.id);
+        const suitableZones = ai.knowledge.findZonesWithResource(resourceType, adjacentZones);
+        
+        if(suitableZones.length === 0){
+          socket.write(JSON.stringify({msg:'addToChat',message:`<span style="color:#ff6666;">❌ No suitable zones found for ${resourceType}!</span>`}));
+          return;
+        }
+        
+        const targetZone = suitableZones[0].zone;
+        const party = ai.deployScoutingParty(targetZone, resourceType);
+        
+        if(party){
+          socket.write(JSON.stringify({msg:'addToChat',message:`<span style="color:#66ff66;">🚩 Deployed scouting party to ${targetZone.name} for ${resourceType}!</span>`}));
+        } else {
+          socket.write(JSON.stringify({msg:'addToChat',message:'<span style="color:#ff6666;">❌ Failed to deploy scouting party!</span>'}));
+        }
+        
+      } else {
+        socket.write(JSON.stringify({msg:'addToChat',message:'<span style="color:#ff6666;">❌ No faction AI available!</span>'}));
+      }
+    
     } else {
       socket.write(JSON.stringify({msg:'addToChat',message:'<i>Invalid command.</i>'}));
     }

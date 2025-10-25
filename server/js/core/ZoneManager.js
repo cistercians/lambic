@@ -179,6 +179,69 @@ class ZoneManager {
     return Array.from(nearbyZones).map(zoneId => this.zones.get(zoneId));
   }
 
+  // Get zones adjacent to a specific zone (distance-based)
+  getAdjacentZones(zoneId, maxDistance = 30) {
+    const targetZone = this.zones.get(zoneId);
+    if (!targetZone) return [];
+    
+    const adjacentZones = [];
+    const targetCenter = targetZone.center;
+    
+    for (const [id, zone] of this.zones) {
+      if (id === zoneId) continue; // Skip self
+      
+      const distance = this.getDistance(targetCenter, zone.center);
+      if (distance <= maxDistance) {
+        adjacentZones.push(zone);
+      }
+    }
+    
+    return adjacentZones;
+  }
+
+  // Analyze zone's resource types based on terrain
+  getZoneResourceTypes(zone) {
+    const resources = {
+      forest: 0,
+      rocks: 0,
+      farmland: 0,
+      caves: 0,
+      water: 0
+    };
+    
+    for (const [c, r] of zone.tileArray) {
+      const terrain = global.getTile ? global.getTile(0, c, r) : 7;
+      
+      // Count terrain types
+      if (terrain === 1 || terrain === 2) resources.forest++; // HEAVY_FOREST or LIGHT_FOREST
+      if (terrain === 4) resources.rocks++; // ROCKS
+      if (terrain === 7 || terrain === 3) resources.farmland++; // EMPTY or BRUSH
+      if (terrain === 6) resources.caves++; // CAVE_ENTRANCE
+      if (terrain === 0) resources.water++; // WATER
+    }
+    
+    return resources;
+  }
+
+  // Check if zone is within faction's territory
+  isZoneInTerritory(zone, house) {
+    if (!house.territory || !house.territory.coreBase) return false;
+    
+    const territoryCenter = house.territory.coreBase.center;
+    const territoryRadius = house.territory.coreBase.radius;
+    const zoneCenter = zone.center;
+    
+    const distance = this.getDistance(territoryCenter, zoneCenter);
+    return distance <= territoryRadius;
+  }
+
+  // Helper method to calculate distance between two points
+  getDistance(point1, point2) {
+    const dx = point1[0] - point2[0];
+    const dy = point1[1] - point2[1];
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
   // Get player's current zone
   getPlayerZone(playerId) {
     const zoneId = this.playerZones.get(playerId);

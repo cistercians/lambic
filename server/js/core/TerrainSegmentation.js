@@ -30,22 +30,43 @@ class TerrainSegmentation {
         const tiles = this.identifyFeature([c, r], rawTerrainType);
         
         if (tiles.length > 0) {
-          const feature = this.classifyFeature(tiles, terrainType);
-          
-          if (feature) {
-            feature.id = `feature_${featureId++}`;
-            feature.tiles = new Set(tiles.map(tile => `${tile[0]},${tile[1]}`));
-            feature.tileArray = tiles; // Keep array for calculations
-            feature.center = this.calculateCenter(tiles);
-            feature.bounds = this.calculateBounds(tiles);
-            feature.size = tiles.length;
+          // Check if this feature is completely surrounded by water (island detection)
+          if (this.isCompletelySurroundedByWater(tiles)) {
+            const feature = this.convertToIsland({ tileArray: tiles, id: `temp_${featureId++}` });
+            if (feature) {
+              feature.id = `feature_${featureId++}`;
+              feature.tiles = new Set(tiles.map(tile => `${tile[0]},${tile[1]}`));
+              feature.tileArray = tiles;
+              feature.center = this.calculateCenter(tiles);
+              feature.bounds = this.calculateBounds(tiles);
+              feature.size = tiles.length;
+              
+              this.features.set(feature.id, feature);
+              
+              // Mark all tiles as visited
+              tiles.forEach(tile => {
+                this.visited.add(`${tile[0]},${tile[1]}`);
+              });
+            }
+          } else {
+            // Normal terrain classification
+            const feature = this.classifyFeature(tiles, terrainType);
             
-            this.features.set(feature.id, feature);
-            
-            // Mark all tiles as visited
-            tiles.forEach(tile => {
-              this.visited.add(`${tile[0]},${tile[1]}`);
-            });
+            if (feature) {
+              feature.id = `feature_${featureId++}`;
+              feature.tiles = new Set(tiles.map(tile => `${tile[0]},${tile[1]}`));
+              feature.tileArray = tiles; // Keep array for calculations
+              feature.center = this.calculateCenter(tiles);
+              feature.bounds = this.calculateBounds(tiles);
+              feature.size = tiles.length;
+              
+              this.features.set(feature.id, feature);
+              
+              // Mark all tiles as visited
+              tiles.forEach(tile => {
+                this.visited.add(`${tile[0]},${tile[1]}`);
+              });
+            }
           }
         }
       }
@@ -59,9 +80,6 @@ class TerrainSegmentation {
     
     // Split very large features that span across the map
     this.splitLargeFeatures();
-    
-    // Detect islands (features completely surrounded by water)
-    this.detectIslands();
     
     return Array.from(this.features.values());
   }
@@ -115,10 +133,16 @@ class TerrainSegmentation {
         if (size > this.mapSize * this.mapSize * 0.05) { // Reduced from 0.2 to 0.05 (5% of map)
           return { type: 'sea', baseName: 'Sea' };
         }
-        if (this.isSurroundedByLand(tiles)) {
+        // Lakes: medium to large water bodies (50+ tiles) OR surrounded by land
+        if (size >= 50 || this.isSurroundedByLand(tiles)) {
           return { type: 'lake', baseName: 'Lake' };
         }
-        return { type: 'water', baseName: 'Water' };
+        // Waters: smaller water bodies (25-49 tiles)
+        if (size >= 25) {
+          return { type: 'water', baseName: 'Water' };
+        }
+        // Waters: very small water bodies (10-24 tiles)
+        return { type: 'waters', baseName: 'Waters' };
         
       case 1: // HEAVY_FOREST
         if (size < 20) return null; // Reduced from 80
@@ -129,13 +153,13 @@ class TerrainSegmentation {
         return { type: 'forest', baseName: 'Forest' };
         
       case 3: // BRUSH
-        if (size < 30) return null; // Reduced from 100
+        if (size < 50) return null; // Increased from 30 to reduce small patches
         return { type: 'plains', baseName: 'Plains' };
         
       case 4: // ROCKS
-        // Rocks are now used for mountain range detection
-        if (size < 10) return null; // Too small to be significant
-        return { type: 'rock_base', baseName: 'Rocks' };
+        // Rocks are only valid when part of mountain/hill systems
+        // Standalone rock patches should be ignored
+        return null; // Don't create standalone rock features
         
       case 5: // MOUNTAIN
         if (size < 3) return null; // Too small
@@ -148,7 +172,7 @@ class TerrainSegmentation {
         
       case 7: // EMPTY/GRASS
         if (size < 20) return null; // Reduced from 50
-        return { type: 'meadow', baseName: 'Meadow' };
+        return null; // Remove meadows entirely
         
       default:
         return null;
@@ -158,7 +182,7 @@ class TerrainSegmentation {
   // Check if water feature is surrounded by land
   isSurroundedByLand(tiles) {
     const bounds = this.calculateBounds(tiles);
-    const margin = 2;
+    const margin = 1; // Reduced from 2 to allow lakes closer to edges
     
     // Check if feature is near map edges (likely not a lake)
     if (bounds.minC < margin || bounds.maxC >= this.mapSize - margin ||
@@ -185,8 +209,8 @@ class TerrainSegmentation {
       }
     }
     
-    // Consider it a lake if >70% of surrounding tiles are land
-    return landCount / totalCount > 0.7;
+    // Consider it a lake if >50% of surrounding tiles are land (reduced from 70%)
+    return landCount / totalCount > 0.5;
   }
 
   // Calculate center point of feature
@@ -217,6 +241,17 @@ class TerrainSegmentation {
     });
     
     return { minC, maxC, minR, maxR };
+  }
+
+  // Calculate both center and bounds for a feature
+  calculateCentroidAndBounds(tiles) {
+    const centroid = this.calculateCenter(tiles);
+    const bounds = this.calculateBounds(tiles);
+    
+    return {
+      centroid: centroid,
+      bounds: bounds
+    };
   }
 
   // Detect features that are adjacent to each other
@@ -280,192 +315,254 @@ class TerrainSegmentation {
 
   // Process mountains, hills, and rocks into mountain ranges and hill groups
   processMountainRanges() {
-    
     const mountainPeaks = Array.from(this.features.values()).filter(f => f.type === 'mountain_peak');
     const hillPeaks = Array.from(this.features.values()).filter(f => f.type === 'hill_peak');
-    const rockBases = Array.from(this.features.values()).filter(f => f.type === 'rock_base');
     
-    // Group mountains that are surrounded by the same rock base
-    const mountainRanges = new Map();
     const processedPeaks = new Set();
-    const processedRocks = new Set();
     
+    // Process mountain peaks
     for (const peak of mountainPeaks) {
       if (processedPeaks.has(peak.id)) continue;
       
-      // Find rock bases that are adjacent to this mountain peak
-      const adjacentRocks = rockBases.filter(rock => 
-        !processedRocks.has(rock.id) && this.areAdjacent(peak, rock)
-      );
+      // Find adjacent rock tiles around this mountain peak
+      const adjacentRockTiles = this.findAdjacentRockTiles(peak);
       
-      if (adjacentRocks.length > 0) {
-        // Create a mountain range that includes the peak and all adjacent rocks
-        const rangeId = `mountain_range_${peak.id}`;
-        const rangeTiles = new Set();
-        const rangeTileArray = [];
-        
-        // Add mountain peak tiles
-        peak.tileArray.forEach(tile => {
-          rangeTiles.add(`${tile[0]},${tile[1]}`);
-          rangeTileArray.push(tile);
-        });
-        
-        // Add rock base tiles
-        adjacentRocks.forEach(rock => {
-          rock.tileArray.forEach(tile => {
-            rangeTiles.add(`${tile[0]},${tile[1]}`);
-            rangeTileArray.push(tile);
-          });
-          processedRocks.add(rock.id);
-        });
-        
-        // Count how many mountain peaks are in this range
-        const peaksInRange = mountainPeaks.filter(p => 
+      if (adjacentRockTiles.length > 0) {
+        // Find other mountain peaks that share the same rock base
+        const connectedPeaks = mountainPeaks.filter(p => 
           !processedPeaks.has(p.id) && 
-          adjacentRocks.some(rock => this.areAdjacent(p, rock))
+          this.peaksShareRockBase(p, peak, adjacentRockTiles)
         );
         
-        // Mark all peaks in this range as processed
-        peaksInRange.forEach(p => processedPeaks.add(p.id));
+        // Create mountain range or single mountain
+        if (connectedPeaks.length > 1) {
+          this.createMountainRange([peak, ...connectedPeaks], adjacentRockTiles);
+        } else {
+          this.createSingleMountain(peak, adjacentRockTiles);
+        }
         
-        // Add additional peaks to the range
-        peaksInRange.forEach(peak => {
-          peak.tileArray.forEach(tile => {
-            rangeTiles.add(`${tile[0]},${tile[1]}`);
-            rangeTileArray.push(tile);
-          });
-        });
-        
-        // Determine if this is a single mountain or a mountain range
-        const isRange = peaksInRange.length > 1;
-        const rangeType = isRange ? 'mountain_range' : 'mountain';
-        const baseName = isRange ? 'Mountains' : 'Mount';
-        
-        const mountainRange = {
-          id: rangeId,
-          type: rangeType,
-          baseName: baseName,
-          tiles: rangeTiles,
-          tileArray: rangeTileArray,
-          center: this.calculateCenter(rangeTileArray),
-          bounds: this.calculateBounds(rangeTileArray),
-          size: rangeTileArray.length,
-          peakCount: peaksInRange.length
-        };
-        
-        mountainRanges.set(rangeId, mountainRange);
-        
-      } else {
-        // Single mountain not surrounded by rocks - let NameGenerator handle naming
-        peak.type = 'mountain';
-        peak.baseName = 'Mount';
+        // Mark all connected peaks as processed
+        connectedPeaks.forEach(p => processedPeaks.add(p.id));
         processedPeaks.add(peak.id);
+      } else {
+        // No adjacent rocks - create standalone mountain
+        this.createSingleMountain(peak, []);
       }
     }
     
-    // Remove original mountain peaks and rock bases that were processed
-    for (const peakId of processedPeaks) {
-      this.features.delete(peakId);
-    }
-    for (const rockId of processedRocks) {
-      this.features.delete(rockId);
-    }
-    
-    // Add the new mountain ranges
-    mountainRanges.forEach((range, rangeId) => {
-      this.features.set(rangeId, range);
-    });
-    
-    // Now process hills (similar logic to mountains)
-    const hillGroups = new Map();
-    const processedHills = new Set();
-    const processedHillsRocks = new Set();
-    
-    for (const hill of hillPeaks) {
-      if (processedHills.has(hill.id)) continue;
+    // Process hill peaks
+    for (const peak of hillPeaks) {
+      if (processedPeaks.has(peak.id)) continue;
       
-      // Find rock bases that are adjacent to this hill peak
-      const adjacentRocks = rockBases.filter(rock => 
-        !processedHillsRocks.has(rock.id) && this.areAdjacent(hill, rock)
-      );
+      // Find adjacent rock tiles around this hill peak
+      const adjacentRockTiles = this.findAdjacentRockTiles(peak);
       
-      if (adjacentRocks.length > 0) {
-        // Create a hill group that includes the hill and all adjacent rocks
-        const groupId = `hill_group_${hill.id}`;
-        const groupTiles = new Set();
-        const groupTileArray = [];
-        
-        // Add hill peak tiles
-        hill.tileArray.forEach(tile => {
-          groupTiles.add(`${tile[0]},${tile[1]}`);
-          groupTileArray.push(tile);
-        });
-        
-        // Add rock base tiles
-        adjacentRocks.forEach(rock => {
-          rock.tileArray.forEach(tile => {
-            groupTiles.add(`${tile[0]},${tile[1]}`);
-            groupTileArray.push(tile);
-          });
-          processedHillsRocks.add(rock.id);
-        });
-        
-        // Count how many hills are in this group
-        const hillsInGroup = hillPeaks.filter(h => 
-          !processedHills.has(h.id) && 
-          adjacentRocks.some(rock => this.areAdjacent(h, rock))
+      if (adjacentRockTiles.length > 0) {
+        // Find other hill peaks that share the same rock base
+        const connectedPeaks = hillPeaks.filter(p => 
+          !processedPeaks.has(p.id) && 
+          this.peaksShareRockBase(p, peak, adjacentRockTiles)
         );
         
-        // Mark all hills in this group as processed
-        hillsInGroup.forEach(h => processedHills.add(h.id));
+        // Create hill group or single hill
+        if (connectedPeaks.length > 1) {
+          this.createHillGroup([peak, ...connectedPeaks], adjacentRockTiles);
+        } else {
+          this.createSingleHill(peak, adjacentRockTiles);
+        }
         
-        // Add additional hills to the group
-        hillsInGroup.forEach(hill => {
-          hill.tileArray.forEach(tile => {
-            groupTiles.add(`${tile[0]},${tile[1]}`);
-            groupTileArray.push(tile);
-          });
-        });
-        
-        // Determine if this is a single hill or hill group
-        const isGroup = hillsInGroup.length > 1;
-        const groupType = isGroup ? 'hill_group' : 'hill';
-        const baseName = isGroup ? 'Hills' : 'Hill';
-        
-        const hillGroup = {
-          id: groupId,
-          type: groupType,
-          baseName: baseName,
-          tiles: groupTiles,
-          tileArray: groupTileArray,
-          center: this.calculateCenter(groupTileArray),
-          bounds: this.calculateBounds(groupTileArray),
-          size: groupTileArray.length,
-          hillCount: hillsInGroup.length
-        };
-        
-        hillGroups.set(groupId, hillGroup);
-        
+        // Mark all connected peaks as processed
+        connectedPeaks.forEach(p => processedPeaks.add(p.id));
+        processedPeaks.add(peak.id);
       } else {
-        // Single hill not surrounded by rocks - let NameGenerator handle naming
-        hill.type = 'hill';
-        hill.baseName = 'Hill';
-        processedHills.add(hill.id);
+        // No adjacent rocks - create standalone hill
+        this.createSingleHill(peak, []);
       }
     }
     
-    // Remove original hill peaks and rock bases that were processed for hills
-    for (const hillId of processedHills) {
-      this.features.delete(hillId);
-    }
-    for (const rockId of processedHillsRocks) {
-      this.features.delete(rockId);
+    // Remove original mountain_peak and hill_peak features
+    mountainPeaks.forEach(peak => this.features.delete(peak.id));
+    hillPeaks.forEach(peak => this.features.delete(peak.id));
+  }
+
+  // Find rock tiles adjacent to a peak feature using flood-fill
+  findAdjacentRockTiles(peak) {
+    const rockTiles = [];
+    const visited = new Set();
+    const queue = [];
+    
+    // Start flood-fill from each peak tile
+    for (const [c, r] of peak.tileArray) {
+      // Check all 8 directions around each peak tile
+      for (let dc = -1; dc <= 1; dc++) {
+        for (let dr = -1; dr <= 1; dr++) {
+          if (dc === 0 && dr === 0) continue;
+          
+          const checkC = c + dc;
+          const checkR = r + dr;
+          const tileKey = `${checkC},${checkR}`;
+          
+          if (visited.has(tileKey)) continue;
+          visited.add(tileKey);
+          
+          // Check if this tile is rock terrain
+          const terrain = this.getTile(checkC, checkR);
+          if (terrain === 4) { // ROCKS
+            rockTiles.push([checkC, checkR]);
+            queue.push([checkC, checkR]); // Add to queue for further expansion
+          }
+        }
+      }
     }
     
-    // Add the new hill groups
-    hillGroups.forEach((group, groupId) => {
-      this.features.set(groupId, group);
+    // Continue flood-fill from discovered rock tiles
+    while (queue.length > 0) {
+      const [currentC, currentR] = queue.shift();
+      
+      // Check all 8 directions around current rock tile
+      for (let dc = -1; dc <= 1; dc++) {
+        for (let dr = -1; dr <= 1; dr++) {
+          if (dc === 0 && dr === 0) continue;
+          
+          const checkC = currentC + dc;
+          const checkR = currentR + dr;
+          const tileKey = `${checkC},${checkR}`;
+          
+          if (visited.has(tileKey)) continue;
+          visited.add(tileKey);
+          
+          // Check if this tile is rock terrain
+          const terrain = this.getTile(checkC, checkR);
+          if (terrain === 4) { // ROCKS
+            rockTiles.push([checkC, checkR]);
+            queue.push([checkC, checkR]); // Continue expanding
+          }
+        }
+      }
+    }
+    
+    return rockTiles;
+  }
+
+  // Check if two peaks share the same rock base
+  peaksShareRockBase(peak1, peak2, rockTiles) {
+    // Check if peak2 is within reasonable distance of peak1
+    const maxDistance = 15; // Maximum distance between peaks sharing rock base
+    
+    for (const [c1, r1] of peak1.tileArray) {
+      for (const [c2, r2] of peak2.tileArray) {
+        const distance = Math.sqrt(Math.pow(c1 - c2, 2) + Math.pow(r1 - r2, 2));
+        if (distance <= maxDistance) {
+          return true;
+        }
+      }
+    }
+    
+    return false;
+  }
+
+  // Create a mountain range (multiple peaks with shared rock base)
+  createMountainRange(peaks, rockTiles) {
+    const rangeId = `mountain_range_${peaks[0].id}`;
+    const allTiles = [];
+    
+    // Add all peak tiles
+    peaks.forEach(peak => {
+      allTiles.push(...peak.tileArray);
     });
+    
+    // Add rock tiles
+    allTiles.push(...rockTiles);
+    
+    const bounds = this.calculateCentroidAndBounds(allTiles);
+    
+    const mountainRange = {
+      id: rangeId,
+      type: 'mountain_range',
+      baseName: 'Mountains',
+      tileArray: allTiles,
+      tiles: new Set(allTiles.map(tile => `${tile[0]},${tile[1]}`)),
+      size: allTiles.length,
+      center: bounds.centroid,
+      bounds: bounds.bounds,
+      name: null // Will be set by name generator
+    };
+    
+    this.features.set(rangeId, mountainRange);
+  }
+
+  // Create a single mountain (one peak with rock base)
+  createSingleMountain(peak, rockTiles) {
+    const mountainId = `mountain_${peak.id}`;
+    const allTiles = [...peak.tileArray, ...rockTiles];
+    
+    const bounds = this.calculateCentroidAndBounds(allTiles);
+    
+    const mountain = {
+      id: mountainId,
+      type: 'mountain',
+      baseName: 'Mount',
+      tileArray: allTiles,
+      tiles: new Set(allTiles.map(tile => `${tile[0]},${tile[1]}`)),
+      size: allTiles.length,
+      center: bounds.centroid,
+      bounds: bounds.bounds,
+      name: null // Will be set by name generator
+    };
+    
+    this.features.set(mountainId, mountain);
+  }
+
+  // Create a hill group (multiple hill peaks with shared rock base)
+  createHillGroup(peaks, rockTiles) {
+    const groupId = `hill_group_${peaks[0].id}`;
+    const allTiles = [];
+    
+    // Add all peak tiles
+    peaks.forEach(peak => {
+      allTiles.push(...peak.tileArray);
+    });
+    
+    // Add rock tiles
+    allTiles.push(...rockTiles);
+    
+    const bounds = this.calculateCentroidAndBounds(allTiles);
+    
+    const hillGroup = {
+      id: groupId,
+      type: 'hill_group',
+      baseName: 'Hills',
+      tileArray: allTiles,
+      tiles: new Set(allTiles.map(tile => `${tile[0]},${tile[1]}`)),
+      size: allTiles.length,
+      center: bounds.centroid,
+      bounds: bounds.bounds,
+      name: null // Will be set by name generator
+    };
+    
+    this.features.set(groupId, hillGroup);
+  }
+
+  // Create a single hill (one peak with rock base)
+  createSingleHill(peak, rockTiles) {
+    const hillId = `hill_${peak.id}`;
+    const allTiles = [...peak.tileArray, ...rockTiles];
+    
+    const bounds = this.calculateCentroidAndBounds(allTiles);
+    
+    const hill = {
+      id: hillId,
+      type: 'hill',
+      baseName: 'Hill',
+      tileArray: allTiles,
+      tiles: new Set(allTiles.map(tile => `${tile[0]},${tile[1]}`)),
+      size: allTiles.length,
+      center: bounds.centroid,
+      bounds: bounds.bounds,
+      name: null // Will be set by name generator
+    };
+    
+    this.features.set(hillId, hill);
   }
 
   // Split very large features that span across the map
@@ -511,7 +608,6 @@ class TerrainSegmentation {
   // Split a feature into multiple parts
   splitFeature(feature) {
     const bounds = feature.bounds;
-    const mapCenter = this.mapSize / 2;
     
     // Determine split direction (prefer the direction with larger span)
     const horizontalSpan = bounds.maxC - bounds.minC;
@@ -535,38 +631,81 @@ class TerrainSegmentation {
     const splitFeatures = [];
     
     if (splitDirection === 'horizontal') {
-      // Split into East and West
-      const westTiles = feature.tileArray.filter(tile => tile[0] < mapCenter);
-      const eastTiles = feature.tileArray.filter(tile => tile[0] >= mapCenter);
+      // Find optimal split point for horizontal split
+      const optimalSplit = this.findOptimalSplitPoint(feature.tileArray, 'horizontal', feature.type);
       
-      // Only split if BOTH parts meet the minimum threshold AND size ratio is balanced
-      const westValid = this.isValidSplit(westTiles, feature.type);
-      const eastValid = this.isValidSplit(eastTiles, feature.type);
-      const ratioValid = this.isValidSizeRatio(westTiles.length, eastTiles.length);
-      
-      if (westValid && eastValid && ratioValid) {
-        const westFeature = this.createSplitFeature(feature, westTiles, 'West', sharedBaseName);
-        const eastFeature = this.createSplitFeature(feature, eastTiles, 'East', sharedBaseName);
+      if (optimalSplit) {
+        const westFeature = this.createSplitFeature(feature, optimalSplit.westTiles, 'West', sharedBaseName);
+        const eastFeature = this.createSplitFeature(feature, optimalSplit.eastTiles, 'East', sharedBaseName);
         splitFeatures.push(westFeature, eastFeature);
       }
     } else {
-      // Split into North and South
-      const northTiles = feature.tileArray.filter(tile => tile[1] < mapCenter);
-      const southTiles = feature.tileArray.filter(tile => tile[1] >= mapCenter);
+      // Find optimal split point for vertical split
+      const optimalSplit = this.findOptimalSplitPoint(feature.tileArray, 'vertical', feature.type);
       
-      // Only split if BOTH parts meet the minimum threshold AND size ratio is balanced
-      const northValid = this.isValidSplit(northTiles, feature.type);
-      const southValid = this.isValidSplit(southTiles, feature.type);
-      const ratioValid = this.isValidSizeRatio(northTiles.length, southTiles.length);
-      
-      if (northValid && southValid && ratioValid) {
-        const northFeature = this.createSplitFeature(feature, northTiles, 'North', sharedBaseName);
-        const southFeature = this.createSplitFeature(feature, southTiles, 'South', sharedBaseName);
+      if (optimalSplit) {
+        const northFeature = this.createSplitFeature(feature, optimalSplit.northTiles, 'North', sharedBaseName);
+        const southFeature = this.createSplitFeature(feature, optimalSplit.southTiles, 'South', sharedBaseName);
         splitFeatures.push(northFeature, southFeature);
       }
     }
     
     return splitFeatures;
+  }
+
+  // Find the optimal split point that creates balanced sub-features
+  findOptimalSplitPoint(tiles, direction, featureType) {
+    const bounds = this.calculateBounds(tiles);
+    
+    if (direction === 'horizontal') {
+      // Try different split points along the horizontal axis
+      for (let splitX = bounds.minC + 1; splitX < bounds.maxC; splitX++) {
+        const westTiles = tiles.filter(tile => tile[0] < splitX);
+        const eastTiles = tiles.filter(tile => tile[0] >= splitX);
+        
+        // Check if both parts meet minimum requirements
+        const westValid = this.isValidSplit(westTiles, featureType);
+        const eastValid = this.isValidSplit(eastTiles, featureType);
+        
+        if (westValid && eastValid) {
+          // Check if ratio is acceptable (between 1:1 and 1:1.5)
+          const ratioValid = this.isValidSizeRatio(westTiles.length, eastTiles.length);
+          
+          if (ratioValid) {
+            return {
+              westTiles: westTiles,
+              eastTiles: eastTiles,
+              splitPoint: splitX
+            };
+          }
+        }
+      }
+    } else {
+      // Try different split points along the vertical axis
+      for (let splitY = bounds.minR + 1; splitY < bounds.maxR; splitY++) {
+        const northTiles = tiles.filter(tile => tile[1] < splitY);
+        const southTiles = tiles.filter(tile => tile[1] >= splitY);
+        
+        // Check if both parts meet minimum requirements
+        const northValid = this.isValidSplit(northTiles, featureType);
+        const southValid = this.isValidSplit(southTiles, featureType);
+        
+        if (northValid && southValid) {
+          // Check if ratio is acceptable (between 1:1 and 1:1.5)
+          const ratioValid = this.isValidSizeRatio(northTiles.length, southTiles.length);
+          
+          if (ratioValid) {
+            return {
+              northTiles: northTiles,
+              southTiles: southTiles,
+              splitPoint: splitY
+            };
+          }
+        }
+      }
+    }
+    
+    return null; // No valid split point found
   }
 
   // Check if a split portion is valid (meets minimum size requirements)
@@ -584,7 +723,13 @@ class TerrainSegmentation {
       case 'mountain_range':
         return tiles.length >= 20; // Reasonable minimum for mountain ranges
       case 'plains':
-        return tiles.length >= 30; // Match original classification threshold
+        return tiles.length >= 50; // Match increased classification threshold
+      case 'lake':
+        return false; // Lakes should not be split
+      case 'water':
+        return false; // Waters should not be split
+      case 'waters':
+        return false; // Waters should not be split
       default:
         return tiles.length >= 10;
     }
@@ -664,7 +809,7 @@ class TerrainSegmentation {
     if (!feature.name) return 'Unknown';
     
     // Remove common suffixes to get base name
-    const suffixes = [' Sea', ' Woods', ' Forest', ' Mountains', ' Hills', ' Lake', ' Waters', ' Island'];
+    const suffixes = [' Sea', ' Woods', ' Forest', ' Mountains', ' Hills', ' Lake', ' Water', ' Waters', ' Island'];
     let baseName = feature.name;
     
     for (const suffix of suffixes) {
@@ -677,40 +822,9 @@ class TerrainSegmentation {
     return baseName;
   }
 
-  // Detect islands (features completely surrounded by water)
-  detectIslands() {
-    
-    const featuresToCheck = Array.from(this.features.values()).filter(feature => {
-      // Only check non-water features that could be islands
-      return feature.type !== 'sea' && feature.type !== 'water' && 
-             feature.size >= 3; // Minimum size for an island
-    });
-    
-    const islands = [];
-    const featuresToRemove = [];
-    
-    for (const feature of featuresToCheck) {
-      if (this.isCompletelySurroundedByWater(feature)) {
-        // Convert this feature to an island
-        const island = this.convertToIsland(feature);
-        islands.push(island);
-        featuresToRemove.push(feature.id);
-      }
-    }
-    
-    // Remove original features and add islands
-    featuresToRemove.forEach(featureId => {
-      this.features.delete(featureId);
-    });
-    
-    islands.forEach(island => {
-      this.features.set(island.id, island);
-    });
-  }
-
   // Check if a feature is completely surrounded by water
-  isCompletelySurroundedByWater(feature) {
-    const bounds = feature.bounds;
+  isCompletelySurroundedByWater(tiles) {
+    const bounds = this.calculateBounds(tiles);
     
     // Expand bounds by 1 tile in each direction to check surroundings
     const checkBounds = {
@@ -724,7 +838,8 @@ class TerrainSegmentation {
     for (let r = checkBounds.minR; r <= checkBounds.maxR; r++) {
       for (let c = checkBounds.minC; c <= checkBounds.maxC; c++) {
         // Skip tiles that are part of the feature itself
-        if (feature.tiles.has(`${c},${r}`)) {
+        const isPartOfFeature = tiles.some(tile => tile[0] === c && tile[1] === r);
+        if (isPartOfFeature) {
           continue;
         }
         

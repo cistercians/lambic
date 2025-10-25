@@ -297,17 +297,227 @@ class DefendTerritoryGoal extends Goal {
 // ============================================================================
 
 class EstablishOutpostGoal extends Goal {
-  constructor(location) {
-    super('ESTABLISH_OUTPOST', 35);
-    this.resourceCost = { wood: 30 };
-    this.buildingRequirements = [];
-    this.location = location;
+  constructor(resourceType, targetZone) {
+    super('ESTABLISH_OUTPOST', 70);
+    this.resourceType = resourceType;
+    this.targetZone = targetZone;
+    this.scoutingParty = null;
+    this.outpostLocation = null;
+    this.outpostPlan = null;
+    this.status = 'PENDING';
+  }
+  
+  canExecute(house) {
+    this.blockedBy = [];
+    
+    // Check if we have units for scouting party (1 military + 2 backup)
+    const militaryUnits = this.getMilitaryUnits(house);
+    if (militaryUnits.length < 3) {
+      this.blockedBy.push({ type: 'UNITS', need: 3, have: militaryUnits.length });
+      return false;
+    }
+    
+    // Check if target zone is still valid
+    if (!this.targetZone || !global.zoneManager) {
+      this.blockedBy.push({ type: 'ZONE', value: 'target zone not found' });
+      return false;
+    }
+    
+    // Check if zone is still adjacent to our territory
+    const hqZone = this.getHQZone(house);
+    if (!hqZone) {
+      this.blockedBy.push({ type: 'TERRITORY', value: 'HQ zone not found' });
+      return false;
+    }
+    
+    const adjacentZones = global.zoneManager.getAdjacentZones(hqZone.id);
+    const isAdjacent = adjacentZones.some(zone => zone.id === this.targetZone.id);
+    
+    if (!isAdjacent) {
+      this.blockedBy.push({ type: 'DISTANCE', value: 'target zone not adjacent' });
+      return false;
+    }
+    
+    return true;
   }
   
   execute(house) {
-    console.log(`${house.name}: Establishing outpost at [${this.location}]`);
-    house.stores.wood -= this.resourceCost.wood;
+    if (!this.canExecute(house)) {
+      this.status = 'BLOCKED';
+      return false;
+    }
+    
+    // Deploy scouting party
+    this.scoutingParty = house.ai.deployScoutingParty(this.targetZone, this.resourceType);
+    
+    if (!this.scoutingParty) {
+      this.status = 'FAILED';
+      return false;
+    }
+    
+    this.status = 'IN_PROGRESS';
+    console.log(`${house.name}: Started outpost establishment in ${this.targetZone.name}`);
+    return true;
+  }
+  
+  // Called when scouting party completes successfully
+  onScoutingComplete(house, enemiesFound) {
+    if (enemiesFound) {
+      // Enemies found - this goal is blocked until they're dealt with
+      this.status = 'BLOCKED';
+      this.blockedBy.push({ type: 'ENEMIES', value: 'enemies detected in target zone' });
+      return false;
+    }
+    
+    // Zone is clear - plan outpost construction
+    const OutpostPlanner = require('./OutpostPlanner');
+    const planner = new OutpostPlanner();
+    this.outpostPlan = planner.planOutpost(this.targetZone, this.resourceType, house);
+    
+    if (!this.outpostPlan) {
+      this.status = 'FAILED';
+      this.blockedBy.push({ type: 'LOCATION', value: 'no suitable outpost location found' });
+      return false;
+    }
+    
+    // Start outpost construction
+    this.startOutpostConstruction(house);
+    return true;
+  }
+  
+  // Start building the outpost
+  startOutpostConstruction(house) {
+    const buildingConstructor = getBuildingConstructor(house);
+    
+    // Queue buildings for construction
+    for (const building of this.outpostPlan.buildings) {
+      buildingConstructor.queueBuilding({
+        type: building.type,
+        location: building.position,
+        purpose: building.purpose,
+        priority: 'high'
+      });
+    }
+    
+    console.log(`${house.name}: Started outpost construction in ${this.targetZone.name}`);
+  }
+  
+  // Check if outpost construction is complete
+  isOutpostComplete(house) {
+    if (!this.outpostPlan) return false;
+    
+    // Check if all planned buildings exist
+    for (const building of this.outpostPlan.buildings) {
+      const [c, r] = building.position;
+      const existingBuilding = global.getBuilding ? global.getBuilding(c, r) : null;
+      
+      if (!existingBuilding) {
+        return false; // Building not yet constructed
+      }
+    }
+    
+    return true;
+  }
+  
+  // Complete the goal
+  complete(house) {
     this.status = 'COMPLETED';
+    
+    // Assign serfs to work at the resource building
+    this.assignSerfsToOutpost(house);
+    
+    // Keep scouting party as guards
+    if (this.scoutingParty) {
+      this.scoutingParty.status = 'guarding';
+    }
+    
+    console.log(`${house.name}: Outpost establishment completed in ${this.targetZone.name}`);
+  }
+  
+  // Assign serfs to work at the outpost
+  assignSerfsToOutpost(house) {
+    const serfs = this.getSerfs(house);
+    const resourceBuilding = this.outpostPlan.buildings.find(b => b.purpose === 'resource_gathering');
+    
+    if (!resourceBuilding || serfs.length === 0) return;
+    
+    // Assign 2-3 serfs to the outpost
+    const serfsToAssign = Math.min(3, serfs.length);
+    
+    for (let i = 0; i < serfsToAssign; i++) {
+      const serf = serfs[i];
+      const [c, r] = resourceBuilding.position;
+      
+      // Set serf to work at the resource building
+      serf.work = {
+        hq: null, // No HQ for outpost workers
+        spot: [c, r],
+        type: this.resourceType
+      };
+      serf.action = 'task';
+      serf.isOutpostWorker = true;
+      
+      console.log(`${serf.name} assigned to outpost work in ${this.targetZone.name}`);
+    }
+  }
+  
+  // Helper: Get military units
+  getMilitaryUnits(house) {
+    const militaryUnits = [];
+    
+    for (const [id, player] of Object.entries(Player.list)) {
+      if (player.toRemove || !player.house || player.house.id !== house.id) continue;
+      
+      // Check if unit is military (not serf, not civilian)
+      if (player.name && !player.name.includes('serf') && !player.name.includes('civilian')) {
+        militaryUnits.push(player);
+      }
+    }
+    
+    return militaryUnits;
+  }
+  
+  // Helper: Get serfs
+  getSerfs(house) {
+    const serfs = [];
+    
+    for (const [id, player] of Object.entries(Player.list)) {
+      if (player.toRemove || !player.house || player.house.id !== house.id) continue;
+      
+      if (player.name && player.name.includes('serf')) {
+        serfs.push(player);
+      }
+    }
+    
+    return serfs;
+  }
+  
+  // Helper: Get HQ zone
+  getHQZone(house) {
+    if (!global.zoneManager || !house.hq) return null;
+    
+    const hqTile = house.hq;
+    const zonesAtHQ = global.zoneManager.getZonesAt(hqTile);
+    
+    // Find the faction territory zone
+    for (const zoneId of zonesAtHQ) {
+      const zone = global.zoneManager.zones.get(zoneId);
+      if (zone && zone.type === 'faction_territory' && zone.faction === house.id) {
+        return zone;
+      }
+    }
+    
+    return null;
+  }
+  
+  // Get blocking factors
+  getBlockingFactors() {
+    return this.blockedBy;
+  }
+  
+  // Get goal description
+  getDescription() {
+    return `Establish outpost in ${this.targetZone.name} for ${this.resourceType}`;
   }
 }
 

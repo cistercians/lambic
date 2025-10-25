@@ -113,6 +113,118 @@ class FactionKnowledge {
     return this.exploredTiles.size / totalTiles;
   }
   
+  // Check if faction has a resource gap (needs resource but doesn't have it in territory)
+  identifyResourceGap(resourceType) {
+    // Check if house needs this resource
+    const needed = this.house.stores[resourceType] || 0;
+    const required = this.getRequiredAmount(resourceType);
+    
+    if (needed >= required) return false; // Have enough
+    
+    // Check if resource exists in faction territory
+    if (global.zoneManager && this.house.territory) {
+      const hqZone = this.getHQZone();
+      if (hqZone) {
+        const territoryZones = global.zoneManager.getAdjacentZones(hqZone.id, this.house.territory.coreBase.radius);
+        
+        // Check if any territory zone has this resource
+        for (const zone of territoryZones) {
+          if (global.zoneManager.isZoneInTerritory(zone, this.house)) {
+            const resources = global.zoneManager.getZoneResourceTypes(zone);
+            if (this.hasResourceType(resources, resourceType)) {
+              return false; // Resource available in territory
+            }
+          }
+        }
+      }
+    }
+    
+    return true; // Resource gap exists
+  }
+
+  // Find zones with specific resource from adjacent zones
+  findZonesWithResource(resourceType, adjacentZones) {
+    const suitableZones = [];
+    
+    for (const zone of adjacentZones) {
+      const resources = global.zoneManager.getZoneResourceTypes(zone);
+      
+      if (this.hasResourceType(resources, resourceType)) {
+        const density = this.calculateResourceDensity(resources, resourceType);
+        suitableZones.push({
+          zone,
+          density,
+          resources
+        });
+      }
+    }
+    
+    // Sort by density (highest first)
+    return suitableZones.sort((a, b) => b.density - a.density);
+  }
+
+  // Helper: Check if resources object has the required resource type
+  hasResourceType(resources, resourceType) {
+    switch (resourceType) {
+      case 'stone':
+        return resources.rocks > 10; // Need significant rock presence
+      case 'wood':
+        return resources.forest > 10; // Need significant forest presence
+      case 'grain':
+        return resources.farmland > 15; // Need significant farmland
+      case 'iron':
+        return resources.caves > 0; // Need cave entrances
+      default:
+        return false;
+    }
+  }
+
+  // Helper: Calculate resource density for prioritization
+  calculateResourceDensity(resources, resourceType) {
+    switch (resourceType) {
+      case 'stone':
+        return resources.rocks + (resources.caves * 5); // Caves are valuable for stone
+      case 'wood':
+        return resources.forest;
+      case 'grain':
+        return resources.farmland;
+      case 'iron':
+        return resources.caves * 20; // Caves are very valuable for iron
+      default:
+        return 0;
+    }
+  }
+
+  // Helper: Get required amount of resource for current goals
+  getRequiredAmount(resourceType) {
+    // This would ideally check current goals, but for now use simple thresholds
+    const thresholds = {
+      stone: 50,
+      wood: 100,
+      grain: 30,
+      iron: 20
+    };
+    return thresholds[resourceType] || 0;
+  }
+
+  // Helper: Get HQ zone
+  getHQZone() {
+    if (!global.zoneManager || !this.house.hq) return null;
+    
+    const hqTile = this.house.hq;
+    const zonesAtHQ = global.zoneManager.getZonesAt(hqTile);
+    
+    // Find the faction territory zone
+    for (const zoneId of zonesAtHQ) {
+      const zone = global.zoneManager.zones.get(zoneId);
+      if (zone && zone.type === 'faction_territory' && zone.faction === this.house.id) {
+        return zone;
+      }
+    }
+    
+    return null;
+  }
+
   // Get statistics
   getStats() {
     return {

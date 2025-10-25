@@ -43,9 +43,23 @@ class GoalChain {
           const buildGoal = createBuildingGoal(block.value);
           resolveGoal(buildGoal, depth + 1); // Recursive
         } else if (block.type === 'RESOURCE') {
-          // Need to gather resources
-          const deficit = block.need - block.have;
-          chain.steps.push(new GatherResourceGoal(block.resource, deficit));
+          // Check if resource exists in faction territory first
+          if (this.canGatherResourceInTerritory(house, block.resource)) {
+            // Resource available in territory - build gathering building
+            const buildingType = this.getResourceBuildingType(block.resource);
+            const buildGoal = createBuildingGoal(buildingType);
+            resolveGoal(buildGoal, depth + 1);
+          } else {
+            // Resource not in territory - check adjacent zones
+            const outpostGoal = this.findResourceInAdjacentZones(house, block.resource);
+            if (outpostGoal) {
+              resolveGoal(outpostGoal, depth + 1);
+            } else {
+              // Resource not found nearby - gather what we can
+              const deficit = block.need - block.have;
+              chain.steps.push(new GatherResourceGoal(block.resource, deficit));
+            }
+          }
         }
       }
       
@@ -124,6 +138,91 @@ class GoalChain {
       progress: this.getProgress(),
       remaining: this.getRemainingSteps().map(s => s.type)
     };
+  }
+
+  // Check if resource can be gathered within faction territory
+  canGatherResourceInTerritory(house, resourceType) {
+    if (!global.zoneManager || !house.territory) return false;
+    
+    const hqZone = this.getHQZone(house);
+    if (!hqZone) return false;
+    
+    const territoryZones = global.zoneManager.getAdjacentZones(hqZone.id, house.territory.coreBase.radius);
+    
+    for (const zone of territoryZones) {
+      if (global.zoneManager.isZoneInTerritory(zone, house)) {
+        const resources = global.zoneManager.getZoneResourceTypes(zone);
+        if (this.hasResourceType(resources, resourceType)) {
+          return true;
+        }
+      }
+    }
+    
+    return false;
+  }
+
+  // Get building type needed for resource gathering
+  getResourceBuildingType(resourceType) {
+    const buildingTypes = {
+      stone: 'quarry',
+      wood: 'lumbermill',
+      grain: 'farm',
+      iron: 'mine'
+    };
+    return buildingTypes[resourceType] || 'workshop';
+  }
+
+  // Find resource in adjacent zones and create outpost goal
+  findResourceInAdjacentZones(house, resourceType) {
+    if (!global.zoneManager || !house.knowledge) return null;
+    
+    const hqZone = this.getHQZone(house);
+    if (!hqZone) return null;
+    
+    const adjacentZones = global.zoneManager.getAdjacentZones(hqZone.id);
+    const suitableZones = house.knowledge.findZonesWithResource(resourceType, adjacentZones);
+    
+    if (suitableZones.length > 0) {
+      const { EstablishOutpostGoal } = require('./Goals');
+      const bestZone = suitableZones[0].zone;
+      return new EstablishOutpostGoal(resourceType, bestZone);
+    }
+    
+    return null;
+  }
+
+  // Helper: Check if resources object has the required resource type
+  hasResourceType(resources, resourceType) {
+    switch (resourceType) {
+      case 'stone':
+        return resources.rocks > 10;
+      case 'wood':
+        return resources.forest > 10;
+      case 'grain':
+        return resources.farmland > 15;
+      case 'iron':
+        return resources.caves > 0;
+      default:
+        return false;
+    }
+  }
+
+  // Helper: Get HQ zone
+  getHQZone(house) {
+    if (!global.zoneManager || !house.hq) return null;
+    
+    const hqTile = house.hq;
+    const zonesAtHQ = global.zoneManager.getZonesAt(hqTile);
+    
+    // Find the faction territory zone
+    for (const zoneId of zonesAtHQ) {
+      const zone = global.zoneManager.zones.get(zoneId);
+      if (zone && zone.type === 'faction_territory' && zone.faction === house.id) {
+        return zone;
+      }
+    }
+    
+    return null;
   }
 }
 
