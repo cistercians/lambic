@@ -10,7 +10,6 @@ class SimpleFlee {
   restoreSpeed(entity) {
     if (entity._originalBaseSpd !== undefined) {
       entity.baseSpd = entity._originalBaseSpd;
-      entity.maxSpd = entity._originalBaseSpd;
       delete entity._originalBaseSpd; // Clean up
     }
   }
@@ -45,20 +44,13 @@ class SimpleFlee {
     }
 
     // Set flee speed - use character's run speed
-    // Wolves have different speeds for day/night
-    if (entity.class === 'Wolf') {
-      // Store original baseSpd before changing it (only once)
-      if (!entity._originalBaseSpd) {
-        entity._originalBaseSpd = entity.baseSpd;
-      }
-      entity.baseSpd = global.nightfall ? 7 : 6; // 7 at night, 6 during day
-    } else {
-      // Store original baseSpd before changing it (only once)
-      if (!entity._originalBaseSpd) {
-        entity._originalBaseSpd = entity.baseSpd;
-      }
-      entity.baseSpd = entity.runSpd || 6;
+    // Store original baseSpd before changing it (only once)
+    if (!entity._originalBaseSpd) {
+      entity._originalBaseSpd = entity.baseSpd;
     }
+    entity.baseSpd = entity.runSpd || 6;
+    
+    // Update speed will be called by the entity's update function
 
     // Calculate distance from threat
     const dx = target.x - entity.x;

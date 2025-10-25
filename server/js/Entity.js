@@ -1400,12 +1400,40 @@ Character = function(param){
   self.farming = false;
   self.building = false;
   self.fishing = false;
+  // Speed management system
+  self.updateSpeed = function() {
+    // Step 1: Determine target speed based on state
+    let targetSpeed;
+    if (self.action === 'flee') {
+      targetSpeed = self.runSpd || 6;
+    } else if (self.action === 'combat') {
+      targetSpeed = self.runSpd || 6;
+    } else {
+      targetSpeed = self.baseSpd;
+    }
+    
+    // Step 2: Apply terrain modifiers for final speed
+    const loc = getLoc(self.x, self.y);
+    if (getTile(0, loc[0], loc[1]) >= 5 && getTile(0, loc[0], loc[1]) < 6) {
+      // Mountain terrain - 20% speed
+      self.currentSpeed = targetSpeed * 0.2;
+    } else if (getTile(0, loc[0], loc[1]) == 18) {
+      // Road terrain - 110% speed
+      self.currentSpeed = targetSpeed * 1.1;
+    } else if (getTile(0, loc[0], loc[1]) == 0) {
+      // Water terrain - 10% speed
+      self.currentSpeed = targetSpeed * 0.1;
+    } else {
+      // Normal terrain - 100% speed
+      self.currentSpeed = targetSpeed;
+    }
+  };
   self.baseSpd = 2;
   self.runSpd = 6; // Running/fleeing speed
-  self.maxSpd = 2;
+  self.currentSpeed = 2; // Current movement speed (updated by updateSpeed)
   self.drag = 1;
-  self.idleTime = 0;
   self.idleRange = 1000;
+  self.idleTime = 0; // Initialize idle timer
   self.wanderRange = 2048; // Increased 8x from 256 (32 tiles leash range)
   self.aggroRange = 256; // Half viewport (768px / 2 = 384px, ~6 tiles)
   self.actionCooldown = 0;
@@ -1479,15 +1507,8 @@ Character = function(param){
       global.simpleCombat.endCombat(self);
     }
     
-    // Clear any remaining combat state (should already be cleared by endCombat)
-    self.combat.target = null;
-    self.action = null;
-    
-    // Clean up aggro interval
-    if(self.aggroInterval){
-      clearInterval(self.aggroInterval);
-      self.aggroInterval = null;
-    }
+    // Comprehensive cleanup
+    self.cleanup();
     
     // SPAWN SKELETON AT DEATH LOCATION (only for humanoid NPCs, not animals)
     var animalClasses = ['Wolf', 'Deer', 'Boar', 'Sheep', 'Falcon'];
@@ -1588,6 +1609,46 @@ Character = function(param){
     }
     self.toRemove = true;
   }
+
+  // Comprehensive cleanup method for all timers and references
+  self.cleanup = function() {
+    // Clear aggro interval
+    if(self.aggroInterval){
+      clearInterval(self.aggroInterval);
+      self.aggroInterval = null;
+    }
+    
+    // Clear any other timers (pathfinding timeout, etc.)
+    if(self._pathfindTimeout){
+      clearTimeout(self._pathfindTimeout);
+      self._pathfindTimeout = null;
+    }
+    
+    // Remove from zones
+    if(self.zone){
+      const zoneKey = `${self.zone[0]},${self.zone[1]}`;
+      const zoneSet = zones.get(zoneKey);
+      if(zoneSet){
+        zoneSet.delete(self.id);
+      }
+    }
+    
+    // Remove from spatial system
+    if(global.spatialSystem){
+      global.spatialSystem.removeEntity(self.id);
+    }
+    
+    // Clear combat state
+    if(self.combat && self.combat.target){
+      const target = Player.list[self.combat.target];
+      if(target && target.combat && target.combat.target === self.id){
+        target.combat.target = null;
+        target.action = null;
+      }
+    }
+    self.combat.target = null;
+    self.action = null;
+  };
 
   // idle = walk around
   // patrol = walk between targets
@@ -4086,31 +4147,31 @@ Character = function(param){
 
         // Move toward waypoint
         var movedThisFrame = false;
-        if(diffX >= self.maxSpd){
-          self.x += self.maxSpd;
+        if(diffX >= self.currentSpeed){
+          self.x += self.currentSpeed;
           self.pressingRight = true;
           self.facing = 'right';
           movedThisFrame = true;
-        } else if(diffX <= (0-self.maxSpd)){
-          self.x -= self.maxSpd;
+        } else if(diffX <= (0-self.currentSpeed)){
+          self.x -= self.currentSpeed;
           self.pressingLeft = true;
           self.facing = 'left';
           movedThisFrame = true;
         }
-        if(diffY >= self.maxSpd){
-          self.y += self.maxSpd;
+        if(diffY >= self.currentSpeed){
+          self.y += self.currentSpeed;
           self.pressingDown = true;
           self.facing = 'down';
           movedThisFrame = true;
-        } else if(diffY <= (0-self.maxSpd)){
-          self.y -= self.maxSpd;
+        } else if(diffY <= (0-self.currentSpeed)){
+          self.y -= self.currentSpeed;
           self.pressingUp = true;
           self.facing = 'up';
           movedThisFrame = true;
         }
         
-        // Check if reached waypoint (both X and Y within maxSpd range)
-        if((diffX < self.maxSpd && diffX > (0-self.maxSpd)) && (diffY < self.maxSpd && diffY > (0-self.maxSpd))){
+        // Check if reached waypoint (both X and Y within currentSpeed range)
+        if((diffX < self.currentSpeed && diffX > (0-self.currentSpeed)) && (diffY < self.currentSpeed && diffY > (0-self.currentSpeed))){
           // Snap to exact waypoint position for precise tile alignment
           self.x = dx;
           self.y = dy;
@@ -4254,7 +4315,7 @@ Deer = function(param){
   self.isPrey = true; // Prey animal
   self.isNonCombatant = true; // Doesn't trigger outposts
   self.aggroRange = 256;
-  self.runSpd = 6; // Deer flee speed (original value)
+  self.runSpd = 5; // Deer flee speed
   self.stealthCheck = function(p){
     if(p.stealthed){
       var dist = self.getDistance({x:p.x,y:p.y});
@@ -4290,7 +4351,8 @@ Deer = function(param){
     }
   }
 
-  setInterval(function(){
+  // Store interval reference for cleanup
+  self.aggroInterval = setInterval(function(){
     if(global.simpleCombat){
       global.simpleCombat.checkAggro(self);
     } else {
@@ -4358,12 +4420,16 @@ Deer = function(param){
   };
 
   self.update = function(){
+    // Update speed based on current state and terrain
+    self.updateSpeed();
+    
     var loc = getLoc(self.x,self.y);
     self.zoneCheck();
     if(self.idleTime > 0){
       self.idleTime--;
     }
 
+    // Terrain state tracking (speed is handled by updateSpeed())
     if(getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 2){
       self.innaWoods = true;
       self.onMtn = false;
@@ -4375,35 +4441,28 @@ Deer = function(param){
       self.onMtn = false;
     } else if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6 && !self.onMtn){
       self.innaWoods = false;
-      self.maxSpd = self.baseSpd * 0.2;
       setTimeout(function(){
         if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6){
           self.onMtn = true;
         }
       },2000);
     } else if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6 && self.onMtn){
-      self.maxSpd = self.baseSpd;
+      // Mountain terrain - no speed change needed (handled by updateSpeed)
     } else if(getTile(0,loc[0],loc[1]) == 18){
       self.innaWoods = false;
       self.onMtn = false;
-      self.maxSpd = self.baseSpd * 1.1;
     } else if(getTile(0,loc[0],loc[1]) == 0){
       self.z = -3;
       self.innaWoods = false;
       self.onMtn = false;
-      self.maxSpd = self.baseSpd * 0.1;
     } else {
       self.innaWoods = false;
       self.onMtn = false;
-      self.maxSpd = self.baseSpd;
     }
 
     if(self.mode == 'idle'){
       if(!self.action){
-        // Don't reset speed if we're fleeing (SimpleFlee manages our speed)
-        if(self.action !== 'flee'){
-          self.baseSpd = 2; // Deer base speed should be 2
-        }
+        // Speed is now managed by updateSpeed() - no manual speed changes needed
         if(!self.innaWoods){
           if(!self.path){
             self.return();
@@ -4455,7 +4514,7 @@ Wolf = function(param){
   var self = Character(param);
   self.class = 'Wolf';
   self.baseSpd = 3;
-  self.runSpd = 6; // Default wolf run speed (day), SimpleFlee will override with day/night logic
+  self.runSpd = 5; // Default wolf run speed (day), updated dynamically based on day/night
   self.damage = 10;
   self.wanderRange = 4096; // Increased 4x from 1024 (64 tiles)
   self.aggroRange = 256; // Set initial aggro range
@@ -4511,7 +4570,8 @@ Wolf = function(param){
     }
   }
 
-  setInterval(function(){
+  // Store interval reference for cleanup
+  self.aggroInterval = setInterval(function(){
     if(global.simpleCombat){
       global.simpleCombat.checkAggro(self);
     } else {
@@ -4520,16 +4580,21 @@ Wolf = function(param){
   },100); // Check every 100ms for faster response
 
   self.update = function(){
+    // Update speed based on current state and terrain
+    self.updateSpeed();
+    
     var loc = getLoc(self.x,self.y);
     self.zoneCheck();
     if(nightfall){
       self.nightmode = true;
       self.aggroRange = 320; // Slightly more aggressive at night
       self.idleRange = 300;
+      self.runSpd = 6; // Faster at night
     } else {
       self.nightmode = false;
       self.aggroRange = 256; // Standard range during day
       self.idleRange = 1000;
+      self.runSpd = 5; // Slower during day
     }
     if(self.idleTime > 0){
       self.idleTime--;
@@ -4546,34 +4611,52 @@ Wolf = function(param){
         self.onMtn = false;
       } else if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6 && !self.onMtn){
         self.innaWoods = false;
-        self.maxSpd = (self.baseSpd * 0.2) * self.drag;
+        // Don't modify maxSpd when fleeing (SimpleFlee manages speed)
+        if(self.action !== 'flee'){
+          self.maxSpd = (self.baseSpd * 0.2) * self.drag;
+        }
         setTimeout(function(){
           if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6){
             self.onMtn = true;
           }
         },2000);
       } else if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6 && self.onMtn){
-        self.maxSpd = self.baseSpd * self.drag;
+        // Don't modify maxSpd when fleeing (SimpleFlee manages speed)
+        if(self.action !== 'flee'){
+          self.maxSpd = self.baseSpd * self.drag;
+        }
       } else if(getTile(0,loc[0],loc[1]) == 6){
         self.caveEntrance = loc;
         self.z = -1;
         // DON'T clear path - it needs to persist through z-transition
         self.innaWoods = false;
         self.onMtn = false;
-        self.maxSpd = self.baseSpd * self.drag;
+        // Don't modify maxSpd when fleeing (SimpleFlee manages speed)
+        if(self.action !== 'flee'){
+          self.maxSpd = self.baseSpd * self.drag;
+        }
       } else if(getTile(0,loc[0],loc[1]) == 18){
         self.innaWoods = false;
         self.onMtn = false;
-        self.maxSpd = self.baseSpd * self.drag;
+        // Don't modify maxSpd when fleeing (SimpleFlee manages speed)
+        if(self.action !== 'flee'){
+          self.maxSpd = self.baseSpd * self.drag;
+        }
       } else if(getTile(0,loc[0],loc[1]) == 0){
         self.z = -3;
         self.innaWoods = false;
         self.onMtn = false;
-        self.maxSpd = (self.baseSpd * 0.1) * self.drag;
+        // Don't modify maxSpd when fleeing (SimpleFlee manages speed)
+        if(self.action !== 'flee'){
+          self.maxSpd = (self.baseSpd * 0.1) * self.drag;
+        }
       } else {
         self.innaWoods = false;
         self.onMtn = false;
-        self.maxSpd = self.baseSpd * self.drag;
+        // Don't modify maxSpd when fleeing (SimpleFlee manages speed)
+        if(self.action !== 'flee'){
+          self.maxSpd = self.baseSpd * self.drag;
+        }
       }
     } else if(self.z == -1){
       if(getTile(1,loc[0],loc[1]) == 2){

@@ -3721,21 +3721,9 @@ Player.update = function() {
     }
 
     if (player.toRemove) {
-      if (player.aggroInterval) {
-        clearInterval(player.aggroInterval);
-      }
-      if (player.zone) {
-        // Remove from zones (using Map-based system)
-        var zoneKey = player.zone[1] + ',' + player.zone[0];
-        var zoneSet = zones.get(zoneKey);
-        if (zoneSet) {
-          zoneSet.delete(player.id);
-        }
-      }
-      
-      // Remove from spatial system
-      if (global.spatialSystem) {
-        global.spatialSystem.removeEntity(i);
+      // Use comprehensive cleanup method
+      if (player.cleanup) {
+        player.cleanup();
       }
       
       delete Player.list[i];

@@ -153,6 +153,11 @@ class SimpleCombat {
     } else {
       // OUT OF RANGE? Chase!
       if (!entity.path && entity.moveTo) {
+        // Initialize pathfinding failure counter if needed
+        if (!entity._pathfindingFailures) {
+          entity._pathfindingFailures = 0;
+        }
+        
         // NPCs run when chasing in combat - use their runSpd
         if (entity.type === 'npc' && !entity.running) {
           entity.running = true;
@@ -168,7 +173,37 @@ class SimpleCombat {
         if (entity.class === 'Boar') {
         }
         
+        // Store position before attempting to move
+        const oldX = entity.x;
+        const oldY = entity.y;
+        
         entity.moveTo(target.z, targetLoc[0], targetLoc[1]);
+        
+        // Check if pathfinding failed (entity didn't move and no path was created)
+        // Clear any existing timeout first
+        if (entity._pathfindTimeout) {
+          clearTimeout(entity._pathfindTimeout);
+        }
+        
+        entity._pathfindTimeout = setTimeout(() => {
+          if (entity && entity.combat && entity.combat.target === target.id) {
+            // Check if we're still at the same position and have no path
+            if (entity.x === oldX && entity.y === oldY && !entity.path) {
+              entity._pathfindingFailures++;
+              
+              // If we've failed multiple times, drop combat
+              if (entity._pathfindingFailures >= 3) {
+                console.log(`${entity.class} ${entity.id} failed to pathfind ${entity._pathfindingFailures} times, dropping combat`);
+                this.endCombat(entity, target);
+                entity._pathfindingFailures = 0; // Reset counter
+              }
+            } else {
+              // Pathfinding succeeded, reset counter
+              entity._pathfindingFailures = 0;
+            }
+          }
+          entity._pathfindTimeout = null; // Clear reference
+        }, 1000); // Check after 1 second
       }
     }
   }
@@ -234,6 +269,8 @@ class SimpleCombat {
       }
       entity.action = 'flee';
       entity.combat.target = target.id;
+      // Reset pathfinding failure counter for new combat
+      entity._pathfindingFailures = 0;
       return;
     }
     
@@ -245,6 +282,8 @@ class SimpleCombat {
     entity.action = 'combat';
     entity.combat.target = target.id;
     entity._lastCombatAttack = 0; // Reset attack timer
+    // Reset pathfinding failure counter for new combat
+    entity._pathfindingFailures = 0;
 
     // Counter-aggro
     if (target.type === 'npc' && target.military && target.action !== 'combat') {
@@ -283,6 +322,13 @@ class SimpleCombat {
     entity.combat.target = null;
     // DON'T clear path - entity might be navigating somewhere after combat
     entity._lastCombatAttack = 0;
+    
+    // Clear pathfinding timeout and reset failure counter
+    if (entity._pathfindTimeout) {
+      clearTimeout(entity._pathfindTimeout);
+      entity._pathfindTimeout = null;
+    }
+    entity._pathfindingFailures = 0;
     
     // Stop running when combat ends (NPCs only, players control their own running)
     if (entity.type === 'npc' && entity.running) {
