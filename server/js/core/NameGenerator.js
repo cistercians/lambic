@@ -56,7 +56,6 @@ class NameGenerator {
     }
     
     this.usedNames.add(finalName);
-    console.log(`🏷️ Generated name: ${finalName} for ${feature.type}`); // Debug
     return finalName;
   }
 

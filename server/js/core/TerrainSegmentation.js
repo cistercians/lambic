@@ -241,16 +241,23 @@ class TerrainSegmentation {
 
   // Check if two features are adjacent (within 2 tiles)
   areAdjacent(feature1, feature2) {
-    const bounds1 = feature1.bounds;
-    const bounds2 = feature2.bounds;
+    // Check if features actually share border tiles (more precise than bounding box)
+    for (const tile1 of feature1.tileArray) {
+      for (const tile2 of feature2.tileArray) {
+        const [c1, r1] = tile1;
+        const [c2, r2] = tile2;
+        
+        // Check if tiles are adjacent (including diagonally)
+        const deltaC = Math.abs(c1 - c2);
+        const deltaR = Math.abs(r1 - r2);
+        
+        if (deltaC <= 1 && deltaR <= 1 && (deltaC + deltaR) > 0) {
+          return true; // Found adjacent tiles
+        }
+      }
+    }
     
-    // Check if bounding boxes are close
-    const distance = Math.max(
-      Math.max(bounds1.minC - bounds2.maxC, bounds2.minC - bounds1.maxC),
-      Math.max(bounds1.minR - bounds2.maxR, bounds2.minR - bounds1.maxR)
-    );
-    
-    return distance <= 2;
+    return false;
   }
 
   // Get tile type at coordinates
@@ -349,7 +356,7 @@ class TerrainSegmentation {
         mountainRanges.set(rangeId, mountainRange);
         
       } else {
-        // Single mountain not surrounded by rocks
+        // Single mountain not surrounded by rocks - let NameGenerator handle naming
         peak.type = 'mountain';
         peak.baseName = 'Mount';
         processedPeaks.add(peak.id);
@@ -440,7 +447,7 @@ class TerrainSegmentation {
         hillGroups.set(groupId, hillGroup);
         
       } else {
-        // Single hill not surrounded by rocks
+        // Single hill not surrounded by rocks - let NameGenerator handle naming
         hill.type = 'hill';
         hill.baseName = 'Hill';
         processedHills.add(hill.id);
@@ -466,7 +473,7 @@ class TerrainSegmentation {
     
     const featuresToSplit = Array.from(this.features.values()).filter(feature => {
       // Only split certain types of features
-      const splittableTypes = ['sea', 'woods', 'forest', 'mountain_range'];
+      const splittableTypes = ['sea', 'woods', 'forest', 'mountain_range', 'plains'];
       return splittableTypes.includes(feature.type) && this.shouldSplitFeature(feature);
     });
     
@@ -532,11 +539,12 @@ class TerrainSegmentation {
       const westTiles = feature.tileArray.filter(tile => tile[0] < mapCenter);
       const eastTiles = feature.tileArray.filter(tile => tile[0] >= mapCenter);
       
-      // Only split if BOTH parts meet the minimum threshold
+      // Only split if BOTH parts meet the minimum threshold AND size ratio is balanced
       const westValid = this.isValidSplit(westTiles, feature.type);
       const eastValid = this.isValidSplit(eastTiles, feature.type);
+      const ratioValid = this.isValidSizeRatio(westTiles.length, eastTiles.length);
       
-      if (westValid && eastValid) {
+      if (westValid && eastValid && ratioValid) {
         const westFeature = this.createSplitFeature(feature, westTiles, 'West', sharedBaseName);
         const eastFeature = this.createSplitFeature(feature, eastTiles, 'East', sharedBaseName);
         splitFeatures.push(westFeature, eastFeature);
@@ -546,11 +554,12 @@ class TerrainSegmentation {
       const northTiles = feature.tileArray.filter(tile => tile[1] < mapCenter);
       const southTiles = feature.tileArray.filter(tile => tile[1] >= mapCenter);
       
-      // Only split if BOTH parts meet the minimum threshold
+      // Only split if BOTH parts meet the minimum threshold AND size ratio is balanced
       const northValid = this.isValidSplit(northTiles, feature.type);
       const southValid = this.isValidSplit(southTiles, feature.type);
+      const ratioValid = this.isValidSizeRatio(northTiles.length, southTiles.length);
       
-      if (northValid && southValid) {
+      if (northValid && southValid && ratioValid) {
         const northFeature = this.createSplitFeature(feature, northTiles, 'North', sharedBaseName);
         const southFeature = this.createSplitFeature(feature, southTiles, 'South', sharedBaseName);
         splitFeatures.push(northFeature, southFeature);
@@ -571,12 +580,27 @@ class TerrainSegmentation {
       case 'woods':
         return tiles.length >= 20;
       case 'forest':
-        return tiles.length >= 15;
+        return tiles.length >= 25; // Increased from 15 for more meaningful splits
       case 'mountain_range':
         return tiles.length >= 20; // Reasonable minimum for mountain ranges
+      case 'plains':
+        return tiles.length >= 30; // Match original classification threshold
       default:
         return tiles.length >= 10;
     }
+  }
+
+  // Check if the size ratio between two parts is balanced (between 1:1 and 1:1.5)
+  isValidSizeRatio(size1, size2) {
+    if (size1 === 0 || size2 === 0) return false;
+    
+    // Calculate ratio (always put larger number on top)
+    const larger = Math.max(size1, size2);
+    const smaller = Math.min(size1, size2);
+    const ratio = larger / smaller;
+    
+    // Ratio should be between 1:1 (1.0) and 1:1.5 (1.5)
+    return ratio <= 1.5;
   }
 
   // Create a split feature with directional prefix
@@ -602,6 +626,9 @@ class TerrainSegmentation {
         break;
       case 'mountain_range':
         splitName += ' Mountains';
+        break;
+      case 'plains':
+        splitName += ' Plains';
         break;
       default:
         // Keep original suffix if any

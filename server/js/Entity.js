@@ -6251,6 +6251,11 @@ Serf = function(param){
         self.chopping = false;
         self.mining = false;
         var b = Building.list[self.work.hq];
+        if (!b || !b.plot || !b.plot[0]) {
+          // Building doesn't exist or has invalid plot data
+          self.action = null;
+          return;
+        }
         var drop = [b.plot[0][0],b.plot[0][1]+1];
         if(loc.toString() == drop.toString()){
           self.facing = 'up';
