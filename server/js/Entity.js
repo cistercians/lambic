@@ -1467,7 +1467,7 @@ Character = function(param){
       if(Player.list[report.id]){
         var killer = Player.list[report.id];
         killerName = killer.name || killer.class;
-        console.log(killerName + ' has killed ' + self.class);
+        // Kill tracking logged via death event
         
         // Track kill and award skulls
         killer.kills = (killer.kills || 0) + 1;
@@ -1479,18 +1479,30 @@ Character = function(param){
           killer.skulls = '💀'; // Single skull
         }
         
-        console.log(killerName + ' now has ' + killer.kills + ' kills ' + killer.skulls);
+        // Kill count tracking logged via death event
         
         // Phase 6: Fauna Miniboss Growth
         if(killer.class === 'Boar' || killer.class === 'Wolf'){
-          // Increase sprite size at key thresholds
-          if(killer.kills >= 10){
-            killer.spriteScale = 1.6; // 60% larger at 10 kills
-          } else if(killer.kills >= 3){
-            killer.spriteScale = 1.3; // 30% larger at 3 kills
+          // Check for miniboss upgrade thresholds
+          let newScale = killer.spriteScale;
+          let shouldUpgrade = false;
+          
+          if(killer.kills === 3 && killer.spriteScale < 1.3){
+            newScale = 1.3; // 30% larger at 3 kills
+            shouldUpgrade = true;
+          } else if(killer.kills === 10 && killer.spriteScale < 1.6){
+            newScale = 1.6; // 60% larger at 10 kills
+            shouldUpgrade = true;
           }
           
-          console.log('⚠️ ' + killer.class + ' is now a miniboss with ' + killer.kills + ' kills (size: ' + killer.spriteScale + 'x)');
+          if(shouldUpgrade){
+            killer.spriteScale = newScale;
+            
+            // Create miniboss upgrade event
+            if(global.eventManager){
+              global.eventManager.minibossUpgrade(killer, killer.kills, newScale, { x: killer.x, y: killer.y, z: killer.z });
+            }
+          }
         }
         
         // End combat for killer using simple combat system (DON'T clear combat.target before this!)
@@ -1498,13 +1510,19 @@ Character = function(param){
           global.simpleCombat.endCombat(killer);
         }
       } else {
-        console.log(self.class + ' has ' + report.cause);
+        // Death cause logged via death event
       }
     }
     
     // End combat for killed character using simple combat system (DON'T clear combat.target before this!)
     if(global.simpleCombat){
       global.simpleCombat.endCombat(self);
+    }
+    
+    // Create death event
+    if (global.eventManager) {
+      const killer = report.id ? Player.list[report.id] : null;
+      global.eventManager.death(self, killer, { x: self.x, y: self.y, z: deathZ });
     }
     
     // Comprehensive cleanup
@@ -1523,7 +1541,7 @@ Character = function(param){
         z: deathZ,
         innaWoods: self.innaWoods || false
       });
-      console.log(`💀 ${self.class} skeleton spawned at [${deathLocation[0]},${deathLocation[1]}] z=${deathZ}`);
+      // Skeleton spawn logged via death event
     }
     
     // Phase 4: Death Broadcasts to nearby players

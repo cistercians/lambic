@@ -351,11 +351,8 @@ class TerrainSegmentation {
       const allPeaksInFormation = [...properMountainsInFormation, ...hillsInFormation];
       
       if (allPeaksInFormation.length === 0) {
-        // No mountains or hills in this rock formation - mark these tiles as unzoned for dead zone filling
-        rockFormation.forEach(tile => {
-          const tileKey = `${tile[0]},${tile[1]}`;
-          this.visited.delete(tileKey);
-        });
+        // No mountains or hills in this rock formation - leave these tiles unzoned for dead zone filling
+        // Don't delete from visited - let dead zone filler handle them
         continue;
       } else if (allPeaksInFormation.length === 1) {
         // Single peak - create mountain or hill based on size
@@ -1119,8 +1116,17 @@ class TerrainSegmentation {
     // Add patch tiles to the zone
     patch.forEach(tile => {
       const tileKey = `${tile[0]},${tile[1]}`;
+      
+      // Safety check: don't assign tiles that are already part of another zone
+      if (this.visited.has(tileKey)) {
+        console.log(`Warning: Tile [${tile[0]},${tile[1]}] is already assigned to a zone, skipping assignment to ${zone.type}`);
+        return;
+      }
+      
       zone.tiles.add(tileKey);
       zone.tileArray.push(tile);
+      // Mark tile as visited to prevent double-assignment
+      this.visited.add(tileKey);
     });
     
     // Update zone properties

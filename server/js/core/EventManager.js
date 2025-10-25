@@ -187,22 +187,27 @@ class EventManager {
       return;
     }
     
-    switch (event.communication) {
-      case this.commModes.PLAYER:
-        this.sendToPlayer(event);
-        break;
-      case this.commModes.HOUSE:
-        this.sendToHouse(event);
-        break;
-      case this.commModes.AREA:
-        this.sendToArea(event);
-        break;
-      case this.commModes.GLOBAL:
-        this.sendToAll(event);
-        break;
-      case this.commModes.SPECTATOR:
-        this.sendToSpectators(event);
-        break;
+    // Handle multiple communication modes (array or single mode)
+    const modes = Array.isArray(event.communication) ? event.communication : [event.communication];
+    
+    for (const mode of modes) {
+      switch (mode) {
+        case this.commModes.PLAYER:
+          this.sendToPlayer(event);
+          break;
+        case this.commModes.HOUSE:
+          this.sendToHouse(event);
+          break;
+        case this.commModes.AREA:
+          this.sendToArea(event);
+          break;
+        case this.commModes.GLOBAL:
+          this.sendToAll(event);
+          break;
+        case this.commModes.SPECTATOR:
+          this.sendToSpectators(event);
+          break;
+      }
     }
   }
   
@@ -398,7 +403,7 @@ class EventManager {
       action: 'died',
       target: killer ? killer.id : null,
       targetName: killer ? (killer.name || killer.class) : 'unknown',
-      communication: this.commModes.SPECTATOR,
+      communication: [this.commModes.AREA, this.commModes.SPECTATOR],
       message: killer 
         ? `<span style="color:#ff0000;">💀 ${victim.name || victim.class} was slain by ${killer.name || killer.class}!</span>`
         : `<span style="color:#ff0000;">💀 ${victim.name || victim.class} has died!</span>`,
@@ -418,6 +423,21 @@ class EventManager {
       communication: this.commModes.PLAYER,
       message: `<i>You escaped from combat.</i>`,
       log: `[COMBAT] ${escapee.name || escapee.class} escaped from ${enemy ? (enemy.name || enemy.class) : 'combat'}`,
+      position
+    });
+  }
+  
+  minibossUpgrade(entity, killCount, newScale, position) {
+    const bossType = killCount >= 10 ? 'boss' : 'miniboss';
+    return this.createEvent({
+      category: this.categories.COMBAT,
+      subject: entity.id,
+      subjectName: entity.name || entity.class,
+      action: 'became miniboss',
+      quantity: killCount,
+      communication: [this.commModes.AREA, this.commModes.SPECTATOR],
+      message: `<span style="color:#ff8800;">⚠️ ${entity.name || entity.class} has become a ${bossType} with ${killCount} kills!</span>`,
+      log: `[MINIBOSS] ${entity.name || entity.class} upgraded to miniboss with ${killCount} kills (size: ${newScale}x) at [${Math.floor(position.x)},${Math.floor(position.y)}] z=${position.z}`,
       position
     });
   }
