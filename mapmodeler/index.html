@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MapModeler - Interactive Map Design Tool</title>
+    <link rel="stylesheet" href="css/mapmodeler.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Top Bar -->
+        <header class="top-bar">
+            <h1>MapModeler</h1>
+            <div class="top-controls">
+                <button id="generate-btn" class="btn btn-primary">Generate Map</button>
+                <button id="export-btn" class="btn btn-secondary">Export Report</button>
+                <button id="reset-btn" class="btn btn-warning">Reset to Defaults</button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Left Panel - Controls -->
+            <div class="controls-panel">
+                <h2>Noise Parameters</h2>
+                
+                <!-- Red Channel Controls -->
+                <div class="parameter-group">
+                    <h3>Red Channel (Continents/Oceans)</h3>
+                    <div class="slider-group">
+                        <label for="redFreqX">Frequency X: <span id="redFreqX-value">200</span></label>
+                        <input type="range" id="redFreqX" min="10" max="300" value="200" step="1">
+                    </div>
+                    <div class="slider-group">
+                        <label for="redFreqY">Frequency Y: <span id="redFreqY-value">150</span></label>
+                        <input type="range" id="redFreqY" min="10" max="300" value="150" step="1">
+                    </div>
+                    <div class="slider-group">
+                        <label for="redAmp">Amplitude: <span id="redAmp-value">1.25</span></label>
+                        <input type="range" id="redAmp" min="0.1" max="2.0" value="1.25" step="0.01">
+                    </div>
+                    <div class="slider-group">
+                        <label for="redOffset">Offset: <span id="redOffset-value">0.25</span></label>
+                        <input type="range" id="redOffset" min="0.0" max="0.5" value="0.25" step="0.01">
+                    </div>
+                </div>
+
+                <!-- Green Channel Controls -->
+                <div class="parameter-group">
+                    <h3>Green Channel (Biomes/Terrain)</h3>
+                    <div class="slider-group">
+                        <label for="greenFreqX">Frequency X: <span id="greenFreqX-value">12</span></label>
+                        <input type="range" id="greenFreqX" min="10" max="100" value="12" step="1">
+                    </div>
+                    <div class="slider-group">
+                        <label for="greenFreqY">Frequency Y: <span id="greenFreqY-value">12</span></label>
+                        <input type="range" id="greenFreqY" min="10" max="100" value="12" step="1">
+                    </div>
+                    <div class="slider-group">
+                        <label for="greenAmp">Amplitude: <span id="greenAmp-value">0.75</span></label>
+                        <input type="range" id="greenAmp" min="0.1" max="1.0" value="0.75" step="0.01">
+                    </div>
+                    <div class="slider-group">
+                        <label for="greenOffset">Offset: <span id="greenOffset-value">0.25</span></label>
+                        <input type="range" id="greenOffset" min="0.0" max="0.5" value="0.25" step="0.01">
+                    </div>
+                </div>
+
+                <!-- Blue Channel Controls -->
+                <div class="parameter-group">
+                    <h3>Blue Channel (Fine Details)</h3>
+                    <div class="slider-group">
+                        <label for="blueFreqX">Frequency X: <span id="blueFreqX-value">8</span></label>
+                        <input type="range" id="blueFreqX" min="4" max="30" value="8" step="1">
+                    </div>
+                    <div class="slider-group">
+                        <label for="blueFreqY">Frequency Y: <span id="blueFreqY-value">8</span></label>
+                        <input type="range" id="blueFreqY" min="4" max="30" value="8" step="1">
+                    </div>
+                    <div class="slider-group">
+                        <label for="blueAmp">Amplitude: <span id="blueAmp-value">0.35</span></label>
+                        <input type="range" id="blueAmp" min="0.05" max="0.6" value="0.35" step="0.01">
+                    </div>
+                    <div class="slider-group">
+                        <label for="blueOffset">Offset: <span id="blueOffset-value">0</span></label>
+                        <input type="range" id="blueOffset" min="0.0" max="0.2" value="0" step="0.01">
+                    </div>
+                </div>
+
+                <!-- Terrain Thresholds -->
+                <div class="parameter-group">
+                    <h3>Terrain Thresholds</h3>
+                    <div class="slider-group">
+                        <label for="waterThreshold">Water Threshold: <span id="waterThreshold-value">0.55</span></label>
+                        <input type="range" id="waterThreshold" min="0.1" max="0.9" value="0.55" step="0.01">
+                    </div>
+                    <div class="slider-group">
+                        <label for="mountainThreshold">Mountain Threshold: <span id="mountainThreshold-value">0.97</span></label>
+                        <input type="range" id="mountainThreshold" min="0.8" max="0.99" value="0.97" step="0.01">
+                    </div>
+                    <div class="slider-group">
+                        <label for="rocksThreshold">Rocks Threshold: <span id="rocksThreshold-value">0.86</span></label>
+                        <input type="range" id="rocksThreshold" min="0.7" max="0.95" value="0.86" step="0.01">
+                    </div>
+                    <div class="slider-group">
+                        <label for="brushThreshold">Brush Threshold: <span id="brushThreshold-value">0.26</span></label>
+                        <input type="range" id="brushThreshold" min="0.1" max="0.4" value="0.26" step="0.01">
+                    </div>
+                    <div class="slider-group">
+                        <label for="lightForestThreshold">Light Forest Threshold: <span id="lightForestThreshold-value">0.31</span></label>
+                        <input type="range" id="lightForestThreshold" min="0.2" max="0.5" value="0.31" step="0.01">
+                    </div>
+                </div>
+
+                <!-- Presets -->
+                <div class="parameter-group">
+                    <h3>Presets</h3>
+                    <div class="preset-buttons">
+                        <button class="btn btn-preset" data-preset="default">Default</button>
+                        <button class="btn btn-preset" data-preset="islands">Islands</button>
+                        <button class="btn btn-preset" data-preset="continents">Continents</button>
+                        <button class="btn btn-preset" data-preset="varied">Varied</button>
+                    </div>
+                    <div class="preset-management">
+                        <h4>Custom Presets</h4>
+                        <div class="preset-input-group">
+                            <input type="text" id="preset-name" placeholder="Preset name" maxlength="20">
+                            <button id="save-preset-btn" class="btn btn-primary">Save Preset</button>
+                        </div>
+                        <div id="saved-presets" class="saved-presets-list">
+                            <!-- Dynamically populated -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel - Map Viewer -->
+            <div class="map-panel">
+                <canvas id="map-canvas" width="800" height="800"></canvas>
+                <div class="map-info">
+                    <div id="generation-stats">
+                        <span>Last generated: <span id="last-generated">Never</span></span>
+                        <span>Generation time: <span id="gen-time">0ms</span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Status Bar -->
+        <footer class="status-bar">
+            <div class="status-info">
+                <span>Map Size: 192x192 tiles</span>
+                <span>Canvas Size: <span id="canvas-size">800x800</span></span>
+                <span>Auto-regenerate: <span id="auto-regenerate">ON</span></span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Export Modal -->
+    <div id="export-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Export Report</h2>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <textarea id="export-text" readonly></textarea>
+                <button id="copy-btn" class="btn btn-primary">Copy to Clipboard</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/genesis.js"></script>
+    <script src="js/mapviewer.js"></script>
+    <script src="js/controls.js"></script>
+    <script src="js/export.js"></script>
+    <script>
+        // Initialize MapModeler when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize components
+            const mapViewer = new MapViewer('map-canvas');
+            const mapControls = new MapControls();
+            const mapExporter = new MapExporter(mapControls, mapViewer);
+            
+            // Connect components
+            mapControls.setMapViewer(mapViewer);
+            
+            // Generate initial map
+            mapControls.generateMap();
+            
+            // Make components globally available for debugging
+            window.mapViewer = mapViewer;
+            window.mapControls = mapControls;
+            window.mapExporter = mapExporter;
+            
+            console.log('MapModeler initialized successfully');
+        });
+    </script>
+</body>
+</html>

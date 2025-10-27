@@ -2,6 +2,44 @@ var SimplexNoise = require('simplex-noise');
 var Canvas = require('canvas');
 var fs = require('fs');
 
+/*
+============================================================================
+INTERACTIVE NOISE PARAMETER EXPERIMENTATION GUIDE
+============================================================================
+
+This file generates procedural maps using Simplex Noise. All key parameters
+are now extracted into clearly named variables for easy experimentation.
+
+QUICK EXPERIMENTS TO TRY:
+
+1. MORE DRAMATIC COASTLINES:
+   - Lower redFrequencyX/Y (e.g., 100, 80) for larger landmasses
+   - Higher redFrequencyX/Y (e.g., 200, 150) for more islands/fractured coasts
+   - Adjust redAmplitude (1.0-1.5) for more/less contrast
+
+2. VARIED BIOME SIZES:
+   - Lower greenFrequencyX/Y (e.g., 20, 20) for larger biome regions
+   - Higher greenFrequencyX/Y (e.g., 50, 50) for more mixed terrain
+   - Adjust greenAmplitude (0.3-0.7) for biome contrast
+
+3. TERRAIN DISTRIBUTION:
+   - Lower waterThreshold (e.g., 0.4) for more water
+   - Lower mountainThreshold (e.g., 0.9) for more mountains
+   - Adjust brushThreshold (0.2-0.3) for arid regions
+
+4. FINE DETAILS:
+   - Lower blueFrequencyX/Y (e.g., 10, 10) for smoother terrain
+   - Higher blueFrequencyX/Y (e.g., 25, 25) for more detailed/noisy terrain
+
+PARAMETER RANGES:
+- Frequencies: 10-300 (lower = larger features)
+- Amplitudes: 0.1-2.0 (higher = more contrast)
+- Offsets: 0.0-0.5 (shifts baseline)
+- Thresholds: 0.1-0.9 (lower = more of that terrain)
+
+============================================================================
+*/
+
 // create n-dimensional array
 function createArray(length){
   var arr = new Array(length || 0),
@@ -21,6 +59,31 @@ function genesis(){
   var tile = 1;
   var canvasSize = 192; // Map size (192×192 = 36,864 tiles)
   var mapTiles = canvasSize / tile;
+
+  // ============================================================================
+  // NOISE PARAMETERS - EXPERIMENT WITH THESE VALUES FOR DIFFERENT MAP STYLES
+  // ============================================================================
+  
+  // RED CHANNEL: Controls large-scale features (continents/oceans/water boundaries)
+  // Lower frequency = larger landmasses, Higher frequency = more islands/fractured coastlines
+  var redFrequencyX = 93; // Horizontal scale for large features
+  var redFrequencyY = 76; // Vertical scale for large features  
+  var redAmplitude = 1.07; // Controls contrast between land/water
+  var redOffset = 0.33;    // Baseline shift
+  
+  // GREEN CHANNEL: Controls medium-scale features (biomes/terrain patches)
+  // Lower frequency = larger biome regions, Higher frequency = more varied/mixed terrain
+  var greenFrequencyX = 22; // Horizontal scale for biome features
+  var greenFrequencyY = 22; // Vertical scale for biome features
+  var greenAmplitude = 0.77; // Controls biome contrast
+  var greenOffset = 0.39;   // Baseline shift for biome distribution
+  
+  // BLUE CHANNEL: Controls fine details and local variation
+  // Lower frequency = smoother terrain, Higher frequency = more detailed/noisy terrain
+  var blueFrequencyX = 7;   // Horizontal scale for fine details
+  var blueFrequencyY = 7;   // Vertical scale for fine details
+  var blueAmplitude = 0.36; // Controls detail intensity
+  var blueOffset = 0.1;      // No baseline shift for details
 
   // OVERWORLD
   var simplex = new SimplexNoise(),
@@ -76,6 +139,19 @@ function genesis(){
     return hv;
   };
 
+  // ============================================================================
+  // TERRAIN CLASSIFICATION THRESHOLDS - EXPERIMENT WITH THESE FOR DIFFERENT TERRAIN DISTRIBUTIONS
+  // ============================================================================
+  
+  // These thresholds convert HSV values from noise into terrain types
+  // Lower thresholds = more of that terrain type, Higher thresholds = less of that terrain type
+  
+  var waterThreshold = 0.45;    // Hue threshold for water (higher = more land)
+  var mountainThreshold = 0.97;  // Value threshold for mountains (0.97 = very high elevation)
+  var rocksThreshold = 0.86;     // Value threshold for rocks (0.86 = high elevation)
+  var brushThreshold = 0.26;     // Hue threshold for brush (0.26 = dry/arid regions)
+  var lightForestThreshold = 0.31; // Hue threshold for light forest (0.31 = transition zone)
+
   // converts (h,v) data to game tilemap format
   function terraform(source, width, height, tileWidth, tileHeight){
     var allTileMaps = [];
@@ -87,27 +163,33 @@ function genesis(){
       var oSet = [];
       var uSet = [];
       for(var y = 0; y < height; y += tileHeight){
-        if (source[i][0] > 0.48){
+        // WATER: Hue > waterThreshold (creates oceans/lakes)
+        if (source[i][0] > waterThreshold){
           oSet.push(0);
           uSet.push(1);
           i++;
         } else {
-          if (source[i][1] > 0.97){
+          // MOUNTAIN: Value > mountainThreshold (highest elevation)
+          if (source[i][1] > mountainThreshold){
             oSet.push(5 + Number((Math.random()*0.9).toFixed(2)));
             uSet.push(0);
             i++;
-          } else if (source[i][1] > 0.86){
+          // ROCKS: Value > rocksThreshold (high elevation, rocky terrain)
+          } else if (source[i][1] > rocksThreshold){
             oSet.push(4 + Number((Math.random()*0.9).toFixed(2)));
             uSet.push(0);
             i++;
-          } else if (source[i][0] <= 0.26){
+          // BRUSH: Hue <= brushThreshold (dry/arid regions)
+          } else if (source[i][0] <= brushThreshold){
             oSet.push(3 + Number((Math.random()*0.9).toFixed(2)));
             uSet.push(0);
             i++;
-          } else if (source[i][0] < 0.31){
+          // LIGHT FOREST: Hue < lightForestThreshold (transitional forest)
+          } else if (source[i][0] < lightForestThreshold){
             oSet.push(2 + Number((Math.random()*0.9).toFixed(2)));
             uSet.push(0);
             i++;
+          // HEAVY FOREST: Default terrain (dense forest)
           } else {
             oSet.push(1 + Number((Math.random()*0.9).toFixed(2)));
             uSet.push(0);
@@ -226,12 +308,12 @@ function genesis(){
     }
   };
 
-  // generate noise
+  // generate noise using extracted parameters
   for (var x = 0; x < canvasSize; x++) {
     for (var y = 0; y < canvasSize; y++) {
-      var r = simplex.noise2D(x / 160, y / 120) * 1.25 + 0.25;
-      var g = simplex.noise2D(x / 32, y / 32) * 0.5 + 0.25;
-      var b = simplex.noise2D(x / 16, y / 16) * 0.15;
+      var r = simplex.noise2D(x / redFrequencyX, y / redFrequencyY) * redAmplitude + redOffset;
+      var g = simplex.noise2D(x / greenFrequencyX, y / greenFrequencyY) * greenAmplitude + greenOffset;
+      var b = simplex.noise2D(x / blueFrequencyX, y / blueFrequencyY) * blueAmplitude + blueOffset;
       data[(x + y * canvasSize) * 4 + 0] = r * 125;
       data[(x + y * canvasSize) * 4 + 1] = (r + g + b) * 160;
       data[(x + y * canvasSize) * 4 + 2] = 70;

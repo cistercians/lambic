@@ -1086,8 +1086,17 @@ function randomSpawnO() {
 global.randomSpawnO = randomSpawnO;
 
 function randomSpawnHF() {
+  if (!hForestSpawns || hForestSpawns.length === 0) {
+    // No heavy forest spawns available - fallback to overworld spawns
+    console.warn('No heavy forest spawns available, using overworld spawns');
+    return randomSpawnO();
+  }
   const rand = Math.floor(Math.random() * hForestSpawns.length);
   const point = hForestSpawns[rand];
+  if (!point || !Array.isArray(point) || point.length < 2) {
+    console.warn('Invalid heavy forest spawn point:', point);
+    return randomSpawnO();
+  }
   return getCenter(point[0], point[1]);
 }
 global.randomSpawnHF = randomSpawnHF;
