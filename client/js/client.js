@@ -9411,6 +9411,123 @@ var renderLightSources = function(env){
   }
 }
 
+// Lighting transition system for smooth day/night color transitions
+var lightingTransition = {
+  previousTempus: null,
+  currentTempus: null,
+  startTime: null,
+  transitionDuration: 1500, // 1.5 second transition
+  previousColor: null,
+  currentColor: null,
+  
+  parseRGBA: function(rgbaString) {
+    const match = rgbaString.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/);
+    if(!match) return null;
+    return {
+      r: parseInt(match[1]),
+      g: parseInt(match[2]),
+      b: parseInt(match[3]),
+      a: parseFloat(match[4])
+    };
+  },
+  
+  interpolateColors: function(color1, color2, t) {
+    const rgba1 = this.parseRGBA(color1);
+    const rgba2 = this.parseRGBA(color2);
+    
+    if(!rgba1 || !rgba2) return color1;
+    
+    const tClamped = Math.max(0, Math.min(1, t));
+    const r = Math.round(rgba1.r + (rgba2.r - rgba1.r) * tClamped);
+    const g = Math.round(rgba1.g + (rgba2.g - rgba1.g) * tClamped);
+    const b = Math.round(rgba1.b + (rgba2.b - rgba1.b) * tClamped);
+    const a = rgba1.a + (rgba2.a - rgba1.a) * tClamped;
+    
+    return `rgba(${r}, ${g}, ${b}, ${a})`;
+  }
+};
+
+// Helper function to get lighting color for a given tempus and z-layer
+function getLightingColorForTempus(tempus, z, hasFirepit) {
+  // Inside buildings (z 1 or 2)
+  if(z == 1 || z == 2) {
+    if(hasFirepit) {
+      return "rgba(224, 104, 0, 0.4)"; // fire
+    }
+    
+    // Night hours
+    if(tempus == 'IX.p' || tempus == 'X.p' || tempus == 'XI.p' || tempus == 'XII.a' || 
+       tempus == 'I.a' || tempus == 'II.a' || tempus == 'III.a'){
+      return "rgba(5, 5, 30, 0.9)"; // night
+    } else if(tempus == 'IV.a'){
+      return "rgba(5, 5, 30, 0.8)"; // early hours
+    } else if(tempus == 'V.a'){
+      return "rgba(5, 5, 30, 0.6)"; // early morning
+    } else if(tempus == 'VI.a'){
+      return "rgba(244, 214, 65, 0.1)"; // sunrise
+    } else if(tempus == 'VII.a' || tempus == 'VIII.a' || tempus == 'IX.a' || 
+              tempus == 'X.a' || tempus == 'XI.a' || tempus == 'XII.p' || 
+              tempus == 'I.p' || tempus == 'II.p' || tempus == 'III.p'){
+      return "rgba(0, 0, 0, 0)"; // morning + daytime
+    } else if(tempus == 'IV.p'){
+      return "rgba(255, 204, 22, 0.07)"; // afternoon
+    } else if(tempus == 'V.p'){
+      return "rgba(255, 204, 22, 0.1)"; // late afternoon
+    } else if(tempus == 'VI.p'){
+      return "rgba(232, 112, 0, 0.25)"; // sunset
+    } else if(tempus == 'VII.p'){
+      return "rgba(5, 5, 30, 0.4)"; // twilight
+    } else if(tempus == 'VIII.p'){
+      return "rgba(5, 5, 30, 0.7)"; // evening
+    }
+  }
+  
+  // Overworld (z == 0)
+  if(z == 0){
+    if(tempus == 'IX.p' || tempus == 'X.p' || tempus == 'XI.p' || tempus == 'XII.a' || 
+       tempus == 'I.a' || tempus == 'II.a' || tempus == 'III.a'){
+      return "rgba(5, 5, 30, 0.9)"; // night
+    } else if(tempus == 'IV.a'){
+      return "rgba(5, 5, 30, 0.8)"; // early hours
+    } else if(tempus == 'V.a'){
+      return "rgba(5, 5, 30, 0.6)"; // early morning
+    } else if(tempus == 'VI.a'){
+      return "rgba(244, 214, 65, 0.1)"; // sunrise
+    } else if(tempus == 'VII.a' || tempus == 'VIII.a' || tempus == 'IX.a' || 
+              tempus == 'X.a' || tempus == 'XI.a' || tempus == 'XII.p' || 
+              tempus == 'I.p' || tempus == 'II.p' || tempus == 'III.p'){
+      return "rgba(0, 0, 0, 0)"; // morning + daytime
+    } else if(tempus == 'IV.p'){
+      return "rgba(255, 204, 22, 0.07)"; // afternoon
+    } else if(tempus == 'V.p'){
+      return "rgba(255, 204, 22, 0.1)"; // late afternoon
+    } else if(tempus == 'VI.p'){
+      return "rgba(232, 112, 0, 0.25)"; // sunset
+    } else if(tempus == 'VII.p'){
+      return "rgba(5, 5, 30, 0.4)"; // twilight
+    } else if(tempus == 'VIII.p'){
+      return "rgba(5, 5, 30, 0.7)"; // evening
+    }
+  }
+  
+  // Underworld (z == -1)
+  if(z == -1) {
+    return "rgba(0, 0, 0, 0.95)"; // darkness
+  }
+  
+  // Cellar (z == -2)
+  if(z == -2) {
+    return "rgba(0, 0, 0, 0.85)"; // darkness
+  }
+  
+  // Underwater (z == -3)
+  if(z == -3) {
+    return "rgba(0, 48, 99, 0.9)"; // underwater
+  }
+  
+  return "rgba(0, 0, 0, 0)"; // default
+}
+
 var renderLighting = function(){
   // Get current z-layer (works for login camera, god mode, and normal play)
   var z = getCurrentZ();
@@ -9430,133 +9547,50 @@ var renderLighting = function(){
     return; // Skip all other lighting effects
   }
   
-  if(z == 0){
-    if(tempus == 'IX.p' || tempus == 'X.p' || tempus == 'XI.p' || tempus == 'XII.a' || tempus == 'I.a' || tempus == 'II.a' || tempus == 'III.a'){
-      lighting.clearRect(0,0,WIDTH,HEIGHT);
-      lighting.fillStyle = "rgba(5, 5, 30, 0.9)"; // night
-      lighting.fillRect(0,0,WIDTH,HEIGHT);
-    } else if(tempus == 'IV.a'){
-      lighting.clearRect(0,0,WIDTH,HEIGHT);
-      lighting.fillStyle = "rgba(5, 5, 30, 0.8)"; // early hours
-      lighting.fillRect(0,0,WIDTH,HEIGHT);
-    } else if(tempus == 'V.a'){
-      lighting.clearRect(0,0,WIDTH,HEIGHT);
-      lighting.fillStyle = "rgba(5, 5, 30, 0.6)"; // early morning
-      lighting.fillRect(0,0,WIDTH,HEIGHT);
-    } else if(tempus == 'VI.a'){
-      lighting.clearRect(0,0,WIDTH,HEIGHT);
-      lighting.fillStyle = "rgba(244, 214, 65, 0.1)"; // sunrise
-      lighting.fillRect(0,0,WIDTH,HEIGHT);
-    } else if(tempus == 'VII.a' || tempus == 'VIII.a' || tempus == 'IX.a'|| tempus == 'X.a' || tempus == 'XI.a' || tempus == 'XII.p' || tempus == 'I.p' || tempus == 'II.p' || tempus == 'III.p'){
-      lighting.clearRect(0,0,WIDTH,HEIGHT); // morning + daytime
-    } else if(tempus == 'IV.p'){
-      lighting.clearRect(0,0,WIDTH,HEIGHT);
-      lighting.fillStyle = "rgba(255, 204, 22, 0.07)"; // afternoon
-      lighting.fillRect(0,0,WIDTH,HEIGHT);
-    } else if(tempus == 'V.p'){
-      lighting.clearRect(0,0,WIDTH,HEIGHT);
-      lighting.fillStyle = "rgba(255, 204, 22, 0.1)"; // late afternoon
-      lighting.fillRect(0,0,WIDTH,HEIGHT);
-    } else if(tempus == 'VI.p'){
-      lighting.clearRect(0,0,WIDTH,HEIGHT);
-      lighting.fillStyle = "rgba(232, 112, 0, 0.25)"; // sunset
-      lighting.fillRect(0,0,WIDTH,HEIGHT);
-    } else if(tempus == 'VII.p'){
-      lighting.clearRect(0,0,WIDTH,HEIGHT);
-      lighting.fillStyle = "rgba(5, 5, 30, 0.4)"; // twilight
-      lighting.fillRect(0,0,WIDTH,HEIGHT);
-    } else if(tempus == 'VIII.p'){
-      lighting.clearRect(0,0,WIDTH,HEIGHT);
-      lighting.fillStyle = "rgba(5, 5, 30, 0.7)"; // evening
-      lighting.fillRect(0,0,WIDTH,HEIGHT);
-    }
-  } else if(z == 1 || z == 2){
+  // Get hasFire status for building interiors
+  var hasFirepit = false;
+  if((z == 1 || z == 2) && selfId && Player.list[selfId]){
     var player = Player.list[selfId];
-    if(tempus == 'IX.p' || tempus == 'X.p' || tempus == 'XI.p' || tempus == 'XII.a' || tempus == 'I.a' || tempus == 'II.a' || tempus == 'III.a'){
-      if(hasFire(player.z,player.x,player.y)){
-        lighting.clearRect(0,0,WIDTH,HEIGHT);
-        lighting.fillStyle = "rgba(224, 104, 0, 0.4)"; // fire
-        lighting.fillRect(0,0,WIDTH,HEIGHT);
-      } else {
-        lighting.clearRect(0,0,WIDTH,HEIGHT);
-        lighting.fillStyle = "rgba(5, 5, 30, 0.9)"; // night
-        lighting.fillRect(0,0,WIDTH,HEIGHT);
-      }
-    } else if(tempus == 'IV.a'){
-      if(hasFire(player.z,player.x,player.y)){
-        lighting.clearRect(0,0,WIDTH,HEIGHT);
-        lighting.fillStyle = "rgba(224, 104, 0, 0.4)"; // fire
-        lighting.fillRect(0,0,WIDTH,HEIGHT);
-      } else {
-        lighting.clearRect(0,0,WIDTH,HEIGHT);
-        lighting.fillStyle = "rgba(5, 5, 30, 0.8)"; // early hours
-        lighting.fillRect(0,0,WIDTH,HEIGHT);
-      }
-    } else if(tempus == 'V.a'){
-      if(hasFire(player.z,player.x,player.y)){
-        lighting.clearRect(0,0,WIDTH,HEIGHT);
-        lighting.fillStyle = "rgba(224, 104, 0, 0.4)"; // fire
-        lighting.fillRect(0,0,WIDTH,HEIGHT);
-      } else {
-        lighting.clearRect(0,0,WIDTH,HEIGHT);
-        lighting.fillStyle = "rgba(5, 5, 30, 0.6)"; // early morning
-        lighting.fillRect(0,0,WIDTH,HEIGHT);
-      }
-    } else if(tempus == 'VI.a'){
-      lighting.clearRect(0,0,WIDTH,HEIGHT);
-      lighting.fillStyle = "rgba(244, 214, 65, 0.1)"; // sunrise
-      lighting.fillRect(0,0,WIDTH,HEIGHT);
-    } else if(tempus == 'VII.a' || tempus == 'VIII.a' || tempus == 'IX.a'|| tempus == 'X.a' || tempus == 'XI.a' || tempus == 'XII.p' || tempus == 'I.p' || tempus == 'II.p' || tempus == 'III.p'){
-      lighting.clearRect(0,0,WIDTH,HEIGHT); // morning + daytime
-    } else if(tempus == 'IV.p'){
-      lighting.clearRect(0,0,WIDTH,HEIGHT);
-      lighting.fillStyle = "rgba(255, 204, 22, 0.07)"; // afternoon
-      lighting.fillRect(0,0,WIDTH,HEIGHT);
-    } else if(tempus == 'V.p'){
-      lighting.clearRect(0,0,WIDTH,HEIGHT);
-      lighting.fillStyle = "rgba(255, 204, 22, 0.1)"; // late afternoon
-      lighting.fillRect(0,0,WIDTH,HEIGHT);
-    } else if(tempus == 'VI.p'){
-      lighting.clearRect(0,0,WIDTH,HEIGHT);
-      lighting.fillStyle = "rgba(232, 112, 0, 0.25)"; // sunset
-      lighting.fillRect(0,0,WIDTH,HEIGHT);
-    } else if(tempus == 'VII.p'){
-      if(hasFire(player.z,player.x,player.y)){
-        lighting.clearRect(0,0,WIDTH,HEIGHT);
-        lighting.fillStyle = "rgba(224, 104, 0, 0.4)"; // fire
-        lighting.fillRect(0,0,WIDTH,HEIGHT);
-      } else {
-        lighting.clearRect(0,0,WIDTH,HEIGHT);
-        lighting.fillStyle = "rgba(5, 5, 30, 0.4)"; // twilight
-        lighting.fillRect(0,0,WIDTH,HEIGHT);
-      }
-    } else if(tempus == 'VIII.p'){
-      if(hasFire(player.z,player.x,player.y)){
-        lighting.clearRect(0,0,WIDTH,HEIGHT);
-        lighting.fillStyle = "rgba(224, 104, 0, 0.4)"; // fire
-        lighting.fillRect(0,0,WIDTH,HEIGHT);
-      } else {
-        lighting.clearRect(0,0,WIDTH,HEIGHT);
-        lighting.fillStyle = "rgba(5, 5, 30, 0.7)"; // evening
-        lighting.fillRect(0,0,WIDTH,HEIGHT);
-      }
-    }
-  } else if(z == -1){
+    hasFirepit = hasFire(player.z, player.x, player.y);
+  }
+  
+  // Detect if tempus changed and start transition
+  if(lightingTransition.currentTempus !== tempus || !lightingTransition.startTime) {
+    lightingTransition.previousTempus = lightingTransition.currentTempus;
+    lightingTransition.currentTempus = tempus;
+    lightingTransition.previousColor = lightingTransition.currentColor || getLightingColorForTempus(tempus, z, hasFirepit);
+    lightingTransition.startTime = Date.now();
+  }
+  
+  // Get target color
+  var targetColor = getLightingColorForTempus(tempus, z, hasFirepit);
+  lightingTransition.currentColor = targetColor;
+  
+  // Calculate transition progress (0 to 1)
+  var elapsed = Date.now() - lightingTransition.startTime;
+  var t = Math.min(elapsed / lightingTransition.transitionDuration, 1);
+  
+  // Use interpolated color if transitioning
+  var finalColor;
+  if(t < 1 && lightingTransition.previousColor && lightingTransition.currentColor && 
+     lightingTransition.previousColor !== lightingTransition.currentColor) {
+    finalColor = lightingTransition.interpolateColors(lightingTransition.previousColor, lightingTransition.currentColor, t);
+  } else {
+    finalColor = targetColor;
+  }
+  
+  // Apply the color
+  lighting.clearRect(0,0,WIDTH,HEIGHT);
+  lighting.fillStyle = finalColor;
+  lighting.fillRect(0,0,WIDTH,HEIGHT);
+  
+  // Handle special z-layer effects
+  if(z == -1){
     ctx.fillStyle = "rgba(224, 104, 0, 0.3)"; // light layer
     ctx.fillRect(0,0,WIDTH,HEIGHT);
-    lighting.clearRect(0,0,WIDTH,HEIGHT);
-    lighting.fillStyle = "rgba(0, 0, 0, 0.95)"; // darkness
-    lighting.fillRect(0,0,WIDTH,HEIGHT);
   } else if(z == -2){
     ctx.fillStyle = "rgba(224, 104, 0, 0.3)"; // light layer
     ctx.fillRect(0,0,WIDTH,HEIGHT);
-    lighting.clearRect(0,0,WIDTH,HEIGHT);
-    lighting.fillStyle = "rgba(0, 0, 0, 0.85)"; // darkness
-    lighting.fillRect(0,0,WIDTH,HEIGHT);
-  } else if(z == -3){
-    lighting.clearRect(0,0,WIDTH,HEIGHT);
-    lighting.fillStyle = "rgba(0, 48, 99, 0.9)"; // underwater
-    lighting.fillRect(0,0,WIDTH,HEIGHT);
   }
   
   // Restore lighting canvas transform

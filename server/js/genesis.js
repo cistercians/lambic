@@ -147,10 +147,10 @@ function genesis(){
   // Lower thresholds = more of that terrain type, Higher thresholds = less of that terrain type
   
   var waterThreshold = 0.45;    // Hue threshold for water (higher = more land)
-  var mountainThreshold = 0.97;  // Value threshold for mountains (0.97 = very high elevation)
+  var mountainThreshold = 0.98;  // Value threshold for mountains (0.98 = very high elevation)
   var rocksThreshold = 0.86;     // Value threshold for rocks (0.86 = high elevation)
-  var brushThreshold = 0.26;     // Hue threshold for brush (0.26 = dry/arid regions)
-  var lightForestThreshold = 0.31; // Hue threshold for light forest (0.31 = transition zone)
+  var brushThreshold = 0.24;     // Hue threshold for brush (0.24 = dry/arid regions)
+  var lightForestThreshold = 0.29; // Hue threshold for light forest (0.29 = transition zone)
 
   // converts (h,v) data to game tilemap format
   function terraform(source, width, height, tileWidth, tileHeight){

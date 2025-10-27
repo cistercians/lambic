@@ -3744,8 +3744,8 @@ Player.update = function() {
     player.update();
     }
 
-    // Check for zone transitions
-    if (global.zoneManager && !player.toRemove) {
+    // Check for zone transitions (only for actual players, not NPCs)
+    if (global.zoneManager && !player.toRemove && player.type === 'player') {
       const currentTile = getLoc(player.x, player.y);
       const zoneTransition = global.zoneManager.checkPlayerZoneTransition(player.id, currentTile);
       
