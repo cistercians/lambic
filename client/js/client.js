@@ -9395,16 +9395,37 @@ var renderLightSources = function(env){
       //remove darkness layer
       if((light.z == 0 || light.z == -1 || light.z == -2 || light.z == 99) || ((light.z == 1 || light.z == 2) && !hasFire(playerZ,cameraPos.x,cameraPos.y))){
         lighting.save();
-        lighting.globalCompositeOperation = 'destination-out';
         
         // Apply zoom transform for the light cutout arc
         lighting.translate(WIDTH/2, HEIGHT/2);
         lighting.scale(currentZoom, currentZoom);
         lighting.translate(-WIDTH/2, -HEIGHT/2);
         
-        lighting.beginPath();
-        lighting.arc(x, y, ((45 * light.radius) * (1 + rnd)) * env, 0, 2 * Math.PI, false);
-        lighting.fill();
+        var lightRadius = ((45 * light.radius) * (1 + rnd)) * env;
+        
+        // Create a temp canvas for the gradient mask
+        var tempCanvas = document.createElement('canvas');
+        tempCanvas.width = lighting.canvas.width;
+        tempCanvas.height = lighting.canvas.height;
+        var tempCtx = tempCanvas.getContext('2d');
+        
+        // Draw gradient from opaque (center) to transparent (edges)
+        // With destination-out: opaque pixels remove darkness, transparent pixels keep darkness
+        var gradient = tempCtx.createRadialGradient(x, y, 0, x, y, lightRadius);
+        gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');       // Center: opaque = removes all darkness (bright)
+        gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.6)');  // Start fading back to darkness
+        gradient.addColorStop(0.75, 'rgba(255, 255, 255, 0.2)'); // More darkness returns
+        gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');      // Edge: transparent = darkness remains
+        
+        tempCtx.fillStyle = gradient;
+        tempCtx.beginPath();
+        tempCtx.arc(x, y, lightRadius, 0, 2 * Math.PI, false);
+        tempCtx.fill();
+        
+        // Use destination-out with the gradient to create smooth fade
+        lighting.globalCompositeOperation = 'destination-out';
+        lighting.drawImage(tempCanvas, 0, 0);
+        
         lighting.restore();
       }
     }
