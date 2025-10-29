@@ -66,24 +66,24 @@ function genesis(){
   
   // RED CHANNEL: Controls large-scale features (continents/oceans/water boundaries)
   // Lower frequency = larger landmasses, Higher frequency = more islands/fractured coastlines
-  var redFrequencyX = 93; // Horizontal scale for large features
-  var redFrequencyY = 76; // Vertical scale for large features  
-  var redAmplitude = 1.07; // Controls contrast between land/water
+  var redFrequencyX = 90; // Horizontal scale for large features
+  var redFrequencyY = 78; // Vertical scale for large features  
+  var redAmplitude = 0.7; // Controls contrast between land/water
   var redOffset = 0.33;    // Baseline shift
   
   // GREEN CHANNEL: Controls medium-scale features (biomes/terrain patches)
   // Lower frequency = larger biome regions, Higher frequency = more varied/mixed terrain
-  var greenFrequencyX = 22; // Horizontal scale for biome features
+  var greenFrequencyX = 16; // Horizontal scale for biome features
   var greenFrequencyY = 22; // Vertical scale for biome features
-  var greenAmplitude = 0.77; // Controls biome contrast
-  var greenOffset = 0.39;   // Baseline shift for biome distribution
+  var greenAmplitude = 0.74; // Controls biome contrast
+  var greenOffset = 0.42;   // Baseline shift for biome distribution
   
   // BLUE CHANNEL: Controls fine details and local variation
   // Lower frequency = smoother terrain, Higher frequency = more detailed/noisy terrain
-  var blueFrequencyX = 7;   // Horizontal scale for fine details
-  var blueFrequencyY = 7;   // Vertical scale for fine details
-  var blueAmplitude = 0.36; // Controls detail intensity
-  var blueOffset = 0.1;      // No baseline shift for details
+  var blueFrequencyX = 6;   // Horizontal scale for fine details
+  var blueFrequencyY = 6;   // Vertical scale for fine details
+  var blueAmplitude = 0.35; // Controls detail intensity
+  var blueOffset = 0.15;      // No baseline shift for details
 
   // OVERWORLD
   var simplex = new SimplexNoise(),
@@ -146,11 +146,11 @@ function genesis(){
   // These thresholds convert HSV values from noise into terrain types
   // Lower thresholds = more of that terrain type, Higher thresholds = less of that terrain type
   
-  var waterThreshold = 0.45;    // Hue threshold for water (higher = more land)
-  var mountainThreshold = 0.98;  // Value threshold for mountains (0.98 = very high elevation)
-  var rocksThreshold = 0.86;     // Value threshold for rocks (0.86 = high elevation)
-  var brushThreshold = 0.24;     // Hue threshold for brush (0.24 = dry/arid regions)
-  var lightForestThreshold = 0.29; // Hue threshold for light forest (0.29 = transition zone)
+  var waterThreshold = 0.39;    // Hue threshold for water (higher = more land)
+  var mountainThreshold = 0.99;  // Value threshold for mountains (0.99 = very high elevation)
+  var rocksThreshold = 0.85;     // Value threshold for rocks (0.85 = high elevation)
+  var brushThreshold = 0.3;     // Hue threshold for brush (0.3 = dry/arid regions)
+  var lightForestThreshold = 0.32; // Hue threshold for light forest (0.32 = transition zone)
 
   // converts (h,v) data to game tilemap format
   function terraform(source, width, height, tileWidth, tileHeight){

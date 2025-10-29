@@ -93,29 +93,29 @@ function generateMap(params = {}) {
   // Default parameters
   const defaults = {
     // Red Channel (Continents/Oceans)
-    redFrequencyX: 200,
-    redFrequencyY: 150,
-    redAmplitude: 1.25,
-    redOffset: 0.25,
+    redFrequencyX: 90,
+    redFrequencyY: 78,
+    redAmplitude: 0.7,
+    redOffset: 0.33,
     
     // Green Channel (Biomes/Terrain)
-    greenFrequencyX: 12,
-    greenFrequencyY: 12,
-    greenAmplitude: 0.75,
-    greenOffset: 0.25,
+    greenFrequencyX: 16,
+    greenFrequencyY: 22,
+    greenAmplitude: 0.74,
+    greenOffset: 0.42,
     
     // Blue Channel (Fine Details)
-    blueFrequencyX: 8,
-    blueFrequencyY: 8,
+    blueFrequencyX: 6,
+    blueFrequencyY: 6,
     blueAmplitude: 0.35,
-    blueOffset: 0,
+    blueOffset: 0.15,
     
     // Terrain Thresholds
-    waterThreshold: 0.55,
-    mountainThreshold: 0.97,
-    rocksThreshold: 0.86,
-    brushThreshold: 0.26,
-    lightForestThreshold: 0.31,
+    waterThreshold: 0.39,
+    mountainThreshold: 0.99,
+    rocksThreshold: 0.85,
+    brushThreshold: 0.3,
+    lightForestThreshold: 0.32,
     
     // Map settings
     canvasSize: 192,

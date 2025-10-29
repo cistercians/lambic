@@ -10,23 +10,23 @@ class MapControls {
     
     // Default parameters
     this.defaultParams = {
-      redFrequencyX: 200,
-      redFrequencyY: 150,
-      redAmplitude: 1.25,
-      redOffset: 0.25,
-      greenFrequencyX: 12,
-      greenFrequencyY: 12,
-      greenAmplitude: 0.75,
-      greenOffset: 0.25,
-      blueFrequencyX: 8,
-      blueFrequencyY: 8,
+      redFrequencyX: 90,
+      redFrequencyY: 78,
+      redAmplitude: 0.7,
+      redOffset: 0.33,
+      greenFrequencyX: 16,
+      greenFrequencyY: 22,
+      greenAmplitude: 0.74,
+      greenOffset: 0.42,
+      blueFrequencyX: 6,
+      blueFrequencyY: 6,
       blueAmplitude: 0.35,
-      blueOffset: 0,
-      waterThreshold: 0.55,
-      mountainThreshold: 0.97,
-      rocksThreshold: 0.86,
-      brushThreshold: 0.26,
-      lightForestThreshold: 0.31
+      blueOffset: 0.15,
+      waterThreshold: 0.39,
+      mountainThreshold: 0.99,
+      rocksThreshold: 0.85,
+      brushThreshold: 0.3,
+      lightForestThreshold: 0.32
     };
     
     this.currentParams = { ...this.defaultParams };

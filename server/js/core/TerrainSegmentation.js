@@ -1119,7 +1119,6 @@ class TerrainSegmentation {
       
       // Safety check: don't assign tiles that are already part of another zone
       if (this.visited.has(tileKey)) {
-        console.log(`Warning: Tile [${tile[0]},${tile[1]}] is already assigned to a zone, skipping assignment to ${zone.type}`);
         return;
       }
       

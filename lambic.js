@@ -128,10 +128,8 @@ global.period = gameState.period;
 global.mapAnalyzer = new MapAnalyzer();
 
 // Initialize terrain segmentation and zone management
-console.log('🗺️ Analyzing terrain features...');
 const geographicFeatures = global.mapAnalyzer.analyzeGeography(world[0]);
 
-console.log('🏰 Initializing zone manager...');
 global.zoneManager = new ZoneManager();
 global.zoneManager.addGeographicFeatures(geographicFeatures);
 

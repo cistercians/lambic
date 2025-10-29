@@ -10,7 +10,6 @@ class ZoneManager {
 
   // Add geographic features as zones
   addGeographicFeatures(features) {
-    console.log('🗺️ Adding geographic features to zone manager...');
     this._bulkOperation = true;
     
     features.forEach(feature => {
@@ -29,11 +28,9 @@ class ZoneManager {
       };
       
       this.addZone(zone);
-      console.log(`📍 Created geographic zone: ${feature.name} (${feature.type}, ${feature.size} tiles)`);
     });
     
     this._bulkOperation = false;
-    console.log(`✅ Added ${features.length} geographic zones`);
   }
 
   // Add faction territory zones

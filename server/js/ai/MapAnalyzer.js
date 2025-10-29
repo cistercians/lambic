@@ -781,10 +781,7 @@ class MapAnalyzer {
 
   // Analyze geography and identify terrain features
   analyzeGeography(mapData) {
-    console.log('🗺️ Starting geographic analysis...');
-    
     if (this.geographicFeatures) {
-      console.log('📋 Using cached geographic features');
       return this.geographicFeatures;
     }
     
@@ -795,7 +792,6 @@ class MapAnalyzer {
     
     this.geographicFeatures = namedFeatures;
     
-    console.log(`✅ Geographic analysis complete: ${namedFeatures.length} features identified`);
     return namedFeatures;
   }
 

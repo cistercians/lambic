@@ -4463,11 +4463,9 @@ Deer = function(param){
         var forestLoc = self.findNearestForest();
         if(forestLoc){
           self.moveTo(self.z, forestLoc[0], forestLoc[1]);
-          console.log('Deer seeking forest at [' + forestLoc[0] + ',' + forestLoc[1] + ']');
         } else {
           // No forest found, just idle where we are
           self.action = null;
-          console.log('Deer: no forest found, idling in place');
         }
       }
     }
