@@ -118,6 +118,7 @@ function generateMap(params = {}) {
     lightForestThreshold: 0.32,
     
     // Map settings
+    mapSize: 192,
     canvasSize: 192,
     tile: 1
   };
@@ -125,10 +126,10 @@ function generateMap(params = {}) {
   // Merge with defaults
   const config = { ...defaults, ...params };
   
-  // Map dimensions
-  const canvasSize = config.canvasSize;
-  const tile = config.tile;
-  const mapTiles = canvasSize / tile;
+  // Map dimensions - use mapSize if provided, otherwise calculate from canvasSize/tile
+  const mapTiles = config.mapSize || (config.canvasSize / config.tile);
+  // Canvas size must equal map size in pixels when tile = 1 (1 pixel per tile)
+  const canvasSize = mapTiles; // Since tile is always 1, canvas size = map size
 
   // Create simplex noise instance
   const simplex = new SimplexNoise(() => Math.random());
@@ -284,18 +285,46 @@ function generateMap(params = {}) {
 
   // draw image and apply tile effect
   ctx.putImageData(imgdata, 0, 0);
-  mosaic(ctx, canvas.width, canvas.height, tile, tile);
+  mosaic(ctx, canvas.width, canvas.height, config.tile, config.tile);
 
   // contains (h,v) data
-  var hvData = getHv(ctx, canvas.width, canvas.height, tile, tile);
+  var hvData = getHv(ctx, canvas.width, canvas.height, config.tile, config.tile);
 
   // generate map set
-  var worldMaps = terraform(hvData, canvas.width, canvas.height, tile, tile);
+  var worldMaps = terraform(hvData, canvas.width, canvas.height, config.tile, config.tile);
+
+  // Transpose terrain array: terraform returns [x][y], but renderer needs [y][x]
+  const overworldTiles = worldMaps[0];
+  
+  // Safety check: ensure worldMaps is valid
+  if (!overworldTiles || !Array.isArray(overworldTiles) || overworldTiles.length === 0) {
+    console.error('Failed to generate overworld tiles');
+    return null;
+  }
+  
+  // Get actual dimensions from the generated array
+  const actualWidth = overworldTiles.length;
+  const actualHeight = overworldTiles[0] ? overworldTiles[0].length : 0;
+  
+  // Use the actual dimensions instead of mapTiles to prevent dimension mismatches
+  const terrain = [];
+  for (let y = 0; y < actualHeight; y++) {
+    terrain[y] = [];
+    for (let x = 0; x < actualWidth; x++) {
+      // Safely access with bounds checking
+      if (overworldTiles[x] && overworldTiles[x][y] !== undefined) {
+        terrain[y][x] = overworldTiles[x][y];
+      } else {
+        // Default to water if tile is missing
+        terrain[y][x] = 0;
+      }
+    }
+  }
 
   // Return the overworld tiles (layer 0) for rendering
   return {
-    terrain: worldMaps[0], // Overworld tiles
-    mapSize: mapTiles,
+    terrain: terrain, // Transposed to [y][x] format
+    mapSize: actualHeight, // Use actual height (which becomes width after transpose)
     config: config,
     generationTime: Date.now()
   };

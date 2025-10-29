@@ -160,6 +160,11 @@ const commandHandler = new CommandHandler();
 // Create optimized game loop
 const optimizedGameLoop = new OptimizedGameLoop();
 
+// Initialize performance monitor
+const PerformanceMonitor = require('./server/js/core/PerformanceMonitor');
+const performanceMonitor = new PerformanceMonitor();
+global.performanceMonitor = performanceMonitor;
+
 const SOCKET_LIST = {};
 global.SOCKET_LIST = SOCKET_LIST;
 let io = null;
@@ -2535,12 +2540,19 @@ const Player = function(param) {
         const rand = Math.floor(Math.random() * 6000);
         self.working = true;
         self.fishing = true;
-
-        setTimeout(() => {
-          if (self.fishing) {
-            self.working = false;
-            self.fishing = false;
-            self.inventory.fish++;
+        
+        // Initialize actionTimeouts array if needed
+        if (!self.actionTimeouts) {
+          self.actionTimeouts = [];
+        }
+        
+        const timeoutId = setTimeout(() => {
+          // Guard: check if player still exists and is fishing
+          if (!Player.list[self.id] || !self.fishing) return;
+          
+          self.working = false;
+          self.fishing = false;
+          self.inventory.fish++;
             tileChange(6, adjacentLocs[self.facing][0], adjacentLocs[self.facing][1], -1, true);
             // Fish caught message handled via event system
             if(global.eventManager){
@@ -2556,8 +2568,18 @@ const Player = function(param) {
                 position: { x: self.x, y: self.y, z: self.z }
               });
             }
-          }
+            
+            // Remove timeout ID from tracking array
+            if (self.actionTimeouts) {
+              const index = self.actionTimeouts.indexOf(timeoutId);
+              if (index > -1) {
+                self.actionTimeouts.splice(index, 1);
+              }
+            }
         }, rand);
+        
+        // Track timeout ID
+        self.actionTimeouts.push(timeoutId);
       } else {
         self.working = true;
         self.fishing = true;
@@ -2569,14 +2591,31 @@ const Player = function(param) {
     if (self.z === Z_LEVELS.OVERWORLD && tile >= TERRAIN.BRUSH && tile < TERRAIN.ROCKS) {
       self.actionCooldown = 10;
       self.working = true;
+      
+      // Initialize actionTimeouts array if needed
+      if (!self.actionTimeouts) {
+        self.actionTimeouts = [];
+      }
 
-      setTimeout(() => {
-        if (self.working) {
-          tileChange(0, loc[0], loc[1], TERRAIN.EMPTY);
-          // Tile update automatically handled by tileChange function
-          self.working = false;
+      const timeoutId = setTimeout(() => {
+        // Guard: check if player still exists and is working
+        if (!Player.list[self.id] || !self.working) return;
+        
+        tileChange(0, loc[0], loc[1], TERRAIN.EMPTY);
+        // Tile update automatically handled by tileChange function
+        self.working = false;
+        
+        // Remove timeout ID from tracking array
+        if (self.actionTimeouts) {
+          const index = self.actionTimeouts.indexOf(timeoutId);
+          if (index > -1) {
+            self.actionTimeouts.splice(index, 1);
+          }
         }
       }, 3000 / self.strength);
+      
+      // Track timeout ID
+      self.actionTimeouts.push(timeoutId);
       return;
     }
 
@@ -2587,11 +2626,18 @@ const Player = function(param) {
       if (self.inventory.stoneaxe > 0 || self.inventory.ironaxe > 0) {
         self.chopping = true;
       }
+      
+      // Initialize actionTimeouts array if needed
+      if (!self.actionTimeouts) {
+        self.actionTimeouts = [];
+      }
 
-      setTimeout(() => {
-        if (self.working) {
-          tileChange(6, loc[0], loc[1], -50, true);
-          self.inventory.wood += 50;
+      const timeoutId = setTimeout(() => {
+        // Guard: check if player still exists and is working
+        if (!Player.list[self.id] || !self.working) return;
+        
+        tileChange(6, loc[0], loc[1], -50, true);
+        self.inventory.wood += 50;
           // Wood chopping message handled via event system
           
           // Create economic event for wood gathering
@@ -2620,7 +2666,7 @@ const Player = function(param) {
             tileChange(0, loc[0], loc[1], TERRAIN.EMPTY);
             // Tile update automatically handled by tileChange function
           }
-        }
+        
       }, 6000 / self.strength);
       return;
     }
@@ -2634,11 +2680,18 @@ const Player = function(param) {
       if (self.inventory.pickaxe > 0) {
         self.mining = true;
       }
+      
+      // Initialize actionTimeouts array if needed
+      if (!self.actionTimeouts) {
+        self.actionTimeouts = [];
+      }
 
-      setTimeout(() => {
-        if (self.working) {
-          tileChange(6, loc[0], loc[1], -50, true);
-          self.inventory.stone += 50;
+      const timeoutId = setTimeout(() => {
+        // Guard: check if player still exists and is working
+        if (!Player.list[self.id] || !self.working) return;
+        
+        tileChange(6, loc[0], loc[1], -50, true);
+        self.inventory.stone += 50;
           // Stone quarrying message handled via event system
           if(global.eventManager){
             global.eventManager.resourceGathered(self, 'stone', 50, { x: self.x, y: self.y, z: self.z });
@@ -2651,8 +2704,18 @@ const Player = function(param) {
             tileChange(0, loc[0], loc[1], TERRAIN.EMPTY);
             // Tile update automatically handled by tileChange function
           }
-        }
+          
+          // Remove timeout ID from tracking array
+          if (self.actionTimeouts) {
+            const index = self.actionTimeouts.indexOf(timeoutId);
+            if (index > -1) {
+              self.actionTimeouts.splice(index, 1);
+            }
+          }
       }, (10000 * mult) / self.strength);
+      
+      // Track timeout ID
+      self.actionTimeouts.push(timeoutId);
       return;
     }
 
@@ -2665,51 +2728,68 @@ const Player = function(param) {
       if (self.inventory.pickaxe > 0) {
         self.mining = true;
       }
+      
+      // Initialize actionTimeouts array if needed
+      if (!self.actionTimeouts) {
+        self.actionTimeouts = [];
+      }
 
-      setTimeout(() => {
-        if (self.working && self.mining) {
-          // Roll for ore type
-          var roll = Math.random();
-          if(roll < 0.001){
-            self.inventory.diamond++;
-            socket.write(JSON.stringify({ msg: 'addToChat', message: '<i>You mined 1 💎 Diamond!</i>' }));
-          } else if(roll < 0.01){
-            self.inventory.goldore++;
-            socket.write(JSON.stringify({ msg: 'addToChat', message: '<i>You mined 1 🟡 Gold Ore!</i>' }));
-          } else if(roll < 0.1){
-            self.inventory.silverore++;
-            socket.write(JSON.stringify({ msg: 'addToChat', message: '<i>You mined 1 ⚪ Silver Ore!</i>' }));
-          } else if(roll < 0.5){
-            self.inventory.ironore++;
-            socket.write(JSON.stringify({ msg: 'addToChat', message: '<i>You mined 1 ⛏️ Iron Ore!</i>' }));
-          } else {
-            socket.write(JSON.stringify({ msg: 'addToChat', message: '<i>Nothing valuable found...</i>' }));
-          }
+      const timeoutId = setTimeout(() => {
+        // Guard: check if player still exists and is working/mining
+        if (!Player.list[self.id] || !self.working || !self.mining) return;
+        
+        // Roll for ore type
+        var roll = Math.random();
+        if(roll < 0.001){
+          self.inventory.diamond++;
+          socket.write(JSON.stringify({ msg: 'addToChat', message: '<i>You mined 1 💎 Diamond!</i>' }));
+        } else if(roll < 0.01){
+          self.inventory.goldore++;
+          socket.write(JSON.stringify({ msg: 'addToChat', message: '<i>You mined 1 🟡 Gold Ore!</i>' }));
+        } else if(roll < 0.1){
+          self.inventory.silverore++;
+          socket.write(JSON.stringify({ msg: 'addToChat', message: '<i>You mined 1 ⚪ Silver Ore!</i>' }));
+        } else if(roll < 0.5){
+          self.inventory.ironore++;
+          socket.write(JSON.stringify({ msg: 'addToChat', message: '<i>You mined 1 ⛏️ Iron Ore!</i>' }));
+        } else {
+          socket.write(JSON.stringify({ msg: 'addToChat', message: '<i>Nothing valuable found...</i>' }));
+        }
+        
+        // Deplete resource
+        tileChange(7, loc[0], loc[1], -1, true);
+        var res = getTile(7, loc[0], loc[1]);
+        
+        if(res <= 0){
+          // Rock depleted - change to cave floor
+          tileChange(1, loc[0], loc[1], 1);
           
-          // Deplete resource
-          tileChange(7, loc[0], loc[1], -1, true);
-          var res = getTile(7, loc[0], loc[1]);
-          
-          if(res <= 0){
-            // Rock depleted - change to cave floor
-            tileChange(1, loc[0], loc[1], 1);
-            
-            // Check for adjacent cave walls to spawn new rocks
-            var adj = [[loc[0]-1,loc[1]],[loc[0],loc[1]-1],[loc[0]+1,loc[1]],[loc[0],loc[1]+1]];
-            for(var i = 0; i < adj.length; i++){
-              var t = adj[i];
-              var gt = getTile(1, t[0], t[1]);
-              if(gt == 1){ // Cave floor
-                var num = 3 + Number((Math.random()*0.9).toFixed(2));
-                tileChange(1, t[0], t[1], num); // Spawn new rock
-              }
+          // Check for adjacent cave walls to spawn new rocks
+          var adj = [[loc[0]-1,loc[1]],[loc[0],loc[1]-1],[loc[0]+1,loc[1]],[loc[0],loc[1]+1]];
+          for(var i = 0; i < adj.length; i++){
+            var t = adj[i];
+            var gt = getTile(1, t[0], t[1]);
+            if(gt == 1){ // Cave floor
+              var num = 3 + Number((Math.random()*0.9).toFixed(2));
+              tileChange(1, t[0], t[1], num); // Spawn new rock
             }
           }
-          
-          self.working = false;
-          self.mining = false;
+        }
+        
+        self.working = false;
+        self.mining = false;
+        
+        // Remove timeout ID from tracking array
+        if (self.actionTimeouts) {
+          const index = self.actionTimeouts.indexOf(timeoutId);
+          if (index > -1) {
+            self.actionTimeouts.splice(index, 1);
+          }
         }
       }, (10000 * mult) / self.strength);
+      
+      // Track timeout ID
+      self.actionTimeouts.push(timeoutId);
       return;
     }
 
@@ -2746,30 +2826,47 @@ const Player = function(param) {
     if (count === 9 && getTile(6, loc[0], loc[1]) < 25) {
       self.working = true;
       self.farming = true;
+      
+      // Initialize actionTimeouts array if needed
+      if (!self.actionTimeouts) {
+        self.actionTimeouts = [];
+      }
 
-      setTimeout(() => {
-        if (self.working && self.farming) {
-          tileChange(6, loc[0], loc[1], 25, true);
-          self.working = false;
-          self.farming = false;
+      const timeoutId = setTimeout(() => {
+        // Guard: check if player still exists and is working/farming
+        if (!Player.list[self.id] || !self.working || !self.farming) return;
+        
+        tileChange(6, loc[0], loc[1], 25, true);
+        self.working = false;
+        self.farming = false;
 
-          let readyCount = 0;
+        let readyCount = 0;
+        for (const i in f.plot) {
+          const n = f.plot[i];
+          if (getTile(6, n[0], n[1]) >= 25) {
+            readyCount++;
+          }
+        }
+
+        if (readyCount === 9) {
           for (const i in f.plot) {
             const n = f.plot[i];
-            if (getTile(6, n[0], n[1]) >= 25) {
-              readyCount++;
-            }
+            tileChange(0, n[0], n[1], TERRAIN.FARM_GROWING);
           }
-
-          if (readyCount === 9) {
-            for (const i in f.plot) {
-              const n = f.plot[i];
-              tileChange(0, n[0], n[1], TERRAIN.FARM_GROWING);
-            }
-            // Tile update automatically handled by tileChange function
+          // Tile update automatically handled by tileChange function
+        }
+        
+        // Remove timeout ID from tracking array
+        if (self.actionTimeouts) {
+          const index = self.actionTimeouts.indexOf(timeoutId);
+          if (index > -1) {
+            self.actionTimeouts.splice(index, 1);
           }
         }
       }, 10000);
+      
+      // Track timeout ID
+      self.actionTimeouts.push(timeoutId);
     } else {
       socket.write(JSON.stringify({ msg: 'addToChat', message: '<i>There is no more work to be done here.</i>' }));
     }
@@ -2790,49 +2887,84 @@ const Player = function(param) {
     const f = Building.list[getBuilding(self.x, self.y)];
     self.working = true;
     self.farming = true;
+    
+    // Initialize actionTimeouts array if needed
+    if (!self.actionTimeouts) {
+      self.actionTimeouts = [];
+    }
 
-    setTimeout(() => {
-      if (self.working && getTile(6, loc[0], loc[1]) < 50) {
-        tileChange(6, loc[0], loc[1], 25, true);
-        self.working = false;
-        self.farming = false;
+    const timeoutId = setTimeout(() => {
+      // Guard: check if player still exists and is working
+      if (!Player.list[self.id] || !self.working || getTile(6, loc[0], loc[1]) >= 50) return;
+      
+      tileChange(6, loc[0], loc[1], 25, true);
+      self.working = false;
+      self.farming = false;
 
-        let readyCount = 0;
-        for (const i in f.plot) {
-          if (getTile(6, f.plot[i][0], f.plot[i][1]) >= 50) {
-            readyCount++;
-          }
-        }
-
-        if (readyCount === 9) {
-          for (const i in f.plot) {
-            tileChange(0, f.plot[i][0], f.plot[i][1], TERRAIN.FARM_READY);
-          }
-          // Tile update automatically handled by tileChange function
+      let readyCount = 0;
+      for (const i in f.plot) {
+        if (getTile(6, f.plot[i][0], f.plot[i][1]) >= 50) {
+          readyCount++;
         }
       }
-    }, 10000);
+
+      if (readyCount === 9) {
+        for (const i in f.plot) {
+          tileChange(0, f.plot[i][0], f.plot[i][1], TERRAIN.FARM_READY);
+        }
+        // Tile update automatically handled by tileChange function
+      }
+      
+      // Remove timeout ID from tracking array
+      if (self.actionTimeouts) {
+        const index = self.actionTimeouts.indexOf(timeoutId);
+        if (index > -1) {
+          self.actionTimeouts.splice(index, 1);
+        }
+      }
+    }
+    , 10000);
+    
+    // Track timeout ID
+    self.actionTimeouts.push(timeoutId);
   };
 
   self.handleFarmHarvest = function(loc, socket) {
     self.actionCooldown = 10;
     self.working = true;
     self.farming = true;
+    
+    // Initialize actionTimeouts array if needed
+    if (!self.actionTimeouts) {
+      self.actionTimeouts = [];
+    }
 
-    setTimeout(() => {
-      if (self.working) {
-        tileChange(6, loc[0], loc[1], -1, true);
-        self.inventory.grain += 1;
-        socket.write(JSON.stringify({ msg: 'addToChat', message: '<i>You harvested Grain.</i>' }));
-        self.working = false;
-        self.farming = false;
+    const timeoutId = setTimeout(() => {
+      // Guard: check if player still exists and is working
+      if (!Player.list[self.id] || !self.working) return;
+      
+      tileChange(6, loc[0], loc[1], -1, true);
+      self.inventory.grain += 1;
+      socket.write(JSON.stringify({ msg: 'addToChat', message: '<i>You harvested Grain.</i>' }));
+      self.working = false;
+      self.farming = false;
 
         if (getTile(6, loc[0], loc[1]) <= 0) {
           tileChange(0, loc[0], loc[1], TERRAIN.FARM_SEED);
           // Tile update automatically handled by tileChange function
         }
-      }
+        
+        // Remove timeout ID from tracking array
+        if (self.actionTimeouts) {
+          const index = self.actionTimeouts.indexOf(timeoutId);
+          if (index > -1) {
+            self.actionTimeouts.splice(index, 1);
+          }
+        }
     }, 10000);
+    
+    // Track timeout ID
+    self.actionTimeouts.push(timeoutId);
   };
 
   self.updateClass = function() {
@@ -3633,6 +3765,13 @@ Player.onDisconnect = function(socket) {
   const player = Player.list[socket.id];
 
   if (player) {
+    // Clear all pending action timeouts
+    if (player.actionTimeouts && Array.isArray(player.actionTimeouts)) {
+      player.actionTimeouts.forEach(timeoutId => {
+        clearTimeout(timeoutId);
+      });
+      player.actionTimeouts = [];
+    }
     
     // Clean up aggro interval
     if (player.aggroInterval) {

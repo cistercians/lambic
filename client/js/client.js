@@ -55,12 +55,30 @@ window.addEventListener('resize', function() {
   resizeCanvas();
 });
 
-var socket = SockJS('http://localhost:2000/io');
+var socket = null;
+var socketCleanup = function() {
+  if (socket) {
+    socket.onopen = null;
+    socket.onmessage = null;
+    socket.onclose = null;
+    socket.onerror = null;
+    if (socket.close) socket.close();
+    socket = null;
+  }
+};
+
+var initSocket = function(){
+  socketCleanup(); // Clean up any existing socket
+  
+  socket = SockJS('http://localhost:2000/io');
+  
+  // Track socket listeners
 socket.onopen = function(){
   console.log('Client connection opened');
   // Request initial world data for login screen preview
   socket.send(JSON.stringify({msg:'requestPreviewData'}));
 };
+  
 socket.onmessage = function(event){
   var data = JSON.parse(event.data);
   
@@ -360,12 +378,16 @@ socket.onmessage = function(event){
       console.log('Init received, starting spectate camera in 500ms...');
       setTimeout(function(){
         console.log('Starting spectate camera now');
+        if(spectateCameraSystem && spectateCameraSystem.start) {
         spectateCameraSystem.start();
+        }
         
         // Initialize SpectatorDirector for intelligent camera control
         if(typeof SpectatorDirector !== 'undefined'){
           window.spectatorDirector = new SpectatorDirector();
+          if(window.spectatorDirector && window.spectatorDirector.start) {
           window.spectatorDirector.start();
+          }
           console.log('SpectatorDirector initialized');
         }
         
@@ -804,9 +826,19 @@ socket.onmessage = function(event){
 socket.onerror = function(event){
   console.log('Client error: ' + event);
 };
+  
 socket.onclose = function(event){
   console.log('Client connection closed: ' + event.code);
+    // Cleanup on disconnect (performance tools handle their own cleanup)
+    // Reset selfId on disconnect
+    selfId = null;
+  };
+  
+  return socket;
 };
+
+// Initialize socket on page load
+initSocket();
 
 // SIGN IN
 var enterButton = document.getElementById('enter');
@@ -1657,10 +1689,10 @@ if(characterButton){
     if(characterPopup.style.display === 'none' || !characterPopup.style.display){
       characterPopup.style.display = 'block';
       updateCharacterDisplay();
-      // Start real-time updates
-      if(!characterSheetUpdateInterval){
-        characterSheetUpdateInterval = setInterval(function(){
-          if(characterPopup.style.display === 'block'){
+        // Start real-time updates
+        if(!characterSheetUpdateInterval){
+          characterSheetUpdateInterval = setInterval(function(){
+          if(characterPopup && characterPopup.style.display === 'block'){
             updateCharacterDisplay();
           }
         }, 1000);
@@ -5406,7 +5438,9 @@ var hasFire = function(z,x,y){
 
 setInterval(function(){
   // Update god mode camera position
+  if(godModeCamera && godModeCamera.update){
   godModeCamera.update();
+  }
   
   // Check if we should render (either logged in, in login camera mode, or spectating)
   if(!selfId && !loginCameraSystem.isActive && !spectateCameraSystem.isActive) {
@@ -5571,60 +5605,74 @@ setInterval(function(){
   } else if(selfId && Player.list[selfId]) {
     // Normal game rendering when logged in
   var currentZ = getCurrentZ();
+  
+  // Precompute viewport bounds once per frame (used for all entity visibility checks)
+  var viewTop = (viewport.startTile[1] - 1) * tileSize;
+  var viewLeft = (viewport.startTile[0] - 1) * tileSize;
+  var viewRight = (viewport.endTile[0] + 2) * tileSize;
+  var viewBottom = (viewport.endTile[1] + 2) * tileSize;
+  var inSpecialMode = spectateCameraSystem.isActive || godModeCamera.isActive;
+  var playerInnaWoods = !inSpecialMode && Player.list[selfId] ? Player.list[selfId].innaWoods : false;
+  
+  // Optimized entity visibility check (inline version of inView, z-checked first)
+  var checkInView = function(x, y, entityZ, innaWoods) {
+    // First check z-layer match (fastest rejection)
+    if(entityZ != currentZ) return false;
+    // Then check bounds
+    if(x <= viewLeft || x >= viewRight || y <= viewTop || y >= viewBottom) return false;
+    // Finally check innaWoods (only for z=0)
+    if(!inSpecialMode && currentZ == 0 && innaWoods && !playerInnaWoods) return false;
+    return true;
+  };
+  
   for(var i in Item.list){
-    if(inView(Item.list[i].z,Item.list[i].x,Item.list[i].y,Item.list[i].innaWoods)){
+    var item = Item.list[i];
+    if(!item) continue; // Skip deleted items
+    if(checkInView(item.x, item.y, item.z, item.innaWoods)){
       // In god mode, render all items on current z-layer
       if(godModeCamera.isActive){
-        if(Item.list[i].z == currentZ){
-          Item.list[i].draw();
+        if(item.z == currentZ){
+          item.draw();
         }
-      } else if((currentZ == 1 || currentZ == 2) && (getBuilding(Item.list[i].x,Item.list[i].y) == getBuilding(Player.list[selfId].x,Player.list[selfId].y) || getBuilding(Item.list[i].x,Item.list[i].y+(tileSize * 1.1)) == getBuilding(Player.list[selfId].x,Player.list[selfId].y))){
-        Item.list[i].draw();
+      } else if((currentZ == 1 || currentZ == 2) && (getBuilding(item.x,item.y) == getBuilding(Player.list[selfId].x,Player.list[selfId].y) || getBuilding(item.x,item.y+(tileSize * 1.1)) == getBuilding(Player.list[selfId].x,Player.list[selfId].y))){
+        item.draw();
       } else if(currentZ != 1 && currentZ != 2){
-        Item.list[i].draw();
-      } else {
-        continue;
+        item.draw();
       }
-    } else {
-      continue;
     }
   }
   for(var i in Player.list){
-    if(Player.list[i].class != 'Falcon'){
-      if(inView(Player.list[i].z,Player.list[i].x,Player.list[i].y,Player.list[i].innaWoods)){
+    var player = Player.list[i];
+    if(!player) continue; // Skip deleted players
+    if(player.class != 'Falcon'){
+      if(checkInView(player.x, player.y, player.z, player.innaWoods)){
         // In god mode, render all entities on current z-layer
         if(godModeCamera.isActive){
-          if(Player.list[i].z == currentZ){
-            Player.list[i].draw();
+          if(player.z == currentZ){
+            player.draw();
           }
-        } else if((currentZ == 1 || currentZ == 2) && (getBuilding(Player.list[i].x,Player.list[i].y) == getBuilding(Player.list[selfId].x,Player.list[selfId].y))){
-          Player.list[i].draw();
+        } else if((currentZ == 1 || currentZ == 2) && (getBuilding(player.x,player.y) == getBuilding(Player.list[selfId].x,Player.list[selfId].y))){
+          player.draw();
         } else if(currentZ != 1 && currentZ != 2){
-          Player.list[i].draw();
-        } else {
-          continue;
+          player.draw();
         }
-      } else {
-        continue;
       }
     }
   }
   for(var i in Arrow.list){
-    if(inView(Arrow.list[i].z,Arrow.list[i].x,Arrow.list[i].y,Arrow.list[i].innaWoods)){
+    var arrow = Arrow.list[i];
+    if(!arrow) continue; // Skip deleted arrows
+    if(checkInView(arrow.x, arrow.y, arrow.z, arrow.innaWoods)){
       // In god mode, render all arrows on current z-layer
       if(godModeCamera.isActive){
-        if(Arrow.list[i].z == currentZ){
-          Arrow.list[i].draw();
+        if(arrow.z == currentZ){
+          arrow.draw();
         }
-      } else if((currentZ == 1 || currentZ == 2) && (getBuilding(Item.list[i].x,Item.list[i].y) == getBuilding(Arrow.list[selfId].x,Arrow.list[selfId].y))){
-        Arrow.list[i].draw();
+      } else if((currentZ == 1 || currentZ == 2) && (getBuilding(arrow.x,arrow.y) == getBuilding(Player.list[selfId].x,Player.list[selfId].y))){
+        arrow.draw();
       } else if(currentZ != 1 && currentZ != 2){
-        Arrow.list[i].draw();
-      } else {
-        continue;
+        arrow.draw();
       }
-    } else {
-      continue;
     }
   }
   // Render forest overlay on z=0
@@ -5880,9 +5928,13 @@ var renderMap = function(){
 
   // overworld
   if(z == 0){
-    var cloudscape = ctx.createPattern(clouds[cld], "repeat");
+    // Cache cloud pattern to avoid recreating every frame
+    if(!renderMap._cloudPattern || renderMap._cloudPatternIndex != cld){
+      renderMap._cloudPattern = ctx.createPattern(clouds[cld], "repeat");
+      renderMap._cloudPatternIndex = cld;
+    }
     ctx.rect(0,0,WIDTH,HEIGHT);
-    ctx.fillStyle = cloudscape;
+    ctx.fillStyle = renderMap._cloudPattern;
     ctx.fill();
 
     for(var c = viewport.startTile[0]; c < viewport.endTile[0]; c++){
@@ -9184,62 +9236,25 @@ var renderForest = function(){
       for (var r = viewport.startTile[1]; r < viewport.endTile[1]; r++){
         var xOffset = viewport.offset[0] + (c * tileSize);
         var yOffset = viewport.offset[1] + (r * tileSize);
-        var dist =  function(){
-          if((c == pc-1 && r == pr-1) ||
-          (c == pc && r == pr-1) ||
-          (c == pc+1 && r == pr-1) ||
-          (c == pc-1 && r == pr) ||
-          (c == pc && r == pr) ||
-          (c == pc+1 && r == pr) ||
-          (c == pc-1 && r == pr+1) ||
-          (c == pc && r == pr+1) ||
-          (c == pc+1 && r == pr+1)){
-            return 40;
-          } else if((c == pc-1 && r == pr-2) ||
-          (c == pc && r == pr-2) ||
-          (c == pc+1 && r == pr-2) ||
-          (c == pc-2 && r == pr-1) ||
-          (c == pc-2 && r == pr) ||
-          (c == pc-2 && r == pr+1) ||
-          (c == pc-1 && r == pr+2) ||
-          (c == pc && r == pr+2) ||
-          (c == pc+1 && r == pr+2) ||
-          (c == pc+2 && r == pr-1) ||
-          (c == pc+2 && r == pr) ||
-          (c == pc+2 && r == pr+1)){
-            return 60;
-          } else if((c == pc-2 && r == pr-3) ||
-          (c == pc-1 && r == pr-3) ||
-          (c == pc && r == pr-3) ||
-          (c == pc+1 && r == pr-3) ||
-          (c == pc+2 && r == pr-3) ||
-          (c == pc+2 && r == pr-2) ||
-          (c == pc+3 && r == pr-2) ||
-          (c == pc+3 && r == pr-1) ||
-          (c == pc+3 && r == pr) ||
-          (c == pc+3 && r == pr+1) ||
-          (c == pc+3 && r == pr+2) ||
-          (c == pc+2 && r == pr+2) ||
-          (c == pc+2 && r == pr+3) ||
-          (c == pc+1 && r == pr+3) ||
-          (c == pc && r == pr+3) ||
-          (c == pc-1 && r == pr+3) ||
-          (c == pc-2 && r == pr+3) ||
-          (c == pc-2 && r == pr+2) ||
-          (c == pc-3 && r == pr+2) ||
-          (c == pc-3 && r == pr+1) ||
-          (c == pc-3 && r == pr) ||
-          (c == pc-3 && r == pr-1) ||
-          (c == pc-3 && r == pr-2) ||
-          (c == pc-2 && r == pr-2)){
-            return 80;
-          } else {
-            return;
-          }
+        
+        // Optimized distance calculation: compute once using Chebyshev distance (max of dx, dy)
+        // Ring 1 (distance 40): immediate 3x3 grid (distance <= 1)
+        // Ring 2 (distance 60): next ring out (distance == 2)
+        // Ring 3 (distance 80): outer ring (distance == 3)
+        var dc = Math.abs(c - pc);
+        var dr = Math.abs(r - pr);
+        var maxDist = Math.max(dc, dr);
+        var dist = null; // null means no overlay (beyond ring 3)
+        if(maxDist <= 1){
+          dist = 40;
+        } else if(maxDist == 2){
+          dist = 60;
+        } else if(maxDist == 3){
+          dist = 80;
         }
         var tile = getTile(0, c, r);
         if(tile >= 1 && tile < 1.3){
-          if(dist() == 40){
+          if(dist == 40){
             ctx.drawImage(
               Img.hforest40, // image
               xOffset - (tileSize/4), // target x
@@ -9247,7 +9262,7 @@ var renderForest = function(){
               tileSize, // target width
               tileSize * 1.5 // target height
             );
-          } else if(dist() == 60){
+          } else if(dist == 60){
             ctx.drawImage(
               Img.hforest60, // image
               xOffset - (tileSize/4), // target x
@@ -9255,7 +9270,7 @@ var renderForest = function(){
               tileSize, // target width
               tileSize * 1.5 // target height
             );
-          } else if(dist() == 80){
+          } else if(dist == 80){
             ctx.drawImage(
               Img.hforest80, // image
               xOffset - (tileSize/4), // target x
@@ -9273,7 +9288,7 @@ var renderForest = function(){
             );
           }
         } else if(tile >= 1 && tile < 1.6){
-          if(dist() == 40){
+          if(dist == 40){
             ctx.drawImage(
               Img.hforest40, // image
               xOffset, // target x
@@ -9281,7 +9296,7 @@ var renderForest = function(){
               tileSize, // target width
               tileSize * 1.5 // target height
             );
-          } else if(dist() == 60){
+          } else if(dist == 60){
             ctx.drawImage(
               Img.hforest60, // image
               xOffset, // target x
@@ -9289,7 +9304,7 @@ var renderForest = function(){
               tileSize, // target width
               tileSize * 1.5 // target height
             );
-          } else if(dist() == 80){
+          } else if(dist == 80){
             ctx.drawImage(
               Img.hforest80, // image
               xOffset, // target x
@@ -9307,7 +9322,7 @@ var renderForest = function(){
             );
           }
         } else if(tile >= 1 && tile < 2){
-          if(dist() == 40){
+          if(dist == 40){
             ctx.drawImage(
               Img.hforest40, // image
               xOffset, // target x
@@ -9315,7 +9330,7 @@ var renderForest = function(){
               tileSize, // target width
               tileSize * 1.5 // target height
             );
-          } else if(dist() == 60){
+          } else if(dist == 60){
             ctx.drawImage(
               Img.hforest60, // image
               xOffset, // target x
@@ -9323,7 +9338,7 @@ var renderForest = function(){
               tileSize, // target width
               tileSize * 1.5 // target height
             );
-          } else if(dist() == 80){
+          } else if(dist == 80){
             ctx.drawImage(
               Img.hforest80, // image
               xOffset, // target x
@@ -9371,17 +9386,40 @@ var illuminate = function(x, y, radius, env){
   ctx.restore();
 }
 
+// Reusable temp canvas for light source gradient masks (prevents memory leak)
+var lightTempCanvas = null;
+var lightTempCtx = null;
+var initLightTempCanvas = function() {
+  if (!lightTempCanvas) {
+    lightTempCanvas = document.createElement('canvas');
+    lightTempCanvas.width = lighting.canvas.width;
+    lightTempCanvas.height = lighting.canvas.height;
+    lightTempCtx = lightTempCanvas.getContext('2d');
+  }
+  // Ensure canvas size matches lighting canvas (in case it was resized)
+  if (lightTempCanvas.width != lighting.canvas.width || lightTempCanvas.height != lighting.canvas.height) {
+    lightTempCanvas.width = lighting.canvas.width;
+    lightTempCanvas.height = lighting.canvas.height;
+  }
+};
+
 var renderLightSources = function(env){
   // Skip lighting effects for ghosts
   if(selfId && Player.list[selfId] && Player.list[selfId].ghost){
     return; // No lighting effects in ghost mode
   }
   
+  // Initialize reusable temp canvas if needed
+  initLightTempCanvas();
+  
   // Get camera position (works for both logged in and login mode)
   var cameraPos = getCameraPosition();
   
   for(i in Light.list){
     var light = Light.list[i];
+    // Skip if light was deleted (prevent accumulating undefined/null entries)
+    if(!light) continue;
+    
     var rnd = (0.05 * Math.sin(1.1 * Date.now() / 200) * flicker);
     var x = light.x - cameraPos.x + WIDTH/2;
     var y = light.y - cameraPos.y + HEIGHT/2;
@@ -9403,28 +9441,25 @@ var renderLightSources = function(env){
         
         var lightRadius = ((45 * light.radius) * (1 + rnd)) * env;
         
-        // Create a temp canvas for the gradient mask
-        var tempCanvas = document.createElement('canvas');
-        tempCanvas.width = lighting.canvas.width;
-        tempCanvas.height = lighting.canvas.height;
-        var tempCtx = tempCanvas.getContext('2d');
+        // Clear and reuse temp canvas (instead of creating new one each frame - FIXES MEMORY LEAK)
+        lightTempCtx.clearRect(0, 0, lightTempCanvas.width, lightTempCanvas.height);
         
         // Draw gradient from opaque (center) to transparent (edges)
         // With destination-out: opaque pixels remove darkness, transparent pixels keep darkness
-        var gradient = tempCtx.createRadialGradient(x, y, 0, x, y, lightRadius);
+        var gradient = lightTempCtx.createRadialGradient(x, y, 0, x, y, lightRadius);
         gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');       // Center: opaque = removes all darkness (bright)
         gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.6)');  // Start fading back to darkness
         gradient.addColorStop(0.75, 'rgba(255, 255, 255, 0.2)'); // More darkness returns
         gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');      // Edge: transparent = darkness remains
         
-        tempCtx.fillStyle = gradient;
-        tempCtx.beginPath();
-        tempCtx.arc(x, y, lightRadius, 0, 2 * Math.PI, false);
-        tempCtx.fill();
+        lightTempCtx.fillStyle = gradient;
+        lightTempCtx.beginPath();
+        lightTempCtx.arc(x, y, lightRadius, 0, 2 * Math.PI, false);
+        lightTempCtx.fill();
         
         // Use destination-out with the gradient to create smooth fade
         lighting.globalCompositeOperation = 'destination-out';
-        lighting.drawImage(tempCanvas, 0, 0);
+        lighting.drawImage(lightTempCanvas, 0, 0);
         
         lighting.restore();
       }

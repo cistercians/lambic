@@ -320,9 +320,19 @@ class EventManager {
   // ============================================================================
   
   startFlushTimer() {
-    setInterval(() => {
+    if (this.flushTimerId) {
+      clearInterval(this.flushTimerId);
+    }
+    this.flushTimerId = setInterval(() => {
       this.flushLogs();
     }, this.logFlushInterval);
+  }
+  
+  stopFlushTimer() {
+    if (this.flushTimerId) {
+      clearInterval(this.flushTimerId);
+      this.flushTimerId = null;
+    }
   }
   
   flushLogs() {

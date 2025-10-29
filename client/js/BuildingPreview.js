@@ -240,7 +240,7 @@ document.addEventListener('keydown', (event) => {
 });
 
 // Update preview when game renders
-if (typeof setInterval !== 'undefined') {
+if (typeof window !== 'undefined') {
   setInterval(() => {
     if (window.buildingPreviewRenderer) {
       window.buildingPreviewRenderer.updatePreview();

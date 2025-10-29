@@ -4358,13 +4358,15 @@ Img.relic = new Image();
 Img.relic.src = '/client/img/items/relic.png';
 
 var flm = 0; // flame counter
-setInterval(function(){
-  if(flm == 2){
-    flm = 0;
-  } else {
-    flm++;
-  }
-},300);
+if(typeof window !== 'undefined'){
+  setInterval(function(){
+    if(flm == 2){
+      flm = 0;
+    } else {
+      flm++;
+    }
+  },300);
+}
 
 var torchFlame = [Img.torch1,Img.torch2,Img.torch3];
 var wtorchFlame = [Img.wtorch1,Img.wtorch2,Img.wtorch3];

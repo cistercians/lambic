@@ -26,7 +26,8 @@ class MapControls {
       mountainThreshold: 0.99,
       rocksThreshold: 0.85,
       brushThreshold: 0.3,
-      lightForestThreshold: 0.32
+      lightForestThreshold: 0.32,
+      mapSize: 192
     };
     
     this.currentParams = { ...this.defaultParams };
@@ -135,7 +136,8 @@ class MapControls {
       'mountainThreshold': 'mountainThreshold',
       'rocksThreshold': 'rocksThreshold',
       'brushThreshold': 'brushThreshold',
-      'lightForestThreshold': 'lightForestThreshold'
+      'lightForestThreshold': 'lightForestThreshold',
+      'mapSize': 'mapSize'
     };
     
     Object.keys(sliderMappings).forEach(sliderId => {
@@ -147,7 +149,12 @@ class MapControls {
         slider.addEventListener('input', (e) => {
           const value = parseFloat(e.target.value);
           this.currentParams[paramKey] = value;
-          valueSpan.textContent = value.toFixed(2);
+          // Display format: integers for mapSize, 2 decimals for others
+          if (paramKey === 'mapSize') {
+            valueSpan.textContent = Math.round(value);
+          } else {
+            valueSpan.textContent = value.toFixed(2);
+          }
           
           // Debounced regeneration
           this.scheduleRegeneration();
@@ -176,11 +183,23 @@ class MapControls {
       return;
     }
     
+    if (!window.MapModelerGenesis || !window.MapModelerGenesis.generateMap) {
+      console.error('MapModelerGenesis not loaded');
+      return;
+    }
+    
     const startTime = Date.now();
     
     try {
       // Generate map with current parameters
       const mapData = window.MapModelerGenesis.generateMap(this.currentParams);
+      
+      // Check if generation failed
+      if (!mapData) {
+        console.error('Map generation returned null - check console for errors');
+        return;
+      }
+      
       mapData.generationTime = startTime;
       
       // Render the map
@@ -189,6 +208,7 @@ class MapControls {
       console.log('Map generated successfully');
     } catch (error) {
       console.error('Error generating map:', error);
+      console.error('Stack trace:', error.stack);
     }
   }
   
@@ -216,7 +236,8 @@ class MapControls {
       'mountainThreshold': 'mountainThreshold',
       'rocksThreshold': 'rocksThreshold',
       'brushThreshold': 'brushThreshold',
-      'lightForestThreshold': 'lightForestThreshold'
+      'lightForestThreshold': 'lightForestThreshold',
+      'mapSize': 'mapSize'
     };
     
     Object.keys(sliderMappings).forEach(sliderId => {
@@ -226,7 +247,12 @@ class MapControls {
       
       if (slider && valueSpan && this.currentParams[paramKey] !== undefined) {
         slider.value = this.currentParams[paramKey];
-        valueSpan.textContent = this.currentParams[paramKey].toFixed(2);
+        // Display format: integers for mapSize, 2 decimals for others
+        if (paramKey === 'mapSize') {
+          valueSpan.textContent = Math.round(this.currentParams[paramKey]);
+        } else {
+          valueSpan.textContent = this.currentParams[paramKey].toFixed(2);
+        }
       }
     });
   }
