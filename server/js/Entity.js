@@ -3832,6 +3832,36 @@ Character = function(param){
     }
   }
 
+  // Helper function to extract base name from feature names
+  // Examples: "X mountains" -> "X", "North X woods" -> "X", "X mountain" -> "X"
+  function extractBaseFeatureName(zoneName) {
+    if (!zoneName) return null;
+    
+    // Remove directional prefixes (North, South, East, West)
+    let name = zoneName.trim();
+    const directions = ['North', 'South', 'East', 'West'];
+    for (const dir of directions) {
+      if (name.startsWith(dir + ' ')) {
+        name = name.substring(dir.length + 1).trim();
+        break;
+      }
+    }
+    
+    // Remove common suffixes (mountains, mountain, woods, wood, etc.)
+    const suffixes = ['mountains', 'mountain', 'woods', 'wood', 'forest', 'forests'];
+    for (const suffix of suffixes) {
+      // Case-insensitive matching
+      const lowerName = name.toLowerCase();
+      const lowerSuffix = suffix.toLowerCase();
+      if (lowerName.endsWith(' ' + lowerSuffix)) {
+        name = name.substring(0, name.length - suffix.length - 1).trim();
+        break;
+      }
+    }
+    
+    return name || zoneName; // Return original if extraction failed
+  }
+
   // Explicit Z-Transition Methods
   self.enterCave = function(entrance) {
     console.log(self.name + ' entering cave at [' + entrance + ']');
@@ -3850,6 +3880,28 @@ Character = function(param){
       self.pressingLeft = false;
       self.pressingDown = false;
       self.pressingUp = false;
+    }
+    
+    // Create cave entry event with zone-based name
+    if (global.zoneManager && global.eventManager && self.type === 'player') {
+      const zone = global.zoneManager.getZoneAt(entrance);
+      if (zone && zone.name) {
+        const baseName = extractBaseFeatureName(zone.name);
+        const caveName = baseName ? baseName + ' caves' : 'the caves';
+        
+        global.eventManager.createEvent({
+          category: global.eventManager.categories.ENVIRONMENT,
+          subject: self.id,
+          subjectName: self.name,
+          action: 'entered cave',
+          target: zone.id,
+          targetName: caveName,
+          communication: global.eventManager.commModes.PLAYER,
+          message: `<i>You have entered <b>${caveName}</b></i>`,
+          log: `${self.name} entered ${caveName}`,
+          position: { x: self.x, y: self.y, z: self.z }
+        });
+      }
     }
   };
 
