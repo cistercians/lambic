@@ -3234,6 +3234,7 @@ Player.onConnect = function(socket, name, playerType) {
   
   // ALPHA Testing: Give player starting items
   player.inventory.worldmap = 1;
+  player.inventory.cavemap = 1;
   player.inventory.dague = 1;
   player.inventory.longsword = 1;
   player.inventory.bow = 1;
@@ -3500,6 +3501,48 @@ Player.onConnect = function(socket, name, playerType) {
             socket.write(JSON.stringify({
               msg: 'addToChat',
               message: '<span style="color:#ff6666;">You need a WorldMap item to use this feature.</span>'
+            }));
+          }
+        }
+      } else if (data.msg === 'requestCaveMap') {
+        const player = Player.list[socket.id];
+        if (player) {
+          // Check if player has a cavemap item OR is in godmode
+          if (player.inventory.cavemap > 0 || player.godMode) {
+            // For godmode players, use center of map as position if no valid position
+            let playerX = player.x || gameState.mapSize * gameState.tileSize / 2;
+            let playerY = player.y || gameState.mapSize * gameState.tileSize / 2;
+            let playerZ = player.z || -1;
+            
+            // Build a map of items at each tile (crates, barrels, chests)
+            const blockingItems = {};
+            for (const itemId in Item.list) {
+              const item = Item.list[itemId];
+              if (item.z === -1 && (item.type === 'Crates' || item.type === 'Barrel' || item.type === 'Chest' || item.type === 'LockedChest')) {
+                const tile = getLoc(item.x, item.y);
+                const key = `${tile[0]},${tile[1]}`;
+                if (!blockingItems[key]) {
+                  blockingItems[key] = true;
+                }
+              }
+            }
+            
+            // Send the terrain data (layer 1 is the cave layer, z=-1)
+            socket.write(JSON.stringify({
+              msg: 'caveMapData',
+              terrain: world[1], // Layer 1 = z=-1 (caves)
+              blockingItems: blockingItems,
+              mapSize: gameState.mapSize,
+              playerX: playerX,
+              playerY: playerY,
+              playerZ: playerZ,
+              tileSize: gameState.tileSize
+            }));
+          } else {
+            // Player doesn't have a cavemap
+            socket.write(JSON.stringify({
+              msg: 'addToChat',
+              message: '<span style="color:#ff6666;">You need a CaveMap item to use this feature.</span>'
             }));
           }
         }

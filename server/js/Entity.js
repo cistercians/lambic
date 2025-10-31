@@ -11592,6 +11592,33 @@ WorldMap = function(param){
   }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
+}
+
+// CAVEMAP
+CaveMap = function(param){
+  var self = Item(param);
+  self.type = 'CaveMap';
+  self.class = 'tool';
+  self.rank = 1;
+  self.canPickup = true;
+  self.pickup = function(id){
+    var player = Player.list[id];
+    var socket = SOCKET_LIST[id];
+    if(player.inventory.cavemap > 9){
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying too many</i> <b>CaveMap</b>.'}));
+    } else if(player.inventory.cavemap + self.qty > 10){
+      var q = 10 - player.inventory.cavemap;
+      self.qty -= q;
+      Player.list[id].inventory.cavemap += q;
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + q + ' <b>CaveMap</b>.'}));
+    } else {
+      Player.list[id].inventory.cavemap += self.qty;
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>CaveMap</b>.'}));
+      self.toRemove = true;
+    }
+  }
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
   return self;
 }
 

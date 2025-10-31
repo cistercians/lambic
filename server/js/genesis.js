@@ -266,44 +266,181 @@ function genesis(){
   };
 
   function geoform(map,c,r) {
-    let dimensions = 400, // width and height of the map
-        maxTunnels = 600, // max number of tunnels possible
-        maxLength = 12, // max length each tunnel can have
+    // Highly chaotic cave generation - maximum randomness and chaos
+    let maxTunnels = 250, // Many more tunnels for maximum chaos
+        maxLength = 12, // Shorter max length for more twists and turns
+        minLength = 1, // Allow single-tile tunnels for maximum chaos
+        roomChance = 0.18, // 18% chance to create a room
+        roomSize = 3, // Size of rooms (3x3 to 5x5)
+        continueDirectionChance = 0.35, // 35% chance to continue same direction (low persistence = more chaos)
+        branchChance = 0.45, // 45% chance to create a branch (very frequent branching)
+        randomWalkChance = 0.35, // 35% chance for completely random direction (high chaos)
         currentRow = c, // our current row - start at a random spot
         currentColumn = r, // our current column - start at a random spot
         directions = [[-1, 0],[1, 0],[0, -1],[0, 1]], // array to get a random direction from (left,right,up,down)
         lastDirection = [], // save the last direction we went
         randomDirection; // next turn/direction - holds a value from directions
 
+    // Initialize starting point (one tile south of entrance)
     map[currentRow][currentColumn] = 0;
     currentColumn--;
 
-    while (maxTunnels && dimensions && maxLength) {
-      do {
-        randomDirection = directions[Math.floor(Math.random() * directions.length)];
-      } while ((randomDirection[0] == -lastDirection[0] && randomDirection[1] == -lastDirection[1]) || (randomDirection[0] == lastDirection[0] && randomDirection[1] == lastDirection[1]));
+    // Helper function to create a room
+    function createRoom(map, row, col, size) {
+      var roomSize = Math.floor(Math.random() * (size - 1)) + size; // Random size between size and size+2
+      var startRow = Math.max(1, row - Math.floor(roomSize / 2));
+      var startCol = Math.max(1, col - Math.floor(roomSize / 2));
+      var endRow = Math.min(map.length - 2, row + Math.floor(roomSize / 2));
+      var endCol = Math.min(map[0].length - 2, col + Math.floor(roomSize / 2));
+      
+      for(var r = startRow; r <= endRow; r++) {
+        for(var c = startCol; c <= endCol; c++) {
+          map[r][c] = 0; // Clear room tiles
+        }
+      }
+    }
 
-      var randomLength = Math.ceil(Math.random() * maxLength),
-          tunnelLength = 0;
+    while (maxTunnels > 0) {
+      // Decide: continue tunnel or create room?
+      if (lastDirection.length > 0 && Math.random() < roomChance) {
+        // Create a room
+        createRoom(map, currentRow, currentColumn, roomSize);
+        maxTunnels--;
+        // After room, continue in same direction
+        continue;
+      }
+
+      // Choose direction with mix of organization and chaos
+      if (lastDirection.length > 0 && Math.random() < randomWalkChance) {
+        // 20% chance for pure random walk (complete chaos)
+        randomDirection = directions[Math.floor(Math.random() * directions.length)];
+      } else if (lastDirection.length > 0 && Math.random() < continueDirectionChance) {
+        // 45% chance to continue in same direction (maintains some structure)
+        randomDirection = lastDirection;
+      } else {
+        // 35% chance to change direction, but avoid going backwards
+        do {
+          randomDirection = directions[Math.floor(Math.random() * directions.length)];
+        } while (lastDirection.length > 0 && 
+                 randomDirection[0] == -lastDirection[0] && 
+                 randomDirection[1] == -lastDirection[1]);
+      }
+
+      // Create tunnel with random length (longer on average)
+      var randomLength = Math.floor(Math.random() * (maxLength - minLength + 1)) + minLength;
+      var tunnelLength = 0;
 
       while (tunnelLength < randomLength) {
-
-        if (((currentRow == 0) && (randomDirection[0] == -1)) ||
-            ((currentColumn == 0) && (randomDirection[1] == -1)) ||
-            ((currentRow == map.length - 1) && (randomDirection[0] == 1)) ||
-            ((currentColumn == map.length - 1) && (randomDirection[1] == 1))) {
+        // Check bounds
+        if (((currentRow <= 1) && (randomDirection[0] == -1)) ||
+            ((currentColumn <= 1) && (randomDirection[1] == -1)) ||
+            ((currentRow >= map.length - 2) && (randomDirection[0] == 1)) ||
+            ((currentColumn >= map[0].length - 2) && (randomDirection[1] == 1))) {
           break;
         } else {
+          // Clear the tile
           map[currentRow][currentColumn] = 0;
+          
+          // Very frequently create side branches for maximum chaotic exploration
+          if (tunnelLength > 0 && Math.random() < branchChance && maxTunnels > 5) {
+            var branchDirection = directions[Math.floor(Math.random() * directions.length)];
+            // Make sure branch doesn't go backwards or same direction
+            if (!(branchDirection[0] == -randomDirection[0] && branchDirection[1] == -randomDirection[1]) &&
+                !(branchDirection[0] == randomDirection[0] && branchDirection[1] == randomDirection[1])) {
+              var branchRow = currentRow;
+              var branchCol = currentColumn;
+              // Variable branch lengths for maximum chaos
+              var branchLength = Math.floor(Math.random() * 10) + 1; // 1-10 tile branches
+              
+              for(var b = 0; b < branchLength; b++) {
+                if (((branchRow <= 1) && (branchDirection[0] == -1)) ||
+                    ((branchCol <= 1) && (branchDirection[1] == -1)) ||
+                    ((branchRow >= map.length - 2) && (branchDirection[0] == 1)) ||
+                    ((branchCol >= map[0].length - 2) && (branchDirection[1] == 1))) {
+                  break;
+                }
+                map[branchRow][branchCol] = 0;
+                
+                // Branches frequently branch again for maximum chaos
+                if (b > 0 && Math.random() < 0.25 && maxTunnels > 3) {
+                  var subBranchDir = directions[Math.floor(Math.random() * directions.length)];
+                  if (!(subBranchDir[0] == -branchDirection[0] && subBranchDir[1] == -branchDirection[1])) {
+                    var subRow = branchRow;
+                    var subCol = branchCol;
+                    var subLength = Math.floor(Math.random() * 6) + 1; // 1-6 tile sub-branches
+                    for(var sb = 0; sb < subLength; sb++) {
+                      if (((subRow <= 1) && (subBranchDir[0] == -1)) ||
+                          ((subCol <= 1) && (subBranchDir[1] == -1)) ||
+                          ((subRow >= map.length - 2) && (subBranchDir[0] == 1)) ||
+                          ((subCol >= map[0].length - 2) && (subBranchDir[1] == 1))) {
+                        break;
+                      }
+                      map[subRow][subCol] = 0;
+                      
+                      // Even sub-branches can branch (extreme chaos!)
+                      if (sb > 0 && Math.random() < 0.12 && maxTunnels > 2) {
+                        var subSubDir = directions[Math.floor(Math.random() * directions.length)];
+                        if (!(subSubDir[0] == -subBranchDir[0] && subSubDir[1] == -subBranchDir[1])) {
+                          var subSubRow = subRow;
+                          var subSubCol = subCol;
+                          var subSubLength = Math.floor(Math.random() * 4) + 1;
+                          for(var ssb = 0; ssb < subSubLength; ssb++) {
+                            if (((subSubRow <= 1) && (subSubDir[0] == -1)) ||
+                                ((subSubCol <= 1) && (subSubDir[1] == -1)) ||
+                                ((subSubRow >= map.length - 2) && (subSubDir[0] == 1)) ||
+                                ((subSubCol >= map[0].length - 2) && (subSubDir[1] == 1))) {
+                              break;
+                            }
+                            map[subSubRow][subSubCol] = 0;
+                            subSubRow += subSubDir[0];
+                            subSubCol += subSubDir[1];
+                          }
+                          maxTunnels--;
+                        }
+                      }
+                      
+                      subRow += subBranchDir[0];
+                      subCol += subBranchDir[1];
+                    }
+                    maxTunnels--;
+                  }
+                }
+                
+                branchRow += branchDirection[0];
+                branchCol += branchDirection[1];
+              }
+              maxTunnels--; // Branch counts as a tunnel
+            }
+          }
+          
+          // Move forward
           currentRow += randomDirection[0];
           currentColumn += randomDirection[1];
           tunnelLength++;
         }
       }
 
-      if (tunnelLength) {
+      if (tunnelLength > 0) {
         lastDirection = randomDirection;
         maxTunnels--;
+      } else {
+        // If we can't move in chosen direction, try a different one
+        var attempts = 0;
+        while (attempts < 4) {
+          randomDirection = directions[Math.floor(Math.random() * directions.length)];
+          if (!((currentRow <= 1 && randomDirection[0] == -1) ||
+                (currentColumn <= 1 && randomDirection[1] == -1) ||
+                (currentRow >= map.length - 2 && randomDirection[0] == 1) ||
+                (currentColumn >= map[0].length - 2 && randomDirection[1] == 1))) {
+            lastDirection = randomDirection;
+            break;
+          }
+          attempts++;
+        }
+        // If we're stuck, stop generating from this entrance
+        if (attempts >= 4) {
+          break;
+        }
       }
     }
   };
@@ -361,11 +498,12 @@ function genesis(){
     }
   }
 
-  // add resources to Underworld
+  // add resources to Underworld (doubled ore generation)
   for(x = 1; x < (mapTiles - 1); x++){
     for(y = 1; y < (mapTiles - 1); y++){
       roll = Math.random();
-      if(worldMaps[1][y][x] == 1 && roll < 0.1 && (worldMaps[1][y+1][x] == 0 || worldMaps[1][y-1][x] == 0 || worldMaps[1][y][x+1] == 0 || worldMaps[1][y][x-1] == 0)){
+      // Doubled from 0.1 to 0.2 - now 20% chance instead of 10%
+      if(worldMaps[1][y][x] == 1 && roll < 0.2 && (worldMaps[1][y+1][x] == 0 || worldMaps[1][y-1][x] == 0 || worldMaps[1][y][x+1] == 0 || worldMaps[1][y][x-1] == 0)){
         worldMaps[1][y][x] = 3 + Number((Math.random()*0.9).toFixed(2));
         worldMaps[7][y][x] = 150;
       } else {

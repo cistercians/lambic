@@ -69,6 +69,7 @@ Inventory = function(param){
       crown:0,
       arrows:0,
       worldmap:0,
+      cavemap:0,
       relic:0,
       keyRing:[], // key = {id:building_id,name:building_name}
       mapData:null

@@ -263,6 +263,12 @@ socket.onmessage = function(event){
       worldmapPopup.style.display = 'block';
     }
     renderWorldMap(data.terrain, data.mapSize, data.playerX, data.playerY, data.tileSize, data.features);
+  } else if(data.msg == 'caveMapData'){
+    // Show cavemap popup and render the cave map
+    if(cavemapPopup){
+      cavemapPopup.style.display = 'block';
+    }
+    renderCaveMap(data.terrain, data.mapSize, data.playerX, data.playerY, data.tileSize, data.blockingItems);
   } else if(data.msg == 'buildMenuData'){
     // Show build menu and render building tiles
     if(buildMenuPopup){
@@ -1554,6 +1560,12 @@ var worldmapClose = document.getElementById('worldmap-close');
 var worldmapCanvas = document.getElementById('worldmap-canvas');
 var worldmapCtx = worldmapCanvas ? worldmapCanvas.getContext('2d') : null;
 
+// CAVEMAP UI
+var cavemapPopup = document.getElementById('cavemap-popup');
+var cavemapClose = document.getElementById('cavemap-close');
+var cavemapCanvas = document.getElementById('cavemap-canvas');
+var cavemapCtx = cavemapCanvas ? cavemapCanvas.getContext('2d') : null;
+
 // Build Menu variables
 var buildMenuPopup = document.getElementById('build-menu-popup');
 var buildMenuClose = document.getElementById('build-menu-close');
@@ -1753,6 +1765,13 @@ document.addEventListener('click', function(e){
 if(worldmapClose){
   worldmapClose.onclick = function(){
     worldmapPopup.style.display = 'none';
+  };
+}
+
+// CaveMap close button handler
+if(cavemapClose){
+  cavemapClose.onclick = function(){
+    cavemapPopup.style.display = 'none';
   };
 }
 
@@ -2756,6 +2775,77 @@ function renderWorldMapWithHighlight(terrainData, mapSize, playerX, playerY, pla
   }
 }
 
+// CaveMap Rendering Function
+function renderCaveMap(terrainData, mapSize, playerX, playerY, playerTileSize, blockingItems) {
+  if (!cavemapCtx || !terrainData) return;
+  
+  // Clear the canvas
+  cavemapCtx.clearRect(0, 0, cavemapCanvas.width, cavemapCanvas.height);
+  
+  // Calculate scale to fit the entire map in the canvas
+  var canvasSize = Math.min(cavemapCanvas.width, cavemapCanvas.height);
+  var pixelSize = canvasSize / mapSize;
+  
+  // Function to get terrain color based on value
+  function getCaveTerrainColor(value, c, r) {
+    if (value == null || value === undefined) return '#444444'; // Default dark grey (floor)
+    
+    var terrainType = Math.floor(value); // Get the integer part
+    
+    // Check for blocking items first (overrides terrain)
+    var tileKey = `${c},${r}`;
+    if (blockingItems && blockingItems[tileKey]) {
+      return '#8b4513'; // Brown for blocked items (crates, barrels, chests)
+    }
+    
+    // Map terrain type to color
+    if (terrainType === 0) return '#444444';  // Cave floor - dark grey
+    if (terrainType === 1) return '#888888';  // Cave wall - grey
+    if (terrainType === 2) return '#ffffff';  // Cave exit - white
+    if (terrainType >= 3 && terrainType <= 5) return '#aaaaaa';  // Mineable rocks (3, 4, 5) - light grey (not too light)
+    
+    // Default to dark grey (floor)
+    return '#444444';
+  }
+  
+  // Draw terrain
+  for (var r = 0; r < mapSize; r++) {
+    for (var c = 0; c < mapSize; c++) {
+      var terrainValue = (terrainData[r] && terrainData[r][c] !== undefined) ? terrainData[r][c] : 0;
+      var color = getCaveTerrainColor(terrainValue, c, r);
+      
+      cavemapCtx.fillStyle = color;
+      cavemapCtx.fillRect(
+        c * pixelSize,
+        r * pixelSize,
+        Math.ceil(pixelSize),
+        Math.ceil(pixelSize)
+      );
+    }
+  }
+  
+  // Draw player position as red X
+  var playerCol = Math.floor(playerX / playerTileSize);
+  var playerRow = Math.floor(playerY / playerTileSize);
+  
+  // Draw X marker
+  cavemapCtx.strokeStyle = '#ff0000';
+  cavemapCtx.lineWidth = Math.max(3, pixelSize * 1.2);
+  cavemapCtx.lineCap = 'round';
+  
+  var markerSize = pixelSize * 5;
+  var centerX = (playerCol + 0.5) * pixelSize;
+  var centerY = (playerRow + 0.5) * pixelSize;
+  
+  // Draw X
+  cavemapCtx.beginPath();
+  cavemapCtx.moveTo(centerX - markerSize / 2, centerY - markerSize / 2);
+  cavemapCtx.lineTo(centerX + markerSize / 2, centerY + markerSize / 2);
+  cavemapCtx.moveTo(centerX + markerSize / 2, centerY - markerSize / 2);
+  cavemapCtx.lineTo(centerX - markerSize / 2, centerY + markerSize / 2);
+  cavemapCtx.stroke();
+}
+
 // Build Menu rendering function
 function renderBuildMenu(buildings, playerWood, playerStone) {
   if (!buildMenuContent) return;
@@ -3188,6 +3278,10 @@ document.addEventListener('keydown', function(e){
   if(e.key === 'Escape'){
     if(worldmapPopup && worldmapPopup.style.display === 'block'){
       worldmapPopup.style.display = 'none';
+      return;
+    }
+    if(cavemapPopup && cavemapPopup.style.display === 'block'){
+      cavemapPopup.style.display = 'none';
       return;
     }
     if(marketPopup && marketPopup.style.display === 'block'){
@@ -9717,6 +9811,16 @@ document.onkeydown = function(event){
       }
       event.preventDefault();
       return;
+    } else if (event.keyCode === 86) { // V - Allow cavemap in godmode
+      // If cavemap is open, close it. Otherwise request data from server
+      if(cavemapPopup && cavemapPopup.style.display === 'block'){
+        cavemapPopup.style.display = 'none';
+      } else {
+        // Request cavemap data from server (only show popup if player has cavemap)
+        socket.send(JSON.stringify({msg:'requestCaveMap'}));
+      }
+      event.preventDefault();
+      return;
     } else {
       // Block all other inputs in god mode
       event.preventDefault();
@@ -9820,6 +9924,14 @@ document.onkeydown = function(event){
       } else {
         // Request worldmap data from server (only show popup if player has worldmap)
         socket.send(JSON.stringify({msg:'requestWorldMap'}));
+      }
+    } else if(event.keyCode == 86){ // v
+      // If cavemap is open, close it. Otherwise request data from server
+      if(cavemapPopup && cavemapPopup.style.display === 'block'){
+        cavemapPopup.style.display = 'none';
+      } else {
+        // Request cavemap data from server (only show popup if player has cavemap)
+        socket.send(JSON.stringify({msg:'requestCaveMap'}));
       }
   } else if(event.keyCode == 85){ // u - Build Menu
     // If build menu is open, close it. Otherwise request data from server
