@@ -5217,10 +5217,38 @@ if (outlawCount === 0) {
   console.warn('⚠️ WARNING: No Outlaw camps could be spawned - check heavy forest availability');
 }
 
-const mercenariesHQ = global.mapAnalyzer.findFactionHQ('Mercenaries', excludedHQs);
-if (mercenariesHQ) {
-  excludedHQs.push(mercenariesHQ.tile);
-  Mercenaries({ id: FACTION_IDS.MERCENARIES, type: 'npc', name: 'Mercenaries', flag: '', hq: mercenariesHQ.tile, hostile: true });
+// Spawn Mercenaries - keep spawning until no more valid locations with 50-tile spacing (same as Outlaws)
+let mercenariesCount = 0;
+let maxMercenariesAttempts = 50; // Safety limit to prevent infinite loop
+let mercenariesConsecutiveFailures = 0;
+
+while (mercenariesConsecutiveFailures < 3 && mercenariesCount < maxMercenariesAttempts) {
+  const mercenariesHQ = global.mapAnalyzer.findFactionHQ('Mercenaries', excludedHQs);
+  if (mercenariesHQ) {
+    excludedHQs.push(mercenariesHQ.tile);
+    mercenariesCount++;
+    mercenariesConsecutiveFailures = 0; // Reset failure counter on success
+    
+    Mercenaries({ 
+      id: FACTION_IDS.MERCENARIES + mercenariesCount - 1, // Use different IDs for each group
+      type: 'npc', 
+      name: `Mercenaries ${mercenariesCount}`, // Name them Mercenaries 1, Mercenaries 2, etc.
+      flag: '', 
+      hq: mercenariesHQ.tile, 
+      hostile: true 
+    });
+    
+    // Track for godmode
+    const coords = getCenter(mercenariesHQ.tile[0], mercenariesHQ.tile[1]);
+    global.factionHQs.push({ name: `Mercenaries ${mercenariesCount}`, x: coords[0], y: coords[1], z: -1 });
+  } else {
+    mercenariesConsecutiveFailures++;
+  }
+}
+
+console.log(`✓ Spawned ${mercenariesCount} Mercenary camps across the caves`);
+if (mercenariesCount === 0) {
+  console.warn('⚠️ WARNING: No Mercenary camps could be spawned - check cave availability');
 }
 
 Kingdom({ id: 1, name: 'Papal States', flag: '🇻🇦' });
@@ -5249,10 +5277,7 @@ if(teutonsHQ) {
   const coords = getCenter(teutonsHQ.tile[0], teutonsHQ.tile[1]);
   global.factionHQs.push({ name: 'Teutons', x: coords[0], y: coords[1], z: 0 });
 }
-if(mercenariesHQ) {
-  const coords = getCenter(mercenariesHQ.tile[0], mercenariesHQ.tile[1]);
-  global.factionHQs.push({ name: 'Mercenaries', x: coords[0], y: coords[1], z: -1 });
-}
+// Mercenaries HQs are already tracked in the spawn loop above
 console.log(`Stored ${global.factionHQs.length} faction HQs for god mode`);
 
 dailyTally();

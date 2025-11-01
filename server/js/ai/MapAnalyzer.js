@@ -80,7 +80,8 @@ class MapAnalyzer {
         requiredTerrain: [0], // Cave floor
         minTerrainPercentage: 0.30, // Lowered - immediate vicinity check is more reliable
         evaluationRadius: 8, // Need decent chamber for objects + movement
-        priorities: { openSpace: 70, centralLocation: 20, uniformCaveTerrain: 10 }
+        priorities: { openSpace: 70, centralLocation: 20, uniformCaveTerrain: 10 },
+        minSpacing: 35 // Spacing for caves (between Outlaws' 50 and previous 30)
       }
     };
   }
