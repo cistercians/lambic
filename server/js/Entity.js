@@ -1642,6 +1642,19 @@ Character = function(param){
       self._pathfindTimeout = null;
     }
     
+    // Clear all pending action timeouts (fishing, etc.)
+    if(self.actionTimeouts && Array.isArray(self.actionTimeouts)){
+      self.actionTimeouts.forEach(timeoutId => {
+        clearTimeout(timeoutId);
+      });
+      self.actionTimeouts = [];
+    }
+    
+    // Unsubscribe from EventManager
+    if(global.eventManager){
+      global.eventManager.unsubscribe(self.id);
+    }
+    
     // Remove from zones
     if(self.zone){
       const zoneKey = `${self.zone[0]},${self.zone[1]}`;
@@ -1793,8 +1806,8 @@ Character = function(param){
                   self.action = 'combat';
                   console.log(self.class + ' attacks ' + p.class);
                 }
-                // player death & respawn
-                if(Player.list[p.id].hp <= 0){
+                // player death & respawn (only if entity has HP - exclude invulnerable entities like falcons)
+                if(Player.list[p.id].hp !== null && Player.list[p.id].hp <= 0){
                   Player.list[p.id].die({id:self.id,cause:'melee'});
                 }
               }
@@ -1836,8 +1849,8 @@ Character = function(param){
                   self.action = 'combat';
                   console.log(self.class + ' attacks ' + p.class);
                 }
-                // player death & respawn
-                if(Player.list[p.id].hp <= 0){
+                // player death & respawn (only if entity has HP - exclude invulnerable entities like falcons)
+                if(Player.list[p.id].hp !== null && Player.list[p.id].hp <= 0){
                   Player.list[p.id].die({id:self.id,cause:'melee'});
                 }
               }
@@ -1879,8 +1892,8 @@ Character = function(param){
                   self.action = 'combat';
                   console.log(self.class + ' attacks ' + p.class);
                 }
-                // player death & respawn
-                if(Player.list[p.id].hp <= 0){
+                // player death & respawn (only if entity has HP - exclude invulnerable entities like falcons)
+                if(Player.list[p.id].hp !== null && Player.list[p.id].hp <= 0){
                   Player.list[p.id].die({id:self.id,cause:'melee'});
                 }
               }
@@ -1922,8 +1935,8 @@ Character = function(param){
                   self.action = 'combat';
                   console.log(self.class + ' attacks ' + p.class);
                 }
-                // player death & respawn
-                if(Player.list[p.id].hp <= 0){
+                // player death & respawn (only if entity has HP - exclude invulnerable entities like falcons)
+                if(Player.list[p.id].hp !== null && Player.list[p.id].hp <= 0){
                   Player.list[p.id].die({id:self.id,cause:'melee'});
                 }
               }
@@ -3125,7 +3138,7 @@ Character = function(param){
       } else {
         self.hp -= 0.5;
       }
-      if(self.hp <= 0){
+      if(self.hp !== null && self.hp <= 0){
         self.die({cause:'drowned'});
       }
       if(getTile(0,loc[0],loc[1]) != 0){
@@ -4926,8 +4939,9 @@ Wolf = function(param){
 Falcon = function(param){
   var self = Character(param);
   self.class = 'Falcon';
+  self.type = 'fauna'; // Not 'npc' - falcons are passive fauna with no combat
   self.falconry = param.falconry;
-  self.hp = null;
+  self.hp = null; // Invulnerable - falcons cannot be damaged
   self.baseSpd = 1;
   self.maxSpd = 1;
   self.spriteSize = tileSize*7;
@@ -5376,7 +5390,7 @@ Serf = function(param){
       } else {
         self.hp -= 0.5;
       }
-      if(self.hp <= 0){
+      if(self.hp !== null && self.hp <= 0){
         self.die({cause:'drowned'});
       }
       if(getTile(0,loc[0],loc[1]) != 0){
@@ -7242,7 +7256,7 @@ Innkeeper = function(param){
       } else {
         self.hp -= 0.5;
       }
-      if(self.hp <= 0){
+      if(self.hp !== null && self.hp <= 0){
         self.die({cause:'drowned'});
       }
       if(getTile(0,loc[0],loc[1]) != 0){
@@ -8121,7 +8135,7 @@ Blacksmith = function(param){
       } else {
         self.hp -= 0.5;
       }
-      if(self.hp <= 0){
+      if(self.hp !== null && self.hp <= 0){
         self.die({cause:'drowned'});
       }
       if(getTile(0,loc[0],loc[1]) != 0){
@@ -9125,8 +9139,8 @@ Arrow = function(param){
               Player.list[p.id].action = 'combat';
               Player.list[p.id].stealthed = false;
               Player.list[p.id].revealed = false;
-              // player death & respawn
-              if(Player.list[p.id].hp <= 0){
+              // player death & respawn (only if entity has HP - exclude invulnerable entities like falcons)
+              if(Player.list[p.id].hp !== null && Player.list[p.id].hp <= 0){
                 Player.list[p.id].die({id:self.parent,cause:'arrow'});
               }
               self.toRemove = true;

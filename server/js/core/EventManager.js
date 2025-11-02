@@ -335,6 +335,16 @@ class EventManager {
     }
   }
   
+  // Cleanup method to properly shut down EventManager
+  cleanup() {
+    this.stopFlushTimer();
+    this.flushLogs(); // Flush any remaining logs
+    this.subscribers.clear();
+    this.eventHistory = [];
+    this.logBuffer = [];
+    console.log('EventManager cleaned up');
+  }
+  
   flushLogs() {
     if (this.logBuffer.length === 0) return;
     

@@ -2209,7 +2209,7 @@ const Player = function(param) {
       self.hp -= 0.5;
     }
 
-    if (self.hp <= 0) {
+    if (self.hp !== null && self.hp <= 0) {
       self.die({ cause: 'drowned' });
     }
 
@@ -3244,519 +3244,8 @@ Player.onConnect = function(socket, name, playerType) {
   player.inventory.bread = 2;
   player.inventory.saison = 1;
 
-  socket.on('data', function(string) {
-    try {
-      const data = JSON.parse(string);
-
-      if(data.msg == 'keyPress'){
-        if(data.inputId == 'left'){
-          player.pressingLeft = data.state;
-        } else if(data.inputId == 'right'){
-          player.pressingRight = data.state;
-        } else if(data.inputId == 'up'){
-          player.pressingUp = data.state;
-        } else if(data.inputId == 'down'){
-          player.pressingDown = data.state;
-        } else if(data.inputId == 'attack'){
-          player.pressingAttack = data.state;
-        } else if(data.inputId == 'e'){
-          player.pressingE = data.state;
-        } else if(data.inputId == 't'){
-          player.pressingT = data.state;
-        } else if(data.inputId == 'i'){
-          player.pressingI = data.state;
-        } else if(data.inputId == 'p'){
-          player.pressingP = data.state;
-        } else if(data.inputId == 'f'){
-          player.pressingF = data.state;
-        } else if(data.inputId == 'h'){
-          player.pressingH = data.state;
-        } else if(data.inputId == 'k'){
-          player.pressingK = data.state;
-        } else if(data.inputId == 'l'){
-          player.pressingL = data.state;
-        } else if(data.inputId == 'x'){
-          player.pressingX = data.state;
-        } else if(data.inputId == 'c'){
-          player.pressingC = data.state;
-        } else if(data.inputId == 'n'){
-          player.pressingN = data.state;
-        } else if(data.inputId == 'm'){
-          player.pressingM = data.state;
-        } else if(data.inputId == '1'){
-          player.pressing1 = data.state;
-        } else if(data.inputId == '2'){
-          player.pressing2 = data.state;
-        } else if(data.inputId == '3'){
-          player.pressing3 = data.state;
-        } else if(data.inputId == '4'){
-          player.pressing4 = data.state;
-        } else if(data.inputId == '5'){
-          player.pressing5 = data.state;
-        } else if(data.inputId == '6'){
-          player.pressing6 = data.state;
-        } else if(data.inputId == '7'){
-          player.pressing7 = data.state;
-        } else if(data.inputId == '8'){
-          player.pressing8 = data.state;
-        } else if(data.inputId == '9'){
-          player.pressing9 = data.state;
-        } else if(data.inputId == '0'){
-          player.pressing0 = data.state;
-        } else if(data.inputId == 'shift'){
-          // Toggle running on keydown only (not keyup)
-          if(data.state){
-            // Ghosts have fixed speed, can't toggle running
-            if(player.ghost){
-              socket.write(JSON.stringify({ msg: 'addToChat', message: `<i>Ghosts cannot toggle running</i>` }));
-            } else if(player.z === Z_LEVELS.UNDERWATER){
-              socket.write(JSON.stringify({ msg: 'addToChat', message: `<i>You can't run underwater!</i>` }));
-            } else {
-              player.running = !player.running;
-              // No message - user doesn't need running/walking notification
-            }
-          }
-        } else if(data.inputId == 'mouseAngle'){
-          player.mouseAngle = data.state;
-        }
-      } else if (data.msg === 'msgToServer') {
-        const player = Player.list[socket.id];
-        if(player && player.ghost){
-          socket.write(JSON.stringify({ msg: 'addToChat', message: `<i>Ghosts cannot speak</i>` }));
-        } else {
-          emit({ msg: 'addToChat', message: `<b>${data.name}:</b> ${data.message}` });
-        }
-      } else if (data.msg === 'pmToServer') {
-        const player = Player.list[socket.id];
-        if(player && player.ghost){
-          socket.write(JSON.stringify({ msg: 'addToChat', message: `<i>Ghosts cannot speak</i>` }));
-        } else {
-          let recipient = null;
-
-          for (const i in Player.list) {
-            if (Player.list[i].name === data.recip) {
-              recipient = SOCKET_LIST[i];
-              break;
-            }
-          }
-
-          if (!recipient) {
-            socket.write(JSON.stringify({ msg: 'addToChat', message: `<i>${data.recip} is not online.</i>` }));
-          } else {
-            recipient.write(JSON.stringify({ msg: 'addToChat', message: `<b>@${player.name}</b> whispers: <i>${data.message}</i>` }));
-            socket.write(JSON.stringify({ msg: 'addToChat', message: `To ${data.recip}: <i>${data.message}</i>` }));
-          }
-        }
-      } else if (data.msg === 'requestBuildMenu') {
-        const player = Player.list[socket.id];
-        if (player && player.type === 'player') {
-          // Define all buildings with tier, costs, and dependency logic
-          // Tier I - all available from start (except Villa - no assets)
-          const tier1Buildings = [
-            {type: 'farm', name: 'Farm', wood: 50, stone: 25, tier: 1},
-            {type: 'lumbermill', name: 'Lumbermill', wood: 75, stone: 40, tier: 1},
-            {type: 'mine', name: 'Mine', wood: 60, stone: 80, tier: 1},
-            {type: 'hut', name: 'Hut', wood: 25, stone: 10, tier: 1},
-            {type: 'cottage', name: 'Cottage', wood: 40, stone: 20, tier: 1},
-            {type: 'tavern', name: 'Tavern', wood: 125, stone: 0, tier: 1},
-            {type: 'tower', name: 'Tower', wood: 30, stone: 50, tier: 1},
-            {type: 'forge', name: 'Forge', wood: 50, stone: 100, tier: 1},
-            {type: 'fort', name: 'Fort', wood: 120, stone: 150, tier: 1},
-            {type: 'outpost', name: 'Outpost', wood: 60, stone: 80, tier: 1},
-            {type: 'monastery', name: 'Monastery', wood: 200, stone: 300, tier: 1}
-          ];
-          
-          // Check player's built buildings for tier unlocks
-          let hasTavern = false;
-          let hasForge = false;
-          let hasGarrison = false;
-          
-          for (const id in Building.list) {
-            const building = Building.list[id];
-            if (building.owner === player.id && building.built) {
-              if (building.type === 'tavern') hasTavern = true;
-              if (building.type === 'forge') hasForge = true;
-              if (building.type === 'garrison') hasGarrison = true;
-            }
-          }
-          
-          // Tier II - requires specific Tier I buildings
-          const tier2Buildings = [];
-          if (hasTavern) {
-            tier2Buildings.push({type: 'dock', name: 'Dock', wood: 80, stone: 40, tier: 2});
-            tier2Buildings.push({type: 'stable', name: 'Stable', wood: 100, stone: 50, tier: 2});
-            tier2Buildings.push({type: 'market', name: 'Market', wood: 150, stone: 75, tier: 2});
-          }
-          if (hasForge) {
-            tier2Buildings.push({type: 'garrison', name: 'Garrison', wood: 150, stone: 100, tier: 2});
-          }
-          
-          // Tier III - requires Garrison
-          const tier3Buildings = [];
-          if (hasGarrison) {
-            tier3Buildings.push({type: 'stronghold', name: 'Stronghold', wood: 200, stone: 300, tier: 3});
-            tier3Buildings.push({type: 'wall', name: 'Wall', wood: 30, stone: 40, tier: 3});
-            tier3Buildings.push({type: 'gate', name: 'Gate', wood: 50, stone: 60, tier: 3});
-            tier3Buildings.push({type: 'guardtower', name: 'Guard Tower', wood: 100, stone: 120, tier: 3});
-          }
-          
-          // Combine all available buildings
-          const allBuildings = [...tier1Buildings, ...tier2Buildings, ...tier3Buildings];
-          
-          // Get player resources
-          const playerWood = player.inventory.wood || 0;
-          const playerStone = player.inventory.stone || 0;
-          
-          // Mark each building with unlocked status
-          const buildingsData = allBuildings.map(b => ({
-            ...b,
-            unlocked: true // All buildings in their respective tiers are unlocked
-          }));
-          
-          // Send response
-          socket.write(JSON.stringify({
-            msg: 'buildMenuData',
-            buildings: buildingsData,
-            playerWood: playerWood,
-            playerStone: playerStone
-          }));
-        }
-      } else if (data.msg === 'startBuildPreview') {
-        const player = Player.list[socket.id];
-        if (player && player.type === 'player' && data.buildingType) {
-          const loc = getLoc(player.x, player.y);
-          const z = player.z;
-          const c = loc[0];
-          const r = loc[1];
-          
-          // Use BuildingPreview if available
-          if (global.buildingPreview) {
-            const validation = global.buildingPreview.validateBuildingPlacement(data.buildingType, c, r, z);
-            
-            socket.write(JSON.stringify({
-              msg: 'buildPreviewData',
-              buildingType: data.buildingType,
-              valid: validation.tiles || [],
-              clearable: validation.clearableTiles || [],
-              blocked: validation.blockedTiles || []
-            }));
-          }
-        }
-      } else if (data.msg === 'requestBuildValidation') {
-        const player = Player.list[socket.id];
-        if (player && player.type === 'player' && data.buildingType && data.tileX !== undefined && data.tileY !== undefined) {
-          const z = player.z;
-          
-          if (global.buildingPreview) {
-            const validation = global.buildingPreview.validateBuildingPlacement(data.buildingType, data.tileX, data.tileY, z);
-            
-            socket.write(JSON.stringify({
-              msg: 'buildValidationData',
-              buildingType: data.buildingType,
-              tileX: data.tileX,
-              tileY: data.tileY,
-              valid: validation.tiles || [],
-              clearable: validation.clearableTiles || [],
-              blocked: validation.blockedTiles || []
-            }));
-          }
-        }
-      } else if (data.msg === 'buildAt') {
-        // Build at specific tile coordinates
-        const player = Player.list[socket.id];
-        if (player && player.type === 'player' && data.buildingType && data.tileX !== undefined && data.tileY !== undefined) {
-          // Execute build command at the specified tile coordinates
-          const buildCmd = 'build ' + data.buildingType;
-          EvalCmd({
-            id: socket.id,
-            cmd: buildCmd,
-            world: world,
-            overrideC: data.tileX,
-            overrideR: data.tileY
-          });
-        }
-      } else if (data.msg === 'requestWorldMap') {
-        const player = Player.list[socket.id];
-        if (player) {
-          // Check if player has a worldmap item OR is in godmode
-          if (player.inventory.worldmap > 0 || player.godMode) {
-            // For godmode players, use center of map as position if no valid position
-            let playerX = player.x || gameState.mapSize * gameState.tileSize / 2;
-            let playerY = player.y || gameState.mapSize * gameState.tileSize / 2;
-            let playerZ = player.z || 0;
-            
-            // Send the terrain data (layer 0 is the overworld terrain)
-            socket.write(JSON.stringify({
-              msg: 'worldMapData',
-              terrain: world[0],
-              mapSize: gameState.mapSize,
-              playerX: playerX,
-              playerY: playerY,
-              playerZ: playerZ,
-              tileSize: gameState.tileSize,
-              features: global.mapAnalyzer ? global.mapAnalyzer.geographicFeatures : []
-            }));
-          } else {
-            // Player doesn't have a worldmap
-            socket.write(JSON.stringify({
-              msg: 'addToChat',
-              message: '<span style="color:#ff6666;">You need a WorldMap item to use this feature.</span>'
-            }));
-          }
-        }
-      } else if (data.msg === 'requestCaveMap') {
-        const player = Player.list[socket.id];
-        if (player) {
-          // Check if player has a cavemap item OR is in godmode
-          if (player.inventory.cavemap > 0 || player.godMode) {
-            // For godmode players, use center of map as position if no valid position
-            let playerX = player.x || gameState.mapSize * gameState.tileSize / 2;
-            let playerY = player.y || gameState.mapSize * gameState.tileSize / 2;
-            let playerZ = player.z || -1;
-            
-            // Build a map of items at each tile (crates, barrels, chests)
-            const blockingItems = {};
-            for (const itemId in Item.list) {
-              const item = Item.list[itemId];
-              if (item.z === -1 && (item.type === 'Crates' || item.type === 'Barrel' || item.type === 'Chest' || item.type === 'LockedChest')) {
-                const tile = getLoc(item.x, item.y);
-                const key = `${tile[0]},${tile[1]}`;
-                if (!blockingItems[key]) {
-                  blockingItems[key] = true;
-                }
-              }
-            }
-            
-            // Send the terrain data (layer 1 is the cave layer, z=-1)
-            socket.write(JSON.stringify({
-              msg: 'caveMapData',
-              terrain: world[1], // Layer 1 = z=-1 (caves)
-              blockingItems: blockingItems,
-              mapSize: gameState.mapSize,
-              playerX: playerX,
-              playerY: playerY,
-              playerZ: playerZ,
-              tileSize: gameState.tileSize
-            }));
-          } else {
-            // Player doesn't have a cavemap
-            socket.write(JSON.stringify({
-              msg: 'addToChat',
-              message: '<span style="color:#ff6666;">You need a CaveMap item to use this feature.</span>'
-            }));
-          }
-        }
-      } else if (data.msg === 'equipItem') {
-        const player = Player.list[socket.id];
-        if (player && data.itemType) {
-          const itemType = data.itemType;
-          
-          // Check if player has the item
-          if (player.inventory[itemType] && player.inventory[itemType] > 0) {
-            const item = equip[itemType];
-            if (item) {
-              // Determine which slot to equip to
-              // Get item rarity color
-              const { ItemFactory, itemFactory } = require('./server/js/entities/ItemFactory');
-              const itemConfig = itemFactory.itemConfigs[itemType];
-              const rank = itemConfig ? itemConfig.rank : 0;
-              const rarityColor = ItemFactory.getRarityColor(rank);
-              
-              if (item.type === 'dagger' || item.type === 'sword' || item.type === 'bow' || item.type === 'lance') {
-                // Unequip current weapon if exists (Main Hand)
-                if (player.gear.weapon) {
-                  player.gear.weapon.unequip(player.id);
-                }
-                player.gear.weapon = item;
-                player.inventory[itemType]--;
-                socket.write(JSON.stringify({
-                  msg: 'addToChat',
-                  message: `<i>You equipped</i> <b style="color:${rarityColor}">[${item.name}]</b>.`
-                }));
-                // Send gear, inventory, and class update to client
-                socket.write(JSON.stringify({
-                  msg: 'gearUpdate',
-                  gear: player.gear,
-                  inventory: player.inventory,
-                  class: player.class
-                }));
-              } else if (item.type === 'leather' || item.type === 'chainmail' || item.type === 'plate' || item.type === 'cloth') {
-                // Unequip current armor if exists
-                if (player.gear.armor) {
-                  player.gear.armor.unequip(player.id);
-                }
-                player.gear.armor = item;
-                player.inventory[itemType]--;
-                socket.write(JSON.stringify({
-                  msg: 'addToChat',
-                  message: `<i>You equipped</i> <b style="color:${rarityColor}">[${item.name}]</b>.`
-                }));
-                // Send gear, inventory, and class update to client
-                socket.write(JSON.stringify({
-                  msg: 'gearUpdate',
-                  gear: player.gear,
-                  inventory: player.inventory,
-                  class: player.class
-                }));
-              } else if (item.type === 'head') {
-                // Unequip current head if exists
-                if (player.gear.head) {
-                  player.gear.head.unequip(player.id);
-                }
-                player.gear.head = item;
-                player.inventory[itemType]--;
-                socket.write(JSON.stringify({
-                  msg: 'addToChat',
-                  message: `<i>You equipped</i> <b style="color:${rarityColor}">[${item.name}]</b>.`
-                }));
-                // Send gear, inventory, and class update to client
-                socket.write(JSON.stringify({
-                  msg: 'gearUpdate',
-                  gear: player.gear,
-                  inventory: player.inventory,
-                  class: player.class
-                }));
-              }
-            } else {
-              socket.write(JSON.stringify({
-                msg: 'addToChat',
-                message: '<i>That item cannot be equipped.</i>'
-              }));
-            }
-          } else {
-            socket.write(JSON.stringify({
-              msg: 'addToChat',
-              message: '<i>You do not have that item.</i>'
-            }));
-          }
-        }
-      } else if (data.msg === 'unequipItem') {
-        const player = Player.list[socket.id];
-        if (player && data.slot) {
-          const slot = data.slot;
-          if (player.gear[slot]) {
-            const itemName = player.gear[slot].name;
-            const itemType = itemName.toLowerCase().replace(/\s+/g, '');
-            
-            // Get item rarity color
-            const { ItemFactory, itemFactory } = require('./server/js/entities/ItemFactory');
-            const itemConfig = itemFactory.itemConfigs[itemType];
-            const rank = itemConfig ? itemConfig.rank : 0;
-            const rarityColor = ItemFactory.getRarityColor(rank);
-            
-            player.gear[slot].unequip(player.id);
-            player.gear[slot] = null;
-            socket.write(JSON.stringify({
-              msg: 'addToChat',
-              message: `<i>You unequipped</i> <b style="color:${rarityColor}">[${itemName}]</b>.`
-            }));
-            // Send gear, inventory, and class update to client
-            socket.write(JSON.stringify({
-              msg: 'gearUpdate',
-              gear: player.gear,
-              inventory: player.inventory,
-              class: player.class
-            }));
-          }
-        }
-      } else if (data.msg === 'dropItem') {
-        const player = Player.list[socket.id];
-        if (player && data.itemType && data.quantity) {
-          const itemType = data.itemType;
-          const quantity = Math.min(parseInt(data.quantity), player.inventory[itemType] || 0);
-          
-          if (quantity > 0) {
-            // Get item info for colored message
-            const { ItemFactory, itemFactory } = require('./server/js/entities/ItemFactory');
-            const itemConfig = itemFactory.itemConfigs[itemType];
-            const rank = itemConfig ? itemConfig.rank : 0;
-            const rarityColor = ItemFactory.getRarityColor(rank);
-            const itemName = itemType.charAt(0).toUpperCase() + itemType.slice(1);
-            
-            // Remove from inventory
-            player.inventory[itemType] -= quantity;
-            
-            // Create dropped item in world
-            const droppedItem = itemFactory.createItem(itemType, {
-              x: player.x,
-              y: player.y,
-              z: player.z,
-              qty: quantity
-            });
-            
-            if (droppedItem) {
-              socket.write(JSON.stringify({
-                msg: 'addToChat',
-                message: `<i>You dropped</i> ${quantity} <b style="color:${rarityColor}">[${itemName}]</b>.`
-              }));
-            }
-          }
-        }
-      } else if (data.msg === 'useItem') {
-        const player = Player.list[socket.id];
-        if (player && data.itemType) {
-          const itemType = data.itemType;
-          
-          // Check if player has the item
-          if (player.inventory[itemType] && player.inventory[itemType] > 0) {
-            // Get item info for colored message
-            const { ItemFactory, itemFactory } = require('./server/js/entities/ItemFactory');
-            const itemConfig = itemFactory.itemConfigs[itemType];
-            const rank = itemConfig ? itemConfig.rank : 0;
-            const rarityColor = ItemFactory.getRarityColor(rank);
-            const itemName = itemType.charAt(0).toUpperCase() + itemType.slice(1);
-            
-            // Handle consumables
-            const consumables = ['bread', 'meat', 'fish', 'lamb', 'boarmeat', 'venison', 'poachedfish', 'lambchop', 'boarshank', 'venisonloin'];
-            const drinks = ['mead', 'saison', 'flanders', 'bieredegarde', 'bordeaux', 'bourgogne', 'chianti'];
-            
-            if (consumables.indexOf(itemType) !== -1) {
-              // Restore HP based on food quality
-              let hpRestore = 20; // Basic food
-              if (['lambchop', 'boarshank', 'venisonloin'].indexOf(itemType) !== -1) {
-                hpRestore = 40; // Cooked food
-              }
-              if (['poachedfish'].indexOf(itemType) !== -1) {
-                hpRestore = 30; // Prepared fish
-              }
-              
-              player.hp = Math.min(player.hp + hpRestore, player.hpMax);
-              player.inventory[itemType]--;
-              
-              socket.write(JSON.stringify({
-                msg: 'addToChat',
-                message: `<i>You consumed</i> <b style="color:${rarityColor}">[${itemName}]</b> <i>and restored</i> <span style="color:#00ff00;">${hpRestore} HP</span>.`
-              }));
-            } else if (drinks.indexOf(itemType) !== -1) {
-              // Restore HP based on drink quality
-              let hpRestore = 10; // Basic drinks
-              if (['flanders', 'bieredegarde'].indexOf(itemType) !== -1) {
-                hpRestore = 20; // Quality beer
-              }
-              if (['bordeaux', 'bourgogne', 'chianti'].indexOf(itemType) !== -1) {
-                hpRestore = 30; // Fine wine
-              }
-              
-              player.hp = Math.min(player.hp + hpRestore, player.hpMax);
-              player.inventory[itemType]--;
-              
-              socket.write(JSON.stringify({
-                msg: 'addToChat',
-                message: `<i>You drank</i> <b style="color:${rarityColor}">[${itemName}]</b> <i>and restored</i> <span style="color:#00ff00;">${hpRestore} HP</span>.`
-              }));
-            } else {
-              socket.write(JSON.stringify({
-                msg: 'addToChat',
-                message: '<i>You cannot use that item.</i>'
-              }));
-            }
-          }
-        }
-      }
-    } catch (e) {
-      console.error('Error parsing socket data:', e);
-    }
-  });
+  // REMOVED: Duplicate socket.on('data') listener - all game messages are now handled in the main connection handler
+  // This prevents memory leaks from multiple listeners accumulating on the same socket
 
   socket.write(JSON.stringify({
     msg: 'newFaction',
@@ -5023,6 +4512,508 @@ io.on('connection', function(socket) {
       } else if (data.msg === 'evalCmd') {
         // Use original command system
         EvalCmd(data);
+      } else {
+        // Handle all game messages (requires player to be logged in)
+        const player = Player.list[socket.id];
+        if (!player) {
+          // Ignore messages from non-logged-in connections
+          return;
+        }
+        
+        // All the game message handlers that were previously in Player.onConnect
+        if(data.msg == 'keyPress'){
+          if(data.inputId == 'left'){
+            player.pressingLeft = data.state;
+          } else if(data.inputId == 'right'){
+            player.pressingRight = data.state;
+          } else if(data.inputId == 'up'){
+            player.pressingUp = data.state;
+          } else if(data.inputId == 'down'){
+            player.pressingDown = data.state;
+          } else if(data.inputId == 'attack'){
+            player.pressingAttack = data.state;
+          } else if(data.inputId == 'e'){
+            player.pressingE = data.state;
+          } else if(data.inputId == 't'){
+            player.pressingT = data.state;
+          } else if(data.inputId == 'i'){
+            player.pressingI = data.state;
+          } else if(data.inputId == 'p'){
+            player.pressingP = data.state;
+          } else if(data.inputId == 'f'){
+            player.pressingF = data.state;
+          } else if(data.inputId == 'h'){
+            player.pressingH = data.state;
+          } else if(data.inputId == 'k'){
+            player.pressingK = data.state;
+          } else if(data.inputId == 'l'){
+            player.pressingL = data.state;
+          } else if(data.inputId == 'x'){
+            player.pressingX = data.state;
+          } else if(data.inputId == 'c'){
+            player.pressingC = data.state;
+          } else if(data.inputId == 'n'){
+            player.pressingN = data.state;
+          } else if(data.inputId == 'm'){
+            player.pressingM = data.state;
+          } else if(data.inputId == '1'){
+            player.pressing1 = data.state;
+          } else if(data.inputId == '2'){
+            player.pressing2 = data.state;
+          } else if(data.inputId == '3'){
+            player.pressing3 = data.state;
+          } else if(data.inputId == '4'){
+            player.pressing4 = data.state;
+          } else if(data.inputId == '5'){
+            player.pressing5 = data.state;
+          } else if(data.inputId == '6'){
+            player.pressing6 = data.state;
+          } else if(data.inputId == '7'){
+            player.pressing7 = data.state;
+          } else if(data.inputId == '8'){
+            player.pressing8 = data.state;
+          } else if(data.inputId == '9'){
+            player.pressing9 = data.state;
+          } else if(data.inputId == '0'){
+            player.pressing0 = data.state;
+          } else if(data.inputId == 'shift'){
+            // Toggle running on keydown only (not keyup)
+            if(data.state){
+              // Ghosts have fixed speed, can't toggle running
+              if(player.ghost){
+                socket.write(JSON.stringify({ msg: 'addToChat', message: `<i>Ghosts cannot toggle running</i>` }));
+              } else if(player.z === Z_LEVELS.UNDERWATER){
+                socket.write(JSON.stringify({ msg: 'addToChat', message: `<i>You can't run underwater!</i>` }));
+              } else {
+                player.running = !player.running;
+                // No message - user doesn't need running/walking notification
+              }
+            }
+          } else if(data.inputId == 'mouseAngle'){
+            player.mouseAngle = data.state;
+          }
+        } else if (data.msg === 'msgToServer') {
+          if(player && player.ghost){
+            socket.write(JSON.stringify({ msg: 'addToChat', message: `<i>Ghosts cannot speak</i>` }));
+          } else {
+            emit({ msg: 'addToChat', message: `<b>${data.name}:</b> ${data.message}` });
+          }
+        } else if (data.msg === 'pmToServer') {
+          if(player && player.ghost){
+            socket.write(JSON.stringify({ msg: 'addToChat', message: `<i>Ghosts cannot speak</i>` }));
+          } else {
+            let recipient = null;
+
+            for (const i in Player.list) {
+              if (Player.list[i].name === data.recip) {
+                recipient = SOCKET_LIST[i];
+                break;
+              }
+            }
+
+            if (!recipient) {
+              socket.write(JSON.stringify({ msg: 'addToChat', message: `<i>${data.recip} is not online.</i>` }));
+            } else {
+              recipient.write(JSON.stringify({ msg: 'addToChat', message: `<b>@${player.name}</b> whispers: <i>${data.message}</i>` }));
+              socket.write(JSON.stringify({ msg: 'addToChat', message: `To ${data.recip}: <i>${data.message}</i>` }));
+            }
+          }
+        } else if (data.msg === 'requestBuildMenu') {
+          if (player && player.type === 'player') {
+            // Define all buildings with tier, costs, and dependency logic
+            // Tier I - all available from start (except Villa - no assets)
+            const tier1Buildings = [
+              {type: 'farm', name: 'Farm', wood: 50, stone: 25, tier: 1},
+              {type: 'lumbermill', name: 'Lumbermill', wood: 75, stone: 40, tier: 1},
+              {type: 'mine', name: 'Mine', wood: 60, stone: 80, tier: 1},
+              {type: 'hut', name: 'Hut', wood: 25, stone: 10, tier: 1},
+              {type: 'cottage', name: 'Cottage', wood: 40, stone: 20, tier: 1},
+              {type: 'tavern', name: 'Tavern', wood: 125, stone: 0, tier: 1},
+              {type: 'tower', name: 'Tower', wood: 30, stone: 50, tier: 1},
+              {type: 'forge', name: 'Forge', wood: 50, stone: 100, tier: 1},
+              {type: 'fort', name: 'Fort', wood: 120, stone: 150, tier: 1},
+              {type: 'outpost', name: 'Outpost', wood: 60, stone: 80, tier: 1},
+              {type: 'monastery', name: 'Monastery', wood: 200, stone: 300, tier: 1}
+            ];
+            
+            // Check player's built buildings for tier unlocks
+            let hasTavern = false;
+            let hasForge = false;
+            let hasGarrison = false;
+            
+            for (const id in Building.list) {
+              const building = Building.list[id];
+              if (building.owner === player.id && building.built) {
+                if (building.type === 'tavern') hasTavern = true;
+                if (building.type === 'forge') hasForge = true;
+                if (building.type === 'garrison') hasGarrison = true;
+              }
+            }
+            
+            // Tier II - requires specific Tier I buildings
+            const tier2Buildings = [];
+            if (hasTavern) {
+              tier2Buildings.push({type: 'dock', name: 'Dock', wood: 80, stone: 40, tier: 2});
+              tier2Buildings.push({type: 'stable', name: 'Stable', wood: 100, stone: 50, tier: 2});
+              tier2Buildings.push({type: 'market', name: 'Market', wood: 150, stone: 75, tier: 2});
+            }
+            if (hasForge) {
+              tier2Buildings.push({type: 'garrison', name: 'Garrison', wood: 150, stone: 100, tier: 2});
+            }
+            
+            // Tier III - requires Garrison
+            const tier3Buildings = [];
+            if (hasGarrison) {
+              tier3Buildings.push({type: 'stronghold', name: 'Stronghold', wood: 200, stone: 300, tier: 3});
+              tier3Buildings.push({type: 'wall', name: 'Wall', wood: 30, stone: 40, tier: 3});
+              tier3Buildings.push({type: 'gate', name: 'Gate', wood: 50, stone: 60, tier: 3});
+              tier3Buildings.push({type: 'guardtower', name: 'Guard Tower', wood: 100, stone: 120, tier: 3});
+            }
+            
+            // Combine all available buildings
+            const allBuildings = [...tier1Buildings, ...tier2Buildings, ...tier3Buildings];
+            
+            // Get player resources
+            const playerWood = player.inventory.wood || 0;
+            const playerStone = player.inventory.stone || 0;
+            
+            // Mark each building with unlocked status
+            const buildingsData = allBuildings.map(b => ({
+              ...b,
+              unlocked: true // All buildings in their respective tiers are unlocked
+            }));
+            
+            // Send response
+            socket.write(JSON.stringify({
+              msg: 'buildMenuData',
+              buildings: buildingsData,
+              playerWood: playerWood,
+              playerStone: playerStone
+            }));
+          }
+        } else if (data.msg === 'startBuildPreview') {
+          if (player && player.type === 'player' && data.buildingType) {
+            const loc = getLoc(player.x, player.y);
+            const z = player.z;
+            const c = loc[0];
+            const r = loc[1];
+            
+            // Use BuildingPreview if available
+            if (global.buildingPreview) {
+              const validation = global.buildingPreview.validateBuildingPlacement(data.buildingType, c, r, z);
+              
+              socket.write(JSON.stringify({
+                msg: 'buildPreviewData',
+                buildingType: data.buildingType,
+                valid: validation.tiles || [],
+                clearable: validation.clearableTiles || [],
+                blocked: validation.blockedTiles || []
+              }));
+            }
+          }
+        } else if (data.msg === 'requestBuildValidation') {
+          if (player && player.type === 'player' && data.buildingType && data.tileX !== undefined && data.tileY !== undefined) {
+            const z = player.z;
+            
+            if (global.buildingPreview) {
+              const validation = global.buildingPreview.validateBuildingPlacement(data.buildingType, data.tileX, data.tileY, z);
+              
+              socket.write(JSON.stringify({
+                msg: 'buildValidationData',
+                buildingType: data.buildingType,
+                tileX: data.tileX,
+                tileY: data.tileY,
+                valid: validation.tiles || [],
+                clearable: validation.clearableTiles || [],
+                blocked: validation.blockedTiles || []
+              }));
+            }
+          }
+        } else if (data.msg === 'buildAt') {
+          // Build at specific tile coordinates
+          if (player && player.type === 'player' && data.buildingType && data.tileX !== undefined && data.tileY !== undefined) {
+            // Execute build command at the specified tile coordinates
+            const buildCmd = 'build ' + data.buildingType;
+            EvalCmd({
+              id: socket.id,
+              cmd: buildCmd,
+              world: world,
+              overrideC: data.tileX,
+              overrideR: data.tileY
+            });
+          }
+        } else if (data.msg === 'requestWorldMap') {
+          if (player) {
+            // Check if player has a worldmap item OR is in godmode
+            if (player.inventory.worldmap > 0 || player.godMode) {
+              // For godmode players, use center of map as position if no valid position
+              let playerX = player.x || gameState.mapSize * gameState.tileSize / 2;
+              let playerY = player.y || gameState.mapSize * gameState.tileSize / 2;
+              let playerZ = player.z || 0;
+              
+              // Send the terrain data (layer 0 is the overworld terrain)
+              socket.write(JSON.stringify({
+                msg: 'worldMapData',
+                terrain: world[0],
+                mapSize: gameState.mapSize,
+                playerX: playerX,
+                playerY: playerY,
+                playerZ: playerZ,
+                tileSize: gameState.tileSize,
+                features: global.mapAnalyzer ? global.mapAnalyzer.geographicFeatures : []
+              }));
+            } else {
+              // Player doesn't have a worldmap
+              socket.write(JSON.stringify({
+                msg: 'addToChat',
+                message: '<span style="color:#ff6666;">You need a WorldMap item to use this feature.</span>'
+              }));
+            }
+          }
+        } else if (data.msg === 'requestCaveMap') {
+          if (player) {
+            // Check if player has a cavemap item OR is in godmode
+            if (player.inventory.cavemap > 0 || player.godMode) {
+              // For godmode players, use center of map as position if no valid position
+              let playerX = player.x || gameState.mapSize * gameState.tileSize / 2;
+              let playerY = player.y || gameState.mapSize * gameState.tileSize / 2;
+              let playerZ = player.z || -1;
+              
+              // Build a map of items at each tile (crates, barrels, chests)
+              const blockingItems = {};
+              for (const itemId in Item.list) {
+                const item = Item.list[itemId];
+                if (item.z === -1 && (item.type === 'Crates' || item.type === 'Barrel' || item.type === 'Chest' || item.type === 'LockedChest')) {
+                  const tile = getLoc(item.x, item.y);
+                  const key = `${tile[0]},${tile[1]}`;
+                  if (!blockingItems[key]) {
+                    blockingItems[key] = true;
+                  }
+                }
+              }
+              
+              // Send the terrain data (layer 1 is the cave layer, z=-1)
+              socket.write(JSON.stringify({
+                msg: 'caveMapData',
+                terrain: world[1], // Layer 1 = z=-1 (caves)
+                blockingItems: blockingItems,
+                mapSize: gameState.mapSize,
+                playerX: playerX,
+                playerY: playerY,
+                playerZ: playerZ,
+                tileSize: gameState.tileSize
+              }));
+            } else {
+              // Player doesn't have a cavemap
+              socket.write(JSON.stringify({
+                msg: 'addToChat',
+                message: '<span style="color:#ff6666;">You need a CaveMap item to use this feature.</span>'
+              }));
+            }
+          }
+        } else if (data.msg === 'equipItem') {
+          if (player && data.itemType) {
+            const itemType = data.itemType;
+            
+            // Check if player has the item
+            if (player.inventory[itemType] && player.inventory[itemType] > 0) {
+              const item = equip[itemType];
+              if (item) {
+                // Determine which slot to equip to
+                // Get item rarity color
+                const { ItemFactory, itemFactory } = require('./server/js/entities/ItemFactory');
+                const itemConfig = itemFactory.itemConfigs[itemType];
+                const rank = itemConfig ? itemConfig.rank : 0;
+                const rarityColor = ItemFactory.getRarityColor(rank);
+                
+                if (item.type === 'dagger' || item.type === 'sword' || item.type === 'bow' || item.type === 'lance') {
+                  // Unequip current weapon if exists (Main Hand)
+                  if (player.gear.weapon) {
+                    player.gear.weapon.unequip(player.id);
+                  }
+                  player.gear.weapon = item;
+                  player.inventory[itemType]--;
+                  socket.write(JSON.stringify({
+                    msg: 'addToChat',
+                    message: `<i>You equipped</i> <b style="color:${rarityColor}">[${item.name}]</b>.`
+                  }));
+                  // Send gear, inventory, and class update to client
+                  socket.write(JSON.stringify({
+                    msg: 'gearUpdate',
+                    gear: player.gear,
+                    inventory: player.inventory,
+                    class: player.class
+                  }));
+                } else if (item.type === 'leather' || item.type === 'chainmail' || item.type === 'plate' || item.type === 'cloth') {
+                  // Unequip current armor if exists
+                  if (player.gear.armor) {
+                    player.gear.armor.unequip(player.id);
+                  }
+                  player.gear.armor = item;
+                  player.inventory[itemType]--;
+                  socket.write(JSON.stringify({
+                    msg: 'addToChat',
+                    message: `<i>You equipped</i> <b style="color:${rarityColor}">[${item.name}]</b>.`
+                  }));
+                  // Send gear, inventory, and class update to client
+                  socket.write(JSON.stringify({
+                    msg: 'gearUpdate',
+                    gear: player.gear,
+                    inventory: player.inventory,
+                    class: player.class
+                  }));
+                } else if (item.type === 'head') {
+                  // Unequip current head if exists
+                  if (player.gear.head) {
+                    player.gear.head.unequip(player.id);
+                  }
+                  player.gear.head = item;
+                  player.inventory[itemType]--;
+                  socket.write(JSON.stringify({
+                    msg: 'addToChat',
+                    message: `<i>You equipped</i> <b style="color:${rarityColor}">[${item.name}]</b>.`
+                  }));
+                  // Send gear, inventory, and class update to client
+                  socket.write(JSON.stringify({
+                    msg: 'gearUpdate',
+                    gear: player.gear,
+                    inventory: player.inventory,
+                    class: player.class
+                  }));
+                }
+              } else {
+                socket.write(JSON.stringify({
+                  msg: 'addToChat',
+                  message: '<i>That item cannot be equipped.</i>'
+                }));
+              }
+            } else {
+              socket.write(JSON.stringify({
+                msg: 'addToChat',
+                message: '<i>You do not have that item.</i>'
+              }));
+            }
+          }
+        } else if (data.msg === 'unequipItem') {
+          if (player && data.slot) {
+            const slot = data.slot;
+            if (player.gear[slot]) {
+              const itemName = player.gear[slot].name;
+              const itemType = itemName.toLowerCase().replace(/\s+/g, '');
+              
+              // Get item rarity color
+              const { ItemFactory, itemFactory } = require('./server/js/entities/ItemFactory');
+              const itemConfig = itemFactory.itemConfigs[itemType];
+              const rank = itemConfig ? itemConfig.rank : 0;
+              const rarityColor = ItemFactory.getRarityColor(rank);
+              
+              player.gear[slot].unequip(player.id);
+              player.gear[slot] = null;
+              socket.write(JSON.stringify({
+                msg: 'addToChat',
+                message: `<i>You unequipped</i> <b style="color:${rarityColor}">[${itemName}]</b>.`
+              }));
+              // Send gear, inventory, and class update to client
+              socket.write(JSON.stringify({
+                msg: 'gearUpdate',
+                gear: player.gear,
+                inventory: player.inventory,
+                class: player.class
+              }));
+            }
+          }
+        } else if (data.msg === 'dropItem') {
+          if (player && data.itemType && data.quantity) {
+            const itemType = data.itemType;
+            const quantity = Math.min(parseInt(data.quantity), player.inventory[itemType] || 0);
+            
+            if (quantity > 0) {
+              // Get item info for colored message
+              const { ItemFactory, itemFactory } = require('./server/js/entities/ItemFactory');
+              const itemConfig = itemFactory.itemConfigs[itemType];
+              const rank = itemConfig ? itemConfig.rank : 0;
+              const rarityColor = ItemFactory.getRarityColor(rank);
+              const itemName = itemType.charAt(0).toUpperCase() + itemType.slice(1);
+              
+              // Remove from inventory
+              player.inventory[itemType] -= quantity;
+              
+              // Create dropped item in world
+              const droppedItem = itemFactory.createItem(itemType, {
+                x: player.x,
+                y: player.y,
+                z: player.z,
+                qty: quantity
+              });
+              
+              if (droppedItem) {
+                socket.write(JSON.stringify({
+                  msg: 'addToChat',
+                  message: `<i>You dropped</i> ${quantity} <b style="color:${rarityColor}">[${itemName}]</b>.`
+                }));
+              }
+            }
+          }
+        } else if (data.msg === 'useItem') {
+          if (player && data.itemType) {
+            const itemType = data.itemType;
+            
+            // Check if player has the item
+            if (player.inventory[itemType] && player.inventory[itemType] > 0) {
+              // Get item info for colored message
+              const { ItemFactory, itemFactory } = require('./server/js/entities/ItemFactory');
+              const itemConfig = itemFactory.itemConfigs[itemType];
+              const rank = itemConfig ? itemConfig.rank : 0;
+              const rarityColor = ItemFactory.getRarityColor(rank);
+              const itemName = itemType.charAt(0).toUpperCase() + itemType.slice(1);
+              
+              // Handle consumables
+              const consumables = ['bread', 'meat', 'fish', 'lamb', 'boarmeat', 'venison', 'poachedfish', 'lambchop', 'boarshank', 'venisonloin'];
+              const drinks = ['mead', 'saison', 'flanders', 'bieredegarde', 'bordeaux', 'bourgogne', 'chianti'];
+              
+              if (consumables.indexOf(itemType) !== -1) {
+                // Restore HP based on food quality
+                let hpRestore = 20; // Basic food
+                if (['lambchop', 'boarshank', 'venisonloin'].indexOf(itemType) !== -1) {
+                  hpRestore = 40; // Cooked food
+                }
+                if (['poachedfish'].indexOf(itemType) !== -1) {
+                  hpRestore = 30; // Prepared fish
+                }
+                
+                player.hp = Math.min(player.hp + hpRestore, player.hpMax);
+                player.inventory[itemType]--;
+                
+                socket.write(JSON.stringify({
+                  msg: 'addToChat',
+                  message: `<i>You consumed</i> <b style="color:${rarityColor}">[${itemName}]</b> <i>and restored</i> <span style="color:#00ff00;">${hpRestore} HP</span>.`
+                }));
+              } else if (drinks.indexOf(itemType) !== -1) {
+                // Restore HP based on drink quality
+                let hpRestore = 10; // Basic drinks
+                if (['flanders', 'bieredegarde'].indexOf(itemType) !== -1) {
+                  hpRestore = 20; // Quality beer
+                }
+                if (['bordeaux', 'bourgogne', 'chianti'].indexOf(itemType) !== -1) {
+                  hpRestore = 30; // Fine wine
+                }
+                
+                player.hp = Math.min(player.hp + hpRestore, player.hpMax);
+                player.inventory[itemType]--;
+                
+                socket.write(JSON.stringify({
+                  msg: 'addToChat',
+                  message: `<i>You drank</i> <b style="color:${rarityColor}">[${itemName}]</b> <i>and restored</i> <span style="color:#00ff00;">${hpRestore} HP</span>.`
+                }));
+              } else {
+                socket.write(JSON.stringify({
+                  msg: 'addToChat',
+                  message: '<i>You cannot use that item.</i>'
+                }));
+              }
+            }
+          }
+        }
       }
     } catch (e) {
       console.error('Error parsing connection data:', e);
@@ -5072,11 +5063,105 @@ optimizedGameLoop.initialize(gameState, emit);
 // Start the optimized game loop (60 FPS)
 optimizedGameLoop.start();
 
-// Performance monitoring - log memory usage every 30 seconds
+// Performance monitoring and cleanup - every 30 seconds
 setInterval(() => {
   // Cleanup expired path cache entries
   pathCache.cleanup();
+  
+  // Log entity counts for monitoring
+  const playerCount = Object.keys(Player.list).length;
+  const itemCount = Object.keys(Item.list).length;
+  const arrowCount = Object.keys(Arrow.list).length;
+  const buildingCount = Object.keys(Building.list).length;
+  
+  console.log(`📊 Entity counts: Players=${playerCount}, Items=${itemCount}, Arrows=${arrowCount}, Buildings=${buildingCount}`);
+  
+  // Log memory usage
+  const memUsage = process.memoryUsage();
+  console.log(`💾 Memory: RSS=${(memUsage.rss / 1024 / 1024).toFixed(2)}MB, Heap=${(memUsage.heapUsed / 1024 / 1024).toFixed(2)}MB / ${(memUsage.heapTotal / 1024 / 1024).toFixed(2)}MB`);
+  
+  // Log spatial system stats if available
+  if(global.spatialSystem){
+    const spatialStats = global.spatialSystem.getStats();
+    console.log(`🗺️ Spatial: ${spatialStats.entitiesTracked} tracked, ${spatialStats.cellsUsed} cells, ${spatialStats.queries} queries`);
+  }
 }, 30000);
+
+// Periodic cleanup - every 5 minutes
+setInterval(() => {
+  console.log('🧹 Running periodic cleanup...');
+  
+  // Clean up spatial system
+  if(global.spatialSystem){
+    global.spatialSystem.cleanup();
+  }
+  
+  // Clean up dead entity references from all systems
+  for(const id in Player.list){
+    const entity = Player.list[id];
+    if(entity.toRemove || (entity.hp !== null && entity.hp <= 0)){
+      console.log(`🧹 Cleaning up dead entity: ${entity.name || entity.class} (${id})`);
+      if(entity.cleanup){
+        entity.cleanup();
+      }
+      delete Player.list[id];
+    }
+  }
+  
+  // Clean up excessive items (prevent unbounded growth)
+  const itemIds = Object.keys(Item.list);
+  const itemCount = itemIds.length;
+  const maxItems = 5000;
+  
+  if(itemCount > maxItems){
+    console.log(`⚠️ Item count (${itemCount}) exceeds limit (${maxItems}). Cleaning up oldest items...`);
+    
+    // Sort items by creation time (oldest first) - items without timestamp are prioritized for removal
+    const itemsWithAge = itemIds.map(id => ({
+      id,
+      item: Item.list[id],
+      age: Item.list[id].timestamp || 0
+    })).sort((a, b) => a.age - b.age);
+    
+    // Remove oldest items until we're under the limit
+    const itemsToRemove = itemCount - maxItems;
+    for(let i = 0; i < itemsToRemove && i < itemsWithAge.length; i++){
+      const itemData = itemsWithAge[i];
+      // Don't remove items that belong to players or are player-owned
+      if(itemData.item.type !== 'Banner' && !itemData.item.owner){
+        itemData.item.toRemove = true;
+        delete Item.list[itemData.id];
+        console.log(`🧹 Removed old item: ${itemData.item.type} (${itemData.id})`);
+      }
+    }
+    
+    console.log(`✅ Cleaned up ${itemsToRemove} old items`);
+  }
+  
+  // Clean up excessive arrows (prevent unbounded growth)
+  const arrowIds = Object.keys(Arrow.list);
+  const arrowCount = arrowIds.length;
+  const maxArrows = 500;
+  
+  if(arrowCount > maxArrows){
+    console.log(`⚠️ Arrow count (${arrowCount}) exceeds limit (${maxArrows}). Cleaning up oldest arrows...`);
+    
+    // Remove oldest arrows
+    const arrowsToRemove = arrowCount - maxArrows;
+    for(let i = 0; i < arrowsToRemove && i < arrowIds.length; i++){
+      const arrowId = arrowIds[i];
+      if(Arrow.list[arrowId]){
+        Arrow.list[arrowId].toRemove = true;
+        delete Arrow.list[arrowId];
+        console.log(`🧹 Removed old arrow: ${arrowId}`);
+      }
+    }
+    
+    console.log(`✅ Cleaned up ${arrowsToRemove} old arrows`);
+  }
+  
+  console.log('✅ Periodic cleanup complete');
+}, 300000); // 5 minutes
 
 // Keep old interval for init/remove packs (less frequent)
 setInterval(function() {

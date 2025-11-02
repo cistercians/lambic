@@ -229,7 +229,7 @@ class SerfBehaviorSystem {
       } else {
         serf.hp -= 0.5;
       }
-      if (serf.hp <= 0) {
+      if (serf.hp !== null && serf.hp <= 0) {
         serf.die({cause: 'drowned'});
         return;
       }

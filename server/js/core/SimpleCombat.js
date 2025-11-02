@@ -92,8 +92,8 @@ class SimpleCombat {
 
       if (timeSince >= cooldownMs) {
         // ATTACK!
-        // Skip damage if target is in god mode or is a ghost
-        if(target.godMode || target.ghost){
+        // Skip damage if target is in god mode, is a ghost, or is invulnerable (like falcons)
+        if(target.godMode || target.ghost || target.hp === null){
           // End combat with invulnerable target
           this.endCombat(entity);
           return;
@@ -118,8 +118,8 @@ class SimpleCombat {
         }
         // Combat hit logging handled via combat event
 
-      // Check for death
-      if (target.hp <= 0) {
+      // Check for death (only if entity has HP - exclude invulnerable entities like falcons)
+      if (target.hp !== null && target.hp <= 0) {
         const killerName = entity.name || entity.class;
         const victimName = target.name || target.class;
         // Death logging handled via death event

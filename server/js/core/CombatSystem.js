@@ -318,6 +318,12 @@ class CombatSystem {
     const state = this.combatStates.get(entity.id);
     const now = Date.now();
     
+    // Skip attacking invulnerable targets (like falcons with hp = null)
+    if (target.hp === null) {
+      this.endCombat(entity);
+      return;
+    }
+    
     // Calculate damage
     const baseDamage = entity.damage || 10;
     const targetDefense = target.fortitude || 0;
@@ -346,8 +352,8 @@ class CombatSystem {
     
     console.log(`${entity.class || entity.name} attacks ${target.class || target.name} for ${actualDamage} damage`);
     
-    // Check for death
-    if (target.hp <= 0) {
+    // Check for death (only if entity has HP - exclude invulnerable entities like falcons)
+    if (target.hp !== null && target.hp <= 0) {
       this.handleTargetDeath(entity, target);
     }
   }
