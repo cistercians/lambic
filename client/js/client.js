@@ -4,6 +4,63 @@ var world = [];
 var tileSize = 0;
 var mapSize = 0;
 
+// Ship wake tracking system
+var shipWakes = {
+  fading: {}, // {x,y: {startTime: timestamp, alpha: 1}} - tiles fading out
+  
+  // Update wakes based on current ship positions
+  update: function() {
+    const now = Date.now();
+    const fadeDuration = 5000; // 5 seconds
+    const currentShipTiles = {};
+    
+    // Find all ship positions
+    for(const id in Player.list) {
+      const entity = Player.list[id];
+      if(entity && entity.class === 'FishingShip') {
+        const tileX = Math.floor(entity.x / tileSize);
+        const tileY = Math.floor(entity.y / tileSize);
+        const key = tileX + ',' + tileY;
+        currentShipTiles[key] = true;
+        
+        // If ship is on a tile that's not already fading, start fading it
+        if(!this.fading[key]) {
+          this.fading[key] = {
+            startTime: now,
+            alpha: 1.0
+          };
+        }
+      }
+    }
+    
+    // Update all fading tiles
+    for(const key in this.fading) {
+      const fade = this.fading[key];
+      const elapsed = now - fade.startTime;
+      
+      if(elapsed >= fadeDuration) {
+        // Fade complete, remove
+        delete this.fading[key];
+      } else {
+        // Update alpha (1.0 -> 0.0 over 5 seconds)
+        fade.alpha = 1.0 - (elapsed / fadeDuration);
+      }
+    }
+  },
+  
+  // Get brightness multiplier for a tile (0-1)
+  getBrightness: function(tileX, tileY) {
+    const key = tileX + ',' + tileY;
+    
+    // Check if tile is fading
+    if(this.fading[key]) {
+      return this.fading[key].alpha * 0.3;
+    }
+    
+    return 0; // No brightness change
+  }
+};
+
 // Dynamic canvas sizing
 function resizeCanvas() {
   WIDTH = window.innerWidth;
@@ -5874,6 +5931,11 @@ var hasFire = function(z,x,y){
 }
 
 setInterval(function(){
+  // Update ship wakes (tracks ship positions and fades out wake effects)
+  if(tileSize > 0) {
+    shipWakes.update();
+  }
+  
   // Update god mode camera position
   if(godModeCamera && godModeCamera.update){
   godModeCamera.update();
@@ -6462,6 +6524,13 @@ var renderMap = function(){
             tileSize, // target width
             tileSize // target height
           );
+          
+          // Ship wake effect - lighten water tiles where ships are/were
+          const brightness = shipWakes.getBrightness(c, r);
+          if(brightness > 0) {
+            ctx.fillStyle = 'rgba(255, 255, 255, ' + brightness + ')';
+            ctx.fillRect(xOffset, yOffset, tileSize, tileSize);
+          }
         } else if(tile >= 1 && tile < 2){
           ctx.drawImage(
             Img.grass, // image
@@ -9946,19 +10015,19 @@ var renderLightSources = function(env){
       if((light.z == 0 || light.z == -1 || light.z == -2 || light.z == 99) || ((light.z == 1 || light.z == 2) && !hasFire(playerZ,cameraPos.x,cameraPos.y))){
         lighting.save();
         
-        // Apply zoom transform for the light cutout arc
-        lighting.translate(WIDTH/2, HEIGHT/2);
-        lighting.scale(currentZoom, currentZoom);
-        lighting.translate(-WIDTH/2, -HEIGHT/2);
-        
         var lightRadius = ((45 * light.radius) * (1 + rnd)) * env;
+        
+        // Apply zoom scaling to position and radius for the temp canvas
+        var zoomedX = (x - WIDTH/2) * currentZoom + WIDTH/2;
+        var zoomedY = (y - HEIGHT/2) * currentZoom + HEIGHT/2;
+        var zoomedRadius = lightRadius * currentZoom;
         
         // Clear and reuse temp canvas (instead of creating new one each frame - FIXES MEMORY LEAK)
         lightTempCtx.clearRect(0, 0, lightTempCanvas.width, lightTempCanvas.height);
         
         // Draw gradient from opaque (center) to transparent (edges)
         // With destination-out: opaque pixels remove darkness, transparent pixels keep darkness
-        var gradient = lightTempCtx.createRadialGradient(x, y, 0, x, y, lightRadius);
+        var gradient = lightTempCtx.createRadialGradient(zoomedX, zoomedY, 0, zoomedX, zoomedY, zoomedRadius);
         gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');       // Center: opaque = removes all darkness (bright)
         gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.6)');  // Start fading back to darkness
         gradient.addColorStop(0.75, 'rgba(255, 255, 255, 0.2)'); // More darkness returns
@@ -9966,7 +10035,7 @@ var renderLightSources = function(env){
         
         lightTempCtx.fillStyle = gradient;
         lightTempCtx.beginPath();
-        lightTempCtx.arc(x, y, lightRadius, 0, 2 * Math.PI, false);
+        lightTempCtx.arc(zoomedX, zoomedY, zoomedRadius, 0, 2 * Math.PI, false);
         lightTempCtx.fill();
         
         // Use destination-out with the gradient to create smooth fade
