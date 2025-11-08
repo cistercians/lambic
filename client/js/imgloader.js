@@ -795,6 +795,40 @@ var maleserf = {
   fishingr: Img.maleserffishingr
 };
 
+// fishing ship
+// stand (ships only have standing sprites, no walk animation)
+Img.fishingshipstandd = new Image();
+Img.fishingshipstandd.src = '/client/img/chars/fishingship/standd.png';
+Img.fishingshipstandu = new Image();
+Img.fishingshipstandu.src = '/client/img/chars/fishingship/standu.png';
+Img.fishingshipstandl = new Image();
+Img.fishingshipstandl.src = '/client/img/chars/fishingship/standl.png';
+Img.fishingshipstandr = new Image();
+Img.fishingshipstandr.src = '/client/img/chars/fishingship/standr.png';
+
+// Fishing ship wreckage sprites
+Img.fishingshipdeath1 = new Image();
+Img.fishingshipdeath1.src = '/client/img/chars/fishingship/death1.png';
+Img.fishingshipdeath2 = new Image();
+Img.fishingshipdeath2.src = '/client/img/chars/fishingship/death2.png';
+
+// Use stand sprites for walking too (ships don't have walk animation)
+var fishingshipwalkd = [Img.fishingshipstandd, Img.fishingshipstandd];
+var fishingshipwalku = [Img.fishingshipstandu, Img.fishingshipstandu];
+var fishingshipwalkl = [Img.fishingshipstandl, Img.fishingshipstandl];
+var fishingshipwalkr = [Img.fishingshipstandr, Img.fishingshipstandr];
+
+var fishingship = {
+  facedown: Img.fishingshipstandd,
+  faceup: Img.fishingshipstandu,
+  faceleft: Img.fishingshipstandl,
+  faceright: Img.fishingshipstandr,
+  walkdown: fishingshipwalkd,
+  walkup: fishingshipwalku,
+  walkleft: fishingshipwalkl,
+  walkright: fishingshipwalkr
+};
+
 // ghost
 // stand
 Img.ghoststandd = new Image();
@@ -4284,6 +4318,10 @@ Img.skeleton1 = new Image();
 Img.skeleton1.src = '/client/img/items/skeleton1.png';
 Img.skeleton2 = new Image();
 Img.skeleton2.src = '/client/img/items/skeleton2.png';
+Img.shipwreckage = new Image();
+Img.shipwreckage.src = '/client/img/chars/fishingship/death1.png';
+Img.shipwreckagesunk = new Image();
+Img.shipwreckagesunk.src = '/client/img/chars/fishingship/death2.png';
 Img.goods1 = new Image();
 Img.goods1.src = '/client/img/items/goods1.png';
 Img.goods2 = new Image();

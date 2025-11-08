@@ -4,7 +4,7 @@
 class ScoutingParty {
   constructor(leader, backupUnits, targetZone, purpose) {
     this.leader = leader; // Military unit (prefer mounted)
-    this.backupUnits = backupUnits; // Array of 2 backup units
+    this.backupUnits = backupUnits; // Array of 0-2 backup units (flexible party size)
     this.targetZone = targetZone;
     this.purpose = purpose; // 'resource_scout', 'establish_outpost'
     this.status = 'traveling'; // traveling, scouting, retreating, guarding

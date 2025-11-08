@@ -44,14 +44,14 @@ class GoalChain {
           resolveGoal(buildGoal, depth + 1); // Recursive
         } else if (block.type === 'RESOURCE') {
           // Check if resource exists in faction territory first
-          if (this.canGatherResourceInTerritory(house, block.resource)) {
+          if (chain.canGatherResourceInTerritory(house, block.resource)) {
             // Resource available in territory - build gathering building
-            const buildingType = this.getResourceBuildingType(block.resource);
+            const buildingType = chain.getResourceBuildingType(block.resource);
             const buildGoal = createBuildingGoal(buildingType);
             resolveGoal(buildGoal, depth + 1);
           } else {
             // Resource not in territory - check adjacent zones
-            const outpostGoal = this.findResourceInAdjacentZones(house, block.resource);
+            const outpostGoal = chain.findResourceInAdjacentZones(house, block.resource);
             if (outpostGoal) {
               resolveGoal(outpostGoal, depth + 1);
             } else {

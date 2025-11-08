@@ -643,6 +643,138 @@
     background-color: rgba(220, 120, 120, 0.7);
   }
 
+  /* Dock Popup */
+  #dock-popup {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80%;
+    max-width: 800px;
+    height: 70vh;
+    background-color: rgba(0, 30, 50, 0.95);
+    border: 2px solid rgba(100, 150, 200, 0.5);
+    border-radius: 10px;
+    padding: 20px;
+    z-index: 2000;
+    display: none;
+    color: white;
+  }
+
+  #dock-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(100, 150, 200, 0.5);
+  }
+
+  #dock-close {
+    cursor: pointer;
+    font-size: 24px;
+    color: rgba(255, 255, 255, 0.7);
+    transition: color 0.2s;
+  }
+
+  #dock-close:hover {
+    color: #ff6666;
+  }
+
+  #dock-content {
+    display: flex;
+    gap: 20px;
+    height: calc(100% - 60px);
+  }
+
+  #dock-available-ships, #dock-owned-ships {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px;
+    background-color: rgba(0, 0, 0, 0.3);
+    border-radius: 5px;
+    border: 1px solid rgba(100, 150, 200, 0.3);
+  }
+
+  #dock-available-ships h3, #dock-owned-ships h3 {
+    margin: 0 0 15px 0;
+    font-size: 18px;
+    color: #88ccff;
+  }
+
+  .dock-ship-item {
+    background-color: rgba(50, 100, 150, 0.3);
+    border: 1px solid rgba(100, 150, 200, 0.4);
+    border-radius: 5px;
+    padding: 15px;
+    margin-bottom: 15px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .dock-ship-item:hover {
+    background-color: rgba(70, 120, 170, 0.5);
+    border-color: rgba(150, 200, 255, 0.6);
+    transform: translateY(-2px);
+  }
+
+  .dock-ship-item h4 {
+    margin: 0 0 8px 0;
+    font-size: 16px;
+    color: #aaddff;
+  }
+
+  .dock-ship-cost {
+    color: #ffaa66;
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+
+  .dock-ship-desc {
+    color: #cccccc;
+    font-size: 13px;
+    font-style: italic;
+  }
+
+  .dock-ship-available {
+    color: #66ff66;
+    font-weight: bold;
+    margin-top: 8px;
+  }
+
+  .dock-ship-unavailable {
+    color: #ff6666;
+    margin-top: 8px;
+  }
+
+  .dock-owned-ship {
+    background-color: rgba(100, 150, 100, 0.3);
+    border: 1px solid rgba(150, 200, 150, 0.4);
+    border-radius: 5px;
+    padding: 12px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .dock-owned-ship:hover {
+    background-color: rgba(120, 170, 120, 0.5);
+    border-color: rgba(180, 230, 180, 0.6);
+    transform: translateX(5px);
+  }
+
+  .dock-owned-ship-name {
+    font-size: 15px;
+    font-weight: bold;
+    color: #aaffaa;
+    margin-bottom: 5px;
+  }
+
+  .dock-owned-ship-info {
+    font-size: 12px;
+    color: #cccccc;
+  }
+
   /* WorldMap Popup */
   #worldmap-popup {
     position: fixed;
@@ -943,6 +1075,94 @@
     margin-top: 8px;
     font-style: italic;
   }
+
+  /* Resource Scoreboard */
+  .scoreboard {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(20, 20, 20, 0.95);
+    border: 2px solid #ffdd88;
+    border-radius: 8px;
+    padding: 20px;
+    z-index: 9999;
+    max-width: 95vw;
+    max-height: 85vh;
+    overflow: auto;
+    display: none;
+  }
+
+  .scoreboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #ffdd88;
+  }
+
+  .scoreboard-header h2 {
+    color: #ffdd88;
+    margin: 0;
+    font-size: 24px;
+  }
+
+  .scoreboard-close {
+    cursor: pointer;
+    font-size: 32px;
+    color: #ffdd88;
+    font-weight: bold;
+    line-height: 1;
+    padding: 0 10px;
+  }
+
+  .scoreboard-close:hover {
+    color: #ff6666;
+  }
+
+  .scoreboard-table {
+    color: white;
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 14px;
+  }
+
+  .scoreboard-table th {
+    background: #333;
+    padding: 12px 8px;
+    border: 1px solid #555;
+    text-align: center;
+    font-weight: bold;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+
+  .scoreboard-table td {
+    padding: 10px 8px;
+    border: 1px solid #444;
+    text-align: center;
+    background: rgba(0, 0, 0, 0.3);
+  }
+
+  .scoreboard-table tr:hover td {
+    background: rgba(50, 50, 50, 0.5);
+  }
+
+  .scoreboard-table tbody tr:nth-child(even) td {
+    background: rgba(30, 30, 30, 0.5);
+  }
+
+  .scoreboard-table tbody tr:nth-child(even):hover td {
+    background: rgba(50, 50, 50, 0.5);
+  }
+
+  .faction-name {
+    text-align: left !important;
+    font-weight: bold;
+    color: #ffdd88;
+  }
 </style>
 
 <div id="screen">
@@ -1176,6 +1396,24 @@
       </div>
     </div>
     
+    <!-- Dock Popup (hidden) -->
+    <div id="dock-popup" style="display: none;">
+      <div id="dock-header">
+        <h3 style="margin: 0;">⚓ Dock - Ship Management</h3>
+        <div id="dock-close">✕</div>
+      </div>
+      <div id="dock-content">
+        <div id="dock-available-ships">
+          <h3>🚢 Available Ships</h3>
+          <div id="dock-ship-list"></div>
+        </div>
+        <div id="dock-owned-ships">
+          <h3>🏴‍☠️ Your Ships</h3>
+          <div id="dock-owned-ships-list"></div>
+        </div>
+      </div>
+    </div>
+    
     <!-- WorldMap Popup (hidden) -->
     <div id="worldmap-popup" style="display: none;">
       <div id="worldmap-header">
@@ -1227,6 +1465,35 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- Resource Scoreboard (hidden) -->
+    <div id="resource-scoreboard" class="scoreboard">
+      <div class="scoreboard-header">
+        <h2>📊 Resource Scoreboard</h2>
+        <span class="scoreboard-close">×</span>
+      </div>
+      <table class="scoreboard-table">
+        <thead>
+          <tr>
+            <th>Faction</th>
+            <th>🌾 Grain</th>
+            <th>🪵 Lumber</th>
+            <th>🪨 Stone</th>
+            <th>⛏️ Iron Ore</th>
+            <th>🔥 Iron</th>
+            <th>⚒️ Steel</th>
+            <th>💎 Silver</th>
+            <th>✨ Gold</th>
+            <th>👷 Serfs</th>
+            <th>⚔️ Military</th>
+            <th>🏛️ Buildings</th>
+          </tr>
+        </thead>
+        <tbody id="scoreboard-body">
+          <!-- Rows populated dynamically -->
+        </tbody>
+      </table>
     </div>
   </div>
 </div>

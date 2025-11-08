@@ -140,6 +140,7 @@ class BuildFarmGoal extends Goal {
       this.status = 'COMPLETED';
     } else {
       this.status = 'FAILED';
+      console.log(`${house.name}: Failed to build farm - no valid location found`);
     }
   }
 }
@@ -163,6 +164,7 @@ class BuildMineGoal extends Goal {
       this.status = 'COMPLETED';
     } else {
       this.status = 'FAILED';
+      console.log(`${house.name}: Failed to build mine - no valid location found`);
     }
   }
 }
@@ -186,6 +188,30 @@ class BuildLumbermillGoal extends Goal {
       this.status = 'COMPLETED';
     } else {
       this.status = 'FAILED';
+      console.log(`${house.name}: Failed to build lumbermill - no valid location found`);
+    }
+  }
+}
+
+class BuildForgeGoal extends Goal {
+  constructor() {
+    super('BUILD_FORGE', 40);
+    this.resourceCost = { wood: 50, stone: 100 };
+    this.buildingRequirements = []; // No prerequisites for forge
+  }
+  
+  execute(house) {
+    const constructor = getBuildingConstructor(house);
+    
+    const forgeId = constructor.buildForge(this.location);
+    
+    if (forgeId) {
+      house.stores.wood -= this.resourceCost.wood;
+      house.stores.stone -= this.resourceCost.stone;
+      this.status = 'COMPLETED';
+    } else {
+      this.status = 'FAILED';
+      console.log(`${house.name}: Failed to build forge - no valid location found`);
     }
   }
 }
@@ -194,7 +220,7 @@ class BuildGarrisonGoal extends Goal {
   constructor() {
     super('BUILD_GARRISON', 50);
     this.resourceCost = { wood: 50, stone: 30 };
-    this.buildingRequirements = [];
+    this.buildingRequirements = ['forge']; // Need forge to craft military equipment
   }
   
   execute(house) {
@@ -208,6 +234,7 @@ class BuildGarrisonGoal extends Goal {
       this.status = 'COMPLETED';
     } else {
       this.status = 'FAILED';
+      console.log(`${house.name}: Failed to build garrison - no valid location found`);
     }
   }
 }
@@ -310,10 +337,10 @@ class EstablishOutpostGoal extends Goal {
   canExecute(house) {
     this.blockedBy = [];
     
-    // Check if we have units for scouting party (1 military + 2 backup)
+    // Check if we have at least 1 military unit for scouting (prefer 3: 1 leader + 2 backup)
     const militaryUnits = this.getMilitaryUnits(house);
-    if (militaryUnits.length < 3) {
-      this.blockedBy.push({ type: 'UNITS', need: 3, have: militaryUnits.length });
+    if (militaryUnits.length < 1) {
+      this.blockedBy.push({ type: 'UNITS', need: 1, have: militaryUnits.length });
       return false;
     }
     
@@ -547,6 +574,7 @@ function createBuildingGoal(buildingType) {
     case 'farm': return new BuildFarmGoal();
     case 'mine': return new BuildMineGoal();
     case 'lumbermill': return new BuildLumbermillGoal();
+    case 'forge': return new BuildForgeGoal();
     case 'garrison': return new BuildGarrisonGoal();
     default:
       console.warn(`Unknown building type: ${buildingType}`);
@@ -560,6 +588,7 @@ module.exports = {
   BuildFarmGoal,
   BuildMineGoal,
   BuildLumbermillGoal,
+  BuildForgeGoal,
   BuildGarrisonGoal,
   GatherResourceGoal,
   TrainMilitaryGoal,

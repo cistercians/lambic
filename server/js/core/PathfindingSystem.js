@@ -70,13 +70,15 @@ class PathfindingSystem {
         return null;
       }
       
-      // Check if start/end are walkable
-      if (grid[start[1]][start[0]] === 0) {
-        console.error(`Pathfinding FAIL: start [${start}] not walkable on layer ${layer}, options:`, JSON.stringify(options));
+      // Simple validation: both start and end must be walkable
+      if (grid[start[1]][start[0]] === 1) {
+        const startTile = this.tilemapSystem.getTile(layer, start[0], start[1]);
+        console.error(`Pathfinding FAIL: start [${start}] not walkable on layer ${layer}. Grid value=${grid[start[1]][start[0]]}, Actual tile=${startTile}`);
         return null;
       }
-      if (grid[end[1]][end[0]] === 0) {
-        console.error(`Pathfinding FAIL: end [${end}] not walkable on layer ${layer}, options:`, JSON.stringify(options));
+      if (grid[end[1]][end[0]] === 1) {
+        const endTile = this.tilemapSystem.getTile(layer, end[0], end[1]);
+        console.error(`Pathfinding FAIL: end [${end}] not walkable on layer ${layer}. Grid value=${grid[end[1]][end[0]]}, Actual tile=${endTile}`);
         return null;
       }
       

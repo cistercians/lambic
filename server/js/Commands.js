@@ -993,6 +993,23 @@ EvalCmd = function(data){
           socket.write(JSON.stringify({msg:'addToChat',message:'<i>You cannot build that there.</i>'}));
         }
       } else if(data.cmd.slice(data.cmd.indexOf(' ') + 1) == 'garrison' && z == 0){
+        // Check if player or their house has a forge (required for garrison)
+        var hasForge = false;
+        for(var i in Building.list){
+          var b = Building.list[i];
+          if(b.type == 'forge' && b.built){
+            // Check if it's player's own forge or their house's forge
+            if(b.owner == player.id || (player.house && b.house == player.house)){
+              hasForge = true;
+              break;
+            }
+          }
+        }
+        if(!hasForge){
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>You need a forge before you can build a garrison.</i>'}));
+          return;
+        }
+        
         var plot = [[c,r],[c+1,r],[c+2,r],[c+3,r],[c,r-1],[c+1,r-1],[c+2,r-1],[c+3,r-1],[c,r-2],[c+1,r-2],[c+2,r-2],[c+3,r-2]];
         var walls = [[c,r-3],[c+1,r-3],[c+2,r-3],[c+3,r-3]];
         var topPlot = [[c+1,r-3],[c+2,r-3],[c+3,r-3]];
@@ -14083,6 +14100,233 @@ EvalCmd = function(data){
       } catch(e) {
         socket.write(JSON.stringify({msg:'addToChat',message:'<i>Invalid format. Use: /tport z,col,row (e.g., /tport 0,100,200)</i>'}));
       }
+    } else if(data.cmd == 'fishboat'){
+      // Build fishing boat at owned dock
+      var loc = getLoc(player.x, player.y);
+      
+      // Get the tile player is facing
+      var dirOffsets = {
+        down: [0, 1],
+        up: [0, -1],
+        left: [-1, 0],
+        right: [1, 0]
+      };
+      var offset = dirOffsets[player.facing];
+      var facingLoc = [loc[0] + offset[0], loc[1] + offset[1]];
+      var facingCoords = getCenter(facingLoc[0], facingLoc[1]);
+      var facingBuilding = getBuilding(facingCoords[0], facingCoords[1]);
+      
+      if(!facingBuilding || !Building.list[facingBuilding]){
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>You must face a Dock to build a fishing boat.</i>'}));
+        return;
+      }
+      
+      var dock = Building.list[facingBuilding];
+      if(dock.type != 'dock'){
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>You must face a Dock to build a fishing boat.</i>'}));
+        return;
+      }
+      
+      if(dock.owner != player.id){
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>This is not your Dock.</i>'}));
+        return;
+      }
+      
+      // Check if player has enough wood
+      var playerWood = 0;
+      if(player.house){
+        playerWood = House.list[player.house].stores.wood || 0;
+      } else {
+        playerWood = player.stores.wood || 0;
+      }
+      
+      if(playerWood < 150){
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>You need <b>150 Wood</b> to build a Fishing Boat. (You have ' + playerWood + ')</i>'}));
+        return;
+      }
+      
+      // Deduct wood
+      if(player.house){
+        House.list[player.house].stores.wood -= 150;
+      } else {
+        player.stores.wood -= 150;
+      }
+      
+      // Spawn fishing ship at dock
+      // Find water tile adjacent to dock
+      var waterTile = null;
+      for(var i in dock.plot){
+        var dockLoc = dock.plot[i];
+        var adjacent = [
+          [dockLoc[0], dockLoc[1] + 1],
+          [dockLoc[0], dockLoc[1] - 1],
+          [dockLoc[0] - 1, dockLoc[1]],
+          [dockLoc[0] + 1, dockLoc[1]]
+        ];
+        
+        for(var j in adjacent){
+          var at = adjacent[j];
+          if(at[0] >= 0 && at[0] < mapSize && at[1] >= 0 && at[1] < mapSize){
+            if(getTile(0, at[0], at[1]) == 0){ // Water
+              waterTile = at;
+              break;
+            }
+          }
+        }
+        if(waterTile) break;
+      }
+      
+      if(!waterTile){
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>No water adjacent to this Dock. Cannot spawn fishing boat.</i>'}));
+        // Refund wood
+        if(player.house){
+          House.list[player.house].stores.wood += 150;
+        } else {
+          player.stores.wood += 150;
+        }
+        return;
+      }
+      
+      // Create fishing ship (but don't spawn it until player boards)
+      // Store it at the dock location for now
+      var dockCoords = getCenter(dock.plot[0][0], dock.plot[0][1]);
+      var ship = FishingShip({
+        x: dockCoords[0],
+        y: dockCoords[1],
+        z: 0,
+        dock: facingBuilding,
+        house: dock.house,
+        kingdom: dock.kingdom,
+        owner: player.id,
+        spawned: false, // Don't spawn until player boards
+        mode: 'docked'
+      });
+      
+      // Track in dock
+      if(!dock.ships) dock.ships = [];
+      dock.ships.push(ship.id);
+      
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>🚢 <b>Fishing Boat built!</b> It will automatically be crewed by dock workers during work hours.</i>'}));
+      console.log(player.name + ' built fishing boat at dock ' + facingBuilding);
+    } else if(data.cmd && data.cmd.startsWith('boardship')){
+      // Player wants to board an owned ship
+      // Parse ship ID from command: "boardship <shipId>"
+      var parts = data.cmd.split(' ');
+      var shipId = parts[1];
+      if(!shipId){
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>Usage: /boardship &lt;shipId&gt;</i>'}));
+        return;
+      }
+      
+      var ship = Player.list[shipId];
+      if(!ship || !ship.shipType){
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>Ship not found.</i>'}));
+        return;
+      }
+      
+      if(ship.owner && ship.owner != player.id){
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>This is not your ship.</i>'}));
+        return;
+      }
+      
+      // Store player character data
+      ship.storedPlayer = {
+        id: player.id,
+        x: player.x,
+        y: player.y,
+        z: player.z,
+        class: player.class,
+        facing: player.facing,
+        inventory: player.inventory,
+        gear: player.gear
+      };
+      
+      // Mark ship as player-controlled and spawned
+      ship.isPlayerControlled = true;
+      ship.spawned = true;
+      ship.mode = 'sailing';
+      ship.name = 'Fishing Ship'; // Remove anchor when sailing
+      
+      // Reset sail points (ship starts stopped)
+      ship.sailPoints = {up: 0, down: 0, left: 0, right: 0};
+      
+      // Find water tile away from dock to spawn ship (1 tile out)
+      var dockBuilding = Building.list[ship.dock];
+      var waterTile = null;
+      var searchDistance = 1; // Tiles away from dock
+      
+      for(var i in dockBuilding.plot){
+        var dockLoc = dockBuilding.plot[i];
+        // Search in all 4 directions
+        var searchDirs = [
+          [dockLoc[0], dockLoc[1] + searchDistance],     // South
+          [dockLoc[0], dockLoc[1] - searchDistance],     // North
+          [dockLoc[0] - searchDistance, dockLoc[1]],     // West
+          [dockLoc[0] + searchDistance, dockLoc[1]]      // East
+        ];
+        
+        for(var j in searchDirs){
+          var at = searchDirs[j];
+          if(at[0] >= 0 && at[0] < mapSize && at[1] >= 0 && at[1] < mapSize){
+            if(getTile(0, at[0], at[1]) == 0){ // Water
+              waterTile = at;
+              break;
+            }
+          }
+        }
+        if(waterTile) break;
+      }
+      
+      // If no water found at distance 3, try closer
+      if(!waterTile){
+        for(var i in dockBuilding.plot){
+          var dockLoc = dockBuilding.plot[i];
+          var adjacent = [
+            [dockLoc[0], dockLoc[1] + 2],
+            [dockLoc[0], dockLoc[1] - 2],
+            [dockLoc[0] - 2, dockLoc[1]],
+            [dockLoc[0] + 2, dockLoc[1]]
+          ];
+          
+          for(var j in adjacent){
+            var at = adjacent[j];
+            if(at[0] >= 0 && at[0] < mapSize && at[1] >= 0 && at[1] < mapSize){
+              if(getTile(0, at[0], at[1]) == 0){ // Water
+                waterTile = at;
+                break;
+              }
+            }
+          }
+          if(waterTile) break;
+        }
+      }
+      
+      if(waterTile){
+        var waterCoords = getCenter(waterTile[0], waterTile[1]);
+        ship.x = waterCoords[0];
+        ship.y = waterCoords[1];
+        console.log('🚢 Ship spawned at water tile [' + waterTile + '] away from dock');
+      } else {
+        console.error('⚠️ Could not find water tile to spawn ship!');
+      }
+      
+      // Hide player character by moving it off-map temporarily
+      player.x = -10000;
+      player.y = -10000;
+      player.isBoarded = true; // Mark player as boarded
+      
+      // Store reference to ship in player
+      player.boardedShip = shipId;
+      
+      // Transfer control to ship - update selfId to ship
+      socket.write(JSON.stringify({
+        msg: 'boardShip',
+        newSelfId: shipId,
+        shipData: ship.getInitPack()
+      }));
+      
+      console.log(player.name + ' boarded ship ' + shipId);
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>⚓ You are now controlling the ship! Press F to fish. Move to dock to disembark.</i>'}));
       // ALPHA HAX !!
     } else if(data.cmd == 'testitem'){
       // Spawn test items around the player for pickup testing

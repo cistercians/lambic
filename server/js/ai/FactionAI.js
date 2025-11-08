@@ -245,7 +245,7 @@ class FactionAI {
     };
   }
 
-  // Deploy a scouting party to a target zone
+  // Deploy a scouting party to a target zone (flexible 1-3 units)
   deployScoutingParty(targetZone, resourceType) {
     // Select leader (prefer mounted military unit)
     const leader = this.selectScoutLeader();
@@ -254,17 +254,23 @@ class FactionAI {
       return null;
     }
     
-    // Select 2 backup units
+    // Try to select up to 2 backup units (but accept 0-2)
     const backups = this.selectBackupUnits(2, leader);
-    if (backups.length < 2) {
-      console.log(`${this.house.name}: Not enough backup units for scouting party (need 2, have ${backups.length})`);
-      return null;
+    const totalUnits = 1 + backups.length;
+    
+    // Log party composition
+    if (backups.length === 2) {
+      console.log(`${this.house.name}: Deploying full-strength scouting party (3 units) to ${targetZone.name}`);
+    } else if (backups.length === 1) {
+      console.log(`${this.house.name}: Deploying reduced scouting party (2 units) to ${targetZone.name}`);
+    } else {
+      console.log(`${this.house.name}: Deploying solo scout (1 unit) to ${targetZone.name}`);
     }
     
     // Mark leader with banner emoji
     leader.name = `🚩 ${leader.name}`;
     
-    // Create party
+    // Create party (works with 0-2 backups)
     const party = new ScoutingParty(leader, backups, targetZone, resourceType);
     this.activeScoutingParties.push(party);
     
@@ -275,7 +281,6 @@ class FactionAI {
       unit.scoutingParty = party;
     });
     
-    console.log(`${this.house.name}: Deployed scouting party to ${targetZone.name} for ${resourceType}`);
     return party;
   }
 

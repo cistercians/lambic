@@ -118,7 +118,53 @@ Interact = function(id,loc){
 
         }
       } else if(building.type == 'dock'){
-
+        // Dock interaction menu
+        if(building.owner == id){
+          // Get player resources
+          var playerWood = 0;
+          if(player.house){
+            playerWood = House.list[player.house].stores.wood || 0;
+          } else {
+            playerWood = player.stores.wood || 0;
+          }
+          
+          // Available ships to build
+          var availableShips = [
+            {
+              type: 'fishingship',
+              name: '🐟 Fishing Ship',
+              cost: {wood: 150},
+              description: 'A small vessel for catching fish. Press F to fish while at sea.',
+              canAfford: playerWood >= 150
+            }
+          ];
+          
+          // Find owned ships (FishingShip entities owned by this player)
+          var ownedShips = [];
+          for(var shipId in Player.list){
+            var ship = Player.list[shipId];
+            if(ship.shipType && ship.owner == id && !ship.toRemove){
+              ownedShips.push({
+                id: shipId,
+                type: ship.shipType,
+                name: ship.shipType === 'fishingship' ? '🐟 Fishing Ship' : ship.name,
+                inventory: ship.inventory || {},
+                storedPlayer: ship.storedPlayer || null
+              });
+            }
+          }
+          
+          // Send openDock message to client
+          socket.write(JSON.stringify({
+            msg: 'openDock',
+            dockId: b,
+            availableShips: availableShips,
+            ownedShips: ownedShips,
+            playerResources: {wood: playerWood}
+          }));
+        } else {
+          socket.write(JSON.stringify({msg:'addToChat', message: '<i>This is not your Dock.</i>'}));
+        }
       }
     } else { // item outside
 

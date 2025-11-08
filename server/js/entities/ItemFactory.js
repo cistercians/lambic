@@ -90,6 +90,7 @@ class ItemFactory {
       cross: { maxStack: 1, class: 'environment', rank: 0 },
       skeleton1: { maxStack: 1, class: 'environment', rank: 0 },
       skeleton2: { maxStack: 1, class: 'environment', rank: 0 },
+      shipwreckage: { maxStack: 1, class: 'environment', rank: 0 },
       goods1: { maxStack: 1, class: 'environment', rank: 0 },
       goods2: { maxStack: 1, class: 'environment', rank: 0 },
       goods3: { maxStack: 1, class: 'environment', rank: 0 },

@@ -511,7 +511,10 @@ function pathing(z) {
   } else if (z === -1) {
     for (let x = 0; x < mapSize; x++) {
       for (let y = 0; y < mapSize; y++) {
-        grid[y][x] = world[1][y][x] === 1 ? 1 : 0;
+        const tile = world[1][y][x];
+        // Matrix: 0 = walkable, 1 = blocked
+        // Floor (0), exits (2), and ore (3.x) are walkable (0); walls (1) are blocked (1)
+        grid[y][x] = (tile === 1) ? 1 : 0;
       }
     }
   } else if (z === 3) {
@@ -600,14 +603,10 @@ function canMoveDirectly(start, end, z = 0) {
     if (x < 0 || x >= mapSize || y < 0 || y >= mapSize) return false;
     if (!isWalkable(z, x, y)) return false;
     
-    // Check for other units at this position
-    const center = getCenter(x, y);
-    for (const playerId in Player.list) {
-      const player = Player.list[playerId];
-      if (player.z === z && Math.abs(player.x - center[0]) < 20 && Math.abs(player.y - center[1]) < 20) {
-        return false; // Another unit is blocking this path
-      }
-    }
+    // OPTIMIZED: Skip entity collision checks during pathfinding
+    // Entities can pathfind through each other - actual collision handled during movement
+    // This prevents O(n) loops (450 entities × 50 tiles = 22,500 checks per path!)
+    // Minor entity overlap is acceptable and much better than massive lag
   }
   
   return true;
@@ -949,9 +948,28 @@ function getBuilding(x, y) {
     const b = Building.list[i];
     if (!b || !b.plot || !Array.isArray(b.plot)) continue;
     
+    // Check ground floor plot
     for (let n = 0; n < b.plot.length; n++) {
       if (b.plot[n] && b.plot[n][0] === loc[0] && b.plot[n][1] === loc[1]) {
         return b.id;
+      }
+    }
+    
+    // Check second floor topPlot
+    if (b.topPlot && Array.isArray(b.topPlot)) {
+      for (let n = 0; n < b.topPlot.length; n++) {
+        if (b.topPlot[n] && b.topPlot[n][0] === loc[0] && b.topPlot[n][1] === loc[1]) {
+          return b.id;
+        }
+      }
+    }
+    
+    // Check walls (some entities might be on wall tiles)
+    if (b.walls && Array.isArray(b.walls)) {
+      for (let n = 0; n < b.walls.length; n++) {
+        if (b.walls[n] && b.walls[n][0] === loc[0] && b.walls[n][1] === loc[1]) {
+          return b.id;
+        }
       }
     }
   }
@@ -1082,8 +1100,16 @@ function allyCheck(playerId, otherId) {
 // ============================================================================
 
 function randomSpawnO() {
+  if (!spawnPointsO || spawnPointsO.length === 0) {
+    console.error('randomSpawnO: No spawn points available! Returning default center.');
+    return getCenter(Math.floor(mapSize / 2), Math.floor(mapSize / 2));
+  }
   const rand = Math.floor(Math.random() * spawnPointsO.length);
   const point = spawnPointsO[rand];
+  if (!point || !Array.isArray(point) || point.length < 2) {
+    console.error('randomSpawnO: Invalid spawn point:', point);
+    return getCenter(Math.floor(mapSize / 2), Math.floor(mapSize / 2));
+  }
   return getCenter(point[0], point[1]);
 }
 global.randomSpawnO = randomSpawnO;
@@ -1091,7 +1117,7 @@ global.randomSpawnO = randomSpawnO;
 function randomSpawnHF() {
   if (!hForestSpawns || hForestSpawns.length === 0) {
     // No heavy forest spawns available - fallback to overworld spawns
-    console.warn('No heavy forest spawns available, using overworld spawns');
+    console.warn('randomSpawnHF: No heavy forest spawns available, using overworld spawns');
     return randomSpawnO();
   }
   const rand = Math.floor(Math.random() * hForestSpawns.length);
@@ -1267,12 +1293,12 @@ function entropy() {
     world[0][toB[i][1]][toB[i][0]] = TERRAIN.BRUSH + Number((Math.random() * 0.9).toFixed(2));
   }
 
-  // FAUNA (2x spawn rates)
+  // FAUNA - Reduced spawn rates for better performance
   const animalRatios = {
-    deer: Math.floor(biomes.hForest / 200),  // 400/2 = 200
-    boar: Math.floor(biomes.hForest / 800),  // 1600/2 = 800
-    wolf: Math.floor(biomes.hForest / 400),  // 800/2 = 400
-    falcon: Math.floor(biomes.hForest / 1200) // 2400/2 = 1200
+    deer: Math.floor(biomes.hForest / 800),   // Reduced from /200 to /800
+    boar: Math.floor(biomes.hForest / 2400),  // Reduced from /800 to /2400
+    wolf: Math.floor(biomes.hForest / 1200),  // Reduced from /400 to /1200
+    falcon: Math.floor(biomes.hForest / 3600) // Reduced from /1200 to /3600
   };
 
   const animalPops = { deer: 0, boar: 0, wolf: 0, falcon: 0 };
@@ -1407,6 +1433,7 @@ const Player = function(param) {
   self.pressingN = false;
   self.pressingM = false;
   self.pressing1 = false;
+  self.boardCooldown = 0; // Cooldown for boarding ships
   self.pressing2 = false;
   self.pressing3 = false;
   self.pressing4 = false;
@@ -1430,6 +1457,9 @@ const Player = function(param) {
   self.dexterity = 1;
   self.ghost = false;
   self.running = false; // Walk/run toggle
+  
+  // Players start with 3 torches
+  self.inventory.torch = 3;
   
   // God mode (spectator camera)
   self.godMode = false;
@@ -1908,7 +1938,9 @@ const Player = function(param) {
         self.maxSpd = (self.baseSpd * (self.onMtn ? 0.5 : 0.2)) * self.drag;
         if (!self.onMtn) {
           setTimeout(() => {
-            const checkTile = getTile(0, loc[0], loc[1]);
+            // Check CURRENT location, not stale loc from 2 seconds ago
+            const currentLoc = getLoc(self.x, self.y);
+            const checkTile = getTile(0, currentLoc[0], currentLoc[1]);
             if (checkTile >= TERRAIN.MOUNTAIN && checkTile < TERRAIN.CAVE_ENTRANCE) {
               self.onMtn = true;
             }
@@ -1993,8 +2025,9 @@ const Player = function(param) {
         for (const dir in checkLocs) {
           const [c, r] = checkLocs[dir];
           const tile = getTile(1, c, r);
-          // Allow stepping onto cave exit tile (2) to trigger ascent
-          const isBlocked = (!isWalkable(-1, c, r) && tile !== 2);
+          const walkable = isWalkable(-1, c, r);
+          // Cave: Floor (0), Exit (2), and Ore (3.x) are walkable; Walls (1) are not
+          const isBlocked = (tile === 1); // Simple: only walls block movement
           const outOfBounds = (dir === 'right' && self.x + 10 > mapPx - tileSize) ||
                              (dir === 'left' && self.x - 10 < 0) ||
                              (dir === 'up' && self.y - 10 < 0) ||
@@ -2259,6 +2292,7 @@ const Player = function(param) {
     if (self.mountCooldown > 0) self.mountCooldown--;
     if (self.switchCooldown > 0) self.switchCooldown--;
     if (self.pathCooldown > 0) self.pathCooldown--;
+    if (self.boardCooldown > 0) self.boardCooldown--;
     
     // Passive HP/Spirit Regeneration (also implemented in Character for NPCs)
     if(!self.ghost && self.hp < self.hpMax){
@@ -2486,6 +2520,99 @@ const Player = function(param) {
     // INTERACTIONS (disabled for ghosts)
     if (self.pressingAttack && self.actionCooldown === 0 && !self.working && !self.ghost) {
       const loc = getLoc(self.x, self.y);
+      
+      // Check if player is near an anchored boat they can board (with cooldown)
+      if(self.boardCooldown === 0){
+        for(var shipId in Player.list){
+          var ship = Player.list[shipId];
+          if(ship.shipType && (ship.mode == 'anchored' || ship.mode == 'docked') && ship.owner == self.id){
+            var distToShip = Math.sqrt(Math.pow(self.x - ship.x, 2) + Math.pow(self.y - ship.y, 2));
+            if(distToShip < tileSize * 2){ // Within 2 tiles
+              // Board this ship
+              console.log('⚓ Player boarding nearby ship ' + shipId);
+              
+              // Set cooldown to prevent immediate re-boarding
+              self.boardCooldown = 120; // 2 seconds
+            
+            // Store player in ship
+            ship.storedPlayer = {
+              id: self.id,
+              x: self.x,
+              y: self.y,
+              z: self.z,
+              class: self.class,
+              facing: self.facing,
+              inventory: self.inventory,
+              gear: self.gear
+            };
+            
+            // Mark ship as player-controlled
+            ship.isPlayerControlled = true;
+            
+            // If ship is docked at home dock, move it away to open water first
+            if(ship.mode == 'docked' && ship.dock && Building.list[ship.dock]){
+              var dockBuilding = Building.list[ship.dock];
+              
+              // Find water tile 1 tile away from dock
+              var waterTile = null;
+              for(var k in dockBuilding.plot){
+                var dockLoc = dockBuilding.plot[k];
+                var searchDirs = [
+                  [dockLoc[0], dockLoc[1] + 1],
+                  [dockLoc[0], dockLoc[1] - 1],
+                  [dockLoc[0] - 1, dockLoc[1]],
+                  [dockLoc[0] + 1, dockLoc[1]]
+                ];
+                
+                for(var m in searchDirs){
+                  var at = searchDirs[m];
+                  if(at[0] >= 0 && at[0] < mapSize && at[1] >= 0 && at[1] < mapSize){
+                    if(getTile(0, at[0], at[1]) == 0){ // Water
+                      waterTile = at;
+                      break;
+                    }
+                  }
+                }
+                if(waterTile) break;
+              }
+              
+              if(waterTile){
+                var waterCoords = getCenter(waterTile[0], waterTile[1]);
+                ship.x = waterCoords[0];
+                ship.y = waterCoords[1];
+                console.log('🚢 Moved docked ship away from dock to [' + waterTile + ']');
+              }
+            }
+            // If ship is anchored at sea, board it where it is (no repositioning needed)
+            
+            ship.mode = 'sailing';
+            ship.name = 'Fishing Ship'; // Remove anchor when sailing
+            
+            // Reset sail points to 0 (ship starts stopped)
+            ship.sailPoints = {up: 0, down: 0, left: 0, right: 0};
+            
+            // Hide player
+            self.x = -10000;
+            self.y = -10000;
+            self.isBoarded = true;
+            self.boardedShip = shipId;
+            
+            // Transfer control
+            var socket = SOCKET_LIST[self.id];
+            if(socket){
+              socket.write(JSON.stringify({
+                msg: 'boardShip',
+                newSelfId: shipId
+              }));
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>⚓ Boarded ship! Press F to fish, sail to shore to disembark.</i>'}));
+            }
+            
+              return; // Exit interaction handler
+            }
+          }
+        }
+      }
+      
       const dirOffsets = {
         down: [0, 1],
         up: [0, -1],
@@ -2531,7 +2658,46 @@ const Player = function(param) {
       right: getLoc(self.x + tileSize, self.y)
     };
 
-    // Fishing
+    // Ship Fishing - player is controlling a fishing ship
+    if (self.shipType === 'fishingship' && tile === TERRAIN.WATER) {
+      self.actionCooldown = 10;
+      const fishCount = getTile(6, loc[0], loc[1]);
+
+      if (fishCount > 0 && self.fishingCooldown == 0) {
+        self.fishingCooldown = 300; // 5 second cooldown
+        self.inventory.fish = (self.inventory.fish || 0) + 1;
+        tileChange(6, loc[0], loc[1], -1, true);
+        
+        // Notify player
+        if(global.eventManager){
+          global.eventManager.createEvent({
+            category: global.eventManager.categories.ECONOMIC,
+            subject: self.id,
+            subjectName: self.name || 'Fishing Ship',
+            action: 'caught fish from ship',
+            quantity: 1,
+            communication: global.eventManager.commModes.PLAYER,
+            message: '<i>🎣 Caught a Fish! (' + self.inventory.fish + '/' + (self.maxFish || 20) + ')</i>',
+            log: `[ECONOMIC] Fishing ship caught fish`,
+            position: { x: self.x, y: self.y, z: self.z }
+          });
+        }
+        
+        // Check if inventory full
+        if(self.inventory.fish >= (self.maxFish || 20)){
+          if(socket){
+            socket.send(JSON.stringify({msg:'addToChat',message:'<i>🚢 Ship inventory full! Return to dock.</i>'}));
+          }
+        }
+      } else if(fishCount == 0) {
+        if(socket){
+          socket.send(JSON.stringify({msg:'addToChat',message:'<i>No fish in this area.</i>'}));
+        }
+      }
+      return;
+    }
+
+    // Fishing (regular player)
     if (self.z === Z_LEVELS.OVERWORLD && getTile(0, adjacentLocs[self.facing][0], adjacentLocs[self.facing][1]) === TERRAIN.WATER) {
       self.actionCooldown = 10;
       const fishCount = getTile(6, adjacentLocs[self.facing][0], adjacentLocs[self.facing][1]);
@@ -2602,6 +2768,31 @@ const Player = function(param) {
         if (!Player.list[self.id] || !self.working) return;
         
         tileChange(0, loc[0], loc[1], TERRAIN.EMPTY);
+        
+        // Check for sunk items at z=-3 and retrieve them
+        let itemsRetrieved = 0;
+        for (const itemId in Item.list) {
+          const item = Item.list[itemId];
+          if (item && item.z === -3 && item.sunk) {
+            const itemLoc = getLoc(item.x, item.y);
+            if (itemLoc[0] === loc[0] && itemLoc[1] === loc[1]) {
+              // Move item back to surface
+              item.z = 0;
+              item.sunk = false;
+              itemsRetrieved++;
+              console.log(`${self.name} retrieved ${item.type} from cleared brush at [${loc}]`);
+              
+              // Notify player
+              if (SOCKET_LIST[self.id]) {
+                SOCKET_LIST[self.id].send(JSON.stringify({
+                  msg: 'notify',
+                  data: `<i>You found ${item.type} in the brush.</i>`
+                }));
+              }
+            }
+          }
+        }
+        
         // Tile update automatically handled by tileChange function
         self.working = false;
         
@@ -3074,6 +3265,7 @@ const Player = function(param) {
       inventory: self.inventory,
       spriteSize: self.spriteSize,
       innaWoods: self.innaWoods,
+      onMtn: self.onMtn,
       facing: self.facing,
       stealthed: self.stealthed,
       revealed: self.revealed,
@@ -3238,6 +3430,7 @@ Player.onConnect = function(socket, name, playerType) {
   player.inventory.dague = 1;
   player.inventory.longsword = 1;
   player.inventory.bow = 1;
+  player.inventory.arrows = 50;
   player.inventory.brigandine = 1;
   player.inventory.maille = 1;
   player.inventory.steelplate = 1;
@@ -3347,6 +3540,16 @@ Player.onDisconnect = function(socket) {
 Player.update = function() {
   const pack = [];
   
+  // PERFORMANCE PROFILING: Track timing
+  if(!Player._perfData) {
+    Player._perfData = {
+      updateTimes: [],
+      slowFrames: 0,
+      lastLog: Date.now()
+    };
+  }
+  const startTime = Date.now();
+  
   // Frame counter for update throttling
   if(!Player._updateFrame) Player._updateFrame = 0;
   Player._updateFrame++;
@@ -3455,6 +3658,37 @@ Player.update = function() {
       // Send all players in update packs (spectators are no longer Player entities)
       pack.push(player.getUpdatePack());
     }
+  }
+
+  // PERFORMANCE PROFILING: Log timing
+  const updateTime = Date.now() - startTime;
+  Player._perfData.updateTimes.push(updateTime);
+  if(updateTime > 16.67) Player._perfData.slowFrames++;
+  
+  // Keep last 300 samples (5 seconds at 60fps)
+  if(Player._perfData.updateTimes.length > 300) {
+    Player._perfData.updateTimes.shift();
+  }
+  
+  // Log every 5 seconds
+  const now = Date.now();
+  if(now - Player._perfData.lastLog >= 5000) {
+    const times = Player._perfData.updateTimes;
+    const avg = times.reduce((a,b) => a+b, 0) / times.length;
+    const max = Math.max(...times);
+    const min = Math.min(...times);
+    const entityCount = Object.keys(Player.list).length;
+    
+    console.log(`⏱️  Player.update() Performance (last 5s):`);
+    console.log(`   ${entityCount} entities, avg=${avg.toFixed(2)}ms, min=${min.toFixed(2)}ms, max=${max.toFixed(2)}ms`);
+    console.log(`   Slow frames: ${Player._perfData.slowFrames}/${times.length} (>${16.67}ms)`);
+    
+    if(avg > 16.67) {
+      console.warn(`⚠️  WARNING: Average update time ${avg.toFixed(2)}ms exceeds 60fps target (16.67ms)`);
+    }
+    
+    Player._perfData.slowFrames = 0;
+    Player._perfData.lastLog = now;
   }
 
   return pack;
@@ -4024,83 +4258,56 @@ function sendDailyResourceReport() {
       houseStores.iron = player.stores.iron || 0;
     }
     
-    // Build report message with TOTAL accumulated and daily contributions per building
-    var message = '<b><u>Daily Resource Report</u></b><br>';
+    // Build polished report message with styled sections
+    var message = '<span style="color:#ffdd88;"><b>━━━━━━━━━━━━━━━━━━━━━━━━━━━━</b></span><br>';
+    message += '<span style="color:#ffdd88;"><b>📊 Daily Resource Report</b></span><br>';
+    message += '<span style="color:#ffdd88;"><b>━━━━━━━━━━━━━━━━━━━━━━━━━━━━</b></span><br>';
     var hasResources = false;
     
-    // Show resource if either: gathered today OR has accumulated stockpile
-    if(reportData.grain.daily > 0 || houseStores.grain > 0){
+    // Helper function to format resource lines
+    var formatResource = function(name, icon, total, dailyAmount, buildings, color) {
+      if(dailyAmount > 0 || total > 0){
       hasResources = true;
-      message += '<br><b>Total Grain: ' + houseStores.grain + '</b>';
-      for(var i in reportData.grain.buildings){
-        var b = reportData.grain.buildings[i];
-        message += '<br>' + b.type + ': +' + b.amount;
+        var line = '<br><span style="color:' + color + ';"><b>' + icon + ' ' + name + ':</b> ' + total + ' total';
+        if(dailyAmount > 0){
+          line += ' <span style="color:#88ff88;">(+' + dailyAmount + ' today)</span>';
+        }
+        line += '</span>';
+        
+        // Show breakdown by building if multiple sources
+        if(buildings.length > 1){
+          for(var i in buildings){
+            var b = buildings[i];
+            line += '<br><span style="color:#aaaaaa;">  └─ ' + b.type + ': +' + b.amount + '</span>';
+          }
+        }
+        return line;
       }
-    }
+      return '';
+    };
     
-    if(reportData.wood.daily > 0 || houseStores.wood > 0){
-      hasResources = true;
-      message += '<br><b>Total Wood: ' + houseStores.wood + '</b>';
-      for(var i in reportData.wood.buildings){
-        var b = reportData.wood.buildings[i];
-        message += '<br>' + b.type + ': +' + b.amount;
-      }
-    }
+    // Resources in organized order with icons and colors
+    message += formatResource('Grain', '🌾', houseStores.grain, reportData.grain.daily, reportData.grain.buildings, '#ffdd44');
+    message += formatResource('Lumber', '🪵', houseStores.wood, reportData.wood.daily, reportData.wood.buildings, '#cc8844');
+    message += formatResource('Stone', '🪨', houseStores.stone, reportData.stone.daily, reportData.stone.buildings, '#888888');
+    message += formatResource('Iron Ore', '⛏️', houseStores.ironore, reportData.ironore.daily, reportData.ironore.buildings, '#ff8844');
+    message += formatResource('Silver Ore', '⚒️', houseStores.silverore, reportData.silverore.daily, reportData.silverore.buildings, '#ccccdd');
+    message += formatResource('Gold Ore', '⛏️', houseStores.goldore, reportData.goldore.daily, reportData.goldore.buildings, '#ffdd00');
+    message += formatResource('Diamonds', '💎', houseStores.diamond, reportData.diamond.daily, reportData.diamond.buildings, '#88ddff');
     
-    if(reportData.stone.daily > 0 || houseStores.stone > 0){
-      hasResources = true;
-      message += '<br><b>Total Stone: ' + houseStores.stone + '</b>';
-      for(var i in reportData.stone.buildings){
-        var b = reportData.stone.buildings[i];
-        message += '<br>' + b.type + ': +' + b.amount;
-      }
-    }
-    
-    if(reportData.ironore.daily > 0 || houseStores.ironore > 0){
-      hasResources = true;
-      message += '<br><b>Total Iron Ore: ' + houseStores.ironore + '</b>';
-      for(var i in reportData.ironore.buildings){
-        var b = reportData.ironore.buildings[i];
-        message += '<br>' + b.type + ': +' + b.amount;
-      }
-    }
-    
-    if(reportData.silverore.daily > 0 || houseStores.silverore > 0){
-      hasResources = true;
-      message += '<br><b>Total Silver Ore: ' + houseStores.silverore + '</b>';
-      for(var i in reportData.silverore.buildings){
-        var b = reportData.silverore.buildings[i];
-        message += '<br>' + b.type + ': +' + b.amount;
-      }
-    }
-    
-    if(reportData.goldore.daily > 0 || houseStores.goldore > 0){
-      hasResources = true;
-      message += '<br><b>Total Gold Ore: ' + houseStores.goldore + '</b>';
-      for(var i in reportData.goldore.buildings){
-        var b = reportData.goldore.buildings[i];
-        message += '<br>' + b.type + ': +' + b.amount;
-      }
-    }
-    
-    if(reportData.diamond.daily > 0 || houseStores.diamond > 0){
-      hasResources = true;
-      message += '<br><b>Total Diamonds: ' + houseStores.diamond + '</b>';
-      for(var i in reportData.diamond.buildings){
-        var b = reportData.diamond.buildings[i];
-        message += '<br>' + b.type + ': +' + b.amount;
-      }
-    }
-    
-    // Show iron bars if any (from forge conversion)
+    // Show processed materials if any
     if(houseStores.iron > 0){
-      message += '<br><b>Total Iron Bars: ' + houseStores.iron + '</b>';
+      hasResources = true;
+      message += '<br><span style="color:#ff6644;"><b>🔥 Iron Bars:</b> ' + houseStores.iron + '</span>';
     }
     
     console.log('📋 Player ' + (player.name || id) + ': ' + buildingsOwned + ' buildings owned (checked ' + buildingsChecked + ' total)');
     console.log('   Grain: ' + reportData.grain.daily + ', Wood: ' + reportData.wood.daily + ', Stone: ' + reportData.stone.daily + ', Iron Ore: ' + reportData.ironore.daily + ', Silver Ore: ' + reportData.silverore.daily + ', Gold Ore: ' + reportData.goldore.daily + ', Diamonds: ' + reportData.diamond.daily);
     
     if(hasResources){
+      // Add closing line for polished look
+      message += '<br><span style="color:#ffdd88;"><b>━━━━━━━━━━━━━━━━━━━━━━━━━━━━</b></span>';
+      
       socket.write(JSON.stringify({msg:'addToChat',message: message}));
       reportsSent++;
       console.log('✅ Report sent to ' + (player.name || id));
@@ -4522,6 +4729,30 @@ io.on('connection', function(socket) {
         
         // All the game message handlers that were previously in Player.onConnect
         if(data.msg == 'keyPress'){
+          // Special handling for ship sail controls
+          // Check if player is currently aboard a ship
+          if(player.boardedShip && data.state === true){
+            var ship = Player.list[player.boardedShip];
+            if(ship && ship.shipType === 'fishingship' && ship.isPlayerControlled){
+              console.log('🔑 Key press on ship:', data.inputId);
+              // Only handle key press (not release) for ships
+              if(data.inputId == 'left'){
+                ship.adjustSailPoints('left');
+              } else if(data.inputId == 'right'){
+                ship.adjustSailPoints('right');
+              } else if(data.inputId == 'up'){
+                ship.adjustSailPoints('up');
+              } else if(data.inputId == 'down'){
+                ship.adjustSailPoints('down');
+              } else if(data.inputId == 'f'){
+                ship.pressingF = data.state;
+              }
+              // Ignore other keys for ships
+              return;
+            }
+          }
+          
+          // Normal character controls
           if(data.inputId == 'left'){
             player.pressingLeft = data.state;
           } else if(data.inputId == 'right'){
@@ -4592,6 +4823,19 @@ io.on('connection', function(socket) {
           } else if(data.inputId == 'mouseAngle'){
             player.mouseAngle = data.state;
           }
+        } else if (data.msg === 'getResourceScoreboard') {
+          // Send faction resource data to client
+          const resources = calculateFactionResources();
+          console.log('📊 Scoreboard requested, sending data for ' + Object.keys(resources).length + ' factions');
+          // Debug: Log first faction's data
+          const firstFaction = Object.values(resources)[0];
+          if(firstFaction){
+            console.log('   Sample: ' + firstFaction.name + ' - Grain:' + firstFaction.grain + ', Lumber:' + firstFaction.lumber + ', Serfs:' + firstFaction.serfs);
+          }
+          socket.write(JSON.stringify({
+            msg: 'resourceScoreboard',
+            data: resources
+          }));
         } else if (data.msg === 'msgToServer') {
           if(player && player.ghost){
             socket.write(JSON.stringify({ msg: 'addToChat', message: `<i>Ghosts cannot speak</i>` }));
@@ -5074,7 +5318,38 @@ setInterval(() => {
   const arrowCount = Object.keys(Arrow.list).length;
   const buildingCount = Object.keys(Building.list).length;
   
+  // Break down fauna counts
+  const faunaCounts = { deer: 0, boar: 0, wolf: 0, falcon: 0, serf: 0, other: 0 };
+  for (const id in Player.list) {
+    const entity = Player.list[id];
+    // Fixed: Use entity.class directly (it's already lowercase in some cases)
+    const entityClass = (entity.class || '').toString();
+    if (entityClass === 'Deer' || entityClass === 'deer') faunaCounts.deer++;
+    else if (entityClass === 'Boar' || entityClass === 'boar') faunaCounts.boar++;
+    else if (entityClass === 'Wolf' || entityClass === 'wolf') faunaCounts.wolf++;
+    else if (entityClass === 'Falcon' || entityClass === 'falcon') faunaCounts.falcon++;
+    else if (entityClass === 'Serf' || entityClass === 'SerfM' || entityClass === 'SerfF' || entityClass === 'serf' || entityClass === 'serfm' || entityClass === 'serff') faunaCounts.serf++;
+    else faunaCounts.other++;
+  }
+  
   console.log(`📊 Entity counts: Players=${playerCount}, Items=${itemCount}, Arrows=${arrowCount}, Buildings=${buildingCount}`);
+  console.log(`🦌 Fauna: Deer=${faunaCounts.deer}, Boar=${faunaCounts.boar}, Wolf=${faunaCounts.wolf}, Falcon=${faunaCounts.falcon}, Serfs=${faunaCounts.serf}, Other=${faunaCounts.other}`);
+  
+  // Memory monitoring - check for accumulation
+  console.log(`💾 Memory State:`);
+  console.log(`   PathCache: ${pathCache.size}/${pathCache.maxSize} entries`);
+  if(global.eventManager) {
+    const eventHistory = global.eventManager.eventHistory.filter(e => e).length;
+    const subscribers = global.eventManager.subscribers.size;
+    console.log(`   EventManager: ${eventHistory}/1000 events, ${subscribers} subscribers`);
+  }
+  if(global.zoneManager) {
+    console.log(`   ZoneManager: ${global.zoneManager.zones.size} zones, ${global.zoneManager.playerZones.size} tracked players`);
+  }
+  if(global.spatialSystem) {
+    const stats = global.spatialSystem.spatialIndex.stats;
+    console.log(`   SpatialSystem: ${stats.entitiesTracked} entities, ${stats.cellsUsed} cells`);
+  }
   
   // Log memory usage
   const memUsage = process.memoryUsage();
@@ -5366,6 +5641,78 @@ if(teutonsHQ) {
 console.log(`Stored ${global.factionHQs.length} faction HQs for god mode`);
 
 dailyTally();
+
+// ============================================================================
+// RESOURCE SCOREBOARD - Faction Resource Tracking
+// ============================================================================
+
+function calculateFactionResources() {
+  const factionResources = {};
+  
+  // Only these NPC factions gather resources
+  const resourceFactions = ['Goths', 'Franks', 'Celts', 'Teutons'];
+  
+  // For each faction/house
+  for (const houseId in House.list) {
+    const house = House.list[houseId];
+    
+    // Include resource-gathering NPC factions OR player-created factions
+    const isResourceFaction = resourceFactions.includes(house.name);
+    const isPlayerFaction = house.type === 'player';
+    
+    if (!isResourceFaction && !isPlayerFaction) {
+      continue;
+    }
+    
+    // Initialize faction data
+    factionResources[houseId] = {
+      name: house.name,
+      flag: house.flag || '',
+      lumber: house.stores.wood || 0,
+      stone: house.stores.stone || 0,
+      grain: house.stores.grain || 0,
+      ironore: house.stores.ironore || 0,
+      iron: house.stores.iron || 0,
+      steel: house.stores.steel || 0,
+      silver: house.stores.silver || 0,
+      gold: house.stores.gold || 0,
+      serfs: 0,
+      military: 0,
+      buildings: 0
+    };
+    
+    console.log(`   ${house.name} (ID: ${houseId}) - Grain: ${house.stores.grain || 0}, Wood: ${house.stores.wood || 0}, Stone: ${house.stores.stone || 0}`);
+    
+    // Count buildings owned by faction
+    for (const buildingId in Building.list) {
+      const building = Building.list[buildingId];
+      if (building.house == houseId || building.owner == houseId) {
+        factionResources[houseId].buildings++;
+      }
+    }
+    
+    // Count units (serfs and military)
+    for (const playerId in Player.list) {
+      const player = Player.list[playerId];
+      if (player.house == houseId) {
+        const entityClass = (player.class || '').toString();
+        // Count serfs
+        if (entityClass === 'Serf' || entityClass === 'SerfM' || entityClass === 'SerfF' || 
+            entityClass === 'serf' || entityClass === 'serfm' || entityClass === 'serff') {
+          factionResources[houseId].serfs++;
+        }
+        // Count military units
+        else if (player.military) {
+          factionResources[houseId].military++;
+        }
+      }
+    }
+  }
+  
+  return factionResources;
+}
+
+global.calculateFactionResources = calculateFactionResources;
 
 // ============================================================================
 // EXPORTS (for modular use)

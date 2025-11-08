@@ -218,6 +218,39 @@ class SimpleCombat {
     if (entity.action === 'returning' || entity.action === 'combat') return;
 
     const aggroRange = entity.aggroRange || 512;
+    
+    // PRIORITY: Defend fleeing allied serfs (military units only)
+    if (entity.military && entity.house) {
+      const serfClasses = ['Serf', 'SerfM', 'SerfF'];
+      
+      for (const id in global.Player.list) {
+        const serf = global.Player.list[id];
+        
+        // Check if this is a fleeing serf from our faction
+        if (serfClasses.includes(serf.class) && 
+            serf.action === 'flee' && 
+            serf.house === entity.house &&
+            serf.combat && serf.combat.target) {
+          
+          // Serf is being chased - find the attacker
+          const attacker = global.Player.list[serf.combat.target];
+          
+          if (attacker && attacker.z === entity.z) {
+            // Calculate distance to attacker
+            const dx = attacker.x - entity.x;
+            const dy = attacker.y - entity.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            // If attacker is in range, defend the serf
+            if (distance <= aggroRange) {
+              console.log(`🛡️ ${entity.class} defending ${serf.name || serf.class} from ${attacker.class}`);
+              this.startCombat(entity, attacker);
+              return;
+            }
+          }
+        }
+      }
+    }
 
     // Simple loop through all players
     for (const id in global.Player.list) {
@@ -329,6 +362,14 @@ class SimpleCombat {
       entity._pathfindTimeout = null;
     }
     entity._pathfindingFailures = 0;
+    
+    // Resume patrol if entity was in patrol mode
+    if (entity.mode === 'patrol' && entity.patrol) {
+      // Entity will automatically resume patrol in next update cycle
+      // Clear path so they start fresh patrol movement
+      entity.path = null;
+      entity.pathCount = 0;
+    }
     
     // Stop running when combat ends (NPCs only, players control their own running)
     if (entity.type === 'npc' && entity.running) {

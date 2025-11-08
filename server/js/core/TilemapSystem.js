@@ -115,7 +115,7 @@ class TilemapSystem {
           walkable = false;
         }
         
-        grid[y][x] = walkable ? 1 : 0;
+        grid[y][x] = walkable ? 0 : 1;  // PF.Grid uses 0=walkable, 1=blocked
       }
     }
 
@@ -361,6 +361,22 @@ class TilemapSystem {
         clearanceRadius: 1,
         excludeBuildings: true,
         hasUpperFloor: false
+      },
+      forge: {
+        plotSize: [2, 2],
+        wallTiles: 3,
+        validTerrain: [TERRAIN.GRASS, TERRAIN.LIGHT_FOREST, TERRAIN.BRUSH],
+        clearanceRadius: 1,
+        excludeBuildings: true,
+        hasUpperFloor: true
+      },
+      garrison: {
+        plotSize: [4, 3],
+        wallTiles: 4,
+        validTerrain: [TERRAIN.GRASS, TERRAIN.LIGHT_FOREST, TERRAIN.BRUSH],
+        clearanceRadius: 1,
+        excludeBuildings: true,
+        hasUpperFloor: true
       }
     };
   }

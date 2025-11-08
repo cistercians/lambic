@@ -123,8 +123,24 @@ Building = function(param){
     var growing = [];
     var wheat = [];
     
-    for(var i in self.plot){
-      var p = self.plot[i];
+    // For mills: check all linked farm plots
+    // For farms: check own plot
+    var plotsToCheck = [];
+    if(self.type === 'mill' && self.farms){
+      // Mill: gather all farm plots
+      for(var farmId in self.farms){
+        var farmPlot = self.farms[farmId];
+        for(var i in farmPlot){
+          plotsToCheck.push(farmPlot[i]);
+        }
+      }
+    } else {
+      // Farm: check own plot
+      plotsToCheck = self.plot || [];
+    }
+    
+    for(var i in plotsToCheck){
+      var p = plotsToCheck[i];
       var tile = getTile(0, p[0], p[1]);
       var res = getTile(6, p[0], p[1]);
       
@@ -633,16 +649,15 @@ Guardtower = function(param){
       // Fire arrow at nearest enemy
       if(nearestEnemy){
         var angle = Math.atan2(nearestEnemy.y - self.y, nearestEnemy.x - self.x);
+        var angleDegrees = angle * 180 / Math.PI; // Convert radians to degrees
         
         // Create arrow (unlimited ammo)
         Arrow({
           parent: self.id,
-          angle: angle,
+          angle: angleDegrees,
           x: self.x,
           y: self.y,
           z: 0,
-          spdX: Math.cos(angle) * 10,
-          spdY: Math.sin(angle) * 10,
           damage: 10,
           owner: self.owner
         });
@@ -1030,8 +1045,72 @@ Stable = function(param){
 
 Dock = function(param){
   var self = Building(param);
+  self.tavern = null;
+  self.resources = []; // Not used for docks - serfs just go to any dock tile
+  self.serfs = {};
+  self.log = {};
+  self.ships = []; // Array of fishing ship IDs spawned by this dock
   self.patrol = true;
+  self.dailyStores = {fish: 0}; // Track daily fish collection
+  
+  self.tally = function(){
+    var s = 0;
+    for(var i in self.serfs){
+      s++;
+    }
+    
+    // Spawn serfs if ratio is low (similar to other economic buildings)
+    // For docks, we want 1-2 serfs per dock
+    if(s < 2){
+      var fish = 0;
+      if(self.tavern){
+        // Check if owner still exists
+        if(!Player.list[self.owner]){
+          // Dock owner no longer exists, skip serf creation
+        } else if(Player.list[self.owner].house){
+          var h = Player.list[self.owner].house;
+          fish = House.list[h].stores.fish || 0;
+          if(fish >= s){
+            Building.list[self.tavern].newSerfs(self.id);
+          }
+        } else {
+          fish = Player.list[self.owner].stores.fish || 0;
+          if(fish >= s){
+            Building.list[self.tavern].newSerfs(self.id);
+          }
+        }
+      } else if(self.house >= 2 && self.house < 7){
+        var hq = House.list[self.house].hq;
+        fish = House.list[self.house].stores.fish || 0;
+        if(fish >= s && House.list[self.house].newSerfs){
+          House.list[self.house].newSerfs(self.id,hq);
+        }
+      }
+    }
+  }
+  
+  self.findTavern = function(){
+    for(var i in Building.list){
+      var t = Building.list[i];
+      var dist = getDistance({x:self.x,y:self.y},{x:t.x,y:t.y});
+      if(t.type == 'tavern' && dist <= 1280 && t.house == self.house){
+        self.tavern = t.id;
+      }
+    }
+  }
+  
+  self.findTavern();
 }
+
+// Faction-to-basic-unit mapping for garrison spawning
+const FACTION_BASIC_UNITS = {
+  'Goths': ['GothSpear', 'GothSword', 'GothBow'],
+  'Franks': ['FrankSpear', 'FrankSword', 'FrankBow'],
+  'Celts': ['CeltSpear', 'CeltSword', 'CeltBow'],
+  'Teutons': ['TeutonSpear', 'TeutonSword', 'TeutonBow'],
+  'Norsemen': ['NorseSpear', 'NorseSword', 'NorseBow']
+  // Player houses default to Footsoldier/Skirmisher/Cavalier progression
+};
 
 Garrison = function(param){
   var self = Building(param);
@@ -1076,6 +1155,55 @@ Garrison = function(param){
       var maxGarrison = Math.floor(grain / 50);
       if(militaryCount >= maxGarrison) return; // Already at capacity
       
+      // Spawn location
+      var sp = self.plot[7] || self.plot[0];
+      var spCoords = getCenter(sp[0], sp[1]);
+      
+      // Check if this is an NPC faction with specific basic units
+      var factionUnits = FACTION_BASIC_UNITS[house.name];
+      
+      if(factionUnits && factionUnits.length > 0){
+        // NPC Faction - spawn random basic unit
+        var randomIndex = Math.floor(Math.random() * factionUnits.length);
+        var unitClass = factionUnits[randomIndex];
+        
+        // Check resources (basic units need grain + wood)
+        var wood = house.stores.wood || 0;
+        if(grain < 20 || wood < 10) return;
+        
+        house.stores.grain -= 20;
+        house.stores.wood -= 10;
+        
+        // Spawn the unit using global constructor
+        var unitConstructor = global[unitClass];
+        if(unitConstructor){
+          var newUnit = unitConstructor({
+            x:spCoords[0],
+            y:spCoords[1],
+            z:1,
+            house:house.id,
+            kingdom:house.kingdom,
+            home:{z:1, loc:sp}
+          });
+          
+          // Initialize patrol mode for garrison-spawned units
+          newUnit.mode = 'patrol';
+          newUnit.patrol = {
+            enabled: true,
+            buildings: [],
+            currentIndex: 0,
+            idleTimer: 0,
+            idleDuration: Math.floor(Math.random() * 600) + 300, // 5-15 seconds
+            resumePoint: null
+          };
+          
+          console.log('⚔️ Garrison produced ' + unitClass + ' for ' + house.name);
+        } else {
+          console.error('⚠️ Unit constructor not found: ' + unitClass);
+        }
+      } else {
+        // Player House - use standard progression (footsoldier → skirmisher → cavalier)
+      
       // Check for stable (needed for cavalry)
       var hasStable = false;
       for(var bid in Building.list){
@@ -1105,13 +1233,10 @@ Garrison = function(param){
       }
       
       // Deduct resources and spawn unit
-      var sp = self.plot[7] || self.plot[0]; // Spawn location
-      var spCoords = getCenter(sp[0], sp[1]);
-      
       if(unitType === 'footsoldier'){
         house.stores.grain -= 20;
         house.stores.wood -= 10;
-            Footsoldier({
+          var newUnit = Footsoldier({
           x:spCoords[0],
           y:spCoords[1],
           z:1,
@@ -1119,12 +1244,24 @@ Garrison = function(param){
           kingdom:house.kingdom,
           home:{z:1, loc:sp}
         });
+          
+          // Initialize patrol mode
+          newUnit.mode = 'patrol';
+          newUnit.patrol = {
+            enabled: true,
+            buildings: [],
+            currentIndex: 0,
+            idleTimer: 0,
+            idleDuration: Math.floor(Math.random() * 600) + 300,
+            resumePoint: null
+          };
+          
         console.log('⚔️ Garrison produced Footsoldier for ' + house.name);
       } else if(unitType === 'skirmisher'){
         house.stores.grain -= 20;
         house.stores.wood -= 15;
         house.stores.iron -= 5;
-            Skirmisher({
+          var newUnit = Skirmisher({
           x:spCoords[0],
           y:spCoords[1],
           z:1,
@@ -1132,12 +1269,24 @@ Garrison = function(param){
           kingdom:house.kingdom,
           home:{z:1, loc:sp}
         });
+          
+          // Initialize patrol mode
+          newUnit.mode = 'patrol';
+          newUnit.patrol = {
+            enabled: true,
+            buildings: [],
+            currentIndex: 0,
+            idleTimer: 0,
+            idleDuration: Math.floor(Math.random() * 600) + 300,
+            resumePoint: null
+          };
+          
         console.log('⚔️ Garrison produced Skirmisher for ' + house.name);
       } else if(unitType === 'cavalier'){
         house.stores.grain -= 30;
         house.stores.wood -= 20;
         house.stores.iron -= 10;
-            Cavalier({
+          var newUnit = Cavalier({
           x:spCoords[0],
           y:spCoords[1],
           z:1,
@@ -1145,7 +1294,20 @@ Garrison = function(param){
           kingdom:house.kingdom,
           home:{z:1, loc:sp}
         });
+          
+          // Initialize patrol mode
+          newUnit.mode = 'patrol';
+          newUnit.patrol = {
+            enabled: true,
+            buildings: [],
+            currentIndex: 0,
+            idleTimer: 0,
+            idleDuration: Math.floor(Math.random() * 600) + 300,
+            resumePoint: null
+          };
+          
         console.log('⚔️ Garrison produced Cavalier for ' + house.name);
+        }
       }
     }
   }
@@ -1960,6 +2122,10 @@ Character = function(param){
     self.building = false;
     self.fishing = false;
     // add variable inaccuracy to angle?
+    // Only players consume arrows; NPCs have unlimited
+    if(self.type === 'player'){
+      self.inventory.arrows--;
+    }
     Arrow({
       parent:self.id,
       angle:angle,
@@ -2369,6 +2535,19 @@ Character = function(param){
   self.lastDir = null;
   self.lastTarget = null;
 
+  self.shouldRequestPath = function(tz, tc, tr){
+    if(!self.path || !self.pathEnd){
+      return true;
+    }
+    if(self.pathEnd.z !== tz){
+      return true;
+    }
+    if(!self.pathEnd.loc || self.pathEnd.loc[0] !== tc || self.pathEnd.loc[1] !== tr){
+      return true;
+    }
+    return false;
+  };
+
   self.moveTo = function(tz,tc,tr){
     var loc = getLoc(self.x,self.y);
     if(!self.prevLoc){
@@ -2386,7 +2565,10 @@ Character = function(param){
     if(loc.toString() != tLoc.toString()){
       if(tz == self.z){
         if(self.z == -1){
-          //
+          // Use pathfinding for cave navigation
+          if(self.shouldRequestPath(tz, tLoc[0], tLoc[1])){
+            self.getPath(-1, tLoc[0], tLoc[1]);
+          }
         } else if(self.z == -2){
           var b = getBuilding(cen[0],cen[1]);
           var tcen = getCenter(tLoc[0],tLoc[1]);
@@ -2420,6 +2602,11 @@ Character = function(param){
           }
         } else if(self.z == -3) {
           //
+        } else {
+          // For other z-levels that need pathfinding, request it here
+          if(self.shouldRequestPath(self.z, tLoc[0], tLoc[1])){
+            self.getPath(self.z, tLoc[0], tLoc[1]);
+          }
         }
       } else {
         if(self.z == 0){
@@ -2561,7 +2748,8 @@ Character = function(param){
             if(!b || !Building.list[b] || !Building.list[b].ustairs){
               // Cannot find building - force to first floor as emergency fallback
               if(!b){
-                console.warn(self.name + ' stuck at z=2 with no building detected, forcing to z=1');
+                var loc = getLoc(self.x, self.y);
+                console.warn(self.name + ' stuck at z=2 at ['+loc+'] trying to reach z='+tz+' ['+tLoc+']. Work: ' + (self.work ? 'hq='+self.work.hq+', spot='+self.work.spot : 'none') + '. Home: z='+self.home.z+'. Forcing to z=1');
                 self.z = 1;
                 self.path = null;
                 self.pathCount = 0;
@@ -2580,7 +2768,8 @@ Character = function(param){
               if(!b || !Building.list[b] || !Building.list[b].ustairs){
                 // Cannot find building - force to first floor as emergency fallback
                 if(!b){
-                  console.warn(self.name + ' stuck at z=2 with no building detected, forcing to z=1');
+                  var loc = getLoc(self.x, self.y);
+                  console.warn(self.name + ' (case 2) stuck at z=2 at ['+loc+'] trying to reach different building at z=2. Work: ' + (self.work ? 'hq='+self.work.hq : 'none') + '. Forcing to z=1');
                   self.z = 1;
                   self.path = null;
                   self.pathCount = 0;
@@ -3001,6 +3190,83 @@ Character = function(param){
     }
   }
 
+  // ============================================================================
+  // NPC LOOTING SYSTEM
+  // ============================================================================
+  
+  self.checkLoot = function() {
+    // Don't loot during combat
+    if(self.action === 'combat') return;
+    
+    // Type-specific loot preferences
+    const lootRadius = 128; // 2 tiles
+    
+    for(const itemId in Item.list) {
+      const item = Item.list[itemId];
+      if(!item || item.z !== self.z) continue;
+      
+      const dist = getDistance({x: self.x, y: self.y}, {x: item.x, y: item.y});
+      if(dist < lootRadius) {
+        // Check if this NPC wants this item type
+        if(self.canLoot && self.canLoot(item)) {
+          // Check for other humanoids nearby (avoid conflicts)
+          if(!self.hasNearbyHumanoids || !self.hasNearbyHumanoids(64)) {
+            if(item.pickup) {
+              item.pickup(self.id);
+              break; // One item per check
+            }
+          }
+        }
+      }
+    }
+  };
+  
+  self.canLoot = function(item) {
+    // Wolves loot and consume meat
+    if(self.class === 'Wolf') {
+      return ['venison', 'boarmeat', 'lamb', 'fish', 'venisonloin', 'boarshank', 'lambchop', 'poachedfish'].includes(item.type);
+    }
+    
+    // Military units loot everything from kills (handled separately in post-kill)
+    if(self.military) {
+      return true; // Loot weapons, armor, resources
+    }
+    
+    // Serfs loot work-related items
+    if(self.class === 'Serf' || self.class === 'SerfM' || self.class === 'SerfF') {
+      return ['grain', 'wood', 'stone', 'ironore', 'bread'].includes(item.type);
+    }
+    
+    // Other humanoid NPCs loot basic supplies
+    if(self.type === 'npc' && (self.class !== 'Deer' && self.class !== 'Boar' && self.class !== 'Falcon')) {
+      return ['bread', 'grain', 'wood'].includes(item.type);
+    }
+    
+    return false;
+  };
+  
+  self.hasNearbyHumanoids = function(radius) {
+    const radiusSquared = radius * radius;
+    for(const id in Player.list) {
+      const entity = Player.list[id];
+      if(!entity || entity.id === self.id) continue;
+      if(entity.z !== self.z) continue;
+      
+      // Check if humanoid (not fauna)
+      const isFauna = ['Deer', 'Boar', 'Wolf', 'Falcon'].includes(entity.class);
+      if(isFauna) continue;
+      
+      const dx = entity.x - self.x;
+      const dy = entity.y - self.y;
+      const distSquared = dx * dx + dy * dy;
+      
+      if(distSquared < radiusSquared) {
+        return true; // Humanoid nearby
+      }
+    }
+    return false;
+  };
+
   self.update = function(){
     var loc = getLoc(self.x,self.y);
     var b = getBuilding(self.x,self.y);
@@ -3024,6 +3290,21 @@ Character = function(param){
     if(self.attackCooldown > 0){
       self.attackCooldown--;
     }
+    // Decrement mine exit cooldown for serfs
+    if(self.mineExitCooldown && self.mineExitCooldown > 0){
+      self.mineExitCooldown--;
+    }
+    
+    // Periodic loot check for NPCs (every 3 seconds = 180 frames)
+    if(self.type === 'npc' && self.checkLoot){
+      if(!self._lootCheckCounter) self._lootCheckCounter = 0;
+      self._lootCheckCounter++;
+      
+      if(self._lootCheckCounter >= 180) {
+        self._lootCheckCounter = 0;
+        self.checkLoot();
+      }
+    }
 
     if(self.z == 0){
       if(getTile(0,loc[0],loc[1]) == 6){
@@ -3035,9 +3316,14 @@ Character = function(param){
           self.transitionIntent = 'enter_cave';
         }
         
-        // Check intent to enter cave
-        if(self.transitionIntent === 'enter_cave' && self.isAtPathDestination()){
+        // Check intent to enter cave (with cooldown check for serfs)
+        const isSerfClass = (self.class === 'Serf' || self.class === 'SerfM' || self.class === 'SerfF');
+        const cooldownOK = !isSerfClass || (self.mineExitCooldown === 0);
+        if(self.transitionIntent === 'enter_cave' && self.isAtPathDestination() && cooldownOK){
           self.enterCave(loc);
+        } else if(self.transitionIntent === 'enter_cave' && !cooldownOK){
+          // Serf wants to enter but cooldown active - clear intent to prevent stuck state
+          self.transitionIntent = null;
         }
       } else if(getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 2){
         self.innaWoods = true;
@@ -3059,7 +3345,9 @@ Character = function(param){
         self.innaWoods = false;
         self.maxSpd = (self.baseSpd * 0.2) * self.drag;
         setTimeout(function(){
-          if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6){
+          // Check CURRENT location, not stale loc from 2 seconds ago
+          var currentLoc = getLoc(self.x, self.y);
+          if(getTile(0,currentLoc[0],currentLoc[1]) >= 5 && getTile(0,currentLoc[0],currentLoc[1]) < 6){
             self.onMtn = true;
           }
         },2000);
@@ -3340,29 +3628,91 @@ Character = function(param){
       }
       // PATROL
     } else if(self.mode == 'patrol'){
+        // Initialize patrol object if not present
+        if(!self.patrol){
+          self.patrol = {
+            enabled: true,
+            buildings: [],
+            currentIndex: 0,
+            idleTimer: 0,
+            idleDuration: Math.floor(Math.random() * 600) + 300,
+            resumePoint: null
+          };
+        }
+        
         if(!self.action){
-          if(!self.path){
-            var list = House.list[self.house].patrol;
-            var select = list[Math.floor(Math.random() * list.length)];
-            var build = Building.list[select];
-            var area = getArea(build.plot[0],build.plot[build.plot.length-1],2);
-            var tiles = [];
-            for(var i in area){
-              if(isWalkable(0,area[i][0],area[i][1])){
-                tiles.push(area[i]);
+          // Safety check: ensure house exists
+          if(!self.house || !House.list[self.house]){
+            self.mode = 'idle';
+            self.action = null;
+            return;
+          }
+          
+          // Gather faction buildings if not yet populated
+          if(!self.patrol.buildings || self.patrol.buildings.length === 0){
+            var patrolBuildings = [];
+            for(var bid in Building.list){
+              var b = Building.list[bid];
+              if(b.house === self.house && b.built && b.plot && b.plot.length > 0){
+                // Include all buildings for patrol
+                patrolBuildings.push(bid);
               }
             }
-            var t = tiles[Math.floor(Math.random() * tiles.length)];
-            self.moveTo(self.z,t[0],t[1]);
+            self.patrol.buildings = patrolBuildings;
+            
+            if(patrolBuildings.length === 0){
+              // No buildings to patrol, switch to idle
+              self.mode = 'idle';
+              return;
+            }
+          }
+          
+          // Check if unit is idling at a building
+          if(self.patrol.idleTimer > 0){
+            // Standing guard
+            self.patrol.idleTimer--;
+            // Don't move while idling
+          } else {
+            // Move to next building in patrol route
+            if(self.patrol.buildings.length > 0){
+              var currentBuilding = Building.list[self.patrol.buildings[self.patrol.currentIndex]];
+              
+              if(!currentBuilding || !currentBuilding.built){
+                // Building no longer exists, move to next
+                self.patrol.currentIndex = (self.patrol.currentIndex + 1) % self.patrol.buildings.length;
+                self.patrol.buildings = []; // Force rebuild of building list
+                return;
+              }
+              
+              // Get building center
+              var buildingLoc = getLoc(currentBuilding.x, currentBuilding.y);
+              var buildingDist = self.getDistance({x: currentBuilding.x, y: currentBuilding.y});
+              
+              // Check if arrived at building (within 3 tiles)
+              if(buildingDist <= tileSize * 3){
+                // Arrived - start idle timer and move to next building
+                self.patrol.idleTimer = Math.floor(Math.random() * 600) + 300; // 5-15 seconds
+                self.patrol.currentIndex = (self.patrol.currentIndex + 1) % self.patrol.buildings.length;
+              } else {
+                // Path to building
+                self.moveTo(0, buildingLoc[0], buildingLoc[1]);
+              }
+            }
           }
         } else if(self.action == 'combat'){
+          // In combat - use SimpleCombat
+          if(global.simpleCombat){
+            global.simpleCombat.update(self);
+          } else {
+            // Fallback combat logic
           var target = Player.list[self.combat.target];
-          var lCoords = getCenter(lastLoc.loc[0],lastLoc.loc[1]);
-          var lDist = self.getDistance(lCoords[0],lCoords[1]);
-          if(!target || (lDist > self.aggroRange*2)){
+            if(!target){
+              // Target gone, resume patrol
             self.combat.target = null;
             self.action = null;
+              return;
           }
+            
           if(self.ranged){
             var tLoc = getLoc(target.x,target.y);
             var dist = self.getDistance({
@@ -3384,6 +3734,7 @@ Character = function(param){
             }
           } else {
             self.follow(target,true);
+            }
           }
         }
       // ESCORT
@@ -3706,7 +4057,7 @@ Character = function(param){
         // Use layer 1 for cave (worldMaps[1] = Underworld)
         var path = global.tilemapSystem.findPath(start, [c,r], 1, options);
         if(path && path.length > 0){
-          path = smoothPath(path, z);
+          // DON'T smooth cave paths - caves have narrow tunnels and smoothing causes wall-walking
           cachePath(start, [c,r], z, path);
         }
         self.path = path;
@@ -3843,6 +4194,12 @@ Character = function(param){
         self.moveTo([c,r]);
       }
     }
+    
+    // If pathfinding failed (path is null), apply cooldown to prevent spam
+    if(!self.path){
+      if(!self.pathCooldown) self.pathCooldown = 0;
+      self.pathCooldown = 90; // 1.5 seconds at 60fps
+    }
   }
 
   // Helper function to extract base name from feature names
@@ -3929,6 +4286,12 @@ Character = function(param){
     self.innaWoods = false;
     self.onMtn = false;
     self.maxSpd = (self.baseSpd * 0.9) * self.drag;
+    
+    // Set cooldown for serfs to prevent immediate re-entry
+    if(self.class === 'Serf' || self.class === 'SerfM' || self.class === 'SerfF'){
+      self.mineExitCooldown = 120; // 2 seconds at 60fps
+    }
+    
     // Clear movement flags
     if(!self.ghost){
       self.pressingRight = false;
@@ -4132,9 +4495,10 @@ Character = function(param){
         var isNotAtNext = currentLoc.toString() != next.toString();
         
         // Track waypoint history to detect oscillation (back-and-forth loops)
+        // DISABLED for caves (z=-1) - cave pathfinding is simple, oscillation detection causes wall-walking
         // Only for multi-waypoint paths - single-tile paths will naturally repeat
         var isOscillating = false;
-        if(self.path.length > 1){
+        if(self.path.length > 1 && self.z !== -1){
           if(!self.waypointHistory){
             self.waypointHistory = [];
           }
@@ -4167,23 +4531,20 @@ Character = function(param){
         
         // If blocked OR stuck on same waypoint OR oscillating
         if((isNextBlocked && isNotAtNext) || self.waypointStuckCounter > 60 || isOscillating){
-          // OSCILLATION DETECTED - Lock in current path to prevent alternating
+          // OSCILLATION DETECTED - Immediately recalculate to get a different path
           if(isOscillating){
-            // Mark path as locked - don't recalculate again
-            if(!self.pathLocked){
-              console.log((self.name || 'Entity') + ' oscillation detected, locking onto current path');
-              self.pathLocked = true;
-              self.waypointHistory = []; // Clear history
-              // Skip this waypoint and move to next one
-              self.pathCount++;
+            // Don't try to skip waypoints - the whole path is bad
+            // Immediately clear and let pathfinding find a different route
+            self.path = null;
+            self.pathCount = 0;
+            self.pathLocked = false;
+            self.waypointHistory = [];
+            self.skippedWaypointCount = 0;
+            
+            // Add cooldown to prevent immediate retry with same bad path
+            if(!self.pathCooldown) self.pathCooldown = 0;
+            self.pathCooldown = 30; // 0.5 seconds before retry
               return;
-            } else {
-              // Path is locked, skip problematic waypoint
-              console.log((self.name || 'Entity') + ' skipping oscillating waypoint (path locked)');
-              self.pathCount++;
-              self.waypointHistory = []; // Clear history
-              return;
-            }
           }
           
           // Next waypoint is blocked/unreachable - invalidate path and recalculate
@@ -4225,8 +4586,9 @@ Character = function(param){
             if(self.action != 'home'){
               self.pathEnd = null;
             }
-            // If serf is working, clear their work spot so they get assigned a different one
-            if(self.work && self.work.spot && (self.action == 'task' || self.action == 'build')){
+            // DON'T clear work assignments during work mode - let them retry after cooldown
+            // Only clear assignments if NOT in work mode
+            if(self.work && self.work.spot && (self.action == 'task' || self.action == 'build') && self.mode !== 'work'){
               self.work.spot = null;
               self.action = null; // Clear action to trigger new assignment
             }
@@ -4238,7 +4600,7 @@ Character = function(param){
             
             // Add pathfinding cooldown to prevent immediate retry (reduce CPU load)
             if(!self.pathCooldown) self.pathCooldown = 0;
-            self.pathCooldown = 180; // 3 seconds at 60fps before trying again
+            self.pathCooldown = 90; // 1.5 seconds at 60fps before trying again
             return;
           }
         } else if(self.pathRecalcAttempts > 0 && isWalkable(self.z, next[0], next[1])){
@@ -4316,6 +4678,7 @@ Character = function(param){
         self.waypointStuckCounter = 0;
         self.waypointHistory = []; // Clear oscillation history
         self.pathLocked = false; // Clear lock when path completes
+        self.skippedWaypointCount = 0; // Reset skip counter
         // Clear movement keys when path ends
         self.pressingRight = false;
         self.pressingLeft = false;
@@ -4356,6 +4719,7 @@ Character = function(param){
       enemies:self.enemies,
       spriteSize:self.spriteSize,
       innaWoods:self.innaWoods,
+      onMtn:self.onMtn,
       facing:self.facing,
       stealthed:self.stealthed,
       ranged:self.ranged,
@@ -4387,6 +4751,7 @@ Character = function(param){
       enemies:self.enemies,
       spriteSize:self.spriteSize,
       innaWoods:self.innaWoods,
+      onMtn:self.onMtn,
       facing:self.facing,
       stealthed:self.stealthed,
       ranged:self.ranged,
@@ -4537,6 +4902,11 @@ Deer = function(param){
   };
 
   self.update = function(){
+    // Decrement pathfinding cooldown
+    if(self.pathCooldown && self.pathCooldown > 0){
+      self.pathCooldown--;
+    }
+    
     // Update speed based on current state and terrain
     self.updateSpeed();
     
@@ -4733,7 +5103,9 @@ Wolf = function(param){
           self.maxSpd = (self.baseSpd * 0.2) * self.drag;
         }
         setTimeout(function(){
-          if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6){
+          // Check CURRENT location, not stale loc from 2 seconds ago
+          var currentLoc = getLoc(self.x, self.y);
+          if(getTile(0,currentLoc[0],currentLoc[1]) >= 5 && getTile(0,currentLoc[0],currentLoc[1]) < 6){
             self.onMtn = true;
           }
         },2000);
@@ -4948,7 +5320,14 @@ Falcon = function(param){
   self.update = function(){
     if(!self.path){
       if(!self.falconry){
-        self.path = randomSpawnO();
+        // Safely get a new random destination, fallback to current position if spawn points unavailable
+        try {
+          self.path = randomSpawnO();
+        } catch (err) {
+          console.error('Falcon failed to get random spawn, staying in place:', err);
+          // Stay at current location if spawn points are unavailable
+          self.path = [self.x, self.y];
+        }
       }
     } else {
       var dx = self.path[0];
@@ -5050,11 +5429,624 @@ Falcon = function(param){
         self.facing = 'up';
       } else {
         if(!self.falconry){
-          self.path = randomSpawnO();
+          // Reached destination, get a new one
+          try {
+            self.path = randomSpawnO();
+          } catch (err) {
+            console.error('Falcon failed to get random spawn, staying in place:', err);
+            // Stay at current location if spawn points are unavailable
+            self.path = [self.x, self.y];
+          }
         }
       }
     }
   }
+  return self;
+}
+
+FishingShip = function(param){
+  var self = Character(param);
+  self.class = 'FishingShip';
+  self.type = 'ship';
+  self.name = 'Fishing Ship'; // Default name
+  self.shipType = 'fishingship'; // Ship type identifier
+  self.spriteSize = tileSize * 2; // Larger than serfs
+  self.baseSpd = 1.5; // Slower than walking
+  self.maxSpd = 1.5;
+  self.currentSpeed = 1.5;
+  
+  // Ship properties
+  self.dock = param.dock; // Reference to home dock building ID
+  self.embarkedSerfs = []; // Array of serf IDs currently on board
+  self.inventory = {fish: 0}; // Ship's fish inventory
+  self.maxFish = 20; // Return to dock when this is reached
+  self.owner = param.owner || null; // Player who owns/controls this ship
+  self.storedPlayer = null; // Player character stored when boarding
+  self.isPlayerControlled = false; // True when player is actively controlling this ship
+  self.spawned = param.spawned !== undefined ? param.spawned : true; // False for player ships until boarded
+  self.dockedTimer = 0; // Timer for how long ship has been docked (1 hour before despawn)
+  
+  // Sailing control system - 2 points total to allocate
+  self.sailPoints = {
+    up: 0,    // W - north
+    down: 0,  // S - south
+    left: 0,  // A - west
+    right: 0  // D - east
+  };
+  
+  // State tracking
+  self.mode = param.owner ? 'docked' : 'fishing'; // Player ships start docked
+  self.workTimer = false; // Fishing timer
+  self.fishingCooldown = 0; // Cooldown between catches
+  
+  self.update = function(){
+    // Decrement cooldowns
+    if(self.fishingCooldown > 0){
+      self.fishingCooldown--;
+    }
+    
+    // Handle docked timer - despawn after 1 hour
+    if(self.mode == 'docked' && self.dockedTimer > 0){
+      self.dockedTimer--;
+      if(self.dockedTimer <= 0){
+        console.log('Fishing ship despawning after 1 hour at dock');
+        self.toRemove = true;
+        return;
+      }
+    }
+    
+    // Don't run autonomous AI if player is controlling this ship
+    if(self.isPlayerControlled){
+      // Player-controlled ships still need to update their position based on sail points
+      self.updatePosition();
+      return;
+    }
+    
+    // Check if work hours ended - return to dock (only for AI ships)
+    if((tempus == 'VI.p' || tempus == 'VII.p' || tempus == 'VIII.p' || tempus == 'IX.p' || tempus == 'X.p' || tempus == 'XI.p') && self.mode == 'fishing'){
+      self.mode = 'returning';
+      console.log('Fishing ship returning to dock (work hours ended, tempus: ' + tempus + ')');
+      
+      // Also trigger clockout for all embarked serfs
+      for(var i = 0; i < self.embarkedSerfs.length; i++){
+        var serfId = self.embarkedSerfs[i];
+        if(Player.list[serfId]){
+          Player.list[serfId].action = 'clockout';
+        }
+      }
+    }
+    
+    // Check if inventory full - return to dock
+    if(self.inventory.fish >= self.maxFish && self.mode == 'fishing'){
+      self.mode = 'returning';
+      console.log('Fishing ship returning to dock (inventory full: ' + self.inventory.fish + ' fish)');
+    }
+    
+    var loc = getLoc(self.x, self.y);
+    var tile = getTile(0, loc[0], loc[1]);
+    
+    // Check if at dock
+    if(tile == 13 && self.dock && Building.list[self.dock]){ // Dock tile
+      if(self.mode == 'returning'){
+        // Deposit fish and disembark serfs
+        this.depositFishAndDisembark();
+        return;
+      }
+    }
+    
+    if(self.mode == 'fishing'){
+      // Navigate to water and fish
+      if(tile == 0 && self.fishingCooldown == 0){ // On water
+        // Fish if serfs are aboard and there are fish in this tile
+        if(self.embarkedSerfs.length > 0){
+          var fishCount = getTile(6, loc[0], loc[1]); // Check fish resource layer
+          if(fishCount > 0){
+            self.fishingCooldown = 300; // 5 seconds between catches
+            
+            // Each serf aboard can catch 1 fish
+            var catchAmount = Math.min(self.embarkedSerfs.length, fishCount);
+            self.inventory.fish += catchAmount;
+            
+            // Deplete fish from tile
+            tileChange(6, loc[0], loc[1], -catchAmount, true);
+            
+            console.log('🎣 Fishing ship caught ' + catchAmount + ' fish (total: ' + self.inventory.fish + '/' + self.maxFish + ')');
+          }
+        }
+      }
+      
+      // Wander on water if not full (simple direct movement, no pathfinding)
+      if(self.inventory.fish < self.maxFish && !self.path){
+        // Find random water tile to navigate to
+        var waterSpots = [];
+        for(var i = -5; i <= 5; i++){
+          for(var j = -5; j <= 5; j++){
+            var checkC = loc[0] + i;
+            var checkR = loc[1] + j;
+            if(checkC >= 0 && checkC < mapSize && checkR >= 0 && checkR < mapSize){
+              if(getTile(0, checkC, checkR) == 0){ // Water
+                waterSpots.push([checkC, checkR]);
+              }
+            }
+          }
+        }
+        if(waterSpots.length > 0){
+          var rand = Math.floor(Math.random() * waterSpots.length);
+          var dest = waterSpots[rand];
+          var destCoords = getCenter(dest[0], dest[1]);
+          // Set simple path target (ship will move directly toward it)
+          self.path = [destCoords[0], destCoords[1]];
+        }
+      }
+      
+      // Direct movement toward water destination
+      if(self.path && typeof self.path[0] === 'number'){
+        var dx = self.path[0];
+        var dy = self.path[1];
+        var diffX = dx - self.x;
+        var diffY = dy - self.y;
+        
+        // Move toward destination
+        if(Math.abs(diffX) > self.currentSpeed || Math.abs(diffY) > self.currentSpeed){
+          if(Math.abs(diffX) > self.currentSpeed){
+            self.x += (diffX > 0 ? self.currentSpeed : -self.currentSpeed);
+            self.facing = diffX > 0 ? 'right' : 'left';
+            self.pressingRight = diffX > 0;
+            self.pressingLeft = diffX < 0;
+          }
+          if(Math.abs(diffY) > self.currentSpeed){
+            self.y += (diffY > 0 ? self.currentSpeed : -self.currentSpeed);
+            self.facing = diffY > 0 ? 'down' : 'up';
+            self.pressingDown = diffY > 0;
+            self.pressingUp = diffY < 0;
+          }
+        } else {
+          // Reached destination
+          self.path = null;
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
+        }
+      }
+    } else if(self.mode == 'returning'){
+      // Path back to dock using direct movement
+      if(self.dock && Building.list[self.dock]){
+        var dockBuilding = Building.list[self.dock];
+        // Find closest dock tile
+        if(dockBuilding.plot && dockBuilding.plot.length > 0){
+          var closestDockTile = null;
+          var closestDist = Infinity;
+          
+          for(var i in dockBuilding.plot){
+            var dt = dockBuilding.plot[i];
+            var dtCoords = getCenter(dt[0], dt[1]);
+            var dist = self.getDistance({x: dtCoords[0], y: dtCoords[1]});
+            if(dist < closestDist){
+              closestDist = dist;
+              closestDockTile = dt;
+            }
+          }
+          
+          if(closestDockTile){
+            var dockCoords = getCenter(closestDockTile[0], closestDockTile[1]);
+            // Move directly toward dock
+            var diffX = dockCoords[0] - self.x;
+            var diffY = dockCoords[1] - self.y;
+            
+            if(Math.abs(diffX) > self.currentSpeed || Math.abs(diffY) > self.currentSpeed){
+              if(Math.abs(diffX) > self.currentSpeed){
+                self.x += (diffX > 0 ? self.currentSpeed : -self.currentSpeed);
+                self.facing = diffX > 0 ? 'right' : 'left';
+                self.pressingRight = diffX > 0;
+                self.pressingLeft = diffX < 0;
+              }
+              if(Math.abs(diffY) > self.currentSpeed){
+                self.y += (diffY > 0 ? self.currentSpeed : -self.currentSpeed);
+                self.facing = diffY > 0 ? 'down' : 'up';
+                self.pressingDown = diffY > 0;
+                self.pressingUp = diffY < 0;
+              }
+            } else {
+              // Reached dock, clear movement flags
+              self.pressingRight = false;
+              self.pressingLeft = false;
+              self.pressingDown = false;
+              self.pressingUp = false;
+            }
+          }
+        }
+      }
+    }
+    
+    // Don't call updatePosition() - ship handles its own movement
+  }
+  
+  // Handle sail point allocation when keys are pressed
+  self.adjustSailPoints = function(direction){
+    if(!self.isPlayerControlled) return;
+    
+    var opposites = {
+      up: 'down',
+      down: 'up',
+      left: 'right',
+      right: 'left'
+    };
+    
+    var opposite = opposites[direction];
+    var totalPoints = self.sailPoints.up + self.sailPoints.down + self.sailPoints.left + self.sailPoints.right;
+    
+    // If pressing a direction that has points in its opposite, remove a point from opposite
+    if(self.sailPoints[opposite] > 0){
+      self.sailPoints[opposite]--;
+      console.log('🚢 Removed point from ' + opposite + ', now at: ' + self.sailPoints[opposite]);
+    }
+    // Otherwise, add a point to this direction (if we have points available)
+    else if(totalPoints < 2){
+      self.sailPoints[direction]++;
+      console.log('🚢 Added point to ' + direction + ', now at: ' + self.sailPoints[direction]);
+    }
+    
+    // Log current sail state
+    var activePoints = [];
+    if(self.sailPoints.up > 0) activePoints.push('N:' + self.sailPoints.up);
+    if(self.sailPoints.down > 0) activePoints.push('S:' + self.sailPoints.down);
+    if(self.sailPoints.left > 0) activePoints.push('W:' + self.sailPoints.left);
+    if(self.sailPoints.right > 0) activePoints.push('E:' + self.sailPoints.right);
+    console.log('⛵ Sail points: [' + (activePoints.length > 0 ? activePoints.join(', ') : 'STOPPED') + ']');
+  };
+  
+  // Override updatePosition to use sail points instead of pressing flags
+  var super_updatePosition = self.updatePosition;
+  self.updatePosition = function(){
+    if(!self.isPlayerControlled){
+      // AI ships use default movement
+      super_updatePosition();
+      return;
+    }
+    
+    // Calculate movement based on sail points
+    var totalPoints = self.sailPoints.up + self.sailPoints.down + self.sailPoints.left + self.sailPoints.right;
+    
+    if(totalPoints === 0){
+      // No movement - ship is stopped
+      return;
+    }
+    
+    console.log('⛵ Ship moving with sail points:', self.sailPoints);
+    
+    // Calculate speed multiplier (each point = 0.75 speed, max 2 points = 1.5 speed)
+    var speedPerPoint = 0.75;
+    
+    // Calculate horizontal and vertical movement
+    var moveX = 0;
+    var moveY = 0;
+    
+    if(self.sailPoints.right > 0) moveX += self.sailPoints.right * speedPerPoint;
+    if(self.sailPoints.left > 0) moveX -= self.sailPoints.left * speedPerPoint;
+    if(self.sailPoints.down > 0) moveY += self.sailPoints.down * speedPerPoint;
+    if(self.sailPoints.up > 0) moveY -= self.sailPoints.up * speedPerPoint;
+    
+    var nextX = self.x + moveX;
+    var nextY = self.y + moveY;
+    
+    var nextLoc = getLoc(nextX, nextY);
+    var nextTile = getTile(0, nextLoc[0], nextLoc[1]);
+    
+    // Check if touching walkable dock tile (14) - this is the entrance
+    if(nextTile == 14){ // Walkable dock entrance tile
+      console.log('🚢 Ship approaching dock entrance (tile 14)');
+      // Check if this is the ship's home dock
+      if(self.dock && Building.list[self.dock]){
+        var dockBuilding = Building.list[self.dock];
+        for(var i in dockBuilding.plot){
+          var dockLoc = dockBuilding.plot[i];
+          if(dockLoc[0] == nextLoc[0] && dockLoc[1] == nextLoc[1]){
+            // Touching home dock entrance - store boat and disembark
+            console.log('⚓ Ship docking at home dock - storing ship');
+            self.storeAtDock();
+            return;
+          }
+        }
+      }
+      // Not home dock entrance - treat as land, disembark
+      console.log('🏖️ Ship touching foreign dock - disembarking onto shore');
+      self.disembarkOntoLand(nextLoc);
+      return;
+    }
+    
+    // Check if touching any non-water tile (land = auto-disembark)
+    if(nextTile != 0){ // Not water (any land tile)
+      // Only disembark once - check if we're still player-controlled
+      if(self.isPlayerControlled && self.storedPlayer){
+        console.log('🏖️ Ship touching land (tile: ' + nextTile + ') - disembarking onto shore');
+        // Disembark player onto the land, boat stays at current water position
+        self.disembarkOntoLand(nextLoc);
+      }
+      return; // Don't move forward
+    }
+    
+    // Only move on water tiles
+    if(nextTile == 0){ // Water
+      self.x = nextX;
+      self.y = nextY;
+      
+      // Update facing direction based on movement
+      if(Math.abs(moveX) > Math.abs(moveY)){
+        self.facing = moveX > 0 ? 'right' : 'left';
+      } else if(Math.abs(moveY) > 0){
+        self.facing = moveY > 0 ? 'down' : 'up';
+      }
+    }
+  };
+  
+  // Disembark player onto land (boat stays visible on water)
+  self.disembarkOntoLand = function(landLoc){
+    if(!self.storedPlayer){
+      console.error('No player stored in ship to disembark');
+      // Stop the ship from moving
+      self.sailPoints = {up: 0, down: 0, left: 0, right: 0};
+      self.mode = 'anchored';
+      self.isPlayerControlled = false;
+      return;
+    }
+    
+    var playerId = self.storedPlayer.id;
+    var player = Player.list[playerId];
+    
+    if(!player){
+      console.error('Stored player not found:', playerId);
+      // Clear stored player and stop ship
+      self.storedPlayer = null;
+      self.sailPoints = {up: 0, down: 0, left: 0, right: 0};
+      self.mode = 'anchored';
+      self.isPlayerControlled = false;
+      return;
+    }
+    
+    // Place player on the land tile
+    var landCoords = getCenter(landLoc[0], landLoc[1]);
+    player.x = landCoords[0];
+    player.y = landCoords[1];
+    player.z = 0;
+    player.isBoarded = false;
+    player.boardedShip = null;
+    player.boardCooldown = 180; // 3 second cooldown before re-boarding
+    
+    // Transfer control back to player
+    var socket = SOCKET_LIST[playerId];
+    if(socket){
+      socket.write(JSON.stringify({
+        msg: 'disembarkShip',
+        newSelfId: playerId
+      }));
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>🏖️ Disembarked onto shore. Get close to the boat to re-board.</i>'}));
+    }
+    
+    // Ship stays visible at current position, stop all movement
+    self.isPlayerControlled = false;
+    self.mode = 'anchored'; // New mode: anchored at sea
+    self.sailPoints = {up: 0, down: 0, left: 0, right: 0}; // Clear all sail points
+    self.storedPlayer = null;
+    self.name = 'Fishing Ship ⚓'; // Update name to show anchored status
+    
+    console.log(player.name + ' disembarked onto land at [' + landLoc + '], ship anchored at sea');
+  };
+  
+  // Store boat at home dock and disembark
+  self.storeAtDock = function(){
+    if(!self.storedPlayer){
+      console.error('No player stored in ship to disembark');
+      return;
+    }
+    
+    var playerId = self.storedPlayer.id;
+    var player = Player.list[playerId];
+    
+    if(!player){
+      console.error('Stored player not found:', playerId);
+      return;
+    }
+    
+    var dockBuilding = Building.list[self.dock];
+    if(!dockBuilding){
+      console.error('Dock building not found');
+      return;
+    }
+    
+    // Restore player at dock entrance
+    var entranceTile = null;
+    for(var i in dockBuilding.plot){
+      var tile = getTile(0, dockBuilding.plot[i][0], dockBuilding.plot[i][1]);
+      if(tile == 14){ // Walkable entrance
+        entranceTile = dockBuilding.plot[i];
+        break;
+      }
+    }
+    
+    if(!entranceTile){
+      // Fallback to first plot tile
+      entranceTile = dockBuilding.plot[0];
+    }
+    
+    var dockCoords = getCenter(entranceTile[0], entranceTile[1]);
+    player.x = dockCoords[0];
+    player.y = dockCoords[1];
+    player.z = 0;
+    player.isBoarded = false;
+    player.boardedShip = null;
+    player.boardCooldown = 180; // 3 second cooldown before re-boarding
+    
+    // Transfer control back to player
+    var socket = SOCKET_LIST[playerId];
+    if(socket){
+      socket.write(JSON.stringify({
+        msg: 'disembarkShip',
+        newSelfId: playerId
+      }));
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>⚓ Ship docked. Boat will be stored here for 1 hour.</i>'}));
+    }
+    
+    // Mark ship as docked and set timer
+    self.isPlayerControlled = false;
+    self.mode = 'docked';
+    self.dockedTimer = 3600; // 1 in-game hour (60 minutes * 60 frames/sec)
+    self.sailPoints = {up: 0, down: 0, left: 0, right: 0}; // Clear sail points
+    self.storedPlayer = null;
+    self.name = 'Fishing Ship ⚓'; // Update name to show docked status
+    
+    console.log(player.name + ' docked ship at home dock ' + self.dock);
+  };
+  
+  self.depositFishAndDisembark = function(){
+    if(!self.dock || !Building.list[self.dock]){
+      console.error('Fishing ship has no valid dock to disembark at');
+      return;
+    }
+    
+    var dockBuilding = Building.list[self.dock];
+    var totalFish = self.inventory.fish;
+    
+    if(totalFish > 0){
+      // Split fish: 85% to building, 15% divided among serfs
+      var buildingShare = Math.floor(totalFish * 0.85);
+      var totalWage = totalFish - buildingShare;
+      var wagePerSerf = self.embarkedSerfs.length > 0 ? Math.floor(totalWage / self.embarkedSerfs.length) : 0;
+      
+      // Deposit to building's house
+      if(dockBuilding.house && House.list[dockBuilding.house]){
+        if(!House.list[dockBuilding.house].stores.fish) House.list[dockBuilding.house].stores.fish = 0;
+        House.list[dockBuilding.house].stores.fish += buildingShare;
+        console.log('✅ Fishing ship deposited ' + buildingShare + ' fish to ' + House.list[dockBuilding.house].name);
+      } else if(Player.list[dockBuilding.owner]){
+        if(!Player.list[dockBuilding.owner].stores.fish) Player.list[dockBuilding.owner].stores.fish = 0;
+        Player.list[dockBuilding.owner].stores.fish += buildingShare;
+      }
+      
+      // Track daily deposits
+      if(!dockBuilding.dailyStores) dockBuilding.dailyStores = {fish: 0};
+      dockBuilding.dailyStores.fish += buildingShare;
+      
+      // Give wage to each serf
+      for(var i = 0; i < self.embarkedSerfs.length; i++){
+        var serfId = self.embarkedSerfs[i];
+        if(Player.list[serfId]){
+          if(!Player.list[serfId].stores.fish) Player.list[serfId].stores.fish = 0;
+          Player.list[serfId].stores.fish += wagePerSerf;
+        }
+      }
+    }
+    
+    // Disembark all serfs
+    var dockLoc = dockBuilding.plot[0]; // First dock tile
+    var dockCoords = getCenter(dockLoc[0], dockLoc[1]);
+    
+    for(var i = 0; i < self.embarkedSerfs.length; i++){
+      var serfId = self.embarkedSerfs[i];
+      if(Player.list[serfId]){
+        var serf = Player.list[serfId];
+        // Respawn serf at dock
+        serf.x = dockCoords[0];
+        serf.y = dockCoords[1];
+        serf.z = 0;
+        serf.onShip = false;
+        console.log(serf.name + ' disembarked from fishing ship');
+      }
+    }
+    
+    // Clear ship
+    self.embarkedSerfs = [];
+    self.inventory.fish = 0;
+    
+    // Despawn ship
+    self.toRemove = true;
+    console.log('Fishing ship despawned after disembarkation');
+  }
+  
+  // Override die function to handle ship destruction
+  self.die = function(report){
+    var deathLocation = getLoc(self.x, self.y);
+    var deathCoords = getCenter(deathLocation[0], deathLocation[1]);
+    
+    console.log('🚢💥 Fishing ship destroyed at [' + deathLocation + ']');
+    
+    // Eject all stored players into water (they immediately sink)
+    if(self.storedPlayer){
+      var playerId = self.storedPlayer.id;
+      var player = Player.list[playerId];
+      
+      if(player){
+        // Place player in water where ship died
+        player.x = deathCoords[0];
+        player.y = deathCoords[1];
+        player.z = -3; // Underwater - they sink immediately
+        player.isBoarded = false;
+        player.boardedShip = null;
+        player.breath = player.breathMax * 0.5; // Start with half breath
+        
+        // Transfer control back to player
+        var socket = SOCKET_LIST[playerId];
+        if(socket){
+          socket.write(JSON.stringify({
+            msg: 'disembarkShip',
+            newSelfId: playerId
+          }));
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>🚢💥 Ship destroyed! You are sinking...</i>'}));
+        }
+        
+        console.log(player.name + ' ejected into water as ship sank');
+      }
+    }
+    
+    // Eject all inventory items scattered around wreckage
+    if(self.inventory){
+      for(var item in self.inventory){
+        var qty = self.inventory[item];
+        if(qty > 0){
+          // Random offset (within 2 tiles)
+          var offsetX = (Math.random() - 0.5) * tileSize * 2;
+          var offsetY = (Math.random() - 0.5) * tileSize * 2;
+          
+          if(global.itemFactory){
+            global.itemFactory.createItem(item, {
+              id: Math.random(),
+              x: deathCoords[0] + offsetX,
+              y: deathCoords[1] + offsetY,
+              z: 0, // Items float on water surface initially
+              qty: qty
+            });
+          }
+        }
+      }
+    }
+    
+    // Create wreckage item (floats for 10 seconds, then sinks)
+    ShipWreckage({
+      id: Math.random(),
+      x: deathCoords[0],
+      y: deathCoords[1],
+      z: 0,
+      sinkTimer: 600 // 10 seconds at 60fps
+    });
+    console.log('🪦 Ship wreckage created, will sink in 10 seconds');
+    
+    // Remove ship
+    self.toRemove = true;
+  };
+  
+  // Override getUpdatePack to include sail points and mode
+  var super_getUpdatePack = self.getUpdatePack;
+  self.getUpdatePack = function(){
+    var pack = super_getUpdatePack();
+    // Add ship-specific data
+    pack.sailPoints = self.sailPoints;
+    pack.shipMode = self.mode; // 'sailing', 'anchored', 'docked', 'fishing', 'returning'
+    pack.shipType = self.shipType;
+    return pack;
+  };
+  
+  Player.list[self.id] = self;
+  initPack.player.push(self.getInitPack());
   return self;
 }
 
@@ -5078,6 +6070,7 @@ Serf = function(param){
   self.stuckCounter = 0; // Count frames stuck in same position
   self.torchBearer = false; // Set during assignWorkHQ
   self.isNonCombatant = true; // Civilian - doesn't trigger outposts
+  self.mineExitCooldown = 0; // Prevent immediate re-entry after exiting cave (~2 seconds)
 
   // Assign Serf to appropriate work building
   self.assignWorkHQ = function(){
@@ -5093,7 +6086,7 @@ Serf = function(param){
       validBuildingTypes = ['mill', 'farm'];
     } else {
       // Males: all economic buildings
-      validBuildingTypes = ['mill', 'farm', 'lumbermill', 'mine'];
+      validBuildingTypes = ['mill', 'farm', 'lumbermill', 'mine', 'dock'];
     }
     
     // Look for work buildings in the same house
@@ -5134,6 +6127,7 @@ Serf = function(param){
       // Only miners need torches for caves
       if(buildingType === 'mine' && Building.list[bestHQ].cave){
         self.torchBearer = true;
+        self.inventory.torch = 3; // Torchbearers get 3 torches (free light, don't consume)
         console.log(self.name + ' is now a torch bearer (ore miner)');
       } else {
         self.torchBearer = false;
@@ -5158,6 +6152,7 @@ Serf = function(param){
           var buildingType = Building.list[self.work.hq].type;
           if(buildingType === 'mine' && Building.list[self.work.hq].cave){
             self.torchBearer = true;
+            self.inventory.torch = 3; // Torchbearers get 3 torches (free light, don't consume)
             console.log(self.name + ' is now a torch bearer (ore miner)');
           } else {
             self.torchBearer = false;
@@ -5274,6 +6269,11 @@ Serf = function(param){
     var loc = getLoc(self.x,self.y);
     self.zoneCheck();
     
+    // Decrement mine exit cooldown
+    if(self.mineExitCooldown > 0){
+      self.mineExitCooldown--;
+    }
+    
     // Torch bearer logic - auto-light torch in caves or at night
     if(self.torchBearer){
       if(!self.hasTorch){
@@ -5285,12 +6285,20 @@ Serf = function(param){
 
     if(self.z == 0){
       if(getTile(0,loc[0],loc[1]) == 6){
-        // Cave entrance - enter only if no active path
-        if(!self.path || self.path.length === 0){
+        // Cave entrance - enter only if no active path AND cooldown expired
+        if((!self.path || self.path.length === 0) && self.mineExitCooldown === 0){
           self.caveEntrance = loc;
           self.z = -1;
           self.path = null;
           self.pathCount = 0;
+        } else if(self.mineExitCooldown > 0){
+          // Waiting for cooldown to expire
+          if(!self._cooldownLogTimer) self._cooldownLogTimer = 0;
+          self._cooldownLogTimer++;
+          if(self._cooldownLogTimer >= 60){ // Log once per second
+            console.log(self.name + ' waiting at cave entrance (cooldown: ' + self.mineExitCooldown + ' frames)');
+            self._cooldownLogTimer = 0;
+          }
         }
       } else if(getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 2){
         self.innaWoods = true;
@@ -5308,7 +6316,9 @@ Serf = function(param){
         self.innaWoods = false;
         self.maxSpd = (self.baseSpd * 0.2) * self.drag;
         setTimeout(function(){
-          if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6){
+          // Check CURRENT location, not stale loc from 2 seconds ago
+          var currentLoc = getLoc(self.x, self.y);
+          if(getTile(0,currentLoc[0],currentLoc[1]) >= 5 && getTile(0,currentLoc[0],currentLoc[1]) < 6){
             self.onMtn = true;
           }
         },2000);
@@ -5360,6 +6370,10 @@ Serf = function(param){
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = (self.baseSpd * 0.9)  * self.drag;
+          
+          // Set cooldown to prevent immediate re-entry (120 frames = 2 seconds at 60fps)
+          self.mineExitCooldown = 120;
+          
         // Clear movement to prevent loops (except for ghosts)
         if(!self.ghost){
           self.pressingRight = false;
@@ -5508,11 +6522,14 @@ Serf = function(param){
     if(self.path && self.pathCount < self.path.length && dist < 2){ // Moved less than 2 pixels
       self.stuckCounter++;
       if(self.stuckCounter > 180){ // Stuck for 3 seconds at 60fps
-        console.log(self.name + ' stuck with active path - clearing (z=' + self.z + ', pathCount=' + self.pathCount + '/' + self.path.length + ')');
+        console.log(self.name + ' stuck with active path - clearing (z=' + self.z + ', pathCount=' + self.pathCount + '/' + self.path.length + ', action=' + self.action + ')');
         self.path = null;
         self.pathCount = 0;
+        // DON'T clear action or work spot during work mode - let them retry with same assignment
+        if(self.mode !== 'work'){
           self.action = null;
         self.work.spot = null;
+        }
         self.stuckCounter = 0;
         // Clear movement keys
         self.pressingRight = false;
@@ -5615,7 +6632,7 @@ Serf = function(param){
             self.work.spot = select[Math.floor(Math.random() * select.length)];
             Building.list[self.work.hq].log[self.id] = self.work.spot;
             self.action = 'task';
-            console.log('🔨 ' + self.name + ' assigned to task at ' + hq.type + ' spot [' + self.work.spot[0] + ',' + self.work.spot[1] + ']');
+            console.log('🔨 ' + self.name + ' assigned to task at ' + hq.type + ' spot [' + self.work.spot[0] + ',' + self.work.spot[1] + '] (z=' + self.z + ')');
           } else {
             console.log('⚠️ ' + self.name + ' no nearby resources found, switching to idle');
             self.mode = 'idle';
@@ -5660,6 +6677,7 @@ Serf = function(param){
                   self.work.spot = select[Math.floor(Math.random() * select.length)];
                 }
             } else {
+              // Path to work spot
               if(!self.path){
                 self.moveTo(0,spot[0],spot[1]);
               }
@@ -5669,8 +6687,10 @@ Serf = function(param){
           self.action = null;
         }
       } else if(self.action == 'task'){
-        var spot = self.work.spot;
+        // CRITICAL: Don't re-read spot from work.spot - it causes reassignment loops
+        // The spot is assigned in the !action block and should persist
           var hq = Building.list[self.work.hq];
+        var spot = self.work.spot;
         
         // Allow task action without spot if serf has resources to deposit
         var hasResourcesToDeposit = self.inventory.wood >= 1 || self.inventory.stone >= 1 || 
@@ -5679,6 +6699,7 @@ Serf = function(param){
                                     self.inventory.grain >= 1;
         
         if(!spot && !hasResourcesToDeposit){
+          // No spot and no resources - go back to assignment phase
           self.action = null;
         } else if(hq) {
           if(hq.type == 'mill'){
@@ -5694,16 +6715,37 @@ Serf = function(param){
                 self.inventory.grain = 0;
                 self.stores.grain = (self.stores.grain || 0) + serfWage; // Keep wage
                 
-                if(House.list[b.owner]){
-                  House.list[b.owner].stores.grain += buildingShare;
-                  // Serf grain work logged via event system
+                // Deposit to building's house (not owner) - CRITICAL FIX
+                if(b.house && House.list[b.house]){
+                  var beforeGrain = House.list[b.house].stores.grain || 0;
+                  House.list[b.house].stores.grain += buildingShare;
+                  var afterGrain = House.list[b.house].stores.grain;
+                  console.log('✅ ' + self.name + ' deposited ' + buildingShare + ' grain to ' + House.list[b.house].name + ' (house ID: ' + b.house + ', type: ' + typeof b.house + ') - Total: ' + beforeGrain + ' → ' + afterGrain);
+                  
+                  // Create deposit event
+                  if(global.eventManager && buildingShare > 0){
+                    global.eventManager.createEvent({
+                      category: global.eventManager.categories.ECONOMIC,
+                      subject: self.id,
+                      subjectName: self.name || self.class,
+                      action: 'deposited grain',
+                      target: b.house,
+                      targetName: House.list[b.house].name,
+                      quantity: buildingShare,
+                      communication: global.eventManager.commModes.NONE,
+                      log: `[ECONOMIC] ${self.name} deposited ${buildingShare} grain to ${House.list[b.house].name}`,
+                      position: {x: self.x, y: self.y, z: self.z}
+                    });
+                  }
                 } else if(Player.list[b.owner] && Player.list[b.owner].house){
+                  // Fallback: owner's house
                   var h = Player.list[b.owner].house;
                   House.list[h].stores.grain += buildingShare;
-                  // Serf grain work logged via event system
+                  console.log('✅ ' + self.name + ' deposited ' + buildingShare + ' grain to owner\'s house');
                 } else if(Player.list[b.owner]){
+                  // Independent player
                   Player.list[b.owner].stores.grain += buildingShare;
-                  // Serf grain work logged via event system
+                  console.log('✅ ' + self.name + ' deposited ' + buildingShare + ' grain to independent player');
                 }
                 // Track daily deposits (building share only)
                 if(!b.dailyStores) b.dailyStores = {grain: 0};
@@ -5712,6 +6754,7 @@ Serf = function(param){
                 // Convert deposited grain to flour (3:1 ratio - uses building's share only)
                 self.inventory.flour += Math.floor(buildingShare / 3);
               } else {
+                // Path to dropoff
                 if(!self.path){
                   self.moveTo(0,dropoff[0],dropoff[1]);
                 }
@@ -5800,6 +6843,8 @@ Serf = function(param){
                         }
                       } else {
                         tileChange(6,spot[0],spot[1],-1,true);
+                        self.inventory.grain += 10; // Harvest grain
+                        console.log(self.name + ' harvested 10 Grain');
                         if(getTile(6,spot[0],spot[1]) == 0){
                           tileChange(0,spot[0],spot[1],8);
                           var count = 0;
@@ -5843,6 +6888,7 @@ Serf = function(param){
                   },10000/self.strength);
                 }
               } else {
+                // Path to work spot
                 if(!self.path){
                   self.moveTo(0,spot[0],spot[1]);
                 }
@@ -5890,21 +6936,39 @@ Serf = function(param){
                 self.inventory.wood = 0;
                 self.stores.wood = (self.stores.wood || 0) + serfWage; // Keep wage
                 
-                if(House.list[b.owner]){
-                  House.list[b.owner].stores.wood += buildingShare;
-                  // Serf wood work logged via event system
+                // Deposit to building's house (not owner) - CRITICAL FIX
+                if(b.house && House.list[b.house]){
+                  House.list[b.house].stores.wood += buildingShare;
+                  console.log('✅ ' + self.name + ' deposited ' + buildingShare + ' wood to ' + House.list[b.house].name);
+                  
+                  // Create deposit event
+                  if(global.eventManager && buildingShare > 0){
+                    global.eventManager.createEvent({
+                      category: global.eventManager.categories.ECONOMIC,
+                      subject: self.id,
+                      subjectName: self.name || self.class,
+                      action: 'deposited wood',
+                      target: b.house,
+                      targetName: House.list[b.house].name,
+                      quantity: buildingShare,
+                      communication: global.eventManager.commModes.NONE,
+                      log: `[ECONOMIC] ${self.name} deposited ${buildingShare} wood to ${House.list[b.house].name}`,
+                      position: {x: self.x, y: self.y, z: self.z}
+                    });
+                  }
                 } else if(Player.list[b.owner] && Player.list[b.owner].house){
                   var h = Player.list[b.owner].house;
                   House.list[h].stores.wood += buildingShare;
-                  // Serf wood work logged via event system
+                  console.log('✅ ' + self.name + ' deposited ' + buildingShare + ' wood to owner\'s house');
                 } else if(Player.list[b.owner]){
                   Player.list[b.owner].stores.wood += buildingShare;
-                  // Serf wood work logged via event system
+                  console.log('✅ ' + self.name + ' deposited ' + buildingShare + ' wood to independent player');
                 }
                 // Track daily deposits (building share only)
                 if(!b.dailyStores) b.dailyStores = {wood: 0};
                 b.dailyStores.wood += buildingShare;
               } else {
+                // Path to dropoff
                 if(!self.path){
                   self.moveTo(0,dropoff[0],dropoff[1]);
                 }
@@ -5912,12 +6976,10 @@ Serf = function(param){
             } else {
               // Need a spot to chop wood
               if(!spot){
-                // Don't immediately fail - spot assignment happens in mode logic
-                return;
-              }
-              
+                // Spot will be assigned in next update cycle by mode logic
+                // Don't return - let serf idle naturally
+              } else if(loc.toString() == spot.toString()){
               // Check if already at work spot
-              if(loc.toString() == spot.toString()){
                 var tile = getTile(0,spot[0],spot[1]);
                 self.working = true;
                 self.chopping = true;
@@ -5953,13 +7015,9 @@ Serf = function(param){
                   },10000/self.strength);
                 }
               } else {
+                // Path to work spot
                 if(!self.path){
                   self.moveTo(0,spot[0],spot[1]);
-                  if(!self.path){
-                    console.log(self.name + ' failed to create path to wood spot - clearing spot to try again');
-                    self.work.spot = null;
-                    self.action = null;
-                  }
                 }
               }
             }
@@ -5983,11 +7041,17 @@ Serf = function(param){
                 // Clear work spot - we're depositing, not gathering
                 self.work.spot = null;
                 
-                // Set intent to exit cave for deposit (if currently in cave)
+                // If in cave, exit first before depositing
                 if(self.z === -1){
-                  self.transitionIntent = 'exit_cave';
-                  self.targetZLevel = 0;
+                  if(self.caveEntrance){
+                    console.log('💼 ' + self.name + ' has iron ore, exiting cave to deposit');
+                    // Keep calling moveTo to follow the path until cave exit
+                    self.moveTo(0, self.caveEntrance[0], self.caveEntrance[1]);
                 }
+                  // Don't return - let path following code execute so serf actually moves!
+                } else {
+                
+                  console.log('💼 ' + self.name + ' has ' + self.inventory.ironore + ' iron ore, heading to deposit at mine (z=' + self.z + ')');
                 
                 var b = Building.list[self.work.hq];
                 var drop = [b.plot[0][0],b.plot[0][1]+1];
@@ -5997,25 +7061,44 @@ Serf = function(param){
                   var buildingShare = Math.floor(totalIron * 0.85); // 85% to building
                   var serfWage = totalIron - buildingShare;         // 15% wage for serf
                   
+                  console.log('💰 ' + self.name + ' AT DEPOSIT POINT - Total: ' + totalIron + ' (Building: ' + buildingShare + ', Wage: ' + serfWage + ')');
+                  
                   self.inventory.ironore = 0;
                   self.stores.ironore = (self.stores.ironore || 0) + serfWage; // Keep wage
                   
-                  if(House.list[b.owner]){
-                    House.list[b.owner].stores.ironore += buildingShare;
-                    // Serf iron ore work logged via event system
+                  // Deposit to building's house (not owner) - CRITICAL FIX
+                  if(b.house && House.list[b.house]){
+                    House.list[b.house].stores.ironore += buildingShare;
+                    console.log('✅ ' + self.name + ' deposited ' + buildingShare + ' iron ore to ' + House.list[b.house].name + ' (total now: ' + House.list[b.house].stores.ironore + ')');
+                    
+                    // Create deposit event
+                    if(global.eventManager && buildingShare > 0){
+                      global.eventManager.createEvent({
+                        category: global.eventManager.categories.ECONOMIC,
+                        subject: self.id,
+                        subjectName: self.name || self.class,
+                        action: 'deposited iron ore',
+                        target: b.house,
+                        targetName: House.list[b.house].name,
+                        quantity: buildingShare,
+                        communication: global.eventManager.commModes.NONE,
+                        log: `[ECONOMIC] ${self.name} deposited ${buildingShare} iron ore to ${House.list[b.house].name}`,
+                        position: {x: self.x, y: self.y, z: self.z}
+                      });
+                    }
                   } else if(Player.list[b.owner] && Player.list[b.owner].house){
                     var h = Player.list[b.owner].house;
                     House.list[h].stores.ironore += buildingShare;
-                    // Serf iron ore work logged via event system
+                    console.log('✅ ' + self.name + ' deposited ' + buildingShare + ' iron ore to owner\'s house');
                   } else if(Player.list[b.owner]){
                     Player.list[b.owner].stores.ironore += buildingShare;
-                    // Serf iron ore work logged via event system
+                    console.log('✅ ' + self.name + ' deposited ' + buildingShare + ' iron ore to independent player');
                   }
                   // Track daily deposits (building share only)
                   if(!b.dailyStores) b.dailyStores = {stone: 0, ironore: 0, silverore: 0, goldore: 0, diamond: 0};
                   b.dailyStores.ironore += buildingShare;
                 } else {
-                  if(!self.path){
+                    // Keep calling moveTo to follow the path until destination is reached
                     self.moveTo(0,drop[0],drop[1]);
                   }
                 }
@@ -6023,33 +7106,37 @@ Serf = function(param){
                 // Clear work spot - we're depositing, not gathering
                 self.work.spot = null;
                 
-                // Set intent to exit cave for deposit (if currently in cave)
+                // If in cave, exit first before depositing
                 if(self.z === -1){
-                  self.transitionIntent = 'exit_cave';
-                  self.targetZLevel = 0;
+                  if(self.caveEntrance){
+                    console.log('💼 ' + self.name + ' has silver ore, exiting cave to deposit');
+                    // Keep calling moveTo to follow the path until cave exit
+                    self.moveTo(0, self.caveEntrance[0], self.caveEntrance[1]);
                 }
-                
+                  // Don't return - let path following code execute!
+                } else {
                 var b = Building.list[self.work.hq];
                 var drop = [b.plot[0][0],b.plot[0][1]+1];
                 if(loc.toString() == drop.toString()){
                   self.facing = 'up';
                   self.inventory.silverore--;
-                  if(House.list[b.owner]){
-                    House.list[b.owner].stores.silverore++;
-                    console.log(House.list[b.owner].name + ' +1 Silver Ore');
+                  // Deposit to building's house (not owner) - CRITICAL FIX
+                  if(b.house && House.list[b.house]){
+                    House.list[b.house].stores.silverore++;
+                    console.log('✅ ' + self.name + ' deposited 1 silver ore to ' + House.list[b.house].name);
                   } else if(Player.list[b.owner] && Player.list[b.owner].house){
                     var h = Player.list[b.owner].house;
                     House.list[h].stores.silverore++;
-                    console.log(House.list[h].name + ' +1 Silver Ore');
+                    console.log('✅ ' + self.name + ' deposited 1 silver ore to owner\'s house');
                   } else if(Player.list[b.owner]){
                     Player.list[b.owner].stores.silverore++;
-                    console.log(Player.list[b.owner].name + ' +1 Silver Ore');
+                    console.log('✅ ' + self.name + ' deposited 1 silver ore to independent player');
                   }
                   // Track daily deposits
                   if(!b.dailyStores) b.dailyStores = {stone: 0, ironore: 0, silverore: 0, goldore: 0, diamond: 0};
                   b.dailyStores.silverore++;
                 } else {
-                  if(!self.path){
+                    // Keep calling moveTo to follow the path until destination is reached
                     self.moveTo(0,drop[0],drop[1]);
                   }
                 }
@@ -6057,33 +7144,37 @@ Serf = function(param){
                 // Clear work spot - we're depositing, not gathering
                 self.work.spot = null;
                 
-                // Set intent to exit cave for deposit (if currently in cave)
+                // If in cave, exit first before depositing
                 if(self.z === -1){
-                  self.transitionIntent = 'exit_cave';
-                  self.targetZLevel = 0;
+                  if(self.caveEntrance){
+                    console.log('💼 ' + self.name + ' has gold ore, exiting cave to deposit');
+                    // Keep calling moveTo to follow the path until cave exit
+                    self.moveTo(0, self.caveEntrance[0], self.caveEntrance[1]);
                 }
-                
+                  // Don't return - let path following code execute!
+                } else {
                 var b = Building.list[self.work.hq];
                 var drop = [b.plot[0][0],b.plot[0][1]+1];
                 if(loc.toString() == drop.toString()){
                   self.facing = 'up';
                   self.inventory.goldore--;
-                  if(House.list[b.owner]){
-                    House.list[b.owner].stores.goldore++;
-                    console.log(House.list[b.owner].name + ' +1 Gold Ore');
+                  // Deposit to building's house (not owner) - CRITICAL FIX
+                  if(b.house && House.list[b.house]){
+                    House.list[b.house].stores.goldore++;
+                    console.log('✅ ' + self.name + ' deposited 1 gold ore to ' + House.list[b.house].name);
                   } else if(Player.list[b.owner] && Player.list[b.owner].house){
                     var h = Player.list[b.owner].house;
                     House.list[h].stores.goldore++;
-                    console.log(House.list[h].name + ' +1 Gold Ore');
+                    console.log('✅ ' + self.name + ' deposited 1 gold ore to owner\'s house');
                   } else if(Player.list[b.owner]){
                     Player.list[b.owner].stores.goldore++;
-                    console.log(Player.list[b.owner].name + ' +1 Gold Ore');
+                    console.log('✅ ' + self.name + ' deposited 1 gold ore to independent player');
                   }
                   // Track daily deposits
                   if(!b.dailyStores) b.dailyStores = {stone: 0, ironore: 0, silverore: 0, goldore: 0, diamond: 0};
                   b.dailyStores.goldore++;
                 } else {
-                  if(!self.path){
+                    // Keep calling moveTo to follow the path until destination is reached
                     self.moveTo(0,drop[0],drop[1]);
                   }
                 }
@@ -6091,24 +7182,28 @@ Serf = function(param){
                 // Clear work spot - we're depositing, not gathering
                 self.work.spot = null;
                 
-                // Set intent to exit cave for deposit (if currently in cave)
+                // If in cave, exit first before depositing
                 if(self.z === -1){
-                  self.transitionIntent = 'exit_cave';
-                  self.targetZLevel = 0;
+                  if(self.caveEntrance){
+                    console.log('💼 ' + self.name + ' has diamond, exiting cave to deposit');
+                    // Keep calling moveTo to follow the path until cave exit
+                    self.moveTo(0, self.caveEntrance[0], self.caveEntrance[1]);
                 }
-                
+                  // Don't return - let path following code execute!
+                } else {
                 var b = Building.list[self.work.hq];
                 var drop = [b.plot[0][0],b.plot[0][1]+1];
                 if(loc.toString() == drop.toString()){
                   self.facing = 'up';
                   self.inventory.diamond--;
-                  if(House.list[b.owner]){
-                    House.list[b.owner].stores.diamond++;
-                    console.log(House.list[b.owner].name + ' +1 Diamond');
+                  // Deposit to building's house (not owner) - CRITICAL FIX
+                  if(b.house && House.list[b.house]){
+                    House.list[b.house].stores.diamond++;
+                    console.log('✅ ' + self.name + ' deposited 1 diamond to ' + House.list[b.house].name);
                   } else if(Player.list[b.owner] && Player.list[b.owner].house){
                     var h = Player.list[b.owner].house;
                     House.list[h].stores.diamond++;
-                    console.log(House.list[h].name + ' +1 Diamond');
+                    console.log('✅ ' + self.name + ' deposited 1 diamond to owner\'s house');
                   } else if(Player.list[b.owner]){
                     Player.list[b.owner].stores.diamond++;
                     console.log(Player.list[b.owner].name + ' +1 Diamond');
@@ -6117,7 +7212,7 @@ Serf = function(param){
                   if(!b.dailyStores) b.dailyStores = {stone: 0, ironore: 0, silverore: 0, goldore: 0, diamond: 0};
                   b.dailyStores.diamond++;
                 } else {
-                  if(!self.path){
+                    // Keep calling moveTo to follow the path until destination is reached
                     self.moveTo(0,drop[0],drop[1]);
                   }
                 }
@@ -6125,12 +7220,11 @@ Serf = function(param){
                 // No ore to deposit - continue mining
                 // Ore mining - serfs need to go to cave (z=-1)
                 
-                // If no spot assigned, can't continue (serf needs task assignment)
+                // If no spot assigned, wait for next cycle to get one
                 if(!spot){
-                  console.log(self.name + ' at ore mine with no spot and no ore to deposit, z=' + self.z);
-                  self.action = null; // Let the !action block assign a new task
-                  return;
-                }
+                  // Spot will be assigned in next update cycle by mode logic
+                  // Don't return or clear action - let serf idle naturally
+                } else {
                 
                 if(self.z == -1){
                   // Only check tile validity if not actively working
@@ -6163,15 +7257,29 @@ Serf = function(param){
                         if(roll < 0.001){
                           self.inventory.diamond++;
                           console.log(self.name + ' mined 1 Diamond');
+                          if(global.eventManager){
+                            global.eventManager.resourceGathered(self, 'diamond', 1, {x: self.x, y: self.y, z: self.z});
+                          }
                         } else if(roll < 0.01){
                           self.inventory.goldore++;
                           console.log(self.name + ' mined 1 Gold Ore');
+                          if(global.eventManager){
+                            global.eventManager.resourceGathered(self, 'gold ore', 1, {x: self.x, y: self.y, z: self.z});
+                          }
                         } else if(roll < 0.1){
                           self.inventory.silverore++;
                           console.log(self.name + ' mined 1 Silver Ore');
+                          if(global.eventManager){
+                            global.eventManager.resourceGathered(self, 'silver ore', 1, {x: self.x, y: self.y, z: self.z});
+                          }
                         } else if(roll < 0.5){
                           self.inventory.ironore++;
-                          console.log(self.name + ' mined 1 Iron Ore');
+                          console.log('⛏️ ' + self.name + ' mined 1 Iron Ore (now has ' + self.inventory.ironore + ')');
+                          
+                          // Create mining event
+                          if(global.eventManager){
+                            global.eventManager.resourceGathered(self, 'iron ore', 1, {x: self.x, y: self.y, z: self.z});
+                          }
                         } else {
                           // 50% chance to get nothing (mining is hard!)
                           console.log(self.name + ' mined but found nothing this time');
@@ -6219,17 +7327,22 @@ Serf = function(param){
                   }
                   } else {
                     // In cave but not at spot yet - path to ore rock
-                    if(!self.path){
                       var currentLoc = getLoc(self.x, self.y);
-                      console.log(self.name + ' at z=-1 ['+currentLoc[0]+','+currentLoc[1]+'] pathing to ore spot ['+spot[0]+','+spot[1]+']');
-                      self.moveTo(-1,spot[0],spot[1]);
-                      if(!self.path){
-                        console.log(self.name + ' failed to create path to ore spot in cave - clearing spot to try again');
-                        // Clear the unreachable spot so a new one can be assigned
-                        self.work.spot = null;
-                        self.action = null;
-                      }
+                    var currentTile = getTile(1, currentLoc[0], currentLoc[1]);
+                    
+                    // If stuck on a wall, teleport to cave entrance to escape
+                    if(currentTile === 1 && self.caveEntrance){
+                      console.log('🚨 ' + self.name + ' STUCK ON WALL at ['+currentLoc+'] - teleporting to cave entrance');
+                      var exitCoords = getCenter(self.caveEntrance[0], self.caveEntrance[1] + 1);
+                      self.x = exitCoords[0];
+                      self.y = exitCoords[1];
+                      self.path = null;
+                      self.pathCount = 0;
+                      return;
                     }
+                    
+                    // Keep calling getPath to follow the path until destination is reached
+                    self.getPath(-1,spot[0],spot[1]);
                   }
                 } else {
                   // Not in cave yet (at z=0, z=1, or z=2) - path to cave entrance
@@ -6243,8 +7356,11 @@ Serf = function(param){
                     
                     // Don't path if already at cave entrance on z=0 (waiting for transition)
                     var alreadyAtEntrance = (self.z === 0 && loc.toString() === caveEntrance.toString());
-                    if(!self.path && !alreadyAtEntrance){
-                      self.moveTo(0,caveEntrance[0],caveEntrance[1]);
+            if(!alreadyAtEntrance){
+              if(self.shouldRequestPath(0, caveEntrance[0], caveEntrance[1])){
+                self.getPath(0, caveEntrance[0], caveEntrance[1]);
+              }
+            }
                     }
                   }
                 }
@@ -6289,16 +7405,33 @@ Serf = function(param){
                   self.inventory.stone = 0;
                   self.stores.stone = (self.stores.stone || 0) + serfWage; // Keep wage
                   
-                  if(House.list[b.owner]){
-                    House.list[b.owner].stores.stone += buildingShare;
-                    console.log(House.list[b.owner].name + ' +' + buildingShare + ' Stone (' + self.name + ' kept ' + serfWage + ' as wage)');
+                  // Deposit to building's house (not owner) - CRITICAL FIX
+                  if(b.house && House.list[b.house]){
+                    House.list[b.house].stores.stone += buildingShare;
+                    console.log('✅ ' + self.name + ' deposited ' + buildingShare + ' stone to ' + House.list[b.house].name);
+                    
+                    // Create deposit event
+                    if(global.eventManager && buildingShare > 0){
+                      global.eventManager.createEvent({
+                        category: global.eventManager.categories.ECONOMIC,
+                        subject: self.id,
+                        subjectName: self.name || self.class,
+                        action: 'deposited stone',
+                        target: b.house,
+                        targetName: House.list[b.house].name,
+                        quantity: buildingShare,
+                        communication: global.eventManager.commModes.NONE,
+                        log: `[ECONOMIC] ${self.name} deposited ${buildingShare} stone to ${House.list[b.house].name}`,
+                        position: {x: self.x, y: self.y, z: self.z}
+                      });
+                    }
                   } else if(Player.list[b.owner] && Player.list[b.owner].house){
                     var h = Player.list[b.owner].house;
                     House.list[h].stores.stone += buildingShare;
-                    console.log(House.list[h].name + ' +' + buildingShare + ' Stone (' + self.name + ' kept ' + serfWage + ' as wage)');
+                    console.log('✅ ' + self.name + ' deposited ' + buildingShare + ' stone to owner\'s house');
                   } else if(Player.list[b.owner]){
                     Player.list[b.owner].stores.stone += buildingShare;
-                    console.log(Player.list[b.owner].name + ' +' + buildingShare + ' Stone (' + self.name + ' kept ' + serfWage + ' as wage)');
+                    console.log('✅ ' + self.name + ' deposited ' + buildingShare + ' stone to independent player');
                   }
                   // Track daily deposits (building share only)
                   if(!b.dailyStores) b.dailyStores = {stone: 0, ironore: 0, silverore: 0, goldore: 0, diamond: 0};
@@ -6311,11 +7444,10 @@ Serf = function(param){
               } else {
                 // Need a spot to mine
                 if(!spot){
-                  // Don't immediately fail - spot assignment happens in mode logic
-                  return;
-                }
-                
-                if(loc.toString() == spot.toString()){
+                  // Spot will be assigned in next update cycle by mode logic
+                  // Don't return - let serf idle naturally
+                } else if(loc.toString() == spot.toString()){
+                  // Already at work spot
                   var tile = getTile(0,spot[0],spot[1]);
                   self.working = true;
                   self.mining = true;
@@ -6348,20 +7480,137 @@ Serf = function(param){
                     },10000/self.strength);
                   }
                 } else {
+                // Path to work spot
                   if(!self.path){
                     self.moveTo(0,spot[0],spot[1]);
-                    if(!self.path){
-                      console.log(self.name + ' failed to create path to stone spot - clearing spot to try again');
-                      self.work.spot = null;
+                  }
+                }
+              }
+            }
+          } else if(hq.type == 'dock'){
+            // Dock work - serf embarks on fishing ship
+            // Check if serf is already on a ship
+            if(self.onShip){
+              // Serf is aboard, do nothing (ship handles fishing)
+              return;
+            }
+            
+            // Path to any dock tile
+            var dockTile = null;
+            if(hq.plot && hq.plot.length > 0){
+              // Find closest dock tile
+              var closestDist = Infinity;
+              for(var i in hq.plot){
+                var dt = hq.plot[i];
+                var dtCoords = getCenter(dt[0], dt[1]);
+                var dist = self.getDistance({x: dtCoords[0], y: dtCoords[1]});
+                if(dist < closestDist){
+                  closestDist = dist;
+                  dockTile = dt;
+                }
+              }
+            }
+            
+            if(!dockTile){
+              console.log(self.name + ' dock has no valid tiles, switching to idle');
+              self.mode = 'idle';
                       self.action = null;
+              return;
+            }
+            
+            // Check if serf is at a dock tile
+            var tile = getTile(0, loc[0], loc[1]);
+            if(tile == 13){ // Dock tile
+              // EMBARK - find existing ship or spawn new one
+              var availableShip = null;
+              
+              // Check if dock has ships already available
+              if(hq.ships && hq.ships.length > 0){
+                // Find a ship that's not full and near the dock
+                for(var i = 0; i < hq.ships.length; i++){
+                  var shipId = hq.ships[i];
+                  var ship = Player.list[shipId];
+                  if(ship && ship.embarkedSerfs.length < 3){ // Max 3 serfs per ship
+                    var shipLoc = getLoc(ship.x, ship.y);
+                    var shipDist = self.getDistance({x: ship.x, y: ship.y});
+                    // Ship must be within 3 tiles of dock
+                    if(shipDist < 192){ // 3 tiles
+                      availableShip = ship;
+                      break;
                     }
                   }
                 }
+              }
+              
+              if(!availableShip){
+                // Spawn new fishing ship
+                console.log('🚢 ' + self.name + ' reached dock, spawning new fishing ship');
+                
+                // Find adjacent water tile to spawn ship
+                var waterTile = null;
+                var adjacentTiles = [
+                  [loc[0], loc[1] + 1],  // down
+                  [loc[0], loc[1] - 1],  // up
+                  [loc[0] - 1, loc[1]],  // left
+                  [loc[0] + 1, loc[1]]   // right
+                ];
+                
+                for(var i in adjacentTiles){
+                  var at = adjacentTiles[i];
+                  if(at[0] >= 0 && at[0] < mapSize && at[1] >= 0 && at[1] < mapSize){
+                    if(getTile(0, at[0], at[1]) == 0){ // Water
+                      waterTile = at;
+                      break;
+                    }
+                  }
+                }
+                
+                if(!waterTile){
+                  console.log('⚠️ ' + self.name + ' no adjacent water found at dock, cannot spawn ship');
+                  return;
+                }
+                
+                // Spawn fishing ship at water tile
+                var waterCoords = getCenter(waterTile[0], waterTile[1]);
+                availableShip = FishingShip({
+                  x: waterCoords[0],
+                  y: waterCoords[1],
+                  z: 0,
+                  dock: self.work.hq,
+                  house: hq.house,
+                  kingdom: hq.kingdom
+                });
+                
+                // Track ship in dock's registry
+                if(!hq.ships) hq.ships = [];
+                hq.ships.push(availableShip.id);
+              }
+              
+              // Embark serf on ship
+              availableShip.embarkedSerfs.push(self.id);
+              self.onShip = true;
+              
+              // Hide serf from world (move to invalid coordinates)
+              self.x = -1000;
+              self.y = -1000;
+              self.z = -10; // Invalid z-level
+              
+              console.log('🚢 ' + self.name + ' embarked on fishing ship ' + availableShip.id + ' (crew: ' + availableShip.embarkedSerfs.length + ')');
+            } else {
+              // Not at dock yet, path to it
+              if(!self.path){
+                self.moveTo(0, dockTile[0], dockTile[1]);
               }
             }
           }
         }
       } else if(self.action == 'clockout'){
+        // Special handling for dock workers - they're on ships
+        if(self.onShip){
+          // Serf is on fishing ship, do nothing - ship will handle return and disembarkation
+          return;
+        }
+        
         self.working = false;
         self.building = false;
         self.farming = false;
@@ -7029,6 +8278,7 @@ Innkeeper = function(param){
           var buildingType = Building.list[self.work.hq].type;
           if(buildingType === 'mine' && Building.list[self.work.hq].cave){
             self.torchBearer = true;
+            self.inventory.torch = 3; // Torchbearers get 3 torches (free light, don't consume)
             console.log(self.name + ' is now a torch bearer (ore miner)');
           } else {
             self.torchBearer = false;
@@ -7171,7 +8421,9 @@ Innkeeper = function(param){
         self.innaWoods = false;
         self.maxSpd = (self.baseSpd * 0.2) * self.drag;
         setTimeout(function(){
-          if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6){
+          // Check CURRENT location, not stale loc from 2 seconds ago
+          var currentLoc = getLoc(self.x, self.y);
+          if(getTile(0,currentLoc[0],currentLoc[1]) >= 5 && getTile(0,currentLoc[0],currentLoc[1]) < 6){
             self.onMtn = true;
           }
         },2000);
@@ -7441,6 +8693,7 @@ Innkeeper = function(param){
                   self.work.spot = select[Math.floor(Math.random() * select.length)];
                 }
             } else {
+                // Path to work spot
               if(!self.path){
                 self.moveTo(0,spot[0],spot[1]);
               }
@@ -7470,6 +8723,7 @@ Innkeeper = function(param){
                 
                 self.inventory.flour += 3;
               } else {
+                // Path to dropoff
                 if(!self.path){
                   self.moveTo(0,dropoff[0],dropoff[1]);
                 }
@@ -7602,6 +8856,7 @@ Innkeeper = function(param){
                   },10000/self.strength);
                 }
               } else {
+                // Path to work spot
                 if(!self.path){
                   self.moveTo(0,spot[0],spot[1]);
                 }
@@ -7960,6 +9215,7 @@ Innkeeper = function(param){
   self.baseSpd = 3;
   self.runSpd = 5; // Innkeeper run speed
   self.torchBearer = true;
+  self.inventory.torch = 3; // Torchbearers get 3 torches (free light, don't consume)
   self.unarmed = true;
   self.isNonCombatant = true; // Civilian NPC
   self.leashCheckTimer = 0; // Check leash every 5 seconds (300 frames)
@@ -8037,7 +9293,9 @@ Blacksmith = function(param){
         self.innaWoods = false;
         self.maxSpd = (self.baseSpd * 0.2) * self.drag;
         setTimeout(function(){
-          if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6){
+          // Check CURRENT location, not stale loc from 2 seconds ago
+          var currentLoc = getLoc(self.x, self.y);
+          if(getTile(0,currentLoc[0],currentLoc[1]) >= 5 && getTile(0,currentLoc[0],currentLoc[1]) < 6){
             self.onMtn = true;
           }
         },2000);
@@ -8457,6 +9715,7 @@ Warden = function(param){
   self.runSpd = 9; // Warden run speed
   self.torchBearer = true;
   self.damage = 20;
+  self.inventory.arrows = Math.floor(Math.random() * 21) + 20; // 20-40 arrows
 }
 
 SwissGuard = function(param){
@@ -8500,6 +9759,7 @@ Trebuchet = function(param){
   self.spriteSize = tileSize*10;
   self.ranged = true;
   self.damage = 100;
+  self.inventory.arrows = Math.floor(Math.random() * 21) + 20; // 20-40 arrows
 }
 
 BombardCannon = function(param){
@@ -8508,6 +9768,7 @@ BombardCannon = function(param){
   self.baseSpd = 2;
   self.ranged = true;
   self.damage = 250;
+  self.inventory.arrows = Math.floor(Math.random() * 21) + 20; // 20-40 arrows
 }
 
 TradeCart = function(param){
@@ -8543,6 +9804,7 @@ Galley = function(param){
   self.ranged = true;
   self.torchBearer = true;
   self.damage = 15;
+  self.inventory.arrows = Math.floor(Math.random() * 21) + 20; // 20-40 arrows
 }
 
 Caravel = function(param){
@@ -8550,6 +9812,7 @@ Caravel = function(param){
   self.class = 'Caravel';
   self.ranged = true;
   self.torchBearer = true;
+  self.inventory.arrows = Math.floor(Math.random() * 21) + 20; // 20-40 arrows
 }
 
 Galleon = function(param){
@@ -8559,6 +9822,7 @@ Galleon = function(param){
   self.ranged = true;
   self.torchBearer = true;
   self.damage = 150;
+  self.inventory.arrows = Math.floor(Math.random() * 21) + 20; // 20-40 arrows
 }
 
 // ENEMIES
@@ -8662,6 +9926,7 @@ Drakkar = function(param){
   self.ranged = true;
   self.torchBearer = true;
   self.damage = 15;
+  self.inventory.arrows = Math.floor(Math.random() * 21) + 20; // 20-40 arrows
 }
 
 NorseSword = function(param){
@@ -8734,6 +9999,7 @@ FrankBow = function(param){
   self.spriteSize = tileSize*1.5;
   self.ranged = true;
   self.damage = 5;
+  self.inventory.arrows = Math.floor(Math.random() * 21) + 20; // 20-40 arrows
 }
 
 Mangonel = function(param){
@@ -8744,6 +10010,7 @@ Mangonel = function(param){
   self.spriteSize = tileSize*2;
   self.ranged = true;
   self.damage = 50;
+  self.inventory.arrows = Math.floor(Math.random() * 21) + 20; // 20-40 arrows
 }
 
 Carolingian = function(param){
@@ -8767,6 +10034,7 @@ Malvoisin = function(param){
   self.spriteSize = tileSize*12;
   self.ranged = true;
   self.damage = 150;
+  self.inventory.arrows = Math.floor(Math.random() * 21) + 20; // 20-40 arrows
 }
 
 Charlemagne = function(param){
@@ -8835,6 +10103,7 @@ ScoutShip = function(param){
   self.ranged = true;
   self.torchBearer = true;
   self.damage = 10;
+  self.inventory.arrows = Math.floor(Math.random() * 21) + 20; // 20-40 arrows
 }
 
 Longship = function(param){
@@ -8845,6 +10114,7 @@ Longship = function(param){
   self.ranged = true;
   self.torchBearer = true;
   self.damage = 10;
+  self.inventory.arrows = Math.floor(Math.random() * 21) + 20; // 20-40 arrows
 }
 
 
@@ -8889,6 +10159,7 @@ TeutonBow = function(param){
   self.spriteSize = tileSize*1.5;
   self.ranged = true;
   self.damage = 10;
+  self.inventory.arrows = Math.floor(Math.random() * 21) + 20; // 20-40 arrows
 }
 
 TeutonicKnight = function(param){
@@ -8981,6 +10252,7 @@ Outlaw = function(param){
   self.ranged = true;
   self.torchBearer = true;
   self.damage = 5;
+  self.inventory.arrows = Math.floor(Math.random() * 21) + 20; // 20-40 arrows
 }
 
 Poacher = function(param){
@@ -9062,6 +10334,7 @@ Condottiere = function(param){
   self.ranged = true;
   self.torchBearer = true;
   self.damage = 25;
+  self.inventory.arrows = Math.floor(Math.random() * 21) + 20; // 20-40 arrows
 }
 
 // ARROWS
@@ -9135,7 +10408,7 @@ Arrow = function(param){
                 parentPlayer.revealed = false;
               }
               
-              Player.list[p.id].combat.target = self.id;
+              Player.list[p.id].combat.target = self.parent; // Target the shooter, not the arrow
               Player.list[p.id].action = 'combat';
               Player.list[p.id].stealthed = false;
               Player.list[p.id].revealed = false;
@@ -9160,7 +10433,11 @@ Arrow = function(param){
     } else if(self.z == 0 && (getLocTile(0,self.x,self.y) == 13 ||
     getLocTile(0,self.x,self.y) == 14 || getLocTile(0,self.x,self.y) == 15 ||
     getLocTile(0,self.x,self.y) == 16 || getLocTile(0,self.x,self.y) == 19)){
+      // Only remove if arrow has moved away from spawn point (prevents immediate removal from guardtowers on building tiles)
+      var hasMoved = Math.abs(self.x - self.parentX) > 10 || Math.abs(self.y - self.parentY) > 10;
+      if(hasMoved){
       self.toRemove = true;
+      }
     } else if(self.z == -1 && getLocTile(1,self.x,self.y) == 1){
       self.toRemove = true;
     } else if(self.z == -2 && getLocTile(8,self.x,self.y) == 0){
@@ -9188,6 +10465,7 @@ Arrow = function(param){
   self.getUpdatePack = function(){
     return {
       id:self.id,
+      angle:self.angle,
       x:self.x,
       y:self.y,
       z:self.z,
@@ -9197,6 +10475,7 @@ Arrow = function(param){
 
   Arrow.list[self.id] = self;
   initPack.arrow.push(self.getInitPack());
+  console.log('🏹 Arrow created: ID=' + self.id + ', angle=' + self.angle + '°, velocity=[' + self.spdX.toFixed(2) + ',' + self.spdY.toFixed(2) + '], pos=[' + Math.floor(self.x) + ',' + Math.floor(self.y) + '] z=' + self.z);
   return self;
 }
 
@@ -9204,15 +10483,20 @@ Arrow.list = {};
 
 Arrow.update = function(){
   var pack = [];
+  var arrowCount = Object.keys(Arrow.list).length;
   for(var i in Arrow.list){
     var arrow = Arrow.list[i];
     arrow.update();
     if(arrow.toRemove){
       delete Arrow.list[i];
       removePack.arrow.push(arrow.id);
+      console.log('🏹 Arrow removed: ID=' + arrow.id + ', timer=' + arrow.timer + ', pos=[' + Math.floor(arrow.x) + ',' + Math.floor(arrow.y) + ']');
     } else {
       pack.push(arrow.getUpdatePack());
     }
+  }
+  if(arrowCount > 0){
+    console.log('🏹 Arrow.update(): ' + arrowCount + ' arrows, ' + pack.length + ' in pack');
   }
   return pack;
 }
@@ -9243,6 +10527,14 @@ Item = function(param){
   } else {
     self.innaWoods = false;
   }
+  
+  // Item lifecycle properties
+  self.spawnTime = Date.now();
+  self.spawnDay = global.day || 1; // Day item was spawned (for tick-based sinking)
+  self.spawnTick = global.tick || 1; // Tick item was spawned (for tick-based sinking)
+  self.despawnAfter = null; // Set by specific item types (consumables only)
+  self.sinkTime = null; // When item started sinking process (water items only)
+  self.sunk = false; // Has item sunk into terrain?
 
   self.blocker = function(n){
     var loc = getLoc(self.x,self.y);
@@ -9291,8 +10583,60 @@ global.Item = Item;
 
 Item.update = function(){
   var pack = [];
+  const now = Date.now();
+  
   for(var i in Item.list){
     var item = Item.list[i];
+    
+    // CONSUMABLE DESPAWN: Food items despawn after 10 minutes
+    if(item.despawnAfter && item.spawnTime) {
+      const age = now - item.spawnTime;
+      if(age > item.despawnAfter) {
+        item.toRemove = true;
+        console.log(`${item.type} despawned after ${Math.floor(age/1000)}s`);
+      }
+    }
+    
+    // TERRAIN SINKING: Items at z=0 sink into terrain after time
+    if(item.z === 0 && !item.sunk && item.spawnTime) {
+      const loc = getLoc(item.x, item.y);
+      const terrain = getTile(0, loc[0], loc[1]);
+      
+      // Water items sink after 10 seconds (real-time) to z=-3
+      if(terrain === 0) {
+        if(!item.sinkTime) item.sinkTime = now;
+        const elapsed = now - item.sinkTime;
+        
+        if(elapsed > 10000) {
+          item.z = -3; // Underwater layer
+          item.sinkTime = null; // Reset for potential future sinking
+          console.log(`${item.type} sank underwater at [${loc}]`);
+        }
+      }
+      // Land items sink after time to z=-3
+      // Skip permanent fixtures (firepits, torches, furniture, etc.)
+      // Skeletons: 100 days (36000 ticks)
+      // Other pickupable items: 7 days (2520 ticks)
+      else if(terrain !== 0 && item.canPickup !== false) {
+        const elapsedTicks = (global.day - item.spawnDay) * 360 + (global.tick - item.spawnTick);
+        const isSkeleton = item.class === 'Skeleton' || item.type === 'Skeleton1' || item.type === 'Skeleton2';
+        const sinkThreshold = isSkeleton ? 36000 : 2520; // 100 days for skeletons, 7 days for others
+        
+        if(elapsedTicks >= sinkThreshold) {
+          item.sunk = true;
+          item.z = -3; // Underwater layer (land tiles)
+          const days = Math.floor(elapsedTicks / 360);
+          console.log(`${item.type} sank into terrain at [${loc}] after ${days} days (retrievable by clearing brush)`);
+        }
+      }
+    }
+    
+    // Skip sinking for items indoors (z=1, z=2, z=-2) or unique items
+    if(item.z === 1 || item.z === 2 || item.z === -2 || 
+       item.type === 'relic' || item.type === 'crown') {
+      item.sinkTime = null; // Never sink
+    }
+    
     if(item.toUpdate){
       item.update();
       if(item.toRemove){
@@ -11084,6 +12428,7 @@ Bread = function(param){
   self.class = 'consumable';
   self.rank = 0;
   self.canPickup = true;
+  self.despawnAfter = 600000; // 10 minutes for consumables
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
@@ -11112,6 +12457,7 @@ Fish = function(param){
   self.class = 'consumable';
   self.rank = 0;
   self.canPickup = true;
+  self.despawnAfter = 600000; // 10 minutes for consumables
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
@@ -11140,6 +12486,7 @@ Lamb = function(param){
   self.class = 'resource';
   self.rank = 0;
   self.canPickup = true;
+  self.despawnAfter = 600000; // 10 minutes for consumables
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
@@ -11168,6 +12515,7 @@ BoarMeat = function(param){
   self.class = 'resource';
   self.rank = 0;
   self.canPickup = true;
+  self.despawnAfter = 600000; // 10 minutes for consumables
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
@@ -11196,6 +12544,7 @@ Venison = function(param){
   self.class = 'resource';
   self.rank = 0;
   self.canPickup = true;
+  self.despawnAfter = 600000; // 10 minutes for consumables
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
@@ -11224,6 +12573,7 @@ PoachedFish = function(param){
   self.class = 'consumable';
   self.rank = 0;
   self.canPickup = true;
+  self.despawnAfter = 600000; // 10 minutes for consumables
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
@@ -11252,6 +12602,7 @@ LambChop = function(param){
   self.class = 'consumable';
   self.rank = 0;
   self.canPickup = true;
+  self.despawnAfter = 600000; // 10 minutes for consumables
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
@@ -11280,6 +12631,7 @@ BoarShank = function(param){
   self.class = 'consumable';
   self.rank = 0;
   self.canPickup = true;
+  self.despawnAfter = 600000; // 10 minutes for consumables
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
@@ -11308,6 +12660,7 @@ VenisonLoin = function(param){
   self.class = 'consumable';
   self.rank = 0;
   self.canPickup = true;
+  self.despawnAfter = 600000; // 10 minutes for consumables
   self.pickup = function(id){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
@@ -11778,6 +13131,56 @@ Skeleton = function(param){
 
 // Export Skeleton globally for NPC death system
 global.Skeleton = Skeleton;
+
+// SHIP WRECKAGE
+ShipWreckage = function(param){
+  var self = Item(param);
+  self.type = 'shipwreckage';
+  self.class = 'environment';
+  self.canPickup = false;
+  self.sinkTimer = param.sinkTimer || 600; // 10 seconds before sinking
+  self.sunk = false;
+  self.toUpdate = true; // Enable updates for this item
+  self.blocker(0); // Wreckage doesn't block movement
+  
+  self.update = function(){
+    if(self.sinkTimer > 0){
+      self.sinkTimer--;
+      
+      // When timer runs out, sink to z=-3
+      if(self.sinkTimer <= 0 && !self.sunk){
+        self.z = -3; // Sink to ocean floor
+        self.sunk = true;
+        console.log('🪦 Ship wreckage sank to ocean floor');
+      }
+    }
+  };
+  
+  self.getInitPack = function(){
+    return {
+      id: self.id,
+      x: self.x,
+      y: self.y,
+      z: self.z,
+      type: self.type,
+      sunk: self.sunk
+    };
+  };
+  
+  self.getUpdatePack = function(){
+    return {
+      id: self.id,
+      x: self.x,
+      y: self.y,
+      z: self.z,
+      sunk: self.sunk
+    };
+  };
+  
+  Item.list[self.id] = self;
+  initPack.item.push(self.getInitPack());
+  return self;
+}
 
 // DROPPED ITEM (from death)
 DroppedItem = function(param){

@@ -199,6 +199,73 @@ class BuildingConstructor {
     return lumbermillId;
   }
   
+  // Construct a forge
+  buildForge(location = null) {
+    const hq = this.house.hq;
+    const searchCenter = location || hq;
+    const radius = location ? 3 : 10;
+    
+    const spot = global.tilemapSystem.findBuildingSpot('forge', searchCenter, radius, {
+      excludeTiles: this.getOccupiedTiles()
+    });
+    
+    if (!spot) {
+      console.log(`${this.house.name}: No valid location for forge`);
+      return null;
+    }
+    
+    const plot = spot.plot;
+    const walls = spot.walls;
+    const center = global.getCenter(plot[0][0], plot[0][1]);
+    
+    // Update terrain - forge is a 2x2 building with walls
+    for (let i = 0; i < plot.length; i++) {
+      global.tileChange(3, plot[i][0], plot[i][1], String('forge' + i));
+      if (global.getTile(3, plot[i][0], plot[i][1]) == 'forge1') {
+        global.matrixChange(1, plot[i][0], plot[i][1], 0);
+        global.matrixChange(1, plot[i][0], plot[i][1] + 1, 0);
+        global.tileChange(0, plot[i][0], plot[i][1], 14);
+      } else {
+        global.matrixChange(0, plot[i][0], plot[i][1], 1);
+        global.matrixChange(1, plot[i][0], plot[i][1], 0);
+      }
+    }
+    
+    // Wall tiles
+    let ii = 5;
+    for (const n of walls) {
+      global.tileChange(5, n[0], n[1], String('forge' + ii));
+      if (global.getTile(5, n[0], n[1]) == 'forge5') {
+        global.tileChange(5, n[0], n[1], 0);
+        global.tileChange(4, n[0], n[1], 1);
+      } else {
+        global.tileChange(4, n[0], n[1], 1);
+      }
+      ii++;
+    }
+    
+    // Create forge building
+    const forgeId = Math.random();
+    Forge({
+      id: forgeId,
+      house: this.house.id,
+      owner: this.house.id,
+      x: center[0],
+      y: center[1],
+      z: 0,
+      type: 'forge',
+      built: true,
+      plot: plot,
+      walls: walls,
+      mats: { wood: 50, stone: 100 },
+      req: 5,
+      hp: 200
+    });
+    
+    console.log(`${this.house.name}: Built forge at [${plot[0]}]`);
+    return forgeId;
+  }
+  
   // Construct a garrison
   buildGarrison(location = null) {
     const hq = this.house.hq;
@@ -216,19 +283,54 @@ class BuildingConstructor {
     
     const plot = spot.plot;
     const topPlot = spot.topPlot;
+    const walls = spot.walls;
     const center = global.getCenter(plot[0][0], plot[0][1]);
     
-    // Update terrain
+    // Update terrain - copied exactly from Build.js player garrison code
     for (let i = 0; i < plot.length; i++) {
-      global.tileChange(0, plot[i][0], plot[i][1], 13);
-      global.tileChange(3, plot[i][0], plot[i][1], `garrison${i}`);
-      global.matrixChange(0, plot[i][0], plot[i][1], 1);
+      global.tileChange(3, plot[i][0], plot[i][1], String('garrison' + i));
+      if (global.getTile(3, plot[i][0], plot[i][1]) == 'garrison0') {
+        global.matrixChange(1, plot[i][0], plot[i][1], 0);
+        global.matrixChange(1, plot[i][0], plot[i][1] + 1, 0);
+        global.tileChange(0, plot[i][0], plot[i][1], 16);
+      } else if (global.getTile(3, plot[i][0], plot[i][1]) == 'garrison1' ||
+                 global.getTile(3, plot[i][0], plot[i][1]) == 'garrison2' ||
+                 global.getTile(3, plot[i][0], plot[i][1]) == 'garrison3') {
+        global.matrixChange(0, plot[i][0], plot[i][1], 1);
+        global.matrixChange(1, plot[i][0], plot[i][1], 0);
+        global.tileChange(0, plot[i][0], plot[i][1], 15);
+      } else {
+        global.matrixChange(0, plot[i][0], plot[i][1], 1);
+        global.matrixChange(1, plot[i][0], plot[i][1], 0);
+        global.matrixChange(2, plot[i][0], plot[i][1], 0);
+        global.tileChange(0, plot[i][0], plot[i][1], 15);
+        global.tileChange(5, plot[i][0], plot[i][1], 15);
+      }
     }
-    global.tileChange(5, topPlot[0][0], topPlot[0][1], 'garrison4');
-    global.tileChange(5, topPlot[1][0], topPlot[1][1], 'garrison5');
+    
+    // Top plot tiles
+    let ii = 12;
+    for (const n of topPlot) {
+      global.tileChange(5, n[0], n[1], String('garrison' + ii));
+      ii++;
+    }
+    
+    // Walls
+    for (const n of walls) {
+      if (global.getTile(5, n[0], n[1]) == 'garrison12') {
+        global.tileChange(4, n[0], n[1], 4);
+        global.matrixChange(1, n[0], n[1], 0);
+        global.matrixChange(2, n[0], n[1], 0);
+      } else {
+        global.tileChange(4, n[0], n[1], 2);
+      }
+    }
     
     // Create garrison
     const garrisonId = Math.random();
+    const entrance = [plot[0][0], plot[0][1]];
+    const ustairs = walls.length > 0 ? [walls[0][0], walls[0][1]] : null;
+    
     Garrison({
       id: garrisonId,
       house: this.house.id,
@@ -240,10 +342,27 @@ class BuildingConstructor {
       built: true,
       plot: plot,
       topPlot: topPlot,
+      walls: walls,
+      entrance: entrance,
+      ustairs: ustairs,
       mats: { wood: 50, stone: 30 },
       req: 5,
       hp: 200
     });
+    
+    // Add interior items (like player garrisons)
+    const sa = global.getCoords(walls[0][0], walls[0][1]);
+    const sr1 = global.getCoords(walls[2][0], walls[2][1]);
+    const sr2 = global.getCoords(walls[3][0], walls[3][1]);
+    const fp = global.getCoords(plot[1][0], plot[1][1]);
+    const dk = global.getCoords(plot[8][0], plot[8][1]);
+    
+    SuitArmor({ x: sa[0], y: sa[1], z: 1, qty: 1, parent: garrisonId });
+    Swordrack({ x: sr1[0], y: sr1[1], z: 1, qty: 1, parent: garrisonId });
+    Swordrack({ x: sr2[0], y: sr2[1], z: 1, qty: 1, parent: garrisonId });
+    Firepit({ x: fp[0], y: fp[1], z: 0, qty: 1, parent: garrisonId });
+    Firepit({ x: fp[0], y: fp[1], z: 1, qty: 1, parent: garrisonId });
+    Desk({ x: dk[0], y: dk[1], z: 1, qty: 1, parent: garrisonId });
     
     console.log(`${this.house.name}: Built garrison at [${plot[0]}]`);
     return garrisonId;

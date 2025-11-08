@@ -275,7 +275,11 @@ socket.onmessage = function(event){
       buildMenuPopup.style.display = 'block';
     }
     renderBuildMenu(data.buildings, data.playerWood, data.playerStone);
-      } else if(data.msg == 'buildPreviewData'){
+  } else if(data.msg == 'resourceScoreboard' || data.msg == 'resourceScoreboardUpdate'){
+    // Update scoreboard UI with faction resource data
+    console.log('📊 Scoreboard data received, factions:', Object.keys(data.data).length);
+    updateScoreboardUI(data.data);
+  } else if(data.msg == 'buildPreviewData'){
         // Preview data received - preview is now active and will follow cursor
         buildPreviewData = data;
       } else if(data.msg == 'buildValidationData'){
@@ -329,6 +333,59 @@ socket.onmessage = function(event){
       marketPopup.style.display = 'block';
       updateMarketDisplay();
     }
+  } else if(data.msg == 'openDock'){
+    // Open dock UI with ship data
+    currentDockData = data;
+    if(dockPopup){
+      dockPopup.style.display = 'block';
+      updateDockDisplay();
+    }
+  } else if(data.msg == 'boardShip'){
+    // Player is boarding a ship - switch control
+    if(data.newSelfId){
+      selfId = data.newSelfId;
+      console.log('Now controlling ship:', selfId);
+      
+      // Switch BGM to ship playlist and add sea ambience
+      if(typeof bgmPlayer !== 'undefined' && typeof ship_bgm !== 'undefined'){
+        bgmPlayer(ship_bgm);
+      }
+      if(typeof ambPlayer !== 'undefined'){
+        ambPlayer('/client/audio/amb/sea.mp3');
+      }
+    }
+  } else if(data.msg == 'disembarkShip'){
+    // Player is disembarking - switch control back to player character
+    if(data.newSelfId){
+      selfId = data.newSelfId;
+      console.log('Now controlling player:', selfId);
+      
+      // Stop sea ambience
+      if(typeof ambPlayer !== 'undefined'){
+        ambPlayer(null);
+      }
+      
+      // Revert BGM to appropriate playlist based on location
+      if(typeof bgmPlayer !== 'undefined'){
+        var player = Player.list[selfId];
+        if(player){
+          if(player.z === -1){
+            if(typeof cave_bgm !== 'undefined'){
+              bgmPlayer(cave_bgm);
+            }
+          } else if(player.z === 1){
+            if(typeof indoors_bgm !== 'undefined'){
+              bgmPlayer(indoors_bgm);
+            }
+          } else {
+            // Overworld - choose based on time of day
+            if(typeof overworld_day_bgm !== 'undefined'){
+              bgmPlayer(overworld_day_bgm);
+            }
+          }
+        }
+      }
+    }
   } else if(data.msg == 'tileEdit'){
     if(world[data.l] && world[data.l][data.r]) {
       world[data.l][data.r][data.c] = data.tile;
@@ -368,6 +425,7 @@ socket.onmessage = function(event){
     console.log('Players loaded into Player.list:', Object.keys(Player.list).length);
     for(i in data.pack.arrow){
       new Arrow(data.pack.arrow[i]);
+      console.log('Client: Arrow created from init pack:', data.pack.arrow[i].id, 'angle:', data.pack.arrow[i].angle);
     }
     for(i in data.pack.item){
       new Item(data.pack.item[i]);
@@ -450,6 +508,8 @@ socket.onmessage = function(event){
           p.pressingAttack = pack.pressingAttack;
         if(pack.innaWoods != undefined)
           p.innaWoods = pack.innaWoods;
+        if(pack.onMtn != undefined)
+          p.onMtn = pack.onMtn;
         if(pack.angle != undefined)
           p.angle = pack.angle;
         if(pack.working != undefined)
@@ -492,6 +552,12 @@ socket.onmessage = function(event){
           p.ghost = pack.ghost;
         if(pack.kills != undefined)
           p.kills = pack.kills;
+        if(pack.sailPoints != undefined)
+          p.sailPoints = pack.sailPoints;
+        if(pack.shipMode != undefined)
+          p.shipMode = pack.shipMode;
+        if(pack.shipType != undefined)
+          p.shipType = pack.shipType;
         if(pack.skulls != undefined)
           p.skulls = pack.skulls;
         if(pack.spriteScale != undefined)
@@ -510,6 +576,8 @@ socket.onmessage = function(event){
           p.sprite = wolf;
         } else if(p.class == 'Falcon'){
           p.sprite = falcon;
+        } else if(p.class == 'FishingShip'){
+          p.sprite = fishingship;
         } else if(p.class == 'Serf' || p.class == 'SerfM'){
           p.sprite = maleserf;
         } else if(p.class == 'Rogue' || p.class == 'Trapper' || p.class == 'Cutthroat'){
@@ -625,6 +693,8 @@ socket.onmessage = function(event){
       var pack = data.pack.arrow[i];
       var b = Arrow.list[data.pack.arrow[i].id];
       if(b){
+        if(pack.angle != undefined)
+          b.angle = pack.angle;
         if(pack.x != undefined)
           b.x = pack.x;
         if(pack.y != undefined)
@@ -645,6 +715,8 @@ socket.onmessage = function(event){
           itm.z = pack.z;
         if(pack.innaWoods != undefined)
           itm.innaWoods = pack.innaWoods;
+        if(pack.sunk != undefined)
+          itm.sunk = pack.sunk;
       }
     }
     for(var i = 0 ; i < data.pack.light.length; i++){
@@ -1584,6 +1656,13 @@ var marketPrice = document.getElementById('market-price');
 var marketBuyBtn = document.getElementById('market-buy-btn');
 var marketSellBtn = document.getElementById('market-sell-btn');
 var currentMarketData = null;
+
+// DOCK UI
+var dockPopup = document.getElementById('dock-popup');
+var dockClose = document.getElementById('dock-close');
+var dockShipList = document.getElementById('dock-ship-list');
+var dockOwnedShipsList = document.getElementById('dock-owned-ships-list');
+var currentDockData = null;
 
 // Chat auto-hide functionality
 function resetChatHideTimer(){
@@ -2969,6 +3048,70 @@ function renderBuildMenu(buildings, playerWood, playerStone) {
   }
 }
 
+// ============================================================================
+// RESOURCE SCOREBOARD
+// ============================================================================
+
+function toggleResourceScoreboard() {
+  const scoreboard = document.getElementById('resource-scoreboard');
+  if (!scoreboard) return;
+  
+  if (scoreboard.style.display === 'none' || scoreboard.style.display === '') {
+    scoreboard.style.display = 'block';
+    // Request latest data from server
+    socket.send(JSON.stringify({ msg: 'getResourceScoreboard' }));
+  } else {
+    scoreboard.style.display = 'none';
+  }
+}
+
+function updateScoreboardUI(factionResources) {
+  const tbody = document.getElementById('scoreboard-body');
+  if (!tbody) {
+    console.error('❌ Scoreboard tbody not found!');
+    return;
+  }
+  
+  tbody.innerHTML = '';
+  
+  // Convert to array and sort by name
+  const factions = Object.values(factionResources).sort((a, b) => a.name.localeCompare(b.name));
+  console.log('📊 Updating scoreboard with ' + factions.length + ' factions');
+  
+  factions.forEach(faction => {
+    const row = document.createElement('tr');
+    const flagDisplay = faction.flag ? faction.flag + ' ' : '';
+    row.innerHTML = `
+      <td class="faction-name">${flagDisplay}${faction.name}</td>
+      <td>${faction.grain}</td>
+      <td>${faction.lumber}</td>
+      <td>${faction.stone}</td>
+      <td>${faction.ironore}</td>
+      <td>${faction.iron}</td>
+      <td>${faction.steel || 0}</td>
+      <td>${faction.silver || 0}</td>
+      <td>${faction.gold || 0}</td>
+      <td>${faction.serfs}</td>
+      <td>${faction.military}</td>
+      <td>${faction.buildings}</td>
+    `;
+    tbody.appendChild(row);
+  });
+}
+
+// Setup scoreboard close button
+document.addEventListener('DOMContentLoaded', function() {
+  const closeBtn = document.querySelector('.scoreboard-close');
+  if (closeBtn) {
+    closeBtn.onclick = function() {
+      const scoreboard = document.getElementById('resource-scoreboard');
+      if (scoreboard) {
+        scoreboard.style.display = 'none';
+      }
+    };
+  }
+});
+
 // Building Preview Rendering Function
 function renderBuildingPreview() {
   if (!buildPreviewMode || !buildPreviewType || !selfId || !Player.list[selfId]) {
@@ -3250,6 +3393,126 @@ function updateMarketDisplay(){
   }
 }
 
+// DOCK UI FUNCTIONS
+function updateDockDisplay(){
+  if(!currentDockData) return;
+  
+  var availableShips = currentDockData.availableShips || [];
+  var ownedShips = currentDockData.ownedShips || [];
+  var playerResources = currentDockData.playerResources || {};
+  
+  // Clear displays
+  dockShipList.innerHTML = '';
+  dockOwnedShipsList.innerHTML = '';
+  
+  // Display available ships to build
+  for(var i in availableShips){
+    var ship = availableShips[i];
+    var shipDiv = document.createElement('div');
+    shipDiv.className = 'dock-ship-item';
+    
+    var shipName = document.createElement('h4');
+    shipName.textContent = ship.name;
+    shipDiv.appendChild(shipName);
+    
+    var costDiv = document.createElement('div');
+    costDiv.className = 'dock-ship-cost';
+    costDiv.textContent = 'Cost: ' + (ship.cost.wood || 0) + ' Wood';
+    shipDiv.appendChild(costDiv);
+    
+    var descDiv = document.createElement('div');
+    descDiv.className = 'dock-ship-desc';
+    descDiv.textContent = ship.description;
+    shipDiv.appendChild(descDiv);
+    
+    var statusDiv = document.createElement('div');
+    if(ship.canAfford){
+      statusDiv.className = 'dock-ship-available';
+      statusDiv.textContent = '✓ Click to build';
+      shipDiv.style.cursor = 'pointer';
+      (function(shipType){
+        shipDiv.onclick = function(){
+          // Send build ship command to server (same format as chat commands)
+          socket.send(JSON.stringify({
+            msg:'evalCmd',
+            id:selfId,
+            cmd:'fishboat',
+            world:world
+          }));
+          dockPopup.style.display = 'none';
+        };
+      })(ship.type);
+    } else {
+      statusDiv.className = 'dock-ship-unavailable';
+      var woodNeeded = (ship.cost.wood || 0) - (playerResources.wood || 0);
+      statusDiv.textContent = '✗ Need ' + woodNeeded + ' more Wood';
+      shipDiv.style.cursor = 'not-allowed';
+      shipDiv.style.opacity = '0.6';
+    }
+    shipDiv.appendChild(statusDiv);
+    
+    dockShipList.appendChild(shipDiv);
+  }
+  
+  // Display owned ships
+  if(ownedShips.length > 0){
+    for(var i in ownedShips){
+      var ship = ownedShips[i];
+      var shipDiv = document.createElement('div');
+      shipDiv.className = 'dock-owned-ship';
+      
+      var nameDiv = document.createElement('div');
+      nameDiv.className = 'dock-owned-ship-name';
+      nameDiv.textContent = ship.name;
+      shipDiv.appendChild(nameDiv);
+      
+      var infoDiv = document.createElement('div');
+      infoDiv.className = 'dock-owned-ship-info';
+      
+      var inventoryText = 'Fish: ' + (ship.inventory.fish || 0) + '/20';
+      if(ship.storedPlayer){
+        inventoryText += ' | Status: At Sea';
+      } else {
+        inventoryText += ' | Status: Docked';
+      }
+      infoDiv.textContent = inventoryText;
+      shipDiv.appendChild(infoDiv);
+      
+      var actionDiv = document.createElement('div');
+      actionDiv.style.marginTop = '8px';
+      actionDiv.style.fontSize = '13px';
+      actionDiv.style.color = '#aaffaa';
+      actionDiv.style.fontWeight = 'bold';
+      actionDiv.textContent = '⚓ Click to board ship';
+      shipDiv.appendChild(actionDiv);
+      
+      (function(shipId){
+        shipDiv.onclick = function(){
+          // Send command to board ship (using evalCmd format with special handling)
+          socket.send(JSON.stringify({
+            msg:'evalCmd',
+            id:selfId,
+            cmd:'boardship ' + shipId,
+            world:world
+          }));
+          dockPopup.style.display = 'none';
+        };
+      })(ship.id);
+      
+      dockOwnedShipsList.appendChild(shipDiv);
+    }
+  } else {
+    dockOwnedShipsList.innerHTML = '<p style="color:#888;padding:20px;font-size:14px;">No ships owned yet. Build one!</p>';
+  }
+}
+
+// Dock close button handler
+if(dockClose){
+  dockClose.onclick = function(){
+    dockPopup.style.display = 'none';
+  };
+}
+
 // Auto-focus chat input when Enter is pressed
 document.addEventListener('keydown', function(e){
   // In spectate mode, allow Enter for chat and ESC to exit
@@ -3274,8 +3537,22 @@ document.addEventListener('keydown', function(e){
     return;
   }
   
+  // Toggle scoreboard on Tab
+  if(e.key === 'Tab'){
+    e.preventDefault();
+    toggleResourceScoreboard();
+    return;
+  }
+  
   // Close popups on ESC
   if(e.key === 'Escape'){
+    // Close scoreboard
+    const scoreboard = document.getElementById('resource-scoreboard');
+    if(scoreboard && scoreboard.style.display !== 'none'){
+      scoreboard.style.display = 'none';
+      return;
+    }
+    
     if(worldmapPopup && worldmapPopup.style.display === 'block'){
       worldmapPopup.style.display = 'none';
       return;
@@ -3306,6 +3583,12 @@ document.addEventListener('keydown', function(e){
 // GAME
 
 var soundscape = function(x,y,z,b){
+  // Check if player is controlling a ship - overrides all other ambience
+  if(Player.list[selfId] && Player.list[selfId].shipType === 'fishingship'){
+    ambPlayer(Amb.sea); // Keep sea ambience while on ship
+    return; // Skip other checks
+  }
+  
   // Check ghost mode first - overrides all other ambience
   if(Player.list[selfId] && Player.list[selfId].ghost){
     ambPlayer(Amb.spirits); // Play spirits.mp3
@@ -3347,6 +3630,13 @@ var soundscape = function(x,y,z,b){
 };
 
 var getBgm = function(x,y,z,b){
+  // Check if player is controlling a ship - overrides all other music
+  if(Player.list[selfId] && Player.list[selfId].shipType === 'fishingship'){
+    bgmPlayer(ship_bgm); // Keep ship music while on ship
+    soundscape(x,y,z,{}); // Handle ship ambience (sea.mp3)
+    return; // Skip other checks
+  }
+  
   // Check ghost mode first - overrides all other music
   if(Player.list[selfId] && Player.list[selfId].ghost){
     // Play Defeat.mp3 once, don't loop
@@ -3520,12 +3810,27 @@ var getCurrentZ = function() {
 
 // Zoom system for buildings/caves
 var currentZoom = 1.0;
+var targetZoom = 1.0;
+var zoomTransitionSpeed = 0.05; // How fast zoom transitions (higher = faster)
 var buildingZoom = 2.0; // 100% zoom in (2x) for buildings and cellars
 var caveZoom = 1.5; // 50% zoom in (1.5x) for caves only
+var forestZoom = 1.25; // 25% zoom in (1.25x) for heavy forest
+var mountainZoom = 0.75; // 25% zoom out (0.75x) for mountains
 
 // Helper function to get target zoom based on current z-level
 var getTargetZoom = function() {
   var z = getCurrentZ();
+  var player = Player.list[selfId];
+  
+  // Zoom out for login camera (cinematic view)
+  if (loginCameraSystem && loginCameraSystem.isActive) {
+    return mountainZoom; // 0.75x zoom for login camera
+  }
+  
+  // Zoom out for ship view
+  if (selfId && player && player.shipType) {
+    return mountainZoom; // 0.75x zoom for ships
+  }
   
   // Zoom in when inside buildings and cellars (z=1,2,-2)
   if (z === 1 || z === 2 || z === -2) {
@@ -3535,6 +3840,18 @@ var getTargetZoom = function() {
   // Zoom in for caves (z=-1)
   if (z === -1) {
     return caveZoom;
+  }
+  
+  // Zoom out for mountains (z=0, onMtn=true)
+  if (z === 0 && selfId && player) {
+    if (player.onMtn === true) {
+      return mountainZoom; // 0.75x zoom for mountains
+    }
+    
+    // Zoom in for heavy forest (z=0, innaWoods=true)
+    if (player.innaWoods === true) {
+      return forestZoom; // 1.25x zoom for heavy forest
+    }
   }
   
   // Normal zoom for overworld (z=0)
@@ -3596,6 +3913,7 @@ var Player = function(initPack){
   self.pressing = false;
   self.pressing = false;
   self.innaWoods = initPack.innaWoods;
+  self.onMtn = initPack.onMtn || false;
   self.working = false;
   self.chopping = false;
   self.mining = false;
@@ -3701,7 +4019,10 @@ var Player = function(initPack){
           }
           ctx.font = '15px minion web';
           ctx.textAlign = 'center';
-          var displayName = (self.skulls || '') + (self.skulls ? ' ' : '') + kingdomList[self.kingdom].flag + ' ' + self.rank + self.name;
+          // Serfs don't get flag emoji, only players and military
+          var isSerf = (self.class === 'Serf' || self.class === 'SerfM' || self.class === 'SerfF');
+          var flagDisplay = (!isSerf && kingdomList[self.kingdom].flag) ? kingdomList[self.kingdom].flag + ' ' : '';
+          var displayName = (self.skulls || '') + (self.skulls ? ' ' : '') + flagDisplay + self.rank + self.name;
           ctx.fillText(displayName,barX + 30,barY - 40,100);
         } else if(self.house && houseList && houseList[self.house]){
           if(allied == 2){
@@ -3715,7 +4036,10 @@ var Player = function(initPack){
           }
           ctx.font = '15px minion web';
           ctx.textAlign = 'center';
-          var displayName = (self.skulls || '') + (self.skulls ? ' ' : '') + houseList[self.house].flag + ' ' + self.rank + self.name;
+          // Serfs don't get flag emoji, only players and military
+          var isSerf = (self.class === 'Serf' || self.class === 'SerfM' || self.class === 'SerfF');
+          var flagDisplay = (!isSerf && houseList[self.house].flag) ? houseList[self.house].flag + ' ' : '';
+          var displayName = (self.skulls || '') + (self.skulls ? ' ' : '') + flagDisplay + self.rank + self.name;
           ctx.fillText(displayName,barX + 30,barY - 40,100);
         } else {
           if(allied == 2){
@@ -3746,7 +4070,10 @@ var Player = function(initPack){
           }
           ctx.font = '15px minion web';
           ctx.textAlign = 'center';
-          var displayName = (self.skulls || '') + (self.skulls ? ' ' : '') + kingdomList[self.kingdom].flag + ' ' + self.name;
+          // Serfs don't get flag emoji, only players and military
+          var isSerf = (self.class === 'Serf' || self.class === 'SerfM' || self.class === 'SerfF');
+          var flagDisplay = (!isSerf && kingdomList[self.kingdom].flag) ? kingdomList[self.kingdom].flag + ' ' : '';
+          var displayName = (self.skulls || '') + (self.skulls ? ' ' : '') + flagDisplay + self.name;
           ctx.fillText(displayName,barX + 30,barY - 40,100);
         } else if(self.house && houseList && houseList[self.house]){
           if(allied == 2){
@@ -3760,7 +4087,10 @@ var Player = function(initPack){
           }
           ctx.font = '15px minion web';
           ctx.textAlign = 'center';
-          var displayName = (self.skulls || '') + (self.skulls ? ' ' : '') + houseList[self.house].flag + ' ' + self.name;
+          // Serfs don't get flag emoji, only players and military
+          var isSerf = (self.class === 'Serf' || self.class === 'SerfM' || self.class === 'SerfF');
+          var flagDisplay = (!isSerf && houseList[self.house].flag) ? houseList[self.house].flag + ' ' : '';
+          var displayName = (self.skulls || '') + (self.skulls ? ' ' : '') + flagDisplay + self.name;
           ctx.fillText(displayName,barX + 30,barY - 40,100);
         } else {
           if(allied == 2){
@@ -4088,6 +4418,7 @@ var Item = function(initPack){
   self.z = initPack.z;
   self.qty = initPack.qty;
   self.innaWoods = initPack.innaWoods;
+  self.sunk = initPack.sunk || false;
 
   self.draw = function(){
     // Get camera position (works for both logged in and login mode)
@@ -4934,6 +5265,18 @@ var Item = function(initPack){
       tileSize,
       tileSize
       );
+    } else if(self.type == 'shipwreckage'){
+      var x = self.x - cameraPos.x + WIDTH/2;
+      var y = self.y - cameraPos.y + HEIGHT/2;
+      // Use death1 (floating) or death2 (sunk) based on sunk property
+      var wreckageImg = self.sunk ? Img.shipwreckagesunk : Img.shipwreckage;
+      ctx.drawImage(
+        wreckageImg,
+        x,
+        y,
+        tileSize * 2, // Wreckage is 2x2 tiles like the ship was
+        tileSize * 2
+      );
     } else if(self.type == 'Goods1'){
       var x = self.x - cameraPos.x + WIDTH/2;
       var y = self.y - cameraPos.y + HEIGHT/2;
@@ -5546,8 +5889,16 @@ setInterval(function(){
     return;
   }
   
-  // Update zoom based on current z-level (buildings/caves)
-  currentZoom = getTargetZoom();
+  // Update zoom based on current z-level (buildings/caves) with smooth transition
+  targetZoom = getTargetZoom();
+  
+  // Smoothly interpolate current zoom towards target zoom
+  if (Math.abs(currentZoom - targetZoom) > 0.01) {
+    var zoomDiff = targetZoom - currentZoom;
+    currentZoom += zoomDiff * zoomTransitionSpeed;
+  } else {
+    currentZoom = targetZoom; // Snap to target when very close
+  }
   
   ctx.clearRect(0,0,WIDTH,HEIGHT);
   
@@ -5648,7 +5999,7 @@ setInterval(function(){
     
     // Update viewport
     var cameraPos = spectateCameraSystem.getCameraPosition();
-    viewport.update(cameraPos.x, cameraPos.y);
+    viewport.update(cameraPos.x, cameraPos.y, currentZoom);
   } else if(loginCameraSystem.isActive && !selfId) {
     // Render all items on ground level
     for(var i in Item.list){
@@ -5695,7 +6046,7 @@ setInterval(function(){
     
     // Update viewport with falcon camera position
     var cameraPos = loginCameraSystem.getCameraPosition();
-    viewport.update(cameraPos.x, cameraPos.y);
+    viewport.update(cameraPos.x, cameraPos.y, currentZoom);
   } else if(selfId && Player.list[selfId]) {
     // Normal game rendering when logged in
   var currentZ = getCurrentZ();
@@ -5735,23 +6086,70 @@ setInterval(function(){
       }
     }
   }
+  // PERFORMANCE PROFILING: Track entity rendering
+  if(!window._entityRenderProfile){
+    window._entityRenderProfile = {
+      samples: [],
+      lastLog: Date.now()
+    };
+  }
+  const entityRenderStart = performance.now();
+  let entitiesChecked = 0;
+  let entitiesRendered = 0;
+  let zMismatches = 0;
+  
   for(var i in Player.list){
     var player = Player.list[i];
     if(!player) continue; // Skip deleted players
+    entitiesChecked++;
+    
+    // OPTIMIZATION: Skip entities not on current z-level BEFORE expensive checks
     if(player.class != 'Falcon'){
-      if(checkInView(player.x, player.y, player.z, player.innaWoods)){
-        // In god mode, render all entities on current z-layer
-        if(godModeCamera.isActive){
-          if(player.z == currentZ){
-            player.draw();
-          }
-        } else if((currentZ == 1 || currentZ == 2) && (getBuilding(player.x,player.y) == getBuilding(Player.list[selfId].x,Player.list[selfId].y))){
-          player.draw();
-        } else if(currentZ != 1 && currentZ != 2){
-          player.draw();
+      // Quick z-level filter first (cheap integer comparison)
+      if(player.z != currentZ){
+        zMismatches++;
+        continue; // Skip entirely - wrong z-level
+      }
+      
+      // For buildings (z=1, z=2), also check if in same building
+      if((currentZ == 1 || currentZ == 2) && !godModeCamera.isActive){
+        if(getBuilding(player.x,player.y) != getBuilding(Player.list[selfId].x,Player.list[selfId].y)){
+          zMismatches++;
+          continue; // Skip - different building
         }
       }
+      
+      // Now check viewport bounds (only for entities that passed z-filter)
+      if(checkInView(player.x, player.y, player.z, player.innaWoods)){
+        player.draw();
+        entitiesRendered++;
+      }
     }
+  }
+  
+  const entityRenderTime = performance.now() - entityRenderStart;
+  window._entityRenderProfile.samples.push({
+    time: entityRenderTime,
+    checked: entitiesChecked,
+    rendered: entitiesRendered,
+    skippedZ: zMismatches
+  });
+  
+  // Keep last 60 samples (1 second at 60fps)
+  if(window._entityRenderProfile.samples.length > 60){
+    window._entityRenderProfile.samples.shift();
+  }
+  
+  // Log every 3 seconds
+  if(Date.now() - window._entityRenderProfile.lastLog >= 3000){
+    const samples = window._entityRenderProfile.samples;
+    const avg = samples.reduce((sum, s) => sum + s.time, 0) / samples.length;
+    const avgRendered = samples.reduce((sum, s) => sum + s.rendered, 0) / samples.length;
+    const avgSkipped = samples.reduce((sum, s) => sum + s.skippedZ, 0) / samples.length;
+    const max = Math.max(...samples.map(s => s.time));
+    
+    console.log(`🎨 Entity Render (z=${currentZ}): avg=${avg.toFixed(2)}ms, max=${max.toFixed(2)}ms, rendered=${avgRendered.toFixed(0)}, skipped=${avgSkipped.toFixed(0)}`);
+    window._entityRenderProfile.lastLog = Date.now();
   }
   for(var i in Arrow.list){
     var arrow = Arrow.list[i];
@@ -5782,6 +6180,9 @@ setInterval(function(){
   renderTops();
   for(var i in Player.list){
     if(Player.list[i].class == 'Falcon'){
+      // OPTIMIZATION: Filter by z-level first
+      if(Player.list[i].z != currentZ && godModeCamera.isActive) continue;
+      
       if(inView(Player.list[i].z,Player.list[i].x,Player.list[i].y,false)){
         // In god mode, only render falcons on current z-layer
         if(godModeCamera.isActive){
@@ -5809,9 +6210,9 @@ setInterval(function(){
   
   // Update viewport position
   if(godModeCamera.isActive){
-    viewport.update(godModeCamera.cameraX, godModeCamera.cameraY);
+    viewport.update(godModeCamera.cameraX, godModeCamera.cameraY, currentZoom);
   } else {
-  viewport.update(Player.list[selfId].x,Player.list[selfId].y);
+  viewport.update(Player.list[selfId].x,Player.list[selfId].y, currentZoom);
   }
   
   // Render building preview that follows mouse cursor
@@ -5987,14 +6388,19 @@ var viewport = {
   startTile: [0,0],
   endTile: [0,0],
   offset: [0,0],
-  update: function(c,r){
+  update: function(c,r,zoom){
+    // Adjust screen size by zoom level - when zoomed out, we need to render more tiles
+    zoom = zoom || 1.0;
+    var effectiveWidth = this.screen[0] / zoom;
+    var effectiveHeight = this.screen[1] / zoom;
+    
     this.offset[0] = Math.floor((this.screen[0]/2) - c);
     this.offset[1] = Math.floor((this.screen[1]/2) - r);
 
     var tile = [Math.floor(c/tileSize),Math.floor(r/tileSize)];
 
-    this.startTile[0] = tile[0] - 1 - Math.ceil((this.screen[0]/2) / tileSize);
-    this.startTile[1] = tile[1] - 1 - Math.ceil((this.screen[1]/2) / tileSize);
+    this.startTile[0] = tile[0] - 1 - Math.ceil((effectiveWidth/2) / tileSize);
+    this.startTile[1] = tile[1] - 1 - Math.ceil((effectiveHeight/2) / tileSize);
 
     if(this.startTile[0] < 0){
       this.startTile[0] = 0;
@@ -6003,8 +6409,8 @@ var viewport = {
       this.startTile[1] = 0;
     }
 
-    this.endTile[0] = tile[0] + 1 + Math.ceil((this.screen[0]/2) / tileSize);
-    this.endTile[1] = tile[1] + 1 + Math.ceil((this.screen[1]/2) / tileSize);
+    this.endTile[0] = tile[0] + 1 + Math.ceil((effectiveWidth/2) / tileSize);
+    this.endTile[1] = tile[1] + 1 + Math.ceil((effectiveHeight/2) / tileSize);
 
     if(this.endTile[0] >= mapSize){
       this.endTile[0] = mapSize;
@@ -6027,9 +6433,21 @@ var renderMap = function(){
       renderMap._cloudPattern = ctx.createPattern(clouds[cld], "repeat");
       renderMap._cloudPatternIndex = cld;
     }
-    ctx.rect(0,0,WIDTH,HEIGHT);
+    
+    // Adjust cloud background size based on zoom to cover entire viewport
+    var effectiveWidth = WIDTH / currentZoom;
+    var effectiveHeight = HEIGHT / currentZoom;
+    var offsetX = (WIDTH - effectiveWidth) / 2;
+    var offsetY = (HEIGHT - effectiveHeight) / 2;
+    
+    // Scale cloud pattern to be 4x bigger
+    ctx.save();
+    ctx.translate(offsetX, offsetY);
+    ctx.scale(4, 4);
+    ctx.rect(0, 0, effectiveWidth / 4, effectiveHeight / 4);
     ctx.fillStyle = renderMap._cloudPattern;
     ctx.fill();
+    ctx.restore();
 
     for(var c = viewport.startTile[0]; c < viewport.endTile[0]; c++){
       for(var r = viewport.startTile[1]; r < viewport.endTile[1]; r++){
@@ -9690,9 +10108,15 @@ var renderLighting = function(){
   
   // Ghost mode overrides all other lighting effects
   if(selfId && Player.list[selfId] && Player.list[selfId].ghost){
-    lighting.clearRect(0,0,WIDTH,HEIGHT);
+    // Adjust size based on zoom so it covers entire viewport
+    var effectiveWidth = WIDTH / currentZoom;
+    var effectiveHeight = HEIGHT / currentZoom;
+    var offsetX = (WIDTH - effectiveWidth) / 2;
+    var offsetY = (HEIGHT - effectiveHeight) / 2;
+    
+    lighting.clearRect(offsetX, offsetY, effectiveWidth, effectiveHeight);
     lighting.fillStyle = "rgba(255, 255, 255, 0.65)"; // Very bright, washed out white
-    lighting.fillRect(0,0,WIDTH,HEIGHT);
+    lighting.fillRect(offsetX, offsetY, effectiveWidth, effectiveHeight);
     lighting.restore(); // Restore transform before returning
     return; // Skip all other lighting effects
   }
@@ -9729,18 +10153,23 @@ var renderLighting = function(){
     finalColor = targetColor;
   }
   
-  // Apply the color
-  lighting.clearRect(0,0,WIDTH,HEIGHT);
+  // Apply the color - adjust size based on zoom so it covers entire viewport
+  var effectiveWidth = WIDTH / currentZoom;
+  var effectiveHeight = HEIGHT / currentZoom;
+  var offsetX = (WIDTH - effectiveWidth) / 2;
+  var offsetY = (HEIGHT - effectiveHeight) / 2;
+  
+  lighting.clearRect(offsetX, offsetY, effectiveWidth, effectiveHeight);
   lighting.fillStyle = finalColor;
-  lighting.fillRect(0,0,WIDTH,HEIGHT);
+  lighting.fillRect(offsetX, offsetY, effectiveWidth, effectiveHeight);
   
   // Handle special z-layer effects
   if(z == -1){
     ctx.fillStyle = "rgba(224, 104, 0, 0.3)"; // light layer
-    ctx.fillRect(0,0,WIDTH,HEIGHT);
+    ctx.fillRect(offsetX, offsetY, effectiveWidth, effectiveHeight);
   } else if(z == -2){
     ctx.fillStyle = "rgba(224, 104, 0, 0.3)"; // light layer
-    ctx.fillRect(0,0,WIDTH,HEIGHT);
+    ctx.fillRect(offsetX, offsetY, effectiveWidth, effectiveHeight);
   }
   
   // Restore lighting canvas transform
