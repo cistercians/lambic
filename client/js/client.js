@@ -417,17 +417,20 @@ socket.onmessage = function(event){
       selfId = data.newSelfId;
       console.log('Now controlling player:', selfId);
       
-      // Re-evaluate ambience and BGM based on current location (including weather)
-      var player = Player.list[selfId];
-      if(player){
-        var building = getBuilding(player.x, player.y);
-        
-        // Force BGM and ambience update
-        if(typeof getBgm !== 'undefined'){
-          getBgm(player.x, player.y, player.z, building);
-        }
-        if(typeof soundscape !== 'undefined'){
-          soundscape(player.x, player.y, player.z, building);
+      // Force audio update (using AudioManager if available, fallback to legacy)
+      if(typeof audioManager !== 'undefined' && audioManager.forceUpdate){
+        audioManager.forceUpdate();
+      } else {
+        // Legacy fallback
+        var player = Player.list[selfId];
+        if(player){
+          var building = getBuilding(player.x, player.y);
+          if(typeof getBgm !== 'undefined'){
+            getBgm(player.x, player.y, player.z, building);
+          }
+          if(typeof soundscape !== 'undefined'){
+            soundscape(player.x, player.y, player.z, building);
+          }
         }
       }
       
@@ -480,6 +483,12 @@ socket.onmessage = function(event){
     // Only update selfId if this is an initial init message (has selfId)
     if(data.selfId !== undefined) {
       selfId = data.selfId;
+      
+      // Start AudioManager for this player
+      if(typeof audioManager !== 'undefined' && audioManager.start){
+        audioManager.start();
+        console.log('AudioManager started for player');
+      }
     }
     console.log('Init received - selfId:', selfId, 'Players:', data.pack.player ? data.pack.player.length : 0);
     
@@ -906,33 +915,46 @@ socket.onmessage = function(event){
       bgmPlayer(defeat_bgm, false, false); // Play Defeat.mp3 once
       ambPlayer(Amb.spirits); // Play spirits ambience
       console.log('Ghost mode activated: playing death music');
-    } else if(!data.active && Player.list[selfId]){
-      // Player respawned - immediately switch to normal music and ambience
-      // Stop current music and force immediate change
-      AudioCtrl.bgm.pause();
-      AudioCtrl.bgm.currentTime = 0;
-      AudioCtrl.playlist = null; // Force playlist change
       
-      // Stop current ambience and force immediate change
-      AudioCtrl.amb.pause();
-      AudioCtrl.amb.currentTime = 0;
-      AudioCtrl.amb.src = null; // Force ambience change
-      
-      var p = Player.list[selfId];
-      // Directly determine and play normal ambience based on location
-      var building = Building.list[getBuilding(p.x, p.y)];
-      
-      // Check for weather effects first (storms take priority)
-      var weatherEffects = getWeatherEffects(p.x, p.y, p.z);
-      if(weatherEffects && weatherEffects.storm.active && weatherEffects.storm.intensity > 0.3){
-        // If on a ship during storm, play seastorm ambience
-        if(p.shipType){
-          ambPlayer(Amb.seastorm);
-        } else {
-          ambPlayer(Amb.rain);
-        }
-        return; // Skip other ambience checks
+      // Pause AudioManager briefly to let manual audio play, then let it take over
+      if(typeof audioManager !== 'undefined'){
+        audioManager.pauseAutoUpdates(2000); // Pause for 2 seconds
+        setTimeout(() => {
+          audioManager.forceUpdate(); // Then sync with AudioManager
+        }, 2100);
       }
+    } else if(!data.active && Player.list[selfId]){
+      // Player respawned - force audio update via AudioManager
+      if(typeof audioManager !== 'undefined' && audioManager.forceUpdate){
+        audioManager.forceUpdate();
+        console.log('Ghost mode deactivated: AudioManager updating to normal audio');
+      } else {
+        // Legacy fallback: immediately switch to normal music and ambience
+        // Stop current music and force immediate change
+        AudioCtrl.bgm.pause();
+        AudioCtrl.bgm.currentTime = 0;
+        AudioCtrl.playlist = null; // Force playlist change
+        
+        // Stop current ambience and force immediate change
+        AudioCtrl.amb.pause();
+        AudioCtrl.amb.currentTime = 0;
+        AudioCtrl.amb.src = null; // Force ambience change
+        
+        var p = Player.list[selfId];
+        // Directly determine and play normal ambience based on location
+        var building = Building.list[getBuilding(p.x, p.y)];
+        
+        // Check for weather effects first (storms take priority)
+        var weatherEffects = getWeatherEffects(p.x, p.y, p.z);
+        if(weatherEffects && weatherEffects.storm.active && weatherEffects.storm.intensity > 0.3){
+          // If on a ship during storm, play seastorm ambience
+          if(p.shipType){
+            ambPlayer(Amb.seastorm);
+          } else {
+            ambPlayer(Amb.rain);
+          }
+          return; // Skip other ambience checks
+        }
       
       // Set ambient sound based on location
       if(p.z == 0){
@@ -1002,6 +1024,7 @@ socket.onmessage = function(event){
         }
       }
       console.log('Ghost mode deactivated: immediately switched to normal music');
+      }
     }
   } else if(data.msg == 'newFaction'){
     houseList = data.houseList;
@@ -3876,26 +3899,9 @@ setInterval(function(){
   }
 },800);
 
-// Weather ambience check - update when entering/leaving storm areas
-var lastWeatherState = { inStorm: false, onShip: false };
-setInterval(function(){
-  if(!selfId || !Player.list[selfId]) return;
-  
-  var player = Player.list[selfId];
-  var weatherEffects = getWeatherEffects(player.x, player.y, player.z);
-  var inStorm = weatherEffects && weatherEffects.storm.active && weatherEffects.storm.intensity > 0.3;
-  var onShip = player.shipType ? true : false;
-  
-  // Check if weather state changed
-  if(inStorm !== lastWeatherState.inStorm || onShip !== lastWeatherState.onShip){
-    lastWeatherState.inStorm = inStorm;
-    lastWeatherState.onShip = onShip;
-    
-    // Force ambience update
-    var building = getBuilding(player.x, player.y);
-    soundscape(player.x, player.y, player.z, building);
-  }
-}, 2000); // Check every 2 seconds
+// Audio is now managed by AudioManager (see client/js/audio/AudioManager.js)
+// Start AudioManager when player logs in
+// AudioManager.start() is called after successful login
 
 var ctx = document.getElementById('ctx').getContext('2d');
 var lighting = document.getElementById('lighting').getContext('2d');
