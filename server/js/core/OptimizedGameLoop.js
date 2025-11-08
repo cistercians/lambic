@@ -142,6 +142,10 @@ class OptimizedGameLoop {
     const buildingPack = Building.update();
     const buildingTime = Date.now() - t5;
     
+    const t6 = Date.now();
+    const weatherPack = Weather.getAllUpdatePack();
+    const weatherTime = Date.now() - t6;
+    
     const totalTime = Date.now() - startTotal;
     
     const pack = {
@@ -149,7 +153,8 @@ class OptimizedGameLoop {
       arrow: arrowPack,
       item: itemPack,
       light: lightPack,
-      building: buildingPack
+      building: buildingPack,
+      weather: weatherPack
     };
     
     // Track timing data

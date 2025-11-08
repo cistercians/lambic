@@ -13219,3 +13219,99 @@ DroppedItem = function(param){
   return self;
 }
 
+// WEATHER SYSTEM
+Weather = function(param){
+  var self = Entity({
+    x: param.x || 0,
+    y: param.y || 0,
+    z: 0, // Always on overworld
+    id: param.id || Math.random()
+  });
+  
+  self.class = 'Weather';
+  self.weatherType = param.weatherType; // 'fog' or 'storm'
+  self.intensity = param.intensity || 1.0; // 0-1 intensity
+  self.lifetime = param.lifetime || 0; // Remaining time in ticks
+  self.moveSpeed = param.moveSpeed || 0.1; // Very slow movement
+  self.moveDirection = Math.random() * 2 * Math.PI;
+  self.moveTimer = 0;
+  self.toRemove = false;
+  
+  self.type = 'weather';
+  
+  self.update = function(){
+    // Decrease lifetime
+    if(self.lifetime > 0){
+      self.lifetime--;
+      if(self.lifetime <= 0){
+        self.toRemove = true;
+        return;
+      }
+    }
+    
+    // Random slow movement
+    self.moveTimer++;
+    if(self.moveTimer > 60){ // Change direction every 60 ticks
+      self.moveDirection += (Math.random() - 0.5) * Math.PI / 2;
+      self.moveTimer = 0;
+    }
+    
+    // Move in current direction
+    self.x += Math.cos(self.moveDirection) * self.moveSpeed;
+    self.y += Math.sin(self.moveDirection) * self.moveSpeed;
+    
+    // Keep within map bounds
+    var mapBounds = mapSize * tileSize;
+    if(self.x < 0) self.x = 0;
+    if(self.y < 0) self.y = 0;
+    if(self.x > mapBounds) self.x = mapBounds;
+    if(self.y > mapBounds) self.y = mapBounds;
+  };
+  
+  self.getInitPack = function(){
+    return {
+      id: self.id,
+      x: self.x,
+      y: self.y,
+      weatherType: self.weatherType,
+      intensity: self.intensity
+    };
+  };
+  
+  self.getUpdatePack = function(){
+    return {
+      id: self.id,
+      x: self.x,
+      y: self.y,
+      weatherType: self.weatherType,
+      intensity: self.intensity
+    };
+  };
+  
+  Weather.list[self.id] = self;
+  return self;
+};
+
+Weather.list = {};
+
+Weather.getAllUpdatePack = function(){
+  var pack = [];
+  for(var i in Weather.list){
+    pack.push(Weather.list[i].getUpdatePack());
+  }
+  return pack;
+};
+
+Weather.update = function(){
+  var pack = [];
+  for(var i in Weather.list){
+    var weather = Weather.list[i];
+    weather.update();
+    if(weather.toRemove){
+      delete Weather.list[i];
+    } else {
+      pack.push(weather.getUpdatePack());
+    }
+  }
+  return pack;
+};

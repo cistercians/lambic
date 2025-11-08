@@ -1303,12 +1303,12 @@ function entropy() {
     world[0][toB[i][1]][toB[i][0]] = TERRAIN.BRUSH + Number((Math.random() * 0.9).toFixed(2));
   }
 
-  // FAUNA - Reduced spawn rates for better performance
+  // FAUNA - Balanced spawn rates
   const animalRatios = {
-    deer: Math.floor(biomes.hForest / 800),   // Reduced from /200 to /800
-    boar: Math.floor(biomes.hForest / 2400),  // Reduced from /800 to /2400
-    wolf: Math.floor(biomes.hForest / 1200),  // Reduced from /400 to /1200
-    falcon: Math.floor(biomes.hForest / 3600) // Reduced from /1200 to /3600
+    deer: Math.floor(biomes.hForest / 300),   // Good population for hunting
+    boar: Math.floor(biomes.hForest / 600),   // Moderate population
+    wolf: Math.floor(biomes.hForest / 500),   // Threat level balanced
+    falcon: Math.floor(biomes.hForest / 800)  // Majestic but not rare
   };
 
   const animalPops = { deer: 0, boar: 0, wolf: 0, falcon: 0 };
@@ -1350,6 +1350,78 @@ function entropy() {
   spawnAnimal('falcon', animalRatios.falcon, animalPops.falcon, Falcon);
 
   // Individual tile updates are handled by tileChange function
+}
+
+// WEATHER SYSTEM
+const weatherSpawnChance = {
+  fog: 0.005,  // 0.5% chance per tick (fairly common in mornings)
+  storm: 0.0008 // 0.08% chance per tick (fairly frequent - approximately every 20 minutes)
+};
+
+function spawnWeather(type) {
+  const mapBounds = mapSize * tileSize;
+  const x = Math.random() * mapBounds;
+  const y = Math.random() * mapBounds;
+  
+  // Scale movement speed based on map size
+  // Base map (200 tiles) uses 0.05 for fog, 0.15 for storm
+  const baseMapSize = 200;
+  const sizeScale = mapSize / baseMapSize;
+  const baseFogSpeed = 0.05;
+  const baseStormSpeed = 0.15;
+  
+  const weather = Weather({
+    x: x,
+    y: y,
+    weatherType: type,
+    intensity: 0.5 + Math.random() * 0.5, // Random intensity 0.5-1.0
+    lifetime: type === 'fog' 
+      ? 60 * 60 * 4 // 4 hours (until X.a)
+      : 60 * 60 * 3, // 3 hours for storms
+    moveSpeed: type === 'fog' 
+      ? baseFogSpeed * sizeScale 
+      : baseStormSpeed * sizeScale // Scales with map size
+  });
+  
+  console.log(`Weather spawned: ${type} at [${Math.floor(x)},${Math.floor(y)}] intensity:${weather.intensity.toFixed(2)} speed:${weather.moveSpeed.toFixed(2)}`);
+}
+
+function updateWeather(tempus) {
+  // Ensure Weather entity is defined
+  if(typeof Weather === 'undefined' || !Weather.list) {
+    return;
+  }
+  
+  // Scale max counts based on map size (for consistent density)
+  // Base is 200x200 map; scale proportionally
+  const mapArea = mapSize * mapSize;
+  const baseMapArea = 200 * 200; // 40,000 tiles
+  const scaleFactor = mapArea / baseMapArea;
+  
+  const maxFog = Math.max(3, Math.ceil(3 * scaleFactor)); // Min 3, scales up
+  const maxStorms = Math.max(3, Math.ceil(3 * scaleFactor)); // Min 3, scales up
+  
+  // Fog spawning (only during early morning hours)
+  if(['IV.a', 'V.a', 'VI.a', 'VII.a', 'VIII.a', 'IX.a'].includes(tempus)) {
+    if(Math.random() < weatherSpawnChance.fog) {
+      // Check if we don't have too many fog patches already
+      const fogCount = Object.values(Weather.list).filter(w => w.weatherType === 'fog').length;
+      if(fogCount < maxFog) {
+        spawnWeather('fog');
+      }
+    }
+  }
+  
+  // Storm spawning (any time)
+  if(Math.random() < weatherSpawnChance.storm) {
+    const stormCount = Object.values(Weather.list).filter(w => w.weatherType === 'storm').length;
+    if(stormCount < maxStorms) {
+      spawnWeather('storm');
+    }
+  }
+  
+  // Update all weather entities
+  Weather.update();
 }
 
 function dailyTally() {
@@ -5571,6 +5643,11 @@ setInterval(function() {
 
 // Initiate day/night cycle
 setInterval(dayNight, 3600000 / period);
+
+// Weather update (every 60 ticks = 1 second at 60 FPS)
+setInterval(function() {
+  updateWeather(tempus);
+}, 1000); // Every second
 
 // Initialize tempus properly before logging
 tempus = gameState.tempus;

@@ -417,6 +417,22 @@ socket.onmessage = function(event){
       selfId = data.newSelfId;
       console.log('Now controlling player:', selfId);
       
+      // Re-evaluate ambience and BGM based on current location (including weather)
+      var player = Player.list[selfId];
+      if(player){
+        var building = getBuilding(player.x, player.y);
+        
+        // Force BGM and ambience update
+        if(typeof getBgm !== 'undefined'){
+          getBgm(player.x, player.y, player.z, building);
+        }
+        if(typeof soundscape !== 'undefined'){
+          soundscape(player.x, player.y, player.z, building);
+        }
+      }
+      
+      // OLD CODE BELOW (replaced with proper evaluation above)
+      /*
       // Stop sea ambience
       if(typeof ambPlayer !== 'undefined'){
         ambPlayer(null);
@@ -442,6 +458,7 @@ socket.onmessage = function(event){
           }
         }
       }
+      */
     }
   } else if(data.msg == 'tileEdit'){
     if(world[data.l] && world[data.l][data.r]) {
@@ -806,6 +823,28 @@ socket.onmessage = function(event){
       var b = getBuilding(p.x, p.y);
       getBgm(p.x, p.y, p.z, b);
     }
+    
+    // Weather updates (in UPDATE block, not REMOVE block!)
+    if(data.pack.weather){
+      for(var i = 0; i < data.pack.weather.length; i++){
+        var pack = data.pack.weather[i];
+        if(!Weather.list[pack.id]){
+          Weather.list[pack.id] = {
+            id: pack.id,
+            x: pack.x,
+            y: pack.y,
+            weatherType: pack.weatherType,
+            intensity: pack.intensity
+          };
+        } else {
+          var weather = Weather.list[pack.id];
+          weather.x = pack.x;
+          weather.y = pack.y;
+          weather.weatherType = pack.weatherType;
+          weather.intensity = pack.intensity;
+        }
+      }
+    }
   } else if(data.msg == 'remove'){
     // {player:[12323],arrow:[12323,123123]}
     for(var i = 0 ; i < data.pack.player.length; i++){
@@ -882,6 +921,18 @@ socket.onmessage = function(event){
       var p = Player.list[selfId];
       // Directly determine and play normal ambience based on location
       var building = Building.list[getBuilding(p.x, p.y)];
+      
+      // Check for weather effects first (storms take priority)
+      var weatherEffects = getWeatherEffects(p.x, p.y, p.z);
+      if(weatherEffects && weatherEffects.storm.active && weatherEffects.storm.intensity > 0.3){
+        // If on a ship during storm, play seastorm ambience
+        if(p.shipType){
+          ambPlayer(Amb.seastorm);
+        } else {
+          ambPlayer(Amb.rain);
+        }
+        return; // Skip other ambience checks
+      }
       
       // Set ambient sound based on location
       if(p.z == 0){
@@ -3640,13 +3691,27 @@ document.addEventListener('keydown', function(e){
 // GAME
 
 var soundscape = function(x,y,z,b){
+  // Check for weather effects first (storms take priority)
+  if(Player.list[selfId]){
+    var weatherEffects = getWeatherEffects(x, y, z);
+    if(weatherEffects && weatherEffects.storm.active && weatherEffects.storm.intensity > 0.3){
+      // If on a ship during storm, play seastorm ambience
+      if(Player.list[selfId].shipType){
+        ambPlayer(Amb.seastorm);
+      } else {
+        ambPlayer(Amb.rain);
+      }
+      return; // Skip other ambience checks
+    }
+  }
+  
   // Check if player is controlling a ship - overrides all other ambience
-  if(Player.list[selfId] && Player.list[selfId].shipType === 'fishingship'){
+  if(Player.list[selfId] && Player.list[selfId].shipType){
     ambPlayer(Amb.sea); // Keep sea ambience while on ship
     return; // Skip other checks
   }
   
-  // Check ghost mode first - overrides all other ambience
+  // Check ghost mode - overrides all other ambience
   if(Player.list[selfId] && Player.list[selfId].ghost){
     ambPlayer(Amb.spirits); // Play spirits.mp3
     return; // Skip other checks
@@ -3688,7 +3753,7 @@ var soundscape = function(x,y,z,b){
 
 var getBgm = function(x,y,z,b){
   // Check if player is controlling a ship - overrides all other music
-  if(Player.list[selfId] && Player.list[selfId].shipType === 'fishingship'){
+  if(Player.list[selfId] && Player.list[selfId].shipType){
     bgmPlayer(ship_bgm); // Keep ship music while on ship
     soundscape(x,y,z,{}); // Handle ship ambience (sea.mp3)
     return; // Skip other checks
@@ -3810,6 +3875,27 @@ setInterval(function(){
     wrk = 1;
   }
 },800);
+
+// Weather ambience check - update when entering/leaving storm areas
+var lastWeatherState = { inStorm: false, onShip: false };
+setInterval(function(){
+  if(!selfId || !Player.list[selfId]) return;
+  
+  var player = Player.list[selfId];
+  var weatherEffects = getWeatherEffects(player.x, player.y, player.z);
+  var inStorm = weatherEffects && weatherEffects.storm.active && weatherEffects.storm.intensity > 0.3;
+  var onShip = player.shipType ? true : false;
+  
+  // Check if weather state changed
+  if(inStorm !== lastWeatherState.inStorm || onShip !== lastWeatherState.onShip){
+    lastWeatherState.inStorm = inStorm;
+    lastWeatherState.onShip = onShip;
+    
+    // Force ambience update
+    var building = getBuilding(player.x, player.y);
+    soundscape(player.x, player.y, player.z, building);
+  }
+}, 2000); // Check every 2 seconds
 
 var ctx = document.getElementById('ctx').getContext('2d');
 var lighting = document.getElementById('lighting').getContext('2d');
@@ -5802,6 +5888,66 @@ var Item = function(initPack){
 }
 Item.list = {};
 
+// WEATHER
+var Weather = {};
+Weather.list = {};
+
+// Calculate weather effects based on proximity
+function getWeatherEffects(playerX, playerY, playerZ) {
+  if(playerZ !== 0) {
+    return null; // Weather only affects z=0
+  }
+  
+  const effects = {
+    fog: { active: false, intensity: 0 },
+    storm: { active: false, intensity: 0, distance: Infinity }
+  };
+  
+  // Calculate radii based on map size (scales automatically)
+  const mapDiagonal = mapSize * tileSize;
+  
+  // Check all weather systems
+  for(const id in Weather.list) {
+    const weather = Weather.list[id];
+    const dx = weather.x - playerX;
+    const dy = weather.y - playerY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    if(weather.weatherType === 'fog') {
+      // Fog radius: ~4% of map diagonal for outer, ~1.5% for inner
+      const fogOuterRadius = mapDiagonal * 0.04;
+      const fogInnerRadius = mapDiagonal * 0.015;
+      
+      if(distance < fogOuterRadius) {
+        let fogIntensity = 1.0 - (distance - fogInnerRadius) / (fogOuterRadius - fogInnerRadius);
+        fogIntensity = Math.max(0, Math.min(1, fogIntensity));
+        fogIntensity *= weather.intensity; // Apply weather's base intensity
+        effects.fog.intensity = Math.max(effects.fog.intensity, fogIntensity);
+        effects.fog.active = true;
+      }
+    } 
+    else if(weather.weatherType === 'storm') {
+      // Storm radius: ~20% of map area (27% of diagonal for outer radius)
+      const stormOuterRadius = mapDiagonal * 0.27; // ~20% map coverage
+      const stormInnerRadius = mapDiagonal * 0.08; // Center with full intensity
+      
+      if(distance < stormOuterRadius) {
+        let stormIntensity = 1.0 - (distance - stormInnerRadius) / (stormOuterRadius - stormInnerRadius);
+        stormIntensity = Math.max(0, Math.min(1, stormIntensity));
+        stormIntensity *= weather.intensity;
+        
+        if(stormIntensity > effects.storm.intensity) {
+          effects.storm.intensity = stormIntensity;
+          effects.storm.distance = distance;
+          effects.storm.active = true;
+        }
+      }
+    }
+  }
+  
+  return effects;
+}
+
 // LIGHTS
 var Light = function(initPack){
   var self = {};
@@ -6285,6 +6431,16 @@ setInterval(function(){
   
   // Restore canvas transform after rendering
   ctx.restore();
+  
+  // Render rain effects AFTER zoom transform is restored (in screen-space)
+  // Works for all camera modes (spectate, login, normal)
+  var currentZ = getCurrentZ();
+  if(currentZ == 0){
+    var cameraPos = getCameraPosition();
+    var weatherEffects = getWeatherEffects(cameraPos.x, cameraPos.y, currentZ);
+    updateRain(weatherEffects);
+    renderRain();
+  }
   
   //console.log(getLoc(Player.list[selfId].x,Player.list[selfId].y));
 },40);
@@ -10048,6 +10204,86 @@ var renderLightSources = function(env){
   }
 }
 
+// Weather overlay rendering (DEPRECATED - now handled in renderLighting for smooth transitions)
+function renderWeatherOverlay() {
+  // This function is no longer used - weather is rendered in renderLighting()
+  return;
+}
+
+// Rain particle system
+var rainParticles = [];
+var maxRainParticles = 500; // Increased from 200 to 500
+var lightningTimer = 0;
+var lightningFlash = false;
+
+function updateRain(weatherEffects) {
+  if(!weatherEffects || !weatherEffects.storm.active) {
+    rainParticles = [];
+    return;
+  }
+  
+  const targetParticleCount = Math.floor(weatherEffects.storm.intensity * maxRainParticles);
+  
+  // Rain renders in screen-space (after zoom transform is restored)
+  // Spawn particles across entire screen
+  while(rainParticles.length < targetParticleCount) {
+    rainParticles.push({
+      x: Math.random() * WIDTH,
+      y: -10,
+      speed: 15 + Math.random() * 10,
+      length: 20 + Math.random() * 10
+    });
+  }
+  
+  // Remove excess particles
+  if(rainParticles.length > targetParticleCount) {
+    rainParticles.length = targetParticleCount;
+  }
+  
+  // Update particle positions
+  for(let i = rainParticles.length - 1; i >= 0; i--) {
+    const particle = rainParticles[i];
+    particle.y += particle.speed;
+    
+    // Remove if off screen
+    if(particle.y > HEIGHT) {
+      rainParticles.splice(i, 1);
+    }
+  }
+  
+  // Lightning logic (only when close to storm center)
+  if(weatherEffects.storm.intensity > 0.7) {
+    lightningTimer++;
+    if(lightningTimer > 180 + Math.random() * 120) { // Random 3-5 seconds
+      lightningFlash = true;
+      lightningTimer = 0;
+      setTimeout(() => { lightningFlash = false; }, 100); // 100ms flash
+    }
+  }
+}
+
+function renderRain() {
+  if(rainParticles.length === 0) return;
+  
+  // Rain is rendered on the main canvas which is already zoomed,
+  // but particles are in screen-space coordinates, so they render correctly
+  ctx.strokeStyle = 'rgba(180, 180, 220, 0.8)'; // More opaque, slightly darker
+  ctx.lineWidth = 2; // Thicker rain lines
+  
+  for(const particle of rainParticles) {
+    ctx.beginPath();
+    ctx.moveTo(particle.x, particle.y);
+    ctx.lineTo(particle.x, particle.y + particle.length);
+    ctx.stroke();
+  }
+  
+  // Lightning flash
+  if(lightningFlash) {
+    lighting.fillStyle = 'rgba(255, 255, 255, 0.6)';
+    lighting.fillRect(0, 0, WIDTH, HEIGHT);
+  }
+}
+
 // Lighting transition system for smooth day/night color transitions
 var lightingTransition = {
   previousTempus: null,
@@ -10175,19 +10411,92 @@ var renderLighting = function(){
   lighting.scale(currentZoom, currentZoom);
   lighting.translate(-WIDTH/2, -HEIGHT/2);
   
+  // Calculate effective dimensions for zoom
+  var effectiveWidth = WIDTH / currentZoom;
+  var effectiveHeight = HEIGHT / currentZoom;
+  var offsetX = (WIDTH - effectiveWidth) / 2;
+  var offsetY = (HEIGHT - effectiveHeight) / 2;
+  
   // Ghost mode overrides all other lighting effects
   if(selfId && Player.list[selfId] && Player.list[selfId].ghost){
-    // Adjust size based on zoom so it covers entire viewport
-    var effectiveWidth = WIDTH / currentZoom;
-    var effectiveHeight = HEIGHT / currentZoom;
-    var offsetX = (WIDTH - effectiveWidth) / 2;
-    var offsetY = (HEIGHT - effectiveHeight) / 2;
-    
     lighting.clearRect(offsetX, offsetY, effectiveWidth, effectiveHeight);
     lighting.fillStyle = "rgba(255, 255, 255, 0.65)"; // Very bright, washed out white
     lighting.fillRect(offsetX, offsetY, effectiveWidth, effectiveHeight);
     lighting.restore(); // Restore transform before returning
     return; // Skip all other lighting effects
+  }
+  
+  // Weather effects override normal day/night lighting (only on z=0)
+  if(z === 0){
+    var cameraPos = getCameraPosition();
+    var weatherEffects = getWeatherEffects(cameraPos.x, cameraPos.y, z);
+    
+    if(weatherEffects && (weatherEffects.fog.active || weatherEffects.storm.active)){
+      lighting.clearRect(offsetX, offsetY, effectiveWidth, effectiveHeight);
+      
+      // Determine weather lighting color
+      var weatherColor = null;
+      
+      // Fog (only during day)
+      if(weatherEffects.fog.active && !nightfall){
+        var fogAlpha = weatherEffects.fog.intensity * 0.7;
+        weatherColor = `rgba(200, 200, 200, ${fogAlpha})`;
+      }
+      
+      // Storm (only during day) - overrides fog if both present
+      if(weatherEffects.storm.active && !nightfall){
+        var stormAlpha = weatherEffects.storm.intensity * 0.65;
+        weatherColor = `rgba(80, 80, 100, ${stormAlpha})`; // Grey overcast color
+      }
+      
+      // If weather should apply, transition smoothly to weather lighting
+      if(weatherColor){
+        // Detect if we're transitioning to/from weather
+        var wasInWeather = lightingTransition.isInWeather || false;
+        
+        // If this is a new weather event
+        if(!wasInWeather){
+          // Start transition from current color to weather color
+          lightingTransition.previousColor = lightingTransition.currentColor || getLightingColorForTempus(tempus, z, hasFirepit);
+          lightingTransition.currentColor = weatherColor;
+          lightingTransition.startTime = Date.now();
+          lightingTransition.isInWeather = true;
+          lightingTransition.lastWeatherColor = weatherColor;
+          lightingTransition.weatherEndingTriggered = false; // Reset for next time
+        } else if(lightingTransition.currentColor !== weatherColor){
+          // Weather intensity changed - update target
+          lightingTransition.currentColor = weatherColor;
+          lightingTransition.lastWeatherColor = weatherColor;
+        }
+        
+        // Calculate transition progress
+        var elapsed = Date.now() - lightingTransition.startTime;
+        var t = Math.min(elapsed / lightingTransition.transitionDuration, 1);
+        
+        // Interpolate between previous and weather color
+        var finalColor = lightingTransition.interpolateColors(
+          lightingTransition.previousColor, 
+          lightingTransition.currentColor, 
+          t
+        );
+        
+        lighting.clearRect(offsetX, offsetY, effectiveWidth, effectiveHeight);
+        lighting.fillStyle = finalColor;
+        lighting.fillRect(offsetX, offsetY, effectiveWidth, effectiveHeight);
+        lighting.restore(); // Restore transform before returning
+        return; // Skip normal day/night lighting
+      } else if(lightingTransition.isInWeather && !lightingTransition.weatherEndingTriggered){
+        // Weather just ended (or nightfall during storm) - transition back to normal
+        lightingTransition.previousColor = lightingTransition.lastWeatherColor || lightingTransition.currentColor;
+        lightingTransition.currentColor = getLightingColorForTempus(tempus, z, hasFirepit);
+        lightingTransition.startTime = Date.now();
+        lightingTransition.isInWeather = false;
+        lightingTransition.lastWeatherColor = null;
+        lightingTransition.weatherJustEnded = true; // Flag to prevent tempus code from resetting
+        lightingTransition.weatherEndingTriggered = true; // Only trigger once
+        // Don't return - continue to normal lighting with transition
+      }
+    }
   }
   
   // Get hasFire status for building interiors
@@ -10197,8 +10506,8 @@ var renderLighting = function(){
     hasFirepit = hasFire(player.z, player.x, player.y);
   }
   
-  // Detect if tempus changed and start transition
-  if(lightingTransition.currentTempus !== tempus || !lightingTransition.startTime) {
+  // Detect if tempus changed and start transition (but not if weather just ended)
+  if(!lightingTransition.weatherJustEnded && (lightingTransition.currentTempus !== tempus || !lightingTransition.startTime)) {
     lightingTransition.previousTempus = lightingTransition.currentTempus;
     lightingTransition.currentTempus = tempus;
     lightingTransition.previousColor = lightingTransition.currentColor || getLightingColorForTempus(tempus, z, hasFirepit);
@@ -10207,7 +10516,11 @@ var renderLighting = function(){
   
   // Get target color
   var targetColor = getLightingColorForTempus(tempus, z, hasFirepit);
+  
+  // Only update currentColor if we're not in the middle of a weather transition
+  if(!lightingTransition.weatherJustEnded){
   lightingTransition.currentColor = targetColor;
+  }
   
   // Calculate transition progress (0 to 1)
   var elapsed = Date.now() - lightingTransition.startTime;
@@ -10220,6 +10533,11 @@ var renderLighting = function(){
     finalColor = lightingTransition.interpolateColors(lightingTransition.previousColor, lightingTransition.currentColor, t);
   } else {
     finalColor = targetColor;
+    // Transition complete - clear weather ending flags
+    if(lightingTransition.weatherJustEnded){
+      lightingTransition.weatherJustEnded = false;
+      lightingTransition.weatherEndingTriggered = false;
+    }
   }
   
   // Apply the color - adjust size based on zoom so it covers entire viewport
