@@ -6082,6 +6082,166 @@ var hasFire = function(z,x,y){
   return false;
 }
 
+/**
+ * UNIFIED RENDERING FUNCTION
+ * Consolidates all rendering modes (spectate, login, normal, godmode) into one function
+ */
+function renderUnified(mode, currentZ, nightfall) {
+  // For normal mode, define optimized visibility check
+  var checkInView = null;
+  if(mode === 'normal') {
+    var viewTop = (viewport.startTile[1] - 1) * tileSize;
+    var viewLeft = (viewport.startTile[0] - 1) * tileSize;
+    var viewRight = (viewport.endTile[0] + 2) * tileSize;
+    var viewBottom = (viewport.endTile[1] + 2) * tileSize;
+    var inSpecialMode = spectateCameraSystem.isActive || godModeCamera.isActive;
+    var playerInnaWoods = !inSpecialMode && Player.list[selfId] ? Player.list[selfId].innaWoods : false;
+    
+    checkInView = function(x, y, entityZ, innaWoods) {
+      if(entityZ != currentZ) return false;
+      if(x <= viewLeft || x >= viewRight || y <= viewTop || y >= viewBottom) return false;
+      if(!inSpecialMode && currentZ == 0 && innaWoods && !playerInnaWoods) return false;
+      return true;
+    };
+  }
+  
+  // Items
+  for(var i in Item.list) {
+    var item = Item.list[i];
+    if(!item) continue;
+    
+    if(mode === 'spectate' || mode === 'godmode') {
+      // Spectate/God mode: simple check
+      if(inView(item.z, item.x, item.y, item.innaWoods) && item.z === currentZ) {
+        item.draw();
+      }
+    } else if(mode === 'login') {
+      // Login camera: z=0 only
+      if(item.z === 0 && inViewLogin(item.x, item.y)) {
+        item.draw();
+      }
+    } else {
+      // Normal mode: complex building filtering
+      if(item.z !== currentZ) continue;
+      if(!checkInView(item.x, item.y, item.z, item.innaWoods)) continue;
+      
+      if((currentZ === 1 || currentZ === 2) && Player.list[selfId]) {
+        var playerBuilding = getBuilding(Player.list[selfId].x, Player.list[selfId].y);
+        var itemBuilding = getBuilding(item.x, item.y);
+        var itemBuildingAdjusted = getBuilding(item.x, item.y + (tileSize * 1.1));
+        if(itemBuilding === playerBuilding || itemBuildingAdjusted === playerBuilding) {
+          item.draw();
+        }
+      } else if(currentZ !== 1 && currentZ !== 2) {
+        item.draw();
+      }
+    }
+  }
+  
+  // Players (non-Falcons)
+  for(var i in Player.list) {
+    var player = Player.list[i];
+    if(!player || player.class === 'Falcon') continue;
+    
+    if(mode === 'spectate' || mode === 'godmode') {
+      if(inView(player.z, player.x, player.y, player.innaWoods) && player.z === currentZ) {
+        player.draw();
+      }
+    } else if(mode === 'login') {
+      if(player.z === 0 && inViewLogin(player.x, player.y)) {
+        player.draw();
+      }
+    } else {
+      // Normal mode with building check
+      if(player.z !== currentZ) continue;
+      if((currentZ === 1 || currentZ === 2) && Player.list[selfId]) {
+        var playerBuilding = getBuilding(Player.list[selfId].x, Player.list[selfId].y);
+        var entityBuilding = getBuilding(player.x, player.y);
+        if(playerBuilding !== entityBuilding) continue;
+      }
+      if(checkInView(player.x, player.y, player.z, player.innaWoods)) {
+        player.draw();
+      }
+    }
+  }
+  
+  // Arrows (not in login mode)
+  if(mode !== 'login') {
+    for(var i in Arrow.list) {
+      var arrow = Arrow.list[i];
+      if(!arrow) continue;
+      
+      if(mode === 'spectate' || mode === 'godmode') {
+        if(inView(arrow.z, arrow.x, arrow.y, arrow.innaWoods) && arrow.z === currentZ) {
+          arrow.draw();
+        }
+      } else {
+        if(arrow.z === currentZ && checkInView(arrow.x, arrow.y, arrow.z, arrow.innaWoods)) {
+          arrow.draw();
+        }
+      }
+    }
+  }
+  
+  // Forest overlay (z=0 only)
+  if(currentZ === 0) {
+    renderForest();
+  }
+  renderTops();
+  
+  // Falcons (rendered above forest)
+  for(var i in Player.list) {
+    var player = Player.list[i];
+    if(!player || player.class !== 'Falcon') continue;
+    
+    if(mode === 'spectate' || mode === 'godmode') {
+      if(inView(player.z, player.x, player.y, false) && player.z === currentZ) {
+        player.draw();
+      }
+    } else if(mode === 'login') {
+      if(inViewLogin(player.x, player.y)) {
+        player.draw();
+      }
+    } else {
+      if(player.z === currentZ && checkInView(player.x, player.y, player.z, false)) {
+        player.draw();
+      }
+    }
+  }
+  
+  // Buildings
+  for(var i in Building.list) {
+    var building = Building.list[i];
+    if(!building) continue;
+    
+    if(mode === 'spectate' || mode === 'godmode') {
+      if(inView(building.z, building.x, building.y) && building.z === currentZ) {
+        building.draw();
+      }
+    } else if(mode === 'login') {
+      // Login mode doesn't render buildings typically
+    } else {
+      if(building.z === currentZ && checkInView(building.x, building.y, building.z, false)) {
+        building.draw();
+      }
+    }
+  }
+  
+  // Lighting
+  renderLighting();
+  
+  // Light sources
+  if(currentZ === 0) {
+    renderLightSources(nightfall ? 2 : 1);
+  } else if(currentZ === 1 || currentZ === 2) {
+    renderLightSources(1);
+  } else if(currentZ === -1 || currentZ === -2) {
+    renderLightSources(3);
+  }
+  
+  // Note: Rain rendering happens AFTER ctx.restore() in screen-space, not here
+}
+
 setInterval(function(){
   // Update ship wakes (tracks ship positions and fades out wake effects)
   if(tileSize > 0) {
@@ -6124,305 +6284,38 @@ setInterval(function(){
   
   renderMap();
   
-  // In spectate mode, render EXACTLY like god mode does (copy-paste from normal rendering)
+  // SPECTATE MODE - Unified rendering
   if(spectateCameraSystem.isActive) {
     // Update spectate camera (target selection and movement)
     spectateCameraSystem.update();
     
     var currentZ = getCurrentZ();
     
-    // ITEMS - exact god mode logic
-    for(var i in Item.list){
-      if(inView(Item.list[i].z,Item.list[i].x,Item.list[i].y,Item.list[i].innaWoods)){
-        if(Item.list[i].z == currentZ){
-          Item.list[i].draw();
-        }
-      } else {
-        continue;
-      }
-    }
-    
-    // PLAYERS - exact god mode logic
-    for(var i in Player.list){
-      if(Player.list[i].class != 'Falcon'){
-        if(inView(Player.list[i].z,Player.list[i].x,Player.list[i].y,Player.list[i].innaWoods)){
-          if(Player.list[i].z == currentZ){
-            Player.list[i].draw();
-          }
-        } else {
-          continue;
-        }
-      }
-    }
-    
-    // ARROWS - exact god mode logic
-    for(var i in Arrow.list){
-      if(inView(Arrow.list[i].z,Arrow.list[i].x,Arrow.list[i].y,Arrow.list[i].innaWoods)){
-        if(Arrow.list[i].z == currentZ){
-          Arrow.list[i].draw();
-        }
-      } else {
-        continue;
-      }
-    }
-    
-    // FOREST - only on z=0, exact god mode logic
-    if(currentZ == 0){
-      renderForest();
-    }
-    renderTops();
-    
-    // FALCONS - exact god mode logic
-    for(var i in Player.list){
-      if(Player.list[i].class == 'Falcon'){
-        if(inView(Player.list[i].z,Player.list[i].x,Player.list[i].y,false)){
-          if(Player.list[i].z == currentZ){
-            Player.list[i].draw();
-          }
-        } else {
-          continue;
-        }
-      }
-    }
-    
-    // BUILDINGS - exact god mode logic
-    for(var i in Building.list){
-      if(inView(Building.list[i].z,Building.list[i].x,Building.list[i].y)){
-        if(Building.list[i].z == currentZ){
-          Building.list[i].draw();
-        }
-      } else {
-        continue;
-      }
-    }
-    
-    renderLighting();
-    
-    // LIGHT SOURCES - exact god mode logic
-    if(currentZ == 0){
-      if(nightfall){
-        renderLightSources(2);
-      } else {
-        renderLightSources(1);
-      }
-    } else if(currentZ == 1 || currentZ == 2){
-      renderLightSources(1);
-    } else if(currentZ == -1 || currentZ == -2){
-      renderLightSources(3);
-    }
+    // Use unified rendering function
+    renderUnified('spectate', currentZ, nightfall);
     
     // Update viewport
     var cameraPos = spectateCameraSystem.getCameraPosition();
     viewport.update(cameraPos.x, cameraPos.y, currentZoom);
   } else if(loginCameraSystem.isActive && !selfId) {
-    // Render all items on ground level
-    for(var i in Item.list){
-      if(Item.list[i].z == 0) {
-        var itemInView = inViewLogin(Item.list[i].x, Item.list[i].y);
-        if(itemInView) {
-          Item.list[i].draw();
-        }
-      }
-    }
+    // LOGIN CAMERA MODE - Unified rendering
+    var currentZ = 0; // Login camera always renders z=0
     
-    // Render all non-falcon players on ground level
-    for(var i in Player.list){
-      if(Player.list[i].class != 'Falcon' && Player.list[i].z == 0){
-        var playerInView = inViewLogin(Player.list[i].x, Player.list[i].y);
-        if(playerInView){
-          Player.list[i].draw();
-        }
-      }
-    }
-    
-    // Render forest overlay (trees should cover ground entities)
-    renderForest();
-    
-    renderTops();
-    
-    // Render falcons (flying above trees)
-    for(var i in Player.list){
-      if(Player.list[i].class == 'Falcon'){
-        var falconInView = inViewLogin(Player.list[i].x, Player.list[i].y);
-        if(falconInView){
-          Player.list[i].draw();
-        }
-      }
-    }
-    
-    renderLighting();
-    // Render light sources (env: 1=daytime, 2=nighttime)
-    if(nightfall){
-      renderLightSources(2);
-    } else {
-      renderLightSources(1);
-    }
+    // Use unified rendering function
+    renderUnified('login', currentZ, nightfall);
     
     // Update viewport with falcon camera position
     var cameraPos = loginCameraSystem.getCameraPosition();
     viewport.update(cameraPos.x, cameraPos.y, currentZoom);
   } else if(selfId && Player.list[selfId]) {
-    // Normal game rendering when logged in
-  var currentZ = getCurrentZ();
-  
-  // Precompute viewport bounds once per frame (used for all entity visibility checks)
-  var viewTop = (viewport.startTile[1] - 1) * tileSize;
-  var viewLeft = (viewport.startTile[0] - 1) * tileSize;
-  var viewRight = (viewport.endTile[0] + 2) * tileSize;
-  var viewBottom = (viewport.endTile[1] + 2) * tileSize;
-  var inSpecialMode = spectateCameraSystem.isActive || godModeCamera.isActive;
-  var playerInnaWoods = !inSpecialMode && Player.list[selfId] ? Player.list[selfId].innaWoods : false;
-  
-  // Optimized entity visibility check (inline version of inView, z-checked first)
-  var checkInView = function(x, y, entityZ, innaWoods) {
-    // First check z-layer match (fastest rejection)
-    if(entityZ != currentZ) return false;
-    // Then check bounds
-    if(x <= viewLeft || x >= viewRight || y <= viewTop || y >= viewBottom) return false;
-    // Finally check innaWoods (only for z=0)
-    if(!inSpecialMode && currentZ == 0 && innaWoods && !playerInnaWoods) return false;
-    return true;
-  };
-  
-  for(var i in Item.list){
-    var item = Item.list[i];
-    if(!item) continue; // Skip deleted items
-    if(checkInView(item.x, item.y, item.z, item.innaWoods)){
-      // In god mode, render all items on current z-layer
-      if(godModeCamera.isActive){
-        if(item.z == currentZ){
-          item.draw();
-        }
-      } else if((currentZ == 1 || currentZ == 2) && (getBuilding(item.x,item.y) == getBuilding(Player.list[selfId].x,Player.list[selfId].y) || getBuilding(item.x,item.y+(tileSize * 1.1)) == getBuilding(Player.list[selfId].x,Player.list[selfId].y))){
-        item.draw();
-      } else if(currentZ != 1 && currentZ != 2){
-        item.draw();
-      }
-    }
-  }
-  // PERFORMANCE PROFILING: Track entity rendering
-  if(!window._entityRenderProfile){
-    window._entityRenderProfile = {
-      samples: [],
-      lastLog: Date.now()
-    };
-  }
-  const entityRenderStart = performance.now();
-  let entitiesChecked = 0;
-  let entitiesRendered = 0;
-  let zMismatches = 0;
-  
-  for(var i in Player.list){
-    var player = Player.list[i];
-    if(!player) continue; // Skip deleted players
-    entitiesChecked++;
+    // NORMAL + GOD MODE - Unified rendering
+    var currentZ = getCurrentZ();
+    var mode = godModeCamera.isActive ? 'godmode' : 'normal';
     
-    // OPTIMIZATION: Skip entities not on current z-level BEFORE expensive checks
-    if(player.class != 'Falcon'){
-      // Quick z-level filter first (cheap integer comparison)
-      if(player.z != currentZ){
-        zMismatches++;
-        continue; // Skip entirely - wrong z-level
-      }
-      
-      // For buildings (z=1, z=2), also check if in same building
-      if((currentZ == 1 || currentZ == 2) && !godModeCamera.isActive){
-        if(getBuilding(player.x,player.y) != getBuilding(Player.list[selfId].x,Player.list[selfId].y)){
-          zMismatches++;
-          continue; // Skip - different building
-        }
-      }
-      
-      // Now check viewport bounds (only for entities that passed z-filter)
-      if(checkInView(player.x, player.y, player.z, player.innaWoods)){
-        player.draw();
-        entitiesRendered++;
-      }
-    }
-  }
-  
-  const entityRenderTime = performance.now() - entityRenderStart;
-  window._entityRenderProfile.samples.push({
-    time: entityRenderTime,
-    checked: entitiesChecked,
-    rendered: entitiesRendered,
-    skippedZ: zMismatches
-  });
-  
-  // Keep last 60 samples (1 second at 60fps)
-  if(window._entityRenderProfile.samples.length > 60){
-    window._entityRenderProfile.samples.shift();
-  }
-  
-  // Log every 3 seconds
-  if(Date.now() - window._entityRenderProfile.lastLog >= 3000){
-    const samples = window._entityRenderProfile.samples;
-    const avg = samples.reduce((sum, s) => sum + s.time, 0) / samples.length;
-    const avgRendered = samples.reduce((sum, s) => sum + s.rendered, 0) / samples.length;
-    const avgSkipped = samples.reduce((sum, s) => sum + s.skippedZ, 0) / samples.length;
-    const max = Math.max(...samples.map(s => s.time));
+    // Use unified rendering function
+    renderUnified(mode, currentZ, nightfall);
     
-    console.log(`🎨 Entity Render (z=${currentZ}): avg=${avg.toFixed(2)}ms, max=${max.toFixed(2)}ms, rendered=${avgRendered.toFixed(0)}, skipped=${avgSkipped.toFixed(0)}`);
-    window._entityRenderProfile.lastLog = Date.now();
-  }
-  for(var i in Arrow.list){
-    var arrow = Arrow.list[i];
-    if(!arrow) continue; // Skip deleted arrows
-    if(checkInView(arrow.x, arrow.y, arrow.z, arrow.innaWoods)){
-      // In god mode, render all arrows on current z-layer
-      if(godModeCamera.isActive){
-        if(arrow.z == currentZ){
-          arrow.draw();
-        }
-      } else if((currentZ == 1 || currentZ == 2) && (getBuilding(arrow.x,arrow.y) == getBuilding(Player.list[selfId].x,Player.list[selfId].y))){
-        arrow.draw();
-      } else if(currentZ != 1 && currentZ != 2){
-        arrow.draw();
-      }
-    }
-  }
-  // Render forest overlay on z=0
-  // - In god mode: always render (full visibility)
-  // - Normal play: only when innaWoods (transparent overlay near player)
-  if(currentZ == 0){
-    if(godModeCamera.isActive){
-      renderForest();
-    } else if(Player.list[selfId] && Player.list[selfId].innaWoods){
-      renderForest();
-    }
-  }
-  renderTops();
-  for(var i in Player.list){
-    if(Player.list[i].class == 'Falcon'){
-      // OPTIMIZATION: Filter by z-level first
-      if(Player.list[i].z != currentZ && godModeCamera.isActive) continue;
-      
-      if(inView(Player.list[i].z,Player.list[i].x,Player.list[i].y,false)){
-        // In god mode, only render falcons on current z-layer
-        if(godModeCamera.isActive){
-          if(Player.list[i].z == currentZ){
-            Player.list[i].draw();
-          }
-        } else {
-          Player.list[i].draw();
-        }
-      }
-    }
-  }
-  renderLighting();
-  if(currentZ == 0){
-    if(nightfall){
-      renderLightSources(2);
-    } else {
-      renderLightSources(1);
-    }
-  } else if(currentZ == 1 || currentZ == 2){
-    renderLightSources(1);
-  } else if(currentZ == -1 || currentZ == -2){
-    renderLightSources(3);
-  }
-  
-  // Update viewport position
+    // Update viewport position
   if(godModeCamera.isActive){
     viewport.update(godModeCamera.cameraX, godModeCamera.cameraY, currentZoom);
   } else {
