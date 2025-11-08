@@ -68,6 +68,15 @@ class BaseItem {
     // Update player inventory
     player.inventory[this.type] = currentAmount + canTake;
     
+    // Blockchain integration for Gold
+    if (this.type === 'gold' && player.wallet && global.GoldTradeManager) {
+      try {
+        global.GoldTradeManager.createMiningTransaction(player, canTake);
+      } catch (err) {
+        console.error('Error creating blockchain transaction for gold pickup:', err);
+      }
+    }
+    
     // Update item quantity
     this.qty = remaining;
     this.toUpdate = true;

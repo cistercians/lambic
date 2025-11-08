@@ -41,6 +41,16 @@ require('./server/js/Build');
 require('./server/js/Interact');
 require('./server/js/Econ');
 
+// Import blockchain modules
+const LambicBlockchain = require('./server/js/blockchain/Blockchain');
+const P2PNetwork = require('./server/js/blockchain/P2PNetwork');
+const MiningManager = require('./server/js/blockchain/MiningManager');
+const WalletManager = require('./server/js/blockchain/WalletManager');
+const BalanceSync = require('./server/js/blockchain/BalanceSync');
+const BlockchainStorage = require('./server/js/blockchain/BlockchainStorage');
+const GoldTradeManager = require('./server/js/blockchain/GoldTradeManager');
+const NetworkConfig = require('./server/js/blockchain/NetworkConfig');
+
 // ============================================================================
 // CONSTANTS
 // ============================================================================
@@ -1468,6 +1478,21 @@ const Player = function(param) {
   // Phase 5: Kill tracking
   self.kills = 0;
   self.skulls = '';
+  
+  // Blockchain wallet initialization
+  if (!param.wallet && self.type === 'player') {
+    // Create wallet for new players
+    const wallet = WalletManager.createWallet(param.id || self.id);
+    self.wallet = wallet;
+    console.log(`Created wallet for ${self.name}: ${wallet.address.substring(0, 20)}...`);
+    
+    // Initialize Gold in inventory
+    self.inventory.gold = 0;
+  } else if (param.wallet) {
+    // Load existing wallet
+    self.wallet = param.wallet;
+    console.log(`Loaded wallet for ${self.name}`);
+  }
 
   // Aggro check interval (cleaned up on disconnect)
   self.aggroInterval = setInterval(() => {
@@ -4446,6 +4471,78 @@ function generateServerName() {
 let serverName = generateServerName();
 gameState.serverName = serverName;
 global.serverName = serverName;
+
+// ============================================================================
+// INITIALIZE BLOCKCHAIN
+// ============================================================================
+
+console.log("Initializing blockchain...");
+
+// Initialize blockchain
+global.blockchain = new LambicBlockchain();
+global.blockchain.difficulty = NetworkConfig.MINING_DIFFICULTY;
+global.blockchain.miningReward = NetworkConfig.MINING_REWARD;
+
+// Load existing blockchain from disk
+BlockchainStorage.loadChain().then(() => {
+  console.log(`Blockchain loaded: ${global.blockchain.getChainLength()} blocks`);
+  
+  // Validate loaded chain
+  if (global.blockchain.isChainValid()) {
+    console.log('Blockchain validated successfully');
+  } else {
+    console.error('WARNING: Blockchain validation failed!');
+  }
+});
+
+// Make blockchain managers available globally
+global.WalletManager = WalletManager;
+global.BalanceSync = BalanceSync;
+global.BlockchainStorage = BlockchainStorage;
+global.GoldTradeManager = GoldTradeManager;
+
+// Initialize P2P network
+global.p2pNetwork = new P2PNetwork(
+  NetworkConfig.BLOCKCHAIN_PORT,
+  NetworkConfig.BOOTSTRAP_PEERS
+);
+
+// Create server wallet for mining rewards
+const serverWallet = WalletManager.createWallet('server_' + serverName);
+global.serverWallet = serverWallet;
+
+console.log(`Server wallet created: ${serverWallet.address.substring(0, 20)}...`);
+
+// Initialize mining manager
+global.miningManager = new MiningManager(serverName, serverWallet.address);
+
+// Start P2P server (after main game server starts)
+setTimeout(() => {
+  try {
+    global.p2pNetwork.start();
+    console.log(`P2P Network started on port ${NetworkConfig.BLOCKCHAIN_PORT}`);
+  } catch (err) {
+    console.error('Failed to start P2P network:', err.message);
+  }
+}, 1000);
+
+// Start mining blocks
+setTimeout(() => {
+  global.miningManager.startMining();
+  console.log('Blockchain mining started');
+}, 2000);
+
+// Start balance sync loop
+setTimeout(() => {
+  BalanceSync.startSyncLoop();
+}, 3000);
+
+// Start autosave
+BlockchainStorage.startAutosave();
+
+console.log("Blockchain initialization complete");
+
+// ============================================================================
 
 serv.listen(2000);
 console.log("###################################");
