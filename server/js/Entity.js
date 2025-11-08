@@ -13315,3 +13315,31 @@ Weather.update = function(){
   }
   return pack;
 };
+
+// LOAD EXTRACTED ENTITIES
+// Load modular entity definitions (overrides old inline definitions)
+try {
+  const entityRegistry = require('./entities/index.js');
+  const entities = entityRegistry(Character, {
+    Player,
+    zones,
+    getTile,
+    getLoc,
+    getCenter,
+    isWalkable,
+    mapSize,
+    tileSize,
+    randomSpawnO
+  });
+  
+  // Assign to globals (override old definitions)
+  Sheep = entities.Sheep;
+  Deer = entities.Deer;
+  Boar = entities.Boar;
+  Wolf = entities.Wolf;
+  Falcon = entities.Falcon;
+  
+  console.log('✅ Loaded modular entity definitions: Sheep, Deer, Boar, Wolf, Falcon');
+} catch(err) {
+  console.error('⚠️  Failed to load modular entities, using inline definitions:', err.message);
+}
