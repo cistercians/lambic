@@ -13240,12 +13240,31 @@ Weather = function(param){
   self.type = 'weather';
   
   self.update = function(){
-    // Decrease lifetime
-    if(self.lifetime > 0){
-      self.lifetime--;
-      if(self.lifetime <= 0){
+    // FOG: Auto-despawn based on time of day (disappear by noon)
+    if(self.weatherType === 'fog'){
+      // Start fading at X.a, gone by XII.p
+      if(['X.a', 'XI.a'].includes(tempus)){
+        // Fade out intensity
+        self.intensity = Math.max(0, self.intensity - 0.01);
+        if(self.intensity <= 0){
+          self.toRemove = true;
+          return;
+        }
+      } else if(tempus === 'XII.p' || tempus === 'I.p' || tempus === 'II.p' || tempus === 'III.p'){
+        // Fog should be gone during afternoon/evening
         self.toRemove = true;
         return;
+      }
+    }
+    
+    // STORM: Use lifetime (decreases with each tick)
+    if(self.weatherType === 'storm'){
+      if(self.lifetime > 0){
+        self.lifetime--;
+        if(self.lifetime <= 0){
+          self.toRemove = true;
+          return;
+        }
       }
     }
     

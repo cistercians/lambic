@@ -10339,7 +10339,7 @@ var renderLighting = function(){
       // Fog (only during day)
       if(weatherEffects.fog.active && !nightfall){
         var fogAlpha = weatherEffects.fog.intensity * 0.7;
-        weatherColor = `rgba(200, 200, 200, ${fogAlpha})`;
+        weatherColor = `rgba(150, 150, 150, ${fogAlpha})`; // Darker grey fog
       }
       
       // Storm (only during day) - overrides fog if both present

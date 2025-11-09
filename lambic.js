@@ -1381,7 +1381,7 @@ function spawnWeather(type) {
     weatherType: type,
     intensity: 0.5 + Math.random() * 0.5, // Random intensity 0.5-1.0
     lifetime: type === 'fog' 
-      ? 60 * 60 * 4 // 4 hours (until X.a)
+      ? 99999999 // Fog uses tempus-based despawn (auto-removes by noon)
       : 60 * 60 * 3, // 3 hours for storms
     moveSpeed: type === 'fog' 
       ? baseFogSpeed * sizeScale 
