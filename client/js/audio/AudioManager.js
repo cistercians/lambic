@@ -9,6 +9,8 @@ class AudioManager {
     this.updateInterval = null;
     this.transitionDuration = 500; // 500ms for audio transitions
     this.manualOverrideUntil = 0; // Timestamp - don't auto-update before this time
+    this.lastBGM = null; // Track last BGM to avoid restarting same audio
+    this.lastAmb = null; // Track last ambience to avoid restarting same audio
   }
   
   /**
@@ -86,11 +88,19 @@ class AudioManager {
   hasContextChanged(newContext) {
     if(!this.lastContext) return true;
     
-    // Check critical changes
+    // Check critical changes (priority order)
     if(newContext.ghost !== this.lastContext.ghost) return true;
     if(newContext.shipType !== this.lastContext.shipType) return true;
     if(newContext.z !== this.lastContext.z) return true;
     if(newContext.inStorm !== this.lastContext.inStorm) return true;
+    
+    // Don't change audio for tempus/nightfall changes if in storm (storm audio takes priority)
+    if(newContext.inStorm && this.lastContext.inStorm) {
+      // Both in storm - ignore tempus/nightfall changes
+      if(newContext.buildingType !== this.lastContext.buildingType) return true;
+      return false;
+    }
+    
     if(newContext.nightfall !== this.lastContext.nightfall) return true;
     if(newContext.tempus !== this.lastContext.tempus) return true;
     if(newContext.buildingType !== this.lastContext.buildingType) return true;
@@ -105,13 +115,22 @@ class AudioManager {
     const bgm = this.selectBGM(context);
     const amb = this.selectAmbience(context);
     
-    // Play selected audio
-    if(bgm && typeof bgmPlayer !== 'undefined'){
-      bgmPlayer(bgm);
+    // Only update BGM if it actually changed
+    if(bgm !== this.lastBGM) {
+      console.log('[AudioManager] BGM changed:', this.lastBGM, '->', bgm);
+      if(bgm && typeof bgmPlayer !== 'undefined'){
+        bgmPlayer(bgm);
+      }
+      this.lastBGM = bgm;
     }
     
-    if(typeof ambPlayer !== 'undefined'){
-      ambPlayer(amb);
+    // Only update ambience if it actually changed
+    if(amb !== this.lastAmb) {
+      console.log('[AudioManager] Ambience changed:', this.lastAmb ? this.lastAmb.src : 'null', '->', amb ? amb.src : 'null');
+      if(typeof ambPlayer !== 'undefined'){
+        ambPlayer(amb);
+      }
+      this.lastAmb = amb;
     }
   }
   
