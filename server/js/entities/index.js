@@ -1,6 +1,7 @@
 /**
  * Entity Registry
  * Central place to require and export all entity types
+ * Note: Entities use Player.list as a global, so Player doesn't need to be passed
  */
 
 module.exports = function(Character, globals) {

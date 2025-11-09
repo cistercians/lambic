@@ -13317,29 +13317,30 @@ Weather.update = function(){
 };
 
 // LOAD EXTRACTED ENTITIES
-// Load modular entity definitions (overrides old inline definitions)
-try {
-  const entityRegistry = require('./entities/index.js');
-  const entities = entityRegistry(Character, {
-    Player,
-    zones,
-    getTile,
-    getLoc,
-    getCenter,
-    isWalkable,
-    mapSize,
-    tileSize,
-    randomSpawnO
-  });
-  
-  // Assign to globals (override old definitions)
-  Sheep = entities.Sheep;
-  Deer = entities.Deer;
-  Boar = entities.Boar;
-  Wolf = entities.Wolf;
-  Falcon = entities.Falcon;
-  
-  console.log('✅ Loaded modular entity definitions: Sheep, Deer, Boar, Wolf, Falcon');
-} catch(err) {
-  console.error('⚠️  Failed to load modular entities, using inline definitions:', err.message);
-}
+// This will be called from lambic.js after all globals are set up
+global.initModularEntities = function() {
+  try {
+    const entityRegistry = require('./entities/index.js');
+    const entities = entityRegistry(Character, {
+      zones,
+      getTile,
+      getLoc,
+      getCenter,
+      isWalkable,
+      mapSize,
+      tileSize,
+      randomSpawnO
+    });
+    
+    // Assign to globals (override old definitions)
+    global.Sheep = entities.Sheep;
+    global.Deer = entities.Deer;
+    global.Boar = entities.Boar;
+    global.Wolf = entities.Wolf;
+    global.Falcon = entities.Falcon;
+    
+    console.log('✅ Loaded modular entity definitions: Sheep, Deer, Boar, Wolf, Falcon');
+  } catch(err) {
+    console.error('⚠️  Failed to load modular entities, using inline definitions:', err.message);
+  }
+};

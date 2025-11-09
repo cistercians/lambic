@@ -4,7 +4,8 @@
  */
 
 module.exports = function(Character, globals) {
-  const { Player, zones, getTile, getLoc, getCenter, isWalkable, mapSize } = globals;
+  const { zones, getTile, getLoc, getCenter, isWalkable, mapSize } = globals;
+  // Note: Player.list is accessed as a global at runtime
   
   const Wolf = function(param){
     var self = Character(param);

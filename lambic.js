@@ -51,6 +51,11 @@ const BlockchainStorage = require('./server/js/blockchain/BlockchainStorage');
 const GoldTradeManager = require('./server/js/blockchain/GoldTradeManager');
 const NetworkConfig = require('./server/js/blockchain/NetworkConfig');
 
+// Load modular entity definitions (after Entity.js is loaded and globals are available)
+if(typeof global.initModularEntities === 'function'){
+  global.initModularEntities();
+}
+
 // ============================================================================
 // CONSTANTS
 // ============================================================================
