@@ -51,10 +51,8 @@ const BlockchainStorage = require('./server/js/blockchain/BlockchainStorage');
 const GoldTradeManager = require('./server/js/blockchain/GoldTradeManager');
 const NetworkConfig = require('./server/js/blockchain/NetworkConfig');
 
-// Load modular entity definitions (after Entity.js is loaded and globals are available)
-if(typeof global.initModularEntities === 'function'){
-  global.initModularEntities();
-}
+// Modular entity loading happens later after all globals are defined
+// See line ~1450 for initModularEntities() call
 
 // ============================================================================
 // CONSTANTS
@@ -1446,6 +1444,11 @@ function dailyTally() {
 // The tilemap system automatically handles spatial partitioning
 zones = global.tilemapSystem.tilemapSystem.zones;
 global.zones = zones;
+
+// Load modular entity definitions NOW (after all globals including zones are available)
+if(typeof global.initModularEntities === 'function'){
+  global.initModularEntities();
+}
 
 // ============================================================================
 // SPATIAL SYSTEM (will be initialized after Player object is defined)
