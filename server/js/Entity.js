@@ -198,9 +198,23 @@ Mill = function(param){
   self.tavern = null;
   self.resources = [];
   self.serfs = {};
+  self.assignedSpots = {}; // Track which spots are assigned to which serfs {serfId: [x,y]}
   self.log = {};
   self.patrol = true;
   self.dailyStores = {grain: 0}; // Track daily resource collection
+  
+  // Resource depletion reporting - called by serfs when they deplete a resource
+  self.reportDepletedResource = function(x, y, serfId) {
+    // Remove from resources array
+    self.resources = self.resources.filter(function(r) {
+      return r[0] !== x || r[1] !== y;
+    });
+    // Remove from assigned spots
+    if(self.assignedSpots[serfId]) {
+      delete self.assignedSpots[serfId];
+    }
+  };
+  
   self.tally = function(){
     var f = 0;
     var s = 0;
@@ -210,8 +224,13 @@ Mill = function(param){
     for(var i in self.serfs){
       s++;
     }
-    var sr = s/(f*9);
-    if(sr < 0.372){
+    
+    // New logic: spawn serfs based on available work spots
+    // Target = half the number of available work spots (rounded up)
+    var availableWorkSpots = self.resources.length;
+    var idealSerfCount = Math.ceil(availableWorkSpots / 2);
+    
+    if(s < idealSerfCount){
       var grain = 0;
       if(self.tavern){
         // Check if owner still exists
@@ -320,9 +339,23 @@ Lumbermill = function(param){
   self.tavern = null;
   self.resources = [];
   self.serfs = {};
+  self.assignedSpots = {}; // Track which spots are assigned to which serfs {serfId: [x,y]}
   self.log = {};
   self.patrol = true;
   self.dailyStores = {wood: 0}; // Track daily resource collection
+  
+  // Resource depletion reporting - called by serfs when they deplete a resource
+  self.reportDepletedResource = function(x, y, serfId) {
+    // Remove from resources array
+    self.resources = self.resources.filter(function(r) {
+      return r[0] !== x || r[1] !== y;
+    });
+    // Remove from assigned spots
+    if(self.assignedSpots[serfId]) {
+      delete self.assignedSpots[serfId];
+    }
+  };
+  
   self.tally = function(){
     var r = 0;
     var s = 0;
@@ -332,8 +365,13 @@ Lumbermill = function(param){
     for(var i in self.serfs){
       s++;
     }
-    var sr = s/r;
-    if(sr < 0.372){
+    
+    // New logic: spawn serfs based on available work spots
+    // Target = half the number of available work spots (rounded up)
+    var availableWorkSpots = self.resources.length;
+    var idealSerfCount = Math.ceil(availableWorkSpots / 2);
+    
+    if(s < idealSerfCount){
       var wood = 0;
       if(self.tavern){
         // Check if owner still exists
@@ -398,9 +436,23 @@ Mine = function(param){
   self.cave = null;
   self.resources = [];
   self.serfs = {};
+  self.assignedSpots = {}; // Track which spots are assigned to which serfs {serfId: [x,y]}
   self.log = {};
   self.patrol = true;
   self.dailyStores = {stone: 0, ironore: 0, silverore: 0, goldore: 0, diamond: 0}; // Track daily resource collection
+  
+  // Resource depletion reporting - called by serfs when they deplete a resource
+  self.reportDepletedResource = function(x, y, serfId) {
+    // Remove from resources array
+    self.resources = self.resources.filter(function(r) {
+      return r[0] !== x || r[1] !== y;
+    });
+    // Remove from assigned spots
+    if(self.assignedSpots[serfId]) {
+      delete self.assignedSpots[serfId];
+    }
+  };
+  
   self.tally = function(){
     var r = 0;
     var s = 0;
@@ -410,8 +462,13 @@ Mine = function(param){
     for(var i in self.serfs){
       s++;
     }
-    var sr = s/r;
-    if(sr < 0.372){
+    
+    // New logic: spawn serfs based on available work spots
+    // Target = half the number of available work spots (rounded up)
+    var availableWorkSpots = self.resources.length;
+    var idealSerfCount = Math.ceil(availableWorkSpots / 2);
+    
+    if(s < idealSerfCount){
       if(self.cave){
         var ore = 0;
         if(self.tavern){
@@ -677,7 +734,7 @@ Tavern = function(param){
       var b = Building.list[i];
       var dist = getDistance({x:self.x,y:self.y},{x:b.x,y:b.y});
       if(dist <= 1280 && b.house == self.house){
-        if(b.type == 'mill' || b.type == 'lumbermill' || b.type == 'mine' || b.type == 'market'){
+        if(b.type == 'mill' || b.type == 'lumbermill' || b.type == 'mine' || b.type == 'dock' || b.type == 'market'){
           if(!b.tavern){
             Building.list[i].tavern = self.id;
           }
@@ -783,8 +840,8 @@ Tavern = function(param){
       var c2 = getCenter(sp2[0],sp2[1]);
       var work = {hq:b,spot:null};
       
-      // For lumbermill/mine, first serf MUST be male; for mill, can be either
-      if(building.type == 'lumbermill' || building.type == 'mine'){
+      // For lumbermill/mine/dock, first serf MUST be male; for mill, can be either
+      if(building.type == 'lumbermill' || building.type == 'mine' || building.type == 'dock'){
         // First serf must be male
         SerfM({
           id:s1,
@@ -864,7 +921,7 @@ Tavern = function(param){
         Building.list[b].serfs[s1] = s1;
         Player.list[s1].work = {hq:b,spot:null};
       } else {
-        if(building.type == 'mill'){
+        if(building.type == 'mill' || building.type == 'dock'){
           Building.list[b].serfs[s1] = s1;
           Player.list[s1].work = {hq:b,spot:null};
         }
@@ -873,7 +930,7 @@ Tavern = function(param){
         Building.list[b].serfs[s2] = s2;
         Player.list[s2].work = {hq:b,spot:null};
       } else {
-        if(building.type == 'mill'){
+        if(building.type == 'mill' || building.type == 'dock'){
           Building.list[b].serfs[s2] = s2;
           Player.list[s2].work = {hq:b,spot:null};
         }
@@ -1046,12 +1103,20 @@ Stable = function(param){
 Dock = function(param){
   var self = Building(param);
   self.tavern = null;
-  self.resources = []; // Not used for docks - serfs just go to any dock tile
+  self.resources = []; // Not used for docks - boats go to random water locations
   self.serfs = {};
+  self.assignedSpots = {}; // Track which serf is assigned to which ship {serfId: shipId}
   self.log = {};
-  self.ships = []; // Array of fishing ship IDs spawned by this dock
+  self.ships = []; // Array of fishing ship IDs spawned by this dock (max 4)
   self.patrol = true;
   self.dailyStores = {fish: 0}; // Track daily fish collection
+  
+  // Dock networking system
+  self.zoneName = null; // Name of GEOGRAPHIC zone this dock is in (e.g., "Dark Woods", "Mountain Pass")
+  self.associatedDocks = []; // List of other dock IDs connected via boat travel
+  self.storedShips = []; // Ships currently stored at this dock {shipId, shipType, owner, cargo}
+  
+  // NOTE: No reportDepletedResource() - fish are unlimited
   
   self.tally = function(){
     var s = 0;
@@ -1059,9 +1124,14 @@ Dock = function(param){
       s++;
     }
     
-    // Spawn serfs if ratio is low (similar to other economic buildings)
-    // For docks, we want 1-2 serfs per dock
-    if(s < 2){
+    // Ship-based work spot system
+    // Max 4 fishing ships per dock
+    var shipCount = Math.min(self.ships.length, 4);
+    var idealSerfCount = shipCount; // 1:1 ratio with ships
+    
+    // Spawn serfs based on available ships (1 serf per ship)
+    // Extra serfs without boats will fish from shore
+    if(s < idealSerfCount){
       var fish = 0;
       if(self.tavern){
         // Check if owner still exists
@@ -1099,17 +1169,104 @@ Dock = function(param){
     }
   }
   
+  // Find geographic zone on init
+  self.findZone = function() {
+    if(global.zoneManager) {
+      var loc = getLoc(self.x, self.y);
+      var zone = global.zoneManager.getZoneAt(loc);
+      
+      // Only use geographic features (not faction territories)
+      if(zone && zone.type === 'geographic') {
+        self.zoneName = zone.name;
+        console.log('⚓ Dock initialized in zone: ' + zone.name);
+      }
+    }
+  };
+  
   self.findTavern();
+  self.findZone();
 }
 
 // Faction-to-basic-unit mapping for garrison spawning
 const FACTION_BASIC_UNITS = {
-  'Goths': ['GothSpear', 'GothSword', 'GothBow'],
+  'Goths': ['Goth'], // Generic Goth unit
   'Franks': ['FrankSpear', 'FrankSword', 'FrankBow'],
-  'Celts': ['CeltSpear', 'CeltSword', 'CeltBow'],
-  'Teutons': ['TeutonSpear', 'TeutonSword', 'TeutonBow'],
-  'Norsemen': ['NorseSpear', 'NorseSword', 'NorseBow']
+  'Celts': ['CeltSpear', 'CeltAxe'], // CeltSword and CeltBow don't exist yet
+  'Teutons': ['TeutonPike', 'TeutonBow'], // TeutonSpear and TeutonSword don't exist yet
+  'Norsemen': ['NorseSpear', 'NorseSword'] // NorseBow doesn't exist yet
   // Player houses default to Footsoldier/Skirmisher/Cavalier progression
+};
+
+// Comprehensive faction unit progression (basic -> elite -> mounted)
+const FACTION_UNIT_PROGRESSION = {
+  // Player factions
+  'Player': {
+    basic: ['Footsoldier'],
+    elite: 'Skirmisher',
+    mounted: 'Cavalier'
+  },
+  
+  // NPC factions
+  'Goths': {
+    basic: ['Goth'],
+    elite: null,
+    mounted: 'Cataphract'
+  },
+  'Norsemen': {
+    basic: ['NorseSpear', 'NorseSword'],
+    elite: 'Huskarl',
+    mounted: null
+  },
+  'Franks': {
+    basic: ['FrankSpear', 'FrankSword', 'FrankBow'],
+    elite: null,
+    mounted: 'Carolingian'
+  },
+  'Celts': {
+    basic: ['CeltSpear', 'CeltAxe'],
+    elite: null,
+    mounted: 'Headhunter'
+  },
+  'Teutons': {
+    basic: ['TeutonPike', 'TeutonBow'],
+    elite: null,
+    mounted: 'TeutonicKnight'
+  },
+  'Papal States': {
+    basic: ['SwissGuard'],
+    elite: 'Hospitaller',
+    mounted: 'ImperialKnight'
+  }
+};
+
+// Expose to global scope for access by other modules
+global.FACTION_UNIT_PROGRESSION = FACTION_UNIT_PROGRESSION;
+
+// Auto-upgrade all units with 10+ kills when stable is built
+global.autoUpgradeUnitsOnStable = function(houseId) {
+  const house = House.list[houseId];
+  if (!house) return;
+  
+  const progression = FACTION_UNIT_PROGRESSION[house.name];
+  if (!progression || !progression.mounted) return;
+  
+  let upgradeCount = 0;
+  
+  // Find all military units with 10+ kills
+  for (const id in Player.list) {
+    const unit = Player.list[id];
+    if (unit.military && unit.house === houseId && unit.kills >= 10) {
+      // Check if not already mounted
+      if (!unit.mounted && global.simpleCombat) {
+        global.simpleCombat.upgradeMilitaryUnit(unit, progression.mounted, house);
+        upgradeCount++;
+      }
+    }
+  }
+  
+  if(upgradeCount > 0){
+    console.log(`🏇 Auto-upgraded ${upgradeCount} units with 10+ kills for ${house.name} (stable completed)`);
+  }
 };
 
 Garrison = function(param){
@@ -1119,28 +1276,43 @@ Garrison = function(param){
   self.patrol = true;
   
   self.update = function(){
+    // Debug: Log that garrison update is being called
+    if(self.productionTimer === 0 || self.productionTimer % 3600 === 0){
+      console.log('🏰 Garrison update called (timer: ' + self.productionTimer + ')');
+    }
+    
     // Automated military production (only if owner has a House)
     self.productionTimer++;
     if(self.productionTimer >= 18000){
       self.productionTimer = 0;
       
-      // Check if owner has a House
-      var owner = Player.list[self.owner];
-      if(!owner) return;
-      
+      // Resolve house ownership (works for both player and NPC factions)
       var house = null;
       if(House.list[self.owner]){
+        // Owner is directly a house ID (NPC factions)
         house = House.list[self.owner];
-      } else if(owner.house && House.list[owner.house]){
-        house = House.list[owner.house];
+      } else if(House.list[self.house]){
+        // Building has house property
+        house = House.list[self.house];
       } else {
-        // No house - garrisons can't produce units
+        // Try to get house through player owner
+        var owner = Player.list[self.owner];
+        if(owner && owner.house && House.list[owner.house]){
+          house = House.list[owner.house];
+        }
+      }
+      
+      if(!house){
+        // No house found - garrison can't produce units
         return;
       }
       
-      // Check grain availability (production based on grain)
+      // Check food availability (fish first, then grain)
+      var fish = house.stores.fish || 0;
       var grain = house.stores.grain || 0;
-      if(grain < 20) return; // Need at least 20 grain to produce a unit
+      var totalFood = fish + grain;
+      
+      if(totalFood < 20) return; // Need at least 20 food to produce a unit
       
       // Count current military units for this house
       var militaryCount = 0;
@@ -1151,166 +1323,129 @@ Garrison = function(param){
         }
       }
       
-      // Determine max garrison size based on grain (1 unit per 50 grain available)
-      var maxGarrison = Math.floor(grain / 50);
+      // Determine max garrison size based on total food (1 unit per 50 food available)
+      var maxGarrison = Math.floor(totalFood / 50);
       if(militaryCount >= maxGarrison) return; // Already at capacity
       
       // Spawn location
       var sp = self.plot[7] || self.plot[0];
       var spCoords = getCenter(sp[0], sp[1]);
       
-      // Check if this is an NPC faction with specific basic units
-      var factionUnits = FACTION_BASIC_UNITS[house.name];
+      // Determine unit type based on faction progression and buildings
+      var progression = FACTION_UNIT_PROGRESSION[house.name];
+      var unitClass;
       
-      if(factionUnits && factionUnits.length > 0){
-        // NPC Faction - spawn random basic unit
-        var randomIndex = Math.floor(Math.random() * factionUnits.length);
-        var unitClass = factionUnits[randomIndex];
+      console.log('🔍 Garrison attempting production for ' + house.name + ' (grain: ' + grain + ', wood: ' + (house.stores.wood || 0) + ', military: ' + militaryCount + '/' + maxGarrison + ')');
+      
+      if(progression){
+        // Use progression system
+        console.log('📊 Using progression for ' + house.name + ' (stronghold: ' + house.hasStronghold + ', elite: ' + progression.elite + ')');
         
-        // Check resources (basic units need grain + wood)
+        // Check if stronghold exists (produces elite units)
+        if(house.hasStronghold && progression.elite){
+          unitClass = progression.elite;
+        } else {
+          // No stronghold, produce basic units
+          var basicUnits = progression.basic;
+          unitClass = basicUnits[Math.floor(Math.random() * basicUnits.length)];
+        }
+        
+        // Check resources (basic units need food + wood)
+        // Consume fish first, then grain
         var wood = house.stores.wood || 0;
-        if(grain < 20 || wood < 10) return;
+        if(totalFood < 20 || wood < 10){
+          console.log('⚠️ Not enough resources for ' + house.name + ' (fish: ' + fish + ', grain: ' + grain + ', wood: ' + wood + ')');
+          return;
+        }
         
-        house.stores.grain -= 20;
+        // Consume fish first, then grain
+        if(fish >= 20){
+          house.stores.fish -= 20;
+        } else {
+          // Use fish first, then remainder from grain
+          var fishUsed = fish;
+          var grainNeeded = 20 - fishUsed;
+          house.stores.fish = 0;
+          house.stores.grain -= grainNeeded;
+        }
         house.stores.wood -= 10;
+      } else {
+        // Fallback for factions without progression defined (use old system)
+        console.log('📊 No progression found for ' + house.name + ', using FACTION_BASIC_UNITS fallback');
+        var factionUnits = FACTION_BASIC_UNITS[house.name];
+        if(!factionUnits || factionUnits.length === 0){
+          console.log('⚠️ No basic units defined for ' + house.name);
+          return;
+        }
+        
+        var randomIndex = Math.floor(Math.random() * factionUnits.length);
+        unitClass = factionUnits[randomIndex];
+        
+        var wood = house.stores.wood || 0;
+        if(totalFood < 20 || wood < 10){
+          console.log('⚠️ Not enough resources for ' + house.name + ' (fish: ' + fish + ', grain: ' + grain + ', wood: ' + wood + ')');
+          return;
+        }
+        
+        // Consume fish first, then grain
+        if(fish >= 20){
+          house.stores.fish -= 20;
+        } else {
+          // Use fish first, then remainder from grain
+          var fishUsed = fish;
+          var grainNeeded = 20 - fishUsed;
+          house.stores.fish = 0;
+          house.stores.grain -= grainNeeded;
+        }
+        house.stores.wood -= 10;
+      }
+      
+      console.log('✅ Selected unit class: ' + unitClass + ' for ' + house.name);
+      
+      if(unitClass){
         
         // Spawn the unit using global constructor
         var unitConstructor = global[unitClass];
         if(unitConstructor){
           var newUnit = unitConstructor({
-            x:spCoords[0],
-            y:spCoords[1],
-            z:1,
-            house:house.id,
-            kingdom:house.kingdom,
-            home:{z:1, loc:sp}
-          });
+          x:spCoords[0],
+          y:spCoords[1],
+          z:1,
+          house:house.id,
+          kingdom:house.kingdom,
+          home:{z:1, loc:sp}
+        });
           
-          // Initialize patrol mode for garrison-spawned units
+          // Initialize patrol mode (uses faction's universal patrol list)
           newUnit.mode = 'patrol';
           newUnit.patrol = {
             enabled: true,
-            buildings: [],
-            currentIndex: 0,
+            targetTiles: {}, // Cache of chosen patrol points per building
             idleTimer: 0,
-            idleDuration: Math.floor(Math.random() * 600) + 300, // 5-15 seconds
             resumePoint: null
           };
+          
+          // Create military recruitment event
+          if(global.eventManager){
+            global.eventManager.militaryUnitRecruited(
+              unitClass,
+              house.name,
+              house.id,
+              { x: newUnit.x, y: newUnit.y, z: newUnit.z }
+            );
+          }
           
           console.log('⚔️ Garrison produced ' + unitClass + ' for ' + house.name);
         } else {
           console.error('⚠️ Unit constructor not found: ' + unitClass);
         }
       } else {
-        // Player House - use standard progression (footsoldier → skirmisher → cavalier)
-      
-      // Check for stable (needed for cavalry)
-      var hasStable = false;
-      for(var bid in Building.list){
-        var b = Building.list[bid];
-        if(b.type === 'stable' && b.house === house.id){
-          var dist = self.getDistance({x: b.x, y: b.y});
-          if(dist <= 1280){ // Stable within 20 tiles
-            hasStable = true;
-            break;
-          }
-        }
-      }
-      
-      // Determine unit type to produce (priority: footsoldier → skirmisher → cavalier)
-      var unitType = 'footsoldier';
-      var wood = house.stores.wood || 0;
-      var iron = house.stores.iron || 0;
-      
-      if(iron >= 10 && wood >= 20 && hasStable && grain >= 30){
-        unitType = 'cavalier';
-      } else if(iron >= 5 && wood >= 15 && grain >= 20){
-        unitType = 'skirmisher';
-      } else if(wood >= 10 && grain >= 20){
-        unitType = 'footsoldier';
-      } else {
-        return; // Not enough resources
-      }
-      
-      // Deduct resources and spawn unit
-      if(unitType === 'footsoldier'){
-        house.stores.grain -= 20;
-        house.stores.wood -= 10;
-          var newUnit = Footsoldier({
-          x:spCoords[0],
-          y:spCoords[1],
-          z:1,
-          house:house.id,
-          kingdom:house.kingdom,
-          home:{z:1, loc:sp}
-        });
-          
-          // Initialize patrol mode
-          newUnit.mode = 'patrol';
-          newUnit.patrol = {
-            enabled: true,
-            buildings: [],
-            currentIndex: 0,
-            idleTimer: 0,
-            idleDuration: Math.floor(Math.random() * 600) + 300,
-            resumePoint: null
-          };
-          
-        console.log('⚔️ Garrison produced Footsoldier for ' + house.name);
-      } else if(unitType === 'skirmisher'){
-        house.stores.grain -= 20;
-        house.stores.wood -= 15;
-        house.stores.iron -= 5;
-          var newUnit = Skirmisher({
-          x:spCoords[0],
-          y:spCoords[1],
-          z:1,
-          house:house.id,
-          kingdom:house.kingdom,
-          home:{z:1, loc:sp}
-        });
-          
-          // Initialize patrol mode
-          newUnit.mode = 'patrol';
-          newUnit.patrol = {
-            enabled: true,
-            buildings: [],
-            currentIndex: 0,
-            idleTimer: 0,
-            idleDuration: Math.floor(Math.random() * 600) + 300,
-            resumePoint: null
-          };
-          
-        console.log('⚔️ Garrison produced Skirmisher for ' + house.name);
-      } else if(unitType === 'cavalier'){
-        house.stores.grain -= 30;
-        house.stores.wood -= 20;
-        house.stores.iron -= 10;
-          var newUnit = Cavalier({
-          x:spCoords[0],
-          y:spCoords[1],
-          z:1,
-          house:house.id,
-          kingdom:house.kingdom,
-          home:{z:1, loc:sp}
-        });
-          
-          // Initialize patrol mode
-          newUnit.mode = 'patrol';
-          newUnit.patrol = {
-            enabled: true,
-            buildings: [],
-            currentIndex: 0,
-            idleTimer: 0,
-            idleDuration: Math.floor(Math.random() * 600) + 300,
-            resumePoint: null
-          };
-          
-        console.log('⚔️ Garrison produced Cavalier for ' + house.name);
-        }
+        console.log('⚠️ Garrison production failed: unitClass is ' + unitClass + ' for ' + house.name);
       }
     }
   }
+  
+  return self;
 }
 
 Forge = function(param){
@@ -1358,6 +1493,8 @@ Forge = function(param){
       }
     }
   }
+  
+  return self;
 }
 
 Gate = function(param){
@@ -1369,6 +1506,8 @@ Gate = function(param){
   self.close = function(){
 
   }
+  
+  return self;
 }
 
 Stronghold = function(param){
@@ -1484,6 +1623,8 @@ Stronghold = function(param){
     console.log('🏰 ' + unit.class + ' released from stronghold');
     return true;
   }
+  
+  return self;
 }
 
 Building.list = {};
@@ -1619,9 +1760,21 @@ Character = function(param){
   // Phase 6: Sprite scaling for fauna minibosses
   self.spriteScale = 1.0;
   
+  // Social System Integration - Initialize social profile for humanoid NPCs
+  self.socialProfile = null;
+  if (global.socialSystem) {
+    self.socialProfile = global.socialSystem.initializeNPC(self);
+  }
+  
   self.die = function(report){ // report {id,cause}
     var deathLocation = getLoc(self.x, self.y);
     var deathZ = self.z;
+    
+    // Notify social system of death for witness recording
+    if (global.socialSystem) {
+      global.socialSystem.recordDeathWitnessed(self.id, deathLocation, 1280);
+      global.socialSystem.removeNPC(self.id);
+    }
     
     // Phase 5: Kill Tracking for NPCs
     var killerName = 'Unknown';
@@ -1664,6 +1817,14 @@ Character = function(param){
             if(global.eventManager){
               global.eventManager.minibossUpgrade(killer, killer.kills, newScale, { x: killer.x, y: killer.y, z: killer.z });
             }
+          }
+        }
+        
+        // Phase 7: Military Unit Kill-Based Upgrades
+        if(killer.military && killer.house){
+          const house = House.list[killer.house];
+          if(house && global.simpleCombat){
+            global.simpleCombat.checkMilitaryUpgrade(killer, house);
           }
         }
         
@@ -3509,19 +3670,8 @@ Character = function(param){
     // IDLE
     if(self.mode == 'idle'){
       if(!self.action){
-        if(self.military){
-          var min = Math.floor(House.list[self.house].military.patrol.length/3);
-          var count = 0;
-          for(const i of Object.keys(Player.list)){
-            var p = Player.list[i];
-            if(p.house == self.house && p.mode == 'patrol'){
-              count++;
-            }
-          }
-          if(count < min){
-            self.mode = 'patrol';
-          }
-        }
+        // Military units only switch to patrol on first spawn (not every frame)
+        // Removed automatic idle→patrol transition to prevent infinite loops
         var cHome = getCenter(self.home.loc[0],self.home.loc[1]);
         var hDist = self.getDistance({x:cHome[0],y:cHome[1]});
         if(hDist > self.wanderRange){
@@ -3648,23 +3798,15 @@ Character = function(param){
             return;
           }
           
-          // Gather faction buildings if not yet populated
-          if(!self.patrol.buildings || self.patrol.buildings.length === 0){
-            var patrolBuildings = [];
-            for(var bid in Building.list){
-              var b = Building.list[bid];
-              if(b.house === self.house && b.built && b.plot && b.plot.length > 0){
-                // Include all buildings for patrol
-                patrolBuildings.push(bid);
-              }
-            }
-            self.patrol.buildings = patrolBuildings;
-            
-            if(patrolBuildings.length === 0){
-              // No buildings to patrol, switch to idle
+          // Use faction's universal patrol list
+          var house = House.list[self.house];
+          if(!house || !house.patrolBuildings || house.patrolBuildings.length === 0){
+            // No strategic buildings to patrol
+            if(self.mode !== 'idle'){
+              console.log('⚠️ ' + (self.class || 'Unit') + ' has no faction patrol buildings, switching to idle');
               self.mode = 'idle';
-              return;
             }
+            return;
           }
           
           // Check if unit is idling at a building
@@ -3673,33 +3815,118 @@ Character = function(param){
             self.patrol.idleTimer--;
             // Don't move while idling
           } else {
-            // Move to next building in patrol route
-            if(self.patrol.buildings.length > 0){
-              var currentBuilding = Building.list[self.patrol.buildings[self.patrol.currentIndex]];
+            // Get HQ position and territory radius
+            var hqCoords = getCenter(house.hq[0], house.hq[1]);
+            var territoryRadius = (house.territoryRadius || 30) * tileSize; // Default 30 tiles
+            
+            // Find all buildings within faction territory
+            var buildingsInTerritory = [];
+            
+            for(var i = 0; i < house.patrolBuildings.length; i++){
+              var bid = house.patrolBuildings[i];
+              var b = Building.list[bid];
               
-              if(!currentBuilding || !currentBuilding.built){
-                // Building no longer exists, move to next
-                self.patrol.currentIndex = (self.patrol.currentIndex + 1) % self.patrol.buildings.length;
-                self.patrol.buildings = []; // Force rebuild of building list
-                return;
+              if(!b || !b.built) continue;
+              
+              // Calculate distance from HQ (not from unit)
+              var dx = b.x - hqCoords[0];
+              var dy = b.y - hqCoords[1];
+              var distFromHQ = Math.sqrt(dx * dx + dy * dy);
+              
+              // Only consider buildings within faction territory
+              if(distFromHQ <= territoryRadius){
+                buildingsInTerritory.push(b);
+              }
+            }
+            
+            if(buildingsInTerritory.length === 0){
+              // No buildings within territory, switch to idle
+              if(self.mode !== 'idle'){
+                console.log('⚠️ ' + (self.class || 'Unit') + ' has no patrol buildings within territory (' + (territoryRadius / tileSize) + ' tiles from HQ), switching to idle');
+                self.mode = 'idle';
+              }
+              return;
+            }
+            
+            // Pick a RANDOM building from those in territory (not nearest - avoids loops)
+            var randomIndex = Math.floor(Math.random() * buildingsInTerritory.length);
+            var targetBuilding = buildingsInTerritory[randomIndex];
+            
+            // Pick a walkable tile near the building
+            if(!self.patrol.targetTiles){
+              self.patrol.targetTiles = {}; // Store chosen tiles per building
+            }
+            
+            var buildingLoc;
+            if(!self.patrol.targetTiles[targetBuilding.id]){
+              // First visit - pick a random walkable tile near building
+              var baseTile = targetBuilding.plot[0];
+              var patrolRange = 3;
+              var attempts = 0;
+              var maxAttempts = 20;
+              
+              while(attempts < maxAttempts){
+                var offsetCol = Math.floor(Math.random() * (patrolRange * 2 + 1)) - patrolRange;
+                var offsetRow = Math.floor(Math.random() * (patrolRange * 2 + 1)) - patrolRange;
+                var targetCol = baseTile[0] + offsetCol;
+                var targetRow = baseTile[1] + offsetRow;
+                
+                if(targetCol >= 0 && targetCol < mapSize && targetRow >= 0 && targetRow < mapSize){
+                  if(isWalkable(0, targetCol, targetRow)){
+                    buildingLoc = [targetCol, targetRow];
+                    self.patrol.targetTiles[targetBuilding.id] = buildingLoc;
+                    break;
+                  }
+                }
+                attempts++;
               }
               
-              // Get building center
-              var buildingLoc = getLoc(currentBuilding.x, currentBuilding.y);
-              var buildingDist = self.getDistance({x: currentBuilding.x, y: currentBuilding.y});
+              if(!buildingLoc){
+                buildingLoc = [baseTile[0] + 1, baseTile[1] + 1];
+                self.patrol.targetTiles[targetBuilding.id] = buildingLoc;
+              }
+            } else {
+              buildingLoc = self.patrol.targetTiles[targetBuilding.id];
+            }
+            
+            var buildingDist = self.getDistance({x: targetBuilding.x, y: targetBuilding.y});
+            
+            // Check if arrived at building (within 3 tiles)
+            if(buildingDist <= tileSize * 3){
+              // Arrived - start idle timer
+              console.log('✓ ' + (self.class || 'Unit') + ' arrived at ' + targetBuilding.type + ', idling for ' + Math.floor((Math.random() * 600 + 300) / 60) + 's');
+              self.patrol.idleTimer = Math.floor(Math.random() * 600) + 300; // 5-15 seconds
               
-              // Check if arrived at building (within 3 tiles)
-              if(buildingDist <= tileSize * 3){
-                // Arrived - start idle timer and move to next building
-                self.patrol.idleTimer = Math.floor(Math.random() * 600) + 300; // 5-15 seconds
-                self.patrol.currentIndex = (self.patrol.currentIndex + 1) % self.patrol.buildings.length;
+              // Clear target so next patrol picks a new random building
+              delete self.patrol.targetTiles[targetBuilding.id];
+            } else {
+              // Path to building - buildings are always on z=0 (overworld)
+              var targetZ = 0;
+              
+              // If unit is inside a building (z=1 or z=2), first exit to overworld
+              if(self.z !== targetZ){
+                if(self.home && self.home.loc){
+                  self.moveTo(self.z, self.home.loc[0], self.home.loc[1]);
+                }
               } else {
-                // Path to building
-                self.moveTo(0, buildingLoc[0], buildingLoc[1]);
+                // On overworld, path to chosen patrol point
+                if(buildingLoc && buildingLoc.length === 2){
+                  self.moveTo(targetZ, buildingLoc[0], buildingLoc[1]);
+                }
               }
             }
           }
         } else if(self.action == 'combat'){
+          // Save current position as resume point when first entering combat
+          if(!self.patrol.resumePoint){
+            self.patrol.resumePoint = {
+              x: self.x,
+              y: self.y,
+              buildingIndex: self.patrol.currentIndex
+            };
+            console.log('📍 ' + (self.class || 'Unit') + ' saved patrol resume point');
+          }
+          
           // In combat - use SimpleCombat
           if(global.simpleCombat){
             global.simpleCombat.update(self);
@@ -3707,9 +3934,15 @@ Character = function(param){
             // Fallback combat logic
           var target = Player.list[self.combat.target];
             if(!target){
-              // Target gone, resume patrol
+              // Target gone, resume patrol from saved point
             self.combat.target = null;
             self.action = null;
+              
+              // Clear resume point after combat
+              if(self.patrol.resumePoint){
+                console.log('🔄 ' + (self.class || 'Unit') + ' resuming patrol after combat');
+                self.patrol.resumePoint = null;
+          }
               return;
           }
             
@@ -4732,7 +4965,9 @@ Character = function(param){
       ghost:self.ghost,
       kills:self.kills,
       skulls:self.skulls,
-      spriteScale:self.spriteScale
+      spriteScale:self.spriteScale,
+      isBoarded:self.isBoarded,
+      boardedShip:self.boardedShip
     }
   }
 
@@ -4775,7 +5010,9 @@ Character = function(param){
       ghost:self.ghost,
       kills:self.kills,
       skulls:self.skulls,
-      spriteScale:self.spriteScale
+      spriteScale:self.spriteScale,
+      isBoarded:self.isBoarded,
+      boardedShip:self.boardedShip
     }
   }
 
@@ -4784,6 +5021,355 @@ Character = function(param){
   initPack.player.push(self.getInitPack());
   return self;
 }
+
+// ============================================================================
+// DOCK NETWORKING SYSTEM
+// ============================================================================
+
+// Create association between docks (called when ship travels between them)
+Building.prototype.createDockAssociation = function(otherDockId) {
+  var self = this;
+  if(self.type !== 'dock') return;
+  if(!otherDockId) return;
+  if(otherDockId === self.id) return; // Can't associate with self
+  
+  var otherDock = Building.list[otherDockId];
+  if(!otherDock || otherDock.type !== 'dock') return;
+  
+  // Add to this dock's association list (if not already present)
+  if(!self.associatedDocks.includes(otherDockId)) {
+    self.associatedDocks.push(otherDockId);
+    console.log('🚢 ' + (self.zoneName || 'Dock') + ' associated with ' + (otherDock.zoneName || 'Dock'));
+    
+    // Propagate: Add all of the other dock's associations
+    for(var i = 0; i < otherDock.associatedDocks.length; i++) {
+      var thirdDockId = otherDock.associatedDocks[i];
+      if(thirdDockId !== self.id && !self.associatedDocks.includes(thirdDockId)) {
+        self.associatedDocks.push(thirdDockId);
+        var thirdDock = Building.list[thirdDockId];
+        console.log('  ↳ Learned about ' + (thirdDock && thirdDock.zoneName ? thirdDock.zoneName : 'Dock'));
+      }
+    }
+  }
+  
+  // Bidirectional: Add this dock to other dock's list
+  if(!otherDock.associatedDocks.includes(self.id)) {
+    otherDock.associatedDocks.push(self.id);
+  }
+};
+
+// Retrieve ship from storage
+Building.prototype.retrieveShip = function(playerId, shipIndex) {
+  var self = this;
+  if(self.type !== 'dock') return null;
+  if(shipIndex < 0 || shipIndex >= self.storedShips.length) return null;
+  
+  var shipData = self.storedShips[shipIndex];
+  
+  // Verify player owns this ship
+  if(shipData.owner !== playerId) return null;
+  
+  // Remove from storage
+  self.storedShips.splice(shipIndex, 1);
+  
+  // Respawn ship at dock entrance
+  var spawnLoc = self.plot[0] || getLoc(self.x, self.y);
+  var spawnCoords = getCenter(spawnLoc[0], spawnLoc[1]);
+  
+  // Recreate ship based on type
+  var shipConstructor = global[shipData.shipType];
+  if(!shipConstructor) return null;
+  
+  var ship = shipConstructor({
+    x: spawnCoords[0],
+    y: spawnCoords[1],
+    z: 3, // Ship layer
+    owner: playerId,
+    house: self.house,
+    kingdom: self.kingdom
+  });
+  
+  // Restore cargo
+  if(shipData.cargo) {
+    ship.stores = shipData.cargo;
+  }
+  
+  // Restore last dock
+  ship.lastDock = self.id;
+  
+  console.log('⚓ ' + shipData.shipType + ' retrieved from ' + (self.zoneName || 'dock'));
+  return ship.id;
+};
+
+// ============================================================================
+// SHIP DOCKING SYSTEM
+// ============================================================================
+
+// Check if ship has contacted a dock
+Character.prototype.checkDockContact = function() {
+  var self = this;
+  
+  // Only for ships
+  if(self.type !== 'ship') return false;
+  
+  var loc = getLoc(self.x, self.y);
+  var buildingId = getBuilding(self.x, self.y);
+  
+  if(buildingId) {
+    var building = Building.list[buildingId];
+    
+    // Check if it's a dock
+    if(building && building.type === 'dock') {
+      // Check if friendly (same house/kingdom)
+      var isFriendly = (building.house === self.house) || 
+                       (building.kingdom && building.kingdom === self.kingdom);
+      
+      if(isFriendly) {
+        // Store ship at dock
+        self.dockAtPort(building.id);
+        return true;
+      }
+    }
+  }
+  
+  return false;
+};
+
+// Dock ship at port
+Character.prototype.dockAtPort = function(dockId) {
+  var self = this;
+  var dock = Building.list[dockId];
+  if(!dock) return;
+  
+  // Record this dock visit - create association BEFORE updating lastDock
+  if(self.lastDock && self.lastDock !== dockId) {
+    // Create dock network association using OLD lastDock
+    if(dock.createDockAssociation) {
+      dock.createDockAssociation(self.lastDock);
+    }
+  }
+  
+  // Automatically unload fish from ship to owner's stores
+  if(self.inventory && self.inventory.fish > 0){
+    var fishToUnload = self.inventory.fish;
+    
+    // Determine where to deposit fish (player stores or house stores)
+    if(Player.list[self.owner]){
+      var owner = Player.list[self.owner];
+      if(owner.house && House.list[owner.house]){
+        // Deposit to house stores
+        if(!House.list[owner.house].stores.fish){
+          House.list[owner.house].stores.fish = 0;
+        }
+        House.list[owner.house].stores.fish += fishToUnload;
+        console.log('🐟 Unloaded ' + fishToUnload + ' fish to house stores');
+      } else {
+        // Deposit to player stores
+        if(!owner.stores.fish){
+          owner.stores.fish = 0;
+        }
+        owner.stores.fish += fishToUnload;
+        console.log('🐟 Unloaded ' + fishToUnload + ' fish to player stores');
+      }
+    } else if(dock.house && House.list[dock.house]){
+      // Dock owned by faction - deposit to faction stores
+      if(!House.list[dock.house].stores.fish){
+        House.list[dock.house].stores.fish = 0;
+      }
+      House.list[dock.house].stores.fish += fishToUnload;
+      console.log('🐟 Unloaded ' + fishToUnload + ' fish to faction stores');
+    }
+    
+    // Clear ship's fish inventory
+    self.inventory.fish = 0;
+  }
+  
+  // Store ship data (fish is now cleared)
+  dock.storedShips.push({
+    shipId: self.id,
+    shipType: self.shipType || self.class,
+    owner: self.owner,
+    cargo: self.stores // Preserve other cargo
+  });
+  
+  // Update last dock AFTER creating association
+  self.lastDock = dockId;
+  
+  // Remove ship from active play
+  delete Player.list[self.id];
+  
+  console.log('⚓ ' + self.class + ' docked and stored at ' + (dock.zoneName || 'dock'));
+};
+
+// ============================================================================
+// FISHING SYSTEM
+// ============================================================================
+
+// Helper: Get underwater items near coordinates
+function getUnderwaterItemsNear(x, y, radiusTiles) {
+  var items = [];
+  var radiusPx = radiusTiles * tileSize;
+  
+  for(var id in Item.list) {
+    var item = Item.list[id];
+    if(item.z === -3) { // Underwater layer
+      var dist = getDistance({x: x, y: y}, {x: item.x, y: item.y});
+      if(dist <= radiusPx) {
+        items.push(item);
+      }
+    }
+  }
+  
+  return items;
+}
+global.getUnderwaterItemsNear = getUnderwaterItemsNear;
+
+// Helper: Determine what was caught while fishing
+function determineFishingCatch(character) {
+  // Check for underwater items within 5 tiles
+  var underwaterItems = getUnderwaterItemsNear(character.x, character.y, 5);
+  
+  if(underwaterItems.length > 0 && Math.random() < 0.1) {
+    // 10% chance to catch item instead of fish
+    var item = underwaterItems[Math.floor(Math.random() * underwaterItems.length)];
+    return {
+      type: 'item',
+      data: item,
+      emoji: '🐟' // Keep fish emoji to make it a surprise
+    };
+  }
+  
+  // Catch fish
+  var fishCount;
+  if(character.shipType === 'fishingship') {
+    // Fishing ships only: 1-10 average, up to 20 max
+    // Use weighted random for bell curve around 5-6
+    fishCount = Math.min(20, Math.floor(Math.random() * 8) + Math.floor(Math.random() * 8) + 1);
+  } else {
+    // Shore fishing (players on land): always 1
+    fishCount = 1;
+  }
+  
+  return {
+    type: 'fish',
+    count: fishCount,
+    emoji: '🐟'
+  };
+}
+global.determineFishingCatch = determineFishingCatch;
+
+// Start fishing (add to Character prototype)
+Character.prototype.startFishing = function() {
+  var self = this;
+  
+  // IMPORTANT: Only fishing ships can fish from ships (not longships, scout ships, etc.)
+  if(self.type === 'ship' && self.shipType !== 'fishingship') {
+    return; // Reject fishing for non-fishing ships
+  }
+  
+  self.fishing = true;
+  self.fishingTimer = 0;
+  self.fishingCatchPending = null; // Stores pending catch data
+};
+
+// Update fishing logic (called each frame if fishing)
+Character.prototype.updateFishing = function() {
+  var self = this;
+  if(!self.fishing) return;
+  
+  // Safety check: only fishing ships can fish
+  if(self.type === 'ship' && self.shipType !== 'fishingship') {
+    self.fishing = false;
+    return;
+  }
+  
+  self.fishingTimer++;
+  
+  // Check for catch every 60 frames (1 second at 60fps)
+  if(self.fishingTimer % 60 === 0) {
+    // Base catch chance
+    var catchChance;
+    if(self.shipType === 'fishingship') {
+      catchChance = 0.15; // 15% per second for fishing ships only
+    } else {
+      catchChance = 0.08; // 8% per second for shore fishing (players on land)
+    }
+    
+    if(Math.random() < catchChance) {
+      // SUCCESS - something caught!
+      self.fishingCatchPending = determineFishingCatch(self);
+      
+      // Send catch notification to client
+      if(SOCKET_LIST[self.id]){
+        SOCKET_LIST[self.id].write(JSON.stringify({
+          msg: 'fishCatch',
+          emoji: self.fishingCatchPending.emoji
+        }));
+      }
+      
+      // Give player 1 second to press F
+      setTimeout(function() {
+        if(self.fishingCatchPending) {
+          // Missed it - reset
+          self.fishingCatchPending = null;
+        }
+      }, 1000);
+    }
+  }
+};
+
+// Process fish catch (called when player presses F)
+Character.prototype.processFishCatch = function() {
+  var self = this;
+  if(!self.fishingCatchPending) return false;
+  
+  var catchData = self.fishingCatchPending;
+  self.fishingCatchPending = null;
+  
+  if(catchData.type === 'fish') {
+    // Award fish
+    self.stores.fish = (self.stores.fish || 0) + catchData.count;
+    
+    // Send notification
+    if(SOCKET_LIST[self.id]){
+      SOCKET_LIST[self.id].write(JSON.stringify({
+        msg: 'addToChat',
+        message: '🐟 Caught ' + catchData.count + ' fish!'
+      }));
+    }
+    
+    // For fishing ships controlled by serfs, reposition to new random water location
+    if(self.shipType === 'fishingship' && self.type === 'ship'){
+      // Find new random water location within dock radius
+      // (This will be handled by serf AI behavior)
+    }
+    
+    return true;
+  } else if(catchData.type === 'item') {
+    // Award item
+    var item = catchData.data;
+    if(item && Item.list[item.id]){
+      // Remove item from world and add to inventory
+      delete Item.list[item.id];
+      
+      // Add to inventory (simplified)
+      if(!self.inventory.items) self.inventory.items = [];
+      self.inventory.items.push(item);
+      
+      // Send notification
+      if(SOCKET_LIST[self.id]){
+        SOCKET_LIST[self.id].write(JSON.stringify({
+          msg: 'addToChat',
+          message: '📦 Found: ' + (item.name || 'Unknown Item') + '!'
+        }));
+      }
+    }
+    
+    return true;
+  }
+  
+  return false;
+};
 
 // FAUNA
 
@@ -5458,6 +6044,8 @@ FishingShip = function(param){
   // Ship properties
   self.dock = param.dock; // Reference to home dock building ID
   self.embarkedSerfs = []; // Array of serf IDs currently on board
+  self.passengers = []; // Array of player IDs aboard ship {playerId, isController}
+  self.controller = null; // Player ID of who's controlling ship movement
   self.inventory = {fish: 0}; // Ship's fish inventory
   self.maxFish = 20; // Return to dock when this is reached
   self.owner = param.owner || null; // Player who owns/controls this ship
@@ -5465,6 +6053,16 @@ FishingShip = function(param){
   self.isPlayerControlled = false; // True when player is actively controlling this ship
   self.spawned = param.spawned !== undefined ? param.spawned : true; // False for player ships until boarded
   self.dockedTimer = 0; // Timer for how long ship has been docked (1 hour before despawn)
+  self.sailingGracePeriod = 0; // 3-second grace period after starting to sail (prevents immediate disembark)
+  
+  // Ship physics for smooth movement
+  self.velocity = {x: 0, y: 0}; // Current velocity
+  self.targetHeading = 0; // Target direction in radians
+  self.currentHeading = 0; // Current direction in radians
+  self.acceleration = 0.05; // How fast ship accelerates
+  self.deceleration = 0.03; // How fast ship decelerates
+  self.turnRate = 0.08; // How fast ship turns (radians per frame)
+  self.maxVelocity = 1.5; // Maximum speed
   
   // Sailing control system - 2 points total to allocate
   self.sailPoints = {
@@ -5484,12 +6082,15 @@ FishingShip = function(param){
     if(self.fishingCooldown > 0){
       self.fishingCooldown--;
     }
+    if(self.sailingGracePeriod > 0){
+      self.sailingGracePeriod--;
+    }
     
-    // Handle docked timer - despawn after 1 hour
+    // Handle docked timer - despawn after 1 minute
     if(self.mode == 'docked' && self.dockedTimer > 0){
       self.dockedTimer--;
       if(self.dockedTimer <= 0){
-        console.log('Fishing ship despawning after 1 hour at dock');
+        console.log('Fishing ship despawning after 1 minute at dock');
         self.toRemove = true;
         return;
       }
@@ -5497,8 +6098,39 @@ FishingShip = function(param){
     
     // Don't run autonomous AI if player is controlling this ship
     if(self.isPlayerControlled){
-      // Player-controlled ships still need to update their position based on sail points
-      self.updatePosition();
+      // Check if player is trying to move (any sail points > 0)
+      var isMoving = self.sailPoints.up > 0 || self.sailPoints.down > 0 || 
+                     self.sailPoints.left > 0 || self.sailPoints.right > 0;
+      
+      // If player starts moving while anchored/docked, begin sailing with grace period
+      if(isMoving && (self.mode === 'docked' || self.mode === 'anchored')){
+        self.mode = 'sailing';
+        self.name = 'Fishing Ship'; // Remove anchor emoji
+        self.sailingGracePeriod = 180; // 3 seconds at 60fps
+        console.log('⚓ Ship departing - 3 second grace period started');
+      }
+      
+      // Player-controlled ships always run physics to build velocity
+      // Grace period only prevents disembark check (not movement)
+      self.updateShipPhysics();
+      
+      // Sync all passengers' positions to ship position (NEW passenger system)
+      for(var i = 0; i < self.passengers.length; i++){
+        var passenger = self.passengers[i];
+        if(Player.list[passenger.playerId]){
+          Player.list[passenger.playerId].x = self.x;
+          Player.list[passenger.playerId].y = self.y;
+          Player.list[passenger.playerId].z = self.z;
+        }
+      }
+      
+      // Sync storedPlayer position to ship position (OLD boarding system)
+      if(self.storedPlayer && Player.list[self.storedPlayer.id]){
+        Player.list[self.storedPlayer.id].x = self.x;
+        Player.list[self.storedPlayer.id].y = self.y;
+        Player.list[self.storedPlayer.id].z = self.z;
+      }
+      
       return;
     }
     
@@ -5696,45 +6328,85 @@ FishingShip = function(param){
     console.log('⛵ Sail points: [' + (activePoints.length > 0 ? activePoints.join(', ') : 'STOPPED') + ']');
   };
   
-  // Override updatePosition to use sail points instead of pressing flags
-  var super_updatePosition = self.updatePosition;
-  self.updatePosition = function(){
-    if(!self.isPlayerControlled){
-      // AI ships use default movement
-      super_updatePosition();
-      return;
+  // Smooth ship physics update
+  self.updateShipPhysics = function(){
+    // Debug: Log ship position and tile on first physics tick
+    if(self.sailingGracePeriod === 0 && (self.velocity.x === 0 && self.velocity.y === 0)){
+      var currentLoc = getLoc(self.x, self.y);
+      var currentTile = getTile(0, currentLoc[0], currentLoc[1]);
+      console.log('🚢 Ship physics starting - position: [' + self.x.toFixed(1) + ', ' + self.y.toFixed(1) + '], tile: ' + currentTile + ' at [' + currentLoc[0] + ',' + currentLoc[1] + ']');
     }
     
-    // Calculate movement based on sail points
-    var totalPoints = self.sailPoints.up + self.sailPoints.down + self.sailPoints.left + self.sailPoints.right;
-    
-    if(totalPoints === 0){
-      // No movement - ship is stopped
-      return;
-    }
-    
-    console.log('⛵ Ship moving with sail points:', self.sailPoints);
-    
-    // Calculate speed multiplier (each point = 0.75 speed, max 2 points = 1.5 speed)
+    // Calculate target direction based on sail points
+    var targetVelX = 0;
+    var targetVelY = 0;
     var speedPerPoint = 0.75;
     
-    // Calculate horizontal and vertical movement
-    var moveX = 0;
-    var moveY = 0;
+    if(self.sailPoints.right > 0) targetVelX += self.sailPoints.right * speedPerPoint;
+    if(self.sailPoints.left > 0) targetVelX -= self.sailPoints.left * speedPerPoint;
+    if(self.sailPoints.down > 0) targetVelY += self.sailPoints.down * speedPerPoint;
+    if(self.sailPoints.up > 0) targetVelY -= self.sailPoints.up * speedPerPoint;
     
-    if(self.sailPoints.right > 0) moveX += self.sailPoints.right * speedPerPoint;
-    if(self.sailPoints.left > 0) moveX -= self.sailPoints.left * speedPerPoint;
-    if(self.sailPoints.down > 0) moveY += self.sailPoints.down * speedPerPoint;
-    if(self.sailPoints.up > 0) moveY -= self.sailPoints.up * speedPerPoint;
+    // Calculate target speed and heading
+    var targetSpeed = Math.sqrt(targetVelX * targetVelX + targetVelY * targetVelY);
     
-    var nextX = self.x + moveX;
-    var nextY = self.y + moveY;
+    if(targetSpeed > 0){
+      // Calculate target heading (in radians)
+      self.targetHeading = Math.atan2(targetVelY, targetVelX);
+      
+      // Gradually turn towards target heading
+      var headingDiff = self.targetHeading - self.currentHeading;
+      
+      // Normalize angle difference to [-PI, PI]
+      while(headingDiff > Math.PI) headingDiff -= 2 * Math.PI;
+      while(headingDiff < -Math.PI) headingDiff += 2 * Math.PI;
+      
+      // Apply turn rate
+      if(Math.abs(headingDiff) > self.turnRate){
+        self.currentHeading += Math.sign(headingDiff) * self.turnRate;
+      } else {
+        self.currentHeading = self.targetHeading;
+      }
+      
+      // Normalize current heading to [0, 2*PI]
+      while(self.currentHeading < 0) self.currentHeading += 2 * Math.PI;
+      while(self.currentHeading >= 2 * Math.PI) self.currentHeading -= 2 * Math.PI;
+      
+      // Calculate velocity in the direction of current heading
+      var currentSpeed = Math.sqrt(self.velocity.x * self.velocity.x + self.velocity.y * self.velocity.y);
+      var targetVelocityMagnitude = Math.min(targetSpeed, self.maxVelocity);
+      
+      // Accelerate towards target speed
+      var speedDiff = targetVelocityMagnitude - currentSpeed;
+      currentSpeed += speedDiff * self.acceleration;
+      
+      // Apply velocity in current heading direction
+      self.velocity.x = Math.cos(self.currentHeading) * currentSpeed;
+      self.velocity.y = Math.sin(self.currentHeading) * currentSpeed;
+    } else {
+      // Decelerating - gradually slow down
+      self.velocity.x *= (1 - self.deceleration);
+      self.velocity.y *= (1 - self.deceleration);
+      
+      // Stop completely if velocity is very small
+      if(Math.abs(self.velocity.x) < 0.01) self.velocity.x = 0;
+      if(Math.abs(self.velocity.y) < 0.01) self.velocity.y = 0;
+    }
+    
+    // Apply velocity to position
+    var nextX = self.x + self.velocity.x;
+    var nextY = self.y + self.velocity.y;
     
     var nextLoc = getLoc(nextX, nextY);
     var nextTile = getTile(0, nextLoc[0], nextLoc[1]);
     
-    // Check if touching walkable dock tile (14) - this is the entrance
-    if(nextTile == 14){ // Walkable dock entrance tile
+    // Only check for land/dock collisions if ship is actually moving
+    // This prevents immediate disembark when physics first starts from dock
+    var isMoving = Math.abs(self.velocity.x) > 0.1 || Math.abs(self.velocity.y) > 0.1;
+    
+    if(isMoving){
+      // Check if touching walkable dock tile (14) - this is the entrance
+      if(nextTile == 14){ // Walkable dock entrance tile
       console.log('🚢 Ship approaching dock entrance (tile 14)');
       // Check if this is the ship's home dock
       if(self.dock && Building.list[self.dock]){
@@ -5751,37 +6423,275 @@ FishingShip = function(param){
       }
       // Not home dock entrance - treat as land, disembark
       console.log('🏖️ Ship touching foreign dock - disembarking onto shore');
-      self.disembarkOntoLand(nextLoc);
-      return;
-    }
-    
-    // Check if touching any non-water tile (land = auto-disembark)
-    if(nextTile != 0){ // Not water (any land tile)
-      // Only disembark once - check if we're still player-controlled
-      if(self.isPlayerControlled && self.storedPlayer){
-        console.log('🏖️ Ship touching land (tile: ' + nextTile + ') - disembarking onto shore');
-        // Disembark player onto the land, boat stays at current water position
-        self.disembarkOntoLand(nextLoc);
+      var navigatorId = self.passengers.find(p => p.isNavigator)?.playerId;
+      if(navigatorId){
+        self.disembarkPassenger(navigatorId, nextLoc);
       }
-      return; // Don't move forward
+        return;
+      }
+      
+      // Check if touching any non-water tile (land = auto-disembark)
+      if(nextTile != 0){ // Not water (any land tile)
+        // Only disembark if we're sailing AND grace period has expired AND have passengers
+        if(self.isPlayerControlled && self.passengers.length > 0 && self.mode === 'sailing' && self.sailingGracePeriod === 0){
+          console.log('🏖️ Ship touching land (tile: ' + nextTile + ') - disembarking onto shore');
+          // Disembark navigator onto the land, boat stays at current water position
+          var navigatorId = self.passengers.find(p => p.isNavigator)?.playerId;
+          if(navigatorId){
+            self.disembarkPassenger(navigatorId, nextLoc);
+          }
+        }
+        return; // Don't move forward
+      }
     }
     
-    // Only move on water tiles
+    // Move ship to new position (even if not moving fast yet)
     if(nextTile == 0){ // Water
       self.x = nextX;
       self.y = nextY;
       
-      // Update facing direction based on movement
-      if(Math.abs(moveX) > Math.abs(moveY)){
-        self.facing = moveX > 0 ? 'right' : 'left';
-      } else if(Math.abs(moveY) > 0){
-        self.facing = moveY > 0 ? 'down' : 'up';
+      // Update facing direction based on velocity
+      if(Math.abs(self.velocity.x) > Math.abs(self.velocity.y)){
+        self.facing = self.velocity.x > 0 ? 'right' : 'left';
+      } else if(Math.abs(self.velocity.y) > 0){
+        self.facing = self.velocity.y > 0 ? 'down' : 'up';
+      }
+      
+      // Update spdX and spdY for network sync
+      self.spdX = self.velocity.x;
+      self.spdY = self.velocity.y;
+    }
+  };
+  
+  // Board a passenger onto the ship
+  self.boardPassenger = function(playerId){
+    var player = Player.list[playerId];
+    if(!player){
+      console.error('Player not found:', playerId);
+      return false;
+    }
+    
+    // Check if already aboard
+    var alreadyAboard = self.passengers.some(function(p){ return p.playerId === playerId; });
+    if(alreadyAboard){
+      console.log('Player already aboard ship');
+      return false;
+    }
+    
+    // First passenger becomes navigator (controller)
+    var isNavigator = self.passengers.length === 0;
+    
+    // Store player's original state
+    var storedPlayerData = {
+      id: playerId,
+      originalX: player.x,
+      originalY: player.y,
+      originalZ: player.z,
+      originalClass: player.class,
+      originalName: player.name
+    };
+    
+    // Add to passengers list
+    self.passengers.push({
+      playerId: playerId,
+      isNavigator: isNavigator,
+      storedData: storedPlayerData
+    });
+    
+    // If this is the navigator, set up ship control
+    if(isNavigator){
+      self.controller = playerId;
+      self.isPlayerControlled = true;
+      self.storedPlayer = storedPlayerData; // For backwards compatibility
+      
+      // Transfer control to ship
+      var socket = SOCKET_LIST[playerId];
+      if(socket){
+        // CRITICAL: Ensure client has ship entity before boarding
+        // Send ship's init pack if they don't have it yet
+        socket.write(JSON.stringify({
+          msg: 'init',
+          selfId: undefined, // Don't change selfId yet
+          pack: {
+            player: [self.getInitPack()],
+            arrow: [],
+            item: [],
+            light: [],
+            building: []
+          }
+        }));
+        
+        // Now send board message
+        socket.write(JSON.stringify({
+          msg: 'boardShip',
+          shipId: self.id,
+          isNavigator: true
+        }));
+        socket.write(JSON.stringify({
+          msg:'addToChat',
+          message:'<i>⚓ You are now navigating the ship. Use WASD to control sails.</i>'
+        }));
+      }
+      
+      console.log('⚓ ' + player.name + ' boarded as NAVIGATOR');
+    } else {
+      // Just a passenger
+      var socket = SOCKET_LIST[playerId];
+      if(socket){
+        socket.write(JSON.stringify({
+          msg:'addToChat',
+          message:'<i>🚢 You boarded the ship as a passenger.</i>'
+        }));
+      }
+      
+      console.log('🚢 ' + player.name + ' boarded as PASSENGER');
+    }
+    
+    // CRITICAL: Hide player and sync their position to ship
+    // Player's position becomes the ship's position
+    player.x = self.x;
+    player.y = self.y;
+    player.z = self.z;
+    
+    // Mark player as boarded
+    player.isBoarded = true;
+    player.boardedShip = self.id;
+    
+    console.log('✅ Player boarded - isBoarded: true, boardedShip: ' + self.id + ', player position synced to ship');
+    
+    // Keep ship anchored until player moves
+    if(self.mode === 'docked'){
+      self.mode = 'anchored';
+      self.name = 'Fishing Ship ⚓'; // Show anchor emoji
+    }
+    
+    return true;
+  };
+  
+  // Disembark a specific passenger
+  self.disembarkPassenger = function(playerId, landLoc){
+    var passengerIndex = self.passengers.findIndex(function(p){ return p.playerId === playerId; });
+    if(passengerIndex === -1){
+      console.error('Passenger not found on ship:', playerId);
+      return false;
+    }
+    
+    var passenger = self.passengers[passengerIndex];
+    var player = Player.list[playerId];
+    if(!player){
+      console.error('Player not found:', playerId);
+      return false;
+    }
+    
+    // Place player on land - at least 1 tile away from ship to prevent auto re-boarding
+    // Find a land tile that's at least 1 tile from the ship
+    var disembarkLoc = landLoc;
+    var shipLoc = getLoc(self.x, self.y);
+    var dist = Math.sqrt(Math.pow(landLoc[0] - shipLoc[0], 2) + Math.pow(landLoc[1] - shipLoc[1], 2));
+    
+    // If too close, try to find a further land tile
+    if(dist < 1){
+      var searchRadius = 2;
+      for(var dx = -searchRadius; dx <= searchRadius; dx++){
+        for(var dy = -searchRadius; dy <= searchRadius; dy++){
+          var checkLoc = [landLoc[0] + dx, landLoc[1] + dy];
+          if(checkLoc[0] >= 0 && checkLoc[0] < global.mapSize && checkLoc[1] >= 0 && checkLoc[1] < global.mapSize){
+            var checkTile = getTile(0, checkLoc[0], checkLoc[1]);
+            if(checkTile !== 0){ // Not water
+              var checkDist = Math.sqrt(Math.pow(checkLoc[0] - shipLoc[0], 2) + Math.pow(checkLoc[1] - shipLoc[1], 2));
+              if(checkDist >= 1){
+                disembarkLoc = checkLoc;
+                break;
+              }
+            }
+          }
+        }
+        if(disembarkLoc !== landLoc) break;
       }
     }
+    
+    var landCoords = getCenter(disembarkLoc[0], disembarkLoc[1]);
+    player.x = landCoords[0];
+    player.y = landCoords[1];
+    player.z = 0;
+    player.isBoarded = false;
+    player.boardedShip = null;
+    player.boardCooldown = 180; // 3 second cooldown
+    
+    // If this was the navigator, transfer control
+    if(passenger.isNavigator){
+      self.passengers.splice(passengerIndex, 1);
+      
+      // Transfer control back to player
+      var socket = SOCKET_LIST[playerId];
+      if(socket){
+        socket.write(JSON.stringify({
+          msg: 'disembarkShip',
+          newSelfId: playerId
+        }));
+        socket.write(JSON.stringify({
+          msg:'addToChat',
+          message:'<i>🏖️ Disembarked onto shore. Type /board to board your ship again.</i>'
+        }));
+      }
+      
+      console.log('🏖️ Player disembarked - isBoarded should be false, position: [' + player.x.toFixed(0) + ', ' + player.y.toFixed(0) + ']');
+      
+      // Check if there are more passengers to become navigator
+      if(self.passengers.length > 0){
+        // Next passenger becomes navigator
+        self.passengers[0].isNavigator = true;
+        self.controller = self.passengers[0].playerId;
+        self.storedPlayer = self.passengers[0].storedData;
+        
+        var newNavigator = Player.list[self.passengers[0].playerId];
+        var navSocket = SOCKET_LIST[self.passengers[0].playerId];
+        if(navSocket){
+          navSocket.write(JSON.stringify({
+            msg: 'boardShip',
+            shipId: self.id,
+            isNavigator: true
+          }));
+          navSocket.write(JSON.stringify({
+            msg:'addToChat',
+            message:'<i>⚓ You are now navigating the ship.</i>'
+          }));
+        }
+        console.log('⚓ ' + newNavigator.name + ' is now the navigator');
+      } else {
+        // No more passengers - ship becomes AI controlled or anchored
+        self.controller = null;
+        self.isPlayerControlled = false;
+        self.storedPlayer = null;
+        self.sailPoints = {up: 0, down: 0, left: 0, right: 0};
+        self.mode = 'anchored';
+        console.log('⚓ Ship is now empty and anchored');
+      }
+    } else {
+      // Just a passenger disembarking
+      self.passengers.splice(passengerIndex, 1);
+      
+      var socket = SOCKET_LIST[playerId];
+      if(socket){
+        socket.write(JSON.stringify({
+          msg:'addToChat',
+          message:'<i>🏖️ Disembarked onto shore.</i>'
+        }));
+      }
+    }
+    
+    console.log('🏖️ ' + player.name + ' disembarked from ship');
+    return true;
   };
   
   // Disembark player onto land (boat stays visible on water)
   self.disembarkOntoLand = function(landLoc){
+    // Use new passenger system if navigator is aboard
+    if(self.controller){
+      return self.disembarkPassenger(self.controller, landLoc);
+    }
+    
+    // Legacy system for backwards compatibility
     if(!self.storedPlayer){
       console.error('No player stored in ship to disembark');
       // Stop the ship from moving
@@ -5820,7 +6730,7 @@ FishingShip = function(param){
         msg: 'disembarkShip',
         newSelfId: playerId
       }));
-      socket.write(JSON.stringify({msg:'addToChat',message:'<i>🏖️ Disembarked onto shore. Get close to the boat to re-board.</i>'}));
+      socket.write(JSON.stringify({msg:'addToChat',message:'<i>🏖️ Disembarked onto shore. Type <b>/board</b> to board your ship again.</i>'}));
     }
     
     // Ship stays visible at current position, stop all movement
@@ -7570,7 +8480,7 @@ Serf = function(param){
                   return;
                 }
                 
-                // Spawn fishing ship at water tile
+                // Spawn fishing ship at water tile (in docked state)
                 var waterCoords = getCenter(waterTile[0], waterTile[1]);
                 availableShip = FishingShip({
                   x: waterCoords[0],
@@ -7580,6 +8490,10 @@ Serf = function(param){
                   house: hq.house,
                   kingdom: hq.kingdom
                 });
+                
+                // Set ship to docked state with 1-minute despawn timer
+                availableShip.mode = 'docked';
+                availableShip.dockedTimer = 60 * 60; // 1 minute at 60fps (3600 frames)
                 
                 // Track ship in dock's registry
                 if(!hq.ships) hq.ships = [];
@@ -9662,6 +10576,7 @@ Footsoldier = function(param){
   self.baseSpd = 3.5;
   self.runSpd = 6; // Footsoldier run speed
   self.damage = 10;
+  return self;
 }
 
 Skirmisher = function(param){
@@ -9674,6 +10589,7 @@ Skirmisher = function(param){
   self.baseSpd = 3.5;
   self.runSpd = 6; // Skirmisher run speed
   self.damage = 15;
+  return self;
 }
 
 Cavalier = function(param){
@@ -9687,6 +10603,7 @@ Cavalier = function(param){
   self.baseSpd = 6.5;
   self.runSpd = 8; // Cavalier run speed
   self.damage = 20;
+  return self;
 }
 
 General = function(param){
@@ -9873,6 +10790,7 @@ Goth = function(param){
   self.military = true;
   self.spriteSize = tileSize*1.5;
   self.damage = 10;
+  return self;
 }
 
 Cataphract = function(param){
@@ -9937,6 +10855,7 @@ NorseSword = function(param){
   self.military = true;
   self.spriteSize = tileSize*1.5;
   self.damage = 15;
+  return self;
 }
 
 NorseSpear = function(param){
@@ -9947,6 +10866,7 @@ NorseSpear = function(param){
   self.military = true;
   self.spriteSize = tileSize*1.5;
   self.damage = 15;
+  return self;
 }
 
 Seidr = function(param){
@@ -9978,6 +10898,7 @@ FrankSword = function(param){
   self.sex = 'm';
   self.military = true;
   self.damage = 10;
+  return self;
 }
 
 FrankSpear = function(param){
@@ -9988,6 +10909,7 @@ FrankSpear = function(param){
   self.military = true;
   self.spriteSize = tileSize*2;
   self.damage = 10;
+  return self;
 }
 
 FrankBow = function(param){
@@ -10000,6 +10922,7 @@ FrankBow = function(param){
   self.ranged = true;
   self.damage = 5;
   self.inventory.arrows = Math.floor(Math.random() * 21) + 20; // 20-40 arrows
+  return self;
 }
 
 Mangonel = function(param){
@@ -10057,6 +10980,7 @@ CeltAxe = function(param){
   self.military = true;
   self.spriteSize = tileSize*1.5;
   self.damage = 10;
+  return self;
 }
 
 CeltSpear = function(param){
@@ -10067,6 +10991,7 @@ CeltSpear = function(param){
   self.military = true;
   self.spriteSize = tileSize*2;
   self.damage = 10;
+  return self;
 }
 
 Headhunter = function(param){
@@ -10148,6 +11073,7 @@ TeutonPike = function(param){
   self.military = true;
   self.spriteSize = tileSize*2;
   self.damage = 15;
+  return self;
 }
 
 TeutonBow = function(param){
@@ -10160,6 +11086,7 @@ TeutonBow = function(param){
   self.ranged = true;
   self.damage = 10;
   self.inventory.arrows = Math.floor(Math.random() * 21) + 20; // 20-40 arrows
+  return self;
 }
 
 TeutonicKnight = function(param){

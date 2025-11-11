@@ -38,6 +38,27 @@ Build = function(id){
       if(count == plot.length && !Building.list[b].built){
         Building.list[b].built = true;
         
+        // Update faction patrol list when building completes
+        if(building.house && House.list[building.house]){
+          House.list[building.house].updatePatrolList();
+        }
+        
+        // Update faction building flags
+        if(building.house && House.list[building.house]){
+          if(building.type === 'stable'){
+            House.list[building.house].hasStable = true;
+            
+            // Auto-upgrade units with 10+ kills to mounted
+            if(global.autoUpgradeUnitsOnStable){
+              global.autoUpgradeUnitsOnStable(building.house);
+            }
+          }
+          
+          if(building.type === 'stronghold'){
+            House.list[building.house].hasStronghold = true;
+          }
+        }
+        
         // Building completion messages for player
         var owner = Player.list[building.owner];
         if(owner && owner.type === 'player'){
@@ -1056,13 +1077,22 @@ Build = function(id){
             qty:1,
             parent:b
           });
+          // Spawn shipwright
           var sh = Math.random();
+          
+          // Check if player or NPC faction
+          var owner = Player.list[building.owner];
+          var shipwrightName = 'Shipwright'; // Default for NPC factions
+          if(owner && owner.type === 'player'){
+            shipwrightName = randomName('m'); // Random name for player factions
+          }
+          
           Shipwright({
             id:sh,
             x:sp[0],
             y:sp[1],
             z:0,
-            name:randomName('m'),
+            name:shipwrightName,
             house:Building.list[b].house,
             kingdom:Building.list[b].kingdom,
             home:{
@@ -1072,210 +1102,29 @@ Build = function(id){
           });
           Building.list[b].serfs = [sh];
         } else if(building.type == 'garrison'){
-          for(var i in plot){
-            tileChange(3,plot[i][0],plot[i][1],String('garrison' + i));
-            if(getTile(3,plot[i][0],plot[i][1]) == 'garrison0'){
-              matrixChange(1,plot[i][0],plot[i][1],0);
-              matrixChange(1,plot[i][0],plot[i][1]+1,0);
-              tileChange(0,plot[i][0],plot[i][1],16);
-              Building.list[b].entrance = [plot[i][0],plot[i][1]];
-            } else if(getTile(3,plot[i][0],plot[i][1]) == 'garrison1' ||
-            getTile(3,plot[i][0],plot[i][1]) == 'garrison2' ||
-            getTile(3,plot[i][0],plot[i][1]) == 'garrison3'){
-              matrixChange(0,plot[i][0],plot[i][1],1);
-              matrixChange(1,plot[i][0],plot[i][1],0);
-              tileChange(0,plot[i][0],plot[i][1],15);
-            } else {
-              matrixChange(0,plot[i][0],plot[i][1],1);
-              matrixChange(1,plot[i][0],plot[i][1],0);
-              matrixChange(2,plot[i][0],plot[i][1],0);
-              tileChange(0,plot[i][0],plot[i][1],15);
-              tileChange(5,plot[i][0],plot[i][1],15);
-            }
-          }
-          var ii = 12;
-          for(var i in top){
-            var n = top[i];
-            tileChange(5,n[0],n[1],String('garrison' + ii));
-            ii++;
-          }
-          for(var i in walls){
-            var n = walls[i];
-            if(getTile(5,n[0],n[1]) == 'garrison12'){
-              tileChange(4,n[0],n[1],4);
-              matrixChange(1,n[0],n[1],0);
-              matrixChange(2,n[0],n[1],0);
-              Building.list[b].ustairs = [n[0],n[1]];
-            } else {
-              tileChange(4,n[0],n[1],2);
-            }
-          }
-          var sa = getCoords(walls[0][0],walls[0][1]);
-          var sr1 = getCoords(walls[2][0],walls[2][1]);
-          var sr2 = getCoords(walls[3][0],walls[3][1]);
-          var fp = getCoords(plot[1][0],plot[1][1]);
-          var d1 = getCoords(plot[2][0],plot[2][1]);
-          var d2 = getCoords(plot[3][0],plot[3][1]);
-          var d3 = getCoords(plot[6][0],plot[6][1]);
-          var d4 = getCoords(plot[7][0],plot[7][1]);
-          var dk = getCoords(plot[8][0],plot[8][1]);
-          SuitArmor({
-            x:sa[0],
-            y:sa[1],
-            z:1,
-            qty:1,
-            parent:b
-          });
-          Swordrack({
-            x:sr1[0],
-            y:sr1[1],
-            z:1,
-            qty:1,
-            parent:b
-          });
-          Swordrack({
-            x:sr2[0],
-            y:sr2[1],
-            z:1,
-            qty:1,
-            parent:b
-          });
-          Firepit({
-            x:fp[0],
-            y:fp[1],
-            z:0,
-            qty:1,
-            parent:b
-          });
-          Firepit({
-            x:fp[0],
-            y:fp[1],
-            z:1,
-            qty:1,
-            parent:b
-          });
-          Dummy({
-            x:d1[0],
-            y:d1[1],
-            z:1,
-            qty:1,
-            parent:b
-          });
-          Dummy({
-            x:d2[0],
-            y:d2[1],
-            z:1,
-            qty:1,
-            parent:b
-          });
-          WallTorch({
-            x:sa[0],
-            y:sa[1],
-            z:2,
-            qty:1,
-            parent:b
-          });
-          Swordrack({
-            x:sr1[0],
-            y:sr1[1],
-            z:2,
-            qty:1,
-            parent:b
-          });
-          Swordrack({
-            x:sr2[0],
-            y:sr2[1],
-            z:2,
-            qty:1,
-            parent:b
-          });
-          Dummy({
-            x:d3[0],
-            y:d3[1],
-            z:2,
-            qty:1,
-            parent:b
-          });
-          Dummy({
-            x:d4[0],
-            y:d4[1],
-            z:2,
-            qty:1,
-            parent:b
-          });
-          Desk({
-            x:dk[0],
-            y:dk[1],
-            z:2,
-            qty:1,
-            parent:b
-          });
+          // Use unified construction system
+          global.BuildingConstruction.constructGarrison(b, plot, top, walls);
         } else if(building.type == 'forge'){
-          for(var i in plot){
-            tileChange(3,plot[i][0],plot[i][1],String('forge' + i));
-            if(getTile(3,plot[i][0],plot[i][1]) == 'forge1'){
-              matrixChange(1,plot[i][0],plot[i][1],0);
-              matrixChange(1,plot[i][0],plot[i][1]+1,0);
-              tileChange(0,plot[i][0],plot[i][1],14);
-              Building.list[b].entrance = [plot[i][0],plot[i][1]];
-            } else {
-              matrixChange(0,plot[i][0],plot[i][1],1);
-              matrixChange(1,plot[i][0],plot[i][1],0);
-              tileChange(0,plot[i][0],plot[i][1],13);
-            }
-          }
-          var ii = 5;
-          for(var i in walls){
-            var n = walls[i];
-            tileChange(5,n[0],n[1],String('forge' + ii));
-            if(getTile(5,n[0],n[1]) == 'forge5'){
-              tileChange(5,n[0],n[1],0);
-              tileChange(4,n[0],n[1],1);
-            } else {
-              tileChange(4,n[0],n[1],1);
-            }
-            ii++;
-          }
-          var fr = getCoords(walls[1][0],walls[1][1]);
-          var fp = getCoords(plot[0][0],plot[0][1]);
-          var br = getCoords(plot[3][0],plot[3][1]);
-          var anv = getCoords(plot[5][0],plot[5][1]);
-          var sp = getCenter(plot[4][0],plot[4][1]);
-          Furnace({
-            x:fr[0],
-            y:fr[1],
-            z:1,
-            qty:1,
-            parent:b
-          });
-          Firepit({
-            x:fp[0],
-            y:fp[1],
-            z:0,
-            qty:1,
-            parent:b
-          });
-          Barrel({
-            x:br[0],
-            y:br[1],
-            z:1,
-            qty:1,
-            parent:b
-          });
-          Anvil({
-            x:anv[0],
-            y:anv[1],
-            z:1,
-            qty:1,
-            parent:b
-          });
+          // Use unified construction system
+          global.BuildingConstruction.constructForge(b, plot, walls);
+          
+          // Spawn blacksmith
+          var sp = getCenter(plot[4][0], plot[4][1]);
           var bs = Math.random();
+          
+          // Check if player or NPC faction
+          var owner = Player.list[building.owner];
+          var blacksmithName = 'Blacksmith'; // Default for NPC factions
+          if(owner && owner.type === 'player'){
+            blacksmithName = randomName('m'); // Random name for player factions
+          }
+          
           Blacksmith({
             id:bs,
             x:sp[0],
             y:sp[1],
             z:0,
-            name:randomName('m'),
+            name:blacksmithName,
             house:Building.list[b].house,
             kingdom:Building.list[b].kingdom,
             forge:Building.list[b].id,

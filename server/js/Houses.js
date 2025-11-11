@@ -9,6 +9,121 @@ House = function(param){
   self.hostile = param.hostile; // true = attacks neutral players/units
   self.underAttack = false;
   self.allies = [];
+  
+  // Universal patrol list for this faction - updated when buildings are built/destroyed
+  self.patrolBuildings = [];
+  
+  // Territory tracking (recalculated daily)
+  self.baseCenter = param.hq; // Start at firepit, moves to average building location
+  self.baseCenterCoords = getCenter(param.hq[0], param.hq[1]);
+  self.baseRadius = 10 * tileSize; // Initial radius, recalculated daily
+  self.colonies = []; // Array of colony objects {center, buildings: []}
+  
+  // Building tracking for unit production
+  self.hasStable = false;
+  self.hasStronghold = false;
+  
+  // Calculate base territory (average of building positions)
+  self.calculateBaseTerritory = function() {
+    var buildings = [];
+    var totalX = 0;
+    var totalY = 0;
+    var count = 0;
+    
+    // FIRST PASS: Find all HQ buildings (exclude colonies)
+    for (var bid in Building.list) {
+      var b = Building.list[bid];
+      if (b.house === self.id && b.built && !b.isColony) {
+        buildings.push(b);
+        totalX += b.x;
+        totalY += b.y;
+        count++;
+      }
+    }
+    
+    if (count === 0) {
+      // Fallback to HQ
+      var hqCoords = getCenter(self.hq[0], self.hq[1]);
+      self.baseCenter = [self.hq[0], self.hq[1]];
+      self.baseCenterCoords = hqCoords;
+      self.baseRadius = 10 * tileSize;
+      return;
+    }
+    
+    // Calculate new center (average position)
+    var avgX = totalX / count;
+    var avgY = totalY / count;
+    var centerTile = getLoc(avgX, avgY);
+    self.baseCenter = centerTile;
+    self.baseCenterCoords = [avgX, avgY];
+    
+    // Calculate average distance from center
+    var totalDist = 0;
+    for (var i = 0; i < buildings.length; i++) {
+      var dx = buildings[i].x - avgX;
+      var dy = buildings[i].y - avgY;
+      var dist = Math.sqrt(dx * dx + dy * dy);
+      totalDist += dist;
+    }
+    
+    var avgDist = totalDist / count;
+    
+    // Base radius = 1.25x average distance (minimum 10 tiles)
+    self.baseRadius = Math.max(avgDist * 1.25, 10 * tileSize);
+    
+    // SECOND PASS: Check if any colonies are now within expanded base radius
+    var absorbedCount = 0;
+    for (var bid in Building.list) {
+      var b = Building.list[bid];
+      if (b.house === self.id && b.built && b.isColony) {
+        // Check if colony is now within base radius
+        var dx = b.x - avgX;
+        var dy = b.y - avgY;
+        var dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist <= self.baseRadius) {
+          // Colony absorbed into base
+          b.isColony = false;
+          absorbedCount++;
+          console.log(self.name + ': Colony ' + b.type + ' absorbed into HQ base');
+        }
+      }
+    }
+    
+    console.log(self.name + ' base recalculated: center [' + centerTile + '], radius ' + Math.floor(self.baseRadius / tileSize) + ' tiles, ' + count + ' buildings' + (absorbedCount > 0 ? ', absorbed ' + absorbedCount + ' colonies' : ''));
+  };
+  
+  // Check if coordinates are within base territory
+  self.isInBaseTerritory = function(x, y) {
+    if (!self.baseCenterCoords) return false;
+    
+    var dx = x - self.baseCenterCoords[0];
+    var dy = y - self.baseCenterCoords[1];
+    var dist = Math.sqrt(dx * dx + dy * dy);
+    
+    return dist <= self.baseRadius;
+  };
+  
+  
+  // Update patrol buildings list (called when buildings are built/destroyed)
+  self.updatePatrolList = function(){
+    // Only strategic/military buildings should be patrolled
+    var approvedTypes = ['forge', 'garrison', 'stronghold', 'guardtower', 'gate', 'stable', 'barracks'];
+    var patrolBuildings = [];
+    
+    for(var bid in Building.list){
+      var b = Building.list[bid];
+      if(b.house === self.id && b.built && b.plot && b.plot.length > 0){
+        if(approvedTypes.includes(b.type)){
+          patrolBuildings.push(bid);
+        }
+      }
+    }
+    
+    self.patrolBuildings = patrolBuildings;
+    console.log('📋 ' + self.name + ' patrol list updated: ' + patrolBuildings.length + ' buildings');
+  };
+  
   self.enemies = [];
 
   self.spawnRate = 3600000/period;
@@ -25,6 +140,7 @@ House = function(param){
 
   self.stores = {
     grain:0,
+    fish:0,
     wood:0,
     stone:0,
     ironore:0,
@@ -248,10 +364,23 @@ Goths = function(param){
     var building = Building.list[b];
     var loc = getLoc(building.x,building.y);
     
+    console.log('🏠 Goths attempting to spawn serfs for ' + (building ? building.type : 'unknown') + ' at [' + loc + ']');
+    
+    // Calculate territory if not yet done
+    if (!self.baseRadius) {
+      self.calculateBaseTerritory();
+    }
+    
+    // Use territory radius for search (colonies use smaller radius)
+    var searchRadius = building.isColony ? 5 : Math.floor(self.baseRadius / tileSize);
+    
+    console.log(`   Search radius: ${searchRadius} tiles (baseRadius=${Math.floor(self.baseRadius/tileSize)} tiles, isColony=${building.isColony || false})`);
+    
     // Use new building placement system
-    var hutSpot = global.tilemapSystem.findBuildingSpot('gothhut', loc, 5);
+    var hutSpot = global.tilemapSystem.findBuildingSpot('gothhut', loc, searchRadius);
     
     if(hutSpot){
+      console.log('✅ Goths found hut spot at [' + hutSpot.plot[0] + ']');
       var plot = hutSpot.plot;
       var walls = hutSpot.walls;
       for(var i in plot){
@@ -399,6 +528,8 @@ Goths = function(param){
           Player.list[s2].work = {hq:b,spot:null};
         }
       }
+    } else {
+      console.log('❌ Goths failed to find hut spot within 5 tiles of [' + loc + '] for ' + (building ? building.type : 'unknown'));
     }
   }
   self.spawn = function(cl,spawn){
@@ -944,10 +1075,23 @@ Franks = function(param){
     var building = Building.list[b];
     var loc = getLoc(building.x,building.y);
     
+    console.log('🏠 Franks attempting to spawn serfs for ' + (building ? building.type : 'unknown') + ' at [' + loc + ']');
+    
+    // Calculate territory if not yet done
+    if (!self.baseRadius) {
+      self.calculateBaseTerritory();
+    }
+    
+    // Use territory radius for search (colonies use smaller radius)
+    var searchRadius = building.isColony ? 5 : Math.floor(self.baseRadius / tileSize);
+    
+    console.log(`   Search radius: ${searchRadius} tiles (baseRadius=${Math.floor(self.baseRadius/tileSize)} tiles, isColony=${building.isColony || false})`);
+    
     // Use new building placement system
-    var hutSpot = global.tilemapSystem.findBuildingSpot('frankhut', loc, 5);
+    var hutSpot = global.tilemapSystem.findBuildingSpot('frankhut', loc, searchRadius);
     
     if(hutSpot){
+      console.log('✅ Franks found hut spot at [' + hutSpot.plot[0] + ']');
       var plot = hutSpot.plot;
       var walls = hutSpot.walls;
       for(var i in plot){
@@ -1096,6 +1240,8 @@ Franks = function(param){
         }
       }
       console.log('Serfs have spawned for Franks: ' + Building.list[b].type);
+    } else {
+      console.log('❌ Franks failed to find hut spot within 5 tiles of [' + loc + '] for ' + (building ? building.type : 'unknown'));
     }
   }
   self.spawn = function(cl,spawn){
@@ -1602,10 +1748,23 @@ Celts = function(param){
     var building = Building.list[b];
     var loc = getLoc(building.x,building.y);
     
+    console.log('🏠 Celts attempting to spawn serfs for ' + (building ? building.type : 'unknown') + ' at [' + loc + ']');
+    
+    // Calculate territory if not yet done
+    if (!self.baseRadius) {
+      self.calculateBaseTerritory();
+    }
+    
+    // Use territory radius for search (colonies use smaller radius)
+    var searchRadius = building.isColony ? 5 : Math.floor(self.baseRadius / tileSize);
+    
+    console.log(`   Search radius: ${searchRadius} tiles (baseRadius=${Math.floor(self.baseRadius/tileSize)} tiles, isColony=${building.isColony || false})`);
+    
     // Use new building placement system
-    var hutSpot = global.tilemapSystem.findBuildingSpot('celthut', loc, 5);
+    var hutSpot = global.tilemapSystem.findBuildingSpot('celthut', loc, searchRadius);
     
     if(hutSpot){
+      console.log('✅ Celts found hut spot at [' + hutSpot.plot[0] + ']');
       var plot = hutSpot.plot;
       var walls = hutSpot.walls;
       for(var i in plot){
@@ -1754,6 +1913,8 @@ Celts = function(param){
         }
       }
       console.log('Serfs have spawned for Celts: ' + Building.list[b].type);
+    } else {
+      console.log('❌ Celts failed to find hut spot within 5 tiles of [' + loc + '] for ' + (building ? building.type : 'unknown'));
     }
   }
   self.spawn = function(cl,spawn){
@@ -2053,10 +2214,23 @@ Teutons = function(param){
     var building = Building.list[b];
     var loc = getLoc(building.x,building.y);
     
+    console.log('🏠 Teutons attempting to spawn serfs for ' + (building ? building.type : 'unknown') + ' at [' + loc + ']');
+    
+    // Calculate territory if not yet done
+    if (!self.baseRadius) {
+      self.calculateBaseTerritory();
+    }
+    
+    // Use territory radius for search (colonies use smaller radius)
+    var searchRadius = building.isColony ? 5 : Math.floor(self.baseRadius / tileSize);
+    
+    console.log(`   Search radius: ${searchRadius} tiles (baseRadius=${Math.floor(self.baseRadius/tileSize)} tiles, isColony=${building.isColony || false})`);
+    
     // Use new building placement system
-    var hutSpot = global.tilemapSystem.findBuildingSpot('teuthut', loc, 5);
+    var hutSpot = global.tilemapSystem.findBuildingSpot('teuthut', loc, searchRadius);
     
     if(hutSpot){
+      console.log('✅ Teutons found hut spot at [' + hutSpot.plot[0] + ']');
       var plot = hutSpot.plot;
       var walls = hutSpot.walls;
       for(var i in plot){
@@ -2205,6 +2379,8 @@ Teutons = function(param){
         }
       }
       console.log('Serfs have spawned for Teutons: ' + Building.list[b].type);
+    } else {
+      console.log('❌ Teutons failed to find hut spot within 5 tiles of [' + loc + '] for ' + (building ? building.type : 'unknown'));
     }
   }
   self.spawn = function(cl,spawn){
@@ -2888,6 +3064,7 @@ Kingdom = function(param){
 
   self.stores = {
     grain:0,
+    fish:0,
     wood:0,
     stone:0,
     ironore:0,

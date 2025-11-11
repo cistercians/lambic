@@ -282,7 +282,7 @@ class TilemapSystem {
       hut: {
         plotSize: [2, 2],
         wallTiles: 2,
-        validTerrain: [TERRAIN.GRASS, TERRAIN.LIGHT_FOREST, TERRAIN.HEAVY_FOREST, TERRAIN.EMPTY],
+        validTerrain: [TERRAIN.GRASS, TERRAIN.LIGHT_FOREST, TERRAIN.HEAVY_FOREST, TERRAIN.BRUSH],
         clearanceRadius: 1,
         excludeBuildings: true,
         hasUpperFloor: false
@@ -290,7 +290,7 @@ class TilemapSystem {
       gothhut: {
         plotSize: [2, 2],
         wallTiles: 2,
-        validTerrain: [TERRAIN.GRASS, TERRAIN.EMPTY, TERRAIN.LIGHT_FOREST, TERRAIN.HEAVY_FOREST],
+        validTerrain: [TERRAIN.GRASS, TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST, TERRAIN.HEAVY_FOREST, TERRAIN.ROCKS], // Goths can build on rocks
         clearanceRadius: 1,
         excludeBuildings: true,
         hasUpperFloor: false
@@ -298,7 +298,7 @@ class TilemapSystem {
       frankhut: {
         plotSize: [2, 2],
         wallTiles: 2,
-        validTerrain: [TERRAIN.GRASS, TERRAIN.LIGHT_FOREST, TERRAIN.EMPTY],
+        validTerrain: [TERRAIN.GRASS, TERRAIN.LIGHT_FOREST, TERRAIN.BRUSH], // Franks prefer open terrain
         clearanceRadius: 1,
         excludeBuildings: true,
         hasUpperFloor: false
@@ -306,7 +306,7 @@ class TilemapSystem {
       celthut: {
         plotSize: [2, 2],
         wallTiles: 2,
-        validTerrain: [TERRAIN.GRASS, TERRAIN.LIGHT_FOREST, TERRAIN.EMPTY],
+        validTerrain: [TERRAIN.GRASS, TERRAIN.LIGHT_FOREST, TERRAIN.HEAVY_FOREST, TERRAIN.BRUSH], // Celts can build in heavy forest
         clearanceRadius: 1,
         excludeBuildings: true,
         hasUpperFloor: false
@@ -314,7 +314,7 @@ class TilemapSystem {
       teuthut: {
         plotSize: [2, 2],
         wallTiles: 2,
-        validTerrain: [TERRAIN.GRASS, TERRAIN.LIGHT_FOREST, TERRAIN.EMPTY],
+        validTerrain: [TERRAIN.GRASS, TERRAIN.LIGHT_FOREST, TERRAIN.BRUSH, TERRAIN.ROCKS], // Teutons can build on rocks
         clearanceRadius: 1,
         excludeBuildings: true,
         hasUpperFloor: false
@@ -363,7 +363,7 @@ class TilemapSystem {
         hasUpperFloor: false
       },
       forge: {
-        plotSize: [2, 2],
+        plotSize: [3, 2],
         wallTiles: 3,
         validTerrain: [TERRAIN.GRASS, TERRAIN.LIGHT_FOREST, TERRAIN.BRUSH],
         clearanceRadius: 1,
@@ -574,11 +574,12 @@ class TilemapSystem {
     const r = centerTile[1];
     
     // Generate rectangular plot
-    // Pattern: TOP row first, then bottom rows (for correct tile rendering)
-    // Tiles are rendered from indices 0,1,2,3... where 0,1 should be the TOP row
-    for (let row = height - 1; row >= 0; row--) {
+    // Pattern: BOTTOM row first (r), then top rows (r-1, r-2, etc.)
+    // This matches player build commands where plot[0-2] is bottom row for 3x2 forge
+    // Tiles named forge0, forge1, etc. depend on this exact order for visual rendering
+    for (let row = 0; row < height; row++) {
       for (let col = 0; col < width; col++) {
-        plot.push([c + col, r + row]);
+        plot.push([c + col, r - row]);
       }
     }
     
@@ -618,18 +619,39 @@ class TilemapSystem {
       ];
     }
     
-    // Default: top row of plot
-    const minRow = Math.min(...plot.map(t => t[1]));
-    return plot.filter(p => p[1] === minRow).slice(0, wallCount);
+    // Default: walls are one row ABOVE the top row of the plot
+    // For forge 3x2: top plot row is at r-1, walls should be at r-2
+    // For garrison 4x3: top plot row is at r-2, walls should be at r-3
+    const minRow = Math.min(...plot.map(t => t[1])); // Find top row Y-coordinate
+    const topRowTiles = plot.filter(p => p[1] === minRow); // Get tiles in top row
+    
+    // Generate walls one row above the top plot row
+    const walls = [];
+    for (let i = 0; i < Math.min(wallCount, topRowTiles.length); i++) {
+      walls.push([topRowTiles[i][0], topRowTiles[i][1] - 1]);
+    }
+    
+    return walls;
   }
 
   // Generate top plot tiles for upper floor
   generateTopPlot(plot, walls) {
     if (walls.length === 0) return [];
     
-    // For mills/lumbermills: top plot is wall tiles
+    // For mills/lumbermills (2 walls): top plot is wall tiles
     if (walls.length === 2) {
       return walls;
+    }
+    
+    // For garrison (4 walls): topPlot is walls[1,2,3] (skipping first wall)
+    // Player command: topPlot = [[c+1,r-3],[c+2,r-3],[c+3,r-3]]
+    // Which is the same Y-coordinate as walls, just excluding the first wall tile
+    if (walls.length === 4) {
+      return [
+        walls[1],
+        walls[2],
+        walls[3]
+      ];
     }
     
     return [];
@@ -671,6 +693,18 @@ class TilemapSystem {
     let score = 100; // Base score
     
     const tileCenter = global.getCenter(tile[0], tile[1]);
+    
+    // Terrain preference for huts (prefer grass/light forest over brush)
+    if (buildingType && (buildingType.includes('hut') || buildingType === 'cottage')) {
+      const plotTerrain = this.getTile(0, tile[0], tile[1]);
+      if (plotTerrain === 7) { // GRASS
+        score += 20;
+      } else if (plotTerrain === 2) { // LIGHT_FOREST
+        score += 10;
+      } else if (plotTerrain === 3) { // BRUSH
+        score += 0; // Neutral - only use if no better option
+      }
+    }
     
     // Bonus for wide open grass areas (mills)
     if (requirements.preferOpenGrass) {

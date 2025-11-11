@@ -26,6 +26,7 @@ class EventManager {
       DEATH: 'Death',
       STEALTH: 'Stealth',
       FACTION: 'Faction',
+      MILITARY: 'Military',
       ITEM: 'Item',
       AI: 'AI'
     };
@@ -443,6 +444,21 @@ class EventManager {
       communication: this.commModes.PLAYER,
       message: `<i>You escaped from combat.</i>`,
       log: `[COMBAT] ${escapee.name || escapee.class} escaped from ${enemy ? (enemy.name || enemy.class) : 'combat'}`,
+      position
+    });
+  }
+  
+  // Military events
+  militaryUnitRecruited(unitClass, houseName, houseId, position) {
+    return this.createEvent({
+      category: this.categories.MILITARY,
+      action: 'recruited',
+      targetName: unitClass,
+      house: houseId,
+      houseName: houseName,
+      communication: [this.commModes.HOUSE, this.commModes.AREA],
+      message: `<span style="color:#4488ff;">⚔️ ${houseName} recruited a ${unitClass}!</span>`,
+      log: `[MILITARY] ${houseName} recruited ${unitClass} at [${Math.floor(position.x)},${Math.floor(position.y)}] z=${position.z}`,
       position
     });
   }

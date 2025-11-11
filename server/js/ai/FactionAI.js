@@ -144,6 +144,16 @@ class FactionAI {
     }
     this.lastEvaluatedDay = day;
     
+    // Recalculate base territory (dynamic expansion)
+    if (this.house.calculateBaseTerritory) {
+      this.house.calculateBaseTerritory();
+    }
+    
+    // Update patrol list
+    if (this.house.updatePatrolList) {
+      this.house.updatePatrolList();
+    }
+    
     // Update territory knowledge
     this.territory.updateTerritory();
     

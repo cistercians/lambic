@@ -153,7 +153,7 @@ module.exports = function(Character, globals) {
         self.innaWoods = false;
         self.onMtn = false;
       } else if(getTile(0,loc[0],loc[1]) == 0){
-        self.z = -3;
+        // Deer should not enter water - stay on overworld
         self.innaWoods = false;
         self.onMtn = false;
       } else {

@@ -218,6 +218,7 @@ class SimpleCombat {
     if (entity.action === 'returning' || entity.action === 'combat') return;
 
     const aggroRange = entity.aggroRange || 512;
+    const defenseRange = 1000; // 10 tiles - military units respond to fleeing serfs from moderate distance
     
     // PRIORITY: Defend fleeing allied serfs (military units only)
     if (entity.military && entity.house) {
@@ -241,9 +242,9 @@ class SimpleCombat {
             const dy = attacker.y - entity.y;
             const distance = Math.sqrt(dx * dx + dy * dy);
             
-            // If attacker is in range, defend the serf
-            if (distance <= aggroRange) {
-              console.log(`🛡️ ${entity.class} defending ${serf.name || serf.class} from ${attacker.class}`);
+            // Military units have extended defensive range (20 tiles instead of 5)
+            if (distance <= defenseRange) {
+              console.log(`🛡️ ${entity.class} defending ${serf.name || serf.class} from ${attacker.class} (${Math.floor(distance)}px)`);
               this.startCombat(entity, attacker);
               return;
             }
@@ -406,6 +407,72 @@ class SimpleCombat {
       }
     }
 
+  }
+  // ============================================================================
+  // MILITARY UNIT PROGRESSION
+  // ============================================================================
+  
+  // Check if unit should upgrade based on kills (3rd kill = elite, 10th kill = mounted)
+  checkMilitaryUpgrade(unit, house) {
+    const progression = global.FACTION_UNIT_PROGRESSION[house.name];
+    if (!progression) return;
+    
+    // 3rd kill: upgrade to elite (if exists)
+    if (unit.kills === 3 && progression.elite) {
+      this.upgradeMilitaryUnit(unit, progression.elite, house);
+    }
+    
+    // 10th kill: upgrade to mounted (if exists AND stable built)
+    if (unit.kills === 10 && progression.mounted && house.hasStable) {
+      this.upgradeMilitaryUnit(unit, progression.mounted, house);
+    }
+  }
+  
+  // Upgrade a military unit to a new class
+  upgradeMilitaryUnit(unit, newClass, house) {
+    const oldClass = unit.class;
+    const kills = unit.kills; // Preserve kills
+    
+    // Create new unit with upgraded class
+    const constructor = global[newClass];
+    if (!constructor) {
+      console.error(`Unit constructor not found: ${newClass}`);
+      return;
+    }
+    
+    // Copy properties to upgraded unit
+    unit.class = newClass;
+    unit.name = newClass;
+    
+    // Apply new unit stats (from constructor)
+    const tempUnit = constructor({ x: 0, y: 0, z: 0, house: house.id });
+    unit.damage = tempUnit.damage || unit.damage;
+    unit.baseSpd = tempUnit.baseSpd || unit.baseSpd;
+    unit.runSpd = tempUnit.runSpd || unit.runSpd;
+    unit.spriteSize = tempUnit.spriteSize || unit.spriteSize;
+    unit.mounted = tempUnit.mounted || false;
+    unit.ranged = tempUnit.ranged || false;
+    
+    // Restore kills
+    unit.kills = kills;
+    
+    console.log(`⬆️ Unit upgraded: ${oldClass} -> ${newClass} (${kills} kills)`);
+    
+    // Create event
+    if (global.eventManager) {
+      global.eventManager.createEvent({
+        category: global.eventManager.categories.MILITARY,
+        action: 'upgraded',
+        subjectName: oldClass,
+        targetName: newClass,
+        house: house.id,
+        houseName: house.name,
+        communication: [global.eventManager.commModes.HOUSE],
+        message: `<span style="color:#ffaa00;">⬆️ ${oldClass} upgraded to ${newClass}!</span>`,
+        log: `[MILITARY] ${oldClass} upgraded to ${newClass} at ${kills} kills`,
+        position: { x: unit.x, y: unit.y, z: unit.z }
+      });
+    }
   }
 }
 

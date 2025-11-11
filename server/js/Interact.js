@@ -8,110 +8,54 @@ Interact = function(id,loc){
       var building = Building.list[b];
       var inv = player.inventory;
       if(building.type == 'mill'){
-        if(inv.grain >= 3){
-          Player.list[id].inventory.grain -= 3;
-          var grainDeposited = 2;
-          if(Player.list[building.owner].house){
-            var house = Player.list[building.owner].house;
-            House.list[house].stores.grain += grainDeposited;
-          } else {
-            Player.list[building.owner].stores.grain += grainDeposited;
-          }
-          // Track daily deposits
-          if(!building.dailyStores) building.dailyStores = {grain: 0};
-          building.dailyStores.grain += grainDeposited;
-          
-          Player.list[id].inventory.flour++;
-          
-          // Show deposit feedback
-          var message = '<i>Deposited <b>' + grainDeposited + ' Grain</b>';
-          if(building.owner === id){
-            // Only show building total to owner
-            var totalGrain = Player.list[building.owner].house ? 
-              House.list[Player.list[building.owner].house].stores.grain : 
-              Player.list[building.owner].stores.grain;
-            message += '. Building total: <b>' + totalGrain + ' Grain</b>';
-          }
-          message += '</i>';
-          socket.write(JSON.stringify({msg:'addToChat',message: message}));
+        // Open deposit UI for grain
+        if(inv.grain > 0){
+          socket.write(JSON.stringify({
+            msg: 'openDeposit',
+            buildingType: 'mill',
+            buildingId: b,
+            buildingOwner: building.owner,
+            resources: {
+              grain: inv.grain
+            }
+          }));
+        } else {
+          socket.write(JSON.stringify({msg:'addToChat', message: '<i>You have no grain to deposit.</i>'}));
         }
       } else if(building.type == 'lumbermill'){
-        if(inv.wood >= 3){
-          var woodDeposited = (building.owner == id) ? 3 : 2;
-          if(building.owner == id){
-            Player.list[id].inventory.wood -= 3;
-            if(player.house){
-              House.list[player.house].stores.wood += 3;
-            } else {
-              Player.list[id].stores.wood += 3;
+        // Open deposit UI for wood
+        if(inv.wood > 0){
+          socket.write(JSON.stringify({
+            msg: 'openDeposit',
+            buildingType: 'lumbermill',
+            buildingId: b,
+            buildingOwner: building.owner,
+            resources: {
+              wood: inv.wood
             }
-          } else {
-            Player.list[id].inventory.wood -= 2;
-            if(Player.list[building.owner].house){
-              var house = Player.list[building.owner].house;
-              House.list[house].stores.wood += 2;
-            } else {
-              Player.list[building.owner].stores.wood += 2;
-            }
-          }
-          // Track daily deposits
-          if(!building.dailyStores) building.dailyStores = {wood: 0};
-          building.dailyStores.wood += woodDeposited;
-          
-          // Show deposit feedback
-          var message = '<i>Deposited <b>' + woodDeposited + ' Wood</b>';
-          if(building.owner === id){
-            // Only show building total to owner
-            var totalWood = Player.list[building.owner].house ? 
-              House.list[Player.list[building.owner].house].stores.wood : 
-              Player.list[building.owner].stores.wood;
-            message += '. Building total: <b>' + totalWood + ' Wood</b>';
-          }
-          message += '</i>';
-          socket.write(JSON.stringify({msg:'addToChat',message: message}));
+          }));
+        } else {
+          socket.write(JSON.stringify({msg:'addToChat', message: '<i>You have no wood to deposit.</i>'}));
         }
       } else if(building.type == 'mine'){
-        if(building.cave){
-          // TODO: Handle iron ore deposits
+        // Open deposit UI for stone and ores
+        var hasResources = inv.stone > 0 || inv.ironore > 0 || inv.silverore > 0 || inv.goldore > 0 || inv.diamond > 0;
+        if(hasResources){
+          socket.write(JSON.stringify({
+            msg: 'openDeposit',
+            buildingType: 'mine',
+            buildingId: b,
+            buildingOwner: building.owner,
+            resources: {
+              stone: inv.stone || 0,
+              ironore: inv.ironore || 0,
+              silverore: inv.silverore || 0,
+              goldore: inv.goldore || 0,
+              diamond: inv.diamond || 0
+            }
+          }));
         } else {
-          if(inv.stone >= 3){
-            var stoneDeposited = (building.owner == id) ? 3 : 2;
-            if(building.owner == id){
-              Player.list[id].inventory.stone -= 3;
-              if(player.house){
-                House.list[player.house].stores.stone += 3;
-              } else {
-                Player.list[id].stores.stone += 3;
-              }
-            } else {
-              Player.list[id].inventory.stone -= 2;
-              // Check if building owner still exists before accessing their data
-              if(Player.list[building.owner]){
-                if(Player.list[building.owner].house){
-                  var house = Player.list[building.owner].house;
-                  House.list[house].stores.stone += 2;
-                } else {
-                  Player.list[building.owner].stores.stone += 2;
-                }
-              }
-              // If owner doesn't exist, stone is simply removed from depositor's inventory
-            }
-            // Track daily deposits
-            if(!building.dailyStores) building.dailyStores = {stone: 0, ironore: 0};
-            building.dailyStores.stone += stoneDeposited;
-            
-            // Show deposit feedback
-            var message = '<i>Deposited <b>' + stoneDeposited + ' Stone</b>';
-            if(building.owner === id && Player.list[building.owner]){
-              // Only show building total to owner
-              var totalStone = Player.list[building.owner].house ? 
-                House.list[Player.list[building.owner].house].stores.stone : 
-                Player.list[building.owner].stores.stone;
-              message += '. Building total: <b>' + totalStone + ' Stone</b>';
-            }
-            message += '</i>';
-            socket.write(JSON.stringify({msg:'addToChat',message: message}));
-          }
+          socket.write(JSON.stringify({msg:'addToChat', message: '<i>You have no stone or ore to deposit.</i>'}));
         }
       } else if(building.type == 'stable'){
         if(building.horses > 0){

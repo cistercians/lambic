@@ -125,15 +125,9 @@ module.exports = function(Character, globals) {
             self.maxSpd = self.baseSpd * self.drag;
           }
         } else if(getTile(0,loc[0],loc[1]) == 6){
-          self.caveEntrance = loc;
-          self.z = -1;
-          // DON'T clear path - it needs to persist through z-transition
+          // Wolves should not enter caves - ignore cave entrances
           self.innaWoods = false;
           self.onMtn = false;
-          // Don't modify maxSpd when fleeing (SimpleFlee manages speed)
-          if(self.action !== 'flee'){
-            self.maxSpd = self.baseSpd * self.drag;
-          }
         } else if(getTile(0,loc[0],loc[1]) == 18){
           self.innaWoods = false;
           self.onMtn = false;
@@ -142,12 +136,13 @@ module.exports = function(Character, globals) {
             self.maxSpd = self.baseSpd * self.drag;
           }
         } else if(getTile(0,loc[0],loc[1]) == 0){
-          self.z = -3;
+          // Wolves should not enter water - stay on overworld
+          // Note: Pathfinding should already avoid water, but this is a safety check
           self.innaWoods = false;
           self.onMtn = false;
-          // Don't modify maxSpd when fleeing (SimpleFlee manages speed)
+          // Slow down on water edge but don't change z-level
           if(self.action !== 'flee'){
-            self.maxSpd = (self.baseSpd * 0.1) * self.drag;
+            self.maxSpd = (self.baseSpd * 0.5) * self.drag;
           }
         } else {
           self.innaWoods = false;

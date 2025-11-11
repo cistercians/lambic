@@ -111,6 +111,7 @@ const { itemFactory } = require('./server/js/entities/ItemFactory.js');
 const OptimizedGameLoop = require('./server/js/core/OptimizedGameLoop.js');
 const SimpleCombat = require('./server/js/core/SimpleCombat.js');
 const { TilemapIntegration } = require('./server/js/core/TilemapIntegration.js');
+const BuildingConstruction = require('./server/js/core/BuildingConstruction.js');
 
 // Initialize game state
 const genesis = require('./server/js/genesis');
@@ -158,6 +159,7 @@ global.nightfall = gameState.nightfall;
 global.gameState = gameState;
 global.itemFactory = itemFactory;
 global.simpleCombat = new SimpleCombat();
+global.BuildingConstruction = BuildingConstruction;
 
 // Initialize SimpleFlee system
 const SimpleFlee = require('./server/js/core/SimpleFlee');
@@ -166,6 +168,11 @@ global.simpleFlee = new SimpleFlee();
 // Initialize Event Manager
 const EventManager = require('./server/js/core/EventManager');
 global.eventManager = new EventManager();
+
+// Initialize Social System for NPC conversations
+const SocialSystem = require('./server/js/core/SocialSystem');
+global.socialSystem = new SocialSystem();
+console.log('✅ Social System initialized');
 
 // Create command handler after globals are set
 const commandHandler = new CommandHandler();
@@ -1035,6 +1042,23 @@ function gateCheck(x, y, house, kingdom) {
 }
 
 // ============================================================================
+// FISHING HELPERS
+// ============================================================================
+
+// Process fish catch - called when player presses F
+// NOTE: Socket handler should call this when receiving {msg: 'processFishCatch'}
+// Example: if(data.msg === 'processFishCatch'){ global.processFishCatch(socket.id); }
+function processFishCatch(playerId) {
+  var player = Player.list[playerId];
+  if(!player) return;
+  
+  if(player.processFishCatch){
+    player.processFishCatch();
+  }
+}
+global.processFishCatch = processFishCatch;
+
+// ============================================================================
 // FACTION HELPERS
 // ============================================================================
 
@@ -1235,12 +1259,10 @@ function entropy() {
     for (let r = 0; r < mapSize; r++) {
       const tile = getTile(0, c, r);
 
-      // Fish spawning
-      if (tile === TERRAIN.WATER) {
-        world[6][r][c] = Math.random() < 0.2 ? Math.ceil(Math.random() * 10) : 0;
-      }
+      // Fish spawning removed - using chance-based fishing system instead
+      
       // Tree growth
-      else if (tile >= TERRAIN.HEAVY_FOREST && tile < TERRAIN.LIGHT_FOREST && day > 0) {
+      if (tile >= TERRAIN.HEAVY_FOREST && tile < TERRAIN.LIGHT_FOREST && day > 0) {
         if (world[6][r][c] < 300) {
           world[6][r][c] += Math.floor(Math.random() * 4);
         }
@@ -1430,7 +1452,7 @@ function updateWeather(tempus) {
 function dailyTally() {
   for (const i in Building.list) {
     const b = Building.list[i];
-    if (b.built && (b.type === 'mill' || b.type === 'lumbermill' || b.type === 'mine')) {
+    if (b.built && (b.type === 'mill' || b.type === 'lumbermill' || b.type === 'mine' || b.type === 'dock')) {
       Building.list[i].tally();
     }
   }
@@ -1524,6 +1546,8 @@ const Player = function(param) {
   self.pressingM = false;
   self.pressing1 = false;
   self.boardCooldown = 0; // Cooldown for boarding ships
+  self.isBoarded = false; // True when player is on a ship
+  self.boardedShip = null; // ID of ship player is on
   self.pressing2 = false;
   self.pressing3 = false;
   self.pressing4 = false;
@@ -2626,97 +2650,8 @@ const Player = function(param) {
     if (self.pressingAttack && self.actionCooldown === 0 && !self.working && !self.ghost) {
       const loc = getLoc(self.x, self.y);
       
-      // Check if player is near an anchored boat they can board (with cooldown)
-      if(self.boardCooldown === 0){
-        for(var shipId in Player.list){
-          var ship = Player.list[shipId];
-          if(ship.shipType && (ship.mode == 'anchored' || ship.mode == 'docked') && ship.owner == self.id){
-            var distToShip = Math.sqrt(Math.pow(self.x - ship.x, 2) + Math.pow(self.y - ship.y, 2));
-            if(distToShip < tileSize * 2){ // Within 2 tiles
-              // Board this ship
-              console.log('⚓ Player boarding nearby ship ' + shipId);
-              
-              // Set cooldown to prevent immediate re-boarding
-              self.boardCooldown = 120; // 2 seconds
-            
-            // Store player in ship
-            ship.storedPlayer = {
-              id: self.id,
-              x: self.x,
-              y: self.y,
-              z: self.z,
-              class: self.class,
-              facing: self.facing,
-              inventory: self.inventory,
-              gear: self.gear
-            };
-            
-            // Mark ship as player-controlled
-            ship.isPlayerControlled = true;
-            
-            // If ship is docked at home dock, move it away to open water first
-            if(ship.mode == 'docked' && ship.dock && Building.list[ship.dock]){
-              var dockBuilding = Building.list[ship.dock];
-              
-              // Find water tile 1 tile away from dock
-              var waterTile = null;
-              for(var k in dockBuilding.plot){
-                var dockLoc = dockBuilding.plot[k];
-                var searchDirs = [
-                  [dockLoc[0], dockLoc[1] + 1],
-                  [dockLoc[0], dockLoc[1] - 1],
-                  [dockLoc[0] - 1, dockLoc[1]],
-                  [dockLoc[0] + 1, dockLoc[1]]
-                ];
-                
-                for(var m in searchDirs){
-                  var at = searchDirs[m];
-                  if(at[0] >= 0 && at[0] < mapSize && at[1] >= 0 && at[1] < mapSize){
-                    if(getTile(0, at[0], at[1]) == 0){ // Water
-                      waterTile = at;
-                      break;
-                    }
-                  }
-                }
-                if(waterTile) break;
-              }
-              
-              if(waterTile){
-                var waterCoords = getCenter(waterTile[0], waterTile[1]);
-                ship.x = waterCoords[0];
-                ship.y = waterCoords[1];
-                console.log('🚢 Moved docked ship away from dock to [' + waterTile + ']');
-              }
-            }
-            // If ship is anchored at sea, board it where it is (no repositioning needed)
-            
-            ship.mode = 'sailing';
-            ship.name = 'Fishing Ship'; // Remove anchor when sailing
-            
-            // Reset sail points to 0 (ship starts stopped)
-            ship.sailPoints = {up: 0, down: 0, left: 0, right: 0};
-            
-            // Hide player
-            self.x = -10000;
-            self.y = -10000;
-            self.isBoarded = true;
-            self.boardedShip = shipId;
-            
-            // Transfer control
-            var socket = SOCKET_LIST[self.id];
-            if(socket){
-              socket.write(JSON.stringify({
-                msg: 'boardShip',
-                newSelfId: shipId
-              }));
-              socket.write(JSON.stringify({msg:'addToChat',message:'<i>⚓ Boarded ship! Press F to fish, sail to shore to disembark.</i>'}));
-            }
-            
-              return; // Exit interaction handler
-            }
-          }
-        }
-      }
+      // Dock and ship boarding is now handled via dock menu or automatic proximity
+      // (no spacebar boarding)
       
       const dirOffsets = {
         down: [0, 1],
@@ -3718,7 +3653,19 @@ Player.update = function() {
     }
     
     if(shouldUpdate){
+    // Check if ship should dock (before update to prevent movement after docking)
+    if(player.type === 'ship' && player.checkDockContact){
+      if(player.checkDockContact()){
+        continue; // Ship is now stored, skip remaining updates
+      }
+    }
+    
     player.update();
+    
+    // Update fishing if player is fishing
+    if(player.fishing && player.updateFishing){
+      player.updateFishing();
+    }
     }
 
     // Check for zone transitions (only for actual players, not NPCs)
@@ -3761,6 +3708,7 @@ Player.update = function() {
         global.spatialSystem.updateEntity(i, player);
       }
       // Send all players in update packs (spectators are no longer Player entities)
+      // Boarded players still need updates (position syncs to ship), they just don't render
       pack.push(player.getUpdatePack());
     }
   }
@@ -4464,6 +4412,14 @@ function dayNight() {
 
     const playerCount = Object.keys(Player.list).length;
     console.log(`Population: ${playerCount}`);
+    
+    // Trigger daily faction AI evaluation (includes territory recalculation)
+    for (var houseId in House.list) {
+      var house = House.list[houseId];
+      if (house.ai && house.ai.evaluateAndAct) {
+        house.ai.evaluateAndAct();
+      }
+    }
 
     // Optional: Save map
     const saveMap = false;
@@ -4907,25 +4863,52 @@ io.on('connection', function(socket) {
         // All the game message handlers that were previously in Player.onConnect
         if(data.msg == 'keyPress'){
           // Special handling for ship sail controls
-          // Check if player is currently aboard a ship
-          if(player.boardedShip && data.state === true){
+          // Check if the entity IS a ship (client has switched selfId to ship)
+          if(player.shipType === 'fishingship' && player.isPlayerControlled){
+            console.log('🔑 Key press on ship (direct):', data.inputId, 'state:', data.state);
+            // Handle sail point adjustments
+            if(data.state === true){
+              // Key pressed - adjust sail points
+              if(data.inputId == 'left'){
+                player.adjustSailPoints('left');
+              } else if(data.inputId == 'right'){
+                player.adjustSailPoints('right');
+              } else if(data.inputId == 'up'){
+                player.adjustSailPoints('up');
+              } else if(data.inputId == 'down'){
+                player.adjustSailPoints('down');
+              } else if(data.inputId == 'f'){
+                player.pressingF = data.state;
+              }
+            }
+            // Ignore key releases and other keys for ships
+            return;
+          }
+          // Check if player is currently aboard a ship (fallback for old system)
+          if(player.boardedShip){
             var ship = Player.list[player.boardedShip];
             if(ship && ship.shipType === 'fishingship' && ship.isPlayerControlled){
-              console.log('🔑 Key press on ship:', data.inputId);
+              console.log('🔑 Ship control - key:', data.inputId, 'state:', data.state);
               // Only handle key press (not release) for ships
-              if(data.inputId == 'left'){
-                ship.adjustSailPoints('left');
-              } else if(data.inputId == 'right'){
-                ship.adjustSailPoints('right');
-              } else if(data.inputId == 'up'){
-                ship.adjustSailPoints('up');
-              } else if(data.inputId == 'down'){
-                ship.adjustSailPoints('down');
-              } else if(data.inputId == 'f'){
-                ship.pressingF = data.state;
+              if(data.state === true){
+                if(data.inputId == 'left'){
+                  ship.adjustSailPoints('left');
+                } else if(data.inputId == 'right'){
+                  ship.adjustSailPoints('right');
+                } else if(data.inputId == 'up'){
+                  ship.adjustSailPoints('up');
+                } else if(data.inputId == 'down'){
+                  ship.adjustSailPoints('down');
+                } else if(data.inputId == 'f'){
+                  ship.pressingF = data.state;
+                }
               }
               // Ignore other keys for ships
               return;
+            } else if(ship){
+              console.log('⚠️ Ship found but not controlable - shipType:', ship.shipType, 'isPlayerControlled:', ship.isPlayerControlled);
+            } else {
+              console.log('⚠️ Ship not found in Player.list for boardedShip:', player.boardedShip);
             }
           }
           
@@ -5017,7 +5000,169 @@ io.on('connection', function(socket) {
           if(player && player.ghost){
             socket.write(JSON.stringify({ msg: 'addToChat', message: `<i>Ghosts cannot speak</i>` }));
           } else {
-            emit({ msg: 'addToChat', message: `<b>${data.name}:</b> ${data.message}` });
+            // Help command for NPC chat
+            if (data.message === '/npcs') {
+              const nearbyNPCs = [];
+              for (const id in Player.list) {
+                const npc = Player.list[id];
+                if (npc.type !== 'npc') continue;
+                if (npc.z !== player.z) continue;
+                
+                const distance = Math.sqrt(
+                  Math.pow(npc.x - player.x, 2) + 
+                  Math.pow(npc.y - player.y, 2)
+                );
+                
+                if (distance <= 768) { // Within 12 tiles
+                  nearbyNPCs.push({ 
+                    name: npc.name || npc.class, 
+                    class: npc.class,
+                    distance: Math.floor(distance / 64) 
+                  });
+                }
+              }
+              
+              if (nearbyNPCs.length > 0) {
+                nearbyNPCs.sort((a, b) => a.distance - b.distance);
+                const npcList = nearbyNPCs.slice(0, 5).map(n => 
+                  `${n.class} (${n.distance} tiles)`
+                ).join(', ');
+                socket.write(JSON.stringify({ 
+                  msg: 'addToChat', 
+                  message: `<b>NPCs nearby:</b> ${npcList}<br><i>NPCs will respond to your chat if they're close enough!</i>` 
+                }));
+              } else {
+                socket.write(JSON.stringify({ 
+                  msg: 'addToChat', 
+                  message: `<i>No NPCs nearby. NPCs will hear and respond to your messages when you're close to them.</i>` 
+                }));
+              }
+              return;
+            }
+            
+            // NPCs listen to all nearby chat and may respond
+            if (global.socialSystem && data.message && !data.message.startsWith('/')) {
+              // Check if player is already in a conversation
+              if (global.socialSystem.isInConversation(player.id)) {
+                // Continue conversation with current NPC
+                const session = global.socialSystem.getConversationSession(player.id);
+                if (session) {
+                  const otherParticipantId = session.participants.find(id => id !== player.id);
+                  if (otherParticipantId && Player.list[otherParticipantId]) {
+                    // Direct message to conversation partner
+                    setTimeout(() => {
+                      if (Player.list[otherParticipantId]) {
+                        global.socialSystem.handlePlayerToNPC(player.id, otherParticipantId, data.message);
+                      }
+                    }, 500 + Math.random() * 1500);
+                  }
+                }
+              } else {
+                // Check if player mentioned a specific NPC name in their message
+                let targetedNPC = null;
+                
+                for (const id in Player.list) {
+                  const npc = Player.list[id];
+                  if (npc.type !== 'npc') continue;
+                  if (npc.z !== player.z) continue;
+                  if (!global.socialSystem.isHumanoidNPC(npc)) continue;
+                  if (global.socialSystem.isInConversation(npc.id)) continue;
+                  
+                  // Check if NPC has a name and it's mentioned in the message
+                  if (npc.name) {
+                    const namePattern = new RegExp('\\b' + npc.name + '\\b', 'i');
+                    if (namePattern.test(data.message)) {
+                      // Check proximity
+                      const distance = Math.sqrt(
+                        Math.pow(npc.x - player.x, 2) + 
+                        Math.pow(npc.y - player.y, 2)
+                      );
+                      
+                      if (distance <= 128) {
+                        targetedNPC = npc;
+                        break; // Found targeted NPC
+                      }
+                    }
+                  }
+                }
+                
+                if (targetedNPC) {
+                  // Player specifically targeted an NPC by name
+                  setTimeout(() => {
+                    if (Player.list[targetedNPC.id]) {
+                      global.socialSystem.handlePlayerToNPC(player.id, targetedNPC.id, data.message);
+                    }
+                  }, 500 + Math.random() * 1500);
+                } else {
+                  // No specific target - find nearby NPCs that might respond
+                  const nearbyNPCs = [];
+                  const nearbyBusyNPCs = [];
+                  
+                  for (const id in Player.list) {
+                    const npc = Player.list[id];
+                    if (npc.type !== 'npc') continue;
+                    if (npc.z !== player.z) continue;
+                    if (!global.socialSystem.isHumanoidNPC(npc)) continue;
+                    if (global.socialSystem.isInConversation(npc.id)) continue;
+                    
+                    const distance = Math.sqrt(
+                      Math.pow(npc.x - player.x, 2) + 
+                      Math.pow(npc.y - player.y, 2)
+                    );
+                    
+                    // NPCs within 2 tiles can hear
+                    if (distance <= 128) {
+                      // Check if NPC is busy
+                      const isBusy = npc.working || npc.chopping || npc.mining || 
+                                     npc.farming || npc.building || npc.fishing ||
+                                     npc.action === 'combat' || npc.action === 'flee';
+                      
+                      if (isBusy) {
+                        nearbyBusyNPCs.push({ npc, distance });
+                      } else {
+                        nearbyNPCs.push({ npc, distance });
+                      }
+                    }
+                  }
+                  
+                  // Prioritize idle NPCs for full conversations
+                  let respondingNPC = null;
+                  
+                  if (nearbyNPCs.length > 0 && Math.random() < 0.8) {
+                    // Idle NPC available for full conversation
+                    nearbyNPCs.sort((a, b) => a.distance - b.distance);
+                    respondingNPC = nearbyNPCs[0].npc;
+                  } else if (nearbyBusyNPCs.length > 0 && Math.random() < 0.3) {
+                    // Only busy NPCs nearby - might give brief response (30% chance)
+                    nearbyBusyNPCs.sort((a, b) => a.distance - b.distance);
+                    respondingNPC = nearbyBusyNPCs[0].npc;
+                  }
+                  
+                  if (respondingNPC) {
+                    // Let the NPC respond after a short delay (feels more natural)
+                    setTimeout(() => {
+                      if (Player.list[respondingNPC.id]) {
+                        global.socialSystem.handlePlayerToNPC(player.id, respondingNPC.id, data.message);
+                      }
+                    }, 500 + Math.random() * 1500);
+                  }
+                }
+              }
+            }
+            
+            // Normal broadcast message
+            // Determine the display name - if player is ship with navigator, use navigator's name
+            var displayName = data.name;
+            if(player && player.type === 'ship' && player.controller){
+              // Check if there's a navigator (first passenger)
+              if(player.passengers && player.passengers.length > 0){
+                var navigator = player.passengers.find(function(p){ return p.isNavigator; });
+                if(navigator && navigator.storedData){
+                  displayName = navigator.storedData.originalName;
+                }
+              }
+            }
+            emit({ msg: 'addToChat', message: `<b>${displayName}:</b> ${data.message}` });
           }
         } else if (data.msg === 'pmToServer') {
           if(player && player.ghost){
@@ -5035,7 +5180,17 @@ io.on('connection', function(socket) {
             if (!recipient) {
               socket.write(JSON.stringify({ msg: 'addToChat', message: `<i>${data.recip} is not online.</i>` }));
             } else {
-              recipient.write(JSON.stringify({ msg: 'addToChat', message: `<b>@${player.name}</b> whispers: <i>${data.message}</i>` }));
+              // Determine the display name - if player is ship with navigator, use navigator's name
+              var senderName = player.name;
+              if(player && player.type === 'ship' && player.controller){
+                if(player.passengers && player.passengers.length > 0){
+                  var navigator = player.passengers.find(function(p){ return p.isNavigator; });
+                  if(navigator && navigator.storedData){
+                    senderName = navigator.storedData.originalName;
+                  }
+                }
+              }
+              recipient.write(JSON.stringify({ msg: 'addToChat', message: `<b>@${senderName}</b> whispers: <i>${data.message}</i>` }));
               socket.write(JSON.stringify({ msg: 'addToChat', message: `To ${data.recip}: <i>${data.message}</i>` }));
             }
           }
@@ -5167,10 +5322,18 @@ io.on('connection', function(socket) {
           if (player) {
             // Check if player has a worldmap item OR is in godmode
             if (player.inventory.worldmap > 0 || player.godMode) {
-              // For godmode players, use center of map as position if no valid position
+              // Determine player position - if player is a ship, use ship's position
               let playerX = player.x || gameState.mapSize * gameState.tileSize / 2;
               let playerY = player.y || gameState.mapSize * gameState.tileSize / 2;
               let playerZ = player.z || 0;
+              
+              // If player is aboard a ship (ship entity has controller), show ship's position
+              if(player.type === 'ship' && player.controller){
+                // Use ship's current position
+                playerX = player.x;
+                playerY = player.y;
+                playerZ = player.z;
+              }
               
               // Send the terrain data (layer 0 is the overworld terrain)
               socket.write(JSON.stringify({
@@ -5374,6 +5537,180 @@ io.on('connection', function(socket) {
                 }));
               }
             }
+          }
+        } else if (data.msg === 'depositResources') {
+          // Handle resource deposits from deposit UI
+          if(!data.buildingId || !data.resources){
+            return;
+          }
+          
+          var building = Building.list[data.buildingId];
+          if(!building){
+            socket.write(JSON.stringify({msg:'addToChat', message: '<i>Building not found.</i>'}));
+            return;
+          }
+          
+          // Validate player is still in range of building
+          var buildingDistance = Math.sqrt(Math.pow(player.x - building.x, 2) + Math.pow(player.y - building.y, 2));
+          if(buildingDistance > 128){ // ~2 tiles
+            socket.write(JSON.stringify({msg:'addToChat', message: '<i>You are too far from the building.</i>'}));
+            return;
+          }
+          
+          var inv = player.inventory;
+          var isOwner = building.owner === socket.id;
+          var totalDeposited = {};
+          var conversionResults = {};
+          
+          // Process each resource type
+          for(var resourceType in data.resources){
+            var amountToDeposit = parseInt(data.resources[resourceType]);
+            if(amountToDeposit <= 0) continue;
+            
+            // Validate player has this amount
+            if(!inv[resourceType] || inv[resourceType] < amountToDeposit){
+              socket.write(JSON.stringify({msg:'addToChat', message: '<i>You do not have ' + amountToDeposit + ' ' + resourceType + '.</i>'}));
+              continue;
+            }
+            
+            // Calculate deposit ratio (owners get 1:1, non-owners get 2:3 or 3:2 depending on building)
+            var deposited = 0;
+            if(building.type === 'mill'){
+              // Mill converts grain to flour
+              var flourProduced = Math.floor(amountToDeposit / 3);
+              var grainUsed = flourProduced * 3;
+              
+              if(grainUsed > 0){
+                inv.grain -= grainUsed;
+                deposited = Math.floor(grainUsed * 2 / 3); // 3 grain -> 2 deposited
+                
+                // Add to owner's stores
+                if(Player.list[building.owner]){
+                  if(Player.list[building.owner].house){
+                    House.list[Player.list[building.owner].house].stores.grain = (House.list[Player.list[building.owner].house].stores.grain || 0) + deposited;
+                  } else {
+                    Player.list[building.owner].stores.grain = (Player.list[building.owner].stores.grain || 0) + deposited;
+                  }
+                } else if(building.house && House.list[building.house]){
+                  House.list[building.house].stores.grain = (House.list[building.house].stores.grain || 0) + deposited;
+                }
+                
+                // Track daily deposits
+                if(!building.dailyStores) building.dailyStores = {};
+                building.dailyStores.grain = (building.dailyStores.grain || 0) + deposited;
+                
+                // Give flour to player
+                inv.flour = (inv.flour || 0) + flourProduced;
+                conversionResults.flour = flourProduced;
+                totalDeposited.grain = deposited;
+              }
+            } else if(building.type === 'lumbermill'){
+              // Lumbermill: owners get 1:1, non-owners get 2 deposited per 3 given
+              if(isOwner){
+                inv.wood -= amountToDeposit;
+                deposited = amountToDeposit;
+                if(player.house){
+                  House.list[player.house].stores.wood = (House.list[player.house].stores.wood || 0) + deposited;
+                } else {
+                  player.stores.wood = (player.stores.wood || 0) + deposited;
+                }
+              } else {
+                var chunks = Math.floor(amountToDeposit / 3);
+                var woodUsed = chunks * 3;
+                deposited = chunks * 2;
+                
+                if(woodUsed > 0){
+                  inv.wood -= woodUsed;
+                  if(Player.list[building.owner]){
+                    if(Player.list[building.owner].house){
+                      House.list[Player.list[building.owner].house].stores.wood = (House.list[Player.list[building.owner].house].stores.wood || 0) + deposited;
+                    } else {
+                      Player.list[building.owner].stores.wood = (Player.list[building.owner].stores.wood || 0) + deposited;
+                    }
+                  } else if(building.house && House.list[building.house]){
+                    House.list[building.house].stores.wood = (House.list[building.house].stores.wood || 0) + deposited;
+                  }
+                }
+              }
+              
+              if(deposited > 0){
+                if(!building.dailyStores) building.dailyStores = {};
+                building.dailyStores.wood = (building.dailyStores.wood || 0) + deposited;
+                totalDeposited.wood = deposited;
+              }
+            } else if(building.type === 'mine'){
+              // Mine: owners get 1:1, non-owners get 2 deposited per 3 given
+              if(isOwner){
+                inv[resourceType] -= amountToDeposit;
+                deposited = amountToDeposit;
+                if(player.house){
+                  House.list[player.house].stores[resourceType] = (House.list[player.house].stores[resourceType] || 0) + deposited;
+                } else {
+                  player.stores[resourceType] = (player.stores[resourceType] || 0) + deposited;
+                }
+              } else {
+                var chunks = Math.floor(amountToDeposit / 3);
+                var resourceUsed = chunks * 3;
+                deposited = chunks * 2;
+                
+                if(resourceUsed > 0){
+                  inv[resourceType] -= resourceUsed;
+                  if(Player.list[building.owner]){
+                    if(Player.list[building.owner].house){
+                      House.list[Player.list[building.owner].house].stores[resourceType] = (House.list[Player.list[building.owner].house].stores[resourceType] || 0) + deposited;
+                    } else {
+                      Player.list[building.owner].stores[resourceType] = (Player.list[building.owner].stores[resourceType] || 0) + deposited;
+                    }
+                  } else if(building.house && House.list[building.house]){
+                    House.list[building.house].stores[resourceType] = (House.list[building.house].stores[resourceType] || 0) + deposited;
+                  }
+                }
+              }
+              
+              if(deposited > 0){
+                if(!building.dailyStores) building.dailyStores = {};
+                building.dailyStores[resourceType] = (building.dailyStores[resourceType] || 0) + deposited;
+                totalDeposited[resourceType] = deposited;
+              }
+            }
+          }
+          
+          // Send confirmation message
+          if(Object.keys(totalDeposited).length > 0){
+            var message = '<i>Deposited: ';
+            var depositParts = [];
+            for(var res in totalDeposited){
+              var displayName = res.charAt(0).toUpperCase() + res.slice(1);
+              depositParts.push('<b>' + totalDeposited[res] + ' ' + displayName + '</b>');
+            }
+            message += depositParts.join(', ');
+            
+            // Show conversion results
+            if(conversionResults.flour){
+              message += '. Received <b>' + conversionResults.flour + ' Flour</b>';
+            }
+            
+            // Show building totals if owner
+            if(isOwner){
+              message += '. Building totals: ';
+              var totalParts = [];
+              for(var res in totalDeposited){
+                var total = 0;
+                if(player.house && House.list[player.house]){
+                  total = House.list[player.house].stores[res] || 0;
+                } else {
+                  total = player.stores[res] || 0;
+                }
+                var displayName = res.charAt(0).toUpperCase() + res.slice(1);
+                totalParts.push('<b>' + total + ' ' + displayName + '</b>');
+              }
+              message += totalParts.join(', ');
+            }
+            
+            message += '</i>';
+            socket.write(JSON.stringify({msg:'addToChat', message: message}));
+          } else {
+            socket.write(JSON.stringify({msg:'addToChat', message: '<i>No resources deposited.</i>'}));
           }
         } else if (data.msg === 'useItem') {
           if (player && data.itemType) {
@@ -5853,6 +6190,7 @@ function calculateFactionResources() {
       lumber: house.stores.wood || 0,
       stone: house.stores.stone || 0,
       grain: house.stores.grain || 0,
+      fish: house.stores.fish || 0,
       ironore: house.stores.ironore || 0,
       iron: house.stores.iron || 0,
       steel: house.stores.steel || 0,

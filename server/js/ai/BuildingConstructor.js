@@ -53,6 +53,13 @@ class BuildingConstructor {
       hp: 150
     });
     
+    // Check if building is outside base territory (mark as colony)
+    const building = global.Building.list[millId];
+    if (building && this.house.isInBaseTerritory && !this.house.isInBaseTerritory(building.x, building.y)) {
+      building.isColony = true;
+      console.log(`${this.house.name}: Mill marked as COLONY (outside base territory)`);
+    }
+    
     console.log(`${this.house.name}: Built mill at [${plot[0]}]`);
     return millId;
   }
@@ -88,7 +95,7 @@ class BuildingConstructor {
     }
     
     // Create farm
-    Farm({
+    const farm = Farm({
       house: this.house.id,
       owner: this.house.id,
       x: center[0],
@@ -98,6 +105,9 @@ class BuildingConstructor {
       built: true,
       plot: plot
     });
+    
+    // Note: Farms cannot be marked as colonies because the Farm constructor doesn't return an ID
+    // This is a limitation of the current Farm implementation
     
     console.log(`${this.house.name}: Built farm at [${plot[0]}]`);
     return true;
@@ -144,6 +154,13 @@ class BuildingConstructor {
       req: 5,
       hp: 150
     });
+    
+    // Check if building is outside base territory (mark as colony)
+    const building = global.Building.list[mineId];
+    if (building && this.house.isInBaseTerritory && !this.house.isInBaseTerritory(building.x, building.y)) {
+      building.isColony = true;
+      console.log(`${this.house.name}: Mine marked as COLONY (outside base territory)`);
+    }
     
     console.log(`${this.house.name}: Built mine at [${plot[0]}]`);
     return mineId;
@@ -195,6 +212,13 @@ class BuildingConstructor {
       hp: 150
     });
     
+    // Check if building is outside base territory (mark as colony)
+    const building = global.Building.list[lumbermillId];
+    if (building && this.house.isInBaseTerritory && !this.house.isInBaseTerritory(building.x, building.y)) {
+      building.isColony = true;
+      console.log(`${this.house.name}: Lumbermill marked as COLONY (outside base territory)`);
+    }
+    
     console.log(`${this.house.name}: Built lumbermill at [${plot[0]}]`);
     return lumbermillId;
   }
@@ -218,32 +242,6 @@ class BuildingConstructor {
     const walls = spot.walls;
     const center = global.getCenter(plot[0][0], plot[0][1]);
     
-    // Update terrain - forge is a 2x2 building with walls
-    for (let i = 0; i < plot.length; i++) {
-      global.tileChange(3, plot[i][0], plot[i][1], String('forge' + i));
-      if (global.getTile(3, plot[i][0], plot[i][1]) == 'forge1') {
-        global.matrixChange(1, plot[i][0], plot[i][1], 0);
-        global.matrixChange(1, plot[i][0], plot[i][1] + 1, 0);
-        global.tileChange(0, plot[i][0], plot[i][1], 14);
-      } else {
-        global.matrixChange(0, plot[i][0], plot[i][1], 1);
-        global.matrixChange(1, plot[i][0], plot[i][1], 0);
-      }
-    }
-    
-    // Wall tiles
-    let ii = 5;
-    for (const n of walls) {
-      global.tileChange(5, n[0], n[1], String('forge' + ii));
-      if (global.getTile(5, n[0], n[1]) == 'forge5') {
-        global.tileChange(5, n[0], n[1], 0);
-        global.tileChange(4, n[0], n[1], 1);
-      } else {
-        global.tileChange(4, n[0], n[1], 1);
-      }
-      ii++;
-    }
-    
     // Create forge building
     const forgeId = Math.random();
     Forge({
@@ -257,10 +255,24 @@ class BuildingConstructor {
       built: true,
       plot: plot,
       walls: walls,
+      topPlot: null,
       mats: { wood: 50, stone: 100 },
       req: 5,
       hp: 200
     });
+    
+    // Use unified construction system (same as player builds)
+    global.BuildingConstruction.constructForge(forgeId, plot, walls);
+    
+    // Update faction patrol list
+    this.house.updatePatrolList();
+    
+    // Check if building is outside base territory (mark as colony)
+    const building = global.Building.list[forgeId];
+    if (building && this.house.isInBaseTerritory && !this.house.isInBaseTerritory(building.x, building.y)) {
+      building.isColony = true;
+      console.log(`${this.house.name}: Forge marked as COLONY (outside base territory)`);
+    }
     
     console.log(`${this.house.name}: Built forge at [${plot[0]}]`);
     return forgeId;
@@ -286,46 +298,6 @@ class BuildingConstructor {
     const walls = spot.walls;
     const center = global.getCenter(plot[0][0], plot[0][1]);
     
-    // Update terrain - copied exactly from Build.js player garrison code
-    for (let i = 0; i < plot.length; i++) {
-      global.tileChange(3, plot[i][0], plot[i][1], String('garrison' + i));
-      if (global.getTile(3, plot[i][0], plot[i][1]) == 'garrison0') {
-        global.matrixChange(1, plot[i][0], plot[i][1], 0);
-        global.matrixChange(1, plot[i][0], plot[i][1] + 1, 0);
-        global.tileChange(0, plot[i][0], plot[i][1], 16);
-      } else if (global.getTile(3, plot[i][0], plot[i][1]) == 'garrison1' ||
-                 global.getTile(3, plot[i][0], plot[i][1]) == 'garrison2' ||
-                 global.getTile(3, plot[i][0], plot[i][1]) == 'garrison3') {
-        global.matrixChange(0, plot[i][0], plot[i][1], 1);
-        global.matrixChange(1, plot[i][0], plot[i][1], 0);
-        global.tileChange(0, plot[i][0], plot[i][1], 15);
-      } else {
-        global.matrixChange(0, plot[i][0], plot[i][1], 1);
-        global.matrixChange(1, plot[i][0], plot[i][1], 0);
-        global.matrixChange(2, plot[i][0], plot[i][1], 0);
-        global.tileChange(0, plot[i][0], plot[i][1], 15);
-        global.tileChange(5, plot[i][0], plot[i][1], 15);
-      }
-    }
-    
-    // Top plot tiles
-    let ii = 12;
-    for (const n of topPlot) {
-      global.tileChange(5, n[0], n[1], String('garrison' + ii));
-      ii++;
-    }
-    
-    // Walls
-    for (const n of walls) {
-      if (global.getTile(5, n[0], n[1]) == 'garrison12') {
-        global.tileChange(4, n[0], n[1], 4);
-        global.matrixChange(1, n[0], n[1], 0);
-        global.matrixChange(2, n[0], n[1], 0);
-      } else {
-        global.tileChange(4, n[0], n[1], 2);
-      }
-    }
-    
     // Create garrison
     const garrisonId = Math.random();
     const entrance = [plot[0][0], plot[0][1]];
@@ -350,19 +322,18 @@ class BuildingConstructor {
       hp: 200
     });
     
-    // Add interior items (like player garrisons)
-    const sa = global.getCoords(walls[0][0], walls[0][1]);
-    const sr1 = global.getCoords(walls[2][0], walls[2][1]);
-    const sr2 = global.getCoords(walls[3][0], walls[3][1]);
-    const fp = global.getCoords(plot[1][0], plot[1][1]);
-    const dk = global.getCoords(plot[8][0], plot[8][1]);
+    // Use unified construction system (same as player builds)
+    global.BuildingConstruction.constructGarrison(garrisonId, plot, topPlot, walls);
     
-    SuitArmor({ x: sa[0], y: sa[1], z: 1, qty: 1, parent: garrisonId });
-    Swordrack({ x: sr1[0], y: sr1[1], z: 1, qty: 1, parent: garrisonId });
-    Swordrack({ x: sr2[0], y: sr2[1], z: 1, qty: 1, parent: garrisonId });
-    Firepit({ x: fp[0], y: fp[1], z: 0, qty: 1, parent: garrisonId });
-    Firepit({ x: fp[0], y: fp[1], z: 1, qty: 1, parent: garrisonId });
-    Desk({ x: dk[0], y: dk[1], z: 1, qty: 1, parent: garrisonId });
+    // Update faction patrol list
+    this.house.updatePatrolList();
+    
+    // Check if building is outside base territory (mark as colony)
+    const building = global.Building.list[garrisonId];
+    if (building && this.house.isInBaseTerritory && !this.house.isInBaseTerritory(building.x, building.y)) {
+      building.isColony = true;
+      console.log(`${this.house.name}: Garrison marked as COLONY (outside base territory)`);
+    }
     
     console.log(`${this.house.name}: Built garrison at [${plot[0]}]`);
     return garrisonId;

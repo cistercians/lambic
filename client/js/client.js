@@ -302,6 +302,17 @@ socket.onmessage = function(event){
       chatMessages.scrollTop = chatMessages.scrollHeight;
     }, 0);
     resetChatHideTimer(); // Show chat and restart hide timer
+  } else if(data.msg == 'npcSpeaking'){
+    // Handle speech bubble for NPC
+    var npc = Player.list[data.id];
+    if(npc){
+      if(data.show){
+        npc.speechBubble = true;
+        npc.speechBubbleTime = Date.now();
+      } else {
+        npc.speechBubble = false;
+      }
+    }
   } else if(data.msg == 'spectatorChatMessage'){
     // Display spectator chat with distinct styling
     chatMessages.innerHTML += '<div style="color: #4CAF50;">' + data.message + '</div>';
@@ -397,19 +408,12 @@ socket.onmessage = function(event){
       dockPopup.style.display = 'block';
       updateDockDisplay();
     }
-  } else if(data.msg == 'boardShip'){
-    // Player is boarding a ship - switch control
-    if(data.newSelfId){
-      selfId = data.newSelfId;
-      console.log('Now controlling ship:', selfId);
-      
-      // Switch BGM to ship playlist and add sea ambience
-      if(typeof bgmPlayer !== 'undefined' && typeof ship_bgm !== 'undefined'){
-        bgmPlayer(ship_bgm);
-      }
-      if(typeof ambPlayer !== 'undefined'){
-        ambPlayer('/client/audio/amb/sea.mp3');
-      }
+  } else if(data.msg == 'openDeposit'){
+    // Open deposit UI with building and resource data
+    currentDepositData = data;
+    if(depositPopup){
+      updateDepositDisplay();
+      depositPopup.style.display = 'block';
     }
   } else if(data.msg == 'disembarkShip'){
     // Player is disembarking - switch control back to player character
@@ -417,12 +421,19 @@ socket.onmessage = function(event){
       selfId = data.newSelfId;
       console.log('Now controlling player:', selfId);
       
+      // CRITICAL: Clear isBoarded flag immediately
+      var player = Player.list[selfId];
+      if(player){
+        player.isBoarded = false;
+        player.boardedShip = null;
+        console.log('🏖️ Player visible again - isBoarded:', player.isBoarded);
+      }
+      
       // Force audio update (using AudioManager if available, fallback to legacy)
       if(typeof audioManager !== 'undefined' && audioManager.forceUpdate){
         audioManager.forceUpdate();
       } else {
         // Legacy fallback
-        var player = Player.list[selfId];
         if(player){
           var building = getBuilding(player.x, player.y);
           if(typeof getBgm !== 'undefined'){
@@ -462,6 +473,83 @@ socket.onmessage = function(event){
         }
       }
       */
+    }
+  } else if(data.msg == 'fishCatch'){
+    // Fish catch notification - show emoji next to player
+    var player = Player.list[selfId];
+    if(player){
+      player.catchEmoji = data.emoji;
+      player.catchEmojiTime = Date.now();
+      
+      // Auto-clear after 1 second
+      setTimeout(function() {
+        if(player && player.catchEmoji === data.emoji) {
+          player.catchEmoji = null;
+        }
+      }, 1000);
+    }
+  } else if(data.msg == 'boardShip'){
+    // Player is boarding a ship as navigator or passenger
+    if(data.isNavigator){
+      // Store original player data before switching control to ship
+      var player = Player.list[selfId];
+      if(player){
+        window.originalPlayerData = {
+          id: selfId,
+          name: player.name,
+          class: player.class
+        };
+        
+        // Hide the player character sprite (they're on the ship now)
+        player.isBoarded = true;
+        player.boardedShip = data.shipId;
+      }
+      
+      // Switch selfId to ship for control
+      selfId = data.shipId;
+      console.log('⚓ Now controlling ship:', data.shipId);
+      console.log('⚓ Ship exists in Player.list?', !!Player.list[data.shipId]);
+      if(Player.list[data.shipId]){
+        console.log('⚓ Ship position:', Player.list[data.shipId].x, Player.list[data.shipId].y);
+      } else {
+        console.log('⚠️ ERROR: Ship entity not found in Player.list! Camera will not follow!');
+      }
+      
+      // Switch BGM to ship playlist and add sea ambience
+      if(typeof bgmPlayer !== 'undefined' && typeof ship_bgm !== 'undefined'){
+        bgmPlayer(ship_bgm);
+      }
+      if(typeof ambPlayer !== 'undefined'){
+        ambPlayer('/client/audio/amb/sea.mp3');
+      }
+    } else {
+      // Just a passenger - mark as boarded but don't switch control
+      var player = Player.list[selfId];
+      if(player){
+        player.isBoarded = true;
+        player.boardedShip = data.shipId;
+      }
+      console.log('🚢 Boarded as passenger');
+    }
+  } else if(data.msg == 'disembarkShip'){
+    // Player is disembarking from ship
+    // Restore original player ID
+    selfId = data.newSelfId;
+    
+    // Mark player as no longer boarded
+    var player = Player.list[selfId];
+    if(player){
+      console.log('🏖️ Clearing isBoarded flag for player:', selfId);
+      player.isBoarded = false;
+      player.boardedShip = null;
+    } else {
+      console.log('⚠️ ERROR: Player entity not found after disembark:', selfId);
+    }
+    
+    // Clear stored player data
+    if(window.originalPlayerData){
+      console.log('🏖️ Disembarked, restored control to:', window.originalPlayerData.name);
+      window.originalPlayerData = null;
     }
   } else if(data.msg == 'tileEdit'){
     if(world[data.l] && world[data.l][data.r]) {
@@ -623,6 +711,10 @@ socket.onmessage = function(event){
           p.breath = pack.breath;
         if(pack.breathMax != undefined)
           p.breathMax = pack.breathMax;
+        if(pack.isBoarded != undefined)
+          p.isBoarded = pack.isBoarded;
+        if(pack.boardedShip != undefined)
+          p.boardedShip = pack.boardedShip;
         if(pack.action !== undefined) {
           if(p.id === selfId && p.action === 'combat') {
             console.log(`Player action update: old=${p.action}, new=${pack.action}, type=${typeof pack.action}`);
@@ -645,6 +737,10 @@ socket.onmessage = function(event){
           p.skulls = pack.skulls;
         if(pack.spriteScale != undefined)
           p.spriteScale = pack.spriteScale;
+        if(pack.isBoarded != undefined)
+          p.isBoarded = pack.isBoarded;
+        if(pack.boardedShip != undefined)
+          p.boardedShip = pack.boardedShip;
 
         // Ghost mode overrides all sprite assignments
         if(p.ghost){
@@ -1757,6 +1853,15 @@ var marketClose = document.getElementById('market-close');
 var marketOrderbook = document.getElementById('market-orderbook');
 var marketPlayerOrdersList = document.getElementById('market-player-orders-list');
 
+// DEPOSIT UI
+var depositPopup = document.getElementById('deposit-popup');
+var depositClose = document.getElementById('deposit-close');
+var depositSliders = document.getElementById('deposit-sliders');
+var depositConfirmBtn = document.getElementById('deposit-confirm-btn');
+var depositCancelBtn = document.getElementById('deposit-cancel-btn');
+var depositTitle = document.getElementById('deposit-title');
+var currentDepositData = null;
+
 // WORLDMAP UI
 var worldmapPopup = document.getElementById('worldmap-popup');
 var worldmapClose = document.getElementById('worldmap-close');
@@ -1886,6 +1991,57 @@ chatForm.onsubmit = function(e){
   chatInput.value = '';
   chatInput.blur(); // Auto-deselect after sending
 };
+
+// Deposit popup event handlers
+if(depositClose){
+  depositClose.onclick = function(){
+    depositPopup.style.display = 'none';
+    currentDepositData = null;
+  };
+}
+
+if(depositCancelBtn){
+  depositCancelBtn.onclick = function(){
+    depositPopup.style.display = 'none';
+    currentDepositData = null;
+  };
+}
+
+if(depositConfirmBtn){
+  depositConfirmBtn.onclick = function(){
+    if(!currentDepositData) return;
+    
+    // Collect values from all sliders
+    var sliders = depositSliders.querySelectorAll('.deposit-slider');
+    var resourcesToDeposit = {};
+    var hasAnyDeposit = false;
+    
+    sliders.forEach(function(slider){
+      var resourceType = slider.dataset.resourceType;
+      var amount = parseInt(slider.value);
+      if(amount > 0){
+        resourcesToDeposit[resourceType] = amount;
+        hasAnyDeposit = true;
+      }
+    });
+    
+    if(!hasAnyDeposit){
+      // No resources selected to deposit
+      return;
+    }
+    
+    // Send depositResources message to server
+    socket.send(JSON.stringify({
+      msg: 'depositResources',
+      buildingId: currentDepositData.buildingId,
+      resources: resourcesToDeposit
+    }));
+    
+    // Close popup
+    depositPopup.style.display = 'none';
+    currentDepositData = null;
+  };
+}
 
 // Inventory button click handler
 if(inventoryButton){
@@ -3056,6 +3212,31 @@ function renderCaveMap(terrainData, mapSize, playerX, playerY, playerTileSize, b
   cavemapCtx.stroke();
 }
 
+// Fishing catch emoji rendering
+// NOTE: Call this in your entity render loop after rendering all entities
+// Example: renderCatchEmojis(ctx);
+function renderCatchEmojis(ctx) {
+  for(var id in Player.list){
+    var player = Player.list[id];
+    if(player && player.catchEmoji && Date.now() - player.catchEmojiTime < 1000){
+      // Calculate screen position (adjust based on your viewport system)
+      var screenX = player.x - (viewport ? viewport.x : 0);
+      var screenY = player.y - (viewport ? viewport.y : 0);
+      
+      // Render emoji above player
+      ctx.save();
+      ctx.font = '32px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#FFFFFF';
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 3;
+      ctx.strokeText(player.catchEmoji, screenX, screenY - 40);
+      ctx.fillText(player.catchEmoji, screenX, screenY - 40);
+      ctx.restore();
+    }
+  }
+}
+
 // Build Menu rendering function
 function renderBuildMenu(buildings, playerWood, playerStone) {
   if (!buildMenuContent) return;
@@ -3215,6 +3396,7 @@ function updateScoreboardUI(factionResources) {
     row.innerHTML = `
       <td class="faction-name">${flagDisplay}${faction.name}</td>
       <td>${faction.grain}</td>
+      <td>${faction.fish || 0}</td>
       <td>${faction.lumber}</td>
       <td>${faction.stone}</td>
       <td>${faction.ironore}</td>
@@ -3345,7 +3527,7 @@ function getBuildingDefinition(buildingType) {
     'cottage': [[0,0],[1,0],[0,-1],[1,-1]], // 2x2
     'tavern': [[1,0],[2,0],[3,0],[0,-1],[1,-1],[2,-1],[3,-1],[4,-1],[0,-2],[1,-2],[2,-2],[3,-2],[4,-2],[0,-3],[1,-3],[2,-3],[3,-3]], // 5x4 irregular
     'tower': [[0,0]], // 1x1
-    'forge': [[0,0],[1,0],[0,-1],[1,-1]], // 2x2
+    'forge': [[0,0],[1,0],[2,0],[0,-1],[1,-1],[2,-1]], // 3x2
     'fort': [[0,0],[1,0],[2,0],[0,-1],[1,-1],[2,-1],[0,-2],[1,-2],[2,-2]], // 3x3
     'outpost': [[0,0],[1,0],[0,-1],[1,-1]], // 2x2
     'monastery': [[0,0],[1,0],[2,0],[3,0],[0,-1],[1,-1],[2,-1],[3,-1],[0,-2],[1,-2],[2,-2],[3,-2],[0,-3],[1,-3],[2,-3],[3,-3]], // 4x4
@@ -3395,6 +3577,96 @@ function getItemEmoji(itemType){
     bread: '🍞', fish: '🐟', torch: '🔦', arrows: '🏹', beer: '🍺'
   };
   return emojis[itemType] || '📦';
+}
+
+function updateDepositDisplay(){
+  if(!currentDepositData) return;
+  
+  var buildingType = currentDepositData.buildingType;
+  var resources = currentDepositData.resources;
+  
+  // Set title based on building type
+  var titleMap = {
+    'lumbermill': '🪓 Deposit Wood',
+    'mill': '🌾 Deposit Grain', 
+    'mine': '⛏️ Deposit Ore & Stone'
+  };
+  depositTitle.textContent = titleMap[buildingType] || 'Deposit Resources';
+  
+  // Clear previous sliders
+  depositSliders.innerHTML = '';
+  
+  // Generate sliders based on building type and available resources
+  var resourceOrder = [];
+  if(buildingType === 'lumbermill'){
+    if(resources.wood > 0) resourceOrder.push('wood');
+  } else if(buildingType === 'mill'){
+    if(resources.grain > 0) resourceOrder.push('grain');
+  } else if(buildingType === 'mine'){
+    // Mines accept multiple resource types
+    if(resources.stone > 0) resourceOrder.push('stone');
+    if(resources.ironore > 0) resourceOrder.push('ironore');
+    if(resources.silverore > 0) resourceOrder.push('silverore');
+    if(resources.goldore > 0) resourceOrder.push('goldore');
+    if(resources.diamond > 0) resourceOrder.push('diamond');
+  }
+  
+  // If no resources available, this shouldn't happen (server checks first)
+  if(resourceOrder.length === 0){
+    depositSliders.innerHTML = '<p style="color: #aaa; text-align: center;">No resources to deposit</p>';
+    depositConfirmBtn.disabled = true;
+    return;
+  }
+  
+  depositConfirmBtn.disabled = false;
+  
+  // Create a slider for each resource
+  resourceOrder.forEach(function(resourceType){
+    var maxAmount = resources[resourceType];
+    var displayName = resourceType.charAt(0).toUpperCase() + resourceType.slice(1);
+    if(resourceType === 'ironore') displayName = 'Iron Ore';
+    if(resourceType === 'silverore') displayName = 'Silver Ore';
+    if(resourceType === 'goldore') displayName = 'Gold Ore';
+    
+    var container = document.createElement('div');
+    container.className = 'deposit-slider-container';
+    container.dataset.resourceType = resourceType;
+    
+    var label = document.createElement('div');
+    label.className = 'deposit-slider-label';
+    
+    var nameSpan = document.createElement('span');
+    nameSpan.className = 'deposit-slider-name';
+    nameSpan.textContent = displayName;
+    
+    var valueSpan = document.createElement('span');
+    valueSpan.className = 'deposit-slider-value';
+    valueSpan.textContent = maxAmount + ' / ' + maxAmount;
+    valueSpan.dataset.resourceType = resourceType;
+    
+    label.appendChild(nameSpan);
+    label.appendChild(valueSpan);
+    
+    var slider = document.createElement('input');
+    slider.type = 'range';
+    slider.className = 'deposit-slider';
+    slider.min = 0;
+    slider.max = maxAmount;
+    slider.value = maxAmount; // Default to max (all resources)
+    slider.dataset.resourceType = resourceType;
+    
+    // Update value display when slider changes
+    slider.addEventListener('input', function(){
+      var valueDisplay = depositSliders.querySelector('.deposit-slider-value[data-resource-type="' + resourceType + '"]');
+      if(valueDisplay){
+        valueDisplay.textContent = slider.value + ' / ' + maxAmount;
+      }
+    });
+    
+    container.appendChild(label);
+    container.appendChild(slider);
+    depositSliders.appendChild(container);
+  });
 }
 
 function updateMarketDisplay(){
@@ -3673,6 +3945,17 @@ document.addEventListener('keydown', function(e){
     e.preventDefault();
     toggleResourceScoreboard();
     return;
+  }
+  
+  // F key - Process fish catch
+  if(e.key === 'f' || e.key === 'F'){
+    // Only if not typing in chat
+    if(document.activeElement !== chatInput){
+      e.preventDefault();
+      // Send fish catch attempt to server
+      socket.send(JSON.stringify({msg: 'processFishCatch'}));
+      return;
+    }
   }
   
   // Close popups on ESC
@@ -4081,6 +4364,8 @@ var Player = function(initPack){
   self.kills = initPack.kills || 0;
   self.skulls = initPack.skulls || '';
   self.spriteScale = initPack.spriteScale || 1.0;
+  self.isBoarded = initPack.isBoarded || false;
+  self.boardedShip = initPack.boardedShip || null;
 
   // Helper function to check if an image is loaded and valid
   function isImageValid(img) {
@@ -4109,6 +4394,11 @@ var Player = function(initPack){
     // Phase 2: Ghost Invisibility - Don't render other players' ghosts
     if(self.ghost && self.id !== selfId){
       return; // Other players' ghosts are invisible
+    }
+    
+    // Don't render players who are boarded on ships
+    if(self.isBoarded){
+      return;
     }
     
     var stealth = stealthCheck(self.id);
@@ -4273,6 +4563,13 @@ var Player = function(initPack){
         ctx.fillText('👁️', barX + 80, barY - 20);
       } else if(self.action == 'combat'){
         ctx.fillText('⚔️', barX + 80, barY - 20)
+      }
+      
+      // Speech bubble for NPCs
+      if(self.speechBubble){
+        ctx.font = '20px minion web';
+        ctx.fillStyle = 'white';
+        ctx.fillText('💬', barX + 80, barY - 40);
       }
     }
 

@@ -332,6 +332,11 @@ class CombatSystem {
     // Apply damage
     target.hp -= actualDamage;
     
+    // Record combat event in social system (for NPC memories)
+    if (global.socialSystem && target.type === 'npc') {
+      global.socialSystem.recordCombatEvent(target.id, entity.id);
+    }
+    
     // Update attack timing
     state.lastAttackTime = now;
     state.attackCooldown = this.config.attackCooldown;

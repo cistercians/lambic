@@ -69,7 +69,6 @@ When a player picks up a "gold" item in the game:
 
 ### Player-to-Player Trading
 
-Players can trade gold using `/sendgold <playerName> <amount>`:
 1. Transaction is created and signed with sender's private key
 2. Blockchain validates sender has sufficient balance
 3. Transaction is added to pending pool and broadcast

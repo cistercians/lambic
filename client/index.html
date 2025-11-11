@@ -643,6 +643,128 @@
     background-color: rgba(220, 120, 120, 0.7);
   }
 
+  /* Deposit Popup */
+  #deposit-popup {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 500px;
+    max-width: 90%;
+    background-color: rgba(0, 0, 0, 0.9);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 10px;
+    padding: 20px;
+    z-index: 2000;
+    display: none;
+    color: white;
+  }
+
+  #deposit-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+  }
+
+  #deposit-close {
+    cursor: pointer;
+    font-size: 24px;
+    color: rgba(255, 255, 255, 0.7);
+    transition: color 0.2s;
+  }
+
+  #deposit-close:hover {
+    color: #ff6666;
+  }
+
+  #deposit-sliders {
+    margin-bottom: 20px;
+  }
+
+  .deposit-slider-container {
+    margin-bottom: 20px;
+  }
+
+  .deposit-slider-label {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 14px;
+  }
+
+  .deposit-slider-name {
+    font-weight: bold;
+    color: #ffd700;
+  }
+
+  .deposit-slider-value {
+    color: #aaa;
+  }
+
+  .deposit-slider {
+    width: 100%;
+    height: 8px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.2);
+    outline: none;
+    -webkit-appearance: none;
+  }
+
+  .deposit-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #4CAF50;
+    cursor: pointer;
+  }
+
+  .deposit-slider::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #4CAF50;
+    cursor: pointer;
+    border: none;
+  }
+
+  #deposit-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+
+  #deposit-buttons button {
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+
+  #deposit-confirm-btn {
+    background-color: rgba(100, 200, 100, 0.5);
+    border: 1px solid rgba(150, 250, 150, 0.5);
+    color: white;
+  }
+
+  #deposit-confirm-btn:hover {
+    background-color: rgba(120, 220, 120, 0.7);
+  }
+
+  #deposit-cancel-btn {
+    background-color: rgba(200, 100, 100, 0.5);
+    border: 1px solid rgba(250, 150, 150, 0.5);
+    color: white;
+  }
+
+  #deposit-cancel-btn:hover {
+    background-color: rgba(220, 120, 120, 0.7);
+  }
+
   /* Dock Popup */
   #dock-popup {
     position: fixed;
@@ -1368,6 +1490,7 @@
             <select id="market-item-select">
               <option value="">Select Item...</option>
               <option value="grain">🌾 Grain</option>
+              <option value="fish">🐟 Fish</option>
               <option value="wood">🪵 Wood</option>
               <option value="stone">🪨 Stone</option>
               <option value="ironore">⛏️ Iron Ore</option>
@@ -1393,6 +1516,21 @@
             <div id="market-player-orders-list"></div>
           </div>
         </div>
+      </div>
+    </div>
+    
+    <!-- Deposit Popup (hidden) -->
+    <div id="deposit-popup" style="display: none;">
+      <div id="deposit-header">
+        <h3 style="margin: 0;" id="deposit-title">Deposit Resources</h3>
+        <div id="deposit-close">✕</div>
+      </div>
+      <div id="deposit-sliders">
+        <!-- Sliders will be dynamically generated here -->
+      </div>
+      <div id="deposit-buttons">
+        <button id="deposit-cancel-btn">Cancel</button>
+        <button id="deposit-confirm-btn">Deposit</button>
       </div>
     </div>
     
@@ -1478,6 +1616,7 @@
           <tr>
             <th>Faction</th>
             <th>🌾 Grain</th>
+            <th>🐟 Fish</th>
             <th>🪵 Lumber</th>
             <th>🪨 Stone</th>
             <th>⛏️ Iron Ore</th>

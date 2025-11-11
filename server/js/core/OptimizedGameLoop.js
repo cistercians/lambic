@@ -90,6 +90,11 @@ class OptimizedGameLoop {
       this.gameState.updateTime();
     }
     
+    // Update social system (check for spontaneous NPC conversations)
+    if (global.socialSystem) {
+      global.socialSystem.update();
+    }
+    
     // Send updates to clients
     this.sendUpdates();
     
