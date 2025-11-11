@@ -494,6 +494,7 @@ socket.onmessage = function(event){
       // Store original player data before switching control to ship
       var player = Player.list[selfId];
       if(player){
+        window.originalPlayerId = selfId; // Keep reference to player character for UI
         window.originalPlayerData = {
           id: selfId,
           name: player.name,
@@ -550,6 +551,7 @@ socket.onmessage = function(event){
     if(window.originalPlayerData){
       console.log('🏖️ Disembarked, restored control to:', window.originalPlayerData.name);
       window.originalPlayerData = null;
+      window.originalPlayerId = null;
     }
   } else if(data.msg == 'tileEdit'){
     if(world[data.l] && world[data.l][data.r]) {
@@ -1975,8 +1977,9 @@ chatForm.onsubmit = function(e){
       message:chatInput.value.slice(chatInput.value.indexOf(' ') + 1)
     }));
   } else { // chat
-    // Check if player exists before sending chat message
-    if(!selfId || !Player.list[selfId]){
+    // Use player character for chat, even if controlling ship
+    var playerId = getPlayerIdForUI();
+    if(!playerId || !Player.list[playerId]){
       console.log('Cannot send chat: no valid player');
       chatInput.value = '';
       chatInput.blur();
@@ -1984,7 +1987,7 @@ chatForm.onsubmit = function(e){
     }
     socket.send(JSON.stringify({
       msg:'msgToServer',
-      name:Player.list[selfId].name,
+      name:Player.list[playerId].name,
       message:chatInput.value
     }));
   }
@@ -2484,9 +2487,10 @@ function getRarityBorderColor(rank){
 
 // Inventory display function - uses same rendering as dropped items
 function updateInventoryDisplay(){
-  if(!Player.list[selfId]) return;
+  var playerId = getPlayerIdForUI();
+  if(!Player.list[playerId]) return;
   
-  var player = Player.list[selfId];
+  var player = Player.list[playerId];
   inventoryGrid.innerHTML = '';
   
   // Display all inventory items - comprehensive list
@@ -2764,9 +2768,10 @@ if(dropConfirmBtn){
 
 // Character display function - full update (call when opening sheet or after equipment changes)
 function updateCharacterDisplay(fullUpdate){
-  if(!Player.list[selfId]) return;
+  var playerId = getPlayerIdForUI();
+  if(!Player.list[playerId]) return;
   
-  var player = Player.list[selfId];
+  var player = Player.list[playerId];
   
   // Always update HP/Spirit bars (real-time)
   updateCharacterBars(player);
@@ -4189,6 +4194,15 @@ setInterval(function(){
 var ctx = document.getElementById('ctx').getContext('2d');
 var lighting = document.getElementById('lighting').getContext('2d');
 ctx.font = '30px Arial';
+
+// Helper function to get player ID for UI (inventory, character sheet, chat)
+// Returns actual player ID even when controlling a ship
+var getPlayerIdForUI = function() {
+  if(window.originalPlayerId && Player.list[window.originalPlayerId]){
+    return window.originalPlayerId;
+  }
+  return selfId;
+};
 
 // Helper function to get camera position for rendering
 var getCameraPosition = function() {
