@@ -3738,9 +3738,9 @@ Character = function(param){
     }
     
     // ===== NEW: Using prototype methods =====
-    this.updateStealthMechanics();
-    this.updateTorchBearer();
-    this.updateCooldowns();
+    Character.prototype.updateStealthMechanics.call(this);
+    Character.prototype.updateTorchBearer.call(this);
+    Character.prototype.updateCooldowns.call(this);
     
     // ===== CORE SETUP (lines 3725-3727) =====
     // Get current tile location and building
@@ -5369,7 +5369,7 @@ Character = function(param){
     }
     
     // ===== NEW: Using prototype method =====
-    this.updateRegeneration();
+    Character.prototype.updateRegeneration.call(this);
     
     // OLD: ===== PASSIVE REGENERATION (lines 5366-5376) =====
     // OLD: HP and Spirit regeneration for all characters
@@ -5962,7 +5962,7 @@ Deer = function(param){
     }
     
     // ===== NEW: Using prototype methods =====
-    this.updateCooldowns(); // Includes pathCooldown and idleTime
+    Character.prototype.updateCooldowns.call(this); // Includes pathCooldown and idleTime
     
     // OLD: ===== PATHFINDING COOLDOWN (lines 5940-5943) =====
     // OLD: Decrement pathfinding cooldown

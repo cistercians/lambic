@@ -2486,8 +2486,8 @@ const Player = function(param) {
     }
     
     // ===== NEW: Using prototype methods =====
-    this.updateCooldowns(); // Handles all cooldown timers
-    this.updateRegeneration(); // Handles HP/Spirit regen
+    Character.prototype.updateCooldowns.call(this); // Handles all cooldown timers
+    Character.prototype.updateRegeneration.call(this); // Handles HP/Spirit regen
     
     self.updateSpd();
     self.zoneCheck();
