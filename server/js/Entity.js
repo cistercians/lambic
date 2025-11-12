@@ -6050,6 +6050,114 @@ Deer = function(param){
   return self;
 }
 
+// ============================================================================
+// CHARACTER PROTOTYPE METHODS - PHASE 2: SIMPLE COMMON LOGIC
+// ============================================================================
+// These methods extract simple, isolated logic that's common across all characters.
+// They are added alongside existing update functions (not replacing them yet).
+// Will be integrated into existing updates in Phase 3.
+// ============================================================================
+
+/**
+ * Update all cooldown timers
+ * Handles: actionCooldown, attackCooldown, idleTime, mineExitCooldown, pathCooldown
+ * Used by: All character types
+ */
+Character.prototype.updateCooldowns = function() {
+  // Idle time countdown (used by NPCs for random wandering timing)
+  if(this.idleTime > 0){
+    this.idleTime--;
+  }
+  
+  // Attack cooldown (prevents rapid-fire attacks)
+  if(this.attackCooldown > 0){
+    this.attackCooldown--;
+  }
+  
+  // Pathfinding cooldown (prevents excessive pathfinding calculations)
+  if(this.pathCooldown && this.pathCooldown > 0){
+    this.pathCooldown--;
+  }
+  
+  // Mine exit cooldown for serfs (prevents immediate re-entry to mines)
+  if(this.mineExitCooldown && this.mineExitCooldown > 0){
+    this.mineExitCooldown--;
+  }
+  
+  // Action cooldown (generic action throttling - used by Player.update)
+  if(this.actionCooldown > 0){
+    this.actionCooldown--;
+  }
+  
+  // Mount cooldown (used by Player.update)
+  if(this.mountCooldown > 0){
+    this.mountCooldown--;
+  }
+  
+  // Switch cooldown (used by Player.update)
+  if(this.switchCooldown > 0){
+    this.switchCooldown--;
+  }
+  
+  // Board cooldown (used by Player.update)
+  if(this.boardCooldown > 0){
+    this.boardCooldown--;
+  }
+};
+
+/**
+ * Passive HP and Spirit regeneration
+ * Regenerates health and spirit for non-ghost characters
+ * Used by: All character types
+ */
+Character.prototype.updateRegeneration = function() {
+  // Passive HP Regeneration for all characters (NPCs and Players)
+  if(!this.ghost && this.hp < this.hpMax){
+    // Regenerate HP at ~0.0042 per frame = 0.25 HP/second at 60fps
+    this.hp = Math.min(this.hp + 0.0042, this.hpMax);
+  }
+  
+  // Passive Spirit Regeneration (if character has spirit)
+  if(!this.ghost && this.spirit && this.spiritMax && this.spirit < this.spiritMax){
+    // Regenerate Spirit at ~0.0017 per frame = 0.1 Spirit/second at 60fps
+    this.spirit = Math.min(this.spirit + 0.0017, this.spiritMax);
+  }
+};
+
+/**
+ * Stealth mechanics: drag and reveal checks
+ * Stealthed characters move slower and can be revealed
+ * Used by: Characters with stealth capability
+ */
+Character.prototype.updateStealthMechanics = function() {
+  if(this.stealthed){
+    this.drag = 0.5; // Reduced speed while stealthed
+    this.revealCheck(); // Check if stealth should be broken
+  } else {
+    this.drag = 1; // Normal speed
+  }
+};
+
+/**
+ * Torch bearer auto-lighting
+ * Automatically lights torch in dark areas (night, caves, cellars)
+ * Used by: Characters with torchBearer flag
+ */
+Character.prototype.updateTorchBearer = function() {
+  if(this.torchBearer){
+    if(!this.hasTorch){
+      // Auto-light torch if in dark area: overworld at night, caves (z=-1), or cellars (z=-2)
+      if((this.z == 0 && nightfall) || this.z == -1 || this.z == -2){
+        this.lightTorch(Math.random());
+      }
+    }
+  }
+};
+
+// ============================================================================
+// END PROTOTYPE METHODS - PHASE 2
+// ============================================================================
+
 Boar = function(param){
   var self = Character(param);
   self.class = 'Boar';
