@@ -78,12 +78,10 @@ class PerformanceHUD {
   }
   
   startTracking() {
-    if (!this.enabled || this._frameTrackingActive) return;
-    
+    // No longer starts separate RAF loop - hooked into main game loop instead
+    if (!this.enabled) return;
     this._frameTrackingActive = true;
-    // Track frame times
-    this.lastFrameTime = performance.now();
-    requestAnimationFrame(this.trackFrame.bind(this));
+    this.lastFPSUpdate = performance.now();
   }
   
   stopTracking() {
@@ -91,14 +89,11 @@ class PerformanceHUD {
     // Cleanup handled by removing container
   }
   
-  trackFrame(currentTime) {
-    if (!this.enabled || !this._frameTrackingActive) {
-      this._frameTrackingActive = false;
-      return;
-    }
+  // Called from main game loop to track actual render performance
+  recordFrame(deltaTime) {
+    if (!this.enabled || !this._frameTrackingActive) return;
     
-    const deltaTime = currentTime - this.lastFrameTime;
-    this.lastFrameTime = currentTime;
+    const currentTime = performance.now();
     
     this.frameTimeHistory.push(deltaTime);
     if (this.frameTimeHistory.length > this.maxHistorySize) {
@@ -115,8 +110,6 @@ class PerformanceHUD {
       this.lastFPSUpdate = currentTime;
       this._scheduleDisplay();
     }
-    
-    requestAnimationFrame(this.trackFrame.bind(this));
   }
   
   updateDisplay() {

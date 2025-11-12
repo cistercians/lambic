@@ -4,9 +4,143 @@ var world = [];
 var tileSize = 0;
 var mapSize = 0;
 
+// Sprite lookup table for O(1) performance (instead of 125+ if-else comparisons)
+var spriteMap = null;
+
+function getSpriteForClass(entityClass, isGhost) {
+  // Safety check: Return default if sprites not loaded yet
+  if (typeof maleserf === 'undefined') {
+    console.warn('getSpriteForClass called before sprites loaded, returning null');
+    return null;
+  }
+  
+  // Lazy initialize sprite map once
+  if (!spriteMap) {
+    // Debug: Check if sprite variables are defined
+    if (typeof falcon === 'undefined') {
+      console.error('CRITICAL: falcon sprite not defined when getSpriteForClass called!');
+    }
+    
+    // Build sprite map using safe references (defaults to maleserf if undefined)
+    spriteMap = {
+      'ghost': typeof ghost !== 'undefined' ? ghost : maleserf,
+      'Sheep': typeof sheep !== 'undefined' ? sheep : maleserf,
+      'Deer': typeof deer !== 'undefined' ? deer : maleserf,
+      'Boar': typeof boar !== 'undefined' ? boar : maleserf,
+      'Wolf': typeof wolf !== 'undefined' ? wolf : maleserf,
+      'Falcon': typeof falcon !== 'undefined' ? falcon : maleserf,
+      'FishingShip': typeof fishingship !== 'undefined' ? fishingship : maleserf,
+      'CargoShip': typeof cargoship !== 'undefined' ? cargoship : maleserf,
+      'Serf': maleserf,
+      'SerfM': maleserf,
+      'SerfF': typeof femaleserf !== 'undefined' ? femaleserf : maleserf,
+      'Rogue': typeof rogue !== 'undefined' ? rogue : maleserf,
+      'Trapper': typeof rogue !== 'undefined' ? rogue : maleserf,
+      'Cutthroat': typeof rogue !== 'undefined' ? rogue : maleserf,
+      'Hunter': typeof hunter !== 'undefined' ? hunter : maleserf,
+      'Outlaw': typeof hunter !== 'undefined' ? hunter : maleserf,
+      'Scout': typeof scout !== 'undefined' ? scout : maleserf,
+      'Ranger': typeof ranger !== 'undefined' ? ranger : maleserf,
+      'Warden': typeof ranger !== 'undefined' ? ranger : maleserf,
+      'Swordsman': typeof swordsman !== 'undefined' ? swordsman : maleserf,
+      'Archer': typeof archer !== 'undefined' ? archer : maleserf,
+      'Horseman': typeof horseman !== 'undefined' ? horseman : maleserf,
+      'MountedArcher': typeof mountedarcher !== 'undefined' ? mountedarcher : maleserf,
+      'Hero': typeof hero !== 'undefined' ? hero : maleserf,
+      'Templar': typeof templar !== 'undefined' ? templar : maleserf,
+      'Hospitaller': typeof templar !== 'undefined' ? templar : maleserf,
+      'Hochmeister': typeof templar !== 'undefined' ? templar : maleserf,
+      'Cavalry': typeof cavalry !== 'undefined' ? cavalry : maleserf,
+      'Knight': typeof knight !== 'undefined' ? knight : maleserf,
+      'Lancer': typeof lancer !== 'undefined' ? lancer : maleserf,
+      'Charlemagne': typeof lancer !== 'undefined' ? lancer : maleserf,
+      'Crusader': typeof crusader !== 'undefined' ? crusader : maleserf,
+      'Priest': typeof monk !== 'undefined' ? monk : maleserf,
+      'Monk': typeof monk !== 'undefined' ? monk : maleserf,
+      'Prior': typeof monk !== 'undefined' ? monk : maleserf,
+      'Mage': typeof mage !== 'undefined' ? mage : maleserf,
+      'Acolyte': typeof mage !== 'undefined' ? mage : maleserf,
+      'Warlock': typeof warlock !== 'undefined' ? warlock : maleserf,
+      'Brother': typeof warlock !== 'undefined' ? warlock : maleserf,
+      'King': typeof king !== 'undefined' ? king : maleserf,
+      'Alaric': typeof king !== 'undefined' ? king : maleserf,
+      'Innkeeper': typeof innkeeper !== 'undefined' ? innkeeper : maleserf,
+      'Shipwright': typeof innkeeper !== 'undefined' ? innkeeper : maleserf,
+      'Bishop': typeof bishop !== 'undefined' ? bishop : maleserf,
+      'Friar': typeof friar !== 'undefined' ? friar : maleserf,
+      'Footsoldier': typeof footsoldier !== 'undefined' ? footsoldier : maleserf,
+      'Skirmisher': typeof skirmisher !== 'undefined' ? skirmisher : maleserf,
+      'Cavalier': typeof cavalier !== 'undefined' ? cavalier : maleserf,
+      'General': typeof general !== 'undefined' ? general : maleserf,
+      'ImperialKnight': typeof teutonicknight !== 'undefined' ? teutonicknight : maleserf,
+      'TeutonicKnight': typeof teutonicknight !== 'undefined' ? teutonicknight : maleserf,
+      'Trebuchet': typeof trebuchet !== 'undefined' ? trebuchet : maleserf,
+      'Oathkeeper': typeof archbishop !== 'undefined' ? archbishop : maleserf,
+      'Archbishop': typeof archbishop !== 'undefined' ? archbishop : maleserf,
+      'Apparition': typeof apparition !== 'undefined' ? apparition : maleserf,
+      'Goth': typeof goth !== 'undefined' ? goth : maleserf,
+      'NorseSword': typeof goth !== 'undefined' ? goth : maleserf,
+      'HighPriestess': typeof highpriestess !== 'undefined' ? highpriestess : maleserf,
+      'Cataphract': typeof marauder !== 'undefined' ? marauder : maleserf,
+      'Carolingian': typeof marauder !== 'undefined' ? marauder : maleserf,
+      'Marauder': typeof marauder !== 'undefined' ? marauder : maleserf,
+      'NorseSpear': typeof norsespear !== 'undefined' ? norsespear : maleserf,
+      'seidr': typeof seidr !== 'undefined' ? seidr : maleserf,
+      'Huskarl': typeof huskarl !== 'undefined' ? huskarl : maleserf,
+      'FrankSword': typeof franksword !== 'undefined' ? franksword : maleserf,
+      'FrankSpear': typeof frankspear !== 'undefined' ? frankspear : maleserf,
+      'FrankBow': typeof frankbow !== 'undefined' ? frankbow : maleserf,
+      'Mangonel': typeof mangonel !== 'undefined' ? mangonel : maleserf,
+      'Malvoisin': typeof malvoisin !== 'undefined' ? malvoisin : maleserf,
+      'CeltAxe': typeof celtaxe !== 'undefined' ? celtaxe : maleserf,
+      'CeltSpear': typeof celtspear !== 'undefined' ? celtspear : maleserf,
+      'Headhunter': typeof headhunter !== 'undefined' ? headhunter : maleserf,
+      'Druid': typeof druid !== 'undefined' ? druid : maleserf,
+      'Morrigan': typeof morrigan !== 'undefined' ? morrigan : maleserf,
+      'Gwenllian': typeof gwenllian !== 'undefined' ? gwenllian : maleserf,
+      'TeutonPike': typeof teutonpike !== 'undefined' ? teutonpike : maleserf,
+      'TeutonBow': typeof teutonbow !== 'undefined' ? teutonbow : maleserf,
+      'Poacher': typeof poacher !== 'undefined' ? poacher : maleserf,
+      'Strongman': typeof strongman !== 'undefined' ? strongman : maleserf,
+      'Condottiere': typeof condottiere !== 'undefined' ? condottiere : maleserf
+    };
+  }
+  
+  // Ghost mode overrides all (safe check)
+  if (isGhost && typeof ghost !== 'undefined') return ghost;
+  if (isGhost) return maleserf; // Fallback if ghost sprite not loaded
+  
+  // Lookup sprite by class (O(1))
+  var sprite = spriteMap[entityClass];
+  if (!sprite) {
+    // Debug: Log unknown classes
+    if (entityClass && entityClass !== 'Serf' && entityClass !== 'SerfM') {
+      console.warn('Unknown entity class:', entityClass, '- using maleserf default');
+    }
+    return maleserf;
+  }
+  return sprite;
+}
+
 // Ship wake tracking system
 var shipWakes = {
+  ships: new Set(), // Track ship IDs for efficient lookup
   fading: {}, // {x,y: {startTime: timestamp, alpha: 1}} - tiles fading out
+  
+  // Register a ship for wake tracking
+  addShip: function(shipId) {
+    this.ships.add(shipId);
+  },
+  
+  // Unregister a ship
+  removeShip: function(shipId) {
+    this.ships.delete(shipId);
+  },
+  
+  // Check if entity is a ship type
+  isShipClass: function(entityClass) {
+    return entityClass === 'FishingShip' || entityClass === 'CargoShip' || entityClass === 'ship';
+  },
   
   // Update wakes based on current ship positions
   update: function() {
@@ -14,23 +148,32 @@ var shipWakes = {
     const fadeDuration = 5000; // 5 seconds
     const currentShipTiles = {};
     
-    // Find all ship positions (all ship types)
-    for(const id in Player.list) {
-      const entity = Player.list[id];
-      // Check for all ship types (FishingShip, CargoShip, etc.)
-      if(entity && (entity.class === 'FishingShip' || entity.class === 'CargoShip' || entity.type === 'ship')) {
-        const tileX = Math.floor(entity.x / tileSize);
-        const tileY = Math.floor(entity.y / tileSize);
-        const key = tileX + ',' + tileY;
-        currentShipTiles[key] = true;
-        
-        // If ship is on a tile that's not already fading, start fading it
-        if(!this.fading[key]) {
-          this.fading[key] = {
-            startTime: now,
-            alpha: 1.0
-          };
-        }
+    // Only iterate tracked ships instead of all players (MAJOR OPTIMIZATION)
+    for(const shipId of this.ships) {
+      const entity = Player.list[shipId];
+      
+      // Remove ship from Set if it no longer exists
+      if(!entity) {
+        this.ships.delete(shipId);
+        continue;
+      }
+      
+      // Skip if not visible (optimization)
+      if(typeof checkInView === 'function' && !checkInView(entity.x, entity.y, entity.z)) {
+        continue;
+      }
+      
+      const tileX = Math.floor(entity.x / tileSize);
+      const tileY = Math.floor(entity.y / tileSize);
+      const key = tileX + ',' + tileY;
+      currentShipTiles[key] = true;
+      
+      // If ship is on a tile that's not already fading, start fading it
+      if(!this.fading[key]) {
+        this.fading[key] = {
+          startTime: now,
+          alpha: 1.0
+        };
       }
     }
     
@@ -164,10 +307,40 @@ socket.onmessage = function(event){
     
     // Load entities for preview
     if(data.pack.player) {
+      console.log('Preview: Loading', data.pack.player.length, 'player entities...');
+      var previewLoadedCount = 0;
+      var previewErrorCount = 0;
+      
       for(i in data.pack.player){
-        new Player(data.pack.player[i]);
+        try {
+          var playerData = data.pack.player[i];
+          new Player(playerData);
+          
+          // Fix sprite immediately after creation (Player constructor defaults to maleserf)
+          var p = Player.list[playerData.id];
+          if(p) {
+            p.sprite = getSpriteForClass(p.class, p.ghost);
+            previewLoadedCount++;
+            
+            // Debug: Log falcon sprite assignment
+            if(p.class === 'Falcon') {
+              console.log('Preview: Falcon loaded:', p.id, 'sprite assigned:', p.sprite === falcon ? 'falcon sprite ✓' : 'WRONG SPRITE ✗');
+            }
+          } else {
+            console.error('Preview: Failed to create player entity:', playerData.id, playerData.class);
+            previewErrorCount++;
+          }
+          
+          // Register ships for wake tracking
+          if(shipWakes.isShipClass(playerData.class)) {
+            shipWakes.addShip(playerData.id);
+          }
+        } catch(e) {
+          console.error('Preview: Error loading entity:', e);
+          previewErrorCount++;
+        }
       }
-      console.log('Loaded preview players, total in list:', Object.keys(Player.list).length);
+      console.log('Preview: Loaded', previewLoadedCount, 'players,', previewErrorCount, 'errors, total in list:', Object.keys(Player.list).length);
     }
     if(data.pack.item) {
       for(i in data.pack.item){
@@ -232,8 +405,8 @@ socket.onmessage = function(event){
       // Start initial chat hide timer
       resetChatHideTimer();
       
-      var b = getBuilding(Player.list[selfId].x,Player.list[selfId].y);
-      getBgm(Player.list[selfId].x,Player.list[selfId].y,Player.list[selfId].z,b);
+      // Don't try to access player entity yet - it's created when 'init' message arrives
+      // Music will be set properly in init handler
     } else {
       alert('Sign-in failed.')
     }
@@ -610,10 +783,40 @@ socket.onmessage = function(event){
     }
     
     // { player : [{id:123,number:'1',x:0,y:0},{id:1,x:0,y:0}] arrow : []}
+    console.log('Init: Loading', data.pack.player ? data.pack.player.length : 0, 'player entities...');
+    var initLoadedCount = 0;
+    var initErrorCount = 0;
+    
     for(i in data.pack.player){
-      new Player(data.pack.player[i]);
+      try {
+        var playerData = data.pack.player[i];
+        new Player(playerData);
+        
+        // Fix sprite immediately after creation (Player constructor defaults to maleserf)
+        var p = Player.list[playerData.id];
+        if(p) {
+          p.sprite = getSpriteForClass(p.class, p.ghost);
+          initLoadedCount++;
+          
+          // Debug: Log falcon sprite assignment
+          if(p.class === 'Falcon') {
+            console.log('Init: Falcon loaded:', p.id, 'at', p.x, p.y, 'sprite:', p.sprite === falcon ? 'falcon sprite ✓' : 'WRONG SPRITE ✗');
+          }
+        } else {
+          console.error('Init: Failed to create player entity:', playerData.id, playerData.class);
+          initErrorCount++;
+        }
+        
+        // Register ships for wake tracking
+        if(shipWakes.isShipClass(playerData.class)) {
+          shipWakes.addShip(playerData.id);
+        }
+      } catch(e) {
+        console.error('Init: Error loading entity:', e);
+        initErrorCount++;
+      }
     }
-    console.log('Players loaded into Player.list:', Object.keys(Player.list).length);
+    console.log('Init: Loaded', initLoadedCount, 'players,', initErrorCount, 'errors, total in Player.list:', Object.keys(Player.list).length);
     for(i in data.pack.arrow){
       new Arrow(data.pack.arrow[i]);
       console.log('Client: Arrow created from init pack:', data.pack.arrow[i].id, 'angle:', data.pack.arrow[i].angle);
@@ -650,91 +853,117 @@ socket.onmessage = function(event){
       }, 500);
     }
   } else if(data.msg == 'update'){
+    // Track update packets for performance HUD
+    if (window.performanceHUD && window.performanceHUD.enabled) {
+      window.performanceHUD.recordUpdatePacket();
+    }
+    
     // { player : [{id:123,number:'1',x:0,y:0},{id:1,x:0,y:0}] arrow : []}
     for(var i = 0 ; i < data.pack.player.length; i++){
       var pack = data.pack.player[i];
       var p = Player.list[pack.id];
       if(p){
-        if(pack.name != undefined)
-          p.name = pack.name;
-        if(pack.house != undefined)
-          p.house = pack.house;
-        if(pack.kingdom != undefined)
-          p.kingdom = pack.kingdom;
-        if(pack.x != undefined)
-          p.x = pack.x;
-        if(pack.y != undefined)
-          p.y = pack.y;
-        if(pack.z != undefined)
-          p.z = pack.z;
-        if(pack.class != undefined)
+        // Track last non-visual update time for throttling
+        if (!p._lastNonVisualUpdate) {
+          p._lastNonVisualUpdate = 0;
+        }
+        
+        // Always update position and visual state (high frequency)
+        if(pack.x != undefined) p.x = pack.x;
+        if(pack.y != undefined) p.y = pack.y;
+        if(pack.z != undefined) p.z = pack.z;
+        if(pack.facing != undefined) p.facing = pack.facing;
+        if(pack.angle != undefined) p.angle = pack.angle;
+        
+        // Update movement state (visual)
+        if(pack.pressingUp != undefined) p.pressingUp = pack.pressingUp;
+        if(pack.pressingDown != undefined) p.pressingDown = pack.pressingDown;
+        if(pack.pressingLeft != undefined) p.pressingLeft = pack.pressingLeft;
+        if(pack.pressingRight != undefined) p.pressingRight = pack.pressingRight;
+        if(pack.pressingAttack != undefined) p.pressingAttack = pack.pressingAttack;
+        
+        // Update activity state (visual)
+        if(pack.working != undefined) p.working = pack.working;
+        if(pack.combat != undefined) p.combat = pack.combat;
+        if(pack.fleeing != undefined) p.fleeing = pack.fleeing;
+        if(pack.chopping != undefined) p.chopping = pack.chopping;
+        if(pack.mining != undefined) p.mining = pack.mining;
+        if(pack.farming != undefined) p.farming = pack.farming;
+        if(pack.building != undefined) p.building = pack.building;
+        if(pack.fishing != undefined) p.fishing = pack.fishing;
+        
+        // Update visibility state (visual)
+        if(pack.stealthed != undefined) p.stealthed = pack.stealthed;
+        if(pack.revealed != undefined) p.revealed = pack.revealed;
+        if(pack.innaWoods != undefined) p.innaWoods = pack.innaWoods;
+        if(pack.onMtn != undefined) p.onMtn = pack.onMtn;
+        
+        // Track class/ghost changes for sprite optimization BEFORE updating them
+        var classChanged = false;
+        var ghostChanged = false;
+        var oldClass = p.class;
+        var oldGhost = p.ghost;
+        
+        // Update class and track for ship wake system
+        if(pack.class != undefined && p.class !== pack.class) {
           p.class = pack.class;
-        if(pack.rank != undefined)
-          p.rank = pack.rank;
-        if(pack.friends != undefined)
-          p.friends = pack.friends;
-        if(pack.enemies != undefined)
-          p.enemies = pack.enemies;
-        if(pack.gear != undefined)
-          p.gear = pack.gear;
-        if(pack.inventory != undefined)
-          p.inventory = pack.inventory;
-        if(pack.spriteSize != undefined)
-          p.spriteSize = pack.spriteSize;
-        if(pack.facing != undefined)
-          p.facing = pack.facing;
-        if(pack.stealthed != undefined)
-          p.stealthed = pack.stealthed;
-        if(pack.revealed != undefined)
-          p.revealed = pack.revealed;
-        if(pack.pressingUp != undefined)
-          p.pressingUp = pack.pressingUp;
-        if(pack.pressingDown != undefined)
-          p.pressingDown = pack.pressingDown;
-        if(pack.pressingLeft != undefined)
-          p.pressingLeft = pack.pressingLeft;
-        if(pack.pressingRight != undefined)
-          p.pressingRight = pack.pressingRight;
-        if(pack.pressingAttack != undefined)
-          p.pressingAttack = pack.pressingAttack;
-        if(pack.innaWoods != undefined)
-          p.innaWoods = pack.innaWoods;
-        if(pack.onMtn != undefined)
-          p.onMtn = pack.onMtn;
-        if(pack.angle != undefined)
-          p.angle = pack.angle;
-        if(pack.working != undefined)
-          p.working = pack.working;
-        if(pack.combat != undefined)
-          p.combat = pack.combat;
-        if(pack.fleeing != undefined)
-          p.fleeing = pack.fleeing;
-        if(pack.chopping != undefined)
-          p.chopping = pack.chopping;
-        if(pack.mining != undefined)
-          p.mining = pack.mining;
-        if(pack.farming != undefined)
-          p.farming = pack.farming;
-        if(pack.building != undefined)
-          p.building = pack.building;
-        if(pack.fishing != undefined)
-          p.fishing = pack.fishing;
-        if(pack.hp != undefined)
-          p.hp = pack.hp;
-        if(pack.hpMax != undefined)
-          p.hpMax = pack.hpMax;
-        if(pack.spirit != undefined)
-          p.spirit = pack.spirit;
-        if(pack.spiritMax != undefined)
-          p.spiritMax = pack.spiritMax;
-        if(pack.breath != undefined)
-          p.breath = pack.breath;
-        if(pack.breathMax != undefined)
-          p.breathMax = pack.breathMax;
-        if(pack.isBoarded != undefined)
-          p.isBoarded = pack.isBoarded;
-        if(pack.boardedShip != undefined)
-          p.boardedShip = pack.boardedShip;
+          classChanged = true;
+          
+          // Track ships for wake system optimization
+          var wasShip = shipWakes.isShipClass(oldClass);
+          var isShip = shipWakes.isShipClass(p.class);
+          if(isShip && !wasShip) {
+            shipWakes.addShip(p.id);
+          } else if(!isShip && wasShip) {
+            shipWakes.removeShip(p.id);
+          }
+        }
+        
+        // Update ghost state and track changes
+        if(pack.ghost != undefined && p.ghost !== pack.ghost) {
+          p.ghost = pack.ghost;
+          ghostChanged = true;
+        }
+        
+        // Update boarding state (visual)
+        if(pack.isBoarded != undefined) p.isBoarded = pack.isBoarded;
+        if(pack.boardedShip != undefined) p.boardedShip = pack.boardedShip;
+        
+        // Throttle non-visual updates to 500ms (2 Hz) instead of every packet (25 Hz)
+        var now = Date.now();
+        if (now - p._lastNonVisualUpdate > 500) {
+          if(pack.name != undefined) p.name = pack.name;
+          if(pack.house != undefined) p.house = pack.house;
+          if(pack.kingdom != undefined) p.kingdom = pack.kingdom;
+          if(pack.rank != undefined) p.rank = pack.rank;
+          if(pack.friends != undefined) p.friends = pack.friends;
+          if(pack.enemies != undefined) p.enemies = pack.enemies;
+          if(pack.gear != undefined) p.gear = pack.gear;
+          if(pack.inventory != undefined) p.inventory = pack.inventory;
+          if(pack.kills != undefined) p.kills = pack.kills;
+          if(pack.skulls != undefined) p.skulls = pack.skulls;
+          
+          p._lastNonVisualUpdate = now;
+        }
+        
+        // Always update health/spirit (important for gameplay)
+        if(pack.hp != undefined) p.hp = pack.hp;
+        if(pack.hpMax != undefined) p.hpMax = pack.hpMax;
+        if(pack.spirit != undefined) p.spirit = pack.spirit;
+        if(pack.spiritMax != undefined) p.spiritMax = pack.spiritMax;
+        if(pack.breath != undefined) p.breath = pack.breath;
+        if(pack.breathMax != undefined) p.breathMax = pack.breathMax;
+        
+        // Update sprite size and scale (visual)
+        if(pack.spriteSize != undefined) p.spriteSize = pack.spriteSize;
+        if(pack.spriteScale != undefined) p.spriteScale = pack.spriteScale;
+        
+        // Update ship-specific properties
+        if(pack.sailPoints != undefined) p.sailPoints = pack.sailPoints;
+        if(pack.shipMode != undefined) p.shipMode = pack.shipMode;
+        if(pack.shipType != undefined) p.shipType = pack.shipType;
+        
+        // Handle action updates
         if(pack.action !== undefined) {
           if(p.id === selfId && p.action === 'combat') {
             console.log(`Player action update: old=${p.action}, new=${pack.action}, type=${typeof pack.action}`);
@@ -743,150 +972,11 @@ socket.onmessage = function(event){
         } else if(p.id === selfId && p.action === 'combat') {
           console.log(`Combat status: action field not in update pack, keeping old value: ${p.action}`);
         }
-        if(pack.ghost != undefined)
-          p.ghost = pack.ghost;
-        if(pack.kills != undefined)
-          p.kills = pack.kills;
-        if(pack.sailPoints != undefined)
-          p.sailPoints = pack.sailPoints;
-        if(pack.shipMode != undefined)
-          p.shipMode = pack.shipMode;
-        if(pack.shipType != undefined)
-          p.shipType = pack.shipType;
-        if(pack.skulls != undefined)
-          p.skulls = pack.skulls;
-        if(pack.spriteScale != undefined)
-          p.spriteScale = pack.spriteScale;
-        if(pack.isBoarded != undefined)
-          p.isBoarded = pack.isBoarded;
-        if(pack.boardedShip != undefined)
-          p.boardedShip = pack.boardedShip;
 
-        // Ghost mode overrides all sprite assignments
-        if(p.ghost){
-          p.sprite = ghost;
-        } else if(p.class == 'Sheep'){
-          p.sprite = sheep;
-        } else if(p.class == 'Deer'){
-          p.sprite = deer;
-        } else if(p.class == 'Boar'){
-          p.sprite = boar;
-        } else if(p.class == 'Wolf'){
-          p.sprite = wolf;
-        } else if(p.class == 'Falcon'){
-          p.sprite = falcon;
-        } else if(p.class == 'FishingShip'){
-          p.sprite = fishingship;
-        } else if(p.class == 'CargoShip'){
-          p.sprite = cargoship;
-        } else if(p.class == 'Serf' || p.class == 'SerfM'){
-          p.sprite = maleserf;
-        } else if(p.class == 'Rogue' || p.class == 'Trapper' || p.class == 'Cutthroat'){
-          p.sprite = rogue;
-        } else if(p.class == 'Hunter' || p.class == 'Outlaw'){
-          p.sprite = hunter;
-        } else if(p.class == 'Scout'){
-          p.sprite = scout;
-        } else if(p.class == 'Ranger' || p.class == 'Warden'){
-          p.sprite = ranger;
-        } else if(p.class == 'Swordsman'){
-          p.sprite = swordsman;
-        } else if(p.class == 'Archer'){
-          p.sprite = archer;
-        } else if(p.class == 'Horseman'){
-          p.sprite = horseman;
-        } else if(p.class == 'MountedArcher'){
-          p.sprite = mountedarcher;
-        } else if(p.class == 'Hero'){
-          p.sprite = hero;
-        } else if(p.class == 'Templar' || p.class == 'Hospitaller' || p.class == 'Hochmeister'){
-          p.sprite = templar;
-        } else if(p.class == 'Cavalry'){
-          p.sprite = cavalry;
-        } else if(p.class == 'Knight'){
-          p.sprite = knight;
-        } else if(p.class == 'Lancer' || p.class == 'Charlemagne'){
-          p.sprite = lancer;
-        } else if(p.class == 'Crusader'){
-          p.sprite = crusader;
-        } else if(p.class == 'Priest' || p.class == 'Monk' || p.class == 'Prior'){
-          p.sprite = monk;
-        } else if(p.class == 'Mage' || p.class == 'Acolyte'){
-          p.sprite = mage;
-        } else if(p.class == 'Warlock' || p.class == 'Brother'){
-          p.sprite = warlock;
-        } else if(p.class == 'King' || p.class == 'Alaric'){
-          p.sprite = king;
-        } else if(p.class == 'SerfF'){
-          p.sprite = femaleserf;
-        } else if(p.class == 'Innkeeper' || p.class == 'Shipwright'){
-          p.sprite = innkeeper;
-        } else if(p.class == 'Bishop'){
-          p.sprite = bishop;
-        } else if(p.class == 'Friar'){
-          p.sprite = friar;
-        } else if(p.class == 'Footsoldier'){
-          p.sprite = footsoldier;
-        } else if(p.class == 'Skirmisher'){
-          p.sprite = skirmisher;
-        } else if(p.class == 'Cavalier'){
-          p.sprite = cavalier;
-        } else if(p.class == 'General'){
-          p.sprite = general;
-        } else if(p.class == 'ImperialKnight' || p.class == 'TeutonicKnight'){
-          p.sprite = teutonicknight;
-        } else if(p.class == 'Trebuchet'){
-          p.sprite = trebuchet;
-        } else if(p.class == 'Oathkeeper' || p.class == 'Archbishop'){
-          p.sprite = archbishop;
-        } else if(p.class == 'Apparition'){
-          p.sprite = apparition;
-        } else if(p.class == 'Goth' || p.class == 'NorseSword'){
-          p.sprite = goth;
-        } else if(p.class == 'HighPriestess'){
-          p.sprite = highpriestess;
-        } else if(p.class == 'Cataphract' || p.class == 'Carolingian' || p.class == 'Marauder'){
-          p.sprite = marauder;
-        } else if(p.class == 'NorseSpear'){
-          p.sprite = norsespear;
-        } else if(p.class == 'seidr'){
-          p.sprite = seidr;
-        } else if(p.class == 'Huskarl'){
-          p.sprite = huskarl;
-        } else if(p.class == 'FrankSword'){
-          p.sprite = franksword;
-        } else if(p.class == 'FrankSpear'){
-          p.sprite = frankspear;
-        } else if(p.class == 'FrankBow'){
-          p.sprite = frankbow;
-        } else if(p.class == 'Mangonel'){
-          p.sprite = mangonel;
-        } else if(p.class == 'Malvoisin'){
-          p.sprite = malvoisin;
-        } else if(p.class == 'CeltAxe'){
-          p.sprite = celtaxe;
-        } else if(p.class == 'CeltSpear'){
-          p.sprite = celtspear;
-        } else if(p.class == 'Headhunter'){
-          p.sprite = headhunter;
-        } else if(p.class == 'Druid'){
-          p.sprite = druid;
-        } else if(p.class == 'Morrigan'){
-          p.sprite = morrigan;
-        } else if(p.class == 'Gwenllian'){
-          p.sprite = gwenllian;
-        } else if(p.class == 'TeutonPike'){
-          p.sprite = teutonpike;
-        } else if(p.class == 'TeutonBow'){
-          p.sprite = teutonbow;
-        } else if(p.class == 'TeutonicKnight'){
-          p.sprite = teutonicknight;
-        } else if(p.class == 'Poacher'){
-          p.sprite = poacher;
-        } else if(p.class == 'Strongman'){
-          p.sprite = strongman;
-        } else if(p.class == 'Condottiere'){
-          p.sprite = condottiere;
+        // OPTIMIZATION: Only update sprite if class or ghost state changed
+        // Uses O(1) lookup table instead of 125+ if-else comparisons
+        if (classChanged || ghostChanged || !p.sprite) {
+          p.sprite = getSpriteForClass(p.class, p.ghost);
         }
       }
     }
@@ -1218,11 +1308,15 @@ var loginCameraSystem = {
   
   pickRandomFalcon: function() {
     var falcons = [];
+    var totalPlayers = 0;
     for(var i in Player.list) {
+      totalPlayers++;
       if(Player.list[i].class === 'Falcon') {
         falcons.push(Player.list[i].id);
+        console.log('Found falcon:', Player.list[i].id, 'at', Player.list[i].x, Player.list[i].y);
       }
     }
+    console.log('pickRandomFalcon: Found', falcons.length, 'falcons out of', totalPlayers, 'total players');
     if(falcons.length > 0) {
       var randomIndex = Math.floor(Math.random() * falcons.length);
       return falcons[randomIndex];
@@ -1240,7 +1334,7 @@ var loginCameraSystem = {
       this.isLocked = true;
       this.cameraX = Player.list[falconId].x;
       this.cameraY = Player.list[falconId].y;
-      console.log('Login camera: Locked to falcon', falconId);
+      console.log('Login camera: Locked to falcon', falconId, 'at position', this.cameraX, this.cameraY);
       
       // Schedule unlock after lockDuration
       var self = this;
@@ -1248,6 +1342,7 @@ var loginCameraSystem = {
         self.unlock();
       }, this.lockDuration);
     } else {
+      console.log('Login camera: No falcon found (falconId:', falconId, '), retrying in 1 second...');
       // No falcon found, try again after a delay
       var self = this;
       this.switchTimer = setTimeout(function() {
@@ -4237,35 +4332,17 @@ var stealthCheck = function(id){ // 0: not stealthed, 1: somewhat visible, 1.5: 
   }
 }
 
-var fly = 0
-setInterval(function(){
-  if(fly == 6){
-    fly = 0;
-  } else {
-    fly += 1;
-  }
-},600);
+var fly = 0;
+// Fly animation now updated in main RAF loop
 
 // walking animation
 var wlk = 0;
-setInterval(function(){
-  if(wlk == 1){
-    wlk = 0;
-  } else {
-    wlk = 1;
-  }
-},400);
+// Walk animation now updated in main RAF loop
 
 // working
 var workingIcon = ['⌛️','⏳'];
 var wrk = 0;
-setInterval(function(){
-  if(wrk == 1){
-    wrk = 0;
-  } else {
-    wrk = 1;
-  }
-},800);
+// Working animation now updated in main RAF loop
 
 // Audio is now managed by AudioManager (see client/js/audio/AudioManager.js)
 // Start AudioManager when player logs in
@@ -6382,23 +6459,11 @@ var selfId = null;
 //cyclical animation timers
 var wtr = 0; // water
 var waterTiles = [Img.water1,Img.water2,Img.water3];
-setInterval(function(){
-  if(wtr == 2){
-    wtr = 0;
-  } else {
-    wtr++;
-  }
-},1200);
+// Water animation now updated in main RAF loop
 
 var cld = 0; // clouds
 var clouds = [Img.clouds1,Img.clouds2,Img.clouds3];
-setInterval(function(){
-  if(cld == 2){
-    cld = 0;
-  } else {
-    cld++;
-  }
-},2000);
+// Clouds animation now updated in main RAF loop
 
 var inView = function(z,x,y,innaWoods){
   // Check if we're in a special mode (spectate or god mode)
@@ -6633,24 +6698,99 @@ function renderUnified(mode, currentZ, nightfall) {
   // Note: Rain rendering happens AFTER ctx.restore() in screen-space, not here
 }
 
-setInterval(function(){
-  // Update ship wakes (tracks ship positions and fades out wake effects)
-  if(tileSize > 0) {
-    shipWakes.update();
+// ============================================================================
+// MAIN GAME LOOP - requestAnimationFrame (60 FPS)
+// ============================================================================
+
+// Delta time tracking for smooth animations
+var lastFrameTime = performance.now();
+var animationTimers = {
+  water: 0,
+  clouds: 0,
+  flicker: 0,
+  shipWakes: 0,
+  fly: 0,
+  walk: 0,
+  working: 0
+};
+
+// Update all animations based on delta time
+function updateAnimations(deltaTime) {
+  // Water animation (cycle every 1200ms)
+  animationTimers.water += deltaTime;
+  if (animationTimers.water >= 1200) {
+    wtr = (wtr + 1) % 3;
+    animationTimers.water -= 1200;
   }
+  
+  // Clouds animation (cycle every 2000ms)
+  animationTimers.clouds += deltaTime;
+  if (animationTimers.clouds >= 2000) {
+    cld = (cld + 1) % 3;
+    animationTimers.clouds -= 2000;
+  }
+  
+  // Flicker (update every 50ms)
+  animationTimers.flicker += deltaTime;
+  if (animationTimers.flicker >= 50) {
+    flicker = flickerRange[Math.floor(Math.random() * flickerRange.length)];
+    animationTimers.flicker -= 50;
+  }
+  
+  // Ship wakes (update every 100ms instead of every frame)
+  animationTimers.shipWakes += deltaTime;
+  if (animationTimers.shipWakes >= 100) {
+    if(tileSize > 0) {
+      shipWakes.update();
+    }
+    animationTimers.shipWakes -= 100;
+  }
+  
+  // Fly animation (cycle every 600ms)
+  animationTimers.fly += deltaTime;
+  if (animationTimers.fly >= 600) {
+    fly = (fly + 1) % 7; // 0-6
+    animationTimers.fly -= 600;
+  }
+  
+  // Walk animation (cycle every 400ms)
+  animationTimers.walk += deltaTime;
+  if (animationTimers.walk >= 400) {
+    wlk = (wlk + 1) % 2; // 0-1
+    animationTimers.walk -= 400;
+  }
+  
+  // Working icon animation (cycle every 800ms)
+  animationTimers.working += deltaTime;
+  if (animationTimers.working >= 800) {
+    wrk = (wrk + 1) % 2; // 0-1
+    animationTimers.working -= 800;
+  }
+}
+
+// Main game loop using requestAnimationFrame
+function gameLoop(currentTime) {
+  // Calculate delta time since last frame
+  var deltaTime = currentTime - lastFrameTime;
+  lastFrameTime = currentTime;
+  
+  // Update animations based on delta time
+  updateAnimations(deltaTime);
   
   // Update god mode camera position
   if(godModeCamera && godModeCamera.update){
-  godModeCamera.update();
+    godModeCamera.update();
   }
   
   // Check if we should render (either logged in, in login camera mode, or spectating)
   if(!selfId && !loginCameraSystem.isActive && !spectateCameraSystem.isActive) {
+    requestAnimationFrame(gameLoop);
     return;
   }
   
   // Don't render until we have world data
   if(!world || !tileSize || !mapSize) {
+    requestAnimationFrame(gameLoop);
     return;
   }
   
@@ -6697,6 +6837,13 @@ setInterval(function(){
     
     // Update viewport with falcon camera position
     var cameraPos = loginCameraSystem.getCameraPosition();
+    
+    // Debug: Log camera position every 60 frames (~1 second)
+    if (!window._loginCameraDebugCounter) window._loginCameraDebugCounter = 0;
+    if (window._loginCameraDebugCounter++ % 60 === 0) {
+      console.log('Login camera position:', cameraPos.x, cameraPos.y, 'isLocked:', loginCameraSystem.isLocked, 'falconId:', loginCameraSystem.currentFalconId);
+    }
+    
     viewport.update(cameraPos.x, cameraPos.y, currentZoom);
   } else if(selfId && Player.list[selfId]) {
     // NORMAL + GOD MODE - Unified rendering
@@ -6707,16 +6854,16 @@ setInterval(function(){
     renderUnified(mode, currentZ, nightfall);
     
     // Update viewport position
-  if(godModeCamera.isActive){
-    viewport.update(godModeCamera.cameraX, godModeCamera.cameraY, currentZoom);
-  } else {
-  viewport.update(Player.list[selfId].x,Player.list[selfId].y, currentZoom);
-  }
-  
-  // Render building preview that follows mouse cursor
-  if(buildPreviewMode && buildPreviewType){
-    renderBuildingPreview();
-  }
+    if(godModeCamera.isActive){
+      viewport.update(godModeCamera.cameraX, godModeCamera.cameraY, currentZoom);
+    } else {
+      viewport.update(Player.list[selfId].x,Player.list[selfId].y, currentZoom);
+    }
+    
+    // Render building preview that follows mouse cursor
+    if(buildPreviewMode && buildPreviewType){
+      renderBuildingPreview();
+    }
   }
   
   // Restore canvas transform after rendering
@@ -6732,8 +6879,17 @@ setInterval(function(){
     renderRain();
   }
   
-  //console.log(getLoc(Player.list[selfId].x,Player.list[selfId].y));
-},40);
+  // Hook performance HUD tracking (if enabled)
+  if (window.performanceHUD && window.performanceHUD.enabled) {
+    window.performanceHUD.recordFrame(deltaTime);
+  }
+  
+  // Continue the loop
+  requestAnimationFrame(gameLoop);
+}
+
+// Start the game loop
+requestAnimationFrame(gameLoop);
 
 // RENDER MAP
 
@@ -10391,9 +10547,7 @@ var renderForest = function(){
 // [z,x,y,radius]
 var flickerRange = [0.4,0.65,0.7,0.75,0.75,0.8,0.8,0.85,0.9,0.95,1,1.5];
 var flicker = 0;
-setInterval(function(){
-  flicker = flickerRange[Math.floor(Math.random() * flickerRange.length)];
-}, 50);
+// Flicker now updated in main RAF loop
 
 var illuminate = function(x, y, radius, env){
   ctx.save();
