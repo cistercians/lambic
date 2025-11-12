@@ -812,11 +812,33 @@ Img.fishingshipdeath1.src = '/client/img/chars/fishingship/death1.png';
 Img.fishingshipdeath2 = new Image();
 Img.fishingshipdeath2.src = '/client/img/chars/fishingship/death2.png';
 
+// cargo ship
+// stand (ships only have standing sprites, no walk animation)
+Img.cargoshipstandd = new Image();
+Img.cargoshipstandd.src = '/client/img/chars/cargoship/standd.png';
+Img.cargoshipstandu = new Image();
+Img.cargoshipstandu.src = '/client/img/chars/cargoship/standu.png';
+Img.cargoshipstandl = new Image();
+Img.cargoshipstandl.src = '/client/img/chars/cargoship/standl.png';
+Img.cargoshipstandr = new Image();
+Img.cargoshipstandr.src = '/client/img/chars/cargoship/standr.png';
+
+// Cargo ship wreckage sprites
+Img.cargoshipdeath1 = new Image();
+Img.cargoshipdeath1.src = '/client/img/chars/cargoship/death1.png';
+Img.cargoshipdeath2 = new Image();
+Img.cargoshipdeath2.src = '/client/img/chars/cargoship/death2.png';
+
 // Use stand sprites for walking too (ships don't have walk animation)
 var fishingshipwalkd = [Img.fishingshipstandd, Img.fishingshipstandd];
 var fishingshipwalku = [Img.fishingshipstandu, Img.fishingshipstandu];
 var fishingshipwalkl = [Img.fishingshipstandl, Img.fishingshipstandl];
 var fishingshipwalkr = [Img.fishingshipstandr, Img.fishingshipstandr];
+
+var cargoshipwalkd = [Img.cargoshipstandd, Img.cargoshipstandd];
+var cargoshipwalku = [Img.cargoshipstandu, Img.cargoshipstandu];
+var cargoshipwalkl = [Img.cargoshipstandl, Img.cargoshipstandl];
+var cargoshipwalkr = [Img.cargoshipstandr, Img.cargoshipstandr];
 
 var fishingship = {
   facedown: Img.fishingshipstandd,
@@ -827,6 +849,17 @@ var fishingship = {
   walkup: fishingshipwalku,
   walkleft: fishingshipwalkl,
   walkright: fishingshipwalkr
+};
+
+var cargoship = {
+  facedown: Img.cargoshipstandd,
+  faceup: Img.cargoshipstandu,
+  faceleft: Img.cargoshipstandl,
+  faceright: Img.cargoshipstandr,
+  walkdown: cargoshipwalkd,
+  walkup: cargoshipwalku,
+  walkleft: cargoshipwalkl,
+  walkright: cargoshipwalkr
 };
 
 // ghost

@@ -1,3 +1,132 @@
+// STUCK ENTITY ANALYTICS - Global tracking
+if (!global.stuckEntityAnalytics) {
+  global.stuckEntityAnalytics = {
+    enabled: true,
+    stuckEvents: [],
+    maxHistorySize: 200,
+    entityStuckCounts: new Map(), // entityId -> count
+    waypointStuckCounts: new Map(), // waypoint -> count
+    layerStuckCounts: new Map(), // z-level -> count
+    reasonCounts: { blocked: 0, stuck: 0, oscillating: 0, gaveUp: 0 },
+    recalcAttempts: [],
+    lastLog: Date.now(),
+    logInterval: 10000, // Log every 10 seconds
+    
+    recordStuckEvent: function(entity, waypoint, reason, attempts, z) {
+      if (!this.enabled) return;
+      
+      const event = {
+        timestamp: Date.now(),
+        entityId: entity.id,
+        entityName: entity.name || entity.class || 'Unknown',
+        entityClass: entity.class,
+        waypoint: waypoint ? waypoint.toString() : 'unknown',
+        reason: reason,
+        attempts: attempts,
+        z: z,
+        position: { x: Math.floor(entity.x), y: Math.floor(entity.y) }
+      };
+      
+      this.stuckEvents.push(event);
+      if (this.stuckEvents.length > this.maxHistorySize) {
+        this.stuckEvents.shift();
+      }
+      
+      // Track entity stuck counts
+      const entityKey = `${entity.class}:${entity.id}`;
+      this.entityStuckCounts.set(entityKey, (this.entityStuckCounts.get(entityKey) || 0) + 1);
+      
+      // Track waypoint stuck counts
+      if (waypoint) {
+        const wpKey = waypoint.toString();
+        this.waypointStuckCounts.set(wpKey, (this.waypointStuckCounts.get(wpKey) || 0) + 1);
+      }
+      
+      // Track z-level stuck counts
+      this.layerStuckCounts.set(z, (this.layerStuckCounts.get(z) || 0) + 1);
+      
+      // Track reason counts
+      if (this.reasonCounts[reason] !== undefined) {
+        this.reasonCounts[reason]++;
+      }
+      
+      // Track recalc attempts
+      if (attempts) {
+        this.recalcAttempts.push(attempts);
+        if (this.recalcAttempts.length > 100) {
+          this.recalcAttempts.shift();
+        }
+      }
+    },
+    
+    getStats: function() {
+      const avgRecalc = this.recalcAttempts.length > 0
+        ? (this.recalcAttempts.reduce((a, b) => a + b, 0) / this.recalcAttempts.length).toFixed(2)
+        : 0;
+      const maxRecalc = this.recalcAttempts.length > 0 ? Math.max(...this.recalcAttempts) : 0;
+      
+      // Get top stuck entities
+      const topEntities = Array.from(this.entityStuckCounts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([entity, count]) => ({ entity, count }));
+      
+      // Get top stuck waypoints
+      const topWaypoints = Array.from(this.waypointStuckCounts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([waypoint, count]) => ({ waypoint, count }));
+      
+      // Get layer distribution
+      const layerDist = Array.from(this.layerStuckCounts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .map(([layer, count]) => ({ layer, count }));
+      
+      return {
+        totalEvents: this.stuckEvents.length,
+        recentEvents: this.stuckEvents.slice(-10),
+        reasonCounts: this.reasonCounts,
+        recalcAttempts: { avg: avgRecalc, max: maxRecalc },
+        topStuckEntities: topEntities,
+        topStuckWaypoints: topWaypoints,
+        layerDistribution: layerDist
+      };
+    },
+    
+    maybeLogStats: function() {
+      if (!this.enabled) return;
+      
+      const now = Date.now();
+      if (now - this.lastLog >= this.logInterval) {
+        const stats = this.getStats();
+        
+        if (stats.totalEvents > 0) {
+          console.log('🚫 Stuck Entity Analytics:');
+          console.log(`   Total stuck events: ${stats.totalEvents}`);
+          console.log(`   Reasons: blocked=${stats.reasonCounts.blocked}, stuck=${stats.reasonCounts.stuck}, oscillating=${stats.reasonCounts.oscillating}, gaveUp=${stats.reasonCounts.gaveUp}`);
+          console.log(`   Recalc attempts: avg=${stats.recalcAttempts.avg}, max=${stats.recalcAttempts.max}`);
+          
+          if (stats.topStuckWaypoints.length > 0) {
+            console.log(`   Top stuck waypoints:`);
+            stats.topStuckWaypoints.slice(0, 5).forEach((w, i) => {
+              console.log(`     ${i + 1}. ${w.waypoint}: ${w.count} times`);
+            });
+          }
+          
+          if (stats.layerDistribution.length > 0) {
+            console.log(`   Layer distribution:`);
+            stats.layerDistribution.forEach(l => {
+              console.log(`     z=${l.layer}: ${l.count} stuck events`);
+            });
+          }
+        }
+        
+        this.lastLog = now;
+      }
+    }
+  };
+}
+
 // ENTITY
 Entity = function(param){
   var self = {
@@ -32,6 +161,50 @@ Entity = function(param){
   self.getDistance = function(pt){ // {x,y}
     return Math.sqrt(Math.pow(self.x-pt.x,2) + Math.pow(self.y-pt.y,2));
   }
+  
+  // Find nearest walkable tile near target (spiral search) - OPTIMIZED
+  self.findNearestWalkableTile = function(targetX, targetY, targetZ, maxRadius = 5){
+    // Try the target first
+    if(isWalkable(targetZ, targetX, targetY)){
+      return [targetX, targetY];
+    }
+    
+    // Spiral outward from target (optimized iteration order)
+    for(var radius = 1; radius <= maxRadius; radius++){
+      // Check cardinal directions first (most common successful cases)
+      var cardinals = [[0, radius], [radius, 0], [0, -radius], [-radius, 0]];
+      for(var c = 0; c < cardinals.length; c++){
+        var checkX = targetX + cardinals[c][0];
+        var checkY = targetY + cardinals[c][1];
+        if(checkX >= 0 && checkX < mapSize && checkY >= 0 && checkY < mapSize){
+          if(isWalkable(targetZ, checkX, checkY)){
+            return [checkX, checkY];
+          }
+        }
+      }
+      
+      // Then check diagonals and other positions
+      for(var dx = -radius; dx <= radius; dx++){
+        for(var dy = -radius; dy <= radius; dy++){
+          // Skip tiles we already checked and interior tiles
+          if((Math.abs(dx) == radius || Math.abs(dy) == radius) && 
+             !(dx == 0 || dy == 0)){ // Skip cardinals already checked
+            var checkX2 = targetX + dx;
+            var checkY2 = targetY + dy;
+            
+            if(checkX2 >= 0 && checkX2 < mapSize && checkY2 >= 0 && checkY2 < mapSize){
+              if(isWalkable(targetZ, checkX2, checkY2)){
+                return [checkX2, checkY2];
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    return null; // No walkable tile found nearby
+  }
+  
   return self;
 };
 
@@ -55,6 +228,120 @@ Building = function(param){
   // Spot tracking for work assignments
   self.assignedSpots = {}; // {serfId: [col,row]}
   self.availableResources = []; // Copy of resources for tracking
+  
+  // Dock-specific properties
+  if(self.type === 'dock'){
+    self.network = param.network || []; // Array of connected dock building IDs
+    self.cargoShip = param.cargoShip || null; // Reference to cargo ship if this dock has one
+    
+    // Create bidirectional dock association (called when ship docks at new location)
+    self.createDockAssociation = function(otherDockId){
+      if(!otherDockId || otherDockId === self.id) return;
+      
+      var otherDock = Building.list[otherDockId];
+      if(!otherDock || otherDock.type !== 'dock') return;
+      
+      // Add to this dock's network
+      if(self.network.indexOf(otherDockId) === -1){
+        self.network.push(otherDockId);
+        console.log('🔗 Dock ' + self.id + ' linked to dock ' + otherDockId);
+      }
+      
+      // Add this dock to other dock's network (bidirectional)
+      if(!otherDock.network) otherDock.network = [];
+      if(otherDock.network.indexOf(self.id) === -1){
+        otherDock.network.push(self.id);
+        console.log('🔗 Dock ' + otherDockId + ' linked to dock ' + self.id);
+      }
+      
+      // Spawn cargo ships if needed
+      // Spawn at this dock if it just got its first connection
+      if(self.network.length === 1 && !self.cargoShip){
+        self.spawnCargoShip();
+      }
+      
+      // Spawn at other dock if it just got its first connection
+      if(otherDock.network.length === 1 && !otherDock.cargoShip){
+        otherDock.spawnCargoShip();
+      }
+    };
+    
+    // Spawn cargo ship for this dock
+    self.spawnCargoShip = function(){
+      // Find water tile adjacent to dock
+      var waterTile = null;
+      for(var i in self.plot){
+        var dockLoc = self.plot[i];
+        var adjacent = [
+          [dockLoc[0], dockLoc[1] + 1],
+          [dockLoc[0], dockLoc[1] - 1],
+          [dockLoc[0] - 1, dockLoc[1]],
+          [dockLoc[0] + 1, dockLoc[1]]
+        ];
+        
+        for(var j in adjacent){
+          var at = adjacent[j];
+          if(at[0] >= 0 && at[0] < global.mapSize && at[1] >= 0 && at[1] < global.mapSize){
+            if(getTile(0, at[0], at[1]) == 0){ // Water
+              waterTile = at;
+              break;
+            }
+          }
+        }
+        if(waterTile) break;
+      }
+      
+      if(!waterTile){
+        console.log('⚠️ Dock ' + self.id + ' has network but no adjacent water, cannot spawn cargo ship');
+        return;
+      }
+      
+      // Create cargo ship at water tile adjacent to dock
+      // Check if CargoShip function exists (defined later in file)
+      if(typeof CargoShip === 'undefined'){
+        console.error('CargoShip not defined yet - cannot spawn cargo ship');
+        return;
+      }
+      
+      var waterCoords = getCenter(waterTile[0], waterTile[1]);
+      
+      console.log('🚢 Attempting to spawn CargoShip - typeof CargoShip:', typeof CargoShip);
+      
+      var cargoShip = null;
+      try {
+        cargoShip = CargoShip({
+          x: waterCoords[0],
+          y: waterCoords[1],
+          z: 0,
+          homeDock: self.id,
+          currentDock: self.id,
+          mode: 'waiting'
+        });
+        console.log('🚢 CargoShip created, id:', cargoShip ? cargoShip.id : 'undefined');
+      } catch(err){
+        console.error('Error creating CargoShip:', err);
+        return;
+      }
+      
+      // Select first destination and start waiting
+      if(cargoShip && cargoShip.selectNextDestination){
+        if(cargoShip.selectNextDestination()){
+          cargoShip.announceDestination();
+          cargoShip.startWaiting();
+          self.cargoShip = cargoShip.id;
+          console.log('🚢 Spawned cargo ship at dock ' + self.id);
+        } else {
+          // Failed to select destination, remove ship
+          if(cargoShip.toRemove !== undefined){
+            cargoShip.toRemove = true;
+          }
+          console.error('Failed to select destination for cargo ship at dock ' + self.id);
+        }
+      } else {
+        console.error('CargoShip creation failed at dock ' + self.id);
+      }
+    };
+  }
 
   self.getInitPack = function(){
     return {
@@ -1111,9 +1398,10 @@ Dock = function(param){
   self.patrol = true;
   self.dailyStores = {fish: 0}; // Track daily fish collection
   
-  // Dock networking system
-  self.zoneName = null; // Name of GEOGRAPHIC zone this dock is in (e.g., "Dark Woods", "Mountain Pass")
-  self.associatedDocks = []; // List of other dock IDs connected via boat travel
+  // Zone name is passed during construction (checked BEFORE tiles are converted)
+  self.zoneName = param.zoneName || 'Dock';
+  
+  // Dock networking system  
   self.storedShips = []; // Ships currently stored at this dock {shipId, shipType, owner, cargo}
   
   // NOTE: No reportDepletedResource() - fish are unlimited
@@ -3429,6 +3717,11 @@ Character = function(param){
   };
 
   self.update = function(){
+    // Boarded players should not run this update logic
+    if(self.isBoarded){
+      return;
+    }
+    
     var loc = getLoc(self.x,self.y);
     var b = getBuilding(self.x,self.y);
     self.zoneCheck();
@@ -3531,8 +3824,8 @@ Character = function(param){
         if(self.transitionIntent === 'enter_building' && self.isAtPathDestination()){
           self.enterBuilding(b);
         }
-      } else if(getTile(0,loc[0],loc[1]) == 0 && !self.ghost){
-        // Ghosts cannot go underwater
+      } else if(getTile(0,loc[0],loc[1]) == 0 && !self.ghost && !self.isBoarded){
+        // Ghosts cannot go underwater, and boarded players should not enter water
         // At water tile - set state
         self.transitionState = 'at_entrance';
         
@@ -4754,18 +5047,46 @@ Character = function(param){
           }
         }
         
-        // Also check if we've been stuck on the same waypoint for too long
+        // IMPROVED STUCK DETECTION: Track both waypoint and actual movement
         if(!self.lastWaypoint || self.lastWaypoint.toString() != next.toString()){
           self.lastWaypoint = next;
           self.waypointStuckCounter = 0;
+          self.waypointStuckPosition = {x: self.x, y: self.y};
         } else {
           self.waypointStuckCounter = (self.waypointStuckCounter || 0) + 1;
+          
+          // Check if entity has actually moved
+          if(self.waypointStuckPosition){
+            var distMoved = Math.sqrt(
+              Math.pow(self.x - self.waypointStuckPosition.x, 2) + 
+              Math.pow(self.y - self.waypointStuckPosition.y, 2)
+            );
+            
+            // If entity moved significantly, reset stuck counter (temporary blockage)
+            if(distMoved > 10){
+              self.waypointStuckCounter = Math.max(0, self.waypointStuckCounter - 10);
+              self.waypointStuckPosition = {x: self.x, y: self.y};
+            }
+          }
         }
         
-        // If blocked OR stuck on same waypoint OR oscillating
-        if((isNextBlocked && isNotAtNext) || self.waypointStuckCounter > 60 || isOscillating){
+        // IMPROVED: Differentiate between "temporarily blocked" and "truly stuck"
+        // Entity is truly stuck if:
+        // 1. Waypoint is blocked AND entity hasn't moved in a while, OR
+        // 2. Waypoint counter exceeded threshold (60 frames = 1 second), OR
+        // 3. Oscillating back and forth
+        var isTrulyStuck = (isNextBlocked && isNotAtNext && self.waypointStuckCounter > 30) || 
+                           self.waypointStuckCounter > 60 || 
+                           isOscillating;
+        
+        if(isTrulyStuck){
           // OSCILLATION DETECTED - Immediately recalculate to get a different path
           if(isOscillating){
+            // ANALYTICS: Record oscillation event
+            if(global.stuckEntityAnalytics){
+              global.stuckEntityAnalytics.recordStuckEvent(self, next, 'oscillating', self.pathRecalcAttempts || 0, self.z);
+            }
+            
             // Don't try to skip waypoints - the whole path is bad
             // Immediately clear and let pathfinding find a different route
             self.path = null;
@@ -4800,9 +5121,40 @@ Character = function(param){
           // Try to recalculate based on distance
           if(self.pathRecalcAttempts < maxRetries && self.pathEnd){
             var reason = isNextBlocked ? 'blocked' : 'stuck';
+            
+            // THROTTLING: Check if entity has actually moved
+            if(!self.lastRecalcPosition){
+              self.lastRecalcPosition = {x: self.x, y: self.y};
+            }
+            var distMoved = Math.sqrt(Math.pow(self.x - self.lastRecalcPosition.x, 2) + Math.pow(self.y - self.lastRecalcPosition.y, 2));
+            
+            // EXPONENTIAL BACKOFF: Wait longer between recalc attempts
+            if(!self.nextRecalcTime) self.nextRecalcTime = 0;
+            var now = Date.now();
+            
+            // Calculate backoff delay (exponential: 0ms, 100ms, 200ms, 400ms, 800ms, ...)
+            var backoffDelay = self.pathRecalcAttempts > 0 ? Math.min(1600, 100 * Math.pow(2, self.pathRecalcAttempts - 1)) : 0;
+            
+            // Skip recalc if:
+            // 1. Entity hasn't moved significantly (< 5 pixels) AND
+            // 2. Not enough time has passed since last recalc (backoff)
+            if(distMoved < 5 && now < self.nextRecalcTime){
+              // Wait for backoff period
+              return;
+            }
+            
+            // ANALYTICS: Record stuck event
+            if(global.stuckEntityAnalytics){
+              global.stuckEntityAnalytics.recordStuckEvent(self, next, reason, self.pathRecalcAttempts, self.z);
+            }
+            
+            // Update recalc tracking
+            self.lastRecalcPosition = {x: self.x, y: self.y};
+            self.nextRecalcTime = now + backoffDelay;
+            
             // Only log every 3rd attempt to reduce spam
             if(self.pathRecalcAttempts % 3 == 1){
-              console.log((self.name || 'Entity') + ' path ' + reason + ' at waypoint ' + next + ', recalculating... (attempt ' + self.pathRecalcAttempts + '/' + maxRetries + ')');
+              console.log((self.name || 'Entity') + ' path ' + reason + ' at waypoint ' + next + ', recalculating... (attempt ' + self.pathRecalcAttempts + '/' + maxRetries + ', backoff=' + backoffDelay + 'ms)');
             }
             self.path = null;
             self.pathCount = 0;
@@ -4812,33 +5164,85 @@ Character = function(param){
             self.getPath(self.pathEnd.z, self.pathEnd.loc[0], self.pathEnd.loc[1]);
             return;
           } else {
-            // Give up after max attempts - add cooldown to prevent immediate retry
-            self.path = null;
-            self.pathCount = 0;
-            // Don't clear pathEnd if going home - let home action handle retry
-            if(self.action != 'home'){
-              self.pathEnd = null;
+            // ANALYTICS: Record gave up event
+            if(global.stuckEntityAnalytics){
+              global.stuckEntityAnalytics.recordStuckEvent(self, next, 'gaveUp', self.pathRecalcAttempts, self.z);
+              global.stuckEntityAnalytics.maybeLogStats();
             }
-            // DON'T clear work assignments during work mode - let them retry after cooldown
-            // Only clear assignments if NOT in work mode
-            if(self.work && self.work.spot && (self.action == 'task' || self.action == 'build') && self.mode !== 'work'){
-              self.work.spot = null;
-              self.action = null; // Clear action to trigger new assignment
-            }
-            self.pathRecalcAttempts = 0;
-            self.lastWaypoint = null;
-            self.waypointStuckCounter = 0;
-            self.waypointHistory = []; // Clear oscillation history
-            self.pathLocked = false; // Clear lock when giving up
             
-            // Add pathfinding cooldown to prevent immediate retry (reduce CPU load)
-            if(!self.pathCooldown) self.pathCooldown = 0;
-            self.pathCooldown = 90; // 1.5 seconds at 60fps before trying again
+            // FALLBACK BEHAVIOR: Try alternative strategies before completely giving up
+            var fallbackSuccessful = false;
+            
+            // Strategy 1: Try pathfinding to nearest walkable tile near target
+            if(self.pathEnd && !fallbackSuccessful){
+              var nearbyWalkable = self.findNearestWalkableTile(self.pathEnd.loc[0], self.pathEnd.loc[1], self.pathEnd.z);
+              if(nearbyWalkable){
+                console.log((self.name || 'Entity') + ' trying fallback: nearest walkable to ' + nearbyWalkable);
+                self.getPath(self.pathEnd.z, nearbyWalkable[0], nearbyWalkable[1]);
+                if(self.path){
+                  fallbackSuccessful = true;
+                  self.pathRecalcAttempts = 0; // Reset attempts for new target
+                }
+              }
+            }
+            
+            // Strategy 2: For serfs going home, try alternative building entrances
+            if(self.action == 'home' && self.home && !fallbackSuccessful && self.class == 'Serf'){
+              // Look for other doors in the building
+              var buildingId = getBuilding(getCenter(self.home.loc[0], self.home.loc[1])[0], getCenter(self.home.loc[0], self.home.loc[1])[1]);
+              if(buildingId && Building.list[buildingId] && Building.list[buildingId].plot){
+                var building = Building.list[buildingId];
+                for(var i in building.plot){
+                  var plotTile = building.plot[i];
+                  var tile = getTile(0, plotTile[0], plotTile[1]);
+                  if(tile == 14 || tile == 16){ // Door tiles
+                    // Try different door
+                    if(plotTile[0] != self.home.loc[0] || plotTile[1] != self.home.loc[1]){
+                      console.log((self.name || 'Entity') + ' trying alternative door at ' + plotTile);
+                      self.getPath(1, plotTile[0], plotTile[1] + 1);
+                      if(self.path){
+                        fallbackSuccessful = true;
+                        self.pathRecalcAttempts = 0;
+                        break;
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            
+            // If all fallbacks failed, give up
+            if(!fallbackSuccessful){
+              // Give up after max attempts - add cooldown to prevent immediate retry
+              self.path = null;
+              self.pathCount = 0;
+              // Don't clear pathEnd if going home - let home action handle retry
+              if(self.action != 'home'){
+                self.pathEnd = null;
+              }
+              // DON'T clear work assignments during work mode - let them retry after cooldown
+              // Only clear assignments if NOT in work mode
+              if(self.work && self.work.spot && (self.action == 'task' || self.action == 'build') && self.mode !== 'work'){
+                self.work.spot = null;
+                self.action = null; // Clear action to trigger new assignment
+              }
+              self.pathRecalcAttempts = 0;
+              self.lastWaypoint = null;
+              self.waypointStuckCounter = 0;
+              self.waypointHistory = []; // Clear oscillation history
+              self.pathLocked = false; // Clear lock when giving up
+              
+              // Add pathfinding cooldown to prevent immediate retry (reduce CPU load)
+              if(!self.pathCooldown) self.pathCooldown = 0;
+              self.pathCooldown = 90; // 1.5 seconds at 60fps before trying again
+            }
             return;
           }
         } else if(self.pathRecalcAttempts > 0 && isWalkable(self.z, next[0], next[1])){
-          // Path is clear again, reset recalc counter
+          // Path is clear again, reset recalc counter and backoff timers
           self.pathRecalcAttempts = 0;
+          self.nextRecalcTime = 0;
+          self.lastRecalcPosition = null;
         }
         
         //if(self.z == 0){ // sidestep doors in path
@@ -5488,6 +5892,11 @@ Deer = function(param){
   };
 
   self.update = function(){
+    // Boarded players should not run normal update logic - their position is controlled by the ship
+    if(self.isBoarded){
+      return;
+    }
+    
     // Decrement pathfinding cooldown
     if(self.pathCooldown && self.pathCooldown > 0){
       self.pathCooldown--;
@@ -5524,7 +5933,7 @@ Deer = function(param){
     } else if(getTile(0,loc[0],loc[1]) == 18){
       self.innaWoods = false;
       self.onMtn = false;
-    } else if(getTile(0,loc[0],loc[1]) == 0){
+    } else if(getTile(0,loc[0],loc[1]) == 0 && !self.isBoarded){
       self.z = -3;
       self.innaWoods = false;
       self.onMtn = false;
@@ -5717,7 +6126,7 @@ Wolf = function(param){
         if(self.action !== 'flee'){
           self.maxSpd = self.baseSpd * self.drag;
         }
-      } else if(getTile(0,loc[0],loc[1]) == 0){
+      } else if(getTile(0,loc[0],loc[1]) == 0 && !self.isBoarded){
         self.z = -3;
         self.innaWoods = false;
         self.onMtn = false;
@@ -6043,12 +6452,13 @@ FishingShip = function(param){
   
   // Ship properties
   self.dock = param.dock; // Reference to home dock building ID
+  self.lastDock = param.dock; // Last dock this ship docked at (starts as home dock)
   self.embarkedSerfs = []; // Array of serf IDs currently on board
   self.passengers = []; // Array of player IDs aboard ship {playerId, isController}
   self.controller = null; // Player ID of who's controlling ship movement
   self.inventory = {fish: 0}; // Ship's fish inventory
   self.maxFish = 20; // Return to dock when this is reached
-  self.owner = param.owner || null; // Player who owns/controls this ship
+  self.owner = param.owner || null; // Player who owns/control this ship
   self.storedPlayer = null; // Player character stored when boarding
   self.isPlayerControlled = false; // True when player is actively controlling this ship
   self.spawned = param.spawned !== undefined ? param.spawned : true; // False for player ships until boarded
@@ -6078,6 +6488,19 @@ FishingShip = function(param){
   self.fishingCooldown = 0; // Cooldown between catches
   
   self.update = function(){
+    // Handle combat state (if ship gets aggroed)
+    if(self.action === 'combat'){
+      if(global.simpleCombat){
+        global.simpleCombat.update(self);
+      } else {
+        // Fallback: clear invalid combat
+        if(!self.combat || !self.combat.target || !Player.list[self.combat.target]){
+          self.action = null;
+          if(self.combat) self.combat.target = null;
+        }
+      }
+    }
+    
     // Decrement cooldowns
     if(self.fishingCooldown > 0){
       self.fishingCooldown--;
@@ -6432,7 +6855,38 @@ FishingShip = function(param){
       
       // Check if touching any non-water tile (land = auto-disembark)
       if(nextTile != 0){ // Not water (any land tile)
-        // Only disembark if we're sailing AND grace period has expired AND have passengers
+        // Check if this is a dock building before disembarking
+        var buildingId = getBuilding(nextX, nextY);
+        if(buildingId){
+          var building = Building.list[buildingId];
+          if(building && building.type === 'dock'){
+            console.log('🚢 Ship touching dock (tile: ' + nextTile + ') - docking at port');
+            // Create dock association before storing
+            if(building.createDockAssociation && self.lastDock){
+              building.createDockAssociation(self.lastDock);
+            }
+            // Update lastDock for future associations
+            self.lastDock = buildingId;
+            
+            // If this is home dock, store the ship
+            if(buildingId === self.dock){
+              console.log('⚓ Ship docking at home dock - storing ship');
+              self.storeAtDock();
+            } else {
+              // Foreign dock - just disembark
+              console.log('🏖️ Ship at foreign dock - disembarking');
+              if(self.isPlayerControlled && self.passengers.length > 0 && self.mode === 'sailing' && self.sailingGracePeriod === 0){
+                var navigatorId = self.passengers.find(p => p.isNavigator)?.playerId;
+                if(navigatorId){
+                  self.disembarkPassenger(navigatorId, nextLoc);
+                }
+              }
+            }
+            return;
+          }
+        }
+        
+        // Not a dock - regular land, disembark
         if(self.isPlayerControlled && self.passengers.length > 0 && self.mode === 'sailing' && self.sailingGracePeriod === 0){
           console.log('🏖️ Ship touching land (tile: ' + nextTile + ') - disembarking onto shore');
           // Disembark navigator onto the land, boat stays at current water position
@@ -6547,15 +7001,16 @@ FishingShip = function(param){
       console.log('🚢 ' + player.name + ' boarded as PASSENGER');
     }
     
-    // CRITICAL: Hide player and sync their position to ship
+    // CRITICAL: Mark player as boarded BEFORE syncing position
+    // This prevents terrain checks from setting z=-3 when player is moved to water
+    player.isBoarded = true;
+    player.boardedShip = self.id;
+    
+    // Now sync player position to ship
     // Player's position becomes the ship's position
     player.x = self.x;
     player.y = self.y;
     player.z = self.z;
-    
-    // Mark player as boarded
-    player.isBoarded = true;
-    player.boardedShip = self.id;
     
     console.log('✅ Player boarded - isBoarded: true, boardedShip: ' + self.id + ', player position synced to ship');
     
@@ -6960,6 +7415,454 @@ FishingShip = function(param){
   return self;
 }
 
+CargoShip = function(param){
+  var self = Character(param);
+  self.class = 'CargoShip';
+  self.type = 'ship';
+  self.name = 'Cargo Ship';
+  self.shipType = 'cargoship';
+  self.spriteSize = tileSize * 2.5; // Larger than fishing ship
+  self.baseSpd = 1.2;
+  self.maxSpd = 1.2;
+  self.currentSpeed = 1.2;
+  
+  // Cargo ship properties
+  self.homeDock = param.homeDock; // Dock that created this ship
+  self.lastDock = param.homeDock; // Last dock visited (for network associations)
+  self.currentDock = param.currentDock || param.homeDock; // Current dock location
+  self.targetDock = null; // Next destination dock
+  self.visitedDocks = []; // Docks visited in current cycle
+  self.passengers = []; // Passive passengers only (max 4)
+  self.maxPassengers = 4;
+  self.controller = null; // Always null (AI controlled)
+  self.isPlayerControlled = false; // Always false
+  self.waitTimer = 0; // Countdown timer at dock (3600 = 1 minute)
+  self.mode = param.mode || 'waiting'; // 'waiting' | 'sailing' | 'docked'
+  
+  // Ship physics for smooth movement
+  self.velocity = {x: 0, y: 0};
+  self.targetHeading = 0;
+  self.currentHeading = 0;
+  self.acceleration = 0.04;
+  self.deceleration = 0.03;
+  self.turnRate = 0.06;
+  self.maxVelocity = 1.2;
+  
+  // Select next destination from dock network
+  self.selectNextDestination = function(){
+    if(!self.homeDock || !Building.list[self.homeDock]){
+      console.error('Cargo ship home dock not found');
+      return false;
+    }
+    
+    var homeDock = Building.list[self.homeDock];
+    if(!homeDock.network || homeDock.network.length === 0){
+      console.error('Home dock has no network');
+      return false;
+    }
+    
+    // Filter out visited docks AND current dock
+    var unvisited = homeDock.network.filter(function(dockId){
+      return self.visitedDocks.indexOf(dockId) === -1 && dockId !== self.currentDock;
+    });
+    
+    // If all docks visited, return to home (only if not already at home)
+    if(unvisited.length === 0){
+      if(self.currentDock === self.homeDock){
+        console.error('Cargo ship at home with no unvisited docks - this should not happen');
+        return false;
+      }
+      self.targetDock = self.homeDock;
+      return true;
+    }
+    
+    // Pick random unvisited dock
+    var randomIndex = Math.floor(Math.random() * unvisited.length);
+    self.targetDock = unvisited[randomIndex];
+    return true;
+  };
+  
+  // Announce destination to nearby players
+  self.announceDestination = function(){
+    if(!self.targetDock || !Building.list[self.targetDock]){
+      return;
+    }
+    
+    var targetDockBuilding = Building.list[self.targetDock];
+    var targetDockName = targetDockBuilding.zoneName || targetDockBuilding.name || 'Unknown Dock';
+    
+    var isReturning = self.targetDock === self.homeDock;
+    var announcement = isReturning ? 
+      '<b>🚢 Cargo Ship</b>: <i>Now returning to ' + targetDockName + '</i>' :
+      '<b>🚢 Cargo Ship</b>: <i>Next destination: ' + targetDockName + '</i>';
+    
+    // Broadcast to nearby area (10 tiles)
+    for(var playerId in Player.list){
+      var p = Player.list[playerId];
+      if(p.type === 'player' && p.z === self.z){
+        var dist = Math.sqrt(Math.pow(p.x - self.x, 2) + Math.pow(p.y - self.y, 2));
+        if(dist < tileSize * 10){
+          var socket = SOCKET_LIST[playerId];
+          if(socket){
+            socket.write(JSON.stringify({
+              msg: 'addToChat',
+              message: announcement
+            }));
+          }
+        }
+      }
+    }
+    
+    console.log('🚢 Cargo ship announced destination: ' + targetDockName);
+  };
+  
+  // Start waiting period at dock
+  self.startWaiting = function(){
+    self.mode = 'waiting';
+    self.waitTimer = 3600; // 1 minute at 60fps
+    self.name = 'Cargo Ship ⚓';
+    console.log('🚢 Cargo ship waiting for 1 minute at dock');
+  };
+  
+  // Navigate to target dock (using A* pathfinding on water)
+  self.navigateToTarget = function(){
+    if(!self.targetDock || !Building.list[self.targetDock]){
+      console.error('Target dock not found');
+      return;
+    }
+    
+    var targetDock = Building.list[self.targetDock];
+    var currentLoc = getLoc(self.x, self.y);
+    
+    // Generate path if we don't have one
+    if(!self.path || self.path.length === 0){
+      // Find closest water tile adjacent to target dock
+      var closestWaterTile = null;
+      var closestDist = Infinity;
+      
+      if(targetDock.plot && targetDock.plot.length > 0){
+        for(var i in targetDock.plot){
+          var dockTile = targetDock.plot[i];
+          var adjacent = [
+            [dockTile[0], dockTile[1] + 1],
+            [dockTile[0], dockTile[1] - 1],
+            [dockTile[0] - 1, dockTile[1]],
+            [dockTile[0] + 1, dockTile[1]]
+          ];
+          
+          for(var j in adjacent){
+            var at = adjacent[j];
+            if(at[0] >= 0 && at[0] < mapSize && at[1] >= 0 && at[1] < mapSize){
+              if(getTile(0, at[0], at[1]) == 0){ // Water
+                var dist = Math.sqrt(Math.pow(at[0] - currentLoc[0], 2) + Math.pow(at[1] - currentLoc[1], 2));
+                if(dist < closestDist){
+                  closestDist = dist;
+                  closestWaterTile = at;
+                }
+              }
+            }
+          }
+        }
+      }
+      
+      if(closestWaterTile){
+        // Use layer 0 (overworld) with waterOnly option for ship navigation
+        var path = global.tilemapSystem.findPath(currentLoc, closestWaterTile, 0, {waterOnly: true});
+        if(path && path.length > 0){
+          self.path = path;
+          console.log('🚢 Cargo ship generated path to ' + (targetDock.zoneName || 'target dock') + ' (' + path.length + ' waypoints)');
+        } else {
+          console.error('🚢 Failed to generate path to target dock');
+          self.path = null;
+        }
+      }
+    }
+    
+    // Follow the pathfinding waypoints
+    if(self.path && self.path.length > 0){
+      var nextWaypoint = self.path[0];
+      var waypointCoords = getCenter(nextWaypoint[0], nextWaypoint[1]);
+      var diffX = waypointCoords[0] - self.x;
+      var diffY = waypointCoords[1] - self.y;
+      var dist = Math.sqrt(diffX * diffX + diffY * diffY);
+      
+      if(dist > self.currentSpeed){
+        // Move toward waypoint
+        var moveX = (diffX / dist) * self.currentSpeed;
+        var moveY = (diffY / dist) * self.currentSpeed;
+        
+        self.x += moveX;
+        self.y += moveY;
+        
+        // Update facing
+        if(Math.abs(diffX) > Math.abs(diffY)){
+          self.facing = diffX > 0 ? 'right' : 'left';
+        } else {
+          self.facing = diffY > 0 ? 'down' : 'up';
+        }
+      } else {
+        // Reached waypoint, move to next
+        self.path.shift();
+      }
+      
+      // Check if reached destination
+      if(self.path.length === 0){
+        // Arrived at dock
+        self.mode = 'docked';
+        self.currentDock = self.targetDock;
+        console.log('🚢 Cargo ship arrived at destination dock');
+        
+        // Create dock network association (cargo ships also link docks)
+        var arrivedDock = Building.list[self.currentDock];
+        if(arrivedDock && arrivedDock.createDockAssociation){
+          arrivedDock.createDockAssociation(self.lastDock);
+        }
+        
+        // Update lastDock for next association
+        self.lastDock = self.currentDock;
+        
+        // Add current dock to visited list (unless it's home dock)
+        if(self.currentDock !== self.homeDock && self.visitedDocks.indexOf(self.currentDock) === -1){
+          self.visitedDocks.push(self.currentDock);
+        }
+        
+        // Disembark all passengers
+        var passengersToDisembark = self.passengers.slice(); // Copy array
+        for(var i = 0; i < passengersToDisembark.length; i++){
+          self.disembarkPassenger(passengersToDisembark[i].playerId, getLoc(targetDock.x, targetDock.y));
+        }
+        
+        // Select next destination
+        if(self.currentDock === self.homeDock){
+          // Back home - clear visited list and restart cycle
+          self.visitedDocks = [];
+          console.log('🚢 Cargo ship returned home, restarting cycle');
+        }
+        
+        self.selectNextDestination();
+        self.announceDestination();
+        self.startWaiting();
+      }
+    }
+  };
+  
+  self.update = function(){
+    // Handle combat state (if ship gets aggroed)
+    if(self.action === 'combat'){
+      if(global.simpleCombat){
+        global.simpleCombat.update(self);
+      } else {
+        // Fallback: clear invalid combat
+        if(!self.combat || !self.combat.target || !Player.list[self.combat.target]){
+          self.action = null;
+          if(self.combat) self.combat.target = null;
+        }
+      }
+    }
+    
+    // Decrement wait timer
+    if(self.waitTimer > 0){
+      self.waitTimer--;
+      if(self.waitTimer === 0 && self.mode === 'waiting'){
+        // Depart for destination
+        self.mode = 'sailing';
+        self.name = 'Cargo Ship';
+        console.log('🚢 Cargo ship departing for destination');
+        
+        // Announce departure to passengers
+        for(var i = 0; i < self.passengers.length; i++){
+          var socket = SOCKET_LIST[self.passengers[i].playerId];
+          if(socket){
+            socket.write(JSON.stringify({
+              msg: 'addToChat',
+              message: '<i>⛵ The cargo ship is departing...</i>'
+            }));
+          }
+        }
+      }
+    }
+    
+    // Handle sailing mode
+    if(self.mode === 'sailing'){
+      self.navigateToTarget();
+    }
+    
+    // Sync all passengers' positions to ship position
+    for(var i = 0; i < self.passengers.length; i++){
+      var passenger = self.passengers[i];
+      if(Player.list[passenger.playerId]){
+        var player = Player.list[passenger.playerId];
+        player.x = self.x;
+        player.y = self.y;
+        player.z = 0; // Always overworld
+      }
+    }
+  };
+  
+  // Board a passenger onto the cargo ship (always passive)
+  self.boardPassenger = function(playerId){
+    var player = Player.list[playerId];
+    if(!player){
+      console.error('Player not found:', playerId);
+      return false;
+    }
+    
+    // Check capacity
+    if(self.passengers.length >= self.maxPassengers){
+      var socket = SOCKET_LIST[playerId];
+      if(socket){
+        socket.write(JSON.stringify({
+          msg: 'addToChat',
+          message: '<i>Cargo ship is full (4/4 passengers)</i>'
+        }));
+      }
+      return false;
+    }
+    
+    // Check if already aboard
+    var alreadyAboard = self.passengers.some(function(p){ return p.playerId === playerId; });
+    if(alreadyAboard){
+      console.log('Player already aboard cargo ship');
+      return false;
+    }
+    
+    // Store player's original state
+    var storedPlayerData = {
+      id: playerId,
+      originalX: player.x,
+      originalY: player.y,
+      originalZ: player.z,
+      originalClass: player.class,
+      originalName: player.name
+    };
+    
+    // Add to passengers list (all passengers are passive, no navigator)
+    self.passengers.push({
+      playerId: playerId,
+      isNavigator: false, // Cargo ships have no navigator
+      storedData: storedPlayerData
+    });
+    
+    // CRITICAL: Mark player as boarded AND sync all coordinates atomically
+    // This prevents terrain checks from setting z=-3 when player is moved to water
+    player.isBoarded = true;
+    player.boardedShip = self.id;
+    player.x = self.x;
+    player.y = self.y;
+    player.z = 0; // Always overworld, don't sync z from ship
+    
+    // EXTRA SAFETY: Force z=0 explicitly again after all position updates
+    player.z = 0;
+    
+    console.log('✅ Passenger boarded cargo ship');
+    console.log('  - Ship z: ' + self.z + ', Player z set to: ' + player.z);
+    console.log('  - Ship position: [' + self.x.toFixed(0) + ', ' + self.y.toFixed(0) + ']');
+    console.log('  - Player position: [' + player.x.toFixed(0) + ', ' + player.y.toFixed(0) + ']');
+    console.log('  - Player isBoarded: ' + player.isBoarded);
+    console.log('  - Player boardedShip: ' + player.boardedShip);
+    console.log('  - Player type: ' + player.type);
+    
+    // Send boarding confirmation with boardShip message for client-side hide/music
+    var socket = SOCKET_LIST[playerId];
+    if(socket){
+      // Send boardShip message to hide player and play music (as passenger, not navigator)
+      socket.write(JSON.stringify({
+        msg: 'boardShip',
+        shipId: self.id,
+        isNavigator: false
+      }));
+      
+      var targetDockName = 'Unknown';
+      if(self.targetDock && Building.list[self.targetDock]){
+        var targetDock = Building.list[self.targetDock];
+        targetDockName = targetDock.zoneName || targetDock.name || 'Unknown';
+      }
+      
+      var timeRemaining = Math.ceil(self.waitTimer / 60);
+      socket.write(JSON.stringify({
+        msg: 'addToChat',
+        message: '<i>🚢 Boarded cargo ship to <b>' + targetDockName + '</b>. Departing in ' + timeRemaining + ' seconds. (' + self.passengers.length + '/' + self.maxPassengers + ' passengers)</i>'
+      }));
+    }
+    
+    console.log('🚢 ' + player.name + ' boarded cargo ship as passenger (' + self.passengers.length + '/' + self.maxPassengers + ')');
+    return true;
+  };
+  
+  // Disembark a passenger
+  self.disembarkPassenger = function(playerId, landLoc){
+    var passengerIndex = self.passengers.findIndex(function(p){ return p.playerId === playerId; });
+    if(passengerIndex === -1){
+      console.error('Passenger not found on cargo ship:', playerId);
+      return false;
+    }
+    
+    var passenger = self.passengers[passengerIndex];
+    var player = Player.list[playerId];
+    if(!player){
+      console.error('Player not found:', playerId);
+      return false;
+    }
+    
+    // Place player on dock
+    var landCoords = getCenter(landLoc[0], landLoc[1]);
+    player.x = landCoords[0];
+    player.y = landCoords[1];
+    player.z = 0;
+    player.isBoarded = false;
+    player.boardedShip = null;
+    player.boardCooldown = 180;
+    
+    // Remove from passengers
+    self.passengers.splice(passengerIndex, 1);
+    
+    // Notify player and restore visibility
+    var socket = SOCKET_LIST[playerId];
+    if(socket){
+      // CRITICAL: Send disembarkShip message to clear isBoarded flag on client
+      socket.write(JSON.stringify({
+        msg: 'disembarkShip',
+        newSelfId: playerId
+      }));
+      socket.write(JSON.stringify({
+        msg: 'addToChat',
+        message: '<i>🏖️ You have arrived at your destination.</i>'
+      }));
+    }
+    
+    console.log('🚢 ' + player.name + ' disembarked from cargo ship');
+    return true;
+  };
+  
+  // Override getInitPack
+  var super_getInitPack = self.getInitPack;
+  self.getInitPack = function(){
+    var pack = super_getInitPack();
+    pack.shipType = self.shipType;
+    pack.shipMode = self.mode;
+    pack.waitTimer = self.waitTimer;
+    pack.passengerCount = self.passengers.length;
+    pack.maxPassengers = self.maxPassengers;
+    return pack;
+  };
+  
+  // Override getUpdatePack
+  var super_getUpdatePack = self.getUpdatePack;
+  self.getUpdatePack = function(){
+    var pack = super_getUpdatePack();
+    pack.shipType = self.shipType;
+    pack.shipMode = self.mode;
+    pack.waitTimer = self.waitTimer;
+    pack.passengerCount = self.passengers.length;
+    pack.maxPassengers = self.maxPassengers;
+    return pack;
+  };
+  
+  Player.list[self.id] = self;
+  initPack.player.push(self.getInitPack());
+  return self;
+}
+
 // UNITS
 
 Serf = function(param){
@@ -7249,7 +8152,7 @@ Serf = function(param){
         self.maxSpd = self.baseSpd * self.drag;
           console.log(self.name + ' entered building ' + Building.list[b].type + ' (z=1)');
         }
-      } else if(getTile(0,loc[0],loc[1]) == 0){
+      } else if(getTile(0,loc[0],loc[1]) == 0 && !self.isBoarded){
         self.z = -3;
         // DON'T clear path - preserve for underwater navigation
         self.innaWoods = false;
@@ -7382,11 +8285,20 @@ Serf = function(param){
       }
     }
 
-    // Improved day/night transition logic
+    // Improved day/night transition logic with better staggering to avoid lag spikes
     if(tempus == 'VI.a' && self.mode != 'work' && !self.dayTimer){
       self.dayTimer = true;
-      var rand = Math.floor(Math.random() * (3600000/(period*6)));
-      console.log(self.name + ' will start work in ' + (rand/1000).toFixed(1) + ' seconds (tempus=' + tempus + ', currentMode=' + self.mode + ')');
+      // PERFORMANCE FIX: Spread work assignments over 60 seconds instead of ~10 seconds
+      // This prevents thundering herd when all serfs wake up at dawn
+      var rand = Math.floor(Math.random() * 60000); // 0-60 seconds
+      if(!global.SERF_DEBUG_MODE) {
+        // Only log occasionally to reduce console spam
+        if(Math.random() < 0.1) {
+          console.log(self.name + ' will start work in ' + (rand/1000).toFixed(1) + ' seconds (tempus=' + tempus + ', currentMode=' + self.mode + ')');
+        }
+      } else {
+        console.log(self.name + ' will start work in ' + (rand/1000).toFixed(1) + ' seconds (tempus=' + tempus + ', currentMode=' + self.mode + ')');
+      }
       setTimeout(function(){
         if(self.mode != 'work'){ // Double-check mode hasn't changed
         self.mode = 'work';
@@ -9361,7 +10273,7 @@ Innkeeper = function(param){
           self.pressingDown = false;
           self.pressingUp = false;
         }
-      } else if(getTile(0,loc[0],loc[1]) == 0){
+      } else if(getTile(0,loc[0],loc[1]) == 0 && !self.isBoarded){
         self.z = -3;
         // DON'T clear path - preserve for underwater navigation
         self.innaWoods = false;
@@ -9496,12 +10408,15 @@ Innkeeper = function(param){
 
     if(tempus == 'VI.a' && self.mode !== 'work' && !self.dayTimer){
       self.dayTimer = true;
-      var rand = Math.floor(Math.random() * (3600000/(period*6)));
+      // PERFORMANCE FIX: Spread work assignments over 60 seconds to avoid lag spikes
+      var rand = Math.floor(Math.random() * 60000); // 0-60 seconds
       setTimeout(function(){
         self.mode = 'work';
         self.action = null;
         self.dayTimer = false;
-        console.log(self.name + ' heads to work');
+        if(!global.SERF_DEBUG_MODE && Math.random() < 0.1) {
+          console.log(self.name + ' heads to work');
+        }
       },rand);
     } else if(tempus == 'VI.p' && self.action == 'task' && !self.dayTimer){
       self.dayTimer = true;
@@ -10233,7 +11148,7 @@ Blacksmith = function(param){
           self.pressingDown = false;
           self.pressingUp = false;
         }
-      } else if(getTile(0,loc[0],loc[1]) == 0){
+      } else if(getTile(0,loc[0],loc[1]) == 0 && !self.isBoarded){
         self.z = -3;
         // DON'T clear path - preserve for underwater navigation
         self.innaWoods = false;
@@ -10709,11 +11624,7 @@ FishingBoat = function(param){
   self.class = 'FishingBoat';
 }
 
-CargoShip = function(param){
-  var self = Character(param);
-  self.class = 'CargoShip';
-  self.torchBearer = true;
-}
+// CargoShip is defined earlier in file (line ~7109) with full implementation
 
 Galley = function(param){
   var self = Character(param);
@@ -13930,7 +14841,9 @@ Relic = function(param){
       socket.write(JSON.stringify({msg:'addToChat',message:'<i>You are already carrying a</i> <b>Relic</b>.'}));
     } else {
       Player.list[id].inventory.relic += self.qty;
-      socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up the</i> <b>Relic</b>.'}));
+      if(socket){
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up the</i> <b>Relic</b>.'}));
+      }
       self.toRemove = true;
     }
   }

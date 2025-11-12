@@ -124,21 +124,6 @@ Edit `server/js/blockchain/NetworkConfig.js` to adjust:
 - Maximum pending transactions
 - Transaction timeout
 
-## Player Commands
-
-### `/wallet` or `/blockchain`
-Shows wallet information:
-- Wallet address (public key)
-- Gold balance
-- Blockchain height (number of blocks)
-- Pending transactions count
-
-### `/sendgold <playerName> <amount>`
-Sends gold to another player:
-```
-/sendgold Alice 100
-```
-
 ## Admin Commands
 
 ### View Blockchain Status

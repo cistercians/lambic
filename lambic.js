@@ -174,6 +174,77 @@ const SocialSystem = require('./server/js/core/SocialSystem');
 global.socialSystem = new SocialSystem();
 console.log('✅ Social System initialized');
 
+// Function to spawn cargo ships for docks with networks
+function spawnCargoShips(){
+  var cargoShipsSpawned = 0;
+  
+  for(var buildingId in Building.list){
+    var building = Building.list[buildingId];
+    
+    // Only spawn for docks with networks that don't already have a cargo ship
+    if(building.type === 'dock' && building.network && building.network.length > 0 && !building.cargoShip){
+      // Find water tile adjacent to dock
+      var waterTile = null;
+      for(var i in building.plot){
+        var dockLoc = building.plot[i];
+        var adjacent = [
+          [dockLoc[0], dockLoc[1] + 1],
+          [dockLoc[0], dockLoc[1] - 1],
+          [dockLoc[0] - 1, dockLoc[1]],
+          [dockLoc[0] + 1, dockLoc[1]]
+        ];
+        
+        for(var j in adjacent){
+          var at = adjacent[j];
+          if(at[0] >= 0 && at[0] < mapSize && at[1] >= 0 && at[1] < mapSize){
+            if(getTile(0, at[0], at[1]) == 0){ // Water
+              waterTile = at;
+              break;
+            }
+          }
+        }
+        if(waterTile) break;
+      }
+      
+      if(!waterTile){
+        console.log('⚠️ Dock ' + buildingId + ' has network but no adjacent water, cannot spawn cargo ship');
+        continue;
+      }
+      
+      // Create cargo ship at water tile adjacent to dock
+      var waterCoords = getCenter(waterTile[0], waterTile[1]);
+      var cargoShip = CargoShip({
+        x: waterCoords[0],
+        y: waterCoords[1],
+        z: 0,
+        homeDock: buildingId,
+        currentDock: buildingId,
+        mode: 'waiting'
+      });
+      
+      // Select first destination and start waiting
+      if(cargoShip.selectNextDestination()){
+        cargoShip.announceDestination();
+        cargoShip.startWaiting();
+        building.cargoShip = cargoShip.id;
+        cargoShipsSpawned++;
+        console.log('🚢 Spawned cargo ship at dock ' + buildingId);
+      } else {
+        // Failed to select destination, remove ship
+        cargoShip.toRemove = true;
+        console.error('Failed to select destination for cargo ship at dock ' + buildingId);
+      }
+    }
+  }
+  
+  if(cargoShipsSpawned > 0){
+    console.log('✅ Spawned ' + cargoShipsSpawned + ' cargo ships for dock networks');
+  }
+}
+
+// Spawn cargo ships after buildings are loaded
+spawnCargoShips();
+
 // Create command handler after globals are set
 const commandHandler = new CommandHandler();
 
@@ -2409,6 +2480,11 @@ const Player = function(param) {
   };
 
   self.update = function() {
+    // Boarded players should not run normal update logic - position is controlled by the ship
+    if (self.isBoarded) {
+      return;
+    }
+    
     self.updateSpd();
     self.zoneCheck();
 
@@ -4181,21 +4257,36 @@ global.processSellOrder = function(playerId, market, resource, amount, price){
 // RESOURCE REPORTING
 // ============================================================================
 
+// OPTIMIZED: Async version to prevent 32-second blocking spike
 function sendDailyResourceReport() {
-  // Send end-of-day resource reports to each player for THEIR buildings only
   console.log('📊 Generating daily resource reports...');
-  var playerCount = 0;
-  var reportsSent = 0;
   
+  // Collect all player data first (fast pass)
+  const players = [];
   for(var id in Player.list){
     var player = Player.list[id];
-    if(!player || player.type !== 'player') continue; // Skip NPCs
-    
-    playerCount++;
+    if(!player || player.type !== 'player') continue;
     var socket = SOCKET_LIST[id];
-    if(!socket){
-      continue;
+    if(!socket) continue;
+    players.push({id, player, socket});
+  }
+  
+  if(players.length === 0){
+    console.log('📊 No players online for reports');
+    return;
+  }
+  
+  // Process players asynchronously to prevent blocking
+  let playerIndex = 0;
+  let reportsSent = 0;
+  
+  function processNextPlayer() {
+    if(playerIndex >= players.length){
+      console.log('📊 Reports complete: ' + reportsSent + ' sent to ' + players.length + ' players');
+      return;
     }
+    
+    const {id, player, socket} = players[playerIndex++];
     
     var reportData = {
       grain: {daily: 0, buildings: []},
@@ -4207,69 +4298,50 @@ function sendDailyResourceReport() {
       diamond: {daily: 0, buildings: []}
     };
     
-    var buildingsChecked = 0;
     var buildingsOwned = 0;
     
-    // Scan all buildings - include ones THIS player owns OR their House owns
+    // OPTIMIZED: Scan all buildings - removed excessive logging
     for(var bid in Building.list){
       var building = Building.list[bid];
-      buildingsChecked++;
       
       // Check if player owns this building directly OR through their House
       var isOwned = (building.owner === player.id) || (player.house && building.house === player.house);
-      
-      // Debug: Show all economic buildings to see ownership
-      if((building.type === 'mill' || building.type === 'lumbermill' || building.type === 'mine')){
-        console.log('  🏗️ ' + building.type + ' owner=' + building.owner + ' house=' + building.house + ' isOwned=' + isOwned);
-      }
-      
       if(!isOwned) continue;
       
       buildingsOwned++;
       
       // Skip if no daily tracking
-      if(!building.dailyStores){
-        console.log('⚠️ Building ' + building.type + ' (id: ' + bid + ') has no dailyStores');
-        continue;
-      }
+      if(!building.dailyStores) continue;
       
-      console.log('✅ Counting ' + building.type + ' (id: ' + bid + '): dailyStores=' + JSON.stringify(building.dailyStores));
-      
+      // Process building resources (no logging per building)
       if(building.type === 'mill'){
         if(building.dailyStores.grain > 0){
-          console.log('  📊 Adding ' + building.dailyStores.grain + ' grain to daily (was: ' + reportData.grain.daily + ')');
           reportData.grain.daily += building.dailyStores.grain;
           reportData.grain.buildings.push({type: 'Mill', amount: building.dailyStores.grain, id: bid});
         }
       } else if(building.type === 'lumbermill'){
         if(building.dailyStores.wood > 0){
-          console.log('  📊 Adding ' + building.dailyStores.wood + ' wood to daily (was: ' + reportData.wood.daily + ')');
           reportData.wood.daily += building.dailyStores.wood;
           reportData.wood.buildings.push({type: 'Lumbermill', amount: building.dailyStores.wood, id: bid});
         }
       } else if(building.type === 'mine'){
         if(building.dailyStores.stone > 0){
-          console.log('  📊 Adding ' + building.dailyStores.stone + ' stone to daily (was: ' + reportData.stone.daily + ')');
           reportData.stone.daily += building.dailyStores.stone;
           reportData.stone.buildings.push({type: 'Mine', amount: building.dailyStores.stone, id: bid});
         }
         if(building.dailyStores.ironore > 0){
-          console.log('  📊 Adding ' + building.dailyStores.ironore + ' ironore to daily (was: ' + reportData.ironore.daily + ')');
           reportData.ironore.daily += building.dailyStores.ironore;
           reportData.ironore.buildings.push({type: 'Mine', amount: building.dailyStores.ironore, id: bid});
         }
         if(building.dailyStores.silverore > 0){
-          console.log('  📊 Adding ' + building.dailyStores.silverore + ' silverore to daily (was: ' + reportData.silverore.daily + ')');
           reportData.silverore.daily += building.dailyStores.silverore;
           reportData.silverore.buildings.push({type: 'Mine', amount: building.dailyStores.silverore, id: bid});
         }
         if(building.dailyStores.goldore > 0){
-          console.log('  📊 Adding ' + building.dailyStores.goldore + ' goldore to daily (was: ' + reportData.goldore.daily + ')');
           reportData.goldore.daily += building.dailyStores.goldore;
           reportData.goldore.buildings.push({type: 'Mine', amount: building.dailyStores.goldore, id: bid});
         }
         if(building.dailyStores.diamond > 0){
-          console.log('  📊 Adding ' + building.dailyStores.diamond + ' diamond to daily (was: ' + reportData.diamond.daily + ')');
           reportData.diamond.daily += building.dailyStores.diamond;
           reportData.diamond.buildings.push({type: 'Mine', amount: building.dailyStores.diamond, id: bid});
         }
@@ -4354,22 +4426,21 @@ function sendDailyResourceReport() {
       message += '<br><span style="color:#ff6644;"><b>🔥 Iron Bars:</b> ' + houseStores.iron + '</span>';
     }
     
-    console.log('📋 Player ' + (player.name || id) + ': ' + buildingsOwned + ' buildings owned (checked ' + buildingsChecked + ' total)');
-    console.log('   Grain: ' + reportData.grain.daily + ', Wood: ' + reportData.wood.daily + ', Stone: ' + reportData.stone.daily + ', Iron Ore: ' + reportData.ironore.daily + ', Silver Ore: ' + reportData.silverore.daily + ', Gold Ore: ' + reportData.goldore.daily + ', Diamonds: ' + reportData.diamond.daily);
-    
+    // OPTIMIZED: Removed excessive logging
     if(hasResources){
       // Add closing line for polished look
       message += '<br><span style="color:#ffdd88;"><b>━━━━━━━━━━━━━━━━━━━━━━━━━━━━</b></span>';
       
       socket.write(JSON.stringify({msg:'addToChat',message: message}));
       reportsSent++;
-      console.log('✅ Report sent to ' + (player.name || id));
-    } else {
-      console.log('ℹ️ No resources collected for ' + (player.name || id));
     }
+    
+    // Process next player asynchronously to prevent blocking
+    setImmediate(processNextPlayer);
   }
   
-  console.log('📊 Reports complete: ' + reportsSent + ' sent to ' + playerCount + ' players');
+  // Start processing first player
+  processNextPlayer();
 }
 
 function resetDailyResourceTracking() {

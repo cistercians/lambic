@@ -2820,9 +2820,17 @@ Outlaws = function(param){
     
     // pawns
     for(var i = 0; i < 3; i++){
+      if(grid.length === 0){
+        console.warn('Outlaws: Not enough valid spawn locations for all pawns');
+        break;
+      }
       var rand = Math.floor(Math.random() * grid.length);
       var select = grid[rand];
       grid.splice(rand,1);
+      if(!select || !select[0]){
+        console.warn('Outlaws: Invalid spawn location, skipping pawn');
+        continue;
+      }
       var c = getCenter(select[0],select[1]);
       var flip = Math.random();
       if(flip > 0.33){

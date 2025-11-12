@@ -63,7 +63,32 @@ Interact = function(id,loc){
         }
       } else if(building.type == 'dock'){
         // Dock interaction menu
-        if(building.owner == id){
+        // Allow access to neutral players or friendly factions (not just owner)
+        var canAccess = true;
+        
+        // Check if player is hostile to dock owner
+        if(building.owner && building.owner !== id){
+          var dockOwner = Player.list[building.owner];
+          if(dockOwner){
+            // Check if hostile (enemies list)
+            if(player.enemies && player.enemies.indexOf(building.owner) !== -1){
+              canAccess = false;
+            }
+            if(dockOwner.enemies && dockOwner.enemies.indexOf(id) !== -1){
+              canAccess = false;
+            }
+          }
+        }
+        
+        // Check faction hostility
+        if(building.house && player.house && building.house !== player.house){
+          // Different houses - check if hostile
+          if(player.enemies && player.enemies.indexOf(building.house) !== -1){
+            canAccess = false;
+          }
+        }
+        
+        if(canAccess){
           // Get player resources
           var playerWood = 0;
           if(player.house){
@@ -83,17 +108,68 @@ Interact = function(id,loc){
             }
           ];
           
-          // Find owned ships (FishingShip entities owned by this player)
+          // Find owned ships at THIS dock (FishingShip entities owned by this player)
           var ownedShips = [];
+          
+          // Check stored ships at this dock
+          if(building.storedShips){
+            for(var i in building.storedShips){
+              var storedShip = building.storedShips[i];
+              if(storedShip.owner == id){
+                ownedShips.push({
+                  id: storedShip.shipId,
+                  type: storedShip.shipType,
+                  name: storedShip.shipType === 'fishingship' ? '🐟 Fishing Ship' : storedShip.shipType,
+                  inventory: storedShip.cargo || {},
+                  storedPlayer: null,
+                  isStored: true
+                });
+              }
+            }
+          }
+          
+          // Check active ships that are docked/anchored at this location
+          var loc = getLoc(building.x, building.y);
           for(var shipId in Player.list){
             var ship = Player.list[shipId];
             if(ship.shipType && ship.owner == id && !ship.toRemove){
-              ownedShips.push({
-                id: shipId,
-                type: ship.shipType,
-                name: ship.shipType === 'fishingship' ? '🐟 Fishing Ship' : ship.name,
-                inventory: ship.inventory || {},
-                storedPlayer: ship.storedPlayer || null
+              var shipLoc = getLoc(ship.x, ship.y);
+              // Check if ship is within 2 tiles of this dock and in docked/anchored mode
+              var distX = Math.abs(shipLoc[0] - loc[0]);
+              var distY = Math.abs(shipLoc[1] - loc[1]);
+              if((distX <= 2 && distY <= 2) && (ship.mode === 'docked' || ship.mode === 'anchored')){
+                ownedShips.push({
+                  id: shipId,
+                  type: ship.shipType,
+                  name: ship.shipType === 'fishingship' ? '🐟 Fishing Ship' : ship.name,
+                  inventory: ship.inventory || {},
+                  storedPlayer: ship.storedPlayer || null,
+                  isStored: false
+                });
+              }
+            }
+          }
+          
+          // Find cargo ships at this dock (available for boarding)
+          // Check ALL cargo ships to see if any are currently at THIS dock
+          var cargoShips = [];
+          for(var shipId in Player.list){
+            var ship = Player.list[shipId];
+            if(ship.shipType === 'cargoship' && ship.currentDock === b && (ship.mode === 'waiting' || ship.mode === 'docked')){
+              // Get destination name
+              var destinationName = 'Unknown';
+              if(ship.targetDock && Building.list[ship.targetDock]){
+                var targetDock = Building.list[ship.targetDock];
+                destinationName = targetDock.zoneName || targetDock.name || 'Unknown';
+              }
+              
+              var timeRemaining = Math.ceil(ship.waitTimer / 60);
+              cargoShips.push({
+                id: ship.id,
+                destination: destinationName,
+                passengerCount: ship.passengers.length,
+                maxPassengers: ship.maxPassengers,
+                departureTime: timeRemaining
               });
             }
           }
@@ -104,10 +180,11 @@ Interact = function(id,loc){
             dockId: b,
             availableShips: availableShips,
             ownedShips: ownedShips,
+            cargoShips: cargoShips,
             playerResources: {wood: playerWood}
           }));
         } else {
-          socket.write(JSON.stringify({msg:'addToChat', message: '<i>This is not your Dock.</i>'}));
+          socket.write(JSON.stringify({msg:'addToChat', message: '<i>You cannot use this dock - the owner is hostile to you.</i>'}));
         }
       }
     } else { // item outside

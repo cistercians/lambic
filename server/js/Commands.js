@@ -956,6 +956,7 @@ EvalCmd = function(data){
             }
           }
           if(count == 10){
+            // Convert tiles to building plot first
             for(var i in plot){
               var n = plot[i];
               if(getTile(0,n[0],n[1]) != 0){
@@ -966,6 +967,24 @@ EvalCmd = function(data){
               tileChange(6,n[0],n[1],0);
               matrixChange(0,n[0],n[1],0);
             }
+            
+            // Get zone name from land plot tiles (11, not 11.5)
+            var dockZoneName = 'Dock';
+            if(global.zoneManager){
+              for(var i in plot){
+                var n = plot[i];
+                var tileType = getTile(0, n[0], n[1]);
+                if(tileType === 11){ // Land plot tile
+                  var zone = global.zoneManager.getZoneAt(n);
+                  if(zone && zone.name){
+                    dockZoneName = zone.name;
+                    console.log('🏗️ Dock zone: ' + zone.name);
+                    break;
+                  }
+                }
+              }
+            }
+            
             mapEdit();
             Dock({
               owner:player.id,
@@ -979,6 +998,7 @@ EvalCmd = function(data){
               plot:plot,
               walls:null,
               topPlot:topPlot,
+              zoneName:dockZoneName,
               mats:{
                 wood:100,
                 stone:0
@@ -14246,6 +14266,216 @@ EvalCmd = function(data){
       } else {
         socket.write(JSON.stringify({ msg: 'addToChat', message: '<i>No owned ship nearby. Stand within 1 tile of your ship.</i>' }));
       }
+    } else if(data.cmd && data.cmd.startsWith('docknetwork')){
+      // Dock network management commands
+      var parts = data.cmd.split(' ');
+      var subcommand = parts[1]; // 'add', 'remove', 'list'
+      var targetDockId = parts[2];
+      
+      // Player must be at a dock they own
+      var facingBuilding = getBuilding(player.x, player.y);
+      if(!facingBuilding){
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>You must be at a dock to use this command.</i>'}));
+        return;
+      }
+      
+      var dock = Building.list[facingBuilding];
+      if(!dock || dock.type !== 'dock'){
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>You must be at a dock to use this command.</i>'}));
+        return;
+      }
+      
+      if(dock.owner !== player.id){
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>You must own this dock to manage its network.</i>'}));
+        return;
+      }
+      
+      if(!dock.network){
+        dock.network = [];
+      }
+      
+      if(subcommand === 'add'){
+        if(!targetDockId){
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>Usage: /docknetwork add &lt;dockId&gt;</i>'}));
+          return;
+        }
+        
+        // Validate target dock exists
+        if(!Building.list[targetDockId] || Building.list[targetDockId].type !== 'dock'){
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>Target dock not found.</i>'}));
+          return;
+        }
+        
+        // Check if already in network
+        if(dock.network.indexOf(targetDockId) !== -1){
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>This dock is already in your network.</i>'}));
+          return;
+        }
+        
+        // Add to network
+        dock.network.push(targetDockId);
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>✅ Dock <b>' + targetDockId + '</b> added to network.</i>'}));
+        
+        // Spawn cargo ship if this is the first dock in network
+        if(dock.network.length === 1 && !dock.cargoShip){
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>🚢 Spawning cargo ship for your dock network...</i>'}));
+          
+          // Find water tile adjacent to dock
+          var waterTile = null;
+          for(var i in dock.plot){
+            var dockLoc = dock.plot[i];
+            var adjacent = [
+              [dockLoc[0], dockLoc[1] + 1],
+              [dockLoc[0], dockLoc[1] - 1],
+              [dockLoc[0] - 1, dockLoc[1]],
+              [dockLoc[0] + 1, dockLoc[1]]
+            ];
+            
+            for(var j in adjacent){
+              var at = adjacent[j];
+              if(at[0] >= 0 && at[0] < mapSize && at[1] >= 0 && at[1] < mapSize){
+                if(getTile(0, at[0], at[1]) == 0){ // Water
+                  waterTile = at;
+                  break;
+                }
+              }
+            }
+            if(waterTile) break;
+          }
+          
+          if(waterTile){
+            var waterCoords = getCenter(waterTile[0], waterTile[1]);
+            var cargoShip = CargoShip({
+              x: waterCoords[0],
+              y: waterCoords[1],
+              z: 0,
+              homeDock: facingBuilding,
+              currentDock: facingBuilding,
+              mode: 'waiting'
+            });
+            
+            if(cargoShip.selectNextDestination()){
+              cargoShip.announceDestination();
+              cargoShip.startWaiting();
+              dock.cargoShip = cargoShip.id;
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>✅ Cargo ship spawned and ready for passengers!</i>'}));
+            }
+          }
+        }
+      } else if(subcommand === 'remove'){
+        if(!targetDockId){
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>Usage: /docknetwork remove &lt;dockId&gt;</i>'}));
+          return;
+        }
+        
+        var index = dock.network.indexOf(targetDockId);
+        if(index === -1){
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>This dock is not in your network.</i>'}));
+          return;
+        }
+        
+        // Remove from network
+        dock.network.splice(index, 1);
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>✅ Dock <b>' + targetDockId + '</b> removed from network.</i>'}));
+        
+        // If network becomes empty, remove cargo ship
+        if(dock.network.length === 0 && dock.cargoShip){
+          var cargoShip = Player.list[dock.cargoShip];
+          if(cargoShip){
+            cargoShip.toRemove = true;
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>🚢 Cargo ship removed (network is now empty).</i>'}));
+          }
+          dock.cargoShip = null;
+        }
+      } else if(subcommand === 'list'){
+        if(dock.network.length === 0){
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>This dock has no network connections.</i>'}));
+        } else {
+          var message = '<b>🚢 Dock Network:</b><br>';
+          for(var i = 0; i < dock.network.length; i++){
+            var targetDock = Building.list[dock.network[i]];
+            var targetName = dock.network[i];
+            if(targetDock){
+              targetName = (targetDock.zoneName || targetDock.name || 'Dock') + ' (' + dock.network[i] + ')';
+            }
+            message += '<br>' + (parseInt(i) + 1) + '. ' + targetName;
+          }
+          socket.write(JSON.stringify({msg:'addToChat',message:message}));
+        }
+      } else {
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>Usage: /docknetwork [add|remove|list] &lt;dockId&gt;</i>'}));
+      }
+    } else if(data.cmd === 'spawncargo'){
+      // Admin command to spawn cargo ship at current dock
+      var facingBuilding = getBuilding(player.x, player.y);
+      if(!facingBuilding){
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>You must be at a dock.</i>'}));
+        return;
+      }
+      
+      var dock = Building.list[facingBuilding];
+      if(!dock || dock.type !== 'dock'){
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>You must be at a dock.</i>'}));
+        return;
+      }
+      
+      if(!dock.network || dock.network.length === 0){
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>This dock has no network. Use /docknetwork add &lt;dockId&gt; first.</i>'}));
+        return;
+      }
+      
+      if(dock.cargoShip){
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>This dock already has a cargo ship.</i>'}));
+        return;
+      }
+      
+      // Find water tile
+      var waterTile = null;
+      for(var i in dock.plot){
+        var dockLoc = dock.plot[i];
+        var adjacent = [
+          [dockLoc[0], dockLoc[1] + 1],
+          [dockLoc[0], dockLoc[1] - 1],
+          [dockLoc[0] - 1, dockLoc[1]],
+          [dockLoc[0] + 1, dockLoc[1]]
+        ];
+        
+        for(var j in adjacent){
+          var at = adjacent[j];
+          if(at[0] >= 0 && at[0] < mapSize && at[1] >= 0 && at[1] < mapSize){
+            if(getTile(0, at[0], at[1]) == 0){ // Water
+              waterTile = at;
+              break;
+            }
+          }
+        }
+        if(waterTile) break;
+      }
+      
+      if(!waterTile){
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>No water adjacent to this dock.</i>'}));
+        return;
+      }
+      
+      var waterCoords = getCenter(waterTile[0], waterTile[1]);
+      var cargoShip = CargoShip({
+        x: waterCoords[0],
+        y: waterCoords[1],
+        z: 0,
+        homeDock: facingBuilding,
+        currentDock: facingBuilding,
+        mode: 'waiting'
+      });
+      
+      if(cargoShip.selectNextDestination()){
+        cargoShip.announceDestination();
+        cargoShip.startWaiting();
+        dock.cargoShip = cargoShip.id;
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>✅ Cargo ship spawned!</i>'}));
+      } else {
+        cargoShip.toRemove = true;
+        socket.write(JSON.stringify({msg:'addToChat',message:'<i>❌ Failed to spawn cargo ship.</i>'}));
+      }
     } else if(data.cmd && data.cmd.startsWith('boardship')){
       // Player wants to board an owned ship from dock menu
       // Parse ship ID from command: "boardship <shipId>"
@@ -14262,13 +14492,16 @@ EvalCmd = function(data){
         return;
       }
       
-      if(ship.owner && ship.owner != player.id){
+      // Cargo ships are public transport (no ownership check)
+      // Fishing ships require ownership
+      if(ship.shipType === 'fishingship' && ship.owner && ship.owner != player.id){
         socket.write(JSON.stringify({msg:'addToChat',message:'<i>This is not your ship.</i>'}));
         return;
       }
       
-      // If ship is docked, spawn it on water first
-      if(ship.mode === 'docked'){
+      // If ship is a fishing ship and docked, spawn it on water first
+      // Cargo ships stay at their current position (they're AI-controlled)
+      if(ship.shipType === 'fishingship' && ship.mode === 'docked'){
         // Find water tile away from dock to spawn ship
         var dockBuilding = Building.list[ship.dock];
         var waterTile = null;
@@ -14335,11 +14568,13 @@ EvalCmd = function(data){
       var boarded = ship.boardPassenger(player.id);
       
       if(boarded){
-        // Mark ship as spawned
-        ship.spawned = true;
-        // Ship starts anchored, becomes sailing when player moves
-        ship.mode = 'anchored';
-        ship.name = 'Fishing Ship ⚓';
+        // Only modify state for fishing ships (cargo ships are AI-controlled)
+        if(ship.shipType === 'fishingship'){
+          ship.spawned = true;
+          ship.mode = 'anchored';
+          ship.name = 'Fishing Ship ⚓';
+        }
+        // Cargo ships maintain their current state (waiting/docked)
       } else {
         socket.write(JSON.stringify({msg:'addToChat',message:'<i>Failed to board ship.</i>'}));
       }

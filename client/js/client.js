@@ -14,10 +14,11 @@ var shipWakes = {
     const fadeDuration = 5000; // 5 seconds
     const currentShipTiles = {};
     
-    // Find all ship positions
+    // Find all ship positions (all ship types)
     for(const id in Player.list) {
       const entity = Player.list[id];
-      if(entity && entity.class === 'FishingShip') {
+      // Check for all ship types (FishingShip, CargoShip, etc.)
+      if(entity && (entity.class === 'FishingShip' || entity.class === 'CargoShip' || entity.type === 'ship')) {
         const tileX = Math.floor(entity.x / tileSize);
         const tileY = Math.floor(entity.y / tileSize);
         const key = tileX + ',' + tileY;
@@ -527,9 +528,26 @@ socket.onmessage = function(event){
       // Just a passenger - mark as boarded but don't switch control
       var player = Player.list[selfId];
       if(player){
+        console.log('🚢 CLIENT: Before boarding - Player z:', player.z);
         player.isBoarded = true;
         player.boardedShip = data.shipId;
+        console.log('🚢 CLIENT: After setting isBoarded - Player z:', player.z);
+        
+        // Check ship z
+        var ship = Player.list[data.shipId];
+        if(ship){
+          console.log('🚢 CLIENT: Ship z:', ship.z);
+        }
       }
+      
+      // Passengers also get ship BGM and sea ambience
+      if(typeof bgmPlayer !== 'undefined' && typeof ship_bgm !== 'undefined'){
+        bgmPlayer(ship_bgm);
+      }
+      if(typeof ambPlayer !== 'undefined'){
+        ambPlayer('/client/audio/amb/sea.mp3');
+      }
+      
       console.log('🚢 Boarded as passenger');
     }
   } else if(data.msg == 'disembarkShip'){
@@ -759,6 +777,8 @@ socket.onmessage = function(event){
           p.sprite = falcon;
         } else if(p.class == 'FishingShip'){
           p.sprite = fishingship;
+        } else if(p.class == 'CargoShip'){
+          p.sprite = cargoship;
         } else if(p.class == 'Serf' || p.class == 'SerfM'){
           p.sprite = maleserf;
         } else if(p.class == 'Rogue' || p.class == 'Trapper' || p.class == 'Cutthroat'){
@@ -1900,6 +1920,7 @@ var dockPopup = document.getElementById('dock-popup');
 var dockClose = document.getElementById('dock-close');
 var dockShipList = document.getElementById('dock-ship-list');
 var dockOwnedShipsList = document.getElementById('dock-owned-ships-list');
+var dockCargoShipsList = document.getElementById('dock-cargo-ships-list');
 var currentDockData = null;
 
 // Chat auto-hide functionality
@@ -3807,11 +3828,66 @@ function updateDockDisplay(){
   
   var availableShips = currentDockData.availableShips || [];
   var ownedShips = currentDockData.ownedShips || [];
+  var cargoShips = currentDockData.cargoShips || [];
   var playerResources = currentDockData.playerResources || {};
   
   // Clear displays
   dockShipList.innerHTML = '';
   dockOwnedShipsList.innerHTML = '';
+  dockCargoShipsList.innerHTML = '';
+  
+  // Display cargo ships (passenger transport)
+  if(cargoShips.length > 0){
+    for(var i in cargoShips){
+      var cargo = cargoShips[i];
+      var cargoDiv = document.createElement('div');
+      cargoDiv.className = 'dock-cargo-ship';
+      cargoDiv.style.backgroundColor = 'rgba(50, 100, 150, 0.3)';
+      cargoDiv.style.border = '2px solid rgba(100, 150, 200, 0.5)';
+      cargoDiv.style.borderRadius = '5px';
+      cargoDiv.style.padding = '15px';
+      cargoDiv.style.marginBottom = '10px';
+      cargoDiv.style.cursor = 'pointer';
+      
+      var destDiv = document.createElement('div');
+      destDiv.style.fontSize = '16px';
+      destDiv.style.fontWeight = 'bold';
+      destDiv.style.color = '#aaddff';
+      destDiv.style.marginBottom = '8px';
+      destDiv.textContent = '→ ' + cargo.destination;
+      cargoDiv.appendChild(destDiv);
+      
+      var infoDiv = document.createElement('div');
+      infoDiv.style.fontSize = '13px';
+      infoDiv.style.color = '#ccc';
+      infoDiv.style.marginBottom = '8px';
+      infoDiv.textContent = 'Passengers: ' + cargo.passengerCount + '/' + cargo.maxPassengers + ' | Departs in ' + cargo.departureTime + 's';
+      cargoDiv.appendChild(infoDiv);
+      
+      var actionDiv = document.createElement('div');
+      actionDiv.style.fontSize = '14px';
+      actionDiv.style.fontWeight = 'bold';
+      actionDiv.style.color = '#66ff66';
+      actionDiv.textContent = '⚓ Click to board';
+      cargoDiv.appendChild(actionDiv);
+      
+      (function(cargoId){
+        cargoDiv.onclick = function(){
+          socket.send(JSON.stringify({
+            msg:'evalCmd',
+            id:selfId,
+            cmd:'boardship ' + cargoId,
+            world:world
+          }));
+          dockPopup.style.display = 'none';
+        };
+      })(cargo.id);
+      
+      dockCargoShipsList.appendChild(cargoDiv);
+    }
+  } else {
+    dockCargoShipsList.innerHTML = '<p style="color:#888;padding:15px;font-size:13px;">No cargo ships at this dock</p>';
+  }
   
   // Display available ships to build
   for(var i in availableShips){

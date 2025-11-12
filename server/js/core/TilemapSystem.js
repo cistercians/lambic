@@ -16,6 +16,16 @@ class TilemapSystem {
       caveEntrances: []
     };
     
+    // Grid versioning for cache invalidation
+    this.gridVersions = new Map(); // layer -> version number
+    this.currentVersion = 0;
+    
+    // Pre-generated grids for common layers
+    this.pregeneratedGrids = {
+      enabled: true,
+      layers: [0, 1] // Overworld and cave by default
+    };
+    
     // Initialize zones
     this.initializeZones();
   }
@@ -38,15 +48,23 @@ class TilemapSystem {
   // Set tile data
   setTile(layer, x, y, data) {
     const key = this.getTileKey(layer, x, y);
-    this.tiles.set(key, data);
+    const oldData = this.tiles.get(key);
     
-    // Update zones if this is an entity layer
-    if (layer === 0) { // Overworld layer
-      this.updateZone(x, y, data);
+    // Only invalidate cache if tile actually changed
+    if (oldData !== data) {
+      this.tiles.set(key, data);
+      
+      // Update zones if this is an entity layer
+      if (layer === 0) { // Overworld layer
+        this.updateZone(x, y, data);
+      }
+      
+      // Increment grid version for this layer
+      this.gridVersions.set(layer, (this.gridVersions.get(layer) || 0) + 1);
+      
+      // Invalidate pathfinding cache for this layer
+      this.invalidatePathfindingCache(layer);
     }
-    
-    // Invalidate pathfinding cache for this layer
-    this.invalidatePathfindingCache(layer);
   }
 
   // Get tile data
@@ -80,10 +98,44 @@ class TilemapSystem {
     return this.zones.get(zoneKey) || new Set();
   }
 
-  // Generate pathfinding grid for a specific layer
-  generatePathfindingGrid(layer, options = {}) {
-    const cacheKey = `${layer}_${JSON.stringify(options)}`;
+  // Generate optimized cache key (avoid JSON.stringify)
+  generateGridCacheKey(layer, options = {}) {
+    let key = `${layer}`;
     
+    // CRITICAL FIX: Check if options is truly empty (no pathfinding options)
+    // Most pathfinding calls use empty options, so this should hit cache frequently
+    const hasOptions = options && Object.keys(options).length > 0;
+    
+    if (!hasOptions) {
+      // No options = base grid for this layer
+      const version = this.gridVersions.get(layer) || 0;
+      return `${layer}_base_v${version}`;
+    }
+    
+    // Add options in deterministic order
+    if (options.waterOnly) key += '_water';
+    if (options.avoidDoors) key += '_nodoors';
+    if (options.avoidCaveExits) key += '_noexits';
+    if (options.allowSpecificDoor) key += '_spdoor';
+    if (options.allowStartTile) {
+      key += `_start${options.allowStartTile[0]},${options.allowStartTile[1]}`;
+    }
+    if (options.targetDoor) {
+      key += `_target${options.targetDoor[0]},${options.targetDoor[1]}`;
+    }
+    
+    // Add grid version to ensure cache is invalidated when tiles change
+    const version = this.gridVersions.get(layer) || 0;
+    key += `_v${version}`;
+    
+    return key;
+  }
+  
+  // Generate pathfinding grid for a specific layer (OPTIMIZED)
+  generatePathfindingGrid(layer, options = {}) {
+    const cacheKey = this.generateGridCacheKey(layer, options);
+    
+    // Check cache with version validation
     if (this.pathfindingCache.has(cacheKey)) {
       return this.pathfindingCache.get(cacheKey);
     }
@@ -97,20 +149,24 @@ class TilemapSystem {
         
         // Apply pathfinding options (order matters - most specific first)
         
-        // FIRST: Check if this is an explicitly allowed tile (highest priority)
-        const isAllowedStart = options.allowStartTile && options.allowStartTile[0] === x && options.allowStartTile[1] === y;
-        const isAllowedTarget = options.targetDoor && options.targetDoor[0] === x && options.targetDoor[1] === y;
-        
-        if (isAllowedStart || isAllowedTarget) {
-          walkable = true; // Explicitly allowed tiles are always walkable
+        // FIRST: Water-only navigation for ships (inverted logic)
+        if (options.waterOnly) {
+          walkable = (tile === 0); // Only water tiles (0) are walkable for ships
         }
-        // SECOND: Apply avoidance rules
+        // SECOND: Check if this is an explicitly allowed tile (highest priority)
+        else if (options.allowStartTile && options.allowStartTile[0] === x && options.allowStartTile[1] === y) {
+          walkable = true;
+        }
+        else if (options.targetDoor && options.targetDoor[0] === x && options.targetDoor[1] === y) {
+          walkable = true;
+        }
+        // THIRD: Apply avoidance rules
         else if (options.avoidDoors && this.isDoorway(layer, x, y, tile)) {
           walkable = false;
         } else if (options.avoidCaveExits && this.isCaveExit(layer, x, y)) {
           walkable = false;
         }
-        // THIRD: Block all doors/exits except specific targets  
+        // FOURTH: Block all doors/exits except specific targets  
         else if (options.allowSpecificDoor && (this.isDoorway(layer, x, y, tile) || this.isCaveExit(layer, x, y))) {
           walkable = false;
         }
@@ -120,7 +176,38 @@ class TilemapSystem {
     }
 
     this.pathfindingCache.set(cacheKey, grid);
+    
+    // Limit cache size - remove oldest entries if too large
+    if (this.pathfindingCache.size > 50) {
+      const firstKey = this.pathfindingCache.keys().next().value;
+      this.pathfindingCache.delete(firstKey);
+    }
+    
     return grid;
+  }
+  
+  // Pre-generate common grids to reduce first-request latency
+  pregenerateCommonGrids() {
+    if (!this.pregeneratedGrids.enabled) return;
+    
+    console.log('🔧 Pre-generating pathfinding grids for common layers...');
+    const startTime = Date.now();
+    
+    for (const layer of this.pregeneratedGrids.layers) {
+      // Generate base grids (no special options)
+      this.generatePathfindingGrid(layer, {});
+      
+      // Generate with common options
+      if (layer === 0) { // Overworld
+        this.generatePathfindingGrid(layer, { avoidDoors: true });
+      }
+      if (layer === 1) { // Cave
+        this.generatePathfindingGrid(layer, { avoidCaveExits: true });
+      }
+    }
+    
+    const elapsed = Date.now() - startTime;
+    console.log(`✅ Pre-generated ${this.pathfindingCache.size} pathfinding grids in ${elapsed}ms`);
   }
 
   // Check if a tile is walkable
@@ -172,17 +259,17 @@ class TilemapSystem {
     return false;
   }
 
-  // Invalidate pathfinding cache
+  // Invalidate pathfinding cache (OPTIMIZED with versioning)
   invalidatePathfindingCache(layer = null) {
     if (layer === null) {
+      // Clear all caches and reset versions
       this.pathfindingCache.clear();
+      this.gridVersions.clear();
+      this.currentVersion++;
     } else {
-      // Remove cache entries for specific layer
-      for (const key of this.pathfindingCache.keys()) {
-        if (key.startsWith(`${layer}_`)) {
-          this.pathfindingCache.delete(key);
-        }
-      }
+      // Increment version for this layer (cache keys include version)
+      // No need to manually delete - version mismatch will cause cache miss
+      this.gridVersions.set(layer, (this.gridVersions.get(layer) || 0) + 1);
     }
   }
 

@@ -85,6 +85,11 @@ class OptimizedGameLoop {
     // Skip the redundant entityManager.updateEntities() call
     // const updateResult = this.entityManager.updateEntities(this.targetFrameTime);
     
+    // Process pathfinding queue to spread work across frames
+    if (global.tilemapSystem && global.tilemapSystem.pathfindingSystem) {
+      global.tilemapSystem.pathfindingSystem.processPathfindingQueue();
+    }
+    
     // Update game state
     if (this.gameState) {
       this.gameState.updateTime();
