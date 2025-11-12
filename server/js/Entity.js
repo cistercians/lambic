@@ -3716,21 +3716,44 @@ Character = function(param){
     return false;
   };
 
+  // ============================================================================
+  // FIRST CHARACTER UPDATE (lines 3719-5340)
+  // ============================================================================
+  // This is the most comprehensive update function containing:
+  // - Terrain transitions (cave, building, water entry/exit)
+  // - Speed modifiers based on terrain type
+  // - NPC AI modes (idle, patrol, escort, guard, raid, scout, flee, retreat)
+  // - Complex pathfinding and waypoint navigation
+  // - Stealth mechanics
+  // - Cooldown management
+  // - HP/Spirit regeneration
+  // Dependencies: Called every frame for all Character instances
+  // ============================================================================
+  
   self.update = function(){
+    // ===== GUARD: Boarded entities are controlled by ships =====
     // Boarded players should not run this update logic
     if(self.isBoarded){
       return;
     }
     
+    // ===== CORE SETUP (lines 3725-3727) =====
+    // Get current tile location and building
     var loc = getLoc(self.x,self.y);
     var b = getBuilding(self.x,self.y);
     self.zoneCheck();
+    
+    // ===== STEALTH MECHANICS (lines 3728-3733) =====
+    // Stealthed characters have reduced drag (move slower), check for reveals
     if(self.stealthed){
       self.drag = 0.5;
       self.revealCheck();
     } else {
       self.drag = 1;
     }
+    
+    // ===== TORCH BEARER AUTO-LIGHTING (lines 3734-3740) =====
+    // Automatically light torch in dark areas (night, caves, cellars)
     if(self.torchBearer){
       if(!self.hasTorch){
         if((self.z == 0 && nightfall) || self.z == -1 || self.z == -2){
@@ -3738,6 +3761,9 @@ Character = function(param){
         }
       }
     }
+    
+    // ===== COOLDOWN MANAGEMENT (lines 3741-3750) =====
+    // Decrement various cooldown timers
     if(self.idleTime > 0){
       self.idleTime--;
     }
@@ -3749,7 +3775,8 @@ Character = function(param){
       self.mineExitCooldown--;
     }
     
-    // Periodic loot check for NPCs (every 3 seconds = 180 frames)
+    // ===== PERIODIC LOOT CHECK (lines 3752-3761) =====
+    // NPCs check for nearby loot every 3 seconds (180 frames)
     if(self.type === 'npc' && self.checkLoot){
       if(!self._lootCheckCounter) self._lootCheckCounter = 0;
       self._lootCheckCounter++;
@@ -3760,6 +3787,10 @@ Character = function(param){
       }
     }
 
+    // ===== TERRAIN TRANSITIONS & SPEED MODIFIERS (lines 3790-3920) =====
+    // Handles z-level transitions (overworld, cave, building, water, cellar)
+    // Sets speed modifiers based on terrain type (woods, mountains, roads)
+    // Uses transitionIntent system to prevent accidental transitions for NPCs
     if(self.z == 0){
       if(getTile(0,loc[0],loc[1]) == 6){
         // At cave entrance - set state
@@ -3956,11 +3987,17 @@ Character = function(param){
       }
     }
 
+    // ===== NPC AI MODES (lines 3990-4350) =====
+    // Complex behavioral state machine for NPCs
+    // Modes: idle (wandering), patrol (building circuits), escort (follow target),
+    //        guard (defend position), raid (attack enemies), scout (explore)
+    // Actions: flee (escape combat), retreat (organized withdrawal), returning (leash enforcement)
+    // Each mode has combat handling and action handling
     ////////////////
     // VANILLA AI //
     ////////////////
 
-    // IDLE
+    // IDLE MODE - Random wandering within leash range
     if(self.mode == 'idle'){
       if(!self.action){
         // Military units only switch to patrol on first spawn (not every frame)
@@ -5326,6 +5363,8 @@ Character = function(param){
       return;
     }
     
+    // ===== PASSIVE REGENERATION (lines 5366-5376) =====
+    // HP and Spirit regeneration for all characters
     // Passive HP Regeneration for all characters (NPCs and Players)
     if(!self.ghost && self.hp < self.hpMax){
       // Regenerate HP at ~0.0042 per frame = 0.25 HP/second at 60fps
@@ -5338,6 +5377,7 @@ Character = function(param){
       self.spirit = Math.min(self.spirit + 0.0017, self.spiritMax);
     }
   }
+  // ===== END FIRST CHARACTER UPDATE =====
 
   self.getInitPack = function(){
     return {
@@ -5891,26 +5931,48 @@ Deer = function(param){
     }
   };
 
+  // ============================================================================
+  // SECOND CHARACTER UPDATE (lines 5934-6020)
+  // ============================================================================
+  // Simplified update function for fauna/simple NPCs
+  // Contains:
+  // - Pathfinding cooldown management
+  // - Speed updates via updateSpeed() method
+  // - Simplified terrain state tracking (innaWoods, onMtn)
+  // - Automatic water entry (z=-3) without transition intent
+  // - Basic idle mode with random wandering and flee behavior
+  // - Calls updatePosition() to apply movement
+  // NOTE: This creates overlap with first update - fauna might use either
+  // Dependencies: Called for simple Character instances (Deer, Sheep, etc.)
+  // ============================================================================
+  
   self.update = function(){
+    // ===== GUARD: Boarded entities are controlled by ships =====
     // Boarded players should not run normal update logic - their position is controlled by the ship
     if(self.isBoarded){
       return;
     }
     
+    // ===== PATHFINDING COOLDOWN (lines 5940-5943) =====
     // Decrement pathfinding cooldown
     if(self.pathCooldown && self.pathCooldown > 0){
       self.pathCooldown--;
     }
     
+    // ===== SPEED UPDATE (line 5946) =====
     // Update speed based on current state and terrain
     self.updateSpeed();
     
+    // ===== CORE SETUP & COOLDOWNS (lines 5948-5952) =====
     var loc = getLoc(self.x,self.y);
     self.zoneCheck();
     if(self.idleTime > 0){
       self.idleTime--;
     }
 
+    // ===== SIMPLIFIED TERRAIN STATE TRACKING (lines 5954-5983) =====
+    // Only tracks terrain state (innaWoods, onMtn), NOT speed modifiers
+    // Speed is handled by updateSpeed() method
     // Terrain state tracking (speed is handled by updateSpeed())
     if(getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 2){
       self.innaWoods = true;
@@ -5942,6 +6004,8 @@ Deer = function(param){
       self.onMtn = false;
     }
 
+    // ===== IDLE MODE ONLY (lines 6007-6040) =====
+    // Simple fauna behavior: wander in woods, flee from combat
     if(self.mode == 'idle'){
       if(!self.action){
         // Speed is now managed by updateSpeed() - no manual speed changes needed
@@ -5976,8 +6040,13 @@ Deer = function(param){
         }
       }
     }
+    
+    // ===== MOVEMENT UPDATE (line 6041) =====
+    // Apply velocity to position for all non-ship entities
     self.updatePosition();
   }
+  // ===== END SECOND CHARACTER UPDATE =====
+  
   return self;
 }
 

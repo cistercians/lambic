@@ -3653,10 +3653,28 @@ Player.onDisconnect = function(socket) {
   removePack.player.push(socket.id);
 };
 
+// ============================================================================
+// PLAYER.UPDATE - COORDINATOR FUNCTION (lines 3656-3824)
+// ============================================================================
+// This is NOT a Character-level update function - it's the game loop coordinator
+// that iterates through ALL entities (players, NPCs, ships) in Player.list and:
+// - Manages ghost timers and auto-respawn
+// - Implements performance optimization (update throttling for NPCs)
+// - Calls player.update() for each entity (which triggers Character.update)
+// - Handles ship docking checks
+// - Manages zone transitions for players
+// - Cleans up entities marked for removal
+// - Updates spatial system
+// - Collects and returns update packs for network synchronization
+// - Tracks performance metrics
+// Dependencies: Called once per game tick (60fps) from main game loop
+// ============================================================================
+
 Player.update = function() {
   const pack = [];
   
-  // PERFORMANCE PROFILING: Track timing
+  // ===== PERFORMANCE PROFILING SETUP (lines 3660-3671) =====
+  // Track timing for optimization
   if(!Player._perfData) {
     Player._perfData = {
       updateTimes: [],
@@ -3670,6 +3688,8 @@ Player.update = function() {
   if(!Player._updateFrame) Player._updateFrame = 0;
   Player._updateFrame++;
 
+  // ===== ENTITY UPDATE LOOP (lines 3673-3790) =====
+  // Iterate through all entities and call their individual update functions
   for (const i in Player.list) {
     const player = Player.list[i];
     
@@ -3700,6 +3720,8 @@ Player.update = function() {
       }
     }
     
+    // ===== UPDATE THROTTLING (lines 3721-3745) =====
+    // Performance optimization: reduce update frequency for idle NPCs
     // PERFORMANCE OPTIMIZATION: Skip updates for idle/low-priority NPCs
     var shouldUpdate = true;
     if(player.type === 'npc'){
@@ -3744,6 +3766,8 @@ Player.update = function() {
     }
     }
 
+    // ===== ZONE TRANSITIONS (lines 3765-3789) =====
+    // Track when players enter new zones and send notifications
     // Check for zone transitions (only for actual players, not NPCs)
     if (global.zoneManager && !player.toRemove && player.type === 'player') {
       const currentTile = getLoc(player.x, player.y);
@@ -3770,6 +3794,8 @@ Player.update = function() {
       }
     }
 
+    // ===== ENTITY CLEANUP & UPDATE PACKS (lines 3795-3811) =====
+    // Remove destroyed entities or collect update packs for network sync
     if (player.toRemove) {
       // Use comprehensive cleanup method
       if (player.cleanup) {
@@ -3789,6 +3815,8 @@ Player.update = function() {
     }
   }
 
+  // ===== PERFORMANCE PROFILING & LOGGING (lines 3814-3843) =====
+  // Track and log update timing for optimization
   // PERFORMANCE PROFILING: Log timing
   const updateTime = Date.now() - startTime;
   Player._perfData.updateTimes.push(updateTime);
@@ -3822,6 +3850,7 @@ Player.update = function() {
 
   return pack;
 };
+// ===== END PLAYER.UPDATE COORDINATOR =====
 
 // ============================================================================
 // EQUIPMENT STAT BONUSES
