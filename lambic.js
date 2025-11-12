@@ -2485,6 +2485,10 @@ const Player = function(param) {
       return;
     }
     
+    // ===== NEW: Using prototype methods =====
+    this.updateCooldowns(); // Handles all cooldown timers
+    this.updateRegeneration(); // Handles HP/Spirit regen
+    
     self.updateSpd();
     self.zoneCheck();
 
@@ -2492,23 +2496,23 @@ const Player = function(param) {
       self.revealCheck();
     }
 
-    if (self.actionCooldown > 0) self.actionCooldown--;
-    if (self.attackCooldown > 0) self.attackCooldown--;
-    if (self.mountCooldown > 0) self.mountCooldown--;
-    if (self.switchCooldown > 0) self.switchCooldown--;
-    if (self.pathCooldown > 0) self.pathCooldown--;
-    if (self.boardCooldown > 0) self.boardCooldown--;
-    
-    // Passive HP/Spirit Regeneration (also implemented in Character for NPCs)
-    if(!self.ghost && self.hp < self.hpMax){
-      // Regenerate HP at ~0.0042 per frame = 0.25 HP/second at 60fps
-      self.hp = Math.min(self.hp + 0.0042, self.hpMax);
-    }
-    
-    if(!self.ghost && self.spirit < self.spiritMax){
-      // Regenerate Spirit at ~0.0017 per frame = 0.1 Spirit/second at 60fps
-      self.spirit = Math.min(self.spirit + 0.0017, self.spiritMax);
-    }
+    // OLD: if (self.actionCooldown > 0) self.actionCooldown--;
+    // OLD: if (self.attackCooldown > 0) self.attackCooldown--;
+    // OLD: if (self.mountCooldown > 0) self.mountCooldown--;
+    // OLD: if (self.switchCooldown > 0) self.switchCooldown--;
+    // OLD: if (self.pathCooldown > 0) self.pathCooldown--;
+    // OLD: if (self.boardCooldown > 0) self.boardCooldown--;
+    // OLD: 
+    // OLD: // Passive HP/Spirit Regeneration (also implemented in Character for NPCs)
+    // OLD: if(!self.ghost && self.hp < self.hpMax){
+    // OLD:   // Regenerate HP at ~0.0042 per frame = 0.25 HP/second at 60fps
+    // OLD:   self.hp = Math.min(self.hp + 0.0042, self.hpMax);
+    // OLD: }
+    // OLD: 
+    // OLD: if(!self.ghost && self.spirit < self.spiritMax){
+    // OLD:   // Regenerate Spirit at ~0.0017 per frame = 0.1 Spirit/second at 60fps
+    // OLD:   self.spirit = Math.min(self.spirit + 0.0017, self.spiritMax);
+    // OLD: }
 
     // COMBAT ESCAPE - Clear combat status if enemy is far away
     if (self.action === 'combat' && self.combat.target) {

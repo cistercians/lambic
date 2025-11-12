@@ -3737,43 +3737,48 @@ Character = function(param){
       return;
     }
     
+    // ===== NEW: Using prototype methods =====
+    this.updateStealthMechanics();
+    this.updateTorchBearer();
+    this.updateCooldowns();
+    
     // ===== CORE SETUP (lines 3725-3727) =====
     // Get current tile location and building
     var loc = getLoc(self.x,self.y);
     var b = getBuilding(self.x,self.y);
     self.zoneCheck();
     
-    // ===== STEALTH MECHANICS (lines 3728-3733) =====
-    // Stealthed characters have reduced drag (move slower), check for reveals
-    if(self.stealthed){
-      self.drag = 0.5;
-      self.revealCheck();
-    } else {
-      self.drag = 1;
-    }
+    // OLD: ===== STEALTH MECHANICS (lines 3728-3733) =====
+    // OLD: Stealthed characters have reduced drag (move slower), check for reveals
+    // OLD: if(self.stealthed){
+    // OLD:   self.drag = 0.5;
+    // OLD:   self.revealCheck();
+    // OLD: } else {
+    // OLD:   self.drag = 1;
+    // OLD: }
     
-    // ===== TORCH BEARER AUTO-LIGHTING (lines 3734-3740) =====
-    // Automatically light torch in dark areas (night, caves, cellars)
-    if(self.torchBearer){
-      if(!self.hasTorch){
-        if((self.z == 0 && nightfall) || self.z == -1 || self.z == -2){
-          self.lightTorch(Math.random());
-        }
-      }
-    }
+    // OLD: ===== TORCH BEARER AUTO-LIGHTING (lines 3734-3740) =====
+    // OLD: Automatically light torch in dark areas (night, caves, cellars)
+    // OLD: if(self.torchBearer){
+    // OLD:   if(!self.hasTorch){
+    // OLD:     if((self.z == 0 && nightfall) || self.z == -1 || self.z == -2){
+    // OLD:       self.lightTorch(Math.random());
+    // OLD:     }
+    // OLD:   }
+    // OLD: }
     
-    // ===== COOLDOWN MANAGEMENT (lines 3741-3750) =====
-    // Decrement various cooldown timers
-    if(self.idleTime > 0){
-      self.idleTime--;
-    }
-    if(self.attackCooldown > 0){
-      self.attackCooldown--;
-    }
-    // Decrement mine exit cooldown for serfs
-    if(self.mineExitCooldown && self.mineExitCooldown > 0){
-      self.mineExitCooldown--;
-    }
+    // OLD: ===== COOLDOWN MANAGEMENT (lines 3741-3750) =====
+    // OLD: Decrement various cooldown timers
+    // OLD: if(self.idleTime > 0){
+    // OLD:   self.idleTime--;
+    // OLD: }
+    // OLD: if(self.attackCooldown > 0){
+    // OLD:   self.attackCooldown--;
+    // OLD: }
+    // OLD: Decrement mine exit cooldown for serfs
+    // OLD: if(self.mineExitCooldown && self.mineExitCooldown > 0){
+    // OLD:   self.mineExitCooldown--;
+    // OLD: }
     
     // ===== PERIODIC LOOT CHECK (lines 3752-3761) =====
     // NPCs check for nearby loot every 3 seconds (180 frames)
@@ -5363,19 +5368,22 @@ Character = function(param){
       return;
     }
     
-    // ===== PASSIVE REGENERATION (lines 5366-5376) =====
-    // HP and Spirit regeneration for all characters
-    // Passive HP Regeneration for all characters (NPCs and Players)
-    if(!self.ghost && self.hp < self.hpMax){
-      // Regenerate HP at ~0.0042 per frame = 0.25 HP/second at 60fps
-      self.hp = Math.min(self.hp + 0.0042, self.hpMax);
-    }
+    // ===== NEW: Using prototype method =====
+    this.updateRegeneration();
     
-    // Passive Spirit Regeneration (if character has spirit)
-    if(!self.ghost && self.spirit && self.spiritMax && self.spirit < self.spiritMax){
-      // Regenerate Spirit at ~0.0017 per frame = 0.1 Spirit/second at 60fps
-      self.spirit = Math.min(self.spirit + 0.0017, self.spiritMax);
-    }
+    // OLD: ===== PASSIVE REGENERATION (lines 5366-5376) =====
+    // OLD: HP and Spirit regeneration for all characters
+    // OLD: Passive HP Regeneration for all characters (NPCs and Players)
+    // OLD: if(!self.ghost && self.hp < self.hpMax){
+    // OLD:   // Regenerate HP at ~0.0042 per frame = 0.25 HP/second at 60fps
+    // OLD:   self.hp = Math.min(self.hp + 0.0042, self.hpMax);
+    // OLD: }
+    // OLD: 
+    // OLD: // Passive Spirit Regeneration (if character has spirit)
+    // OLD: if(!self.ghost && self.spirit && self.spiritMax && self.spirit < self.spiritMax){
+    // OLD:   // Regenerate Spirit at ~0.0017 per frame = 0.1 Spirit/second at 60fps
+    // OLD:   self.spirit = Math.min(self.spirit + 0.0017, self.spiritMax);
+    // OLD: }
   }
   // ===== END FIRST CHARACTER UPDATE =====
 
@@ -5953,22 +5961,26 @@ Deer = function(param){
       return;
     }
     
-    // ===== PATHFINDING COOLDOWN (lines 5940-5943) =====
-    // Decrement pathfinding cooldown
-    if(self.pathCooldown && self.pathCooldown > 0){
-      self.pathCooldown--;
-    }
+    // ===== NEW: Using prototype methods =====
+    this.updateCooldowns(); // Includes pathCooldown and idleTime
+    
+    // OLD: ===== PATHFINDING COOLDOWN (lines 5940-5943) =====
+    // OLD: Decrement pathfinding cooldown
+    // OLD: if(self.pathCooldown && self.pathCooldown > 0){
+    // OLD:   self.pathCooldown--;
+    // OLD: }
     
     // ===== SPEED UPDATE (line 5946) =====
     // Update speed based on current state and terrain
     self.updateSpeed();
     
-    // ===== CORE SETUP & COOLDOWNS (lines 5948-5952) =====
+    // ===== CORE SETUP =====
     var loc = getLoc(self.x,self.y);
     self.zoneCheck();
-    if(self.idleTime > 0){
-      self.idleTime--;
-    }
+    
+    // OLD: if(self.idleTime > 0){
+    // OLD:   self.idleTime--;
+    // OLD: }
 
     // ===== SIMPLIFIED TERRAIN STATE TRACKING (lines 5954-5983) =====
     // Only tracks terrain state (innaWoods, onMtn), NOT speed modifiers
