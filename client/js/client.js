@@ -1066,7 +1066,7 @@ socket.onmessage = function(event){
         var weatherEffects = getWeatherEffects(p.x, p.y, p.z);
         if(weatherEffects && weatherEffects.storm.active && weatherEffects.storm.intensity > 0.3){
           // If on a ship during storm, play seastorm ambience
-          if(p.shipType){
+          if(p.shipType || p.isBoarded){
             ambPlayer(Amb.seastorm);
           } else {
             ambPlayer(Amb.rain);
@@ -1107,7 +1107,11 @@ socket.onmessage = function(event){
         ambPlayer(Amb.underwater);
       }
       
-      if(p.z == 0){
+      // Skip music changes if player is on a ship
+      if(p.shipType || p.isBoarded){
+        bgmPlayer(ship_bgm); // Keep ship music
+        // Ship ambience already handled above via soundscape or ship boarding
+      } else if(p.z == 0){
         if(nightfall && tempus != 'IV.a'){
           bgmPlayer(overworld_night_bgm);
         } else if(tempus == 'IV.a' || tempus == 'V.a' || tempus == 'VI.a' ||
@@ -4082,8 +4086,8 @@ var soundscape = function(x,y,z,b){
   if(Player.list[selfId]){
     var weatherEffects = getWeatherEffects(x, y, z);
     if(weatherEffects && weatherEffects.storm.active && weatherEffects.storm.intensity > 0.3){
-      // If on a ship during storm, play seastorm ambience
-      if(Player.list[selfId].shipType){
+      // If on a ship during storm, play seastorm ambience (navigator or passenger)
+      if(Player.list[selfId].shipType || Player.list[selfId].isBoarded){
         ambPlayer(Amb.seastorm);
       } else {
         ambPlayer(Amb.rain);
@@ -4092,9 +4096,9 @@ var soundscape = function(x,y,z,b){
     }
   }
   
-  // Check if player is controlling a ship - overrides all other ambience
-  if(Player.list[selfId] && Player.list[selfId].shipType){
-    ambPlayer(Amb.sea); // Keep sea ambience while on ship
+  // Check if player is on a ship (navigator or passenger) - overrides all other ambience
+  if(Player.list[selfId] && (Player.list[selfId].shipType || Player.list[selfId].isBoarded)){
+    ambPlayer(Amb.sea); // Keep sea ambience while on any ship
     return; // Skip other checks
   }
   
@@ -4139,8 +4143,8 @@ var soundscape = function(x,y,z,b){
 };
 
 var getBgm = function(x,y,z,b){
-  // Check if player is controlling a ship - overrides all other music
-  if(Player.list[selfId] && Player.list[selfId].shipType){
+  // Check if player is controlling a ship OR is a passenger - overrides all other music
+  if(Player.list[selfId] && (Player.list[selfId].shipType || Player.list[selfId].isBoarded)){
     bgmPlayer(ship_bgm); // Keep ship music while on ship
     soundscape(x,y,z,{}); // Handle ship ambience (sea.mp3)
     return; // Skip other checks
