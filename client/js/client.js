@@ -10567,11 +10567,7 @@ function renderRain() {
     ctx.stroke();
   }
   
-  // Lightning flash
-  if(lightningFlash) {
-    lighting.fillStyle = 'rgba(255, 255, 255, 0.6)';
-    lighting.fillRect(0, 0, WIDTH, HEIGHT);
-  }
+  // Lightning flash is now rendered in renderLighting() so it appears on top of day/night overlay
 }
 
 // Lighting transition system for smooth day/night color transitions
@@ -10840,13 +10836,19 @@ var renderLighting = function(){
   lighting.fillStyle = finalColor;
   lighting.fillRect(offsetX, offsetY, effectiveWidth, effectiveHeight);
   
-  // Handle special z-layer effects
+  // Lightning flash (render on top of day/night overlay)
+  if(lightningFlash && z === 0) {
+    lighting.fillStyle = 'rgba(255, 255, 255, 0.6)';
+    lighting.fillRect(offsetX, offsetY, effectiveWidth, effectiveHeight);
+  }
+  
+  // Handle special z-layer effects (render on lighting canvas)
   if(z == -1){
-    ctx.fillStyle = "rgba(224, 104, 0, 0.3)"; // light layer
-    ctx.fillRect(offsetX, offsetY, effectiveWidth, effectiveHeight);
+    lighting.fillStyle = "rgba(224, 104, 0, 0.3)"; // orange glow for caves
+    lighting.fillRect(offsetX, offsetY, effectiveWidth, effectiveHeight);
   } else if(z == -2){
-    ctx.fillStyle = "rgba(224, 104, 0, 0.3)"; // light layer
-    ctx.fillRect(offsetX, offsetY, effectiveWidth, effectiveHeight);
+    lighting.fillStyle = "rgba(224, 104, 0, 0.3)"; // orange glow for cellars
+    lighting.fillRect(offsetX, offsetY, effectiveWidth, effectiveHeight);
   }
   
   // Restore lighting canvas transform
