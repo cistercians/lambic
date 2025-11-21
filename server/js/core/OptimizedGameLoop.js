@@ -190,16 +190,9 @@ class OptimizedGameLoop {
       const avg = (arr) => arr.reduce((a,b) => a+b, 0) / arr.length;
       const max = (arr) => Math.max(...arr);
       
-      console.log(`⏱️  sendUpdates() Performance (last 5s):`);
-      console.log(`   Player: avg=${avg(this._perfData.playerTimes).toFixed(2)}ms, max=${max(this._perfData.playerTimes).toFixed(2)}ms`);
-      console.log(`   Arrow: avg=${avg(this._perfData.arrowTimes).toFixed(2)}ms, max=${max(this._perfData.arrowTimes).toFixed(2)}ms`);
-      console.log(`   Item: avg=${avg(this._perfData.itemTimes).toFixed(2)}ms, max=${max(this._perfData.itemTimes).toFixed(2)}ms`);
-      console.log(`   Building: avg=${avg(this._perfData.buildingTimes).toFixed(2)}ms, max=${max(this._perfData.buildingTimes).toFixed(2)}ms`);
-      console.log(`   TOTAL: avg=${avg(this._perfData.totalTimes).toFixed(2)}ms, max=${max(this._perfData.totalTimes).toFixed(2)}ms`);
       
       const avgTotal = avg(this._perfData.totalTimes);
       if(avgTotal > 16.67) {
-        console.warn(`⚠️  WARNING: sendUpdates() avg ${avgTotal.toFixed(2)}ms exceeds 60fps budget (16.67ms)`);
       }
       
       this._perfData.lastLog = now;

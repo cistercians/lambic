@@ -206,3 +206,7 @@ The pathfinding system itself is working well - average 1-4ms per request is exc
 - Blocking operations causing catastrophic spikes (add async chunking)
 
 
+
+
+
+

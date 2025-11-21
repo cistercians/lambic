@@ -18,7 +18,6 @@ class GoalChain {
     function resolveGoal(g, depth = 0) {
       // Prevent infinite recursion
       if (depth > 10) {
-        console.warn(`GoalChain: Max recursion depth reached for ${g.type}`);
         return;
       }
       

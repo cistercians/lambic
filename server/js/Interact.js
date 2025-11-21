@@ -7,6 +7,12 @@ Interact = function(id,loc){
     if(b){ // building
       var building = Building.list[b];
       var inv = player.inventory;
+      
+      // Check if building is built before allowing interaction
+      if(!building.built){
+        return; // Building is still under construction, no interaction allowed
+      }
+      
       if(building.type == 'mill'){
         // Open deposit UI for grain
         if(inv.grain > 0){
@@ -198,7 +204,7 @@ Interact = function(id,loc){
       // Market goods on first floor (z=1) - open market UI
       var b = getBuilding(player.x, player.y);
       var build = Building.list[b];
-      if(build && build.type == 'market'){
+      if(build && build.type == 'market' && build.built){
         // Send market data to client to open UI
         var playerOrders = [];
         for(var resource in build.orderbook){
@@ -310,6 +316,9 @@ Interact = function(id,loc){
       var c = getCenter(loc[0],loc[1]);
       var b = getBuilding(c[0],c[1]);
       var build = Building.list[b];
+      if(!build || !build.built){
+        return; // Building is still under construction, no interaction allowed
+      }
       if(build.type == 'market'){ // Desks upstairs (z=2) - different purpose (banking, etc)
         // TODO: Implement banking/account management
         socket.write(JSON.stringify({msg:'addToChat',message:'<i>Market account management - coming soon</i>'}));

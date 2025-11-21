@@ -73,7 +73,6 @@ class BaseItem {
       try {
         global.GoldTradeManager.createMiningTransaction(player, canTake);
       } catch (err) {
-        console.error('Error creating blockchain transaction for gold pickup:', err);
       }
     }
     

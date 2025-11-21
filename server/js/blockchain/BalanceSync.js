@@ -26,13 +26,11 @@ class BalanceSync {
         
         if (oldBalance !== blockchainBalance) {
           syncedCount++;
-          console.log(`Synced ${player.name}'s gold: ${oldBalance} -> ${blockchainBalance}`);
         }
       }
     }
     
     if (syncedCount > 0) {
-      console.log(`Synced gold balances for ${syncedCount} players`);
     }
   }
   
@@ -42,7 +40,6 @@ class BalanceSync {
       this.syncPlayerBalances();
     }, 60000);
     
-    console.log('Balance sync loop started');
   }
 }
 

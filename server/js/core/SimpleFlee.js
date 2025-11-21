@@ -3,7 +3,6 @@
 
 class SimpleFlee {
   constructor() {
-    console.log('🏃 SimpleFlee initialized');
   }
 
   // Helper function to restore original speed when fleeing ends
@@ -68,7 +67,6 @@ class SimpleFlee {
         var forestLoc = entity.findNearestForest();
         if (forestLoc) {
           entity.moveTo(entity.z, forestLoc[0], forestLoc[1]);
-          console.log('Deer fleeing to forest at [' + forestLoc[0] + ',' + forestLoc[1] + ']');
         }
       }
       return;

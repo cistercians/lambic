@@ -978,7 +978,6 @@ EvalCmd = function(data){
                   var zone = global.zoneManager.getZoneAt(n);
                   if(zone && zone.name){
                     dockZoneName = zone.name;
-                    console.log('🏗️ Dock zone: ' + zone.name);
                     break;
                   }
                 }
@@ -14226,10 +14225,8 @@ EvalCmd = function(data){
       dock.ships.push(ship.id);
       
       socket.write(JSON.stringify({msg:'addToChat',message:'<i>🚢 <b>Fishing Boat built!</b> It will automatically be crewed by dock workers during work hours.</i>'}));
-      console.log(player.name + ' built fishing boat at dock ' + facingBuilding);
     } else if(data.cmd === 'board'){
       // Simple /board command - find nearest owned ship within 1 tile and board it
-      console.log('🚢 /board command received from ' + player.name);
       var nearbyShip = null;
       var nearbyShipId = null;
       var tileSize = 64; // Standard tile size
@@ -14238,7 +14235,6 @@ EvalCmd = function(data){
         var ship = Player.list[shipId];
         if(ship.shipType && ship.owner === player.id && (ship.mode === 'anchored' || ship.mode === 'docked')){
           var distToShip = Math.sqrt(Math.pow(player.x - ship.x, 2) + Math.pow(player.y - ship.y, 2));
-          console.log('  Found ship ' + shipId + ' at distance: ' + distToShip.toFixed(1) + ' (mode: ' + ship.mode + ')');
           if(distToShip <= tileSize * 1.5){ // Within 1.5 tiles (96 pixels)
             nearbyShip = ship;
             nearbyShipId = shipId;
@@ -14248,7 +14244,6 @@ EvalCmd = function(data){
       }
       
       if(nearbyShip){
-        console.log('  Boarding ship ' + nearbyShipId);
         
         // Use new passenger boarding system
         var boarded = nearbyShip.boardPassenger(player.id);
@@ -14557,7 +14552,6 @@ EvalCmd = function(data){
           var waterCoords = getCenter(waterTile[0], waterTile[1]);
           ship.x = waterCoords[0];
           ship.y = waterCoords[1];
-          console.log('🚢 Ship spawned at water tile [' + waterTile + '] away from dock');
         } else {
           socket.write(JSON.stringify({msg:'addToChat',message:'<i>⚠️ Could not find water to spawn ship!</i>'}));
           return;

@@ -56,12 +56,9 @@ class GoldTradeManager {
       fromPlayer.inventory.gold = (fromPlayer.inventory.gold || 0) - amount;
       toPlayer.inventory.gold = (toPlayer.inventory.gold || 0) + amount;
       
-      console.log(`Gold trade executed: ${fromPlayer.name} -> ${toPlayer.name}: ${amount} GOLD`);
-      console.log(`Transaction pending in blockchain...`);
       
       return transaction;
     } catch (err) {
-      console.error('Error executing gold trade:', err);
       throw err;
     }
   }
@@ -99,11 +96,9 @@ class GoldTradeManager {
       // Update in-game inventory (will sync with blockchain)
       player.inventory.gold = (player.inventory.gold || 0) + amount;
       
-      console.log(`${player.name} mined ${amount} GOLD - Transaction pending`);
       
       return transaction;
     } catch (err) {
-      console.error('Error creating mining transaction:', err);
       throw err;
     }
   }

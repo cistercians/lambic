@@ -234,7 +234,6 @@ module.exports = function(Character, globals) {
             
             if(homeDist > leashRange){
               // Too far from home - disengage and return
-              console.log(self.class + ' exceeded leash range, returning home');
               self.combat.target = null;
               self.action = 'returning'; // Set returning state to prevent re-aggro
               self.baseSpd = 3;
@@ -296,7 +295,6 @@ module.exports = function(Character, globals) {
           
           if(homeDist <= leashRange * 0.5){
             // Back within safe range - resume normal behavior
-            console.log(self.class + ' returned home successfully');
             self.action = null;
             self.path = null;
             self.pathCount = 0;

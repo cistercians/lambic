@@ -21,7 +21,6 @@ class FactionKnowledge {
         discoveredBy: scout.id,
         discoveredAt: now
       });
-      console.log(`${this.house.name}: Scout discovered ${discovery.resourceType} at [${discovery.location}]`);
     } else if (discovery.type === 'ENEMY') {
       const key = `${discovery.location[0]},${discovery.location[1]}`;
       this.knownEnemies.set(key, {
@@ -29,7 +28,6 @@ class FactionKnowledge {
         discoveredBy: scout.id,
         discoveredAt: now
       });
-      console.log(`${this.house.name}: Scout discovered enemy at [${discovery.location}] (threat: ${discovery.threatLevel})`);
     }
     
     // Mark tiles as explored

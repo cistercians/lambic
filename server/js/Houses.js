@@ -85,12 +85,10 @@ House = function(param){
           // Colony absorbed into base
           b.isColony = false;
           absorbedCount++;
-          console.log(self.name + ': Colony ' + b.type + ' absorbed into HQ base');
         }
       }
     }
     
-    console.log(self.name + ' base recalculated: center [' + centerTile + '], radius ' + Math.floor(self.baseRadius / tileSize) + ' tiles, ' + count + ' buildings' + (absorbedCount > 0 ? ', absorbed ' + absorbedCount + ' colonies' : ''));
   };
   
   // Check if coordinates are within base territory
@@ -121,7 +119,6 @@ House = function(param){
     }
     
     self.patrolBuildings = patrolBuildings;
-    console.log('📋 ' + self.name + ' patrol list updated: ' + patrolBuildings.length + ' buildings');
   };
   
   self.enemies = [];
@@ -223,7 +220,6 @@ House.list = {};
 function findSafeFirepitLocation(hq, z, grid) {
   // Check if HQ tile is a cave entrance (terrain 6) - if so, use adjacent tile
   if(z === 0 && global.getTile && global.getTile(0, hq[0], hq[1]) === 6){
-    console.log(`HQ at [${hq}] is a cave entrance - placing firepit adjacent`);
     // Use first available tile from grid (already validated as walkable)
     if(grid && grid.length > 0){
       return grid[0]; // Return tile coords, not pixel coords
@@ -251,7 +247,6 @@ House.evaluateAI = function(){
       try {
         house.ai.evaluateAndAct();
       } catch (error) {
-        console.error(`Error in ${house.name} AI:`, error);
       }
     }
   }
@@ -313,7 +308,6 @@ Brotherhood = function(param){
     self.scene.fire = fireId;
     // pawns
     if(grid.length < 3){
-      console.warn(`Brotherhood: Insufficient walkable space at HQ [${self.hq}], only ${grid.length} tiles available`);
     }
     const spawnCount = Math.min(3, grid.length);
     for(var i = 0; i < spawnCount; i++){
@@ -332,7 +326,6 @@ Brotherhood = function(param){
         }
       })
     }
-    console.log('Brotherhood: ' + self.hq);
   }
 
   var super_update = self.update;
@@ -364,7 +357,6 @@ Goths = function(param){
     var building = Building.list[b];
     var loc = getLoc(building.x,building.y);
     
-    console.log('🏠 Goths attempting to spawn serfs for ' + (building ? building.type : 'unknown') + ' at [' + loc + ']');
     
     // Calculate territory if not yet done
     if (!self.baseRadius) {
@@ -374,13 +366,11 @@ Goths = function(param){
     // Use territory radius for search (colonies use smaller radius)
     var searchRadius = building.isColony ? 5 : Math.floor(self.baseRadius / tileSize);
     
-    console.log(`   Search radius: ${searchRadius} tiles (baseRadius=${Math.floor(self.baseRadius/tileSize)} tiles, isColony=${building.isColony || false})`);
     
     // Use new building placement system
     var hutSpot = global.tilemapSystem.findBuildingSpot('gothhut', loc, searchRadius);
     
     if(hutSpot){
-      console.log('✅ Goths found hut spot at [' + hutSpot.plot[0] + ']');
       var plot = hutSpot.plot;
       var walls = hutSpot.walls;
       for(var i in plot){
@@ -529,7 +519,6 @@ Goths = function(param){
         }
       }
     } else {
-      console.log('❌ Goths failed to find hut spot within 5 tiles of [' + loc + '] for ' + (building ? building.type : 'unknown'));
     }
   }
   self.spawn = function(cl,spawn){
@@ -860,7 +849,6 @@ Goths = function(param){
     }
     
     mapEdit();
-    console.log(`Goths initialization complete: ${millsBuilt} mills, ${farmsBuilt} farms`);
   }
   self.scout = function(start){
     var points = [];
@@ -903,10 +891,8 @@ Goths = function(param){
     Player.list[units[rand]].scout.target = target;
     Player.list[units[rand]].scout.return = self.hq;
     Player.list[units[rand]].mode = 'scout';
-    console.log(self.name + ' have sent a scout to ' + target);
   }
   self.expand = function(point){
-    console.log(self.name + ' are claiming new territory');
     var fp = getCoords(point[0],point[1]);
     var pc = point[0];
     var pr = point[1];
@@ -1075,7 +1061,6 @@ Franks = function(param){
     var building = Building.list[b];
     var loc = getLoc(building.x,building.y);
     
-    console.log('🏠 Franks attempting to spawn serfs for ' + (building ? building.type : 'unknown') + ' at [' + loc + ']');
     
     // Calculate territory if not yet done
     if (!self.baseRadius) {
@@ -1085,13 +1070,11 @@ Franks = function(param){
     // Use territory radius for search (colonies use smaller radius)
     var searchRadius = building.isColony ? 5 : Math.floor(self.baseRadius / tileSize);
     
-    console.log(`   Search radius: ${searchRadius} tiles (baseRadius=${Math.floor(self.baseRadius/tileSize)} tiles, isColony=${building.isColony || false})`);
     
     // Use new building placement system
     var hutSpot = global.tilemapSystem.findBuildingSpot('frankhut', loc, searchRadius);
     
     if(hutSpot){
-      console.log('✅ Franks found hut spot at [' + hutSpot.plot[0] + ']');
       var plot = hutSpot.plot;
       var walls = hutSpot.walls;
       for(var i in plot){
@@ -1239,9 +1222,7 @@ Franks = function(param){
           Player.list[s2].work = {hq:b,spot:null};
         }
       }
-      console.log('Serfs have spawned for Franks: ' + Building.list[b].type);
     } else {
-      console.log('❌ Franks failed to find hut spot within 5 tiles of [' + loc + '] for ' + (building ? building.type : 'unknown'));
     }
   }
   self.spawn = function(cl,spawn){
@@ -1321,7 +1302,6 @@ Franks = function(param){
     const MIN_ROCKS_FOR_MINE = 20;
     
     const resources = global.tilemapSystem.assessBaseResources(self.hq, BASE_RADIUS, 0);
-    console.log(`Franks @ [${self.hq}]: Grass=${resources.grass}, Forest=${resources.totalForest}, Rocks=${resources.rocks}, Caves=${resources.caveEntrances.length}`);
     
     // pawns
     for(var i = 0; i < 4; i++){
@@ -1627,12 +1607,10 @@ Franks = function(param){
           hp:150
         });
         
-        console.log(`Franks: Stone mine built`);
       }
     }
     
     mapEdit();
-    console.log(`Franks initialization complete: ${millsBuilt} mills, ${farmsBuilt} farms`);
   }
   self.scout = function(start){
     var points = [];
@@ -1675,10 +1653,8 @@ Franks = function(param){
     Player.list[units[rand]].scout.target = target;
     Player.list[units[rand]].scout.return = self.hq;
     Player.list[units[rand]].mode = 'scout';
-    console.log(self.name + ' have sent a scout to ' + target);
   }
   self.expand = function(point){
-    console.log(self.name + ' are claiming new territory');
     var fp = getCoords(point[0],point[1]);
     var pc = point[0];
     var pr = point[1];
@@ -1748,7 +1724,6 @@ Celts = function(param){
     var building = Building.list[b];
     var loc = getLoc(building.x,building.y);
     
-    console.log('🏠 Celts attempting to spawn serfs for ' + (building ? building.type : 'unknown') + ' at [' + loc + ']');
     
     // Calculate territory if not yet done
     if (!self.baseRadius) {
@@ -1758,13 +1733,11 @@ Celts = function(param){
     // Use territory radius for search (colonies use smaller radius)
     var searchRadius = building.isColony ? 5 : Math.floor(self.baseRadius / tileSize);
     
-    console.log(`   Search radius: ${searchRadius} tiles (baseRadius=${Math.floor(self.baseRadius/tileSize)} tiles, isColony=${building.isColony || false})`);
     
     // Use new building placement system
     var hutSpot = global.tilemapSystem.findBuildingSpot('celthut', loc, searchRadius);
     
     if(hutSpot){
-      console.log('✅ Celts found hut spot at [' + hutSpot.plot[0] + ']');
       var plot = hutSpot.plot;
       var walls = hutSpot.walls;
       for(var i in plot){
@@ -1912,9 +1885,7 @@ Celts = function(param){
           Player.list[s2].work = {hq:b,spot:null};
         }
       }
-      console.log('Serfs have spawned for Celts: ' + Building.list[b].type);
     } else {
-      console.log('❌ Celts failed to find hut spot within 5 tiles of [' + loc + '] for ' + (building ? building.type : 'unknown'));
     }
   }
   self.spawn = function(cl,spawn){
@@ -1996,7 +1967,6 @@ Celts = function(param){
     
     // Assess available resources
     const resources = global.tilemapSystem.assessBaseResources(self.hq, BASE_RADIUS, 0);
-    console.log(`Celts @ [${self.hq}]: Forest=${resources.totalForest}, Rocks=${resources.rocks}, Caves=${resources.caveEntrances.length}`);
     
     // Spawn initial units
     var grid = [];
@@ -2055,7 +2025,6 @@ Celts = function(param){
     if(resources.caveEntrances.length > 0){
       // Use nearest cave
       const cave = resources.caveEntrances[0].tile;
-      console.log(`Celts: Cave entrance at [${cave}], ${resources.caveEntrances[0].distInTiles} tiles away`);
       
       // Try increasing search radius until we place 2 mines
       for(let searchRadius = 4; searchRadius <= 6 && minesBuilt < 2; searchRadius++){
@@ -2095,10 +2064,8 @@ Celts = function(param){
       
       mapEdit();
     } else {
-      console.error('⚠️ Celts: NO CAVE ENTRANCE in radius - faction incomplete!');
     }
     
-    console.log(`Celts initialization complete: ${minesBuilt}/2 ore mines built`);
   }
   self.scout = function(start){
     var points = [];
@@ -2141,10 +2108,8 @@ Celts = function(param){
     Player.list[units[rand]].scout.target = target;
     Player.list[units[rand]].scout.return = self.hq;
     Player.list[units[rand]].mode = 'scout';
-    console.log(self.name + ' have sent a scout to ' + target);
   }
   self.expand = function(point){
-    console.log(self.name + ' are claiming new territory');
     var fp = getCoords(point[0],point[1]);
     var pc = point[0];
     var pr = point[1];
@@ -2214,7 +2179,6 @@ Teutons = function(param){
     var building = Building.list[b];
     var loc = getLoc(building.x,building.y);
     
-    console.log('🏠 Teutons attempting to spawn serfs for ' + (building ? building.type : 'unknown') + ' at [' + loc + ']');
     
     // Calculate territory if not yet done
     if (!self.baseRadius) {
@@ -2224,13 +2188,11 @@ Teutons = function(param){
     // Use territory radius for search (colonies use smaller radius)
     var searchRadius = building.isColony ? 5 : Math.floor(self.baseRadius / tileSize);
     
-    console.log(`   Search radius: ${searchRadius} tiles (baseRadius=${Math.floor(self.baseRadius/tileSize)} tiles, isColony=${building.isColony || false})`);
     
     // Use new building placement system
     var hutSpot = global.tilemapSystem.findBuildingSpot('teuthut', loc, searchRadius);
     
     if(hutSpot){
-      console.log('✅ Teutons found hut spot at [' + hutSpot.plot[0] + ']');
       var plot = hutSpot.plot;
       var walls = hutSpot.walls;
       for(var i in plot){
@@ -2378,9 +2340,7 @@ Teutons = function(param){
           Player.list[s2].work = {hq:b,spot:null};
         }
       }
-      console.log('Serfs have spawned for Teutons: ' + Building.list[b].type);
     } else {
-      console.log('❌ Teutons failed to find hut spot within 5 tiles of [' + loc + '] for ' + (building ? building.type : 'unknown'));
     }
   }
   self.spawn = function(cl,spawn){
@@ -2443,7 +2403,6 @@ Teutons = function(param){
     
     // Assess available resources
     const resources = global.tilemapSystem.assessBaseResources(self.hq, BASE_RADIUS, 0);
-    console.log(`Teutons @ [${self.hq}]: Forest=${resources.totalForest}, Rocks=${resources.rocks}, Mountains=${resources.mountains}, Caves=${resources.caveEntrances.length}`);
     
     // Spawn initial units
     var grid = [];
@@ -2501,7 +2460,6 @@ Teutons = function(param){
     // PRIORITY 1: Build ore mines if cave entrance present (within 6 tiles)
     if(resources.caveEntrances.length > 0){
       const cave = resources.caveEntrances[0].tile;
-      console.log(`Teutons: Cave entrance found at [${cave}], ${resources.caveEntrances[0].distInTiles} tiles away`);
       
       // Try to place 2 ore mines near cave
       for(let searchRadius = 4; searchRadius <= 6 && minesBuilt < MAX_MINES; searchRadius++){
@@ -2574,7 +2532,6 @@ Teutons = function(param){
         });
           
           minesBuilt++;
-          console.log(`Teutons: Stone mine #${minesBuilt} built at [${plot[0]}]`);
         }
       }
     }
@@ -2582,7 +2539,6 @@ Teutons = function(param){
     // PRIORITY 3: Build lumbermills if enough forest
     var lumbermillsBuilt = 0;
     if(resources.totalForest >= MIN_FOREST_FOR_LUMBERMILL){
-      console.log(`Teutons: ${resources.totalForest} forest tiles, attempting lumbermills`);
       
       for(let searchRadius = 5; searchRadius <= 8 && lumbermillsBuilt < 2; searchRadius++){
         const lumberSpot = global.tilemapSystem.findBuildingSpot('lumbermill', self.hq, searchRadius, {
@@ -2624,16 +2580,13 @@ Teutons = function(param){
         });
             
             lumbermillsBuilt++;
-            console.log(`Teutons: Lumbermill #${lumbermillsBuilt} built at [${plot[0]}] (${nearbyForest} forest nearby)`);
       }
     }
       }
     } else {
-      console.log(`Teutons: Only ${resources.totalForest} forest tiles, skipping lumbermills`);
     }
     
     mapEdit();
-    console.log(`Teutons initialization complete: ${minesBuilt}/2 mines, ${lumbermillsBuilt} lumbermills`);
   }
   self.scout = function(start){
     var points = [];
@@ -2676,7 +2629,6 @@ Teutons = function(param){
     Player.list[units[rand]].scout.target = target;
     Player.list[units[rand]].scout.return = self.hq;
     Player.list[units[rand]].mode = 'scout';
-    console.log(self.name + ' have sent a scout to ' + target);
   }
   self.expand = function(){
 
@@ -2821,14 +2773,12 @@ Outlaws = function(param){
     // pawns
     for(var i = 0; i < 3; i++){
       if(grid.length === 0){
-        console.warn('Outlaws: Not enough valid spawn locations for all pawns');
         break;
       }
       var rand = Math.floor(Math.random() * grid.length);
       var select = grid[rand];
       grid.splice(rand,1);
       if(!select || !select[0]){
-        console.warn('Outlaws: Invalid spawn location, skipping pawn');
         continue;
       }
       var c = getCenter(select[0],select[1]);
@@ -2997,7 +2947,6 @@ Mercenaries = function(param){
           z: -1,
           qty: 1
         });
-        console.log(`Mercenaries: Placed Barrel at [${tile}]`);
       } else if(roll < 0.66){
         Crates({
           id: Math.random(),
@@ -3006,7 +2955,6 @@ Mercenaries = function(param){
           z: -1,
           qty: 1
         });
-        console.log(`Mercenaries: Placed Crates at [${tile}]`);
       } else {
         Stash2({
           id: Math.random(),
@@ -3015,7 +2963,6 @@ Mercenaries = function(param){
           z: -1,
           qty: 1
         });
-        console.log(`Mercenaries: Placed Stash2 at [${tile}]`);
       }
     }
     
@@ -3037,10 +2984,8 @@ Mercenaries = function(param){
         z: -1,
         qty: 1
       });
-      console.log(`Mercenaries: Locked chest placed ${chestDistance} tiles from firepit at [${chestTile}]`);
     }
     
-    console.log('Mercenaries initialization complete: firepit + 5 objects + locked chest');
   }
 
   var super_update = self.update;

@@ -776,7 +776,6 @@ class SerfBehaviorSystem {
   // Logging
   log(serf, message) {
     if (this.debugMode) {
-      console.log(`[${serf.name}] ${message}`);
     }
   }
 }

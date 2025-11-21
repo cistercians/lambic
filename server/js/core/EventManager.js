@@ -16,6 +16,11 @@ class EventManager {
     this.logFlushInterval = 100; // ms
     this.lastFlush = Date.now();
     
+    // Automatic cleanup of old events (every 5 minutes)
+    this.cleanupInterval = 300000; // 5 minutes
+    this.eventTTL = 600000; // 10 minutes - events older than this are considered stale
+    this.lastCleanup = Date.now();
+    
     // Event categories
     this.categories = {
       ECONOMIC: 'Economic',
@@ -43,6 +48,9 @@ class EventManager {
     
     // Start flush timer
     this.startFlushTimer();
+    
+    // Start cleanup timer
+    this.startCleanupTimer();
     
     // Event subscribers (for AI systems, etc.)
     this.subscribers = new Map();
@@ -336,9 +344,52 @@ class EventManager {
     }
   }
   
+  // Start cleanup timer for old events
+  startCleanupTimer() {
+    if (this.cleanupTimerId) {
+      clearInterval(this.cleanupTimerId);
+    }
+    this.cleanupTimerId = setInterval(() => {
+      this.cleanupOldEvents();
+    }, this.cleanupInterval);
+  }
+  
+  // Stop cleanup timer
+  stopCleanupTimer() {
+    if (this.cleanupTimerId) {
+      clearInterval(this.cleanupTimerId);
+      this.cleanupTimerId = null;
+    }
+  }
+  
+  // Cleanup old events from history
+  cleanupOldEvents() {
+    const now = Date.now();
+    const cutoff = now - this.eventTTL;
+    let cleaned = 0;
+    
+    // Clean up old events in the ring buffer
+    for (let i = 0; i < this.eventHistory.length; i++) {
+      const event = this.eventHistory[i];
+      if (event && event.timestamp < cutoff) {
+        this.eventHistory[i] = null; // Mark as null instead of deleting to maintain ring buffer structure
+        cleaned++;
+      }
+    }
+    
+    // If we cleaned a significant number, log it
+    if (cleaned > 0) {
+      const activeEvents = this.eventHistory.filter(e => e !== null).length;
+      console.log(`🧹 EventManager: Cleaned ${cleaned} old events (${activeEvents}/${this.historySize} active)`);
+    }
+    
+    this.lastCleanup = now;
+  }
+  
   // Cleanup method to properly shut down EventManager
   cleanup() {
     this.stopFlushTimer();
+    this.stopCleanupTimer();
     this.flushLogs(); // Flush any remaining logs
     this.subscribers.clear();
     this.eventHistory = [];

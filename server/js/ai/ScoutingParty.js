@@ -48,7 +48,6 @@ class ScoutingParty {
     if (distance <= 10) {
       this.status = 'scouting';
       this.idleTimer = 0;
-      console.log(`Scouting party reached ${this.targetZone.name}, beginning reconnaissance`);
     }
   }
 
@@ -65,7 +64,6 @@ class ScoutingParty {
     if (this.idleTimer % 10 === 0) {
       const enemies = this.scanForEnemies();
       if (enemies.length > 0) {
-        console.log(`Scouting party detected ${enemies.length} enemies, initiating retreat`);
         this.triggerRetreat();
         return;
       }
@@ -73,7 +71,6 @@ class ScoutingParty {
 
     // If no enemies found after idle duration, begin outpost planning
     if (this.idleTimer >= this.idleDuration) {
-      console.log(`Scouting party completed reconnaissance of ${this.targetZone.name}, zone is clear`);
       this.status = 'guarding';
       this.notifyZoneClear();
     }
@@ -92,7 +89,6 @@ class ScoutingParty {
     const distance = this.getDistance(leaderPos, hqPos);
 
     if (distance <= 5) {
-      console.log(`Scouting party leader returned to HQ`);
       this.checkRetreatSuccess();
     }
   }
@@ -161,7 +157,6 @@ class ScoutingParty {
       }
     });
 
-    console.log(`Scouting party retreating from ${this.targetZone.name}`);
   }
 
   // Check if retreat was successful (at least one unit returned)
@@ -186,10 +181,8 @@ class ScoutingParty {
     });
 
     if (survivors > 0) {
-      console.log(`Scouting party retreat successful: ${survivors} units returned`);
       this.notifyRetreatSuccess();
     } else {
-      console.log(`Scouting party retreat failed: no units returned`);
       this.notifyRetreatFailure();
     }
 

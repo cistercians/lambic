@@ -89,7 +89,6 @@ class SocialSystem {
     this.showSpeechBubble(id1, 0); // 0 = permanent until conversation ends
     this.showSpeechBubble(id2, 0);
     
-    console.log(`Conversation started between ${id1} and ${id2}`);
     return sessionId;
   }
   
@@ -107,7 +106,6 @@ class SocialSystem {
     }
     
     this.conversationSessions.delete(sessionId);
-    console.log(`Conversation ended: ${sessionId}`);
   }
   
   /**
@@ -214,11 +212,18 @@ class SocialSystem {
         };
         const response = this.chatEngine.generateResponse(parsedInput, npcContext);
         
-        // Send response
-        const socket = global.SOCKET_LIST[playerId];
-        if (socket) {
-          const formattedResponse = this.chatEngine.formatSpeech(npc, response);
-          socket.write(JSON.stringify({ msg: 'addToChat', message: formattedResponse }));
+        // Create event in EventManager (handles console logging and broadcasting to nearby players)
+        if (global.eventManager) {
+          global.eventManager.createEvent({
+            category: global.eventManager.categories.SOCIAL,
+            subject: npc.id,
+            subjectName: npc.name || npc.class,
+            action: 'said',
+            message: this.chatEngine.formatSpeech(npc, response),
+            communication: global.eventManager.commModes.AREA,
+            log: `[SOCIAL] ${npc.name || npc.class} said: "${response}" at [${Math.floor(npc.x)},${Math.floor(npc.y)}] z=${npc.z}`,
+            position: { x: npc.x, y: npc.y, z: npc.z }
+          });
         }
         
         // End conversation after farewell
@@ -283,11 +288,18 @@ class SocialSystem {
     memory.recordConversation(playerId, parsedInput.topic);
     memory.startConversation();
     
-    // Send response to player
-    const socket = global.SOCKET_LIST[playerId];
-    if (socket) {
-      const formattedResponse = this.chatEngine.formatSpeech(npc, response);
-      socket.write(JSON.stringify({ msg: 'addToChat', message: formattedResponse }));
+    // Create event in EventManager (handles console logging and broadcasting to nearby players)
+    if (global.eventManager) {
+      global.eventManager.createEvent({
+        category: global.eventManager.categories.SOCIAL,
+        subject: npc.id,
+        subjectName: npc.name || npc.class,
+        action: 'said',
+        message: this.chatEngine.formatSpeech(npc, response),
+        communication: global.eventManager.commModes.AREA,
+        log: `[SOCIAL] ${npc.name || npc.class} said: "${response}" at [${Math.floor(npc.x)},${Math.floor(npc.y)}] z=${npc.z}`,
+        position: { x: npc.x, y: npc.y, z: npc.z }
+      });
     }
     
     // Show speech bubble
@@ -343,9 +355,19 @@ class SocialSystem {
       response = 'I be busy at present.';
     }
     
-    // Send brief response
-    const formattedResponse = this.chatEngine.formatSpeech(npc, response);
-    socket.write(JSON.stringify({ msg: 'addToChat', message: formattedResponse }));
+    // Create event in EventManager (handles console logging and broadcasting to nearby players)
+    if (global.eventManager) {
+      global.eventManager.createEvent({
+        category: global.eventManager.categories.SOCIAL,
+        subject: npc.id,
+        subjectName: npc.name || npc.class,
+        action: 'said',
+        message: this.chatEngine.formatSpeech(npc, response),
+        communication: global.eventManager.commModes.AREA,
+        log: `[SOCIAL] ${npc.name || npc.class} said: "${response}" at [${Math.floor(npc.x)},${Math.floor(npc.y)}] z=${npc.z}`,
+        position: { x: npc.x, y: npc.y, z: npc.z }
+      });
+    }
     
     // Show temporary speech bubble (3 seconds, not permanent)
     this.showSpeechBubble(npc.id, 3000);
@@ -458,8 +480,19 @@ class SocialSystem {
     memory.recordConversation(target.id, 'greeting');
     memory.startConversation();
     
-    // Broadcast message to nearby players
-    this.broadcastNPCMessage(npc, message, 512); // 8 tiles radius
+    // Create event in EventManager (handles console logging and broadcasting to nearby players)
+    if (global.eventManager) {
+      global.eventManager.createEvent({
+        category: global.eventManager.categories.SOCIAL,
+        subject: npc.id,
+        subjectName: npc.name || npc.class,
+        action: 'said',
+        message: this.chatEngine.formatSpeech(npc, message),
+        communication: global.eventManager.commModes.AREA,
+        log: `[SOCIAL] ${npc.name || npc.class} said: "${message}" at [${Math.floor(npc.x)},${Math.floor(npc.y)}] z=${npc.z}`,
+        position: { x: npc.x, y: npc.y, z: npc.z }
+      });
+    }
   }
   
   /**

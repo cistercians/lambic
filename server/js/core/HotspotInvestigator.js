@@ -11,7 +11,6 @@ class HotspotInvestigator {
     const [x, y] = waypointStr.split(',').map(Number);
     
     if (!x || !y) {
-      console.error('Invalid waypoint format:', waypointStr);
       return null;
     }
     
@@ -97,47 +96,35 @@ class HotspotInvestigator {
   // Automatically investigate top stuck waypoints
   investigateTopHotspots(limit = 10) {
     if (!global.stuckEntityAnalytics) {
-      console.log('Stuck entity analytics not available');
       return;
     }
     
     const stats = global.stuckEntityAnalytics.getStats();
     const topWaypoints = stats.topStuckWaypoints.slice(0, limit);
     
-    console.log('🔍 Investigating Top Stuck Waypoints:');
-    console.log('═══════════════════════════════════════');
     
     for (const {waypoint, count} of topWaypoints) {
-      console.log(`\n📍 Waypoint: ${waypoint} (${count} stuck events)`);
       const investigation = this.investigateWaypoint(waypoint);
       
       if (investigation) {
-        console.log(`   Location: [${investigation.location[0]}, ${investigation.location[1]}]`);
         
         // Report findings for overworld (z=0)
         const overworldFinding = investigation.findings.find(f => f.z === 0);
         if (overworldFinding) {
-          console.log(`   Overworld (z=0):`);
-          console.log(`     Tile: ${overworldFinding.tile} (${overworldFinding.description})`);
-          console.log(`     Walkable: ${overworldFinding.walkable}`);
         }
         
         // Report building if present
         if (investigation.building) {
-          console.log(`   Building: ${investigation.building.type} (ID: ${investigation.building.id})`);
         }
         
         // Check if surrounded by unwalkable tiles
         const walkableSurroundings = investigation.surroundings.filter(s => s.walkable);
-        console.log(`   Walkable neighbors: ${walkableSurroundings.length}/8`);
         
         if (walkableSurroundings.length < 3) {
-          console.log(`   ⚠️  WARNING: Very few walkable neighbors - likely a narrow passage or dead end`);
         }
       }
     }
     
-    console.log('\n═══════════════════════════════════════');
   }
   
   // Get investigation results
@@ -156,5 +143,9 @@ class HotspotInvestigator {
 }
 
 module.exports = HotspotInvestigator;
+
+
+
+
 
 

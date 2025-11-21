@@ -18,7 +18,6 @@ class BuildingConstructor {
     });
     
     if (!spot) {
-      console.log(`${this.house.name}: No valid location for mill`);
       return null;
     }
     
@@ -57,10 +56,8 @@ class BuildingConstructor {
     const building = global.Building.list[millId];
     if (building && this.house.isInBaseTerritory && !this.house.isInBaseTerritory(building.x, building.y)) {
       building.isColony = true;
-      console.log(`${this.house.name}: Mill marked as COLONY (outside base territory)`);
     }
     
-    console.log(`${this.house.name}: Built mill at [${plot[0]}]`);
     return millId;
   }
   
@@ -69,7 +66,6 @@ class BuildingConstructor {
     // Find nearest mill if no location specified
     const mills = this.getBuildingsByType('mill');
     if (mills.length === 0) {
-      console.log(`${this.house.name}: Cannot build farm - no mill exists`);
       return null;
     }
     
@@ -81,7 +77,6 @@ class BuildingConstructor {
     });
     
     if (!spot) {
-      console.log(`${this.house.name}: No valid location for farm near mill`);
       return null;
     }
     
@@ -109,7 +104,6 @@ class BuildingConstructor {
     // Note: Farms cannot be marked as colonies because the Farm constructor doesn't return an ID
     // This is a limitation of the current Farm implementation
     
-    console.log(`${this.house.name}: Built farm at [${plot[0]}]`);
     return true;
   }
   
@@ -124,7 +118,6 @@ class BuildingConstructor {
     });
     
     if (!spot || !spot.plot || !spot.plot[0]) {
-      console.log(`${this.house.name}: No valid location for mine`);
       return null;
     }
     
@@ -159,10 +152,8 @@ class BuildingConstructor {
     const building = global.Building.list[mineId];
     if (building && this.house.isInBaseTerritory && !this.house.isInBaseTerritory(building.x, building.y)) {
       building.isColony = true;
-      console.log(`${this.house.name}: Mine marked as COLONY (outside base territory)`);
     }
     
-    console.log(`${this.house.name}: Built mine at [${plot[0]}]`);
     return mineId;
   }
   
@@ -177,7 +168,6 @@ class BuildingConstructor {
     });
     
     if (!spot) {
-      console.log(`${this.house.name}: No valid location for lumbermill`);
       return null;
     }
     
@@ -216,10 +206,8 @@ class BuildingConstructor {
     const building = global.Building.list[lumbermillId];
     if (building && this.house.isInBaseTerritory && !this.house.isInBaseTerritory(building.x, building.y)) {
       building.isColony = true;
-      console.log(`${this.house.name}: Lumbermill marked as COLONY (outside base territory)`);
     }
     
-    console.log(`${this.house.name}: Built lumbermill at [${plot[0]}]`);
     return lumbermillId;
   }
   
@@ -234,7 +222,6 @@ class BuildingConstructor {
     });
     
     if (!spot) {
-      console.log(`${this.house.name}: No valid location for forge`);
       return null;
     }
     
@@ -271,10 +258,8 @@ class BuildingConstructor {
     const building = global.Building.list[forgeId];
     if (building && this.house.isInBaseTerritory && !this.house.isInBaseTerritory(building.x, building.y)) {
       building.isColony = true;
-      console.log(`${this.house.name}: Forge marked as COLONY (outside base territory)`);
     }
     
-    console.log(`${this.house.name}: Built forge at [${plot[0]}]`);
     return forgeId;
   }
   
@@ -289,7 +274,6 @@ class BuildingConstructor {
     });
     
     if (!spot) {
-      console.log(`${this.house.name}: No valid location for garrison`);
       return null;
     }
     
@@ -332,10 +316,8 @@ class BuildingConstructor {
     const building = global.Building.list[garrisonId];
     if (building && this.house.isInBaseTerritory && !this.house.isInBaseTerritory(building.x, building.y)) {
       building.isColony = true;
-      console.log(`${this.house.name}: Garrison marked as COLONY (outside base territory)`);
     }
     
-    console.log(`${this.house.name}: Built garrison at [${plot[0]}]`);
     return garrisonId;
   }
   

@@ -123,13 +123,11 @@ class ItemFactory {
   createItem(type, param = {}) {
     const config = this.itemConfigs[type];
     if (!config) {
-      console.error(`Unknown item type: ${type}`);
       return null;
     }
     
     // Use the global Item constructor from Entity.js instead of BaseItem
     if (!global.Item) {
-      console.error('Item constructor not available');
       return null;
     }
     

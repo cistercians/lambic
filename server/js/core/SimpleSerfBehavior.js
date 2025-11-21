@@ -151,7 +151,6 @@ class SimpleSerfBehavior {
 
   log(serf, message) {
     if (this.debug) {
-      console.log(`[${serf.name}] ${message}`);
     }
   }
 }

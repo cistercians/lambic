@@ -61,7 +61,6 @@ class CombatSystem {
     attacker.action = 'combat';
     target.action = 'combat';
     
-    console.log(`${attacker.class || attacker.name} starts combat with ${target.class || target.name}`);
   }
   
   // End combat for entity
@@ -86,7 +85,6 @@ class CombatSystem {
         if (target.combat && target.combat.target === entity.id) {
           target.combat.target = null;
           target.action = null;
-          console.log(`Cleared ${target.class || target.name}'s combat with ${entity.class || entity.name} (enemy retreated)`);
         }
       }
     }
@@ -106,7 +104,6 @@ class CombatSystem {
       entity.pathCount = 0;
     }
     
-    console.log(`${entity.class || entity.name} ends combat`);
   }
   
   // Update combat for entity
@@ -117,7 +114,6 @@ class CombatSystem {
     if (!state.isInCombat || !state.target) {
       // Entity stuck in combat mode without being in combat - force clear
       if (entity.action === 'combat' && !state.isInCombat) {
-        console.log((entity.class || entity.name) + ' stuck in combat mode, force clearing');
         entity.action = null;
         entity.combat.target = null;
         entity.path = null;
@@ -150,7 +146,6 @@ class CombatSystem {
         state.lastPosition = { x: entity.x, y: entity.y, time: now };
       } else if (timeSinceMove > 2000) {
         // Frozen for 2+ seconds - force end combat
-        console.log((entity.class || entity.name) + ' frozen in combat for ' + Math.floor(timeSinceMove/1000) + 's, force ending');
         this.endCombat(entity);
         return;
       }
@@ -175,7 +170,6 @@ class CombatSystem {
       const leashRange = entity.wanderRange || 2048; // Default 32 tiles (4x increase)
       
       if (homeDist > leashRange) {
-        console.log((entity.class || entity.name) + ' exceeded leash range, returning home');
         this.endCombat(entity);
         entity.action = 'returning'; // Set returning state to prevent re-aggro
         entity.return(); // Go back home
@@ -219,7 +213,6 @@ class CombatSystem {
     
     // If no attack in 3 seconds and entities are close, something is wrong
     if (timeSinceAttack > 3000 && distance < 256) {
-      console.log((entity.class || entity.name) + ' stuck in combat without attacking for 3s, ending');
       this.endCombat(entity);
       return;
     }
@@ -275,7 +268,6 @@ class CombatSystem {
   // Move towards target
   moveTowardsTarget(entity, target) {
     if (!entity.follow) {
-      console.warn(`Entity ${entity.id} missing follow function`);
       return;
     }
     
@@ -355,7 +347,6 @@ class CombatSystem {
     entity.stealthed = false;
     entity.revealed = false;
     
-    console.log(`${entity.class || entity.name} attacks ${target.class || target.name} for ${actualDamage} damage`);
     
     // Check for death (only if entity has HP - exclude invulnerable entities like falcons)
     if (target.hp !== null && target.hp <= 0) {
@@ -384,7 +375,6 @@ class CombatSystem {
   
   // Handle target death
   handleTargetDeath(attacker, target) {
-    console.log(`${target.class || target.name} dies from ${attacker.class || attacker.name}'s attack`);
     
     // Trigger death
     if (target.die) {

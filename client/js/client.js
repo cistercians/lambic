@@ -205,6 +205,47 @@ var shipWakes = {
   }
 };
 
+// Tile highlighting system for navigation clicks
+var tileHighlights = {
+  highlights: {}, // {x,y,z: {startTime: timestamp, alpha: 1}} - tiles fading out
+  
+  // Add a highlight at a tile location
+  addHighlight: function(tileX, tileY, z) {
+    const key = tileX + ',' + tileY + ',' + z;
+    this.highlights[key] = {
+      tileX: tileX,
+      tileY: tileY,
+      z: z,
+      startTime: Date.now(),
+      alpha: 0.5 // Start at 50% opacity
+    };
+  },
+  
+  // Update all highlights (fade them out over 1 second)
+  update: function() {
+    const now = Date.now();
+    const fadeDuration = 1000; // 1 second
+    
+    for(const key in this.highlights) {
+      const highlight = this.highlights[key];
+      const elapsed = now - highlight.startTime;
+      
+      if(elapsed >= fadeDuration) {
+        // Fade complete, remove
+        delete this.highlights[key];
+      } else {
+        // Update alpha (0.5 -> 0.0 over 1 second)
+        highlight.alpha = 0.5 * (1.0 - (elapsed / fadeDuration));
+      }
+    }
+  },
+  
+  // Get all active highlights (for rendering)
+  getHighlights: function() {
+    return Object.values(this.highlights);
+  }
+};
+
 // Dynamic canvas sizing
 function resizeCanvas() {
   WIDTH = window.innerWidth;
@@ -884,7 +925,32 @@ socket.onmessage = function(event){
         
         // Update activity state (visual)
         if(pack.working != undefined) p.working = pack.working;
-        if(pack.combat != undefined) p.combat = pack.combat;
+        if(pack.combat != undefined) {
+          // Check if player was previously in combat
+          var wasInCombat = p.combat && p.combat.target;
+          var isNowInCombat = pack.combat && pack.combat.target;
+          
+          p.combat = pack.combat;
+          
+          // Auto-select enemies that aggro the player
+          if(p.id === selfId && isNowInCombat){
+            var targetId = pack.combat.target;
+            
+            // Check if this is a new combat engagement (wasn't in combat before)
+            var isNewCombat = !wasInCombat;
+            
+            if(isNewCombat){
+              // Player just entered combat - always auto-select the attacker
+              selectedTarget = targetId;
+              console.log('Auto-selected aggressor (new combat):', targetId);
+            } else if(!selectedTarget){
+              // Player is already in combat but has no target selected - auto-select the attacker
+              selectedTarget = targetId;
+              console.log('Auto-selected aggressor (no target):', targetId);
+            }
+            // If player is already in combat AND has a target selected, don't override their selection
+          }
+        }
         if(pack.fleeing != undefined) p.fleeing = pack.fleeing;
         if(pack.chopping != undefined) p.chopping = pack.chopping;
         if(pack.mining != undefined) p.mining = pack.mining;
@@ -2884,6 +2950,212 @@ if(dropConfirmBtn){
       }, 100);
     }
   };
+}
+
+// Get portrait image for a class
+function getPortraitImage(entityClass){
+  if(!entityClass) return Img.portraitSerfM;
+  
+  // First, try to find a portrait image named after the class (e.g., Img.portraitFrankSword)
+  var portraitName = 'portrait' + entityClass;
+  if(Img[portraitName] && Img[portraitName].src){
+    return Img[portraitName];
+  }
+  
+  // Fallback mapping for classes that don't have their own portrait images
+  var portraitMap = {
+    // Ranged classes
+    'Trapper': Img.portraitRogue,
+    'Cutthroat': Img.portraitRogue,
+    'Outlaw': Img.portraitHunter,
+    'Scout': Img.portraitHunter,
+    'Ranger': Img.portraitHunter,
+    'Warden': Img.portraitHunter,
+    'Poacher': Img.portraitHunter,
+    
+    // Melee classes
+    'Serf': Img.portraitSerfM,
+    'Hospitaller': Img.portraitTemplar,
+    'Hochmeister': Img.portraitTemplar,
+    'Cavalry': Img.portraitKnight,
+    'Lancer': Img.portraitKnight,
+    'Charlemagne': Img.portraitKing,
+    'Hero': Img.portraitKnight,
+    'Horseman': Img.portraitKnight,
+    'MountedArcher': Img.portraitArcher,
+    'Cavalier': Img.portraitKnight,
+    'General': Img.portraitKnight,
+    'ImperialKnight': Img.portraitKnight,
+    'TeutonicKnight': Img.portraitKnight,
+    'Strongman': Img.portraitKnight,
+    'Condottiere': Img.portraitKnight,
+    'Footsoldier': Img.portraitKnight,
+    'Skirmisher': Img.portraitArcher,
+    'Swordsman': Img.portraitKnight,
+    
+    // Magic classes
+    'Acolyte': Img.portraitMage,
+    'Brother': Img.portraitWarlock,
+    'Prior': Img.portraitMonk,
+    'Priest': Img.portraitMonk,
+    'Friar': Img.portraitMonk,
+    'Bishop': Img.portraitMonk,
+    'Archbishop': Img.portraitMonk,
+    'Oathkeeper': Img.portraitMonk,
+    'HighPriestess': Img.portraitMonk,
+    'seidr': Img.portraitMonk,
+    
+    // Special classes
+    'Alaric': Img.portraitKing,
+    'Innkeeper': Img.portraitSerfM,
+    'Shipwright': Img.portraitSerfM,
+    'Morrigan': Img.portraitDruid,
+    'Gwenllian': Img.portraitDruid,
+    
+    // Siege/Other
+    'Trebuchet': Img.portraitSerfM,
+    'Mangonel': Img.portraitSerfM,
+    'Malvoisin': Img.portraitSerfM,
+    'Apparition': Img.portraitSerfM
+  };
+  
+  // Check fallback map
+  if(portraitMap[entityClass]){
+    return portraitMap[entityClass];
+  }
+  
+  // Default to male serf
+  return Img.portraitSerfM;
+}
+
+// Portrait HUD update functions
+function updatePlayerPortraitHUD(){
+  if(!selfId || !Player.list[selfId]){
+    // Hide HUD if no player
+    var hud = document.getElementById('player-portrait-hud');
+    if(hud) hud.classList.remove('active');
+    return;
+  }
+  
+  var player = Player.list[selfId];
+  var hud = document.getElementById('player-portrait-hud');
+  if(!hud) return;
+  
+  // Show HUD using CSS class
+  hud.classList.add('active');
+  
+  // Draw portrait on canvas
+  var canvas = document.getElementById('player-portrait-canvas');
+  if(canvas){
+    var ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, 64, 64);
+    var portrait = getPortraitImage(player.class);
+    if(portrait && portrait.complete){
+      ctx.drawImage(portrait, 0, 0, 64, 64);
+    }
+  }
+  
+  // Update HP bar
+  var hpPercent = (player.hp / player.hpMax) * 100;
+  var hpFill = document.getElementById('player-hp-bar-fill');
+  var hpText = document.getElementById('player-hp-bar-text');
+  if(hpFill){
+    hpFill.style.width = hpPercent + '%';
+  }
+  if(hpText){
+    hpText.textContent = Math.floor(player.hp) + ' / ' + player.hpMax;
+  }
+  
+  // Update Spirit bar (players always have spirit bars, regardless of class)
+  var spiritBar = document.getElementById('player-spirit-bar-hud');
+  if(spiritBar){
+    // Players always have spirit bars
+    spiritBar.style.display = 'block';
+  }
+  
+  if(player.spirit !== undefined && player.spirit !== null && player.spiritMax > 0){
+    var spiritPercent = (player.spirit / player.spiritMax) * 100;
+    var spiritFill = document.getElementById('player-spirit-bar-fill');
+    var spiritText = document.getElementById('player-spirit-bar-text');
+    if(spiritFill){
+      spiritFill.style.width = spiritPercent + '%';
+    }
+    if(spiritText){
+      spiritText.textContent = Math.floor(player.spirit) + ' / ' + player.spiritMax;
+    }
+  } else {
+    // Show 0/0 if spirit not available
+    var spiritFill = document.getElementById('player-spirit-bar-fill');
+    var spiritText = document.getElementById('player-spirit-bar-text');
+    if(spiritFill){
+      spiritFill.style.width = '0%';
+    }
+    if(spiritText){
+      spiritText.textContent = '0 / 0';
+    }
+  }
+}
+
+function updateTargetPortraitHUD(){
+  var hud = document.getElementById('target-portrait-hud');
+  if(!hud) return;
+  
+  // Hide if no target selected
+  if(!selectedTarget || !Player.list[selectedTarget]){
+    hud.classList.remove('active');
+    return;
+  }
+  
+  var target = Player.list[selectedTarget];
+  
+  // Show HUD using CSS class
+  hud.classList.add('active');
+  
+  // Draw portrait on canvas (always redraw to ensure it updates when target changes)
+  var canvas = document.getElementById('target-portrait-canvas');
+  if(canvas){
+    var ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, 64, 64);
+    var portrait = getPortraitImage(target.class);
+    if(portrait){
+      // Always try to draw portrait (will draw if loaded, otherwise will be blank until loaded)
+      if(portrait.complete && portrait.width > 0 && portrait.height > 0){
+        ctx.drawImage(portrait, 0, 0, 64, 64);
+      }
+    }
+  }
+  
+  // Update HP bar
+  if(target.hp !== null && target.hp !== undefined){
+    var hpPercent = (target.hp / target.hpMax) * 100;
+    var hpFill = document.getElementById('target-hp-bar-fill');
+    var hpText = document.getElementById('target-hp-bar-text');
+    if(hpFill){
+      hpFill.style.width = hpPercent + '%';
+    }
+    if(hpText){
+      hpText.textContent = Math.floor(target.hp) + ' / ' + target.hpMax;
+    }
+  }
+  
+  // Update Spirit bar (for spirit-using classes)
+  var spiritClasses = ['Mage', 'Acolyte', 'Warlock', 'Brother', 'Druid', 'Priest', 'Monk', 'Prior', 'Friar', 'Bishop', 'Archbishop', 'Oathkeeper', 'HighPriestess', 'seidr'];
+  var hasSpirit = spiritClasses.indexOf(target.class) !== -1 && target.spirit !== undefined && target.spirit !== null;
+  var spiritBar = document.getElementById('target-spirit-bar-hud');
+  if(spiritBar){
+    spiritBar.style.display = hasSpirit ? 'block' : 'none';
+  }
+  if(hasSpirit){
+    var spiritPercent = (target.spirit / target.spiritMax) * 100;
+    var spiritFill = document.getElementById('target-spirit-bar-fill');
+    var spiritText = document.getElementById('target-spirit-bar-text');
+    if(spiritFill){
+      spiritFill.style.width = spiritPercent + '%';
+    }
+    if(spiritText){
+      spiritText.textContent = Math.floor(target.spirit) + ' / ' + target.spiritMax;
+    }
+  }
 }
 
 // Character display function - full update (call when opening sheet or after equipment changes)
@@ -4972,6 +5244,44 @@ var Player = function(initPack){
     
     // Reset transparency
     ctx.globalAlpha = 1.0;
+    
+    // Draw hover/selection border AFTER sprite is drawn (so it's always visible)
+    var isHovered = (hoveredTarget === self.id);
+    var isSelected = (selectedTarget === self.id);
+    // Debug: Log when border should be drawn (only first few times to avoid spam)
+    if((isHovered || isSelected) && Math.random() < 0.01){
+      console.log('Drawing border for entity:', self.id, 'hovered:', isHovered, 'selected:', isSelected);
+    }
+    if(isHovered || isSelected){
+      // Determine border color based on ally status
+      // allyCheck returns: -1 = enemy, 0 = neutral, 1 = friendly, 2 = self
+      // Check if this entity is an ally/enemy relative to the current player (selfId)
+      var allied = (typeof allyCheck === 'function' && selfId) ? allyCheck(self.id) : 0;
+      // Red for enemies, green for allies/friendly/neutral/self - use bright colors for visibility
+      var borderColor = (allied === -1) ? '#ff0000' : '#00ff00';
+      
+      // Draw border (always fully opaque)
+      ctx.save();
+      ctx.globalAlpha = 1.0;
+      ctx.globalCompositeOperation = 'source-over'; // Ensure border is drawn on top
+      var borderWidth = isSelected ? 3 : 2; // 3px for selected, 2px for hover
+      ctx.strokeStyle = borderColor;
+      ctx.lineWidth = borderWidth;
+      ctx.lineCap = 'square';
+      ctx.lineJoin = 'miter';
+      // Draw border around sprite
+      // Adjust position so border is centered on sprite edge (half border width inside, half outside)
+      var halfBorder = borderWidth / 2;
+      ctx.beginPath();
+      ctx.rect(
+        x - halfBorder, 
+        y - halfBorder, 
+        scaledSpriteSize + borderWidth, 
+        scaledSpriteSize + borderWidth
+      );
+      ctx.stroke();
+      ctx.restore();
+    }
   };
 
   Player.list[self.id] = self;
@@ -6447,6 +6757,11 @@ Light.list = {
 // player's id
 var selfId = null;
 
+// Mouse-based interaction system
+var attackCommandMode = false; // A key toggles attack command mode
+var selectedTarget = null; // Currently selected entity ID
+var hoveredTarget = null; // Entity ID under mouse cursor
+
 // init
 
 
@@ -6683,6 +6998,25 @@ function renderUnified(mode, currentZ, nightfall) {
     }
   }
   
+  // Tile highlights (navigation clicks) - Draw BEFORE lighting so they're subtle
+  if(mode === 'normal' || mode === 'godmode') {
+    var highlights = tileHighlights.getHighlights();
+    for(var i = 0; i < highlights.length; i++) {
+      var h = highlights[i];
+      if(h.z === currentZ) {
+        // Use viewport offset system (same as map tiles) to position highlights correctly
+        var xOffset = viewport.offset[0] + (h.tileX * tileSize);
+        var yOffset = viewport.offset[1] + (h.tileY * tileSize);
+        
+        // Draw subtle grey overlay - will be covered by lighting
+        ctx.globalAlpha = h.alpha * 0.5;
+        ctx.fillStyle = 'rgb(180, 180, 180)';
+        ctx.fillRect(xOffset, yOffset, tileSize, tileSize);
+        ctx.globalAlpha = 1.0;
+      }
+    }
+  }
+  
   // Lighting
   renderLighting();
   
@@ -6693,9 +7027,22 @@ function renderUnified(mode, currentZ, nightfall) {
     renderLightSources(1);
   } else if(currentZ === -1 || currentZ === -2) {
     renderLightSources(3);
+    
+    // For caves/cellars, composite the dark layer canvas on top of lighting canvas
+    // (after light sources have cut holes in the dark layer)
+    // Dark layer canvas is drawn without zoom transform, so apply zoom transform when compositing to match lighting canvas
+    if(darkLayerCanvas && darkLayerCtx) {
+      lighting.save();
+      lighting.translate(WIDTH/2, HEIGHT/2);
+      lighting.scale(currentZoom, currentZoom);
+      lighting.translate(-WIDTH/2, -HEIGHT/2);
+      lighting.globalCompositeOperation = 'source-over';
+      lighting.drawImage(darkLayerCanvas, 0, 0);
+      lighting.restore();
+    }
   }
   
-  // Note: Rain rendering happens AFTER ctx.restore() in screen-space, not here
+  // Note: Rain rendering happens AFTER ctx.restore() in screen-space
 }
 
 // ============================================================================
@@ -6742,6 +7089,8 @@ function updateAnimations(deltaTime) {
   if (animationTimers.shipWakes >= 100) {
     if(tileSize > 0) {
       shipWakes.update();
+      // Also update tile highlights
+      tileHighlights.update();
     }
     animationTimers.shipWakes -= 100;
   }
@@ -6772,6 +7121,14 @@ function updateAnimations(deltaTime) {
 function gameLoop(currentTime) {
   // Calculate delta time since last frame
   var deltaTime = currentTime - lastFrameTime;
+  
+  // Cap deltaTime to prevent fast-forward animations when tab becomes visible again
+  // Maximum of 100ms (about 6 frames at 60fps) prevents catch-up effects
+  // This ensures animations resume smoothly without visible fast-forward
+  if (deltaTime > 100) {
+    deltaTime = 100;
+  }
+  
   lastFrameTime = currentTime;
   
   // Update animations based on delta time
@@ -6883,6 +7240,10 @@ function gameLoop(currentTime) {
   if (window.performanceHUD && window.performanceHUD.enabled) {
     window.performanceHUD.recordFrame(deltaTime);
   }
+  
+  // Update portrait HUDs (real-time HP/Spirit updates)
+  updatePlayerPortraitHUD();
+  updateTargetPortraitHUD();
   
   // Continue the loop
   requestAnimationFrame(gameLoop);
@@ -10584,6 +10945,23 @@ var initLightTempCanvas = function() {
   }
 };
 
+// Separate dark layer canvas for caves/cellars (so light sources only cut through dark, not orange)
+var darkLayerCanvas = null;
+var darkLayerCtx = null;
+var initDarkLayerCanvas = function() {
+  if (!darkLayerCanvas) {
+    darkLayerCanvas = document.createElement('canvas');
+    darkLayerCanvas.width = lighting.canvas.width;
+    darkLayerCanvas.height = lighting.canvas.height;
+    darkLayerCtx = darkLayerCanvas.getContext('2d');
+  }
+  // Ensure canvas size matches lighting canvas (in case it was resized)
+  if (darkLayerCanvas.width != lighting.canvas.width || darkLayerCanvas.height != lighting.canvas.height) {
+    darkLayerCanvas.width = lighting.canvas.width;
+    darkLayerCanvas.height = lighting.canvas.height;
+  }
+};
+
 var renderLightSources = function(env){
   // Skip lighting effects for ghosts
   if(selfId && Player.list[selfId] && Player.list[selfId].ghost){
@@ -10596,6 +10974,18 @@ var renderLightSources = function(env){
   // Get camera position (works for both logged in and login mode)
   var cameraPos = getCameraPosition();
   
+  // Get current z-layer to determine if we're in caves/cellars
+  var playerZ = getCurrentZ();
+  var isCaveOrCellar = (playerZ == -1 || playerZ == -2);
+  
+  // Initialize dark layer canvas if we're in caves/cellars
+  if(isCaveOrCellar) {
+    initDarkLayerCanvas();
+  }
+  
+  // For caves/cellars, we need to cut holes in the dark layer canvas instead of lighting canvas
+  var targetCtx = isCaveOrCellar ? darkLayerCtx : lighting;
+  
   for(i in Light.list){
     var light = Light.list[i];
     // Skip if light was deleted (prevent accumulating undefined/null entries)
@@ -10605,29 +10995,41 @@ var renderLightSources = function(env){
     var x = light.x - cameraPos.x + WIDTH/2;
     var y = light.y - cameraPos.y + HEIGHT/2;
     
-    // Get current z-layer (works for login camera, god mode, and normal play)
-    var playerZ = getCurrentZ();
-    
     if(light.z == playerZ || light.z == 99){
       illuminate(x,y,(45 * light.radius),env);
       illuminate(x,y,7,env);
       //remove darkness layer
       if((light.z == 0 || light.z == -1 || light.z == -2 || light.z == 99) || ((light.z == 1 || light.z == 2) && !hasFire(playerZ,cameraPos.x,cameraPos.y))){
-        lighting.save();
+        if(isCaveOrCellar && darkLayerCtx) {
+          darkLayerCtx.save();
+        } else {
+          lighting.save();
+        }
         
         var lightRadius = ((45 * light.radius) * (1 + rnd)) * env;
-        
-        // Apply zoom scaling to position and radius for the temp canvas
-        var zoomedX = (x - WIDTH/2) * currentZoom + WIDTH/2;
-        var zoomedY = (y - HEIGHT/2) * currentZoom + HEIGHT/2;
-        var zoomedRadius = lightRadius * currentZoom;
         
         // Clear and reuse temp canvas (instead of creating new one each frame - FIXES MEMORY LEAK)
         lightTempCtx.clearRect(0, 0, lightTempCanvas.width, lightTempCanvas.height);
         
+        // Coordinate calculation differs:
+        // - For z=0: dark layer drawn with zoom transform, so use zoom-compensated coordinates
+        // - For z=-1/-2: dark layer canvas drawn WITHOUT zoom transform, so use regular screen coordinates
+        var lightX, lightY, lightR;
+        if(isCaveOrCellar && darkLayerCtx) {
+          // For caves/cellars, use regular screen coordinates (dark layer canvas is in unzoomed space)
+          lightX = x;
+          lightY = y;
+          lightR = lightRadius;
+        } else {
+          // For z=0, use zoom-compensated coordinates (dark layer is in zoomed space)
+          lightX = (x - WIDTH/2) * currentZoom + WIDTH/2;
+          lightY = (y - HEIGHT/2) * currentZoom + HEIGHT/2;
+          lightR = lightRadius * currentZoom;
+        }
+        
         // Draw gradient from opaque (center) to transparent (edges)
         // With destination-out: opaque pixels remove darkness, transparent pixels keep darkness
-        var gradient = lightTempCtx.createRadialGradient(zoomedX, zoomedY, 0, zoomedX, zoomedY, zoomedRadius);
+        var gradient = lightTempCtx.createRadialGradient(lightX, lightY, 0, lightX, lightY, lightR);
         gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');       // Center: opaque = removes all darkness (bright)
         gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.6)');  // Start fading back to darkness
         gradient.addColorStop(0.75, 'rgba(255, 255, 255, 0.2)'); // More darkness returns
@@ -10635,14 +11037,21 @@ var renderLightSources = function(env){
         
         lightTempCtx.fillStyle = gradient;
         lightTempCtx.beginPath();
-        lightTempCtx.arc(zoomedX, zoomedY, zoomedRadius, 0, 2 * Math.PI, false);
+        lightTempCtx.arc(lightX, lightY, lightR, 0, 2 * Math.PI, false);
         lightTempCtx.fill();
         
         // Use destination-out with the gradient to create smooth fade
-        lighting.globalCompositeOperation = 'destination-out';
-        lighting.drawImage(lightTempCanvas, 0, 0);
+        // For z=0: lighting canvas has no transform, temp canvas has zoom-compensated coordinates, draw directly - WORKS
+        // For z=-1/-2: darkLayerCtx has no transform (same as z=0), temp canvas has zoom-compensated coordinates, draw directly - SAME AS Z=0
+        targetCtx.globalCompositeOperation = 'destination-out';
+        targetCtx.drawImage(lightTempCanvas, 0, 0);
         
-        lighting.restore();
+        if(isCaveOrCellar && darkLayerCtx) {
+          // Restore darkLayerCtx state (same as z=0 restores lighting)
+          darkLayerCtx.restore();
+        } else {
+          lighting.restore();
+        }
       }
     }
   }
@@ -10987,21 +11396,33 @@ var renderLighting = function(){
   var offsetY = (HEIGHT - effectiveHeight) / 2;
   
   lighting.clearRect(offsetX, offsetY, effectiveWidth, effectiveHeight);
-  lighting.fillStyle = finalColor;
-  lighting.fillRect(offsetX, offsetY, effectiveWidth, effectiveHeight);
+  
+  // Handle special z-layer effects - draw orange base layer FIRST for caves/cellars
+  if(z == -1 || z == -2){
+    // Initialize dark layer canvas for caves/cellars
+    initDarkLayerCanvas();
+    
+    // Draw orange base layer on lighting canvas (this stays visible)
+    lighting.fillStyle = "rgba(224, 104, 0, 0.3)"; // orange glow for caves/cellars (base layer)
+    lighting.fillRect(offsetX, offsetY, effectiveWidth, effectiveHeight);
+    
+    // Draw dark layer on separate canvas (light sources will cut holes in this)
+    // Draw WITHOUT zoom transform - it will be scaled when composited onto lighting canvas
+    darkLayerCtx.clearRect(0, 0, darkLayerCanvas.width, darkLayerCanvas.height);
+    darkLayerCtx.fillStyle = finalColor;
+    darkLayerCtx.fillRect(0, 0, WIDTH, HEIGHT);
+    
+    // Don't draw dark layer directly on lighting canvas for caves/cellars
+    // It will be drawn after light sources cut holes in it
+  } else {
+    // For other layers, draw dark layer directly on lighting canvas
+    lighting.fillStyle = finalColor;
+    lighting.fillRect(offsetX, offsetY, effectiveWidth, effectiveHeight);
+  }
   
   // Lightning flash (render on top of day/night overlay)
   if(lightningFlash && z === 0) {
     lighting.fillStyle = 'rgba(255, 255, 255, 0.6)';
-    lighting.fillRect(offsetX, offsetY, effectiveWidth, effectiveHeight);
-  }
-  
-  // Handle special z-layer effects (render on lighting canvas)
-  if(z == -1){
-    lighting.fillStyle = "rgba(224, 104, 0, 0.3)"; // orange glow for caves
-    lighting.fillRect(offsetX, offsetY, effectiveWidth, effectiveHeight);
-  } else if(z == -2){
-    lighting.fillStyle = "rgba(224, 104, 0, 0.3)"; // orange glow for cellars
     lighting.fillRect(offsetX, offsetY, effectiveWidth, effectiveHeight);
   }
   
@@ -11113,21 +11534,9 @@ document.onkeydown = function(event){
   
   // chatFocus already declared at top of function
   if(!chatFocus){
-    if(event.keyCode == 68){ // d
-      socket.send(JSON.stringify({msg:'keyPress',inputId:'right',state:true}));
-      Player.list[selfId].pressingRight = true;
-    } else if(event.keyCode == 83){ // s
-      socket.send(JSON.stringify({msg:'keyPress',inputId:'down',state:true}));
-      Player.list[selfId].pressingDown = true;
-    } else if(event.keyCode == 65){ // a
-      socket.send(JSON.stringify({msg:'keyPress',inputId:'left',state:true}));
-      Player.list[selfId].pressingLeft = true;
-    } else if(event.keyCode == 87){ // w
-      socket.send(JSON.stringify({msg:'keyPress',inputId:'up',state:true}));
-      Player.list[selfId].pressingUp = true;
-    } else if(event.keyCode == 32){ // space
-      socket.send(JSON.stringify({msg:'keyPress',inputId:'attack',state:true}));
-      Player.list[selfId].pressingAttack = true;
+    if(event.keyCode == 65){ // a - Attack command mode
+      attackCommandMode = true;
+      console.log('Attack command mode activated');
     } else if(event.keyCode == 69){ // e
       socket.send(JSON.stringify({msg:'keyPress',inputId:'e',state:true}));
     } else if(event.keyCode == 84){ // t
@@ -11203,12 +11612,22 @@ document.onkeydown = function(event){
       // Request build menu data from server
       socket.send(JSON.stringify({msg:'requestBuildMenu'}));
     }
-  } else if(event.keyCode == 27){ // Escape - Cancel preview mode
+  } else if(event.keyCode == 27){ // Escape - Cancel preview mode and clear targets
     if(buildPreviewMode){
       buildPreviewMode = false;
       buildPreviewType = null;
       buildPreviewData = null;
       }
+    // Clear selected target and attack command mode
+    selectedTarget = null;
+    attackCommandMode = false;
+    console.log('Target and attack mode cleared with Escape');
+    
+    // Force hide target HUD immediately
+    var targetHud = document.getElementById('target-portrait-hud');
+    if(targetHud){
+      targetHud.classList.remove('active');
+    }
     } else if(event.keyCode == 78){ // n
       socket.send(JSON.stringify({msg:'keyPress',inputId:'n',state:true}));
     } else if(event.keyCode == 49){ // 1
@@ -11272,22 +11691,7 @@ document.onkeyup = function(event){
     return;
   }
   
-  if(event.keyCode == 68){ // d
-    socket.send(JSON.stringify({msg:'keyPress',inputId:'right',state:false}));
-    Player.list[selfId].pressingRight = false;
-  } else if(event.keyCode == 83){ // s
-    socket.send(JSON.stringify({msg:'keyPress',inputId:'down',state:false}));
-    Player.list[selfId].pressingDown = false;
-  } else if(event.keyCode == 65){ // a
-    socket.send(JSON.stringify({msg:'keyPress',inputId:'left',state:false}));
-    Player.list[selfId].pressingLeft = false;
-  } else if(event.keyCode == 87){ // w
-    socket.send(JSON.stringify({msg:'keyPress',inputId:'up',state:false}));
-    Player.list[selfId].pressingUp = false;
-  } else if(event.keyCode == 32){ // space
-    socket.send(JSON.stringify({msg:'keyPress',inputId:'attack',state:false}));
-    Player.list[selfId].pressingAttack = false;
-  } else if(event.keyCode == 69){ // e
+  if(event.keyCode == 69){ // e
     socket.send(JSON.stringify({msg:'keyPress',inputId:'e',state:false}));
   } else if(event.keyCode == 84){ // t
     socket.send(JSON.stringify({msg:'keyPress',inputId:'t',state:false}));
@@ -11348,11 +11752,49 @@ document.onmousemove = function(event){
     var y = -250 + event.clientY - 8;
     var angle = Math.atan2(y,x) / Math.PI * 180;
     socket.send(JSON.stringify({msg:'keyPress',inputId:'mouseAngle',state:angle}));
+    
+    // Hover detection for entities
+    var player = Player.list[selfId];
+    if(player){
+      var canvas = document.getElementById('ctx');
+      if(canvas){
+        var rect = canvas.getBoundingClientRect();
+        var mouseX = event.clientX - rect.left;
+        var mouseY = event.clientY - rect.top;
+        
+        // Convert screen coordinates to world coordinates
+        var worldX = (mouseX - WIDTH/2) / currentZoom + player.x;
+        var worldY = (mouseY - HEIGHT/2) / currentZoom + player.y;
+        
+        // Check all entities for hover
+        hoveredTarget = null;
+        for(var id in Player.list){
+          var entity = Player.list[id];
+          if(entity && entity.z === player.z){
+            var dx = entity.x - worldX;
+            var dy = entity.y - worldY;
+            var distance = Math.sqrt(dx*dx + dy*dy);
+            // Use actual sprite size for detection (spriteSize is typically 64, so radius is 32)
+            var entitySpriteSize = entity.spriteSize || 64;
+            var detectionRadius = entitySpriteSize / 2;
+            // Account for scaled sprites (e.g., minibosses)
+            if((entity.class === 'Wolf' || entity.class === 'Boar') && entity.spriteScale){
+              detectionRadius = (entitySpriteSize * entity.spriteScale) / 2;
+            }
+            if(distance < detectionRadius){
+              hoveredTarget = id;
+              break;
+            }
+          }
+        }
+      }
+    }
   }
 }
 
-// Mouse click handlers for building placement
+// Mouse click handlers for building placement and target selection
 document.onclick = function(event) {
+  // Handle building preview mode first
   if (buildPreviewMode && buildPreviewType && buildPreviewData) {
     // Check if click is on canvas
     var canvas = document.getElementById('ctx');
@@ -11385,16 +11827,178 @@ document.onclick = function(event) {
         }
       }
     }
+    return;
+  }
+  
+  // Handle target selection and attack command mode
+  if(!selfId || !Player.list[selfId]) return;
+  
+  var player = Player.list[selfId];
+  var canvas = document.getElementById('ctx');
+  if(!canvas) return;
+  
+  var rect = canvas.getBoundingClientRect();
+  var clickX = event.clientX - rect.left;
+  var clickY = event.clientY - rect.top;
+  
+  // Convert screen coordinates to world coordinates
+  var worldX = (clickX - WIDTH/2) / currentZoom + player.x;
+  var worldY = (clickY - HEIGHT/2) / currentZoom + player.y;
+  
+  // Check if clicking on an entity
+  var clickedEntity = null;
+  for(var id in Player.list){
+    var entity = Player.list[id];
+    if(entity && entity.z === player.z){
+      var dx = entity.x - worldX;
+      var dy = entity.y - worldY;
+      var distance = Math.sqrt(dx*dx + dy*dy);
+      // Use actual sprite size for detection (spriteSize is typically 64, so radius is 32)
+      var entitySpriteSize = entity.spriteSize || 64;
+      var detectionRadius = entitySpriteSize / 2;
+      // Account for scaled sprites (e.g., minibosses)
+      if((entity.class === 'Wolf' || entity.class === 'Boar') && entity.spriteScale){
+        detectionRadius = (entitySpriteSize * entity.spriteScale) / 2;
+      }
+      if(distance < detectionRadius){
+        clickedEntity = id;
+        break;
+      }
+    }
+  }
+  
+  if(clickedEntity){
+    // Attack command mode: left-click on entity
+    if(attackCommandMode){
+      // Check if enemy
+      var targetEntity = Player.list[clickedEntity];
+      if(targetEntity && allyCheck(clickedEntity) === -1){
+        // Attack the enemy
+        socket.send(JSON.stringify({msg:'engageCombat', targetId:clickedEntity}));
+      }
+      attackCommandMode = false; // Consume attack command
+      console.log('Attack command mode deactivated');
+    } else {
+      // Normal target selection
+      selectedTarget = clickedEntity;
+      socket.send(JSON.stringify({msg:'selectTarget', targetId:clickedEntity}));
+      console.log('Target selected:', clickedEntity);
+    }
+  } else {
+    // Clicked on terrain
+    if(attackCommandMode){
+      // Attack-move command
+      var tileX = Math.floor(worldX / tileSize);
+      var tileY = Math.floor(worldY / tileSize);
+      socket.send(JSON.stringify({msg:'attackMove', tileX:tileX, tileY:tileY, z:player.z}));
+      attackCommandMode = false; // Consume attack command
+      console.log('Attack-move command:', tileX, tileY);
+    }
+    // Target persists even when clicking terrain (only cleared by selecting a different target)
   }
 };
 
 document.oncontextmenu = function(event) {
+  // Always prevent default context menu
+  event.preventDefault();
+  
+  console.log('Right-click detected');
+  
+  // Cancel attack command mode on right click
+  if(attackCommandMode){
+    attackCommandMode = false;
+    console.log('Attack command mode cancelled');
+    return;
+  }
+  
   if (buildPreviewMode) {
     // Right click cancels preview mode
-    event.preventDefault();
     buildPreviewMode = false;
     buildPreviewType = null;
     buildPreviewData = null;
+    return;
+  }
+  
+  // Block during spectate/god mode/login
+  if(spectateCameraSystem.isActive || godModeCamera.isActive || loginCameraSystem.isActive){
+    console.log('Right-click blocked - spectate/god/login mode active');
+    return;
+  }
+  
+  // Handle right-click navigation/combat/interaction
+  if(!selfId || !Player.list[selfId]){
+    console.log('Right-click blocked - no selfId or player');
+    return;
+  }
+  
+  var player = Player.list[selfId];
+  var canvas = document.getElementById('ctx');
+  if(!canvas) return;
+  
+  var rect = canvas.getBoundingClientRect();
+  var clickX = event.clientX - rect.left;
+  var clickY = event.clientY - rect.top;
+  
+  // Convert screen coordinates to world coordinates
+  var worldX = (clickX - WIDTH/2) / currentZoom + player.x;
+  var worldY = (clickY - HEIGHT/2) / currentZoom + player.y;
+  
+  // Convert to tile coordinates
+  var tileX = Math.floor(worldX / tileSize);
+  var tileY = Math.floor(worldY / tileSize);
+  
+  // Check if clicking on an entity
+  var clickedEntity = null;
+  for(var id in Player.list){
+    var entity = Player.list[id];
+    if(entity && entity.z === player.z){
+      var dx = entity.x - worldX;
+      var dy = entity.y - worldY;
+      var distance = Math.sqrt(dx*dx + dy*dy);
+      // Use actual sprite size for detection (spriteSize is typically 64, so radius is 32)
+      var entitySpriteSize = entity.spriteSize || 64;
+      var detectionRadius = entitySpriteSize / 2;
+      // Account for scaled sprites (e.g., minibosses)
+      if((entity.class === 'Wolf' || entity.class === 'Boar') && entity.spriteScale){
+        detectionRadius = (entitySpriteSize * entity.spriteScale) / 2;
+      }
+      if(distance < detectionRadius){
+        clickedEntity = id;
+        break;
+      }
+    }
+  }
+  
+  if(clickedEntity){
+    // Right-clicked on entity - check if enemy
+    var allyStatus = allyCheck(clickedEntity);
+    console.log('Right-click on entity:', clickedEntity, 'ally status:', allyStatus);
+    if(allyStatus === -1){
+      // Enemy - engage combat
+      socket.send(JSON.stringify({msg:'engageCombat', targetId:clickedEntity}));
+      console.log('Right-click combat engagement sent:', clickedEntity);
+      return; // Prevent navigation when engaging combat
+    } else {
+      // Friendly - navigate to them
+      socket.send(JSON.stringify({msg:'clickNavigate', tileX:tileX, tileY:tileY, z:player.z}));
+      return; // Prevent further processing
+    }
+  } else {
+    // Check if clicking on a building
+    var building = getBuilding(worldX, worldY);
+    if(building){
+      // Right-clicked on building - interact
+      console.log('Right-click interaction with building:', building);
+      socket.send(JSON.stringify({msg:'interact', buildingId:building}));
+    } else {
+      // Right-clicked on terrain - navigate
+      console.log('Right-click navigation - world coords:', worldX, worldY, 'tile coords:', tileX, tileY, 'z:', player.z);
+      socket.send(JSON.stringify({msg:'clickNavigate', tileX:tileX, tileY:tileY, z:player.z}));
+      // Add tile highlight at clicked location
+      console.log('Adding tile highlight at:', tileX, tileY, player.z);
+      tileHighlights.addHighlight(tileX, tileY, player.z);
+      console.log('Highlight added, total highlights:', Object.keys(tileHighlights.highlights).length);
+    }
   }
 };
 

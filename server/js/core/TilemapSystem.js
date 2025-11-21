@@ -190,7 +190,6 @@ class TilemapSystem {
   pregenerateCommonGrids() {
     if (!this.pregeneratedGrids.enabled) return;
     
-    console.log('🔧 Pre-generating pathfinding grids for common layers...');
     const startTime = Date.now();
     
     for (const layer of this.pregeneratedGrids.layers) {
@@ -207,7 +206,6 @@ class TilemapSystem {
     }
     
     const elapsed = Date.now() - startTime;
-    console.log(`✅ Pre-generated ${this.pathfindingCache.size} pathfinding grids in ${elapsed}ms`);
   }
 
   // Check if a tile is walkable
@@ -474,7 +472,6 @@ class TilemapSystem {
     const baseReqs = requirements[buildingType];
     
     if (!baseReqs) {
-      console.error(`Unknown building type: ${buildingType}`);
       return null;
     }
     
@@ -514,7 +511,6 @@ class TilemapSystem {
     const baseReqs = requirements[buildingType];
     
     if (!baseReqs) {
-      console.error(`Unknown building type: ${buildingType}`);
       return [];
     }
     
@@ -1003,7 +999,6 @@ class TilemapSystem {
   findFactionHQ(factionName, excludedLocations = []) {
     const requirements = this.getFactionHQRequirements()[factionName.toLowerCase()];
     if (!requirements) {
-      console.error(`Unknown faction: ${factionName}`);
       return null;
     }
     
@@ -1044,7 +1039,6 @@ class TilemapSystem {
       const feature = requirements.requiresNearby.feature;
       
       if (feature === 'caveEntrance' && this.spawnPoints.caveEntrances) {
-        console.log(`${factionName}: Searching from cave entrance spawn points`);
         return this.spawnPoints.caveEntrances;
       } else if (feature === 'forest' && this.spawnPoints.heavyForest) {
         return this.spawnPoints.heavyForest;

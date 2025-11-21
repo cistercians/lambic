@@ -51,7 +51,6 @@ class OptimizedEntityManager {
           data.needsUpdate = false;
           updated++;
         } catch (error) {
-          console.error(`Error updating entity ${id}:`, error);
           this.markForRemoval(id);
         }
       } else {

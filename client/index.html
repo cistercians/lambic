@@ -1285,6 +1285,164 @@
     font-weight: bold;
     color: #ffdd88;
   }
+
+  /* Player Portrait HUD (top-left) */
+  #player-portrait-hud {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    width: auto;
+    max-width: 280px;
+    background-color: rgba(0, 0, 0, 0.85);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    padding: 10px;
+    z-index: 250;
+    pointer-events: none;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    display: none; /* Hidden by default, shown when .active */
+  }
+  
+  #player-portrait-hud.active {
+    display: flex !important;
+  }
+
+  #player-portrait-canvas {
+    flex-shrink: 0;
+    width: 64px;
+    height: 64px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+    image-rendering: pixelated;
+    background-color: rgba(0, 0, 0, 0.5);
+  }
+
+  #player-name-hud {
+    display: none !important; /* Hidden per user request */
+  }
+
+  #player-portrait-hud .portrait-bars-container,
+  #target-portrait-hud .portrait-bars-container {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+    min-width: 150px;
+  }
+
+  #player-hp-bar-hud, #player-spirit-bar-hud,
+  #target-hp-bar-hud, #target-spirit-bar-hud {
+    position: relative;
+    height: 22px;
+    background-color: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  #player-hp-bar-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    background: linear-gradient(to right, #ff4444, #44ff44);
+    width: 100%;
+    transition: width 0.3s ease;
+  }
+
+  #player-spirit-bar-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    background: linear-gradient(to right, #4444ff, #8888ff);
+    width: 100%;
+    transition: width 0.3s ease;
+  }
+
+  #player-hp-bar-text, #player-spirit-bar-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 11px;
+    font-weight: bold;
+    text-shadow: 1px 1px 2px black;
+    pointer-events: none;
+  }
+
+  /* Target Portrait HUD (top-right) */
+  #target-portrait-hud {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: auto;
+    max-width: 280px;
+    background-color: rgba(0, 0, 0, 0.85);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    padding: 10px;
+    z-index: 250;
+    pointer-events: none;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    display: none; /* Hidden by default, shown when .active */
+  }
+  
+  #target-portrait-hud.active {
+    display: flex !important;
+  }
+
+  #target-portrait-canvas {
+    flex-shrink: 0;
+    width: 64px;
+    height: 64px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+    image-rendering: pixelated;
+    background-color: rgba(0, 0, 0, 0.5);
+  }
+
+  #target-name-hud {
+    display: none !important; /* Hidden per user request */
+  }
+
+  #target-hp-bar-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    background: linear-gradient(to right, #ff4444, #44ff44);
+    width: 100%;
+    transition: width 0.3s ease;
+  }
+
+  #target-spirit-bar-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    background: linear-gradient(to right, #4444ff, #8888ff);
+    width: 100%;
+    transition: width 0.3s ease;
+  }
+
+  #target-hp-bar-text, #target-spirit-bar-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 11px;
+    font-weight: bold;
+    text-shadow: 1px 1px 2px black;
+    pointer-events: none;
+  }
 </style>
 
 <div id="screen">
@@ -1311,10 +1469,40 @@
 
   <div id="gameDiv">
     <canvas id="ctx" style="z-index: 0;"></canvas>
-    <canvas id="lighting" style="z-index: 1;"></canvas>
+    <canvas id="lighting" style="z-index: 2;"></canvas>
   </div>
 
   <div id="UI">
+    <!-- Player Portrait HUD (top-left) -->
+    <div id="player-portrait-hud">
+      <canvas id="player-portrait-canvas" width="64" height="64"></canvas>
+      <div class="portrait-bars-container">
+        <div id="player-hp-bar-hud">
+          <div id="player-hp-bar-fill"></div>
+          <div id="player-hp-bar-text">100 / 100</div>
+        </div>
+        <div id="player-spirit-bar-hud">
+          <div id="player-spirit-bar-fill"></div>
+          <div id="player-spirit-bar-text">0 / 0</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Target Portrait HUD (top-right) -->
+    <div id="target-portrait-hud">
+      <canvas id="target-portrait-canvas" width="64" height="64"></canvas>
+      <div class="portrait-bars-container">
+        <div id="target-hp-bar-hud">
+          <div id="target-hp-bar-fill"></div>
+          <div id="target-hp-bar-text">100 / 100</div>
+        </div>
+        <div id="target-spirit-bar-hud" style="display: none;">
+          <div id="target-spirit-bar-fill"></div>
+          <div id="target-spirit-bar-text">0 / 0</div>
+        </div>
+      </div>
+    </div>
+
     <!-- Chat Messages Box (can hide completely) -->
     <div id="chat-messages-container">
       <div id="chat-messages"></div>

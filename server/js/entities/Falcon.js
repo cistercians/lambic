@@ -22,7 +22,6 @@ module.exports = function(Character, globals) {
           try {
             self.path = randomSpawnO();
           } catch (err) {
-            console.error('Falcon failed to get random spawn, staying in place:', err);
             // Stay at current location if spawn points are unavailable
             self.path = [self.x, self.y];
           }
@@ -131,7 +130,6 @@ module.exports = function(Character, globals) {
             try {
               self.path = randomSpawnO();
             } catch (err) {
-              console.error('Falcon failed to get random spawn, staying in place:', err);
               // Stay at current location if spawn points are unavailable
               self.path = [self.x, self.y];
             }

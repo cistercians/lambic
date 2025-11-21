@@ -13,9 +13,10 @@ class PathfindingSystem {
     
     // Path caching with LRU eviction
     this.pathCache = new Map();
-    this.maxCacheSize = 1000;
-    this.cacheTTL = 30000; // 30 seconds
-    this.cacheAccessOrder = []; // Track access order for LRU
+    this.maxCacheSize = 2000; // Increased from 1000 to improve hit rates
+    this.cacheTTL = 60000; // 60 seconds (increased from 30s for better hit rates)
+    this.cacheAccessOrder = new Map(); // Use Map for O(1) operations instead of array
+    this.cacheAccessCounter = 0; // Counter for LRU ordering
     
     // GRID CACHING: Cache generated pathfinding grids to avoid regeneration
     this.gridCache = new Map();
@@ -88,11 +89,21 @@ class PathfindingSystem {
   }
 
   // Generate cache key (optimized - avoid JSON.stringify)
+  // CRITICAL FIX: Normalize coordinates to integers to ensure cache hits
   generateCacheKey(start, end, layer, options = {}) {
+    // Normalize coordinates to integers (tile coordinates)
+    // This ensures cache hits even if coordinates are passed as floats
+    const startX = Math.floor(start[0]);
+    const startY = Math.floor(start[1]);
+    const endX = Math.floor(end[0]);
+    const endY = Math.floor(end[1]);
+    
     // Use string concatenation instead of JSON.stringify for common options
     let optionsKey = '';
     if (options.allowSpecificDoor) {
-      optionsKey = options.targetDoor ? `_door_${options.targetDoor[0]},${options.targetDoor[1]}` : '_door';
+      const doorX = options.targetDoor ? Math.floor(options.targetDoor[0]) : 0;
+      const doorY = options.targetDoor ? Math.floor(options.targetDoor[1]) : 0;
+      optionsKey = options.targetDoor ? `_door_${doorX},${doorY}` : '_door';
     } else if (options.waterOnly) {
       optionsKey = '_water';
     } else if (options.avoidDoors) {
@@ -103,7 +114,7 @@ class PathfindingSystem {
       optionsKey = `_${JSON.stringify(options)}`;
     }
     
-    return `${start[0]},${start[1]}_${end[0]},${end[1]}_${layer}${optionsKey}`;
+    return `${startX},${startY}_${endX},${endY}_${layer}${optionsKey}`;
   }
   
   // Get cached path with LRU tracking
@@ -117,12 +128,9 @@ class PathfindingSystem {
         this.profiling.cacheHits++;
       }
       
-      // Update LRU: move to end of access order
-      const index = this.cacheAccessOrder.indexOf(cacheKey);
-      if (index > -1) {
-        this.cacheAccessOrder.splice(index, 1);
-      }
-      this.cacheAccessOrder.push(cacheKey);
+      // Update LRU: update access counter (O(1) operation)
+      this.cacheAccessCounter++;
+      this.cacheAccessOrder.set(cacheKey, this.cacheAccessCounter);
       
       return cached.path;
     }
@@ -141,14 +149,27 @@ class PathfindingSystem {
     
     // LRU eviction: remove least recently used if at capacity
     if (this.pathCache.size >= this.maxCacheSize) {
-      // Remove the oldest accessed key (first in access order)
-      if (this.cacheAccessOrder.length > 0) {
-        const lruKey = this.cacheAccessOrder.shift();
+      // Find the least recently used key (lowest access counter)
+      let lruKey = null;
+      let lruCounter = Infinity;
+      
+      for (const [key, counter] of this.cacheAccessOrder.entries()) {
+        if (counter < lruCounter) {
+          lruCounter = counter;
+          lruKey = key;
+        }
+      }
+      
+      if (lruKey) {
         this.pathCache.delete(lruKey);
+        this.cacheAccessOrder.delete(lruKey);
       } else {
         // Fallback: remove first key if access order is empty
         const firstKey = this.pathCache.keys().next().value;
-        this.pathCache.delete(firstKey);
+        if (firstKey) {
+          this.pathCache.delete(firstKey);
+          this.cacheAccessOrder.delete(firstKey);
+        }
       }
     }
     
@@ -158,8 +179,9 @@ class PathfindingSystem {
       timestamp: Date.now()
     });
     
-    // Track in access order
-    this.cacheAccessOrder.push(cacheKey);
+    // Track in access order with current counter
+    this.cacheAccessCounter++;
+    this.cacheAccessOrder.set(cacheKey, this.cacheAccessCounter);
     
     // Periodically clean up expired entries and sync access order
     if (this.pathCache.size % 100 === 0) {
@@ -178,19 +200,18 @@ class PathfindingSystem {
       }
     }
     
-    // Remove expired entries
+    // Remove expired entries (O(1) with Map)
     for (const key of keysToDelete) {
       this.pathCache.delete(key);
-      
-      // Remove from access order
-      const index = this.cacheAccessOrder.indexOf(key);
-      if (index > -1) {
-        this.cacheAccessOrder.splice(index, 1);
-      }
+      this.cacheAccessOrder.delete(key);
     }
     
-    // Also clean up access order to only include valid keys
-    this.cacheAccessOrder = this.cacheAccessOrder.filter(key => this.pathCache.has(key));
+    // Sync access order: remove any keys not in cache (shouldn't happen, but safety check)
+    for (const key of this.cacheAccessOrder.keys()) {
+      if (!this.pathCache.has(key)) {
+        this.cacheAccessOrder.delete(key);
+      }
+    }
   }
   
   // GRID CACHING: Generate cache key for grids
@@ -404,12 +425,10 @@ class PathfindingSystem {
       
       // Validate start and end positions
       if (start[0] < 0 || start[0] >= grid[0].length || start[1] < 0 || start[1] >= grid.length) {
-        console.error(`Pathfinding: start position [${start}] out of bounds (grid size: ${grid[0].length}x${grid.length})`);
         if (this.profiling.enabled) this.profiling.failedPaths++;
         return null;
       }
       if (end[0] < 0 || end[0] >= grid[0].length || end[1] < 0 || end[1] >= grid.length) {
-        console.error(`Pathfinding: end position [${end}] out of bounds (grid size: ${grid[0].length}x${grid.length})`);
         if (this.profiling.enabled) this.profiling.failedPaths++;
         return null;
       }
@@ -417,13 +436,11 @@ class PathfindingSystem {
       // Simple validation: both start and end must be walkable
       if (grid[start[1]][start[0]] === 1) {
         const startTile = this.tilemapSystem.getTile(layer, start[0], start[1]);
-        console.error(`Pathfinding FAIL: start [${start}] not walkable on layer ${layer}. Grid value=${grid[start[1]][start[0]]}, Actual tile=${startTile}`);
         if (this.profiling.enabled) this.profiling.failedPaths++;
         return null;
       }
       if (grid[end[1]][end[0]] === 1) {
         const endTile = this.tilemapSystem.getTile(layer, end[0], end[1]);
-        console.error(`Pathfinding FAIL: end [${end}] not walkable on layer ${layer}. Grid value=${grid[end[1]][end[0]]}, Actual tile=${endTile}`);
         if (this.profiling.enabled) this.profiling.failedPaths++;
         return null;
       }
@@ -442,7 +459,6 @@ class PathfindingSystem {
       }
       
       if (pathfindingTime > maxPathfindingTime) {
-        console.warn(`Pathfinding took ${pathfindingTime}ms, which is longer than expected`);
       }
       
       if (path && path.length > 0) {
@@ -468,11 +484,9 @@ class PathfindingSystem {
         
         return smoothedPath;
       } else {
-        console.error(`Pathfinding FAIL: no path found from [${start}] to [${end}] on layer ${layer}`);
         if (this.profiling.enabled) this.profiling.failedPaths++;
       }
     } catch (error) {
-      console.error('Pathfinding error:', error);
       if (this.profiling.enabled) this.profiling.failedPaths++;
     }
     
@@ -601,7 +615,8 @@ class PathfindingSystem {
   // Clear path cache
   clearCache() {
     this.pathCache.clear();
-    this.cacheAccessOrder = [];
+    this.cacheAccessOrder.clear();
+    this.cacheAccessCounter = 0;
   }
 
   // Get cache statistics
@@ -706,26 +721,14 @@ class PathfindingSystem {
     const now = Date.now();
     if (now - this.profiling.lastLog >= this.profiling.logInterval) {
       const stats = this.getProfilingStats();
-      console.log('🔍 Pathfinding Performance Stats:');
-      console.log(`   Requests: ${stats.requests.total} total, ${stats.requests.thisSecond} last second`);
-      console.log(`   Path Cache: ${stats.cache.hitRate} hit rate (${stats.cache.hits} hits, ${stats.cache.misses} misses)`);
-      console.log(`   Grid Cache: ${stats.gridCache.hitRate} hit rate (${stats.gridCache.hits} hits, ${stats.gridCache.misses} misses)`);
-      console.log(`   Queue: ${stats.queue.pending} pending, ${stats.queue.throttled} throttled`);
-      console.log(`   Timing: avg=${stats.timing.pathfinding.avg}ms, max=${stats.timing.pathfinding.max}ms`);
-      console.log(`   Grid Gen: avg=${stats.timing.gridGeneration.avg}ms, max=${stats.timing.gridGeneration.max}ms`);
-      console.log(`   Paths: ${stats.paths.successful} success, ${stats.paths.failed} failed (${stats.paths.successRate})`);
       
       if (stats.hotspots.length > 0) {
-        console.log(`   Top hotspots:`);
         stats.hotspots.forEach((h, i) => {
-          console.log(`     ${i + 1}. ${h.location}: ${h.count} requests`);
         });
       }
       
       if (stats.layerUsage.length > 0) {
-        console.log(`   Layer usage:`);
         stats.layerUsage.forEach(l => {
-          console.log(`     Layer ${l.layer}: ${l.count} requests`);
         });
       }
       
@@ -739,21 +742,21 @@ class PathfindingSystem {
   // MEMORY AUDITING: Monitor cache growth and clean up
   auditMemoryUsage() {
     const pathCacheSize = this.pathCache.size;
-    const accessOrderSize = this.cacheAccessOrder.length;
+    const accessOrderSize = this.cacheAccessOrder.size;
     
-    // Check for memory leak indicators
+    // Check for memory leak indicators (shouldn't happen with Map, but safety check)
     if (accessOrderSize > pathCacheSize * 1.5) {
-      console.warn(`⚠️  Memory Warning: Access order size (${accessOrderSize}) significantly exceeds cache size (${pathCacheSize})`);
-      console.warn(`   Cleaning up access order...`);
       
-      // Sync access order with actual cache
-      this.cacheAccessOrder = this.cacheAccessOrder.filter(key => this.pathCache.has(key));
-      console.log(`   ✅ Access order cleaned: ${this.cacheAccessOrder.length} entries`);
+      // Sync access order with actual cache (O(n) but only when needed)
+      for (const key of this.cacheAccessOrder.keys()) {
+        if (!this.pathCache.has(key)) {
+          this.cacheAccessOrder.delete(key);
+        }
+      }
     }
     
     // Check cache size against limit
     if (pathCacheSize > this.maxCacheSize * 0.9) {
-      console.warn(`⚠️  Memory Warning: Cache nearing capacity (${pathCacheSize}/${this.maxCacheSize})`);
     }
     
     // Proactively clean expired entries
@@ -768,7 +771,6 @@ class PathfindingSystem {
     const afterSize = this.pathCache.size;
     
     if (beforeSize !== afterSize) {
-      console.log(`🧹 Pathfinding Path Cache: Removed ${beforeSize - afterSize} expired entries`);
     }
     
     // Clean expired grid cache entries
@@ -777,13 +779,11 @@ class PathfindingSystem {
     const afterGridSize = this.gridCache.size;
     
     if (beforeGridSize !== afterGridSize) {
-      console.log(`🧹 Pathfinding Grid Cache: Removed ${beforeGridSize - afterGridSize} expired entries`);
     }
     
     // Process queued pathfinding requests
     const processed = this.processPathfindingQueue();
     if (processed > 0) {
-      console.log(`🔄 Processed ${processed} queued pathfinding requests (${this.pathfindingQueue.length} remaining)`);
     }
     
     // If hotspots map is growing too large, trim it
@@ -798,7 +798,6 @@ class PathfindingSystem {
         this.profiling.hotspots.set(key, value);
       }
       
-      console.log(`🧹 Pathfinding Hotspots: Trimmed to top 500 entries`);
     }
   }
 }

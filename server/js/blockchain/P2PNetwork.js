@@ -16,15 +16,12 @@ class P2PNetwork {
     
     this.server.on('connection', (ws, req) => {
       const peerAddress = req.socket.remoteAddress + ':' + req.socket.remotePort;
-      console.log(`Peer connected: ${peerAddress}`);
       this.handlePeerConnection(ws, peerAddress);
     });
     
     this.server.on('error', (error) => {
-      console.error('P2P Server error:', error);
     });
     
-    console.log(`P2P Network listening on port ${this.port}`);
     
     // Connect to known peers
     this.connectToPeers();
@@ -42,7 +39,6 @@ class P2PNetwork {
       
       ws.on('open', () => {
         this.peers.set(peerUrl, ws);
-        console.log(`Connected to peer: ${peerUrl}`);
         
         // Send handshake
         this.send(ws, {
@@ -60,14 +56,11 @@ class P2PNetwork {
       
       ws.on('close', () => {
         this.peers.delete(peerUrl);
-        console.log(`Disconnected from peer: ${peerUrl}`);
       });
       
       ws.on('error', (error) => {
-        console.error(`Error with peer ${peerUrl}:`, error.message);
       });
     } catch (err) {
-      console.error(`Failed to connect to peer ${peerUrl}:`, err.message);
     }
   }
   
@@ -77,7 +70,6 @@ class P2PNetwork {
     });
     
     ws.on('close', () => {
-      console.log(`Peer disconnected: ${peerAddress}`);
     });
   }
   
@@ -94,7 +86,6 @@ class P2PNetwork {
     try {
       ws.send(JSON.stringify(message));
     } catch (err) {
-      console.error('Error sending message to peer:', err);
     }
   }
   
@@ -120,12 +111,10 @@ class P2PNetwork {
           break;
       }
     } catch (err) {
-      console.error('Error handling peer message:', err);
     }
   }
   
   handleHandshake(ws, data) {
-    console.log(`Handshake from peer with chain length ${data.chainLength}`);
     
     // Compare chain lengths
     if (data.chainLength > global.blockchain.getChainLength()) {
@@ -149,10 +138,8 @@ class P2PNetwork {
       
       if (tx.isValid()) {
         global.blockchain.addTransaction(tx);
-        console.log('Received valid transaction from peer');
       }
     } catch (err) {
-      console.error('Error handling new transaction:', err.message);
     }
   }
   
@@ -165,7 +152,6 @@ class P2PNetwork {
       if (this.validateNewBlock(block)) {
         global.blockchain.chain.push(block);
         global.blockchain.pendingTransactions = [];
-        console.log('Added new block from peer:', block.hash);
         
         // Sync player balances
         if (global.BalanceSync) {
@@ -173,7 +159,6 @@ class P2PNetwork {
         }
       }
     } catch (err) {
-      console.error('Error handling new block:', err.message);
     }
   }
   
@@ -205,7 +190,6 @@ class P2PNetwork {
       if (tempBlockchain.isChainValid() && 
           receivedChain.length > global.blockchain.chain.length) {
         global.blockchain.chain = receivedChain;
-        console.log(`Replaced chain with longer valid chain from peer (${receivedChain.length} blocks)`);
         
         // Sync player balances
         if (global.BalanceSync) {
@@ -213,7 +197,6 @@ class P2PNetwork {
         }
       }
     } catch (err) {
-      console.error('Error handling chain receive:', err.message);
     }
   }
   
@@ -222,20 +205,17 @@ class P2PNetwork {
     
     // Check hash links
     if (block.previousHash !== previousBlock.hash) {
-      console.error('Block has invalid previous hash');
       return false;
     }
     
     // Verify proof of work
     if (block.hash !== block.calculateHash()) {
-      console.error('Block has invalid hash');
       return false;
     }
     
     // Check difficulty
     const target = Array(global.blockchain.difficulty + 1).join('0');
     if (block.hash.substring(0, global.blockchain.difficulty) !== target) {
-      console.error('Block has insufficient difficulty');
       return false;
     }
     
@@ -252,7 +232,6 @@ class P2PNetwork {
     }
     
     this.peers.clear();
-    console.log('P2P Network stopped');
   }
 }
 

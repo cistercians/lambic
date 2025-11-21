@@ -16,7 +16,6 @@ class OutpostPlanner {
     const candidates = this.findCandidateLocations(targetZone);
     
     if (candidates.length === 0) {
-      console.log(`No suitable locations found in ${targetZone.name} for outpost`);
       return null;
     }
 
@@ -32,7 +31,6 @@ class OutpostPlanner {
     const bestLocation = scoredCandidates[0];
     const buildingLayout = this.planBuildingLayout(bestLocation.location, resourceType);
     
-    console.log(`Planned outpost in ${targetZone.name} at [${bestLocation.location}] with score ${bestLocation.score}`);
     
     return {
       zone: targetZone,

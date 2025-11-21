@@ -13,7 +13,6 @@ class MiningManager {
     if (this.isMining) return;
     this.isMining = true;
     
-    console.log(`Server ${this.serverId} started mining blocks...`);
     
     // Start mining loop
     this.scheduleMining();
@@ -38,16 +37,13 @@ class MiningManager {
       this.miningTimeout = null;
     }
     
-    console.log(`Server ${this.serverId} stopped mining`);
   }
   
   async mineBlock() {
     if (global.blockchain.pendingTransactions.length === 0) {
-      console.log('No transactions to mine');
       return;
     }
     
-    console.log(`Mining block with ${global.blockchain.pendingTransactions.length} transactions...`);
     
     const startTime = Date.now();
     
@@ -59,8 +55,6 @@ class MiningManager {
       );
       
       const miningTime = Date.now() - startTime;
-      console.log(`Block mined in ${miningTime}ms: ${newBlock.hash}`);
-      console.log(`Block height: ${global.blockchain.getChainLength()}`);
       
       // Broadcast new block to peers
       if (global.p2pNetwork) {
@@ -83,7 +77,6 @@ class MiningManager {
       // Adjust difficulty based on mining time
       this.adjustDifficulty(miningTime);
     } catch (err) {
-      console.error('Error mining block:', err);
     }
   }
   
@@ -91,10 +84,8 @@ class MiningManager {
     // Keep block time near target
     if (miningTime < NetworkConfig.BLOCK_TIME_TARGET * 0.5) {
       global.blockchain.difficulty++;
-      console.log(`Difficulty increased to ${global.blockchain.difficulty}`);
     } else if (miningTime > NetworkConfig.BLOCK_TIME_TARGET * 2) {
       global.blockchain.difficulty = Math.max(1, global.blockchain.difficulty - 1);
-      console.log(`Difficulty decreased to ${global.blockchain.difficulty}`);
     }
   }
   

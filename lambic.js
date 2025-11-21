@@ -121,7 +121,6 @@ global.caveEntrances = caveEntrances;
 gameState.initializeWorld(world);
 
 // Initialize consolidated tilemap system
-console.log('Initializing consolidated tilemap system...');
 const tilemapIntegration = new TilemapIntegration();
 tilemapIntegration.initializeFromWorldArray(world, gameState.mapSize);
 global.tilemapSystem = tilemapIntegration;
@@ -172,7 +171,6 @@ global.eventManager = new EventManager();
 // Initialize Social System for NPC conversations
 const SocialSystem = require('./server/js/core/SocialSystem');
 global.socialSystem = new SocialSystem();
-console.log('✅ Social System initialized');
 
 // Function to spawn cargo ships for docks with networks
 function spawnCargoShips(){
@@ -207,7 +205,6 @@ function spawnCargoShips(){
       }
       
       if(!waterTile){
-        console.log('⚠️ Dock ' + buildingId + ' has network but no adjacent water, cannot spawn cargo ship');
         continue;
       }
       
@@ -228,17 +225,14 @@ function spawnCargoShips(){
         cargoShip.startWaiting();
         building.cargoShip = cargoShip.id;
         cargoShipsSpawned++;
-        console.log('🚢 Spawned cargo ship at dock ' + buildingId);
       } else {
         // Failed to select destination, remove ship
         cargoShip.toRemove = true;
-        console.error('Failed to select destination for cargo ship at dock ' + buildingId);
       }
     }
   }
   
   if(cargoShipsSpawned > 0){
-    console.log('✅ Spawned ' + cargoShipsSpawned + ' cargo ships for dock networks');
   }
 }
 
@@ -417,12 +411,10 @@ function getDistance(pt1, pt2) {
 function tileChange(l, c, r, n, incr = false) {
   // Validate inputs
   if (typeof l !== 'number' || typeof c !== 'number' || typeof r !== 'number') {
-    console.error('tileChange: Invalid input types', { l, c, r, n });
     return;
   }
   
   if (c < 0 || c >= mapSize || r < 0 || r >= mapSize) {
-    console.warn(`tileChange: Coordinates out of bounds [${l}][${c}][${r}] (mapSize: ${mapSize})`);
     return;
   }
   
@@ -444,7 +436,6 @@ function tileChange(l, c, r, n, incr = false) {
   // Automatically emit tile update to all clients
   emit({ msg: 'tileEdit', l, c, r, tile: newTileValue });
   } catch (error) {
-    console.error('tileChange error:', error, { l, c, r, n, incr });
   }
 }
 
@@ -492,7 +483,6 @@ function mapEdit(l, c, r) {
 
 function emit(data) {
   if (!data || typeof data !== 'object') {
-    console.warn('emit: Invalid data', data);
     return;
   }
   
@@ -508,7 +498,6 @@ function emit(data) {
         disconnectedSockets.push(i);
       }
     } catch (error) {
-      console.error(`emit: Error writing to socket ${i}:`, error.message);
       disconnectedSockets.push(i);
     }
   }
@@ -646,10 +635,77 @@ const gridB3 = new PF.Grid(matrixB3);
 const gridW = new PF.Grid(matrixW);
 const gridS = new PF.Grid(matrixS);
 
+// Check if a tile is occupied by another character
+function isTileOccupied(tileX, tileY, z, excludeEntityId = null) {
+  if (!global.Player || !global.Player.list) return false;
+  
+  for (const id in global.Player.list) {
+    const entity = global.Player.list[id];
+    if (!entity || entity.id === excludeEntityId) continue;
+    if (entity.z !== z) continue;
+    if (entity.toRemove) continue; // Don't count entities being removed
+    
+    const entityLoc = getLoc(entity.x, entity.y);
+    if (entityLoc[0] === tileX && entityLoc[1] === tileY) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function cloneGrid(g, options = {}) {
   // Use the new consolidated pathfinding system
   const grid = global.tilemapSystem.pathfindingSystem.tilemapSystem.generatePathfindingGrid(g, options);
-  return new PF.Grid(grid);
+  const pfGrid = new PF.Grid(grid);
+  
+  // Mark occupied tiles as unwalkable to prevent character stacking
+  // Only check tiles in a reasonable area around pathfinding start/end to optimize performance
+  if (options && options.excludeEntityId !== undefined && options.z !== undefined) {
+    const z = options.z;
+    const excludeEntityId = options.excludeEntityId;
+    const mapSize = global.mapSize || 200;
+    
+    // If start/end points are provided, only check tiles in that area
+    let checkArea = null;
+    if (options.startLoc && options.endLoc) {
+      const startX = options.startLoc[0];
+      const startY = options.startLoc[1];
+      const endX = options.endLoc[0];
+      const endY = options.endLoc[1];
+      
+      // Create bounding box with some padding
+      const minX = Math.max(0, Math.min(startX, endX) - 5);
+      const maxX = Math.min(mapSize - 1, Math.max(startX, endX) + 5);
+      const minY = Math.max(0, Math.min(startY, endY) - 5);
+      const maxY = Math.min(mapSize - 1, Math.max(startY, endY) + 5);
+      
+      checkArea = { minX, maxX, minY, maxY };
+    }
+    
+    if (checkArea) {
+      // Only check tiles in the pathfinding area
+      for (let y = checkArea.minY; y <= checkArea.maxY; y++) {
+        for (let x = checkArea.minX; x <= checkArea.maxX; x++) {
+          if (isTileOccupied(x, y, z, excludeEntityId)) {
+            // Mark tile as unwalkable
+            pfGrid.setWalkableAt(x, y, false);
+          }
+        }
+      }
+    } else {
+      // Fallback: check all tiles (less efficient but works)
+      for (let y = 0; y < mapSize; y++) {
+        for (let x = 0; x < mapSize; x++) {
+          if (isTileOccupied(x, y, z, excludeEntityId)) {
+            // Mark tile as unwalkable
+            pfGrid.setWalkableAt(x, y, false);
+          }
+        }
+      }
+    }
+  }
+  
+  return pfGrid;
 }
 
 // Path smoothing to reduce zigzag movement
@@ -967,7 +1023,6 @@ function matrixChange(l, c, r, n) {
 
   // Bounds check
   if (c < 0 || c >= mapSize || r < 0 || r >= mapSize) {
-    console.warn(`matrixChange out of bounds: [${c},${r}] (mapSize: ${mapSize})`);
     return;
   }
 
@@ -976,7 +1031,6 @@ function matrixChange(l, c, r, n) {
     target.matrix[r][c] = n;
     target.grid.setWalkableAt(c, r, n === 0);
   } else if (target) {
-    console.warn(`matrixChange: matrix[${r}] undefined for layer ${l}`);
   }
 }
 
@@ -1026,7 +1080,6 @@ global.findZTransition = findZTransition;
 
 function getBuilding(x, y) {
   if (typeof x !== 'number' || typeof y !== 'number' || !isFinite(x) || !isFinite(y)) {
-    console.warn('getBuilding: Invalid coordinates', { x, y });
     return null;
   }
   
@@ -1209,13 +1262,11 @@ function allyCheck(playerId, otherId) {
 
 function randomSpawnO() {
   if (!spawnPointsO || spawnPointsO.length === 0) {
-    console.error('randomSpawnO: No spawn points available! Returning default center.');
     return getCenter(Math.floor(mapSize / 2), Math.floor(mapSize / 2));
   }
   const rand = Math.floor(Math.random() * spawnPointsO.length);
   const point = spawnPointsO[rand];
   if (!point || !Array.isArray(point) || point.length < 2) {
-    console.error('randomSpawnO: Invalid spawn point:', point);
     return getCenter(Math.floor(mapSize / 2), Math.floor(mapSize / 2));
   }
   return getCenter(point[0], point[1]);
@@ -1225,13 +1276,11 @@ global.randomSpawnO = randomSpawnO;
 function randomSpawnHF() {
   if (!hForestSpawns || hForestSpawns.length === 0) {
     // No heavy forest spawns available - fallback to overworld spawns
-    console.warn('randomSpawnHF: No heavy forest spawns available, using overworld spawns');
     return randomSpawnO();
   }
   const rand = Math.floor(Math.random() * hForestSpawns.length);
   const point = hForestSpawns[rand];
   if (!point || !Array.isArray(point) || point.length < 2) {
-    console.warn('Invalid heavy forest spawn point:', point);
     return randomSpawnO();
   }
   return getCenter(point[0], point[1]);
@@ -1320,6 +1369,9 @@ function factionSpawn(id) {
 // ENTROPY (ECOSYSTEM SIMULATION)
 // ============================================================================
 
+// Track last tempus when entropy was called to prevent multiple calls
+let lastEntropyTempus = null;
+
 function entropy() {
   // FLORA
   const toHF = [];
@@ -1387,16 +1439,29 @@ function entropy() {
 
   // Apply flora changes
   for (const i in toHF) {
-    world[0][toHF[i][1]][toHF[i][0]] -= 1;
+    // Convert light forest (2) to heavy forest (1)
+    const currentTile = getTile(0, toHF[i][0], toHF[i][1]);
+    if (currentTile >= TERRAIN.LIGHT_FOREST && currentTile < TERRAIN.BRUSH) {
+      tileChange(0, toHF[i][0], toHF[i][1], TERRAIN.HEAVY_FOREST);
     biomes.hForest++;
     hForestSpawns.push(toHF[i]);
+    }
   }
   for (const i in toF) {
-    world[0][toF[i][1]][toF[i][0]] -= 1;
-    world[6][toF[i][1]][toF[i][0]] = 50;
+    // Convert brush (3) to light forest (2)
+    const currentTile = getTile(0, toF[i][0], toF[i][1]);
+    if (currentTile >= TERRAIN.BRUSH && currentTile < TERRAIN.ROCKS) {
+      tileChange(0, toF[i][0], toF[i][1], TERRAIN.LIGHT_FOREST);
+      tileChange(6, toF[i][0], toF[i][1], 50);
+    }
   }
   for (const i in toB) {
-    world[0][toB[i][1]][toB[i][0]] = TERRAIN.BRUSH + Number((Math.random() * 0.9).toFixed(2));
+    // Convert empty (7) to brush (3 + random decimal)
+    const currentTile = getTile(0, toB[i][0], toB[i][1]);
+    if (currentTile === TERRAIN.EMPTY) {
+      const brushValue = TERRAIN.BRUSH + Number((Math.random() * 0.9).toFixed(2));
+      tileChange(0, toB[i][0], toB[i][1], brushValue);
+    }
   }
 
   // FAUNA - Balanced spawn rates
@@ -1479,7 +1544,6 @@ function spawnWeather(type) {
       : baseStormSpeed * sizeScale // Scales with map size
   });
   
-  console.log(`Weather spawned: ${type} at [${Math.floor(x)},${Math.floor(y)}] intensity:${weather.intensity.toFixed(2)} speed:${weather.moveSpeed.toFixed(2)}`);
 }
 
 function updateWeather(tempus) {
@@ -1582,7 +1646,6 @@ try {
   const surnameData = fsSync.readFileSync('./surnames.txt', 'utf8');
   surnames.push(...surnameData.split('\n').filter(Boolean));
 } catch (err) {
-  console.error('Error loading name files:', err);
 }
 
 // ============================================================================
@@ -1659,14 +1722,12 @@ const Player = function(param) {
     // Create wallet for new players
     const wallet = WalletManager.createWallet(param.id || self.id);
     self.wallet = wallet;
-    console.log(`Created wallet for ${self.name}: ${wallet.address.substring(0, 20)}...`);
     
     // Initialize Gold in inventory
     self.inventory.gold = 0;
   } else if (param.wallet) {
     // Load existing wallet
     self.wallet = param.wallet;
-    console.log(`Loaded wallet for ${self.name}`);
   }
 
   // Aggro check interval (cleaned up on disconnect)
@@ -2091,7 +2152,7 @@ const Player = function(param) {
   };
 
   self.updateSpd = function() {
-    const loc = getLoc(self.x, self.y);
+    let loc = getLoc(self.x, self.y);
     const currentTile = getTile(0, loc[0], loc[1]);
     
     // Apply terrain modifiers BEFORE movement
@@ -2265,28 +2326,76 @@ const Player = function(param) {
       }
     } // End of ghost collision check
 
-    // Movement
-    if (self.pressingRight) {
+    // PATH-BASED MOVEMENT - Follow pathfinding waypoints (using NPC approach)
+    if(self.path && self.path.length > 0){
+      if(self.pathCount < self.path.length){
+        var next = self.path[self.pathCount];
+        var dest = getCenter(next[0], next[1]);
+        var dx = dest[0];
+        var dy = dest[1];
+        var diffX = dx - self.x;
+        var diffY = dy - self.y;
+        
+        // Clear movement flags at start
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
+        
+        // Move toward waypoint (same as NPCs)
+        if(diffX >= self.maxSpd){
+          if(!blocked.right) self.x += self.maxSpd;
+          self.pressingRight = true;
       self.facing = 'right';
-      if (!self.ghost) self.stopWorking();
-      if (!blocked.right) self.x += self.maxSpd;
-    } else if (self.pressingLeft) {
+        } else if(diffX <= (0-self.maxSpd)){
+          if(!blocked.left) self.x -= self.maxSpd;
+          self.pressingLeft = true;
       self.facing = 'left';
-      if (!self.ghost) self.stopWorking();
-      if (!blocked.left) self.x -= self.maxSpd;
-    }
-
-    if (self.pressingUp) {
-      self.facing = 'up';
-      if (!self.ghost) self.stopWorking();
-      if (!blocked.up) self.y -= self.maxSpd;
-    } else if (self.pressingDown) {
-      self.facing = 'down';
-      if (!self.ghost) self.stopWorking();
-      if (!blocked.down) self.y += self.maxSpd;
+        }
+        if(diffY >= self.maxSpd){
+          if(!blocked.down) self.y += self.maxSpd;
+          self.pressingDown = true;
+          if(Math.abs(diffX) <= Math.abs(diffY)) self.facing = 'down';
+        } else if(diffY <= (0-self.maxSpd)){
+          if(!blocked.up) self.y -= self.maxSpd;
+          self.pressingUp = true;
+          if(Math.abs(diffX) <= Math.abs(diffY)) self.facing = 'up';
+        }
+        
+        // Check if reached waypoint (both X and Y within maxSpd range)
+        // Only snap if we've actually moved toward the waypoint (prevent immediate snap on new path)
+        var distanceToWaypoint = Math.sqrt(diffX*diffX + diffY*diffY);
+        if((diffX < self.maxSpd && diffX > (0-self.maxSpd)) && (diffY < self.maxSpd && diffY > (0-self.maxSpd)) && distanceToWaypoint < tileSize){
+          // Snap to exact waypoint position for precise tile alignment
+          self.x = dx;
+          self.y = dy;
+          // Clear movement flags immediately when waypoint reached
+          self.pressingRight = false;
+          self.pressingLeft = false;
+          self.pressingDown = false;
+          self.pressingUp = false;
+          self.pathCount++;
+        }
+      } else {
+        // Path complete
+        self.path = null;
+        self.pathCount = 0;
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingUp = false;
+        self.pressingDown = false;
+      }
+    } else {
+      // No path - clear movement flags
+      self.pressingRight = false;
+      self.pressingLeft = false;
+      self.pressingUp = false;
+      self.pressingDown = false;
     }
 
     // Terrain effects and Z-level transitions
+    // Recalculate loc after movement (path-following may have updated position)
+    loc = getLoc(self.x, self.y);
     const tile = getTile(0, loc[0], loc[1]);
 
     if (self.z === Z_LEVELS.OVERWORLD) {
@@ -2514,8 +2623,40 @@ const Player = function(param) {
     // OLD:   self.spirit = Math.min(self.spirit + 0.0017, self.spiritMax);
     // OLD: }
 
-    // COMBAT ESCAPE - Clear combat status if enemy is far away
-    if (self.action === 'combat' && self.combat.target) {
+    // PLAYER AUTO-COMBAT - Auto-follow and auto-attack when in combat mode
+    // Also handle pending stealth attacks
+    if ((self.action === 'combat' && self.combat.target && !self.autoAttackPaused) ||
+        (self.stealthed && !self.revealed && self._pendingCombatTarget)) {
+      const target = self.combat.target ? Player.list[self.combat.target] : 
+                     (self._pendingCombatTarget ? Player.list[self._pendingCombatTarget] : null);
+      if (!target) {
+        // Target doesn't exist anymore
+        self.combat.target = null;
+        self.action = null;
+        self._pendingCombatTarget = null;
+        self._pendingCombatStartTime = null;
+        // Combat cleared logged via combat event
+      } else if (target.z !== self.z || target.ghost || target.godMode || (target.hp !== null && target.hp <= 0) || target.toRemove) {
+        // Target invalid - end combat
+        if (global.simpleCombat) {
+          global.simpleCombat.endCombat(self);
+        } else {
+          self.combat.target = null;
+          self.action = null;
+          self._pendingCombatTarget = null;
+          self._pendingCombatStartTime = null;
+        }
+      } else {
+        // Use SimpleCombat system for player auto-combat (same as NPCs)
+        // This handles both normal combat and pending stealth attacks
+        if (global.simpleCombat) {
+          global.simpleCombat.update(self);
+        }
+      }
+    }
+
+    // COMBAT ESCAPE - Clear combat status if enemy is far away (only if not in auto-combat)
+    if (self.action === 'combat' && self.combat.target && self.autoAttackPaused) {
       const target = Player.list[self.combat.target];
       if (!target) {
         // Target doesn't exist anymore
@@ -2900,7 +3041,6 @@ const Player = function(param) {
               item.z = 0;
               item.sunk = false;
               itemsRetrieved++;
-              console.log(`${self.name} retrieved ${item.type} from cleared brush at [${loc}]`);
               
               // Notify player
               if (SOCKET_LIST[self.id]) {
@@ -3530,7 +3670,6 @@ Player.onConnect = function(socket, name, playerType) {
     homeZ = 0;
     homeLoc = getLoc(spawnX, spawnY);
     
-    console.log(`${name} spawned at random location (no neutral taverns): ${spawn} z:0`);
   }
 
   const player = Player({
@@ -3542,7 +3681,6 @@ Player.onConnect = function(socket, name, playerType) {
     home: { z: homeZ, loc: homeLoc }
   });
 
-  console.log(`${player.name} fully initialized`);
   
   // ALPHA Testing: Give player starting items
   player.inventory.worldmap = 1;
@@ -3597,7 +3735,6 @@ Player.onConnect = function(socket, name, playerType) {
     message: welcomeMessage
   }));
 
-  console.log(`init player id: ${player.id}`);
 };
 
 Player.getAllInitPack = function() {
@@ -3629,7 +3766,6 @@ Player.onDisconnect = function(socket) {
       const zoneSet = zones.get(zoneKey);
       if (zoneSet) {
         zoneSet.delete(player.id);
-        console.log(`Removed ${player.name} from zone ${zoneKey}`);
       }
     }
     
@@ -3764,9 +3900,61 @@ Player.update = function() {
     
     player.update();
     
+    // NPC COMBAT UPDATE - Handle combat for NPCs (and players with pending stealth attacks)
+    if (player.type === 'npc' && player.action === 'combat' && global.simpleCombat) {
+      global.simpleCombat.update(player);
+    } else if (player.type === 'npc' && player.stealthed && !player.revealed && player._pendingCombatTarget) {
+      // NPC with pending stealth attack - update to handle stealth combat
+      global.simpleCombat.update(player);
+    }
+    
     // Update fishing if player is fishing
     if(player.fishing && player.updateFishing){
       player.updateFishing();
+    }
+    
+    // Attack-move: check for enemies while pathing
+    if(player.attackMoveTarget && player.path && !player.combat.target){
+      // Check for enemies in aggro range
+      var aggroRange = player.aggroRange || 256;
+      for(var id in Player.list){
+        var enemy = Player.list[id];
+        if(enemy.id === player.id) continue;
+        if(enemy.z !== player.z) continue;
+        
+        // STEALTH: Skip stealthed enemies that haven't been detected
+        if (enemy.stealthed && !enemy.revealed) {
+          if (global.simpleCombat && !global.simpleCombat.checkStealthDetection(enemy, player)) {
+            continue; // Can't see stealthed enemy
+          }
+          // Enemy was detected - will be revealed in startCombat
+        }
+        
+        // Check if enemy
+        if(global.allyCheck && global.allyCheck(player.id, enemy.id) === -1){
+          var dx = enemy.x - player.x;
+          var dy = enemy.y - player.y;
+          var distance = Math.sqrt(dx*dx + dy*dy);
+          
+          if(distance <= aggroRange){
+            // Enemy in range - interrupt path and engage
+            // Use SimpleCombat to handle stealth properly
+            if (global.simpleCombat) {
+              global.simpleCombat.startCombat(player, enemy);
+            } else {
+              player.combat.target = enemy.id;
+              player.action = 'combat';
+            }
+            player.path = null; // Stop current path
+            break;
+          }
+        }
+      }
+    }
+    
+    // Clear attack-move when destination reached
+    if(player.attackMoveTarget && !player.path && player.action !== 'combat'){
+      player.attackMoveTarget = null;
     }
     }
 
@@ -3840,13 +4028,6 @@ Player.update = function() {
     const min = Math.min(...times);
     const entityCount = Object.keys(Player.list).length;
     
-    console.log(`⏱️  Player.update() Performance (last 5s):`);
-    console.log(`   ${entityCount} entities, avg=${avg.toFixed(2)}ms, min=${min.toFixed(2)}ms, max=${max.toFixed(2)}ms`);
-    console.log(`   Slow frames: ${Player._perfData.slowFrames}/${times.length} (>${16.67}ms)`);
-    
-    if(avg > 16.67) {
-      console.warn(`⚠️  WARNING: Average update time ${avg.toFixed(2)}ms exceeds 60fps target (16.67ms)`);
-    }
     
     Player._perfData.slowFrames = 0;
     Player._perfData.lastLog = now;
@@ -3906,7 +4087,6 @@ global.recalculatePlayerStats = function(playerId){
     player.spirit = player.spiritMax;
   }
   
-  console.log(player.name + ' stats recalculated: STR=' + player.strength + ', DEX=' + player.dexterity + ', HP=' + player.hp + '/' + player.hpMax + ', DEF=' + player.defense);
 };
 
 // ============================================================================
@@ -4292,7 +4472,6 @@ global.processSellOrder = function(playerId, market, resource, amount, price){
 
 // OPTIMIZED: Async version to prevent 32-second blocking spike
 function sendDailyResourceReport() {
-  console.log('📊 Generating daily resource reports...');
   
   // Collect all player data first (fast pass)
   const players = [];
@@ -4305,7 +4484,6 @@ function sendDailyResourceReport() {
   }
   
   if(players.length === 0){
-    console.log('📊 No players online for reports');
     return;
   }
   
@@ -4315,7 +4493,6 @@ function sendDailyResourceReport() {
   
   function processNextPlayer() {
     if(playerIndex >= players.length){
-      console.log('📊 Reports complete: ' + reportsSent + ' sent to ' + players.length + ' players');
       return;
     }
     
@@ -4510,12 +4687,8 @@ function dayNight() {
     global.day = day;
     dailyTally();
     resetDailyResourceTracking(); // Reset daily resource counters for new day
-    console.log('');
-    console.log(`Day ${day}`);
-    console.log('');
 
     const playerCount = Object.keys(Player.list).length;
-    console.log(`Population: ${playerCount}`);
     
     // Trigger daily faction AI evaluation (includes territory recalculation)
     for (var houseId in House.list) {
@@ -4529,20 +4702,22 @@ function dayNight() {
     const saveMap = false;
     if (saveMap) {
       fs.writeFile(`./maps/map${day}.txt`, JSON.stringify(world))
-        .then(() => console.log("Map file saved to '/maps' folder."))
-        .catch(err => console.error("Error saving map:", err));
+        .catch(err => {});
     }
   }
 
   if (tempus === 'VII.p') {
     // Work day ends (after serfs clock out) - send resource reports
     sendDailyResourceReport();
-    console.log('End of work day - resource reports sent');
   }
 
-  if (tempus === 'XII.p') {
+  // Run entropy at midnight (XII.a) - only once per tempus cycle
+  if (tempus === 'XII.a' && lastEntropyTempus !== tempus) {
     entropy();
-    console.log('Entropy cycle complete (midnight)');
+    lastEntropyTempus = tempus;
+  } else if (tempus !== 'XII.a' && lastEntropyTempus === 'XII.a') {
+    // Reset guard when tempus moves away from XII.a so entropy can run again next midnight
+    lastEntropyTempus = null;
   }
 
   nightfall = ['VIII.p', 'IX.p', 'X.p', 'XI.p', 'XII.a', 'I.a', 'II.a', 'III.a', 'IV.a'].includes(tempus);
@@ -4563,7 +4738,6 @@ function dayNight() {
   }
 
   emit({ msg: 'tempus', tempus, nightfall });
-  console.log(tempus);
 
   House.update;
   Kingdom.update;
@@ -4602,7 +4776,6 @@ function generateServerName() {
     }
     return 'Lambic'; // Fallback name
   } catch (error) {
-    console.error('Error reading surnames.txt:', error);
     return 'Lambic';
   }
 }
@@ -4616,7 +4789,6 @@ global.serverName = serverName;
 // INITIALIZE BLOCKCHAIN
 // ============================================================================
 
-console.log("Initializing blockchain...");
 
 // Initialize blockchain
 global.blockchain = new LambicBlockchain();
@@ -4625,13 +4797,10 @@ global.blockchain.miningReward = NetworkConfig.MINING_REWARD;
 
 // Load existing blockchain from disk
 BlockchainStorage.loadChain().then(() => {
-  console.log(`Blockchain loaded: ${global.blockchain.getChainLength()} blocks`);
   
   // Validate loaded chain
   if (global.blockchain.isChainValid()) {
-    console.log('Blockchain validated successfully');
   } else {
-    console.error('WARNING: Blockchain validation failed!');
   }
 });
 
@@ -4651,7 +4820,6 @@ global.p2pNetwork = new P2PNetwork(
 const serverWallet = WalletManager.createWallet('server_' + serverName);
 global.serverWallet = serverWallet;
 
-console.log(`Server wallet created: ${serverWallet.address.substring(0, 20)}...`);
 
 // Initialize mining manager
 global.miningManager = new MiningManager(serverName, serverWallet.address);
@@ -4660,16 +4828,13 @@ global.miningManager = new MiningManager(serverName, serverWallet.address);
 setTimeout(() => {
   try {
     global.p2pNetwork.start();
-    console.log(`P2P Network started on port ${NetworkConfig.BLOCKCHAIN_PORT}`);
   } catch (err) {
-    console.error('Failed to start P2P network:', err.message);
   }
 }, 1000);
 
 // Start mining blocks
 setTimeout(() => {
   global.miningManager.startMining();
-  console.log('Blockchain mining started');
 }, 2000);
 
 // Start balance sync loop
@@ -4680,20 +4845,10 @@ setTimeout(() => {
 // Start autosave
 BlockchainStorage.startAutosave();
 
-console.log("Blockchain initialization complete");
 
 // ============================================================================
 
 serv.listen(2000);
-console.log("###################################");
-console.log("");
-console.log("     ♜  S T R O N G H O D L ♜");
-console.log("");
-console.log("   A SOLIS ORTV VSQVE AD OCCASVM");
-console.log("");
-console.log(`      Server Name: ${serverName}`);
-console.log("");
-console.log("###################################");
 
 io = sockjs.createServer();
 io.installHandlers(serv, { prefix: '/io' });
@@ -4708,19 +4863,9 @@ io.on('connection', function(socket) {
 
       if (data.msg === 'requestPreviewData') {
         // Send world data for login screen preview (no authentication required)
-        console.log('Preview data requested');
         
-        // Reconstruct world array from tilemapSystem
-        const freshWorld = [];
-        for (let layer = 0; layer < 9; layer++) {
-          freshWorld[layer] = [];
-          for (let y = 0; y < mapSize; y++) {
-            freshWorld[layer][y] = [];
-            for (let x = 0; x < mapSize; x++) {
-              freshWorld[layer][y][x] = global.tilemapSystem.getTile(layer, x, y);
-            }
-          }
-        }
+        // Use existing world array (already in sync with tilemap system)
+        // No need to reconstruct - this was causing severe lag
         
         // Get all NPCs, falcons, and other entities for preview
         const previewPack = {
@@ -4792,45 +4937,30 @@ io.on('connection', function(socket) {
         
         socket.write(JSON.stringify({
           msg: 'previewData',
-          world: freshWorld,
+          world: world, // Use existing world array
           tileSize,
           mapSize,
           tempus,
           nightfall: global.nightfall,
           pack: previewPack
         }));
-        console.log('Preview data sent');
       } else if (data.msg === 'signIn') {
-        console.log('Sign-in attempt:', data.name, data.password);
-        console.log('Data received:', JSON.stringify(data));
         isValidPassword(data, function(res) {
-          console.log('Password validation result:', res);
           if (res) {
             Player.onConnect(socket, data.name);
             
-            // Reconstruct world array from tilemapSystem to ensure it's fully in sync
-            const freshWorld = [];
-            for (let layer = 0; layer < 9; layer++) {
-              freshWorld[layer] = [];
-              for (let y = 0; y < mapSize; y++) {
-                freshWorld[layer][y] = [];
-                for (let x = 0; x < mapSize; x++) {
-                  freshWorld[layer][y][x] = global.tilemapSystem.getTile(layer, x, y);
-                }
-              }
-            }
+            // Use existing world array (already in sync with tilemap system)
+            // Reconstructing was causing severe connection lag
             
             socket.write(JSON.stringify({
               msg: 'signInResponse',
               success: true,
-              world: freshWorld, // Send freshly reconstructed world array
+              world: world, // Use existing world array
               tileSize,
               mapSize,
               tempus
             }));
-            console.log(`${data.name} logged in.`);
           } else {
-            console.log('Sign-in failed for:', data.name);
             socket.write(JSON.stringify({ msg: 'signInResponse', success: false }));
           }
         });
@@ -4842,7 +4972,6 @@ io.on('connection', function(socket) {
             } else {
               addUser(data, function() {
                 socket.write(JSON.stringify({ msg: 'signUpResponse', success: true }));
-                console.log(`${data.name} signed up.`);
               });
             }
           });
@@ -4869,31 +4998,19 @@ io.on('connection', function(socket) {
               type: 'spectator'
             };
             
-            console.log(`${data.name} joined as spectator (no entity spawned)`);
             
-            // Reconstruct world array for spectator
-            const freshWorld = [];
-            for (let layer = 0; layer < 9; layer++) {
-              freshWorld[layer] = [];
-              for (let y = 0; y < mapSize; y++) {
-                freshWorld[layer][y] = [];
-                for (let x = 0; x < mapSize; x++) {
-                  freshWorld[layer][y][x] = global.tilemapSystem.getTile(layer, x, y);
-                }
-              }
-            }
+            // Use existing world array (already in sync with tilemap system)
+            // Reconstructing was causing severe connection lag
             
-            console.log('Sending spectateResponse to client');
             socket.write(JSON.stringify({
               msg: 'spectateResponse',
               success: true,
-              world: freshWorld,
+              world: world, // Use existing world array
               tileSize,
               mapSize,
               tempus
             }));
             
-            console.log('Sending faction data to client');
             // Send faction data
             socket.write(JSON.stringify({
               msg: 'newFaction',
@@ -4901,7 +5018,6 @@ io.on('connection', function(socket) {
               kingdomList: Kingdom.list
             }));
             
-            console.log('Sending init pack to spectator (no selfId)');
             // Send init pack with all entities - NO selfId for spectators
             socket.write(JSON.stringify({
               msg: 'init',
@@ -4932,9 +5048,7 @@ io.on('connection', function(socket) {
               message: spectatorWelcome
             }));
             
-            console.log(`${data.name} joined as spectator.`);
           } else {
-            console.log('Spectate failed for:', data.name);
             socket.write(JSON.stringify({ msg: 'spectateResponse', success: false }));
           }
         });
@@ -4969,7 +5083,6 @@ io.on('connection', function(socket) {
           // Special handling for ship sail controls
           // Check if the entity IS a ship (client has switched selfId to ship)
           if(player.shipType === 'fishingship' && player.isPlayerControlled){
-            console.log('🔑 Key press on ship (direct):', data.inputId, 'state:', data.state);
             // Handle sail point adjustments
             if(data.state === true){
               // Key pressed - adjust sail points
@@ -4992,7 +5105,6 @@ io.on('connection', function(socket) {
           if(player.boardedShip){
             var ship = Player.list[player.boardedShip];
             if(ship && ship.shipType === 'fishingship' && ship.isPlayerControlled){
-              console.log('🔑 Ship control - key:', data.inputId, 'state:', data.state);
               // Only handle key press (not release) for ships
               if(data.state === true){
                 if(data.inputId == 'left'){
@@ -5010,24 +5122,12 @@ io.on('connection', function(socket) {
               // Ignore other keys for ships
               return;
             } else if(ship){
-              console.log('⚠️ Ship found but not controlable - shipType:', ship.shipType, 'isPlayerControlled:', ship.isPlayerControlled);
             } else {
-              console.log('⚠️ Ship not found in Player.list for boardedShip:', player.boardedShip);
             }
           }
           
-          // Normal character controls
-          if(data.inputId == 'left'){
-            player.pressingLeft = data.state;
-          } else if(data.inputId == 'right'){
-            player.pressingRight = data.state;
-          } else if(data.inputId == 'up'){
-            player.pressingUp = data.state;
-          } else if(data.inputId == 'down'){
-            player.pressingDown = data.state;
-          } else if(data.inputId == 'attack'){
-            player.pressingAttack = data.state;
-          } else if(data.inputId == 'e'){
+          // Normal character controls (movement removed - now using click-based)
+          if(data.inputId == 'e'){
             player.pressingE = data.state;
           } else if(data.inputId == 't'){
             player.pressingT = data.state;
@@ -5087,14 +5187,231 @@ io.on('connection', function(socket) {
           } else if(data.inputId == 'mouseAngle'){
             player.mouseAngle = data.state;
           }
+        } else if (data.msg === 'clickNavigate') {
+          // Right-click navigation to tile
+          if(player && data.tileX !== undefined && data.tileY !== undefined && data.z !== undefined){
+            var tileX = data.tileX;
+            var tileY = data.tileY;
+            var z = data.z;
+            
+            // Get the tile type at the clicked location
+            var tile = getTile(z === 0 ? 0 : (z === -1 ? 1 : (z === -2 ? 8 : (z === 1 ? 3 : 5))), tileX, tileY);
+            
+            // Check if the clicked tile is a transition tile (cave entrance, building door, water)
+            var isTransitionTile = false;
+            var isWaterTile = false;
+            var isCaveEntranceTile = false;
+            var isBuildingDoorTile = false;
+            
+            if(z === 0){
+              // Overworld - check for transition tiles
+              isWaterTile = (tile === TERRAIN.WATER); // 0
+              isCaveEntranceTile = (tile === TERRAIN.CAVE_ENTRANCE); // 6
+              isBuildingDoorTile = (tile === TERRAIN.DOOR_OPEN || tile === TERRAIN.DOOR_OPEN_ALT); // 14 or 16
+              isTransitionTile = isWaterTile || isCaveEntranceTile || isBuildingDoorTile;
+            }
+            
+            // Check if tile is walkable based on z-level
+            var isWalkableTile = false;
+            if(z === 0){
+              // Overworld - check specific tile types
+              if(player.shipType){
+                // On ship - only water tiles are walkable
+                isWalkableTile = tile === TERRAIN.WATER;
+              } else {
+                // On foot - allow water tiles if clicked (for underwater), transition tiles if clicked, or normal walkable tiles
+                if(isTransitionTile){
+                  // Player clicked on a transition tile - allow it
+                  isWalkableTile = true;
+                } else {
+                  // Normal tile - check if walkable (exclude heavy forest, mountain, buildings)
+                  var unwalkable = [TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, 11, 12, 13, 15, 17, TERRAIN.DOOR_LOCKED, 20];
+                  isWalkableTile = unwalkable.indexOf(tile) === -1;
+                }
+              }
+            } else if(z === -1 || z === -2){
+              // Caves - check if cave floor
+              var layer = z === -1 ? 1 : 8;
+              isWalkableTile = getTile(layer, tileX, tileY) === 2; // Cave floor
+            } else if(z === 1 || z === 2){
+              // Inside buildings
+              isWalkableTile = getTile(z === 1 ? 3 : 5, tileX, tileY) === 1; // Wooden/stone floor
+            }
+            
+            
+            if(isWalkableTile){
+              // Clear attack-move command (navigation overrides it)
+              player.attackMoveTarget = null;
+              
+              // Pause auto-attacking but keep combat status
+              // Combat itself will only end when enemy dies or escapes (handled by SimpleCombat)
+              player.autoAttackPaused = true;
+              
+              // Navigate to the tile using pathfinding
+              // Always use direct pathfinding for players to ensure full path is returned
+              var startLoc = getLoc(player.x, player.y);
+              
+              // Determine the correct layer for pathfinding based on z-level
+              var layer = 0;
+              var options = {};
+              
+              if(z === 0){
+                layer = 0; // Overworld
+                
+                // Check if player clicked on a transition tile
+                if(isTransitionTile){
+                  // Player clicked on a transition tile - allow it explicitly
+                  if(isBuildingDoorTile){
+                    // Allow this specific door
+                    options.allowSpecificDoor = true;
+                    options.targetDoor = [tileX, tileY];
+                  } else if(isCaveEntranceTile){
+                    // Allow this specific cave entrance (will be handled as target)
+                    options.allowSpecificDoor = true;
+                    options.targetDoor = [tileX, tileY];
+                  } else if(isWaterTile){
+                    // Water tile clicked - explicitly allow this water tile as target
+                    // Use targetDoor option to allow this specific tile (even though it's not a door)
+                    options.allowSpecificDoor = true;
+                    options.targetDoor = [tileX, tileY];
+                  }
+                } else {
+                  // Player did NOT click on a transition tile - ignore transition tiles in pathfinding
+                  options.avoidDoors = true; // Ignore building entrances
+                  options.avoidCaveExits = false; // Cave exits only matter in caves, not overworld
+                }
+              } else if(z === -1){
+                layer = 1; // Cave (underworld)
+                
+                // Check if target is a cave exit
+                var isTargetCaveExit = false;
+                var isStartCaveExit = false;
+                
+                if(global.caveEntrances){
+                  for(var i in global.caveEntrances){
+                    var ce = global.caveEntrances[i];
+                    if(ce[0] === tileX && ce[1] + 1 === tileY){
+                      isTargetCaveExit = true;
+                    }
+                    if(ce[0] === startLoc[0] && ce[1] + 1 === startLoc[1]){
+                      isStartCaveExit = true;
+                    }
+                  }
+                }
+                
+                if(isTargetCaveExit){
+                  // Player clicked on cave exit - allow it
+                  options.allowSpecificDoor = true;
+                  options.targetDoor = [tileX, tileY];
+                } else {
+                  // Player did NOT click on cave exit - ignore cave exits in pathfinding
+                  options.avoidCaveExits = true;
+                }
+                
+                if(isStartCaveExit){
+                  options.allowStartTile = startLoc;
+                }
+              } else if(z === -2){
+                layer = -2; // Cellar
+              } else if(z === 1){
+                layer = 3; // Building floor 1
+              } else if(z === 2){
+                layer = 5; // Building floor 2
+              }
+              
+              var path = global.tilemapSystem.findPath(startLoc, [tileX, tileY], layer, options);
+              if(path && path.length > 0){
+                // Apply smoothing for non-cave paths
+                if(z !== -1 && typeof smoothPath === 'function'){
+                  path = smoothPath(path, z);
+                }
+                
+                // Skip the first waypoint if it's the starting tile (pathfinding often includes start)
+                var firstWaypoint = path[0];
+                if(firstWaypoint && firstWaypoint[0] === startLoc[0] && firstWaypoint[1] === startLoc[1]){
+                  player.pathCount = 1; // Start at second waypoint
+                } else {
+                  player.pathCount = 0;
+                }
+                player.path = path;
+              } else {
+                player.path = null;
+                player.pathCount = 0;
+              }
+            } else {
+            }
+          }
+        } else if (data.msg === 'selectTarget') {
+          // Left-click target selection
+          if(player && data.targetId){
+            player.target = data.targetId;
+          }
+        } else if (data.msg === 'engageCombat') {
+          // Right-click combat engagement or A+left-click on enemy
+          if(player && data.targetId){
+            var target = Player.list[data.targetId];
+            if(target){
+              // STEALTH: If target is stealthed, reveal them when player engages
+              if (target.stealthed && !target.revealed) {
+                target.stealthed = false;
+                target.revealed = false;
+              }
+              
+              // STEALTH: If player is stealthed, remove stealth when engaging combat
+              if (player.stealthed) {
+                player.stealthed = false;
+                player.revealed = false;
+              }
+              
+              // Clear previous commands (combat overrides everything)
+              player.attackMoveTarget = null;
+              
+              // Re-enable auto-attacking (player explicitly commanded attack)
+              player.autoAttackPaused = false;
+              
+              // Set combat target
+              player.combat.target = data.targetId;
+              player.action = 'combat';
+              player._lastCombatAttack = 0; // Reset attack timer
+            }
+          }
+        } else if (data.msg === 'interact') {
+          // Right-click building interaction
+          if(player && data.buildingId){
+            var building = Building.list[data.buildingId];
+            if(building){
+              // Use existing Interact function
+              var loc = getLoc(player.x, player.y);
+              Interact(socket.id, loc);
+            }
+          }
+        } else if (data.msg === 'attackMove') {
+          // A+left-click on terrain - attack-move command
+          if(player && data.tileX !== undefined && data.tileY !== undefined && data.z !== undefined){
+            // Re-enable auto-attacking (player explicitly used attack command)
+            player.autoAttackPaused = false;
+            
+            // Set attack-move flag and destination
+            player.attackMoveTarget = {z: data.z, col: data.tileX, row: data.tileY};
+            
+            if(player.moveTo){
+              player.moveTo(data.z, data.tileX, data.tileY);
+            } else {
+              // Fallback: use pathfinding system directly
+              var startLoc = getLoc(player.x, player.y);
+              var path = global.tilemapSystem.findPath(startLoc[0], startLoc[1], data.tileX, data.tileY, data.z);
+              if(path && path.length > 0){
+                player.path = path;
+                player.pathCount = 0;
+              }
+            }
+          }
         } else if (data.msg === 'getResourceScoreboard') {
           // Send faction resource data to client
           const resources = calculateFactionResources();
-          console.log('📊 Scoreboard requested, sending data for ' + Object.keys(resources).length + ' factions');
           // Debug: Log first faction's data
           const firstFaction = Object.values(resources)[0];
           if(firstFaction){
-            console.log('   Sample: ' + firstFaction.name + ' - Grain:' + firstFaction.grain + ', Lumber:' + firstFaction.lumber + ', Serfs:' + firstFaction.serfs);
           }
           socket.write(JSON.stringify({
             msg: 'resourceScoreboard',
@@ -5153,6 +5470,31 @@ io.on('connection', function(socket) {
                 if (session) {
                   const otherParticipantId = session.participants.find(id => id !== player.id);
                   if (otherParticipantId && Player.list[otherParticipantId]) {
+                    // Determine the display name
+                    var displayName = data.name;
+                    if(player && player.type === 'ship' && player.controller){
+                      if(player.passengers && player.passengers.length > 0){
+                        var navigator = player.passengers.find(function(p){ return p.isNavigator; });
+                        if(navigator && navigator.storedData){
+                          displayName = navigator.storedData.originalName;
+                        }
+                      }
+                    }
+                    
+                    // Create event in EventManager (handles console logging and broadcasting to nearby players)
+                    if (global.eventManager) {
+                      global.eventManager.createEvent({
+                        category: global.eventManager.categories.SOCIAL,
+                        subject: player.id,
+                        subjectName: displayName,
+                        action: 'said',
+                        message: `<b>${displayName}:</b> ${data.message}`,
+                        communication: global.eventManager.commModes.AREA,
+                        log: `[SOCIAL] ${displayName} said: "${data.message}" at [${Math.floor(player.x)},${Math.floor(player.y)}] z=${player.z}`,
+                        position: { x: player.x, y: player.y, z: player.z }
+                      });
+                    }
+                    
                     // Direct message to conversation partner
                     setTimeout(() => {
                       if (Player.list[otherParticipantId]) {
@@ -5161,6 +5503,8 @@ io.on('connection', function(socket) {
                     }, 500 + Math.random() * 1500);
                   }
                 }
+                // Skip normal global broadcast for conversation messages (EventManager handles area broadcast)
+                return;
               } else {
                 // Check if player mentioned a specific NPC name in their message
                 let targetedNPC = null;
@@ -5878,14 +6222,12 @@ io.on('connection', function(socket) {
         }
       }
     } catch (e) {
-      console.error('Error parsing connection data:', e);
     }
   });
 
   socket.on('close', function() {
     // Clean up spectators
     if(global.spectators && global.spectators[socket.id]){
-      console.log(`${global.spectators[socket.id].name} disconnected from spectate mode`);
       delete global.spectators[socket.id];
     }
     
@@ -5895,7 +6237,6 @@ io.on('connection', function(socket) {
   socket.onclose = function() {
     // Clean up spectators
     if(global.spectators && global.spectators[socket.id]){
-      console.log(`${global.spectators[socket.id].name} disconnected from spectate mode`);
       delete global.spectators[socket.id];
     }
     
@@ -5917,7 +6258,6 @@ global.removePack = removePack;
 // Initialize SIMPLIFIED Serf behavior system - TEMPORARILY DISABLED for debugging
 const SimpleSerfBehavior = require('./server/js/core/SimpleSerfBehavior.js');
 global.simpleSerfBehavior = null; // DISABLED - let Entity.js handle everything
-console.log('⚠️ SimpleSerfBehavior DISABLED - using Entity.js logic');
 
 // Initialize optimized game loop
 optimizedGameLoop.initialize(gameState, emit);
@@ -5950,40 +6290,10 @@ setInterval(() => {
     else faunaCounts.other++;
   }
   
-  console.log(`📊 Entity counts: Players=${playerCount}, Items=${itemCount}, Arrows=${arrowCount}, Buildings=${buildingCount}`);
-  console.log(`🦌 Fauna: Deer=${faunaCounts.deer}, Boar=${faunaCounts.boar}, Wolf=${faunaCounts.wolf}, Falcon=${faunaCounts.falcon}, Serfs=${faunaCounts.serf}, Other=${faunaCounts.other}`);
-  
-  // Memory monitoring - check for accumulation
-  console.log(`💾 Memory State:`);
-  console.log(`   PathCache: ${pathCache.size}/${pathCache.maxSize} entries`);
-  if(global.eventManager) {
-    const eventHistory = global.eventManager.eventHistory.filter(e => e).length;
-    const subscribers = global.eventManager.subscribers.size;
-    console.log(`   EventManager: ${eventHistory}/1000 events, ${subscribers} subscribers`);
-  }
-  if(global.zoneManager) {
-    console.log(`   ZoneManager: ${global.zoneManager.zones.size} zones, ${global.zoneManager.playerZones.size} tracked players`);
-  }
-  if(global.spatialSystem) {
-    const stats = global.spatialSystem.spatialIndex.stats;
-    console.log(`   SpatialSystem: ${stats.entitiesTracked} entities, ${stats.cellsUsed} cells`);
-  }
-  
-  // Log memory usage
-  const memUsage = process.memoryUsage();
-  console.log(`💾 Memory: RSS=${(memUsage.rss / 1024 / 1024).toFixed(2)}MB, Heap=${(memUsage.heapUsed / 1024 / 1024).toFixed(2)}MB / ${(memUsage.heapTotal / 1024 / 1024).toFixed(2)}MB`);
-  
-  // Log spatial system stats if available
-  if(global.spatialSystem){
-    const spatialStats = global.spatialSystem.getStats();
-    console.log(`🗺️ Spatial: ${spatialStats.entitiesTracked} tracked, ${spatialStats.cellsUsed} cells, ${spatialStats.queries} queries`);
-  }
 }, 30000);
 
 // Periodic cleanup - every 5 minutes
 setInterval(() => {
-  console.log('🧹 Running periodic cleanup...');
-  
   // Clean up spatial system
   if(global.spatialSystem){
     global.spatialSystem.cleanup();
@@ -5993,7 +6303,6 @@ setInterval(() => {
   for(const id in Player.list){
     const entity = Player.list[id];
     if(entity.toRemove || (entity.hp !== null && entity.hp <= 0)){
-      console.log(`🧹 Cleaning up dead entity: ${entity.name || entity.class} (${id})`);
       if(entity.cleanup){
         entity.cleanup();
       }
@@ -6007,8 +6316,6 @@ setInterval(() => {
   const maxItems = 5000;
   
   if(itemCount > maxItems){
-    console.log(`⚠️ Item count (${itemCount}) exceeds limit (${maxItems}). Cleaning up oldest items...`);
-    
     // Sort items by creation time (oldest first) - items without timestamp are prioritized for removal
     const itemsWithAge = itemIds.map(id => ({
       id,
@@ -6024,11 +6331,8 @@ setInterval(() => {
       if(itemData.item.type !== 'Banner' && !itemData.item.owner){
         itemData.item.toRemove = true;
         delete Item.list[itemData.id];
-        console.log(`🧹 Removed old item: ${itemData.item.type} (${itemData.id})`);
       }
     }
-    
-    console.log(`✅ Cleaned up ${itemsToRemove} old items`);
   }
   
   // Clean up excessive arrows (prevent unbounded growth)
@@ -6037,8 +6341,6 @@ setInterval(() => {
   const maxArrows = 500;
   
   if(arrowCount > maxArrows){
-    console.log(`⚠️ Arrow count (${arrowCount}) exceeds limit (${maxArrows}). Cleaning up oldest arrows...`);
-    
     // Remove oldest arrows
     const arrowsToRemove = arrowCount - maxArrows;
     for(let i = 0; i < arrowsToRemove && i < arrowIds.length; i++){
@@ -6046,14 +6348,9 @@ setInterval(() => {
       if(Arrow.list[arrowId]){
         Arrow.list[arrowId].toRemove = true;
         delete Arrow.list[arrowId];
-        console.log(`🧹 Removed old arrow: ${arrowId}`);
       }
     }
-    
-    console.log(`✅ Cleaned up ${arrowsToRemove} old arrows`);
   }
-  
-  console.log('✅ Periodic cleanup complete');
 }, 300000); // 5 minutes
 
 // Keep old interval for init/remove packs (less frequent)
@@ -6100,10 +6397,6 @@ setInterval(function() {
 
 // Initialize tempus properly before logging
 tempus = gameState.tempus;
-console.log('');
-console.log(`Day ${day} (${period}x)`);
-console.log('');
-console.log(tempus);
 
 // Spawn initial fauna
 entropy();
@@ -6112,17 +6405,14 @@ entropy();
 const rel1 = randomSpawnHF();
 const cr1 = getLoc(rel1[0], rel1[1]);
 Relic({ x: rel1[0], y: rel1[1], z: 0, qty: 1 });
-console.log(`Relic hidden in the forest @ ${cr1.toString()}`);
 
 const rel2 = randomSpawnU();
 const cr2 = getLoc(rel2[0], rel2[1]);
 Relic({ x: rel2[0], y: rel2[1], z: -1, qty: 1 });
-console.log(`Relic hidden in the caves @ ${cr2.toString()}`);
 
 const wsp = waterSpawns[Math.floor(Math.random() * waterSpawns.length)];
 const rel3 = getCoords(wsp[0], wsp[1]);
 Relic({ x: rel3[0], y: rel3[1], z: -3, qty: 1 });
-console.log(`Relic hidden in the sea @ ${wsp.toString()}`);
 
 // Create NPC factions using MapAnalyzer for optimal placement
 const excludedHQs = []; // Track placed HQs to ensure spacing
@@ -6195,9 +6485,7 @@ if (outlawsHQ) {
   }
 }
 
-console.log(`✓ Spawned ${outlawCount} Outlaw camps across the map`);
 if (outlawCount === 0) {
-  console.warn('⚠️ WARNING: No Outlaw camps could be spawned - check heavy forest availability');
 }
 
 // Spawn Mercenaries - keep spawning until no more valid locations with 50-tile spacing (same as Outlaws)
@@ -6229,9 +6517,7 @@ while (mercenariesConsecutiveFailures < 3 && mercenariesCount < maxMercenariesAt
   }
 }
 
-console.log(`✓ Spawned ${mercenariesCount} Mercenary camps across the caves`);
 if (mercenariesCount === 0) {
-  console.warn('⚠️ WARNING: No Mercenary camps could be spawned - check cave availability');
 }
 
 Kingdom({ id: 1, name: 'Papal States', flag: '🇻🇦' });
@@ -6261,7 +6547,6 @@ if(teutonsHQ) {
   global.factionHQs.push({ name: 'Teutons', x: coords[0], y: coords[1], z: 0 });
 }
 // Mercenaries HQs are already tracked in the spawn loop above
-console.log(`Stored ${global.factionHQs.length} faction HQs for god mode`);
 
 dailyTally();
 
@@ -6305,7 +6590,6 @@ function calculateFactionResources() {
       buildings: 0
     };
     
-    console.log(`   ${house.name} (ID: ${houseId}) - Grain: ${house.stores.grain || 0}, Wood: ${house.stores.wood || 0}, Stone: ${house.stores.stone || 0}`);
     
     // Count buildings owned by faction
     for (const buildingId in Building.list) {

@@ -48,7 +48,6 @@ class Transaction {
       const publicKey = ec.keyFromPublic(this.fromAddress, 'hex');
       return publicKey.verify(this.calculateHash(), this.signature);
     } catch (err) {
-      console.error('Transaction validation error:', err);
       return false;
     }
   }

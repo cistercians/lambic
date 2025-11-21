@@ -169,7 +169,6 @@ class MapAnalyzer {
   findFactionHQ(factionName, excludedLocations = []) {
     const requirements = this.factionRequirements[factionName];
     if (!requirements) {
-      console.error(`MapAnalyzer: Unknown faction ${factionName}`);
       return null;
     }
     
@@ -223,7 +222,6 @@ class MapAnalyzer {
     validLocations.sort((a, b) => b.score - a.score);
     
     if (validLocations.length > 0) {
-      console.log(`${factionName} HQ: [${validLocations[0].tile}]`);
       return validLocations[0];
     }
     
@@ -262,12 +260,10 @@ class MapAnalyzer {
       
       if (fallbackLocations.length > 0) {
         fallbackLocations.sort((a, b) => b.score - a.score);
-        console.log(`MapAnalyzer: ${factionName} HQ at [${fallbackLocations[0].tile}] (forest fallback, score: ${fallbackLocations[0].score.toFixed(1)})`);
         return fallbackLocations[0];
       }
     }
     
-    console.warn(`MapAnalyzer: No valid HQ location found for ${factionName}`);
     return null;
   }
   
@@ -314,7 +310,6 @@ class MapAnalyzer {
     }
     
     // Fallback for unknown factions
-    console.warn(`No specific spawn strategy for faction ${factionName}, using overworld`);
     return this.getOverworldSpawnPoints();
   }
   
@@ -709,7 +704,6 @@ class MapAnalyzer {
     }
     
     if (selected.length < numFactions) {
-      console.warn(`MapAnalyzer: Only found ${selected.length} suitable locations (requested ${numFactions})`);
     }
     
     return selected;

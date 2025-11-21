@@ -62,7 +62,6 @@ class Goal {
   
   // Execute the goal (to be overridden by specific goal types)
   execute(house) {
-    console.log(`Executing goal: ${this.type}`);
     this.status = 'COMPLETED';
   }
   
@@ -117,7 +116,6 @@ class BuildMillGoal extends Goal {
       house.stores.stone -= this.resourceCost.stone;
       this.status = 'COMPLETED';
     } else {
-      console.log(`${house.name}: Failed to build mill - no valid location`);
       this.status = 'FAILED';
     }
   }
@@ -140,7 +138,6 @@ class BuildFarmGoal extends Goal {
       this.status = 'COMPLETED';
     } else {
       this.status = 'FAILED';
-      console.log(`${house.name}: Failed to build farm - no valid location found`);
     }
   }
 }
@@ -164,7 +161,6 @@ class BuildMineGoal extends Goal {
       this.status = 'COMPLETED';
     } else {
       this.status = 'FAILED';
-      console.log(`${house.name}: Failed to build mine - no valid location found`);
     }
   }
 }
@@ -188,7 +184,6 @@ class BuildLumbermillGoal extends Goal {
       this.status = 'COMPLETED';
     } else {
       this.status = 'FAILED';
-      console.log(`${house.name}: Failed to build lumbermill - no valid location found`);
     }
   }
 }
@@ -211,7 +206,6 @@ class BuildForgeGoal extends Goal {
       this.status = 'COMPLETED';
     } else {
       this.status = 'FAILED';
-      console.log(`${house.name}: Failed to build forge - no valid location found`);
     }
   }
 }
@@ -234,7 +228,6 @@ class BuildGarrisonGoal extends Goal {
       this.status = 'COMPLETED';
     } else {
       this.status = 'FAILED';
-      console.log(`${house.name}: Failed to build garrison - no valid location found`);
     }
   }
 }
@@ -253,10 +246,8 @@ class GatherResourceGoal extends Goal {
     // Check if we've reached target
     const current = house.stores[this.resource] || 0;
     if (current >= this.targetAmount) {
-      console.log(`${house.name}: Gathered enough ${this.resource} (${current}/${this.targetAmount})`);
       this.status = 'COMPLETED';
     } else {
-      console.log(`${house.name}: Gathering ${this.resource} (${current}/${this.targetAmount})`);
       this.status = 'IN_PROGRESS';
     }
   }
@@ -280,7 +271,6 @@ class TrainMilitaryGoal extends Goal {
   }
   
   execute(house) {
-    console.log(`${house.name}: Training ${this.unitCount} military unit(s)`);
     house.stores.grain -= this.resourceCost.grain;
     
     // Increment military count (simplified)
@@ -299,7 +289,6 @@ class DeployScoutGoal extends Goal {
   }
   
   execute(house) {
-    console.log(`${house.name}: Deploying scout to ${this.destination || 'explore territory'}`);
     // TODO: Actually create a scout unit with scout behavior
     this.status = 'COMPLETED';
   }
@@ -313,7 +302,6 @@ class DefendTerritoryGoal extends Goal {
   }
   
   execute(house) {
-    console.log(`${house.name}: Positioning defenders`);
     // TODO: Rally military units to defensive positions
     this.status = 'COMPLETED';
   }
@@ -383,7 +371,6 @@ class EstablishOutpostGoal extends Goal {
     }
     
     this.status = 'IN_PROGRESS';
-    console.log(`${house.name}: Started outpost establishment in ${this.targetZone.name}`);
     return true;
   }
   
@@ -426,7 +413,6 @@ class EstablishOutpostGoal extends Goal {
       });
     }
     
-    console.log(`${house.name}: Started outpost construction in ${this.targetZone.name}`);
   }
   
   // Check if outpost construction is complete
@@ -458,7 +444,6 @@ class EstablishOutpostGoal extends Goal {
       this.scoutingParty.status = 'guarding';
     }
     
-    console.log(`${house.name}: Outpost establishment completed in ${this.targetZone.name}`);
   }
   
   // Assign serfs to work at the outpost
@@ -484,7 +469,6 @@ class EstablishOutpostGoal extends Goal {
       serf.action = 'task';
       serf.isOutpostWorker = true;
       
-      console.log(`${serf.name} assigned to outpost work in ${this.targetZone.name}`);
     }
   }
   
@@ -561,7 +545,6 @@ class AttackEnemyGoal extends Goal {
   }
   
   execute(house) {
-    console.log(`${house.name}: Launching attack on ${this.target ? this.target.house : 'enemy'}`);
     // TODO: Coordinate military units for attack
     this.status = 'COMPLETED';
   }
@@ -577,7 +560,6 @@ function createBuildingGoal(buildingType) {
     case 'forge': return new BuildForgeGoal();
     case 'garrison': return new BuildGarrisonGoal();
     default:
-      console.warn(`Unknown building type: ${buildingType}`);
       return new Goal('BUILD_UNKNOWN', 0);
   }
 }

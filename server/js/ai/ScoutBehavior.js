@@ -21,7 +21,6 @@ class ScoutBehavior {
     this.returningToBase = false;
     this.discoveries = [];
     
-    console.log(`Scout ${this.unit.id} assigned mission to [${destination}]`);
   }
   
   // Called each update tick (continuous scanning)
@@ -78,7 +77,6 @@ class ScoutBehavior {
         
         // If enemies are dangerous, abort mission and return
         if (this.calculateThreatLevel(enemies) > 50) {
-          console.log(`Scout ${this.unit.id} detected high threat, returning to base`);
           this.returnToBase();
         }
       }
@@ -159,7 +157,6 @@ class ScoutBehavior {
     if (this.returningToBase) return;
     
     this.returningToBase = true;
-    console.log(`Scout ${this.unit.id} returning to base with ${this.discoveries.length} discoveries`);
     
     // TODO: Set unit's path back to HQ
     // For now, we'll check distance in isAtBase()
@@ -177,7 +174,6 @@ class ScoutBehavior {
   // File report with faction AI
   fileReport() {
     if (!this.house.ai || !this.house.ai.knowledge) {
-      console.warn(`Scout ${this.unit.id}: No AI knowledge system to report to`);
       return;
     }
     
@@ -188,7 +184,6 @@ class ScoutBehavior {
       this.house.ai.knowledge.reportDiscovery(this.unit, discovery);
     });
     
-    console.log(`Scout ${this.unit.id} filed report: ${uniqueDiscoveries.length} unique discoveries`);
     
     // Clear mission
     this.mission = null;

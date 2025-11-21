@@ -334,3 +334,7 @@ If you encounter issues or need to adjust parameters, refer to:
 - Comprehensive report: `global.pathfindingDiagnostics.logDiagnostics()`
 
 
+
+
+
+

@@ -21,9 +21,7 @@ class BlockchainStorage {
       const filepath = path.join(dataDir, 'blockchain.json');
       
       await fs.writeFile(filepath, chainData);
-      console.log(`Blockchain saved to disk (${global.blockchain.chain.length} blocks)`);
     } catch (err) {
-      console.error('Error saving blockchain:', err);
     }
   }
   
@@ -47,20 +45,16 @@ class BlockchainStorage {
         return block;
       });
       
-      console.log(`Loaded blockchain with ${global.blockchain.chain.length} blocks`);
       
       // Validate loaded chain
       if (!global.blockchain.isChainValid()) {
-        console.error('WARNING: Loaded blockchain is invalid!');
         return false;
       }
       
       return true;
     } catch (err) {
       if (err.code === 'ENOENT') {
-        console.log('No existing blockchain found, starting fresh');
       } else {
-        console.error('Error loading blockchain:', err);
       }
       return false;
     }
@@ -72,7 +66,6 @@ class BlockchainStorage {
       this.saveChain();
     }, 300000);
     
-    console.log('Blockchain autosave enabled (every 5 minutes)');
   }
 }
 

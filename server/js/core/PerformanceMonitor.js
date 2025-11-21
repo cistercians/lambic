@@ -65,7 +65,6 @@ class PerformanceMonitor {
       entities: this.getEntityCounts()
     };
     
-    console.log('[PERF]', JSON.stringify(stats, null, 2));
   }
   
   getEntityCounts() {

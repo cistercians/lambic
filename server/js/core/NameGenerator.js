@@ -24,7 +24,6 @@ class NameGenerator {
       
       this.availableNames = surnames;
     } catch (error) {
-      console.error('❌ Failed to load surnames.txt:', error);
       // Fallback names
       this.availableNames = [
         'Thornwick', 'Shadowhaven', 'Ironhold', 'Goldcrest', 'Silverbrook',

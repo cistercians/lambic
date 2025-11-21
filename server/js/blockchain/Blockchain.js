@@ -127,27 +127,23 @@ class LambicBlockchain {
       // Validate transactions in block
       for (const trans of currentBlock.transactions) {
         if (!trans.isValid()) {
-          console.error('Invalid transaction found in block', i);
           return false;
         }
       }
       
       // Validate block hash
       if (currentBlock.hash !== currentBlock.calculateHash()) {
-        console.error('Invalid hash in block', i);
         return false;
       }
       
       // Validate chain link
       if (currentBlock.previousHash !== previousBlock.hash) {
-        console.error('Invalid previous hash in block', i);
         return false;
       }
       
       // Validate proof of work
       const target = Array(this.difficulty + 1).join('0');
       if (currentBlock.hash.substring(0, this.difficulty) !== target) {
-        console.error('Invalid proof of work in block', i);
         return false;
       }
     }

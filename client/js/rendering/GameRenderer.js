@@ -242,6 +242,15 @@ class GameRenderer {
       renderLightSources(1);
     } else if(currentZ === -1 || currentZ === -2) {
       renderLightSources(3);
+      
+      // For caves/cellars, composite the dark layer canvas on top of lighting canvas
+      // (after light sources have cut holes in the dark layer)
+      if(darkLayerCanvas && darkLayerCtx) {
+        lighting.save();
+        lighting.globalCompositeOperation = 'source-over';
+        lighting.drawImage(darkLayerCanvas, 0, 0);
+        lighting.restore();
+      }
     }
     
     // Render rain if active

@@ -101,70 +101,37 @@ class PathfindingDiagnostics {
     
     const stats = this.collectStats();
     
-    console.log('');
-    console.log('═══════════════════════════════════════════════════════════');
-    console.log('🔬 PATHFINDING DIAGNOSTICS REPORT');
-    console.log('═══════════════════════════════════════════════════════════');
-    console.log(`Time: ${stats.timestamp}`);
-    console.log(`Performance Score: ${stats.performance.score}/100`);
     
     if (stats.performance.warnings.length > 0) {
-      console.log('');
-      console.log('⚠️  PERFORMANCE WARNINGS:');
       stats.performance.warnings.forEach(warning => {
-        console.log(`   - ${warning}`);
       });
     }
     
     // Pathfinding stats
     if (stats.pathfinding) {
-      console.log('');
-      console.log('📊 PATHFINDING SYSTEM:');
-      console.log(`   Requests: ${stats.pathfinding.requests.total} total, ${stats.pathfinding.requests.thisSecond}/s`);
-      console.log(`   Cache: ${stats.pathfinding.cache.hitRate} hit rate (${stats.pathfinding.cache.size}/${stats.pathfinding.cache.maxSize} entries)`);
-      console.log(`   Timing: avg=${stats.pathfinding.timing.pathfinding.avg}ms, max=${stats.pathfinding.timing.pathfinding.max}ms`);
-      console.log(`   Grid Gen: avg=${stats.pathfinding.timing.gridGeneration.avg}ms, max=${stats.pathfinding.timing.gridGeneration.max}ms`);
-      console.log(`   Success Rate: ${stats.pathfinding.paths.successRate} (${stats.pathfinding.paths.successful}/${stats.pathfinding.paths.failed} failed)`);
       
       if (stats.pathfinding.hotspots && stats.pathfinding.hotspots.length > 0) {
-        console.log('   Top Hotspots:');
         stats.pathfinding.hotspots.slice(0, 3).forEach((h, i) => {
-          console.log(`     ${i + 1}. ${h.location}: ${h.count} requests`);
         });
       }
     }
     
     // Stuck entity stats
     if (stats.stuckEntities) {
-      console.log('');
-      console.log('🚫 STUCK ENTITIES:');
-      console.log(`   Total Events: ${stats.stuckEntities.totalEvents}`);
-      console.log(`   By Reason: blocked=${stats.stuckEntities.reasonCounts.blocked}, stuck=${stats.stuckEntities.reasonCounts.stuck}, oscillating=${stats.stuckEntities.reasonCounts.oscillating}, gaveUp=${stats.stuckEntities.reasonCounts.gaveUp}`);
-      console.log(`   Avg Recalc Attempts: ${stats.stuckEntities.recalcAttempts.avg}, max=${stats.stuckEntities.recalcAttempts.max}`);
       
       if (stats.stuckEntities.topStuckWaypoints && stats.stuckEntities.topStuckWaypoints.length > 0) {
-        console.log('   Most Problematic Waypoints:');
         stats.stuckEntities.topStuckWaypoints.slice(0, 5).forEach((w, i) => {
-          console.log(`     ${i + 1}. ${w.waypoint}: ${w.count} stuck events`);
         });
       }
       
       if (stats.stuckEntities.layerDistribution && stats.stuckEntities.layerDistribution.length > 0) {
-        console.log('   By Layer:');
         stats.stuckEntities.layerDistribution.forEach(l => {
-          console.log(`     z=${l.layer}: ${l.count} events`);
         });
       }
     }
     
     // Memory
-    console.log('');
-    console.log('💾 MEMORY:');
-    console.log(`   Heap: ${stats.memory.heapUsed} / ${stats.memory.heapTotal}`);
-    console.log(`   RSS: ${stats.memory.rss}`);
     
-    console.log('═══════════════════════════════════════════════════════════');
-    console.log('');
     
     this.lastLog = Date.now();
   }
@@ -257,5 +224,9 @@ class PathfindingDiagnostics {
 }
 
 module.exports = PathfindingDiagnostics;
+
+
+
+
 
 

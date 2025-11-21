@@ -475,7 +475,6 @@ class CommandHandler {
     try {
       command.execute(player, args, socket);
     } catch (error) {
-      console.error(`Error executing command ${commandName}:`, error);
       this.sendError(socket, 'Command execution failed');
     }
   }

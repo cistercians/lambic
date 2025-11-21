@@ -14,7 +14,6 @@ class TilemapIntegration {
 
   // Initialize the new system from existing world array
   initializeFromWorldArray(worldArray, mapSize) {
-    console.log('Initializing consolidated tilemap system...');
     
     // Migrate from old system
     this.tilemapSystem = this.migration.migrateFromWorldArray(worldArray, mapSize);
@@ -26,7 +25,6 @@ class TilemapIntegration {
     this.compatibility = this.migration.createCompatibilityLayer(this.tilemapSystem);
     
     this.initialized = true;
-    console.log('Tilemap system initialized successfully');
     
     return this;
   }

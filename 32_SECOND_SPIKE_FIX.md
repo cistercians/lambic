@@ -199,3 +199,7 @@ logger.info('Summary info');
 The pathfinding optimizations are also in place and working well, but this console.log issue was the real performance killer!
 
 
+
+
+
+

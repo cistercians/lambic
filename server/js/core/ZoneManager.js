@@ -35,16 +35,13 @@ class ZoneManager {
 
   // Add faction territory zones
   addFactionZones(territoryZones) {
-    console.log('🏰 Adding faction territories to zone manager...');
     this._bulkOperation = true;
     
     territoryZones.forEach(zone => {
       this.addZone(zone);
-      console.log(`🏰 Created faction zone: ${zone.name} (${zone.type}, ${zone.size} tiles)`);
     });
     
     this._bulkOperation = false;
-    console.log(`✅ Added ${territoryZones.length} faction zones`);
   }
 
   // Add a single zone to the manager
@@ -62,7 +59,6 @@ class ZoneManager {
     
     // Log zone creation (only for individual zones, not bulk operations)
     if (!this._bulkOperation) {
-      console.log(`📍 Created zone: ${zone.name} (${zone.type}, ${zone.size} tiles)`);
     }
   }
 

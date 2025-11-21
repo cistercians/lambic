@@ -14,7 +14,6 @@ class SpatialIntegration {
 
   // Initialize the spatial system
   initialize() {
-    console.log('Initializing intelligent spatial partitioning system...');
     this.spatialIndex.clear();
     
     // Add all existing entities
@@ -25,7 +24,6 @@ class SpatialIntegration {
       }
     }
     
-    console.log(`Spatial system initialized with ${this.spatialIndex.stats.entitiesTracked} entities`);
   }
 
   // Add entity to spatial system
@@ -168,7 +166,6 @@ class SpatialIntegration {
       
       const stats = this.spatialIndex.getStats();
       if (stats.entitiesTracked > 0) {
-        console.log(`Spatial optimization: ${stats.entitiesTracked} entities, ${stats.cellsUsed} cells, ${stats.cacheHitRate} cache hit rate`);
       }
     }
   }

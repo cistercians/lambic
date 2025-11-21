@@ -215,7 +215,6 @@ class FactionAI {
         goal.status = 'COMPLETED';
         this.currentGoalChain.advance();
       } catch (error) {
-        console.error(`${this.house.name}: Error executing ${goal.type}:`, error);
         goal.status = 'FAILED';
         this.currentGoalChain = null; // Abort chain on error
       }
@@ -260,7 +259,6 @@ class FactionAI {
     // Select leader (prefer mounted military unit)
     const leader = this.selectScoutLeader();
     if (!leader) {
-      console.log(`${this.house.name}: No suitable leader available for scouting party`);
       return null;
     }
     
@@ -270,11 +268,8 @@ class FactionAI {
     
     // Log party composition
     if (backups.length === 2) {
-      console.log(`${this.house.name}: Deploying full-strength scouting party (3 units) to ${targetZone.name}`);
     } else if (backups.length === 1) {
-      console.log(`${this.house.name}: Deploying reduced scouting party (2 units) to ${targetZone.name}`);
     } else {
-      console.log(`${this.house.name}: Deploying solo scout (1 unit) to ${targetZone.name}`);
     }
     
     // Mark leader with banner emoji
@@ -357,17 +352,14 @@ class FactionAI {
   // Handle scouting party completion
   onScoutingComplete(targetZone, purpose, enemiesFound) {
     if (enemiesFound) {
-      console.log(`${this.house.name}: Scouting party found enemies in ${targetZone.name}, planning attack force`);
       this.planAttackForce(targetZone);
     } else {
-      console.log(`${this.house.name}: Scouting party reports ${targetZone.name} is clear, planning outpost`);
       this.planOutpost(targetZone, purpose);
     }
   }
 
   // Handle scouting party failure
   onScoutingFailed(targetZone, purpose) {
-    console.log(`${this.house.name}: Scouting party failed in ${targetZone.name}, marking as hostile`);
     // Mark zone as hostile for future reference
     this.knowledge.reportDiscovery(null, {
       type: 'ENEMY',
@@ -388,7 +380,6 @@ class FactionAI {
   // Plan outpost construction
   planOutpost(targetZone, resourceType) {
     // This will be implemented when we create OutpostPlanner
-    console.log(`${this.house.name}: Planning outpost in ${targetZone.name} for ${resourceType}`);
   }
 
   // Assemble attack force based on threat level
@@ -408,7 +399,6 @@ class FactionAI {
     forceSize = Math.min(forceSize, militaryUnits.length);
     
     if (forceSize < 3) {
-      console.log(`${this.house.name}: Not enough military units for attack force (need 3, have ${militaryUnits.length})`);
       return null;
     }
     
@@ -425,7 +415,6 @@ class FactionAI {
 
   // Deploy attack force to target zone
   deployAttackForce(force, targetZone) {
-    console.log(`${this.house.name}: Deploying attack force to ${targetZone.name}`);
     
     // Set all units to move to target zone
     force.units.forEach(unit => {
@@ -455,7 +444,6 @@ class FactionAI {
       
       if (allAtTarget && force.status === 'deployed') {
         force.status = 'engaged';
-        console.log(`${this.house.name}: Attack force engaged at target`);
       }
       
       // Remove completed forces
