@@ -161,6 +161,8 @@ Build = function(id){
             tileChange(0,plot[i][0],plot[i][1],13);
             tileChange(3,plot[i][0],plot[i][1],String('mill' + i));
             matrixChange(0,plot[i][0],plot[i][1],1);
+            // Mark all plot tiles as interactable (all are non-walkable)
+            global.setTileInteractable(0, plot[i][0], plot[i][1], b);
           }
           tileChange(5,top[0][0],top[0][1],'mill4');
           tileChange(5,top[1][0],top[1][1],'mill5');
@@ -169,6 +171,8 @@ Build = function(id){
             tileChange(0,plot[i][0],plot[i][1],13);
             tileChange(3,plot[i][0],plot[i][1],String('lumbermill' + i));
             matrixChange(0,plot[i][0],plot[i][1],1);
+            // Mark all plot tiles as interactable (all are non-walkable)
+            global.setTileInteractable(0, plot[i][0], plot[i][1], b);
           }
           tileChange(5,top[0][0],top[0][1],'lumbermill2');
           tileChange(5,top[1][0],top[1][1],'lumbermill3');
@@ -177,6 +181,8 @@ Build = function(id){
             tileChange(0,plot[i][0],plot[i][1],13);
             tileChange(3,plot[i][0],plot[i][1],String('mine' + i));
             matrixChange(0,plot[i][0],plot[i][1],1);
+            // Mark all plot tiles as interactable (all are non-walkable)
+            global.setTileInteractable(0, plot[i][0], plot[i][1], b);
           }
         }  else if(building.type == 'cottage'){
           for(var i in plot){
@@ -1052,6 +1058,8 @@ Build = function(id){
               matrixChange(0,plot[i][0],plot[i][1],1);
               matrixChange(-3,plot[i][0],plot[i][1],1);
               matrixChange(3,plot[i][0],plot[i][1],1);
+              // Mark only the non-walkable tile (dock4, which is plot[4] - center of top row) as interactable
+              global.setTileInteractable(0, plot[i][0], plot[i][1], b);
             } else {
               if(getTile(0,plot[i][0],plot[i][1]) == 12.5){
                 tileChange(0,plot[i][0],plot[i][1],20.5);

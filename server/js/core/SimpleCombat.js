@@ -766,8 +766,12 @@ class SimpleCombat {
     const nonCombatClasses = ['Falcon'];
     if (nonCombatClasses.includes(entity.class)) return;
     
-    // Skip if returning or already in combat
-    if (entity.action === 'returning' || entity.action === 'combat') return;
+    // Skip if returning or already in combat (but allow peaceful units to detect threats even if fleeing)
+    const peaceful = ['Serf', 'SerfM', 'SerfF', 'Deer', 'Sheep'];
+    const isPeaceful = peaceful.includes(entity.class);
+    if (!isPeaceful && (entity.action === 'returning' || entity.action === 'combat')) return;
+    if (isPeaceful && entity.action === 'returning') return; // Peaceful units can't detect threats when returning home
+    // Peaceful units CAN detect threats while fleeing (allows them to switch to closer threats)
     
     // Handle pending stealth attacks
     if (this.handlePendingStealthAggro(entity)) {
@@ -806,37 +810,117 @@ class SimpleCombat {
       }
     }
 
-    // Simple loop through all players
-    for (const id in global.Player.list) {
-      const target = global.Player.list[id];
-
-      if (target.id === entity.id) continue;
-      if (target.z !== entity.z) continue;
+    // Use spatial system for aggro checks if available (much faster than iterating all entities)
+    if (global.spatialSystem && global.spatialSystem.findAggroTargets) {
+      const nearbyTargets = global.spatialSystem.findAggroTargets(entity, aggroRange);
       
-      // Skip invalid targets
-      if (target.ghost) continue;
-      if (target.type === 'spectator') continue;
-      if (nonCombatClasses.includes(target.class)) continue;
-      if (target.isPrey && entity.class !== 'Wolf') continue;
-      if (target.isPrey && entity.class === 'Serf') continue;
+      for (const target of nearbyTargets) {
+        if (!target || target.id === entity.id) continue;
+        if (target.z !== entity.z) continue;
+        
+        // Skip invalid targets
+        if (target.ghost) continue;
+        if (target.type === 'spectator') continue;
+        if (nonCombatClasses.includes(target.class)) continue;
+        if (target.isPrey && entity.class !== 'Wolf') continue;
+        if (target.isPrey && entity.class === 'Serf') continue;
 
-      const distance = this.getDistance(target, entity);
-      if (distance > aggroRange) continue;
-
-      // STEALTH: Skip stealthed targets that haven't been detected
-      if (target.stealthed && !target.revealed) {
-        if (!this.checkStealthDetection(target, entity)) {
-          continue; // Can't see stealthed target
+        // STEALTH: Skip stealthed targets that haven't been detected
+        if (target.stealthed && !target.revealed) {
+          if (!this.checkStealthDetection(target, entity)) {
+            continue; // Can't see stealthed target
+          }
         }
+
+        // Check alliance FIRST - allies should never aggro each other
+        if (global.isAlly && global.isAlly(entity.id, target.id)) {
+          continue; // Skip allies
+        }
+
+        // Peaceful units (Deer, Sheep, Serfs) detect threats but respect ally checks
+        // They should flee from any non-ally entity except their own kind
+        if (isPeaceful) {
+          // Skip same class (deer don't flee from deer, serfs don't flee from serfs)
+          if (target.class === entity.class) continue;
+          // Skip prey animals for serfs (serfs don't flee from deer)
+          if (target.isPrey && entity.class === 'Serf') continue;
+          // Peaceful units check alliance - they only flee from non-allies
+          // Peaceful units don't check innaWoods - they should detect threats regardless
+          // AGGRO (will trigger flee in startCombat)
+          this.startCombat(entity, target);
+          return;
+        }
+
+        // For non-peaceful units, alliance check already done above
+
+        // Check innaWoods compatibility (NPCs can aggro if both in woods OR target is in woods)
+        if (entity.type === 'npc' && target.type === 'player') {
+          if (!(entity.innaWoods === target.innaWoods || (!entity.innaWoods && target.innaWoods))) {
+            continue; // Can't aggro due to woods state
+          }
+        }
+
+        // AGGRO!
+        this.startCombat(entity, target);
+        return;
       }
+    } else {
+      // Fallback: Simple loop through all players (slower but works without spatial system)
+      for (const id in global.Player.list) {
+        const target = global.Player.list[id];
 
-      // Check alliance
-      const ally = global.allyCheck ? global.allyCheck(entity.id, target.id) : -1;
-      if (ally >= 0) continue;
+        if (target.id === entity.id) continue;
+        if (target.z !== entity.z) continue;
+        
+        // Skip invalid targets
+        if (target.ghost) continue;
+        if (target.type === 'spectator') continue;
+        if (nonCombatClasses.includes(target.class)) continue;
+        if (target.isPrey && entity.class !== 'Wolf') continue;
+        if (target.isPrey && entity.class === 'Serf') continue;
 
-      // AGGRO!
-      this.startCombat(entity, target);
-      return;
+        const distance = this.getDistance(target, entity);
+        if (distance > aggroRange) continue;
+
+        // STEALTH: Skip stealthed targets that haven't been detected
+        if (target.stealthed && !target.revealed) {
+          if (!this.checkStealthDetection(target, entity)) {
+            continue; // Can't see stealthed target
+          }
+        }
+
+        // Check alliance FIRST - allies should never aggro each other
+        if (global.isAlly && global.isAlly(entity.id, target.id)) {
+          continue; // Skip allies
+        }
+
+        // Peaceful units (Deer, Sheep, Serfs) detect threats but respect ally checks
+        // They should flee from any non-ally entity except their own kind
+        if (isPeaceful) {
+          // Skip same class (deer don't flee from deer, serfs don't flee from serfs)
+          if (target.class === entity.class) continue;
+          // Skip prey animals for serfs (serfs don't flee from deer)
+          if (target.isPrey && entity.class === 'Serf') continue;
+          // Peaceful units check alliance - they only flee from non-allies
+          // Peaceful units don't check innaWoods - they should detect threats regardless
+          // AGGRO (will trigger flee in startCombat)
+          this.startCombat(entity, target);
+          return;
+        }
+
+        // For non-peaceful units, alliance check already done above
+
+        // Check innaWoods compatibility (NPCs can aggro if both in woods OR target is in woods)
+        if (entity.type === 'npc' && target.type === 'player') {
+          if (!(entity.innaWoods === target.innaWoods || (!entity.innaWoods && target.innaWoods))) {
+            continue; // Can't aggro due to woods state
+          }
+        }
+
+        // AGGRO!
+        this.startCombat(entity, target);
+        return;
+      }
     }
   }
 
@@ -874,6 +958,11 @@ class SimpleCombat {
 
   // Start combat
   startCombat(entity, target) {
+    // CRITICAL: Check if entities are allies - never start combat between allies
+    if (global.isAlly && global.isAlly(entity.id, target.id)) {
+      return; // Don't start combat - they are allies
+    }
+    
     // STEALTH COMBAT MECHANICS:
     // If attacker is stealthed, don't start combat until first attack or detection
     if (entity.stealthed && !entity.revealed) {
@@ -991,10 +1080,36 @@ class SimpleCombat {
       entity.maxSpd = entity._originalBaseSpd || 2;
     }
     
-    // Resume attack-move if active
-    if (entity.attackMoveTarget && entity.moveTo) {
+    // Resume attack-move if active (for players, use pathfinding system)
+    if (entity.attackMoveTarget) {
       const attackTarget = entity.attackMoveTarget;
-      entity.moveTo(attackTarget.z, attackTarget.col, attackTarget.row);
+      if (entity.type === 'player' && global.tilemapSystem) {
+        // Use pathfinding system for players
+        const startLoc = global.getLoc(entity.x, entity.y);
+        const layer = attackTarget.z === 0 ? 0 : (attackTarget.z === -1 ? 1 : (attackTarget.z === -2 ? 8 : (attackTarget.z === 1 ? 3 : 5)));
+        const options = {
+          avoidDoors: true,
+          avoidCaveExits: false
+        };
+        const path = global.tilemapSystem.findPath(startLoc, [attackTarget.col, attackTarget.row], layer, options);
+        if (path && path.length > 0) {
+          if (attackTarget.z !== -1 && typeof global.smoothPath === 'function') {
+            const smoothedPath = global.smoothPath(path, attackTarget.z);
+            entity.path = smoothedPath;
+          } else {
+            entity.path = path;
+          }
+          const firstWaypoint = path[0];
+          if (firstWaypoint && firstWaypoint[0] === startLoc[0] && firstWaypoint[1] === startLoc[1]) {
+            entity.pathCount = 1;
+          } else {
+            entity.pathCount = 0;
+          }
+        }
+      } else if (entity.moveTo) {
+        // Fallback for NPCs
+        entity.moveTo(attackTarget.z, attackTarget.col, attackTarget.row);
+      }
     }
 
     // Clear target's combat state if they were targeting this entity
@@ -1010,7 +1125,7 @@ class SimpleCombat {
         target.maxSpd = target._originalBaseSpd || 2;
       }
       
-      // Send escape message to player
+      // Send escape message to player (when enemy gives up)
       if (target.type === 'player') {
         const escapedFrom = entity.name || entity.class;
         const socket = global.SOCKET_LIST[target.id];
@@ -1019,6 +1134,23 @@ class SimpleCombat {
             msg: 'addToChat', 
             message: `<span style="color:yellow;">🏃 ${escapedFrom} has given up the chase...</span>` 
           }));
+        }
+      }
+    }
+    
+    // Send escape message to player (when player escapes)
+    if (entity.type === 'player' && target) {
+      const distance = this.getDistance(entity, target);
+      const escapeRange = 768; // 12 tiles - same as previous escape logic
+      if (distance > escapeRange) {
+        // Create combat escape event
+        if (global.eventManager) {
+          global.eventManager.combatEscape(entity, target, { x: entity.x, y: entity.y, z: entity.z });
+        }
+        
+        const playerSocket = global.SOCKET_LIST[entity.id];
+        if (playerSocket) {
+          playerSocket.write(JSON.stringify({ msg: 'addToChat', message: '<i>You escaped from combat.</i>' }));
         }
       }
     }

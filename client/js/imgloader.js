@@ -4518,3 +4518,108 @@ Img.portraitSheep = new Image();
 Img.portraitSheep.src = '/client/img/chars/sheep/sheep.png';
 Img.portraitFalcon = new Image();
 Img.portraitFalcon.src = '/client/img/chars/falcon/falcon.png';
+
+// Additional portrait pre-loading for player and enemy NPC classes
+// Footsoldier, Skirmisher, and other military classes
+Img.portraitFootsoldier = new Image();
+Img.portraitFootsoldier.src = '/client/img/chars/footsoldier/footsoldier.png';
+Img.portraitSkirmisher = new Image();
+Img.portraitSkirmisher.src = '/client/img/chars/skirmisher/skirmisher.png';
+Img.portraitCavalier = new Image();
+Img.portraitCavalier.src = '/client/img/chars/cavalier/cavalier.png';
+Img.portraitCavalry = new Image();
+Img.portraitCavalry.src = '/client/img/chars/cavalry/cavalry.png';
+Img.portraitGeneral = new Image();
+Img.portraitGeneral.src = '/client/img/chars/general/general.png';
+Img.portraitHero = new Image();
+Img.portraitHero.src = '/client/img/chars/hero/hero.png';
+Img.portraitHorseman = new Image();
+Img.portraitHorseman.src = '/client/img/chars/horseman/horseman.png';
+Img.portraitMountedArcher = new Image();
+Img.portraitMountedArcher.src = '/client/img/chars/mountedarcher/mountedarcher.png';
+Img.portraitSwordsman = new Image();
+Img.portraitSwordsman.src = '/client/img/chars/swordsman/swordsman.png';
+Img.portraitLancer = new Image();
+Img.portraitLancer.src = '/client/img/chars/lancer/lancer.png';
+Img.portraitScout = new Image();
+Img.portraitScout.src = '/client/img/chars/scout/scout.png';
+Img.portraitRanger = new Image();
+Img.portraitRanger.src = '/client/img/chars/ranger/ranger.png';
+Img.portraitPoacher = new Image();
+Img.portraitPoacher.src = '/client/img/chars/poacher/poacher.png';
+
+// Faction-specific classes (Teutons)
+Img.portraitTeutonicKnight = new Image();
+Img.portraitTeutonicKnight.src = '/client/img/chars/teutonicknight/teutonicknight.png';
+Img.portraitImperialKnight = new Image();
+Img.portraitImperialKnight.src = '/client/img/chars/teutonicknight/teutonicknight.png'; // Same as TeutonicKnight
+Img.portraitTeutonPike = new Image();
+Img.portraitTeutonPike.src = '/client/img/chars/teutonpike/teutonpike.png';
+Img.portraitTeutonBow = new Image();
+Img.portraitTeutonBow.src = '/client/img/chars/teutonbow/teutonbow.png';
+
+// Faction-specific classes (Franks)
+Img.portraitFrankSword = new Image();
+Img.portraitFrankSword.src = '/client/img/chars/franksword/franksword.png';
+Img.portraitFrankSpear = new Image();
+Img.portraitFrankSpear.src = '/client/img/chars/frankspear/frankspear.png';
+Img.portraitFrankBow = new Image();
+Img.portraitFrankBow.src = '/client/img/chars/frankbow/frankbow.png';
+
+// Faction-specific classes (Celts)
+Img.portraitCeltAxe = new Image();
+Img.portraitCeltAxe.src = '/client/img/chars/celtaxe/celtaxe.png';
+Img.portraitCeltSpear = new Image();
+Img.portraitCeltSpear.src = '/client/img/chars/celtspear/celtspear.png';
+
+// Faction-specific classes (Norse)
+Img.portraitNorseSpear = new Image();
+Img.portraitNorseSpear.src = '/client/img/chars/norsespear/norsespear.png';
+Img.portraitGoth = new Image();
+Img.portraitGoth.src = '/client/img/chars/goth/goth.png';
+Img.portraitHuskarl = new Image();
+Img.portraitHuskarl.src = '/client/img/chars/huskarl/huskarl.png';
+Img.portraitHeadhunter = new Image();
+Img.portraitHeadhunter.src = '/client/img/chars/headhunter/headhunter.png';
+
+// Mercenary and other classes
+Img.portraitMarauder = new Image();
+Img.portraitMarauder.src = '/client/img/chars/marauder/marauder.png';
+Img.portraitCondottiere = new Image();
+Img.portraitCondottiere.src = '/client/img/chars/condottiere/condottiere.png';
+Img.portraitStrongman = new Image();
+Img.portraitStrongman.src = '/client/img/chars/strongman/strongman.png';
+
+// Magic and religious classes
+Img.portraitFriar = new Image();
+Img.portraitFriar.src = '/client/img/chars/friar/friar.png';
+Img.portraitSeidr = new Image();
+Img.portraitSeidr.src = '/client/img/chars/seidr/seidr.png';
+Img.portraitMorrigan = new Image();
+Img.portraitMorrigan.src = '/client/img/chars/morrigan/morrigan.png';
+
+// Ships
+Img.portraitCargoShip = new Image();
+Img.portraitCargoShip.src = '/client/img/chars/cargoship/cargoship.png';
+Img.portraitFishingShip = new Image();
+Img.portraitFishingShip.src = '/client/img/chars/fishingship/fishingship.png';
+
+// Siege equipment
+Img.portraitMalvoisin = new Image();
+Img.portraitMalvoisin.src = '/client/img/chars/malvoisin/malvoisin.png';
+Img.portraitMangonel = new Image();
+Img.portraitMangonel.src = '/client/img/chars/mangonel/mangonel.png';
+Img.portraitTrebuchet = new Image();
+Img.portraitTrebuchet.src = '/client/img/chars/trebuchet/trebuchet.png';
+
+// CURSORS
+Img.cursor = new Image();
+Img.cursor.src = '/client/img/cursors/cursor.png';
+Img.cursorAttack = new Image();
+Img.cursorAttack.src = '/client/img/cursors/cursor_attack.png';
+Img.cursorInteract = new Image();
+Img.cursorInteract.src = '/client/img/cursors/cursor_interact.png';
+Img.cursorWork = new Image();
+Img.cursorWork.src = '/client/img/cursors/cursor_work.png';
+Img.cursorRally = new Image();
+Img.cursorRally.src = '/client/img/cursors/cursor_rally.png';

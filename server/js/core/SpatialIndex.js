@@ -98,12 +98,25 @@ class SpatialIndex {
   findNearby(x, y, radius, filter = null) {
     this.stats.queries++;
     
-    // Check cache first
-    const cacheKey = `${Math.floor(x)},${Math.floor(y)},${radius}`;
+    // Check cache first - use cell-based key for better cache hit rate
+    // Round radius to nearest 50 to allow similar queries to share cache
+    const radiusBucket = Math.floor(radius / 50) * 50;
+    const cellKey = this.getCellKey(x, y);
+    const cacheKey = `${cellKey},${radiusBucket}`;
     const cached = this.queryCache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < this.cacheTimeout) {
+      // Still need to filter by exact distance since cache is cell-based
+      const result = cached.result.filter(entityId => {
+        const entity = global.Player.list[entityId];
+        if (!entity) return false;
+        if (filter && !filter(entityId)) return false;
+        const distance = Math.sqrt(
+          Math.pow(entity.x - x, 2) + Math.pow(entity.y - y, 2)
+        );
+        return distance <= radius;
+      });
       this.stats.cacheHits++;
-      return cached.result;
+      return result;
     }
 
     const nearby = new Set();
@@ -131,7 +144,7 @@ class SpatialIndex {
 
     const result = Array.from(nearby);
     
-    // Cache the result
+    // Cache the result using cell-based key (already computed above)
     this.queryCache.set(cacheKey, {
       result: result,
       timestamp: Date.now()

@@ -108,6 +108,10 @@ class PathfindingSystem {
       optionsKey = '_water';
     } else if (options.avoidDoors) {
       optionsKey = '_nodoors';
+    } else if (options.avoidWater) {
+      optionsKey = '_nowater';
+    } else if (options.avoidCaveEntrances) {
+      optionsKey = '_nocaves';
     }
     // For complex options, fall back to JSON.stringify but cache it
     if (Object.keys(options).length > 2 && !optionsKey) {
@@ -223,6 +227,10 @@ class PathfindingSystem {
       optionsKey = '_water';
     } else if (options.avoidDoors) {
       optionsKey = '_nodoors';
+    } else if (options.avoidWater) {
+      optionsKey = '_nowater';
+    } else if (options.avoidCaveEntrances) {
+      optionsKey = '_nocaves';
     }
     if (Object.keys(options).length > 2 && !optionsKey) {
       optionsKey = `_${JSON.stringify(options)}`;

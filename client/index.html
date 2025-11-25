@@ -54,6 +54,10 @@
     display: none;
   }
   
+  #ctx {
+    cursor: none !important;
+  }
+  
   #gameDiv {
     position: fixed;
     top: 0;
@@ -74,6 +78,16 @@
   
   #lighting {
     z-index: 1;
+  }
+  
+  #cursor-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 100000;
+    pointer-events: none;
   }
   
   /* Skills Bar */
@@ -1468,7 +1482,7 @@
   </div>
 
   <div id="gameDiv">
-    <canvas id="ctx" style="z-index: 0;"></canvas>
+    <canvas id="ctx" style="z-index: 0; cursor: none !important;"></canvas>
     <canvas id="lighting" style="z-index: 2;"></canvas>
   </div>
 
@@ -1827,6 +1841,9 @@
       </table>
     </div>
   </div>
+  
+  <!-- Cursor Overlay - Must be outside gameDiv to appear above UI elements -->
+  <canvas id="cursor-overlay" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 100000; pointer-events: none;"></canvas>
 </div>
 
 <!-- Build Menu Popup -->

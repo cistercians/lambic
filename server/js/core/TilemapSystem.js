@@ -146,6 +146,8 @@ class TilemapSystem {
       for (let x = 0; x < this.mapSize; x++) {
         const tile = this.getTile(layer, x, y);
         let walkable = this.isWalkable(layer, x, y, tile);
+        const isTransition = this.isTransitionTileByMatrix(layer, x, y);
+        const isWater = this.isWaterTile(layer, x, y);
         
         // Apply pathfinding options (order matters - most specific first)
         
@@ -157,16 +159,69 @@ class TilemapSystem {
         else if (options.allowStartTile && options.allowStartTile[0] === x && options.allowStartTile[1] === y) {
           walkable = true;
         }
+        // Check if this is the target destination transition tile (allow it)
         else if (options.targetDoor && options.targetDoor[0] === x && options.targetDoor[1] === y) {
           walkable = true;
         }
-        // THIRD: Apply avoidance rules
+        else if (options.targetStairs && options.targetStairs[0] === x && options.targetStairs[1] === y) {
+          walkable = true;
+        }
+        else if (options.targetCaveEntrance && options.targetCaveEntrance[0] === x && options.targetCaveEntrance[1] === y) {
+          walkable = true;
+        }
+        else if (options.targetWaterTile && options.targetWaterTile[0] === x && options.targetWaterTile[1] === y) {
+          walkable = true; // Allow water tile if it's the target destination
+        }
+        // Block water tiles by default (unless they're the target above)
+        // Water tiles should NEVER be walkable unless explicitly targeted
+        else if (isWater) {
+          walkable = false; // Water is not walkable unless it's the target destination
+        }
+        // THIRD: Apply avoidance rules for transition tiles (but NOT water - water is already blocked above)
+        else if (isTransition && !isWater) {
+          // Check if this transition tile matches any target destination
+          const isTarget = 
+            (options.targetDoor && options.targetDoor[0] === x && options.targetDoor[1] === y) ||
+            (options.targetStairs && options.targetStairs[0] === x && options.targetStairs[1] === y) ||
+            (options.targetCaveEntrance && options.targetCaveEntrance[0] === x && options.targetCaveEntrance[1] === y) ||
+            (options.targetWaterTile && options.targetWaterTile[0] === x && options.targetWaterTile[1] === y);
+          
+          // If it's a target, always allow it
+          if (isTarget) {
+            walkable = true;
+          }
+          // Otherwise, apply avoidance rules if explicitly set
+          // Default behavior: transition tiles (doors, cave entrances, stairs) are walkable (for NPCs and z-transitions)
+          // Only block them if avoidance options are explicitly set
+          else if (options.avoidDoors && this.isDoorway(layer, x, y, tile)) {
+            walkable = false;
+          }
+          else if (options.avoidDoors && this.isDoorway(layer, x, y, tile)) {
+            walkable = false;
+          }
+          else if (options.avoidCaveExits && this.isCaveExit(layer, x, y)) {
+            walkable = false;
+          }
+          else if (options.avoidCaveEntrances && this.isCaveEntrance(layer, x, y)) {
+            walkable = false;
+          }
+          else if (options.avoidStairs && this.isStairs(layer, x, y)) {
+            walkable = false;
+          }
+          // If no avoidance options are set, allow transition tiles (for NPCs and z-transitions)
+          // walkable is already true from isWalkable() check above, so no change needed
+        }
+        // FOURTH: Apply avoidance rules for non-transition tiles (legacy support)
         else if (options.avoidDoors && this.isDoorway(layer, x, y, tile)) {
           walkable = false;
         } else if (options.avoidCaveExits && this.isCaveExit(layer, x, y)) {
           walkable = false;
+        } else if (options.avoidCaveEntrances && this.isCaveEntrance(layer, x, y)) {
+          walkable = false;
+        } else if (options.avoidStairs && this.isStairs(layer, x, y)) {
+          walkable = false;
         }
-        // FOURTH: Block all doors/exits except specific targets  
+        // FIFTH: Block all transition tiles except specific targets (legacy support)
         else if (options.allowSpecificDoor && (this.isDoorway(layer, x, y, tile) || this.isCaveExit(layer, x, y))) {
           walkable = false;
         }
@@ -216,9 +271,9 @@ class TilemapSystem {
       0: 0,    // Overworld
       1: -1,   // Underworld/Cave
       2: -3,   // Underwater
-      3: 1,    // Building floor 1 (but use matrix lookup)
-      4: 1,    // Building floor 1 tiles
-      5: 1,    // Building floor 1 special
+      3: 1,    // Building floor 1 (ground floor markers)
+      4: 1,    // Building floor 1 tiles (actual floor tiles)
+      5: 2,    // Building floor 2 (second floor tiles)
       6: 0,    // Resource layer 1 (overworld resources)
       7: -1,   // Resource layer 2 (cave resources)
       8: -2    // Cellar/Building basement
@@ -255,6 +310,84 @@ class TilemapSystem {
       }
     }
     return false;
+  }
+
+  // Check if a tile is a cave entrance (overworld)
+  isCaveEntrance(layer, x, y) {
+    if (layer !== 0) return false; // Only applies to overworld layer
+    const tile = this.getTile(layer, x, y);
+    return tile === 6; // CAVE_ENTRANCE
+  }
+
+  // Check if a tile is water (layer 0 only)
+  isWaterTile(layer, x, y) {
+    if (layer !== 0) return false; // Only applies to overworld layer
+    const tile = this.getTile(layer, x, y);
+    return tile === 0; // TERRAIN.WATER
+  }
+
+  // Check if a tile is a transition tile based on walkability matrix value
+  isTransitionTileByMatrix(layer, x, y) {
+    const layerToZ = {
+      0: 0,    // Overworld
+      1: -1,   // Underworld/Cave
+      2: -3,   // Underwater
+      3: 1,    // Building floor 1 (ground floor markers)
+      4: 1,    // Building floor 1 tiles (actual floor tiles)
+      5: 2,    // Building floor 2 (second floor tiles)
+      6: 0,    // Resource layer 1 (overworld resources)
+      7: -1,   // Resource layer 2 (cave resources)
+      8: -2    // Cellar/Building basement
+    };
+    
+    const z = layerToZ[layer];
+    if (z === undefined) return false;
+    
+    // Check the walkability matrix directly
+    const matrices = {
+      0: global.matrixO,
+      '-1': global.matrixU,
+      1: global.matrixB1,
+      2: global.matrixB2,
+      '-2': global.matrixB3
+    };
+    
+    const matrix = matrices[z];
+    if (!matrix || x < 0 || x >= this.mapSize || y < 0 || y >= this.mapSize) {
+      return false;
+    }
+    
+    // Value 2 indicates a transition tile
+    return matrix[y][x] === 2;
+  }
+
+  // Check if a tile is upstairs (z=1 to z=2 transition)
+  isUpstairs(layer, x, y) {
+    // Upstairs tiles are on layer 4 with values 3, 4 (upstairs stairs)
+    if (layer !== 4) return false;
+    const tile = this.getTile(layer, x, y);
+    return tile === 3 || tile === 4;
+  }
+
+  // Check if a tile is downstairs (z=2 to z=1 transition, or z=1 to z=-2)
+  isDownstairs(layer, x, y) {
+    // Downstairs tiles are on layer 4 with values 5, 6 (downstairs/cellar stairs)
+    if (layer !== 4) return false;
+    const tile = this.getTile(layer, x, y);
+    return tile === 5 || tile === 6;
+  }
+
+  // Check if a tile is any type of stairs
+  isStairs(layer, x, y) {
+    return this.isUpstairs(layer, x, y) || this.isDownstairs(layer, x, y);
+  }
+
+  // Check if a tile is a transition tile (door, stairs, cave entrance/exit)
+  isTransitionTile(layer, x, y, tile) {
+    return this.isDoorway(layer, x, y, tile) ||
+           this.isStairs(layer, x, y) ||
+           this.isCaveEntrance(layer, x, y) ||
+           this.isCaveExit(layer, x, y);
   }
 
   // Invalidate pathfinding cache (OPTIMIZED with versioning)

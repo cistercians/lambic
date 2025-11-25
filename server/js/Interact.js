@@ -4,6 +4,10 @@ Interact = function(id,loc){
   if(player.z == 0){
     var c = getCenter(loc[0],loc[1]);
     var b = getBuilding(c[0],c[1]);
+    // If building not found via getBuilding, try interactability map
+    if(!b && typeof global.getInteractableBuilding === 'function'){
+      b = global.getInteractableBuilding(0, c[0], c[1]);
+    }
     if(b){ // building
       var building = Building.list[b];
       var inv = player.inventory;
@@ -14,55 +18,42 @@ Interact = function(id,loc){
       }
       
       if(building.type == 'mill'){
-        // Open deposit UI for grain
-        if(inv.grain > 0){
-          socket.write(JSON.stringify({
-            msg: 'openDeposit',
-            buildingType: 'mill',
-            buildingId: b,
-            buildingOwner: building.owner,
-            resources: {
-              grain: inv.grain
-            }
-          }));
-        } else {
-          socket.write(JSON.stringify({msg:'addToChat', message: '<i>You have no grain to deposit.</i>'}));
-        }
+        // Open deposit UI for grain (always open UI, like docks)
+        socket.write(JSON.stringify({
+          msg: 'openDeposit',
+          buildingType: 'mill',
+          buildingId: b,
+          buildingOwner: building.owner,
+          resources: {
+            grain: inv.grain || 0
+          }
+        }));
       } else if(building.type == 'lumbermill'){
-        // Open deposit UI for wood
-        if(inv.wood > 0){
-          socket.write(JSON.stringify({
-            msg: 'openDeposit',
-            buildingType: 'lumbermill',
-            buildingId: b,
-            buildingOwner: building.owner,
-            resources: {
-              wood: inv.wood
-            }
-          }));
-        } else {
-          socket.write(JSON.stringify({msg:'addToChat', message: '<i>You have no wood to deposit.</i>'}));
-        }
+        // Open deposit UI for wood (always open UI, like docks)
+        socket.write(JSON.stringify({
+          msg: 'openDeposit',
+          buildingType: 'lumbermill',
+          buildingId: b,
+          buildingOwner: building.owner,
+          resources: {
+            wood: inv.wood || 0
+          }
+        }));
       } else if(building.type == 'mine'){
-        // Open deposit UI for stone and ores
-        var hasResources = inv.stone > 0 || inv.ironore > 0 || inv.silverore > 0 || inv.goldore > 0 || inv.diamond > 0;
-        if(hasResources){
-          socket.write(JSON.stringify({
-            msg: 'openDeposit',
-            buildingType: 'mine',
-            buildingId: b,
-            buildingOwner: building.owner,
-            resources: {
-              stone: inv.stone || 0,
-              ironore: inv.ironore || 0,
-              silverore: inv.silverore || 0,
-              goldore: inv.goldore || 0,
-              diamond: inv.diamond || 0
-            }
-          }));
-        } else {
-          socket.write(JSON.stringify({msg:'addToChat', message: '<i>You have no stone or ore to deposit.</i>'}));
-        }
+        // Open deposit UI for stone and ores (always open UI, like docks)
+        socket.write(JSON.stringify({
+          msg: 'openDeposit',
+          buildingType: 'mine',
+          buildingId: b,
+          buildingOwner: building.owner,
+          resources: {
+            stone: inv.stone || 0,
+            ironore: inv.ironore || 0,
+            silverore: inv.silverore || 0,
+            goldore: inv.goldore || 0,
+            diamond: inv.diamond || 0
+          }
+        }));
       } else if(building.type == 'stable'){
         if(building.horses > 0){
 

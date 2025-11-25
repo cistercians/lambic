@@ -13,6 +13,8 @@ class GameState {
     this.day = 1;
     this.tick = 1;
     this.tempus = 'XII.a';
+    this.previousTempus = 'XII.a'; // Track previous tempus for hour change detection (initialize to starting tempus)
+    this.previousHourIndex = 0; // Track previous hour index for hour change detection
     this.nightfall = true;
     this.period = 360;
 
@@ -92,10 +94,17 @@ class GameState {
       'XI.a','XII.p','I.p','II.p','III.p','IV.p','V.p','VI.p','VII.p','VIII.p','IX.p','X.p','XI.p'];
 
     // Calculate which hour we're in (24 hours total, 0-23)
+    // Each hour should last (period / 24) ticks
     const hourIndex = Math.floor((this.tick / this.period) * 24);
     const cycleIndex = hourIndex % 24;
 
-    this.tempus = cycle[cycleIndex];
+    const newTempus = cycle[cycleIndex];
+    
+    // Don't fire events here - events are fired in dayNight() where tempus changes are actually detected
+    // This function just updates the tempus value every frame
+    
+    this.tempus = newTempus;
+    this.previousTempus = newTempus;
 
     // Nightfall is true during these hours: VIII.p, IX.p, X.p, XI.p, XII.a, I.a, II.a, III.a, IV.a
     this.nightfall = ['VIII.p', 'IX.p', 'X.p', 'XI.p', 'XII.a', 'I.a', 'II.a', 'III.a', 'IV.a'].includes(this.tempus);

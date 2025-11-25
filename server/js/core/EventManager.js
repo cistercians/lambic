@@ -599,6 +599,75 @@ class EventManager {
       position
     });
   }
+  
+  // Time/Environment events
+  hourChange(newTempus, day) {
+    return this.createEvent({
+      category: this.categories.ENVIRONMENT,
+      action: 'hour change',
+      quantity: day,
+      communication: this.commModes.NONE,
+      message: null,
+      log: `[TEMPUS] Day ${day}, Hour: ${newTempus}`,
+      metadata: { tempus: newTempus, day }
+    });
+  }
+  
+  dailyRecap(day, populationBefore, changes) {
+    // Build population breakdown message
+    const popBreakdown = `Players: ${populationBefore.players}, NPCs: ${populationBefore.npcs}, Fauna: ${populationBefore.fauna}`;
+    
+    // Build changes summary
+    const changesParts = [];
+    if (changes.tilesChanged > 0) {
+      changesParts.push(`${changes.tilesChanged} tiles changed by entropy`);
+    }
+    if (changes.faunaAdded > 0) {
+      changesParts.push(`${changes.faunaAdded} fauna added`);
+    }
+    if (changes.serfsAdded && Object.keys(changes.serfsAdded).length > 0) {
+      const serfParts = [];
+      for (const houseName in changes.serfsAdded) {
+        if (changes.serfsAdded[houseName] > 0) {
+          serfParts.push(`${houseName}: ${changes.serfsAdded[houseName]}`);
+        }
+      }
+      if (serfParts.length > 0) {
+        changesParts.push(`Serfs added: ${serfParts.join(', ')}`);
+      }
+    }
+    if (changes.militaryUnitsAdded && Object.keys(changes.militaryUnitsAdded).length > 0) {
+      const militaryParts = [];
+      for (const houseName in changes.militaryUnitsAdded) {
+        if (changes.militaryUnitsAdded[houseName] > 0) {
+          militaryParts.push(`${houseName}: ${changes.militaryUnitsAdded[houseName]}`);
+        }
+      }
+      if (militaryParts.length > 0) {
+        changesParts.push(`Military units added: ${militaryParts.join(', ')}`);
+      }
+    }
+    
+    const changesSummary = changesParts.length > 0 
+      ? `Changes: ${changesParts.join('; ')}`
+      : 'No changes';
+    
+    const logMessage = `[DAILY RECAP] Day ${day} - ${popBreakdown}. ${changesSummary}`;
+    
+    return this.createEvent({
+      category: this.categories.ENVIRONMENT,
+      action: 'daily recap',
+      quantity: day,
+      communication: this.commModes.NONE,
+      message: null,
+      log: logMessage,
+      metadata: {
+        day,
+        populationBefore,
+        changes
+      }
+    });
+  }
 }
 
 module.exports = EventManager;

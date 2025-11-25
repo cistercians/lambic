@@ -150,11 +150,19 @@ class GameRenderer {
   renderItems(config, visibilityCheck) {
     const { mode, currentZ } = config;
     
+    let iterated = 0;
+    let rendered = 0;
+    
     for(const i in Item.list) {
       const item = Item.list[i];
       if(!item) continue;
       
+      iterated++;
+      if(window._renderStats) window._renderStats.entitiesIterated.items++;
+      
       if(visibilityCheck(item)) {
+        rendered++;
+        if(window._renderStats) window._renderStats.entitiesRendered.items++;
         // Special handling for buildings (z=1, z=2) in normal mode
         if(mode === 'normal' && (currentZ === 1 || currentZ === 2) && Player.list[selfId]) {
           const playerBuilding = getBuilding(Player.list[selfId].x, Player.list[selfId].y);
@@ -185,7 +193,10 @@ class GameRenderer {
       const isFalcon = player.class === 'Falcon';
       if(isFalcon !== falconsOnly) continue;
       
+      if(window._renderStats) window._renderStats.entitiesIterated.players++;
+      
       if(visibilityCheck(player)) {
+        if(window._renderStats) window._renderStats.entitiesRendered.players++;
         // Additional building check for normal mode
         if(mode === 'normal' && !isFalcon && (currentZ === 1 || currentZ === 2) && Player.list[selfId]) {
           const playerBuilding = getBuilding(Player.list[selfId].x, Player.list[selfId].y);
@@ -206,7 +217,10 @@ class GameRenderer {
       const arrow = Arrow.list[i];
       if(!arrow) continue;
       
+      if(window._renderStats) window._renderStats.entitiesIterated.arrows++;
+      
       if(visibilityCheck(arrow)) {
+        if(window._renderStats) window._renderStats.entitiesRendered.arrows++;
         arrow.draw();
       }
     }
@@ -220,7 +234,10 @@ class GameRenderer {
       const building = Building.list[i];
       if(!building) continue;
       
+      if(window._renderStats) window._renderStats.entitiesIterated.buildings++;
+      
       if(visibilityCheck(building)) {
+        if(window._renderStats) window._renderStats.entitiesRendered.buildings++;
         building.draw();
       }
     }

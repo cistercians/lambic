@@ -2206,9 +2206,30 @@ Character = function(param){
     // Clear all pending action timeouts (fishing, etc.)
     if(self.actionTimeouts && Array.isArray(self.actionTimeouts)){
       self.actionTimeouts.forEach(timeoutId => {
-        clearTimeout(timeoutId);
+        if(timeoutId) clearTimeout(timeoutId);
       });
       self.actionTimeouts = [];
+    }
+    
+    // Clear any tracked timers (if timer tracking system is in use)
+    if(self._trackedTimers && Array.isArray(self._trackedTimers)){
+      self._trackedTimers.forEach(timerId => {
+        if(timerId) {
+          clearTimeout(timerId);
+          clearInterval(timerId);
+        }
+      });
+      self._trackedTimers = [];
+    }
+    
+    // Clear any other common timer properties
+    if(self.timeoutId) {
+      clearTimeout(self.timeoutId);
+      self.timeoutId = null;
+    }
+    if(self.intervalId) {
+      clearInterval(self.intervalId);
+      self.intervalId = null;
     }
     
     // Unsubscribe from EventManager
@@ -2301,6 +2322,15 @@ Character = function(param){
   self.targetZLevel = null; // Destination z-level for cross-z navigation
 
   self.move = function(target){ // [c,r]
+    // Safety check: NPCs should not move to water tiles (unless they're already underwater)
+    if(self.type === 'npc' && self.z === 0 && !self.ghost && !self.isBoarded){
+      var targetTile = getTile(0, target[0], target[1]);
+      if(targetTile === 0){ // TERRAIN.WATER
+        // Don't allow NPCs to move to water tiles
+        return;
+      }
+    }
+    
     self.working = false;
     self.farming = false;
     self.chopping = false;
@@ -2880,10 +2910,11 @@ Character = function(param){
   }
   
   // Start aggro checking interval for all NPCs (type is set to 'npc' in Character constructor)
+  // Use SimpleCombat.checkAggro() for all NPC aggro checks
   if(self.type === 'npc'){
     self.aggroInterval = setInterval(function(){
-      if(self.checkAggro){
-        self.checkAggro();
+      if(global.simpleCombat && global.simpleCombat.checkAggro){
+        global.simpleCombat.checkAggro(self);
       }
     }, 100); // Check every 100ms for responsive aggro
   }
@@ -2974,6 +3005,14 @@ Character = function(param){
     // This prevents infinite pathing loops at z-transition tiles
     if(loc.toString() === tLoc.toString() && tz === self.z){
       return;
+    }
+    
+    // CRITICAL: Clear path immediately if z-level has changed
+    // This prevents infinite loops when pathfinding after z-transition
+    if(tz !== self.z){
+      self.path = null;
+      self.pathCount = 0;
+      self.pathEnd = null;
     }
     
     if(loc.toString() != tLoc.toString()){
@@ -3687,6 +3726,10 @@ Character = function(param){
       return;
     }
     
+    // ===== CRITICAL: Track z-level at start of update =====
+    // This allows us to detect z-level changes and stop movement immediately
+    var previousZ = self.z;
+    
     // ===== NEW: Using prototype methods =====
     Character.prototype.updateStealthMechanics.call(this);
     Character.prototype.updateTorchBearer.call(this);
@@ -3697,6 +3740,22 @@ Character = function(param){
     var loc = getLoc(self.x,self.y);
     var b = getBuilding(self.x,self.y);
     self.zoneCheck();
+    
+    // ===== CRITICAL: Stop all movement if z-level changed =====
+    // This MUST happen before any movement processing to prevent continued movement
+    if(self.z !== previousZ){
+      // Z-level changed - STOP ALL MOVEMENT IMMEDIATELY
+      self.path = null;
+      self.pathCount = 0;
+      self.pathEnd = null;
+      self.pressingRight = false;
+      self.pressingLeft = false;
+      self.pressingDown = false;
+      self.pressingUp = false;
+      self.transitionIntent = null;
+      self.transitionState = 'none';
+      // Don't return - continue with update for other systems, but no movement will occur
+    }
     
     // OLD: ===== STEALTH MECHANICS (lines 3728-3733) =====
     // OLD: Stealthed characters have reduced drag (move slower), check for reveals
@@ -3820,8 +3879,9 @@ Character = function(param){
           self.transitionIntent = 'enter_water';
         }
         
-        // Check intent to enter water
-        if(self.transitionIntent === 'enter_water'){
+        // NPCs automatically enter water when they step on it (no intent needed)
+        // Players need intent for backward compatibility
+        if(self.transitionIntent === 'enter_water' || self.type === 'npc'){
           self.enterWater();
         }
       } else {
@@ -3941,6 +4001,15 @@ Character = function(param){
         }
       }
     }
+    
+    // ===== CRITICAL: Check if z-level changed during transitions =====
+    // Stop ALL movement immediately if z-level changed
+    var zLevelChanged = (self.z !== previousZ);
+    if(zLevelChanged){
+      // Z-level changed - STOP ALL MOVEMENT IMMEDIATELY
+      self.clearAllMovement(); // Use centralized function to clear all movement state
+      // Mark that z-level changed so movement processing below will be skipped
+    }
 
     // ===== NPC AI MODES (lines 3990-4350) =====
     // Complex behavioral state machine for NPCs
@@ -3970,7 +4039,10 @@ Character = function(param){
             var select = [[col,row-1],[col-1,row],[col,row+1],[col+1,row]];
             var target = select[Math.floor(Math.random() * 4)];
             if(target[0] < mapSize && target[0] > -1 && target[1] < mapSize && target[1] > -1){
-              if(isWalkable(self.z,target[0],target[1])){
+              // Check if tile is walkable and not water (NPCs should avoid water during idle pathing)
+              var targetTile = getTile(0, target[0], target[1]);
+              var isWater = (targetTile === 0); // TERRAIN.WATER
+              if(isWalkable(self.z,target[0],target[1]) && !isWater){
                 self.move(target);
                 self.idleTime += Math.floor(Math.random() * self.idleRange);
               }
@@ -4464,7 +4536,15 @@ Character = function(param){
         }
       }
     }
-    self.updatePosition();
+    
+    // ===== CRITICAL: Skip movement processing if z-level changed =====
+    // Don't process movement if z-level changed during this update
+    if(!zLevelChanged){
+      self.updatePosition();
+    } else {
+      // Z-level changed - just clear movement flags, don't process movement
+      // Movement flags already cleared above, just ensure updatePosition doesn't run
+    }
   }
 
   self.getPath = function(z,c,r){
@@ -4594,29 +4674,68 @@ Character = function(param){
         }
       } else if(self.z == 1){
         if(b == db){
-          //var gridB1b = cloneGrid(1);
-          //var path = finder.findPath(start[0], start[1], c, r, gridB1b);
-          //self.path = path;
-          self.moveTo([c,r]);
+          // Use tilemap system for pathfinding on building floor 1 (layer 3)
+          // Check if destination is stairs - if so, allow only that stairs tile
+          var targetTile = global.getTile(4, c, r);
+          var options = {};
+          if(targetTile === 3 || targetTile === 4 || targetTile === 5 || targetTile === 6 || targetTile === 7){
+            // Destination is stairs or upstairs/downstairs transition - allow only this tile
+            options.targetStairs = [c, r];
+            options.avoidStairs = true;
+          }
+          var path = global.tilemapSystem.findPath(start, [c,r], 3, options);
+          if(path && path.length > 0){
+            path = smoothPath(path, z);
+            cachePath(start, [c,r], z, path);
+          }
+          self.path = path;
+          self.pathCount = 0; // Initialize path counter
         } else {
-          //var gridB1b = cloneGrid(1);
+          // Moving to different building - path to exit first
           var exit = Building.list[b].entrance;
-          //var path = finder.findPath(start[0], start[1], exit[0], exit[1]+1, gridB1b);
-          //self.path = path;
-          self.moveTo([exit[0],exit[1]+1]);
+          // Use tilemap system for pathfinding on building floor 1 (layer 3)
+          var path = global.tilemapSystem.findPath(start, [exit[0],exit[1]+1], 3);
+          if(path && path.length > 0){
+            path = smoothPath(path, z);
+            cachePath(start, [exit[0],exit[1]+1], z, path);
+          }
+          self.path = path;
+          self.pathCount = 0; // Initialize path counter
         }
       } else if(self.z == 2){
         if(b == db){
-          //var gridB2b = cloneGrid(2);
-          //var path = finder.findPath(start[0], start[1], c, r, gridB2b);
-          //self.path = path;
-          self.moveTo([c,r]);
+          // Use tilemap system for pathfinding on building floor 2 (layer 5)
+          // Check if destination is stairs - if so, allow only that stairs tile
+          var targetTile = global.getTile(4, c, r);
+          var options = {};
+          if(targetTile === 3 || targetTile === 4){
+            // Destination is upstairs stairs - allow only this tile
+            options.targetStairs = [c, r];
+            options.avoidStairs = true;
+          }
+          var path = global.tilemapSystem.findPath(start, [c,r], 5, options);
+          if(path && path.length > 0){
+            path = smoothPath(path, z);
+            cachePath(start, [c,r], z, path);
+          }
+          self.path = path;
+          self.pathCount = 0; // Initialize path counter
         } else {
-          //var gridB2b = cloneGrid(2);
+          // Moving to different building - path to stairs first
           var stairs = Building.list[b].ustairs;
-          //var path = finder.findPath(start[0], start[1], stairs[0], stairs[1], gridB1b);
-          //self.path = path;
-          self.moveTo(stairs);
+          // Use tilemap system for pathfinding on building floor 2 (layer 5)
+          // Allow stairs as destination only
+          var options = {
+            targetStairs: stairs,
+            avoidStairs: true
+          };
+          var path = global.tilemapSystem.findPath(start, stairs, 5, options);
+          if(path && path.length > 0){
+            path = smoothPath(path, z);
+            cachePath(start, stairs, z, path);
+          }
+          self.path = path;
+          self.pathCount = 0; // Initialize path counter
         }
       }
     } else {
@@ -4633,10 +4752,10 @@ Character = function(param){
               best = d;
             }
           }
-          // When pathfinding to cave entrance, allow the specific cave entrance
+          // When pathfinding to cave entrance, allow only the specific cave entrance
           var options = {
-            allowSpecificDoor: true,
-            targetDoor: [cave[0], cave[1]]
+            targetCaveEntrance: [cave[0], cave[1]],
+            avoidCaveEntrances: true
           };
           var path = global.tilemapSystem.findPath(start, [cave[0], cave[1]], 0, options);
           self.path = path;
@@ -4707,7 +4826,14 @@ Character = function(param){
         //self.path = path;
         self.moveTo(stairs);
       } else if(self.z == -3){ // underwater
-        self.moveTo([c,r]);
+        // Use proper pathfinding for underwater (layer 2)
+        var path = global.tilemapSystem.findPath(start, [c,r], 2, {});
+        if(path && path.length > 0){
+          path = smoothPath(path, z);
+          cachePath(start, [c,r], z, path);
+        }
+        self.path = path;
+        self.pathCount = 0; // Initialize path counter
       }
     }
     
@@ -4754,6 +4880,7 @@ Character = function(param){
     self.caveEntrance = entrance;
     self.path = null;
     self.pathCount = 0;
+    self.pathEnd = null; // Clear path end to prevent re-navigation
     self.transitionIntent = null;
     self.transitionState = 'none';
     self.innaWoods = false;
@@ -4843,6 +4970,7 @@ Character = function(param){
     self.z = 0;
     self.path = null;
     self.pathCount = 0;
+    self.pathEnd = null; // Clear path end to prevent re-navigation
     self.transitionIntent = null;
     self.transitionState = 'none';
     self.maxSpd = self.baseSpd * self.drag;
@@ -4857,30 +4985,39 @@ Character = function(param){
 
   self.goUpstairs = function() {
     self.z = 2;
-    self.path = null;
-    self.pathCount = 0;
-    self.transitionIntent = null;
-    self.transitionState = 'none';
+    self.clearAllMovement(); // Clear all movement state to prevent infinite loops
     self.y += (tileSize/2);
     self.facing = 'down';
-    // Clear movement flags
-    if(!self.ghost){
-      self.pressingRight = false;
-      self.pressingLeft = false;
-      self.pressingDown = false;
-      self.pressingUp = false;
-    }
   };
 
   self.goDownstairs = function(targetZ) {
     self.z = targetZ; // Could be 1 or -2
-    self.path = null;
-    self.pathCount = 0;
-    self.transitionIntent = null;
-    self.transitionState = 'none';
+    self.clearAllMovement(); // Clear all movement state to prevent infinite loops
     self.y += (tileSize/2);
     self.facing = 'down';
-    // Clear movement flags
+  };
+
+  // Helper function to clear all movement state
+  // This should be called whenever z-layer changes to prevent infinite pathing loops
+  self.clearAllMovement = function() {
+    self.path = null;
+    self.pathCount = 0;
+    self.pathEnd = null;
+    self.multiZWaypoints = null;
+    self.currentWaypoint = 0;
+    self.transitionIntent = null;
+    self.transitionState = 'none';
+    // Clear velocity to stop all movement immediately
+    self.spdX = 0;
+    self.spdY = 0;
+    // Clear path recalculation state to prevent paths from being regenerated
+    self.pathRecalcAttempts = 0;
+    self.lastWaypoint = null;
+    self.waypointStuckCounter = 0;
+    self.waypointHistory = null;
+    self.pathLocked = false;
+    self.skippedWaypointCount = 0;
+    // Clear movement flags (except for ghosts)
     if(!self.ghost){
       self.pressingRight = false;
       self.pressingLeft = false;
@@ -4903,6 +5040,7 @@ Character = function(param){
     self.z = -3;
     self.path = null;
     self.pathCount = 0;
+    self.pathEnd = null; // Clear path end to prevent re-navigation
     self.transitionIntent = null;
     self.transitionState = 'none';
     self.innaWoods = false;
@@ -4921,6 +5059,7 @@ Character = function(param){
     self.z = 0;
     self.path = null;
     self.pathCount = 0;
+    self.pathEnd = null; // Clear path end to prevent re-navigation
     self.transitionIntent = null;
     self.transitionState = 'none';
     self.breath = self.breathMax;
@@ -5328,7 +5467,7 @@ Character = function(param){
   // ===== END FIRST CHARACTER UPDATE =====
 
   self.getInitPack = function(){
-    return {
+    var pack = {
       type:self.type,
       name:self.name,
       id:self.id,
@@ -5360,11 +5499,17 @@ Character = function(param){
       spriteScale:self.spriteScale,
       isBoarded:self.isBoarded,
       boardedShip:self.boardedShip
+    };
+    // Add ship-specific properties if this is a ship
+    if(self.shipType){
+      pack.shipType = self.shipType;
+      pack.isPlayerControlled = self.isPlayerControlled;
     }
+    return pack;
   }
 
   self.getUpdatePack = function(){
-    return {
+    var pack = {
       name:self.name,
       id:self.id,
       house:self.house,
@@ -5405,7 +5550,13 @@ Character = function(param){
       spriteScale:self.spriteScale,
       isBoarded:self.isBoarded,
       boardedShip:self.boardedShip
+    };
+    // Add ship-specific properties if this is a ship
+    if(self.shipType){
+      pack.shipType = self.shipType;
+      pack.isPlayerControlled = self.isPlayerControlled;
     }
+    return pack;
   }
 
   Player.list[self.id] = self;
@@ -5965,7 +6116,10 @@ Deer = function(param){
             var select = [[col,row-1],[col-1,row],[col,row+1],[col+1,row]];
             var target = select[Math.floor(Math.random() * 4)];
             if(target[0] < mapSize && target[0] > -1 && target[1] < mapSize && target[1] > -1){
-              if(isWalkable(self.z,target[0],target[1])){
+              // Check if tile is walkable and not water (NPCs should avoid water during idle pathing)
+              var targetTile = getTile(0, target[0], target[1]);
+              var isWater = (targetTile === 0); // TERRAIN.WATER
+              if(isWalkable(self.z,target[0],target[1]) && !isWater){
                 self.move(target);
                 self.idleTime += Math.floor(Math.random() * self.idleRange);
               }
@@ -6423,139 +6577,8 @@ Wolf = function(param){
   return self;
 }
 
-Falcon = function(param){
-  var self = Character(param);
-  self.class = 'Falcon';
-  self.type = 'fauna'; // Not 'npc' - falcons are passive fauna with no combat
-  self.falconry = param.falconry;
-  self.hp = null; // Invulnerable - falcons cannot be damaged
-  self.baseSpd = 1;
-  self.maxSpd = 1;
-  self.spriteSize = tileSize*7;
-  self.update = function(){
-    if(!self.path){
-      if(!self.falconry){
-        // Safely get a new random destination, fallback to current position if spawn points unavailable
-        try {
-          self.path = randomSpawnO();
-        } catch (err) {
-          // Stay at current location if spawn points are unavailable
-          self.path = [self.x, self.y];
-        }
-      }
-    } else {
-      var dx = self.path[0];
-      var dy = self.path[1];
-      var diffX = dx - self.x;
-      var diffY = dy - self.y;
-
-      if(diffX >= self.maxSpd && diffY >= self.maxSpd){
-        self.x += self.maxSpd * (1);
-        self.y += self.maxSpd * (1);
-        if(diffX > diffY){
-          self.pressingRight = true;
-          self.pressingLeft = false;
-          self.pressingDown = false;
-          self.pressingUp = false;
-          self.facing = 'right';
-        } else {
-          self.pressingRight = false;
-          self.pressingLeft = false;
-          self.pressingDown = true;
-          self.pressingUp = false;
-          self.facing = 'down';
-        }
-      } else if(diffX >= self.maxSpd && diffY <= (0-self.maxSpd)){
-        self.x += self.maxSpd * (1);
-        self.y -= self.maxSpd * (1);
-        if(diffX > diffY*(-1)){
-          self.pressingRight = true;
-          self.pressingLeft = false;
-          self.pressingDown = false;
-          self.pressingUp = false;
-          self.facing = 'right';
-        } else {
-          self.pressingRight = false;
-          self.pressingLeft = false;
-          self.pressingDown = false;
-          self.pressingUp = true;
-          self.facing = 'up';
-        }
-      } else if(diffX <= (0-self.maxSpd) && diffY >= self.maxSpd){
-        self.x -= self.maxSpd * (1);
-        self.y += self.maxSpd * (1);
-        if(diffX*(-1) > diffY){
-          self.pressingRight = false;
-          self.pressingLeft = true;
-          self.pressingDown = false;
-          self.pressingUp = false;
-          self.facing = 'left';
-        } else {
-          self.pressingRight = false;
-          self.pressingLeft = false;
-          self.pressingDown = true;
-          self.pressingUp = false;
-          self.facing = 'down';
-        }
-      } else if(diffX <= (0-self.maxSpd) && diffY <= (0-self.maxSpd)){
-        self.x -= self.maxSpd * (1);
-        self.y -= self.maxSpd * (1);
-        if(diffX < diffY){
-          self.pressingRight = false;
-          self.pressingLeft = true;
-          self.pressingDown = false;
-          self.pressingUp = false;
-          self.facing = 'left';
-        } else {
-          self.pressingRight = false;
-          self.pressingLeft = false;
-          self.pressingDown = false;
-          self.pressingUp = true;
-          self.facing = 'up';
-        }
-      } else if(diffX >= self.maxSpd){
-        self.x += self.maxSpd * (1);
-        self.pressingRight = true;
-        self.pressingLeft = false;
-        self.pressingDown = false;
-        self.pressingUp = false;
-        self.facing = 'right';
-      } else if(diffX <= (0-self.maxSpd)){
-        self.x -= self.maxSpd * (1);
-        self.pressingRight = false;
-        self.pressingLeft = true;
-        self.pressingDown = false;
-        self.pressingUp = false;
-        self.facing = 'left';
-      } else if(diffY >= self.maxSpd){
-        self.y += self.maxSpd * (1);
-        self.pressingRight = false;
-        self.pressingLeft = false;
-        self.pressingDown = true;
-        self.pressingUp = false;
-        self.facing = 'down';
-      } else if(diffY <= (0-self.maxSpd)){
-        self.y -= self.maxSpd * (1);
-        self.pressingRight = false;
-        self.pressingLeft = false;
-        self.pressingDown = false;
-        self.pressingUp = true;
-        self.facing = 'up';
-      } else {
-        if(!self.falconry){
-          // Reached destination, get a new one
-          try {
-            self.path = randomSpawnO();
-          } catch (err) {
-            // Stay at current location if spawn points are unavailable
-            self.path = [self.x, self.y];
-          }
-        }
-      }
-    }
-  }
-  return self;
-}
+// Falcon entity is defined in server/js/entities/Falcon.js
+// and loaded via the modular entity system (server/js/entities/index.js)
 
 FishingShip = function(param){
   var self = Character(param);
@@ -7212,7 +7235,61 @@ FishingShip = function(param){
         self.isPlayerControlled = false;
         self.storedPlayer = null;
         self.sailPoints = {up: 0, down: 0, left: 0, right: 0};
-        self.mode = 'anchored';
+        self.velocity = {x: 0, y: 0}; // Stop movement
+        
+        // Check if ship is at a dock - if so, set to docked mode
+        var shipLoc = getLoc(self.x, self.y);
+        var shipTile = getTile(0, shipLoc[0], shipLoc[1]);
+        
+        // Check if on dock entrance tile (14) or near dock building
+        var atDock = false;
+        var dockBuildingId = null;
+        
+        if(shipTile == 14){
+          // On dock entrance - check if this is home dock
+          if(self.dock && Building.list[self.dock]){
+            var dockBuilding = Building.list[self.dock];
+            for(var i in dockBuilding.plot){
+              var dockLoc = dockBuilding.plot[i];
+              if(dockLoc[0] == shipLoc[0] && dockLoc[1] == shipLoc[1]){
+                atDock = true;
+                dockBuildingId = self.dock;
+                break;
+              }
+            }
+          }
+        }
+        
+        // Also check if near any dock building (within dock plot)
+        if(!atDock){
+          var buildingId = getBuilding(self.x, self.y);
+          if(buildingId){
+            var building = Building.list[buildingId];
+            if(building && building.type === 'dock'){
+              atDock = true;
+              dockBuildingId = buildingId;
+            }
+          }
+        }
+        
+        if(atDock){
+          // Ship is at a dock
+          if(dockBuildingId === self.dock){
+            // At home dock - store the ship properly
+            self.storeAtDock();
+            return;
+          } else {
+            // At foreign dock - set to docked mode but don't store
+            self.mode = 'docked';
+            self.name = 'Fishing Ship ⚓';
+            self.dockedTimer = 3600; // 1 hour
+            self.lastDock = dockBuildingId; // Update last dock visited
+          }
+        } else {
+          // Not at dock - set to anchored
+          self.mode = 'anchored';
+          self.name = 'Fishing Ship ⚓';
+        }
       }
     } else {
       // Just a passenger disembarking
@@ -8291,28 +8368,38 @@ Serf = function(param){
         }
       } else if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4 || getTile(4,loc[0],loc[1]) == 7){
         self.z = 2;
-        // DON'T clear path - preserve for multi-floor navigation
+        // For players, clear all movement to prevent infinite loops
+        if(self.type === 'player'){
+          self.clearAllMovement();
+        } else {
+          // For NPCs, preserve path for multi-floor navigation
+          // Clear movement to prevent infinite stair loops (except for ghosts)
+          if(!self.ghost){
+            self.pressingRight = false;
+            self.pressingLeft = false;
+            self.pressingDown = false;
+            self.pressingUp = false;
+          }
+        }
         self.y += (tileSize/2);
         self.facing = 'down';
-        // Clear movement to prevent infinite stair loops (except for ghosts)
-        if(!self.ghost){
-          self.pressingRight = false;
-          self.pressingLeft = false;
-          self.pressingDown = false;
-          self.pressingUp = false;
-        }
       } else if(getTile(4,loc[0],loc[1]) == 5 || getTile(4,loc[0],loc[1]) == 6){
         self.z = -2;
-        // DON'T clear path - preserve for cellar navigation
+        // For players, clear all movement to prevent infinite loops
+        if(self.type === 'player'){
+          self.clearAllMovement();
+        } else {
+          // For NPCs, preserve path for cellar navigation
+          // Clear movement to prevent infinite stair loops (except for ghosts)
+          if(!self.ghost){
+            self.pressingRight = false;
+            self.pressingLeft = false;
+            self.pressingDown = false;
+            self.pressingUp = false;
+          }
+        }
         self.y += (tileSize/2);
         self.facing = 'down';
-        // Clear movement to prevent infinite stair loops (except for ghosts)
-        if(!self.ghost){
-          self.pressingRight = false;
-          self.pressingLeft = false;
-          self.pressingDown = false;
-          self.pressingUp = false;
-        }
       }
     } else if(self.z == 2){
       if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4){
@@ -10247,16 +10334,21 @@ Innkeeper = function(param){
     } else if(self.z == -2){
       if(getTile(8,loc[0],loc[1]) == 5){
         self.z = 1;
-        // DON'T clear path - preserve for cross-floor navigation
+        // For players, clear all movement to prevent infinite loops
+        if(self.type === 'player'){
+          self.clearAllMovement();
+        } else {
+          // For NPCs, preserve path for cross-floor navigation
+          // Clear movement to prevent infinite stair loops (except for ghosts)
+          if(!self.ghost){
+            self.pressingRight = false;
+            self.pressingLeft = false;
+            self.pressingDown = false;
+            self.pressingUp = false;
+          }
+        }
         self.y += (tileSize/2);
         self.facing = 'down';
-        // Clear movement to prevent infinite stair loops (except for ghosts)
-        if(!self.ghost){
-          self.pressingRight = false;
-          self.pressingLeft = false;
-          self.pressingDown = false;
-          self.pressingUp = false;
-        }
       }
     } else if(self.z == -3){
       if(self.breath > 0){
@@ -10296,42 +10388,57 @@ Innkeeper = function(param){
         }
       } else if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4 || getTile(4,loc[0],loc[1]) == 7){
         self.z = 2;
-        // DON'T clear path - preserve for multi-floor navigation
+        // For players, clear all movement to prevent infinite loops
+        if(self.type === 'player'){
+          self.clearAllMovement();
+        } else {
+          // For NPCs, preserve path for multi-floor navigation
+          // Clear movement to prevent infinite stair loops (except for ghosts)
+          if(!self.ghost){
+            self.pressingRight = false;
+            self.pressingLeft = false;
+            self.pressingDown = false;
+            self.pressingUp = false;
+          }
+        }
         self.y += (tileSize/2);
         self.facing = 'down';
-        // Clear movement to prevent infinite stair loops (except for ghosts)
-        if(!self.ghost){
-          self.pressingRight = false;
-          self.pressingLeft = false;
-          self.pressingDown = false;
-          self.pressingUp = false;
-        }
       } else if(getTile(4,loc[0],loc[1]) == 5 || getTile(4,loc[0],loc[1]) == 6){
         self.z = -2;
-        // DON'T clear path - preserve for cellar navigation
+        // For players, clear all movement to prevent infinite loops
+        if(self.type === 'player'){
+          self.clearAllMovement();
+        } else {
+          // For NPCs, preserve path for cellar navigation
+          // Clear movement to prevent infinite stair loops (except for ghosts)
+          if(!self.ghost){
+            self.pressingRight = false;
+            self.pressingLeft = false;
+            self.pressingDown = false;
+            self.pressingUp = false;
+          }
+        }
         self.y += (tileSize/2);
         self.facing = 'down';
-        // Clear movement to prevent infinite stair loops (except for ghosts)
-        if(!self.ghost){
-          self.pressingRight = false;
-          self.pressingLeft = false;
-          self.pressingDown = false;
-          self.pressingUp = false;
-        }
       }
     } else if(self.z == 2){
       if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4){
         self.z = 1;
-        // DON'T clear path - preserve for multi-floor navigation
+        // For players, clear all movement to prevent infinite loops
+        if(self.type === 'player'){
+          self.clearAllMovement();
+        } else {
+          // For NPCs, preserve path for multi-floor navigation
+          // Clear movement to prevent infinite stair loops (except for ghosts)
+          if(!self.ghost){
+            self.pressingRight = false;
+            self.pressingLeft = false;
+            self.pressingDown = false;
+            self.pressingUp = false;
+          }
+        }
         self.y += (tileSize/2);
         self.facing = 'down';
-        // Clear movement to prevent infinite stair loops (except for ghosts)
-        if(!self.ghost){
-          self.pressingRight = false;
-          self.pressingLeft = false;
-          self.pressingDown = false;
-          self.pressingUp = false;
-        }
       }
     }
 
@@ -11111,16 +11218,21 @@ Blacksmith = function(param){
     } else if(self.z == -2){
       if(getTile(8,loc[0],loc[1]) == 5){
         self.z = 1;
-        // DON'T clear path - preserve for cross-floor navigation
+        // For players, clear all movement to prevent infinite loops
+        if(self.type === 'player'){
+          self.clearAllMovement();
+        } else {
+          // For NPCs, preserve path for cross-floor navigation
+          // Clear movement to prevent infinite stair loops (except for ghosts)
+          if(!self.ghost){
+            self.pressingRight = false;
+            self.pressingLeft = false;
+            self.pressingDown = false;
+            self.pressingUp = false;
+          }
+        }
         self.y += (tileSize/2);
         self.facing = 'down';
-        // Clear movement to prevent infinite stair loops (except for ghosts)
-        if(!self.ghost){
-          self.pressingRight = false;
-          self.pressingLeft = false;
-          self.pressingDown = false;
-          self.pressingUp = false;
-        }
       }
     } else if(self.z == -3){
       if(self.breath > 0){
@@ -11160,43 +11272,57 @@ Blacksmith = function(param){
         }
       } else if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4 || getTile(4,loc[0],loc[1]) == 7){
         self.z = 2;
-        // DON'T clear path - preserve for multi-floor navigation
+        // For players, clear all movement to prevent infinite loops
+        if(self.type === 'player'){
+          self.clearAllMovement();
+        } else {
+          // For NPCs, preserve path for multi-floor navigation
+          // Clear movement to prevent infinite stair loops (except for ghosts)
+          if(!self.ghost){
+            self.pressingRight = false;
+            self.pressingLeft = false;
+            self.pressingDown = false;
+            self.pressingUp = false;
+          }
+        }
         self.y += (tileSize/2);
         self.facing = 'down';
-        // Clear movement to prevent infinite stair loops (except for ghosts)
-        if(!self.ghost){
-          self.pressingRight = false;
-          self.pressingLeft = false;
-          self.pressingDown = false;
-          self.pressingUp = false;
-        }
       } else if(getTile(4,loc[0],loc[1]) == 5 || getTile(4,loc[0],loc[1]) == 6){
         self.z = -2;
-        // DON'T clear path - preserve for cellar navigation
+        // For players, clear all movement to prevent infinite loops
+        if(self.type === 'player'){
+          self.clearAllMovement();
+        } else {
+          // For NPCs, preserve path for cellar navigation
+          // Clear movement to prevent infinite stair loops (except for ghosts)
+          if(!self.ghost){
+            self.pressingRight = false;
+            self.pressingLeft = false;
+            self.pressingDown = false;
+            self.pressingUp = false;
+          }
+        }
         self.y += (tileSize/2);
         self.facing = 'down';
-        // Clear movement to prevent infinite stair loops (except for ghosts)
-        if(!self.ghost){
-          self.pressingRight = false;
-          self.pressingLeft = false;
-          self.pressingDown = false;
-          self.pressingUp = false;
-        }
       }
     } else if(self.z == 2){
       if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4){
         self.z = 1;
-        // DON'T clear path - preserve for multi-floor navigation
-        self.pathCount = 0;
+        // For players, clear all movement to prevent infinite loops
+        if(self.type === 'player'){
+          self.clearAllMovement();
+        } else {
+          // For NPCs, preserve path for multi-floor navigation
+          // Clear movement to prevent infinite stair loops (except for ghosts)
+          if(!self.ghost){
+            self.pressingRight = false;
+            self.pressingLeft = false;
+            self.pressingDown = false;
+            self.pressingUp = false;
+          }
+        }
         self.y += (tileSize/2);
         self.facing = 'down';
-        // Clear movement to prevent infinite stair loops (except for ghosts)
-        if(!self.ghost){
-          self.pressingRight = false;
-          self.pressingLeft = false;
-          self.pressingDown = false;
-          self.pressingUp = false;
-        }
       }
     }
 
@@ -12425,6 +12551,14 @@ Item.update = function(){
     if(item.toUpdate){
       item.update();
       if(item.toRemove){
+        // Clean up interactability for interactable objects (Goods1-4, Desk)
+        if(typeof global.clearTileInteractable === 'function'){
+          var interactableTypes = ['Goods1', 'Goods2', 'Goods3', 'Goods4', 'Desk'];
+          if(interactableTypes.indexOf(item.type) !== -1){
+            var loc = getLoc(item.x, item.y);
+            global.clearTileInteractable(item.z, loc[0], loc[1]);
+          }
+        }
         delete Item.list[i];
         removePack.item.push(item.id);
       } else {
@@ -13983,6 +14117,11 @@ Goods1 = function(param){
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   self.blocker(self.type);
+  // Mark tile as interactable (same tile that was made unwalkable by blocker)
+  var loc = getLoc(self.x, self.y);
+  if(typeof global.setTileInteractable === 'function'){
+    global.setTileInteractable(self.z, loc[0], loc[1], self.id);
+  }
   return self;
 }
 
@@ -13996,6 +14135,11 @@ Goods2 = function(param){
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   self.blocker(self.type);
+  // Mark tile as interactable (same tile that was made unwalkable by blocker)
+  var loc = getLoc(self.x, self.y);
+  if(typeof global.setTileInteractable === 'function'){
+    global.setTileInteractable(self.z, loc[0], loc[1], self.id);
+  }
   return self;
 }
 
@@ -14009,6 +14153,11 @@ Goods3 = function(param){
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   self.blocker(self.type);
+  // Mark tile as interactable (same tile that was made unwalkable by blocker)
+  var loc = getLoc(self.x, self.y);
+  if(typeof global.setTileInteractable === 'function'){
+    global.setTileInteractable(self.z, loc[0], loc[1], self.id);
+  }
   return self;
 }
 
@@ -14022,6 +14171,11 @@ Goods4 = function(param){
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   self.blocker(self.type);
+  // Mark tile as interactable (same tile that was made unwalkable by blocker)
+  var loc = getLoc(self.x, self.y);
+  if(typeof global.setTileInteractable === 'function'){
+    global.setTileInteractable(self.z, loc[0], loc[1], self.id);
+  }
   return self;
 }
 
@@ -14061,6 +14215,11 @@ Desk = function(param){
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
   self.blocker(self.type);
+  // Mark tile as interactable (same tile that was made unwalkable by blocker)
+  var loc = getLoc(self.x, self.y);
+  if(typeof global.setTileInteractable === 'function'){
+    global.setTileInteractable(self.z, loc[0], loc[1], self.id);
+  }
   return self;
 }
 
@@ -15151,7 +15310,7 @@ global.initModularEntities = function() {
     global.Boar = entities.Boar;
     global.Wolf = entities.Wolf;
     global.Falcon = entities.Falcon;
-    
   } catch(err) {
+    console.error('Error loading modular entities:', err.message);
   }
 };

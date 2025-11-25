@@ -14,6 +14,17 @@ function getSpriteForClass(entityClass, isGhost) {
     return null;
   }
   
+  // Special handling for Falcon: Check FIRST before spriteMap lookup
+  // Don't render falcons until sprite is loaded (don't use maleserf fallback)
+  // Also verify the falcon sprite has valid images loaded
+  if (entityClass === 'Falcon') {
+    if (typeof falcon !== 'undefined' && falcon && falcon.facedown && falcon.facedown.complete && falcon.facedown.naturalWidth > 0) {
+      return falcon;
+    } else {
+      return null; // Don't render falcons until sprite images are fully loaded
+    }
+  }
+  
   // Lazy initialize sprite map once
   if (!spriteMap) {
     // Debug: Check if sprite variables are defined
@@ -252,6 +263,7 @@ function resizeCanvas() {
   HEIGHT = window.innerHeight;
   var ctx_canvas = document.getElementById('ctx');
   var lighting_canvas = document.getElementById('lighting');
+  var cursor_overlay_canvas = document.getElementById('cursor-overlay');
   if (ctx_canvas) {
     ctx_canvas.width = WIDTH;
     ctx_canvas.height = HEIGHT;
@@ -259,6 +271,10 @@ function resizeCanvas() {
   if (lighting_canvas) {
     lighting_canvas.width = WIDTH;
     lighting_canvas.height = HEIGHT;
+  }
+  if (cursor_overlay_canvas) {
+    cursor_overlay_canvas.width = WIDTH;
+    cursor_overlay_canvas.height = HEIGHT;
   }
   if (viewport) {
     viewport.screen = [WIDTH, HEIGHT];
@@ -357,16 +373,24 @@ socket.onmessage = function(event){
           var playerData = data.pack.player[i];
           new Player(playerData);
           
-          // Fix sprite immediately after creation (Player constructor defaults to maleserf)
+          // Fix sprite immediately after creation
           var p = Player.list[playerData.id];
           if(p) {
-            p.sprite = getSpriteForClass(p.class, p.ghost);
-            previewLoadedCount++;
-            
-            // Debug: Log falcon sprite assignment
+            var sprite = getSpriteForClass(p.class, p.ghost);
+            // For falcons, only set sprite if it's the actual falcon sprite (not null or maleserf)
             if(p.class === 'Falcon') {
-              console.log('Preview: Falcon loaded:', p.id, 'sprite assigned:', p.sprite === falcon ? 'falcon sprite ✓' : 'WRONG SPRITE ✗');
+              if(sprite !== null && typeof falcon !== 'undefined' && sprite === falcon) {
+                p.sprite = sprite;
+                console.log('Preview: Falcon', p.id, 'sprite: FALCON_SPRITE ✓');
+              } else {
+                // Keep sprite as null - falcon will be invisible until sprite loads
+                p.sprite = null;
+                console.log('Preview: Falcon', p.id, 'sprite: NULL (images not loaded yet), facing:', p.facing);
+              }
+            } else {
+              p.sprite = sprite;
             }
+            previewLoadedCount++;
           } else {
             console.error('Preview: Failed to create player entity:', playerData.id, playerData.class);
             previewErrorCount++;
@@ -836,13 +860,13 @@ socket.onmessage = function(event){
         // Fix sprite immediately after creation (Player constructor defaults to maleserf)
         var p = Player.list[playerData.id];
         if(p) {
-          p.sprite = getSpriteForClass(p.class, p.ghost);
-          initLoadedCount++;
-          
-          // Debug: Log falcon sprite assignment
-          if(p.class === 'Falcon') {
-            console.log('Init: Falcon loaded:', p.id, 'at', p.x, p.y, 'sprite:', p.sprite === falcon ? 'falcon sprite ✓' : 'WRONG SPRITE ✗');
+          var sprite = getSpriteForClass(p.class, p.ghost);
+          // For falcons, only set sprite if it's loaded (not null)
+          if(sprite !== null || p.class !== 'Falcon') {
+            p.sprite = sprite;
           }
+          // For falcons with null sprite, keep it null (don't set to maleserf)
+          initLoadedCount++;
         } else {
           console.error('Init: Failed to create player entity:', playerData.id, playerData.class);
           initErrorCount++;
@@ -900,8 +924,12 @@ socket.onmessage = function(event){
     }
     
     // { player : [{id:123,number:'1',x:0,y:0},{id:1,x:0,y:0}] arrow : []}
-    for(var i = 0 ; i < data.pack.player.length; i++){
+    // Optimize: Cache array length to avoid repeated property access
+    var playerPackLength = data.pack.player ? data.pack.player.length : 0;
+    for(var i = 0 ; i < playerPackLength; i++){
       var pack = data.pack.player[i];
+      if(!pack || !pack.id) continue; // Skip invalid entries
+      
       var p = Player.list[pack.id];
       if(p){
         // Track last non-visual update time for throttling
@@ -1028,6 +1056,7 @@ socket.onmessage = function(event){
         if(pack.sailPoints != undefined) p.sailPoints = pack.sailPoints;
         if(pack.shipMode != undefined) p.shipMode = pack.shipMode;
         if(pack.shipType != undefined) p.shipType = pack.shipType;
+        if(pack.isPlayerControlled != undefined) p.isPlayerControlled = pack.isPlayerControlled;
         
         // Handle action updates
         if(pack.action !== undefined) {
@@ -1041,8 +1070,13 @@ socket.onmessage = function(event){
 
         // OPTIMIZATION: Only update sprite if class or ghost state changed
         // Uses O(1) lookup table instead of 125+ if-else comparisons
-        if (classChanged || ghostChanged || !p.sprite) {
-          p.sprite = getSpriteForClass(p.class, p.ghost);
+        // For falcons, always check sprite in case it just loaded
+        if (classChanged || ghostChanged || !p.sprite || (p.class === 'Falcon' && p.sprite === null)) {
+          var newSprite = getSpriteForClass(p.class, p.ghost);
+          if(newSprite !== null || p.class !== 'Falcon') {
+            p.sprite = newSprite;
+          }
+          // For falcons, keep sprite as null until it loads (don't set to maleserf)
         }
       }
     }
@@ -2953,79 +2987,154 @@ if(dropConfirmBtn){
 }
 
 // Get portrait image for a class
-function getPortraitImage(entityClass){
+function getPortraitImage(entityClass, entitySex){
   if(!entityClass) return Img.portraitSerfM;
   
-  // First, try to find a portrait image named after the class (e.g., Img.portraitFrankSword)
-  var portraitName = 'portrait' + entityClass;
-  if(Img[portraitName] && Img[portraitName].src){
-    return Img[portraitName];
+  // Special handling for Serf classes - check sex if provided
+  if(entityClass === 'Serf' || entityClass === 'SerfM' || entityClass === 'SerfF'){
+    if(entitySex === 'f' || entityClass === 'SerfF'){
+      if(Img.portraitSerfF && typeof Img.portraitSerfF !== 'undefined'){
+        return Img.portraitSerfF;
+      }
+    }
+    // Default to male serf
+    if(Img.portraitSerfM && typeof Img.portraitSerfM !== 'undefined'){
+      return Img.portraitSerfM;
+    }
   }
   
-  // Fallback mapping for classes that don't have their own portrait images
+  // Try to find a portrait image named after the class
+  // Try multiple case variations to handle different naming conventions
+  var classLower = entityClass.toLowerCase();
+  var classUpper = entityClass.toUpperCase();
+  var classCapitalized = entityClass.charAt(0).toUpperCase() + entityClass.slice(1).toLowerCase();
+  
+  // Handle camelCase properly (e.g., "MountedArcher" -> "portraitMountedArcher")
+  // Keep original camelCase as-is, or create proper camelCase if input is all lowercase
+  var classCamelCase = entityClass; // Keep original for exact match
+  
+  // Build list of possible portrait name variations
+  var portraitNames = [
+    'portrait' + entityClass,           // Exact match: portraitMountedArcher
+    'portrait' + classCapitalized,      // First-letter capitalized: portraitMountedarcher
+    'portrait' + classLower,            // Lowercase: portraitmountedarcher
+    'portrait' + classUpper,            // Uppercase: portraitMOUNTEDARCHER
+    'portrait' + classCamelCase         // CamelCase: portraitMountedArcher (same as exact, but explicit)
+  ];
+  
+  // Remove duplicates from the array
+  portraitNames = portraitNames.filter(function(value, index, self) {
+    return self.indexOf(value) === index;
+  });
+  
+  // Try each variation
+  for(var i = 0; i < portraitNames.length; i++){
+    var portraitName = portraitNames[i];
+    if(Img[portraitName] && typeof Img[portraitName] !== 'undefined'){
+      // Portrait exists in Img object and is pre-loaded, return it
+      return Img[portraitName];
+    }
+  }
+  
+  // Fallback mapping for classes that don't have their own portrait files
+  // NOTE: Many classes now have pre-loaded portraits, so this map is only for
+  // classes that truly don't have portrait files (e.g., variants that share portraits)
   var portraitMap = {
-    // Ranged classes
+    // Ranged classes (variants that share portraits)
     'Trapper': Img.portraitRogue,
     'Cutthroat': Img.portraitRogue,
     'Outlaw': Img.portraitHunter,
-    'Scout': Img.portraitHunter,
-    'Ranger': Img.portraitHunter,
-    'Warden': Img.portraitHunter,
-    'Poacher': Img.portraitHunter,
+    'Warden': Img.portraitHunter, // Warden uses Ranger portrait if available, otherwise Hunter
     
-    // Melee classes
+    // Melee classes (variants that share portraits)
     'Serf': Img.portraitSerfM,
     'Hospitaller': Img.portraitTemplar,
     'Hochmeister': Img.portraitTemplar,
-    'Cavalry': Img.portraitKnight,
-    'Lancer': Img.portraitKnight,
     'Charlemagne': Img.portraitKing,
-    'Hero': Img.portraitKnight,
-    'Horseman': Img.portraitKnight,
-    'MountedArcher': Img.portraitArcher,
-    'Cavalier': Img.portraitKnight,
-    'General': Img.portraitKnight,
-    'ImperialKnight': Img.portraitKnight,
-    'TeutonicKnight': Img.portraitKnight,
-    'Strongman': Img.portraitKnight,
-    'Condottiere': Img.portraitKnight,
-    'Footsoldier': Img.portraitKnight,
-    'Skirmisher': Img.portraitArcher,
-    'Swordsman': Img.portraitKnight,
     
-    // Magic classes
+    // Magic/Religious classes (variants that share portraits)
     'Acolyte': Img.portraitMage,
     'Brother': Img.portraitWarlock,
     'Prior': Img.portraitMonk,
     'Priest': Img.portraitMonk,
-    'Friar': Img.portraitMonk,
     'Bishop': Img.portraitMonk,
     'Archbishop': Img.portraitMonk,
     'Oathkeeper': Img.portraitMonk,
     'HighPriestess': Img.portraitMonk,
-    'seidr': Img.portraitMonk,
     
-    // Special classes
+    // Special classes (variants that share portraits)
     'Alaric': Img.portraitKing,
     'Innkeeper': Img.portraitSerfM,
     'Shipwright': Img.portraitSerfM,
-    'Morrigan': Img.portraitDruid,
     'Gwenllian': Img.portraitDruid,
     
-    // Siege/Other
-    'Trebuchet': Img.portraitSerfM,
-    'Mangonel': Img.portraitSerfM,
-    'Malvoisin': Img.portraitSerfM,
-    'Apparition': Img.portraitSerfM
+    // Siege/Other (variants that share portraits)
+    'Apparition': Img.portraitSerfM,
+    
+    // Note: Classes like Scout, Ranger, Poacher, Lancer, Hero, Horseman, MountedArcher,
+    // ImperialKnight, TeutonicKnight, Strongman, Swordsman, Friar, seidr, Morrigan,
+    // Trebuchet, Mangonel, Malvoisin now have their own pre-loaded portraits
   };
   
-  // Check fallback map
+  // At this point, no pre-loaded portrait was found
+  // Check fallback map first (for classes that share portraits)
   if(portraitMap[entityClass]){
-    return portraitMap[entityClass];
+    var fallbackPortrait = portraitMap[entityClass];
+    // Verify fallback portrait exists
+    if(fallbackPortrait && typeof fallbackPortrait !== 'undefined'){
+      return fallbackPortrait;
+    }
   }
   
-  // Default to male serf
-  return Img.portraitSerfM;
+  // Last resort: Try dynamic loading as fallback (should rarely be needed now that
+  // most portraits are pre-loaded, but useful for future classes)
+  // Construct the expected path: /client/img/chars/{classname}/{classname}.png
+  var expectedPath = '/client/img/chars/' + classLower + '/' + classLower + '.png';
+  var dynamicPortraitName = 'portrait' + classCapitalized;
+  
+  // Only create and load if it doesn't already exist
+  if(!Img[dynamicPortraitName]){
+    Img[dynamicPortraitName] = new Image();
+    // Add error handler to mark image as broken if it fails to load
+    Img[dynamicPortraitName].onerror = function(){
+      // Mark as broken by setting a flag
+      this._broken = true;
+      console.warn('Portrait failed to load dynamically:', expectedPath);
+    };
+    // Add load handler to trigger redraw when image loads
+    Img[dynamicPortraitName].onload = function(){
+      // Trigger a redraw of portrait HUDs when image loads
+      if(typeof updatePlayerPortraitHUD === 'function'){
+        updatePlayerPortraitHUD();
+      }
+      if(typeof updateTargetPortraitHUD === 'function'){
+        updateTargetPortraitHUD();
+      }
+    };
+    Img[dynamicPortraitName].src = expectedPath;
+  }
+  
+  // Check if dynamically loaded image is broken (only if it's complete)
+  var isBroken = false;
+  if(Img[dynamicPortraitName].complete){
+    isBroken = Img[dynamicPortraitName]._broken === true || Img[dynamicPortraitName].width === 0;
+  }
+  
+  // If dynamic portrait is broken, try fallback map again, then default
+  if(isBroken){
+    if(portraitMap[entityClass]){
+      var brokenFallback = portraitMap[entityClass];
+      if(brokenFallback && typeof brokenFallback !== 'undefined'){
+        return brokenFallback;
+      }
+    }
+    // Ultimate fallback
+    console.warn('No portrait found for class:', entityClass, '- using default Serf portrait');
+    return Img.portraitSerfM;
+  }
+  
+  // Return the dynamically loaded portrait (will show once loaded)
+  return Img[dynamicPortraitName];
 }
 
 // Portrait HUD update functions
@@ -3049,9 +3158,16 @@ function updatePlayerPortraitHUD(){
   if(canvas){
     var ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, 64, 64);
-    var portrait = getPortraitImage(player.class);
-    if(portrait && portrait.complete){
-      ctx.drawImage(portrait, 0, 0, 64, 64);
+    // Pass player.sex for Serf classes to get correct portrait
+    var portrait = getPortraitImage(player.class, player.sex);
+    // Check if portrait exists, is complete, and has valid dimensions (not broken)
+    if(portrait && portrait.complete && portrait.width > 0 && portrait.height > 0){
+      try {
+        ctx.drawImage(portrait, 0, 0, 64, 64);
+      } catch(e) {
+        // Image is broken, skip drawing
+        console.warn('Failed to draw player portrait for class:', player.class, e);
+      }
     }
   }
   
@@ -3116,11 +3232,15 @@ function updateTargetPortraitHUD(){
   if(canvas){
     var ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, 64, 64);
-    var portrait = getPortraitImage(target.class);
-    if(portrait){
-      // Always try to draw portrait (will draw if loaded, otherwise will be blank until loaded)
-      if(portrait.complete && portrait.width > 0 && portrait.height > 0){
+    // Pass target.sex for Serf classes to get correct portrait
+    var portrait = getPortraitImage(target.class, target.sex);
+    // Check if portrait exists, is complete, and has valid dimensions (not broken)
+    if(portrait && portrait.complete && portrait.width > 0 && portrait.height > 0){
+      try {
         ctx.drawImage(portrait, 0, 0, 64, 64);
+      } catch(e) {
+        // Image is broken, skip drawing
+        console.warn('Failed to draw target portrait for class:', target.class, e);
       }
     }
   }
@@ -4370,6 +4490,10 @@ if(dockClose){
 
 // Auto-focus chat input when Enter is pressed
 document.addEventListener('keydown', function(e){
+  // Get chatInput reference at the start
+  var chatInput = document.getElementById('chat-input');
+  var isChatFocused = chatInput && document.activeElement === chatInput;
+  
   // In spectate mode, allow Enter for chat and ESC to exit
   if(spectateCameraSystem && spectateCameraSystem.isActive) {
     if(e.key === 'Escape'){
@@ -4379,16 +4503,18 @@ document.addEventListener('keydown', function(e){
       return;
     }
     if(e.key === 'Enter' || e.keyCode === 13){
-      if(document.activeElement !== chatInput){
+      if(!isChatFocused && chatInput){
         e.preventDefault();
         chatInput.focus();
       }
+      // If chat is already focused, let Enter work normally (to submit messages)
+      return;
     }
     return;
   }
   
   // Block all input during login
-  if(loginCameraSystem.isActive) {
+  if(loginCameraSystem && loginCameraSystem.isActive) {
     return;
   }
   
@@ -4399,15 +4525,14 @@ document.addEventListener('keydown', function(e){
     return;
   }
   
-  // F key - Process fish catch
-  if(e.key === 'f' || e.key === 'F'){
+  // F key - Activate work command mode
+  // Handle F key here, but don't stop propagation so document.onkeydown can also handle it if needed
+  if((e.key === 'f' || e.key === 'F' || e.keyCode === 70) && !isChatFocused){
     // Only if not typing in chat
-    if(document.activeElement !== chatInput){
-      e.preventDefault();
-      // Send fish catch attempt to server
-      socket.send(JSON.stringify({msg: 'processFishCatch'}));
-      return;
-    }
+    workCommandMode = !workCommandMode;
+    console.log('Work command mode toggled (addEventListener):', workCommandMode);
+    e.preventDefault();
+    // Don't stop propagation - let document.onkeydown handle it too for consistency
   }
   
   // Close popups on ESC
@@ -4437,12 +4562,15 @@ document.addEventListener('keydown', function(e){
     }
   }
   
+  // Enter key - focus chat if not focused, otherwise let it work normally (submit message)
   if(e.key === 'Enter' || e.keyCode === 13){
-    // Only focus if not already focused
-    if(document.activeElement !== chatInput){
+    if(!isChatFocused && chatInput){
+      // Chat not focused - focus it
       e.preventDefault();
       chatInput.focus();
     }
+    // If chat is already focused, don't prevent default - let Enter submit the message
+    // Don't return here, let the event continue to document.onkeydown if needed
   }
 });
 
@@ -4622,7 +4750,17 @@ var wrk = 0;
 
 var ctx = document.getElementById('ctx').getContext('2d');
 var lighting = document.getElementById('lighting').getContext('2d');
+var cursorOverlayCanvas = document.getElementById('cursor-overlay');
+var cursorOverlayCtx = cursorOverlayCanvas ? cursorOverlayCanvas.getContext('2d') : null;
 ctx.font = '30px Arial';
+
+// Hide default cursor on canvas - set immediately and ensure it stays hidden
+var canvas = document.getElementById('ctx');
+if(canvas){
+  // Force cursor to none using multiple methods to ensure it works
+  canvas.style.cursor = 'none';
+  canvas.style.setProperty('cursor', 'none', 'important');
+}
 
 // Helper function to get player ID for UI (inventory, character sheet, chat)
 // Returns actual player ID even when controlling a ship
@@ -4765,7 +4903,7 @@ var Player = function(initPack){
   self.enemies = initPack.enemies,
   self.gear = initPack.gear;
   self.inventory = initPack.inventory;
-  self.facing = 'down';
+  self.facing = initPack.facing || 'down';
   self.stealthed = initPack.stealthed;
   self.revealed = initPack.revealed;
   self.angle = 0;
@@ -4800,7 +4938,12 @@ var Player = function(initPack){
   self.spirit = initPack.spirit;
   self.spiritMax = initPack.spiritMax;
   self.ghost = initPack.ghost || false;
-  self.sprite = self.ghost ? ghost : maleserf; // Use ghost sprite if in ghost mode
+  self.sprite = getSpriteForClass(self.class, self.ghost); // Use correct sprite based on class
+  
+  // Debug: Log falcon sprite assignment
+  if(self.class === 'Falcon') {
+    console.log('FALCON CREATED:', self.id, 'sprite:', self.sprite === null ? 'NULL' : (typeof falcon !== 'undefined' && self.sprite === falcon ? 'FALCON_SPRITE' : 'WRONG_SPRITE'), 'facing:', self.facing);
+  }
   self.spriteSize = initPack.spriteSize || 64; // Default to 64 if not provided
   self.ranged = initPack.ranged;
   self.action = initPack.action;
@@ -4824,6 +4967,11 @@ var Player = function(initPack){
   }
 
   self.draw = function(){
+    // Don't render if sprite is not loaded (e.g., falcons before sprite loads)
+    if(!self.sprite){
+      return;
+    }
+    
     // God mode: Hide the player's own character
     if(godModeCamera.isActive && self.id === selfId){
       return;
@@ -5028,8 +5176,35 @@ var Player = function(initPack){
     }
     
     // character sprite (now using regular sprites only)
+      // Falcons: MUST be handled first - never fall through to generic rendering
+      if(self.class === 'Falcon'){
+        // Only render if we have the actual falcon sprite loaded
+        if(typeof falcon !== 'undefined' && self.sprite === falcon && falcon.facedown && falcon.facedown.complete){
+          // Debug: Log facing on first few draws
+          if(!self._facingLogged) {
+            console.log('FALCON DRAW:', self.id, 'facing:', self.facing);
+            self._facingLogged = true;
+          }
+        if(self.facing === 'down'){
+          safeDrawImage(self.sprite.facedown, x, y, scaledSpriteSize, scaledSpriteSize);
+        } else if(self.facing === 'up'){
+          safeDrawImage(self.sprite.faceup, x, y, scaledSpriteSize, scaledSpriteSize);
+        } else if(self.facing === 'left'){
+          safeDrawImage(self.sprite.faceleft, x, y, scaledSpriteSize, scaledSpriteSize);
+        } else if(self.facing === 'right'){
+          safeDrawImage(self.sprite.faceright, x, y, scaledSpriteSize, scaledSpriteSize);
+        } else {
+            // Default fallback - unexpected facing value
+            console.warn('FALCON unexpected facing:', self.facing, 'for', self.id);
+          safeDrawImage(self.sprite.facedown, x, y, scaledSpriteSize, scaledSpriteSize);
+        }
+        }
+        // Falcon class but sprite not ready - DO NOT render anything, DO NOT fall through
+        // This prevents falcons from ever rendering as maleserf
+        return;
+      }
       // Work animations (chopping, mining, farming, building, fishing) - use normal size for humans
-      if(self.chopping && self.sprite.chopping){
+      else if(self.chopping && self.sprite.chopping){
             safeDrawImage(
           self.sprite.chopping[wrk],
               x,
@@ -5176,112 +5351,77 @@ var Player = function(initPack){
             self.spriteSize
           );
         }
-      } else if(self.facing == 'down' && !self.pressingDown){
-        safeDrawImage(
-          self.sprite.facedown,
-          x,
-          y,
-          scaledSpriteSize,
-          scaledSpriteSize
-        );
-      } else if(self.pressingDown){
-        safeDrawImage(
-          self.sprite.walkdown[wlk],
-          x,
-          y,
-          scaledSpriteSize,
-          scaledSpriteSize
-        );
-      } else if(self.facing == 'up' && !self.pressingUp){
-        safeDrawImage(
-          self.sprite.faceup,
-          x,
-          y,
-          scaledSpriteSize,
-          scaledSpriteSize
-        );
-      } else if(self.pressingUp){
-        safeDrawImage(
-          self.sprite.walkup[wlk],
-          x,
-          y,
-          scaledSpriteSize,
-          scaledSpriteSize
-        );
-      } else if(self.facing == 'left' && !self.pressingLeft){
-        safeDrawImage(
-          self.sprite.faceleft,
-          x,
-          y,
-          scaledSpriteSize,
-          scaledSpriteSize
-        );
-      } else if(self.pressingLeft){
-        safeDrawImage(
-          self.sprite.walkleft[wlk],
-          x,
-          y,
-          scaledSpriteSize,
-          scaledSpriteSize
-        );
-      } else if(self.facing == 'right' && !self.pressingRight){
-        safeDrawImage(
-          self.sprite.faceright,
-          x,
-          y,
-          scaledSpriteSize,
-          scaledSpriteSize
-        );
-      } else if(self.pressingRight){
-        safeDrawImage(
-          self.sprite.walkright[wlk],
-          x,
-          y,
-          scaledSpriteSize,
-          scaledSpriteSize
-        );
+      } else {
+        // Other entities: Use pressing flags for animation, facing for idle
+        if(self.facing == 'down' && !self.pressingDown){
+            safeDrawImage(
+              self.sprite.facedown,
+              x,
+              y,
+              scaledSpriteSize,
+              scaledSpriteSize
+            );
+          } else if(self.pressingDown){
+            safeDrawImage(
+              self.sprite.walkdown[wlk],
+              x,
+              y,
+              scaledSpriteSize,
+              scaledSpriteSize
+            );
+          } else if(self.facing == 'up' && !self.pressingUp){
+            safeDrawImage(
+              self.sprite.faceup,
+              x,
+              y,
+              scaledSpriteSize,
+              scaledSpriteSize
+            );
+          } else if(self.pressingUp){
+            safeDrawImage(
+              self.sprite.walkup[wlk],
+              x,
+              y,
+              scaledSpriteSize,
+              scaledSpriteSize
+            );
+          } else if(self.facing == 'left' && !self.pressingLeft){
+            safeDrawImage(
+              self.sprite.faceleft,
+              x,
+              y,
+              scaledSpriteSize,
+              scaledSpriteSize
+            );
+          } else if(self.pressingLeft){
+            safeDrawImage(
+              self.sprite.walkleft[wlk],
+              x,
+              y,
+              scaledSpriteSize,
+              scaledSpriteSize
+            );
+          } else if(self.facing == 'right' && !self.pressingRight){
+            safeDrawImage(
+              self.sprite.faceright,
+              x,
+              y,
+              scaledSpriteSize,
+              scaledSpriteSize
+            );
+          } else if(self.pressingRight){
+            safeDrawImage(
+              self.sprite.walkright[wlk],
+              x,
+              y,
+              scaledSpriteSize,
+              scaledSpriteSize
+            );
+          }
       }
     
     // Reset transparency
     ctx.globalAlpha = 1.0;
-    
-    // Draw hover/selection border AFTER sprite is drawn (so it's always visible)
-    var isHovered = (hoveredTarget === self.id);
-    var isSelected = (selectedTarget === self.id);
-    // Debug: Log when border should be drawn (only first few times to avoid spam)
-    if((isHovered || isSelected) && Math.random() < 0.01){
-      console.log('Drawing border for entity:', self.id, 'hovered:', isHovered, 'selected:', isSelected);
-    }
-    if(isHovered || isSelected){
-      // Determine border color based on ally status
-      // allyCheck returns: -1 = enemy, 0 = neutral, 1 = friendly, 2 = self
-      // Check if this entity is an ally/enemy relative to the current player (selfId)
-      var allied = (typeof allyCheck === 'function' && selfId) ? allyCheck(self.id) : 0;
-      // Red for enemies, green for allies/friendly/neutral/self - use bright colors for visibility
-      var borderColor = (allied === -1) ? '#ff0000' : '#00ff00';
-      
-      // Draw border (always fully opaque)
-      ctx.save();
-      ctx.globalAlpha = 1.0;
-      ctx.globalCompositeOperation = 'source-over'; // Ensure border is drawn on top
-      var borderWidth = isSelected ? 3 : 2; // 3px for selected, 2px for hover
-      ctx.strokeStyle = borderColor;
-      ctx.lineWidth = borderWidth;
-      ctx.lineCap = 'square';
-      ctx.lineJoin = 'miter';
-      // Draw border around sprite
-      // Adjust position so border is centered on sprite edge (half border width inside, half outside)
-      var halfBorder = borderWidth / 2;
-      ctx.beginPath();
-      ctx.rect(
-        x - halfBorder, 
-        y - halfBorder, 
-        scaledSpriteSize + borderWidth, 
-        scaledSpriteSize + borderWidth
-      );
-      ctx.stroke();
-      ctx.restore();
-    }
   };
 
   Player.list[self.id] = self;
@@ -6759,8 +6899,13 @@ var selfId = null;
 
 // Mouse-based interaction system
 var attackCommandMode = false; // A key toggles attack command mode
+var workCommandMode = false; // F key activates work command mode
 var selectedTarget = null; // Currently selected entity ID
 var hoveredTarget = null; // Entity ID under mouse cursor
+var hoveredInteractable = null; // Interactable building or object under mouse cursor
+var currentMouseX = 0; // Current mouse X position (screen coordinates)
+var currentMouseY = 0; // Current mouse Y position (screen coordinates)
+var currentCursor = 'default'; // Current cursor type: 'default', 'attack', 'interact', 'work', 'rally'
 
 // init
 
@@ -7017,6 +7162,9 @@ function renderUnified(mode, currentZ, nightfall) {
     }
   }
   
+  // Draw hover/selection borders for entities (AFTER all entities are drawn, BEFORE lighting)
+  drawEntityBorders();
+  
   // Lighting
   renderLighting();
   
@@ -7117,6 +7265,16 @@ function updateAnimations(deltaTime) {
   }
 }
 
+// Rendering performance tracking
+if(!window._renderStats) {
+  window._renderStats = {
+    frameTimes: [],
+    entitiesIterated: { players: 0, items: 0, arrows: 0, buildings: 0 },
+    entitiesRendered: { players: 0, items: 0, arrows: 0, buildings: 0 },
+    lastLog: Date.now()
+  };
+}
+
 // Main game loop using requestAnimationFrame
 function gameLoop(currentTime) {
   // Calculate delta time since last frame
@@ -7130,6 +7288,9 @@ function gameLoop(currentTime) {
   }
   
   lastFrameTime = currentTime;
+  
+  // Track frame time
+  const renderStart = performance.now();
   
   // Update animations based on delta time
   updateAnimations(deltaTime);
@@ -7236,6 +7397,43 @@ function gameLoop(currentTime) {
     renderRain();
   }
   
+  // Track rendering performance
+  const renderTime = performance.now() - renderStart;
+  window._renderStats.frameTimes.push(renderTime);
+  if(window._renderStats.frameTimes.length > 300) {
+    window._renderStats.frameTimes.shift();
+  }
+  
+  // Log rendering stats periodically
+  const now = Date.now();
+  if(now - window._renderStats.lastLog >= 10000) { // Every 10 seconds
+    const avgFrameTime = window._renderStats.frameTimes.length > 0
+      ? window._renderStats.frameTimes.reduce((a, b) => a + b, 0) / window._renderStats.frameTimes.length
+      : 0;
+    const maxFrameTime = window._renderStats.frameTimes.length > 0
+      ? Math.max(...window._renderStats.frameTimes)
+      : 0;
+    
+    const totalIterated = window._renderStats.entitiesIterated.players + 
+                          window._renderStats.entitiesIterated.items +
+                          window._renderStats.entitiesIterated.arrows +
+                          window._renderStats.entitiesIterated.buildings;
+    const totalRendered = window._renderStats.entitiesRendered.players + 
+                          window._renderStats.entitiesRendered.items +
+                          window._renderStats.entitiesRendered.arrows +
+                          window._renderStats.entitiesRendered.buildings;
+    
+    console.log(`\n🎨 Client Rendering Stats:`);
+    console.log(`   Frame Time: avg=${avgFrameTime.toFixed(2)}ms, max=${maxFrameTime.toFixed(2)}ms`);
+    console.log(`   Entities: ${totalIterated} iterated, ${totalRendered} rendered (${((totalRendered/totalIterated)*100).toFixed(1)}% visible)`);
+    console.log(`   Breakdown: ${window._renderStats.entitiesRendered.players}/${window._renderStats.entitiesIterated.players} players, ${window._renderStats.entitiesRendered.items}/${window._renderStats.entitiesIterated.items} items`);
+    
+    // Reset counters
+    window._renderStats.entitiesIterated = { players: 0, items: 0, arrows: 0, buildings: 0 };
+    window._renderStats.entitiesRendered = { players: 0, items: 0, arrows: 0, buildings: 0 };
+    window._renderStats.lastLog = now;
+  }
+  
   // Hook performance HUD tracking (if enabled)
   if (window.performanceHUD && window.performanceHUD.enabled) {
     window.performanceHUD.recordFrame(deltaTime);
@@ -7245,8 +7443,127 @@ function gameLoop(currentTime) {
   updatePlayerPortraitHUD();
   updateTargetPortraitHUD();
   
+  // Render custom cursor (after all game content)
+  renderCursor();
+  
   // Continue the loop
   requestAnimationFrame(gameLoop);
+}
+
+// Cursor rendering function
+function renderCursor() {
+  var canvas = document.getElementById('ctx');
+  if(!canvas) return;
+  
+  // Check if cursor overlay is available, try to initialize if not
+  if(!cursorOverlayCtx || !cursorOverlayCanvas) {
+    cursorOverlayCanvas = document.getElementById('cursor-overlay');
+    if(cursorOverlayCanvas) {
+      cursorOverlayCtx = cursorOverlayCanvas.getContext('2d');
+      // Set initial size
+      if(cursorOverlayCanvas.width === 0 || cursorOverlayCanvas.height === 0) {
+        cursorOverlayCanvas.width = WIDTH || window.innerWidth;
+        cursorOverlayCanvas.height = HEIGHT || window.innerHeight;
+      }
+    }
+    if(!cursorOverlayCtx || !cursorOverlayCanvas) {
+      // Still not available, skip rendering
+      return;
+    }
+  }
+  
+  // Clear the cursor overlay canvas each frame
+  cursorOverlayCtx.clearRect(0, 0, cursorOverlayCanvas.width, cursorOverlayCanvas.height);
+  
+  // Hide default browser cursor - ensure it stays hidden (set every frame to override any resets)
+  // Use multiple methods to ensure it works across all browsers
+  canvas.style.cursor = 'none';
+  canvas.style.setProperty('cursor', 'none', 'important');
+  
+  // Also hide cursor on body and gameDiv when over canvas (helps with some browsers)
+  var gameDiv = document.getElementById('gameDiv');
+  if(gameDiv){
+    gameDiv.style.cursor = 'none';
+  }
+  if(document.body){
+    // Only hide body cursor when mouse is over the canvas area
+    var rect = canvas.getBoundingClientRect();
+    if(currentMouseX >= 0 && currentMouseX <= rect.width && currentMouseY >= 0 && currentMouseY <= rect.height){
+      document.body.style.cursor = 'none';
+    }
+  }
+  
+  // Determine which cursor to show based on mode and hover state
+  var cursorType = 'default';
+  var cursorImg = null;
+  
+  if(workCommandMode) {
+    cursorType = 'work';
+    cursorImg = Img.cursorWork;
+    console.log('Work mode active, cursorImg:', cursorImg, 'complete:', cursorImg ? cursorImg.complete : 'null');
+  } else if(attackCommandMode) {
+    // Attack command mode takes priority
+    cursorType = 'attack';
+    cursorImg = Img.cursorAttack;
+  } else if(hoveredTarget && typeof allyCheck === 'function') {
+    // Check if hovered entity is an enemy
+    var allyStatus = allyCheck(hoveredTarget);
+    if(allyStatus === -1) {
+      // Enemy - show attack cursor
+    cursorType = 'attack';
+    cursorImg = Img.cursorAttack;
+  } else if(hoveredInteractable) {
+      // Friendly/neutral entity, but also hovering over interactable - show interact cursor
+    cursorType = 'interact';
+    cursorImg = Img.cursorInteract;
+      // Debug: Log interact cursor for entity + building
+      if(Math.random() < 0.01){
+        console.log('Interact cursor: entity + building, hoveredInteractable:', hoveredInteractable);
+      }
+  } else {
+      // Friendly/neutral entity, no interactable - default cursor
+      cursorType = 'default';
+      cursorImg = Img.cursor;
+    }
+  } else if(hoveredInteractable) {
+    // No entity hovered, but hovering over interactable building/object
+    cursorType = 'interact';
+    cursorImg = Img.cursorInteract;
+    // Debug: Log interact cursor for building only (always log for debugging)
+    console.log('Interact cursor: building only, hoveredInteractable:', hoveredInteractable, 'Building type:', Building.list[hoveredInteractable] ? Building.list[hoveredInteractable].type : 'unknown');
+  } else {
+    // Default cursor
+    cursorType = 'default';
+    cursorImg = Img.cursor;
+  }
+  
+  // Only render if cursor image exists
+  if(!cursorImg) {
+    console.warn('Cursor image is null for type:', cursorType);
+    return;
+  }
+  
+  // If image not loaded yet, log but still try to render (browser will handle it)
+  if(!cursorImg.complete) {
+    if(workCommandMode){
+      console.log('cursorWork still loading, complete:', cursorImg.complete, 'src:', cursorImg.src);
+    }
+    // Continue anyway - the image might load mid-frame
+  }
+  
+  // Draw cursor at mouse position on the cursor overlay canvas
+  // Most cursors: top-left alignment (draw at mouseX, mouseY)
+  // Rally cursor: center-bottom alignment (draw at mouseX - width/2, mouseY - height)
+  var cursorWidth = cursorImg.width || 32;
+  var cursorHeight = cursorImg.height || 32;
+  
+  if(cursorType === 'rally') {
+    // Center-bottom alignment for rally cursor
+    cursorOverlayCtx.drawImage(cursorImg, currentMouseX - cursorWidth / 2, currentMouseY - cursorHeight, cursorWidth, cursorHeight);
+  } else {
+    // Top-left alignment for all other cursors
+    cursorOverlayCtx.drawImage(cursorImg, currentMouseX, currentMouseY, cursorWidth, cursorHeight);
+  }
 }
 
 // Start the game loop
@@ -7279,19 +7596,76 @@ var getCoords = function(c,r){
   return coords;
 };
 
+// Helper function to check if a specific tile in a building's plot is non-walkable (solid)
+// Only non-walkable tiles should trigger interaction
+// This allows players to walk on walkable tiles in building plots (e.g., dock walkways)
+function isTileNonWalkable(building, tileX, tileY) {
+  if (!building || !building.plot || !Array.isArray(building.plot)) {
+    // If no plot info, assume all tiles are solid (default behavior)
+    return true;
+  }
+  
+  // Get building center location
+  var buildingLoc = getLoc(building.x, building.y);
+  var buildingCenterX = buildingLoc[0];
+  var buildingCenterY = buildingLoc[1];
+  
+  // Calculate relative position from building center
+  var relX = tileX - buildingCenterX;
+  var relY = tileY - buildingCenterY;
+  
+  // First, check if the tile is in the building's plot at all
+  // Building plots are stored as ABSOLUTE tile coordinates, not relative
+  var tileInPlot = false;
+  for (var i = 0; i < building.plot.length; i++) {
+    var plotTile = building.plot[i];
+    if (plotTile && plotTile.length >= 2 && plotTile[0] === tileX && plotTile[1] === tileY) {
+      tileInPlot = true;
+      break;
+    }
+  }
+  
+  // If tile is not in the plot, it's not a building tile (walkable)
+  if (!tileInPlot) {
+    return false;
+  }
+  
+  // For docks specifically: only the center tile of the top row is non-walkable
+  // Dock plot is 6 tiles: 2 rows of 3 tiles
+  // Top row: [c-1,r], [c,r], [c+1,r] (indices 0, 1, 2)
+  // Bottom row: [c-1,r-1], [c,r-1], [c+1,r-1] (indices 3, 4, 5)
+  // Building center is at [c, r] (center of top row)
+  // So the non-walkable tile is [c, r] which is [0, 0] relative to center
+  // All other dock tiles are walkable (the dock walkway)
+  if (building.type === 'dock') {
+    // Only [0, 0] relative to center is solid (non-walkable) - this is the center tile of the top row
+    return (relX === 0 && relY === 0);
+  }
+  
+  // For other buildings, all plot tiles are non-walkable (solid building tiles)
+  // For economic buildings like lumbermills and mines, all plot tiles are solid
+  return true;
+}
+
 // get building id from (x,y)
 getBuilding = function(x,y){
   var loc = getLoc(x,y);
-  for(i in Building.list){
+  if(!loc || loc.length < 2) return null;
+  
+  for(var i in Building.list){
     var b = Building.list[i];
-    for(n = 0; n < b.plot.length; n++){
-      if(b.plot[n][0] == loc[0] && b.plot[n][1] == loc[1]){
+    if(!b || !b.plot || !Array.isArray(b.plot)) continue;
+    
+    for(var n = 0; n < b.plot.length; n++){
+      var plotTile = b.plot[n];
+      if(!plotTile || !Array.isArray(plotTile) || plotTile.length < 2) continue;
+      
+      if(plotTile[0] == loc[0] && plotTile[1] == loc[1]){
         return b.id;
-      } else {
-        continue;
       }
     }
   }
+  return null;
 }
 
 // check if same faction(2), ally(1), neutral(0), enemy(-1)
@@ -7301,8 +7675,16 @@ var allyCheck = function(id){
     return 0;
   }
   
+  // Check if checking against self
+  if(selfId === id) return 2; // Same entity
+  
   var player = Player.list[selfId];
   var other = Player.list[id];
+  
+  // Safety check: ensure both entities exist
+  if(!player || !other) {
+    return 0;
+  }
   
   // Safety check for houses
   if(!houseList) {
@@ -7381,6 +7763,12 @@ var allyCheck = function(id){
         return 0;
       }
     } else {
+      // Both have no house - check if either is a wild animal (always hostile)
+      var wildAnimals = ['Wolf', 'Boar'];
+      if(wildAnimals.indexOf(player.class) !== -1 || wildAnimals.indexOf(other.class) !== -1){
+        return -1; // Hostile
+      }
+      
       for(var i in player.friends){
         if(player.friends[i] == id){
           return 1;
@@ -10278,6 +10666,71 @@ var renderMap = function(){
   }
 };
 
+// Draw borders around hovered/selected entities
+var drawEntityBorders = function(){
+  // Only draw if we have a player and valid targets
+  if(!selfId || !Player.list[selfId]) return;
+  
+  var player = Player.list[selfId];
+  var currentZ = getCurrentZ();
+  var cameraPos = getCameraPosition();
+  
+  // Check if we have any hovered or selected targets
+  if(!hoveredTarget && !selectedTarget) return;
+  
+  // Get current z-layer
+  var z = getCurrentZ();
+  
+  // Draw borders for hovered and selected entities
+  var targetsToDraw = [];
+  if(hoveredTarget && Player.list[hoveredTarget]) targetsToDraw.push({id: hoveredTarget, isSelected: false});
+  if(selectedTarget && Player.list[selectedTarget] && selectedTarget !== hoveredTarget) {
+    targetsToDraw.push({id: selectedTarget, isSelected: true});
+  }
+  
+  for(var i = 0; i < targetsToDraw.length; i++){
+    var targetData = targetsToDraw[i];
+    var entity = Player.list[targetData.id];
+    if(!entity || entity.z !== z) continue;
+    
+    // Skip Falcons - their sprites are massive (include shadows) and shouldn't have borders
+    if(entity.class === 'Falcon') continue;
+    
+    // Calculate sprite size (accounting for scaling)
+    var shouldScale = (entity.class === 'Wolf' || entity.class === 'Boar') && entity.spriteScale;
+    var scaledSpriteSize = shouldScale ? (entity.spriteSize * entity.spriteScale) : (entity.spriteSize || 64);
+    
+    // Calculate screen position (same as in entity draw function)
+    var x = (entity.x - (scaledSpriteSize/2)) - cameraPos.x + WIDTH/2;
+    var y = (entity.y - (scaledSpriteSize/2)) - cameraPos.y + HEIGHT/2;
+    
+    // Determine border color based on ally status
+    var allied = (typeof allyCheck === 'function' && selfId) ? allyCheck(entity.id) : 0;
+    var borderColor = (allied === -1) ? '#ff0000' : '#00ff00'; // Red for enemies, green for allies
+    
+    // Draw border
+    ctx.save();
+    ctx.globalAlpha = 1.0;
+    ctx.globalCompositeOperation = 'source-over';
+    var borderWidth = targetData.isSelected ? 3 : 2; // 3px for selected, 2px for hover
+    ctx.strokeStyle = borderColor;
+    ctx.lineWidth = borderWidth;
+    ctx.lineCap = 'square';
+    ctx.lineJoin = 'miter';
+    
+    var halfBorder = borderWidth / 2;
+    ctx.beginPath();
+    ctx.rect(
+      x - halfBorder, 
+      y - halfBorder, 
+      scaledSpriteSize + borderWidth, 
+      scaledSpriteSize + borderWidth
+    );
+    ctx.stroke();
+    ctx.restore();
+  }
+};
+
 var renderTops = function(){
   // Get current z-layer (works for login camera, god mode, and normal play)
   var z = getCurrentZ();
@@ -11433,7 +11886,8 @@ var renderLighting = function(){
 // CONTROLS
 document.onkeydown = function(event){
   // Check if chat is focused (needs to be checked early for godmode)
-  var chatFocus = (document.activeElement == chatInput);
+  var chatInput = document.getElementById('chat-input');
+  var chatFocus = (chatInput && document.activeElement == chatInput);
   
   // Check if player exists before processing game input
   if(!selfId || !Player.list[selfId]){
@@ -11534,9 +11988,43 @@ document.onkeydown = function(event){
   
   // chatFocus already declared at top of function
   if(!chatFocus){
-    if(event.keyCode == 65){ // a - Attack command mode
-      attackCommandMode = true;
-      console.log('Attack command mode activated');
+    // Check if player is a ship navigator (controlling a ship)
+    var isShipNavigator = false;
+    if(selfId && Player.list[selfId]){
+      var currentEntity = Player.list[selfId];
+      // Navigator: selfId points to ship entity with shipType and isPlayerControlled
+      if(currentEntity.shipType === 'fishingship' && currentEntity.isPlayerControlled){
+        isShipNavigator = true;
+      }
+    }
+    
+    // WASD keys for ship navigation (navigator only)
+    if(isShipNavigator){
+      if(event.keyCode == 87){ // W - up
+        socket.send(JSON.stringify({msg:'keyPress',inputId:'up',state:true}));
+        event.preventDefault();
+        return;
+      } else if(event.keyCode == 83){ // S - down
+        socket.send(JSON.stringify({msg:'keyPress',inputId:'down',state:true}));
+        event.preventDefault();
+        return;
+      } else if(event.keyCode == 65){ // A - left (navigation, not attack command for navigator)
+        socket.send(JSON.stringify({msg:'keyPress',inputId:'left',state:true}));
+        event.preventDefault();
+        return;
+      } else if(event.keyCode == 68){ // D - right
+        socket.send(JSON.stringify({msg:'keyPress',inputId:'right',state:true}));
+        event.preventDefault();
+        return;
+      }
+    }
+    
+    if(event.keyCode == 65){ // a - Attack command mode (only for non-navigators)
+      // Only activate attack command if NOT a ship navigator
+      if(!isShipNavigator){
+        attackCommandMode = true;
+        console.log('Attack command mode activated');
+      }
     } else if(event.keyCode == 69){ // e
       socket.send(JSON.stringify({msg:'keyPress',inputId:'e',state:true}));
     } else if(event.keyCode == 84){ // t
@@ -11545,8 +12033,16 @@ document.onkeydown = function(event){
       socket.send(JSON.stringify({msg:'keyPress',inputId:'i',state:true}));
     } else if(event.keyCode == 80){ // p
       socket.send(JSON.stringify({msg:'keyPress',inputId:'p',state:true}));
-    } else if(event.keyCode == 70){ // f
-      socket.send(JSON.stringify({msg:'keyPress',inputId:'f',state:true}));
+    } else if(event.keyCode == 70){ // f - Activate work command mode
+      // Toggle work command mode (we're already inside !chatFocus block)
+      // Only toggle if default wasn't already prevented (i.e., addEventListener didn't handle it)
+      if(!event.defaultPrevented){
+        workCommandMode = !workCommandMode;
+        console.log('Work command mode toggled (document.onkeydown):', workCommandMode);
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      return; // Don't send keyPress message for F key in work mode
     } else if(event.keyCode == 72){ // h
       socket.send(JSON.stringify({msg:'keyPress',inputId:'h',state:true}));
     } else if(event.keyCode == 75){ // k
@@ -11691,6 +12187,9 @@ document.onkeyup = function(event){
     return;
   }
   
+  // Note: WASD key releases are not sent for ships - original momentum-based system
+  // Ships maintain sail points until opposite direction is pressed or manually cleared
+  
   if(event.keyCode == 69){ // e
     socket.send(JSON.stringify({msg:'keyPress',inputId:'e',state:false}));
   } else if(event.keyCode == 84){ // t
@@ -11747,6 +12246,14 @@ document.onmousemove = function(event){
   mousePos.x = event.clientX;
   mousePos.y = event.clientY;
   
+  // Track mouse position for cursor rendering (screen coordinates)
+  var canvas = document.getElementById('ctx');
+  if(canvas){
+    var rect = canvas.getBoundingClientRect();
+    currentMouseX = event.clientX - rect.left;
+    currentMouseY = event.clientY - rect.top;
+  }
+  
   if(selfId){
     var x = -250 + event.clientX - 8;
     var y = -250 + event.clientY - 8;
@@ -11771,6 +12278,9 @@ document.onmousemove = function(event){
         for(var id in Player.list){
           var entity = Player.list[id];
           if(entity && entity.z === player.z){
+            // Skip Falcons - their sprites are massive (include shadows) and shouldn't be hoverable
+            if(entity.class === 'Falcon') continue;
+            
             var dx = entity.x - worldX;
             var dy = entity.y - worldY;
             var distance = Math.sqrt(dx*dx + dy*dy);
@@ -11783,7 +12293,258 @@ document.onmousemove = function(event){
             }
             if(distance < detectionRadius){
               hoveredTarget = id;
+              // Debug: Log hover detection occasionally
+              if(Math.random() < 0.01){
+                console.log('Hover detected on entity:', id, 'distance:', distance, 'radius:', detectionRadius);
+              }
               break;
+            }
+          }
+        }
+        
+        // Check for interactable buildings/objects (using generic interactability checks)
+        hoveredInteractable = null;
+        
+        // Centralized interactable type lists (must match server-side configuration)
+        var INTERACTABLE_BUILDING_TYPES = ['dock', 'mill', 'mine', 'lumbermill', 'stable', 'tavern', 'market', 'monastery'];
+        var INTERACTABLE_OBJECT_TYPES = ['Goods1', 'Goods2', 'Goods3', 'Goods4', 'Desk'];
+        
+        // Helper function to check if building is interactable
+        function isInteractableBuilding(building) {
+          if (!building) return false;
+          if (building.interactable === true) return true;
+          return INTERACTABLE_BUILDING_TYPES.indexOf(building.type) !== -1;
+        }
+        
+        // Helper function to check if player can interact with a building
+        function canInteractWithBuilding(building, playerId) {
+          if (!building) return false;
+          // playerId can be null/undefined - allow interaction for neutral buildings
+          if (playerId === null || playerId === undefined) {
+            return (!building.owner && !building.house) || building.type === 'dock';
+          }
+          
+          var player = Player.list[playerId];
+          // If player not found, allow interaction for buildings with no owner restrictions
+          if (!player) {
+            return (!building.owner && !building.house) || building.type === 'dock';
+          }
+          
+          // Docks allow access to neutral/friendly players (special case)
+          if (building.type === 'dock') {
+            var canAccess = true;
+            
+            // Check if player is hostile to dock owner
+            if (building.owner && building.owner !== playerId) {
+              var dockOwner = Player.list[building.owner];
+              if (dockOwner) {
+                if (player.enemies && player.enemies.indexOf(building.owner) !== -1) {
+                  canAccess = false;
+                }
+                if (dockOwner.enemies && dockOwner.enemies.indexOf(playerId) !== -1) {
+                  canAccess = false;
+                }
+              }
+            }
+            
+            // Check faction hostility
+            if (building.house && player.house && building.house !== player.house) {
+              if (player.enemies && player.enemies.indexOf(building.house) !== -1) {
+                canAccess = false;
+              }
+            }
+            
+            return canAccess;
+          }
+          
+          // For other buildings (mills, lumbermills, mines, etc.), check ownership/house
+          // Player can interact if:
+          // 1. They own the building
+          // 2. They're in the same house as the building
+          // 3. Building has no owner (neutral building)
+          if (building.owner === playerId) {
+            return true; // Player owns the building
+          }
+          
+          if (building.house && player.house && building.house === player.house) {
+            return true; // Same house
+          }
+          
+          if (!building.owner && !building.house) {
+            return true; // Neutral building with no owner
+          }
+          
+          return false; // Cannot interact
+        }
+        
+        // Helper function to check if object is interactable
+        function isInteractableObject(item) {
+          if (!item) return false;
+          if (item.interactable === true) return true;
+          return INTERACTABLE_OBJECT_TYPES.indexOf(item.type) !== -1;
+        }
+        
+        if(player.z === 0){
+          // Only check for buildings when on overworld (z=0)
+          // First try the exact tile location
+          var buildingId = getBuilding(worldX, worldY);
+          
+            // Debug: Log building detection attempts (more frequently for testing)
+            if(Math.random() < 0.05){
+              var totalBuildings = 0;
+              var interactableBuildings = 0;
+              for(var bid in Building.list){
+                totalBuildings++;
+                var b = Building.list[bid];
+                // Check if building is interactable (don't require built property on client)
+                if(b && isInteractableBuilding(b)) interactableBuildings++;
+              }
+              console.log('Building hover check - worldX:', worldX.toFixed(2), 'worldY:', worldY.toFixed(2), 'tile:', getLoc(worldX, worldY), 'found buildingId:', buildingId, 'total buildings:', totalBuildings, 'interactable:', interactableBuildings, 'actual selfId:', selfId);
+              if(buildingId && Building.list[buildingId]){
+                var dbgBuilding = Building.list[buildingId];
+                console.log('  Building:', dbgBuilding.type, 'built:', dbgBuilding.built, 'owner:', dbgBuilding.owner, 'house:', dbgBuilding.house);
+                console.log('  isInteractable:', isInteractableBuilding(dbgBuilding), 'canInteract:', canInteractWithBuilding(dbgBuilding, selfId));
+                if(dbgBuilding.plot) console.log('  plot tiles:', dbgBuilding.plot.length);
+              } else if(!buildingId) {
+                // Try to find any nearby buildings
+                var nearbyBuildings = [];
+                for(var bid in Building.list){
+                  var b = Building.list[bid];
+                  if(b && b.x !== undefined && b.y !== undefined){
+                    var dx = b.x - worldX;
+                    var dy = b.y - worldY;
+                    var dist = Math.sqrt(dx*dx + dy*dy);
+                    if(dist < tileSize * 3){
+                      nearbyBuildings.push({id: bid, type: b.type, dist: dist.toFixed(2)});
+                    }
+                  }
+                }
+                if(nearbyBuildings.length > 0){
+                  console.log('  Nearby buildings:', nearbyBuildings);
+                }
+              }
+            }
+          
+          // If no building found at exact location, check building centers and bounds
+          if(!buildingId){
+            // Check all buildings to see if mouse is near their center or within their bounds
+            for(var bid in Building.list){
+              var b = Building.list[bid];
+              // On client side, building.built might be undefined - assume building exists means it's built
+              if(!b || (b.built === false) || !isInteractableBuilding(b)) continue;
+              
+              // Check if mouse is near building center (within 1.5 tiles)
+              if(b.x !== undefined && b.y !== undefined){
+                var dx = b.x - worldX;
+                var dy = b.y - worldY;
+                var dist = Math.sqrt(dx*dx + dy*dy);
+                if(dist < tileSize * 1.5){
+                  buildingId = b.id;
+                  break;
+                }
+              }
+              
+              // Also check if mouse is within any plot tile (with some tolerance)
+              if(b.plot && Array.isArray(b.plot)){
+                for(var p = 0; p < b.plot.length; p++){
+                  var plotTile = b.plot[p];
+                  if(!plotTile || plotTile.length < 2) continue;
+                  var plotX = plotTile[0] * tileSize + tileSize / 2;
+                  var plotY = plotTile[1] * tileSize + tileSize / 2;
+                  var dx = plotX - worldX;
+                  var dy = plotY - worldY;
+                  var dist = Math.sqrt(dx*dx + dy*dy);
+                  if(dist < tileSize * 0.8){
+                    buildingId = b.id;
+                    break;
+                  }
+                }
+                if(buildingId) break;
+              }
+            }
+          }
+          
+          if(buildingId && Building.list[buildingId]){
+            var building = Building.list[buildingId];
+            // Check if building is interactable, built, and player can access it
+            // Note: On client side, building.built might be undefined - assume building exists means it's built
+            // Only exclude if explicitly false
+            var isBuilt = building.built !== false; // Treat undefined/null as true (building exists = built)
+            var isInteractable = isInteractableBuilding(building);
+            
+            // Get actual selfId - it might be a number or string
+            var actualSelfId = selfId;
+            // If selfId looks like a random decimal (0-1), try to find the real player ID
+            if(typeof actualSelfId === 'number' && actualSelfId > 0 && actualSelfId < 1){
+              // This might be a random number - try to get the real selfId from Player.list
+              for(var pid in Player.list){
+                var p = Player.list[pid];
+                if(p && p.type === 'player' && !p.toRemove){
+                  actualSelfId = pid;
+                  break;
+                }
+              }
+            }
+            
+            var canInteract = true;
+            // Check permissions if we have a valid selfId
+            if(actualSelfId && actualSelfId !== null && actualSelfId !== undefined){
+              // selfId might be a number or string - both are valid
+              canInteract = canInteractWithBuilding(building, actualSelfId);
+            } else {
+              // No valid selfId - allow interaction for buildings with no owner restrictions
+              canInteract = (!building.owner && !building.house) || building.type === 'dock';
+            }
+            
+            // Check if the hovered tile is interactable for this building
+            // Use building data to determine interactability (server-side map not available on client)
+            var hoveredTile = getLoc(worldX, worldY);
+            var isInteractableTile = false;
+            
+            if(building.plot && Array.isArray(building.plot)){
+              if(building.type === 'dock'){
+                // For docks: only plot[4] (the non-walkable tile) is interactable
+                // Check if hovered tile matches plot[4] - the non-walkable tile
+                if(building.plot[4] && building.plot[4].length >= 2){
+                  if(building.plot[4][0] === hoveredTile[0] && building.plot[4][1] === hoveredTile[1]){
+                    isInteractableTile = true;
+                  }
+                }
+              } else if(building.type === 'mill' || building.type === 'lumbermill' || building.type === 'mine'){
+                // For mills, lumbermills, mines: all plot tiles are interactable (all are non-walkable)
+                for(var p = 0; p < building.plot.length; p++){
+                  var plotTile = building.plot[p];
+                  if(plotTile && plotTile.length >= 2 && plotTile[0] === hoveredTile[0] && plotTile[1] === hoveredTile[1]){
+                    isInteractableTile = true;
+                    break;
+                  }
+                }
+              }
+            }
+            
+            // Set hoveredInteractable if all conditions are met AND the tile is interactable
+            if(isBuilt && isInteractable && canInteract && isInteractableTile){
+              hoveredInteractable = buildingId;
+              console.log('✓✓✓ Hover detected on building:', buildingId, building.type, 'hoveredInteractable SET to:', hoveredInteractable, 'built:', isBuilt, 'interactable:', isInteractable, 'canInteract:', canInteract, 'isInteractableTile:', isInteractableTile, 'tile:', hoveredTile, 'actualSelfId:', actualSelfId);
+            } else {
+              console.log('✗✗✗ Building found but NOT setting hoveredInteractable:', buildingId, building.type, 'built:', isBuilt, 'interactable:', isInteractable, 'canInteract:', canInteract, 'isInteractableTile:', isInteractableTile, 'tile:', hoveredTile, 'selfId:', selfId, 'actualSelfId:', actualSelfId, 'building.built value:', building.built);
+            }
+          }
+        }
+        
+        // Check for interactable objects (Goods, Desk, etc.)
+        if(!hoveredInteractable && (player.z === 1 || player.z === 2)){
+          // Check for all interactable object types at the hovered tile location
+          var hoveredTile = getLoc(worldX, worldY);
+          for(var itemId in Item.list){
+            var item = Item.list[itemId];
+            if(item && item.z === player.z && isInteractableObject(item)){
+              // Check if item is at the hovered tile location
+              var itemLoc = getLoc(item.x, item.y);
+              if(itemLoc[0] === hoveredTile[0] && itemLoc[1] === hoveredTile[1]){
+                hoveredInteractable = itemId;
+                break;
+              }
             }
           }
         }
@@ -11836,6 +12597,13 @@ document.onclick = function(event) {
   var player = Player.list[selfId];
   var canvas = document.getElementById('ctx');
   if(!canvas) return;
+  
+  // Cancel work command mode on left-click
+  if(workCommandMode){
+    workCommandMode = false;
+    console.log('Work command mode cancelled by left-click');
+    return;
+  }
   
   var rect = canvas.getBoundingClientRect();
   var clickX = event.clientX - rect.left;
@@ -11947,11 +12715,52 @@ document.oncontextmenu = function(event) {
   var tileX = Math.floor(worldX / tileSize);
   var tileY = Math.floor(worldY / tileSize);
   
+  // Handle work command mode - check if tile is workable
+  if(workCommandMode){
+    // Get the clicked tile
+    var clickedTile = getTile(player.z === 0 ? 0 : (player.z === -1 ? 1 : (player.z === -2 ? 8 : (player.z === 1 ? 3 : 5))), tileX, tileY);
+    
+    // Check if tile is workable (water, stone, mountain, forest, brush, foundation, construction)
+    var isWorkable = false;
+    
+    if(player.z === 0){
+      // Overworld workable tiles
+      if(clickedTile === 0 || clickedTile >= 1 && clickedTile < 3 || clickedTile >= 3 && clickedTile < 4 || 
+         clickedTile >= 4 && clickedTile < 6 || 
+         clickedTile === 11 || clickedTile === 11.5 || clickedTile === 12 || clickedTile === 12.5 || 
+         clickedTile === 13 || clickedTile === 15 || clickedTile === 17){
+        // Water (0), forest (1-2), brush (3-4), rocks/mountain (3-6), foundation/construction (11, 11.5, 12, 12.5, 13, 15, 17)
+        isWorkable = true;
+      }
+    }
+    
+    if(isWorkable){
+      // Send work command for this tile
+      console.log('Work command sent for tile:', tileX, tileY, 'z:', player.z);
+      socket.send(JSON.stringify({msg: 'workAtTile', tileX: tileX, tileY: tileY, z: player.z}));
+      // Add tile highlight at clicked location
+      console.log('Adding tile highlight at:', tileX, tileY, player.z);
+      tileHighlights.addHighlight(tileX, tileY, player.z);
+      console.log('Highlight added, total highlights:', Object.keys(tileHighlights.highlights).length);
+      workCommandMode = false; // Cancel work mode after sending command
+      return;
+    } else {
+      // Not workable - cancel work mode and proceed with normal navigation
+      workCommandMode = false;
+      console.log('Tile not workable, cancelling work mode');
+    }
+  }
+  
   // Check if clicking on an entity
   var clickedEntity = null;
+  var closestEntity = null;
+  var closestDistance = Infinity;
   for(var id in Player.list){
     var entity = Player.list[id];
     if(entity && entity.z === player.z){
+      // Skip Falcons - their sprites are massive (include shadows) and shouldn't be clickable
+      if(entity.class === 'Falcon') continue;
+      
       var dx = entity.x - worldX;
       var dy = entity.y - worldY;
       var distance = Math.sqrt(dx*dx + dy*dy);
@@ -11962,6 +12771,10 @@ document.oncontextmenu = function(event) {
       if((entity.class === 'Wolf' || entity.class === 'Boar') && entity.spriteScale){
         detectionRadius = (entitySpriteSize * entity.spriteScale) / 2;
       }
+      if(distance < closestDistance){
+        closestEntity = id;
+        closestDistance = distance;
+      }
       if(distance < detectionRadius){
         clickedEntity = id;
         break;
@@ -11969,10 +12782,15 @@ document.oncontextmenu = function(event) {
     }
   }
   
+  // Debug logging
+  if(!clickedEntity && closestEntity){
+    console.log('Right-click: No entity clicked, closest was:', closestEntity, 'at distance:', closestDistance.toFixed(2), 'worldX:', worldX.toFixed(2), 'worldY:', worldY.toFixed(2));
+  }
+  
   if(clickedEntity){
     // Right-clicked on entity - check if enemy
     var allyStatus = allyCheck(clickedEntity);
-    console.log('Right-click on entity:', clickedEntity, 'ally status:', allyStatus);
+    console.log('Right-click on entity:', clickedEntity, 'ally status:', allyStatus, 'entity class:', Player.list[clickedEntity]?.class);
     if(allyStatus === -1){
       // Enemy - engage combat
       socket.send(JSON.stringify({msg:'engageCombat', targetId:clickedEntity}));
@@ -11984,20 +12802,166 @@ document.oncontextmenu = function(event) {
       return; // Prevent further processing
     }
   } else {
-    // Check if clicking on a building
-    var building = getBuilding(worldX, worldY);
-    if(building){
-      // Right-clicked on building - interact
-      console.log('Right-click interaction with building:', building);
-      socket.send(JSON.stringify({msg:'interact', buildingId:building}));
-    } else {
-      // Right-clicked on terrain - navigate
-      console.log('Right-click navigation - world coords:', worldX, worldY, 'tile coords:', tileX, tileY, 'z:', player.z);
+    // Check if clicking on a foundation/construction tile first
+    // Foundation tiles are part of building plots but should still allow navigation
+    var clickedTile = getTile(player.z === 0 ? 0 : (player.z === -1 ? 1 : (player.z === -2 ? 8 : (player.z === 1 ? 3 : 5))), tileX, tileY);
+    var foundationConstructionTiles = [11, 11.5, 12, 12.5, 13, 15, 17]; // BUILD_MARKER, BUILD_MARKER_ALT, and construction tiles
+    var isFoundationConstructionTile = player.z === 0 && foundationConstructionTiles.indexOf(clickedTile) !== -1;
+    
+    // If player is indoors (z=1 or z=2), always allow navigation (don't check for building interaction)
+    // Building interaction only happens when clicking on buildings from outside
+    var isIndoors = player.z === 1 || player.z === 2;
+    
+    // Check if clicking on an interactable (building or object) - prioritize this
+    // First, check if there's a building at the clicked location and verify it's interactable
+    var clickedTileLoc = [tileX, tileY];
+    var clickedBuildingId = getBuilding(worldX, worldY);
+    var clickedBuilding = clickedBuildingId ? Building.list[clickedBuildingId] : null;
+    
+    // Verify the clicked tile is actually interactable for this building
+    if(clickedBuilding && player.z === 0){
+      var isInteractableTile = false;
+      var isInteractableBuildingType = (clickedBuilding.type === 'mill' || clickedBuilding.type === 'lumbermill' || 
+                                       clickedBuilding.type === 'mine' || clickedBuilding.type === 'dock');
+      
+      // Only check interactability for interactable building types
+      if(isInteractableBuildingType && clickedBuilding.plot && Array.isArray(clickedBuilding.plot)){
+        if(clickedBuilding.type === 'dock'){
+          // For docks: only plot[4] (the non-walkable tile) is interactable
+          if(clickedBuilding.plot[4] && clickedBuilding.plot[4].length >= 2){
+            if(clickedBuilding.plot[4][0] === clickedTileLoc[0] && clickedBuilding.plot[4][1] === clickedTileLoc[1]){
+              isInteractableTile = true;
+            }
+          }
+        } else if(clickedBuilding.type === 'mill' || clickedBuilding.type === 'lumbermill' || clickedBuilding.type === 'mine'){
+          // For mills, lumbermills, mines: all plot tiles are interactable
+          for(var p = 0; p < clickedBuilding.plot.length; p++){
+            var plotTile = clickedBuilding.plot[p];
+            if(plotTile && plotTile.length >= 2 && plotTile[0] === clickedTileLoc[0] && plotTile[1] === clickedTileLoc[1]){
+              isInteractableTile = true;
+              break;
+            }
+          }
+        }
+      }
+      
+      // Handle interaction or navigation based on tile interactability
+      if(isInteractableTile && clickedBuilding.built !== false){
+        // Clicked on an interactable tile of a built building - use interactWithPath
+        console.log('Right-click interaction with building:', clickedBuildingId, 'tile:', clickedTileLoc);
+        socket.send(JSON.stringify({
+          msg: 'interactWithPath',
+          entityType: 'building',
+          entityId: clickedBuildingId,
+          worldX: worldX,
+          worldY: worldY
+        }));
+        return; // Prevent further processing
+      } else if(isInteractableBuildingType){
+        // Clicked on a non-interactable tile of an interactable building (e.g., walkable dock tile)
+        // OR clicked on a building that's not built yet
+        // Allow normal navigation instead of interaction
+        console.log('Right-click on non-interactable tile of building (or building not built) - allowing navigation instead of interaction');
+        // Clear hoveredInteractable to prevent it from being used in other code paths
+        hoveredInteractable = null;
+        socket.send(JSON.stringify({msg:'clickNavigate', tileX:tileX, tileY:tileY, z:player.z}));
+        return; // Prevent further processing - don't check hoveredInteractable
+      }
+      // If building is not an interactable type, fall through to normal navigation
+    }
+    
+    // Fallback: check hoveredInteractable if no building found at clicked location
+    if(hoveredInteractable){
+      // Determine entity type (building vs item)
+      var entityType = null;
+      var entityId = hoveredInteractable;
+      
+      // Check if it's a building (on overworld)
+      if(player.z === 0 && Building.list[hoveredInteractable]){
+        var building = Building.list[hoveredInteractable];
+        
+        // Re-check if the clicked tile is interactable for this building
+        var isInteractableTile = false;
+        
+        if(building.plot && Array.isArray(building.plot)){
+          if(building.type === 'dock'){
+            // For docks: only plot[4] (the non-walkable tile) is interactable
+            if(building.plot[4] && building.plot[4].length >= 2){
+              if(building.plot[4][0] === clickedTileLoc[0] && building.plot[4][1] === clickedTileLoc[1]){
+                isInteractableTile = true;
+              }
+            }
+          } else if(building.type === 'mill' || building.type === 'lumbermill' || building.type === 'mine'){
+            // For mills, lumbermills, mines: all plot tiles are interactable
+            for(var p = 0; p < building.plot.length; p++){
+              var plotTile = building.plot[p];
+              if(plotTile && plotTile.length >= 2 && plotTile[0] === clickedTileLoc[0] && plotTile[1] === clickedTileLoc[1]){
+                isInteractableTile = true;
+                break;
+              }
+            }
+          }
+        }
+        
+        if(!isInteractableTile){
+          // Clicked on a non-interactable tile - allow normal navigation instead of interaction
+          console.log('Right-click on non-interactable tile of building - allowing navigation instead of interaction');
+          socket.send(JSON.stringify({msg:'clickNavigate', tileX:tileX, tileY:tileY, z:player.z}));
+          return;
+        }
+        
+        // For buildings, use interactWithPath to pathfind to adjacent tile first
+        entityType = 'building';
+        console.log('Right-click interaction with building:', hoveredInteractable, 'tile:', clickedTileLoc, 'isInteractableTile:', isInteractableTile);
+        socket.send(JSON.stringify({
+          msg: 'interactWithPath',
+          entityType: entityType,
+          entityId: entityId,
+          worldX: worldX,
+          worldY: worldY
+        }));
+        return; // Prevent further processing
+      } else if((player.z === 1 || player.z === 2) && Item.list[hoveredInteractable]){
+        // For items indoors, use interactWithPath (requires pathfinding)
+        entityType = 'item';
+        console.log('Right-click interaction with', entityType + ':', hoveredInteractable);
+        socket.send(JSON.stringify({
+          msg: 'interactWithPath',
+          entityType: entityType,
+          entityId: entityId,
+          worldX: worldX,
+          worldY: worldY
+        }));
+        return; // Prevent further processing
+      }
+    }
+    
+    // If it's a foundation/construction tile, always allow navigation (don't check for building interaction)
+    if(isFoundationConstructionTile || isIndoors){
+      // Right-clicked on foundation/construction tile or indoors - navigate to it
+      console.log('Right-click navigation - world coords:', worldX, worldY, 'tile coords:', tileX, tileY, 'z:', player.z, 'tile:', clickedTile, 'indoors:', isIndoors, 'foundation:', isFoundationConstructionTile);
       socket.send(JSON.stringify({msg:'clickNavigate', tileX:tileX, tileY:tileY, z:player.z}));
       // Add tile highlight at clicked location
       console.log('Adding tile highlight at:', tileX, tileY, player.z);
       tileHighlights.addHighlight(tileX, tileY, player.z);
       console.log('Highlight added, total highlights:', Object.keys(tileHighlights.highlights).length);
+    } else {
+      // Only check for building interaction when outdoors (z=0)
+      // Check if clicking on a building (fallback when hoveredInteractable not set)
+      var building = getBuilding(worldX, worldY);
+      if(building){
+        // Right-clicked on building - interact (uses simple interact message, no pathfinding check)
+        console.log('Right-click interaction with building:', building);
+        socket.send(JSON.stringify({msg:'interact', buildingId:building}));
+      } else {
+        // Right-clicked on terrain - navigate
+        console.log('Right-click navigation - world coords:', worldX, worldY, 'tile coords:', tileX, tileY, 'z:', player.z);
+        socket.send(JSON.stringify({msg:'clickNavigate', tileX:tileX, tileY:tileY, z:player.z}));
+        // Add tile highlight at clicked location
+        console.log('Adding tile highlight at:', tileX, tileY, player.z);
+        tileHighlights.addHighlight(tileX, tileY, player.z);
+        console.log('Highlight added, total highlights:', Object.keys(tileHighlights.highlights).length);
+      }
     }
   }
 };

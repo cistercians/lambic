@@ -101,6 +101,32 @@ const FACTION_IDS = {
 };
 
 // ============================================================================
+// INTERACTABLE SYSTEM CONFIGURATION
+// ============================================================================
+
+// Centralized lists of interactable building and object types
+// To add new interactables, simply add to these arrays
+const INTERACTABLE_BUILDING_TYPES = ['dock', 'mill', 'mine', 'lumbermill', 'stable', 'tavern', 'market', 'monastery'];
+const INTERACTABLE_OBJECT_TYPES = ['Goods1', 'Goods2', 'Goods3', 'Goods4', 'Desk'];
+
+// Helper functions to check if an entity is interactable
+function isInteractableBuilding(building) {
+  if (!building) return false;
+  // Check for dynamic interactable property first
+  if (building.interactable === true) return true;
+  // Check if building type is in the interactable list
+  return INTERACTABLE_BUILDING_TYPES.indexOf(building.type) !== -1;
+}
+
+function isInteractableObject(item) {
+  if (!item) return false;
+  // Check for dynamic interactable property first
+  if (item.interactable === true) return true;
+  // Check if item type is in the interactable list
+  return INTERACTABLE_OBJECT_TYPES.indexOf(item.type) !== -1;
+}
+
+// ============================================================================
 // INITIALIZE GAME
 // ============================================================================
 
@@ -523,6 +549,7 @@ global.keyCheck = keyCheck;
 global.chestCheck = chestCheck;
 global.gateCheck = gateCheck;
 global.allyCheck = allyCheck;
+global.isAlly = isAlly;
 
 function randomName(gender) {
   if (gender === 'm') {
@@ -581,20 +608,45 @@ function getArea(loc1, loc2, margin = 0) {
 
 function pathing(z) {
   const grid = createArray(mapSize, mapSize);
+  // Matrix values: 0 = walkable, 1 = blocked, 2 = transition tile
 
   if (z === 0) {
     for (let x = 0; x < mapSize; x++) {
       for (let y = 0; y < mapSize; y++) {
-        grid[y][x] = world[0][y][x] === 0 ? 1 : 0;
+        const tile = world[0][y][x];
+        // Mark transition tiles (water, doors, cave entrances) as 2
+        if (tile === TERRAIN.WATER || tile === TERRAIN.DOOR_OPEN || tile === TERRAIN.DOOR_OPEN_ALT || tile === TERRAIN.CAVE_ENTRANCE) {
+          grid[y][x] = 2; // Transition tile
+        } else {
+          grid[y][x] = 0; // Walkable (land tiles, etc.)
+        }
       }
     }
   } else if (z === -1) {
     for (let x = 0; x < mapSize; x++) {
       for (let y = 0; y < mapSize; y++) {
         const tile = world[1][y][x];
-        // Matrix: 0 = walkable, 1 = blocked
+        // Matrix: 0 = walkable, 1 = blocked, 2 = transition tile
         // Floor (0), exits (2), and ore (3.x) are walkable (0); walls (1) are blocked (1)
-        grid[y][x] = (tile === 1) ? 1 : 0;
+        // Cave exits are transition tiles (value 2)
+        if (tile === 1) {
+          grid[y][x] = 1; // Blocked (walls)
+        } else if (tile === 2) {
+          // Check if this is a cave exit (entrance[0], entrance[1]+1)
+          let isCaveExit = false;
+          if (global.caveEntrances) {
+            for (let i = 0; i < global.caveEntrances.length; i++) {
+              const entrance = global.caveEntrances[i];
+              if (entrance[0] === x && entrance[1] + 1 === y) {
+                isCaveExit = true;
+                break;
+              }
+            }
+          }
+          grid[y][x] = isCaveExit ? 2 : 0; // Transition tile if cave exit, otherwise walkable
+        } else {
+          grid[y][x] = 0; // Walkable (floor, ore, etc.)
+        }
       }
     }
   } else if (z === 3) {
@@ -606,7 +658,34 @@ function pathing(z) {
   } else if (z === -3) {
     for (let x = 0; x < mapSize; x++) {
       for (let y = 0; y < mapSize; y++) {
-        grid[y][x] = 0;
+        grid[y][x] = 0; // All walkable underwater
+      }
+    }
+  } else if (z === 1) {
+    // Building floor 1 (z=1) - start with all tiles blocked
+    // matrixChange() will mark walkable tiles when buildings are constructed
+    // Stairs and exits will be marked as transition (2) by matrixChange
+    for (let x = 0; x < mapSize; x++) {
+      for (let y = 0; y < mapSize; y++) {
+        grid[y][x] = 1; // All blocked initially
+      }
+    }
+  } else if (z === 2) {
+    // Building floor 2 (z=2) - start with all tiles blocked
+    // matrixChange() will mark walkable tiles when buildings are constructed
+    // Stairs will be marked as transition (2) by matrixChange
+    for (let x = 0; x < mapSize; x++) {
+      for (let y = 0; y < mapSize; y++) {
+        grid[y][x] = 1; // All blocked initially
+      }
+    }
+  } else if (z === -2) {
+    // Cellar (z=-2) - start with all tiles blocked
+    // matrixChange() will mark walkable tiles when buildings are constructed
+    // Stairs will be marked as transition (2) by matrixChange
+    for (let x = 0; x < mapSize; x++) {
+      for (let y = 0; y < mapSize; y++) {
+        grid[y][x] = 1; // All blocked initially
       }
     }
   } else {
@@ -621,11 +700,18 @@ function pathing(z) {
 
 const matrixO = pathing(0);
 const matrixU = pathing(-1);
-const matrixB1 = pathing();
-const matrixB2 = pathing();
-const matrixB3 = pathing();
+const matrixB1 = pathing(1);  // Building floor 1
+const matrixB2 = pathing(2);  // Building floor 2
+const matrixB3 = pathing(-2); // Cellar
 const matrixW = pathing(-3);
 const matrixS = pathing(3);
+
+// Expose matrices globally for TilemapSystem
+global.matrixO = matrixO;
+global.matrixU = matrixU;
+global.matrixB1 = matrixB1;
+global.matrixB2 = matrixB2;
+global.matrixB3 = matrixB3;
 
 const gridO = new PF.Grid(matrixO);
 const gridU = new PF.Grid(matrixU);
@@ -634,6 +720,75 @@ const gridB2 = new PF.Grid(matrixB2);
 const gridB3 = new PF.Grid(matrixB3);
 const gridW = new PF.Grid(matrixW);
 const gridS = new PF.Grid(matrixS);
+
+// ============================================================================
+// INTERACTABILITY SYSTEM
+// ============================================================================
+
+// Map to store interactable tiles: key = "layer:c,r", value = building/object ID
+const interactableTiles = new Map();
+
+// Set a tile as interactable
+function setTileInteractable(layer, c, r, buildingId) {
+  if (typeof layer !== 'number' || typeof c !== 'number' || typeof r !== 'number') {
+    return;
+  }
+  if (c < 0 || c >= mapSize || r < 0 || r >= mapSize) {
+    return;
+  }
+  const key = `${layer}:${c},${r}`;
+  interactableTiles.set(key, buildingId);
+}
+
+// Check if a tile is interactable and return building/object ID
+function isTileInteractable(layer, c, r) {
+  if (typeof layer !== 'number' || typeof c !== 'number' || typeof r !== 'number') {
+    return undefined;
+  }
+  if (c < 0 || c >= mapSize || r < 0 || r >= mapSize) {
+    return undefined;
+  }
+  const key = `${layer}:${c},${r}`;
+  return interactableTiles.get(key);
+}
+
+// Clear interactability for a specific tile
+function clearTileInteractable(layer, c, r) {
+  if (typeof layer !== 'number' || typeof c !== 'number' || typeof r !== 'number') {
+    return;
+  }
+  if (c < 0 || c >= mapSize || r < 0 || r >= mapSize) {
+    return;
+  }
+  const key = `${layer}:${c},${r}`;
+  interactableTiles.delete(key);
+}
+
+// Clear all interactable tiles for a building/object
+function clearBuildingInteractableTiles(buildingId) {
+  if (!buildingId) return;
+  const keysToDelete = [];
+  for (const [key, value] of interactableTiles.entries()) {
+    if (value === buildingId) {
+      keysToDelete.push(key);
+    }
+  }
+  for (const key of keysToDelete) {
+    interactableTiles.delete(key);
+  }
+}
+
+// Get interactable building at a location (helper for server-side)
+function getInteractableBuilding(layer, c, r) {
+  return isTileInteractable(layer, c, r);
+}
+
+// Export interactability functions globally
+global.setTileInteractable = setTileInteractable;
+global.isTileInteractable = isTileInteractable;
+global.clearTileInteractable = clearTileInteractable;
+global.clearBuildingInteractableTiles = clearBuildingInteractableTiles;
+global.getInteractableBuilding = getInteractableBuilding;
 
 // Check if a tile is occupied by another character
 function isTileOccupied(tileX, tileY, z, excludeEntityId = null) {
@@ -1029,9 +1184,162 @@ function matrixChange(l, c, r, n) {
   const target = matrices[l];
   if (target && target.matrix[r]) {
     target.matrix[r][c] = n;
-    target.grid.setWalkableAt(c, r, n === 0);
+    // Set walkable if value is 0 (walkable) or 2 (transition tile)
+    // Transition tiles are considered walkable by default, pathfinding options control whether to use them
+    target.grid.setWalkableAt(c, r, n === 0 || n === 2);
   } else if (target) {
   }
+}
+
+// Find the closest adjacent walkable tile to an entity (building or object)
+// Returns [tileX, tileY] or null if no walkable adjacent tile found
+// Helper function to check if player is already at an adjacent tile to an entity
+function isPlayerAdjacentToEntity(entity, entityType, playerLoc) {
+  if (!entity || !playerLoc) return false;
+  
+  var entityTiles = [];
+  
+  // Get all tiles that are part of the entity
+  if (entityType === 'building') {
+    // For buildings, use the plot array
+    if (entity.plot && Array.isArray(entity.plot)) {
+      // For docks: only check adjacency to the interactable tile (plot[4])
+      if (entity.type === 'dock' && entity.plot[4]) {
+        entityTiles = [entity.plot[4]];
+      } else {
+        // For other buildings: check all plot tiles (all are interactable)
+        entityTiles = entity.plot;
+      }
+    } else {
+      // Fallback: use building's center tile
+      var buildingLoc = getLoc(entity.x, entity.y);
+      entityTiles = [buildingLoc];
+    }
+  } else if (entityType === 'item') {
+    // For objects, convert x, y to tile coordinates
+    var tileX = Math.floor(entity.x / TILE_SIZE);
+    var tileY = Math.floor(entity.y / TILE_SIZE);
+    entityTiles = [[tileX, tileY]];
+  } else {
+    return false;
+  }
+  
+  // Check all 8 adjacent directions for each entity tile
+  var directions = [
+    [-1, -1], [0, -1], [1, -1],  // top-left, top, top-right
+    [-1, 0],           [1, 0],   // left, right
+    [-1, 1],  [0, 1],  [1, 1]    // bottom-left, bottom, bottom-right
+  ];
+  
+  for (var i = 0; i < entityTiles.length; i++) {
+    var entityTile = entityTiles[i];
+    var tileX = entityTile[0];
+    var tileY = entityTile[1];
+    
+    for (var j = 0; j < directions.length; j++) {
+      var dir = directions[j];
+      var adjX = tileX + dir[0];
+      var adjY = tileY + dir[1];
+      
+      // Check if player is at this adjacent tile
+      if (playerLoc[0] === adjX && playerLoc[1] === adjY) {
+        return true;
+      }
+    }
+  }
+  
+  return false;
+}
+
+function findClosestAdjacentWalkableTile(entity, entityType, playerZ, playerLoc) {
+  if (!entity || !playerLoc) return null;
+  
+  var adjacentTiles = [];
+  var entityTiles = [];
+  
+  // Get all tiles that are part of the entity
+  if (entityType === 'building') {
+    // For buildings, use the plot array
+    if (entity.plot && Array.isArray(entity.plot)) {
+      // For docks: only find adjacent tiles to the interactable tile (plot[4])
+      if (entity.type === 'dock' && entity.plot[4]) {
+        entityTiles = [entity.plot[4]];
+      } else {
+        // For other buildings: use all plot tiles (all are interactable)
+        entityTiles = entity.plot;
+      }
+    } else {
+      // Fallback: use building's center tile
+      var buildingLoc = getLoc(entity.x, entity.y);
+      entityTiles = [buildingLoc];
+    }
+  } else if (entityType === 'item') {
+    // For objects, convert x, y to tile coordinates
+    var tileX = Math.floor(entity.x / TILE_SIZE);
+    var tileY = Math.floor(entity.y / TILE_SIZE);
+    entityTiles = [[tileX, tileY]];
+  } else {
+    return null;
+  }
+  
+  // For each entity tile, check all 8 adjacent directions
+  var directions = [
+    [-1, -1], [0, -1], [1, -1],  // top-left, top, top-right
+    [-1, 0],           [1, 0],   // left, right
+    [-1, 1],  [0, 1],  [1, 1]    // bottom-left, bottom, bottom-right
+  ];
+  
+  for (var i = 0; i < entityTiles.length; i++) {
+    var entityTile = entityTiles[i];
+    var tileX = entityTile[0];
+    var tileY = entityTile[1];
+    
+    for (var j = 0; j < directions.length; j++) {
+      var dir = directions[j];
+      var adjX = tileX + dir[0];
+      var adjY = tileY + dir[1];
+      
+      // Check bounds
+      if (adjX < 0 || adjX >= mapSize || adjY < 0 || adjY >= mapSize) continue;
+      
+      // Check if tile is walkable
+      if (isWalkable(playerZ, adjX, adjY)) {
+        // Verify we can pathfind to this tile
+        var options = {
+          avoidDoors: true,
+          avoidCaveExits: false
+        };
+        
+        // Determine layer based on z-level
+        var layer = playerZ === 0 ? 0 : (playerZ === -1 ? 1 : (playerZ === -2 ? 8 : (playerZ === 1 ? 3 : 5)));
+        
+        var testPath = global.tilemapSystem.findPath(playerLoc, [adjX, adjY], layer, options);
+        if (testPath && testPath.length > 0) {
+          adjacentTiles.push([adjX, adjY]);
+        }
+      }
+    }
+  }
+  
+  if (adjacentTiles.length === 0) return null;
+  
+  // Find closest tile to player's current position
+  var closestTile = null;
+  var closestDistance = Infinity;
+  
+  for (var k = 0; k < adjacentTiles.length; k++) {
+    var tile = adjacentTiles[k];
+    var dx = tile[0] - playerLoc[0];
+    var dy = tile[1] - playerLoc[1];
+    var distance = Math.abs(dx) + Math.abs(dy); // Manhattan distance
+    
+    if (distance < closestDistance) {
+      closestDistance = distance;
+      closestTile = tile;
+    }
+  }
+  
+  return closestTile;
 }
 
 function isWalkable(z, c, r) {
@@ -1048,7 +1356,25 @@ function isWalkable(z, c, r) {
   };
 
   const matrix = matrices[z];
-  return matrix ? matrix[r][c] === 0 : false;
+  if (!matrix) return false;
+  
+  const matrixValue = matrix[r][c];
+  
+  // Water tiles (transition value 2 on overworld) are NOT walkable for basic movement
+  // They should only be allowed in pathfinding when explicitly targeted
+  if (z === 0 && matrixValue === 2) {
+    // Check if this is actually a water tile (not a door or cave entrance)
+    const tile = world[0][r][c];
+    if (tile === TERRAIN.WATER) {
+      return false; // Water is not walkable
+    }
+    // Doors and cave entrances (also value 2) can be walkable for basic movement checks
+    // They're transition tiles but NPCs can walk through them when needed
+    return true;
+  }
+  
+  // Return true if tile is walkable (0) OR transition tile (2) that's not water
+  return matrixValue === 0 || matrixValue === 2;
 }
 
 function getItem(z, c, r) {
@@ -1186,74 +1512,134 @@ global.processFishCatch = processFishCatch;
 // FACTION HELPERS
 // ============================================================================
 
+// Comprehensive ally check function that handles all faction/class rules
+function isAlly(entity1Id, entity2Id) {
+  if (entity1Id === entity2Id) return true; // Same entity
+  
+  const entity1 = Player.list[entity1Id];
+  const entity2 = Player.list[entity2Id];
+  if (!entity1 || !entity2) return false;
+
+  const class1 = entity1.class;
+  const class2 = entity2.class;
+  const isSerf = (cls) => cls === 'Serf' || cls === 'SerfM' || cls === 'SerfF';
+  const isDeer = (cls) => cls === 'Deer';
+
+  // Same house = always allies (covers military+serfs, military+military, serfs+serfs from same faction)
+  if (entity1.house && entity2.house && entity1.house === entity2.house) {
+    return true;
+  }
+
+  // Deer: allies ONLY with other Deer (they run from everything else)
+  if (isDeer(class1) || isDeer(class2)) {
+    return isDeer(class1) && isDeer(class2);
+  }
+
+  // Serfs: only allies with other Serfs from the SAME faction
+  // (Serfs from different factions don't fight each other, but they're not "allies")
+  if (isSerf(class1) && isSerf(class2)) {
+    if (entity1.house && entity2.house && entity1.house === entity2.house) {
+      return true; // Same faction serfs are allies
+    }
+    // Different faction serfs are not allies (but they don't fight - handled in aggro logic)
+    return false;
+  }
+
+  // Wolves and Boars: no allies (always hostile)
+  if (class1 === 'Wolf' || class1 === 'Boar' || class2 === 'Wolf' || class2 === 'Boar') {
+    return false;
+  }
+
+  // Check faction relationships (allies, enemies, hostile status)
+  const house1 = entity1.house ? House.list[entity1.house] : null;
+  const house2 = entity2.house ? House.list[entity2.house] : null;
+
+  if (house1 && house2) {
+    // Check explicit allies
+    if (house1.allies) {
+      for (const i in house1.allies) {
+        if (house1.allies[i] === entity2.house) return true;
+      }
+    }
+    // Check explicit enemies
+    if (house1.enemies) {
+      for (const i in house1.enemies) {
+        if (house1.enemies[i] === entity2.house) return false;
+      }
+    }
+    // Hostile factions are enemies (unless already checked as allies)
+    if (house1.hostile || house2.hostile) {
+      return false;
+    }
+  }
+
+  // Check individual friend/enemy lists for units without houses
+  if (!house1 && entity1.friends) {
+    for (const i in entity1.friends) {
+      if (entity1.friends[i] === entity2Id) return true;
+    }
+  }
+  if (!house1 && entity1.enemies) {
+    for (const i in entity1.enemies) {
+      if (entity1.enemies[i] === entity2Id) return false;
+    }
+  }
+
+  return false; // Default: not allies
+}
+
+// Backward compatibility: keep allyCheck function but have it use isAlly
 function allyCheck(playerId, otherId) {
   if (playerId === otherId) return 2; // Same entity
   
+  const isAllyResult = isAlly(playerId, otherId);
+  if (isAllyResult) {
+    // Check if same faction (return 2) or just allies (return 1)
+    const player = Player.list[playerId];
+    const other = Player.list[otherId];
+    if (player && other && player.house && other.house && player.house === other.house) {
+      return 2; // Same faction
+    }
+    return 1; // Allies
+  }
+  
+  // Check if enemies
   const player = Player.list[playerId];
   const other = Player.list[otherId];
-
   if (!player || !other) return 0;
-
+  
   const pHouse = House.list[player.house];
   const oHouse = House.list[other.house];
-
-  if (pHouse) {
-    if (pHouse.hostile) {
-      if (oHouse) {
-        if (player.house === other.house) return 2;
-
-        for (const i in pHouse.allies) {
-          if (pHouse.allies[i] === other.house) return 1;
-        }
-        return -1;
-      } else {
-        return -1;
-      }
-    } else {
-      if (oHouse) {
-        if (player.house === other.house) return 2;
-
-        for (const i in pHouse.allies) {
-          if (pHouse.allies[i] === other.house) return 1;
-        }
-
-        if (oHouse.hostile) return -1;
-
-        for (const i in pHouse.enemies) {
-          if (pHouse.enemies[i] === other.house) return -1;
-        }
-        return 0;
-      } else {
-        for (const i in pHouse.enemies) {
-          if (pHouse.enemies[i] === otherId) return -1;
-        }
-        return 0;
-      }
-    }
-  } else {
-    if (oHouse) {
-      if (oHouse.hostile) return -1;
-
-      for (const i in oHouse.enemies) {
-        if (oHouse.enemies[i] === playerId) return -1;
-      }
-      return 0;
-    } else {
-      // Both have no house - check if either is a wild animal (always hostile)
-      const wildAnimals = ['Wolf', 'Boar'];
-      if (wildAnimals.includes(player.class) || wildAnimals.includes(other.class)) {
-        return -1; // Hostile
-      }
-      
-      for (const i in player.friends) {
-        if (player.friends[i] === otherId) return 1;
-      }
-      for (const i in player.enemies) {
-        if (player.enemies[i] === otherId) return -1;
-      }
-      return 0;
+  
+  // Check if explicitly enemies
+  if (pHouse && pHouse.enemies) {
+    for (const i in pHouse.enemies) {
+      if (oHouse && pHouse.enemies[i] === other.house) return -1;
+      if (pHouse.enemies[i] === otherId) return -1;
     }
   }
+  if (oHouse && oHouse.enemies) {
+    for (const i in oHouse.enemies) {
+      if (pHouse && oHouse.enemies[i] === player.house) return -1;
+      if (oHouse.enemies[i] === playerId) return -1;
+    }
+  }
+  
+  // Check if hostile factions
+  if (pHouse && pHouse.hostile && oHouse && player.house !== other.house) {
+    return -1;
+  }
+  if (oHouse && oHouse.hostile && pHouse && player.house !== other.house) {
+    return -1;
+  }
+  
+  // Wild animals are hostile
+  const wildAnimals = ['Wolf', 'Boar'];
+  if (wildAnimals.includes(player.class) || wildAnimals.includes(other.class)) {
+    return -1;
+  }
+  
+  return 0; // Neutral
 }
 
 // ============================================================================
@@ -1372,6 +1758,25 @@ function factionSpawn(id) {
 // Track last tempus when entropy was called to prevent multiple calls
 let lastEntropyTempus = null;
 
+// Track military unit counts at the start of each day (for daily recap)
+let militaryUnitsAtDayStart = {};
+
+// Helper function to preserve decimal values when changing vegetation tile types
+// This ensures trees maintain their positioning offset when transforming between types
+function preserveDecimalOnTerrainChange(currentTile, newTerrainType) {
+  // Extract decimal portion from current tile (e.g., 1.33 -> 0.33, 2.45 -> 0.45)
+  const decimalPart = currentTile % 1;
+  // Return new terrain type with preserved decimal
+  return newTerrainType + decimalPart;
+}
+
+// Helper function to create a brush tile with random decimal for positioning
+// This ensures brush tiles have randomized positioning offsets
+function createBrushTileWithRandomDecimal() {
+  // Generate random decimal between 0 and 0.9 for positioning offset
+  return TERRAIN.BRUSH + Number((Math.random() * 0.9).toFixed(2));
+}
+
 function entropy() {
   // FLORA
   const toHF = [];
@@ -1439,27 +1844,29 @@ function entropy() {
 
   // Apply flora changes
   for (const i in toHF) {
-    // Convert light forest (2) to heavy forest (1)
+    // Convert light forest (2) to heavy forest (1) - preserve decimal for positioning
     const currentTile = getTile(0, toHF[i][0], toHF[i][1]);
     if (currentTile >= TERRAIN.LIGHT_FOREST && currentTile < TERRAIN.BRUSH) {
-      tileChange(0, toHF[i][0], toHF[i][1], TERRAIN.HEAVY_FOREST);
+      const newTileValue = preserveDecimalOnTerrainChange(currentTile, TERRAIN.HEAVY_FOREST);
+      tileChange(0, toHF[i][0], toHF[i][1], newTileValue);
     biomes.hForest++;
     hForestSpawns.push(toHF[i]);
     }
   }
   for (const i in toF) {
-    // Convert brush (3) to light forest (2)
+    // Convert brush (3) to light forest (2) - preserve decimal for positioning
     const currentTile = getTile(0, toF[i][0], toF[i][1]);
     if (currentTile >= TERRAIN.BRUSH && currentTile < TERRAIN.ROCKS) {
-      tileChange(0, toF[i][0], toF[i][1], TERRAIN.LIGHT_FOREST);
+      const newTileValue = preserveDecimalOnTerrainChange(currentTile, TERRAIN.LIGHT_FOREST);
+      tileChange(0, toF[i][0], toF[i][1], newTileValue);
       tileChange(6, toF[i][0], toF[i][1], 50);
     }
   }
   for (const i in toB) {
-    // Convert empty (7) to brush (3 + random decimal)
+    // Convert empty/grass (7) to brush (3 + random decimal) - ensure random positioning
     const currentTile = getTile(0, toB[i][0], toB[i][1]);
     if (currentTile === TERRAIN.EMPTY) {
-      const brushValue = TERRAIN.BRUSH + Number((Math.random() * 0.9).toFixed(2));
+      const brushValue = createBrushTileWithRandomDecimal();
       tileChange(0, toB[i][0], toB[i][1], brushValue);
     }
   }
@@ -1481,6 +1888,8 @@ function entropy() {
     }
   }
 
+  let faunaSpawned = 0;
+  
   const spawnAnimal = (type, ratio, pop, AnimalConstructor) => {
     if (pop < ratio) {
       const num = day === 1
@@ -1488,6 +1897,7 @@ function entropy() {
         : Math.floor((ratio - pop) * (type === 'falcon' ? 0.01 : 0.02));
 
       // Spawn logging handled via event system
+      faunaSpawned += num;
 
       for (let i = 0; i < num; i++) {
         const sp = randomSpawnHF();
@@ -1500,8 +1910,10 @@ function entropy() {
           falconry: type === 'falcon' ? false : undefined
         });
       }
+      return num;
     } else {
       // Skip spawn logging handled via event system
+      return 0;
     }
   };
 
@@ -1511,6 +1923,16 @@ function entropy() {
   spawnAnimal('falcon', animalRatios.falcon, animalPops.falcon, Falcon);
 
   // Individual tile updates are handled by tileChange function
+  
+  // Return statistics about what changed
+  const tilesChanged = toHF.length + toF.length + toB.length;
+  return {
+    tilesChanged: tilesChanged,
+    faunaAdded: faunaSpawned,
+    tilesToHeavyForest: toHF.length,
+    tilesToLightForest: toF.length,
+    tilesToBrush: toB.length
+  };
 }
 
 // WEATHER SYSTEM
@@ -1678,6 +2100,8 @@ const Player = function(param) {
   self.pressingC = false;
   self.pressingN = false;
   self.pressingM = false;
+  self.workTargetTile = null; // Work target tile for auto-work system
+  self.pendingInteraction = null; // Pending interaction target for interact mode
   self.pressing1 = false;
   self.boardCooldown = 0; // Cooldown for boarding ships
   self.isBoarded = false; // True when player is on a ship
@@ -1730,10 +2154,7 @@ const Player = function(param) {
     self.wallet = param.wallet;
   }
 
-  // Aggro check interval (cleaned up on disconnect)
-  self.aggroInterval = setInterval(() => {
-    self.checkAggro();
-  }, 1000);
+  // Player aggro interval removed - players don't need aggro checks (they choose when to fight)
 
   self.die = function(report) {
     var deathLocation = getLoc(self.x, self.y);
@@ -1936,11 +2357,7 @@ const Player = function(param) {
         self.breath = self.breathMax; // Restore breath
       }
       
-      // Disable aggro check interval to prevent spam
-      if(self.aggroInterval){
-        clearInterval(self.aggroInterval);
-        self.aggroInterval = null;
-      }
+      // Player aggro interval removed - players don't need aggro checks
       
       // Clear combat state
       self.combat.target = null;
@@ -2016,12 +2433,7 @@ const Player = function(param) {
     self.onMtn = false;
     self.revealed = false; // Clear stealth revealed state
     
-    // Restart aggro check interval
-    if(!self.aggroInterval){
-      self.aggroInterval = setInterval(() => {
-        self.checkAggro();
-      }, 1000);
-    }
+      // Player aggro interval removed - players don't need aggro checks
     
     // Brief immunity after respawn
     self.respawnImmunity = true;
@@ -2051,54 +2463,8 @@ const Player = function(param) {
     // Respawn logged via event system
   };
   
-  self.checkAggro = function() {
-    // Skip aggro completely if player has respawn immunity, is a ghost, OR is in god mode
-    if (self.respawnImmunity || self.ghost || self.godMode) {
-      return;
-    }
-    
-    if (!self.combat.target) {
-      self.action = null;
-    }
-
-    for (const i in self.zGrid) {
-      const zc = self.zGrid[i][0];
-      const zr = self.zGrid[i][1];
-
-      if (zc < 0 || zc >= 64 || zr < 0 || zr >= 64) continue;
-
-      const zoneKey = `${zr},${zc}`;
-      const zoneEntities = zones.get(zoneKey) || new Set();
-      for (const entityId of zoneEntities) {
-        const p = Player.list[entityId];
-        if (!p || p.z !== self.z) continue;
-        
-        // Skip if this entity (p) is a ghost - don't aggro on ghosts
-        if (p.ghost) continue;
-
-        const pDist = self.getDistance({ x: p.x, y: p.y });
-        if (pDist > p.aggroRange) continue;
-
-        const ally = allyCheck(self.id, p.id);
-        if (ally > 0) continue;
-
-        self.stealthCheck(p);
-
-        if (ally === -1 && p.type === 'npc' &&
-            (self.innaWoods === p.innaWoods || (!self.innaWoods && p.innaWoods))) {
-          if (!self.stealthed || self.revealed) {
-            // p is the NPC that wants to target self (the player)
-            // Only allow if self is NOT a ghost (redundant check for safety)
-            if(!self.ghost){
-              Player.list[p.id].combat.target = self.id;
-              Player.list[p.id].action = 'combat';
-              // Aggro logged via combat event
-            }
-          }
-        }
-      }
-    }
-  };
+  // checkAggro() removed - NPCs now use SimpleCombat.checkAggro() directly
+  // Players don't need aggro checks (they choose when to engage)
 
   self.lightTorch = function(torchId) {
     const socket = SOCKET_LIST[self.id];
@@ -2377,7 +2743,93 @@ const Player = function(param) {
           self.pathCount++;
         }
       } else {
-        // Path complete
+        // Path complete (pathCount >= path.length or path is null/empty)
+        // Check if we have a pending interaction to trigger
+        if(self.pendingInteraction && !self.ghost){
+          // Verify player is actually adjacent before triggering interaction
+          var playerLoc = getLoc(self.x, self.y);
+          var entity = null;
+          if(self.pendingInteraction.type === 'building'){
+            entity = Building.list[self.pendingInteraction.id];
+          } else if(self.pendingInteraction.type === 'item'){
+            entity = Item.list[self.pendingInteraction.id];
+          }
+          
+          // Only trigger if player is adjacent (safety check)
+          if(entity && isPlayerAdjacentToEntity(entity, self.pendingInteraction.type, playerLoc)){
+            // Use the building/item location from pendingInteraction, not player's current location
+            var interactionLoc = null;
+            if(self.pendingInteraction.type === 'building'){
+              var building = Building.list[self.pendingInteraction.id];
+              if(building){
+                // For buildings, use the interactable tile location
+                // For docks: use plot[4] (the non-walkable tile)
+                // For mills/lumbermills/mines: use any plot tile (all are interactable)
+                if(building.plot && Array.isArray(building.plot)){
+                  if(building.type === 'dock' && building.plot[4]){
+                    // Dock: use plot[4] (the non-walkable interactable tile)
+                    interactionLoc = building.plot[4];
+                  } else if(building.plot.length > 0){
+                    // Other buildings: use first plot tile (all are interactable)
+                    interactionLoc = building.plot[0];
+                  }
+                }
+                // Fallback to building center if plot not available
+                if(!interactionLoc){
+                  interactionLoc = getLoc(building.x, building.y);
+                }
+              }
+            } else if(self.pendingInteraction.type === 'item'){
+              var item = Item.list[self.pendingInteraction.id];
+              if(item){
+                // Use item's location
+                interactionLoc = getLoc(item.x, item.y);
+              }
+            }
+            
+            // Fallback to player's current location if we couldn't get entity location
+            if(!interactionLoc){
+              interactionLoc = getLoc(self.x, self.y);
+            }
+            
+            // Trigger interaction
+            Interact(socket.id, interactionLoc);
+          }
+          // Clear pending interaction (whether interaction triggered or not)
+          self.pendingInteraction = null;
+        }
+        
+        // Check if player has a work target and is at the target location
+        if(self.workTargetTile && !self.working && !self.ghost){
+          var currentLoc = getLoc(self.x, self.y);
+          var atTarget = (currentLoc[0] === self.workTargetTile.tileX && 
+                         currentLoc[1] === self.workTargetTile.tileY && 
+                         self.z === self.workTargetTile.z);
+          
+          // For fishing, check if player is at a land tile adjacent to the water tile
+          if(self.workTargetTile.workType === 'fishing' && self.workTargetTile.fishingWaterTile){
+            var waterTile = self.workTargetTile.fishingWaterTile;
+            var adjacent = (
+              (currentLoc[0] === waterTile.x - 1 && currentLoc[1] === waterTile.y) ||
+              (currentLoc[0] === waterTile.x + 1 && currentLoc[1] === waterTile.y) ||
+              (currentLoc[0] === waterTile.x && currentLoc[1] === waterTile.y - 1) ||
+              (currentLoc[0] === waterTile.x && currentLoc[1] === waterTile.y + 1) ||
+              (currentLoc[0] === waterTile.x - 1 && currentLoc[1] === waterTile.y - 1) ||
+              (currentLoc[0] === waterTile.x + 1 && currentLoc[1] === waterTile.y - 1) ||
+              (currentLoc[0] === waterTile.x - 1 && currentLoc[1] === waterTile.y + 1) ||
+              (currentLoc[0] === waterTile.x + 1 && currentLoc[1] === waterTile.y + 1)
+            );
+            if(adjacent){
+              atTarget = true;
+            }
+          }
+          
+          if(atTarget){
+            // Start work on the target tile
+            self.handleWorkAction();
+          }
+        }
+        
         self.path = null;
         self.pathCount = 0;
         self.pressingRight = false;
@@ -2494,7 +2946,10 @@ const Player = function(param) {
       self.onMtn = false;
       self.maxSpd = (self.baseSpd * 1.1) * self.drag;
     } else if (tile === TERRAIN.DOOR_OPEN || tile === TERRAIN.DOOR_OPEN_ALT) {
-      Building.list[b].occ++;
+      // Safety check: only increment occupancy if building exists
+      if(b && Building.list[b]){
+        Building.list[b].occ++;
+      }
       self.z = Z_LEVELS.BUILDING_1;
       self.innaWoods = false;
       self.onMtn = false;
@@ -2503,7 +2958,10 @@ const Player = function(param) {
         socket.write(JSON.stringify({ msg: 'bgm', x: self.x, y: self.y, z: self.z, b }));
       }, 100);
     } else if (tile === TERRAIN.DOOR_LOCKED) {
-      Building.list[b].occ++;
+      // Safety check: only increment occupancy if building exists
+      if(b && Building.list[b]){
+        Building.list[b].occ++;
+      }
       self.z = Z_LEVELS.BUILDING_1;
         // Door unlock message handled via event system
         if(global.eventManager){
@@ -2569,7 +3027,10 @@ const Player = function(param) {
   self.handleBuilding1 = function(loc, exit, b2, socket) {
     const exitTile = getTile(0, loc[0], loc[1] - 1);
     if (exitTile === TERRAIN.DOOR_OPEN || exitTile === TERRAIN.DOOR_OPEN_ALT || exitTile === TERRAIN.DOOR_LOCKED) {
-      Building.list[exit].occ--;
+      // Safety check: only decrement occupancy if building exists
+      if(exit && Building.list[exit]){
+        Building.list[exit].occ--;
+      }
       self.z = Z_LEVELS.OVERWORLD;
       socket.write(JSON.stringify({ msg: 'bgm', x: self.x, y: self.y, z: self.z }));
     } else {
@@ -2625,76 +3086,19 @@ const Player = function(param) {
 
     // PLAYER AUTO-COMBAT - Auto-follow and auto-attack when in combat mode
     // Also handle pending stealth attacks
+    // SimpleCombat.update() handles all validation internally, no need for duplicate checks
     if ((self.action === 'combat' && self.combat.target && !self.autoAttackPaused) ||
         (self.stealthed && !self.revealed && self._pendingCombatTarget)) {
-      const target = self.combat.target ? Player.list[self.combat.target] : 
-                     (self._pendingCombatTarget ? Player.list[self._pendingCombatTarget] : null);
-      if (!target) {
-        // Target doesn't exist anymore
-        self.combat.target = null;
-        self.action = null;
-        self._pendingCombatTarget = null;
-        self._pendingCombatStartTime = null;
-        // Combat cleared logged via combat event
-      } else if (target.z !== self.z || target.ghost || target.godMode || (target.hp !== null && target.hp <= 0) || target.toRemove) {
-        // Target invalid - end combat
-        if (global.simpleCombat) {
-          global.simpleCombat.endCombat(self);
-        } else {
-          self.combat.target = null;
-          self.action = null;
-          self._pendingCombatTarget = null;
-          self._pendingCombatStartTime = null;
-        }
-      } else {
-        // Use SimpleCombat system for player auto-combat (same as NPCs)
-        // This handles both normal combat and pending stealth attacks
-        if (global.simpleCombat) {
-          global.simpleCombat.update(self);
-        }
+      // Use SimpleCombat system for player auto-combat (same as NPCs)
+      // This handles both normal combat and pending stealth attacks, including all validation
+      if (global.simpleCombat) {
+        global.simpleCombat.update(self);
       }
     }
 
-    // COMBAT ESCAPE - Clear combat status if enemy is far away (only if not in auto-combat)
-    if (self.action === 'combat' && self.combat.target && self.autoAttackPaused) {
-      const target = Player.list[self.combat.target];
-      if (!target) {
-        // Target doesn't exist anymore
-        self.combat.target = null;
-        self.action = null;
-        // Combat cleared logged via combat event
-      } else {
-        const distance = self.getDistance({ x: target.x, y: target.y });
-        const escapeRange = 768; // 12 tiles (increased from 8)
-        if (distance > escapeRange) {
-          // Escaped far enough - end combat for BOTH sides
-          // Escape logged via combat event
-          
-          // Create combat escape event
-          if(global.eventManager){
-            global.eventManager.combatEscape(self, target, { x: self.x, y: self.y, z: self.z });
-          }
-          
-          // Use simple combat system to properly end combat
-          if (global.simpleCombat) {
-            global.simpleCombat.endCombat(self);
-          } else {
-            // Fallback: manually clear both sides
-            self.combat.target = null;
-            self.action = null;
-            if (target.combat && target.combat.target === self.id) {
-              target.combat.target = null;
-              target.action = null;
-            }
-          }
-          
-          const playerSocket = SOCKET_LIST[self.id];
-          if (playerSocket) {
-            playerSocket.write(JSON.stringify({ msg: 'addToChat', message: '<i>You escaped from combat.</i>' }));
-          }
-        }
-      }
-    }
+    // COMBAT ESCAPE - SimpleCombat.endCombat() handles escape logic internally
+    // Escape is handled when distance exceeds maxChaseRange in SimpleCombat.update()
+    // This section removed to eliminate duplicate escape logic
 
     // TORCH - disabled for ghosts
     if (self.pressingT && self.actionCooldown === 0 && !self.ghost) {
@@ -2898,9 +3302,35 @@ const Player = function(param) {
       }
     }
 
-    // WORK ACTIONS (F key) - disabled for ghosts
-    if (self.pressingF && self.actionCooldown === 0 && !self.working && !self.ghost) {
-      self.handleWorkAction();
+    // WORK ACTIONS - Now handled via workAtTile command system
+    // Only trigger work if we have a work target tile (no longer uses pressingF)
+    if (self.workTargetTile && self.actionCooldown === 0 && !self.working && !self.ghost) {
+      // Check if player is at the target location
+      var currentLoc = getLoc(self.x, self.y);
+      var atTarget = false;
+      
+      if(self.workTargetTile.workType === 'fishing' && self.workTargetTile.fishingWaterTile){
+        // For fishing, check if player is adjacent to water tile
+        var waterTile = self.workTargetTile.fishingWaterTile;
+        atTarget = (
+          (currentLoc[0] === waterTile.x - 1 && currentLoc[1] === waterTile.y) ||
+          (currentLoc[0] === waterTile.x + 1 && currentLoc[1] === waterTile.y) ||
+          (currentLoc[0] === waterTile.x && currentLoc[1] === waterTile.y - 1) ||
+          (currentLoc[0] === waterTile.x && currentLoc[1] === waterTile.y + 1) ||
+          (currentLoc[0] === waterTile.x - 1 && currentLoc[1] === waterTile.y - 1) ||
+          (currentLoc[0] === waterTile.x + 1 && currentLoc[1] === waterTile.y - 1) ||
+          (currentLoc[0] === waterTile.x - 1 && currentLoc[1] === waterTile.y + 1) ||
+          (currentLoc[0] === waterTile.x + 1 && currentLoc[1] === waterTile.y + 1)
+        );
+      } else {
+        atTarget = (currentLoc[0] === self.workTargetTile.tileX && 
+                   currentLoc[1] === self.workTargetTile.tileY && 
+                   self.z === self.workTargetTile.z);
+      }
+      
+      if(atTarget){
+        self.handleWorkAction();
+      }
     }
 
     // Update class based on gear
@@ -2910,7 +3340,23 @@ const Player = function(param) {
   self.handleWorkAction = function() {
     const socket = SOCKET_LIST[self.id];
     const loc = getLoc(self.x, self.y);
-    const tile = getTile(0, loc[0], loc[1]);
+    
+    // Check if we have a work target tile
+    var targetTile = null;
+    var targetLoc = null;
+    var workTile = null;
+    
+    if(self.workTargetTile){
+      targetLoc = [self.workTargetTile.tileX, self.workTargetTile.tileY];
+      workTile = getTile(self.workTargetTile.z === 0 ? 0 : (self.workTargetTile.z === -1 ? 1 : (self.workTargetTile.z === -2 ? 8 : (self.workTargetTile.z === 1 ? 3 : 5))), targetLoc[0], targetLoc[1]);
+      targetTile = workTile;
+    } else {
+      targetLoc = loc;
+      workTile = getTile(0, loc[0], loc[1]);
+      targetTile = workTile;
+    }
+    
+    const tile = targetTile;
 
     const adjacentLocs = {
       up: getLoc(self.x, self.y - tileSize),
@@ -2958,10 +3404,16 @@ const Player = function(param) {
       return;
     }
 
-    // Fishing (regular player)
-    if (self.z === Z_LEVELS.OVERWORLD && getTile(0, adjacentLocs[self.facing][0], adjacentLocs[self.facing][1]) === TERRAIN.WATER) {
+    // Fishing (regular player) - only when explicitly targeting a water tile
+    var fishingWaterLoc = null;
+    if(self.workTargetTile && self.workTargetTile.workType === 'fishing' && self.workTargetTile.fishingWaterTile){
+      // Use target water tile for fishing (set when right-clicking on water tile)
+      fishingWaterLoc = self.workTargetTile.fishingWaterTile;
+    }
+    
+    if(fishingWaterLoc){
       self.actionCooldown = 10;
-      const fishCount = getTile(6, adjacentLocs[self.facing][0], adjacentLocs[self.facing][1]);
+      const fishCount = getTile(6, fishingWaterLoc.x, fishingWaterLoc.y);
 
       if (fishCount > 0) {
         const rand = Math.floor(Math.random() * 6000);
@@ -2980,29 +3432,45 @@ const Player = function(param) {
           self.working = false;
           self.fishing = false;
           self.inventory.fish++;
-            tileChange(6, adjacentLocs[self.facing][0], adjacentLocs[self.facing][1], -1, true);
-            // Fish caught message handled via event system
-            if(global.eventManager){
-              global.eventManager.createEvent({
-                category: global.eventManager.categories.ECONOMIC,
-                subject: self.id,
-                subjectName: self.name,
-                action: 'caught fish',
-                quantity: 1,
-                communication: global.eventManager.commModes.PLAYER,
-                message: '<i>You caught a Fish.</i>',
-                log: `[ECONOMIC] ${self.name} caught fish`,
-                position: { x: self.x, y: self.y, z: self.z }
-              });
+          tileChange(6, fishingWaterLoc.x, fishingWaterLoc.y, -1, true);
+          // Fish caught message handled via event system
+          if(global.eventManager){
+            global.eventManager.createEvent({
+              category: global.eventManager.categories.ECONOMIC,
+              subject: self.id,
+              subjectName: self.name,
+              action: 'caught fish',
+              quantity: 1,
+              communication: global.eventManager.commModes.PLAYER,
+              message: '<i>You caught a Fish.</i>',
+              log: `[ECONOMIC] ${self.name} caught fish`,
+              position: { x: self.x, y: self.y, z: self.z }
+            });
+          }
+          
+          // Auto-work: Check if water tile still has fish and continue fishing
+          if(self.workTargetTile && self.workTargetTile.workType === 'fishing'){
+            const remainingFish = getTile(6, fishingWaterLoc.x, fishingWaterLoc.y);
+            if(remainingFish > 0){
+              // Still fish available - continue fishing
+              setTimeout(() => {
+                if(Player.list[self.id] && self.workTargetTile && !self.working){
+                  self.handleWorkAction();
+                }
+              }, 100); // Small delay before restarting
+            } else {
+              // No more fish - clear work target
+              self.workTargetTile = null;
             }
-            
-            // Remove timeout ID from tracking array
-            if (self.actionTimeouts) {
-              const index = self.actionTimeouts.indexOf(timeoutId);
-              if (index > -1) {
-                self.actionTimeouts.splice(index, 1);
-              }
+          }
+          
+          // Remove timeout ID from tracking array
+          if (self.actionTimeouts) {
+            const index = self.actionTimeouts.indexOf(timeoutId);
+            if (index > -1) {
+              self.actionTimeouts.splice(index, 1);
             }
+          }
         }, rand);
         
         // Track timeout ID
@@ -3010,12 +3478,19 @@ const Player = function(param) {
       } else {
         self.working = true;
         self.fishing = true;
+        // No fish - clear work target
+        if(self.workTargetTile && self.workTargetTile.workType === 'fishing'){
+          self.workTargetTile = null;
+        }
       }
       return;
     }
 
-    // Clear brush
-    if (self.z === Z_LEVELS.OVERWORLD && tile >= TERRAIN.BRUSH && tile < TERRAIN.ROCKS) {
+    // Clear brush - check target tile or current tile
+    var brushLoc = self.workTargetTile && self.workTargetTile.workType === 'clearing' ? targetLoc : loc;
+    var brushTile = getTile(0, brushLoc[0], brushLoc[1]);
+    
+    if (self.z === Z_LEVELS.OVERWORLD && brushTile >= TERRAIN.BRUSH && brushTile < TERRAIN.ROCKS) {
       self.actionCooldown = 10;
       self.working = true;
       
@@ -3028,7 +3503,7 @@ const Player = function(param) {
         // Guard: check if player still exists and is working
         if (!Player.list[self.id] || !self.working) return;
         
-        tileChange(0, loc[0], loc[1], TERRAIN.EMPTY);
+        tileChange(0, brushLoc[0], brushLoc[1], TERRAIN.EMPTY);
         
         // Check for sunk items at z=-3 and retrieve them
         let itemsRetrieved = 0;
@@ -3036,7 +3511,7 @@ const Player = function(param) {
           const item = Item.list[itemId];
           if (item && item.z === -3 && item.sunk) {
             const itemLoc = getLoc(item.x, item.y);
-            if (itemLoc[0] === loc[0] && itemLoc[1] === loc[1]) {
+            if (itemLoc[0] === brushLoc[0] && itemLoc[1] === brushLoc[1]) {
               // Move item back to surface
               item.z = 0;
               item.sunk = false;
@@ -3056,6 +3531,22 @@ const Player = function(param) {
         // Tile update automatically handled by tileChange function
         self.working = false;
         
+        // Auto-work: Check if tile still needs clearing
+        if(self.workTargetTile && self.workTargetTile.workType === 'clearing'){
+          const currentTile = getTile(0, brushLoc[0], brushLoc[1]);
+          if(currentTile >= TERRAIN.BRUSH && currentTile < TERRAIN.ROCKS){
+            // Still brush - continue clearing
+            setTimeout(() => {
+              if(Player.list[self.id] && self.workTargetTile && !self.working){
+                self.handleWorkAction();
+              }
+            }, 100);
+          } else {
+            // Brush cleared - clear work target
+            self.workTargetTile = null;
+          }
+        }
+        
         // Remove timeout ID from tracking array
         if (self.actionTimeouts) {
           const index = self.actionTimeouts.indexOf(timeoutId);
@@ -3070,8 +3561,11 @@ const Player = function(param) {
       return;
     }
 
-    // Gather wood
-    if (self.z === Z_LEVELS.OVERWORLD && tile >= TERRAIN.HEAVY_FOREST && tile < TERRAIN.BRUSH) {
+    // Gather wood - check target tile or current tile
+    var woodLoc = self.workTargetTile && self.workTargetTile.workType === 'chopping' ? targetLoc : loc;
+    var woodTile = getTile(0, woodLoc[0], woodLoc[1]);
+    
+    if (self.z === Z_LEVELS.OVERWORLD && woodTile >= TERRAIN.HEAVY_FOREST && woodTile < TERRAIN.BRUSH) {
       self.actionCooldown = 10;
       self.working = true;
       if (self.inventory.stoneaxe > 0 || self.inventory.ironaxe > 0) {
@@ -3087,43 +3581,81 @@ const Player = function(param) {
         // Guard: check if player still exists and is working
         if (!Player.list[self.id] || !self.working) return;
         
-        tileChange(6, loc[0], loc[1], -50, true);
+        tileChange(6, woodLoc[0], woodLoc[1], -50, true);
         self.inventory.wood += 50;
-          // Wood chopping message handled via event system
-          
-          // Create economic event for wood gathering
-          if (global.eventManager) {
-            global.eventManager.resourceGathered(self, 'wood', 50, { x: self.x, y: self.y, z: self.z });
-          }
-          
-          self.working = false;
-          self.chopping = false;
-
-          const currentTile = getTile(0, loc[0], loc[1]);
-          const res = getTile(6, loc[0], loc[1]);
-
-          if (currentTile >= TERRAIN.HEAVY_FOREST && currentTile < TERRAIN.LIGHT_FOREST && res <= 100) {
-            tileChange(0, loc[0], loc[1], 1, true);
-
-            for (const i in hForestSpawns) {
-              if (hForestSpawns[i].toString() === loc.toString()) {
-                biomes.hForest--;
-                hForestSpawns.splice(i, 1);
-                break;
-              }
-            }
-            // Tile update automatically handled by tileChange function
-          } else if (currentTile >= TERRAIN.LIGHT_FOREST && currentTile < TERRAIN.BRUSH && res <= 0) {
-            tileChange(0, loc[0], loc[1], TERRAIN.EMPTY);
-            // Tile update automatically handled by tileChange function
-          }
+        // Wood chopping message handled via event system
         
+        // Create economic event for wood gathering
+        if (global.eventManager) {
+          global.eventManager.resourceGathered(self, 'wood', 50, { x: self.x, y: self.y, z: self.z });
+        }
+        
+        self.working = false;
+        self.chopping = false;
+
+        const currentTile = getTile(0, woodLoc[0], woodLoc[1]);
+        const res = getTile(6, woodLoc[0], woodLoc[1]);
+
+        if (currentTile >= TERRAIN.HEAVY_FOREST && currentTile < TERRAIN.LIGHT_FOREST && res <= 100) {
+          // Convert heavy forest (1.x) to light forest (2.x) - preserve decimal for positioning
+          const newTileValue = preserveDecimalOnTerrainChange(currentTile, TERRAIN.LIGHT_FOREST);
+          tileChange(0, woodLoc[0], woodLoc[1], newTileValue);
+
+          for (const i in hForestSpawns) {
+            if (hForestSpawns[i].toString() === woodLoc.toString()) {
+              biomes.hForest--;
+              hForestSpawns.splice(i, 1);
+              break;
+            }
+          }
+          // Tile update automatically handled by tileChange function
+        } else if (currentTile >= TERRAIN.LIGHT_FOREST && currentTile < TERRAIN.BRUSH && res <= 0) {
+          tileChange(0, woodLoc[0], woodLoc[1], TERRAIN.EMPTY);
+          // Tile update automatically handled by tileChange function
+        }
+        
+        // Auto-work: Check if tile still has wood resources
+        if(self.workTargetTile && self.workTargetTile.workType === 'chopping'){
+          const checkTile = getTile(0, woodLoc[0], woodLoc[1]);
+          const checkRes = getTile(6, woodLoc[0], woodLoc[1]);
+          
+          // Check if still choppable (has forest type AND resources > 0)
+          // Tile must be forest type (HEAVY_FOREST to BRUSH) and have resources
+          const isForestType = checkTile >= TERRAIN.HEAVY_FOREST && checkTile < TERRAIN.BRUSH;
+          const hasResources = checkRes > 0;
+          
+          if(isForestType && hasResources){
+            // Still has resources - continue chopping
+            setTimeout(() => {
+              if(Player.list[self.id] && self.workTargetTile && !self.working){
+                self.handleWorkAction();
+              }
+            }, 100);
+          } else {
+            // Depleted or tile converted to non-workable (e.g., EMPTY) - clear work target
+            self.workTargetTile = null;
+          }
+        }
+        
+        // Remove timeout ID from tracking array
+        if (self.actionTimeouts) {
+          const index = self.actionTimeouts.indexOf(timeoutId);
+          if (index > -1) {
+            self.actionTimeouts.splice(index, 1);
+          }
+        }
       }, 6000 / self.strength);
+      
+      // Track timeout ID
+      self.actionTimeouts.push(timeoutId);
       return;
     }
 
-    // Gather stone
-    if (self.z === Z_LEVELS.OVERWORLD && tile >= TERRAIN.ROCKS && tile < TERRAIN.CAVE_ENTRANCE) {
+    // Gather stone - check target tile or current tile
+    var stoneLoc = self.workTargetTile && self.workTargetTile.workType === 'mining' ? targetLoc : loc;
+    var stoneTile = getTile(0, stoneLoc[0], stoneLoc[1]);
+    
+    if (self.z === Z_LEVELS.OVERWORLD && stoneTile >= TERRAIN.ROCKS && stoneTile < TERRAIN.CAVE_ENTRANCE) {
       self.actionCooldown = 10;
       self.working = true;
       const mult = self.inventory.pickaxe > 0 ? 1 : 3;
@@ -3141,22 +3673,45 @@ const Player = function(param) {
         // Guard: check if player still exists and is working
         if (!Player.list[self.id] || !self.working) return;
         
-        tileChange(6, loc[0], loc[1], -50, true);
+        tileChange(6, stoneLoc[0], stoneLoc[1], -50, true);
         self.inventory.stone += 50;
-          // Stone quarrying message handled via event system
-          if(global.eventManager){
-            global.eventManager.resourceGathered(self, 'stone', 50, { x: self.x, y: self.y, z: self.z });
-          }
-          self.working = false;
-          self.mining = false;
+        // Stone quarrying message handled via event system
+        if(global.eventManager){
+          global.eventManager.resourceGathered(self, 'stone', 50, { x: self.x, y: self.y, z: self.z });
+        }
+        self.working = false;
+        self.mining = false;
 
-          const currentTile = getTile(0, loc[0], loc[1]);
-          if (currentTile >= TERRAIN.ROCKS && currentTile < TERRAIN.MOUNTAIN && getTile(6, loc[0], loc[1]) <= 0) {
-            tileChange(0, loc[0], loc[1], TERRAIN.EMPTY);
-            // Tile update automatically handled by tileChange function
-          }
+        const currentTile = getTile(0, stoneLoc[0], stoneLoc[1]);
+        if (currentTile >= TERRAIN.ROCKS && currentTile < TERRAIN.MOUNTAIN && getTile(6, stoneLoc[0], stoneLoc[1]) <= 0) {
+          tileChange(0, stoneLoc[0], stoneLoc[1], TERRAIN.EMPTY);
+          // Tile update automatically handled by tileChange function
+        }
+        
+        // Auto-work: Check if tile still has stone resources
+        if(self.workTargetTile && self.workTargetTile.workType === 'mining'){
+          const checkTile = getTile(0, stoneLoc[0], stoneLoc[1]);
+          const checkRes = getTile(6, stoneLoc[0], stoneLoc[1]);
           
-          // Remove timeout ID from tracking array
+          // Check if still minable (has rocks/mountain type AND resources > 0)
+          // Tile must be rocks/mountain type (ROCKS to CAVE_ENTRANCE) and have resources
+          const isStoneType = checkTile >= TERRAIN.ROCKS && checkTile < TERRAIN.CAVE_ENTRANCE;
+          const hasResources = checkRes > 0;
+          
+          if(isStoneType && hasResources){
+            // Still has resources - continue mining
+            setTimeout(() => {
+              if(Player.list[self.id] && self.workTargetTile && !self.working){
+                self.handleWorkAction();
+              }
+            }, 100);
+          } else {
+            // Depleted or tile converted to non-workable (e.g., EMPTY) - clear work target
+            self.workTargetTile = null;
+          }
+        }
+        
+        // Remove timeout ID from tracking array
           if (self.actionTimeouts) {
             const index = self.actionTimeouts.indexOf(timeoutId);
             if (index > -1) {
@@ -3244,16 +3799,131 @@ const Player = function(param) {
       return;
     }
 
-    // Farming actions
+    // Farming actions - check target tile or current tile
+    var farmLoc = self.workTargetTile && self.workTargetTile.workType === 'farming' ? targetLoc : loc;
+    var farmTile = getTile(0, farmLoc[0], farmLoc[1]);
+    
     if (self.z === Z_LEVELS.OVERWORLD) {
-      if (tile === TERRAIN.FARM_SEED) {
-        self.handleFarmSeeding(loc, socket);
-      } else if (tile === TERRAIN.FARM_GROWING) {
-        self.handleFarmGrowing(loc, socket);
-      } else if (tile === TERRAIN.FARM_READY) {
-        self.handleFarmHarvest(loc, socket);
-      } else if (tile === TERRAIN.BUILD_MARKER || tile === TERRAIN.BUILD_MARKER_ALT) {
+      if (farmTile === TERRAIN.FARM_SEED) {
+        self.handleFarmSeeding(farmLoc, socket);
+      } else if (farmTile === TERRAIN.FARM_GROWING) {
+        self.handleFarmGrowing(farmLoc, socket);
+      } else if (farmTile === TERRAIN.FARM_READY) {
+        self.handleFarmHarvest(farmLoc, socket);
+      } else if (farmTile === TERRAIN.BUILD_MARKER || farmTile === TERRAIN.BUILD_MARKER_ALT || 
+                 farmTile === 12 || farmTile === 12.5 || farmTile === 13 || farmTile === 15 || farmTile === 17) {
+        // Building construction
         Build(self.id);
+        
+        // Auto-work: Check if building is still under construction
+        if(self.workTargetTile && self.workTargetTile.workType === 'building'){
+          var building = getBuilding(self.x, self.y);
+          if(building && Building.list[building] && !Building.list[building].built){
+            // Wait for Build() to complete, then check if current tile is finished
+            // Build() uses setTimeout with 10000/p.strength, so wait a bit longer
+            setTimeout(() => {
+              if(!Player.list[self.id] || !self.workTargetTile) return;
+              
+              var currentLoc = getLoc(self.x, self.y);
+              var building = getBuilding(self.x, self.y);
+              if(!building || !Building.list[building]) return;
+              
+              var b = Building.list[building];
+              var currentTileProgress = getTile(6, currentLoc[0], currentLoc[1]);
+              
+              // Check if current tile is complete
+              if(currentTileProgress >= b.req){
+                // Current tile is complete - find next unfinished tile on plot
+                var unfinishedTiles = [];
+                for(var i = 0; i < b.plot.length; i++){
+                  var plotTile = b.plot[i];
+                  var plotTileProgress = getTile(6, plotTile[0], plotTile[1]);
+                  var plotTileType = getTile(0, plotTile[0], plotTile[1]);
+                  
+                  // Check if tile is unfinished and still a construction tile
+                  if(plotTileProgress < b.req && 
+                     (plotTileType === TERRAIN.BUILD_MARKER || plotTileType === TERRAIN.BUILD_MARKER_ALT ||
+                      plotTileType === 12 || plotTileType === 12.5 || plotTileType === 13 || 
+                      plotTileType === 15 || plotTileType === 17)){
+                    unfinishedTiles.push(plotTile);
+                  }
+                }
+                
+                if(unfinishedTiles.length > 0){
+                  // Find closest unfinished tile
+                  var playerLoc = getLoc(self.x, self.y);
+                  var closestTile = null;
+                  var closestDistance = Infinity;
+                  
+                  for(var i = 0; i < unfinishedTiles.length; i++){
+                    var tile = unfinishedTiles[i];
+                    var tileCenter = getCenter(tile[0], tile[1]);
+                    var distance = getDistance(
+                      {x: self.x, y: self.y},
+                      {x: tileCenter[0], y: tileCenter[1]}
+                    );
+                    
+                    if(distance < closestDistance){
+                      closestDistance = distance;
+                      closestTile = tile;
+                    }
+                  }
+                  
+                  if(closestTile){
+                    // Path to closest unfinished tile
+                    var startLoc = getLoc(self.x, self.y);
+                    var layer = self.z === 0 ? 0 : (self.z === -1 ? 1 : (self.z === -2 ? 8 : (self.z === 1 ? 3 : 5)));
+                    var options = {
+                      avoidDoors: true,
+                      avoidCaveExits: false,
+                      allowSpecificDoor: true,
+                      targetDoor: [closestTile[0], closestTile[1]]
+                    };
+                    
+                    var path = global.tilemapSystem.findPath(startLoc, [closestTile[0], closestTile[1]], layer, options);
+                    if(path && path.length > 0){
+                      if(self.z !== -1 && typeof smoothPath === 'function'){
+                        path = smoothPath(path, self.z);
+                      }
+                      var firstWaypoint = path[0];
+                      if(firstWaypoint && firstWaypoint[0] === startLoc[0] && firstWaypoint[1] === startLoc[1]){
+                        self.pathCount = 1;
+                      } else {
+                        self.pathCount = 0;
+                      }
+                      self.path = path;
+                      
+                      // Update work target to new tile
+                      self.workTargetTile = {
+                        tileX: closestTile[0],
+                        tileY: closestTile[1],
+                        z: self.z,
+                        workType: 'building'
+                      };
+                    } else {
+                      // Can't path to tile - clear work target
+                      self.workTargetTile = null;
+                    }
+                  } else {
+                    // No closest tile found - clear work target
+                    self.workTargetTile = null;
+                  }
+                } else {
+                  // No unfinished tiles - building will be complete soon, clear work target
+                  self.workTargetTile = null;
+                }
+              } else {
+                // Current tile not complete - continue working on it
+                if(!self.working){
+                  self.handleWorkAction();
+                }
+              }
+            }, (10000 / self.strength) + 100);
+          } else {
+            // Building complete - clear work target
+            self.workTargetTile = null;
+          }
+        }
       }
     }
   };
@@ -3305,6 +3975,22 @@ const Player = function(param) {
             tileChange(0, n[0], n[1], TERRAIN.FARM_GROWING);
           }
           // Tile update automatically handled by tileChange function
+        }
+        
+        // Auto-work: Check if farm tile still needs seeding
+        if(self.workTargetTile && self.workTargetTile.workType === 'farming'){
+          var checkTile = getTile(0, loc[0], loc[1]);
+          if(checkTile === TERRAIN.FARM_SEED && getTile(6, loc[0], loc[1]) < 25){
+            // Still needs seeding - continue farming
+            setTimeout(() => {
+              if(Player.list[self.id] && self.workTargetTile && !self.working){
+                self.handleWorkAction();
+              }
+            }, 100);
+          } else if(checkTile !== TERRAIN.FARM_SEED && checkTile !== TERRAIN.FARM_GROWING && checkTile !== TERRAIN.FARM_READY){
+            // Farm tile changed - clear work target
+            self.workTargetTile = null;
+          }
         }
         
         // Remove timeout ID from tracking array
@@ -3366,6 +4052,23 @@ const Player = function(param) {
         // Tile update automatically handled by tileChange function
       }
       
+      // Auto-work: Check if farm tile still needs growing
+      if(self.workTargetTile && self.workTargetTile.workType === 'farming'){
+        var checkTile = getTile(0, loc[0], loc[1]);
+        var checkRes = getTile(6, loc[0], loc[1]);
+        if(checkTile === TERRAIN.FARM_GROWING && checkRes < 50){
+          // Still needs growing - continue farming
+          setTimeout(() => {
+            if(Player.list[self.id] && self.workTargetTile && !self.working){
+              self.handleWorkAction();
+            }
+          }, 100);
+        } else if(checkTile === TERRAIN.FARM_READY || (checkTile !== TERRAIN.FARM_SEED && checkTile !== TERRAIN.FARM_GROWING && checkTile !== TERRAIN.FARM_READY)){
+          // Farm ready or changed - clear work target
+          self.workTargetTile = null;
+        }
+      }
+      
       // Remove timeout ID from tracking array
       if (self.actionTimeouts) {
         const index = self.actionTimeouts.indexOf(timeoutId);
@@ -3400,12 +4103,36 @@ const Player = function(param) {
       self.working = false;
       self.farming = false;
 
-        if (getTile(6, loc[0], loc[1]) <= 0) {
-          tileChange(0, loc[0], loc[1], TERRAIN.FARM_SEED);
-          // Tile update automatically handled by tileChange function
+      if (getTile(6, loc[0], loc[1]) <= 0) {
+        tileChange(0, loc[0], loc[1], TERRAIN.FARM_SEED);
+        // Tile update automatically handled by tileChange function
+      }
+      
+      // Auto-work: Check if farm tile still needs harvesting
+      if(self.workTargetTile && self.workTargetTile.workType === 'farming'){
+        var checkTile = getTile(0, loc[0], loc[1]);
+        var checkRes = getTile(6, loc[0], loc[1]);
+        if(checkTile === TERRAIN.FARM_READY && checkRes > 0){
+          // Still has grain - continue harvesting
+          setTimeout(() => {
+            if(Player.list[self.id] && self.workTargetTile && !self.working){
+              self.handleWorkAction();
+            }
+          }, 100);
+        } else if(checkTile === TERRAIN.FARM_SEED){
+          // Farm needs seeding - continue farming
+          setTimeout(() => {
+            if(Player.list[self.id] && self.workTargetTile && !self.working){
+              self.handleWorkAction();
+            }
+          }, 100);
+        } else {
+          // Farm tile changed - clear work target
+          self.workTargetTile = null;
         }
-        
-        // Remove timeout ID from tracking array
+      }
+      
+      // Remove timeout ID from tracking array
         if (self.actionTimeouts) {
           const index = self.actionTimeouts.indexOf(timeoutId);
           if (index > -1) {
@@ -3819,10 +4546,22 @@ Player.update = function() {
     Player._perfData = {
       updateTimes: [],
       slowFrames: 0,
-      lastLog: Date.now()
+      lastLog: Date.now(),
+      entityTypeCounts: {},
+      entityUpdateTimes: {} // Track per-entity-type update times
     };
   }
   const startTime = Date.now();
+  
+  // Track entity counts by type
+  const entityCounts = {
+    player: 0,
+    npc: 0,
+    ship: 0,
+    total: 0
+  };
+  
+  const entityTypeBreakdown = {};
   
   // Frame counter for update throttling
   if(!Player._updateFrame) Player._updateFrame = 0;
@@ -3881,6 +4620,10 @@ Player.update = function() {
       else if(player.class === 'Serf' || player.class === 'SerfM' || player.class === 'SerfF' || player.class === 'Trapper'){
         shouldUpdate = (Player._updateFrame % 4 === 0);
       }
+      // Update ranged units (TeutonBow, etc.) every 3rd frame when idle (they do more calculations)
+      else if(player.ranged && (player.class === 'TeutonBow' || player.class === 'FrankBow' || player.class === 'Poacher')){
+        shouldUpdate = (Player._updateFrame % 3 === 0);
+      }
       // Update other NPCs (faction units) every 2nd frame when idle
       else {
         shouldUpdate = (Player._updateFrame % 2 === 0);
@@ -3891,6 +4634,19 @@ Player.update = function() {
     }
     
     if(shouldUpdate){
+    // Track entity type for profiling
+    entityCounts.total++;
+    if(player.type === 'player') entityCounts.player++;
+    else if(player.type === 'npc') entityCounts.npc++;
+    else if(player.type === 'ship') entityCounts.ship++;
+    
+    // Track entity class breakdown
+    const entityClass = player.class || 'Unknown';
+    if(!entityTypeBreakdown[entityClass]) {
+      entityTypeBreakdown[entityClass] = 0;
+    }
+    entityTypeBreakdown[entityClass]++;
+    
     // Check if ship should dock (before update to prevent movement after docking)
     if(player.type === 'ship' && player.checkDockContact){
       if(player.checkDockContact()){
@@ -3898,7 +4654,22 @@ Player.update = function() {
       }
     }
     
+    // Track per-entity update time (only for slow entities to avoid overhead)
+    const entityUpdateStart = Date.now();
     player.update();
+    const entityUpdateTime = Date.now() - entityUpdateStart;
+    
+    // Track slow entity updates (>1ms) by type
+    if(entityUpdateTime > 1 && !Player._perfData.entityUpdateTimes[entityClass]) {
+      Player._perfData.entityUpdateTimes[entityClass] = [];
+    }
+    if(entityUpdateTime > 1 && Player._perfData.entityUpdateTimes[entityClass]) {
+      Player._perfData.entityUpdateTimes[entityClass].push(entityUpdateTime);
+      // Keep only last 100 samples per entity type
+      if(Player._perfData.entityUpdateTimes[entityClass].length > 100) {
+        Player._perfData.entityUpdateTimes[entityClass].shift();
+      }
+    }
     
     // NPC COMBAT UPDATE - Handle combat for NPCs (and players with pending stealth attacks)
     if (player.type === 'npc' && player.action === 'combat' && global.simpleCombat) {
@@ -3914,11 +4685,26 @@ Player.update = function() {
     }
     
     // Attack-move: check for enemies while pathing
-    if(player.attackMoveTarget && player.path && !player.combat.target){
+    // Only check if we have a path and are not already in combat
+    if(player.attackMoveTarget && player.path && player.path.length > 0 && !player.combat.target){
       // Check for enemies in aggro range
       var aggroRange = player.aggroRange || 256;
-      for(var id in Player.list){
-        var enemy = Player.list[id];
+      var aggroRangeSquared = aggroRange * aggroRange; // Use squared distance to avoid sqrt
+      
+      // Use spatial system if available for faster enemy detection
+      var nearbyEnemies = null;
+      if(global.spatialSystem && global.spatialSystem.spatialIndex) {
+        nearbyEnemies = global.spatialSystem.spatialIndex.findNearby(player.x, player.y, aggroRange, (entityId) => {
+          const e = Player.list[entityId];
+          return e && e.id !== player.id && e.z === player.z;
+        });
+      }
+      
+      // Iterate through nearby enemies (or all if spatial system not available)
+      var enemiesToCheck = nearbyEnemies ? nearbyEnemies.map(id => Player.list[id]).filter(Boolean) : Object.values(Player.list);
+      
+      for(var j = 0; j < enemiesToCheck.length; j++){
+        var enemy = enemiesToCheck[j];
         if(enemy.id === player.id) continue;
         if(enemy.z !== player.z) continue;
         
@@ -3934,9 +4720,9 @@ Player.update = function() {
         if(global.allyCheck && global.allyCheck(player.id, enemy.id) === -1){
           var dx = enemy.x - player.x;
           var dy = enemy.y - player.y;
-          var distance = Math.sqrt(dx*dx + dy*dy);
+          var distanceSquared = dx*dx + dy*dy; // Use squared distance to avoid sqrt
           
-          if(distance <= aggroRange){
+          if(distanceSquared <= aggroRangeSquared){
             // Enemy in range - interrupt path and engage
             // Use SimpleCombat to handle stealth properly
             if (global.simpleCombat) {
@@ -3945,16 +4731,42 @@ Player.update = function() {
               player.combat.target = enemy.id;
               player.action = 'combat';
             }
-            player.path = null; // Stop current path
+            // Don't clear path here - let combat system handle it
+            // The path will continue if combat ends and attackMoveTarget is still set
             break;
           }
         }
       }
     }
     
-    // Clear attack-move when destination reached
-    if(player.attackMoveTarget && !player.path && player.action !== 'combat'){
+    // Clear attack-move when destination reached (path completed)
+    if(player.attackMoveTarget && (!player.path || player.path.length === 0) && player.action !== 'combat'){
       player.attackMoveTarget = null;
+    }
+    
+    // Resume attack-move pathing if combat ended but attackMoveTarget still exists
+    if(player.attackMoveTarget && !player.path && !player.combat.target && player.action !== 'combat'){
+      // Resume pathing to attack-move destination
+      var dest = player.attackMoveTarget;
+      var startLoc = getLoc(player.x, player.y);
+      var layer = dest.z === 0 ? 0 : (dest.z === -1 ? 1 : (dest.z === -2 ? 8 : (dest.z === 1 ? 3 : 5)));
+      var options = {
+        avoidDoors: true,
+        avoidCaveExits: false
+      };
+      var path = global.tilemapSystem.findPath(startLoc, [dest.col, dest.row], layer, options);
+      if(path && path.length > 0){
+        if(dest.z !== -1 && typeof smoothPath === 'function'){
+          path = smoothPath(path, dest.z);
+        }
+        var firstWaypoint = path[0];
+        if(firstWaypoint && firstWaypoint[0] === startLoc[0] && firstWaypoint[1] === startLoc[1]){
+          player.pathCount = 1;
+        } else {
+          player.pathCount = 0;
+        }
+        player.path = path;
+      }
     }
     }
 
@@ -3994,16 +4806,33 @@ Player.update = function() {
         player.cleanup();
       }
       
+      // Remove from spatial system
+      if (global.spatialSystem) {
+        global.spatialSystem.removeEntity(i);
+      }
+      
+      // Remove from any other tracking systems
+      if (global.gameState) {
+        global.gameState.removeEntity(i);
+      }
+      
       delete Player.list[i];
       removePack.player.push(player.id);
     } else {
-      // Update spatial system if player moved
-      if (global.spatialSystem) {
-        global.spatialSystem.updateEntity(i, player);
-      }
       // Send all players in update packs (spectators are no longer Player entities)
       // Boarded players still need updates (position syncs to ship), they just don't render
       pack.push(player.getUpdatePack());
+    }
+  }
+
+  // ===== BATCH SPATIAL SYSTEM UPDATES (Performance Optimization) =====
+  // Batch spatial system updates instead of per-entity to reduce overhead
+  if (global.spatialSystem) {
+    for (const i in Player.list) {
+      const player = Player.list[i];
+      if (player && !player.toRemove) {
+        global.spatialSystem.updateEntity(i, player);
+      }
     }
   }
 
@@ -4019,19 +4848,6 @@ Player.update = function() {
     Player._perfData.updateTimes.shift();
   }
   
-  // Log every 5 seconds
-  const now = Date.now();
-  if(now - Player._perfData.lastLog >= 5000) {
-    const times = Player._perfData.updateTimes;
-    const avg = times.reduce((a,b) => a+b, 0) / times.length;
-    const max = Math.max(...times);
-    const min = Math.min(...times);
-    const entityCount = Object.keys(Player.list).length;
-    
-    
-    Player._perfData.slowFrames = 0;
-    Player._perfData.lastLog = now;
-  }
 
   return pack;
 };
@@ -4677,12 +5493,94 @@ function resetDailyResourceTracking() {
 // DAY/NIGHT CYCLE
 // ============================================================================
 
+// Simple hour counter for dayNight() - increments each time the function is called (every 10 seconds)
+// Starts at 0 (XII.a - midnight)
+let hourTick = 0;
+// Track day separately - starts at 1, increments when we cycle back to XII.a
+let dayForTempus = 1;
+
 function dayNight() {
-  // Use original tick-based system
-  tempus = cycle[tick];
+  // Increment hour counter (0-23, cycles through all 24 hours)
+  hourTick = (hourTick + 1) % 24;
+  const newTempus = cycle[hourTick];
+  
+  // When we cycle back to XII.a (hourTick = 0), increment the day
+  if (hourTick === 0) {
+    dayForTempus++;
+  }
+  
+  // Fire hour change event with the correct day
+  if (global.eventManager) {
+    global.eventManager.hourChange(newTempus, dayForTempus);
+  }
+  
+  
+  // Update tempus
+  tempus = newTempus;
   global.tempus = tempus;
+  gameState.tempus = newTempus;
 
   if (tempus === 'XII.a') {
+    // Track population BEFORE midnight updates
+    let populationBefore = {
+      players: 0,
+      npcs: 0,
+      fauna: 0
+    };
+    
+    // Count serfs by house BEFORE midnight updates
+    const serfsBeforeByHouse = {};
+    
+    // Count military units by house at the END of the day (before day increments)
+    // This will be compared to the counts stored at the START of this day
+    const militaryUnitsAtDayEnd = {};
+    
+    if (global.Player && global.Player.list) {
+      for (const id in Player.list) {
+        const entity = Player.list[id];
+        if (entity.type === 'player') {
+          populationBefore.players++;
+        } else if (entity.type === 'npc' || entity.class === 'serf' || entity.class === 'maleserf' || entity.class === 'femaleserf') {
+          populationBefore.npcs++;
+          // Count serfs by house
+          if (entity.house && House.list[entity.house]) {
+            const houseName = House.list[entity.house].name || entity.house;
+            serfsBeforeByHouse[houseName] = (serfsBeforeByHouse[houseName] || 0) + 1;
+          }
+        } else if (['deer', 'boar', 'wolf', 'falcon'].includes(entity.class)) {
+          populationBefore.fauna++;
+        } else if (entity.military && entity.house && House.list[entity.house]) {
+          // Count military units by house
+          const houseName = House.list[entity.house].name || entity.house;
+          militaryUnitsAtDayEnd[houseName] = (militaryUnitsAtDayEnd[houseName] || 0) + 1;
+        }
+      }
+    }
+    
+    // Calculate military units added during the day (if we have data from day start)
+    const militaryUnitsAdded = {};
+    if (Object.keys(militaryUnitsAtDayStart).length > 0) {
+      for (const houseName in militaryUnitsAtDayEnd) {
+        const before = militaryUnitsAtDayStart[houseName] || 0;
+        const after = militaryUnitsAtDayEnd[houseName] || 0;
+        const added = after - before;
+        if (added > 0) {
+          militaryUnitsAdded[houseName] = added;
+        }
+      }
+      // Also check for houses that had units at start but none at end (shouldn't happen, but be safe)
+      for (const houseName in militaryUnitsAtDayStart) {
+        if (!militaryUnitsAdded[houseName] && militaryUnitsAtDayEnd[houseName]) {
+          const before = militaryUnitsAtDayStart[houseName] || 0;
+          const after = militaryUnitsAtDayEnd[houseName] || 0;
+          const added = after - before;
+          if (added > 0) {
+            militaryUnitsAdded[houseName] = added;
+          }
+        }
+      }
+    }
+    
     day++;
     global.day = day;
     dailyTally();
@@ -4691,6 +5589,7 @@ function dayNight() {
     const playerCount = Object.keys(Player.list).length;
     
     // Trigger daily faction AI evaluation (includes territory recalculation)
+    // This may spawn serfs, so we need to track that
     for (var houseId in House.list) {
       var house = House.list[houseId];
       if (house.ai && house.ai.evaluateAndAct) {
@@ -4704,6 +5603,61 @@ function dayNight() {
       fs.writeFile(`./maps/map${day}.txt`, JSON.stringify(world))
         .catch(err => {});
     }
+    
+    // Run entropy at midnight and get statistics
+    let entropyStats = { tilesChanged: 0, faunaAdded: 0 };
+    if (lastEntropyTempus !== tempus) {
+      entropyStats = entropy() || { tilesChanged: 0, faunaAdded: 0 };
+      lastEntropyTempus = tempus;
+    }
+    
+    // Count serfs by house AFTER midnight updates
+    const serfsAfterByHouse = {};
+    if (global.Player && global.Player.list) {
+      for (const id in Player.list) {
+        const entity = Player.list[id];
+        if (entity.type === 'npc' || entity.class === 'serf' || entity.class === 'maleserf' || entity.class === 'femaleserf') {
+          if (entity.house && House.list[entity.house]) {
+            const houseName = House.list[entity.house].name || entity.house;
+            serfsAfterByHouse[houseName] = (serfsAfterByHouse[houseName] || 0) + 1;
+          }
+        }
+      }
+    }
+    
+    // Calculate serfs added per house
+    const serfsAdded = {};
+    for (const houseName in serfsAfterByHouse) {
+      const before = serfsBeforeByHouse[houseName] || 0;
+      const after = serfsAfterByHouse[houseName] || 0;
+      const added = after - before;
+      if (added > 0) {
+        serfsAdded[houseName] = added;
+      }
+    }
+    
+    // Store military unit counts at the START of the new day (for next day's recap)
+    militaryUnitsAtDayStart = {};
+    if (global.Player && global.Player.list) {
+      for (const id in Player.list) {
+        const entity = Player.list[id];
+        if (entity.military && entity.house && House.list[entity.house]) {
+          const houseName = House.list[entity.house].name || entity.house;
+          militaryUnitsAtDayStart[houseName] = (militaryUnitsAtDayStart[houseName] || 0) + 1;
+        }
+      }
+    }
+    
+    // Create daily recap event (for the day that just ended, before day was incremented)
+    const dayForRecap = day - 1;
+    if (global.eventManager) {
+      global.eventManager.dailyRecap(dayForRecap, populationBefore, {
+        tilesChanged: entropyStats.tilesChanged || 0,
+        faunaAdded: entropyStats.faunaAdded || 0,
+        serfsAdded: serfsAdded,
+        militaryUnitsAdded: militaryUnitsAdded
+      });
+    }
   }
 
   if (tempus === 'VII.p') {
@@ -4711,11 +5665,8 @@ function dayNight() {
     sendDailyResourceReport();
   }
 
-  // Run entropy at midnight (XII.a) - only once per tempus cycle
-  if (tempus === 'XII.a' && lastEntropyTempus !== tempus) {
-    entropy();
-    lastEntropyTempus = tempus;
-  } else if (tempus !== 'XII.a' && lastEntropyTempus === 'XII.a') {
+  // Reset entropy guard when tempus moves away from XII.a
+  if (tempus !== 'XII.a' && lastEntropyTempus === 'XII.a') {
     // Reset guard when tempus moves away from XII.a so entropy can run again next midnight
     lastEntropyTempus = null;
   }
@@ -4742,7 +5693,8 @@ function dayNight() {
   House.update;
   Kingdom.update;
 
-  tick = tick < 23 ? tick + 1 : 0;
+  // Sync global tick with gameState (tick is updated by gameState.updateTime() every frame)
+  tick = gameState.tick;
   global.tick = tick;
 }
 
@@ -4893,6 +5845,7 @@ io.on('connection', function(socket) {
               enemies: p.enemies,
               gear: p.gear,
               inventory: p.inventory,
+              facing: p.facing,
               stealthed: p.stealthed,
               revealed: p.revealed,
               innaWoods: p.innaWoods,
@@ -5081,48 +6034,25 @@ io.on('connection', function(socket) {
         // All the game message handlers that were previously in Player.onConnect
         if(data.msg == 'keyPress'){
           // Special handling for ship sail controls
-          // Check if the entity IS a ship (client has switched selfId to ship)
-          if(player.shipType === 'fishingship' && player.isPlayerControlled){
-            // Handle sail point adjustments
-            if(data.state === true){
-              // Key pressed - adjust sail points
-              if(data.inputId == 'left'){
-                player.adjustSailPoints('left');
-              } else if(data.inputId == 'right'){
-                player.adjustSailPoints('right');
-              } else if(data.inputId == 'up'){
-                player.adjustSailPoints('up');
-              } else if(data.inputId == 'down'){
-                player.adjustSailPoints('down');
-              } else if(data.inputId == 'f'){
-                player.pressingF = data.state;
-              }
-            }
-            // Ignore key releases and other keys for ships
-            return;
-          }
-          // Check if player is currently aboard a ship (fallback for old system)
+          // Check if player is currently aboard a ship
           if(player.boardedShip){
             var ship = Player.list[player.boardedShip];
             if(ship && ship.shipType === 'fishingship' && ship.isPlayerControlled){
-              // Only handle key press (not release) for ships
-              if(data.state === true){
-                if(data.inputId == 'left'){
-                  ship.adjustSailPoints('left');
-                } else if(data.inputId == 'right'){
-                  ship.adjustSailPoints('right');
-                } else if(data.inputId == 'up'){
-                  ship.adjustSailPoints('up');
-                } else if(data.inputId == 'down'){
-                  ship.adjustSailPoints('down');
+              // Verify this player is actually the navigator (not just a passenger)
+              var navigator = ship.passengers.find(function(p){ return p.isNavigator; });
+              if(navigator && navigator.playerId === socket.id){
+                // Handle sail point adjustments for WASD keys (only on key press, not release)
+                // Original system: pressing a key adds a sail point, ship moves with momentum
+                if(data.state === true && (data.inputId == 'left' || data.inputId == 'right' || data.inputId == 'up' || data.inputId == 'down')){
+                  // Key pressed - adjust sail points (original momentum-based system)
+                  ship.adjustSailPoints(data.inputId);
                 } else if(data.inputId == 'f'){
                   ship.pressingF = data.state;
                 }
+                // Ignore other keys for ships (navigator can't use other keys while navigating)
+                return;
               }
-              // Ignore other keys for ships
-              return;
-            } else if(ship){
-            } else {
+              // If player is a passenger (not navigator), allow normal key handling (A key for attack command)
             }
           }
           
@@ -5194,6 +6124,12 @@ io.on('connection', function(socket) {
             var tileY = data.tileY;
             var z = data.z;
             
+            // For indoor navigation (z=1 or z=2), ensure player's current z-level matches
+            // Use player's current z-level if they're indoors to ensure consistency
+            if((z === 1 || z === 2) && player.z !== z){
+              z = player.z; // Use player's current z-level for indoor navigation
+            }
+            
             // Get the tile type at the clicked location
             var tile = getTile(z === 0 ? 0 : (z === -1 ? 1 : (z === -2 ? 8 : (z === 1 ? 3 : 5))), tileX, tileY);
             
@@ -5202,6 +6138,18 @@ io.on('connection', function(socket) {
             var isWaterTile = false;
             var isCaveEntranceTile = false;
             var isBuildingDoorTile = false;
+            
+            // Check if the clicked tile is a foundation/construction tile
+            var foundationConstructionTiles = [
+              TERRAIN.BUILD_MARKER,      // 11 - foundation tiles
+              TERRAIN.BUILD_MARKER_ALT,  // 11.5 - foundation tiles alt
+              12,    // Building construction tiles
+              12.5,  // Building construction tiles alt
+              13,    // Dock/water construction tiles
+              15,    // Building construction tiles
+              17     // Building construction tiles
+            ];
+            var isFoundationConstructionTile = z === 0 && foundationConstructionTiles.indexOf(tile) !== -1;
             
             if(z === 0){
               // Overworld - check for transition tiles
@@ -5218,15 +6166,28 @@ io.on('connection', function(socket) {
               if(player.shipType){
                 // On ship - only water tiles are walkable
                 isWalkableTile = tile === TERRAIN.WATER;
+              } else if(player.z === -3){
+                // Player is underwater - can path to land tiles (non-water tiles)
+                // Land tiles are walkable, not transition tiles, so they can always be reached
+                isWalkableTile = tile !== TERRAIN.WATER;
               } else {
-                // On foot - allow water tiles if clicked (for underwater), transition tiles if clicked, or normal walkable tiles
+                // On foot (on land) - allow water tiles if clicked (for underwater), transition tiles if clicked, or normal walkable tiles
                 if(isTransitionTile){
                   // Player clicked on a transition tile - allow it
                   isWalkableTile = true;
                 } else {
-                  // Normal tile - check if walkable (exclude heavy forest, mountain, buildings)
-                  var unwalkable = [TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, 11, 12, 13, 15, 17, TERRAIN.DOOR_LOCKED, 20];
-                  isWalkableTile = unwalkable.indexOf(tile) === -1;
+                  // Check if this is a foundation/construction tile that should be walkable for building
+                  var isFoundationTile = isFoundationConstructionTile;
+                  
+                  if(isFoundationTile){
+                    // Foundation/construction tiles should be walkable so players can path onto them to build
+                    isWalkableTile = true;
+                  } else {
+                    // Normal tile - check if walkable (exclude heavy forest, mountain, completed buildings)
+                    // Note: Foundation tiles (11, 11.5, 12, 13, 15, 17) are now allowed above, so we only block actual buildings
+                    var unwalkable = [TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, TERRAIN.DOOR_LOCKED, 20];
+                    isWalkableTile = unwalkable.indexOf(tile) === -1;
+                  }
                 }
               }
             } else if(z === -1 || z === -2){
@@ -5234,14 +6195,24 @@ io.on('connection', function(socket) {
               var layer = z === -1 ? 1 : 8;
               isWalkableTile = getTile(layer, tileX, tileY) === 2; // Cave floor
             } else if(z === 1 || z === 2){
-              // Inside buildings
-              isWalkableTile = getTile(z === 1 ? 3 : 5, tileX, tileY) === 1; // Wooden/stone floor
+              // Inside buildings - skip manual walkability check and let pathfinding handle it
+              // The tilemap system's pathfinding will determine if the tile is reachable
+              // This ensures consistency with the actual pathfinding used
+              isWalkableTile = true;
+            } else if(z === -3){
+              // Underwater - all tiles are walkable
+              isWalkableTile = true;
             }
             
             
             if(isWalkableTile){
               // Clear attack-move command (navigation overrides it)
               player.attackMoveTarget = null;
+              
+              // Clear work target when navigating (interrupts auto-work)
+              if(player.workTargetTile){
+                player.workTargetTile = null;
+              }
               
               // Pause auto-attacking but keep combat status
               // Combat itself will only end when enemy dies or escapes (handled by SimpleCombat)
@@ -5266,18 +6237,27 @@ io.on('connection', function(socket) {
                     options.allowSpecificDoor = true;
                     options.targetDoor = [tileX, tileY];
                   } else if(isCaveEntranceTile){
-                    // Allow this specific cave entrance (will be handled as target)
-                    options.allowSpecificDoor = true;
-                    options.targetDoor = [tileX, tileY];
+                    // Allow this specific cave entrance
+                    options.targetCaveEntrance = [tileX, tileY];
                   } else if(isWaterTile){
                     // Water tile clicked - explicitly allow this water tile as target
-                    // Use targetDoor option to allow this specific tile (even though it's not a door)
-                    options.allowSpecificDoor = true;
-                    options.targetDoor = [tileX, tileY];
+                    options.targetWaterTile = [tileX, tileY];
                   }
+                } else if(isFoundationConstructionTile){
+                  // Player clicked on a foundation/construction tile - allow it explicitly as target
+                  // This allows pathfinding to reach foundation tiles even if they're not marked as walkable in the matrix
+                  options.allowSpecificDoor = true;
+                  options.targetDoor = [tileX, tileY];
+                  // Also avoid doors/caves/water since we're specifically targeting construction tiles
+                  options.avoidDoors = true;
+                  options.avoidCaveEntrances = true;
+                  options.avoidWater = true;
+                  options.avoidCaveExits = false;
                 } else {
-                  // Player did NOT click on a transition tile - ignore transition tiles in pathfinding
+                  // Player did NOT click on a transition tile - avoid transition tiles in pathfinding
                   options.avoidDoors = true; // Ignore building entrances
+                  options.avoidCaveEntrances = true; // Ignore cave entrances
+                  options.avoidWater = true; // Ignore water tiles
                   options.avoidCaveExits = false; // Cave exits only matter in caves, not overworld
                 }
               } else if(z === -1){
@@ -5312,7 +6292,11 @@ io.on('connection', function(socket) {
                   options.allowStartTile = startLoc;
                 }
               } else if(z === -2){
-                layer = -2; // Cellar
+                layer = 8; // Cellar
+              } else if(z === -3){
+                layer = 2; // Underwater
+                // Underwater pathfinding - no need to avoid water (player is already underwater)
+                // Land tiles are walkable, not transition tiles, so they can be reached
               } else if(z === 1){
                 layer = 3; // Building floor 1
               } else if(z === 2){
@@ -5338,7 +6322,188 @@ io.on('connection', function(socket) {
                 player.path = null;
                 player.pathCount = 0;
               }
-            } else {
+              } else {
+              }
+          }
+        } else if (data.msg === 'workAtTile') {
+          // Work command - F key + right-click on workable tile
+          if(player && data.tileX !== undefined && data.tileY !== undefined && data.z !== undefined){
+            var tileX = data.tileX;
+            var tileY = data.tileY;
+            var z = data.z;
+            
+            // For indoor navigation (z=1 or z=2), ensure player's current z-level matches
+            if((z === 1 || z === 2) && player.z !== z){
+              z = player.z;
+            }
+            
+            // Get the tile type at the clicked location
+            var tile = getTile(z === 0 ? 0 : (z === -1 ? 1 : (z === -2 ? 8 : (z === 1 ? 3 : 5))), tileX, tileY);
+            
+            // Check if tile is workable
+            var isWorkable = false;
+            var workType = null;
+            
+            if(z === 0){
+              // Overworld workable tiles
+              if(tile === TERRAIN.WATER){
+                // Water tile - fishing (special handling)
+                isWorkable = true;
+                workType = 'fishing';
+              } else if(tile >= TERRAIN.HEAVY_FOREST && tile < TERRAIN.BRUSH){
+                // Heavy forest or light forest - chopping
+                isWorkable = true;
+                workType = 'chopping';
+              } else if(tile >= TERRAIN.BRUSH && tile < TERRAIN.ROCKS){
+                // Brush - clearing
+                isWorkable = true;
+                workType = 'clearing';
+              } else if(tile >= TERRAIN.ROCKS && tile < TERRAIN.MOUNTAIN){
+                // Rocks - mining
+                isWorkable = true;
+                workType = 'mining';
+              } else if(tile >= TERRAIN.MOUNTAIN && tile < TERRAIN.CAVE_ENTRANCE){
+                // Mountain - mining
+                isWorkable = true;
+                workType = 'mining';
+              } else if(tile === TERRAIN.BUILD_MARKER || tile === TERRAIN.BUILD_MARKER_ALT || 
+                        tile === 12 || tile === 12.5 || tile === 13 || tile === 15 || tile === 17){
+                // Foundation/construction tiles - building
+                isWorkable = true;
+                workType = 'building';
+              } else if(tile >= TERRAIN.FARM_SEED && tile <= TERRAIN.FARM_READY){
+                // Farm tiles - farming
+                isWorkable = true;
+                workType = 'farming';
+              }
+            }
+            
+            if(isWorkable && workType){
+              // Check if player is already at the target tile
+              var playerLoc = getLoc(player.x, player.y);
+              var atTarget = (playerLoc[0] === tileX && playerLoc[1] === tileY && player.z === z);
+              
+              if(workType === 'fishing'){
+                // For fishing, find closest reachable land tile adjacent to water tile
+                var adjacentTiles = [
+                  [tileX - 1, tileY],     // left
+                  [tileX + 1, tileY],     // right
+                  [tileX, tileY - 1],     // up
+                  [tileX, tileY + 1],     // down
+                  [tileX - 1, tileY - 1], // top-left
+                  [tileX + 1, tileY - 1], // top-right
+                  [tileX - 1, tileY + 1], // bottom-left
+                  [tileX + 1, tileY + 1]  // bottom-right
+                ];
+                
+                var closestLandTile = null;
+                var closestDistance = Infinity;
+                var startLoc = getLoc(player.x, player.y);
+                
+                // Find closest land tile adjacent to water
+                for(var i = 0; i < adjacentTiles.length; i++){
+                  var adjTile = adjacentTiles[i];
+                  var adjTileType = getTile(0, adjTile[0], adjTile[1]);
+                  
+                  // Check if this is a land tile (not water, not heavy forest, not mountain)
+                  if(adjTileType !== TERRAIN.WATER && 
+                     adjTileType < TERRAIN.HEAVY_FOREST && 
+                     adjTileType !== TERRAIN.MOUNTAIN){
+                    
+                    // Try to pathfind to this tile
+                    var options = {
+                      avoidDoors: true,
+                      avoidCaveExits: false
+                    };
+                    var testPath = global.tilemapSystem.findPath(startLoc, adjTile, 0, options);
+                    
+                    if(testPath && testPath.length > 0){
+                      var dist = Math.abs(adjTile[0] - startLoc[0]) + Math.abs(adjTile[1] - startLoc[1]);
+                      if(dist < closestDistance){
+                        closestDistance = dist;
+                        closestLandTile = adjTile;
+                      }
+                    }
+                  }
+                }
+                
+                if(closestLandTile){
+                  // Pathfind to closest land tile
+                  var options = {
+                    avoidDoors: true,
+                    avoidCaveEntrances: true,
+                    avoidWater: true,
+                    avoidCaveExits: false
+                  };
+                  var path = global.tilemapSystem.findPath(startLoc, closestLandTile, 0, options);
+                  if(path && path.length > 0){
+                    if(typeof smoothPath === 'function'){
+                      path = smoothPath(path, z);
+                    }
+                    var firstWaypoint = path[0];
+                    if(firstWaypoint && firstWaypoint[0] === startLoc[0] && firstWaypoint[1] === startLoc[1]){
+                      player.pathCount = 1;
+                    } else {
+                      player.pathCount = 0;
+                    }
+                    player.path = path;
+                    
+                    // Store work target (water tile for fishing)
+                    player.workTargetTile = {
+                      tileX: tileX,
+                      tileY: tileY,
+                      z: z,
+                      workType: workType,
+                      fishingWaterTile: {x: tileX, y: tileY} // Store water tile for fishing
+                    };
+                  }
+                }
+              } else {
+                  // For other work types, pathfind directly to tile
+                  if(!atTarget){
+                    var startLoc = getLoc(player.x, player.y);
+                    var layer = z === 0 ? 0 : (z === -1 ? 1 : (z === -2 ? 8 : (z === 1 ? 3 : (z === 2 ? 5 : (z === -3 ? 2 : 0)))));
+                    var options = {
+                      avoidDoors: true,
+                      avoidCaveEntrances: true,
+                      avoidWater: true,
+                      avoidCaveExits: false
+                    };
+                    
+                    // Allow foundation/construction tiles as targets
+                    if(workType === 'building'){
+                      options.allowSpecificDoor = true;
+                      options.targetDoor = [tileX, tileY];
+                    }
+                    
+                    var path = global.tilemapSystem.findPath(startLoc, [tileX, tileY], layer, options);
+                  if(path && path.length > 0){
+                    if(z !== -1 && typeof smoothPath === 'function'){
+                      path = smoothPath(path, z);
+                    }
+                    var firstWaypoint = path[0];
+                    if(firstWaypoint && firstWaypoint[0] === startLoc[0] && firstWaypoint[1] === startLoc[1]){
+                      player.pathCount = 1;
+                    } else {
+                      player.pathCount = 0;
+                    }
+                    player.path = path;
+                  }
+                }
+                
+                // Store work target
+                player.workTargetTile = {
+                  tileX: tileX,
+                  tileY: tileY,
+                  z: z,
+                  workType: workType
+                };
+                
+                // If already at tile, start work immediately
+                if(atTarget){
+                  player.handleWorkAction();
+                }
+              }
             }
           }
         } else if (data.msg === 'selectTarget') {
@@ -5369,10 +6534,15 @@ io.on('connection', function(socket) {
               // Re-enable auto-attacking (player explicitly commanded attack)
               player.autoAttackPaused = false;
               
-              // Set combat target
-              player.combat.target = data.targetId;
-              player.action = 'combat';
-              player._lastCombatAttack = 0; // Reset attack timer
+              // Start combat using simpleCombat system (properly initializes combat and auto-attacking)
+              if (global.simpleCombat) {
+                global.simpleCombat.startCombat(player, target);
+              } else {
+                // Fallback for systems without simpleCombat
+                player.combat.target = data.targetId;
+                player.action = 'combat';
+                player._lastCombatAttack = 0; // Reset attack timer
+              }
             }
           }
         } else if (data.msg === 'interact') {
@@ -5381,8 +6551,127 @@ io.on('connection', function(socket) {
             var building = Building.list[data.buildingId];
             if(building){
               // Use existing Interact function
-              var loc = getLoc(player.x, player.y);
+              // Use building's location instead of player's location
+              var loc = getLoc(building.x, building.y);
               Interact(socket.id, loc);
+            }
+          }
+        } else if (data.msg === 'interactWithPath') {
+          // Right-click interactable with pathfinding to adjacent tile
+          if(player && data.entityType && data.entityId !== undefined){
+            var entity = null;
+            var isInteractable = false;
+            
+            // Get entity and verify it's interactable
+            if(data.entityType === 'building'){
+              entity = Building.list[data.entityId];
+              if(entity){
+                isInteractable = isInteractableBuilding(entity);
+              }
+            } else if(data.entityType === 'item'){
+              entity = Item.list[data.entityId];
+              if(entity){
+                isInteractable = isInteractableObject(entity);
+              }
+            }
+            
+            if(entity && isInteractable){
+              var playerLoc = getLoc(player.x, player.y);
+              
+              // Check if player is already adjacent to the entity
+              if(isPlayerAdjacentToEntity(entity, data.entityType, playerLoc)){
+                // Player is already adjacent - trigger interaction directly
+                var interactionLoc = null;
+                if(data.entityType === 'building'){
+                  // For buildings, use the interactable tile location
+                  // For docks: use plot[4] (the non-walkable tile)
+                  // For mills/lumbermills/mines: use any plot tile (all are interactable)
+                  if(entity.plot && Array.isArray(entity.plot)){
+                    if(entity.type === 'dock' && entity.plot[4]){
+                      // Dock: use plot[4] (the non-walkable interactable tile)
+                      interactionLoc = entity.plot[4];
+                    } else if(entity.plot.length > 0){
+                      // Other buildings: use first plot tile (all are interactable)
+                      interactionLoc = entity.plot[0];
+                    }
+                  }
+                  // Fallback to building center if plot not available
+                  if(!interactionLoc){
+                    interactionLoc = getLoc(entity.x, entity.y);
+                  }
+                } else if(data.entityType === 'item'){
+                  // Use item's location
+                  interactionLoc = getLoc(entity.x, entity.y);
+                }
+                
+                // Fallback to player's current location if we couldn't get entity location
+                if(!interactionLoc){
+                  interactionLoc = playerLoc;
+                }
+                
+                // Trigger interaction immediately
+                Interact(socket.id, interactionLoc);
+              } else {
+                // Player is not adjacent - find closest adjacent walkable tile and pathfind
+                var adjacentTile = findClosestAdjacentWalkableTile(entity, data.entityType, player.z, playerLoc);
+                
+                if(adjacentTile){
+                  // Store interaction target for when player reaches destination
+                  player.pendingInteraction = {
+                    type: data.entityType,
+                    id: data.entityId,
+                    z: player.z
+                  };
+                  
+                  // Pathfind to adjacent tile
+                  var tileX = adjacentTile[0];
+                  var tileY = adjacentTile[1];
+                  var z = player.z;
+                  
+                  // Determine the correct layer for pathfinding based on z-level
+                  var layer = 0;
+                  var options = {};
+                  
+                  if(z === 0){
+                    layer = 0; // Overworld
+                    options.avoidDoors = true;
+                    options.avoidCaveExits = false;
+                  } else if(z === -1){
+                    layer = 1; // Cave (underworld)
+                    options.avoidCaveExits = true;
+                  } else if(z === -2){
+                    layer = -2; // Cellar
+                  } else if(z === 1){
+                    layer = 3; // Building floor 1
+                  } else if(z === 2){
+                    layer = 5; // Building floor 2
+                  }
+                  
+                  var path = global.tilemapSystem.findPath(playerLoc, [tileX, tileY], layer, options);
+                  
+                  if(path && path.length > 0){
+                    // Apply smoothing for non-cave paths
+                    if(z !== -1 && typeof smoothPath === 'function'){
+                      path = smoothPath(path, z);
+                    }
+                    
+                    // Skip the first waypoint if it's the starting tile
+                    var firstWaypoint = path[0];
+                    if(firstWaypoint && firstWaypoint[0] === playerLoc[0] && firstWaypoint[1] === playerLoc[1]){
+                      player.pathCount = 1; // Start at second waypoint
+                    } else {
+                      player.pathCount = 0;
+                    }
+                    player.path = path;
+                  } else {
+                    // No path found - clear pending interaction
+                    player.pendingInteraction = null;
+                  }
+                } else {
+                  // No adjacent walkable tile found - clear pending interaction
+                  player.pendingInteraction = null;
+                }
+              }
             }
           }
         } else if (data.msg === 'attackMove') {
@@ -5394,16 +6683,55 @@ io.on('connection', function(socket) {
             // Set attack-move flag and destination
             player.attackMoveTarget = {z: data.z, col: data.tileX, row: data.tileY};
             
-            if(player.moveTo){
-              player.moveTo(data.z, data.tileX, data.tileY);
-            } else {
-              // Fallback: use pathfinding system directly
-              var startLoc = getLoc(player.x, player.y);
-              var path = global.tilemapSystem.findPath(startLoc[0], startLoc[1], data.tileX, data.tileY, data.z);
-              if(path && path.length > 0){
-                player.path = path;
+            // Use the same pathfinding logic as clickNavigate
+            var tileX = data.tileX;
+            var tileY = data.tileY;
+            var z = data.z;
+            
+            // For indoor navigation, ensure player's current z-level matches
+            if((z === 1 || z === 2) && player.z !== z){
+              z = player.z;
+            }
+            
+            // Determine the correct layer for pathfinding based on z-level
+            var layer = 0;
+            var options = {};
+            
+            if(z === 0){
+              layer = 0; // Overworld
+              options.avoidDoors = true;
+              options.avoidCaveExits = false;
+            } else if(z === -1){
+              layer = 1; // Cave (underworld)
+              options.avoidCaveExits = true;
+            } else if(z === -2){
+              layer = -2; // Cellar
+            } else if(z === 1){
+              layer = 3; // Building floor 1
+            } else if(z === 2){
+              layer = 5; // Building floor 2
+            }
+            
+            var startLoc = getLoc(player.x, player.y);
+            var path = global.tilemapSystem.findPath(startLoc, [tileX, tileY], layer, options);
+            
+            if(path && path.length > 0){
+              // Apply smoothing for non-cave paths
+              if(z !== -1 && typeof smoothPath === 'function'){
+                path = smoothPath(path, z);
+              }
+              
+              // Skip the first waypoint if it's the starting tile
+              var firstWaypoint = path[0];
+              if(firstWaypoint && firstWaypoint[0] === startLoc[0] && firstWaypoint[1] === startLoc[1]){
+                player.pathCount = 1; // Start at second waypoint
+              } else {
                 player.pathCount = 0;
               }
+              player.path = path;
+            } else {
+              player.path = null;
+              player.pathCount = 0;
             }
           }
         } else if (data.msg === 'getResourceScoreboard') {
