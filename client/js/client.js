@@ -381,11 +381,9 @@ socket.onmessage = function(event){
             if(p.class === 'Falcon') {
               if(sprite !== null && typeof falcon !== 'undefined' && sprite === falcon) {
                 p.sprite = sprite;
-                console.log('Preview: Falcon', p.id, 'sprite: FALCON_SPRITE ✓');
               } else {
                 // Keep sprite as null - falcon will be invisible until sprite loads
                 p.sprite = null;
-                console.log('Preview: Falcon', p.id, 'sprite: NULL (images not loaded yet), facing:', p.facing);
               }
             } else {
               p.sprite = sprite;
@@ -4939,11 +4937,6 @@ var Player = function(initPack){
   self.spiritMax = initPack.spiritMax;
   self.ghost = initPack.ghost || false;
   self.sprite = getSpriteForClass(self.class, self.ghost); // Use correct sprite based on class
-  
-  // Debug: Log falcon sprite assignment
-  if(self.class === 'Falcon') {
-    console.log('FALCON CREATED:', self.id, 'sprite:', self.sprite === null ? 'NULL' : (typeof falcon !== 'undefined' && self.sprite === falcon ? 'FALCON_SPRITE' : 'WRONG_SPRITE'), 'facing:', self.facing);
-  }
   self.spriteSize = initPack.spriteSize || 64; // Default to 64 if not provided
   self.ranged = initPack.ranged;
   self.action = initPack.action;
@@ -5180,24 +5173,18 @@ var Player = function(initPack){
       if(self.class === 'Falcon'){
         // Only render if we have the actual falcon sprite loaded
         if(typeof falcon !== 'undefined' && self.sprite === falcon && falcon.facedown && falcon.facedown.complete){
-          // Debug: Log facing on first few draws
-          if(!self._facingLogged) {
-            console.log('FALCON DRAW:', self.id, 'facing:', self.facing);
-            self._facingLogged = true;
+          if(self.facing === 'down'){
+            safeDrawImage(self.sprite.facedown, x, y, scaledSpriteSize, scaledSpriteSize);
+          } else if(self.facing === 'up'){
+            safeDrawImage(self.sprite.faceup, x, y, scaledSpriteSize, scaledSpriteSize);
+          } else if(self.facing === 'left'){
+            safeDrawImage(self.sprite.faceleft, x, y, scaledSpriteSize, scaledSpriteSize);
+          } else if(self.facing === 'right'){
+            safeDrawImage(self.sprite.faceright, x, y, scaledSpriteSize, scaledSpriteSize);
+          } else {
+            // Default fallback
+            safeDrawImage(self.sprite.facedown, x, y, scaledSpriteSize, scaledSpriteSize);
           }
-        if(self.facing === 'down'){
-          safeDrawImage(self.sprite.facedown, x, y, scaledSpriteSize, scaledSpriteSize);
-        } else if(self.facing === 'up'){
-          safeDrawImage(self.sprite.faceup, x, y, scaledSpriteSize, scaledSpriteSize);
-        } else if(self.facing === 'left'){
-          safeDrawImage(self.sprite.faceleft, x, y, scaledSpriteSize, scaledSpriteSize);
-        } else if(self.facing === 'right'){
-          safeDrawImage(self.sprite.faceright, x, y, scaledSpriteSize, scaledSpriteSize);
-        } else {
-            // Default fallback - unexpected facing value
-            console.warn('FALCON unexpected facing:', self.facing, 'for', self.id);
-          safeDrawImage(self.sprite.facedown, x, y, scaledSpriteSize, scaledSpriteSize);
-        }
         }
         // Falcon class but sprite not ready - DO NOT render anything, DO NOT fall through
         // This prevents falcons from ever rendering as maleserf
