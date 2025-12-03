@@ -229,8 +229,10 @@ class BuildingPreviewRenderer {
   }
 }
 
-// Global instance
-window.buildingPreviewRenderer = new BuildingPreviewRenderer();
+// Global instance - use consistent name
+if (typeof window !== 'undefined' && !window.buildingPreviewRenderer) {
+  window.buildingPreviewRenderer = new BuildingPreviewRenderer();
+}
 
 // Handle keyboard events
 document.addEventListener('keydown', (event) => {

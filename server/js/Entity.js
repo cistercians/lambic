@@ -1,111 +1,33 @@
-// STUCK ENTITY ANALYTICS - Global tracking
+/**
+ * Entity.js - Core entity definitions for the game
+ * 
+ * This file contains all entity constructors. For new code, prefer importing
+ * specific constructors via module.exports rather than using globals:
+ * 
+ *   const { Character, Building, Item } = require('./Entity');
+ * 
+ * File Structure:
+ * - Entity (base class) - Line ~13
+ * - Building - Line ~94
+ * - Character - Line ~1791 (base for all NPCs/players)
+ * - Serf, SerfM, SerfF - Line ~7898 (civilian workers)
+ * - Arrow - Line ~12102
+ * - Item - Line ~12326
+ * - Light - Line ~14870
+ * - Weather - Line ~15076
+ * 
+ * TODO: This file should be split into separate modules over time.
+ * See server/js/entities/ for the modular entity structure.
+ */
+
+// Stub for stuck entity analytics - disabled by default to save memory
+// Enable with: global.stuckEntityAnalytics.enabled = true
 if (!global.stuckEntityAnalytics) {
   global.stuckEntityAnalytics = {
-    enabled: true,
-    stuckEvents: [],
-    maxHistorySize: 200,
-    entityStuckCounts: new Map(), // entityId -> count
-    waypointStuckCounts: new Map(), // waypoint -> count
-    layerStuckCounts: new Map(), // z-level -> count
-    reasonCounts: { blocked: 0, stuck: 0, oscillating: 0, gaveUp: 0 },
-    recalcAttempts: [],
-    lastLog: Date.now(),
-    logInterval: 10000, // Log every 10 seconds
-    
-    recordStuckEvent: function(entity, waypoint, reason, attempts, z) {
-      if (!this.enabled) return;
-      
-      const event = {
-        timestamp: Date.now(),
-        entityId: entity.id,
-        entityName: entity.name || entity.class || 'Unknown',
-        entityClass: entity.class,
-        waypoint: waypoint ? waypoint.toString() : 'unknown',
-        reason: reason,
-        attempts: attempts,
-        z: z,
-        position: { x: Math.floor(entity.x), y: Math.floor(entity.y) }
-      };
-      
-      this.stuckEvents.push(event);
-      if (this.stuckEvents.length > this.maxHistorySize) {
-        this.stuckEvents.shift();
-      }
-      
-      // Track entity stuck counts
-      const entityKey = `${entity.class}:${entity.id}`;
-      this.entityStuckCounts.set(entityKey, (this.entityStuckCounts.get(entityKey) || 0) + 1);
-      
-      // Track waypoint stuck counts
-      if (waypoint) {
-        const wpKey = waypoint.toString();
-        this.waypointStuckCounts.set(wpKey, (this.waypointStuckCounts.get(wpKey) || 0) + 1);
-      }
-      
-      // Track z-level stuck counts
-      this.layerStuckCounts.set(z, (this.layerStuckCounts.get(z) || 0) + 1);
-      
-      // Track reason counts
-      if (this.reasonCounts[reason] !== undefined) {
-        this.reasonCounts[reason]++;
-      }
-      
-      // Track recalc attempts
-      if (attempts) {
-        this.recalcAttempts.push(attempts);
-        if (this.recalcAttempts.length > 100) {
-          this.recalcAttempts.shift();
-        }
-      }
-    },
-    
-    getStats: function() {
-      const avgRecalc = this.recalcAttempts.length > 0
-        ? (this.recalcAttempts.reduce((a, b) => a + b, 0) / this.recalcAttempts.length).toFixed(2)
-        : 0;
-      const maxRecalc = this.recalcAttempts.length > 0 ? Math.max(...this.recalcAttempts) : 0;
-      
-      // Get top stuck entities
-      const topEntities = Array.from(this.entityStuckCounts.entries())
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
-        .map(([entity, count]) => ({ entity, count }));
-      
-      // Get top stuck waypoints
-      const topWaypoints = Array.from(this.waypointStuckCounts.entries())
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 10)
-        .map(([waypoint, count]) => ({ waypoint, count }));
-      
-      // Get layer distribution
-      const layerDist = Array.from(this.layerStuckCounts.entries())
-        .sort((a, b) => b[1] - a[1])
-        .map(([layer, count]) => ({ layer, count }));
-      
-      return {
-        totalEvents: this.stuckEvents.length,
-        recentEvents: this.stuckEvents.slice(-10),
-        reasonCounts: this.reasonCounts,
-        recalcAttempts: { avg: avgRecalc, max: maxRecalc },
-        topStuckEntities: topEntities,
-        topStuckWaypoints: topWaypoints,
-        layerDistribution: layerDist
-      };
-    },
-    
-    maybeLogStats: function() {
-      if (!this.enabled) return;
-      
-      const now = Date.now();
-      if (now - this.lastLog >= this.logInterval) {
-        const stats = this.getStats();
-        
-        if (stats.totalEvents > 0) {
-        }
-        
-        this.lastLog = now;
-      }
-    }
+    enabled: false,
+    recordStuckEvent: function() {},
+    getStats: function() { return { totalEvents: 0 }; },
+    maybeLogStats: function() {}
   };
 }
 
@@ -202,6 +124,12 @@ Building = function(param){
   self.plot = param.plot;
   self.walls = param.walls;
   self.topPlot = param.topPlot;
+  
+  if (param.type === 'forge' || param.type === 'tavern' || param.type === 'garrison') {
+    console.log('[Building] Creating ' + param.type + ':');
+    console.log('[Building]   - param.walls:', JSON.stringify(param.walls));
+    console.log('[Building]   - self.walls:', JSON.stringify(self.walls));
+  }
   self.mats = param.mats;
   self.req = param.req;
   self.hp = param.hp;
@@ -321,7 +249,8 @@ Building = function(param){
       type:self.type,
       occ:self.occ,
       plot:self.plot,
-      walls:self.walls
+      walls:self.walls,
+      topPlot:self.topPlot
     }
   }
 
@@ -1694,7 +1623,11 @@ Garrison = function(param){
 }
 
 Forge = function(param){
+  console.log('[Forge] Creating forge with params:');
+  console.log('[Forge]   - param.walls:', JSON.stringify(param.walls));
+  console.log('[Forge]   - param.plot:', JSON.stringify(param.plot));
   var self = Building(param);
+  console.log('[Forge]   - self.walls after Building():', JSON.stringify(self.walls));
   self.patrol = true;
   self.blacksmith = null;
   self.conversionTimer = 0; // Convert iron ore every 30 seconds (1800 frames at 60fps)
@@ -5907,247 +5840,14 @@ Character.prototype.processFishCatch = function() {
   return false;
 };
 
-// FAUNA
-
-Sheep = function(param){
-  var self = Character(param);
-  self.class = 'Sheep';
-  return self;
-}
-
-Deer = function(param){
-  var self = Character(param);
-  self.class = 'Deer';
-  self.isPrey = true; // Prey animal
-  self.isNonCombatant = true; // Doesn't trigger outposts
-  self.aggroRange = 256;
-  self.runSpd = 5; // Deer flee speed
-  self.stealthCheck = function(p){
-    if(p.stealthed){
-      var dist = self.getDistance({x:p.x,y:p.y});
-      if(dist <= 256){
-        Player.list[p.id].revealed = true;
-      }
-    }
-  }
-  self.checkAggro = function(){
-    for(var i in self.zGrid){
-      var zc = self.zGrid[i][0];
-      var zr = self.zGrid[i][1];
-      if(zc < 64 && zc > -1 && zr < 64 && zr > -1){
-        const zoneKey = `${zc},${zr}`;
-        const zoneEntities = zones.get(zoneKey) || new Set();
-        for(const entityId of zoneEntities){
-          var p = Player.list[entityId];
-          if(p && p.z == self.z){
-            var pDist = self.getDistance({
-              x:p.x,
-              y:p.y
-            });
-            if(pDist <= self.aggroRange && p.class != 'Deer'){
-              self.stealthCheck(p);
-              if(!Player.list[p.id].stealthed || Player.list[p.id].revealed){ // is not stealthed or is revealed
-                self.combat.target = p.id;
-                self.action = 'flee';
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-
-  // Store interval reference for cleanup
-  self.aggroInterval = setInterval(function(){
-    if(global.simpleCombat){
-      global.simpleCombat.checkAggro(self);
-    } else {
-    self.checkAggro();
-    }
-  },100); // Check every 100ms for faster response
-
-  // Find nearest heavy forest area
-  self.findNearestForest = function(){
-    var loc = getLoc(self.x, self.y);
-    var bestForest = null;
-    var bestDistance = Infinity;
-    
-    // Search in expanding radius for heavy forest (tile type 1)
-    for(var radius = 1; radius <= 20; radius++){
-      for(var dx = -radius; dx <= radius; dx++){
-        for(var dy = -radius; dy <= radius; dy++){
-          // Only check perimeter of current radius
-          if(Math.abs(dx) !== radius && Math.abs(dy) !== radius && radius > 1) continue;
-          
-          var checkCol = loc[0] + dx;
-          var checkRow = loc[1] + dy;
-          
-          // Bounds check
-          if(checkCol < 0 || checkCol >= mapSize || checkRow < 0 || checkRow >= mapSize) continue;
-          
-          // Check if this tile is heavy forest
-          if(getTile(0, checkCol, checkRow) >= 1 && getTile(0, checkCol, checkRow) < 2){
-            var dist = Math.sqrt(dx*dx + dy*dy);
-            if(dist < bestDistance){
-              bestDistance = dist;
-              bestForest = [checkCol, checkRow];
-            }
-          }
-        }
-      }
-      
-      // If we found a forest within reasonable distance, use it
-      if(bestForest && bestDistance <= 10){
-        break;
-      }
-    }
-    
-    return bestForest;
-  };
-
-  self.return = function(){
-    if(!self.path){
-      if(self.innaWoods){
-        // Already in forest, just idle
-        self.action = null;
-      } else {
-        // Find nearest forest instead of returning to home
-        var forestLoc = self.findNearestForest();
-        if(forestLoc){
-          self.moveTo(self.z, forestLoc[0], forestLoc[1]);
-        } else {
-          // No forest found, just idle where we are
-          self.action = null;
-        }
-      }
-    }
-  };
-
-  // ============================================================================
-  // SECOND CHARACTER UPDATE (lines 5934-6020)
-  // ============================================================================
-  // Simplified update function for fauna/simple NPCs
-  // Contains:
-  // - Pathfinding cooldown management
-  // - Speed updates via updateSpeed() method
-  // - Simplified terrain state tracking (innaWoods, onMtn)
-  // - Automatic water entry (z=-3) without transition intent
-  // - Basic idle mode with random wandering and flee behavior
-  // - Calls updatePosition() to apply movement
-  // NOTE: This creates overlap with first update - fauna might use either
-  // Dependencies: Called for simple Character instances (Deer, Sheep, etc.)
-  // ============================================================================
-  
-  self.update = function(){
-    // ===== GUARD: Boarded entities are controlled by ships =====
-    // Boarded players should not run normal update logic - their position is controlled by the ship
-    if(self.isBoarded){
-      return;
-    }
-    
-    // ===== NEW: Using prototype methods =====
-    Character.prototype.updateCooldowns.call(this); // Includes pathCooldown and idleTime
-    
-    // OLD: ===== PATHFINDING COOLDOWN (lines 5940-5943) =====
-    // OLD: Decrement pathfinding cooldown
-    // OLD: if(self.pathCooldown && self.pathCooldown > 0){
-    // OLD:   self.pathCooldown--;
-    // OLD: }
-    
-    // ===== SPEED UPDATE (line 5946) =====
-    // Update speed based on current state and terrain
-    self.updateSpeed();
-    
-    // ===== CORE SETUP =====
-    var loc = getLoc(self.x,self.y);
-    self.zoneCheck();
-    
-    // OLD: if(self.idleTime > 0){
-    // OLD:   self.idleTime--;
-    // OLD: }
-
-    // ===== SIMPLIFIED TERRAIN STATE TRACKING (lines 5954-5983) =====
-    // Only tracks terrain state (innaWoods, onMtn), NOT speed modifiers
-    // Speed is handled by updateSpeed() method
-    // Terrain state tracking (speed is handled by updateSpeed())
-    if(getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 2){
-      self.innaWoods = true;
-      self.onMtn = false;
-    } else if(getTile(0,loc[0],loc[1]) >= 2 && getTile(0,loc[0],loc[1]) < 4){
-      self.innaWoods = false;
-      self.onMtn = false;
-    } else if(getTile(0,loc[0],loc[1]) >= 4 && getTile(0,loc[0],loc[1]) < 5){
-      self.innaWoods = false;
-      self.onMtn = false;
-    } else if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6 && !self.onMtn){
-      self.innaWoods = false;
-      setTimeout(function(){
-        if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6){
-          self.onMtn = true;
-        }
-      },2000);
-    } else if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6 && self.onMtn){
-      // Mountain terrain - no speed change needed (handled by updateSpeed)
-    } else if(getTile(0,loc[0],loc[1]) == 18){
-      self.innaWoods = false;
-      self.onMtn = false;
-    } else if(getTile(0,loc[0],loc[1]) == 0 && !self.isBoarded){
-      self.z = -3;
-      self.innaWoods = false;
-      self.onMtn = false;
-    } else {
-      self.innaWoods = false;
-      self.onMtn = false;
-    }
-
-    // ===== IDLE MODE ONLY (lines 6007-6040) =====
-    // Simple fauna behavior: wander in woods, flee from combat
-    if(self.mode == 'idle'){
-      if(!self.action){
-        // Speed is now managed by updateSpeed() - no manual speed changes needed
-        if(!self.innaWoods){
-          if(!self.path){
-            self.return();
-          }
-        } else if(self.idleTime == 0){
-          if(!self.path){
-            var col = loc[0];
-            var row = loc[1];
-            var select = [[col,row-1],[col-1,row],[col,row+1],[col+1,row]];
-            var target = select[Math.floor(Math.random() * 4)];
-            if(target[0] < mapSize && target[0] > -1 && target[1] < mapSize && target[1] > -1){
-              // Check if tile is walkable and not water (NPCs should avoid water during idle pathing)
-              var targetTile = getTile(0, target[0], target[1]);
-              var isWater = (targetTile === 0); // TERRAIN.WATER
-              if(isWalkable(self.z,target[0],target[1]) && !isWater){
-                self.move(target);
-                self.idleTime += Math.floor(Math.random() * self.idleRange);
-              }
-            }
-          }
-        }
-      } else if(self.action == 'combat'){
-        self.action = 'flee';
-      } else if(self.action == 'flee'){
-        // Use SimpleFlee system for reliable fleeing
-        if(global.simpleFlee){
-          global.simpleFlee.update(self);
-        } else {
-          // Fallback: clear flee if no system available
-          self.action = null;
-          self.combat.target = null;
-        }
-      }
-    }
-    
-    // ===== MOVEMENT UPDATE (line 6041) =====
-    // Apply velocity to position for all non-ship entities
-    self.updatePosition();
-  }
-  // ===== END SECOND CHARACTER UPDATE =====
-  
-  return self;
-}
+// ============================================================================
+// FAUNA ENTITIES
+// ============================================================================
+// NOTE: Fauna entities (Sheep, Deer, Boar, Wolf, Falcon) are now defined in
+// server/js/entities/ as modular exports and loaded via initModularEntities().
+// This eliminates code duplication and makes fauna easier to maintain.
+// See server/js/entities/index.js for the entity registry.
+// ============================================================================
 
 // ============================================================================
 // CHARACTER PROTOTYPE METHODS - PHASE 2: SIMPLE COMMON LOGIC
@@ -6256,329 +5956,6 @@ Character.prototype.updateTorchBearer = function() {
 // ============================================================================
 // END PROTOTYPE METHODS - PHASE 2
 // ============================================================================
-
-Boar = function(param){
-  var self = Character(param);
-  self.class = 'Boar';
-  self.baseSpd = 5;
-  self.runSpd = 7; // Boar run speed
-  self.damage = 12;
-  self.aggroRange = 128;
-  self.wanderRange = 256; // Tight leash - territorial defense (2x aggro range)
-  return self;
-}
-
-Wolf = function(param){
-  var self = Character(param);
-  self.class = 'Wolf';
-  self.baseSpd = 3;
-  self.runSpd = 5; // Default wolf run speed (day), updated dynamically based on day/night
-  self.damage = 10;
-  self.wanderRange = 4096; // Increased 4x from 1024 (64 tiles)
-  self.aggroRange = 256; // Set initial aggro range
-  self.nightmode = true;
-  self.stealthCheck = function(p){
-    if(p.stealthed){
-      var dist = self.getDistance({x:p.x,y:p.y});
-      if(dist <= 256){
-        Player.list[p.id].revealed = true;
-      }
-    }
-  }
-  self.checkAggro = function(){
-    // Use SimpleCombat for wolf aggro
-    if(global.simpleCombat){
-      global.simpleCombat.checkAggro(self);
-    } else {
-      // Fallback to old wolf aggro logic
-    for(var i in self.zGrid){
-      var zc = self.zGrid[i][0];
-      var zr = self.zGrid[i][1];
-      if(zc < 64 && zc > -1 && zr < 64 && zr > -1){
-          const zoneKey = `${zc},${zr}`;
-          const zoneEntities = zones.get(zoneKey) || new Set();
-          for(const entityId of zoneEntities){
-            var p = Player.list[entityId];
-          if(p && p.z == self.z){
-            var pDist = self.getDistance({
-              x:p.x,
-              y:p.y
-            });
-            if(pDist <= self.aggroRange){ // in aggro range
-              if(p.class != 'Wolf'){
-                self.stealthCheck(p);
-                if(!Player.list[p.id].stealthed || Player.list[p.id].revealed){ // is not stealthed or is revealed
-                  self.combat.target = p.id;
-                  if(self.hp < (self.hpMax * 0.1)){
-                    self.action = 'flee';
-                  } else {
-                    self.action = 'combat';
-                  }
-                  if(p.type == 'npc' && pDist <= p.aggroRange && p.action != 'combat'){
-                    Player.list[p.id].combat.target = self.id;
-                    Player.list[p.id].action = 'combat';
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-
-  // Store interval reference for cleanup
-  self.aggroInterval = setInterval(function(){
-    if(global.simpleCombat){
-      global.simpleCombat.checkAggro(self);
-    } else {
-    self.checkAggro();
-    }
-  },100); // Check every 100ms for faster response
-
-  self.update = function(){
-    // Update speed based on current state and terrain
-    self.updateSpeed();
-    
-    var loc = getLoc(self.x,self.y);
-    self.zoneCheck();
-    if(nightfall){
-      self.nightmode = true;
-      self.aggroRange = 320; // Slightly more aggressive at night
-      self.idleRange = 300;
-      self.runSpd = 6; // Faster at night
-    } else {
-      self.nightmode = false;
-      self.aggroRange = 256; // Standard range during day
-      self.idleRange = 1000;
-      self.runSpd = 5; // Slower during day
-    }
-    if(self.idleTime > 0){
-      self.idleTime--;
-    }
-    if(self.z == 0){
-      if(getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 2){
-        self.innaWoods = true;
-        self.onMtn = false;
-      } else if(getTile(0,loc[0],loc[1]) >= 2 && getTile(0,loc[0],loc[1]) < 4){
-        self.innaWoods = false;
-        self.onMtn = false;
-      } else if(getTile(0,loc[0],loc[1]) >= 4 && getTile(0,loc[0],loc[1]) < 5){
-        self.innaWoods = false;
-        self.onMtn = false;
-      } else if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6 && !self.onMtn){
-        self.innaWoods = false;
-        // Don't modify maxSpd when fleeing (SimpleFlee manages speed)
-        if(self.action !== 'flee'){
-          self.maxSpd = (self.baseSpd * 0.2) * self.drag;
-        }
-        setTimeout(function(){
-          // Check CURRENT location, not stale loc from 2 seconds ago
-          var currentLoc = getLoc(self.x, self.y);
-          if(getTile(0,currentLoc[0],currentLoc[1]) >= 5 && getTile(0,currentLoc[0],currentLoc[1]) < 6){
-            self.onMtn = true;
-          }
-        },2000);
-      } else if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6 && self.onMtn){
-        // Don't modify maxSpd when fleeing (SimpleFlee manages speed)
-        if(self.action !== 'flee'){
-          self.maxSpd = self.baseSpd * self.drag;
-        }
-      } else if(getTile(0,loc[0],loc[1]) == 6){
-        self.caveEntrance = loc;
-        self.z = -1;
-        // DON'T clear path - it needs to persist through z-transition
-        self.innaWoods = false;
-        self.onMtn = false;
-        // Don't modify maxSpd when fleeing (SimpleFlee manages speed)
-        if(self.action !== 'flee'){
-          self.maxSpd = self.baseSpd * self.drag;
-        }
-      } else if(getTile(0,loc[0],loc[1]) == 18){
-        self.innaWoods = false;
-        self.onMtn = false;
-        // Don't modify maxSpd when fleeing (SimpleFlee manages speed)
-        if(self.action !== 'flee'){
-          self.maxSpd = self.baseSpd * self.drag;
-        }
-      } else if(getTile(0,loc[0],loc[1]) == 0 && !self.isBoarded){
-        self.z = -3;
-        self.innaWoods = false;
-        self.onMtn = false;
-        // Don't modify maxSpd when fleeing (SimpleFlee manages speed)
-        if(self.action !== 'flee'){
-          self.maxSpd = (self.baseSpd * 0.1) * self.drag;
-        }
-      } else {
-        self.innaWoods = false;
-        self.onMtn = false;
-        // Don't modify maxSpd when fleeing (SimpleFlee manages speed)
-        if(self.action !== 'flee'){
-          self.maxSpd = self.baseSpd * self.drag;
-        }
-      }
-    } else if(self.z == -1){
-      if(getTile(1,loc[0],loc[1]) == 2){
-        // On cave exit tile - only exit if path is complete (no active navigation)
-        // This universal rule works for all entities without special cases
-        if(!self.path || self.path.length === 0){
-        self.caveEntrance = null;
-        self.z = 0;
-          self.path = null;
-          self.pathCount = 0;
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = (self.baseSpd * 0.9)  * self.drag;
-        }
-      }
-    }
-
-    if(!self.action){
-      self.baseSpd = 3;
-      if(!self.nightmode && self.z == 0){
-        var t = getTile(0,loc[0],loc[1]);
-        if(t >= 2 && !self.path){
-          self.return();
-        } else {
-          if(self.idleTime == 0){
-            if(!self.path){
-              var col = loc[0];
-              var row = loc[1];
-              var select = [[col,row-1],[col-1,row],[col,row+1],[col+1,row]];
-              var target = select[Math.floor(Math.random() * 4)];
-              if(target[0] < mapSize && target[0] > -1 && target[1] < mapSize && target[1] > -1){
-                if(isWalkable(self.z,target[0],target[1])){
-                  self.move(target);
-                  self.idleTime += Math.floor(Math.random() * self.idleRange);
-                }
-              }
-            }
-          }
-        }
-      } else {
-        if(self.idleTime == 0){
-          if(!self.path){
-            var col = loc[0];
-            var row = loc[1];
-            var select = [[col,row-1],[col-1,row],[col,row+1],[col+1,row]];
-            var target = select[Math.floor(Math.random() * 4)];
-            if(target[0] < mapSize && target[0] > -1 && target[1] < mapSize && target[1] > -1){
-              if(isWalkable(self.z,target[0],target[1])){
-                self.move(target);
-                self.idleTime += Math.floor(Math.random() * self.idleRange);
-              }
-            }
-          }
-        }
-      }
-    } else if(self.action == 'combat'){
-      // Use SimpleCombat for wolf combat
-      if(global.simpleCombat){
-        global.simpleCombat.update(self);
-      } else {
-        // Fallback to old wolf combat logic - use runSpd
-        if(self.nightmode){
-          self.baseSpd = 7; // Night speed
-        } else {
-          self.baseSpd = 6; // Day speed
-        }
-      var target = Player.list[self.combat.target];
-      if(target){
-        if(target.hasTorch || getTile(target.z == 1)){
-          self.combat.target = null;
-          self.action = null;
-          if(target.combat.target == self.id){
-            Player.list[target.id].combat.target = null;
-            Player.list[target.id].action = null;
-          }
-        } else {
-          // Check leash range - don't chase too far from home
-          var homeCoords = getCenter(self.home.loc[0], self.home.loc[1]);
-          var homeDist = self.getDistance({x: homeCoords[0], y: homeCoords[1]});
-          var leashRange = self.wanderRange || 2048; // Default 32 tiles (4x increase)
-          
-          if(homeDist > leashRange){
-            // Too far from home - disengage and return
-            self.combat.target = null;
-            self.action = 'returning'; // Set returning state to prevent re-aggro
-            self.baseSpd = 3;
-            if(target.combat.target == self.id){
-              Player.list[target.id].combat.target = null;
-              Player.list[target.id].action = null;
-            }
-            self.return(); // Go back home
-        } else {
-          self.follow(target,true);
-          var tDist = self.getDistance({
-            x:target.x,
-            y:target.y
-          });
-          if(tDist > self.aggroRange * 1.5){
-            self.combat.target = null;
-            self.action = null;
-            self.baseSpd = 3;
-            if(target.combat.target == self.id){
-              Player.list[target.id].combat.target = null;
-              Player.list[target.id].action = null;
-              }
-            }
-          }
-        }
-      } else {
-        self.combat.target = null;
-        self.action = null;
-        }
-      }
-    } else if(self.action == 'flee'){
-      // Use SimpleFlee system for reliable fleeing
-      if(global.simpleFlee){
-        global.simpleFlee.update(self);
-      } else {
-        // Fallback to old reposition logic
-        if(!self.path){
-          if(self.combat.target){
-            var target = Player.list[self.combat.target];
-            if(target){
-              self.baseSpd = 6;
-              var tLoc = getLoc(target.x,target.y);
-              self.reposition(loc,tLoc);
-            } else {
-              self.combat.target = null;
-              self.action = null;
-            }
-          } else {
-            self.action = null;
-          }
-        }
-      }
-    } else if(self.action == 'returning'){
-      // Returning home after leashing - check if we're back within leash range
-      if(self.home && self.home.loc){
-        var homeCoords = getCenter(self.home.loc[0], self.home.loc[1]);
-        var homeDist = self.getDistance({x: homeCoords[0], y: homeCoords[1]});
-        var leashRange = self.wanderRange || 2048;
-        
-        if(homeDist <= leashRange * 0.5){
-          // Back within safe range - resume normal behavior
-          self.action = null;
-          self.path = null;
-          self.pathCount = 0;
-        } else if(!self.path){
-          // No path and still far - move home
-          self.return();
-        }
-      } else {
-        self.action = null;
-      }
-    }
-    self.updatePosition();
-  }
-  return self;
-}
-
-// Falcon entity is defined in server/js/entities/Falcon.js
-// and loaded via the modular entity system (server/js/entities/index.js)
 
 FishingShip = function(param){
   var self = Character(param);
@@ -15292,7 +14669,7 @@ Weather.update = function(){
 // This will be called from lambic.js after all globals are set up
 global.initModularEntities = function() {
   try {
-    const entityRegistry = require('./entities/index.js');
+    const entityRegistry = require('./server/js/entities/index.js');
     const entities = entityRegistry(Character, {
       zones,
       getTile,
@@ -15304,13 +14681,71 @@ global.initModularEntities = function() {
       randomSpawnO
     });
     
-    // Assign to globals (override old definitions)
+    // Assign to globals
     global.Sheep = entities.Sheep;
     global.Deer = entities.Deer;
     global.Boar = entities.Boar;
     global.Wolf = entities.Wolf;
     global.Falcon = entities.Falcon;
+    
+    console.log('✓ Modular fauna entities loaded successfully');
   } catch(err) {
-    console.error('Error loading modular entities:', err.message);
+    console.error('CRITICAL: Error loading modular entities:', err.message, err.stack);
+    console.error('Providing minimal fallback fauna definitions...');
+    
+    // Fallback definitions (minimal functional entities if modular loading fails)
+    global.Sheep = global.Sheep || function(param) {
+      var self = Character(param);
+      self.class = 'Sheep';
+      return self;
+    };
+    
+    global.Deer = global.Deer || function(param) {
+      var self = Character(param);
+      self.class = 'Deer';
+      self.isPrey = true;
+      return self;
+    };
+    
+    global.Boar = global.Boar || function(param) {
+      var self = Character(param);
+      self.class = 'Boar';
+      self.baseSpd = 5;
+      self.damage = 12;
+      return self;
+    };
+    
+    global.Wolf = global.Wolf || function(param) {
+      var self = Character(param);
+      self.class = 'Wolf';
+      self.baseSpd = 3;
+      self.damage = 10;
+      return self;
+    };
+    
+    global.Falcon = global.Falcon || function(param) {
+      var self = Character(param);
+      self.class = 'Falcon';
+      self.type = 'fauna';
+      self.hp = null;
+      return self;
+    };
   }
+};
+
+// Module exports for new code to import constructors
+// This allows gradual migration away from globals
+module.exports = {
+  Entity,
+  Building,
+  Character,
+  Serf,
+  SerfM,
+  SerfF,
+  Arrow,
+  Item,
+  Light,
+  Weather,
+  // Static methods
+  initModularEntities
 };

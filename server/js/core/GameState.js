@@ -1,20 +1,14 @@
 // Centralized Game State Management
+// NOTE: Entity management is handled by EntityRegistry - this class focuses on world/time state
 class GameState {
   constructor() {
-    this.entities = new Map();
-    this.players = new Map();
-    this.buildings = new Map();
-    this.items = new Map();
-    this.houses = new Map();
-    this.kingdoms = new Map();
-
     // Game world state
     this.world = null;
     this.day = 1;
     this.tick = 1;
     this.tempus = 'XII.a';
-    this.previousTempus = 'XII.a'; // Track previous tempus for hour change detection (initialize to starting tempus)
-    this.previousHourIndex = 0; // Track previous hour index for hour change detection
+    this.previousTempus = 'XII.a';
+    this.previousHourIndex = 0;
     this.nightfall = true;
     this.period = 360;
 
@@ -22,48 +16,6 @@ class GameState {
     this.tileSize = 64;
     this.mapSize = 0;
     this.mapPx = 0;
-  }
-
-  // Entity management
-  addEntity(entity) {
-    this.entities.set(entity.id, entity);
-
-    // Add to specific collections
-    if (entity.type === 'player') {
-      this.players.set(entity.id, entity);
-    } else if (entity.type === 'building') {
-      this.buildings.set(entity.id, entity);
-    } else if (entity.type === 'item') {
-      this.items.set(entity.id, entity);
-    }
-  }
-
-  removeEntity(id) {
-    const entity = this.entities.get(id);
-    if (entity) {
-      this.entities.delete(id);
-
-      // Remove from specific collections
-      this.players.delete(id);
-      this.buildings.delete(id);
-      this.items.delete(id);
-    }
-  }
-
-  getEntity(id) {
-    return this.entities.get(id);
-  }
-
-  getPlayer(id) {
-    return this.players.get(id);
-  }
-
-  getBuilding(id) {
-    return this.buildings.get(id);
-  }
-
-  getItem(id) {
-    return this.items.get(id);
   }
 
   // World state management
@@ -110,58 +62,7 @@ class GameState {
     this.nightfall = ['VIII.p', 'IX.p', 'X.p', 'XI.p', 'XII.a', 'I.a', 'II.a', 'III.a', 'IV.a'].includes(this.tempus);
   }
 
-  // Resource management
-  addResource(playerId, resourceType, amount) {
-    const player = this.getPlayer(playerId);
-    if (player && player.inventory) {
-      if (!player.inventory[resourceType]) {
-        player.inventory[resourceType] = 0;
-      }
-      player.inventory[resourceType] += amount;
-    }
-  }
-
-  removeResource(playerId, resourceType, amount) {
-    const player = this.getPlayer(playerId);
-    if (player && player.inventory && player.inventory[resourceType]) {
-      player.inventory[resourceType] = Math.max(0, player.inventory[resourceType] - amount);
-    }
-  }
-
-  hasResource(playerId, resourceType, amount = 1) {
-    const player = this.getPlayer(playerId);
-    return player && player.inventory && (player.inventory[resourceType] || 0) >= amount;
-  }
-
-  // Utility methods
-  getAllPlayers() {
-    return Array.from(this.players.values());
-  }
-
-  getAllBuildings() {
-    return Array.from(this.buildings.values());
-  }
-
-  getAllItems() {
-    return Array.from(this.items.values());
-  }
-
   // Serialization for client updates
-  getPlayerUpdatePack(playerId) {
-    const player = this.getPlayer(playerId);
-    if (!player) return null;
-
-    return {
-      id: player.id,
-      x: player.x,
-      y: player.y,
-      z: player.z,
-      facing: player.facing,
-      hp: player.hp,
-      inventory: player.inventory
-    };
-  }
-
   getWorldUpdatePack() {
     return {
       day: this.day,

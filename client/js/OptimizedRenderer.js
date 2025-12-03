@@ -1,4 +1,13 @@
-// Optimized Client-Side Rendering System
+/**
+ * Optimized Client-Side Rendering System
+ * 
+ * NOTE: This is an experimental/unused renderer with placeholder implementations.
+ * The main game uses GameRenderer.js instead.
+ * 
+ * This class contains placeholder methods (renderTile, renderEntity, renderLighting)
+ * that are not fully implemented. If this renderer is to be used in the future,
+ * these methods must be properly implemented.
+ */
 class OptimizedRenderer {
   constructor(canvas, lightingCanvas) {
     this.canvas = canvas;
@@ -171,25 +180,40 @@ class OptimizedRenderer {
     return false;
   }
   
-  // Render individual tile (placeholder - implement based on your tile system)
+  /**
+   * Render individual tile
+   * PLACEHOLDER: Not implemented - would need to integrate with MapRenderer
+   * @param {number} tileType - Tile type value
+   * @param {number} x - X position
+   * @param {number} y - Y position
+   */
   renderTile(tileType, x, y) {
-    // This would be implemented based on your specific tile rendering system
+    // PLACEHOLDER: This would be implemented based on your specific tile rendering system
     // For now, just a placeholder
     this.ctx.fillStyle = '#8B4513'; // Brown for dirt
     this.ctx.fillRect(x, y, 64, 64);
   }
   
-  // Render individual entity (placeholder - implement based on your entity system)
+  /**
+   * Render individual entity
+   * PLACEHOLDER: Not implemented - would need to integrate with PlayerRenderer
+   * @param {object} entity - Entity object
+   * @param {number} x - X position
+   * @param {number} y - Y position
+   */
   renderEntity(entity, x, y) {
-    // This would be implemented based on your specific entity rendering system
+    // PLACEHOLDER: This would be implemented based on your specific entity rendering system
     // For now, just a placeholder
     this.ctx.fillStyle = '#FF0000'; // Red for entities
     this.ctx.fillRect(x - 16, y - 16, 32, 32);
   }
   
-  // Render lighting effects
+  /**
+   * Render lighting effects
+   * PLACEHOLDER: Not implemented - would need to integrate with LightingRenderer
+   */
   renderLighting() {
-    // Implement lighting rendering
+    // PLACEHOLDER: Implement lighting rendering
     // This would handle day/night cycle, torches, etc.
   }
   

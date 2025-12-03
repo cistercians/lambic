@@ -1860,6 +1860,74 @@
 <script src="/client/js/audioloader.js"></script>
 <script src="/client/js/audio/AudioManager.js"></script>
 <script src="/client/js/rendering/GameRenderer.js"></script>
+<script src="/client/js/rendering/LightingRenderer.js"></script>
+<script src="/client/js/rendering/LightSourceRenderer.js"></script>
+<script src="/client/js/rendering/AnimationManager.js"></script>
+<script src="/client/js/rendering/MapRenderer.js"></script>
+<script src="/client/js/core/SocketMessageHandler.js"></script>
+<script src="/client/js/core/SocketManager.js"></script>
+<script src="/client/js/core/AudioSystem.js"></script>
+<script src="/client/js/core/StealthSystem.js"></script>
+<script src="/client/js/utils/CanvasManager.js"></script>
+<script src="/client/js/core/CanvasInitializer.js"></script>
+<script src="/client/js/core/ViewportManager.js"></script>
+<script src="/client/js/core/GameLoopManager.js"></script>
+<script src="/client/js/core/SpriteHelper.js"></script>
+
+<!-- Core Systems -->
+<script src="/client/js/core/ShipWakeSystem.js"></script>
+<script src="/client/js/core/TileHighlightSystem.js"></script>
+<script src="/client/js/core/ChatManager.js"></script>
+<script src="/client/js/core/ClientInitializer.js"></script>
+<script src="/client/js/core/AllyCheckHelper.js"></script>
+
+<!-- Utils/Helpers (loaded early as dependencies) -->
+<script src="/client/js/utils/ZoomHelper.js"></script>
+<script src="/client/js/utils/CameraHelper.js"></script>
+<script src="/client/js/utils/MapCoordinateHelper.js"></script>
+<script src="/client/js/utils/WeatherHelper.js"></script>
+<script src="/client/js/utils/VisibilityHelper.js"></script>
+<script src="/client/js/utils/GameHelper.js"></script>
+<script src="/client/js/utils/PortraitHelper.js"></script>
+<script src="/client/js/utils/ItemRarityHelper.js"></script>
+<script src="/client/js/utils/ItemEmojiHelper.js"></script>
+<script src="/client/js/utils/InventoryItemImageHelper.js"></script>
+
+<!-- Rendering Systems -->
+<script src="/client/js/rendering/SpriteManager.js"></script>
+<script src="/client/js/rendering/PlayerRenderer.js"></script>
+<script src="/client/js/rendering/ArrowRenderer.js"></script>
+<script src="/client/js/rendering/ItemRenderer.js"></script>
+<script src="/client/js/rendering/BuildingTopsRenderer.js"></script>
+<script src="/client/js/rendering/ForestRenderer.js"></script>
+<script src="/client/js/rendering/CatchEmojiRenderer.js"></script>
+<script src="/client/js/rendering/WeatherRenderer.js"></script>
+<script src="/client/js/rendering/CaveMapRenderer.js"></script>
+<script src="/client/js/rendering/WorldMapRenderer.js"></script>
+<script src="/client/js/rendering/CursorRenderer.js"></script>
+
+<!-- UI Components -->
+<script src="/client/js/ui/PortraitUI.js"></script>
+<script src="/client/js/ui/WorldMapHoverHandler.js"></script>
+<script src="/client/js/ui/InventoryHandler.js"></script>
+<script src="/client/js/ui/MarketUI.js"></script>
+<script src="/client/js/ui/DockUI.js"></script>
+<script src="/client/js/ui/DepositUI.js"></script>
+<script src="/client/js/ui/ScoreboardUI.js"></script>
+<script src="/client/js/ui/CharacterDisplayUI.js"></script>
+<script src="/client/js/ui/BuildMenuUI.js"></script>
+
+<!-- Input and Camera Systems -->
+<script src="/client/js/core/InputHandler.js"></script>
+<script src="/client/js/core/InputHandlerInitializer.js"></script>
+<script src="/client/js/core/LoginCameraSystem.js"></script>
+<script src="/client/js/core/SpectateCameraSystem.js"></script>
+<script src="/client/js/core/GodModeCameraSystem.js"></script>
+
+<!-- UI Initialization -->
+<script src="/client/js/core/UIInitializer.js"></script>
+<script src="/client/js/core/LoginHandler.js"></script>
+<script src="/client/js/core/UIEventHandlers.js"></script>
 
 <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
 
@@ -1869,5 +1937,13 @@
 <script src="/client/js/BuildingPreview.js"></script>
 
 <script src="/client/js/SpectatorDirector.js"></script>
+
+<!-- Entity constructors extracted from client.js -->
+<script src="/client/js/entities/EntityInitializer.js"></script>
+<script src="/client/js/entities/BuildingEntity.js"></script>
+<script src="/client/js/entities/PlayerEntity.js"></script>
+<script src="/client/js/entities/ArrowEntity.js"></script>
+<script src="/client/js/entities/LightEntity.js"></script>
+<script src="/client/js/entities/ItemEntity.js"></script>
 
 <script src="/client/js/client.js"></script>

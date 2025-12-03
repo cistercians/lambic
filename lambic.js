@@ -139,6 +139,11 @@ const SimpleCombat = require('./server/js/core/SimpleCombat.js');
 const { TilemapIntegration } = require('./server/js/core/TilemapIntegration.js');
 const BuildingConstruction = require('./server/js/core/BuildingConstruction.js');
 
+// Import new registry systems (Phase 1: Foundation)
+const systemRegistry = require('./server/js/core/SystemRegistry.js');
+const dependencyInjector = require('./server/js/core/DependencyInjector.js');
+const entityRegistry = require('./server/js/core/EntityRegistry.js');
+
 // Initialize game state
 const genesis = require('./server/js/genesis');
 let world = genesis.map;
@@ -146,10 +151,19 @@ let caveEntrances = genesis.entrances || [];
 global.caveEntrances = caveEntrances;
 gameState.initializeWorld(world);
 
+// Register gameState in system registry (early registration)
+systemRegistry.register('gameState', gameState, { priority: 1 });
+
 // Initialize consolidated tilemap system
 const tilemapIntegration = new TilemapIntegration();
 tilemapIntegration.initializeFromWorldArray(world, gameState.mapSize);
 global.tilemapSystem = tilemapIntegration;
+
+// Register tilemap system in registry
+systemRegistry.register('tilemap', tilemapIntegration, { 
+  dependsOn: ['gameState'], 
+  priority: 2 
+});
 
 // Initialize map analyzer for AI faction placement
 const MapAnalyzer = require('./server/js/ai/MapAnalyzer');
@@ -164,13 +178,27 @@ global.mapPx = gameState.mapPx;
 global.period = gameState.period;
 
 // NOW initialize MapAnalyzer after globals are set
-global.mapAnalyzer = new MapAnalyzer();
+const mapAnalyzer = new MapAnalyzer();
+global.mapAnalyzer = mapAnalyzer;
+
+// Register mapAnalyzer in registry
+systemRegistry.register('mapAnalyzer', mapAnalyzer, { 
+  dependsOn: ['tilemap'], 
+  priority: 3 
+});
 
 // Initialize terrain segmentation and zone management
-const geographicFeatures = global.mapAnalyzer.analyzeGeography(world[0]);
+const geographicFeatures = mapAnalyzer.analyzeGeography(world[0]);
 
-global.zoneManager = new ZoneManager();
-global.zoneManager.addGeographicFeatures(geographicFeatures);
+const zoneManager = new ZoneManager();
+zoneManager.addGeographicFeatures(geographicFeatures);
+global.zoneManager = zoneManager;
+
+// Register zoneManager in registry
+systemRegistry.register('zoneManager', zoneManager, { 
+  dependsOn: ['mapAnalyzer'], 
+  priority: 4 
+});
 
 // Note: isDoorwayDestination is already defined globally at the top of the file
 global.day = gameState.day;
@@ -183,20 +211,84 @@ global.nightfall = gameState.nightfall;
 // Expose the new modular systems globally
 global.gameState = gameState;
 global.itemFactory = itemFactory;
-global.simpleCombat = new SimpleCombat();
+
+// Initialize and register SimpleCombat
+const simpleCombat = new SimpleCombat();
+global.simpleCombat = simpleCombat;
+systemRegistry.register('combat', simpleCombat, { 
+  dependsOn: ['gameState'], 
+  priority: 5 
+});
+
+// Register BuildingConstruction
 global.BuildingConstruction = BuildingConstruction;
+systemRegistry.register('buildingConstruction', BuildingConstruction, { 
+  dependsOn: ['tilemap', 'gameState'], 
+  priority: 6 
+});
 
-// Initialize SimpleFlee system
+// Initialize and register SimpleFlee system
 const SimpleFlee = require('./server/js/core/SimpleFlee');
-global.simpleFlee = new SimpleFlee();
+const simpleFlee = new SimpleFlee();
+global.simpleFlee = simpleFlee;
+systemRegistry.register('flee', simpleFlee, { 
+  dependsOn: ['tilemap'], 
+  priority: 7 
+});
 
-// Initialize Event Manager
+// Initialize and register Event Manager
 const EventManager = require('./server/js/core/EventManager');
-global.eventManager = new EventManager();
+const eventManager = new EventManager();
+global.eventManager = eventManager;
+systemRegistry.register('events', eventManager, { 
+  priority: 8 
+});
 
-// Initialize Social System for NPC conversations
+// Initialize and register Social System for NPC conversations
 const SocialSystem = require('./server/js/core/SocialSystem');
-global.socialSystem = new SocialSystem();
+const socialSystem = new SocialSystem();
+global.socialSystem = socialSystem;
+systemRegistry.register('social', socialSystem, { 
+  dependsOn: ['gameState'], 
+  priority: 9 
+});
+
+// Register itemFactory
+systemRegistry.register('itemFactory', itemFactory, { 
+  priority: 10 
+});
+
+// Load GlobalWrappers utility functions
+const GlobalWrappers = require('./server/js/core/GlobalWrappers');
+global.forEachEntity = GlobalWrappers.forEachEntity;
+global.filterEntities = GlobalWrappers.filterEntities;
+global.findEntity = GlobalWrappers.findEntity;
+global.countEntities = GlobalWrappers.countEntities;
+global.getPlayerList = GlobalWrappers.getPlayerList;
+global.getBuildingList = GlobalWrappers.getBuildingList;
+global.getItemList = GlobalWrappers.getItemList;
+global.getHouseList = GlobalWrappers.getHouseList;
+
+// Load IterationHelpers for modern iteration patterns
+const IterationHelpers = require('./server/js/core/IterationHelpers');
+global.forEachPlayer = IterationHelpers.forEachPlayer;
+global.forEachBuilding = IterationHelpers.forEachBuilding;
+global.forEachItem = IterationHelpers.forEachItem;
+global.forEachHouse = IterationHelpers.forEachHouse;
+global.filterPlayers = IterationHelpers.filterPlayers;
+global.filterBuildings = IterationHelpers.filterBuildings;
+global.findPlayer = IterationHelpers.findPlayer;
+global.findBuilding = IterationHelpers.findBuilding;
+global.getPlayersInRadius = IterationHelpers.getPlayersInRadius;
+global.getBuildingsInRadius = IterationHelpers.getBuildingsInRadius;
+
+// Load TimerManager for centralized timer handling
+const timerManager = require('./server/js/core/TimerManager');
+global.timerManager = timerManager;
+
+// Load RandomUtils for consistent random number generation
+const random = require('./server/js/core/RandomUtils');
+global.random = random;
 
 // Function to spawn cargo ships for docks with networks
 function spawnCargoShips(){
@@ -268,13 +360,44 @@ spawnCargoShips();
 // Create command handler after globals are set
 const commandHandler = new CommandHandler();
 
+// Register CommandRegistry (Phase 3: Commands System)
+const commandRegistry = require('./server/js/commands/CommandRegistry.js');
+systemRegistry.register('commandRegistry', commandRegistry, { 
+  dependsOn: ['gameState'], 
+  priority: 13 
+});
+global.commandRegistry = commandRegistry;
+
+// Load commands from individual files (after Commands.js is required)
+// Note: Commands.js is required earlier in the file (line ~35), so EvalCmd is available
+// Note: commandRegistry is already defined and registered above (line ~332)
+const { loadCommands, registerLegacyHandler } = require('./server/js/commands/loadCommands.js');
+
+// Load and register all commands from individual files
+loadCommands();
+
+// Register legacy EvalCmd handler for backward compatibility (if available)
+if (typeof EvalCmd === 'function') {
+  registerLegacyHandler(EvalCmd);
+}
+
+systemRegistry.register('commands', commandHandler, { 
+  dependsOn: ['gameState', 'tilemap', 'commandRegistry'], 
+  priority: 14 
+});
+
 // Create optimized game loop
 const optimizedGameLoop = new OptimizedGameLoop();
+systemRegistry.register('gameLoop', optimizedGameLoop, { 
+  dependsOn: ['gameState'], 
+  priority: 15 
+});
 
 // Initialize performance monitor
 const PerformanceMonitor = require('./server/js/core/PerformanceMonitor');
 const performanceMonitor = new PerformanceMonitor();
 global.performanceMonitor = performanceMonitor;
+systemRegistry.register('performance', performanceMonitor, { priority: 16 });
 
 const SOCKET_LIST = {};
 global.SOCKET_LIST = SOCKET_LIST;
@@ -1525,6 +1648,20 @@ function isAlly(entity1Id, entity2Id) {
   const isSerf = (cls) => cls === 'Serf' || cls === 'SerfM' || cls === 'SerfF';
   const isDeer = (cls) => cls === 'Deer';
 
+  // Neutral entities (no house) are allies with each other (except special cases handled below)
+  if (!entity1.house && !entity2.house) {
+    // Check for wild animals - they're never allies
+    if (class1 === 'Wolf' || class1 === 'Boar' || class2 === 'Wolf' || class2 === 'Boar') {
+      return false;
+    }
+    // Deer only ally with other deer
+    if (isDeer(class1) || isDeer(class2)) {
+      return isDeer(class1) && isDeer(class2);
+    }
+    // All other neutral entities are allies with each other
+    return true;
+  }
+
   // Same house = always allies (covers military+serfs, military+military, serfs+serfs from same faction)
   if (entity1.house && entity2.house && entity1.house === entity2.house) {
     return true;
@@ -1592,11 +1729,19 @@ function isAlly(entity1Id, entity2Id) {
 function allyCheck(playerId, otherId) {
   if (playerId === otherId) return 2; // Same entity
   
+  // Early check: if both entities are neutral (no house), they are neutral to each other
+  const player = Player.list[playerId];
+  const other = Player.list[otherId];
+  if (!player || !other) return 0;
+  
+  // If both have no house property (are neutral), return neutral
+  if (!player.house && !other.house) {
+    return 0; // Neutral
+  }
+  
   const isAllyResult = isAlly(playerId, otherId);
   if (isAllyResult) {
     // Check if same faction (return 2) or just allies (return 1)
-    const player = Player.list[playerId];
-    const other = Player.list[otherId];
     if (player && other && player.house && other.house && player.house === other.house) {
       return 2; // Same faction
     }
@@ -1604,9 +1749,6 @@ function allyCheck(playerId, otherId) {
   }
   
   // Check if enemies
-  const player = Player.list[playerId];
-  const other = Player.list[otherId];
-  if (!player || !other) return 0;
   
   const pHouse = House.list[player.house];
   const oHouse = House.list[other.house];
@@ -4304,17 +4446,95 @@ Player.list = {};
 global.Player = Player;
 
 // ============================================================================
+// REGISTER ENTITY COLLECTIONS IN ENTITY REGISTRY (Phase 1: Foundation)
+// ============================================================================
+
+// Register all entity collections in EntityRegistry for centralized access
+// This replaces direct access to Player.list, Building.list, etc.
+// Note: Building.list, Item.list, Arrow.list, Light.list, Weather.list are defined in Entity.js
+// which is required earlier in this file, so they're available here
+
+if (typeof Building !== 'undefined' && Building.list) {
+  entityRegistry.registerCollection('buildings', Building.list);
+}
+if (typeof Item !== 'undefined' && Item.list) {
+  entityRegistry.registerCollection('items', Item.list);
+}
+if (typeof Arrow !== 'undefined' && Arrow.list) {
+  entityRegistry.registerCollection('arrows', Arrow.list);
+}
+if (typeof Light !== 'undefined' && Light.list) {
+  entityRegistry.registerCollection('lights', Light.list);
+}
+if (typeof Weather !== 'undefined' && Weather.list) {
+  entityRegistry.registerCollection('weather', Weather.list);
+}
+entityRegistry.registerCollection('players', Player.list);
+
+// Also register House and Kingdom if they exist (from Houses.js)
+if (typeof House !== 'undefined' && House.list) {
+  entityRegistry.registerCollection('houses', House.list);
+}
+if (typeof Kingdom !== 'undefined' && Kingdom.list) {
+  entityRegistry.registerCollection('kingdoms', Kingdom.list);
+}
+
+// Register EntityRegistry itself in SystemRegistry
+systemRegistry.register('entities', entityRegistry, { priority: 0 });
+
+// Initialize and register EntityStateManager (Phase 2: Entity Responsibilities)
+const EntityStateManager = require('./server/js/core/EntityStateManager.js');
+const entityStateManager = EntityStateManager;
+systemRegistry.register('entityState', entityStateManager, { 
+  dependsOn: ['entities'], 
+  priority: 17 
+});
+global.entityStateManager = entityStateManager;
+
+// Initialize DependencyContainer (Phase 5: Eliminate Global State)
+const DependencyContainer = require('./server/js/core/DependencyContainer.js');
+const dependencyContainer = DependencyContainer;
+dependencyContainer.autoRegisterSystems(); // Auto-register all systems
+systemRegistry.register('dependencies', dependencyContainer, { priority: 18 });
+global.dependencyContainer = dependencyContainer;
+
+if (process.env.DEBUG) {
+  console.log('[lambic.js] EntityRegistry initialized:', entityRegistry.getStats());
+}
+
+// ============================================================================
 // INITIALIZE SPATIAL SYSTEM
 // ============================================================================
 
 // Initialize intelligent spatial partitioning system
 const SpatialIntegration = require('./server/js/core/SpatialIntegration');
-global.spatialSystem = new SpatialIntegration();
-global.spatialSystem.initialize();
+const spatialSystem = new SpatialIntegration();
+// Initialize after Player.list exists and entities are loaded
+spatialSystem.initialize();
+global.spatialSystem = spatialSystem;
+
+// Re-initialize spatial system to pick up any entities created after modular entities loaded
+// (This ensures all entities including modular ones are tracked)
+if (typeof spatialSystem.reinitialize === 'function') {
+  spatialSystem.reinitialize();
+}
+
+// Register spatial system
+systemRegistry.register('spatial', spatialSystem, { 
+  dependsOn: ['entities'], 
+  priority: 11 
+});
 
 // Initialize building preview system
 const BuildingPreview = require('./server/js/core/BuildingPreview');
-global.buildingPreview = new BuildingPreview();
+const buildingPreview = new BuildingPreview();
+global.buildingPreview = buildingPreview;
+
+// Register building preview system
+systemRegistry.register('buildingPreview', buildingPreview, { 
+  dependsOn: ['tilemap'], 
+  priority: 12 
+});
 
 // Helper function to find neutral taverns for player spawning
 function findNeutralTaverns() {
@@ -4612,8 +4832,8 @@ Player.update = function() {
       else if(player.working){
         shouldUpdate = (Player._updateFrame % 3 === 0);
       }
-      // Update peaceful NPCs (Deer, Sheep, Boar) only every 6th frame
-      else if(player.class === 'Deer' || player.class === 'Sheep' || player.class === 'Boar'){
+      // Update peaceful NPCs and wolves (Deer, Sheep, Boar, Wolf) only every 6th frame
+      else if(player.class === 'Deer' || player.class === 'Sheep' || player.class === 'Boar' || player.class === 'Wolf'){
         shouldUpdate = (Player._updateFrame % 6 === 0);
       }
       // Update serfs/trappers every 4th frame when idle
@@ -4809,11 +5029,6 @@ Player.update = function() {
       // Remove from spatial system
       if (global.spatialSystem) {
         global.spatialSystem.removeEntity(i);
-      }
-      
-      // Remove from any other tracking systems
-      if (global.gameState) {
-        global.gameState.removeEntity(i);
       }
       
       delete Player.list[i];
@@ -5797,6 +6012,144 @@ setTimeout(() => {
 // Start autosave
 BlockchainStorage.startAutosave();
 
+// ============================================================================
+// EXPOSE REGISTRIES GLOBALLY (Phase 1: Foundation - Backward Compatibility)
+// ============================================================================
+
+// Expose registries globally for backward compatibility during transition
+// New code should use dependency injection, but existing code can still access via globals
+global.systemRegistry = systemRegistry;
+global.entityRegistry = entityRegistry;
+global.dependencyInjector = dependencyInjector;
+
+// Perform comprehensive system audit - logs only in DEBUG mode
+function performSystemAudit() {
+  const DEBUG = process.env.DEBUG;
+  const stats = systemRegistry.getStats();
+  const dependencyCheck = systemRegistry.verifyAllDependencies();
+  
+  // Check for systems that might not be initialized
+  const systemsNeedingInit = [];
+  const systemNames = systemRegistry.getSystemNames();
+  
+  for (const name of systemNames) {
+    const system = systemRegistry.get(name);
+    if (system && typeof system.initialize === 'function') {
+      systemsNeedingInit.push(name);
+    }
+  }
+  
+  // Log only in DEBUG mode
+  if (DEBUG) {
+    console.log('\n========================================');
+    console.log('System Registry Audit');
+    console.log('========================================');
+    console.log('Registered systems:', stats.totalSystems);
+    console.log('Systems:', stats.systems.join(', '));
+    console.log('Initialization order:', stats.initializationOrder.join(' -> '));
+    
+    if (!dependencyCheck.allValid) {
+      console.error('Dependency issues found:');
+      dependencyCheck.issues.forEach(issue => {
+        console.error(`  - ${issue.system} is missing dependencies: ${issue.missing.join(', ')}`);
+      });
+    } else {
+      console.log('All system dependencies satisfied');
+    }
+    
+    if (systemsNeedingInit.length > 0) {
+      console.log('Systems with initialize() methods:', systemsNeedingInit.join(', '));
+    }
+    
+    if (entityRegistry) {
+      console.log('EntityRegistry Stats:', JSON.stringify(entityRegistry.getStats(), null, 2));
+    }
+    console.log('========================================\n');
+  }
+  
+  // Always log critical errors regardless of DEBUG
+  if (!dependencyCheck.allValid) {
+    console.error('[SystemAudit] Dependency issues:', dependencyCheck.issues.map(i => i.system).join(', '));
+  }
+  
+  // Return audit results for programmatic checks
+  return {
+    allValid: dependencyCheck.allValid,
+    dependencyIssues: dependencyCheck.issues,
+    systemsNeedingInit,
+    totalSystems: stats.totalSystems
+  };
+}
+
+// Always perform audit (not just in debug mode)
+const auditResults = performSystemAudit();
+
+// Exit if critical issues found
+if (!auditResults.allValid) {
+  console.error('\n❌ CRITICAL: System initialization failed due to missing dependencies!');
+  console.error('The server will continue, but some systems may not work correctly.\n');
+}
+
+// Additional startup validation
+function validateCriticalSystems() {
+  const criticalSystems = [
+    'gameState',
+    'tilemap',
+    'entities',
+    'gameLoop',
+    'spatial'
+  ];
+  
+  const missingSystems = [];
+  const uninitializedSystems = [];
+  
+  for (const systemName of criticalSystems) {
+    const system = systemRegistry.get(systemName);
+    if (!system) {
+      missingSystems.push(systemName);
+    } else if (typeof system.initialize === 'function') {
+      // Check if system needs initialization
+      // Note: Some systems initialize lazily, which is fine
+    }
+  }
+  
+  if (missingSystems.length > 0) {
+    console.error(`❌ CRITICAL: Missing required systems: ${missingSystems.join(', ')}`);
+    return false;
+  }
+  
+  // Verify entity collections are registered
+  if (entityRegistry) {
+    const entityStats = entityRegistry.getStats();
+    const requiredCollections = ['players', 'buildings', 'items'];
+    const missingCollections = requiredCollections.filter(
+      col => !entityStats.collections || !entityStats.collections.includes(col)
+    );
+    
+    if (missingCollections.length > 0) {
+      console.warn(`⚠️  Warning: Missing entity collections: ${missingCollections.join(', ')}`);
+    }
+  }
+  
+  // Verify spatial system is initialized
+  if (global.spatialSystem) {
+    const spatialStats = global.spatialSystem.getStats();
+    if (spatialStats && spatialStats.entitiesTracked === 0) {
+      // This is expected at startup - entities are added when players connect
+      if (process.env.DEBUG) {
+        console.log('ℹ️  Spatial system initialized (0 entities tracked - normal at startup)');
+      }
+    }
+  }
+  
+  return true;
+}
+
+const criticalSystemsValid = validateCriticalSystems();
+if (!criticalSystemsValid) {
+  console.error('\n❌ CRITICAL: Critical system validation failed!');
+  console.error('Server may not function correctly.\n');
+}
 
 // ============================================================================
 
@@ -6191,9 +6544,8 @@ io.on('connection', function(socket) {
                 }
               }
             } else if(z === -1 || z === -2){
-              // Caves - check if cave floor
-              var layer = z === -1 ? 1 : 8;
-              isWalkableTile = getTile(layer, tileX, tileY) === 2; // Cave floor
+              // Caves - use isWalkable function to check pathfinding matrix (same as buildings)
+              isWalkableTile = isWalkable(z, tileX, tileY);
             } else if(z === 1 || z === 2){
               // Inside buildings - skip manual walkability check and let pathfinding handle it
               // The tilemap system's pathfinding will determine if the tile is reachable
@@ -7025,15 +7377,22 @@ io.on('connection', function(socket) {
             // Combine all available buildings
             const allBuildings = [...tier1Buildings, ...tier2Buildings, ...tier3Buildings];
             
-            // Get player resources
-            const playerWood = player.inventory.wood || 0;
-            const playerStone = player.inventory.stone || 0;
+            // Get player resources from BOTH inventory and stores (inventory is checked first when building)
+            const playerWood = (player.inventory.wood || 0) + (player.stores.wood || 0);
+            const playerStone = (player.inventory.stone || 0) + (player.stores.stone || 0);
             
             // Mark each building with unlocked status
             const buildingsData = allBuildings.map(b => ({
               ...b,
               unlocked: true // All buildings in their respective tiers are unlocked
             }));
+            
+            console.log('[BUILD MENU] Sending buildMenuData:', {
+              buildingsCount: buildingsData.length,
+              playerWood: playerWood,
+              playerStone: playerStone,
+              buildings: buildingsData.map(b => b.name)
+            });
             
             // Send response
             socket.write(JSON.stringify({

@@ -138,6 +138,11 @@ class OptimizedGameLoop {
     const elapsed = Date.now() - frameStartTime;
     const remainingBudget = frameBudget - elapsed;
     
+    // Update spatial system (track entity positions for efficient queries)
+    if (global.spatialSystem && remainingBudget > frameBudget * 0.1) {
+      global.spatialSystem.updateAllEntities();
+    }
+    
     // Update social system (check for spontaneous NPC conversations)
     // Only if we have budget remaining (social updates are lower priority)
     if (global.socialSystem && remainingBudget > frameBudget * 0.2) {

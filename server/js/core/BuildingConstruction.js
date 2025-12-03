@@ -5,6 +5,15 @@ class BuildingConstruction {
   
   // Construct a forge building (tiles, matrix, items)
   static constructForge(buildingId, plot, walls) {
+    console.log('[BuildingConstruction] constructForge called:');
+    console.log('[BuildingConstruction]   - buildingId:', buildingId);
+    console.log('[BuildingConstruction]   - plot:', JSON.stringify(plot));
+    console.log('[BuildingConstruction]   - walls:', JSON.stringify(walls));
+    
+    if (!walls || !Array.isArray(walls) || walls.length === 0) {
+      console.error('[BuildingConstruction] ERROR: walls is null/empty! Cannot create wall items.');
+    }
+    
     // Update terrain - forge is a 3x2 building with walls
     for (let i = 0; i < plot.length; i++) {
       global.tileChange(3, plot[i][0], plot[i][1], String('forge' + i));
@@ -22,27 +31,44 @@ class BuildingConstruction {
     
     // Wall tiles
     let ii = 5;
-    for (const n of walls) {
-      global.tileChange(5, n[0], n[1], String('forge' + ii));
-      if (global.getTile(5, n[0], n[1]) == 'forge5') {
-        global.tileChange(5, n[0], n[1], 0);
-        global.tileChange(4, n[0], n[1], 1);
+    try {
+      if (walls && Array.isArray(walls)) {
+        for (const n of walls) {
+          global.tileChange(5, n[0], n[1], String('forge' + ii));
+          if (global.getTile(5, n[0], n[1]) == 'forge5') {
+            global.tileChange(5, n[0], n[1], 0);
+            global.tileChange(4, n[0], n[1], 1);
+          } else {
+            global.tileChange(4, n[0], n[1], 1);
+          }
+          ii++;
+        }
       } else {
-        global.tileChange(4, n[0], n[1], 1);
+        console.error('[BuildingConstruction] walls is not a valid array:', walls);
       }
-      ii++;
+    } catch (err) {
+      console.error('[BuildingConstruction] Error processing wall tiles:', err);
     }
     
     // Add interior items
-    const fr = global.getCoords(walls[1][0], walls[1][1]);
-    const fp = global.getCoords(plot[0][0], plot[0][1]);
-    const br = global.getCoords(plot[3][0], plot[3][1]);
-    const anv = global.getCoords(plot[5][0], plot[5][1]);
-    
-    global.Furnace({ x: fr[0], y: fr[1], z: 1, qty: 1, parent: buildingId });
-    global.Firepit({ x: fp[0], y: fp[1], z: 0, qty: 1, parent: buildingId });
-    global.Barrel({ x: br[0], y: br[1], z: 1, qty: 1, parent: buildingId });
-    global.Anvil({ x: anv[0], y: anv[1], z: 1, qty: 1, parent: buildingId });
+    try {
+      if (walls && walls.length >= 2) {
+        const fr = global.getCoords(walls[1][0], walls[1][1]);
+        global.Furnace({ x: fr[0], y: fr[1], z: 1, qty: 1, parent: buildingId });
+      } else {
+        console.error('[BuildingConstruction] Cannot create Furnace - walls missing or incomplete');
+      }
+      
+      const fp = global.getCoords(plot[0][0], plot[0][1]);
+      const br = global.getCoords(plot[3][0], plot[3][1]);
+      const anv = global.getCoords(plot[5][0], plot[5][1]);
+      
+      global.Firepit({ x: fp[0], y: fp[1], z: 0, qty: 1, parent: buildingId });
+      global.Barrel({ x: br[0], y: br[1], z: 1, qty: 1, parent: buildingId });
+      global.Anvil({ x: anv[0], y: anv[1], z: 1, qty: 1, parent: buildingId });
+    } catch (err) {
+      console.error('[BuildingConstruction] Error creating interior items:', err);
+    }
   }
   
   // Construct a garrison building (tiles, matrix, items)

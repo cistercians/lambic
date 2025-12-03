@@ -10,6 +10,24 @@ class GameRenderer {
     this.currentZoom = 1.0;
     this.targetZoom = 1.0;
     this.zoomTransitionSpeed = 0.1;
+    
+    // Pre-allocated render stats to avoid object creation each frame
+    this._renderStats = {
+      entitiesIterated: { players: 0, items: 0, arrows: 0, buildings: 0 },
+      entitiesRendered: { players: 0, items: 0, arrows: 0, buildings: 0 },
+      frameTimes: [],
+      lastLog: Date.now()
+    };
+    
+    // Cached entity arrays - updated once per frame
+    this._cachedItems = [];
+    this._cachedPlayers = [];
+    this._cachedArrows = [];
+    this._cachedBuildings = [];
+    
+    // Cached viewport bounds - computed once per frame
+    this._viewBounds = { top: 0, left: 0, right: 0, bottom: 0 };
+    this._cachedPlayerBuilding = null;
   }
   
   /**
@@ -24,14 +42,47 @@ class GameRenderer {
   render(config) {
     const { mode, camera, viewport, nightfall, currentZ } = config;
     
-    // Update and apply zoom
-    this.updateZoom(config);
-    this.ctx.clearRect(0, 0, WIDTH, HEIGHT);
-    this.ctx.save();
-    this.applyZoomTransform();
+    // Initialize global render stats if not already done (for PerformanceHUD)
+    if (!window._renderStats) {
+      window._renderStats = this._renderStats;
+    }
     
-    // Render map terrain
-    renderMap();
+    // Reset render stats for this frame (reuse existing object to avoid allocation)
+    const stats = this._renderStats;
+    stats.entitiesIterated.players = 0;
+    stats.entitiesIterated.items = 0;
+    stats.entitiesIterated.arrows = 0;
+    stats.entitiesIterated.buildings = 0;
+    stats.entitiesRendered.players = 0;
+    stats.entitiesRendered.items = 0;
+    stats.entitiesRendered.arrows = 0;
+    stats.entitiesRendered.buildings = 0;
+    
+    // Cache entity arrays once per frame using Object.values (faster than for...in)
+    this._cachedItems = (Item && Item.list) ? Object.values(Item.list) : [];
+    this._cachedPlayers = (Player && Player.list) ? Object.values(Player.list) : [];
+    this._cachedArrows = (Arrow && Arrow.list) ? Object.values(Arrow.list) : [];
+    this._cachedBuildings = (Building && Building.list) ? Object.values(Building.list) : [];
+    
+    // Cache viewport bounds once per frame
+    if (viewport && config.tileSize) {
+      this._viewBounds.top = (viewport.startTile[1] - 1) * config.tileSize;
+      this._viewBounds.left = (viewport.startTile[0] - 1) * config.tileSize;
+      this._viewBounds.right = (viewport.endTile[0] + 2) * config.tileSize;
+      this._viewBounds.bottom = (viewport.endTile[1] + 2) * config.tileSize;
+    }
+    
+    // Cache player building once per frame (for indoor rendering)
+    if ((currentZ === 1 || currentZ === 2) && typeof selfId !== 'undefined' && Player.list && Player.list[selfId]) {
+      this._cachedPlayerBuilding = getBuilding(Player.list[selfId].x, Player.list[selfId].y);
+    } else {
+      this._cachedPlayerBuilding = null;
+    }
+    
+    // Note: renderMap() is called in GameLoopManager BEFORE renderUnified()
+    // so we don't need to call it here again. The zoom transform is also
+    // already applied in GameLoopManager, so we work within that transform.
+    // ctx.restore() is also called in GameLoopManager after renderUnified().
     
     // Render entities based on mode
     this.renderEntities(config);
@@ -39,10 +90,7 @@ class GameRenderer {
     // Render lighting and effects
     this.renderLightingAndEffects(config);
     
-    this.ctx.restore();
-    
-    // Update viewport
-    viewport.update(camera.x, camera.y, this.currentZoom);
+    // Note: ctx.restore() is called in GameLoopManager after renderUnified()
   }
   
   /**
@@ -99,45 +147,114 @@ class GameRenderer {
     
     // BUILDINGS
     this.renderBuildings(config, visibilityCheck);
+    
+    // TILE HIGHLIGHTS (render on top of everything)
+    this.renderTileHighlights(config);
+  }
+  
+  /**
+   * Render tile highlights for navigation clicks
+   */
+  renderTileHighlights(config) {
+    const { viewport, tileSize } = config;
+    if (!viewport || !tileSize) return;
+    
+    // Get highlights from TileHighlightSystem
+    const highlightSystem = typeof window !== 'undefined' && window.tileHighlights 
+      ? window.tileHighlights 
+      : null;
+    
+    if (!highlightSystem || typeof highlightSystem.getHighlights !== 'function') return;
+    
+    const highlights = highlightSystem.getHighlights();
+    if (!highlights || highlights.length === 0) return;
+    
+    const ctx = this.ctx;
+    if (!ctx) return;
+    
+    ctx.save();
+    ctx.globalAlpha = 1.0; // Will be set per highlight
+    
+    for (const highlight of highlights) {
+      const { tileX, tileY, z, alpha } = highlight;
+      
+      // Only render highlights on current Z level
+      const currentZ = config.currentZ;
+      if (z !== currentZ) continue;
+      
+      // Convert tile coordinates to screen coordinates
+      const screenX = tileX * tileSize + viewport.offset[0];
+      const screenY = tileY * tileSize + viewport.offset[1];
+      
+      // Check if highlight is visible on screen
+      if (screenX < -tileSize || screenX > this.ctx.canvas.width + tileSize ||
+          screenY < -tileSize || screenY > this.ctx.canvas.height + tileSize) {
+        continue;
+      }
+      
+      // Draw highlight with fade
+      ctx.globalAlpha = alpha || 0.5;
+      ctx.fillStyle = 'rgba(255, 255, 0, 0.6)'; // Yellow highlight
+      ctx.fillRect(screenX, screenY, tileSize, tileSize);
+    }
+    
+    ctx.restore();
   }
   
   /**
    * Get appropriate visibility check function for current mode
+   * Uses cached viewport bounds to avoid recalculation per entity
    */
   getVisibilityCheck(config) {
-    const { mode, currentZ, viewport } = config;
+    const { mode, currentZ, viewport, tileSize } = config;
+    const bounds = this._viewBounds;
+    const playerBuilding = this._cachedPlayerBuilding;
     
-    if(mode === 'spectate' || mode === 'godmode') {
-      // Spectate/God mode: simple inView check
+    if (mode === 'spectate' || mode === 'godmode') {
+      // Spectate/God mode: simple inView check using cached bounds
       return (entity) => {
-        return inView(entity.z, entity.x, entity.y, entity.innaWoods) && entity.z === currentZ;
+        if (entity.z !== currentZ) return false;
+        // Use global inView function if available
+        if (typeof inView === 'function') {
+          return inView(entity.z, entity.x, entity.y, entity.innaWoods);
+        }
+        // Fallback: cached bounds check
+        return entity.x > bounds.left && entity.x < bounds.right && 
+               entity.y > bounds.top && entity.y < bounds.bottom;
       };
-    } else if(mode === 'login') {
-      // Login camera: inViewLogin check
+    } else if (mode === 'login') {
+      // Login camera: inViewLogin check using cached bounds
       return (entity) => {
-        return inViewLogin(entity.x, entity.y) && entity.z === 0;
+        if (entity.z !== 0) return false;
+        // Use global inViewLogin function if available
+        if (typeof inViewLogin === 'function') {
+          return inViewLogin(entity.x, entity.y);
+        }
+        // Fallback: cached bounds check
+        return entity.x > bounds.left && entity.x < bounds.right && 
+               entity.y > bounds.top && entity.y < bounds.bottom;
       };
     } else {
       // Normal mode: optimized checkInView with building filtering
-      const viewTop = (viewport.startTile[1] - 1) * tileSize;
-      const viewLeft = (viewport.startTile[0] - 1) * tileSize;
-      const viewRight = (viewport.endTile[0] + 2) * tileSize;
-      const viewBottom = (viewport.endTile[1] + 2) * tileSize;
-      const playerInnaWoods = Player.list[selfId] ? Player.list[selfId].innaWoods : false;
+      if (!viewport || !tileSize) return () => false;
+      const playerInnaWoods = typeof selfId !== 'undefined' && Player.list && Player.list[selfId] 
+        ? Player.list[selfId].innaWoods 
+        : false;
+      const isIndoor = (currentZ === 1 || currentZ === 2);
+      const checkBuilding = isIndoor && playerBuilding !== null;
       
       return (entity) => {
         // Z-level check
-        if(entity.z !== currentZ) return false;
-        // Bounds check
-        if(entity.x <= viewLeft || entity.x >= viewRight || 
-           entity.y <= viewTop || entity.y >= viewBottom) return false;
+        if (entity.z !== currentZ) return false;
+        // Bounds check using cached bounds
+        if (entity.x <= bounds.left || entity.x >= bounds.right || 
+            entity.y <= bounds.top || entity.y >= bounds.bottom) return false;
         // InnaWoods check
-        if(currentZ === 0 && entity.innaWoods && !playerInnaWoods) return false;
-        // Building check for z=1 or z=2
-        if((currentZ === 1 || currentZ === 2) && Player.list[selfId]) {
-          const playerBuilding = getBuilding(Player.list[selfId].x, Player.list[selfId].y);
+        if (currentZ === 0 && entity.innaWoods && !playerInnaWoods) return false;
+        // Building check for z=1 or z=2 using cached player building
+        if (checkBuilding) {
           const entityBuilding = getBuilding(entity.x, entity.y);
-          if(playerBuilding !== entityBuilding) return false;
+          if (playerBuilding !== entityBuilding) return false;
         }
         return true;
       };
@@ -148,31 +265,30 @@ class GameRenderer {
    * Render items
    */
   renderItems(config, visibilityCheck) {
-    const { mode, currentZ } = config;
+    const { mode, currentZ, tileSize } = config;
+    const items = this._cachedItems;
+    const stats = this._renderStats;
+    const playerBuilding = this._cachedPlayerBuilding;
+    const isIndoor = (currentZ === 1 || currentZ === 2);
+    const normalIndoor = mode === 'normal' && isIndoor && playerBuilding !== null;
     
-    let iterated = 0;
-    let rendered = 0;
-    
-    for(const i in Item.list) {
-      const item = Item.list[i];
-      if(!item) continue;
+    for (let i = 0, len = items.length; i < len; i++) {
+      const item = items[i];
+      if (!item) continue;
       
-      iterated++;
-      if(window._renderStats) window._renderStats.entitiesIterated.items++;
+      stats.entitiesIterated.items++;
       
-      if(visibilityCheck(item)) {
-        rendered++;
-        if(window._renderStats) window._renderStats.entitiesRendered.items++;
+      if (visibilityCheck(item)) {
+        stats.entitiesRendered.items++;
         // Special handling for buildings (z=1, z=2) in normal mode
-        if(mode === 'normal' && (currentZ === 1 || currentZ === 2) && Player.list[selfId]) {
-          const playerBuilding = getBuilding(Player.list[selfId].x, Player.list[selfId].y);
+        if (normalIndoor) {
           const itemBuilding = getBuilding(item.x, item.y);
           const itemBuildingAdjusted = getBuilding(item.x, item.y + (tileSize * 1.1));
           
-          if(itemBuilding === playerBuilding || itemBuildingAdjusted === playerBuilding) {
+          if (itemBuilding === playerBuilding || itemBuildingAdjusted === playerBuilding) {
             item.draw();
           }
-        } else if(mode !== 'normal' || (currentZ !== 1 && currentZ !== 2)) {
+        } else {
           item.draw();
         }
       }
@@ -185,23 +301,27 @@ class GameRenderer {
    */
   renderPlayers(config, visibilityCheck, falconsOnly) {
     const { mode, currentZ } = config;
+    const players = this._cachedPlayers;
+    const stats = this._renderStats;
+    const playerBuilding = this._cachedPlayerBuilding;
+    const isIndoor = (currentZ === 1 || currentZ === 2);
+    const checkBuilding = mode === 'normal' && !falconsOnly && isIndoor && playerBuilding !== null;
     
-    for(const i in Player.list) {
-      const player = Player.list[i];
-      if(!player) continue;
+    for (let i = 0, len = players.length; i < len; i++) {
+      const player = players[i];
+      if (!player) continue;
       
       const isFalcon = player.class === 'Falcon';
-      if(isFalcon !== falconsOnly) continue;
+      if (isFalcon !== falconsOnly) continue;
       
-      if(window._renderStats) window._renderStats.entitiesIterated.players++;
+      stats.entitiesIterated.players++;
       
-      if(visibilityCheck(player)) {
-        if(window._renderStats) window._renderStats.entitiesRendered.players++;
-        // Additional building check for normal mode
-        if(mode === 'normal' && !isFalcon && (currentZ === 1 || currentZ === 2) && Player.list[selfId]) {
-          const playerBuilding = getBuilding(Player.list[selfId].x, Player.list[selfId].y);
+      if (visibilityCheck(player)) {
+        stats.entitiesRendered.players++;
+        // Additional building check for normal mode (skip for falcons)
+        if (checkBuilding) {
           const entityBuilding = getBuilding(player.x, player.y);
-          if(playerBuilding !== entityBuilding) continue;
+          if (playerBuilding !== entityBuilding) continue;
         }
         
         player.draw();
@@ -213,14 +333,17 @@ class GameRenderer {
    * Render arrows
    */
   renderArrows(config, visibilityCheck) {
-    for(const i in Arrow.list) {
-      const arrow = Arrow.list[i];
-      if(!arrow) continue;
+    const arrows = this._cachedArrows;
+    const stats = this._renderStats;
+    
+    for (let i = 0, len = arrows.length; i < len; i++) {
+      const arrow = arrows[i];
+      if (!arrow) continue;
       
-      if(window._renderStats) window._renderStats.entitiesIterated.arrows++;
+      stats.entitiesIterated.arrows++;
       
-      if(visibilityCheck(arrow)) {
-        if(window._renderStats) window._renderStats.entitiesRendered.arrows++;
+      if (visibilityCheck(arrow)) {
+        stats.entitiesRendered.arrows++;
         arrow.draw();
       }
     }
@@ -230,14 +353,17 @@ class GameRenderer {
    * Render buildings
    */
   renderBuildings(config, visibilityCheck) {
-    for(const i in Building.list) {
-      const building = Building.list[i];
-      if(!building) continue;
+    const buildings = this._cachedBuildings;
+    const stats = this._renderStats;
+    
+    for (let i = 0, len = buildings.length; i < len; i++) {
+      const building = buildings[i];
+      if (!building) continue;
       
-      if(window._renderStats) window._renderStats.entitiesIterated.buildings++;
+      stats.entitiesIterated.buildings++;
       
-      if(visibilityCheck(building)) {
-        if(window._renderStats) window._renderStats.entitiesRendered.buildings++;
+      if (visibilityCheck(building)) {
+        stats.entitiesRendered.buildings++;
         building.draw();
       }
     }

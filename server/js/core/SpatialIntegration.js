@@ -15,15 +15,23 @@ class SpatialIntegration {
   // Initialize the spatial system
   initialize() {
     this.spatialIndex.clear();
+    this.entityRadii.clear();
+    this.updateQueue.clear();
     
-    // Add all existing entities
-    for (const entityId of Object.keys(global.Player.list)) {
-      const entity = global.Player.list[entityId];
-      if (entity && typeof entity.x === 'number' && typeof entity.y === 'number') {
-        this.addEntity(entityId, entity);
+    // Add all existing entities from Player.list (includes players, NPCs, animals)
+    if (global.Player && global.Player.list) {
+      for (const entityId of Object.keys(global.Player.list)) {
+        const entity = global.Player.list[entityId];
+        if (entity && typeof entity.x === 'number' && typeof entity.y === 'number') {
+          this.addEntity(entityId, entity);
+        }
       }
     }
-    
+  }
+  
+  // Re-initialize and scan for all entities (useful for cleanup/recovery)
+  reinitialize() {
+    this.initialize();
   }
 
   // Add entity to spatial system
@@ -178,9 +186,14 @@ class SpatialIntegration {
   // Clean up old entities (call periodically)
   cleanup() {
     const validEntities = new Set();
-    for (const entityId of Object.keys(global.Player.list)) {
-      if (global.Player.list[entityId]) {
-        validEntities.add(entityId);
+    
+    // Track all valid entities from Player.list
+    if (global.Player && global.Player.list) {
+      for (const entityId of Object.keys(global.Player.list)) {
+        const entity = global.Player.list[entityId];
+        if (entity && typeof entity.x === 'number' && typeof entity.y === 'number') {
+          validEntities.add(entityId);
+        }
       }
     }
 
@@ -189,6 +202,45 @@ class SpatialIntegration {
       if (!validEntities.has(entityId)) {
         this.removeEntity(entityId);
       }
+    }
+    
+    // Add any new entities that weren't tracked
+    if (global.Player && global.Player.list) {
+      for (const entityId of Object.keys(global.Player.list)) {
+        const entity = global.Player.list[entityId];
+        if (entity && typeof entity.x === 'number' && typeof entity.y === 'number') {
+          if (!this.spatialIndex.entityCells.has(entityId)) {
+            this.addEntity(entityId, entity);
+          }
+        }
+      }
+    }
+  }
+  
+  // Update all entities in the system (call from game loop)
+  updateAllEntities() {
+    // Process queued updates
+    if (this.updateQueue.size > 0) {
+      for (const entityId of this.updateQueue) {
+        if (global.Player && global.Player.list && global.Player.list[entityId]) {
+          const entity = global.Player.list[entityId];
+          if (entity && typeof entity.x === 'number' && typeof entity.y === 'number') {
+            this.updateEntity(entityId, entity);
+          }
+        }
+      }
+      this.updateQueue.clear();
+    }
+    
+    // Periodic optimization
+    this.optimize();
+    
+    // Periodic cleanup (every 5 minutes to avoid performance hits)
+    const now = Date.now();
+    if (!this.lastCleanup) this.lastCleanup = now;
+    if (now - this.lastCleanup > 300000) { // 5 minutes
+      this.cleanup();
+      this.lastCleanup = now;
     }
   }
 }

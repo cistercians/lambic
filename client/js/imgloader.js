@@ -808,7 +808,8 @@ Img.fishingshipstandr.src = '/client/img/chars/fishingship/standr.png';
 
 // Fishing ship wreckage sprites
 Img.fishingshipdeath1 = new Image();
-Img.fishingshipdeath1.src = '/client/img/chars/fishingship/death1.png';
+Img.fishingshipdeath1.onerror = function() { console.warn('Missing image: fishingship/death.png'); };
+Img.fishingshipdeath1.src = '/client/img/chars/fishingship/death.png';
 Img.fishingshipdeath2 = new Image();
 Img.fishingshipdeath2.src = '/client/img/chars/fishingship/death2.png';
 
@@ -825,7 +826,8 @@ Img.cargoshipstandr.src = '/client/img/chars/cargoship/standr.png';
 
 // Cargo ship wreckage sprites
 Img.cargoshipdeath1 = new Image();
-Img.cargoshipdeath1.src = '/client/img/chars/cargoship/death1.png';
+Img.cargoshipdeath1.onerror = function() { console.warn('Missing image: cargoship/death.png'); };
+Img.cargoshipdeath1.src = '/client/img/chars/cargoship/death.png';
 Img.cargoshipdeath2 = new Image();
 Img.cargoshipdeath2.src = '/client/img/chars/cargoship/death2.png';
 
@@ -2844,6 +2846,14 @@ var wolfwalku = [Img.wolfwalku1,Img.wolfwalku2];
 var wolfwalkl = [Img.wolfwalkl1,Img.wolfwalkl2];
 var wolfwalkr = [Img.wolfwalkr1,Img.wolfwalkr2];
 
+// Expose wolf walk arrays to window for debugging
+if (typeof window !== 'undefined') {
+  window.wolfwalkd = wolfwalkd;
+  window.wolfwalku = wolfwalku;
+  window.wolfwalkl = wolfwalkl;
+  window.wolfwalkr = wolfwalkr;
+}
+
 // attack
 Img.wolfattackd = new Image();
 Img.wolfattackd.src = '/client/img/chars/wolf/attackd.png';
@@ -2868,6 +2878,11 @@ var wolf = {
   attackl: Img.wolfattackl,
   attackr: Img.wolfattackr
 };
+
+// Expose wolf to window for accessibility (like falcon)
+if (typeof window !== 'undefined') {
+  window.wolf = wolf;
+}
 
 // falcon
 // fly
@@ -2899,6 +2914,11 @@ var falcon = {
   attackl:null,
   attackr:null
 };
+
+// Expose falcon to window for access from modules
+if (typeof window !== 'undefined') {
+  window.falcon = falcon;
+}
 
 // enemies
 // archbishop
@@ -4352,7 +4372,8 @@ Img.skeleton1.src = '/client/img/items/skeleton1.png';
 Img.skeleton2 = new Image();
 Img.skeleton2.src = '/client/img/items/skeleton2.png';
 Img.shipwreckage = new Image();
-Img.shipwreckage.src = '/client/img/chars/fishingship/death1.png';
+Img.shipwreckage.onerror = function() { console.warn('Missing image: fishingship/death.png (shipwreckage)'); };
+Img.shipwreckage.src = '/client/img/chars/fishingship/death.png';
 Img.shipwreckagesunk = new Image();
 Img.shipwreckagesunk.src = '/client/img/chars/fishingship/death2.png';
 Img.goods1 = new Image();
@@ -4499,13 +4520,16 @@ Img.portraitCrusader.src = '/client/img/chars/crusader/crusader.png';
 Img.portraitTemplar = new Image();
 Img.portraitTemplar.src = '/client/img/chars/templar/templar.png';
 Img.portraitMage = new Image();
-Img.portraitMage.src = '/client/img/chars/mage/mage.png';
+Img.portraitMage.onerror = function() { console.warn('Missing image: mage/standd.png'); };
+Img.portraitMage.src = '/client/img/chars/mage/standd.png';
 Img.portraitWarlock = new Image();
-Img.portraitWarlock.src = '/client/img/chars/warlock/warlock.png';
+Img.portraitWarlock.onerror = function() { console.warn('Missing image: warlock/standd.png'); };
+Img.portraitWarlock.src = '/client/img/chars/warlock/standd.png';
 Img.portraitMonk = new Image();
 Img.portraitMonk.src = '/client/img/chars/monk/monk.png';
 Img.portraitDruid = new Image();
-Img.portraitDruid.src = '/client/img/chars/druid/druid.png';
+Img.portraitDruid.onerror = function() { console.warn('Missing image: druid/standd.png'); };
+Img.portraitDruid.src = '/client/img/chars/druid/standd.png';
 Img.portraitKing = new Image();
 Img.portraitKing.src = '/client/img/chars/king/king.png';
 Img.portraitWolf = new Image();

@@ -149,10 +149,8 @@ class SimpleSerfBehavior {
     }
   }
 
-  log(serf, message) {
-    if (this.debug) {
-    }
-  }
+  // Logging disabled for performance - enable this.debug to activate
+  log(serf, message) {}
 }
 
 module.exports = SimpleSerfBehavior;

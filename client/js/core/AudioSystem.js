@@ -1,0 +1,152 @@
+/**
+ * AudioSystem.js
+ * Handles background music (BGM) and ambient sound (soundscape) based on player location and state
+ * Extracted from client.js to reduce complexity
+ */
+
+var AudioSystem = {
+  /**
+   * Determines and plays appropriate ambient sound based on location
+   * @param {number} x - Player X coordinate
+   * @param {number} y - Player Y coordinate
+   * @param {number} z - Player Z coordinate (layer)
+   * @param {Object} b - Building object at location
+   */
+  soundscape: function(x, y, z, b) {
+    // Check for weather effects first (storms take priority)
+    if(Player.list[selfId]){
+      var weatherEffects = getWeatherEffects(x, y, z);
+      if(weatherEffects && weatherEffects.storm.active && weatherEffects.storm.intensity > 0.3){
+        // If on a ship during storm, play seastorm ambience (navigator or passenger)
+        if(Player.list[selfId].shipType || Player.list[selfId].isBoarded){
+          ambPlayer(Amb.seastorm);
+        } else {
+          ambPlayer(Amb.rain);
+        }
+        return; // Skip other ambience checks
+      }
+    }
+    
+    // Check if player is on a ship (navigator or passenger) - overrides all other ambience
+    if(Player.list[selfId] && (Player.list[selfId].shipType || Player.list[selfId].isBoarded)){
+      ambPlayer(Amb.sea); // Keep sea ambience while on any ship
+      return; // Skip other checks
+    }
+    
+    // Check ghost mode - overrides all other ambience
+    if(Player.list[selfId] && Player.list[selfId].ghost){
+      ambPlayer(Amb.spirits); // Play spirits.mp3
+      return; // Skip other checks
+    }
+    
+    // outdoors
+    if(z == 0){
+      if(nightfall){
+        ambPlayer(Amb.forest);
+      } else {
+        ambPlayer(Amb.nature);
+      }
+    } else if(z == -1){
+      ambPlayer(Amb.cave);
+    } else if(z == 1 || z == 2){
+      if(b.type == 'monastery'){
+        ambPlayer(Amb.empty);
+      } else if(hasFire(z,x,y)){
+        if(b.occ < 4){
+          ambPlayer(Amb.fire);
+        } else if(b.occ < 6){
+          ambPlayer(Amb.hush);
+        } else {
+          ambPlayer(Amb.chatter);
+        }
+      } else {
+        ambPlayer();
+      }
+    } else if(z == -2){
+      if(b.type == 'tavern'){
+        ambPlayer(Amb.empty);
+      } else {
+        ambPlayer(Amb.evil);
+      }
+    } else if(z == -3){
+      ambPlayer(Amb.underwater);
+    }
+  },
+
+  /**
+   * Determines and plays appropriate background music based on location
+   * @param {number} x - Player X coordinate
+   * @param {number} y - Player Y coordinate
+   * @param {number} z - Player Z coordinate (layer)
+   * @param {Object} b - Building object at location
+   */
+  getBgm: function(x, y, z, b) {
+    // Check if player is controlling a ship OR is a passenger - overrides all other music
+    if(Player.list[selfId] && (Player.list[selfId].shipType || Player.list[selfId].isBoarded)){
+      bgmPlayer(ship_bgm); // Keep ship music while on ship
+      this.soundscape(x,y,z,{}); // Handle ship ambience (sea.mp3)
+      return; // Skip other checks
+    }
+    
+    // Check ghost mode first - overrides all other music
+    if(Player.list[selfId] && Player.list[selfId].ghost){
+      // Play Defeat.mp3 once, don't loop
+      // Use the global defeat_bgm playlist defined in audioloader.js
+      if(AudioCtrl.playlist !== defeat_bgm){
+        // Force change to ghost music
+        AudioCtrl.playlist = null; // Clear playlist to force change
+        bgmPlayer(defeat_bgm, false, false); // Third param = don't loop
+      }
+      this.soundscape(x,y,z,{}); // Still handle ghost ambience
+      return; // Skip other checks
+    }
+    
+    // If we were in ghost mode, force music change
+    if(AudioCtrl.playlist === defeat_bgm){
+      AudioCtrl.playlist = null; // Clear playlist to force change on respawn
+    }
+    
+    var building = Building.list[b];
+    this.soundscape(x,y,z,building);
+    // outdoors
+    if(z == 0){
+      if(nightfall && tempus != 'IV.a'){
+        bgmPlayer(overworld_night_bgm);
+      } else if(tempus == 'IV.a' || tempus == 'V.a' || tempus == 'VI.a' ||
+      tempus == 'VII.a' || tempus == 'VIII.a' || tempus == 'IX.a'){
+        // morning
+        bgmPlayer(overworld_morning_bgm);
+      } else {
+        // night
+        bgmPlayer(overworld_day_bgm);
+      }
+    } else if(z == -1){
+      // cave
+      bgmPlayer(cave_bgm);
+      // indoor
+    } else if(z == 1 || z == 2){
+      if(building.type == 'stronghold'){
+        if(nightfall){
+          bgmPlayer(stronghold_night_bgm);
+        } else {
+          bgmPlayer(stronghold_day_bgm);
+        }
+      } else if(building.type == 'garrison'){
+        bgmPlayer(garrison_bgm);
+      } else if(building.type == 'tavern'){
+        bgmPlayer(tavern_bgm);
+      } else if(building.type == 'monastery'){
+        bgmPlayer(monastery_bgm);
+      } else {
+        bgmPlayer(indoors_bgm);
+      }
+    } else if(z == -2){
+      if(building.type == 'tavern'){
+        return;
+      } else {
+        bgmPlayer(dungeons_bgm);
+      }
+    }
+  }
+};
+

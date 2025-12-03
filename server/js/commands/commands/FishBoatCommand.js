@@ -1,0 +1,152 @@
+/**
+ * FishBoatCommand - Handles /fishboat command
+ * 
+ * Builds a fishing boat at an owned dock.
+ */
+
+const entityRegistry = require('../../core/EntityRegistry');
+
+class FishBoatCommand {
+  constructor() {
+    this.name = 'fishboat';
+  }
+
+  /**
+   * Execute the fishboat command
+   * @param {object} data - Command data { cmd, id }
+   * @returns {boolean} Success
+   */
+  execute(data) {
+    const player = entityRegistry.getEntity('players', data.id);
+    if (!player) return false;
+
+    const socket = data.socket || (global.SOCKET_LIST && global.SOCKET_LIST[data.id]);
+    if (!socket) return false;
+
+    const getLoc = global.getLoc || ((x, y) => [Math.floor(x / 64), Math.floor(y / 64)]);
+    const loc = getLoc(player.x, player.y);
+
+    // Get the tile player is facing
+    const dirOffsets = {
+      down: [0, 1],
+      up: [0, -1],
+      left: [-1, 0],
+      right: [1, 0]
+    };
+    const offset = dirOffsets[player.facing];
+    const facingLoc = [loc[0] + offset[0], loc[1] + offset[1]];
+    const getCenter = global.getCenter || ((c, r) => [c * 64, r * 64]);
+    const facingCoords = getCenter(facingLoc[0], facingLoc[1]);
+    const getBuilding = global.getBuilding || ((x, y) => null);
+    const facingBuilding = getBuilding(facingCoords[0], facingCoords[1]);
+
+    if (!facingBuilding || !global.Building || !global.Building.list || !global.Building.list[facingBuilding]) {
+      this.sendError(socket, 'You must face a Dock to build a fishing boat.');
+      return false;
+    }
+
+    const dock = global.Building.list[facingBuilding];
+    if (dock.type !== 'dock') {
+      this.sendError(socket, 'You must face a Dock to build a fishing boat.');
+      return false;
+    }
+
+    if (dock.owner !== player.id) {
+      this.sendError(socket, 'This is not your Dock.');
+      return false;
+    }
+
+    // Check if player has enough wood
+    let playerWood = 0;
+    if (player.house && global.House && global.House.list) {
+      playerWood = global.House.list[player.house].stores.wood || 0;
+    } else {
+      playerWood = player.stores.wood || 0;
+    }
+
+    if (playerWood < 150) {
+      this.sendError(socket, `You need <b>150 Wood</b> to build a Fishing Boat. (You have ${playerWood})`);
+      return false;
+    }
+
+    // Deduct wood
+    if (player.house && global.House && global.House.list) {
+      global.House.list[player.house].stores.wood -= 150;
+    } else {
+      player.stores.wood -= 150;
+    }
+
+    // Find water tile adjacent to dock
+    const getTile = global.getTile || ((layer, c, r) => null);
+    const mapSize = global.mapSize || 1000;
+    let waterTile = null;
+
+    for (const dockLoc of dock.plot || []) {
+      const adjacent = [
+        [dockLoc[0], dockLoc[1] + 1],
+        [dockLoc[0], dockLoc[1] - 1],
+        [dockLoc[0] - 1, dockLoc[1]],
+        [dockLoc[0] + 1, dockLoc[1]]
+      ];
+
+      for (const at of adjacent) {
+        if (at[0] >= 0 && at[0] < mapSize && at[1] >= 0 && at[1] < mapSize) {
+          if (getTile(0, at[0], at[1]) === 0) { // Water
+            waterTile = at;
+            break;
+          }
+        }
+      }
+      if (waterTile) break;
+    }
+
+    if (!waterTile) {
+      this.sendError(socket, 'No water adjacent to this Dock. Cannot spawn fishing boat.');
+      // Refund wood
+      if (player.house && global.House && global.House.list) {
+        global.House.list[player.house].stores.wood += 150;
+      } else {
+        player.stores.wood += 150;
+      }
+      return false;
+    }
+
+    // Create fishing ship on adjacent water tile
+    const waterCoords = getCenter(waterTile[0], waterTile[1]);
+    const FishingShip = global.FishingShip || (() => {});
+    
+    if (typeof FishingShip === 'function') {
+      const ship = FishingShip({
+        x: waterCoords[0],
+        y: waterCoords[1],
+        z: 0,
+        dock: facingBuilding,
+        house: dock.house,
+        kingdom: dock.kingdom,
+        owner: player.id,
+        spawned: false,
+        mode: 'docked'
+      });
+
+      // Track in dock
+      if (!dock.ships) dock.ships = [];
+      dock.ships.push(ship.id);
+
+      this.sendMessage(socket, '🚢 <b>Fishing Boat built!</b> It will automatically be crewed by dock workers during work hours.');
+      return true;
+    }
+
+    this.sendError(socket, 'FishingShip system not available.');
+    return false;
+  }
+
+  sendMessage(socket, message) {
+    socket.write(JSON.stringify({ msg: 'addToChat', message: `<i>${message}</i>` }));
+  }
+
+  sendError(socket, message) {
+    socket.write(JSON.stringify({ msg: 'addToChat', message: `<i>${message}</i>` }));
+  }
+}
+
+module.exports = FishBoatCommand;
