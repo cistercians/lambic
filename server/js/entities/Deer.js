@@ -10,6 +10,7 @@ module.exports = function(Character, globals) {
   const Deer = function(param){
     var self = Character(param);
     self.class = 'Deer';
+    self.type = 'fauna';
     self.isPrey = true; // Prey animal
     self.isNonCombatant = true; // Doesn't trigger outposts
     self.aggroRange = 256;

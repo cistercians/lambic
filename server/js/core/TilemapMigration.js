@@ -56,7 +56,7 @@ class TilemapMigration {
             tilemapSystem.addSpawnPoint('heavyForest', x, y);
           } else if (tile >= 5 && tile < 6) { // Mountain
             tilemapSystem.addSpawnPoint('mountains', x, y);
-          } else if (tile === 6) { // Cave entrance
+          } else if (tile >= 6 && tile < 7) { // Cave entrance (range check for decimal variations like 6.x)
             tilemapSystem.addSpawnPoint('caveEntrances', x, y);
           }
         } else {

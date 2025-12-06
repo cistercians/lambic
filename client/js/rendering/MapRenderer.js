@@ -2614,7 +2614,7 @@ class MapRenderer {
       cameraX = Player.list[selfId].x;
       cameraY = Player.list[selfId].y;
     }
-    var pBuilding = getBuilding(cameraX, cameraY);
+    var pBuilding = getBuilding(cameraX, cameraY, true);
     var dark = ctx.createPattern(Img.void, "repeat");
     ctx.rect(0,0,WIDTH,HEIGHT);
     ctx.fillStyle = dark;
@@ -2627,8 +2627,8 @@ class MapRenderer {
         var wtile = getTile(4, c, r);
         var bCoords = getCoords(c,r);
         var bbCoords = getCoords(c,r+1);
-        var building = getBuilding(bCoords[0],bCoords[1]);
-        var bbuilding = getBuilding(bbCoords[0],bbCoords[1]);
+        var building = getBuilding(bCoords[0],bCoords[1], true);
+        var bbuilding = getBuilding(bbCoords[0],bbCoords[1], true);
         if(pBuilding == building || pBuilding == bbuilding){
           if(wtile == 1){
             ctx.drawImage(
@@ -2750,7 +2750,7 @@ class MapRenderer {
       cameraX = Player.list[selfId].x;
       cameraY = Player.list[selfId].y;
     }
-    var pBuilding = getBuilding(cameraX, cameraY);
+    var pBuilding = getBuilding(cameraX, cameraY, true);
     var dark = ctx.createPattern(Img.void, "repeat");
     ctx.rect(0,0,WIDTH,HEIGHT);
     ctx.fillStyle = dark;
@@ -2764,8 +2764,8 @@ class MapRenderer {
         var below = getTile(5, c, r+1);
         var bCoords = getCoords(c,r);
         var bbCoords = getCoords(c,r+1);
-        var building = getBuilding(bCoords[0],bCoords[1]);
-        var bbuilding = getBuilding(bbCoords[0],bbCoords[1]);
+        var building = getBuilding(bCoords[0],bCoords[1], true);
+        var bbuilding = getBuilding(bbCoords[0],bbCoords[1], true);
         if(pBuilding == building || pBuilding == bbuilding){
           if(wtile == 1){
             if(below != 0){

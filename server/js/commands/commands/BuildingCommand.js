@@ -38,13 +38,11 @@ class BuildingCommand {
       }
       
       if (!player) {
-        console.error('[BuildingCommand] Player not found for id:', data.id);
         return false;
       }
 
       const socket = data.socket || (global.SOCKET_LIST && global.SOCKET_LIST[data.id]);
       if (!socket) {
-        console.error('[BuildingCommand] Socket not found for id:', data.id);
         return false;
       }
 
@@ -77,7 +75,6 @@ class BuildingCommand {
     try {
       buildingDef = buildingPreview.getBuildingDefinition(buildingType);
     } catch (error) {
-      console.error('[BuildingCommand] Error getting building definition:', error);
       this.sendError(socket, `Error: Unable to get building definition for ${buildingType}`);
       return true; // Command was handled, just failed validation
     }
@@ -98,11 +95,7 @@ class BuildingCommand {
     try {
       const facing = player.facing || 'right';
       validation = buildingPreview.validateBuildingPlacement(buildingType, c, r, z, facing);
-      console.log(`[BuildingCommand] Validation for ${buildingType} (facing: ${facing}):`);
-      console.log(`[BuildingCommand]   - validation.walls:`, JSON.stringify(validation.walls));
-      console.log(`[BuildingCommand]   - buildingDef.walls (raw):`, JSON.stringify(buildingDef.walls));
     } catch (error) {
-      console.error('[BuildingCommand] Error validating building placement:', error);
       this.sendError(socket, 'Error: Unable to validate building placement');
       return true; // Command was handled, just failed validation
     }
@@ -117,7 +110,6 @@ class BuildingCommand {
     try {
       materialCheck = buildingPreview.checkMaterials(player, buildingType);
     } catch (error) {
-      console.error('[BuildingCommand] Error checking materials:', error);
       this.sendError(socket, 'Error: Unable to check materials');
       return true; // Command was handled, just failed validation
     }
@@ -137,9 +129,6 @@ class BuildingCommand {
     return this.constructBuilding(player, buildingType, c, r, z, buildingDef, validation, socket);
     } catch (error) {
       // Catch any unexpected errors
-      console.error('[BuildingCommand] Unexpected error in execute:', error);
-      console.error('[BuildingCommand] Stack:', error.stack);
-      
       // Try to send error to socket if available
       if (data.socket || (global.SOCKET_LIST && global.SOCKET_LIST[data.id])) {
         const socket = data.socket || global.SOCKET_LIST[data.id];
@@ -201,12 +190,10 @@ class BuildingCommand {
 
     // Lay foundation tiles immediately (tile 11 = BUILD_MARKER) for ALL tiles in the plot
     if (!plot || plot.length === 0) {
-      console.error('[BuildingCommand] Empty plot array for', buildingType);
       this.sendError(socket, 'Error: Invalid building plot');
       return false;
     }
     
-    console.log(`[BuildingCommand] Laying ${plot.length} foundation tiles for ${buildingType} at (${c}, ${r})`);
     this.updateTilesForBuilding(buildingType, plot, validation);
     
     // Create building entity with built: false
@@ -367,12 +354,6 @@ class BuildingCommand {
       walls = buildingDef.walls.map(([relX, relY]) => [c + relX, r + relY]);
     }
     
-    console.log(`[BuildingCommand] Creating ${buildingType} entity:`);
-    console.log(`[BuildingCommand]   - validationWalls:`, JSON.stringify(validationWalls));
-    console.log(`[BuildingCommand]   - buildingDef.walls:`, JSON.stringify(buildingDef.walls));
-    console.log(`[BuildingCommand]   - final walls:`, JSON.stringify(walls));
-    console.log(`[BuildingCommand]   - c, r:`, c, r);
-    
     // Use pre-calculated topPlot from validation if provided, otherwise calculate
     let topPlot = validationTopPlot;
     if (!topPlot) {
@@ -434,14 +415,12 @@ class BuildingCommand {
   updateTilesForBuilding(buildingType, plot, validation) {
     // Match NPC code pattern exactly - use for...in loop like Houses.js
     if (!plot || !Array.isArray(plot)) {
-      console.error('[BuildingCommand] Invalid plot array:', plot);
       return;
     }
     
     // Lay foundation tiles for all tiles in the plot (matching NPC code pattern from Houses.js)
     // Use global.tileChange to match how farm code accesses it
     if (typeof global.tileChange !== 'function') {
-      console.error('[BuildingCommand] tileChange function not available');
       return;
     }
     
@@ -450,14 +429,12 @@ class BuildingCommand {
       (z, c, r) => global.tilemapSystem.getTile(z, c, r) : null);
     
     if (!getTile) {
-      console.error('[BuildingCommand] getTile function not available');
       return;
     }
     
     for (var i in plot) {
       var n = plot[i];
       if (!Array.isArray(n) || n.length < 2) {
-        console.error('[BuildingCommand] Invalid tile in plot:', n);
         continue;
       }
       
@@ -469,6 +446,13 @@ class BuildingCommand {
       const foundationTile = isWater ? 11.5 : 11;
       global.tileChange(0, n[0], n[1], foundationTile);
       global.tileChange(6, n[0], n[1], 0); // Clear layer 6
+      
+      // Update pathfinding matrix to mark foundation tiles as walkable (0)
+      // This is critical for water foundation tiles which previously had matrix value 2 (transition)
+      // Without this, pathfinding would treat them as blocked transition tiles
+      if (typeof global.matrixChange === 'function') {
+        global.matrixChange(0, n[0], n[1], 0); // Mark as walkable in pathfinding matrix
+      }
     }
   }
 
@@ -518,10 +502,6 @@ class BuildingCommand {
           player.stores[material] = inStores - fromStores;
           remaining -= fromStores;
         }
-      }
-      
-      if (remaining > 0) {
-        console.warn(`[BuildingCommand] Could not deduct all ${material}: ${remaining} still needed`);
       }
     }
   }

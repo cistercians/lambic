@@ -38,11 +38,6 @@ Build = function(id){
       if(count == plot.length && !Building.list[b].built){
         Building.list[b].built = true;
         
-        console.log('[Build] Building completed:', building.type);
-        console.log('[Build]   - walls:', JSON.stringify(walls));
-        console.log('[Build]   - plot:', JSON.stringify(plot));
-        console.log('[Build]   - topPlot:', JSON.stringify(top));
-        
         // Update faction patrol list when building completes
         if(building.house && House.list[building.house]){
           House.list[building.house].updatePatrolList();

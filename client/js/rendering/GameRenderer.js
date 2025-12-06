@@ -73,8 +73,9 @@ class GameRenderer {
     }
     
     // Cache player building once per frame (for indoor rendering)
+    // Use includeWallsAndTopPlot=true so stairs (on wall tiles) still resolve to the building
     if ((currentZ === 1 || currentZ === 2) && typeof selfId !== 'undefined' && Player.list && Player.list[selfId]) {
-      this._cachedPlayerBuilding = getBuilding(Player.list[selfId].x, Player.list[selfId].y);
+      this._cachedPlayerBuilding = getBuilding(Player.list[selfId].x, Player.list[selfId].y, true);
     } else {
       this._cachedPlayerBuilding = null;
     }
@@ -253,7 +254,8 @@ class GameRenderer {
         if (currentZ === 0 && entity.innaWoods && !playerInnaWoods) return false;
         // Building check for z=1 or z=2 using cached player building
         if (checkBuilding) {
-          const entityBuilding = getBuilding(entity.x, entity.y);
+          // Use includeWallsAndTopPlot=true since entities can be on wall tiles
+          const entityBuilding = getBuilding(entity.x, entity.y, true);
           if (playerBuilding !== entityBuilding) return false;
         }
         return true;
@@ -282,8 +284,9 @@ class GameRenderer {
         stats.entitiesRendered.items++;
         // Special handling for buildings (z=1, z=2) in normal mode
         if (normalIndoor) {
-          const itemBuilding = getBuilding(item.x, item.y);
-          const itemBuildingAdjusted = getBuilding(item.x, item.y + (tileSize * 1.1));
+          // Use includeWallsAndTopPlot=true to find items on wall tiles (like Furnace, WallTorch, etc.)
+          const itemBuilding = getBuilding(item.x, item.y, true);
+          const itemBuildingAdjusted = getBuilding(item.x, item.y + (tileSize * 1.1), true);
           
           if (itemBuilding === playerBuilding || itemBuildingAdjusted === playerBuilding) {
             item.draw();
@@ -320,7 +323,7 @@ class GameRenderer {
         stats.entitiesRendered.players++;
         // Additional building check for normal mode (skip for falcons)
         if (checkBuilding) {
-          const entityBuilding = getBuilding(player.x, player.y);
+          const entityBuilding = getBuilding(player.x, player.y, true);
           if (playerBuilding !== entityBuilding) continue;
         }
         
@@ -396,8 +399,10 @@ class GameRenderer {
       }
     }
     
-    // Render rain if active
-    renderRain();
+    // Render rain only when outdoors (z=0) - indoors should not show weather
+    if (currentZ === 0) {
+      renderRain();
+    }
   }
 }
 

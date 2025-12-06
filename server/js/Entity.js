@@ -125,11 +125,6 @@ Building = function(param){
   self.walls = param.walls;
   self.topPlot = param.topPlot;
   
-  if (param.type === 'forge' || param.type === 'tavern' || param.type === 'garrison') {
-    console.log('[Building] Creating ' + param.type + ':');
-    console.log('[Building]   - param.walls:', JSON.stringify(param.walls));
-    console.log('[Building]   - self.walls:', JSON.stringify(self.walls));
-  }
   self.mats = param.mats;
   self.req = param.req;
   self.hp = param.hp;
@@ -1623,11 +1618,7 @@ Garrison = function(param){
 }
 
 Forge = function(param){
-  console.log('[Forge] Creating forge with params:');
-  console.log('[Forge]   - param.walls:', JSON.stringify(param.walls));
-  console.log('[Forge]   - param.plot:', JSON.stringify(param.plot));
   var self = Building(param);
-  console.log('[Forge]   - self.walls after Building():', JSON.stringify(self.walls));
   self.patrol = true;
   self.blacksmith = null;
   self.conversionTimer = 0; // Convert iron ore every 30 seconds (1800 frames at 60fps)
@@ -1869,6 +1860,23 @@ Character = function(param){
   self.innaWoods = false;
   self.onMtn = false;
   self.hasTorch = false;
+  
+  // Initialize terrain-based properties based on spawn location
+  // This ensures properties like innaWoods are set correctly on spawn
+  if(self.z === 0 && typeof getLoc === 'function' && typeof getTile === 'function'){
+    const loc = getLoc(self.x, self.y);
+    const tile = getTile(0, loc[0], loc[1]);
+    // Heavy forest tiles (1.x range)
+    if(tile >= 1 && tile < 2){
+      self.innaWoods = true;
+      self.onMtn = false;
+    }
+    // Mountain tiles (5.x range)
+    else if(tile >= 5 && tile < 6){
+      self.innaWoods = false;
+      self.onMtn = true;
+    }
+  }
   self.working = false;
   self.chopping = false;
   self.mining = false;
@@ -2253,6 +2261,8 @@ Character = function(param){
   self.transitionIntent = null; // 'enter_cave', 'exit_cave', 'enter_building', 'exit_building', etc.
   self.transitionState = 'none'; // 'none', 'at_entrance', 'transitioning'
   self.targetZLevel = null; // Destination z-level for cross-z navigation
+  self.zTransitionCooldown = 0; // Cooldown to prevent immediate re-pathing after z-transition (player only)
+  self.zTransitionHalt = false; // If true, completely halt all path following until new click (player only)
 
   self.move = function(target){ // [c,r]
     // Safety check: NPCs should not move to water tiles (unless they're already underwater)
@@ -3734,6 +3744,28 @@ Character = function(param){
       }
     }
 
+    // ===== PATH COMPLETION CHECK (before terrain transitions) =====
+    // This ensures path is cleared BEFORE any z-transition can happen.
+    // Without this, the stair transition code moves the player away from the destination,
+    // and the path following code thinks it still needs to reach the destination, causing an infinite loop.
+    // By checking path completion HERE, the path is marked complete BEFORE any position changes happen.
+    if(self.type === 'player' && self.path && self.path.length > 0){
+      var pathLoc = getLoc(self.x, self.y);
+      var finalDest = self.path[self.path.length - 1];
+      if(pathLoc[0] === finalDest[0] && pathLoc[1] === finalDest[1]){
+        // Player has reached path destination - clear path immediately
+        // This prevents the path from persisting after a z-transition moves the player
+        self.path = null;
+        self.pathCount = 0;
+        self.pathEnd = null;
+        // Clear movement flags since we've arrived
+        self.pressingRight = false;
+        self.pressingLeft = false;
+        self.pressingDown = false;
+        self.pressingUp = false;
+      }
+    }
+
     // ===== TERRAIN TRANSITIONS & SPEED MODIFIERS (lines 3790-3920) =====
     // Handles z-level transitions (overworld, cave, building, water, cellar)
     // Sets speed modifiers based on terrain type (woods, mountains, roads)
@@ -3744,14 +3776,16 @@ Character = function(param){
         self.transitionState = 'at_entrance';
         
         // For players, auto-set intent (backward compatibility)
-        if(self.type === 'player'){
+        // Don't auto-set if zTransitionHalt is active (prevents infinite loops after z-transition)
+        if(self.type === 'player' && !self.zTransitionHalt){
           self.transitionIntent = 'enter_cave';
         }
         
         // Check intent to enter cave (with cooldown check for serfs)
         const isSerfClass = (self.class === 'Serf' || self.class === 'SerfM' || self.class === 'SerfF');
         const cooldownOK = !isSerfClass || (self.mineExitCooldown === 0);
-        if(self.transitionIntent === 'enter_cave' && self.isAtPathDestination() && cooldownOK){
+        // Also verify zTransitionHalt is not active (second layer of protection)
+        if(self.transitionIntent === 'enter_cave' && self.isAtPathDestination() && cooldownOK && !(self.type === 'player' && self.zTransitionHalt)){
           self.enterCave(loc);
         } else if(self.transitionIntent === 'enter_cave' && !cooldownOK){
           // Serf wants to enter but cooldown active - clear intent to prevent stuck state
@@ -3794,12 +3828,14 @@ Character = function(param){
         self.transitionState = 'at_entrance';
         
         // Players: automatic (backward compatibility)
-        if(self.type === 'player'){
+        // Don't auto-set if zTransitionHalt is active (prevents infinite loops after z-transition)
+        if(self.type === 'player' && !self.zTransitionHalt){
           self.transitionIntent = 'enter_building';
         }
         
         // Check intent to enter building
-        if(self.transitionIntent === 'enter_building' && self.isAtPathDestination()){
+        // Also verify zTransitionHalt is not active (second layer of protection)
+        if(self.transitionIntent === 'enter_building' && self.isAtPathDestination() && !(self.type === 'player' && self.zTransitionHalt)){
           self.enterBuilding(b);
         }
       } else if(getTile(0,loc[0],loc[1]) == 0 && !self.ghost && !self.isBoarded){
@@ -3808,7 +3844,8 @@ Character = function(param){
         self.transitionState = 'at_entrance';
         
         // For players, auto-set intent (backward compatibility)
-        if(self.type === 'player'){
+        // Don't auto-set if zTransitionHalt is active (prevents infinite loops after z-transition)
+        if(self.type === 'player' && !self.zTransitionHalt){
           self.transitionIntent = 'enter_water';
         }
         
@@ -3828,12 +3865,14 @@ Character = function(param){
         self.transitionState = 'at_entrance';
         
         // For players, auto-set intent (backward compatibility)
-        if(self.type === 'player'){
+        // Don't auto-set if zTransitionHalt is active (prevents infinite loops after z-transition)
+        if(self.type === 'player' && !self.zTransitionHalt){
           self.transitionIntent = 'exit_cave';
         }
         
         // Check intent to exit cave
-        if(self.transitionIntent === 'exit_cave' && self.isAtPathDestination()){
+        // Also verify zTransitionHalt is not active (second layer of protection)
+        if(self.transitionIntent === 'exit_cave' && self.isAtPathDestination() && !(self.type === 'player' && self.zTransitionHalt)){
           self.exitCave();
         }
         // If no intent or has path, stay in cave
@@ -3844,12 +3883,14 @@ Character = function(param){
         self.transitionState = 'at_entrance';
         
         // Players: automatic (backward compatibility)
-        if(self.type === 'player'){
+        // Don't auto-set if zTransitionHalt is active (prevents infinite loops after z-transition)
+        if(self.type === 'player' && !self.zTransitionHalt){
           self.transitionIntent = 'go_upstairs_cellar';
         }
         
         // Check intent to go upstairs from cellar
-        if(self.transitionIntent === 'go_upstairs_cellar' && self.isAtPathDestination()){
+        // Also verify zTransitionHalt is not active (second layer of protection)
+        if(self.transitionIntent === 'go_upstairs_cellar' && self.isAtPathDestination() && !(self.type === 'player' && self.zTransitionHalt)){
           self.goDownstairs(1); // Yes, goDownstairs(1) goes UP from cellar to floor 1
         }
       }
@@ -3867,7 +3908,8 @@ Character = function(param){
         self.transitionState = 'at_entrance';
         
         // For players, auto-set intent (backward compatibility)
-        if(self.type === 'player'){
+        // Don't auto-set if zTransitionHalt is active (prevents infinite loops after z-transition)
+        if(self.type === 'player' && !self.zTransitionHalt){
           self.transitionIntent = 'surface_water';
         }
         
@@ -3882,12 +3924,14 @@ Character = function(param){
         self.transitionState = 'at_entrance';
         
         // For players, auto-set intent (backward compatibility)
-        if(self.type === 'player'){
+        // Don't auto-set if zTransitionHalt is active (prevents infinite loops after z-transition)
+        if(self.type === 'player' && !self.zTransitionHalt){
           self.transitionIntent = 'exit_building';
         }
         
         // Check intent to exit building
-        if(self.transitionIntent === 'exit_building' && self.isAtPathDestination()){
+        // Also verify zTransitionHalt is not active (second layer of protection)
+        if(self.transitionIntent === 'exit_building' && self.isAtPathDestination() && !(self.type === 'player' && self.zTransitionHalt)){
         var exit = getBuilding(self.x,self.y-tileSize);
           self.exitBuilding(exit);
         }
@@ -3896,12 +3940,14 @@ Character = function(param){
         self.transitionState = 'at_entrance';
         
         // For players, auto-set intent (backward compatibility)
-        if(self.type === 'player'){
+        // Don't auto-set if zTransitionHalt is active (prevents infinite loops after z-transition)
+        if(self.type === 'player' && !self.zTransitionHalt){
           self.transitionIntent = 'go_upstairs';
         }
         
         // Check intent to go upstairs
-        if(self.transitionIntent === 'go_upstairs' && self.isAtPathDestination()){
+        // Also verify zTransitionHalt is not active (second layer of protection)
+        if(self.transitionIntent === 'go_upstairs' && self.isAtPathDestination() && !(self.type === 'player' && self.zTransitionHalt)){
           self.goUpstairs();
         }
       } else if(getTile(4,loc[0],loc[1]) == 5 || getTile(4,loc[0],loc[1]) == 6){
@@ -3909,12 +3955,14 @@ Character = function(param){
         self.transitionState = 'at_entrance';
         
         // For players, auto-set intent (backward compatibility)
-        if(self.type === 'player'){
+        // Don't auto-set if zTransitionHalt is active (prevents infinite loops after z-transition)
+        if(self.type === 'player' && !self.zTransitionHalt){
           self.transitionIntent = 'go_to_cellar';
         }
         
         // Check intent to go to cellar
-        if(self.transitionIntent === 'go_to_cellar' && self.isAtPathDestination()){
+        // Also verify zTransitionHalt is not active (second layer of protection)
+        if(self.transitionIntent === 'go_to_cellar' && self.isAtPathDestination() && !(self.type === 'player' && self.zTransitionHalt)){
           self.goDownstairs(-2);
         }
       }
@@ -3924,26 +3972,22 @@ Character = function(param){
         self.transitionState = 'at_entrance';
         
         // For players, auto-set intent (backward compatibility)
-        if(self.type === 'player'){
+        // Don't auto-set if zTransitionHalt is active (prevents infinite loops after z-transition)
+        if(self.type === 'player' && !self.zTransitionHalt){
           self.transitionIntent = 'go_downstairs';
         }
         
         // Check intent to go downstairs
-        if(self.transitionIntent === 'go_downstairs' && self.isAtPathDestination()){
+        // Also verify zTransitionHalt is not active (second layer of protection)
+        if(self.transitionIntent === 'go_downstairs' && self.isAtPathDestination() && !(self.type === 'player' && self.zTransitionHalt)){
           self.goDownstairs(1);
         }
       }
     }
     
-    // ===== CRITICAL: Check if z-level changed during transitions =====
-    // Stop ALL movement immediately if z-level changed
+    // Track if z-level changed (used later for movement processing)
     var zLevelChanged = (self.z !== previousZ);
-    if(zLevelChanged){
-      // Z-level changed - STOP ALL MOVEMENT IMMEDIATELY
-      self.clearAllMovement(); // Use centralized function to clear all movement state
-      // Mark that z-level changed so movement processing below will be skipped
-    }
-
+    
     // ===== NPC AI MODES (lines 3990-4350) =====
     // Complex behavioral state machine for NPCs
     // Modes: idle (wandering), patrol (building circuits), escort (follow target),
@@ -4918,14 +4962,14 @@ Character = function(param){
 
   self.goUpstairs = function() {
     self.z = 2;
-    self.clearAllMovement(); // Clear all movement state to prevent infinite loops
+    self.clearAllMovement();
     self.y += (tileSize/2);
     self.facing = 'down';
   };
 
   self.goDownstairs = function(targetZ) {
     self.z = targetZ; // Could be 1 or -2
-    self.clearAllMovement(); // Clear all movement state to prevent infinite loops
+    self.clearAllMovement();
     self.y += (tileSize/2);
     self.facing = 'down';
   };
@@ -4950,6 +4994,13 @@ Character = function(param){
     self.waypointHistory = null;
     self.pathLocked = false;
     self.skippedWaypointCount = 0;
+    // Set z-transition halt flag to completely stop path following (player only)
+    // This prevents infinite loops when stairs move the player back toward the stair tile
+    // The flag is only cleared when a NEW clickNavigate is received
+    if(self.type === 'player'){
+      self.zTransitionCooldown = 30; // ~0.5 seconds at 60fps
+      self.zTransitionHalt = true; // Completely halt path following until new click
+    }
     // Clear movement flags (except for ghosts)
     if(!self.ghost){
       self.pressingRight = false;
@@ -5066,6 +5117,18 @@ Character = function(param){
           return;
         }
       }
+    }
+    
+    // Handle z-transition halt for players (prevents infinite stair loops)
+    // If zTransitionHalt is true, completely skip all path following
+    // This flag is only cleared when a new clickNavigate is received
+    if(self.type === 'player' && self.zTransitionHalt){
+      // Decrement cooldown but keep halt active
+      if(self.zTransitionCooldown > 0){
+        self.zTransitionCooldown--;
+      }
+      // Skip all path processing - player must click somewhere new to move
+      return;
     }
     
     if(self.path){
@@ -14669,7 +14732,7 @@ Weather.update = function(){
 // This will be called from lambic.js after all globals are set up
 global.initModularEntities = function() {
   try {
-    const entityRegistry = require('./server/js/entities/index.js');
+    const entityRegistry = require('./entities/index.js');
     const entities = entityRegistry(Character, {
       zones,
       getTile,

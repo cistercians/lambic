@@ -110,13 +110,27 @@ class InventoryItemImageHelper {
     } else if (type === 'diamond') {
       return qty > 2 ? this.Img.diamonds : this.Img.diamond;
     } else if (type === 'arrows') {
-      return qty > 9 ? this.Img.arrows2 : this.Img.arrows1;
+      return this.Img.arrows;
     } else if (type === 'bread') {
       return qty > 9 ? this.Img.breads : this.Img.bread;
     } else if (type === 'fish') {
       return qty > 4 ? this.Img.fishes : this.Img.fish;
-    } else if (type === 'meat') {
-      return qty > 4 ? this.Img.meats : this.Img.meat;
+    } else if (type === 'poachedfish') {
+      return qty > 4 ? this.Img.poachedfishes : this.Img.poachedfish;
+    } else if (type === 'lamb' || type === 'boarmeat' || type === 'venison') {
+      // Raw meat items
+      return qty > 4 ? this.Img.rawmeats : this.Img.rawmeat;
+    } else if (type === 'meat' || type === 'lambchop' || type === 'boarshank' || type === 'venisonloin') {
+      // Cooked meat items
+      return qty > 4 ? this.Img.cookedmeats : this.Img.cookedmeat;
+    } else if (type === 'torch') {
+      return this.Img.torch;
+    } else if (type === 'crown') {
+      return this.Img.crown;
+    } else if (type === 'relic') {
+      return this.Img.relic;
+    } else if (type === 'chest' || type === 'lockedchest') {
+      return this.Img.chest;
     }
 
     return null;

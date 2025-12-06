@@ -5,11 +5,6 @@ class BuildingConstruction {
   
   // Construct a forge building (tiles, matrix, items)
   static constructForge(buildingId, plot, walls) {
-    console.log('[BuildingConstruction] constructForge called:');
-    console.log('[BuildingConstruction]   - buildingId:', buildingId);
-    console.log('[BuildingConstruction]   - plot:', JSON.stringify(plot));
-    console.log('[BuildingConstruction]   - walls:', JSON.stringify(walls));
-    
     if (!walls || !Array.isArray(walls) || walls.length === 0) {
       console.error('[BuildingConstruction] ERROR: walls is null/empty! Cannot create wall items.');
     }

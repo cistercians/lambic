@@ -116,12 +116,23 @@ class TilemapSystem {
     if (options.waterOnly) key += '_water';
     if (options.avoidDoors) key += '_nodoors';
     if (options.avoidCaveExits) key += '_noexits';
+    if (options.avoidCaveEntrances) key += '_nocaves';
+    if (options.avoidStairs) key += '_nostairs';
     if (options.allowSpecificDoor) key += '_spdoor';
     if (options.allowStartTile) {
       key += `_start${options.allowStartTile[0]},${options.allowStartTile[1]}`;
     }
     if (options.targetDoor) {
-      key += `_target${options.targetDoor[0]},${options.targetDoor[1]}`;
+      key += `_tdoor${options.targetDoor[0]},${options.targetDoor[1]}`;
+    }
+    if (options.targetStairs) {
+      key += `_tstairs${options.targetStairs[0]},${options.targetStairs[1]}`;
+    }
+    if (options.targetCaveEntrance) {
+      key += `_tcave${options.targetCaveEntrance[0]},${options.targetCaveEntrance[1]}`;
+    }
+    if (options.targetWaterTile) {
+      key += `_twater${options.targetWaterTile[0]},${options.targetWaterTile[1]}`;
     }
     
     // Add grid version to ensure cache is invalidated when tiles change
@@ -155,7 +166,7 @@ class TilemapSystem {
         if (options.waterOnly) {
           walkable = (tile === 0); // Only water tiles (0) are walkable for ships
         }
-        // SECOND: Check if this is an explicitly allowed tile (highest priority)
+        // SECOND: Check if this is an explicitly allowed start tile (highest priority)
         else if (options.allowStartTile && options.allowStartTile[0] === x && options.allowStartTile[1] === y) {
           walkable = true;
         }
@@ -172,59 +183,37 @@ class TilemapSystem {
         else if (options.targetWaterTile && options.targetWaterTile[0] === x && options.targetWaterTile[1] === y) {
           walkable = true; // Allow water tile if it's the target destination
         }
-        // Block water tiles by default (unless they're the target above)
-        // Water tiles should NEVER be walkable unless explicitly targeted
-        else if (isWater) {
-          walkable = false; // Water is not walkable unless it's the target destination
+        // ISSUE 2 FIX: When targeting a water tile, ALL water tiles should be walkable
+        // This allows pathfinding through water to reach a water destination
+        else if (options.targetWaterTile && isWater) {
+          walkable = true; // Allow ALL water tiles when targeting water
         }
-        // THIRD: Apply avoidance rules for transition tiles (but NOT water - water is already blocked above)
-        else if (isTransition && !isWater) {
-          // Check if this transition tile matches any target destination
+        // Block water tiles by default (unless handled above)
+        else if (isWater) {
+          walkable = false; // Water is not walkable unless targeting water
+        }
+        // ISSUE 1 FIX: Block ALL transition tiles by default unless explicitly targeted
+        // This prevents paths from accidentally going through doors, cave entrances, etc.
+        // NPCs use the transitionIntent system to control when they actually transition
+        else if (isTransition) {
+          // Check if this transition tile is explicitly targeted
           const isTarget = 
             (options.targetDoor && options.targetDoor[0] === x && options.targetDoor[1] === y) ||
             (options.targetStairs && options.targetStairs[0] === x && options.targetStairs[1] === y) ||
             (options.targetCaveEntrance && options.targetCaveEntrance[0] === x && options.targetCaveEntrance[1] === y) ||
             (options.targetWaterTile && options.targetWaterTile[0] === x && options.targetWaterTile[1] === y);
           
-          // If it's a target, always allow it
+          // If it's a target, allow it
           if (isTarget) {
             walkable = true;
-          }
-          // Otherwise, apply avoidance rules if explicitly set
-          // Default behavior: transition tiles (doors, cave entrances, stairs) are walkable (for NPCs and z-transitions)
-          // Only block them if avoidance options are explicitly set
-          else if (options.avoidDoors && this.isDoorway(layer, x, y, tile)) {
+          } else {
+            // Block ALL transition tiles by default
+            // This prevents paths from accidentally diverting through doors/caves/stairs
+            // Transition tiles should ONLY be allowed when explicitly targeted
             walkable = false;
           }
-          else if (options.avoidDoors && this.isDoorway(layer, x, y, tile)) {
-            walkable = false;
-          }
-          else if (options.avoidCaveExits && this.isCaveExit(layer, x, y)) {
-            walkable = false;
-          }
-          else if (options.avoidCaveEntrances && this.isCaveEntrance(layer, x, y)) {
-            walkable = false;
-          }
-          else if (options.avoidStairs && this.isStairs(layer, x, y)) {
-            walkable = false;
-          }
-          // If no avoidance options are set, allow transition tiles (for NPCs and z-transitions)
-          // walkable is already true from isWalkable() check above, so no change needed
         }
-        // FOURTH: Apply avoidance rules for non-transition tiles (legacy support)
-        else if (options.avoidDoors && this.isDoorway(layer, x, y, tile)) {
-          walkable = false;
-        } else if (options.avoidCaveExits && this.isCaveExit(layer, x, y)) {
-          walkable = false;
-        } else if (options.avoidCaveEntrances && this.isCaveEntrance(layer, x, y)) {
-          walkable = false;
-        } else if (options.avoidStairs && this.isStairs(layer, x, y)) {
-          walkable = false;
-        }
-        // FIFTH: Block all transition tiles except specific targets (legacy support)
-        else if (options.allowSpecificDoor && (this.isDoorway(layer, x, y, tile) || this.isCaveExit(layer, x, y))) {
-          walkable = false;
-        }
+        // Non-transition tiles: keep existing walkability from isWalkable() check
         
         grid[y][x] = walkable ? 0 : 1;  // PF.Grid uses 0=walkable, 1=blocked
       }
@@ -316,7 +305,7 @@ class TilemapSystem {
   isCaveEntrance(layer, x, y) {
     if (layer !== 0) return false; // Only applies to overworld layer
     const tile = this.getTile(layer, x, y);
-    return tile === 6; // CAVE_ENTRANCE
+    return tile >= 6 && tile < 7; // CAVE_ENTRANCE (range check for decimal variations like 6.x)
   }
 
   // Check if a tile is water (layer 0 only)

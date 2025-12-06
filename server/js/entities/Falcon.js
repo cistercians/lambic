@@ -10,6 +10,7 @@ module.exports = function(Character, globals) {
     var self = Character(param);
     self.class = 'Falcon';
     self.type = 'fauna'; // Not 'npc' - falcons are passive fauna with no combat
+    self.mode = null; // Falcons don't use standard NPC modes - prevents idle wander
     self.falconry = param.falconry;
     self.hp = null; // Invulnerable - falcons cannot be damaged
     self.baseSpd = 1;

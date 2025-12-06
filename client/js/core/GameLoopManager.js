@@ -313,6 +313,9 @@ class GameLoopManager {
       const weatherEffects = getWeatherEffects(cameraPos.x, cameraPos.y, currentZ);
       updateRain(weatherEffects);
       renderRain();
+    } else {
+      // Clear rain particles when indoors (z > 0) or underground (z < 0)
+      updateRain(null);
     }
     
     // Track rendering performance

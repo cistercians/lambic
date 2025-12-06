@@ -738,7 +738,8 @@ function pathing(z) {
       for (let y = 0; y < mapSize; y++) {
         const tile = world[0][y][x];
         // Mark transition tiles (water, doors, cave entrances) as 2
-        if (tile === TERRAIN.WATER || tile === TERRAIN.DOOR_OPEN || tile === TERRAIN.DOOR_OPEN_ALT || tile === TERRAIN.CAVE_ENTRANCE) {
+        // Use range check for cave entrances to handle decimal variations (6.x)
+        if (tile === TERRAIN.WATER || tile === TERRAIN.DOOR_OPEN || tile === TERRAIN.DOOR_OPEN_ALT || (tile >= TERRAIN.CAVE_ENTRANCE && tile < TERRAIN.EMPTY)) {
           grid[y][x] = 2; // Transition tile
         } else {
           grid[y][x] = 0; // Walkable (land tiles, etc.)
@@ -1527,7 +1528,7 @@ global.findZTransition = findZTransition;
 // BUILDING HELPERS
 // ============================================================================
 
-function getBuilding(x, y) {
+function getBuilding(x, y, includeWallsAndTopPlot = false) {
   if (typeof x !== 'number' || typeof y !== 'number' || !isFinite(x) || !isFinite(y)) {
     return null;
   }
@@ -1542,26 +1543,33 @@ function getBuilding(x, y) {
     if (!b || !b.plot || !Array.isArray(b.plot)) continue;
     
     // Check ground floor plot
+    // Note: plot refers to tiles that form the foundation during construction,
+    // which become the walkable floor space inside the building at z=1.
     for (let n = 0; n < b.plot.length; n++) {
       if (b.plot[n] && b.plot[n][0] === loc[0] && b.plot[n][1] === loc[1]) {
         return b.id;
       }
     }
     
-    // Check second floor topPlot
-    if (b.topPlot && Array.isArray(b.topPlot)) {
-      for (let n = 0; n < b.topPlot.length; n++) {
-        if (b.topPlot[n] && b.topPlot[n][0] === loc[0] && b.topPlot[n][1] === loc[1]) {
-          return b.id;
+    // Optionally check walls and topPlot (for item ownership, rendering, etc.)
+    // walls and topPlot are visual elements - on z=0 those coordinates are walkable outside areas
+    // but items spawned on these tiles still belong to the building
+    if (includeWallsAndTopPlot) {
+      // Check topPlot
+      if (b.topPlot && Array.isArray(b.topPlot)) {
+        for (let n = 0; n < b.topPlot.length; n++) {
+          if (b.topPlot[n] && b.topPlot[n][0] === loc[0] && b.topPlot[n][1] === loc[1]) {
+            return b.id;
+          }
         }
       }
-    }
-    
-    // Check walls (some entities might be on wall tiles)
-    if (b.walls && Array.isArray(b.walls)) {
-      for (let n = 0; n < b.walls.length; n++) {
-        if (b.walls[n] && b.walls[n][0] === loc[0] && b.walls[n][1] === loc[1]) {
-          return b.id;
+      
+      // Check walls
+      if (b.walls && Array.isArray(b.walls)) {
+        for (let n = 0; n < b.walls.length; n++) {
+          if (b.walls[n] && b.walls[n][0] === loc[0] && b.walls[n][1] === loc[1]) {
+            return b.id;
+          }
         }
       }
     }
@@ -2835,7 +2843,20 @@ const Player = function(param) {
     } // End of ghost collision check
 
     // PATH-BASED MOVEMENT - Follow pathfinding waypoints (using NPC approach)
-    if(self.path && self.path.length > 0){
+    // CRITICAL: Skip path following if zTransitionHalt is active
+    // This prevents infinite loops when stairs move the player back toward the stair tile
+    if(self.zTransitionHalt){
+      // Clear movement flags and skip path following entirely
+      self.pressingRight = false;
+      self.pressingLeft = false;
+      self.pressingDown = false;
+      self.pressingUp = false;
+      // Decrement cooldown if active
+      if(self.zTransitionCooldown > 0){
+        self.zTransitionCooldown--;
+      }
+      // Skip all path-based movement
+    } else if(self.path && self.path.length > 0){
       if(self.pathCount < self.path.length){
         var next = self.path[self.pathCount];
         var dest = getCenter(next[0], next[1]);
@@ -2854,11 +2875,11 @@ const Player = function(param) {
         if(diffX >= self.maxSpd){
           if(!blocked.right) self.x += self.maxSpd;
           self.pressingRight = true;
-      self.facing = 'right';
+	    self.facing = 'right';
         } else if(diffX <= (0-self.maxSpd)){
           if(!blocked.left) self.x -= self.maxSpd;
           self.pressingLeft = true;
-      self.facing = 'left';
+	    self.facing = 'left';
         }
         if(diffY >= self.maxSpd){
           if(!blocked.down) self.y += self.maxSpd;
@@ -3003,22 +3024,38 @@ const Player = function(param) {
         socket.write(JSON.stringify({ msg: 'bgm', x: self.x, y: self.y, z: self.z }));
       }
     } else if (self.z === Z_LEVELS.CELLAR) {
-      if (getTile(8, loc[0], loc[1]) === 5) {
-        self.z = Z_LEVELS.BUILDING_1;
-        self.y += tileSize / 2;
-        self.facing = 'down';
-        socket.write(JSON.stringify({ msg: 'bgm', x: self.x, y: self.y, z: self.z, b: b2 }));
+      // Only transition if player doesn't already have a path (prevents re-triggering)
+      if (!self.path || self.path.length === 0) {
+        if (getTile(8, loc[0], loc[1]) === 5) {
+          // Going upstairs from cellar to z=1
+          self.z = Z_LEVELS.BUILDING_1;
+          socket.write(JSON.stringify({ msg: 'bgm', x: self.x, y: self.y, z: self.z, b: b2 }));
+          
+          // Path to tile below stairs instead of teleporting
+          var targetTile = [loc[0], loc[1] + 1];
+          var path = global.tilemapSystem.findPath(loc, targetTile, 3); // Layer 3 for z=1
+          self.path = path;
+          self.pathCount = 0;
+        }
       }
     } else if (self.z === Z_LEVELS.UNDERWATER) {
       self.handleUnderwater(tile, socket);
     } else if (self.z === Z_LEVELS.BUILDING_1) {
       self.handleBuilding1(loc, exit, b2, socket);
     } else if (self.z === Z_LEVELS.BUILDING_2) {
-      if (getTile(4, loc[0], loc[1]) === 3 || getTile(4, loc[0], loc[1]) === 4) {
-        self.z = Z_LEVELS.BUILDING_1;
-        self.y += tileSize / 2;
-        self.facing = 'down';
-        socket.write(JSON.stringify({ msg: 'bgm', x: self.x, y: self.y, z: self.z, b: b2 }));
+      // Only transition if player doesn't already have a path (prevents re-triggering)
+      if (!self.path || self.path.length === 0) {
+        if (getTile(4, loc[0], loc[1]) === 3 || getTile(4, loc[0], loc[1]) === 4) {
+          // Going downstairs to z=1
+          self.z = Z_LEVELS.BUILDING_1;
+          socket.write(JSON.stringify({ msg: 'bgm', x: self.x, y: self.y, z: self.z, b: b2 }));
+          
+          // Path to tile below stairs instead of teleporting
+          var targetTile = [loc[0], loc[1] + 1];
+          var path = global.tilemapSystem.findPath(loc, targetTile, 3); // Layer 3 for z=1
+          self.path = path;
+          self.pathCount = 0;
+        }
       }
     }
   };
@@ -3175,18 +3212,29 @@ const Player = function(param) {
       }
       self.z = Z_LEVELS.OVERWORLD;
       socket.write(JSON.stringify({ msg: 'bgm', x: self.x, y: self.y, z: self.z }));
-    } else {
+    } else if (!self.path || self.path.length === 0) {
+      // Only transition if player doesn't already have a path (prevents re-triggering)
       const stairs = getTile(4, loc[0], loc[1]);
       if (stairs === 3 || stairs === 4 || stairs === 7) {
+        // Going upstairs to z=2
         self.z = Z_LEVELS.BUILDING_2;
-        self.y += tileSize / 2;
-        self.facing = 'down';
         socket.write(JSON.stringify({ msg: 'bgm', x: self.x, y: self.y, z: self.z, b: b2 }));
+        
+        // Path to tile below stairs instead of teleporting
+        var targetTile = [loc[0], loc[1] + 1];
+        var path = global.tilemapSystem.findPath(loc, targetTile, 5); // Layer 5 for z=2
+        self.path = path;
+        self.pathCount = 0;
       } else if (stairs === 5 || stairs === 6) {
+        // Going to cellar z=-2
         self.z = Z_LEVELS.CELLAR;
-        self.y += tileSize / 2;
-        self.facing = 'down';
         socket.write(JSON.stringify({ msg: 'bgm', x: self.x, y: self.y, z: self.z, b: b2 }));
+        
+        // Path to tile below stairs instead of teleporting
+        var targetTile = [loc[0], loc[1] + 1];
+        var path = global.tilemapSystem.findPath(loc, targetTile, 8); // Layer 8 for z=-2
+        self.path = path;
+        self.pathCount = 0;
       }
     }
   };
@@ -6507,7 +6555,7 @@ io.on('connection', function(socket) {
             if(z === 0){
               // Overworld - check for transition tiles
               isWaterTile = (tile === TERRAIN.WATER); // 0
-              isCaveEntranceTile = (tile === TERRAIN.CAVE_ENTRANCE); // 6
+              isCaveEntranceTile = (tile >= TERRAIN.CAVE_ENTRANCE && tile < TERRAIN.EMPTY); // 6.x (range check for decimal variations)
               isBuildingDoorTile = (tile === TERRAIN.DOOR_OPEN || tile === TERRAIN.DOOR_OPEN_ALT); // 14 or 16
               isTransitionTile = isWaterTile || isCaveEntranceTile || isBuildingDoorTile;
             }
@@ -6536,10 +6584,10 @@ io.on('connection', function(socket) {
                     // Foundation/construction tiles should be walkable so players can path onto them to build
                     isWalkableTile = true;
                   } else {
-                    // Normal tile - check if walkable (exclude heavy forest, mountain, completed buildings)
-                    // Note: Foundation tiles (11, 11.5, 12, 13, 15, 17) are now allowed above, so we only block actual buildings
-                    var unwalkable = [TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, TERRAIN.DOOR_LOCKED, 20];
-                    isWalkableTile = unwalkable.indexOf(tile) === -1;
+                    // Normal tile - allow clicking on any tile as destination
+                    // Let the pathfinding system determine if a path is possible
+                    // The pathfinding matrices already handle walkability correctly
+                    isWalkableTile = true;
                   }
                 }
               }
@@ -6558,6 +6606,9 @@ io.on('connection', function(socket) {
             
             
             if(isWalkableTile){
+              // Clear z-transition halt flag - player is explicitly requesting new navigation
+              player.zTransitionHalt = false;
+              
               // Clear attack-move command (navigation overrides it)
               player.attackMoveTarget = null;
               

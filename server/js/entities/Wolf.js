@@ -10,6 +10,7 @@ module.exports = function(Character, globals) {
   const Wolf = function(param){
     var self = Character(param);
     self.class = 'Wolf';
+    self.type = 'fauna';
     self.baseSpd = 3;
     self.runSpd = 5; // Default wolf run speed (day), updated dynamically based on day/night
     self.damage = 10;
@@ -97,7 +98,7 @@ module.exports = function(Character, globals) {
         self.idleTime--;
       }
       if(self.z == 0){
-        if(getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[1],loc[1]) < 2){
+        if(getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 2){
           self.innaWoods = true;
           self.onMtn = false;
         } else if(getTile(0,loc[0],loc[1]) >= 2 && getTile(0,loc[0],loc[1]) < 4){

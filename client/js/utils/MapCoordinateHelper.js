@@ -71,9 +71,10 @@ class MapCoordinateHelper {
    * @param {number} y - World Y coordinate
    * @param {number} tileSize - Tile size in pixels
    * @param {object} BuildingList - Building list
+   * @param {boolean} includeWallsAndTopPlot - If true, also check walls and topPlot tiles (for item ownership, rendering)
    * @returns {string|null} Building ID or null
    */
-  getBuilding(x, y, tileSize, BuildingList) {
+  getBuilding(x, y, tileSize, BuildingList, includeWallsAndTopPlot = false) {
     const loc = this.getLoc(x, y, tileSize);
     if (!loc || loc.length < 2) return null;
 
@@ -81,7 +82,9 @@ class MapCoordinateHelper {
       const b = BuildingList[id];
       if (!b || !b.plot || !Array.isArray(b.plot)) continue;
 
-      // Check plot tiles
+      // Check ground floor plot
+      // Note: plot refers to tiles that form the foundation during construction,
+      // which become the walkable floor space inside the building at z=1.
       for (let n = 0; n < b.plot.length; n++) {
         const plotTile = b.plot[n];
         if (!plotTile || !Array.isArray(plotTile) || plotTile.length < 2) continue;
@@ -91,26 +94,31 @@ class MapCoordinateHelper {
         }
       }
       
-      // Check wall tiles (items like Furnace, Fireplace, StagHead are on walls)
-      if (b.walls && Array.isArray(b.walls)) {
-        for (let n = 0; n < b.walls.length; n++) {
-          const wallTile = b.walls[n];
-          if (!wallTile || !Array.isArray(wallTile) || wallTile.length < 2) continue;
+      // Optionally check walls and topPlot (for item ownership, rendering, etc.)
+      // walls and topPlot are visual elements - on z=0 those coordinates are walkable outside areas
+      // but items spawned on these tiles still belong to the building
+      if (includeWallsAndTopPlot) {
+        // Check topPlot
+        if (b.topPlot && Array.isArray(b.topPlot)) {
+          for (let n = 0; n < b.topPlot.length; n++) {
+            const topTile = b.topPlot[n];
+            if (!topTile || !Array.isArray(topTile) || topTile.length < 2) continue;
 
-          if (wallTile[0] === loc[0] && wallTile[1] === loc[1]) {
-            return b.id;
+            if (topTile[0] === loc[0] && topTile[1] === loc[1]) {
+              return b.id;
+            }
           }
         }
-      }
-      
-      // Check topPlot tiles (for buildings with upper floors)
-      if (b.topPlot && Array.isArray(b.topPlot)) {
-        for (let n = 0; n < b.topPlot.length; n++) {
-          const topTile = b.topPlot[n];
-          if (!topTile || !Array.isArray(topTile) || topTile.length < 2) continue;
+        
+        // Check walls
+        if (b.walls && Array.isArray(b.walls)) {
+          for (let n = 0; n < b.walls.length; n++) {
+            const wallTile = b.walls[n];
+            if (!wallTile || !Array.isArray(wallTile) || wallTile.length < 2) continue;
 
-          if (topTile[0] === loc[0] && topTile[1] === loc[1]) {
-            return b.id;
+            if (wallTile[0] === loc[0] && wallTile[1] === loc[1]) {
+              return b.id;
+            }
           }
         }
       }

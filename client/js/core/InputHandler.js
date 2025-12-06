@@ -1148,6 +1148,72 @@ class InputHandler {
       // Use getCurrentZ() to get the current z level (handles caves)
       const currentZ = this.config.getCurrentZ ? this.config.getCurrentZ() : player.z;
       
+      // BUILDING ENTRANCE NAVIGATION FIX:
+      // When clicking on any tile of a building plot (on overworld), redirect to the building's entrance
+      // This allows players to path to building entrances by clicking anywhere on the building
+      if (currentZ === 0) {
+        const clickedBuildingForNav = getBuilding(worldX, worldY);
+        if (clickedBuildingForNav && Building.list[clickedBuildingForNav]) {
+          const buildingForNav = Building.list[clickedBuildingForNav];
+          
+          // Skip entrance redirection for interactable buildings (mills, docks, etc.) 
+          // as they have their own interaction logic
+          const isInteractableBuildingTypeForNav = (buildingForNav.type === 'mill' || buildingForNav.type === 'lumbermill' || 
+                                                    buildingForNav.type === 'mine' || buildingForNav.type === 'dock');
+          
+          if (!isInteractableBuildingTypeForNav) {
+            // Find the entrance tile (door tile - 14 or 16) in the building's vicinity
+            if (buildingForNav.plot && Array.isArray(buildingForNav.plot)) {
+              let entranceTile = null;
+              
+              // Search the building's plot and adjacent tiles for a door
+              for (let p = 0; p < buildingForNav.plot.length; p++) {
+                const plotTile = buildingForNav.plot[p];
+                if (plotTile && plotTile.length >= 2) {
+                  // Check this tile and tiles adjacent (especially below, since entrances are often at bottom)
+                  const checkPositions = [
+                    [plotTile[0], plotTile[1]],
+                    [plotTile[0], plotTile[1] + 1], // Below
+                  ];
+                  
+                  for (const pos of checkPositions) {
+                    const tileValue = getTile(0, pos[0], pos[1]);
+                    if (tileValue === 14 || tileValue === 16) { // Door tiles
+                      entranceTile = pos;
+                      break;
+                    }
+                  }
+                  if (entranceTile) break;
+                }
+              }
+              
+              // If entrance found, navigate to it immediately and return
+              if (entranceTile) {
+                const navTileX = entranceTile[0];
+                const navTileY = entranceTile[1];
+                console.log('Building click redirected to entrance:', navTileX, navTileY, 'from:', tileX, tileY);
+                
+                // Add highlight ONLY at entrance tile
+                const tileHighlights = this.config.tileHighlights || (typeof window !== 'undefined' && window.tileHighlights);
+                if (tileHighlights && typeof tileHighlights.addHighlight === 'function') {
+                  tileHighlights.addHighlight(navTileX, navTileY, player.z);
+                }
+                
+                // Send navigation to entrance
+                socket.send(JSON.stringify({ msg: 'clickNavigate', tileX: navTileX, tileY: navTileY, z: player.z }));
+                return; // IMPORTANT: Early return to prevent any other code from running
+              }
+            }
+          }
+        }
+      }
+      
+      // If we get here, either:
+      // - Not on overworld
+      // - Not clicking on a building
+      // - Building doesn't have entrance (or is interactable type)
+      // Continue with normal navigation logic
+      
       // Check if clicking on a foundation/construction tile first
       // Foundation tiles are part of building plots but should still allow navigation
       const clickedTile = getTile(currentZ === 0 ? 0 : (currentZ === -1 ? 1 : (currentZ === -2 ? 8 : (currentZ === 1 ? 3 : 5))), tileX, tileY);
@@ -1214,12 +1280,6 @@ class InputHandler {
           return; // Prevent further processing - don't check hoveredInteractable
         }
         // If building is not an interactable type, fall through to normal navigation
-      }
-      
-      // Normal navigation - add tile highlight
-      const tileHighlights = this.config.tileHighlights || (typeof window !== 'undefined' && window.tileHighlights);
-      if (tileHighlights && typeof tileHighlights.addHighlight === 'function') {
-        tileHighlights.addHighlight(tileX, tileY, player.z);
       }
       
       // Fallback: check hoveredInteractable if no building found at clicked location
@@ -1291,6 +1351,7 @@ class InputHandler {
       // If it's a foundation/construction tile, always allow navigation (don't check for building interaction)
       if (isFoundationConstructionTile || isIndoors) {
         // Right-clicked on foundation/construction tile or indoors - navigate to it
+        // Note: For indoors/foundation, don't use entrance redirection - navigate to clicked tile
         console.log('Right-click navigation - world coords:', worldX, worldY, 'tile coords:', tileX, tileY, 'z:', player.z, 'tile:', clickedTile, 'indoors:', isIndoors, 'foundation:', isFoundationConstructionTile);
         socket.send(JSON.stringify({ msg: 'clickNavigate', tileX: tileX, tileY: tileY, z: player.z }));
         // Add tile highlight at clicked location
@@ -1306,29 +1367,22 @@ class InputHandler {
           console.warn('tileHighlights not available');
         }
       } else {
-        // Only check for building interaction when outdoors (z=0)
-        // Check if clicking on a building (fallback when hoveredInteractable not set)
-        const building = getBuilding(worldX, worldY);
-        if (building) {
-          // Right-clicked on building - interact (uses simple interact message, no pathfinding check)
-          console.log('Right-click interaction with building:', building);
-          socket.send(JSON.stringify({ msg: 'interact', buildingId: building }));
+        // Right-clicked on terrain or building that wasn't handled above - navigate to clicked tile
+        // Note: If a building with entrance was clicked, it would have been handled earlier and returned
+        // This fallback is for terrain, buildings without entrances, or buildings not in Building.list
+        console.log('Right-click navigation - world coords:', worldX, worldY, 'tile coords:', tileX, tileY, 'z:', player.z);
+        socket.send(JSON.stringify({ msg: 'clickNavigate', tileX: tileX, tileY: tileY, z: player.z }));
+        // Add tile highlight at navigation destination
+        console.log('Adding tile highlight at:', tileX, tileY, player.z);
+        const tileHighlights = this.config.tileHighlights || (typeof window !== 'undefined' && window.tileHighlights);
+        if (tileHighlights && tileHighlights.addHighlight) {
+          tileHighlights.addHighlight(tileX, tileY, player.z);
+          const highlightCount = (tileHighlights.highlights && typeof tileHighlights.highlights === 'object') 
+            ? Object.keys(tileHighlights.highlights).length 
+            : 0;
+          console.log('Highlight added, total highlights:', highlightCount);
         } else {
-          // Right-clicked on terrain - navigate
-          console.log('Right-click navigation - world coords:', worldX, worldY, 'tile coords:', tileX, tileY, 'z:', player.z);
-          socket.send(JSON.stringify({ msg: 'clickNavigate', tileX: tileX, tileY: tileY, z: player.z }));
-          // Add tile highlight at clicked location
-          console.log('Adding tile highlight at:', tileX, tileY, player.z);
-          const tileHighlights = this.config.tileHighlights || (typeof window !== 'undefined' && window.tileHighlights);
-          if (tileHighlights && tileHighlights.addHighlight) {
-            tileHighlights.addHighlight(tileX, tileY, player.z);
-            const highlightCount = (tileHighlights.highlights && typeof tileHighlights.highlights === 'object') 
-              ? Object.keys(tileHighlights.highlights).length 
-              : 0;
-            console.log('Highlight added, total highlights:', highlightCount);
-          } else {
-            console.warn('tileHighlights not available');
-          }
+          console.warn('tileHighlights not available');
         }
       }
     }

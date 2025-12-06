@@ -873,7 +873,7 @@ var getLocTile = (l, x, y) => {
   return getTile(l, loc[0], loc[1]);
 }
 var getCoords = (c, r) => mapCoordinateHelper?.getCoords?.(c, r, tileSize) || [c * tileSize, r * tileSize];
-var getBuilding = (x, y) => mapCoordinateHelper?.getBuilding?.(x, y, tileSize, Building.list) || null;
+var getBuilding = (x, y, includeWallsAndTopPlot = false) => mapCoordinateHelper?.getBuilding?.(x, y, tileSize, Building.list, includeWallsAndTopPlot) || null;
 
 // Ally check helper extracted to AllyCheckHelper.js
 // Initialize singleton instance
