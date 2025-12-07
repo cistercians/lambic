@@ -5603,8 +5603,8 @@ Building.prototype.retrieveShip = function(playerId, shipIndex) {
   
   var shipData = self.storedShips[shipIndex];
   
-  // Verify player owns this ship
-  if(shipData.owner !== playerId) return null;
+  // Verify player owns this ship (use == for type coercion, IDs might be string or number)
+  if(shipData.owner != playerId) return null;
   
   // Remove from storage
   self.storedShips.splice(shipIndex, 1);
@@ -7103,6 +7103,7 @@ FishingShip = function(param){
   initPack.player.push(self.getInitPack());
   return self;
 }
+global.FishingShip = FishingShip;
 
 CargoShip = function(param){
   var self = Character(param);
@@ -7527,6 +7528,7 @@ CargoShip = function(param){
   initPack.player.push(self.getInitPack());
   return self;
 }
+global.CargoShip = CargoShip;
 
 // UNITS
 

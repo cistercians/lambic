@@ -123,16 +123,33 @@ Interact = function(id,loc){
             }
           }
           
-          // Check active ships that are docked/anchored at this location
-          var loc = getLoc(building.x, building.y);
+          // Check active ships that are docked/anchored at this dock
           for(var shipId in Player.list){
             var ship = Player.list[shipId];
-            if(ship.shipType && ship.owner == id && !ship.toRemove){
-              var shipLoc = getLoc(ship.x, ship.y);
-              // Check if ship is within 2 tiles of this dock and in docked/anchored mode
-              var distX = Math.abs(shipLoc[0] - loc[0]);
-              var distY = Math.abs(shipLoc[1] - loc[1]);
-              if((distX <= 2 && distY <= 2) && (ship.mode === 'docked' || ship.mode === 'anchored')){
+            if(ship.shipType && ship.owner == id && !ship.toRemove && (ship.mode === 'docked' || ship.mode === 'anchored')){
+              // Check if ship's lastDock matches this dock OR if ship is near any dock plot tile
+              var isAtThisDock = false;
+              
+              // First check: ship's lastDock matches this dock
+              if(ship.lastDock === b || ship.dock === b){
+                isAtThisDock = true;
+              }
+              
+              // Second check: ship is within 3 tiles of any dock plot tile
+              if(!isAtThisDock && building.plot){
+                var shipLoc = getLoc(ship.x, ship.y);
+                for(var p = 0; p < building.plot.length; p++){
+                  var plotTile = building.plot[p];
+                  var distX = Math.abs(shipLoc[0] - plotTile[0]);
+                  var distY = Math.abs(shipLoc[1] - plotTile[1]);
+                  if(distX <= 3 && distY <= 3){
+                    isAtThisDock = true;
+                    break;
+                  }
+                }
+              }
+              
+              if(isAtThisDock){
                 ownedShips.push({
                   id: shipId,
                   type: ship.shipType,

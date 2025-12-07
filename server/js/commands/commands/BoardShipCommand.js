@@ -98,9 +98,10 @@ class BoardShipCommand extends BaseCommand {
       for (let i = 0; i < dock.storedShips.length; i++) {
         const storedShip = dock.storedShips[i];
         // Cargo ships are public transport (no ownership check), but they shouldn't be stored
-        // For other ships, verify ownership
-        const isOwned = storedShip.shipType === 'cargoship' || storedShip.owner === playerId;
-        if (storedShip.shipId === shipId && isOwned) {
+        // For other ships, verify ownership (use == for type coercion)
+        const isOwned = storedShip.shipType === 'cargoship' || storedShip.owner == playerId;
+        // Use == for shipId comparison in case of type mismatch (string vs number)
+        if (storedShip.shipId == shipId && isOwned) {
           // Retrieve the ship from storage
           if (typeof dock.retrieveShip === 'function') {
             const retrievedShipId = dock.retrieveShip(playerId, i);

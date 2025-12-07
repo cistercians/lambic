@@ -244,6 +244,24 @@ class WorldMapRenderer {
         (bounds.maxR - bounds.minR + 1) * pixelSize
       );
     }
+    
+    // Draw feature name at centroid
+    if (feature.center && feature.name) {
+      this.ctx.font = `${Math.max(12, pixelSize * 0.8)}px Arial`;
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'middle';
+      
+      var centerX = feature.center[0] * pixelSize;
+      var centerY = feature.center[1] * pixelSize;
+      
+      // Draw text shadow for better visibility
+      this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      this.ctx.fillText(feature.name, centerX + 1, centerY + 1);
+      
+      // Draw text in white
+      this.ctx.fillStyle = '#ffffff';
+      this.ctx.fillText(feature.name, centerX, centerY);
+    }
   }
 }
 

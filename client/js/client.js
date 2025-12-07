@@ -329,6 +329,16 @@ if (typeof UIEventHandlers !== 'undefined') {
   console.warn('UIEventHandlers not available, using legacy event handlers');
 }
 
+// World map rendering with highlight support - defined early for WorldMapHoverHandler
+var renderWorldMapWithHighlight = (terrainData, mapSize, playerX, playerY, playerTileSize, features, highlightedFeature) => {
+  if (!worldmapCanvas) return;
+  if (!window.worldMapRendererInstance) { 
+    window.worldMapRendererInstance = new WorldMapRenderer(); 
+    window.worldMapRendererInstance.init(worldmapCanvas); 
+  }
+  window.worldMapRendererInstance?.render(terrainData, mapSize, playerX, playerY, playerTileSize, features, highlightedFeature);
+}
+
 // WorldMap mouse hover functionality extracted to WorldMapHoverHandler.js
 if (typeof WorldMapHoverHandler !== 'undefined' && worldmapCanvas) {
   window.worldMapHoverHandler = new WorldMapHoverHandler(worldmapCanvas, renderWorldMapWithHighlight);
@@ -399,17 +409,10 @@ var updateCharacterSprite = (player) => { if (!window.characterDisplayUIInstance
 var updateEquipmentSlot = (slotId, item, slotLabel) => { if (!window.characterDisplayUIInstance) window.characterDisplayUIInstance = new CharacterDisplayUI(); window.characterDisplayUIInstance?.updateEquipmentSlot(slotId, item, slotLabel); }
 
 // World map rendering extracted to WorldMapRenderer.js
+// Note: renderWorldMapWithHighlight is defined earlier in file (before WorldMapHoverHandler init)
 var renderWorldMap = (terrainData, mapSize, playerX, playerY, playerTileSize, features) => {
   window.lastWorldMapData = { terrain: terrainData, mapSize, playerX, playerY, tileSize: playerTileSize, features };
   renderWorldMapWithHighlight(terrainData, mapSize, playerX, playerY, playerTileSize, features, null);
-}
-var renderWorldMapWithHighlight = (terrainData, mapSize, playerX, playerY, playerTileSize, features, highlightedFeature) => {
-  if (!worldmapCanvas) return;
-  if (!window.worldMapRendererInstance) { 
-    window.worldMapRendererInstance = new WorldMapRenderer(); 
-    window.worldMapRendererInstance.init(worldmapCanvas); 
-  }
-  window.worldMapRendererInstance?.render(terrainData, mapSize, playerX, playerY, playerTileSize, features, highlightedFeature);
 }
 
 // Cave map rendering extracted to CaveMapRenderer.js
