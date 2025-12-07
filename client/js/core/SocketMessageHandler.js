@@ -979,6 +979,12 @@ var SocketMessageHandler = {
           l.y = pack.y;
         if(pack.z != undefined)
           l.z = pack.z;
+        if(pack.radius != undefined)
+          l.radius = pack.radius;
+      } else {
+        // Create new light if it doesn't exist (handles lights that come in update packs)
+        // This is important for login camera mode where lights might be sent after initial init
+        new Light(pack);
       }
     }
     // Ensure Building.list exists before accessing it

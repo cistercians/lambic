@@ -151,6 +151,11 @@ class GameRenderer {
     
     // TILE HIGHLIGHTS (render on top of everything)
     this.renderTileHighlights(config);
+    
+    // ENTITY BORDERS (render on top of entities, shows hover/selection borders)
+    if(typeof drawEntityBorders === 'function') {
+      drawEntityBorders(this.ctx);
+    }
   }
   
   /**

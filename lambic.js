@@ -738,8 +738,7 @@ function pathing(z) {
       for (let y = 0; y < mapSize; y++) {
         const tile = world[0][y][x];
         // Mark transition tiles (water, doors, cave entrances) as 2
-        // Use range check for cave entrances to handle decimal variations (6.x)
-        if (tile === TERRAIN.WATER || tile === TERRAIN.DOOR_OPEN || tile === TERRAIN.DOOR_OPEN_ALT || (tile >= TERRAIN.CAVE_ENTRANCE && tile < TERRAIN.EMPTY)) {
+        if (tile === TERRAIN.WATER || tile === TERRAIN.DOOR_OPEN || tile === TERRAIN.DOOR_OPEN_ALT || tile === TERRAIN.CAVE_ENTRANCE) {
           grid[y][x] = 2; // Transition tile
         } else {
           grid[y][x] = 0; // Walkable (land tiles, etc.)
@@ -836,6 +835,7 @@ global.matrixU = matrixU;
 global.matrixB1 = matrixB1;
 global.matrixB2 = matrixB2;
 global.matrixB3 = matrixB3;
+global.matrixW = matrixW;  // Underwater matrix
 
 const gridO = new PF.Grid(matrixO);
 const gridU = new PF.Grid(matrixU);
@@ -1476,7 +1476,8 @@ function isWalkable(z, c, r) {
     '-1': matrixU,
     1: matrixB1,
     2: matrixB2,
-    '-2': matrixB3
+    '-2': matrixB3,
+    '-3': matrixW  // Underwater - all tiles walkable
   };
 
   const matrix = matrices[z];
@@ -6532,7 +6533,9 @@ io.on('connection', function(socket) {
             }
             
             // Get the tile type at the clicked location
-            var tile = getTile(z === 0 ? 0 : (z === -1 ? 1 : (z === -2 ? 8 : (z === 1 ? 3 : 5))), tileX, tileY);
+            // Map z-level to correct data layer: z=-3 (underwater) uses layer 0 (overworld) for tile data
+            var tileLayer = z === 0 ? 0 : (z === -1 ? 1 : (z === -2 ? 8 : (z === -3 ? 0 : (z === 1 ? 3 : 5))));
+            var tile = getTile(tileLayer, tileX, tileY);
             
             // Check if the clicked tile is a transition tile (cave entrance, building door, water)
             var isTransitionTile = false;
@@ -6555,10 +6558,15 @@ io.on('connection', function(socket) {
             if(z === 0){
               // Overworld - check for transition tiles
               isWaterTile = (tile === TERRAIN.WATER); // 0
-              isCaveEntranceTile = (tile >= TERRAIN.CAVE_ENTRANCE && tile < TERRAIN.EMPTY); // 6.x (range check for decimal variations)
+              isCaveEntranceTile = (tile === TERRAIN.CAVE_ENTRANCE); // 6
               isBuildingDoorTile = (tile === TERRAIN.DOOR_OPEN || tile === TERRAIN.DOOR_OPEN_ALT); // 14 or 16
               isTransitionTile = isWaterTile || isCaveEntranceTile || isBuildingDoorTile;
             }
+            
+            // DEBUG: Log tile detection for pathfinding diagnosis
+            console.log('[clickNavigate] tile:', tile, 'at', tileX, tileY, 'z:', z,
+                        'isWater:', isWaterTile, 'isCave:', isCaveEntranceTile, 
+                        'isDoor:', isBuildingDoorTile, 'isTransition:', isTransitionTile);
             
             // Check if tile is walkable based on z-level
             var isWalkableTile = false;
@@ -6706,7 +6714,14 @@ io.on('connection', function(socket) {
                 layer = 5; // Building floor 2
               }
               
+              // DEBUG: Log pathfinding options
+              console.log('[clickNavigate] options:', JSON.stringify(options), 'layer:', layer, 'start:', startLoc, 'end:', [tileX, tileY]);
+              
               var path = global.tilemapSystem.findPath(startLoc, [tileX, tileY], layer, options);
+              
+              // DEBUG: Log pathfinding result
+              console.log('[clickNavigate] path result:', path ? path.length + ' waypoints' : 'null/empty');
+              
               if(path && path.length > 0){
                 // Apply smoothing for non-cave paths
                 if(z !== -1 && typeof smoothPath === 'function'){
@@ -6741,7 +6756,9 @@ io.on('connection', function(socket) {
             }
             
             // Get the tile type at the clicked location
-            var tile = getTile(z === 0 ? 0 : (z === -1 ? 1 : (z === -2 ? 8 : (z === 1 ? 3 : 5))), tileX, tileY);
+            // Map z-level to correct data layer: z=-3 (underwater) uses layer 0 (overworld) for tile data
+            var tileLayer = z === 0 ? 0 : (z === -1 ? 1 : (z === -2 ? 8 : (z === -3 ? 0 : (z === 1 ? 3 : 5))));
+            var tile = getTile(tileLayer, tileX, tileY);
             
             // Check if tile is workable
             var isWorkable = false;

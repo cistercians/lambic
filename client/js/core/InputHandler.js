@@ -310,6 +310,10 @@ class InputHandler {
         }
         // Clear selected target and attack command mode
         this.config.selectedTarget = null;
+        // Also sync to global variable for backward compatibility
+        if(typeof window !== 'undefined') {
+          window.selectedTarget = null;
+        }
         this.config.attackCommandMode = false;
         console.log('Target and attack mode cleared with Escape');
         
@@ -513,43 +517,80 @@ class InputHandler {
           const mouseY = event.clientY - rect.top;
           
           // Convert screen coordinates to world coordinates
-          // Reverse the zoom transform, then subtract viewport offset
-          // Use window.currentZoom which is updated by GameLoopManager
-          const viewport = this.config.viewport || (typeof window !== 'undefined' && window.viewport);
+          // Use the same coordinate system as entity rendering for consistency
+          // Get camera position (same as used in border drawing)
+          const getCameraPosition = this.config.getCameraPosition;
+          const cameraPos = getCameraPosition ? getCameraPosition() : { x: 0, y: 0 };
           const zoom = (typeof window !== 'undefined' && window.currentZoom) || currentZoom || 1.0;
-          const worldX = (mouseX - WIDTH / 2) / zoom + WIDTH / 2 - viewport.offset[0];
-          const worldY = (mouseY - HEIGHT / 2) / zoom + HEIGHT / 2 - viewport.offset[1];
           
-          // Check all entities for hover
-          this.config.hoveredTarget = null;
-          // Use getCurrentZ() to get the current z level (handles caves)
-          const currentZ = this.config.getCurrentZ ? this.config.getCurrentZ() : player.z;
-          for (const id in Player.list) {
-            const entity = Player.list[id];
-            if (entity && entity.z === currentZ) {
-              // Skip Falcons - their sprites are massive (include shadows) and shouldn't be hoverable
-              if (entity.class === 'Falcon') continue;
-              
-              const dx = entity.x - worldX;
-              const dy = entity.y - worldY;
-              const distance = Math.sqrt(dx * dx + dy * dy);
-              // Use actual sprite size for detection (spriteSize is typically 64, so radius is 32)
-              let entitySpriteSize = entity.spriteSize || 64;
-              let detectionRadius = entitySpriteSize / 2;
-              // Account for scaled sprites (e.g., minibosses)
-              if ((entity.class === 'Wolf' || entity.class === 'Boar') && entity.spriteScale) {
-                detectionRadius = (entitySpriteSize * entity.spriteScale) / 2;
-              }
-              if (distance < detectionRadius) {
-                this.config.hoveredTarget = id;
-                // Debug: Log hover detection occasionally
-                if (Math.random() < 0.01) {
-                  console.log('Hover detected on entity:', id, 'distance:', distance, 'radius:', detectionRadius);
+          // Reverse the screen-to-world conversion used in rendering
+          // Entity rendering: screenX = (entity.x - spriteSize/2) - cameraPos.x + WIDTH/2
+          // Then zoom transform is applied: renderedX = (screenX - WIDTH/2) * zoom + WIDTH/2
+          // So: renderedX = ((entity.x - spriteSize/2) - cameraPos.x) * zoom + WIDTH/2
+          // Reverse: worldX = ((mouseX - WIDTH/2) / zoom) + cameraPos.x
+          // Note: We're checking entity center, so we don't need spriteSize/2 offset
+          const worldX = (mouseX - WIDTH / 2) / zoom + cameraPos.x;
+          const worldY = (mouseY - HEIGHT / 2) / zoom + cameraPos.y;
+          
+          // Only update hover detection if mouse position actually changed
+          // This prevents unnecessary recalculation when mouse hasn't moved
+          const lastMouseX = this._lastHoverMouseX;
+          const lastMouseY = this._lastHoverMouseY;
+          const mouseMoved = (lastMouseX === undefined || lastMouseY === undefined || 
+                             Math.abs(mouseX - lastMouseX) > 0.5 || 
+                             Math.abs(mouseY - lastMouseY) > 0.5);
+          
+          if (mouseMoved) {
+            // Store current mouse position
+            this._lastHoverMouseX = mouseX;
+            this._lastHoverMouseY = mouseY;
+            
+            // Check all entities for hover
+            // Use getCurrentZ() to get the current z level (handles caves)
+            const currentZ = this.config.getCurrentZ ? this.config.getCurrentZ() : player.z;
+            
+            let foundHover = false;
+            
+            for (const id in Player.list) {
+              const entity = Player.list[id];
+              if (entity && entity.z === currentZ) {
+                // Skip Falcons - their sprites are massive (include shadows) and shouldn't be hoverable
+                if (entity.class === 'Falcon') continue;
+                
+                const dx = entity.x - worldX;
+                const dy = entity.y - worldY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                // Use actual sprite size for detection (spriteSize is typically 64, so radius is 32)
+                let entitySpriteSize = entity.spriteSize || 64;
+                let detectionRadius = entitySpriteSize / 2;
+                
+                // Account for scaled sprites (e.g., minibosses)
+                if ((entity.class === 'Wolf' || entity.class === 'Boar') && entity.spriteScale) {
+                  detectionRadius = (entitySpriteSize * entity.spriteScale) / 2;
                 }
-                break;
+                
+                if (distance < detectionRadius) {
+                  this.config.hoveredTarget = id;
+                  // Sync to window for backward compatibility
+                  if (typeof window !== 'undefined') {
+                    window.hoveredTarget = id;
+                  }
+                  foundHover = true;
+                  break;
+                }
+              }
+            }
+            
+            // Only clear hoveredTarget if mouse moved and we didn't find a hover
+            if (!foundHover) {
+              this.config.hoveredTarget = null;
+              if (typeof window !== 'undefined') {
+                window.hoveredTarget = null;
               }
             }
           }
+          // If mouse hasn't moved, keep the current hoveredTarget (don't recalculate)
           
           // Check for interactable buildings/objects (using generic interactability checks)
           this.config.hoveredInteractable = null;
@@ -894,9 +935,14 @@ class InputHandler {
     // Use getCurrentZ() to get the current z level (handles caves)
     const currentZ = this.config.getCurrentZ ? this.config.getCurrentZ() : player.z;
     let clickedEntity = null;
+    let closestEntity = null;
+    let closestDistance = Infinity;
     for (const id in Player.list) {
       const entity = Player.list[id];
       if (entity && entity.z === currentZ) {
+        // Skip Falcons - their sprites are massive (include shadows) and shouldn't be clickable
+        if (entity.class === 'Falcon') continue;
+        
         const dx = entity.x - worldX;
         const dy = entity.y - worldY;
         const distance = Math.sqrt(dx * dx + dy * dy);
@@ -907,11 +953,21 @@ class InputHandler {
         if ((entity.class === 'Wolf' || entity.class === 'Boar') && entity.spriteScale) {
           detectionRadius = (entitySpriteSize * entity.spriteScale) / 2;
         }
+        // Track closest entity for debugging
+        if (distance < closestDistance) {
+          closestEntity = id;
+          closestDistance = distance;
+        }
         if (distance < detectionRadius) {
           clickedEntity = id;
           break;
         }
       }
+    }
+    
+    // Debug logging for click detection
+    if (!clickedEntity && closestEntity) {
+      console.log('Click detected but no entity hit. Closest entity:', closestEntity, 'distance:', closestDistance.toFixed(2), 'worldX:', worldX.toFixed(2), 'worldY:', worldY.toFixed(2));
     }
     
     if (clickedEntity) {
@@ -928,8 +984,12 @@ class InputHandler {
       } else {
         // Normal target selection
         this.config.selectedTarget = clickedEntity;
+        // Also sync to global variable for backward compatibility
+        if(typeof window !== 'undefined') {
+          window.selectedTarget = clickedEntity;
+        }
         socket.send(JSON.stringify({ msg: 'selectTarget', targetId: clickedEntity }));
-        console.log('Target selected:', clickedEntity);
+        console.log('Target selected:', clickedEntity, 'config.selectedTarget:', this.config.selectedTarget);
       }
     } else {
       // Clicked on terrain

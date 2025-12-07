@@ -2870,25 +2870,86 @@ class MapRenderer {
 }
 
 // Draw borders around hovered/selected entities
-var drawEntityBorders = function(){
-  // Only draw if we have a player and valid targets
-  if(!selfId || !Player.list[selfId]) return;
+var drawEntityBorders = function(renderCtx){
+  // Use provided context or fall back to global ctx
+  // If renderCtx is provided, use it; otherwise try to access global ctx
+  var ctxToUse = renderCtx;
+  if(!ctxToUse) {
+    // Try window.ctx first (set by CanvasInitializer)
+    if(typeof window !== 'undefined' && window.ctx) {
+      ctxToUse = window.ctx;
+    } else {
+      // Fallback: use global ctx variable if it exists (original behavior)
+      // Access global ctx by not shadowing it - check if it exists in outer scope
+      try {
+        // eslint-disable-next-line no-undef
+        ctxToUse = ctx; // Reference global ctx
+      } catch(e) {
+        ctxToUse = null;
+      }
+    }
+  }
+  if(!ctxToUse) return;
   
-  var player = Player.list[selfId];
+  // Use ctxToUse as ctx for the rest of the function
+  var ctx = ctxToUse;
+  
+  // Get selfId from window (updated by SocketMessageHandler) or global scope
+  var currentSelfId = null;
+  if(typeof window !== 'undefined' && window.selfId !== undefined && window.selfId !== null) {
+    currentSelfId = window.selfId;
+  } else if(typeof selfId !== 'undefined') {
+    currentSelfId = selfId;
+  }
+  
+  // Only draw if we have a player and valid targets
+  if(!currentSelfId || !Player.list[currentSelfId]) return;
+  
+  var player = Player.list[currentSelfId];
   var currentZ = getCurrentZ();
   var cameraPos = getCameraPosition();
   
+  // Get allyCheck function from window or global scope
+  var allyCheckFn = null;
+  if(typeof window !== 'undefined' && typeof window.allyCheck === 'function') {
+    allyCheckFn = window.allyCheck;
+  } else if(typeof allyCheck === 'function') {
+    allyCheckFn = allyCheck;
+  }
+  
+  // Get hoveredTarget and selectedTarget from InputHandler config if available, otherwise use globals
+  var currentHoveredTarget = null;
+  var currentSelectedTarget = null;
+  
+  // Try to get from InputHandler first (where they're actually updated)
+  if(typeof window !== 'undefined' && window.inputHandler && window.inputHandler.config) {
+    currentHoveredTarget = window.inputHandler.config.hoveredTarget;
+    currentSelectedTarget = window.inputHandler.config.selectedTarget;
+  }
+  // Fallback to global variables
+  if(currentHoveredTarget === null || currentHoveredTarget === undefined) {
+    currentHoveredTarget = (typeof hoveredTarget !== 'undefined') ? hoveredTarget : null;
+  }
+  if(currentSelectedTarget === null || currentSelectedTarget === undefined) {
+    currentSelectedTarget = (typeof selectedTarget !== 'undefined') ? selectedTarget : null;
+  }
+  
   // Check if we have any hovered or selected targets
-  if(!hoveredTarget && !selectedTarget) return;
+  if(!currentHoveredTarget && !currentSelectedTarget) return;
   
   // Get current z-layer
   var z = getCurrentZ();
   
   // Draw borders for hovered and selected entities
+  // Priority: selected units always show thick border, even when hovered
   var targetsToDraw = [];
-  if(hoveredTarget && Player.list[hoveredTarget]) targetsToDraw.push({id: hoveredTarget, isSelected: false});
-  if(selectedTarget && Player.list[selectedTarget] && selectedTarget !== hoveredTarget) {
-    targetsToDraw.push({id: selectedTarget, isSelected: true});
+  // First, add selected targets (they get priority with thick borders)
+  if(currentSelectedTarget && Player.list[currentSelectedTarget]) {
+    targetsToDraw.push({id: currentSelectedTarget, isSelected: true});
+  }
+  // Then add hovered targets only if they're not already selected
+  if(currentHoveredTarget && Player.list[currentHoveredTarget] && currentHoveredTarget !== currentSelectedTarget) {
+    targetsToDraw.push({id: currentHoveredTarget, isSelected: false});
   }
   
   for(var i = 0; i < targetsToDraw.length; i++){
@@ -2908,7 +2969,38 @@ var drawEntityBorders = function(){
     var y = (entity.y - (scaledSpriteSize/2)) - cameraPos.y + HEIGHT/2;
     
     // Determine border color based on ally status
-    var allied = (typeof allyCheck === 'function' && selfId) ? allyCheck(entity.id) : 0;
+    var allied = 0;
+    if(allyCheckFn && currentSelfId) {
+      try {
+        allied = allyCheckFn(entity.id);
+      } catch(e) {
+        console.warn('Error calling allyCheck:', e);
+        allied = 0;
+      }
+    } else if(currentSelfId && entity) {
+      // Fallback: basic enemy detection when allyCheck is not available
+      // Wild animals are always enemies
+      const wildAnimals = ['Wolf', 'Boar'];
+      if(wildAnimals.includes(entity.class)) {
+        allied = -1;
+      } else if(currentSelfId === entity.id) {
+        allied = 2; // Self
+      } else {
+        allied = 0; // Neutral (default to green if we can't determine)
+      }
+    }
+    
+    // Debug logging (only log occasionally to avoid spam)
+    if(Math.random() < 0.01) {
+      console.log('Border color check:', {
+        entityId: entity.id,
+        entityClass: entity.class,
+        selfId: currentSelfId,
+        allied: allied,
+        allyCheckFn: !!allyCheckFn
+      });
+    }
+    
     var borderColor = (allied === -1) ? '#ff0000' : '#00ff00'; // Red for enemies, green for allies
     
     // Draw border

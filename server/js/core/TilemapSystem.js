@@ -146,9 +146,26 @@ class TilemapSystem {
   generatePathfindingGrid(layer, options = {}) {
     const cacheKey = this.generateGridCacheKey(layer, options);
     
+    // DEBUG: Log when generating grid with transition tile targets
+    const hasTransitionTarget = options.targetCaveEntrance || options.targetWaterTile || options.targetDoor || options.targetStairs;
+    if (hasTransitionTarget) {
+      console.log('[GridGen] Generating grid for layer', layer, 'with transition targets:', 
+                  'cave:', options.targetCaveEntrance, 
+                  'water:', options.targetWaterTile,
+                  'door:', options.targetDoor,
+                  'stairs:', options.targetStairs);
+    }
+    
     // Check cache with version validation
     if (this.pathfindingCache.has(cacheKey)) {
+      if (hasTransitionTarget) {
+        console.log('[GridGen] Cache HIT for key:', cacheKey);
+      }
       return this.pathfindingCache.get(cacheKey);
+    }
+    
+    if (hasTransitionTarget) {
+      console.log('[GridGen] Cache MISS - generating new grid, key:', cacheKey);
     }
 
     const grid = [];
@@ -216,6 +233,19 @@ class TilemapSystem {
         // Non-transition tiles: keep existing walkability from isWalkable() check
         
         grid[y][x] = walkable ? 0 : 1;  // PF.Grid uses 0=walkable, 1=blocked
+        
+        // DEBUG: Log target tile processing
+        const isTargetTile = 
+          (options.targetCaveEntrance && options.targetCaveEntrance[0] === x && options.targetCaveEntrance[1] === y) ||
+          (options.targetWaterTile && options.targetWaterTile[0] === x && options.targetWaterTile[1] === y) ||
+          (options.targetDoor && options.targetDoor[0] === x && options.targetDoor[1] === y) ||
+          (options.targetStairs && options.targetStairs[0] === x && options.targetStairs[1] === y);
+        if (isTargetTile) {
+          console.log('[GridGen] TARGET tile', x, y, '- tile value:', tile, 
+                      'isWalkable:', this.isWalkable(layer, x, y, tile),
+                      'isTransition:', isTransition, 'isWater:', isWater,
+                      'FINAL walkable:', walkable, 'grid value:', grid[y][x]);
+        }
       }
     }
 
@@ -305,7 +335,7 @@ class TilemapSystem {
   isCaveEntrance(layer, x, y) {
     if (layer !== 0) return false; // Only applies to overworld layer
     const tile = this.getTile(layer, x, y);
-    return tile >= 6 && tile < 7; // CAVE_ENTRANCE (range check for decimal variations like 6.x)
+    return tile === 6; // CAVE_ENTRANCE
   }
 
   // Check if a tile is water (layer 0 only)
@@ -338,7 +368,8 @@ class TilemapSystem {
       '-1': global.matrixU,
       1: global.matrixB1,
       2: global.matrixB2,
-      '-2': global.matrixB3
+      '-2': global.matrixB3,
+      '-3': global.matrixW  // Underwater (no transition tiles, all walkable)
     };
     
     const matrix = matrices[z];

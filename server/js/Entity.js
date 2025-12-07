@@ -14453,7 +14453,9 @@ Light = function(param){
       id:self.id,
       x:self.x,
       y:self.y,
-      z:self.z
+      z:self.z,
+      // Ensure radius is always defined (handle legacy lights)
+      radius:self.radius !== undefined ? self.radius : 1
     }
   }
 

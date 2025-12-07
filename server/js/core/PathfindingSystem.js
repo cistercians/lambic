@@ -219,23 +219,11 @@ class PathfindingSystem {
   }
   
   // GRID CACHING: Generate cache key for grids
+  // CRITICAL FIX: Delegate to TilemapSystem's comprehensive key generation
+  // This ensures cache keys include targetCaveEntrance, targetWaterTile, etc.
   generateGridCacheKey(layer, options = {}) {
-    let optionsKey = '';
-    if (options.allowSpecificDoor) {
-      optionsKey = options.targetDoor ? `_door_${options.targetDoor[0]},${options.targetDoor[1]}` : '_door';
-    } else if (options.waterOnly) {
-      optionsKey = '_water';
-    } else if (options.avoidDoors) {
-      optionsKey = '_nodoors';
-    } else if (options.avoidWater) {
-      optionsKey = '_nowater';
-    } else if (options.avoidCaveEntrances) {
-      optionsKey = '_nocaves';
-    }
-    if (Object.keys(options).length > 2 && !optionsKey) {
-      optionsKey = `_${JSON.stringify(options)}`;
-    }
-    return `grid_${layer}${optionsKey}`;
+    // Use TilemapSystem's key generation which handles all options correctly
+    return this.tilemapSystem.generateGridCacheKey(layer, options);
   }
   
   // GRID CACHING: Get cached grid

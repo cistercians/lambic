@@ -64,10 +64,36 @@ class LightSourceRenderer {
    * @param {boolean} isDarkLayer - True if target is dark layer (no zoom), false if lighting canvas (has zoom)
    */
   illuminate(x, y, radius, env, ctx, flicker, targetCtx, currentZoom, WIDTH, HEIGHT, isDarkLayer) {
+    // Validate all inputs are finite numbers before proceeding
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(radius) || 
+        !Number.isFinite(env) || !Number.isFinite(flicker) || !Number.isFinite(currentZoom)) {
+      console.warn('LightSourceRenderer.illuminate: Invalid input values', {x, y, radius, env, flicker, currentZoom});
+      return;
+    }
+    
     const rnd = (0.05 * Math.sin(1.1 * Date.now() / 200) * flicker);
+    
+    // Validate rnd is finite (should always be, but check just in case)
+    if (!Number.isFinite(rnd)) {
+      console.warn('LightSourceRenderer.illuminate: Invalid rnd value', rnd);
+      return;
+    }
+    
     const adjustedRadius = radius * (1 + rnd);
+    
+    // Validate adjustedRadius is still finite after calculation
+    if (!Number.isFinite(adjustedRadius) || adjustedRadius <= 0) {
+      console.warn('LightSourceRenderer.illuminate: Invalid adjustedRadius', adjustedRadius);
+      return;
+    }
     // Scale cutout radius by environment factor (larger in caves/night, normal in day)
     const cutoutRadius = adjustedRadius * env;
+    
+    // Validate cutoutRadius is finite
+    if (!Number.isFinite(cutoutRadius) || cutoutRadius <= 0) {
+      console.warn('LightSourceRenderer.illuminate: Invalid cutoutRadius', cutoutRadius);
+      return;
+    }
 
     // Draw glow on main canvas (ctx already has zoom transform)
     ctx.save();
@@ -92,16 +118,24 @@ class LightSourceRenderer {
         const centerY = HEIGHT / 2;
         const actualX = (x - centerX) * currentZoom + centerX;
         const actualY = (y - centerY) * currentZoom + centerY;
+        
+        // Validate calculated coordinates and cutout radius
+        const scaledCutoutRadius = cutoutRadius * currentZoom;
+        if (!Number.isFinite(actualX) || !Number.isFinite(actualY) || !Number.isFinite(scaledCutoutRadius) || scaledCutoutRadius <= 0) {
+          console.warn('LightSourceRenderer.illuminate: Invalid dark layer coordinates', {actualX, actualY, scaledCutoutRadius});
+          return;
+        }
+        
         targetCtx.save();
         targetCtx.globalCompositeOperation = 'destination-out';
-        const cutoutGradient = targetCtx.createRadialGradient(actualX, actualY, 0, actualX, actualY, cutoutRadius * currentZoom);
+        const cutoutGradient = targetCtx.createRadialGradient(actualX, actualY, 0, actualX, actualY, scaledCutoutRadius);
         cutoutGradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
         cutoutGradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.6)');
         cutoutGradient.addColorStop(0.75, 'rgba(255, 255, 255, 0.2)');
         cutoutGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
         targetCtx.fillStyle = cutoutGradient;
         targetCtx.beginPath();
-        targetCtx.arc(actualX, actualY, cutoutRadius * currentZoom, 0, 2 * Math.PI);
+        targetCtx.arc(actualX, actualY, scaledCutoutRadius, 0, 2 * Math.PI);
         targetCtx.fill();
         targetCtx.restore();
       } else {
@@ -194,11 +228,30 @@ class LightSourceRenderer {
       const light = lights[i];
       if (!light) continue; // Skip deleted lights
 
+      // Validate light source data
+      if (!Number.isFinite(light.x) || !Number.isFinite(light.y) || 
+          !Number.isFinite(light.radius) || !Number.isFinite(light.z)) {
+        console.warn('LightSourceRenderer.render: Invalid light source data', light);
+        continue;
+      }
+      
+      // Validate camera position
+      if (!Number.isFinite(cameraPos.x) || !Number.isFinite(cameraPos.y)) {
+        console.warn('LightSourceRenderer.render: Invalid camera position', cameraPos);
+        continue;
+      }
+
       const rnd = (0.05 * Math.sin(1.1 * Date.now() / 200) * flicker);
       
       // Calculate screen position once - this is where the glow appears on the zoomed main canvas
       const screenX = light.x - cameraPos.x + WIDTH / 2;
       const screenY = light.y - cameraPos.y + HEIGHT / 2;
+      
+      // Validate calculated screen position
+      if (!Number.isFinite(screenX) || !Number.isFinite(screenY)) {
+        console.warn('LightSourceRenderer.render: Invalid screen position', {screenX, screenY, light, cameraPos});
+        continue;
+      }
 
       if (light.z === playerZ || light.z === 99) {
         // Determine if we need to draw cutout

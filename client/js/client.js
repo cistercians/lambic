@@ -884,9 +884,21 @@ var houseList = null;
 var kingdomList = null;
 var allyCheck = (id) => {
   if (typeof AllyCheckHelper !== 'undefined' && window.allyCheckHelper) {
-    return window.allyCheckHelper.check(id, { selfId, PlayerList: Player.list, houseList, kingdomList });
+    // Use window.selfId if available (updated by SocketMessageHandler), otherwise use local selfId
+    var currentSelfId = (typeof window !== 'undefined' && window.selfId !== undefined && window.selfId !== null) 
+      ? window.selfId 
+      : selfId;
+    return window.allyCheckHelper.check(id, { selfId: currentSelfId, PlayerList: Player.list, houseList, kingdomList });
   }
-  return (!selfId || !Player.list[selfId]) ? 0 : (selfId === id ? 2 : 0);
+  // Fallback: simple check
+  var currentSelfId = (typeof window !== 'undefined' && window.selfId !== undefined && window.selfId !== null) 
+    ? window.selfId 
+    : selfId;
+  return (!currentSelfId || !Player.list[currentSelfId]) ? 0 : (currentSelfId === id ? 2 : 0);
+}
+// Expose on window for access by other modules
+if(typeof window !== 'undefined') {
+  window.allyCheck = allyCheck;
 }
 
 // GameHelper extracted to GameHelper.js
@@ -951,8 +963,8 @@ if (typeof EntityInitializer !== 'undefined' && window.entityInitializer) {
 
 // player's id
 var selfId = null;
-// Make selfId globally accessible for SocketManager
-if (typeof window !== 'undefined') {
+// Expose on window for access by other modules (also used by SocketManager)
+if(typeof window !== 'undefined') {
   window.selfId = selfId;
 }
 
@@ -966,6 +978,11 @@ var attackCommandMode = false; // A key toggles attack command mode
 var workCommandMode = false; // F key activates work command mode
 var selectedTarget = null; // Currently selected entity ID
 var hoveredTarget = null; // Entity ID under mouse cursor
+// Expose on window for access by other modules
+if(typeof window !== 'undefined') {
+  window.selectedTarget = selectedTarget;
+  window.hoveredTarget = hoveredTarget;
+}
 var hoveredInteractable = null; // Interactable building or object under mouse cursor
 var currentMouseX = 0; // Current mouse X position (screen coordinates)
 var currentMouseY = 0; // Current mouse Y position (screen coordinates)
@@ -1182,6 +1199,10 @@ function initializeInputHandler() {
       }
     });
     window.inputHandlerInitializer = initializer;
+    // Expose inputHandler on window for access by other modules
+    if (inputHandler) {
+      window.inputHandler = inputHandler;
+    }
   } else if (typeof InputHandler !== 'undefined') {
     // Fallback: create InputHandler directly
     inputHandler = new InputHandler({
@@ -1201,6 +1222,10 @@ function initializeInputHandler() {
       WIDTH: WIDTH, HEIGHT: HEIGHT, currentZoom: currentZoom, tileSize: tileSize, tileHighlights: tileHighlights,
       viewport: viewport
     });
+    // Expose inputHandler on window for access by other modules
+    if (inputHandler) {
+      window.inputHandler = inputHandler;
+    }
     setInterval(() => {
       if (inputHandler) {
         inputHandler.updateConfig({
