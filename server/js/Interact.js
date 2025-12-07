@@ -86,12 +86,10 @@ Interact = function(id,loc){
         }
         
         if(canAccess){
-          // Get player resources
-          var playerWood = 0;
+          // Get player resources (check inventory first, then stores - matching building construction)
+          var playerWood = (player.inventory.wood || 0) + (player.stores.wood || 0);
           if(player.house){
-            playerWood = House.list[player.house].stores.wood || 0;
-          } else {
-            playerWood = player.stores.wood || 0;
+            playerWood += (House.list[player.house].stores.wood || 0);
           }
           
           // Available ships to build

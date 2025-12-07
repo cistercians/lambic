@@ -1,7 +1,7 @@
 /**
- * DepositUI - Manages deposit/withdraw UI display
+ * DepositUI - Manages deposit/withdraw UI display for economic buildings
  * 
- * Extracted from client.js for better organization.
+ * Supports: lumbermill (wood), mill (grain), mine (stone/ores)
  */
 
 class DepositUI {
@@ -12,13 +12,24 @@ class DepositUI {
   /**
    * Update deposit display
    * @param {object} building - Building entity
-   * @param {object} player - Player entity
+   * @param {object} player - Player entity (optional, not used for economic buildings)
    */
   updateDepositDisplay(building, player) {
     const depositPopup = document.getElementById('deposit-popup');
-    if (!depositPopup) return;
+    const depositSliders = document.getElementById('deposit-sliders');
+    const depositTitle = document.getElementById('deposit-title');
+    
+    if (!depositPopup || !depositSliders) return;
 
-    if (!building || building.type !== 'stronghold') {
+    // Only support economic buildings
+    if (!building || (building.type !== 'lumbermill' && building.type !== 'mill' && building.type !== 'mine')) {
+      depositPopup.style.display = 'none';
+      return;
+    }
+
+    // Get resources from currentDepositData (sent by server)
+    const currentDepositData = window.currentDepositData;
+    if (!currentDepositData || !currentDepositData.resources) {
       depositPopup.style.display = 'none';
       return;
     }
@@ -26,39 +37,95 @@ class DepositUI {
     // Show popup
     depositPopup.style.display = 'block';
 
-    // Get resources
-    const buildingResources = building.stores || {};
-    const playerResources = player.stores || {};
-    const houseResources = (player.house && typeof houseList !== 'undefined' && houseList && houseList[player.house] && houseList[player.house].stores) || {};
-
-    // Build resource list
-    const resources = ['wood', 'stone', 'grain', 'iron', 'silver', 'gold'];
-    let html = '<h3>🏰 Stronghold Storage</h3>';
-    html += '<div class="deposit-grid">';
-
-    for (const resource of resources) {
-      const buildingQty = buildingResources[resource] || 0;
-      const playerQty = playerResources[resource] || 0;
-      const houseQty = houseResources[resource] || 0;
-
-      html += `<div class="resource-row">`;
-      html += `<span class="resource-name">${resource}</span>`;
-      html += `<span class="resource-qty building">${buildingQty}</span>`;
-      html += `<span class="resource-qty player">${playerQty}</span>`;
-      html += `<span class="resource-qty house">${houseQty}</span>`;
-      
-      // Add deposit/withdraw buttons
-      html += `<button onclick="depositResource('${resource}')">Deposit</button>`;
-      html += `<button onclick="withdrawResource('${resource}')">Withdraw</button>`;
-      
-      html += `</div>`;
+    // Set title based on building type
+    const buildingNames = {
+      'lumbermill': '🪵 Lumbermill',
+      'mill': '🌾 Mill',
+      'mine': '⛏️ Mine'
+    };
+    if (depositTitle) {
+      depositTitle.textContent = buildingNames[building.type] || 'Deposit Resources';
     }
 
-    html += '</div>';
-    
-    const depositContent = document.getElementById('deposit-content');
-    if (depositContent) {
-      depositContent.innerHTML = html;
+    // Clear existing sliders
+    depositSliders.innerHTML = '';
+
+    // Get resources to display based on building type
+    const resources = currentDepositData.resources;
+    const resourceList = [];
+
+    if (building.type === 'lumbermill') {
+      if (resources.wood > 0) {
+        resourceList.push({ type: 'wood', amount: resources.wood, name: 'Wood' });
+      }
+    } else if (building.type === 'mill') {
+      if (resources.grain > 0) {
+        resourceList.push({ type: 'grain', amount: resources.grain, name: 'Grain' });
+      }
+    } else if (building.type === 'mine') {
+      const mineResources = [
+        { key: 'stone', name: 'Stone' },
+        { key: 'ironore', name: 'Iron Ore' },
+        { key: 'silverore', name: 'Silver Ore' },
+        { key: 'goldore', name: 'Gold Ore' },
+        { key: 'diamond', name: 'Diamond' }
+      ];
+      mineResources.forEach(res => {
+        if (resources[res.key] > 0) {
+          resourceList.push({ type: res.key, amount: resources[res.key], name: res.name });
+        }
+      });
+    }
+
+    // If no resources available, show message and close
+    if (resourceList.length === 0) {
+      depositSliders.innerHTML = '<p style="color: white; text-align: center; padding: 20px;">No resources available to deposit.</p>';
+      return;
+    }
+
+    // Create sliders for each resource
+    resourceList.forEach(resource => {
+      const sliderContainer = document.createElement('div');
+      sliderContainer.className = 'deposit-slider-container';
+
+      const label = document.createElement('div');
+      label.className = 'deposit-slider-label';
+
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'deposit-slider-name';
+      nameSpan.textContent = resource.name;
+
+      const valueSpan = document.createElement('span');
+      valueSpan.className = 'deposit-slider-value';
+      valueSpan.id = `deposit-value-${resource.type}`;
+      valueSpan.textContent = resource.amount.toString();
+
+      label.appendChild(nameSpan);
+      label.appendChild(valueSpan);
+
+      const slider = document.createElement('input');
+      slider.type = 'range';
+      slider.min = '0';
+      slider.max = resource.amount.toString();
+      slider.value = resource.amount.toString(); // Set to max by default
+      slider.className = 'deposit-slider';
+      slider.dataset.resourceType = resource.type;
+
+      // Update value display when slider changes
+      slider.addEventListener('input', function() {
+        valueSpan.textContent = this.value;
+      });
+
+      sliderContainer.appendChild(label);
+      sliderContainer.appendChild(slider);
+      depositSliders.appendChild(sliderContainer);
+    });
+
+    // Store building ID in currentDepositData.value for the confirm handler
+    if (currentDepositData) {
+      currentDepositData.value = {
+        buildingId: currentDepositData.buildingId
+      };
     }
   }
 }

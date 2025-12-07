@@ -6522,6 +6522,14 @@ io.on('connection', function(socket) {
         } else if (data.msg === 'clickNavigate') {
           // Right-click navigation to tile
           if(player && data.tileX !== undefined && data.tileY !== undefined && data.z !== undefined){
+            // DISABLE click navigation if player is aboard a ship (navigator or passenger)
+            if(player.boardedShip){
+              // Clear any existing path to prevent queued pathfinding from executing after disembark
+              player.path = null;
+              player.pathCount = 0;
+              return; // Ignore click navigation while aboard ship
+            }
+            
             var tileX = data.tileX;
             var tileY = data.tileY;
             var z = data.z;
@@ -6562,11 +6570,6 @@ io.on('connection', function(socket) {
               isBuildingDoorTile = (tile === TERRAIN.DOOR_OPEN || tile === TERRAIN.DOOR_OPEN_ALT); // 14 or 16
               isTransitionTile = isWaterTile || isCaveEntranceTile || isBuildingDoorTile;
             }
-            
-            // DEBUG: Log tile detection for pathfinding diagnosis
-            console.log('[clickNavigate] tile:', tile, 'at', tileX, tileY, 'z:', z,
-                        'isWater:', isWaterTile, 'isCave:', isCaveEntranceTile, 
-                        'isDoor:', isBuildingDoorTile, 'isTransition:', isTransitionTile);
             
             // Check if tile is walkable based on z-level
             var isWalkableTile = false;
@@ -6714,13 +6717,7 @@ io.on('connection', function(socket) {
                 layer = 5; // Building floor 2
               }
               
-              // DEBUG: Log pathfinding options
-              console.log('[clickNavigate] options:', JSON.stringify(options), 'layer:', layer, 'start:', startLoc, 'end:', [tileX, tileY]);
-              
               var path = global.tilemapSystem.findPath(startLoc, [tileX, tileY], layer, options);
-              
-              // DEBUG: Log pathfinding result
-              console.log('[clickNavigate] path result:', path ? path.length + ' waypoints' : 'null/empty');
               
               if(path && path.length > 0){
                 // Apply smoothing for non-cave paths

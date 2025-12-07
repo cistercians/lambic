@@ -1289,7 +1289,7 @@ var SocketMessageHandler = {
       houseList = data.houseList;
     }
     if(typeof kingdomList !== 'undefined') {
-      kingdomList = data.kingdomlist;
+      kingdomList = data.kingdomList;
     }
   }
 };

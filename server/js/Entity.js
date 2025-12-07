@@ -5609,21 +5609,57 @@ Building.prototype.retrieveShip = function(playerId, shipIndex) {
   // Remove from storage
   self.storedShips.splice(shipIndex, 1);
   
-  // Respawn ship at dock entrance
-  var spawnLoc = self.plot[0] || getLoc(self.x, self.y);
-  var spawnCoords = getCenter(spawnLoc[0], spawnLoc[1]);
+  // Respawn ship at dock entrance - find a water tile adjacent to dock
+  var spawnCoords = null;
+  var mapSize = global.mapSize || 1000;
+  
+  // Try to find a water tile adjacent to the dock plot
+  for(var i = 0; i < self.plot.length; i++){
+    var plotTile = self.plot[i];
+    var adjacent = [
+      [plotTile[0], plotTile[1] + 1],
+      [plotTile[0], plotTile[1] - 1],
+      [plotTile[0] - 1, plotTile[1]],
+      [plotTile[0] + 1, plotTile[1]]
+    ];
+    for(var j = 0; j < adjacent.length; j++){
+      var at = adjacent[j];
+      if(at[0] >= 0 && at[0] < mapSize && at[1] >= 0 && at[1] < mapSize){
+        if(getTile(0, at[0], at[1]) === 0){ // Water tile
+          spawnCoords = getCenter(at[0], at[1]);
+          break;
+        }
+      }
+    }
+    if(spawnCoords) break;
+  }
+  
+  // Fallback to dock position if no water found
+  if(!spawnCoords){
+    var spawnLoc = self.plot[0] || getLoc(self.x, self.y);
+    spawnCoords = getCenter(spawnLoc[0], spawnLoc[1]);
+  }
+  
+  // Map shipType to constructor name (shipType is lowercase, constructors are PascalCase)
+  var shipTypeMap = {
+    'fishingship': 'FishingShip',
+    'cargoship': 'CargoShip'
+  };
+  var constructorName = shipTypeMap[shipData.shipType] || shipData.shipType;
   
   // Recreate ship based on type
-  var shipConstructor = global[shipData.shipType];
+  var shipConstructor = global[constructorName];
   if(!shipConstructor) return null;
   
   var ship = shipConstructor({
     x: spawnCoords[0],
     y: spawnCoords[1],
-    z: 3, // Ship layer
+    z: 0, // Overworld level (ships sail on z=0)
     owner: playerId,
+    dock: self.id, // Set this dock as home dock
     house: self.house,
-    kingdom: self.kingdom
+    kingdom: self.kingdom,
+    mode: 'docked' // Start in docked mode
   });
   
   // Restore cargo
@@ -5631,7 +5667,7 @@ Building.prototype.retrieveShip = function(playerId, shipIndex) {
     ship.stores = shipData.cargo;
   }
   
-  // Restore last dock
+  // Restore last dock reference
   ship.lastDock = self.id;
   
   return ship.id;
@@ -5656,9 +5692,14 @@ Character.prototype.checkDockContact = function() {
     
     // Check if it's a dock
     if(building && building.type === 'dock') {
-      // Check if friendly (same house/kingdom)
+      // Check if friendly (same house/kingdom) OR if player owns both ship and dock
       var isFriendly = (building.house === self.house) || 
                        (building.kingdom && building.kingdom === self.kingdom);
+      
+      // Also allow docking if player owns both the ship and the dock
+      if(!isFriendly && self.owner && building.owner) {
+        isFriendly = (self.owner === building.owner);
+      }
       
       if(isFriendly) {
         // Store ship at dock
@@ -5717,7 +5758,96 @@ Character.prototype.dockAtPort = function(dockId) {
     self.inventory.fish = 0;
   }
   
-  // Store ship data (fish is now cleared)
+  // IMPORTANT: Remove ship from any previous dock's storedShips first
+  // This ensures ships are only stored at the dock where they currently dock
+  if(self.lastDock && self.lastDock !== dockId) {
+    var previousDock = Building.list[self.lastDock];
+    if(previousDock && previousDock.type === 'dock' && previousDock.storedShips) {
+      // Find and remove this ship from previous dock's storedShips
+      for(var i = previousDock.storedShips.length - 1; i >= 0; i--) {
+        if(previousDock.storedShips[i].shipId === self.id) {
+          previousDock.storedShips.splice(i, 1);
+          break;
+        }
+      }
+    }
+  }
+  
+  // CRITICAL: Disembark all passengers BEFORE storing the ship
+  // Otherwise passengers will be stuck with boardedShip set to a ship that no longer exists
+  var dockLoc = getLoc(dock.x, dock.y);
+  // Find a safe disembark location near the dock
+  var disembarkLoc = null;
+  if(dock.plot && dock.plot.length > 0){
+    // Try to find a walkable tile near the dock
+    for(var i = 0; i < dock.plot.length; i++){
+      var plotTile = dock.plot[i];
+      var adjacentTiles = [
+        [plotTile[0], plotTile[1] + 1],
+        [plotTile[0], plotTile[1] - 1],
+        [plotTile[0] - 1, plotTile[1]],
+        [plotTile[0] + 1, plotTile[1]]
+      ];
+      for(var j = 0; j < adjacentTiles.length; j++){
+        var adjTile = adjacentTiles[j];
+        if(adjTile[0] >= 0 && adjTile[0] < global.mapSize && adjTile[1] >= 0 && adjTile[1] < global.mapSize){
+          var tile = getTile(0, adjTile[0], adjTile[1]);
+          if(tile !== 0){ // Not water
+            disembarkLoc = adjTile;
+            break;
+          }
+        }
+      }
+      if(disembarkLoc) break;
+    }
+  }
+  // Fallback to dock location if no adjacent tile found
+  if(!disembarkLoc){
+    disembarkLoc = dockLoc;
+  }
+  
+  // Disembark all passengers (new system)
+  if(self.passengers && self.passengers.length > 0){
+    var passengersToDisembark = self.passengers.slice(); // Copy array to avoid modification during iteration
+    for(var k = 0; k < passengersToDisembark.length; k++){
+      var passenger = passengersToDisembark[k];
+      if(passenger && passenger.playerId && Player.list[passenger.playerId]){
+        if(typeof self.disembarkPassenger === 'function'){
+          self.disembarkPassenger(passenger.playerId, disembarkLoc);
+        }
+      }
+    }
+  }
+  
+  // Also handle old boarding system (storedPlayer)
+  if(self.storedPlayer && self.storedPlayer.id && Player.list[self.storedPlayer.id]){
+    var oldPlayer = Player.list[self.storedPlayer.id];
+    var oldDisembarkLoc = disembarkLoc;
+    var oldLandCoords = getCenter(oldDisembarkLoc[0], oldDisembarkLoc[1]);
+    oldPlayer.x = oldLandCoords[0];
+    oldPlayer.y = oldLandCoords[1];
+    oldPlayer.z = 0;
+    oldPlayer.isBoarded = false;
+    oldPlayer.boardedShip = null;
+    oldPlayer.boardCooldown = 180; // 3 second cooldown
+    
+    var oldSocket = SOCKET_LIST[oldPlayer.id];
+    if(oldSocket){
+      oldSocket.write(JSON.stringify({
+        msg: 'disembarkShip',
+        newSelfId: oldPlayer.id
+      }));
+      oldSocket.write(JSON.stringify({
+        msg:'addToChat',
+        message:'<i>🏖️ Ship docked. You have been disembarked.</i>'
+      }));
+    }
+    self.storedPlayer = null;
+    self.controller = null;
+    self.isPlayerControlled = false;
+  }
+  
+  // Store ship data at the CURRENT dock (where it just docked)
   dock.storedShips.push({
     shipId: self.id,
     shipType: self.shipType || self.class,
@@ -5725,7 +5855,7 @@ Character.prototype.dockAtPort = function(dockId) {
     cargo: self.stores // Preserve other cargo
   });
   
-  // Update last dock AFTER creating association
+  // Update last dock AFTER creating association and storing
   self.lastDock = dockId;
   
   // Remove ship from active play
@@ -6090,10 +6220,27 @@ FishingShip = function(param){
       self.sailingGracePeriod--;
     }
     
-    // Handle docked timer - despawn after 1 minute
+    // Handle docked timer - store ship at dock after timer expires
     if(self.mode == 'docked' && self.dockedTimer > 0){
       self.dockedTimer--;
       if(self.dockedTimer <= 0){
+        // Store ship at dock before removing from active play
+        var dockId = self.lastDock || self.dock;
+        var dock = Building.list[dockId];
+        if(dock && dock.type === 'dock'){
+          // Initialize storedShips array if needed
+          if(!dock.storedShips) dock.storedShips = [];
+          
+          // Store ship data at the dock
+          dock.storedShips.push({
+            shipId: self.id,
+            shipType: self.shipType || self.class,
+            owner: self.owner,
+            cargo: self.stores || {}
+          });
+        }
+        
+        // Remove ship from active play
         self.toRemove = true;
         return;
       }
@@ -6400,63 +6547,39 @@ FishingShip = function(param){
     var isMoving = Math.abs(self.velocity.x) > 0.1 || Math.abs(self.velocity.y) > 0.1;
     
     if(isMoving){
-      // Check if touching walkable dock tile (14) - this is the entrance
-      if(nextTile == 14){ // Walkable dock entrance tile
-      // Check if this is the ship's home dock
-      if(self.dock && Building.list[self.dock]){
-        var dockBuilding = Building.list[self.dock];
-        for(var i in dockBuilding.plot){
-          var dockLoc = dockBuilding.plot[i];
-          if(dockLoc[0] == nextLoc[0] && dockLoc[1] == nextLoc[1]){
-            // Touching home dock entrance - store boat and disembark
-            self.storeAtDock();
-            return;
-          }
-        }
-      }
-      // Not home dock entrance - treat as land, disembark
-      var navigatorId = self.passengers.find(p => p.isNavigator)?.playerId;
-      if(navigatorId){
-        self.disembarkPassenger(navigatorId, nextLoc);
-      }
-        return;
-      }
-      
-      // Check if touching any non-water tile (land = auto-disembark)
+      // Check if touching any non-water tile (land or dock)
       if(nextTile != 0){ // Not water (any land tile)
-        // Check if this is a dock building before disembarking
+        // Check if this is a dock building at the next position
         var buildingId = getBuilding(nextX, nextY);
+        var hitDock = null;
         if(buildingId){
           var building = Building.list[buildingId];
           if(building && building.type === 'dock'){
-            // Create dock association before storing
-            if(building.createDockAssociation && self.lastDock){
-              building.createDockAssociation(self.lastDock);
-            }
-            // Update lastDock for future associations
-            self.lastDock = buildingId;
+            // Check if friendly (same house/kingdom) OR if player owns both ship and dock
+            var isFriendly = (building.house === self.house) || 
+                             (building.kingdom && building.kingdom === self.kingdom);
             
-            // If this is home dock, store the ship
-            if(buildingId === self.dock){
-              self.storeAtDock();
-            } else {
-              // Foreign dock - just disembark
-              if(self.isPlayerControlled && self.passengers.length > 0 && self.mode === 'sailing' && self.sailingGracePeriod === 0){
-                var navigatorId = self.passengers.find(p => p.isNavigator)?.playerId;
-                if(navigatorId){
-                  self.disembarkPassenger(navigatorId, nextLoc);
-                }
-              }
+            // Also allow docking if player owns both the ship and the dock
+            if(!isFriendly && self.owner && building.owner) {
+              isFriendly = (self.owner === building.owner);
             }
-            return;
+            
+            if(isFriendly) {
+              hitDock = building;
+            }
           }
         }
         
-        // Not a dock - regular land, disembark
+        // Disembark player onto land/dock - ship stays on water
         if(self.isPlayerControlled && self.passengers.length > 0 && self.mode === 'sailing' && self.sailingGracePeriod === 0){
           // Disembark navigator onto the land, boat stays at current water position
           var navigatorId = self.passengers.find(p => p.isNavigator)?.playerId;
           if(navigatorId){
+            // If we hit a friendly dock, update lastDock before disembarking
+            // This helps the disembark logic know we're at a dock
+            if(hitDock){
+              self.lastDock = hitDock.id;
+            }
             self.disembarkPassenger(navigatorId, nextLoc);
           }
         }
@@ -6670,61 +6793,74 @@ FishingShip = function(param){
           }));
         }
       } else {
-        // No more passengers - ship becomes AI controlled or anchored
+        // No more passengers - ship becomes AI controlled or docked/anchored
         self.controller = null;
         self.isPlayerControlled = false;
         self.storedPlayer = null;
         self.sailPoints = {up: 0, down: 0, left: 0, right: 0};
         self.velocity = {x: 0, y: 0}; // Stop movement
         
-        // Check if ship is at a dock - if so, set to docked mode
-        var shipLoc = getLoc(self.x, self.y);
-        var shipTile = getTile(0, shipLoc[0], shipLoc[1]);
-        
-        // Check if on dock entrance tile (14) or near dock building
+        // Check if ship just hit a dock (lastDock was updated by updateShipPhysics before disembark)
+        // or if ship is adjacent to a dock
         var atDock = false;
         var dockBuildingId = null;
         
-        if(shipTile == 14){
-          // On dock entrance - check if this is home dock
-          if(self.dock && Building.list[self.dock]){
-            var dockBuilding = Building.list[self.dock];
-            for(var i in dockBuilding.plot){
-              var dockLoc = dockBuilding.plot[i];
-              if(dockLoc[0] == shipLoc[0] && dockLoc[1] == shipLoc[1]){
-                atDock = true;
-                dockBuildingId = self.dock;
-                break;
+        // First, check if lastDock is a valid dock we're near
+        if(self.lastDock && Building.list[self.lastDock] && Building.list[self.lastDock].type === 'dock'){
+          var dock = Building.list[self.lastDock];
+          var shipLoc = getLoc(self.x, self.y);
+          
+          // Check if ship is within 3 tiles of any dock plot tile
+          for(var p = 0; p < dock.plot.length; p++){
+            var plotTile = dock.plot[p];
+            var distX = Math.abs(shipLoc[0] - plotTile[0]);
+            var distY = Math.abs(shipLoc[1] - plotTile[1]);
+            if(distX <= 3 && distY <= 3){
+              atDock = true;
+              dockBuildingId = self.lastDock;
+              break;
+            }
+          }
+        }
+        
+        // If not near lastDock, check adjacent tiles for any dock
+        if(!atDock){
+          var shipLoc = getLoc(self.x, self.y);
+          var adjacentTiles = [
+            [shipLoc[0], shipLoc[1]],
+            [shipLoc[0] + 1, shipLoc[1]],
+            [shipLoc[0] - 1, shipLoc[1]],
+            [shipLoc[0], shipLoc[1] + 1],
+            [shipLoc[0], shipLoc[1] - 1],
+            [shipLoc[0] + 2, shipLoc[1]],
+            [shipLoc[0] - 2, shipLoc[1]],
+            [shipLoc[0], shipLoc[1] + 2],
+            [shipLoc[0], shipLoc[1] - 2]
+          ];
+          
+          for(var i = 0; i < adjacentTiles.length; i++){
+            var checkLoc = adjacentTiles[i];
+            if(checkLoc[0] >= 0 && checkLoc[0] < global.mapSize && checkLoc[1] >= 0 && checkLoc[1] < global.mapSize){
+              var checkCoords = getCenter(checkLoc[0], checkLoc[1]);
+              var buildingId = getBuilding(checkCoords[0], checkCoords[1]);
+              if(buildingId){
+                var building = Building.list[buildingId];
+                if(building && building.type === 'dock'){
+                  atDock = true;
+                  dockBuildingId = buildingId;
+                  break;
+                }
               }
             }
           }
         }
         
-        // Also check if near any dock building (within dock plot)
-        if(!atDock){
-          var buildingId = getBuilding(self.x, self.y);
-          if(buildingId){
-            var building = Building.list[buildingId];
-            if(building && building.type === 'dock'){
-              atDock = true;
-              dockBuildingId = buildingId;
-            }
-          }
-        }
-        
         if(atDock){
-          // Ship is at a dock
-          if(dockBuildingId === self.dock){
-            // At home dock - store the ship properly
-            self.storeAtDock();
-            return;
-          } else {
-            // At foreign dock - set to docked mode but don't store
-            self.mode = 'docked';
-            self.name = 'Fishing Ship ⚓';
-            self.dockedTimer = 3600; // 1 hour
-            self.lastDock = dockBuildingId; // Update last dock visited
-          }
+          // Ship is at a dock - set to docked mode with timer
+          self.mode = 'docked';
+          self.name = 'Fishing Ship ⚓';
+          self.dockedTimer = 3600; // 1 hour before storing
+          self.lastDock = dockBuildingId;
         } else {
           // Not at dock - set to anchored
           self.mode = 'anchored';
@@ -6803,62 +6939,21 @@ FishingShip = function(param){
     
   };
   
-  // Store boat at home dock and disembark
+  // Store boat at home dock (set ship to docked state)
+  // Note: Player disembarkation is handled by disembarkPassenger, this just sets ship state
   self.storeAtDock = function(){
-    if(!self.storedPlayer){
-      return;
-    }
-    
-    var playerId = self.storedPlayer.id;
-    var player = Player.list[playerId];
-    
-    if(!player){
-      return;
-    }
-    
     var dockBuilding = Building.list[self.dock];
     if(!dockBuilding){
       return;
     }
     
-    // Restore player at dock entrance
-    var entranceTile = null;
-    for(var i in dockBuilding.plot){
-      var tile = getTile(0, dockBuilding.plot[i][0], dockBuilding.plot[i][1]);
-      if(tile == 14){ // Walkable entrance
-        entranceTile = dockBuilding.plot[i];
-        break;
-      }
-    }
-    
-    if(!entranceTile){
-      // Fallback to first plot tile
-      entranceTile = dockBuilding.plot[0];
-    }
-    
-    var dockCoords = getCenter(entranceTile[0], entranceTile[1]);
-    player.x = dockCoords[0];
-    player.y = dockCoords[1];
-    player.z = 0;
-    player.isBoarded = false;
-    player.boardedShip = null;
-    player.boardCooldown = 180; // 3 second cooldown before re-boarding
-    
-    // Transfer control back to player
-    var socket = SOCKET_LIST[playerId];
-    if(socket){
-      socket.write(JSON.stringify({
-        msg: 'disembarkShip',
-        newSelfId: playerId
-      }));
-      socket.write(JSON.stringify({msg:'addToChat',message:'<i>⚓ Ship docked. Boat will be stored here for 1 hour.</i>'}));
-    }
-    
     // Mark ship as docked and set timer
     self.isPlayerControlled = false;
+    self.controller = null;
     self.mode = 'docked';
     self.dockedTimer = 3600; // 1 in-game hour (60 minutes * 60 frames/sec)
     self.sailPoints = {up: 0, down: 0, left: 0, right: 0}; // Clear sail points
+    self.velocity = {x: 0, y: 0}; // Stop movement
     self.storedPlayer = null;
     self.name = 'Fishing Ship ⚓'; // Update name to show docked status
     
@@ -10537,7 +10632,7 @@ Innkeeper = function(param){
 Blacksmith = function(param){
   var self = Character(param);
   self.name = param.name;
-  self.class = 'SerfM';
+  self.class = 'Blacksmith';
   self.sex = 'm';
   self.unarmed = true;
   self.isNonCombatant = true; // Civilian NPC

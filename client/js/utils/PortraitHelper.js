@@ -82,8 +82,9 @@ class PortraitHelper {
       'Oathkeeper': this.Img.portraitMonk,
       'HighPriestess': this.Img.portraitMonk,
       'Alaric': this.Img.portraitKing,
-      'Innkeeper': this.Img.portraitSerfM,
-      'Shipwright': this.Img.portraitSerfM,
+      'Innkeeper': this.Img.portraitInnkeeper,
+      'Shipwright': this.Img.portraitShipwright,
+      'Blacksmith': this.Img.portraitBlacksmith,
       'Gwenllian': this.Img.portraitDruid,
       'Apparition': this.Img.portraitSerfM
     };

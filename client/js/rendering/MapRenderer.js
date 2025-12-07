@@ -79,10 +79,12 @@ class MapRenderer {
           );
           
           // Ship wake effect - lighten water tiles where ships are/were
-          const brightness = shipWakes.getBrightness(c, r);
-          if(brightness > 0) {
-            ctx.fillStyle = 'rgba(255, 255, 255, ' + brightness + ')';
-            ctx.fillRect(xOffset, yOffset, tileSize, tileSize);
+          if (shipWakes && typeof shipWakes.getBrightness === 'function') {
+            const brightness = shipWakes.getBrightness(c, r);
+            if(brightness > 0) {
+              ctx.fillStyle = 'rgba(255, 255, 255, ' + brightness + ')';
+              ctx.fillRect(xOffset, yOffset, tileSize, tileSize);
+            }
           }
         } else if(tile >= 1 && tile < 2){
           ctx.drawImage(

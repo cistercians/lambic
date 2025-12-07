@@ -244,7 +244,9 @@ class UIEventHandlers {
     
     if (depositConfirmBtn && depositSliders) {
       depositConfirmBtn.onclick = () => {
-        if (!currentDepositData || !currentDepositData.value) return;
+        // Use window.currentDepositData (set by socket handler) instead of config's currentDepositData
+        const depositData = (typeof window !== 'undefined' && window.currentDepositData) ? window.currentDepositData : currentDepositData;
+        if (!depositData || !depositData.value) return;
         
         // Collect values from all sliders
         const sliders = depositSliders.querySelectorAll('.deposit-slider');
@@ -269,14 +271,14 @@ class UIEventHandlers {
         if (activeSocket && typeof activeSocket.send === 'function') {
           activeSocket.send(JSON.stringify({
             msg: 'depositResources',
-            buildingId: currentDepositData.value.buildingId,
+            buildingId: depositData.value.buildingId,
             resources: resourcesToDeposit
           }));
         }
         
         // Close popup
         if (depositPopup) depositPopup.style.display = 'none';
-        if (currentDepositData) currentDepositData.value = null;
+        if (depositData) depositData.value = null;
       };
     }
   }

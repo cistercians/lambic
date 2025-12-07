@@ -594,6 +594,10 @@ class InputHandler {
           
           // Check for interactable buildings/objects (using generic interactability checks)
           this.config.hoveredInteractable = null;
+          // Sync to window for backward compatibility
+          if (typeof window !== 'undefined') {
+            window.hoveredInteractable = null;
+          }
           
           // Centralized interactable type lists (must match server-side configuration)
           const INTERACTABLE_BUILDING_TYPES = ['dock', 'mill', 'mine', 'lumbermill', 'stable', 'tavern', 'market', 'monastery'];
@@ -815,6 +819,10 @@ class InputHandler {
               // Set hoveredInteractable if all conditions are met AND the tile is interactable
               if (isBuilt && isInteractable && canInteract && isInteractableTile) {
                 this.config.hoveredInteractable = buildingId;
+                // Sync to window for backward compatibility
+                if (typeof window !== 'undefined') {
+                  window.hoveredInteractable = buildingId;
+                }
                 console.log('✓✓✓ Hover detected on building:', buildingId, building.type, 'hoveredInteractable SET to:', this.config.hoveredInteractable, 'built:', isBuilt, 'interactable:', isInteractable, 'canInteract:', canInteract, 'isInteractableTile:', isInteractableTile, 'tile:', hoveredTile, 'actualSelfId:', actualSelfId);
               } else {
                 console.log('✗✗✗ Building found but NOT setting hoveredInteractable:', buildingId, building.type, 'built:', isBuilt, 'interactable:', isInteractable, 'canInteract:', canInteract, 'isInteractableTile:', isInteractableTile, 'tile:', hoveredTile, 'selfId:', selfId, 'actualSelfId:', actualSelfId, 'building.built value:', building.built);
@@ -833,6 +841,10 @@ class InputHandler {
                 const itemLoc = getLoc(item.x, item.y);
                 if (itemLoc[0] === hoveredTile[0] && itemLoc[1] === hoveredTile[1]) {
                   this.config.hoveredInteractable = itemId;
+                  // Sync to window for backward compatibility
+                  if (typeof window !== 'undefined') {
+                    window.hoveredInteractable = itemId;
+                  }
                   break;
                 }
               }
@@ -1097,6 +1109,10 @@ class InputHandler {
     
     // Handle work command mode - check if tile is workable
     if (this.config.workCommandMode) {
+      // DISABLE work command mode if player is aboard a ship
+      if (player.boardedShip) {
+        return; // Ignore work commands while aboard ship
+      }
       // Get the clicked tile
       const clickedTile = getTile(player.z === 0 ? 0 : (player.z === -1 ? 1 : (player.z === -2 ? 8 : (player.z === 1 ? 3 : 5))), tileX, tileY);
       
@@ -1196,6 +1212,10 @@ class InputHandler {
         return; // Prevent navigation when engaging combat
       } else {
         // Friendly - navigate to them
+        // DISABLE navigation if player is aboard a ship
+        if (player.boardedShip) {
+          return; // Ignore click navigation while aboard ship
+        }
         // Add tile highlight for navigation
         const tileHighlights = this.config.tileHighlights || (typeof window !== 'undefined' && window.tileHighlights);
         if (tileHighlights && typeof tileHighlights.addHighlight === 'function') {
@@ -1252,6 +1272,11 @@ class InputHandler {
                 const navTileX = entranceTile[0];
                 const navTileY = entranceTile[1];
                 console.log('Building click redirected to entrance:', navTileX, navTileY, 'from:', tileX, tileY);
+                
+                // DISABLE navigation if player is aboard a ship
+                if (player.boardedShip) {
+                  return; // Ignore click navigation while aboard ship
+                }
                 
                 // Add highlight ONLY at entrance tile
                 const tileHighlights = this.config.tileHighlights || (typeof window !== 'undefined' && window.tileHighlights);
@@ -1413,6 +1438,11 @@ class InputHandler {
         // Right-clicked on foundation/construction tile or indoors - navigate to it
         // Note: For indoors/foundation, don't use entrance redirection - navigate to clicked tile
         console.log('Right-click navigation - world coords:', worldX, worldY, 'tile coords:', tileX, tileY, 'z:', player.z, 'tile:', clickedTile, 'indoors:', isIndoors, 'foundation:', isFoundationConstructionTile);
+        // DISABLE navigation if player is aboard a ship
+        if (player.boardedShip) {
+          return; // Ignore click navigation while aboard ship
+        }
+        
         socket.send(JSON.stringify({ msg: 'clickNavigate', tileX: tileX, tileY: tileY, z: player.z }));
         // Add tile highlight at clicked location
         console.log('Adding tile highlight at:', tileX, tileY, player.z);
@@ -1430,6 +1460,11 @@ class InputHandler {
         // Right-clicked on terrain or building that wasn't handled above - navigate to clicked tile
         // Note: If a building with entrance was clicked, it would have been handled earlier and returned
         // This fallback is for terrain, buildings without entrances, or buildings not in Building.list
+        // DISABLE navigation if player is aboard a ship
+        if (player.boardedShip) {
+          return; // Ignore click navigation while aboard ship
+        }
+        
         console.log('Right-click navigation - world coords:', worldX, worldY, 'tile coords:', tileX, tileY, 'z:', player.z);
         socket.send(JSON.stringify({ msg: 'clickNavigate', tileX: tileX, tileY: tileY, z: player.z }));
         // Add tile highlight at navigation destination

@@ -191,8 +191,9 @@ class PortraitUI {
 
     this.portraitMap = {
       'Alaric': Img.portraitKing,
-      'Innkeeper': Img.portraitSerfM,
-      'Shipwright': Img.portraitSerfM,
+      'Innkeeper': Img.portraitInnkeeper,
+      'Shipwright': Img.portraitShipwright,
+      'Blacksmith': Img.portraitBlacksmith,
       'Gwenllian': Img.portraitDruid,
       'Apparition': Img.portraitSerfM
     };

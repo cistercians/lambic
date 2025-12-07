@@ -559,8 +559,13 @@ var getItemEmoji = (itemType) => ItemEmojiHelper?.getItemEmoji?.(itemType) || 'ð
 var updateDepositDisplay = () => {
   if (!currentDepositData) return;
   if (!window.depositUIInstance) window.depositUIInstance = new DepositUI();
-  var building = currentDepositData.building; var player = Player.list[getPlayerIdForUI()];
-  if (building && player) window.depositUIInstance.updateDepositDisplay(building, player);
+  // Look up building from Building.list using buildingId from server data
+  var building = null;
+  if (currentDepositData.buildingId && Building && Building.list) {
+    building = Building.list[currentDepositData.buildingId];
+  }
+  var player = Player.list[getPlayerIdForUI()];
+  if (building) window.depositUIInstance.updateDepositDisplay(building, player);
 }
 // Market UI extracted to MarketUI.js
 var updateMarketDisplay = () => {

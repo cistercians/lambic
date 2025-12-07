@@ -4636,6 +4636,14 @@ Img.portraitMangonel.src = '/client/img/chars/mangonel/mangonel.png';
 Img.portraitTrebuchet = new Image();
 Img.portraitTrebuchet.src = '/client/img/chars/trebuchet/trebuchet.png';
 
+// NPC classes (Innkeeper, Shipwright, Blacksmith)
+Img.portraitInnkeeper = new Image();
+Img.portraitInnkeeper.src = '/client/img/chars/innkeeper/innkeeper.png';
+Img.portraitShipwright = new Image();
+Img.portraitShipwright.src = '/client/img/chars/innkeeper/innkeeper.png'; // Using innkeeper portrait until dedicated image exists
+Img.portraitBlacksmith = new Image();
+Img.portraitBlacksmith.src = '/client/img/chars/innkeeper/innkeeper.png'; // Using innkeeper portrait until dedicated image exists
+
 // CURSORS
 Img.cursor = new Image();
 Img.cursor.src = '/client/img/cursors/cursor.png';

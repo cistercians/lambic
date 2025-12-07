@@ -56,7 +56,7 @@ class ShipWakeSystem {
       }
 
       // Skip if not visible (optimization)
-      if (typeof checkInView === 'function' && !checkInView(entity.x, entity.y, entity.z)) {
+      if (typeof checkInView === 'function' && !checkInView(entity)) {
         continue;
       }
 

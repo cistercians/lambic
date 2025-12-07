@@ -763,8 +763,12 @@ class SimpleCombat {
   // Check for enemies to aggro
   checkAggro(entity) {
     // Skip peaceful/non-combat classes
-    const nonCombatClasses = ['Falcon'];
+    const nonCombatClasses = ['Falcon', 'FishingShip'];
     if (nonCombatClasses.includes(entity.class)) return;
+    
+    // Skip non-combat ship types (fishing and cargo ships can't aggro)
+    const nonCombatShipTypes = ['fishingship', 'cargoship'];
+    if (entity.shipType && nonCombatShipTypes.includes(entity.shipType)) return;
     
     // Skip if returning or already in combat (but allow peaceful units to detect threats even if fleeing)
     const peaceful = ['Serf', 'SerfM', 'SerfF', 'Deer', 'Sheep'];
@@ -822,6 +826,8 @@ class SimpleCombat {
         if (target.ghost) continue;
         if (target.type === 'spectator') continue;
         if (nonCombatClasses.includes(target.class)) continue;
+        // Skip non-combat ship types (fishing and cargo ships can't be targeted)
+        if (target.shipType && nonCombatShipTypes.includes(target.shipType)) continue;
         if (target.isPrey && entity.class !== 'Wolf') continue;
         if (target.isPrey && entity.class === 'Serf') continue;
 
@@ -876,6 +882,8 @@ class SimpleCombat {
         if (target.ghost) continue;
         if (target.type === 'spectator') continue;
         if (nonCombatClasses.includes(target.class)) continue;
+        // Skip non-combat ship types (fishing and cargo ships can't be targeted)
+        if (target.shipType && nonCombatShipTypes.includes(target.shipType)) continue;
         if (target.isPrey && entity.class !== 'Wolf') continue;
         if (target.isPrey && entity.class === 'Serf') continue;
 
@@ -962,6 +970,11 @@ class SimpleCombat {
     if (global.isAlly && global.isAlly(entity.id, target.id)) {
       return; // Don't start combat - they are allies
     }
+    
+    // Skip non-combat ship types (fishing and cargo ships can't participate in combat)
+    const nonCombatShipTypes = ['fishingship', 'cargoship'];
+    if (entity.shipType && nonCombatShipTypes.includes(entity.shipType)) return;
+    if (target.shipType && nonCombatShipTypes.includes(target.shipType)) return;
     
     // STEALTH COMBAT MECHANICS:
     // If attacker is stealthed, don't start combat until first attack or detection
