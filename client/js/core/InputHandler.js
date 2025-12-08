@@ -217,6 +217,10 @@ class InputHandler {
         // Only activate attack command if NOT a ship navigator
         if (!isShipNavigator) {
           this.config.attackCommandMode = true;
+          // Sync to window for cursor renderer
+          if (typeof window !== 'undefined') {
+            window.attackCommandMode = true;
+          }
           console.log('Attack command mode activated');
         }
       } else if (event.keyCode === 69) { // e
@@ -850,6 +854,23 @@ class InputHandler {
               }
             }
           }
+          
+          // Check for interactable ships (entities with shipType that can be boarded)
+          if (!this.config.hoveredInteractable && player.z === 0 && this.config.hoveredTarget) {
+            const hoveredEntity = Player.list[this.config.hoveredTarget];
+            if (hoveredEntity && hoveredEntity.shipType) {
+              // Check if player can board (owns ship OR is a cargo ship)
+              const canBoard = hoveredEntity.owner === actualSelfId || 
+                               hoveredEntity.shipType === 'cargoship';
+              if (canBoard) {
+                this.config.hoveredInteractable = this.config.hoveredTarget;
+                // Sync to window for backward compatibility
+                if (typeof window !== 'undefined') {
+                  window.hoveredInteractable = this.config.hoveredTarget;
+                }
+              }
+            }
+          }
         }
       }
     }
@@ -992,6 +1013,10 @@ class InputHandler {
           socket.send(JSON.stringify({ msg: 'engageCombat', targetId: clickedEntity }));
         }
         this.config.attackCommandMode = false; // Consume attack command
+        // Sync to window for cursor renderer
+        if (typeof window !== 'undefined') {
+          window.attackCommandMode = false;
+        }
         console.log('Attack command mode deactivated');
       } else {
         // Normal target selection
@@ -1011,6 +1036,10 @@ class InputHandler {
         const tileY = Math.floor(worldY / tileSize);
         socket.send(JSON.stringify({ msg: 'attackMove', tileX: tileX, tileY: tileY, z: player.z }));
         this.config.attackCommandMode = false; // Consume attack command
+        // Sync to window for cursor renderer
+        if (typeof window !== 'undefined') {
+          window.attackCommandMode = false;
+        }
         console.log('Attack-move command:', tileX, tileY);
       }
       // Target persists even when clicking terrain (only cleared by selecting a different target)
@@ -1060,6 +1089,10 @@ class InputHandler {
     // Cancel attack command mode on right click
     if (this.config.attackCommandMode) {
       this.config.attackCommandMode = false;
+      // Sync to window for cursor renderer
+      if (typeof window !== 'undefined') {
+        window.attackCommandMode = false;
+      }
       console.log('Attack command mode cancelled');
       return;
     }
@@ -1202,6 +1235,23 @@ class InputHandler {
     }
     
     if (clickedEntity) {
+      const clickedEntityObj = Player.list[clickedEntity];
+      
+      // Check if this is a boardable ship
+      if (clickedEntityObj && clickedEntityObj.shipType) {
+        const canBoard = clickedEntityObj.owner === selfId || 
+                         clickedEntityObj.shipType === 'cargoship';
+        if (canBoard) {
+          console.log('Right-click on boardable ship:', clickedEntity, 'shipType:', clickedEntityObj.shipType);
+          socket.send(JSON.stringify({
+            msg: 'interactWithPath',
+            entityType: 'ship',
+            entityId: clickedEntity
+          }));
+          return;
+        }
+      }
+      
       // Right-clicked on entity - check if enemy
       const allyStatus = allyCheck(clickedEntity);
       console.log('Right-click on entity:', clickedEntity, 'ally status:', allyStatus, 'entity class:', Player.list[clickedEntity]?.class);

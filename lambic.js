@@ -1344,6 +1344,10 @@ function isPlayerAdjacentToEntity(entity, entityType, playerLoc) {
     var tileX = Math.floor(entity.x / TILE_SIZE);
     var tileY = Math.floor(entity.y / TILE_SIZE);
     entityTiles = [[tileX, tileY]];
+  } else if (entityType === 'ship') {
+    // Ships occupy a single tile at their position
+    var shipLoc = getLoc(entity.x, entity.y);
+    entityTiles = [shipLoc];
   } else {
     return false;
   }
@@ -1402,6 +1406,10 @@ function findClosestAdjacentWalkableTile(entity, entityType, playerZ, playerLoc)
     var tileX = Math.floor(entity.x / TILE_SIZE);
     var tileY = Math.floor(entity.y / TILE_SIZE);
     entityTiles = [[tileX, tileY]];
+  } else if (entityType === 'ship') {
+    // Ships occupy a single tile at their position
+    var shipLoc = getLoc(entity.x, entity.y);
+    entityTiles = [shipLoc];
   } else {
     return null;
   }
@@ -2917,6 +2925,8 @@ const Player = function(param) {
             entity = Building.list[self.pendingInteraction.id];
           } else if(self.pendingInteraction.type === 'item'){
             entity = Item.list[self.pendingInteraction.id];
+          } else if(self.pendingInteraction.type === 'ship'){
+            entity = Player.list[self.pendingInteraction.id];
           }
           
           // Only trigger if player is adjacent (safety check)
@@ -2949,6 +2959,15 @@ const Player = function(param) {
                 // Use item's location
                 interactionLoc = getLoc(item.x, item.y);
               }
+            } else if(self.pendingInteraction.type === 'ship'){
+              // Ship boarding - call boardPassenger directly
+              var ship = Player.list[self.pendingInteraction.id];
+              if(ship && typeof ship.boardPassenger === 'function'){
+                ship.boardPassenger(socket.id);
+              }
+              // Clear pending interaction and return early (don't call Interact)
+              self.pendingInteraction = null;
+              return;
             }
             
             // Fallback to player's current location if we couldn't get entity location
@@ -6990,6 +7009,12 @@ io.on('connection', function(socket) {
               if(entity){
                 isInteractable = isInteractableObject(entity);
               }
+            } else if(data.entityType === 'ship'){
+              entity = Player.list[data.entityId];
+              if(entity && entity.shipType){
+                // Check ownership (player owns ship OR cargo ship)
+                isInteractable = entity.owner === id || entity.shipType === 'cargoship';
+              }
             }
             
             if(entity && isInteractable){
@@ -7019,6 +7044,12 @@ io.on('connection', function(socket) {
                 } else if(data.entityType === 'item'){
                   // Use item's location
                   interactionLoc = getLoc(entity.x, entity.y);
+                } else if(data.entityType === 'ship'){
+                  // For ships, board immediately
+                  if(typeof entity.boardPassenger === 'function'){
+                    entity.boardPassenger(id);
+                  }
+                  return; // Ship boarding handled, no need for Interact
                 }
                 
                 // Fallback to player's current location if we couldn't get entity location

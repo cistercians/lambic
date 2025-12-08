@@ -988,6 +988,8 @@ var selectedTarget = null; // Currently selected entity ID
 var hoveredTarget = null; // Entity ID under mouse cursor
 // Expose on window for access by other modules
 if(typeof window !== 'undefined') {
+  window.attackCommandMode = attackCommandMode;
+  window.workCommandMode = workCommandMode;
   window.selectedTarget = selectedTarget;
   window.hoveredTarget = hoveredTarget;
 }
@@ -1132,7 +1134,10 @@ var renderCursor = () => {
   // Get current mouse position from window (updated by InputHandler) or fallback to global
   const mouseX = (typeof window !== 'undefined' && window.currentMouseX !== undefined) ? window.currentMouseX : currentMouseX;
   const mouseY = (typeof window !== 'undefined' && window.currentMouseY !== undefined) ? window.currentMouseY : currentMouseY;
-  window.cursorRendererInstance?.render?.({ Img, workCommandMode, attackCommandMode, hoveredTarget, hoveredInteractable, allyCheck, currentMouseX: mouseX, currentMouseY: mouseY, WIDTH, HEIGHT, Building, cursorOverlayCtx, cursorOverlayCanvas });
+  // Use window.attackCommandMode if available (updated by InputHandler), otherwise fallback to global
+  const currentAttackCommandMode = (typeof window !== 'undefined' && window.attackCommandMode !== undefined) ? window.attackCommandMode : attackCommandMode;
+  const currentWorkCommandMode = (typeof window !== 'undefined' && window.workCommandMode !== undefined) ? window.workCommandMode : workCommandMode;
+  window.cursorRendererInstance?.render?.({ Img, workCommandMode: currentWorkCommandMode, attackCommandMode: currentAttackCommandMode, hoveredTarget, hoveredInteractable, allyCheck, currentMouseX: mouseX, currentMouseY: mouseY, WIDTH, HEIGHT, Building, cursorOverlayCtx, cursorOverlayCanvas });
 };
 
 // Start the game loop
