@@ -57,7 +57,14 @@ function PlayerEntity(initPack) {
   self.spirit = initPack.spirit;
   self.spiritMax = initPack.spiritMax;
   self.ghost = initPack.ghost || false;
-  self.sprite = getSpriteForClass(self.class, self.ghost); // Use correct sprite based on class
+  // For falcons, only set sprite if it's actually loaded (not null)
+  // This prevents falcons from getting wrong sprites before images load
+  if (self.class === 'Falcon') {
+    var falconSprite = getSpriteForClass(self.class, self.ghost);
+    self.sprite = falconSprite || null; // Explicitly set to null if not loaded
+  } else {
+    self.sprite = getSpriteForClass(self.class, self.ghost); // Use correct sprite based on class
+  }
   self.spriteSize = initPack.spriteSize || 64; // Default to 64 if not provided
   self.ranged = initPack.ranged;
   self.action = initPack.action;
@@ -318,9 +325,21 @@ function PlayerEntity(initPack) {
     }
     
     // Legacy fallback rendering (only used if PlayerRenderer not available)
-    // Falcons now render like other NPCs - no special handling needed
+    // For falcons, don't render if sprite is maleserf or null
+    if (self.class === 'Falcon') {
+      // Check if sprite is maleserf (wrong fallback) - don't render
+      if (self.sprite && typeof maleserf !== 'undefined' && self.sprite === maleserf) {
+        ctx.globalAlpha = 1.0;
+        return; // Don't render falcons with wrong sprite
+      }
+      // If sprite is null, don't render
+      if (!self.sprite) {
+        ctx.globalAlpha = 1.0;
+        return;
+      }
+    }
     // Work animations (chopping, mining, farming, building, fishing) - use normal size for humans
-    if (self.chopping && self.sprite.chopping) {
+    if (self.chopping && self.sprite && self.sprite.chopping) {
       safeDrawImage(
         self.sprite.chopping[wrk],
         x,

@@ -112,6 +112,8 @@ class PathfindingSystem {
       optionsKey = '_nowater';
     } else if (options.avoidCaveEntrances) {
       optionsKey = '_nocaves';
+    } else if (options.ghost) {
+      optionsKey = '_ghost';
     }
     // For complex options, fall back to JSON.stringify but cache it
     if (Object.keys(options).length > 2 && !optionsKey) {
@@ -430,7 +432,12 @@ class PathfindingSystem {
       }
       
       // Simple validation: both start and end must be walkable
-      if (grid[start[1]][start[0]] === 1) {
+      // Exception: if allowStartTile is set, the start position is explicitly allowed
+      const isStartAllowed = options.allowStartTile && 
+        options.allowStartTile[0] === start[0] && 
+        options.allowStartTile[1] === start[1];
+      
+      if (!isStartAllowed && grid[start[1]][start[0]] === 1) {
         const startTile = this.tilemapSystem.getTile(layer, start[0], start[1]);
         if (this.profiling.enabled) this.profiling.failedPaths++;
         return null;

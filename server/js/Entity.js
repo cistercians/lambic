@@ -1868,7 +1868,9 @@ Character = function(param){
     const tile = getTile(0, loc[0], loc[1]);
     // Heavy forest tiles (1.x range)
     if(tile >= 1 && tile < 2){
-      self.innaWoods = true;
+      if(self.class !== 'Falcon'){
+        self.innaWoods = true;
+      }
       self.onMtn = false;
     }
     // Mountain tiles (5.x range)
@@ -3792,7 +3794,9 @@ Character = function(param){
           self.transitionIntent = null;
         }
       } else if(getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 2){
-        self.innaWoods = true;
+        if(self.class !== 'Falcon'){
+          self.innaWoods = true;
+        }
         self.onMtn = false;
         if(self.class != 'Deer' && self.class != 'Boar' && self.class != 'Wolf'){
           self.maxSpd = (self.baseSpd * 0.3) * self.drag;
@@ -4564,36 +4568,35 @@ Character = function(param){
     
     if(z == self.z){
       if(self.z == 0){
-        if(getLocTile(0,self.x,self.y) == 0){
-          var path = global.tilemapSystem.findPath(start, [c,r], 3);
-          if(path && path.length > 0){
-            path = smoothPath(path, z);
-            cachePath(start, [c,r], z, path);
-          }
-          self.path = path;
-          self.pathCount = 0; // Initialize path counter
-        } else {
-          // Check if destination is a doorway
-          var isTargetDoorway = global.isDoorwayDestination(c, r, z);
-          var options = {};
-          
-          if (isTargetDoorway) {
-            // Allow pathfinding to the specific doorway
-            options.allowSpecificDoor = true;
-            options.targetDoor = [c, r];
-          }
-          // Note: We don't avoid doors in pathfinding anymore
-          // The intent system prevents NPCs from accidentally entering buildings
-          // Doors must remain walkable for pathfinding around buildings
-          
-          var path = global.tilemapSystem.findPath(start, [c,r], 0, options);
-          if(path && path.length > 0){
-            path = smoothPath(path, z);
-            cachePath(start, [c,r], z, path);
-          }
-          self.path = path;
-          self.pathCount = 0; // Initialize path counter
+        var isOnWater = getLocTile(0, self.x, self.y) == 0;
+        var options = {};
+        
+        // Check if destination is a doorway
+        var isTargetDoorway = global.isDoorwayDestination(c, r, z);
+        if (isTargetDoorway) {
+          options.allowSpecificDoor = true;
+          options.targetDoor = [c, r];
         }
+        
+        // GHOST MODE: Allow ghosts to pathfind through water tiles
+        if (self.ghost) {
+          options.ghost = true;
+          // If ghost is on water, allow the start tile
+          if (isOnWater) {
+            options.allowStartTile = start;
+          }
+        }
+        
+        // Ghosts on water use overworld pathfinding (layer 0) with ghost options
+        // Non-ghosts on water use underwater pathfinding (layer 3)
+        var pathLayer = (self.ghost && isOnWater) ? 0 : (isOnWater ? 3 : 0);
+        var path = global.tilemapSystem.findPath(start, [c,r], pathLayer, options);
+        if(path && path.length > 0){
+          path = smoothPath(path, z);
+          cachePath(start, [c,r], z, path);
+        }
+        self.path = path;
+        self.pathCount = 0; // Initialize path counter
       } else if(self.z == -1){
         // In cave - check if destination is a cave exit
         // Note: Cave exits on layer 1 are at entrance[0], entrance[1]+1 (one tile south of overworld entrance)
@@ -7782,7 +7785,9 @@ Serf = function(param){
           }
         }
       } else if(getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 2){
-        self.innaWoods = true;
+        if(self.class !== 'Falcon'){
+          self.innaWoods = true;
+        }
         self.onMtn = false;
         self.maxSpd = (self.baseSpd * 0.3) * self.drag;
       } else if(getTile(0,loc[0],loc[1]) >= 2 && getTile(0,loc[0],loc[1]) < 4){
@@ -10668,7 +10673,9 @@ Blacksmith = function(param){
         self.onMtn = false;
         self.maxSpd = self.baseSpd * self.drag;
       } else if(getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 2){
-        self.innaWoods = true;
+        if(self.class !== 'Falcon'){
+          self.innaWoods = true;
+        }
         self.onMtn = false;
         self.maxSpd = (self.baseSpd * 0.3) * self.drag;
       } else if(getTile(0,loc[0],loc[1]) >= 2 && getTile(0,loc[0],loc[1]) < 4){

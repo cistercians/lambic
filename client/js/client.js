@@ -30,7 +30,15 @@ Weather.list = {};
 var spriteMap = null;
 
 // Sprite helper extracted to SpriteHelper.js
-var getSpriteForClass = (entityClass, isGhost) => window.spriteHelper?.getSpriteForClass?.(entityClass, isGhost) || (typeof maleserf !== 'undefined' ? maleserf : null);
+var getSpriteForClass = (entityClass, isGhost) => {
+  var sprite = window.spriteHelper?.getSpriteForClass?.(entityClass, isGhost);
+  // Special case: Falcons should never get maleserf fallback - return null instead
+  if (entityClass === 'Falcon') {
+    return sprite || null;
+  }
+  // For other classes, use maleserf as fallback if sprite helper not available
+  return sprite || (typeof maleserf !== 'undefined' ? maleserf : null);
+};
 
 // Ship wake system extracted to ShipWakeSystem.js
 // ShipWakeSystem is loaded in index.html before this file, so it should be available

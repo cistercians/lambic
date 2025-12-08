@@ -137,9 +137,17 @@ var SocketMessageHandler = {
           // Fix sprite immediately after creation
           var p = Player.list[playerData.id];
           if(p) {
-            var sprite = getSpriteForClass(p.class, p.ghost);
-            // Set sprite directly (like other NPCs) - falcons will render once sprite loads
-            p.sprite = sprite;
+            // For falcons, only set sprite if it's actually loaded (prevents wrong sprite assignment)
+            if (p.class === 'Falcon') {
+              var sprite = getSpriteForClass(p.class, p.ghost);
+              if (sprite) {
+                p.sprite = sprite;
+              }
+              // If sprite is null, leave it as null (don't set to maleserf)
+            } else {
+              var sprite = getSpriteForClass(p.class, p.ghost);
+              p.sprite = sprite;
+            }
             previewLoadedCount++;
           } else {
             console.error('Preview: Failed to create player entity:', playerData.id, playerData.class);
@@ -715,9 +723,17 @@ var SocketMessageHandler = {
         // Fix sprite immediately after creation (Player constructor defaults to maleserf)
         var p = Player.list[playerData.id];
         if(p) {
-          var sprite = getSpriteForClass(p.class, p.ghost);
-          // Set sprite directly (like other NPCs)
-          p.sprite = sprite;
+          // For falcons, only set sprite if it's actually loaded (prevents wrong sprite assignment)
+          if (p.class === 'Falcon') {
+            var sprite = getSpriteForClass(p.class, p.ghost);
+            if (sprite) {
+              p.sprite = sprite;
+            }
+            // If sprite is null, leave it as null (don't set to maleserf)
+          } else {
+            var sprite = getSpriteForClass(p.class, p.ghost);
+            p.sprite = sprite;
+          }
           initLoadedCount++;
         } else {
           console.error('Init: Failed to create player entity:', playerData.id, playerData.class);
@@ -927,7 +943,16 @@ var SocketMessageHandler = {
         // Uses O(1) lookup table instead of 125+ if-else comparisons
         // Update sprite if class/ghost changed or sprite is missing
         // BUGFIX: Always update sprite for wolves to ensure walk animations work
-        if (classChanged || ghostChanged || !p.sprite || p.class === 'Wolf') {
+        // BUGFIX: For falcons, only update if sprite is actually loaded (not null)
+        if (p.class === 'Falcon') {
+          // For falcons, try to get sprite but only set if it's actually loaded
+          var newSprite = getSpriteForClass(p.class, p.ghost);
+          if (newSprite) {
+            // Only set if sprite is actually available (images loaded)
+            p.sprite = newSprite;
+          }
+          // If newSprite is null, leave sprite as is (don't set to null, don't set to maleserf)
+        } else if (classChanged || ghostChanged || !p.sprite || p.class === 'Wolf') {
           var newSprite = getSpriteForClass(p.class, p.ghost);
           p.sprite = newSprite; // Set sprite directly (like other NPCs)
         }

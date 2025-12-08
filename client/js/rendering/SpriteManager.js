@@ -42,7 +42,7 @@ class SpriteManager {
       'Deer': typeof deer !== 'undefined' ? deer : maleserf,
       'Boar': typeof boar !== 'undefined' ? boar : maleserf,
       'Wolf': typeof wolf !== 'undefined' ? wolf : maleserf,
-      'Falcon': typeof falcon !== 'undefined' ? falcon : maleserf,
+      'Falcon': typeof falcon !== 'undefined' ? falcon : null,
       'FishingShip': typeof fishingship !== 'undefined' ? fishingship : maleserf,
       'CargoShip': typeof cargoship !== 'undefined' ? cargoship : maleserf,
       'Serf': maleserf,

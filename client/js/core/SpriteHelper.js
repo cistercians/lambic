@@ -24,13 +24,19 @@ class SpriteHelper {
     }
 
     // Special handling for Falcon: Check FIRST before spriteMap lookup
-    // BUT: Return falcon if it exists (even if not fully loaded) so it can be set on the entity
-    // The entity will render it once images load (like other NPCs)
+    // Only return falcon if images are actually loaded - don't return it if images aren't ready
     if (entityClass === 'Falcon') {
       if (typeof falcon !== 'undefined' && falcon) {
-        // Return falcon sprite object (even if images aren't fully loaded yet)
-        // This matches how other NPCs work - they get their sprite set, and rendering handles loading
-        return falcon;
+        // Check if at least one falcon image is loaded
+        const hasLoadedImage = (falcon.facedown && falcon.facedown.complete && falcon.facedown.naturalWidth > 0) ||
+                               (falcon.faceup && falcon.faceup.complete && falcon.faceup.naturalWidth > 0) ||
+                               (falcon.faceleft && falcon.faceleft.complete && falcon.faceleft.naturalWidth > 0) ||
+                               (falcon.faceright && falcon.faceright.complete && falcon.faceright.naturalWidth > 0);
+        if (hasLoadedImage) {
+          return falcon;
+        }
+        // Images not loaded yet - return null to prevent using wrong sprite
+        return null;
       }
       // If falcon doesn't exist yet, return null (will be set later when sprite loads)
       return null;
@@ -48,11 +54,19 @@ class SpriteHelper {
     // Lookup sprite by class (O(1))
     const sprite = this.spriteMap[entityClass];
     if (!sprite) {
+      // Special case: Falcons should return null if sprite not loaded (don't use maleserf fallback)
+      if (entityClass === 'Falcon') {
+        return null;
+      }
       // Debug: Log unknown classes
       if (entityClass && entityClass !== 'Serf' && entityClass !== 'SerfM') {
         console.warn('Unknown entity class:', entityClass, '- using maleserf default');
       }
       return maleserf;
+    }
+    // If sprite is explicitly null (e.g., falcon not loaded), return null instead of falling through
+    if (sprite === null && entityClass === 'Falcon') {
+      return null;
     }
     return sprite;
   }
@@ -74,7 +88,7 @@ class SpriteHelper {
       'Deer': typeof deer !== 'undefined' ? deer : maleserf,
       'Boar': typeof boar !== 'undefined' ? boar : maleserf,
       'Wolf': (typeof wolf !== 'undefined' ? wolf : (typeof window !== 'undefined' && window.wolf ? window.wolf : maleserf)),
-      'Falcon': typeof falcon !== 'undefined' ? falcon : maleserf,
+      'Falcon': typeof falcon !== 'undefined' ? falcon : null,
       'FishingShip': typeof fishingship !== 'undefined' ? fishingship : maleserf,
       'CargoShip': typeof cargoship !== 'undefined' ? cargoship : maleserf,
       'Serf': maleserf,

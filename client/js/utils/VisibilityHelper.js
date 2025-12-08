@@ -57,6 +57,9 @@ class VisibilityHelper {
       if (inSpecialMode) {
         return true;
       }
+      // Note: innaWoods check excludes falcons - if innaWoods is false for a falcon,
+      // it means the caller already handled the falcon exclusion (see GameRenderer.js)
+      // This function doesn't have access to entity.class, so falcons should pass innaWoods=false
       if (z === 0 && innaWoods && !PlayerList[selfId].innaWoods) {
         return false;
       } else {

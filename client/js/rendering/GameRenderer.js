@@ -221,8 +221,10 @@ class GameRenderer {
       return (entity) => {
         if (entity.z !== currentZ) return false;
         // Use global inView function if available
+        // For falcons, pass false for innaWoods since they should always be visible
         if (typeof inView === 'function') {
-          return inView(entity.z, entity.x, entity.y, entity.innaWoods);
+          const entityInnaWoods = entity.class === 'Falcon' ? false : entity.innaWoods;
+          return inView(entity.z, entity.x, entity.y, entityInnaWoods);
         }
         // Fallback: cached bounds check
         return entity.x > bounds.left && entity.x < bounds.right && 
@@ -255,8 +257,8 @@ class GameRenderer {
         // Bounds check using cached bounds
         if (entity.x <= bounds.left || entity.x >= bounds.right || 
             entity.y <= bounds.top || entity.y >= bounds.bottom) return false;
-        // InnaWoods check
-        if (currentZ === 0 && entity.innaWoods && !playerInnaWoods) return false;
+        // InnaWoods check (exclude falcons - they fly above and should always be visible)
+        if (currentZ === 0 && entity.class !== 'Falcon' && entity.innaWoods && !playerInnaWoods) return false;
         // Building check for z=1 or z=2 using cached player building
         if (checkBuilding) {
           // Use includeWallsAndTopPlot=true since entities can be on wall tiles

@@ -134,6 +134,9 @@ class TilemapSystem {
     if (options.targetWaterTile) {
       key += `_twater${options.targetWaterTile[0]},${options.targetWaterTile[1]}`;
     }
+    if (options.ghost) {
+      key += '_ghost';
+    }
     
     // Add grid version to ensure cache is invalidated when tiles change
     const version = this.gridVersions.get(layer) || 0;
@@ -162,13 +165,18 @@ class TilemapSystem {
         
         // Apply pathfinding options (order matters - most specific first)
         
-        // FIRST: Water-only navigation for ships (inverted logic)
-        if (options.waterOnly) {
+        // FIRST: Check if this is an explicitly allowed start tile (highest priority - must be first)
+        // This ensures the start position is always walkable, regardless of terrain
+        if (options.allowStartTile && options.allowStartTile[0] === x && options.allowStartTile[1] === y) {
+          walkable = true;
+        }
+        // SECOND: Water-only navigation for ships (inverted logic)
+        else if (options.waterOnly) {
           walkable = (tile === 0); // Only water tiles (0) are walkable for ships
         }
-        // SECOND: Check if this is an explicitly allowed start tile (highest priority)
-        else if (options.allowStartTile && options.allowStartTile[0] === x && options.allowStartTile[1] === y) {
-          walkable = true;
+        // THIRD: GHOST MODE: Allow ghosts to walk on water tiles
+        else if (options.ghost && isWater) {
+          walkable = true; // Ghosts can walk on water
         }
         // Check if this is the target destination transition tile (allow it)
         else if (options.targetDoor && options.targetDoor[0] === x && options.targetDoor[1] === y) {
@@ -188,9 +196,9 @@ class TilemapSystem {
         else if (options.targetWaterTile && isWater) {
           walkable = true; // Allow ALL water tiles when targeting water
         }
-        // Block water tiles by default (unless handled above)
-        else if (isWater) {
-          walkable = false; // Water is not walkable unless targeting water
+        // Block water tiles by default (unless handled above - ghost mode already handled)
+        else if (isWater && !options.ghost) {
+          walkable = false; // Water is not walkable unless targeting water or ghost mode
         }
         // ISSUE 1 FIX: Block ALL transition tiles by default unless explicitly targeted
         // This prevents paths from accidentally going through doors, cave entrances, etc.
