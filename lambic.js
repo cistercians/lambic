@@ -6678,6 +6678,16 @@ io.on('connection', function(socket) {
               var layer = 0;
               var options = {};
               
+              // GHOST MODE: Allow ghosts to pathfind through water tiles
+              if(player.ghost){
+                options.ghost = true;
+                // If ghost is on water, allow the start tile
+                var isOnWater = getLocTile(0, player.x, player.y) == 0;
+                if(isOnWater){
+                  options.allowStartTile = startLoc;
+                }
+              }
+              
               if(z === 0){
                 layer = 0; // Overworld
                 
@@ -6701,15 +6711,21 @@ io.on('connection', function(socket) {
                   options.allowSpecificDoor = true;
                   options.targetDoor = [tileX, tileY];
                   // Also avoid doors/caves/water since we're specifically targeting construction tiles
-                  options.avoidDoors = true;
-                  options.avoidCaveEntrances = true;
-                  options.avoidWater = true;
+                  // EXCEPT for ghosts - ghosts can walk through water
+                  if(!player.ghost){
+                    options.avoidDoors = true;
+                    options.avoidCaveEntrances = true;
+                    options.avoidWater = true;
+                  }
                   options.avoidCaveExits = false;
                 } else {
                   // Player did NOT click on a transition tile - avoid transition tiles in pathfinding
+                  // EXCEPT for ghosts - ghosts can walk through water to reach land
                   options.avoidDoors = true; // Ignore building entrances
                   options.avoidCaveEntrances = true; // Ignore cave entrances
-                  options.avoidWater = true; // Ignore water tiles
+                  if(!player.ghost){
+                    options.avoidWater = true; // Ignore water tiles (non-ghosts only)
+                  }
                   options.avoidCaveExits = false; // Cave exits only matter in caves, not overworld
                 }
               } else if(z === -1){
