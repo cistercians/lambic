@@ -5500,6 +5500,7 @@ Character = function(param){
     if(self.shipType){
       pack.shipType = self.shipType;
       pack.isPlayerControlled = self.isPlayerControlled;
+      pack.owner = self.owner; // Include owner for ship ownership checks
     }
     return pack;
   }
@@ -5551,6 +5552,7 @@ Character = function(param){
     if(self.shipType){
       pack.shipType = self.shipType;
       pack.isPlayerControlled = self.isPlayerControlled;
+      pack.owner = self.owner; // Include owner for ship ownership checks
     }
     return pack;
   }
@@ -7086,6 +7088,15 @@ FishingShip = function(param){
     
     // Remove ship
     self.toRemove = true;
+  };
+  
+  // Override getInitPack to include ship mode
+  var super_getInitPack = self.getInitPack;
+  self.getInitPack = function(){
+    var pack = super_getInitPack();
+    // Add ship-specific data
+    pack.shipMode = self.mode; // 'sailing', 'anchored', 'docked', 'fishing', 'returning'
+    return pack;
   };
   
   // Override getUpdatePack to include sail points and mode

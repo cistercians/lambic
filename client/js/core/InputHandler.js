@@ -213,16 +213,20 @@ class InputHandler {
         }
       }
       
-      if (event.keyCode === 65) { // a - Attack command mode (only for non-navigators)
-        // Only activate attack command if NOT a ship navigator
+      if (event.keyCode === 65) { // a - Toggle attack command mode (only for non-navigators)
+        // Only toggle attack command if NOT a ship navigator
         if (!isShipNavigator) {
-          this.config.attackCommandMode = true;
+          // Toggle attack command mode
+          this.config.attackCommandMode = !this.config.attackCommandMode;
           // Sync to window for cursor renderer
           if (typeof window !== 'undefined') {
-            window.attackCommandMode = true;
+            window.attackCommandMode = this.config.attackCommandMode;
           }
-          console.log('Attack command mode activated');
+          console.log('Attack command mode toggled:', this.config.attackCommandMode);
+          event.preventDefault();
+          event.stopPropagation();
         }
+        return; // Don't send keyPress message for A key in attack mode
       } else if (event.keyCode === 69) { // e
         socket.send(JSON.stringify({ msg: 'keyPress', inputId: 'e', state: true }));
       } else if (event.keyCode === 84) { // t
@@ -231,11 +235,15 @@ class InputHandler {
         socket.send(JSON.stringify({ msg: 'keyPress', inputId: 'i', state: true }));
       } else if (event.keyCode === 80) { // p
         socket.send(JSON.stringify({ msg: 'keyPress', inputId: 'p', state: true }));
-      } else if (event.keyCode === 70) { // f - Activate work command mode
+      } else if (event.keyCode === 70) { // f - Toggle work command mode
         // Toggle work command mode (we're already inside !chatFocus block)
         // Only toggle if default wasn't already prevented (i.e., addEventListener didn't handle it)
         if (!event.defaultPrevented) {
           this.config.workCommandMode = !this.config.workCommandMode;
+          // Sync to window for cursor renderer
+          if (typeof window !== 'undefined') {
+            window.workCommandMode = this.config.workCommandMode;
+          }
           console.log('Work command mode toggled (document.onkeydown):', this.config.workCommandMode);
           event.preventDefault();
           event.stopPropagation();
@@ -603,6 +611,25 @@ class InputHandler {
             window.hoveredInteractable = null;
           }
           
+          // Get actual selfId - prefer window.selfId (updated by SocketMessageHandler)
+          // window.selfId is the most reliable source as it's updated by the server
+          let actualSelfId = (typeof window !== 'undefined' && window.selfId !== undefined && window.selfId !== null)
+            ? window.selfId
+            : selfId;
+          
+          // If still a random decimal (0-1), try to find the real player ID from Player.list
+          // Look for entities that are not ships, not buildings, and have a class (likely players)
+          if (typeof actualSelfId === 'number' && actualSelfId > 0 && actualSelfId < 1) {
+            for (const pid in Player.list) {
+              const p = Player.list[pid];
+              // Player entities typically have a class but are not ships
+              if (p && !p.toRemove && p.class && !p.shipType && p.class !== 'FishingShip' && p.class !== 'CargoShip') {
+                actualSelfId = pid;
+                break;
+              }
+            }
+          }
+          
           // Centralized interactable type lists (must match server-side configuration)
           const INTERACTABLE_BUILDING_TYPES = ['dock', 'mill', 'mine', 'lumbermill', 'stable', 'tavern', 'market', 'monastery'];
           const INTERACTABLE_OBJECT_TYPES = ['Goods1', 'Goods2', 'Goods3', 'Goods4', 'Desk'];
@@ -767,24 +794,11 @@ class InputHandler {
               // Check if building is interactable, built, and player can access it
               // Note: On client side, building.built might be undefined - assume building exists means it's built
               // Only exclude if explicitly false
-              const isBuilt = building.built !== false; // Treat undefined/null as true (building exists = built)
-              const isInteractable = isInteractableBuilding(building);
-              
-              // Get actual selfId - it might be a number or string
-              let actualSelfId = selfId;
-              // If selfId looks like a random decimal (0-1), try to find the real player ID
-              if (typeof actualSelfId === 'number' && actualSelfId > 0 && actualSelfId < 1) {
-                // This might be a random number - try to get the real selfId from Player.list
-                for (const pid in Player.list) {
-                  const p = Player.list[pid];
-                  if (p && p.type === 'player' && !p.toRemove) {
-                    actualSelfId = pid;
-                    break;
-                  }
-                }
-              }
-              
-              let canInteract = true;
+                const isBuilt = building.built !== false; // Treat undefined/null as true (building exists = built)
+                const isInteractable = isInteractableBuilding(building);
+                
+                // actualSelfId is already defined in outer scope
+                let canInteract = true;
               // Check permissions if we have a valid selfId
               if (actualSelfId && actualSelfId !== null && actualSelfId !== undefined) {
                 // selfId might be a number or string - both are valid
@@ -856,18 +870,16 @@ class InputHandler {
           }
           
           // Check for interactable ships (entities with shipType that can be boarded)
+          // Show interact cursor for all ships - server will validate ownership/dock status
           if (!this.config.hoveredInteractable && player.z === 0 && this.config.hoveredTarget) {
             const hoveredEntity = Player.list[this.config.hoveredTarget];
             if (hoveredEntity && hoveredEntity.shipType) {
-              // Check if player can board (owns ship OR is a cargo ship)
-              const canBoard = hoveredEntity.owner === actualSelfId || 
-                               hoveredEntity.shipType === 'cargoship';
-              if (canBoard) {
-                this.config.hoveredInteractable = this.config.hoveredTarget;
-                // Sync to window for backward compatibility
-                if (typeof window !== 'undefined') {
-                  window.hoveredInteractable = this.config.hoveredTarget;
-                }
+              // Show interact cursor for all ships - server validates ownership
+              // This is just for UX, not for blocking interaction
+              this.config.hoveredInteractable = this.config.hoveredTarget;
+              // Sync to window for backward compatibility
+              if (typeof window !== 'undefined') {
+                window.hoveredInteractable = this.config.hoveredTarget;
               }
             }
           }
@@ -961,8 +973,21 @@ class InputHandler {
     // Use window.currentZoom which is updated by GameLoopManager
     const viewport = this.config.viewport || (typeof window !== 'undefined' && window.viewport);
     const zoom = (typeof window !== 'undefined' && window.currentZoom) || currentZoom || 1.0;
+    
+    // Validate viewport and offsets
+    if (!viewport || !viewport.offset || viewport.offset.length < 2) {
+      console.error('Click handler: Invalid viewport', viewport);
+      return;
+    }
+    
     const worldX = (clickX - WIDTH / 2) / zoom + WIDTH / 2 - viewport.offset[0];
     const worldY = (clickY - HEIGHT / 2) / zoom + HEIGHT / 2 - viewport.offset[1];
+    
+    // Validate world coordinates
+    if (isNaN(worldX) || isNaN(worldY)) {
+      console.error('Click handler: Invalid world coordinates', { clickX, clickY, WIDTH, HEIGHT, zoom, viewport, worldX, worldY });
+      return;
+    }
     
     // Check if clicking on an entity
     // Use getCurrentZ() to get the current z level (handles caves)
@@ -1006,18 +1031,15 @@ class InputHandler {
     if (clickedEntity) {
       // Attack command mode: left-click on entity
       if (this.config.attackCommandMode) {
-        // Check if enemy
-        const targetEntity = Player.list[clickedEntity];
-        if (targetEntity && allyCheck(clickedEntity) === -1) {
-          // Attack the enemy
-          socket.send(JSON.stringify({ msg: 'engageCombat', targetId: clickedEntity }));
-        }
-        this.config.attackCommandMode = false; // Consume attack command
+        // In attack command mode, left-click on ANY unit initiates combat (regardless of ally/enemy status)
+        socket.send(JSON.stringify({ msg: 'engageCombat', targetId: clickedEntity }));
+        console.log('Attack command: engaging combat with unit:', clickedEntity);
+        // Consume attack command mode after issuing command
+        this.config.attackCommandMode = false;
         // Sync to window for cursor renderer
         if (typeof window !== 'undefined') {
           window.attackCommandMode = false;
         }
-        console.log('Attack command mode deactivated');
       } else {
         // Normal target selection
         this.config.selectedTarget = clickedEntity;
@@ -1031,16 +1053,36 @@ class InputHandler {
     } else {
       // Clicked on terrain
       if (this.config.attackCommandMode) {
-        // Attack-move command
-        const tileX = Math.floor(worldX / tileSize);
-        const tileY = Math.floor(worldY / tileSize);
-        socket.send(JSON.stringify({ msg: 'attackMove', tileX: tileX, tileY: tileY, z: player.z }));
-        this.config.attackCommandMode = false; // Consume attack command
+        // DISABLE attack-move if player is aboard a ship
+        if (player.boardedShip) {
+          return; // Ignore attack-move while aboard ship
+        }
+        
+        // Attack-move command: player moves towards destination while attacking enemies along the way
+        // Use the same coordinate calculation as right-click navigation
+        // Convert screen coordinates to world coordinates (recalculate to ensure accuracy)
+        const viewportForAttack = this.config.viewport || (typeof window !== 'undefined' && window.viewport);
+        const zoomForAttack = (typeof window !== 'undefined' && window.currentZoom) || currentZoom || 1.0;
+        const worldXForAttack = (clickX - WIDTH / 2) / zoomForAttack + WIDTH / 2 - viewportForAttack.offset[0];
+        const worldYForAttack = (clickY - HEIGHT / 2) / zoomForAttack + HEIGHT / 2 - viewportForAttack.offset[1];
+        
+        // Get tileSize from window if config doesn't have it (updated by SocketMessageHandler)
+        const currentTileSize = tileSize || (typeof window !== 'undefined' && window.tileSize) || 64;
+        
+        // Convert to tile coordinates (same as right-click navigation)
+        const tileX = Math.floor(worldXForAttack / currentTileSize);
+        const tileY = Math.floor(worldYForAttack / currentTileSize);
+        
+        // Use getCurrentZ() to get the current z level (handles caves)
+        const currentZ = this.config.getCurrentZ ? this.config.getCurrentZ() : player.z;
+        
+        socket.send(JSON.stringify({ msg: 'attackMove', tileX: tileX, tileY: tileY, z: currentZ }));
+        // Consume attack command mode after issuing command
+        this.config.attackCommandMode = false;
         // Sync to window for cursor renderer
         if (typeof window !== 'undefined') {
           window.attackCommandMode = false;
         }
-        console.log('Attack-move command:', tileX, tileY);
       }
       // Target persists even when clicking terrain (only cleared by selecting a different target)
     }
@@ -1077,9 +1119,27 @@ class InputHandler {
     } = this.config;
 
     // Always prefer window.selfId if available (updated by SocketMessageHandler)
-    const selfId = (typeof window !== 'undefined' && window.selfId !== undefined && window.selfId !== null) 
+    let selfId = (typeof window !== 'undefined' && window.selfId !== undefined && window.selfId !== null) 
       ? window.selfId 
       : (this.config.selfId !== undefined ? this.config.selfId : null);
+    
+    // Get actual selfId - prefer window.selfId (updated by SocketMessageHandler)
+    let actualSelfId = (typeof window !== 'undefined' && window.selfId !== undefined && window.selfId !== null)
+      ? window.selfId
+      : selfId;
+    
+    // If still a random decimal (0-1), try to find the real player ID from Player.list
+    // Look for entities that are not ships, not buildings, and have a class (likely players)
+    if (typeof actualSelfId === 'number' && actualSelfId > 0 && actualSelfId < 1) {
+      for (const pid in Player.list) {
+        const p = Player.list[pid];
+        // Player entities typically have a class but are not ships
+        if (p && !p.toRemove && p.class && !p.shipType && p.class !== 'FishingShip' && p.class !== 'CargoShip') {
+          actualSelfId = pid;
+          break;
+        }
+      }
+    }
 
     // Always prevent default context menu
     event.preventDefault();
@@ -1239,17 +1299,15 @@ class InputHandler {
       
       // Check if this is a boardable ship
       if (clickedEntityObj && clickedEntityObj.shipType) {
-        const canBoard = clickedEntityObj.owner === selfId || 
-                         clickedEntityObj.shipType === 'cargoship';
-        if (canBoard) {
-          console.log('Right-click on boardable ship:', clickedEntity, 'shipType:', clickedEntityObj.shipType);
-          socket.send(JSON.stringify({
-            msg: 'interactWithPath',
-            entityType: 'ship',
-            entityId: clickedEntity
-          }));
-          return;
-        }
+        // Always send boarding request - let server validate ownership/dock status
+        // Server has correct player ID and can make the final decision
+        // Client-side check is just for UX (cursor), not for blocking requests
+        socket.send(JSON.stringify({
+          msg: 'interactWithPath',
+          entityType: 'ship',
+          entityId: clickedEntity
+        }));
+        return;
       }
       
       // Right-clicked on entity - check if enemy

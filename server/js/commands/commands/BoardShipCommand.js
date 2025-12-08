@@ -48,12 +48,16 @@ class BoardShipCommand extends BaseCommand {
       }
     }
 
-    // Verify player owns the ship (cargo ships are public transport, no ownership check)
+    // Verify player owns the ship ONLY if ship is at a dock
+    // If ship is not at dock (left on shore), anyone can board it
+    // Cargo ships are always public transport (no ownership check)
     if (ship.shipType !== 'cargoship') {
-      if (!ship.owner || ship.owner !== player.id) {
+      const isAtDock = ship.mode === 'docked';
+      if (isAtDock && (!ship.owner || ship.owner !== player.id)) {
         this.sendError(socket, 'This is not your ship.');
         return false;
       }
+      // If not at dock, allow boarding (ship is abandoned/available)
     }
 
     // Board the ship

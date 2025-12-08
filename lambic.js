@@ -2960,10 +2960,29 @@ const Player = function(param) {
                 interactionLoc = getLoc(item.x, item.y);
               }
             } else if(self.pendingInteraction.type === 'ship'){
-              // Ship boarding - call boardPassenger directly
+              // Ship boarding - validate ownership/dock status before boarding
               var ship = Player.list[self.pendingInteraction.id];
-              if(ship && typeof ship.boardPassenger === 'function'){
-                ship.boardPassenger(socket.id);
+              if(ship){
+                // Cargo ships are always boardable (public transport)
+                if(ship.shipType !== 'cargoship'){
+                  var isAtDock = ship.mode === 'docked';
+                  if(isAtDock && (!ship.owner || ship.owner !== socket.id)){
+                    // Ship is at dock and player doesn't own it - reject
+                    socket.write(JSON.stringify({
+                      msg: 'addToChat',
+                      message: '<i>This is not your ship.</i>'
+                    }));
+                    // Clear pending interaction and return
+                    self.pendingInteraction = null;
+                    return;
+                  }
+                  // If not at dock, allow boarding (ship is abandoned/available)
+                }
+                
+                // Board the ship
+                if(typeof ship.boardPassenger === 'function'){
+                  ship.boardPassenger(socket.id);
+                }
               }
               // Clear pending interaction and return early (don't call Interact)
               self.pendingInteraction = null;
@@ -7012,8 +7031,9 @@ io.on('connection', function(socket) {
             } else if(data.entityType === 'ship'){
               entity = Player.list[data.entityId];
               if(entity && entity.shipType){
-                // Check ownership (player owns ship OR cargo ship)
-                isInteractable = entity.owner === id || entity.shipType === 'cargoship';
+                // Always allow ship interaction - validation happens before boardPassenger call
+                // This allows pathfinding to work even if ownership check would fail
+                isInteractable = true;
               }
             }
             
@@ -7045,9 +7065,24 @@ io.on('connection', function(socket) {
                   // Use item's location
                   interactionLoc = getLoc(entity.x, entity.y);
                 } else if(data.entityType === 'ship'){
-                  // For ships, board immediately
+                  // For ships, validate ownership/dock status before boarding
+                  // Cargo ships are always boardable (public transport)
+                  if(entity.shipType !== 'cargoship'){
+                    var isAtDock = entity.mode === 'docked';
+                    if(isAtDock && (!entity.owner || entity.owner !== socket.id)){
+                      // Ship is at dock and player doesn't own it - reject
+                      socket.write(JSON.stringify({
+                        msg: 'addToChat',
+                        message: '<i>This is not your ship.</i>'
+                      }));
+                      return; // Don't board
+                    }
+                    // If not at dock, allow boarding (ship is abandoned/available)
+                  }
+                  
+                  // Board the ship
                   if(typeof entity.boardPassenger === 'function'){
-                    entity.boardPassenger(id);
+                    entity.boardPassenger(socket.id);
                   }
                   return; // Ship boarding handled, no need for Interact
                 }
@@ -7125,6 +7160,18 @@ io.on('connection', function(socket) {
         } else if (data.msg === 'attackMove') {
           // A+left-click on terrain - attack-move command
           if(player && data.tileX !== undefined && data.tileY !== undefined && data.z !== undefined){
+            // DISABLE attack-move if player is aboard a ship (navigator or passenger)
+            if(player.boardedShip){
+              // Clear any existing path to prevent queued pathfinding from executing after disembark
+              player.path = null;
+              player.pathCount = 0;
+              player.attackMoveTarget = null;
+              return; // Ignore attack-move while aboard ship
+            }
+            
+            // Clear z-transition halt flag - player is explicitly requesting new navigation
+            player.zTransitionHalt = false;
+            
             // Re-enable auto-attacking (player explicitly used attack command)
             player.autoAttackPaused = false;
             
