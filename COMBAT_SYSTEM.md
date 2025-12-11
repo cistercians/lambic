@@ -11,6 +11,24 @@ This document provides an in-depth analysis of the combat system architecture in
 5. [Death Handling](#5-death-handling)
 6. [Future Addition of Skills](#6-future-addition-of-skills)
 
+## Combat State Management
+
+The combat system uses a unified `combatState` object to manage all combat-related state, eliminating edge cases and simplifying validation.
+
+**Unified State Structure**:
+- `entity.combatState.target` - Current combat target ID
+- `entity.combatState.startTime` - Combat start timestamp (for priority determination)
+- `entity.combatState.lastAttack` - Last attack timestamp
+- `entity.combatState.pendingTarget` - Pending stealth attack target ID
+- `entity.combatState.pendingStartTime` - Pending stealth start timestamp
+- `entity.combatState.pathfindingFailures` - Pathfinding failure counter
+
+**Helper Methods**:
+- `ensureCombatState(entity)` - Initializes and returns combat state object
+- `clearCombatState(entity)` - Clears all combat state in one call
+
+This unified approach prevents state inconsistencies and simplifies debugging.
+
 ---
 
 ## 1. AGGRO/ENGAGEMENTS
@@ -127,6 +145,11 @@ Peaceful units (Serfs, Deer, Sheep) trigger flee behavior instead of combat when
 const peaceful = ['Serf', 'SerfM', 'SerfF', 'Deer', 'Sheep'];
 if (peaceful.includes(entity.class)) {
   entity.action = 'flee';
+  const state = this.ensureCombatState(entity);
+  state.target = target.id;
+  state.pathfindingFailures = 0;
+  // Maintain backward compatibility
+  if (!entity.combat) entity.combat = {};
   entity.combat.target = target.id;
   return;
 }
@@ -168,8 +191,8 @@ if (entity.military && entity.house) {
     if (serfClasses.includes(serf.class) && 
         serf.action === 'flee' && 
         serf.house === entity.house &&
-        serf.combat && serf.combat.target) {
-      const attacker = global.Player.list[serf.combat.target];
+        serf.combatState && serf.combatState.target) {
+      const attacker = global.Player.list[serf.combatState.target];
       if (attacker && distance <= defenseRange) {
         this.startCombat(entity, attacker);
         return;
@@ -194,8 +217,9 @@ if (entity.stealthed && !entity.revealed) {
     this.removeStealth(entity);
   } else {
     // Still stealthed - set pending combat
-    entity._pendingCombatTarget = target.id;
-    entity._pendingCombatStartTime = Date.now();
+    const state = this.ensureCombatState(entity);
+    state.pendingTarget = target.id;
+    state.pendingStartTime = Date.now();
     return; // Don't start combat yet
   }
 }
@@ -207,7 +231,7 @@ Stealthed Unit Aggro
     ↓
 [Target not detected yet]
     ↓
-Set _pendingCombatTarget
+Set combatState.pendingTarget
     ↓
 handlePendingStealthAttack() moves unit closer
     ↓
@@ -233,26 +257,53 @@ if (entity.type === 'npc' && target.type === 'player') {
 
 ### Combat State Initialization
 
-When combat starts, the system initializes combat state:
+When combat starts, the system initializes combat state using a unified `combatState` object that consolidates all combat-related state.
 
-**Code Reference**: `SimpleCombat.js:95-112`
+**Code Reference**: `SimpleCombat.js:158-172`
 
 ```javascript
 initCombatState(entity, targetId) {
-  if (!entity.combat) entity.combat = {};
+  const state = this.ensureCombatState(entity);
   entity.action = 'combat';
+  state.target = targetId;
+  state.startTime = Date.now();
+  state.lastAttack = 0;
+  state.pendingTarget = null;
+  state.pendingStartTime = null;
+  state.pathfindingFailures = 0;
+  // Maintain backward compatibility
   entity.combat.target = targetId;
-  entity._lastCombatAttack = 0;
-  entity._pathfindingFailures = 0;
-  entity._pendingCombatTarget = null;
-  entity._pendingCombatStartTime = null;
-  entity._isRepositioning = false;
-  // ... reposition tracking state
   if (entity.type === 'player') {
     entity.autoAttackPaused = false;
   }
 }
 ```
+
+**Unified Combat State Structure**:
+
+All combat state is consolidated into `entity.combatState`:
+
+```javascript
+entity.combatState = {
+  target: null,              // Current combat target ID
+  startTime: null,           // When combat started (for priority)
+  lastAttack: 0,             // Last attack timestamp
+  pendingTarget: null,       // Pending stealth attack target ID
+  pendingStartTime: null,    // When pending stealth started
+  pathfindingFailures: 0     // Pathfinding failure counter
+}
+```
+
+**Helper Methods**:
+
+- `ensureCombatState(entity)` - Initializes and returns combat state object
+- `clearCombatState(entity)` - Clears all combat state in one call
+
+**Benefits**:
+- Single source of truth for all combat state
+- Easier validation (one object to check)
+- Prevents edge cases (state is always consistent)
+- Simpler debugging (all state visible in one place)
 
 ### Non-Combat Classes
 
@@ -275,7 +326,8 @@ Combat pathing determines how entities move during combat, handling melee positi
 
 - **Primary**: `server/js/core/SimpleCombat.js`
   - `handleChase()` (lines 697-761)
-  - `ensureMeleePositioning()` (lines 349-456)
+  - `ensureMeleePositioning()` (lines 372-404)
+  - `getPositioningPriority()` (lines 86-111)
   - `moveAwayFromTarget()` (lines 283-346)
   - `findAdjacentTile()` (lines 56-84)
 
@@ -302,16 +354,16 @@ handleChase(entity, target)
 
 #### Melee Positioning
 
-Melee units must be on adjacent tiles, never the same tile as their target.
+Melee units must be on adjacent tiles, never the same tile as their target. The system uses a priority-based approach to prevent position swapping.
 
-**Code Reference**: `SimpleCombat.js:349-456`
+**Code Reference**: `SimpleCombat.js:372-404`
 
 **Key Logic**:
 1. Check if entity and target are on same tile
-2. Prevent position swapping: Only one unit repositions at a time
-3. Find best adjacent walkable tile
-4. Pathfind to that tile
-5. Timeout after 2 seconds or 10 attempts → allow attack anyway
+2. Determine priority: Attacker (initiated combat) > Higher HP > Entity ID
+3. Lower priority unit waits (allows attack anyway)
+4. Higher priority unit attempts repositioning to adjacent tile
+5. If no adjacent tile found, allow attack anyway
 
 ```javascript
 ensureMeleePositioning(entity, target) {
@@ -322,20 +374,41 @@ ensureMeleePositioning(entity, target) {
   
   // Check if on same tile
   if (entityLoc[0] === targetLoc[0] && entityLoc[1] === targetLoc[1]) {
-    // PREVENT POSITION SWAPPING: Only one unit should reposition
-    if (target._isRepositioning && target._repositionStartTime) {
-      return false; // Target is repositioning - wait
+    // Determine priority
+    const priority = this.getPositioningPriority(entity, target);
+    
+    if (priority === 'target') {
+      // Target has priority - this entity waits
+      // Allow attack anyway (temporary same-tile is OK)
+      return false;
     }
-    // ... reposition logic
+    
+    // Entity has priority - attempt repositioning
+    const adjacentTile = this.findAdjacentTile(entity, target);
+    if (adjacentTile && entity.moveTo) {
+      entity.moveTo(entity.z, adjacentTile[0], adjacentTile[1]);
+      return true; // Repositioning
+    }
+    
+    // No adjacent tile found - allow attack anyway
+    return false;
   }
+  
+  return false; // Not on same tile
 }
 ```
 
-**Repositioning State Tracking**:
-- `_isRepositioning`: Flag indicating reposition in progress
-- `_repositionAttempts`: Counter for attempts
-- `_repositionStartTime`: Timestamp when reposition started
-- `_repositionLastPos`: Last position to detect movement
+**Priority Determination** (`getPositioningPriority()`):
+- **Primary**: Attacker (unit that initiated combat first, tracked via `combatState.startTime`)
+- **Tiebreaker 1**: Higher HP
+- **Tiebreaker 2**: Entity ID (deterministic)
+
+**Benefits of Simplified System**:
+- No complex state tracking (removed `_isRepositioning`, `_repositionAttempts`, `_repositionStartTime`, `_repositionLastPos`)
+- No timeout/attempt tracking
+- Clearer logic flow
+- Fewer edge cases
+- Better performance (less state checking per frame)
 
 #### Ranged Kiting
 
@@ -414,14 +487,15 @@ If pathfinding fails 3 times consecutively, combat is dropped.
 
 ```javascript
 entity._pathfindTimeout = setTimeout(() => {
-  if (entity && entity.combat && entity.combat.target === target.id) {
+  const state = entity.combatState;
+  if (entity && state && state.target === target.id) {
     // Check if still at same position and have no path
     if (entity.x === oldX && entity.y === oldY && !entity.path) {
-      entity._pathfindingFailures++;
+      state.pathfindingFailures++;
       
-      if (entity._pathfindingFailures >= 3) {
+      if (state.pathfindingFailures >= 3) {
         this.endCombat(entity, target);
-        entity._pathfindingFailures = 0;
+        state.pathfindingFailures = 0;
       }
     } else {
       entity._pathfindingFailures = 0; // Reset on success
@@ -539,16 +613,17 @@ Entities automatically attack when in range, respecting cooldown timers.
 
 ```javascript
 handleAttack(entity, target) {
+  const state = this.ensureCombatState(entity);
   const now = Date.now();
   const cooldownMs = entity.ranged ? this.RANGED_COOLDOWN : this.MELEE_COOLDOWN;
-  const timeSince = now - entity._lastCombatAttack;
+  const timeSince = now - state.lastAttack;
   
   if (timeSince < cooldownMs) {
     return; // Still on cooldown
   }
   
   // Perform attack...
-  entity._lastCombatAttack = now;
+  state.lastAttack = now;
 }
 ```
 
@@ -745,7 +820,8 @@ First attack from stealth removes stealth from both attacker and target.
 
 ```javascript
 // STEALTH COMBAT: Handle first stealth attack
-if (entity.stealthed && (!entity.combat.target || entity._pendingCombatTarget)) {
+const state = entity.combatState;
+if (entity.stealthed && (!state || !state.target || state.pendingTarget)) {
   this.handleStealthAttack(entity, target);
 }
 
@@ -816,13 +892,14 @@ The SimpleFlee system handles flee movement logic.
 ```javascript
 update(entity) {
   // Validate flee state
-  if (!entity.combat || !entity.combat.target) {
+  const state = entity.combatState;
+  if (!state || !state.target) {
     this.restoreSpeed(entity);
     entity.action = null;
     return;
   }
   
-  const target = global.Player.list[entity.combat.target];
+  const target = global.Player.list[state.target];
   
   // Target gone or is a ghost? Stop fleeing
   if (!target || target.ghost) {
@@ -1131,7 +1208,7 @@ if (killer.class === 'Boar' || killer.class === 'Wolf') {
 
 Different death messages are sent based on who died and who killed them.
 
-**Code Reference**: `SimpleCombat.js:214-242, EventManager.js:470-485`
+**Code Reference**: `SimpleCombat.js:270-304, EventManager.js:470-485`
 
 **Player Death** (to victim):
 ```javascript
@@ -1523,11 +1600,12 @@ Stealthed units can approach targets before revealing themselves.
 
 ```javascript
 handlePendingStealthAttack(entity) {
-  if (!entity.stealthed || entity.revealed || !entity._pendingCombatTarget) {
+  const state = entity.combatState;
+  if (!entity.stealthed || entity.revealed || !state || !state.pendingTarget) {
     return false;
   }
   
-  const pendingTarget = global.Player.list[entity._pendingCombatTarget];
+  const pendingTarget = global.Player.list[state.pendingTarget];
   
   // Check if target detected the stealthed attacker
   if (this.checkStealthDetection(entity, pendingTarget)) {
@@ -1543,7 +1621,7 @@ handlePendingStealthAttack(entity) {
 ```
 
 **Pending Stealth Attack Flow**:
-1. Stealthed unit sets `_pendingCombatTarget`
+1. Stealthed unit sets `combatState.pendingTarget`
 2. Unit approaches target while stealthed
 3. If detected OR in attack range → Start combat
 4. If timeout (5s) → Cancel pending attack
@@ -1720,19 +1798,23 @@ DEFENSE_RANGE = 1000;      // 10 tiles (military units)
 
 ### 3. Combat State Management Edge Cases
 
-**Issue**: Some edge cases with pending stealth attacks and state transitions.
+**Status**: RESOLVED
 
-**Impact**: Occasional combat state inconsistencies.
+**Previous Issue**: Combat state was scattered across multiple properties (`entity.combat.target`, `_pendingCombatTarget`, `_pendingCombatStartTime`, `_combatStartTime`, `_lastCombatAttack`, `_pathfindingFailures`), creating edge cases where state could be inconsistent.
 
-**Future Enhancement**: Improve state machine for combat states.
+**Solution Implemented**: Unified combat state object (`entity.combatState`) that consolidates all combat-related state into a single structured object. Added helper methods `ensureCombatState()` and `clearCombatState()` for consistent state management.
+
+**Result**: Eliminated state inconsistencies, simplified validation (single object check), improved maintainability, and prevented edge cases through unified state management.
 
 ### 4. Position Swapping Complexity
 
-**Issue**: Complex logic to prevent melee units occupying same tile.
+**Status**: RESOLVED
 
-**Impact**: Code complexity and potential edge cases.
+**Previous Issue**: Complex logic to prevent melee units occupying same tile with multiple state variables and timeout tracking.
 
-**Future Enhancement**: Consider alternative positioning systems.
+**Solution Implemented**: Simplified to priority-based system where attacker or higher HP unit gets priority. Lower priority unit waits while higher priority unit repositions. Removed complex state tracking (`_isRepositioning`, `_repositionAttempts`, `_repositionStartTime`, `_repositionLastPos`).
+
+**Result**: Reduced code complexity from ~100 lines to ~30 lines, eliminated timeout/attempt tracking, improved maintainability and performance.
 
 ### 5. No Damage Types
 

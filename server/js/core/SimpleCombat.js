@@ -83,6 +83,36 @@ class SimpleCombat {
     return bestTile;
   }
 
+  // Determine which unit has priority for positioning
+  // Priority: Attacker (initiated combat) > Higher HP > Entity ID (tiebreaker)
+  getPositioningPriority(entity, target) {
+    const entityState = entity.combatState || {};
+    const targetState = target.combatState || {};
+    
+    // Check if entity initiated combat (has been in combat longer)
+    const entityCombatTime = entityState.startTime || 0;
+    const targetCombatTime = targetState.startTime || 0;
+    
+    if (entityCombatTime < targetCombatTime) {
+      return 'entity'; // Entity started combat first (attacker)
+    } else if (targetCombatTime < entityCombatTime) {
+      return 'target'; // Target started combat first
+    }
+    
+    // Tiebreaker: Higher HP
+    const entityHP = entity.hp !== null ? entity.hp : Infinity;
+    const targetHP = target.hp !== null ? target.hp : Infinity;
+    
+    if (entityHP > targetHP) {
+      return 'entity';
+    } else if (targetHP > entityHP) {
+      return 'target';
+    }
+    
+    // Final tiebreaker: Entity ID (deterministic)
+    return entity.id < target.id ? 'entity' : 'target';
+  }
+
   // Remove stealth from entity (standardized)
   removeStealth(entity) {
     if (entity.stealthed) {
@@ -91,20 +121,52 @@ class SimpleCombat {
     }
   }
 
+  // Ensure combat state object exists and return it
+  ensureCombatState(entity) {
+    if (!entity.combatState) {
+      entity.combatState = {
+        target: null,
+        startTime: null,
+        lastAttack: 0,
+        pendingTarget: null,
+        pendingStartTime: null,
+        pathfindingFailures: 0
+      };
+      // Maintain backward compatibility with entity.combat
+      if (!entity.combat) entity.combat = {};
+      entity.combat.target = null;
+    }
+    return entity.combatState;
+  }
+
+  // Clear all combat state
+  clearCombatState(entity) {
+    if (entity.combatState) {
+      entity.combatState.target = null;
+      entity.combatState.startTime = null;
+      entity.combatState.lastAttack = 0;
+      entity.combatState.pendingTarget = null;
+      entity.combatState.pendingStartTime = null;
+      entity.combatState.pathfindingFailures = 0;
+    }
+    // Also clear backward compatibility object
+    if (entity.combat) {
+      entity.combat.target = null;
+    }
+  }
+
   // Initialize combat state for entity
   initCombatState(entity, targetId) {
-    if (!entity.combat) entity.combat = {};
+    const state = this.ensureCombatState(entity);
     entity.action = 'combat';
+    state.target = targetId;
+    state.startTime = Date.now();
+    state.lastAttack = 0;
+    state.pendingTarget = null;
+    state.pendingStartTime = null;
+    state.pathfindingFailures = 0;
+    // Maintain backward compatibility
     entity.combat.target = targetId;
-    entity._lastCombatAttack = 0;
-    entity._pathfindingFailures = 0;
-    entity._pendingCombatTarget = null;
-    entity._pendingCombatStartTime = null;
-    // Clear reposition tracking state when starting new combat
-    entity._isRepositioning = false;
-    entity._repositionAttempts = 0;
-    entity._repositionStartTime = null;
-    entity._repositionLastPos = null;
     // For players, ensure autoAttackPaused is cleared so they can fight
     if (entity.type === 'player') {
       entity.autoAttackPaused = false;
@@ -268,10 +330,7 @@ class SimpleCombat {
       this.removeStealth(target);
       this.startCombat(target, entity);
     } else if (target.type === 'player') {
-      target.action = 'combat';
-      if (!target.combat) target.combat = {};
-      target.combat.target = entity.id;
-      target._lastCombatAttack = 0;
+      this.initCombatState(target, entity.id);
     }
   }
 
@@ -354,106 +413,31 @@ class SimpleCombat {
     
     // Check if on same tile
     if (entityLoc[0] === targetLoc[0] && entityLoc[1] === targetLoc[1]) {
-      // PREVENT POSITION SWAPPING: Only one unit should reposition at a time
-      // Check if target is already repositioning - if so, this unit waits
-      if (target._isRepositioning && target._repositionStartTime) {
-        // Target is already repositioning - this unit should wait and allow attack
+      // Determine priority
+      const priority = this.getPositioningPriority(entity, target);
+      
+      if (priority === 'target') {
+        // Target has priority - this entity waits
+        // Allow attack anyway (temporary same-tile is OK)
         return false;
       }
       
-      // Check if this unit is already repositioning
-      if (entity._isRepositioning) {
-        // Already repositioning - continue with reposition logic
-        // Initialize reposition attempt counter if not already set
-        if (!entity._repositionAttempts) {
-          entity._repositionAttempts = 0;
-          entity._repositionStartTime = Date.now();
-          entity._repositionLastPos = { x: entity.x, y: entity.y };
-        }
-        
-        // Check if we've been trying too long (2 seconds) or too many attempts (10)
-        const timeSinceStart = Date.now() - entity._repositionStartTime;
-        if (timeSinceStart > 2000 || entity._repositionAttempts >= 10) {
-          // Give up on repositioning - allow attack anyway
-          entity._isRepositioning = false;
-          entity._repositionAttempts = 0;
-          entity._repositionStartTime = null;
-          entity._repositionLastPos = null;
-          return false;
-        }
-        
-        // Check if we're making progress (have we moved?)
-        const moved = Math.abs(entity.x - entity._repositionLastPos.x) > 5 || 
-                      Math.abs(entity.y - entity._repositionLastPos.y) > 5;
-        
-        // If we have a path and haven't moved in 1 second, the pathfinding is stuck
-        if (entity.path && !moved && timeSinceStart > 1000) {
-          // Pathfinding is stuck - clear path and try again or give up
-          entity.path = null;
-          entity.pathCount = 0;
-          entity._repositionAttempts++;
-          entity._repositionLastPos = { x: entity.x, y: entity.y };
-        }
-        
-        // Try to find adjacent tile and pathfind
-        const adjacentTile = this.findAdjacentTile(entity, target);
-        if (adjacentTile && entity.moveTo && !entity.path) {
-          // Only pathfind if we don't already have a path
-          entity.moveTo(entity.z, adjacentTile[0], adjacentTile[1]);
-          entity._repositionAttempts++;
-          entity._repositionLastPos = { x: entity.x, y: entity.y };
-          return true; // Repositioning
-        } else if (!adjacentTile) {
-          // No adjacent tile found - can't reposition, allow attack anyway
-          entity._isRepositioning = false;
-          entity._repositionAttempts = 0;
-          entity._repositionStartTime = null;
-          entity._repositionLastPos = null;
-          return false;
-        }
-        
-        // Already pathfinding - wait for path to complete (but with timeout above)
-        return true;
-      } else {
-        // Not yet repositioning - check if we should start
-        // Try to find adjacent tile first
-        const adjacentTile = this.findAdjacentTile(entity, target);
-        if (adjacentTile && entity.moveTo && !entity.path) {
-          // Mark this unit as repositioning BEFORE starting to move
-          // This prevents the target from also starting to reposition
-          entity._isRepositioning = true;
-          entity._repositionAttempts = 1;
-          entity._repositionStartTime = Date.now();
-          entity._repositionLastPos = { x: entity.x, y: entity.y };
-          
-          // Start pathfinding to adjacent tile
-          entity.moveTo(entity.z, adjacentTile[0], adjacentTile[1]);
-          return true; // Repositioning
-        } else if (!adjacentTile) {
-          // No adjacent tile found - can't reposition, allow attack anyway
-          return false;
-        }
-        
-        // Can't start repositioning right now (already have a path or can't move)
-        return false;
+      // Entity has priority - attempt repositioning
+      const adjacentTile = this.findAdjacentTile(entity, target);
+      if (adjacentTile && entity.moveTo) {
+        // Simple repositioning - no complex state tracking
+        entity.moveTo(entity.z, adjacentTile[0], adjacentTile[1]);
+        return true; // Repositioning
       }
+      
+      // No adjacent tile found - allow attack anyway
+      return false;
     }
     
-    // Not on same tile - clear reposition tracking
-    if (entity._isRepositioning) {
-      // Check if we've successfully moved off the same tile
-      const newEntityLoc = global.getLoc(entity.x, entity.y);
-      const newTargetLoc = global.getLoc(target.x, target.y);
-      if (newEntityLoc[0] !== newTargetLoc[0] || newEntityLoc[1] !== newTargetLoc[1]) {
-        // Successfully repositioned - clear flag
-        entity._isRepositioning = false;
-        entity._repositionAttempts = 0;
-        entity._repositionStartTime = null;
-        entity._repositionLastPos = null;
-      }
-    }
-    return false; // No repositioning needed
+    // Not on same tile - no repositioning needed
+    return false;
   }
+
 
   // ============================================================================
   // MAIN COMBAT UPDATE
@@ -466,9 +450,11 @@ class SimpleCombat {
       return; // Still handling stealth approach
     }
     
-    // Validate combat state
-    if (!entity.combat || !entity.combat.target) {
-      if (!entity._pendingCombatTarget) {
+    // Validate combat state - single check
+    const state = entity.combatState;
+    if (!state || !state.target) {
+      // Check if there's a pending stealth attack
+      if (!state || !state.pendingTarget) {
         entity.action = null;
       }
       return;
@@ -485,7 +471,7 @@ class SimpleCombat {
       return; // Skip combat updates but keep combat status
     }
 
-    const target = global.Player.list[entity.combat.target];
+    const target = global.Player.list[state.target];
     
     // Validate target
     if (!this.isTargetValid(target, entity)) {
@@ -545,14 +531,17 @@ class SimpleCombat {
 
   // Handle pending stealth attack approach
   handlePendingStealthAttack(entity) {
-    if (!entity.stealthed || entity.revealed || !entity._pendingCombatTarget) {
+    const state = entity.combatState;
+    if (!entity.stealthed || entity.revealed || !state || !state.pendingTarget) {
       return false;
     }
     
-    const pendingTarget = global.Player.list[entity._pendingCombatTarget];
+    const pendingTarget = global.Player.list[state.pendingTarget];
     if (!this.isTargetValid(pendingTarget, entity)) {
-      entity._pendingCombatTarget = null;
-      entity._pendingCombatStartTime = null;
+      if (state) {
+        state.pendingTarget = null;
+        state.pendingStartTime = null;
+      }
       return false;
     }
     
@@ -571,9 +560,12 @@ class SimpleCombat {
     if (distance <= attackRange) {
       // In range - can attack (combat will start on first attack)
       // Set up combat state so attack logic can proceed
+      const combatState = this.ensureCombatState(entity);
+      combatState.target = pendingTarget.id;
+      entity.action = 'combat'; // Ensure action is set
+      // Maintain backward compatibility
       if (!entity.combat) entity.combat = {};
       entity.combat.target = pendingTarget.id;
-      entity.action = 'combat'; // Ensure action is set
       return false; // Continue to attack logic
     }
     
@@ -597,10 +589,10 @@ class SimpleCombat {
     }
     
     // Check timeout
-    if (entity._pendingCombatStartTime && 
-        Date.now() - entity._pendingCombatStartTime > this.PENDING_COMBAT_TIMEOUT) {
-      entity._pendingCombatTarget = null;
-      entity._pendingCombatStartTime = null;
+    if (state.pendingStartTime && 
+        Date.now() - state.pendingStartTime > this.PENDING_COMBAT_TIMEOUT) {
+      state.pendingTarget = null;
+      state.pendingStartTime = null;
       return false;
     }
     
@@ -644,21 +636,22 @@ class SimpleCombat {
       return;
     }
     
-    // Initialize last attack time if needed
-    if (!entity._lastCombatAttack) {
-      entity._lastCombatAttack = 0;
+    // Initialize combat state if needed
+    const state = this.ensureCombatState(entity);
+    if (!state.lastAttack) {
+      state.lastAttack = 0;
     }
 
     const now = Date.now();
     const cooldownMs = entity.ranged ? this.RANGED_COOLDOWN : this.MELEE_COOLDOWN;
-    const timeSince = now - entity._lastCombatAttack;
+    const timeSince = now - state.lastAttack;
 
     if (timeSince < cooldownMs) {
       return; // Still on cooldown
     }
 
     // STEALTH COMBAT: Handle first stealth attack
-    if (entity.stealthed && (!entity.combat.target || entity._pendingCombatTarget)) {
+    if (entity.stealthed && (!state.target || state.pendingTarget)) {
       this.handleStealthAttack(entity, target);
     }
     
@@ -675,11 +668,11 @@ class SimpleCombat {
     // Update facing to target before attacking
     this.updateFacingToTarget(entity, target);
     
-    // Perform attack
+    // Perform attack (state already declared above)
     if (entity.ranged && entity.shootArrow) {
       // Ranged units shoot arrows
       entity.shootArrow(target.id);
-      entity._lastCombatAttack = now;
+      state.lastAttack = now;
       
       // Check if target died (arrow might have hit instantly)
       if (!this.isTargetValid(target, entity)) {
@@ -689,7 +682,7 @@ class SimpleCombat {
     } else {
       // Melee attack - use standardized damage calculation
       this.applyDamage(entity, target, 'melee');
-      entity._lastCombatAttack = now;
+      state.lastAttack = now;
     }
   }
 
@@ -702,9 +695,10 @@ class SimpleCombat {
     }
     
     if (!entity.path && entity.moveTo) {
-      // Initialize pathfinding failure counter if needed
-      if (!entity._pathfindingFailures) {
-        entity._pathfindingFailures = 0;
+      // Initialize combat state and pathfinding failure counter if needed
+      const state = this.ensureCombatState(entity);
+      if (!state.pathfindingFailures) {
+        state.pathfindingFailures = 0;
       }
       
       // NPCs run when chasing in combat
@@ -740,19 +734,20 @@ class SimpleCombat {
       }
       
       entity._pathfindTimeout = setTimeout(() => {
-        if (entity && entity.combat && entity.combat.target === target.id) {
+        const state = entity.combatState;
+        if (entity && state && state.target === target.id) {
           // Check if we're still at the same position and have no path
           if (entity.x === oldX && entity.y === oldY && !entity.path) {
-            entity._pathfindingFailures++;
+            state.pathfindingFailures++;
             
             // If we've failed multiple times, drop combat
-            if (entity._pathfindingFailures >= 3) {
+            if (state.pathfindingFailures >= 3) {
               this.endCombat(entity, target);
-              entity._pathfindingFailures = 0;
+              state.pathfindingFailures = 0;
             }
           } else {
             // Pathfinding succeeded, reset counter
-            entity._pathfindingFailures = 0;
+            state.pathfindingFailures = 0;
           }
         }
         if (entity) entity._pathfindTimeout = null;
@@ -800,10 +795,10 @@ class SimpleCombat {
         if (serfClasses.includes(serf.class) && 
             serf.action === 'flee' && 
             serf.house === entity.house &&
-            serf.combat && serf.combat.target) {
+            serf.combatState && serf.combatState.target) {
           
           // Serf is being chased - find the attacker
-          const attacker = global.Player.list[serf.combat.target];
+          const attacker = global.Player.list[serf.combatState.target];
           
           if (attacker && attacker.z === entity.z) {
             const distance = this.getDistance(attacker, entity);
@@ -938,14 +933,17 @@ class SimpleCombat {
 
   // Handle pending stealth aggro
   handlePendingStealthAggro(entity) {
-    if (!entity.stealthed || entity.revealed || !entity._pendingCombatTarget) {
+    const state = entity.combatState;
+    if (!entity.stealthed || entity.revealed || !state || !state.pendingTarget) {
       return false;
     }
     
-    const pendingTarget = global.Player.list[entity._pendingCombatTarget];
+    const pendingTarget = global.Player.list[state.pendingTarget];
     if (!pendingTarget || pendingTarget.z !== entity.z) {
-      entity._pendingCombatTarget = null;
-      entity._pendingCombatStartTime = null;
+      if (state) {
+        state.pendingTarget = null;
+        state.pendingStartTime = null;
+      }
       return false;
     }
     
@@ -958,10 +956,10 @@ class SimpleCombat {
     }
     
     // Check timeout
-    if (entity._pendingCombatStartTime && 
-        Date.now() - entity._pendingCombatStartTime > this.PENDING_COMBAT_TIMEOUT) {
-      entity._pendingCombatTarget = null;
-      entity._pendingCombatStartTime = null;
+    if (state.pendingStartTime && 
+        Date.now() - state.pendingStartTime > this.PENDING_COMBAT_TIMEOUT) {
+      state.pendingTarget = null;
+      state.pendingStartTime = null;
       return false;
     }
     
@@ -989,9 +987,10 @@ class SimpleCombat {
         // Continue to start combat normally
       } else {
         // Attacker is still stealthed and not detected - don't start combat yet
-        if (!entity._pendingCombatTarget) {
-          entity._pendingCombatTarget = target.id;
-          entity._pendingCombatStartTime = Date.now();
+        const state = this.ensureCombatState(entity);
+        if (!state.pendingTarget) {
+          state.pendingTarget = target.id;
+          state.pendingStartTime = Date.now();
         }
         return; // Don't start combat yet
       }
@@ -1017,8 +1016,12 @@ class SimpleCombat {
         return; // Don't start combat or flee
       }
       entity.action = 'flee';
+      const state = this.ensureCombatState(entity);
+      state.target = target.id;
+      state.pathfindingFailures = 0;
+      // Maintain backward compatibility
+      if (!entity.combat) entity.combat = {};
       entity.combat.target = target.id;
-      entity._pathfindingFailures = 0;
       return;
     }
     
@@ -1061,34 +1064,20 @@ class SimpleCombat {
   endCombat(entity, target) {
     if (!entity) return;
 
-    // If target not provided, look it up from entity's combat state
-    if (!target && entity.combat && entity.combat.target) {
-      target = global.Player.list[entity.combat.target];
+    // If target not provided, look it up from combat state
+    if (!target && entity.combatState && entity.combatState.target) {
+      target = global.Player.list[entity.combatState.target];
     }
 
-    // Clear entity's combat state
+    // Clear all combat state
+    this.clearCombatState(entity);
     entity.action = null;
-    if (entity.combat) {
-      entity.combat.target = null;
-    }
-    entity._lastCombatAttack = 0;
     
-    // Clear pending stealth combat state
-    entity._pendingCombatTarget = null;
-    entity._pendingCombatStartTime = null;
-    
-    // Clear reposition tracking state
-    entity._isRepositioning = false;
-    entity._repositionAttempts = 0;
-    entity._repositionStartTime = null;
-    entity._repositionLastPos = null;
-    
-    // Clear pathfinding timeout and reset failure counter
+    // Clear pathfinding timeout
     if (entity._pathfindTimeout) {
       clearTimeout(entity._pathfindTimeout);
       entity._pathfindTimeout = null;
     }
-    entity._pathfindingFailures = 0;
     
     // Resume patrol if entity was in patrol mode
     if (entity.mode === 'patrol' && entity.patrol) {
@@ -1136,10 +1125,9 @@ class SimpleCombat {
     }
 
     // Clear target's combat state if they were targeting this entity
-    if (target && target.combat && target.combat.target === entity.id) {
+    if (target && target.combatState && target.combatState.target === entity.id) {
+      this.clearCombatState(target);
       target.action = null;
-      target.combat.target = null;
-      target._lastCombatAttack = 0;
       
       // Stop running when combat ends (NPCs only)
       if (target.type === 'npc' && target.running) {
