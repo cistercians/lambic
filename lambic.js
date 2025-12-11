@@ -2383,23 +2383,7 @@ const Player = function(param) {
     });
     // Skeleton spawn logged via death event
     
-    // Phase 4: Death Broadcasts to nearby players
-    var broadcastRadius = 640; // 10 tiles
-    for(var id in Player.list){
-      var nearbyPlayer = Player.list[id];
-      if(!nearbyPlayer || nearbyPlayer.z !== deathZ) continue;
-      if(nearbyPlayer.id === self.id) continue; // Skip self
-      
-      var dist = getDistance({x: nearbyPlayer.x, y: nearbyPlayer.y}, {x: deathCoords[0], y: deathCoords[1]});
-      if(dist <= broadcastRadius){
-        var socket = SOCKET_LIST[id];
-        if(socket){
-          var victimName = self.name || self.class;
-          var message = '<span style="color:#ff6666;">☠️ ' + victimName + ' was killed by ' + killerName + '</span>';
-          socket.write(JSON.stringify({msg:'addToChat', message: message}));
-        }
-      }
-    }
+    // Death broadcasts are now handled by eventManager.death() above
     
     // DROP AND SCATTER INVENTORY AND RESOURCES
     var droppedItems = [];
@@ -2454,42 +2438,7 @@ const Player = function(param) {
       }
     }
     
-    // BROADCAST DEATH TO NEARBY PLAYERS
-    var killerName = null;
-    if(report.id){
-      var killer = Player.list[report.id];
-      if(killer){
-        killerName = killer.name || killer.class;
-      }
-    }
-    
-    var victimName = self.name || self.class;
-    var deathNotification = null;
-    
-    if(killerName){
-      deathNotification = '<span style="color:#ffaaaa;">⚔️ ' + killerName + ' has slain ' + victimName + '</span>';
-    } else if(report.cause){
-      deathNotification = '<span style="color:#ffaaaa;">☠️ ' + victimName + ' has ' + report.cause + '</span>';
-    }
-    
-    if(deathNotification){
-      // Broadcast to nearby players (within 20 tiles / 1280px)
-      var deathRadius = 1280;
-      for(var id in Player.list){
-        var nearbyPlayer = Player.list[id];
-        if(!nearbyPlayer || nearbyPlayer.id === self.id) continue;
-        if(nearbyPlayer.type !== 'player') continue;
-        if(nearbyPlayer.z !== deathZ) continue; // Same z-level only
-        
-        var dist = Math.sqrt(Math.pow(nearbyPlayer.x - self.x, 2) + Math.pow(nearbyPlayer.y - self.y, 2));
-        if(dist <= deathRadius){
-          var nearbySocket = SOCKET_LIST[id];
-          if(nearbySocket){
-            nearbySocket.write(JSON.stringify({msg:'addToChat',message: deathNotification}));
-          }
-        }
-      }
-    }
+    // Death broadcasts are now handled by eventManager.death() above
     
     // GHOST MODE FOR PLAYERS (NPCs respawn immediately)
     if(self.type === 'player'){
@@ -4508,7 +4457,7 @@ const Player = function(param) {
       skulls: self.skulls,
       spriteScale: self.spriteScale,
       working: self.working ? true : false, // For spectate camera priority
-      combat: (self.combat && self.combat.target) ? true : false, // For spectate camera priority
+      combat: (self.combat && self.combat.target) ? { target: self.combat.target } : null, // Send full combat object with target for client
       fleeing: self.fleeing ? true : false // For spectate camera priority
     };
   };

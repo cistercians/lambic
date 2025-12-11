@@ -105,6 +105,10 @@ class SimpleCombat {
     entity._repositionAttempts = 0;
     entity._repositionStartTime = null;
     entity._repositionLastPos = null;
+    // For players, ensure autoAttackPaused is cleared so they can fight
+    if (entity.type === 'player') {
+      entity.autoAttackPaused = false;
+    }
   }
 
   // ============================================================================
@@ -1025,15 +1029,21 @@ class SimpleCombat {
 
     // Initialize combat state
     this.initCombatState(entity, target.id);
+    
+    // For players, ensure autoAttackPaused is cleared so they can fight
+    if (entity.type === 'player') {
+      entity.autoAttackPaused = false;
+    }
 
     // Counter-aggro
     if (target.type === 'npc' && target.military && target.action !== 'combat') {
       this.startCombat(target, entity);
     } else if (target.type === 'player') {
-      target.action = 'combat';
-      if (!target.combat) target.combat = {};
-      target.combat.target = entity.id;
-      target._lastCombatAttack = 0;
+      // Use initCombatState to properly initialize player combat state
+      this.initCombatState(target, entity.id);
+      
+      // CRITICAL: Clear autoAttackPaused so player can fight back
+      target.autoAttackPaused = false;
       
       // Send chat message to player
       const attackerName = entity.name || entity.class;

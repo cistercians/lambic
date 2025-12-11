@@ -68,7 +68,35 @@ class SpriteHelper {
     if (sprite === null && entityClass === 'Falcon') {
       return null;
     }
+    // Additional validation for falcons: even if sprite exists in map, verify images are loaded
+    // This handles the case where spriteMap was built before images loaded
+    if (entityClass === 'Falcon' && sprite) {
+      if (!this.isFalconLoaded()) {
+        // Images not ready yet, return null
+        return null;
+      }
+      // Double-check that sprite is actually the falcon object, not maleserf
+      if (typeof maleserf !== 'undefined' && sprite === maleserf) {
+        console.warn('Falcon sprite was set to maleserf - clearing it');
+        return null;
+      }
+    }
     return sprite;
+  }
+
+  /**
+   * Helper to check if falcon images are actually loaded
+   * @returns {boolean} True if at least one falcon image is loaded
+   */
+  isFalconLoaded() {
+    if (typeof falcon === 'undefined' || !falcon) {
+      return false;
+    }
+    // Check if at least one falcon image is loaded
+    return (falcon.facedown && falcon.facedown.complete && falcon.facedown.naturalWidth > 0) ||
+           (falcon.faceup && falcon.faceup.complete && falcon.faceup.naturalWidth > 0) ||
+           (falcon.faceleft && falcon.faceleft.complete && falcon.faceleft.naturalWidth > 0) ||
+           (falcon.faceright && falcon.faceright.complete && falcon.faceright.naturalWidth > 0);
   }
 
   /**
@@ -81,6 +109,13 @@ class SpriteHelper {
       console.error('CRITICAL: falcon sprite not defined when getSpriteForClass called!');
     }
 
+    // For falcons, only add to map if images are actually loaded
+    // This prevents storing the falcon object before images are ready
+    let falconSprite = null;
+    if (typeof falcon !== 'undefined' && falcon && this.isFalconLoaded()) {
+      falconSprite = falcon;
+    }
+
     // Build sprite map using safe references (defaults to maleserf if undefined)
     return {
       'ghost': typeof ghost !== 'undefined' ? ghost : maleserf,
@@ -88,7 +123,7 @@ class SpriteHelper {
       'Deer': typeof deer !== 'undefined' ? deer : maleserf,
       'Boar': typeof boar !== 'undefined' ? boar : maleserf,
       'Wolf': (typeof wolf !== 'undefined' ? wolf : (typeof window !== 'undefined' && window.wolf ? window.wolf : maleserf)),
-      'Falcon': typeof falcon !== 'undefined' ? falcon : null,
+      'Falcon': falconSprite,
       'FishingShip': typeof fishingship !== 'undefined' ? fishingship : maleserf,
       'CargoShip': typeof cargoship !== 'undefined' ? cargoship : maleserf,
       'Serf': maleserf,

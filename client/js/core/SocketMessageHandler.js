@@ -845,10 +845,18 @@ var SocketMessageHandler = {
               // Player just entered combat - always auto-select the attacker
               if(typeof selectedTarget !== 'undefined') {
                 selectedTarget = targetId;
+                // Sync to window for other modules
+                if(typeof window !== 'undefined') {
+                  window.selectedTarget = targetId;
+                }
               }
             } else if(typeof selectedTarget !== 'undefined' && !selectedTarget){
               // Player is already in combat but has no target selected - auto-select the attacker
               selectedTarget = targetId;
+              // Sync to window for other modules
+              if(typeof window !== 'undefined') {
+                window.selectedTarget = targetId;
+              }
             }
             // If player is already in combat AND has a target selected, don't override their selection
           }
@@ -945,11 +953,22 @@ var SocketMessageHandler = {
         // BUGFIX: Always update sprite for wolves to ensure walk animations work
         // BUGFIX: For falcons, only update if sprite is actually loaded (not null)
         if (p.class === 'Falcon') {
+          // Safety check: if sprite is maleserf, clear it immediately
+          if (p.sprite && typeof maleserf !== 'undefined' && p.sprite === maleserf) {
+            console.warn('SocketMessageHandler: Falcon sprite was set to maleserf - clearing it');
+            p.sprite = null;
+          }
           // For falcons, try to get sprite but only set if it's actually loaded
           var newSprite = getSpriteForClass(p.class, p.ghost);
           if (newSprite) {
             // Only set if sprite is actually available (images loaded)
-            p.sprite = newSprite;
+            // Double-check it's not maleserf
+            if (typeof maleserf !== 'undefined' && newSprite === maleserf) {
+              console.warn('SocketMessageHandler: getSpriteForClass returned maleserf for Falcon - rejecting');
+              p.sprite = null;
+            } else {
+              p.sprite = newSprite;
+            }
           }
           // If newSprite is null, leave sprite as is (don't set to null, don't set to maleserf)
         } else if (classChanged || ghostChanged || !p.sprite || p.class === 'Wolf') {

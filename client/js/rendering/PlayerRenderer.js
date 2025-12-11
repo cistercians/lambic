@@ -390,12 +390,19 @@ class PlayerRenderer {
       falcon
     } = config;
 
-    // Handle falcon rendering first - don't render if sprite isn't loaded or is wrong sprite
+    // CRITICAL: Explicit validation at start - falcons should NEVER render with maleserf
+    // This is the first line of defense to prevent wrong sprite rendering
     if (player.class === 'Falcon') {
-      // Check if sprite is maleserf (wrong fallback) - don't render
+      // Check if sprite is maleserf (wrong fallback) - don't render and clear it
       if (player.sprite && typeof maleserf !== 'undefined' && player.sprite === maleserf) {
+        console.warn('PlayerRenderer: Falcon sprite was set to maleserf - clearing and skipping render');
+        player.sprite = null; // Clear the wrong sprite
         return; // Don't render falcons with wrong sprite
       }
+    }
+
+    // Handle falcon rendering first - don't render if sprite isn't loaded or is wrong sprite
+    if (player.class === 'Falcon') {
       
       // Do basic visibility checks for falcons
       // God mode: Hide own character

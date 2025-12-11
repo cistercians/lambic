@@ -62,6 +62,11 @@ function PlayerEntity(initPack) {
   if (self.class === 'Falcon') {
     var falconSprite = getSpriteForClass(self.class, self.ghost);
     self.sprite = falconSprite || null; // Explicitly set to null if not loaded
+    // Defensive check: if sprite was somehow set to maleserf, clear it
+    if (self.sprite && typeof maleserf !== 'undefined' && self.sprite === maleserf) {
+      console.warn('PlayerEntity: Falcon sprite was set to maleserf - clearing it');
+      self.sprite = null;
+    }
   } else {
     self.sprite = getSpriteForClass(self.class, self.ghost); // Use correct sprite based on class
   }
