@@ -50,7 +50,7 @@ class MapGenerationCLI {
   async promptBiomeSelection() {
     this.clearScreen();
     console.log('╔════════════════════════════════════════╗');
-    console.log('║     WORLD GENERATION - BIOME TYPE     ║');
+    console.log('║     WORLD GENERATION - BIOME TYPE      ║');
     console.log('╚════════════════════════════════════════╝');
     console.log('');
     console.log('Select a biome type:');
@@ -82,7 +82,7 @@ class MapGenerationCLI {
   async promptMapSizeSelection() {
     this.clearScreen();
     console.log('╔════════════════════════════════════════╗');
-    console.log('║     WORLD GENERATION - MAP SIZE       ║');
+    console.log('║     WORLD GENERATION - MAP SIZE        ║');
     console.log('╚════════════════════════════════════════╝');
     console.log('');
     console.log('Select a map size:');
@@ -265,18 +265,11 @@ class MapGenerationCLI {
   async promptUseDefaults() {
     this.clearScreen();
     const boxWidth = 38; // Width of the box (number of ═ characters)
-    // Title with exactly 2 spaces before and 2 spaces after
-    const titleText = '  WORLD GENERATION - SETUP MODE  ';
-    // Calculate: box has 38 chars total, borders take 2 (║ on each side), so content area is 36
-    // Title is 33 chars, so we need 3 more chars of padding (1 left + 2 right for centering)
-    const contentWidth = boxWidth - 2; // 36
-    const titleWidth = titleText.length; // 33
-    const totalPadding = contentWidth - titleWidth; // 3
-    const leftPadding = Math.floor(totalPadding / 2); // 1
-    const rightPadding = totalPadding - leftPadding; // 2
+    // Title with spacing to match other titles (5 spaces left, 6 spaces right)
+    const titleText = '     WORLD GENERATION - SETUP MODE      ';
     
     console.log('╔════════════════════════════════════════╗');
-    console.log('║' + ' '.repeat(leftPadding) + titleText + ' '.repeat(rightPadding) + '║');
+    console.log('║' + titleText + '║');
     console.log('╚════════════════════════════════════════╝');
     console.log('');
     console.log('Choose setup mode:');

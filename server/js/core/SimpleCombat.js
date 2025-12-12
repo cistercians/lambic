@@ -14,6 +14,7 @@ class SimpleCombat {
     this.RANGED_COOLDOWN = 1500; // 1.5 seconds
     this.KITE_CHECK_INTERVAL = 2000; // 2 seconds
     this.PENDING_COMBAT_TIMEOUT = 5000; // 5 seconds
+    this.AUTO_ATTACK_RESUME_TIMEOUT = 3000; // 3 seconds - auto-resume after navigation
   }
 
   // ============================================================================
@@ -28,6 +29,32 @@ class SimpleCombat {
     if (target.ghost) return false;
     if (target.godMode) return false;
     if (target.hp !== null && target.hp <= 0) return false;
+    // Additional validation: check if target still exists in Player.list
+    if (global.Player.list && !global.Player.list[target.id]) return false;
+    return true;
+  }
+
+  // Validate combat state consistency
+  validateCombatState(entity) {
+    if (!entity) return false;
+    
+    const state = entity.combatState;
+    if (!state) return true; // No state is valid (not in combat)
+    
+    // If state exists, check if target is valid
+    if (state.target) {
+      const target = global.Player.list[state.target];
+      if (!this.isTargetValid(target, entity)) {
+        // Invalid target - auto-repair by clearing state
+        if (global.debugCombat) {
+          console.warn(`[SimpleCombat] Invalid combat state for ${entity.id}, clearing state`);
+        }
+        this.clearCombatState(entity);
+        entity.action = null;
+        return false;
+      }
+    }
+    
     return true;
   }
 
@@ -157,6 +184,15 @@ class SimpleCombat {
 
   // Initialize combat state for entity
   initCombatState(entity, targetId) {
+    // Validate target exists before initializing
+    const target = global.Player.list[targetId];
+    if (!target || !this.isTargetValid(target, entity)) {
+      if (global.debugCombat) {
+        console.warn(`[SimpleCombat] Cannot initialize combat state - invalid target ${targetId}`);
+      }
+      return false;
+    }
+    
     const state = this.ensureCombatState(entity);
     entity.action = 'combat';
     state.target = targetId;
@@ -166,11 +202,18 @@ class SimpleCombat {
     state.pendingStartTime = null;
     state.pathfindingFailures = 0;
     // Maintain backward compatibility
+    if (!entity.combat) entity.combat = {};
     entity.combat.target = targetId;
     // For players, ensure autoAttackPaused is cleared so they can fight
     if (entity.type === 'player') {
       entity.autoAttackPaused = false;
+      // Clear any resume timeout
+      if (entity._autoAttackResumeTimeout) {
+        clearTimeout(entity._autoAttackResumeTimeout);
+        entity._autoAttackResumeTimeout = null;
+      }
     }
+    return true;
   }
 
   // ============================================================================
@@ -274,29 +317,8 @@ class SimpleCombat {
 
   // Handle target death
   handleTargetDeath(attacker, target, damageType) {
-    const killerName = attacker.name || attacker.class;
-    const victimName = target.name || target.class;
-    
-    // Announce death to nearby players
-    if (target.type === 'player') {
-      // Send to the victim
-      const socket = global.SOCKET_LIST[target.id];
-      if (socket) {
-        socket.write(JSON.stringify({ 
-          msg: 'addToChat', 
-          message: `<span style="color:red;">💀 You were killed by ${killerName}!</span>` 
-        }));
-      }
-    } else if (attacker.type === 'player') {
-      // Player killed an NPC - announce to player
-      const socket = global.SOCKET_LIST[attacker.id];
-      if (socket) {
-        socket.write(JSON.stringify({ 
-          msg: 'addToChat', 
-          message: `<span style="color:green;">⚔️ You killed ${victimName}!</span>` 
-        }));
-      }
-    }
+    // Death messages are handled by EventManager.death() in Entity.die()
+    // No need to send messages here - they would be duplicates
     
     if (target.die) {
       target.die({ id: attacker.id, cause: damageType });
@@ -445,87 +467,128 @@ class SimpleCombat {
 
   // Main combat update - called every frame for entities with action='combat' or pending stealth attacks
   update(entity) {
-    // Handle pending stealth attacks
-    if (this.handlePendingStealthAttack(entity)) {
-      return; // Still handling stealth approach
-    }
-    
-    // Validate combat state - single check
-    const state = entity.combatState;
-    if (!state || !state.target) {
-      // Check if there's a pending stealth attack
-      if (!state || !state.pendingTarget) {
-        entity.action = null;
+    try {
+      // Handle pending stealth attacks
+      if (this.handlePendingStealthAttack(entity)) {
+        return; // Still handling stealth approach
       }
-      return;
-    }
-    
-    // Validate entity
-    if (entity.toRemove || (entity.hp !== null && entity.hp <= 0)) {
-      this.endCombat(entity);
-      return;
-    }
-    
-    // Check if auto-attacking is paused (player issued navigation command)
-    if (entity.autoAttackPaused) {
-      return; // Skip combat updates but keep combat status
-    }
-
-    const target = global.Player.list[state.target];
-    
-    // Validate target
-    if (!this.isTargetValid(target, entity)) {
-      this.endCombat(entity, target);
-      return;
-    }
-
-    const distance = this.getDistance(entity, target);
-    const attackRange = this.getAttackRange(entity);
-    const maxChaseRange = (entity.aggroRange || 512) * 2;
-
-    // Too far? End combat
-    if (distance > maxChaseRange) {
-      this.endCombat(entity, target);
-      return;
-    }
-
-    // Check leash range
-    if (this.checkLeashRange(entity)) {
-      this.endCombat(entity, target);
-      entity.action = 'returning';
-      if (entity.return) entity.return();
-      return;
-    }
-
-    // Ranged unit kiting
-    if (entity.ranged && distance < this.RANGED_KITE_DISTANCE) {
-      this.handleRangedKiting(entity, target);
-    }
-
-    // Melee positioning check - only reposition if target is OUT of attack range
-    // This prevents repositioning loops when both units are in range and should be attacking
-    const meleeRange = this.getMeleeRange(entity);
-    const isInAttackRange = !entity.ranged && distance <= meleeRange;
-    
-    if (!entity.ranged && !isInAttackRange) {
-      // Target is out of attack range - check if we need to reposition
-      const entityLoc = global.getLoc(entity.x, entity.y);
-      const targetLoc = global.getLoc(target.x, target.y);
       
-      // Only reposition if actually on the same tile AND target is out of range
-      if (entityLoc[0] === targetLoc[0] && entityLoc[1] === targetLoc[1]) {
-        if (this.ensureMeleePositioning(entity, target)) {
-          return; // Repositioning, don't attack yet
+      // Validate combat state - single check
+      const state = entity.combatState;
+      if (!state || !state.target) {
+        // Check if there's a pending stealth attack
+        if (!state || !state.pendingTarget) {
+          entity.action = null;
         }
-        // If repositioning failed or gave up, continue to chase
+        return;
       }
-    }
+      
+      // Validate combat state consistency
+      if (!this.validateCombatState(entity)) {
+        return; // State was invalid and cleared
+      }
+      
+      // Validate entity
+      if (entity.toRemove || (entity.hp !== null && entity.hp <= 0)) {
+        this.endCombat(entity);
+        return;
+      }
+      
+      // Cache target reference to prevent mid-update changes
+      const target = global.Player.list[state.target];
+      
+      // Validate target early
+      if (!this.isTargetValid(target, entity)) {
+        this.endCombat(entity, target);
+        return;
+      }
 
-    // Attack or chase
-    if (distance <= attackRange) {
-      this.handleAttack(entity, target);
-    } else {
-      this.handleChase(entity, target);
+      // Check if auto-attacking is paused (player issued navigation command)
+      if (entity.autoAttackPaused) {
+        // Check if we should resume auto-attack (target in range or timeout)
+        const distance = this.getDistance(entity, target);
+        const attackRange = this.getAttackRange(entity);
+        
+        // Clear pause if target is in attack range
+        if (distance <= attackRange) {
+          entity.autoAttackPaused = false;
+          // Clear any timeout
+          if (entity._autoAttackResumeTimeout) {
+            clearTimeout(entity._autoAttackResumeTimeout);
+            entity._autoAttackResumeTimeout = null;
+          }
+        } else {
+          // Set timeout to auto-resume if navigation takes too long
+          if (!entity._autoAttackResumeTimeout) {
+            entity._autoAttackResumeTimeout = setTimeout(() => {
+              if (entity && entity.autoAttackPaused) {
+                entity.autoAttackPaused = false;
+                entity._autoAttackResumeTimeout = null;
+              }
+            }, this.AUTO_ATTACK_RESUME_TIMEOUT);
+          }
+          return; // Skip combat updates but keep combat status
+        }
+      }
+
+      const distance = this.getDistance(entity, target);
+      const attackRange = this.getAttackRange(entity);
+      const maxChaseRange = (entity.aggroRange || 512) * 2;
+
+      // Too far? End combat
+      if (distance > maxChaseRange) {
+        this.endCombat(entity, target);
+        return;
+      }
+
+      // Check leash range
+      if (this.checkLeashRange(entity)) {
+        this.endCombat(entity, target);
+        entity.action = 'returning';
+        if (entity.return) entity.return();
+        return;
+      }
+
+      // Ranged unit kiting
+      if (entity.ranged && distance < this.RANGED_KITE_DISTANCE) {
+        this.handleRangedKiting(entity, target);
+      }
+
+      // Melee positioning check - only reposition if target is OUT of attack range
+      // This prevents repositioning loops when both units are in range and should be attacking
+      const meleeRange = this.getMeleeRange(entity);
+      const isInAttackRange = !entity.ranged && distance <= meleeRange;
+      
+      // Only check positioning if we're on same tile AND out of range
+      // If in range, allow attack even if on same tile
+      if (!entity.ranged && !isInAttackRange) {
+        // Target is out of attack range - check if we need to reposition
+        const entityLoc = global.getLoc(entity.x, entity.y);
+        const targetLoc = global.getLoc(target.x, target.y);
+        
+        // Only reposition if actually on the same tile AND target is out of range
+        if (entityLoc[0] === targetLoc[0] && entityLoc[1] === targetLoc[1]) {
+          if (this.ensureMeleePositioning(entity, target)) {
+            return; // Repositioning, don't attack yet
+          }
+          // If repositioning failed or gave up, continue to chase
+        }
+      }
+
+      // Attack or chase
+      if (distance <= attackRange) {
+        this.handleAttack(entity, target);
+      } else {
+        this.handleChase(entity, target);
+      }
+    } catch (error) {
+      // Error handling - ensure state cleanup
+      if (global.debugCombat) {
+        console.error(`[SimpleCombat] Error in update for ${entity.id}:`, error);
+      }
+      // Clear combat state on error to prevent stuck state
+      this.clearCombatState(entity);
+      entity.action = null;
     }
   }
 
@@ -626,63 +689,82 @@ class SimpleCombat {
 
   // Handle attack logic
   handleAttack(entity, target) {
-    const meleeRange = this.getMeleeRange(entity);
-    const distance = this.getDistance(entity, target);
-    const canAttack = entity.ranged || distance <= meleeRange;
-    
-    if (!canAttack) {
-      // Melee unit in attack range but not close enough - continue pathfinding
-      this.handleChase(entity, target);
-      return;
-    }
-    
-    // Initialize combat state if needed
-    const state = this.ensureCombatState(entity);
-    if (!state.lastAttack) {
-      state.lastAttack = 0;
-    }
-
-    const now = Date.now();
-    const cooldownMs = entity.ranged ? this.RANGED_COOLDOWN : this.MELEE_COOLDOWN;
-    const timeSince = now - state.lastAttack;
-
-    if (timeSince < cooldownMs) {
-      return; // Still on cooldown
-    }
-
-    // STEALTH COMBAT: Handle first stealth attack
-    if (entity.stealthed && (!state.target || state.pendingTarget)) {
-      this.handleStealthAttack(entity, target);
-    }
-    
-    // Final target validation before attack
-    if (!this.isTargetValid(target, entity)) {
-      this.endCombat(entity, target);
-      return;
-    }
-    
-    // Remove stealth when attacking (if still stealthed)
-    this.removeStealth(entity);
-    this.removeStealth(target); // Attack reveals target
-    
-    // Update facing to target before attacking
-    this.updateFacingToTarget(entity, target);
-    
-    // Perform attack (state already declared above)
-    if (entity.ranged && entity.shootArrow) {
-      // Ranged units shoot arrows
-      entity.shootArrow(target.id);
-      state.lastAttack = now;
+    try {
+      // Ensure autoAttackPaused is cleared before attacking
+      if (entity.type === 'player') {
+        entity.autoAttackPaused = false;
+        // Clear any resume timeout
+        if (entity._autoAttackResumeTimeout) {
+          clearTimeout(entity._autoAttackResumeTimeout);
+          entity._autoAttackResumeTimeout = null;
+        }
+      }
       
-      // Check if target died (arrow might have hit instantly)
+      const meleeRange = this.getMeleeRange(entity);
+      const distance = this.getDistance(entity, target);
+      const canAttack = entity.ranged || distance <= meleeRange;
+      
+      if (!canAttack) {
+        // Melee unit in attack range but not close enough - continue pathfinding
+        this.handleChase(entity, target);
+        return;
+      }
+      
+      // Initialize combat state if needed
+      const state = this.ensureCombatState(entity);
+      if (!state.lastAttack) {
+        state.lastAttack = 0;
+      }
+
+      const now = Date.now();
+      const cooldownMs = entity.ranged ? this.RANGED_COOLDOWN : this.MELEE_COOLDOWN;
+      const timeSince = now - state.lastAttack;
+
+      if (timeSince < cooldownMs) {
+        return; // Still on cooldown
+      }
+
+      // STEALTH COMBAT: Handle first stealth attack
+      if (entity.stealthed && (!state.target || state.pendingTarget)) {
+        this.handleStealthAttack(entity, target);
+      }
+      
+      // Final target validation before attack (cached target may have changed)
       if (!this.isTargetValid(target, entity)) {
         this.endCombat(entity, target);
         return;
       }
-    } else {
-      // Melee attack - use standardized damage calculation
-      this.applyDamage(entity, target, 'melee');
-      state.lastAttack = now;
+      
+      // Remove stealth when attacking (if still stealthed)
+      this.removeStealth(entity);
+      this.removeStealth(target); // Attack reveals target
+      
+      // Update facing to target before attacking
+      this.updateFacingToTarget(entity, target);
+      
+      // Perform attack (state already declared above)
+      if (entity.ranged && entity.shootArrow) {
+        // Ranged units shoot arrows
+        entity.shootArrow(target.id);
+        state.lastAttack = now;
+        
+        // Check if target died (arrow might have hit instantly)
+        if (!this.isTargetValid(target, entity)) {
+          this.endCombat(entity, target);
+          return;
+        }
+      } else {
+        // Melee attack - use standardized damage calculation
+        this.applyDamage(entity, target, 'melee');
+        state.lastAttack = now;
+      }
+    } catch (error) {
+      // Error handling
+      if (global.debugCombat) {
+        console.error(`[SimpleCombat] Error in handleAttack for ${entity.id}:`, error);
+      }
+      // Ensure state cleanup on error
+      this.endCombat(entity, target);
     }
   }
 
@@ -1030,10 +1112,14 @@ class SimpleCombat {
       return; // Don't start combat
     }
 
-    // Initialize combat state
-    this.initCombatState(entity, target.id);
+    // Initialize combat state (validates target internally)
+    if (!this.initCombatState(entity, target.id)) {
+      // Target validation failed - don't start combat
+      return;
+    }
     
     // For players, ensure autoAttackPaused is cleared so they can fight
+    // (initCombatState already does this, but keep for clarity)
     if (entity.type === 'player') {
       entity.autoAttackPaused = false;
     }
@@ -1043,20 +1129,19 @@ class SimpleCombat {
       this.startCombat(target, entity);
     } else if (target.type === 'player') {
       // Use initCombatState to properly initialize player combat state
-      this.initCombatState(target, entity.id);
-      
-      // CRITICAL: Clear autoAttackPaused so player can fight back
-      target.autoAttackPaused = false;
-      
-      // Send chat message to player
-      const attackerName = entity.name || entity.class;
-      const socket = global.SOCKET_LIST[target.id];
-      if (socket) {
-        socket.write(JSON.stringify({ 
-          msg: 'addToChat', 
-          message: `<span style="color:red;">⚔️ You are under attack by ${attackerName}!</span>` 
-        }));
+      // This validates target and clears autoAttackPaused
+      if (this.initCombatState(target, entity.id)) {
+        // Send chat message to player
+        const attackerName = entity.name || entity.class;
+        const socket = global.SOCKET_LIST[target.id];
+        if (socket) {
+          socket.write(JSON.stringify({ 
+            msg: 'addToChat', 
+            message: `<span style="color:red;">⚔️ You are under attack by ${attackerName}!</span>` 
+          }));
+        }
       }
+      // If initCombatState failed, target was invalid - combat won't start
     }
   }
 
@@ -1077,6 +1162,17 @@ class SimpleCombat {
     if (entity._pathfindTimeout) {
       clearTimeout(entity._pathfindTimeout);
       entity._pathfindTimeout = null;
+    }
+    
+    // Clear auto-attack resume timeout
+    if (entity._autoAttackResumeTimeout) {
+      clearTimeout(entity._autoAttackResumeTimeout);
+      entity._autoAttackResumeTimeout = null;
+    }
+    
+    // Clear autoAttackPaused flag
+    if (entity.type === 'player') {
+      entity.autoAttackPaused = false;
     }
     
     // Resume patrol if entity was in patrol mode

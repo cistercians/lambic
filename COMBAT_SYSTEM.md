@@ -40,9 +40,9 @@ The aggro system determines when and how combat is initiated between entities. I
 ### Core Files
 
 - **Primary**: `server/js/core/SimpleCombat.js`
-  - `checkAggro()` (lines 768-937)
-  - `startCombat()` (lines 972-1058)
-  - `handlePendingStealthAggro()` (lines 940-969)
+  - `checkAggro()` (lines 742-911)
+  - `startCombat()` (lines 949-1040)
+  - `handlePendingStealthAggro()` (lines 914-946)
 
 ### Aggro Detection Flow
 
@@ -101,7 +101,7 @@ if (global.spatialSystem && global.spatialSystem.findAggroTargets) {
 
 Allies never aggro each other. The check happens early in the aggro process.
 
-**Code Reference**: `SimpleCombat.js:846-848, 904-907`
+**Code Reference**: `SimpleCombat.js:819-821, 878-880`
 
 ```javascript
 if (global.isAlly && global.isAlly(entity.id, target.id)) {
@@ -119,7 +119,7 @@ The alliance system (`global.isAlly()`) is defined in `lambic.js:1656-1743` and 
 
 Stealthed units can only be detected within 128px (2 tiles).
 
-**Code Reference**: `SimpleCombat.js:249-255, 838-843`
+**Code Reference**: `SimpleCombat.js:290-296, 812-817, 871-876`
 
 ```javascript
 checkStealthDetection(stealthedEntity, detector) {
@@ -164,7 +164,7 @@ if (peaceful.includes(entity.class)) {
 
 When an entity is attacked, it automatically counter-aggros if it's a military NPC or player.
 
-**Code Reference**: `SimpleCombat.js:1038-1057`
+**Code Reference**: `SimpleCombat.js:1020-1039`
 
 ```javascript
 // Counter-aggro
@@ -181,7 +181,7 @@ if (target.type === 'npc' && target.military && target.action !== 'combat') {
 
 Military units have extended range (1000px) to defend fleeing allied serfs.
 
-**Code Reference**: `SimpleCombat.js:793-819`
+**Code Reference**: `SimpleCombat.js:766-792`
 
 ```javascript
 if (entity.military && entity.house) {
@@ -208,7 +208,7 @@ Stealthed units can approach targets before revealing themselves. Combat doesn't
 1. The stealthed unit attacks (first strike)
 2. The target detects the stealthed unit (within 128px)
 
-**Code Reference**: `SimpleCombat.js:983-1010`
+**Code Reference**: `SimpleCombat.js:960-988`
 
 ```javascript
 if (entity.stealthed && !entity.revealed) {
@@ -245,7 +245,7 @@ handlePendingStealthAttack() moves unit closer
 
 NPCs can only aggro players if both are in the same "woods" state OR the target is in woods.
 
-**Code Reference**: `SimpleCombat.js:867-871, 926-930`
+**Code Reference**: `SimpleCombat.js:840-844, 899-903`
 
 ```javascript
 if (entity.type === 'npc' && target.type === 'player') {
@@ -259,7 +259,7 @@ if (entity.type === 'npc' && target.type === 'player') {
 
 When combat starts, the system initializes combat state using a unified `combatState` object that consolidates all combat-related state.
 
-**Code Reference**: `SimpleCombat.js:158-172`
+**Code Reference**: `SimpleCombat.js:159-173`
 
 ```javascript
 initCombatState(entity, targetId) {
@@ -325,9 +325,9 @@ Combat pathing determines how entities move during combat, handling melee positi
 ### Core Files
 
 - **Primary**: `server/js/core/SimpleCombat.js`
-  - `handleChase()` (lines 697-761)
-  - `ensureMeleePositioning()` (lines 372-404)
-  - `getPositioningPriority()` (lines 86-111)
+  - `handleChase()` (lines 669-735)
+  - `ensureMeleePositioning()` (lines 387-414)
+  - `getPositioningPriority()` (lines 88-113)
   - `moveAwayFromTarget()` (lines 283-346)
   - `findAdjacentTile()` (lines 56-84)
 
@@ -356,7 +356,7 @@ handleChase(entity, target)
 
 Melee units must be on adjacent tiles, never the same tile as their target. The system uses a priority-based approach to prevent position swapping.
 
-**Code Reference**: `SimpleCombat.js:372-404`
+**Code Reference**: `SimpleCombat.js:387-414`
 
 **Key Logic**:
 1. Check if entity and target are on same tile
@@ -576,10 +576,10 @@ Default combat behaviors handle auto-attacking, damage calculation, defense appl
 ### Core Files
 
 - **Primary**: `server/js/core/SimpleCombat.js`
-  - `handleAttack()` (lines 636-694)
-  - `calculateDamage()` (lines 132-173)
-  - `applyDamage()` (lines 176-211)
-  - `updateFacingToTarget()` (lines 119-129)
+  - `handleAttack()` (lines 607-666)
+  - `calculateDamage()` (lines 194-237)
+  - `applyDamage()` (lines 238-273)
+  - `updateFacingToTarget()` (lines 181-193)
 
 ### Combat Update Flow
 
@@ -605,7 +605,7 @@ Combat Update Loop (update())
 
 Entities automatically attack when in range, respecting cooldown timers.
 
-**Code Reference**: `SimpleCombat.js:636-694`
+**Code Reference**: `SimpleCombat.js:607-666`
 
 **Cooldown Constants**:
 - **Melee**: 1000ms (1 second)
@@ -633,7 +633,7 @@ handleAttack(entity, target) {
 
 Damage is calculated as: `weaponDamage - armorDefense` with a minimum of 1 damage.
 
-**Code Reference**: `SimpleCombat.js:132-173`
+**Code Reference**: `SimpleCombat.js:194-237`
 
 ```javascript
 calculateDamage(attacker, target) {
@@ -689,7 +689,7 @@ calculateDamage(attacker, target) {
 
 Damage is applied to target HP and triggers combat events.
 
-**Code Reference**: `SimpleCombat.js:176-211`
+**Code Reference**: `SimpleCombat.js:238-273`
 
 ```javascript
 applyDamage(attacker, target, damageType = 'melee') {
@@ -733,7 +733,7 @@ applyDamage(attacker, target, damageType = 'melee') {
 
 Melee attacks apply damage directly using `applyDamage()`.
 
-**Code Reference**: `SimpleCombat.js:689-693`
+**Code Reference**: `SimpleCombat.js:662-665`
 
 ```javascript
 // Melee attack - use standardized damage calculation
@@ -745,7 +745,7 @@ entity._lastCombatAttack = now;
 
 Ranged attacks use the `shootArrow()` method which creates an Arrow entity.
 
-**Code Reference**: `SimpleCombat.js:679-688`
+**Code Reference**: `SimpleCombat.js:651-660`
 
 ```javascript
 if (entity.ranged && entity.shootArrow) {
@@ -779,7 +779,7 @@ if (self.type === 'player' && self.inventory.arrows > 0) {
 
 Entities face their target before attacking.
 
-**Code Reference**: `SimpleCombat.js:119-129`
+**Code Reference**: `SimpleCombat.js:181-193`
 
 ```javascript
 updateFacingToTarget(entity, target) {
@@ -799,7 +799,7 @@ updateFacingToTarget(entity, target) {
 
 Attack animations are triggered via the `pressingAttack` flag.
 
-**Code Reference**: `SimpleCombat.js:198-203`
+**Code Reference**: `SimpleCombat.js:260-265`
 
 ```javascript
 if (attacker.pressingAttack !== undefined) {
@@ -816,7 +816,7 @@ The client-side rendering system uses this flag to display attack sprites (see `
 
 First attack from stealth removes stealth from both attacker and target.
 
-**Code Reference**: `SimpleCombat.js:660-663, 671-673`
+**Code Reference**: `SimpleCombat.js:632-645`
 
 ```javascript
 // STEALTH COMBAT: Handle first stealth attack
@@ -865,7 +865,7 @@ SimpleFlee.update()
 
 Peaceful units (Serfs, Deer, Sheep) automatically flee when aggro'd instead of fighting.
 
-**Code Reference**: `SimpleCombat.js:1012-1023`
+**Code Reference**: `SimpleCombat.js:990-1004`
 
 ```javascript
 const peaceful = ['Serf', 'SerfM', 'SerfF', 'Deer', 'Sheep'];
@@ -1017,7 +1017,7 @@ entity.fleeCooldown = 30; // 30 frames = 0.5 seconds at 60fps
 
 When combat ends due to distance, escape messages are sent.
 
-**Code Reference**: `SimpleCombat.js:1164-1179`
+**Code Reference**: `SimpleCombat.js:1131-1146`
 
 ```javascript
 // Send escape message to player (when player escapes)
@@ -1044,7 +1044,7 @@ if (entity.type === 'player' && target) {
 
 When an enemy gives up the chase, a message is sent to the player.
 
-**Code Reference**: `SimpleCombat.js:1151-1161`
+**Code Reference**: `SimpleCombat.js:1118-1128`
 
 ```javascript
 // Send escape message to player (when enemy gives up)
@@ -1091,7 +1091,7 @@ Death handling manages what happens when entities die, including kill tracking, 
 - **Primary**: 
   - `server/js/Entity.js` - `die()` method (lines 1951-2133)
   - `lambic.js` - Player `die()` method (lines 2318-2571)
-  - `server/js/core/SimpleCombat.js` - `handleTargetDeath()` (lines 214-242)
+  - `server/js/core/SimpleCombat.js` - `handleTargetDeath()` (lines 276-283)
   - `server/js/core/EventManager.js` - `death()` method (lines 470-485)
 
 ### Death Flow
@@ -1150,7 +1150,7 @@ if (killer.kills >= 10) {
 
 Military units upgrade based on kill count.
 
-**Code Reference**: `SimpleCombat.js:1186-1245`
+**Code Reference**: `SimpleCombat.js:1154-1212`
 
 ```javascript
 checkMilitaryUpgrade(unit, house) {
@@ -1206,33 +1206,34 @@ if (killer.class === 'Boar' || killer.class === 'Wolf') {
 
 #### Death Messages
 
-Different death messages are sent based on who died and who killed them.
+All death messages are centralized through the EventManager system to prevent duplicate messages.
 
-**Code Reference**: `SimpleCombat.js:270-304, EventManager.js:470-485`
+**Code Reference**: `EventManager.js:470-485, Entity.js:2027-2031`
 
-**Player Death** (to victim):
+**Centralized Death Message System**:
+All death messages are sent through `EventManager.death()`, which broadcasts to nearby players in the area. The `SimpleCombat.handleTargetDeath()` method no longer sends direct socket messages to avoid duplicates.
+
 ```javascript
-socket.write(JSON.stringify({ 
-  msg: 'addToChat', 
-  message: `<span style="color:red;">💀 You were killed by ${killerName}!</span>` 
-}));
-```
+// From Entity.js:2027-2031
+// Create death event
+if (global.eventManager) {
+  const killer = report.id ? Player.list[report.id] : null;
+  global.eventManager.death(self, killer, { x: self.x, y: self.y, z: deathZ });
+}
 
-**NPC Death** (to killer):
-```javascript
-socket.write(JSON.stringify({ 
-  msg: 'addToChat', 
-  message: `<span style="color:green;">⚔️ You killed ${victimName}!</span>` 
-}));
-```
-
-**Area Broadcast**:
-```javascript
 // From EventManager.death()
 message: killer 
   ? `<span style="color:#ff0000;">💀 ${victim.name || victim.class} was slain by ${killer.name || killer.class}!</span>`
   : `<span style="color:#ff0000;">💀 ${victim.name || victim.class} has died!</span>`
 ```
+
+**Message Format**:
+- **With Killer**: `💀 [Victim] was slain by [Killer]!` (red text)
+- **No Killer**: `💀 [Victim] has died!` (red text)
+
+**Communication Modes**:
+- `AREA`: Broadcast to nearby players within event range
+- `SPECTATOR`: Visible to spectator camera system
 
 **Escape Messages**:
 - "You escaped from combat" (player escapes)
@@ -1761,7 +1762,7 @@ FLEE_COOLDOWN = 30;        // 30 frames = 0.5 seconds
 
 ### Escape Constants
 
-**File**: `server/js/core/SimpleCombat.js:1167`
+**File**: `server/js/core/SimpleCombat.js:1134`
 
 ```javascript
 ESCAPE_RANGE = 768;        // 12 tiles

@@ -2050,23 +2050,8 @@ Character = function(param){
     }
     
     // Phase 4: Death Broadcasts to nearby players
-    var deathCoords = getCenter(deathLocation[0], deathLocation[1]);
-    var broadcastRadius = 640; // 10 tiles
-    for(var id in Player.list){
-      var nearbyPlayer = Player.list[id];
-      if(!nearbyPlayer || nearbyPlayer.z !== deathZ) continue;
-      if(nearbyPlayer.id === self.id) continue; // Skip self
-      
-      var dist = getDistance({x: nearbyPlayer.x, y: nearbyPlayer.y}, {x: deathCoords[0], y: deathCoords[1]});
-      if(dist <= broadcastRadius){
-        var socket = SOCKET_LIST[id];
-        if(socket){
-          var victimName = self.name || self.class;
-          var message = '<span style="color:#ff6666;">☠️ ' + victimName + ' was killed by ' + killerName + '</span>';
-          socket.write(JSON.stringify({msg:'addToChat', message: message}));
-        }
-      }
-    }
+    // Death broadcasts are now handled by EventManager.death() above (line 2028-2030)
+    // No need to send duplicate messages here
     
     // DROP INVENTORY AND EQUIPPED ITEMS
     var droppedItems = [];
@@ -3765,6 +3750,17 @@ Character = function(param){
         self.pressingLeft = false;
         self.pressingDown = false;
         self.pressingUp = false;
+        
+        // If player was in combat and autoAttackPaused was set, resume auto-attack
+        // This allows players to navigate during combat and resume attacking when path completes
+        if(self.action === 'combat' && self.autoAttackPaused){
+          self.autoAttackPaused = false;
+          // Clear any resume timeout
+          if(self._autoAttackResumeTimeout){
+            clearTimeout(self._autoAttackResumeTimeout);
+            self._autoAttackResumeTimeout = null;
+          }
+        }
       }
     }
 

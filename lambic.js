@@ -489,6 +489,10 @@ global.nightfall = gameState.nightfall;
 global.gameState = gameState;
 global.itemFactory = itemFactory;
 
+// Register gameState in system registry (priority 0 - foundational system)
+// Many systems depend on gameState, so it must be registered early
+systemRegistry.register('gameState', gameState, { priority: 0 });
+
 // Initialize and register SimpleCombat
 const simpleCombat = new SimpleCombat();
 global.simpleCombat = simpleCombat;
@@ -6377,7 +6381,7 @@ global.dependencyInjector = dependencyInjector;
 
 // System audit will be performed in continueServerInitialization() after all systems are set up
 // Additional startup validation
-function validateCriticalSystems() {
+  function validateCriticalSystems() {
   const criticalSystems = [
     'gameState',
     'tilemap',
