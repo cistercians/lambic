@@ -88,6 +88,10 @@ const Z_LEVELS = {
   SHIP: 3
 };
 
+// Expose constants globally immediately so they're available to modules
+global.TERRAIN = TERRAIN;
+global.Z_LEVELS = Z_LEVELS;
+
 const TILE_SIZE = 64;
 const FACTION_IDS = {
   BROTHERHOOD: 1,
@@ -144,61 +148,334 @@ const systemRegistry = require('./server/js/core/SystemRegistry.js');
 const dependencyInjector = require('./server/js/core/DependencyInjector.js');
 const entityRegistry = require('./server/js/core/EntityRegistry.js');
 
-// Initialize game state
+// Import CLI for map generation
+const MapGenerationCLI = require('./server/js/core/MapGenerationCLI');
 const genesis = require('./server/js/genesis');
-let world = genesis.map;
-let caveEntrances = genesis.entrances || [];
-global.caveEntrances = caveEntrances;
-gameState.initializeWorld(world);
 
-// Register gameState in system registry (early registration)
-systemRegistry.register('gameState', gameState, { priority: 1 });
+// Initialize world asynchronously with CLI
+let world = null;
+let caveEntrances = [];
 
-// Initialize consolidated tilemap system
-const tilemapIntegration = new TilemapIntegration();
-tilemapIntegration.initializeFromWorldArray(world, gameState.mapSize);
-global.tilemapSystem = tilemapIntegration;
+// Declare io early so it can be checked before initialization
+let io = null;
 
-// Register tilemap system in registry
-systemRegistry.register('tilemap', tilemapIntegration, { 
-  dependsOn: ['gameState'], 
-  priority: 2 
-});
+async function initializeWorld() {
+  try {
+    // Run CLI to get user selections and generate map
+    const result = await MapGenerationCLI.run();
+    
+    world = result.worldMaps;
+    caveEntrances = result.entrances || [];
+    global.caveEntrances = caveEntrances;
+    gameState.initializeWorld(world);
+  } catch (error) {
+    console.error('Error initializing world:', error);
+    process.exit(1);
+  }
+}
 
-// Initialize map analyzer for AI faction placement
-const MapAnalyzer = require('./server/js/ai/MapAnalyzer');
-const ZoneManager = require('./server/js/core/ZoneManager');
+// initializeWorld() call moved to after SockJS setup (see line ~6246)
 
-// Expose basic constants/globals needed by other modules (backward compatibility)
-global.TERRAIN = TERRAIN;
-global.Z_LEVELS = Z_LEVELS;
-global.tileSize = gameState.tileSize;
-global.mapSize = gameState.mapSize;
-global.mapPx = gameState.mapPx;
-global.period = gameState.period;
+function continueServerInitialization() {
+  // Load and register all commands from individual files (after user input is collected)
+  loadCommands();
+  
+  // Register legacy EvalCmd handler for backward compatibility (if available)
+  if (typeof EvalCmd === 'function') {
+    registerLegacyHandler(EvalCmd);
+  }
+  
+  // Initialize consolidated tilemap system
+  const tilemapIntegration = new TilemapIntegration();
+  tilemapIntegration.initializeFromWorldArray(world, gameState.mapSize);
+  global.tilemapSystem = tilemapIntegration;
 
-// NOW initialize MapAnalyzer after globals are set
-const mapAnalyzer = new MapAnalyzer();
-global.mapAnalyzer = mapAnalyzer;
+  // Register tilemap system in registry
+  systemRegistry.register('tilemap', tilemapIntegration, { 
+    dependsOn: ['gameState'], 
+    priority: 2 
+  });
 
-// Register mapAnalyzer in registry
-systemRegistry.register('mapAnalyzer', mapAnalyzer, { 
-  dependsOn: ['tilemap'], 
-  priority: 3 
-});
+  // Initialize map analyzer for AI faction placement
+  const MapAnalyzer = require('./server/js/ai/MapAnalyzer');
+  const ZoneManager = require('./server/js/core/ZoneManager');
 
-// Initialize terrain segmentation and zone management
-const geographicFeatures = mapAnalyzer.analyzeGeography(world[0]);
+  // Expose basic constants/globals needed by other modules (backward compatibility)
+  global.TERRAIN = TERRAIN;
+  global.Z_LEVELS = Z_LEVELS;
+  global.tileSize = gameState.tileSize;
+  global.mapSize = gameState.mapSize;
+  global.mapPx = gameState.mapPx;
+  global.period = gameState.period;
 
-const zoneManager = new ZoneManager();
-zoneManager.addGeographicFeatures(geographicFeatures);
-global.zoneManager = zoneManager;
+  // NOW initialize MapAnalyzer after globals are set
+  const mapAnalyzer = new MapAnalyzer();
+  global.mapAnalyzer = mapAnalyzer;
 
-// Register zoneManager in registry
-systemRegistry.register('zoneManager', zoneManager, { 
-  dependsOn: ['mapAnalyzer'], 
-  priority: 4 
-});
+  // Register mapAnalyzer in registry
+  systemRegistry.register('mapAnalyzer', mapAnalyzer, { 
+    dependsOn: ['tilemap'], 
+    priority: 3 
+  });
+
+  // Initialize terrain segmentation and zone management
+  const geographicFeatures = mapAnalyzer.analyzeGeography(world[0]);
+
+  const zoneManager = new ZoneManager();
+  zoneManager.addGeographicFeatures(geographicFeatures);
+  global.zoneManager = zoneManager;
+
+  // Register zoneManager in registry
+  systemRegistry.register('zoneManager', zoneManager, { 
+    dependsOn: ['mapAnalyzer'], 
+    priority: 4 
+  });
+
+  // ============================================================================
+  // INITIALIZE ZONES
+  // ============================================================================
+
+  // Zones are now managed by the tilemap system
+  // The tilemap system automatically handles spatial partitioning
+  zones = global.tilemapSystem.tilemapSystem.zones;
+  global.zones = zones;
+
+  // ============================================================================
+  // INITIALIZE BIOMES AND SPAWN POINTS
+  // ============================================================================
+
+  // Spawn points are now managed by the tilemap system
+  // Get them from the consolidated system
+  spawnPointsO = global.tilemapSystem.getSpawnPoints('overworld');
+  spawnPointsU = global.tilemapSystem.getSpawnPoints('underworld');
+  waterSpawns = global.tilemapSystem.getSpawnPoints('water');
+  hForestSpawns = global.tilemapSystem.getSpawnPoints('heavyForest');
+  mtnSpawns = global.tilemapSystem.getSpawnPoints('mountains');
+  caveEntrances = global.tilemapSystem.getSpawnPoints('caveEntrances');
+
+  // Update biome counts
+  biomes.hForest = hForestSpawns.length;
+  biomes.mtn = mtnSpawns.length;
+  biomes.water = waterSpawns.length;
+  biomes.forest = 0; // Will be calculated separately if needed
+  biomes.brush = 0;  // Will be calculated separately if needed
+  biomes.rocks = 0;  // Will be calculated separately if needed
+
+  // Load modular entity definitions NOW (after all globals including zones are available)
+  if(typeof global.initModularEntities === 'function'){
+    global.initModularEntities();
+  }
+
+  // Initialize pathfinding matrices (must be after world is initialized)
+  matrixO = pathing(0);
+  matrixU = pathing(-1);
+  matrixB1 = pathing(1);  // Building floor 1
+  matrixB2 = pathing(2);  // Building floor 2
+  matrixB3 = pathing(-2); // Cellar
+  matrixW = pathing(-3);
+  matrixS = pathing(3);
+  
+  // Make matrices globally available
+  global.matrixO = matrixO;
+  global.matrixU = matrixU;
+  global.matrixB1 = matrixB1;
+  global.matrixB2 = matrixB2;
+  global.matrixB3 = matrixB3;
+  global.matrixW = matrixW;
+  global.matrixS = matrixS;
+
+  // Create pathfinding grids (assign to module-level variables)
+  gridO = new PF.Grid(matrixO);
+  gridU = new PF.Grid(matrixU);
+  gridB1 = new PF.Grid(matrixB1);
+  gridB2 = new PF.Grid(matrixB2);
+  gridB3 = new PF.Grid(matrixB3);
+  gridW = new PF.Grid(matrixW);
+  gridS = new PF.Grid(matrixS);
+
+  // Make grids globally available
+  global.gridO = gridO;
+  global.gridU = gridU;
+  global.gridB1 = gridB1;
+  global.gridB2 = gridB2;
+  global.gridB3 = gridB3;
+  global.gridW = gridW;
+  global.gridS = gridS;
+
+  // Initialize day/night cycle and other game loops
+  // Initiate day/night cycle
+  setInterval(dayNight, 3600000 / gameState.period);
+
+  // Weather update (every 60 ticks = 1 second at 60 FPS)
+  setInterval(function() {
+    updateWeather(gameState.tempus);
+  }, 1000); // Every second
+
+  // Initialize tempus
+  tempus = gameState.tempus;
+
+  // Spawn initial fauna
+  entropy();
+
+  // Hide relics
+  const rel1 = randomSpawnHF();
+  const cr1 = getLoc(rel1[0], rel1[1]);
+  Relic({ x: rel1[0], y: rel1[1], z: 0, qty: 1 });
+
+  const rel2 = randomSpawnU();
+  const cr2 = getLoc(rel2[0], rel2[1]);
+  Relic({ x: rel2[0], y: rel2[1], z: -1, qty: 1 });
+
+  const wsp = waterSpawns[Math.floor(Math.random() * waterSpawns.length)];
+  const rel3 = getCoords(wsp[0], wsp[1]);
+  Relic({ x: rel3[0], y: rel3[1], z: -3, qty: 1 });
+
+  // Create NPC factions using MapAnalyzer for optimal placement
+  const excludedHQs = []; // Track placed HQs to ensure spacing
+
+  // Store faction HQs globally for god mode cycling
+  global.factionHQs = [];
+
+  const brotherhoodHQ = global.mapAnalyzer.findFactionHQ('Brotherhood', excludedHQs);
+  if (brotherhoodHQ) {
+    excludedHQs.push(brotherhoodHQ.tile);
+    Brotherhood({ id: FACTION_IDS.BROTHERHOOD, type: 'npc', name: 'Brotherhood', flag: '', hq: brotherhoodHQ.tile, hostile: true });
+  }
+
+  const gothsHQ = global.mapAnalyzer.findFactionHQ('Goths', excludedHQs);
+  if (gothsHQ) {
+    excludedHQs.push(gothsHQ.tile);
+    Goths({ id: FACTION_IDS.GOTHS, type: 'npc', name: 'Goths', flag: '', hq: gothsHQ.tile, hostile: true });
+  }
+
+  const norsemenHQ = global.mapAnalyzer.findFactionHQ('Norsemen', excludedHQs);
+  if (norsemenHQ) {
+    excludedHQs.push(norsemenHQ.tile);
+    Norsemen({ id: FACTION_IDS.NORSEMEN, type: 'npc', name: 'Norsemen', flag: '', hq: norsemenHQ.tile, hostile: true });
+  }
+
+  const franksHQ = global.mapAnalyzer.findFactionHQ('Franks', excludedHQs);
+  if (franksHQ) {
+    excludedHQs.push(franksHQ.tile);
+    Franks({ id: FACTION_IDS.FRANKS, type: 'npc', name: 'Franks', flag: '', hq: franksHQ.tile, hostile: true });
+  }
+
+  const celtsHQ = global.mapAnalyzer.findFactionHQ('Celts', excludedHQs);
+  if (celtsHQ) {
+    excludedHQs.push(celtsHQ.tile);
+    Celts({ id: FACTION_IDS.CELTS, type: 'npc', name: 'Celts', flag: '', hq: celtsHQ.tile, hostile: true });
+  }
+
+  const teutonsHQ = global.mapAnalyzer.findFactionHQ('Teutons', excludedHQs);
+  if (teutonsHQ) {
+    excludedHQs.push(teutonsHQ.tile);
+    Teutons({ id: FACTION_IDS.TEUTONS, type: 'npc', name: 'Teutons', flag: '', hq: teutonsHQ.tile, hostile: true });
+  }
+
+  // Spawn Outlaws - keep spawning until no more valid locations with 50-tile spacing
+  let outlawCount = 0;
+  let maxOutlawAttempts = 50; // Safety limit to prevent infinite loop
+  let consecutiveFailures = 0;
+
+  while (consecutiveFailures < 3 && outlawCount < maxOutlawAttempts) {
+    const outlawsHQ = global.mapAnalyzer.findFactionHQ('Outlaws', excludedHQs);
+    if (outlawsHQ) {
+      excludedHQs.push(outlawsHQ.tile);
+      outlawCount++;
+      consecutiveFailures = 0; // Reset failure counter on success
+      
+      Outlaws({ 
+        id: FACTION_IDS.OUTLAWS + outlawCount - 1, // Use different IDs for each group
+        type: 'npc', 
+        name: `Outlaws ${outlawCount}`, // Name them Outlaws 1, Outlaws 2, etc.
+        flag: '', 
+        hq: outlawsHQ.tile, 
+        hostile: true 
+      });
+      
+      // Track for godmode
+      const coords = getCenter(outlawsHQ.tile[0], outlawsHQ.tile[1]);
+      global.factionHQs.push({ name: `Outlaws ${outlawCount}`, x: coords[0], y: coords[1], z: 0 });
+    } else {
+      consecutiveFailures++;
+    }
+  }
+
+  // Spawn Mercenaries - keep spawning until no more valid locations with 50-tile spacing (same as Outlaws)
+  let mercenariesCount = 0;
+  let maxMercenariesAttempts = 50; // Safety limit to prevent infinite loop
+  let mercenariesConsecutiveFailures = 0;
+
+  while (mercenariesConsecutiveFailures < 3 && mercenariesCount < maxMercenariesAttempts) {
+    const mercenariesHQ = global.mapAnalyzer.findFactionHQ('Mercenaries', excludedHQs);
+    if (mercenariesHQ) {
+      excludedHQs.push(mercenariesHQ.tile);
+      mercenariesCount++;
+      mercenariesConsecutiveFailures = 0; // Reset failure counter on success
+      
+      Mercenaries({ 
+        id: FACTION_IDS.MERCENARIES + mercenariesCount - 1, // Use different IDs for each group
+        type: 'npc', 
+        name: `Mercenaries ${mercenariesCount}`, // Name them Mercenaries 1, Mercenaries 2, etc.
+        flag: '', 
+        hq: mercenariesHQ.tile, 
+        hostile: true 
+      });
+      
+      // Track for godmode
+      const coords = getCenter(mercenariesHQ.tile[0], mercenariesHQ.tile[1]);
+      global.factionHQs.push({ name: `Mercenaries ${mercenariesCount}`, x: coords[0], y: coords[1], z: -1 });
+    } else {
+      mercenariesConsecutiveFailures++;
+    }
+  }
+
+  Kingdom({ id: 1, name: 'Papal States', flag: '🇻🇦' });
+
+  if(brotherhoodHQ) {
+    const coords = getCenter(brotherhoodHQ.tile[0], brotherhoodHQ.tile[1]);
+    global.factionHQs.push({ name: 'Brotherhood', x: coords[0], y: coords[1], z: 0 });
+  }
+  if(gothsHQ) {
+    const coords = getCenter(gothsHQ.tile[0], gothsHQ.tile[1]);
+    global.factionHQs.push({ name: 'Goths', x: coords[0], y: coords[1], z: 0 });
+  }
+  if(norsemenHQ) {
+    const coords = getCenter(norsemenHQ.tile[0], norsemenHQ.tile[1]);
+    global.factionHQs.push({ name: 'Norsemen', x: coords[0], y: coords[1], z: 0 });
+  }
+  if(franksHQ) {
+    const coords = getCenter(franksHQ.tile[0], franksHQ.tile[1]);
+    global.factionHQs.push({ name: 'Franks', x: coords[0], y: coords[1], z: 0 });
+  }
+  if(celtsHQ) {
+    const coords = getCenter(celtsHQ.tile[0], celtsHQ.tile[1]);
+    global.factionHQs.push({ name: 'Celts', x: coords[0], y: coords[1], z: 0 });
+  }
+  if(teutonsHQ) {
+    const coords = getCenter(teutonsHQ.tile[0], teutonsHQ.tile[1]);
+    global.factionHQs.push({ name: 'Teutons', x: coords[0], y: coords[1], z: 0 });
+  }
+  // Mercenaries HQs are already tracked in the spawn loop above
+
+  dailyTally();
+
+  // Perform system audit after all systems are initialized
+  const auditResults = performSystemAudit();
+
+  // Exit if critical issues found
+  if (!auditResults.allValid) {
+    console.error('\n❌ CRITICAL: System initialization failed due to missing dependencies!');
+    console.error('The server will continue, but some systems may not work correctly.\n');
+  }
+
+  // Additional startup validation
+  const criticalValidation = validateCriticalSystems();
+  if (!criticalValidation) {
+    console.error('\n❌ CRITICAL: Critical system validation failed!');
+    console.error('Server may not function correctly.\n');
+  }
+}
 
 // Note: isDoorwayDestination is already defined globally at the top of the file
 global.day = gameState.day;
@@ -371,15 +648,8 @@ global.commandRegistry = commandRegistry;
 // Load commands from individual files (after Commands.js is required)
 // Note: Commands.js is required earlier in the file (line ~35), so EvalCmd is available
 // Note: commandRegistry is already defined and registered above (line ~332)
+// Note: loadCommands() is called later in continueServerInitialization() to avoid printing during CLI
 const { loadCommands, registerLegacyHandler } = require('./server/js/commands/loadCommands.js');
-
-// Load and register all commands from individual files
-loadCommands();
-
-// Register legacy EvalCmd handler for backward compatibility (if available)
-if (typeof EvalCmd === 'function') {
-  registerLegacyHandler(EvalCmd);
-}
 
 systemRegistry.register('commands', commandHandler, { 
   dependsOn: ['gameState', 'tilemap', 'commandRegistry'], 
@@ -401,7 +671,7 @@ systemRegistry.register('performance', performanceMonitor, { priority: 16 });
 
 const SOCKET_LIST = {};
 global.SOCKET_LIST = SOCKET_LIST;
-let io = null;
+// io is declared earlier in the file (before initializeWorld)
 // Configure A* pathfinder with better options
 let finder = new PF.AStarFinder({
   allowDiagonal: true,
@@ -730,12 +1000,14 @@ function getArea(loc1, loc2, margin = 0) {
 // ============================================================================
 
 function pathing(z) {
-  const grid = createArray(mapSize, mapSize);
+  // Use gameState.mapSize or fallback to global.mapSize
+  const size = gameState.mapSize || global.mapSize || 192;
+  const grid = createArray(size, size);
   // Matrix values: 0 = walkable, 1 = blocked, 2 = transition tile
 
   if (z === 0) {
-    for (let x = 0; x < mapSize; x++) {
-      for (let y = 0; y < mapSize; y++) {
+    for (let x = 0; x < size; x++) {
+      for (let y = 0; y < size; y++) {
         const tile = world[0][y][x];
         // Mark transition tiles (water, doors, cave entrances) as 2
         if (tile === TERRAIN.WATER || tile === TERRAIN.DOOR_OPEN || tile === TERRAIN.DOOR_OPEN_ALT || tile === TERRAIN.CAVE_ENTRANCE) {
@@ -746,8 +1018,8 @@ function pathing(z) {
       }
     }
   } else if (z === -1) {
-    for (let x = 0; x < mapSize; x++) {
-      for (let y = 0; y < mapSize; y++) {
+    for (let x = 0; x < size; x++) {
+      for (let y = 0; y < size; y++) {
         const tile = world[1][y][x];
         // Matrix: 0 = walkable, 1 = blocked, 2 = transition tile
         // Floor (0), exits (2), and ore (3.x) are walkable (0); walls (1) are blocked (1)
@@ -773,14 +1045,14 @@ function pathing(z) {
       }
     }
   } else if (z === 3) {
-    for (let x = 0; x < mapSize; x++) {
-      for (let y = 0; y < mapSize; y++) {
+    for (let x = 0; x < size; x++) {
+      for (let y = 0; y < size; y++) {
         grid[y][x] = world[0][y][x] === 0 ? 0 : 1;
       }
     }
   } else if (z === -3) {
-    for (let x = 0; x < mapSize; x++) {
-      for (let y = 0; y < mapSize; y++) {
+    for (let x = 0; x < size; x++) {
+      for (let y = 0; y < size; y++) {
         grid[y][x] = 0; // All walkable underwater
       }
     }
@@ -788,8 +1060,8 @@ function pathing(z) {
     // Building floor 1 (z=1) - start with all tiles blocked
     // matrixChange() will mark walkable tiles when buildings are constructed
     // Stairs and exits will be marked as transition (2) by matrixChange
-    for (let x = 0; x < mapSize; x++) {
-      for (let y = 0; y < mapSize; y++) {
+    for (let x = 0; x < size; x++) {
+      for (let y = 0; y < size; y++) {
         grid[y][x] = 1; // All blocked initially
       }
     }
@@ -797,8 +1069,8 @@ function pathing(z) {
     // Building floor 2 (z=2) - start with all tiles blocked
     // matrixChange() will mark walkable tiles when buildings are constructed
     // Stairs will be marked as transition (2) by matrixChange
-    for (let x = 0; x < mapSize; x++) {
-      for (let y = 0; y < mapSize; y++) {
+    for (let x = 0; x < size; x++) {
+      for (let y = 0; y < size; y++) {
         grid[y][x] = 1; // All blocked initially
       }
     }
@@ -806,14 +1078,14 @@ function pathing(z) {
     // Cellar (z=-2) - start with all tiles blocked
     // matrixChange() will mark walkable tiles when buildings are constructed
     // Stairs will be marked as transition (2) by matrixChange
-    for (let x = 0; x < mapSize; x++) {
-      for (let y = 0; y < mapSize; y++) {
+    for (let x = 0; x < size; x++) {
+      for (let y = 0; y < size; y++) {
         grid[y][x] = 1; // All blocked initially
       }
     }
   } else {
-    for (let x = 0; x < mapSize; x++) {
-      for (let y = 0; y < mapSize; y++) {
+    for (let x = 0; x < size; x++) {
+      for (let y = 0; y < size; y++) {
         grid[y][x] = 1;
       }
     }
@@ -821,29 +1093,10 @@ function pathing(z) {
   return grid;
 }
 
-const matrixO = pathing(0);
-const matrixU = pathing(-1);
-const matrixB1 = pathing(1);  // Building floor 1
-const matrixB2 = pathing(2);  // Building floor 2
-const matrixB3 = pathing(-2); // Cellar
-const matrixW = pathing(-3);
-const matrixS = pathing(3);
-
-// Expose matrices globally for TilemapSystem
-global.matrixO = matrixO;
-global.matrixU = matrixU;
-global.matrixB1 = matrixB1;
-global.matrixB2 = matrixB2;
-global.matrixB3 = matrixB3;
-global.matrixW = matrixW;  // Underwater matrix
-
-const gridO = new PF.Grid(matrixO);
-const gridU = new PF.Grid(matrixU);
-const gridB1 = new PF.Grid(matrixB1);
-const gridB2 = new PF.Grid(matrixB2);
-const gridB3 = new PF.Grid(matrixB3);
-const gridW = new PF.Grid(matrixW);
-const gridS = new PF.Grid(matrixS);
+// Pathfinding matrices will be initialized in continueServerInitialization()
+// after the world is generated
+let matrixO, matrixU, matrixB1, matrixB2, matrixB3, matrixW, matrixS;
+let gridO, gridU, gridB1, gridB2, gridB3, gridW, gridS;
 
 // ============================================================================
 // INTERACTABILITY SYSTEM
@@ -1301,16 +1554,20 @@ function matrixChange(l, c, r, n) {
   };
 
   // Bounds check
-  if (c < 0 || c >= mapSize || r < 0 || r >= mapSize) {
+  const currentMapSize = gameState.mapSize || global.mapSize || 192;
+  if (c < 0 || c >= currentMapSize || r < 0 || r >= currentMapSize) {
     return;
   }
 
   const target = matrices[l];
-  if (target && target.matrix[r]) {
+  if (target && target.matrix && target.matrix[r]) {
     target.matrix[r][c] = n;
     // Set walkable if value is 0 (walkable) or 2 (transition tile)
     // Transition tiles are considered walkable by default, pathfinding options control whether to use them
-    target.grid.setWalkableAt(c, r, n === 0 || n === 2);
+    // Only update grid if it exists (grids are created in continueServerInitialization)
+    if (target.grid && typeof target.grid.setWalkableAt === 'function') {
+      target.grid.setWalkableAt(c, r, n === 0 || n === 2);
+    }
   } else if (target) {
   }
 }
@@ -2174,44 +2431,8 @@ function dailyTally() {
   }
 }
 
-// ============================================================================
-// INITIALIZE ZONES
-// ============================================================================
-
-// Zones are now managed by the tilemap system
-// The tilemap system automatically handles spatial partitioning
-zones = global.tilemapSystem.tilemapSystem.zones;
-global.zones = zones;
-
 // Load modular entity definitions NOW (after all globals including zones are available)
-if(typeof global.initModularEntities === 'function'){
-  global.initModularEntities();
-}
-
-// ============================================================================
-// SPATIAL SYSTEM (will be initialized after Player object is defined)
-// ============================================================================
-
-// ============================================================================
-// INITIALIZE BIOMES AND SPAWN POINTS
-// ============================================================================
-
-// Spawn points are now managed by the tilemap system
-// Get them from the consolidated system
-spawnPointsO = global.tilemapSystem.getSpawnPoints('overworld');
-spawnPointsU = global.tilemapSystem.getSpawnPoints('underworld');
-waterSpawns = global.tilemapSystem.getSpawnPoints('water');
-hForestSpawns = global.tilemapSystem.getSpawnPoints('heavyForest');
-mtnSpawns = global.tilemapSystem.getSpawnPoints('mountains');
-caveEntrances = global.tilemapSystem.getSpawnPoints('caveEntrances');
-
-// Update biome counts
-biomes.hForest = hForestSpawns.length;
-biomes.mtn = mtnSpawns.length;
-biomes.water = waterSpawns.length;
-biomes.forest = 0; // Will be calculated separately if needed
-biomes.brush = 0;  // Will be calculated separately if needed
-biomes.rocks = 0;  // Will be calculated separately if needed
+// This will be called from continueServerInitialization after zones are set up
 
 // ============================================================================
 // LOAD NAME FILES
@@ -5988,6 +6209,43 @@ let serverName = generateServerName();
 gameState.serverName = serverName;
 global.serverName = serverName;
 
+// Initialize SockJS server BEFORE CLI runs (so message appears before user input)
+// This must happen before initializeWorld() to ensure message prints before CLI prompt
+if (!io) {
+  io = sockjs.createServer();
+  io.installHandlers(serv, { prefix: '/io' });
+  serv.listen(2000);
+  // Print SockJS message explicitly before CLI starts (library may print it asynchronously)
+  console.log('SockJS v0.3.24 bound to "/io"');
+  
+  // Suppress any duplicate messages from the library
+  const originalLog = console.log;
+  let sockjsMessageSuppressed = false;
+  console.log = function(...args) {
+    const msg = args[0];
+    if (typeof msg === 'string' && msg.includes('SockJS') && msg.includes('bound to')) {
+      if (!sockjsMessageSuppressed) {
+        sockjsMessageSuppressed = true;
+        return; // Suppress - we already printed it
+      }
+    }
+    originalLog.apply(console, args);
+  };
+  
+  // Restore after a brief moment to catch any async library messages
+  setTimeout(() => {
+    console.log = originalLog;
+  }, 50);
+}
+
+// Now start world initialization (SockJS message already printed)
+initializeWorld().then(() => {
+  continueServerInitialization();
+}).catch((error) => {
+  console.error('Fatal error during world initialization:', error);
+  process.exit(1);
+});
+
 // ============================================================================
 // INITIALIZE BLOCKCHAIN
 // ============================================================================
@@ -6058,8 +6316,8 @@ global.systemRegistry = systemRegistry;
 global.entityRegistry = entityRegistry;
 global.dependencyInjector = dependencyInjector;
 
-// Perform comprehensive system audit - logs only in DEBUG mode
-function performSystemAudit() {
+  // Perform comprehensive system audit - logs only in DEBUG mode
+  function performSystemAudit() {
   const DEBUG = process.env.DEBUG;
   const stats = systemRegistry.getStats();
   const dependencyCheck = systemRegistry.verifyAllDependencies();
@@ -6117,15 +6375,7 @@ function performSystemAudit() {
   };
 }
 
-// Always perform audit (not just in debug mode)
-const auditResults = performSystemAudit();
-
-// Exit if critical issues found
-if (!auditResults.allValid) {
-  console.error('\n❌ CRITICAL: System initialization failed due to missing dependencies!');
-  console.error('The server will continue, but some systems may not work correctly.\n');
-}
-
+// System audit will be performed in continueServerInitialization() after all systems are set up
 // Additional startup validation
 function validateCriticalSystems() {
   const criticalSystems = [
@@ -6181,18 +6431,12 @@ function validateCriticalSystems() {
   return true;
 }
 
-const criticalSystemsValid = validateCriticalSystems();
-if (!criticalSystemsValid) {
-  console.error('\n❌ CRITICAL: Critical system validation failed!');
-  console.error('Server may not function correctly.\n');
-}
+// Critical systems validation moved to continueServerInitialization() 
+// after systems are initialized
 
 // ============================================================================
 
-serv.listen(2000);
-
-io = sockjs.createServer();
-io.installHandlers(serv, { prefix: '/io' });
+// serv.listen() moved to before initializeWorld() to ensure SockJS message prints before CLI
 
 io.on('connection', function(socket) {
   socket.id = Math.random();
@@ -8182,168 +8426,11 @@ setInterval(function() {
 // INITIALIZE GAME WORLD
 // ============================================================================
 
-// Initiate day/night cycle
-setInterval(dayNight, 3600000 / period);
+// Day/night cycle, weather updates, fauna, relics, and factions are now initialized in continueServerInitialization()
+// after the world is generated
 
-// Weather update (every 60 ticks = 1 second at 60 FPS)
-setInterval(function() {
-  updateWeather(tempus);
-}, 1000); // Every second
-
-// Initialize tempus properly before logging
-tempus = gameState.tempus;
-
-// Spawn initial fauna
-entropy();
-
-// Hide relics
-const rel1 = randomSpawnHF();
-const cr1 = getLoc(rel1[0], rel1[1]);
-Relic({ x: rel1[0], y: rel1[1], z: 0, qty: 1 });
-
-const rel2 = randomSpawnU();
-const cr2 = getLoc(rel2[0], rel2[1]);
-Relic({ x: rel2[0], y: rel2[1], z: -1, qty: 1 });
-
-const wsp = waterSpawns[Math.floor(Math.random() * waterSpawns.length)];
-const rel3 = getCoords(wsp[0], wsp[1]);
-Relic({ x: rel3[0], y: rel3[1], z: -3, qty: 1 });
-
-// Create NPC factions using MapAnalyzer for optimal placement
-const excludedHQs = []; // Track placed HQs to ensure spacing
-
-// Store faction HQs globally for god mode cycling
-global.factionHQs = [];
-
-const brotherhoodHQ = global.mapAnalyzer.findFactionHQ('Brotherhood', excludedHQs);
-if (brotherhoodHQ) {
-  excludedHQs.push(brotherhoodHQ.tile);
-  Brotherhood({ id: FACTION_IDS.BROTHERHOOD, type: 'npc', name: 'Brotherhood', flag: '', hq: brotherhoodHQ.tile, hostile: true });
-}
-
-const gothsHQ = global.mapAnalyzer.findFactionHQ('Goths', excludedHQs);
-if (gothsHQ) {
-  excludedHQs.push(gothsHQ.tile);
-  Goths({ id: FACTION_IDS.GOTHS, type: 'npc', name: 'Goths', flag: '', hq: gothsHQ.tile, hostile: true });
-}
-
-const norsemenHQ = global.mapAnalyzer.findFactionHQ('Norsemen', excludedHQs);
-if (norsemenHQ) {
-  excludedHQs.push(norsemenHQ.tile);
-  Norsemen({ id: FACTION_IDS.NORSEMEN, type: 'npc', name: 'Norsemen', flag: '', hq: norsemenHQ.tile, hostile: true });
-}
-
-const franksHQ = global.mapAnalyzer.findFactionHQ('Franks', excludedHQs);
-if (franksHQ) {
-  excludedHQs.push(franksHQ.tile);
-  Franks({ id: FACTION_IDS.FRANKS, type: 'npc', name: 'Franks', flag: '', hq: franksHQ.tile, hostile: true });
-}
-
-const celtsHQ = global.mapAnalyzer.findFactionHQ('Celts', excludedHQs);
-if (celtsHQ) {
-  excludedHQs.push(celtsHQ.tile);
-  Celts({ id: FACTION_IDS.CELTS, type: 'npc', name: 'Celts', flag: '', hq: celtsHQ.tile, hostile: true });
-}
-
-const teutonsHQ = global.mapAnalyzer.findFactionHQ('Teutons', excludedHQs);
-if (teutonsHQ) {
-  excludedHQs.push(teutonsHQ.tile);
-  Teutons({ id: FACTION_IDS.TEUTONS, type: 'npc', name: 'Teutons', flag: '', hq: teutonsHQ.tile, hostile: true });
-}
-
-// Spawn Outlaws - keep spawning until no more valid locations with 50-tile spacing
-let outlawCount = 0;
-let maxOutlawAttempts = 50; // Safety limit to prevent infinite loop
-let consecutiveFailures = 0;
-
-while (consecutiveFailures < 3 && outlawCount < maxOutlawAttempts) {
-const outlawsHQ = global.mapAnalyzer.findFactionHQ('Outlaws', excludedHQs);
-if (outlawsHQ) {
-  excludedHQs.push(outlawsHQ.tile);
-    outlawCount++;
-    consecutiveFailures = 0; // Reset failure counter on success
-    
-    Outlaws({ 
-      id: FACTION_IDS.OUTLAWS + outlawCount - 1, // Use different IDs for each group
-      type: 'npc', 
-      name: `Outlaws ${outlawCount}`, // Name them Outlaws 1, Outlaws 2, etc.
-      flag: '☠️', 
-      hq: outlawsHQ.tile, 
-      hostile: true 
-    });
-    
-    // Track for godmode
-    const coords = getCenter(outlawsHQ.tile[0], outlawsHQ.tile[1]);
-    global.factionHQs.push({ name: `Outlaws ${outlawCount}`, x: coords[0], y: coords[1], z: 0 });
-  } else {
-    consecutiveFailures++;
-  }
-}
-
-if (outlawCount === 0) {
-}
-
-// Spawn Mercenaries - keep spawning until no more valid locations with 50-tile spacing (same as Outlaws)
-let mercenariesCount = 0;
-let maxMercenariesAttempts = 50; // Safety limit to prevent infinite loop
-let mercenariesConsecutiveFailures = 0;
-
-while (mercenariesConsecutiveFailures < 3 && mercenariesCount < maxMercenariesAttempts) {
-  const mercenariesHQ = global.mapAnalyzer.findFactionHQ('Mercenaries', excludedHQs);
-  if (mercenariesHQ) {
-    excludedHQs.push(mercenariesHQ.tile);
-    mercenariesCount++;
-    mercenariesConsecutiveFailures = 0; // Reset failure counter on success
-    
-    Mercenaries({ 
-      id: FACTION_IDS.MERCENARIES + mercenariesCount - 1, // Use different IDs for each group
-      type: 'npc', 
-      name: `Mercenaries ${mercenariesCount}`, // Name them Mercenaries 1, Mercenaries 2, etc.
-      flag: '', 
-      hq: mercenariesHQ.tile, 
-      hostile: true 
-    });
-    
-    // Track for godmode
-    const coords = getCenter(mercenariesHQ.tile[0], mercenariesHQ.tile[1]);
-    global.factionHQs.push({ name: `Mercenaries ${mercenariesCount}`, x: coords[0], y: coords[1], z: -1 });
-  } else {
-    mercenariesConsecutiveFailures++;
-  }
-}
-
-if (mercenariesCount === 0) {
-}
-
-Kingdom({ id: 1, name: 'Papal States', flag: '🇻🇦' });
-
-if(brotherhoodHQ) {
-  const coords = getCenter(brotherhoodHQ.tile[0], brotherhoodHQ.tile[1]);
-  global.factionHQs.push({ name: 'Brotherhood', x: coords[0], y: coords[1], z: -1 });
-}
-if(gothsHQ) {
-  const coords = getCenter(gothsHQ.tile[0], gothsHQ.tile[1]);
-  global.factionHQs.push({ name: 'Goths', x: coords[0], y: coords[1], z: 0 });
-}
-if(norsemenHQ) {
-  const coords = getCenter(norsemenHQ.tile[0], norsemenHQ.tile[1]);
-  global.factionHQs.push({ name: 'Norsemen', x: coords[0], y: coords[1], z: 0 });
-}
-if(franksHQ) {
-  const coords = getCenter(franksHQ.tile[0], franksHQ.tile[1]);
-  global.factionHQs.push({ name: 'Franks', x: coords[0], y: coords[1], z: 0 });
-}
-if(celtsHQ) {
-  const coords = getCenter(celtsHQ.tile[0], celtsHQ.tile[1]);
-  global.factionHQs.push({ name: 'Celts', x: coords[0], y: coords[1], z: 0 });
-}
-if(teutonsHQ) {
-  const coords = getCenter(teutonsHQ.tile[0], teutonsHQ.tile[1]);
-  global.factionHQs.push({ name: 'Teutons', x: coords[0], y: coords[1], z: 0 });
-}
-// Mercenaries HQs are already tracked in the spawn loop above
-
-dailyTally();
+// Initialize tempus properly before logging (will be set in continueServerInitialization)
+let tempus = 'XII.a';
 
 // ============================================================================
 // RESOURCE SCOREBOARD - Faction Resource Tracking
@@ -8433,6 +8520,6 @@ module.exports = {
   emit,
   TERRAIN,
   Z_LEVELS,
-  tileSize,
-  mapSize
+  get tileSize() { return gameState.tileSize || TILE_SIZE; },
+  get mapSize() { return gameState.mapSize || 192; }
 };

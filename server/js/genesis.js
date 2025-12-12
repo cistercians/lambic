@@ -52,12 +52,12 @@ function createArray(length){
   return arr;
 };
 
-function genesis(){
+function genesis(config = {}){
   // map dimensions
   // smaller tiles for bigger map
   // should be a factor of canvas width/height
   var tile = 1;
-  var canvasSize = 192; // Map size (192×192 = 36,864 tiles)
+  var canvasSize = config.mapSize || 192; // Map size (default: 192×192 = 36,864 tiles)
   var mapTiles = canvasSize / tile;
 
   // ============================================================================
@@ -66,24 +66,24 @@ function genesis(){
   
   // RED CHANNEL: Controls large-scale features (continents/oceans/water boundaries)
   // Lower frequency = larger landmasses, Higher frequency = more islands/fractured coastlines
-  var redFrequencyX = 90; // Horizontal scale for large features
-  var redFrequencyY = 78; // Vertical scale for large features  
-  var redAmplitude = 0.7; // Controls contrast between land/water
-  var redOffset = 0.33;    // Baseline shift
+  var redFrequencyX = config.redFrequencyX || 90; // Horizontal scale for large features
+  var redFrequencyY = config.redFrequencyY || 78; // Vertical scale for large features  
+  var redAmplitude = config.redAmplitude || 0.7; // Controls contrast between land/water
+  var redOffset = config.redOffset || 0.33;    // Baseline shift
   
   // GREEN CHANNEL: Controls medium-scale features (biomes/terrain patches)
   // Lower frequency = larger biome regions, Higher frequency = more varied/mixed terrain
-  var greenFrequencyX = 16; // Horizontal scale for biome features
-  var greenFrequencyY = 22; // Vertical scale for biome features
-  var greenAmplitude = 0.74; // Controls biome contrast
-  var greenOffset = 0.42;   // Baseline shift for biome distribution
+  var greenFrequencyX = config.greenFrequencyX || 16; // Horizontal scale for biome features
+  var greenFrequencyY = config.greenFrequencyY || 22; // Vertical scale for biome features
+  var greenAmplitude = config.greenAmplitude || 0.74; // Controls biome contrast
+  var greenOffset = config.greenOffset || 0.42;   // Baseline shift for biome distribution
   
   // BLUE CHANNEL: Controls fine details and local variation
   // Lower frequency = smoother terrain, Higher frequency = more detailed/noisy terrain
-  var blueFrequencyX = 6;   // Horizontal scale for fine details
-  var blueFrequencyY = 6;   // Vertical scale for fine details
-  var blueAmplitude = 0.35; // Controls detail intensity
-  var blueOffset = 0.15;      // No baseline shift for details
+  var blueFrequencyX = config.blueFrequencyX || 6;   // Horizontal scale for fine details
+  var blueFrequencyY = config.blueFrequencyY || 6;   // Vertical scale for fine details
+  var blueAmplitude = config.blueAmplitude || 0.35; // Controls detail intensity
+  var blueOffset = config.blueOffset || 0.15;      // No baseline shift for details
 
   // OVERWORLD
   var simplex = new SimplexNoise(),
@@ -146,11 +146,11 @@ function genesis(){
   // These thresholds convert HSV values from noise into terrain types
   // Lower thresholds = more of that terrain type, Higher thresholds = less of that terrain type
   
-  var waterThreshold = 0.39;    // Hue threshold for water (higher = more land)
-  var mountainThreshold = 0.99;  // Value threshold for mountains (0.99 = very high elevation)
-  var rocksThreshold = 0.85;     // Value threshold for rocks (0.85 = high elevation)
-  var brushThreshold = 0.3;     // Hue threshold for brush (0.3 = dry/arid regions)
-  var lightForestThreshold = 0.32; // Hue threshold for light forest (0.32 = transition zone)
+  var waterThreshold = config.waterThreshold !== undefined ? config.waterThreshold : 0.39;    // Hue threshold for water (higher = more land)
+  var mountainThreshold = config.mountainThreshold !== undefined ? config.mountainThreshold : 0.99;  // Value threshold for mountains (0.99 = very high elevation)
+  var rocksThreshold = config.rocksThreshold !== undefined ? config.rocksThreshold : 0.85;     // Value threshold for rocks (0.85 = high elevation)
+  var brushThreshold = config.brushThreshold !== undefined ? config.brushThreshold : 0.3;     // Hue threshold for brush (0.3 = dry/arid regions)
+  var lightForestThreshold = config.lightForestThreshold !== undefined ? config.lightForestThreshold : 0.32; // Hue threshold for light forest (0.32 = transition zone)
 
   // converts (h,v) data to game tilemap format
   function terraform(source, width, height, tileWidth, tileHeight){
@@ -519,9 +519,107 @@ function genesis(){
   };
 };
 
-const genesisResult = genesis();
+// Preset configurations
+const presets = {
+  continental: {
+    redFrequencyX: 90,
+    redFrequencyY: 78,
+    redAmplitude: 0.7,
+    redOffset: 0.33,
+    greenFrequencyX: 16,
+    greenFrequencyY: 22,
+    greenAmplitude: 0.74,
+    greenOffset: 0.42,
+    blueFrequencyX: 6,
+    blueFrequencyY: 6,
+    blueAmplitude: 0.35,
+    blueOffset: 0.15,
+    waterThreshold: 0.39,
+    mountainThreshold: 0.99,
+    rocksThreshold: 0.85,
+    brushThreshold: 0.3,
+    lightForestThreshold: 0.32
+  },
+  islands: {
+    redFrequencyX: 80,
+    redFrequencyY: 78,
+    redAmplitude: 0.28,
+    redOffset: 0.33,
+    greenFrequencyX: 16,
+    greenFrequencyY: 22,
+    greenAmplitude: 0.76,
+    greenOffset: 0.27,
+    blueFrequencyX: 6,
+    blueFrequencyY: 6,
+    blueAmplitude: 0.34,
+    blueOffset: 0.16,
+    waterThreshold: 0.36,
+    mountainThreshold: 0.99,
+    rocksThreshold: 0.85,
+    brushThreshold: 0.3,
+    lightForestThreshold: 0.32
+  },
+  mainland: {
+    redFrequencyX: 74,
+    redFrequencyY: 78,
+    redAmplitude: 0.66,
+    redOffset: 0.33,
+    greenFrequencyX: 22,
+    greenFrequencyY: 22,
+    greenAmplitude: 0.6,
+    greenOffset: 0.41,
+    blueFrequencyX: 6,
+    blueFrequencyY: 6,
+    blueAmplitude: 0.35,
+    blueOffset: 0.17,
+    waterThreshold: 0.64,
+    mountainThreshold: 0.99,
+    rocksThreshold: 0.83,
+    brushThreshold: 0.32,
+    lightForestThreshold: 0.4
+  },
+  wild: {
+    redFrequencyX: 32,
+    redFrequencyY: 42,
+    redAmplitude: 0.45,
+    redOffset: 0.33,
+    greenFrequencyX: 22,
+    greenFrequencyY: 22,
+    greenAmplitude: 0.33,
+    greenOffset: 0.42,
+    blueFrequencyX: 6,
+    blueFrequencyY: 6,
+    blueAmplitude: 0.33,
+    blueOffset: 0.19,
+    waterThreshold: 0.55,
+    mountainThreshold: 0.99,
+    rocksThreshold: 0.83,
+    brushThreshold: 0.3,
+    lightForestThreshold: 0.32
+  }
+};
 
+// Export function and presets
+// For backward compatibility, if someone requires this module expecting .map and .entrances,
+// we'll generate with defaults (but this should be avoided in favor of using the CLI)
 module.exports = {
-  map: genesisResult.worldMaps,
-  entrances: genesisResult.entrances
-}
+  generate: genesis,
+  presets: presets,
+  // Backward compatibility: generate with defaults if accessed directly
+  get map() {
+    if (!this._defaultMap) {
+      const result = genesis();
+      this._defaultMap = result.worldMaps;
+      this._defaultEntrances = result.entrances;
+    }
+    return this._defaultMap;
+  },
+  get entrances() {
+    if (!this._defaultEntrances) {
+      const result = genesis();
+      this._defaultMap = result.worldMaps;
+      this._defaultEntrances = result.entrances;
+    }
+    return this._defaultEntrances;
+  }
+};
