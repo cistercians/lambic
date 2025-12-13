@@ -192,6 +192,33 @@ var inventoryClose = getUIElement('inventory-close');
 var characterButton = getUIElement('character-button');
 var buildMenuButton = getUIElement('build-menu-button');
 
+// CHEST UI
+var chestPopup = getUIElement('chest-popup');
+var chestGrid = getUIElement('chest-grid');
+var chestClose = getUIElement('chest-close');
+var chestTitle = getUIElement('chest-title');
+var chestExtendedContainer = getUIElement('chest-extended-container');
+var chestPlayerInventoryGrid = getUIElement('chest-player-inventory-grid');
+var chestHint = getUIElement('chest-hint');
+var chestQuantityModal = getUIElement('chest-quantity-modal');
+var chestQuantitySlider = getUIElement('chest-quantity-slider');
+var chestQuantityValue = getUIElement('chest-quantity-value');
+var chestQuantityItemName = getUIElement('chest-quantity-item-name');
+var chestQuantityTitle = getUIElement('chest-quantity-title');
+var chestQuantityConfirmBtn = getUIElement('chest-quantity-confirm-btn');
+var chestQuantityCancelBtn = getUIElement('chest-quantity-cancel-btn');
+var currentChestId = null;
+var currentChestType = null;
+var chestExtended = false;
+var currentChestAction = null; // 'take' or 'store'
+var currentChestItemType = null;
+var currentChestMaxQuantity = 1;
+var chestTransferInProgress = false; // Flag to prevent multiple simultaneous transfers
+// Expose to window for SocketMessageHandler access
+if(typeof window !== 'undefined') {
+  window.chestTransferInProgress = false;
+}
+
 // CHARACTER UI
 var characterPopup = getUIElement('character-popup');
 var characterClose = getUIElement('character-close');
@@ -368,6 +395,396 @@ var getRarityBorderColor = (rank) => ItemRarityHelper?.getRarityBorderColor?.(ra
 var updateInventoryDisplay = () => InventoryHandler?.updateDisplay?.();
 var handleItemLeftClick = (itemType, itemName) => InventoryHandler?.handleLeftClick?.(itemType, itemName);
 var showItemContextMenu = (e, itemType, itemName, count) => InventoryHandler?.showContextMenu?.(e, itemType, itemName, count);
+
+// Chest window functions
+var openChestWindow = function(chestId, chestType, inventory, playerInventory) {
+  if(!chestPopup || !chestGrid) return;
+  
+  currentChestId = chestId;
+  currentChestType = chestType;
+  
+  // Store inventory for re-rendering when toggling extended view
+  if(typeof window !== 'undefined') {
+    window.currentChestInventory = inventory;
+  }
+  
+  // Set title
+  if(chestTitle) {
+    chestTitle.textContent = chestType === 'LockedChest' ? 'Locked Chest' : 'Chest';
+  }
+  
+  // Check if extended view was active and preserve it
+  var wasExtended = (chestExtendedContainer && chestExtendedContainer.classList.contains('active')) ||
+                    (typeof window !== 'undefined' && window.chestExtended);
+  
+  if(!wasExtended) {
+    // Hide extended view if it wasn't active
+    if(chestExtendedContainer) {
+      chestExtendedContainer.classList.remove('active');
+    }
+    if(chestPopup) {
+      chestPopup.classList.remove('extended');
+    }
+    chestExtended = false;
+    
+    // Show regular grid, hide extended grid
+    var chestGridExtended = document.getElementById('chest-grid-extended');
+    if(chestGrid) chestGrid.style.display = 'grid';
+    if(chestGridExtended) chestGridExtended.style.display = 'none';
+  } else {
+    // Keep extended view active
+    chestExtended = true;
+    if(chestPopup) {
+      chestPopup.classList.add('extended');
+    }
+    
+    // Show extended grid, hide regular grid
+    var chestGridExtended = document.getElementById('chest-grid-extended');
+    if(chestGrid) chestGrid.style.display = 'none';
+    if(chestGridExtended) chestGridExtended.style.display = 'grid';
+  }
+  
+  // Display chest inventory
+  updateChestDisplay(inventory);
+  
+  // If extended view is active, update player inventory too
+  if(wasExtended && typeof updateChestPlayerInventory !== 'undefined') {
+    updateChestPlayerInventory(playerInventory);
+  }
+  
+  // Show popup
+  chestPopup.style.display = 'block';
+  
+  // Reset transfer flag when window opens
+  chestTransferInProgress = false;
+  if(typeof window !== 'undefined') {
+    window.chestTransferInProgress = false;
+  }
+};
+
+var updateChestDisplay = function(inventory) {
+  if(!chestGrid) return;
+  
+  // Determine which grid to use based on extended view state
+  var targetGrid = chestGrid;
+  if(chestExtendedContainer && chestExtendedContainer.classList.contains('active')) {
+    var chestGridExtended = document.getElementById('chest-grid-extended');
+    if(chestGridExtended) {
+      targetGrid = chestGridExtended;
+    }
+  }
+  
+  targetGrid.innerHTML = '';
+  
+  if(!inventory || Object.keys(inventory).length === 0) {
+    targetGrid.innerHTML = '<p style="color:#888;padding:20px;grid-column:1/-1;">Chest is empty</p>';
+    return;
+  }
+  
+  // Get inventory items (excluding special keys)
+  var items = [];
+  for(var key in inventory) {
+    if(key === 'keyRing') continue;
+    var count = inventory[key];
+    if(count > 0) {
+      items.push({
+        type: key,
+        name: formatItemName(key),
+        count: count
+      });
+    }
+  }
+  
+  // Sort items by name
+  items.sort(function(a, b) {
+    return a.name.localeCompare(b.name);
+  });
+  
+  // Create item elements
+  items.forEach(function(item) {
+    var itemDiv = createChestItemElement(item);
+    targetGrid.appendChild(itemDiv);
+  });
+};
+
+var formatItemName = function(itemType) {
+  return itemType.charAt(0).toUpperCase() + itemType.slice(1).replace(/([A-Z])/g, ' $1');
+};
+
+var createChestItemElement = function(item) {
+  var itemDiv = document.createElement('div');
+  itemDiv.className = 'inventory-item';
+  itemDiv.dataset.itemType = item.type;
+  itemDiv.dataset.itemName = item.name;
+  
+  // Create tooltip
+  var tooltip = document.createElement('div');
+  tooltip.className = 'inventory-item-tooltip';
+  tooltip.innerHTML = '<span>' + item.name + '</span> x' + item.count;
+  itemDiv.appendChild(tooltip);
+  
+  // Get item image
+  var itemImg = getInventoryItemImage(item.type, item.count);
+  if(itemImg) {
+    var img = document.createElement('img');
+    img.src = itemImg.src;
+    img.style.width = '100%';
+    img.style.height = '100%';
+    img.style.objectFit = 'contain';
+    img.style.pointerEvents = 'none';
+    itemDiv.appendChild(img);
+  } else {
+    // Fallback text
+    var placeholder = document.createElement('div');
+    placeholder.style.fontSize = '12px';
+    placeholder.style.color = '#ffffff';
+    placeholder.style.textAlign = 'center';
+    placeholder.style.padding = '10px';
+    placeholder.style.pointerEvents = 'none';
+    placeholder.textContent = item.name;
+    itemDiv.appendChild(placeholder);
+  }
+  
+  // Click handler - take item from chest
+  itemDiv.onclick = function(e) {
+    e.stopPropagation();
+    if(chestTransferInProgress || (typeof window !== 'undefined' && window.chestTransferInProgress)) {
+      return; // Prevent multiple simultaneous transfers
+    }
+    
+    if(currentChestId && socket) {
+      // For items with quantity > 1, show quantity modal
+      // For items with quantity 1, transfer immediately
+      if(item.count > 1) {
+        openChestQuantityModal('take', item.type, item.name, item.count);
+      } else {
+        // Transfer immediately for single items
+        chestTransferInProgress = true;
+        if(typeof window !== 'undefined') {
+          window.chestTransferInProgress = true;
+        }
+        
+        socket.send(JSON.stringify({
+          msg: 'takeFromChest',
+          chestId: currentChestId,
+          itemType: item.type,
+          quantity: 1
+        }));
+      }
+    }
+  };
+  
+  return itemDiv;
+};
+
+var updateChestPlayerInventory = function(inventoryOverride) {
+  if(!chestPlayerInventoryGrid || !selfId) return;
+  
+  // Use provided inventory or get from player
+  var inventory = inventoryOverride;
+  if(!inventory && Player.list[selfId]) {
+    var player = Player.list[selfId];
+    inventory = player.inventory || {};
+  }
+  if(!inventory) return;
+  
+  chestPlayerInventoryGrid.innerHTML = '';
+  
+  if(!inventory || Object.keys(inventory).length === 0) {
+    chestPlayerInventoryGrid.innerHTML = '<p style="color:#888;padding:20px;grid-column:1/-1;">Your inventory is empty</p>';
+    return;
+  }
+  
+  // Get inventory items (excluding special keys)
+  var items = [];
+  for(var key in inventory) {
+    if(key === 'keyRing') continue;
+    var count = inventory[key];
+    if(count > 0) {
+      items.push({
+        type: key,
+        name: formatItemName(key),
+        count: count
+      });
+    }
+  }
+  
+  // Sort items by name
+  items.sort(function(a, b) {
+    return a.name.localeCompare(b.name);
+  });
+  
+  // Create item elements
+  items.forEach(function(item) {
+    var itemDiv = createChestPlayerItemElement(item);
+    chestPlayerInventoryGrid.appendChild(itemDiv);
+  });
+};
+
+var createChestPlayerItemElement = function(item) {
+  var itemDiv = document.createElement('div');
+  itemDiv.className = 'inventory-item';
+  itemDiv.dataset.itemType = item.type;
+  itemDiv.dataset.itemName = item.name;
+  
+  // Create tooltip
+  var tooltip = document.createElement('div');
+  tooltip.className = 'inventory-item-tooltip';
+  tooltip.innerHTML = '<span>Your ' + item.name + '</span> x' + item.count;
+  itemDiv.appendChild(tooltip);
+  
+  // Get item image
+  var itemImg = getInventoryItemImage(item.type, item.count);
+  if(itemImg) {
+    var img = document.createElement('img');
+    img.src = itemImg.src;
+    img.style.width = '100%';
+    img.style.height = '100%';
+    img.style.objectFit = 'contain';
+    img.style.pointerEvents = 'none';
+    itemDiv.appendChild(img);
+  } else {
+    // Fallback text
+    var placeholder = document.createElement('div');
+    placeholder.style.fontSize = '12px';
+    placeholder.style.color = '#ffffff';
+    placeholder.style.textAlign = 'center';
+    placeholder.style.padding = '10px';
+    placeholder.style.pointerEvents = 'none';
+    placeholder.textContent = item.name;
+    itemDiv.appendChild(placeholder);
+  }
+  
+  // Click handler - store item in chest
+  itemDiv.onclick = function(e) {
+    e.stopPropagation();
+    if(chestTransferInProgress || (typeof window !== 'undefined' && window.chestTransferInProgress)) {
+      return; // Prevent multiple simultaneous transfers
+    }
+    
+    if(currentChestId && socket) {
+      // For items with quantity > 1, show quantity modal
+      // For items with quantity 1, transfer immediately
+      if(item.count > 1) {
+        openChestQuantityModal('store', item.type, item.name, item.count);
+      } else {
+        // Transfer immediately for single items
+        chestTransferInProgress = true;
+        if(typeof window !== 'undefined') {
+          window.chestTransferInProgress = true;
+        }
+        
+        socket.send(JSON.stringify({
+          msg: 'storeInChest',
+          chestId: currentChestId,
+          itemType: item.type,
+          quantity: 1
+        }));
+      }
+    }
+  };
+  
+  return itemDiv;
+};
+
+var closeChestWindow = function() {
+  if(chestPopup) {
+    chestPopup.style.display = 'none';
+  }
+  currentChestId = null;
+  currentChestType = null;
+  chestExtended = false;
+  if(chestExtendedContainer) {
+    chestExtendedContainer.classList.remove('active');
+  }
+  if(typeof window !== 'undefined') {
+    window.currentChestInventory = null;
+  }
+};
+
+// Chest close button handler
+if(chestClose) {
+  chestClose.onclick = function() {
+    closeChestWindow();
+  };
+}
+
+// Chest quantity modal functions
+var openChestQuantityModal = function(action, itemType, itemName, maxQuantity) {
+  if(!chestQuantityModal || !chestQuantitySlider || !chestQuantityValue) return;
+  
+  currentChestAction = action;
+  currentChestItemType = itemType;
+  currentChestMaxQuantity = maxQuantity;
+  
+  // Set title
+  if(chestQuantityTitle) {
+    chestQuantityTitle.textContent = action === 'take' ? 'Take from Chest' : 'Store in Chest';
+  }
+  
+  // Set item name
+  if(chestQuantityItemName) {
+    chestQuantityItemName.textContent = itemName;
+  }
+  
+  // Set slider min, max and value (default to maximum available)
+  chestQuantitySlider.min = '1';
+  chestQuantitySlider.max = maxQuantity.toString();
+  chestQuantitySlider.value = maxQuantity.toString();
+  chestQuantityValue.textContent = maxQuantity.toString();
+  
+  // Update value display when slider changes
+  chestQuantitySlider.oninput = function() {
+    chestQuantityValue.textContent = this.value;
+  };
+  
+  // Show modal
+  chestQuantityModal.style.display = 'block';
+};
+
+var closeChestQuantityModal = function() {
+  if(chestQuantityModal) {
+    chestQuantityModal.style.display = 'none';
+  }
+  currentChestAction = null;
+  currentChestItemType = null;
+  currentChestMaxQuantity = 1;
+};
+
+// Chest quantity modal button handlers
+if(chestQuantityConfirmBtn) {
+  chestQuantityConfirmBtn.onclick = function() {
+    if(chestTransferInProgress || (typeof window !== 'undefined' && window.chestTransferInProgress)) {
+      return; // Prevent multiple simultaneous transfers
+    }
+    
+    if(currentChestAction && currentChestItemType && currentChestId && socket) {
+      var quantity = parseInt(chestQuantitySlider.value) || 1;
+      quantity = Math.max(1, Math.min(quantity, currentChestMaxQuantity));
+      
+      // Set flag to prevent multiple requests
+      chestTransferInProgress = true;
+      if(typeof window !== 'undefined') {
+        window.chestTransferInProgress = true;
+      }
+      
+      socket.send(JSON.stringify({
+        msg: currentChestAction === 'take' ? 'takeFromChest' : 'storeInChest',
+        chestId: currentChestId,
+        itemType: currentChestItemType,
+        quantity: quantity
+      }));
+      
+      closeChestQuantityModal();
+    }
+  };
+}
+
+if(chestQuantityCancelBtn) {
+  chestQuantityCancelBtn.onclick = function() {
+    closeChestQuantityModal();
+  };
+}
 
 // Drop quantity confirm handler
 if(dropConfirmBtn){

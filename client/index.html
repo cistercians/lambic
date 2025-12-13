@@ -278,6 +278,131 @@
     margin-top: -40px;
   }
 
+  /* Chest Popup */
+  #chest-popup {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 600px;
+    max-height: 80vh;
+    background-color: rgba(0, 0, 0, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 10px;
+    padding: 20px;
+    z-index: 300;
+    pointer-events: auto;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.9);
+    transition: width 0.2s ease;
+  }
+  
+  /* Make popup wider when extended view is active to maintain item sizes */
+  #chest-popup.extended {
+    width: 1200px;
+    max-width: 95vw;
+  }
+
+  #chest-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    color: white;
+  }
+
+  #chest-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+  }
+
+  #chest-close:hover {
+    color: #ff6666;
+  }
+
+  #chest-container {
+    width: 100%;
+  }
+
+  #chest-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 10px;
+    max-height: 60vh;
+    overflow-y: auto;
+    box-sizing: border-box;
+  }
+
+  #chest-extended-container {
+    display: none;
+    margin-top: 20px;
+    width: 100%;
+  }
+
+  #chest-extended-container.active {
+    display: grid;
+    grid-template-columns: 1fr 2px 1fr;
+    gap: 20px;
+    align-items: start;
+    box-sizing: border-box;
+  }
+  
+  /* Ensure both grids in extended view get equal space and maintain item sizes */
+  #chest-extended-container.active > * {
+    min-width: 0;
+  }
+
+  #chest-grid-extended {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 10px;
+    max-height: 60vh;
+    overflow-y: auto;
+    min-width: 0;
+    box-sizing: border-box;
+    width: 100%;
+  }
+
+  #chest-extended-divider {
+    width: 2px;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.3);
+    flex-shrink: 0;
+  }
+
+  #chest-player-inventory-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 10px;
+    max-height: 60vh;
+    overflow-y: auto;
+    min-width: 0;
+    box-sizing: border-box;
+    width: 100%;
+  }
+
+  /* Ensure inventory items maintain consistent size in both regular and extended views */
+  #chest-grid .inventory-item,
+  #chest-grid-extended .inventory-item,
+  #chest-player-inventory-grid .inventory-item {
+    aspect-ratio: 1;
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  
+  /* Ensure grids maintain consistent column sizing */
+  #chest-grid,
+  #chest-grid-extended,
+  #chest-player-inventory-grid {
+    box-sizing: border-box;
+  }
+
   .inventory-item {
     position: relative;
     background-color: rgba(0, 0, 0, 0.5);
@@ -494,6 +619,29 @@
     display: flex;
     gap: 10px;
     justify-content: flex-end;
+  }
+
+  /* Chest Quantity Modal */
+  #chest-quantity-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: rgba(0, 0, 0, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 10px;
+    padding: 20px;
+    z-index: 1001;
+    min-width: 400px;
+  }
+
+  #chest-quantity-modal h4 {
+    color: white;
+    margin: 0 0 15px 0;
+  }
+
+  #chest-quantity-slider-container {
+    margin-bottom: 15px;
   }
 
   /* Market Popup */
@@ -1592,6 +1740,23 @@
       <div id="inventory-grid"></div>
     </div>
     
+    <!-- Chest Popup (hidden) -->
+    <div id="chest-popup" style="display: none;">
+      <div id="chest-header">
+        <h3 style="margin: 0;" id="chest-title">Chest</h3>
+        <button id="chest-close">✕</button>
+      </div>
+      <div id="chest-container">
+        <div id="chest-grid"></div>
+      </div>
+      <div id="chest-extended-container">
+        <div id="chest-grid-extended"></div>
+        <div id="chest-extended-divider"></div>
+        <div id="chest-player-inventory-grid"></div>
+      </div>
+      <div id="chest-hint" style="color: #aaa; font-size: 12px; margin-top: 10px; text-align: center;">Press <b>B</b> to view your inventory</div>
+    </div>
+    
     <!-- Character Popup (hidden) -->
     <div id="character-popup" style="display: none;">
       <div id="character-header">
@@ -1675,6 +1840,22 @@
       <div class="modal-buttons">
         <button id="drop-confirm-btn">Drop</button>
         <button id="drop-cancel-btn">Cancel</button>
+      </div>
+    </div>
+    
+    <!-- Chest Quantity Modal (hidden) -->
+    <div id="chest-quantity-modal" style="display: none;">
+      <h4 id="chest-quantity-title">Transfer Item</h4>
+      <div id="chest-quantity-slider-container">
+        <div class="deposit-slider-label">
+          <span class="deposit-slider-name" id="chest-quantity-item-name">Item</span>
+          <span class="deposit-slider-value" id="chest-quantity-value">1</span>
+        </div>
+        <input type="range" id="chest-quantity-slider" class="deposit-slider" min="1" max="1" value="1">
+      </div>
+      <div class="modal-buttons">
+        <button id="chest-quantity-confirm-btn">Confirm</button>
+        <button id="chest-quantity-cancel-btn">Cancel</button>
       </div>
     </div>
     

@@ -200,7 +200,55 @@ Interact = function(id,loc){
         }
       }
     } else { // item outside
-
+      // Check for chests on overworld
+      var chest = null;
+      var c = getCenter(loc[0],loc[1]);
+      var chestLoc = getLoc(c[0], c[1]);
+      
+      // Find chest at this location
+      for(var itemId in Item.list){
+        var item = Item.list[itemId];
+        if(item && item.z === player.z && (item.type === 'Chest' || item.type === 'LockedChest')){
+          var itemLoc = getLoc(item.x, item.y);
+          if(itemLoc[0] === chestLoc[0] && itemLoc[1] === chestLoc[1]){
+            chest = item;
+            break;
+          }
+        }
+      }
+      
+      if(chest){
+        // Check if locked chest and player has key
+        if(chest.type === 'LockedChest'){
+          var hasKey = false;
+          if(player.inventory && player.inventory.keyRing){
+            for(var k in player.inventory.keyRing){
+              var key = player.inventory.keyRing[k];
+              if(key && (key.id === chest.id || key === chest.id)){
+                hasKey = true;
+                break;
+              }
+            }
+          }
+          
+          if(!hasKey){
+            socket.write(JSON.stringify({
+              msg: 'addToChat',
+              message: '<i>This chest is locked. You need a key to open it.</i>'
+            }));
+            return;
+          }
+        }
+        
+        // Open chest inventory window
+        socket.write(JSON.stringify({
+          msg: 'openChest',
+          chestId: chest.id,
+          chestType: chest.type,
+          inventory: chest.inventory || {},
+          playerInventory: player.inventory || {}
+        }));
+      }
     }
   } else { // item inside, in cave, in dungeon or underwater
     var item = getItem(player.z,loc[0],loc[1]);
@@ -345,6 +393,55 @@ Interact = function(id,loc){
           }
         }
       }
+    }
+    
+    // Check for chests on all z-levels (inside buildings, caves, etc.)
+    var chest = null;
+    var chestLoc = loc;
+    
+    // Find chest at this location
+    for(var itemId in Item.list){
+      var item = Item.list[itemId];
+      if(item && item.z === player.z && (item.type === 'Chest' || item.type === 'LockedChest')){
+        var itemLoc = getLoc(item.x, item.y);
+        if(itemLoc[0] === chestLoc[0] && itemLoc[1] === chestLoc[1]){
+          chest = item;
+          break;
+        }
+      }
+    }
+    
+    if(chest){
+      // Check if locked chest and player has key
+      if(chest.type === 'LockedChest'){
+        var hasKey = false;
+        if(player.inventory && player.inventory.keyRing){
+          for(var k in player.inventory.keyRing){
+            var key = player.inventory.keyRing[k];
+            if(key && (key.id === chest.id || key === chest.id)){
+              hasKey = true;
+              break;
+            }
+          }
+        }
+        
+        if(!hasKey){
+          socket.write(JSON.stringify({
+            msg: 'addToChat',
+            message: '<i>This chest is locked. You need a key to open it.</i>'
+          }));
+          return;
+        }
+      }
+      
+      // Open chest inventory window
+      socket.write(JSON.stringify({
+        msg: 'openChest',
+        chestId: chest.id,
+        chestType: chest.type,
+        inventory: chest.inventory || {},
+        playerInventory: player.inventory || {}
+      }));
     }
   }
 }

@@ -283,12 +283,71 @@ class InputHandler {
           }
         }
       } else if (event.keyCode === 66) { // b
-        // Open inventory popup
-        if (inventoryPopup && inventoryPopup.style.display !== 'block') {
-          inventoryPopup.style.display = 'block';
-          updateInventoryDisplay();
-        } else if (inventoryPopup) {
-          inventoryPopup.style.display = 'none';
+        // Check if chest window is open
+        var chestPopup = document.getElementById('chest-popup');
+        if (chestPopup && chestPopup.style.display === 'block') {
+          // Toggle extended view (player inventory side-by-side)
+          var chestExtendedContainer = document.getElementById('chest-extended-container');
+          var chestHint = document.getElementById('chest-hint');
+          if (chestExtendedContainer) {
+            var chestPopup = document.getElementById('chest-popup');
+            if (!chestExtendedContainer.classList.contains('active')) {
+              // Show extended view
+              chestExtendedContainer.classList.add('active');
+              if (chestPopup) chestPopup.classList.add('extended');
+              if (chestHint) chestHint.style.display = 'none';
+              // Update global extended state
+              if (typeof window !== 'undefined' && typeof currentChestId !== 'undefined') {
+                window.chestExtended = true;
+              }
+              // Hide regular chest grid, show extended grid
+              var chestGrid = document.getElementById('chest-grid');
+              var chestGridExtended = document.getElementById('chest-grid-extended');
+              if (chestGrid) chestGrid.style.display = 'none';
+              if (chestGridExtended) chestGridExtended.style.display = 'grid';
+              // Update player inventory display (will be updated by server's openChest message)
+              if (typeof updateChestPlayerInventory !== 'undefined') {
+                // Get fresh inventory from player
+                // Use selfId from window (already declared in handleContextMenu)
+                const currentSelfId = (typeof window !== 'undefined' && window.selfId !== undefined) ? window.selfId : null;
+                if(currentSelfId && typeof Player !== 'undefined' && Player.list && Player.list[currentSelfId]) {
+                  updateChestPlayerInventory(Player.list[currentSelfId].inventory);
+                } else {
+                  updateChestPlayerInventory();
+                }
+              }
+              // Re-render chest inventory in extended grid
+              if (typeof updateChestDisplay !== 'undefined' && typeof window !== 'undefined' && window.currentChestInventory) {
+                updateChestDisplay(window.currentChestInventory);
+              }
+            } else {
+              // Hide extended view
+              chestExtendedContainer.classList.remove('active');
+              if (chestPopup) chestPopup.classList.remove('extended');
+              if (chestHint) chestHint.style.display = 'block';
+              // Update global extended state
+              if (typeof window !== 'undefined') {
+                window.chestExtended = false;
+              }
+              // Show regular chest grid, hide extended grid
+              var chestGrid = document.getElementById('chest-grid');
+              var chestGridExtended = document.getElementById('chest-grid-extended');
+              if (chestGrid) chestGrid.style.display = 'grid';
+              if (chestGridExtended) chestGridExtended.style.display = 'none';
+              // Re-render chest inventory in regular grid
+              if (typeof updateChestDisplay !== 'undefined' && typeof window !== 'undefined' && window.currentChestInventory) {
+                updateChestDisplay(window.currentChestInventory);
+              }
+            }
+          }
+        } else {
+          // Normal inventory popup toggle
+          if (inventoryPopup && inventoryPopup.style.display !== 'block') {
+            inventoryPopup.style.display = 'block';
+            updateInventoryDisplay();
+          } else if (inventoryPopup) {
+            inventoryPopup.style.display = 'none';
+          }
         }
       } else if (event.keyCode === 77) { // m
         // If worldmap is open, close it. Otherwise request data from server
@@ -632,7 +691,7 @@ class InputHandler {
           
           // Centralized interactable type lists (must match server-side configuration)
           const INTERACTABLE_BUILDING_TYPES = ['dock', 'mill', 'mine', 'lumbermill', 'stable', 'tavern', 'market', 'monastery'];
-          const INTERACTABLE_OBJECT_TYPES = ['Goods1', 'Goods2', 'Goods3', 'Goods4', 'Desk'];
+          const INTERACTABLE_OBJECT_TYPES = ['Goods1', 'Goods2', 'Goods3', 'Goods4', 'Desk', 'Chest', 'LockedChest'];
           
           // Helper function to check if building is interactable
           const isInteractableBuilding = (building) => {
@@ -855,6 +914,26 @@ class InputHandler {
             for (const itemId in Item.list) {
               const item = Item.list[itemId];
               if (item && item.z === player.z && isInteractableObject(item)) {
+                // Check if item is at the hovered tile location
+                const itemLoc = getLoc(item.x, item.y);
+                if (itemLoc[0] === hoveredTile[0] && itemLoc[1] === hoveredTile[1]) {
+                  this.config.hoveredInteractable = itemId;
+                  // Sync to window for backward compatibility
+                  if (typeof window !== 'undefined') {
+                    window.hoveredInteractable = itemId;
+                  }
+                  break;
+                }
+              }
+            }
+          }
+          
+          // Check for chests on all z-levels (Chest, LockedChest)
+          if (!this.config.hoveredInteractable) {
+            const hoveredTile = getLoc(worldX, worldY);
+            for (const itemId in Item.list) {
+              const item = Item.list[itemId];
+              if (item && item.z === player.z && (item.type === 'Chest' || item.type === 'LockedChest')) {
                 // Check if item is at the hovered tile location
                 const itemLoc = getLoc(item.x, item.y);
                 if (itemLoc[0] === hoveredTile[0] && itemLoc[1] === hoveredTile[1]) {
@@ -1526,8 +1605,8 @@ class InputHandler {
             worldY: worldY
           }));
           return; // Prevent further processing
-        } else if ((player.z === 1 || player.z === 2) && Item.list[this.config.hoveredInteractable]) {
-          // For items indoors, use interactWithPath (requires pathfinding)
+        } else if (Item.list[this.config.hoveredInteractable]) {
+          // For items (including chests on all z-levels), use interactWithPath (requires pathfinding)
           entityType = 'item';
           console.log('Right-click interaction with', entityType + ':', this.config.hoveredInteractable);
           socket.send(JSON.stringify({

@@ -78,12 +78,6 @@ class TakeCommand {
       return false;
     }
 
-    // Check for chest first
-    const chest = this.checkChest(z, pos[0], pos[1], player.id);
-    if (chest) {
-      return this.takeFromChest(player, itemType, quantity, chest, socket);
-    }
-
     // Take from ground
     return this.takeFromGround(player, itemType, quantity, z, pos[0], pos[1], socket);
   }
@@ -108,115 +102,6 @@ class TakeCommand {
       default:
         return null;
     }
-  }
-
-  /**
-   * Check if there's a chest at position
-   * @param {number} z - Z level
-   * @param {number} c - Column
-   * @param {number} r - Row
-   * @param {string} playerId - Player ID
-   * @returns {object|null} Chest entity or null
-   */
-  checkChest(z, c, r, playerId) {
-    const getItem = global.getItem || ((z, c, r) => {
-      const items = entityRegistry.getEntities('items') || 
-                   (global.Item && global.Item.list ? Object.values(global.Item.list) : []);
-      
-      for (const item of items) {
-        if (item.z === z && item.x !== undefined && item.y !== undefined) {
-          const itemLoc = global.getLoc ? global.getLoc(item.x, item.y) : 
-                         [Math.floor(item.x / 64), Math.floor(item.y / 64)];
-          if (itemLoc[0] === c && itemLoc[1] === r) {
-            if (item.type === 'Chest' || item.type === 'LockedChest') {
-              return item;
-            }
-          }
-        }
-      }
-      return null;
-    });
-
-    const itemType = getItem(z, c, r);
-    if (itemType === 'LockedChest' || itemType === 'Chest') {
-      const chestCheck = global.chestCheck || ((z, x, y, playerId) => {
-        const items = entityRegistry.getEntities('items') || [];
-        for (const item of items) {
-          if (item.type === 'Chest' || item.type === 'LockedChest') {
-            const itemCoords = global.getCoords ? global.getCoords(c, r) : [c * 64, r * 64];
-            if (Math.abs(item.x - itemCoords[0]) < 32 && Math.abs(item.y - itemCoords[1]) < 32) {
-              return item.id;
-            }
-          }
-        }
-        return null;
-      });
-
-      const getCoords = global.getCoords || ((c, r) => [c * 64, r * 64]);
-      const coords = getCoords(c, r);
-      const chestId = chestCheck(z, coords[0], coords[1], playerId);
-      
-      if (chestId) {
-        return { id: chestId, type: itemType };
-      }
-    }
-
-    return null;
-  }
-
-  /**
-   * Take item from chest
-   * @param {object} player - Player entity
-   * @param {string} itemType - Item type
-   * @param {number} quantity - Quantity to take
-   * @param {object} chest - Chest entity info
-   * @param {object} socket - Socket
-   * @returns {boolean} Success
-   */
-  takeFromChest(player, itemType, quantity, chest, socket) {
-    const chestEntity = entityRegistry.getEntity('items', chest.id) || 
-                       (global.Item && global.Item.list && global.Item.list[chest.id]);
-    
-    if (!chestEntity || !chestEntity.inventory) {
-      this.sendError(socket, 'You do not have the key to this chest.');
-      return false;
-    }
-
-    // Check if chest has enough
-    const chestAmount = chestEntity.inventory[itemType] || 0;
-    if (chestAmount < quantity) {
-      this.sendError(socket, `The chest does not contain that much ${this.formatItemName(itemType)}.`);
-      return false;
-    }
-
-    // Check player stack limit
-    const maxStack = this.getItemLimit(itemType);
-    const currentAmount = player.inventory[itemType] || 0;
-    
-    if (currentAmount + quantity > maxStack) {
-      this.sendError(socket, `You are already carrying too much ${this.formatItemName(itemType)}.`);
-      return false;
-    }
-
-    // Transfer items
-    chestEntity.inventory[itemType] -= quantity;
-    if (chestEntity.inventory[itemType] <= 0) {
-      chestEntity.inventory[itemType] = 0;
-    }
-
-    player.inventory[itemType] = currentAmount + quantity;
-
-    // Special handling for gold (blockchain)
-    if (itemType === 'gold' && player.wallet && global.GoldTradeManager) {
-      try {
-        global.GoldTradeManager.createMiningTransaction(player, quantity);
-      } catch (err) {
-        // Ignore blockchain errors
-      }
-    }
-
-    this.sendMessage(socket, `You took ${quantity} <b>${this.formatItemName(itemType)}</b> from the chest.`);
-    return true;
   }
 
   /**

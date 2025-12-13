@@ -136,25 +136,32 @@ class DropCommand {
       return false;
     }
 
-    // Check for chest
-    const chest = this.checkChest(z, pos[0], pos[1], player.id);
-    if (chest) {
-      if (chest.id === key.id) {
-        this.sendError(socket, 'You cannot lock the chest without the key.');
-        return false;
-      }
-      // Put key in chest
-      const chestEntity = entityRegistry.getEntity('items', chest.id) || 
-                         (global.Item && global.Item.list && global.Item.list[chest.id]);
-      if (chestEntity && chestEntity.inventory) {
-        player.inventory.key--;
-        player.inventory.keyRing.splice(num, 1);
-        if (!chestEntity.inventory.key) chestEntity.inventory.key = 0;
-        if (!chestEntity.inventory.keyRing) chestEntity.inventory.keyRing = [];
-        chestEntity.inventory.key++;
-        chestEntity.inventory.keyRing.push(key);
-        this.sendMessage(socket, `Placed key in chest.`);
-        return true;
+    // Check for chest (for key dropping only)
+    const items = entityRegistry.getEntities('items') || 
+                 (global.Item && global.Item.list ? Object.values(global.Item.list) : []);
+    
+    for (const item of items) {
+      if (item.z === z && item.x !== undefined && item.y !== undefined && 
+          (item.type === 'Chest' || item.type === 'LockedChest')) {
+        const itemLoc = global.getLoc ? global.getLoc(item.x, item.y) : 
+                       [Math.floor(item.x / 64), Math.floor(item.y / 64)];
+        if (itemLoc[0] === pos[0] && itemLoc[1] === pos[1]) {
+          if (item.id === key.id) {
+            this.sendError(socket, 'You cannot lock the chest without the key.');
+            return false;
+          }
+          // Put key in chest
+          if (item.inventory) {
+            player.inventory.key--;
+            player.inventory.keyRing.splice(num, 1);
+            if (!item.inventory.key) item.inventory.key = 0;
+            if (!item.inventory.keyRing) item.inventory.keyRing = [];
+            item.inventory.key++;
+            item.inventory.keyRing.push(key);
+            this.sendMessage(socket, `Placed key in chest.`);
+            return true;
+          }
+        }
       }
     }
 
@@ -207,12 +214,6 @@ class DropCommand {
     if (!pos) {
       this.sendError(socket, 'Cannot drop item in that direction.');
       return false;
-    }
-
-    // Check for chest
-    const chest = this.checkChest(z, pos[0], pos[1], player.id);
-    if (chest) {
-      return this.dropItemInChest(player, itemType, quantity, chest, socket);
     }
 
     // Drop item on ground or underwater
@@ -272,38 +273,6 @@ class DropCommand {
   }
 
   /**
-   * Drop item in chest
-   * @param {object} player - Player entity
-   * @param {string} itemType - Item type
-   * @param {number} quantity - Quantity
-   * @param {object} chest - Chest entity
-   * @param {object} socket - Socket
-   * @returns {boolean} Success
-   */
-  dropItemInChest(player, itemType, quantity, chest, socket) {
-    const chestEntity = entityRegistry.getEntity('items', chest.id) || 
-                       (global.Item && global.Item.list && global.Item.list[chest.id]);
-    
-    if (!chestEntity || !chestEntity.inventory) {
-      this.sendError(socket, 'You do not have the key to this chest.');
-      return false;
-    }
-
-    player.inventory[itemType] -= quantity;
-    if (!chestEntity.inventory[itemType]) {
-      chestEntity.inventory[itemType] = 0;
-    }
-    chestEntity.inventory[itemType] += quantity;
-    
-    if (player.inventory[itemType] <= 0) {
-      player.inventory[itemType] = 0;
-    }
-
-    this.sendMessage(socket, `Placed ${quantity} ${itemType} in chest.`);
-    return true;
-  }
-
-  /**
    * Get drop position based on facing direction
    * @param {string} facing - Facing direction
    * @param {number} c - Column
@@ -323,61 +292,6 @@ class DropCommand {
       default:
         return null;
     }
-  }
-
-  /**
-   * Check if there's a chest at position
-   * @param {number} z - Z level
-   * @param {number} c - Column
-   * @param {number} r - Row
-   * @param {string} playerId - Player ID
-   * @returns {object|null} Chest entity or null
-   */
-  checkChest(z, c, r, playerId) {
-    const getItem = global.getItem || ((z, c, r) => {
-      // Check for items at position
-      const items = entityRegistry.getEntities('items') || 
-                   (global.Item && global.Item.list ? Object.values(global.Item.list) : []);
-      
-      for (const item of items) {
-        if (item.z === z && item.x !== undefined && item.y !== undefined) {
-          const itemLoc = global.getLoc ? global.getLoc(item.x, item.y) : 
-                         [Math.floor(item.x / 64), Math.floor(item.y / 64)];
-          if (itemLoc[0] === c && itemLoc[1] === r) {
-            if (item.type === 'Chest' || item.type === 'LockedChest') {
-              return item;
-            }
-          }
-        }
-      }
-      return null;
-    });
-
-    const itemType = getItem(z, c, r);
-    if (itemType === 'LockedChest' || itemType === 'Chest') {
-      const chestCheck = global.chestCheck || ((z, x, y, playerId) => {
-        const items = entityRegistry.getEntities('items') || [];
-        for (const item of items) {
-          if (item.type === 'Chest' || item.type === 'LockedChest') {
-            const itemCoords = global.getCoords ? global.getCoords(c, r) : [c * 64, r * 64];
-            if (Math.abs(item.x - itemCoords[0]) < 32 && Math.abs(item.y - itemCoords[1]) < 32) {
-              return item.id;
-            }
-          }
-        }
-        return null;
-      });
-
-      const getCoords = global.getCoords || ((c, r) => [c * 64, r * 64]);
-      const coords = getCoords(c, r);
-      const chestId = chestCheck(z, coords[0], coords[1], playerId);
-      
-      if (chestId) {
-        return { id: chestId, type: itemType };
-      }
-    }
-
-    return null;
   }
 
   /**

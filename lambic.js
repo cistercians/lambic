@@ -111,7 +111,7 @@ const FACTION_IDS = {
 // Centralized lists of interactable building and object types
 // To add new interactables, simply add to these arrays
 const INTERACTABLE_BUILDING_TYPES = ['dock', 'mill', 'mine', 'lumbermill', 'stable', 'tavern', 'market', 'monastery'];
-const INTERACTABLE_OBJECT_TYPES = ['Goods1', 'Goods2', 'Goods3', 'Goods4', 'Desk'];
+const INTERACTABLE_OBJECT_TYPES = ['Goods1', 'Goods2', 'Goods3', 'Goods4', 'Desk', 'Chest', 'LockedChest'];
 
 // Helper functions to check if an entity is interactable
 function isInteractableBuilding(building) {
@@ -3132,6 +3132,19 @@ const Player = function(param) {
               if(item){
                 // Use item's location
                 interactionLoc = getLoc(item.x, item.y);
+                
+                // Face the chest/item
+                var itemLoc = interactionLoc;
+                var diffX = itemLoc[0] - playerLoc[0];
+                var diffY = itemLoc[1] - playerLoc[1];
+                
+                if(Math.abs(diffX) > Math.abs(diffY)){
+                  if(diffX > 0) self.facing = 'right';
+                  else self.facing = 'left';
+                } else {
+                  if(diffY > 0) self.facing = 'down';
+                  else self.facing = 'up';
+                }
               }
             } else if(self.pendingInteraction.type === 'ship'){
               // Ship boarding - validate ownership/dock status before boarding
@@ -8037,6 +8050,214 @@ io.on('connection', function(socket) {
                 }));
               }
             }
+          }
+        } else if (data.msg === 'takeFromChest') {
+          // Take item from chest to player inventory
+          if (player && data.chestId && data.itemType && data.quantity) {
+            const chest = Item.list[data.chestId];
+            if (!chest || (chest.type !== 'Chest' && chest.type !== 'LockedChest')) {
+              socket.write(JSON.stringify({
+                msg: 'addToChat',
+                message: '<i>Chest not found.</i>'
+              }));
+              return;
+            }
+            
+            // Check if locked chest and player has key
+            if (chest.type === 'LockedChest') {
+              var hasKey = false;
+              if (player.inventory && player.inventory.keyRing) {
+                for (var k in player.inventory.keyRing) {
+                  var key = player.inventory.keyRing[k];
+                  if (key && (key.id === chest.id || key === chest.id)) {
+                    hasKey = true;
+                    break;
+                  }
+                }
+              }
+              if (!hasKey) {
+                socket.write(JSON.stringify({
+                  msg: 'addToChat',
+                  message: '<i>This chest is locked. You need a key to open it.</i>'
+                }));
+                return;
+              }
+            }
+            
+            // Ensure chest has inventory
+            if (!chest.inventory) {
+              chest.inventory = Inventory();
+            }
+            
+            const itemType = data.itemType;
+            
+            // Validate quantity is a positive integer
+            const requestedQuantity = parseInt(data.quantity);
+            if (isNaN(requestedQuantity) || requestedQuantity <= 0) {
+              socket.write(JSON.stringify({
+                msg: 'addToChat',
+                message: '<i>Invalid quantity.</i>'
+              }));
+              return;
+            }
+            
+            // Get ACTUAL chest inventory value (not client-provided)
+            const chestAmount = chest.inventory[itemType] || 0;
+            
+            // Validate chest actually has the item
+            if (chestAmount <= 0) {
+              socket.write(JSON.stringify({
+                msg: 'addToChat',
+                message: '<i>The chest does not contain that item.</i>'
+              }));
+              return;
+            }
+            
+            // Get player stack limit
+            const { itemFactory } = require('./server/js/entities/ItemFactory');
+            const itemConfig = itemFactory.itemConfigs[itemType];
+            const maxStack = itemConfig ? itemConfig.maxStack : 10;
+            const playerAmount = player.inventory[itemType] || 0;
+            
+            // Calculate how much can actually be taken (limited by chest amount and player capacity)
+            const availableInChest = chestAmount;
+            const playerCapacity = maxStack - playerAmount;
+            
+            if (playerCapacity <= 0) {
+              socket.write(JSON.stringify({
+                msg: 'addToChat',
+                message: '<i>You are already carrying too much of that item.</i>'
+              }));
+              return;
+            }
+            
+            // Determine actual transfer quantity (min of requested, available, and capacity)
+            const transferQuantity = Math.min(requestedQuantity, availableInChest, playerCapacity);
+            
+            if (transferQuantity <= 0) {
+              socket.write(JSON.stringify({
+                msg: 'addToChat',
+                message: '<i>Cannot transfer that quantity.</i>'
+              }));
+              return;
+            }
+            
+            // Perform atomic transfer
+            chest.inventory[itemType] = chestAmount - transferQuantity;
+            if (chest.inventory[itemType] <= 0) {
+              chest.inventory[itemType] = 0;
+            }
+            player.inventory[itemType] = playerAmount + transferQuantity;
+            
+            socket.write(JSON.stringify({
+              msg: 'addToChat',
+              message: `<i>You took ${transferQuantity} ${itemType} from the chest.</i>`
+            }));
+            
+            // Update chest window with new inventory
+            socket.write(JSON.stringify({
+              msg: 'openChest',
+              chestId: chest.id,
+              chestType: chest.type,
+              inventory: chest.inventory,
+              playerInventory: player.inventory
+            }));
+          }
+        } else if (data.msg === 'storeInChest') {
+          // Store item from player inventory to chest
+          if (player && data.chestId && data.itemType && data.quantity) {
+            const chest = Item.list[data.chestId];
+            if (!chest || (chest.type !== 'Chest' && chest.type !== 'LockedChest')) {
+              socket.write(JSON.stringify({
+                msg: 'addToChat',
+                message: '<i>Chest not found.</i>'
+              }));
+              return;
+            }
+            
+            // Check if locked chest and player has key
+            if (chest.type === 'LockedChest') {
+              var hasKey = false;
+              if (player.inventory && player.inventory.keyRing) {
+                for (var k in player.inventory.keyRing) {
+                  var key = player.inventory.keyRing[k];
+                  if (key && (key.id === chest.id || key === chest.id)) {
+                    hasKey = true;
+                    break;
+                  }
+                }
+              }
+              if (!hasKey) {
+                socket.write(JSON.stringify({
+                  msg: 'addToChat',
+                  message: '<i>This chest is locked. You need a key to open it.</i>'
+                }));
+                return;
+              }
+            }
+            
+            // Ensure chest has inventory
+            if (!chest.inventory) {
+              chest.inventory = Inventory();
+            }
+            
+            const itemType = data.itemType;
+            
+            // Validate quantity is a positive integer
+            const requestedQuantity = parseInt(data.quantity);
+            if (isNaN(requestedQuantity) || requestedQuantity <= 0) {
+              socket.write(JSON.stringify({
+                msg: 'addToChat',
+                message: '<i>Invalid quantity.</i>'
+              }));
+              return;
+            }
+            
+            // Get ACTUAL player inventory value (not client-provided)
+            const playerAmount = player.inventory[itemType] || 0;
+            
+            // Validate player actually has the item
+            if (playerAmount <= 0) {
+              socket.write(JSON.stringify({
+                msg: 'addToChat',
+                message: '<i>You do not have that item.</i>'
+              }));
+              return;
+            }
+            
+            // Calculate how much can actually be stored (limited by player amount)
+            const availableFromPlayer = playerAmount;
+            const transferQuantity = Math.min(requestedQuantity, availableFromPlayer);
+            
+            if (transferQuantity <= 0) {
+              socket.write(JSON.stringify({
+                msg: 'addToChat',
+                message: '<i>Cannot transfer that quantity.</i>'
+              }));
+              return;
+            }
+            
+            // Perform atomic transfer
+            const chestAmount = chest.inventory[itemType] || 0;
+            chest.inventory[itemType] = chestAmount + transferQuantity;
+            player.inventory[itemType] = playerAmount - transferQuantity;
+            if (player.inventory[itemType] <= 0) {
+              player.inventory[itemType] = 0;
+            }
+            
+            socket.write(JSON.stringify({
+              msg: 'addToChat',
+              message: `<i>You stored ${transferQuantity} ${itemType} in the chest.</i>`
+            }));
+            
+            // Update chest window with new inventory
+            socket.write(JSON.stringify({
+              msg: 'openChest',
+              chestId: chest.id,
+              chestType: chest.type,
+              inventory: chest.inventory,
+              playerInventory: player.inventory
+            }));
           }
         } else if (data.msg === 'depositResources') {
           // Handle resource deposits from deposit UI

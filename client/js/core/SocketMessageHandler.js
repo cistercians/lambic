@@ -50,6 +50,8 @@ var SocketMessageHandler = {
       this.handleOpenDock(data);
     } else if(data.msg == 'openDeposit'){
       this.handleOpenDeposit(data);
+    } else if(data.msg == 'openChest'){
+      this.handleOpenChest(data);
     } else if(data.msg == 'disembarkShip'){
       this.handleDisembarkShip(data);
     } else if(data.msg == 'fishCatch'){
@@ -525,6 +527,26 @@ var SocketMessageHandler = {
     }
   },
 
+  handleOpenChest: function(data) {
+    // Update player entity inventory immediately (not throttled like update packets)
+    if(typeof window !== 'undefined' && window.selfId && typeof Player !== 'undefined' && Player.list && Player.list[window.selfId]) {
+      var player = Player.list[window.selfId];
+      if(data.playerInventory) {
+        // Update the actual player entity inventory
+        player.inventory = data.playerInventory;
+      }
+    }
+    
+    // Open chest inventory window
+    if(typeof openChestWindow !== 'undefined') {
+      openChestWindow(data.chestId, data.chestType, data.inventory, data.playerInventory);
+    }
+    // Reset transfer flag when inventory is updated
+    if(typeof window !== 'undefined') {
+      window.chestTransferInProgress = false;
+    }
+  },
+
   handleDisembarkShip: function(data) {
     // Player is disembarking - switch control back to player character
     if(data.newSelfId){
@@ -908,6 +930,11 @@ var SocketMessageHandler = {
         if(pack.boardedShip != undefined) p.boardedShip = pack.boardedShip;
         
         // Throttle non-visual updates to 500ms (2 Hz) instead of every packet (25 Hz)
+        // EXCEPTION: Always update inventory immediately (important for chest transfers and other real-time operations)
+        if(pack.inventory != undefined) {
+          p.inventory = pack.inventory;
+        }
+        
         var now = Date.now();
         if (now - p._lastNonVisualUpdate > 500) {
           if(pack.name != undefined) p.name = pack.name;
@@ -917,7 +944,6 @@ var SocketMessageHandler = {
           if(pack.friends != undefined) p.friends = pack.friends;
           if(pack.enemies != undefined) p.enemies = pack.enemies;
           if(pack.gear != undefined) p.gear = pack.gear;
-          if(pack.inventory != undefined) p.inventory = pack.inventory;
           if(pack.kills != undefined) p.kills = pack.kills;
           if(pack.skulls != undefined) p.skulls = pack.skulls;
           
