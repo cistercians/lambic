@@ -1567,7 +1567,7 @@ var renderCursor = () => {
 
 // Start the game loop
 if (gameLoopManager?.start) {
-  gameLoopManager.start({ selfId, loginCameraSystem, spectateCameraSystem, godModeCamera, world, tileSize, mapSize, getTargetZoom, currentZoom, zoomTransitionSpeed, targetZoom, ctx, WIDTH, HEIGHT, renderMap, renderUnified, getCurrentZ, nightfall, getCameraPosition, getWeatherEffects, updateRain, renderRain, updatePlayerPortraitHUD, updateTargetPortraitHUD, renderCursor, buildPreviewMode, buildPreviewType, renderBuildingPreview, updateAnimations, Player, viewport });
+  gameLoopManager.start({ selfId, loginCameraSystem, spectateCameraSystem, godModeCamera, world, tileSize, mapSize, getTargetZoom, currentZoom, zoomTransitionSpeed, targetZoom, ctx, WIDTH, HEIGHT, renderMap, renderUnified, getCurrentZ, nightfall, getCameraPosition, getWeatherEffects, updateRain, renderRain, updatePlayerPortraitHUD, updateTargetPortraitHUD, renderCursor, buildPreviewMode, buildPreviewType, renderBuildingPreview, updateAnimations, Player, viewport, selectedTarget });
 } else {
   console.warn('GameLoopManager not available, using legacy game loop');
   requestAnimationFrame(gameLoop);

@@ -27,6 +27,112 @@ class GameLoopManager {
   }
 
   /**
+   * Check if selected target is still visible and on same z-level
+   * Automatically deselects if target moves out of viewport or z-level changes
+   * Does NOT deselect if player is in combat with the target
+   * @param {object} config - Configuration object with all dependencies
+   */
+  checkTargetVisibility(config) {
+    // Get selectedTarget from window (most up-to-date) or config
+    const selectedTarget = (typeof window !== 'undefined' && window.selectedTarget !== undefined) 
+      ? window.selectedTarget 
+      : (config.selectedTarget !== undefined ? config.selectedTarget : null);
+    
+    // No target selected, nothing to check
+    if (!selectedTarget) {
+      return;
+    }
+    
+    const selfId = (typeof window !== 'undefined' && window.selfId !== undefined && window.selfId !== null) 
+      ? window.selfId 
+      : (config.selfId !== undefined ? config.selfId : null);
+    const Player = config.Player;
+    const viewport = config.viewport;
+    const tileSize = config.tileSize;
+    const getCurrentZ = config.getCurrentZ;
+    
+    // Need player and target entities to check
+    if (!selfId || !Player || !Player.list || !Player.list[selfId]) {
+      return;
+    }
+    
+    const player = Player.list[selfId];
+    const targetEntity = Player.list[selectedTarget];
+    
+    // Target entity doesn't exist anymore, deselect
+    if (!targetEntity) {
+      this.clearTarget(config);
+      return;
+    }
+    
+    // IMPORTANT: Skip deselection if player is in combat with the target
+    if (player.combat && player.combat.target === selectedTarget) {
+      return; // Don't deselect during combat
+    }
+    
+    // Check z-level mismatch
+    const playerZ = getCurrentZ ? getCurrentZ() : player.z;
+    if (targetEntity.z !== playerZ) {
+      // Z-levels don't match, deselect
+      this.clearTarget(config);
+      return;
+    }
+    
+    // Check viewport visibility
+    if (!viewport || !viewport.startTile || !viewport.endTile || !tileSize) {
+      return; // Can't check visibility without viewport data
+    }
+    
+    // Calculate viewport world bounds
+    // Viewport bounds are in tile coordinates, convert to world coordinates
+    const margin = 100; // Extra margin for smooth scrolling (same as used in rendering)
+    const viewportLeft = (viewport.startTile[0] - 1) * tileSize - margin;
+    const viewportRight = (viewport.endTile[0] + 2) * tileSize + margin;
+    const viewportTop = (viewport.startTile[1] - 1) * tileSize - margin;
+    const viewportBottom = (viewport.endTile[1] + 2) * tileSize + margin;
+    
+    // Check if target is within viewport bounds
+    const targetX = targetEntity.x;
+    const targetY = targetEntity.y;
+    
+    if (targetX < viewportLeft || targetX > viewportRight ||
+        targetY < viewportTop || targetY > viewportBottom) {
+      // Target is outside viewport, deselect
+      this.clearTarget(config);
+      return;
+    }
+  }
+
+  /**
+   * Clear selected target (helper method for automatic deselection)
+   * @param {object} config - Configuration object with all dependencies
+   */
+  clearTarget(config) {
+    // Clear selectedTarget from window (primary source)
+    if (typeof window !== 'undefined') {
+      window.selectedTarget = null;
+    }
+    
+    // Also clear from config if it exists
+    if (config && config.selectedTarget !== undefined) {
+      config.selectedTarget = null;
+    }
+    
+    // Also clear from InputHandler config if available
+    if (typeof window !== 'undefined' && window.inputHandler && window.inputHandler.config) {
+      window.inputHandler.config.selectedTarget = null;
+    }
+    
+    // Force hide target HUD immediately
+    const targetHud = document.getElementById('target-portrait-hud');
+    if (targetHud) {
+      targetHud.classList.remove('active');
+    }
+    
+    console.log('Target automatically deselected (out of viewport or z-level mismatch)');
+  }
+
+  /**
    * Main game loop
    * @param {object} config - Configuration object with all dependencies
    */
@@ -339,6 +445,9 @@ class GameLoopManager {
     // Update portrait HUDs (real-time HP/Spirit updates)
     updatePlayerPortraitHUD();
     updateTargetPortraitHUD();
+    
+    // Check target visibility and auto-deselect if needed (after HUD update)
+    this.checkTargetVisibility(config);
     
     // Render custom cursor (after all game content)
     renderCursor();

@@ -34,6 +34,31 @@ class InputHandler {
   }
 
   /**
+   * Clear selected target and related state
+   * Helper method for reusable deselection logic
+   */
+  clearTarget() {
+    // Clear selected target and attack command mode
+    this.config.selectedTarget = null;
+    // Also sync to global variable for backward compatibility
+    if(typeof window !== 'undefined') {
+      window.selectedTarget = null;
+    }
+    this.config.attackCommandMode = false;
+    // Sync attack command mode to window for cursor renderer
+    if(typeof window !== 'undefined') {
+      window.attackCommandMode = false;
+    }
+    console.log('Target and attack mode cleared');
+    
+    // Force hide target HUD immediately
+    const targetHud = document.getElementById('target-portrait-hud');
+    if (targetHud) {
+      targetHud.classList.remove('active');
+    }
+  }
+
+  /**
    * Handle keydown events
    * @param {KeyboardEvent} event - Keyboard event
    */
@@ -379,20 +404,8 @@ class InputHandler {
           this.config.buildPreviewType = null;
           this.config.buildPreviewData = null;
         }
-        // Clear selected target and attack command mode
-        this.config.selectedTarget = null;
-        // Also sync to global variable for backward compatibility
-        if(typeof window !== 'undefined') {
-          window.selectedTarget = null;
-        }
-        this.config.attackCommandMode = false;
-        console.log('Target and attack mode cleared with Escape');
-        
-        // Force hide target HUD immediately
-        const targetHud = document.getElementById('target-portrait-hud');
-        if (targetHud) {
-          targetHud.classList.remove('active');
-        }
+        // Clear selected target using helper method
+        this.clearTarget();
       } else if (event.keyCode === 78) { // n
         socket.send(JSON.stringify({ msg: 'keyPress', inputId: 'n', state: true }));
       } else if (event.keyCode === 49) { // 1
@@ -1162,8 +1175,13 @@ class InputHandler {
         if (typeof window !== 'undefined') {
           window.attackCommandMode = false;
         }
+      } else {
+        // Left-click on terrain (not in attack command mode) - deselect target
+        // Only deselect if we have a target selected
+        if (this.config.selectedTarget) {
+          this.clearTarget();
+        }
       }
-      // Target persists even when clicking terrain (only cleared by selecting a different target)
     }
   }
 
