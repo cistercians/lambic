@@ -5109,6 +5109,15 @@ Player.update = function() {
       else {
         shouldUpdate = (Player._updateFrame % 2 === 0);
       }
+    } else if(player.type === 'fauna'){
+      // Falcons should always update every frame for smooth flight animation
+      // Other fauna (if any) can be throttled if needed
+      if(player.class === 'Falcon'){
+        shouldUpdate = true; // Always update falcons for smooth flight
+      } else {
+        // Other fauna update every 6th frame (same as peaceful NPCs)
+        shouldUpdate = (Player._updateFrame % 6 === 0);
+      }
     } else {
       // Always update human players every frame
       shouldUpdate = true;

@@ -80,106 +80,17 @@ module.exports = function(Character, globals) {
           }
         }
       } else {
-        var dx = self.path[0];
-        var dy = self.path[1];
-        var diffX = dx - self.x;
-        var diffY = dy - self.y;
-
-        if(diffX >= self.maxSpd && diffY >= self.maxSpd){
-          self.x += self.maxSpd * (1);
-          self.y += self.maxSpd * (1);
-          if(diffX > diffY){
-            self.pressingRight = true;
-            self.pressingLeft = false;
-            self.pressingDown = false;
-            self.pressingUp = false;
-            self.facing = 'right';
-          } else {
-            self.pressingRight = false;
-            self.pressingLeft = false;
-            self.pressingDown = true;
-            self.pressingUp = false;
-            self.facing = 'down';
-          }
-        } else if(diffX >= self.maxSpd && diffY <= (0-self.maxSpd)){
-          self.x += self.maxSpd * (1);
-          self.y -= self.maxSpd * (1);
-          if(diffX > diffY*(-1)){
-            self.pressingRight = true;
-            self.pressingLeft = false;
-            self.pressingDown = false;
-            self.pressingUp = false;
-            self.facing = 'right';
-          } else {
-            self.pressingRight = false;
-            self.pressingLeft = false;
-            self.pressingDown = false;
-            self.pressingUp = true;
-            self.facing = 'up';
-          }
-        } else if(diffX <= (0-self.maxSpd) && diffY >= self.maxSpd){
-          self.x -= self.maxSpd * (1);
-          self.y += self.maxSpd * (1);
-          if(diffX*(-1) > diffY){
-            self.pressingRight = false;
-            self.pressingLeft = true;
-            self.pressingDown = false;
-            self.pressingUp = false;
-            self.facing = 'left';
-          } else {
-            self.pressingRight = false;
-            self.pressingLeft = false;
-            self.pressingDown = true;
-            self.pressingUp = false;
-            self.facing = 'down';
-          }
-        } else if(diffX <= (0-self.maxSpd) && diffY <= (0-self.maxSpd)){
-          self.x -= self.maxSpd * (1);
-          self.y -= self.maxSpd * (1);
-          if(diffX < diffY){
-            self.pressingRight = false;
-            self.pressingLeft = true;
-            self.pressingDown = false;
-            self.pressingUp = false;
-            self.facing = 'left';
-          } else {
-            self.pressingRight = false;
-            self.pressingLeft = false;
-            self.pressingDown = false;
-            self.pressingUp = true;
-            self.facing = 'up';
-          }
-        } else if(diffX >= self.maxSpd){
-          self.x += self.maxSpd * (1);
-          self.pressingRight = true;
-          self.pressingLeft = false;
-          self.pressingDown = false;
-          self.pressingUp = false;
-          self.facing = 'right';
-        } else if(diffX <= (0-self.maxSpd)){
-          self.x -= self.maxSpd * (1);
-          self.pressingRight = false;
-          self.pressingLeft = true;
-          self.pressingDown = false;
-          self.pressingUp = false;
-          self.facing = 'left';
-        } else if(diffY >= self.maxSpd){
-          self.y += self.maxSpd * (1);
-          self.pressingRight = false;
-          self.pressingLeft = false;
-          self.pressingDown = true;
-          self.pressingUp = false;
-          self.facing = 'down';
-        } else if(diffY <= (0-self.maxSpd)){
-          self.y -= self.maxSpd * (1);
-          self.pressingRight = false;
-          self.pressingLeft = false;
-          self.pressingDown = false;
-          self.pressingUp = true;
-          self.facing = 'up';
-        } else {
+        var targetX = self.path[0];
+        var targetY = self.path[1];
+        var diffX = targetX - self.x;
+        var diffY = targetY - self.y;
+        var absDiffX = Math.abs(diffX);
+        var absDiffY = Math.abs(diffY);
+        
+        // Check if we've reached the destination (within 1 pixel threshold)
+        if(absDiffX < 1 && absDiffY < 1){
+          // Reached destination, get a new one
           if(!self.falconry){
-            // Reached destination, get a new one
             try {
               self.path = randomSpawnO();
               if(self.path && self.path[0] !== undefined && self.path[1] !== undefined) {
@@ -189,6 +100,48 @@ module.exports = function(Character, globals) {
               // Stay at current location if spawn points are unavailable
               self.path = [self.x, self.y];
             }
+          } else {
+            // Falconry falcon - clear path when reached
+            self.path = null;
+          }
+        } else {
+          // Calculate distance to target
+          var distance = Math.sqrt(diffX * diffX + diffY * diffY);
+          
+          // Normalize direction and move toward target
+          var moveX = 0;
+          var moveY = 0;
+          
+          if(distance > 0){
+            // Normalize direction vector
+            var dirX = diffX / distance;
+            var dirY = diffY / distance;
+            
+            // Move at maxSpd toward target (but don't overshoot)
+            var moveDistance = Math.min(self.maxSpd, distance);
+            moveX = dirX * moveDistance;
+            moveY = dirY * moveDistance;
+          }
+          
+          // Update position
+          self.x += moveX;
+          self.y += moveY;
+          
+          // Update facing direction based on dominant movement axis
+          if(absDiffX >= absDiffY){
+            // Horizontal movement is dominant
+            self.facing = diffX >= 0 ? 'right' : 'left';
+            self.pressingRight = diffX > 0;
+            self.pressingLeft = diffX < 0;
+            self.pressingDown = false;
+            self.pressingUp = false;
+          } else {
+            // Vertical movement is dominant
+            self.facing = diffY >= 0 ? 'down' : 'up';
+            self.pressingRight = false;
+            self.pressingLeft = false;
+            self.pressingDown = diffY > 0;
+            self.pressingUp = diffY < 0;
           }
         }
       }
