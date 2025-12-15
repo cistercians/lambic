@@ -2248,6 +2248,7 @@ Character = function(param){
   self.transitionIntent = null; // 'enter_cave', 'exit_cave', 'enter_building', 'exit_building', etc.
   self.transitionState = 'none'; // 'none', 'at_entrance', 'transitioning'
   self.targetZLevel = null; // Destination z-level for cross-z navigation
+  self.lastZTransition = null; // Timestamp of last z-level transition (prevents rapid loops for NPCs)
   self.zTransitionCooldown = 0; // Cooldown to prevent immediate re-pathing after z-transition (player only)
   self.zTransitionHalt = false; // If true, completely halt all path following until new click (player only)
 
@@ -3778,12 +3779,29 @@ Character = function(param){
         if(self.type === 'player' && !self.zTransitionHalt){
           self.transitionIntent = 'enter_cave';
         }
+        // For idle NPCs, allow transition if they have intent set (from idle wandering logic)
+        else if(self.type === 'npc' && self.mode === 'idle' && !self.transitionIntent){
+          // If idle NPC is on cave entrance but doesn't have intent yet, set it (fallback)
+          if(!self.lastZTransition || (Date.now() - self.lastZTransition > 2000)){
+            self.transitionIntent = 'enter_cave';
+          }
+        }
         
         // Check intent to enter cave (with cooldown check for serfs)
         const isSerfClass = (self.class === 'Serf' || self.class === 'SerfM' || self.class === 'SerfF');
         const cooldownOK = !isSerfClass || (self.mineExitCooldown === 0);
-        // Also verify zTransitionHalt is not active (second layer of protection)
-        if(self.transitionIntent === 'enter_cave' && self.isAtPathDestination() && cooldownOK && !(self.type === 'player' && self.zTransitionHalt)){
+        
+        // For idle NPCs, allow transition even if not at path destination
+        var canTransition = false;
+        if(self.type === 'player'){
+          canTransition = !self.zTransitionHalt && self.isAtPathDestination() && cooldownOK;
+        } else if(self.type === 'npc' && self.mode === 'idle'){
+          canTransition = cooldownOK; // Idle NPCs can transition when on cave entrance
+        } else {
+          canTransition = self.isAtPathDestination() && cooldownOK;
+        }
+        
+        if(self.transitionIntent === 'enter_cave' && canTransition){
           self.enterCave(loc);
         } else if(self.transitionIntent === 'enter_cave' && !cooldownOK){
           // Serf wants to enter but cooldown active - clear intent to prevent stuck state
@@ -3832,10 +3850,27 @@ Character = function(param){
         if(self.type === 'player' && !self.zTransitionHalt){
           self.transitionIntent = 'enter_building';
         }
+        // For idle NPCs, allow transition if they have intent set (from idle wandering logic)
+        else if(self.type === 'npc' && self.mode === 'idle' && !self.transitionIntent){
+          // If idle NPC is on building door but doesn't have intent yet, set it (fallback)
+          if(!self.lastZTransition || (Date.now() - self.lastZTransition > 2000)){
+            self.transitionIntent = 'enter_building';
+          }
+        }
         
         // Check intent to enter building
         // Also verify zTransitionHalt is not active (second layer of protection)
-        if(self.transitionIntent === 'enter_building' && self.isAtPathDestination() && !(self.type === 'player' && self.zTransitionHalt)){
+        // For idle NPCs, allow transition even if not at path destination
+        var canTransition = false;
+        if(self.type === 'player'){
+          canTransition = !self.zTransitionHalt && self.isAtPathDestination();
+        } else if(self.type === 'npc' && self.mode === 'idle'){
+          canTransition = true; // Idle NPCs can transition when on building door
+        } else {
+          canTransition = self.isAtPathDestination();
+        }
+        
+        if(self.transitionIntent === 'enter_building' && canTransition){
           self.enterBuilding(b);
         }
       } else if(getTile(0,loc[0],loc[1]) == 0 && !self.ghost && !self.isBoarded){
@@ -3869,10 +3904,27 @@ Character = function(param){
         if(self.type === 'player' && !self.zTransitionHalt){
           self.transitionIntent = 'exit_cave';
         }
+        // For idle NPCs, allow transition if they have intent set (from idle wandering logic)
+        else if(self.type === 'npc' && self.mode === 'idle' && !self.transitionIntent){
+          // If idle NPC is on cave exit but doesn't have intent yet, set it (fallback)
+          if(!self.lastZTransition || (Date.now() - self.lastZTransition > 2000)){
+            self.transitionIntent = 'exit_cave';
+          }
+        }
         
         // Check intent to exit cave
         // Also verify zTransitionHalt is not active (second layer of protection)
-        if(self.transitionIntent === 'exit_cave' && self.isAtPathDestination() && !(self.type === 'player' && self.zTransitionHalt)){
+        // For idle NPCs, allow transition even if not at path destination
+        var canTransition = false;
+        if(self.type === 'player'){
+          canTransition = !self.zTransitionHalt && self.isAtPathDestination();
+        } else if(self.type === 'npc' && self.mode === 'idle'){
+          canTransition = true; // Idle NPCs can transition when on cave exit
+        } else {
+          canTransition = self.isAtPathDestination();
+        }
+        
+        if(self.transitionIntent === 'exit_cave' && canTransition){
           self.exitCave();
         }
         // If no intent or has path, stay in cave
@@ -3887,10 +3939,27 @@ Character = function(param){
         if(self.type === 'player' && !self.zTransitionHalt){
           self.transitionIntent = 'go_upstairs_cellar';
         }
+        // For idle NPCs, allow transition if they have intent set (from idle wandering logic)
+        else if(self.type === 'npc' && self.mode === 'idle' && !self.transitionIntent){
+          // If idle NPC is on cellar stairs but doesn't have intent yet, set it (fallback)
+          if(!self.lastZTransition || (Date.now() - self.lastZTransition > 2000)){
+            self.transitionIntent = 'go_upstairs_cellar';
+          }
+        }
         
         // Check intent to go upstairs from cellar
         // Also verify zTransitionHalt is not active (second layer of protection)
-        if(self.transitionIntent === 'go_upstairs_cellar' && self.isAtPathDestination() && !(self.type === 'player' && self.zTransitionHalt)){
+        // For idle NPCs, allow transition even if not at path destination
+        var canTransition = false;
+        if(self.type === 'player'){
+          canTransition = !self.zTransitionHalt && self.isAtPathDestination();
+        } else if(self.type === 'npc' && self.mode === 'idle'){
+          canTransition = true; // Idle NPCs can transition when on cellar stairs
+        } else {
+          canTransition = self.isAtPathDestination();
+        }
+        
+        if(self.transitionIntent === 'go_upstairs_cellar' && canTransition){
           self.goDownstairs(1); // Yes, goDownstairs(1) goes UP from cellar to floor 1
         }
       }
@@ -3928,11 +3997,28 @@ Character = function(param){
         if(self.type === 'player' && !self.zTransitionHalt){
           self.transitionIntent = 'exit_building';
         }
+        // For idle NPCs, allow transition if they have intent set (from idle wandering logic)
+        else if(self.type === 'npc' && self.mode === 'idle' && !self.transitionIntent){
+          // If idle NPC is on building exit but doesn't have intent yet, set it (fallback)
+          if(!self.lastZTransition || (Date.now() - self.lastZTransition > 2000)){
+            self.transitionIntent = 'exit_building';
+          }
+        }
         
         // Check intent to exit building
         // Also verify zTransitionHalt is not active (second layer of protection)
-        if(self.transitionIntent === 'exit_building' && self.isAtPathDestination() && !(self.type === 'player' && self.zTransitionHalt)){
-        var exit = getBuilding(self.x,self.y-tileSize);
+        // For idle NPCs, allow transition even if not at path destination
+        var canTransition = false;
+        if(self.type === 'player'){
+          canTransition = !self.zTransitionHalt && self.isAtPathDestination();
+        } else if(self.type === 'npc' && self.mode === 'idle'){
+          canTransition = true; // Idle NPCs can transition when on building exit
+        } else {
+          canTransition = self.isAtPathDestination();
+        }
+        
+        if(self.transitionIntent === 'exit_building' && canTransition){
+          var exit = getBuilding(self.x,self.y-tileSize);
           self.exitBuilding(exit);
         }
       } else if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4 || getTile(4,loc[0],loc[1]) == 7){
@@ -3944,11 +4030,32 @@ Character = function(param){
         if(self.type === 'player' && !self.zTransitionHalt){
           self.transitionIntent = 'go_upstairs';
         }
+        // For idle NPCs, allow transition if they have intent set (from idle wandering logic)
+        // This allows NPCs to naturally wander upstairs during idle mode
+        else if(self.type === 'npc' && self.mode === 'idle' && !self.transitionIntent){
+          // If idle NPC is on stairs but doesn't have intent yet, set it (fallback)
+          // This handles cases where NPC wandered onto stairs before the idle logic set intent
+          if(!self.lastZTransition || (Date.now() - self.lastZTransition > 2000)){
+            self.transitionIntent = 'go_upstairs';
+          }
+        }
         
         // Check intent to go upstairs
         // Also verify zTransitionHalt is not active (second layer of protection)
-        if(self.transitionIntent === 'go_upstairs' && self.isAtPathDestination() && !(self.type === 'player' && self.zTransitionHalt)){
+        // For idle NPCs, allow transition even if not at path destination (they may have wandered onto stairs)
+        var canTransition = false;
+        if(self.type === 'player'){
+          canTransition = !self.zTransitionHalt && self.isAtPathDestination();
+        } else if(self.type === 'npc' && self.mode === 'idle'){
+          // Idle NPCs can transition when on stairs, regardless of path destination
+          canTransition = true;
+        } else {
+          canTransition = self.isAtPathDestination();
+        }
+        
+        if(self.transitionIntent === 'go_upstairs' && canTransition){
           self.goUpstairs();
+          // Transition time is tracked in goUpstairs() to prevent rapid loops
         }
       } else if(getTile(4,loc[0],loc[1]) == 5 || getTile(4,loc[0],loc[1]) == 6){
         // At cellar stairs - set state
@@ -3959,10 +4066,27 @@ Character = function(param){
         if(self.type === 'player' && !self.zTransitionHalt){
           self.transitionIntent = 'go_to_cellar';
         }
+        // For idle NPCs, allow transition if they have intent set (from idle wandering logic)
+        else if(self.type === 'npc' && self.mode === 'idle' && !self.transitionIntent){
+          // If idle NPC is on cellar stairs but doesn't have intent yet, set it (fallback)
+          if(!self.lastZTransition || (Date.now() - self.lastZTransition > 2000)){
+            self.transitionIntent = 'go_to_cellar';
+          }
+        }
         
         // Check intent to go to cellar
         // Also verify zTransitionHalt is not active (second layer of protection)
-        if(self.transitionIntent === 'go_to_cellar' && self.isAtPathDestination() && !(self.type === 'player' && self.zTransitionHalt)){
+        // For idle NPCs, allow transition even if not at path destination
+        var canTransition = false;
+        if(self.type === 'player'){
+          canTransition = !self.zTransitionHalt && self.isAtPathDestination();
+        } else if(self.type === 'npc' && self.mode === 'idle'){
+          canTransition = true; // Idle NPCs can transition when on cellar stairs
+        } else {
+          canTransition = self.isAtPathDestination();
+        }
+        
+        if(self.transitionIntent === 'go_to_cellar' && canTransition){
           self.goDownstairs(-2);
         }
       }
@@ -3976,11 +4100,32 @@ Character = function(param){
         if(self.type === 'player' && !self.zTransitionHalt){
           self.transitionIntent = 'go_downstairs';
         }
+        // For idle NPCs, allow transition if they have intent set (from idle wandering logic)
+        // This allows NPCs to naturally wander downstairs during idle mode
+        else if(self.type === 'npc' && self.mode === 'idle' && !self.transitionIntent){
+          // If idle NPC is on stairs but doesn't have intent yet, set it (fallback)
+          // This handles cases where NPC wandered onto stairs before the idle logic set intent
+          if(!self.lastZTransition || (Date.now() - self.lastZTransition > 2000)){
+            self.transitionIntent = 'go_downstairs';
+          }
+        }
         
         // Check intent to go downstairs
         // Also verify zTransitionHalt is not active (second layer of protection)
-        if(self.transitionIntent === 'go_downstairs' && self.isAtPathDestination() && !(self.type === 'player' && self.zTransitionHalt)){
+        // For idle NPCs, allow transition even if not at path destination (they may have wandered onto stairs)
+        var canTransition = false;
+        if(self.type === 'player'){
+          canTransition = !self.zTransitionHalt && self.isAtPathDestination();
+        } else if(self.type === 'npc' && self.mode === 'idle'){
+          // Idle NPCs can transition when on stairs, regardless of path destination
+          canTransition = true;
+        } else {
+          canTransition = self.isAtPathDestination();
+        }
+        
+        if(self.transitionIntent === 'go_downstairs' && canTransition){
           self.goDownstairs(1);
+          // Transition time is tracked in goDownstairs() to prevent rapid loops
         }
       }
     }
@@ -4011,17 +4156,122 @@ Character = function(param){
           }
         } else if(self.idleTime == 0){
           if(!self.path){
-            var col = loc[0];
-            var row = loc[1];
-            var select = [[col,row-1],[col-1,row],[col,row+1],[col+1,row]];
-            var target = select[Math.floor(Math.random() * 4)];
-            if(target[0] < mapSize && target[0] > -1 && target[1] < mapSize && target[1] > -1){
-              // Check if tile is walkable and not water (NPCs should avoid water during idle pathing)
-              var targetTile = getTile(0, target[0], target[1]);
-              var isWater = (targetTile === 0); // TERRAIN.WATER
-              if(isWalkable(self.z,target[0],target[1]) && !isWater){
-                self.move(target);
-                self.idleTime += Math.floor(Math.random() * self.idleRange);
+            // Check if NPC is on any transition tile and should transition
+            var shouldTransition = false;
+            
+            // Only transition if not recently transitioned (prevent loops)
+            var canTransition = !self.lastZTransition || (Date.now() - self.lastZTransition > 2000);
+            
+            if(canTransition){
+              // On z=0: check for cave entrance or building door
+              if(self.z == 0){
+                var tile0 = getTile(0, loc[0], loc[1]);
+                if(tile0 == 6){
+                  // At cave entrance - allow transition
+                  self.transitionIntent = 'enter_cave';
+                  shouldTransition = true;
+                } else if(tile0 == 14 || tile0 == 16 || tile0 == 19){
+                  // At building door - allow transition
+                  self.transitionIntent = 'enter_building';
+                  shouldTransition = true;
+                }
+              }
+              // On z=-1: check for cave exit
+              else if(self.z == -1){
+                var tile1 = getTile(1, loc[0], loc[1]);
+                if(tile1 == 2){
+                  // At cave exit - allow transition
+                  self.transitionIntent = 'exit_cave';
+                  shouldTransition = true;
+                }
+              }
+              // On z=1: check for building exit, upstairs stairs, or cellar stairs
+              else if(self.z == 1){
+                // Check for building exit (tile north of current position)
+                var exitTile = getTile(0, loc[0], loc[1] - 1);
+                if(exitTile == 14 || exitTile == 16 || exitTile == 19){
+                  // At building exit - allow transition
+                  self.transitionIntent = 'exit_building';
+                  shouldTransition = true;
+                } else {
+                  // Check for stairs
+                  var stairsTile = getTile(4, loc[0], loc[1]);
+                  if(stairsTile == 3 || stairsTile == 4 || stairsTile == 7){
+                    // On upstairs stairs - allow transition up
+                    self.transitionIntent = 'go_upstairs';
+                    shouldTransition = true;
+                  } else if(stairsTile == 5 || stairsTile == 6){
+                    // On cellar stairs - allow transition down
+                    self.transitionIntent = 'go_to_cellar';
+                    shouldTransition = true;
+                  }
+                }
+              }
+              // On z=2: check for downstairs stairs
+              else if(self.z == 2){
+                var stairsTile = getTile(4, loc[0], loc[1]);
+                if(stairsTile == 3 || stairsTile == 4){
+                  // On downstairs stairs - allow transition down
+                  self.transitionIntent = 'go_downstairs';
+                  shouldTransition = true;
+                }
+              }
+              // On z=-2: check for cellar stairs
+              else if(self.z == -2){
+                var cellarStairsTile = getTile(8, loc[0], loc[1]);
+                if(cellarStairsTile == 5){
+                  // At cellar stairs - allow transition up
+                  self.transitionIntent = 'go_upstairs_cellar';
+                  shouldTransition = true;
+                }
+              }
+            }
+            
+            // If transitioning, skip normal wandering this frame
+            if(shouldTransition){
+              self.idleTime += Math.floor(Math.random() * self.idleRange);
+            } else {
+              // Normal idle wandering
+              var col = loc[0];
+              var row = loc[1];
+              var select = [[col,row-1],[col-1,row],[col,row+1],[col+1,row]];
+              var target = select[Math.floor(Math.random() * 4)];
+              if(target[0] < mapSize && target[0] > -1 && target[1] < mapSize && target[1] > -1){
+                // Check if tile is walkable and not water (NPCs should avoid water during idle pathing)
+                var targetTile = getTile(0, target[0], target[1]);
+                var isWater = (targetTile === 0); // TERRAIN.WATER
+                
+                // Avoid all transition tiles during idle wandering to prevent getting stuck
+                // (NPCs will transition when already on transition tiles, but won't seek them out)
+                var isTransitionTile = false;
+                if(self.z == 0){
+                  // Avoid cave entrances and building doors
+                  isTransitionTile = (targetTile == 6 || targetTile == 14 || targetTile == 16 || targetTile == 19);
+                } else if(self.z == -1){
+                  // Avoid cave exits
+                  var targetTile1 = getTile(1, target[0], target[1]);
+                  isTransitionTile = (targetTile1 == 2);
+                } else if(self.z == 1){
+                  // Avoid building exits (check tile north of target) and stairs
+                  var exitTile = getTile(0, target[0], target[1] - 1);
+                  var targetStairsTile = getTile(4, target[0], target[1]);
+                  isTransitionTile = (exitTile == 14 || exitTile == 16 || exitTile == 19 || 
+                                     targetStairsTile == 3 || targetStairsTile == 4 || 
+                                     targetStairsTile == 5 || targetStairsTile == 6 || targetStairsTile == 7);
+                } else if(self.z == 2){
+                  // Avoid stairs
+                  var targetStairsTile = getTile(4, target[0], target[1]);
+                  isTransitionTile = (targetStairsTile == 3 || targetStairsTile == 4);
+                } else if(self.z == -2){
+                  // Avoid cellar stairs
+                  var cellarStairsTile = getTile(8, target[0], target[1]);
+                  isTransitionTile = (cellarStairsTile == 5);
+                }
+                
+                if(isWalkable(self.z,target[0],target[1]) && !isWater && !isTransitionTile){
+                  self.move(target);
+                  self.idleTime += Math.floor(Math.random() * self.idleRange);
+                }
               }
             }
           }
@@ -4857,6 +5107,10 @@ Character = function(param){
     self.path = null;
     self.pathCount = 0;
     self.pathEnd = null; // Clear path end to prevent re-navigation
+    // Track transition time for NPCs to prevent rapid loops
+    if(self.type === 'npc'){
+      self.lastZTransition = Date.now();
+    }
     self.transitionIntent = null;
     self.transitionState = 'none';
     self.innaWoods = false;
@@ -4899,6 +5153,10 @@ Character = function(param){
     self.pathCount = 0;
     self.caveEntrance = null;
     self.transitionIntent = null;
+    // Track transition time for NPCs to prevent rapid loops
+    if(self.type === 'npc'){
+      self.lastZTransition = Date.now();
+    }
     self.transitionState = 'none';
     self.innaWoods = false;
     self.onMtn = false;
@@ -4924,6 +5182,10 @@ Character = function(param){
     }
     self.z = 1;
     self.path = null;
+    // Track transition time for NPCs to prevent rapid loops
+    if(self.type === 'npc'){
+      self.lastZTransition = Date.now();
+    }
     self.pathCount = 0;
     self.transitionIntent = null;
     self.transitionState = 'none';
@@ -4945,6 +5207,10 @@ Character = function(param){
     }
     self.z = 0;
     self.path = null;
+    // Track transition time for NPCs to prevent rapid loops
+    if(self.type === 'npc'){
+      self.lastZTransition = Date.now();
+    }
     self.pathCount = 0;
     self.pathEnd = null; // Clear path end to prevent re-navigation
     self.transitionIntent = null;
@@ -4964,6 +5230,10 @@ Character = function(param){
     self.clearAllMovement();
     self.y += (tileSize/2);
     self.facing = 'down';
+    // Track transition time for NPCs to prevent rapid loops
+    if(self.type === 'npc'){
+      self.lastZTransition = Date.now();
+    }
   };
 
   self.goDownstairs = function(targetZ) {
@@ -4971,6 +5241,10 @@ Character = function(param){
     self.clearAllMovement();
     self.y += (tileSize/2);
     self.facing = 'down';
+    // Track transition time for NPCs to prevent rapid loops
+    if(self.type === 'npc'){
+      self.lastZTransition = Date.now();
+    }
   };
 
   // Helper function to clear all movement state

@@ -22,6 +22,8 @@ class CursorRenderer {
    * @param {number} config.currentMouseY - Current mouse Y position
    * @param {number} config.WIDTH - Canvas width
    * @param {number} config.HEIGHT - Canvas height
+   * @param {string} config.selfId - Current player ID
+   * @param {object} config.PlayerList - Player list object
    */
   render(config) {
     const {
@@ -34,7 +36,9 @@ class CursorRenderer {
       currentMouseX,
       currentMouseY,
       WIDTH,
-      HEIGHT
+      HEIGHT,
+      selfId,
+      PlayerList
     } = config;
 
     const canvas = document.getElementById('ctx');
@@ -94,8 +98,31 @@ class CursorRenderer {
       // Check if hovered entity is an enemy
       const allyStatus = allyCheck(hoveredTarget);
       if (allyStatus === -1) {
-        cursorType = 'attack';
-        cursorImg = Img.cursorAttack;
+        // Check innaWoods compatibility before showing attack cursor
+        let canShowAttackCursor = true;
+        if (selfId && PlayerList && PlayerList[selfId] && PlayerList[hoveredTarget]) {
+          const player = PlayerList[selfId];
+          const entity = PlayerList[hoveredTarget];
+          // Only check innaWoods on overworld (z=0)
+          if (entity.z === 0) {
+            const playerInnaWoods = player.innaWoods || false;
+            const entityInnaWoods = entity.innaWoods || false;
+            if (playerInnaWoods !== entityInnaWoods) {
+              canShowAttackCursor = false; // Don't show attack cursor for incompatible innaWoods values
+            }
+          }
+        }
+        
+        if (canShowAttackCursor) {
+          cursorType = 'attack';
+          cursorImg = Img.cursorAttack;
+        } else if (hoveredInteractable) {
+          cursorType = 'interact';
+          cursorImg = Img.cursorInteract;
+        } else {
+          cursorType = 'default';
+          cursorImg = Img.cursor;
+        }
       } else if (hoveredInteractable) {
         cursorType = 'interact';
         cursorImg = Img.cursorInteract;

@@ -232,9 +232,10 @@ class OptimizedGameLoop {
         const isPlayer = player && player.type === 'player';
         const isInCombat = player && player.action === 'combat';
         const hasPath = player && player.path && player.path.length > 0;
+        const isFalcon = player && player.class === 'Falcon';
         
-        // Critical: players, entities in combat, entities with paths
-        if(isPlayer || isInCombat || hasPath) {
+        // Critical: players, entities in combat, entities with paths, and falcons (always moving)
+        if(isPlayer || isInCombat || hasPath || isFalcon) {
           criticalPlayerPack.push(entity);
         } else if(shouldSendNonCritical) {
           // Non-critical: idle NPCs (sent less frequently)
@@ -520,6 +521,10 @@ class OptimizedGameLoop {
       const entityId = entity.id;
       const previousState = this.previousEntityStates.get(entityId);
       
+      // Check if this is a falcon (always need position updates for smooth flight)
+      const player = Player.list[entityId];
+      const isFalcon = player && player.class === 'Falcon';
+      
       if(!previousState) {
         // New entity - send full state
         compressed.push(entity);
@@ -583,6 +588,12 @@ class OptimizedGameLoop {
               hasChanges = true;
               compressedProperties++;
             }
+          } else if(isFalcon && (key === 'x' || key === 'y' || key === 'facing')) {
+            // For falcons, always include position and facing updates even if unchanged
+            // This ensures smooth client-side animation and prevents stuck falcons
+            delta[key] = currentValue;
+            hasChanges = true;
+            compressedProperties++;
           }
         }
         
@@ -592,8 +603,19 @@ class OptimizedGameLoop {
           compressed.push(delta);
           // Update stored state
           this.previousEntityStates.set(entityId, JSON.parse(JSON.stringify(entity)));
+        } else if(isFalcon) {
+          // Falcons should always be included in updates, even if nothing changed
+          // Send minimal update with just ID and position to keep client in sync
+          compressed.push({
+            id: entityId,
+            x: entity.x,
+            y: entity.y,
+            facing: entity.facing
+          });
+          // Update stored state to prevent this from happening every frame
+          this.previousEntityStates.set(entityId, JSON.parse(JSON.stringify(entity)));
         }
-        // If no changes, don't include entity in update (client keeps previous state)
+        // If no changes and not a falcon, don't include entity in update (client keeps previous state)
       }
     }
     
@@ -650,8 +672,12 @@ class OptimizedGameLoop {
         }
       }
       
-      // Always include the player's own entity and entities on different z-levels (for building interiors)
-      if(isNearPlayer || (entity.id && Player.list[entity.id] && Player.list[entity.id].type === 'player')) {
+      // Check if this is a falcon (always include falcons regardless of distance - they're flying and should be visible)
+      const player = entity.id ? Player.list[entity.id] : null;
+      const isFalcon = player && player.class === 'Falcon';
+      
+      // Always include: player's own entity, entities on different z-levels (for building interiors), and falcons
+      if(isNearPlayer || (entity.id && Player.list[entity.id] && Player.list[entity.id].type === 'player') || isFalcon) {
         filtered.push(entity);
       }
     }

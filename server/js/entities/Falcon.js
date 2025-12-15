@@ -35,22 +35,51 @@ module.exports = function(Character, globals) {
       }
     };
     
+    // Helper function to get a valid destination that's far enough from current position
+    // Ensures falcons never get stuck by always returning a destination that's different from current position
+    self.getValidDestination = function(minDistance, maxAttempts) {
+      minDistance = minDistance || 10; // Default minimum distance of 10 pixels
+      maxAttempts = maxAttempts || 5; // Default max 5 attempts
+      
+      for (var attempt = 0; attempt < maxAttempts; attempt++) {
+        try {
+          var destination = randomSpawnO();
+          if (destination && 
+              destination[0] !== undefined && 
+              destination[1] !== undefined) {
+            // Check minimum distance
+            var dx = destination[0] - self.x;
+            var dy = destination[1] - self.y;
+            var dist = Math.sqrt(dx * dx + dy * dy);
+            
+            if (dist >= minDistance) {
+              return destination;
+            }
+          }
+        } catch (err) {
+          // Continue to next attempt or fallback
+        }
+      }
+      
+      // Fallback: generate random destination away from current position
+      // This ensures falcons never get stuck even if randomSpawnO() fails
+      var angle = Math.random() * Math.PI * 2;
+      var distance = minDistance + Math.random() * 100; // 10-110 pixels away
+      return [
+        self.x + Math.cos(angle) * distance,
+        self.y + Math.sin(angle) * distance
+      ];
+    };
+    
     // Initialize path and facing direction immediately during construction
     // This ensures the init pack sent to clients has the correct facing from the start
     if(!self.falconry) {
-      try {
-        self.path = randomSpawnO();
-        if(self.path && self.path[0] !== undefined && self.path[1] !== undefined) {
-          self.setFacingTowardTarget(self.path[0], self.path[1]);
-        } else {
-          // Path was set but invalid, pick random facing
-          var directions = ['up', 'down', 'left', 'right'];
-          self.facing = directions[Math.floor(Math.random() * 4)];
-        }
-      } catch (err) {
-        // Spawn points may not be available yet during initialization
-        self.path = null;
-        // Set random facing so falcon doesn't always start facing down
+      // Use getValidDestination to ensure we always get a valid path that's different from current position
+      self.path = self.getValidDestination();
+      if(self.path && self.path[0] !== undefined && self.path[1] !== undefined) {
+        self.setFacingTowardTarget(self.path[0], self.path[1]);
+      } else {
+        // Path was set but invalid, pick random facing
         var directions = ['up', 'down', 'left', 'right'];
         self.facing = directions[Math.floor(Math.random() * 4)];
       }
@@ -68,15 +97,10 @@ module.exports = function(Character, globals) {
     self.update = function(){
       if(!self.path){
         if(!self.falconry){
-          // Safely get a new random destination, fallback to current position if spawn points unavailable
-          try {
-            self.path = randomSpawnO();
-            if(self.path && self.path[0] !== undefined && self.path[1] !== undefined) {
-              self.setFacingTowardTarget(self.path[0], self.path[1]);
-            }
-          } catch (err) {
-            // Stay at current location if spawn points are unavailable
-            self.path = [self.x, self.y];
+          // Get a new valid destination that's guaranteed to be different from current position
+          self.path = self.getValidDestination();
+          if(self.path && self.path[0] !== undefined && self.path[1] !== undefined) {
+            self.setFacingTowardTarget(self.path[0], self.path[1]);
           }
         }
       } else {
@@ -91,14 +115,10 @@ module.exports = function(Character, globals) {
         if(absDiffX < 1 && absDiffY < 1){
           // Reached destination, get a new one
           if(!self.falconry){
-            try {
-              self.path = randomSpawnO();
-              if(self.path && self.path[0] !== undefined && self.path[1] !== undefined) {
-                self.setFacingTowardTarget(self.path[0], self.path[1]);
-              }
-            } catch (err) {
-              // Stay at current location if spawn points are unavailable
-              self.path = [self.x, self.y];
+            // Get a new valid destination that's guaranteed to be different from current position
+            self.path = self.getValidDestination();
+            if(self.path && self.path[0] !== undefined && self.path[1] !== undefined) {
+              self.setFacingTowardTarget(self.path[0], self.path[1]);
             }
           } else {
             // Falconry falcon - clear path when reached

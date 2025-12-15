@@ -633,6 +633,27 @@ class InputHandler {
             // Use getCurrentZ() to get the current z level (handles caves)
             const currentZ = this.config.getCurrentZ ? this.config.getCurrentZ() : player.z;
             
+            // Get actual selfId for innaWoods check
+            let actualSelfId = (typeof window !== 'undefined' && window.selfId !== undefined && window.selfId !== null)
+              ? window.selfId
+              : selfId;
+            
+            // If still a random decimal (0-1), try to find the real player ID from Player.list
+            if (typeof actualSelfId === 'number' && actualSelfId > 0 && actualSelfId < 1) {
+              for (const pid in Player.list) {
+                const p = Player.list[pid];
+                if (p && !p.toRemove && p.class && !p.shipType && p.class !== 'FishingShip' && p.class !== 'CargoShip') {
+                  actualSelfId = pid;
+                  break;
+                }
+              }
+            }
+            
+            // Get player's innaWoods value for compatibility check
+            const playerInnaWoods = (actualSelfId && Player.list[actualSelfId]) 
+              ? (Player.list[actualSelfId].innaWoods || false)
+              : false;
+            
             let foundHover = false;
             
             for (const id in Player.list) {
@@ -640,6 +661,16 @@ class InputHandler {
               if (entity && entity.z === currentZ) {
                 // Skip Falcons - their sprites are massive (include shadows) and shouldn't be hoverable
                 if (entity.class === 'Falcon') continue;
+                
+                // Check innaWoods compatibility (only applies to overworld z=0)
+                // Only block if player is NOT in woods and entity IS in woods
+                // Players with innaWoods=true can see all units
+                if (currentZ === 0) {
+                  const entityInnaWoods = entity.innaWoods || false;
+                  if (!playerInnaWoods && entityInnaWoods) {
+                    continue; // Skip entities in woods when player is not in woods
+                  }
+                }
                 
                 const dx = entity.x - worldX;
                 const dy = entity.y - worldY;
@@ -1084,6 +1115,28 @@ class InputHandler {
     // Check if clicking on an entity
     // Use getCurrentZ() to get the current z level (handles caves)
     const currentZ = this.config.getCurrentZ ? this.config.getCurrentZ() : player.z;
+    
+    // Get actual selfId for innaWoods check
+    let actualSelfId = (typeof window !== 'undefined' && window.selfId !== undefined && window.selfId !== null)
+      ? window.selfId
+      : selfId;
+    
+    // If still a random decimal (0-1), try to find the real player ID from Player.list
+    if (typeof actualSelfId === 'number' && actualSelfId > 0 && actualSelfId < 1) {
+      for (const pid in Player.list) {
+        const p = Player.list[pid];
+        if (p && !p.toRemove && p.class && !p.shipType && p.class !== 'FishingShip' && p.class !== 'CargoShip') {
+          actualSelfId = pid;
+          break;
+        }
+      }
+    }
+    
+    // Get player's innaWoods value for compatibility check
+    const playerInnaWoods = (actualSelfId && Player.list[actualSelfId]) 
+      ? (Player.list[actualSelfId].innaWoods || false)
+      : false;
+    
     let clickedEntity = null;
     let closestEntity = null;
     let closestDistance = Infinity;
@@ -1092,6 +1145,16 @@ class InputHandler {
       if (entity && entity.z === currentZ) {
         // Skip Falcons - their sprites are massive (include shadows) and shouldn't be clickable
         if (entity.class === 'Falcon') continue;
+        
+        // Check innaWoods compatibility (only applies to overworld z=0)
+        // Only block if player is NOT in woods and entity IS in woods
+        // Players with innaWoods=true can see all units
+        if (currentZ === 0) {
+          const entityInnaWoods = entity.innaWoods || false;
+          if (!playerInnaWoods && entityInnaWoods) {
+            continue; // Skip entities in woods when player is not in woods
+          }
+        }
         
         const dx = entity.x - worldX;
         const dy = entity.y - worldY;

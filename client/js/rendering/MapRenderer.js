@@ -2962,6 +2962,17 @@ var drawEntityBorders = function(renderCtx){
     // Skip Falcons - their sprites are massive (include shadows) and shouldn't have borders
     if(entity.class === 'Falcon') continue;
     
+    // Check innaWoods compatibility (only applies to overworld z=0)
+    // Only block if player is NOT in woods and entity IS in woods
+    // Players with innaWoods=true can see all units
+    if(z === 0) {
+      var playerInnaWoods = player.innaWoods || false;
+      var entityInnaWoods = entity.innaWoods || false;
+      if(!playerInnaWoods && entityInnaWoods) {
+        continue; // Skip entities in woods when player is not in woods
+      }
+    }
+    
     // Calculate sprite size (accounting for scaling)
     var shouldScale = (entity.class === 'Wolf' || entity.class === 'Boar') && entity.spriteScale;
     var scaledSpriteSize = shouldScale ? (entity.spriteSize * entity.spriteScale) : (entity.spriteSize || 64);

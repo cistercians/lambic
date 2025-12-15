@@ -1562,7 +1562,9 @@ var renderCursor = () => {
   // Use window.attackCommandMode if available (updated by InputHandler), otherwise fallback to global
   const currentAttackCommandMode = (typeof window !== 'undefined' && window.attackCommandMode !== undefined) ? window.attackCommandMode : attackCommandMode;
   const currentWorkCommandMode = (typeof window !== 'undefined' && window.workCommandMode !== undefined) ? window.workCommandMode : workCommandMode;
-  window.cursorRendererInstance?.render?.({ Img, workCommandMode: currentWorkCommandMode, attackCommandMode: currentAttackCommandMode, hoveredTarget, hoveredInteractable, allyCheck, currentMouseX: mouseX, currentMouseY: mouseY, WIDTH, HEIGHT, Building, cursorOverlayCtx, cursorOverlayCanvas });
+  // Get selfId for innaWoods check (prefer window.selfId as it's updated by SocketMessageHandler)
+  const currentSelfId = (typeof window !== 'undefined' && window.selfId !== undefined && window.selfId !== null) ? window.selfId : selfId;
+  window.cursorRendererInstance?.render?.({ Img, workCommandMode: currentWorkCommandMode, attackCommandMode: currentAttackCommandMode, hoveredTarget, hoveredInteractable, allyCheck, currentMouseX: mouseX, currentMouseY: mouseY, WIDTH, HEIGHT, Building, cursorOverlayCtx, cursorOverlayCanvas, selfId: currentSelfId, PlayerList: Player.list });
 };
 
 // Start the game loop
@@ -1620,7 +1622,7 @@ function initializeInputHandler() {
       characterSheetUpdateInterval: characterSheetUpdateInterval,
       // Helper functions
       getLoc: getLoc, getBuilding: getBuilding, getTile: getTile, allyCheck: allyCheck, getBgm: getBgm,
-      getCameraPosition: getCameraPosition,
+      getCameraPosition: getCameraPosition, getCurrentZ: getCurrentZ,
       updateCharacterDisplay: updateCharacterDisplay, updateCharacterBars: updateCharacterBars,
       updateInventoryDisplay: updateInventoryDisplay,
       // Constants
@@ -1654,7 +1656,7 @@ function initializeInputHandler() {
       mousePos: mousePos, currentMouseX: currentMouseX, currentMouseY: currentMouseY,
       characterSheetUpdateInterval: characterSheetUpdateInterval,
       getLoc: getLoc, getBuilding: getBuilding, getTile: getTile, allyCheck: allyCheck, getBgm: getBgm,
-      getCameraPosition: getCameraPosition,
+      getCameraPosition: getCameraPosition, getCurrentZ: getCurrentZ,
       updateCharacterDisplay: updateCharacterDisplay, updateCharacterBars: updateCharacterBars,
       updateInventoryDisplay: updateInventoryDisplay,
       WIDTH: WIDTH, HEIGHT: HEIGHT, currentZoom: currentZoom, tileSize: tileSize, tileHighlights: tileHighlights,
