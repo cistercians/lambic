@@ -2212,12 +2212,12 @@ function entropy() {
       // Tree growth
       if (tile >= TERRAIN.HEAVY_FOREST && tile < TERRAIN.LIGHT_FOREST && day > 0) {
         if (world[6][r][c] < 300) {
-          world[6][r][c] += Math.floor(Math.random() * 4);
+          world[6][r][c] += Math.floor(Math.random() * 2);
         }
       }
       // Forest to heavy forest
       else if (tile >= TERRAIN.LIGHT_FOREST && tile < TERRAIN.BRUSH && day > 0) {
-        world[6][r][c] += Math.floor(Math.random() * 4);
+        world[6][r][c] += Math.floor(Math.random() * 2);
         if (world[6][r][c] > 100) {
           toHF.push([c, r]);
         }
@@ -2234,7 +2234,7 @@ function entropy() {
 
         for (const [nTile, nRes] of neighbors) {
           if (nTile >= TERRAIN.HEAVY_FOREST && nTile < TERRAIN.BRUSH && nRes > 49) {
-            if (Math.random() < 0.1) {
+            if (Math.random() < 0.05) {
               toF.push([c, r]);
               break;
             }
@@ -2252,7 +2252,7 @@ function entropy() {
 
         for (const nTile of neighbors) {
           if (nTile >= TERRAIN.HEAVY_FOREST && nTile < TERRAIN.ROCKS) {
-            if (Math.random() < 0.15) {
+            if (Math.random() < 0.05) {
               toB.push([c, r]);
               break;
             }
@@ -2292,11 +2292,16 @@ function entropy() {
   }
 
   // FAUNA - Balanced spawn rates
+  // Calculate map-size-scaled falcon cap (base: 12 falcons for 200x200 map)
+  const mapArea = mapSize * mapSize;
+  const baseMapArea = 200 * 200; // 40,000 tiles
+  const maxFalcons = Math.floor(12 * (mapArea / baseMapArea));
+  
   const animalRatios = {
     deer: Math.floor(biomes.hForest / 300),   // Good population for hunting
     boar: Math.floor(biomes.hForest / 600),   // Moderate population
     wolf: Math.floor(biomes.hForest / 500),   // Threat level balanced
-    falcon: Math.floor(biomes.hForest / 800)  // Majestic but not rare
+    falcon: Math.min(Math.floor(biomes.hForest / 800), maxFalcons)  // Majestic but not rare, capped by map size
   };
 
   const animalPops = { deer: 0, boar: 0, wolf: 0, falcon: 0 };

@@ -19,3 +19,4 @@ client/img/chars/villager/male/.DS_Store
 node_modules
 client/img/chars/serf/.DS_Store
 client/img/chars/.DS_Store
+.cursor
