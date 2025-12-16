@@ -13,7 +13,8 @@ class BuildingPreview {
         requiredTiles: [TERRAIN.EMPTY],
         clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
         blockedTiles: [TERRAIN.WATER, TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, TERRAIN.ROCKS],
-        materials: { wood: 50, stone: 25 }
+        materials: {}, // None
+        playerRequiredTiles: [TERRAIN.EMPTY] // Grass only, must be empty
       },
       lumbermill: {
         name: 'Lumbermill',
@@ -23,7 +24,8 @@ class BuildingPreview {
         requiredTiles: [TERRAIN.EMPTY],
         clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
         blockedTiles: [TERRAIN.WATER, TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, TERRAIN.ROCKS],
-        materials: { wood: 75, stone: 40 }
+        materials: { wood: 75 }, // Wood only
+        playerRequiredTiles: [TERRAIN.EMPTY] // Grass
       },
       mine: {
         name: 'Mine',
@@ -33,7 +35,8 @@ class BuildingPreview {
         requiredTiles: [TERRAIN.EMPTY, TERRAIN.ROCKS, TERRAIN.MOUNTAIN], // Mines can be built on rocks and mountains
         clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
         blockedTiles: [TERRAIN.WATER, TERRAIN.HEAVY_FOREST],
-        materials: { wood: 60, stone: 80 }
+        materials: { wood: 60 }, // Wood only
+        playerRequiredTiles: [TERRAIN.EMPTY, TERRAIN.ROCKS, TERRAIN.MOUNTAIN] // Grass/Rock/Mountain
       },
       hut: {
         name: 'Hut',
@@ -43,7 +46,8 @@ class BuildingPreview {
         requiredTiles: [TERRAIN.EMPTY],
         clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
         blockedTiles: [TERRAIN.WATER, TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, TERRAIN.ROCKS],
-        materials: { wood: 25, stone: 10 }
+        materials: { wood: 25 }, // Wood only
+        playerRequiredTiles: [TERRAIN.EMPTY] // Grass
       },
       cottage: {
         name: 'Cottage',
@@ -53,7 +57,8 @@ class BuildingPreview {
         requiredTiles: [TERRAIN.EMPTY],
         clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
         blockedTiles: [TERRAIN.WATER, TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, TERRAIN.ROCKS],
-        materials: { wood: 40, stone: 20 }
+        materials: { wood: 40, stone: 20 }, // Wood AND Stone (both required)
+        playerRequiredTiles: [TERRAIN.EMPTY] // Grass
       },
       tavern: {
         name: 'Tavern',
@@ -63,7 +68,8 @@ class BuildingPreview {
         requiredTiles: [TERRAIN.EMPTY, TERRAIN.BRUSH],
         clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
         blockedTiles: [TERRAIN.WATER, TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, TERRAIN.ROCKS],
-        materials: { wood: 125, stone: 0 }
+        materials: { wood: 125 }, // Wood only
+        playerRequiredTiles: [TERRAIN.EMPTY] // Grass
       },
       tower: {
         name: 'Tower',
@@ -73,7 +79,8 @@ class BuildingPreview {
         requiredTiles: [TERRAIN.EMPTY],
         clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
         blockedTiles: [TERRAIN.WATER, TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, TERRAIN.ROCKS],
-        materials: { wood: 30, stone: 50 }
+        materials: { stone: 50 }, // Stone only
+        playerRequiredTiles: [TERRAIN.EMPTY, TERRAIN.ROCKS, TERRAIN.MOUNTAIN] // Grass/Rock/Mountain
       },
       forge: {
         name: 'Forge',
@@ -83,7 +90,8 @@ class BuildingPreview {
         requiredTiles: [TERRAIN.EMPTY],
         clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
         blockedTiles: [TERRAIN.WATER, TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, TERRAIN.ROCKS],
-        materials: { wood: 50, stone: 100 }
+        materials: { wood: 50 }, // Wood only
+        playerRequiredTiles: [TERRAIN.EMPTY] // Grass
       },
       fort: {
         name: 'Fort',
@@ -93,7 +101,8 @@ class BuildingPreview {
         requiredTiles: [TERRAIN.EMPTY],
         clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
         blockedTiles: [TERRAIN.WATER, TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, TERRAIN.ROCKS],
-        materials: { wood: 120, stone: 150 }
+        materials: { wood: 120 }, // Wood only
+        playerRequiredTiles: [TERRAIN.EMPTY] // Grass
       },
       outpost: {
         name: 'Outpost',
@@ -103,7 +112,8 @@ class BuildingPreview {
         requiredTiles: [TERRAIN.EMPTY],
         clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
         blockedTiles: [TERRAIN.WATER, TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, TERRAIN.ROCKS],
-        materials: { wood: 60, stone: 80 }
+        materials: { wood: 60 }, // Wood only
+        playerRequiredTiles: [TERRAIN.EMPTY, TERRAIN.ROCKS, TERRAIN.MOUNTAIN] // Grass/Rock/Mountain
       },
       monastery: {
         name: 'Monastery',
@@ -113,7 +123,8 @@ class BuildingPreview {
         requiredTiles: [TERRAIN.EMPTY],
         clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
         blockedTiles: [TERRAIN.WATER, TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, TERRAIN.ROCKS],
-        materials: { wood: 200, stone: 300 }
+        materials: { stone: 300 }, // Stone only
+        playerRequiredTiles: [TERRAIN.EMPTY, TERRAIN.ROCKS, TERRAIN.MOUNTAIN] // Grass/Rock/Mountain
       },
       
       // Tier II Buildings (require prerequisites)
@@ -125,7 +136,8 @@ class BuildingPreview {
         requiredTiles: [TERRAIN.EMPTY],
         clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
         blockedTiles: [TERRAIN.WATER, TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, TERRAIN.ROCKS],
-        materials: { wood: 60, stone: 30 }
+        materials: { wood: 60 }, // Wood only
+        playerRequiredTiles: [TERRAIN.EMPTY] // Grass
       },
       dock: {
         name: 'Dock',
@@ -149,7 +161,8 @@ class BuildingPreview {
         requiredTiles: [TERRAIN.EMPTY, TERRAIN.WATER],
         clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
         blockedTiles: [TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, TERRAIN.ROCKS],
-        materials: { wood: 80, stone: 40 }
+        materials: { wood: 80 }, // Wood only
+        playerRequiredTiles: [TERRAIN.EMPTY, TERRAIN.WATER] // Grass or Water (must have ≥50% water)
       },
       stable: {
         name: 'Stable',
@@ -159,7 +172,8 @@ class BuildingPreview {
         requiredTiles: [TERRAIN.EMPTY],
         clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
         blockedTiles: [TERRAIN.WATER, TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, TERRAIN.ROCKS],
-        materials: { wood: 100, stone: 50 }
+        materials: { wood: 100 }, // Wood only
+        playerRequiredTiles: [TERRAIN.EMPTY] // Grass
       },
       market: {
         name: 'Market',
@@ -169,7 +183,8 @@ class BuildingPreview {
         requiredTiles: [TERRAIN.EMPTY],
         clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
         blockedTiles: [TERRAIN.WATER, TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, TERRAIN.ROCKS],
-        materials: { wood: 150, stone: 75 }
+        materials: { wood: 150 }, // Wood only
+        playerRequiredTiles: [TERRAIN.EMPTY] // Grass
       },
       garrison: {
         name: 'Garrison',
@@ -179,7 +194,8 @@ class BuildingPreview {
         requiredTiles: [TERRAIN.EMPTY, TERRAIN.BRUSH],
         clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
         blockedTiles: [TERRAIN.WATER, TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, TERRAIN.ROCKS],
-        materials: { wood: 150, stone: 100 }
+        materials: { stone: 100 }, // Stone only
+        playerRequiredTiles: [TERRAIN.EMPTY, TERRAIN.ROCKS, TERRAIN.MOUNTAIN] // Grass/Rock/Mountain
       },
       
       // Tier III Buildings (require Garrison)
@@ -191,7 +207,8 @@ class BuildingPreview {
         requiredTiles: [TERRAIN.EMPTY, TERRAIN.BRUSH],
         clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
         blockedTiles: [TERRAIN.WATER, TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, TERRAIN.ROCKS],
-        materials: { wood: 200, stone: 300 }
+        materials: { stone: 300 }, // Stone only
+        playerRequiredTiles: [TERRAIN.EMPTY, TERRAIN.ROCKS, TERRAIN.MOUNTAIN] // Grass/Rock/Mountain
       },
       wall: {
         name: 'Wall',
@@ -201,7 +218,8 @@ class BuildingPreview {
         requiredTiles: [TERRAIN.EMPTY],
         clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
         blockedTiles: [TERRAIN.WATER, TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, TERRAIN.ROCKS],
-        materials: { wood: 30, stone: 40 }
+        materials: { stone: 40 }, // Stone only
+        playerRequiredTiles: [TERRAIN.EMPTY, TERRAIN.ROCKS, TERRAIN.MOUNTAIN] // Grass/Rock/Mountain
       },
       guardtower: {
         name: 'Guard Tower',
@@ -211,7 +229,8 @@ class BuildingPreview {
         requiredTiles: [TERRAIN.EMPTY],
         clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
         blockedTiles: [TERRAIN.WATER, TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, TERRAIN.ROCKS],
-        materials: { wood: 100, stone: 120 }
+        materials: { stone: 120 }, // Stone only
+        playerRequiredTiles: [TERRAIN.EMPTY, TERRAIN.ROCKS, TERRAIN.MOUNTAIN] // Grass/Rock/Mountain
       },
       gate: {
         name: 'Gate',
@@ -221,7 +240,8 @@ class BuildingPreview {
         requiredTiles: [TERRAIN.EMPTY],
         clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
         blockedTiles: [TERRAIN.WATER, TERRAIN.HEAVY_FOREST, TERRAIN.MOUNTAIN, TERRAIN.ROCKS],
-        materials: { wood: 50, stone: 60 }
+        materials: { stone: 60 }, // Stone only
+        playerRequiredTiles: [TERRAIN.EMPTY, TERRAIN.ROCKS, TERRAIN.MOUNTAIN] // Grass/Rock/Mountain
       }
     };
   }
@@ -232,7 +252,7 @@ class BuildingPreview {
   }
 
   // Validate if a building can be placed at a location
-  validateBuildingPlacement(buildingType, centerX, centerY, z = 0, facing = 'right') {
+  validateBuildingPlacement(buildingType, centerX, centerY, z = 0, facing = 'right', isPlayer = false) {
     const building = this.getBuildingDefinition(buildingType);
     if (!building) {
       return { valid: false, reason: 'Unknown building type' };
@@ -286,6 +306,15 @@ class BuildingPreview {
       topPlot: topPlot
     };
 
+    // Determine which terrain rules to use
+    const allowedTiles = isPlayer && building.playerRequiredTiles 
+      ? building.playerRequiredTiles 
+      : building.requiredTiles;
+
+    // Track water tiles for Dock validation (players only)
+    let waterTileCount = 0;
+    const totalTiles = plotTemplate.length;
+
     // Check each tile in the building plot
     for (const [relativeX, relativeY] of plotTemplate) {
       const tileX = centerX + relativeX;
@@ -299,30 +328,62 @@ class BuildingPreview {
         status: 'valid' // valid, clearable, blocked
       };
 
-      // Check priority order: requiredTiles first (highest priority), then blockedTiles, then clearableTiles
-      // This allows buildings to be placed on their required terrain types even if they're also clearable
-      
-      // Check if tile is in requiredTiles (highest priority - always valid)
-      if (building.requiredTiles.includes(tile)) {
-        tileInfo.status = 'valid';
-        validation.tiles.push(tileInfo);
+      if (isPlayer) {
+        // Player rules: strict - tiles must be in playerRequiredTiles only
+        // Do NOT allow clearable tiles (trees, brush) - players must clear terrain first
+        if (allowedTiles.includes(tile)) {
+          tileInfo.status = 'valid';
+          validation.tiles.push(tileInfo);
+          // Count water tiles for Dock validation
+          if (buildingType === 'dock' && tile === TERRAIN.WATER) {
+            waterTileCount++;
+          }
+        } else if (building.blockedTiles.includes(tile)) {
+          tileInfo.status = 'blocked';
+          validation.blockedTiles.push(tileInfo);
+          validation.canBuild = false;
+        } else {
+          // Not in allowed tiles - blocked for players
+          tileInfo.status = 'blocked';
+          validation.blockedTiles.push(tileInfo);
+          validation.canBuild = false;
+        }
+      } else {
+        // Faction AI rules: tiles can be in requiredTiles OR clearableTiles
+        // Check priority order: requiredTiles first (highest priority), then blockedTiles, then clearableTiles
+        // This allows buildings to be placed on their required terrain types even if they're also clearable
+        
+        // Check if tile is in requiredTiles (highest priority - always valid)
+        if (building.requiredTiles.includes(tile)) {
+          tileInfo.status = 'valid';
+          validation.tiles.push(tileInfo);
+        }
+        // Check if tile is blocked
+        else if (building.blockedTiles.includes(tile)) {
+          tileInfo.status = 'blocked';
+          validation.blockedTiles.push(tileInfo);
+          validation.canBuild = false;
+        }
+        // Check if tile is clearable (factions can build on these)
+        else if (building.clearableTiles.includes(tile)) {
+          tileInfo.status = 'clearable';
+          validation.clearableTiles.push(tileInfo);
+        }
+        // Unknown tile type - not in any category
+        else {
+          tileInfo.status = 'blocked';
+          validation.blockedTiles.push(tileInfo);
+          validation.canBuild = false;
+        }
       }
-      // Check if tile is blocked
-      else if (building.blockedTiles.includes(tile)) {
-        tileInfo.status = 'blocked';
-        validation.blockedTiles.push(tileInfo);
+    }
+
+    // Special Dock validation for players: must have ≥50% water tiles
+    if (isPlayer && buildingType === 'dock' && totalTiles > 0) {
+      const waterPercentage = (waterTileCount / totalTiles) * 100;
+      if (waterPercentage < 50) {
         validation.canBuild = false;
-      }
-      // Check if tile is clearable
-      else if (building.clearableTiles.includes(tile)) {
-        tileInfo.status = 'clearable';
-        validation.clearableTiles.push(tileInfo);
-      }
-      // Unknown tile type - not in any category
-      else {
-        tileInfo.status = 'blocked';
-        validation.blockedTiles.push(tileInfo);
-        validation.canBuild = false;
+        validation.reason = `Dock requires at least 50% water tiles (currently ${waterPercentage.toFixed(1)}%)`;
       }
     }
 

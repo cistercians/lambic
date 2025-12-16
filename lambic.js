@@ -4965,6 +4965,11 @@ Player.getAllInitPack = function() {
 };
 
 Player.onDisconnect = function(socket) {
+  // Ensure socket is removed from SOCKET_LIST
+  if (SOCKET_LIST[socket.id]) {
+    delete SOCKET_LIST[socket.id];
+  }
+  
   const player = Player.list[socket.id];
 
   if (player) {
@@ -5991,11 +5996,9 @@ function resetDailyResourceTracking() {
 // DAY/NIGHT CYCLE
 // ============================================================================
 
-// Simple hour counter for dayNight() - increments each time the function is called (every 10 seconds)
-// Starts at 0 (XII.a - midnight)
-let hourTick = 0;
-// Track day separately - starts at 1, increments when we cycle back to XII.a
-let dayForTempus = 1;
+// dayNight() increments hour every 10 seconds and updates gameState
+// Simple hour counter - increments each time the function is called (every 10 seconds)
+let hourTick = 0; // Tracks which hour we're in (0-23, where 0 = XII.a)
 
 function dayNight() {
   // Increment hour counter (0-23, cycles through all 24 hours)
@@ -6004,21 +6007,31 @@ function dayNight() {
   
   // When we cycle back to XII.a (hourTick = 0), increment the day
   if (hourTick === 0) {
-    dayForTempus++;
+    gameState.day++;
   }
   
-  // Fire hour change event with the correct day
-  if (global.eventManager) {
-    global.eventManager.hourChange(newTempus, dayForTempus);
-  }
-  
-  
-  // Update tempus
-  tempus = newTempus;
-  global.tempus = tempus;
+  // Update tempus in gameState and sync local/global variables
+  const previousTempus = gameState.tempus;
   gameState.tempus = newTempus;
-
-  if (tempus === 'XII.a') {
+  gameState.previousTempus = previousTempus;
+  tempus = newTempus;
+  global.tempus = newTempus;
+  
+  // Calculate nightfall
+  nightfall = ['VIII.p', 'IX.p', 'X.p', 'XI.p', 'XII.a', 'I.a', 'II.a', 'III.a', 'IV.a'].includes(newTempus);
+  gameState.nightfall = nightfall;
+  global.nightfall = nightfall;
+  
+  // Fire hour change event
+  if (global.eventManager) {
+    global.eventManager.hourChange(newTempus, gameState.day);
+  }
+  
+  // Log EVERY hour change
+  console.log(`Day ${gameState.day}, Hour: ${newTempus} (${nightfall ? 'Night' : 'Day'})`);
+  
+  // Check if we just transitioned TO XII.a (midnight)
+  if (hourTick === 0) {
     // Track population BEFORE midnight updates
     let populationBefore = {
       players: 0,
@@ -6079,8 +6092,6 @@ function dayNight() {
       }
     }
     
-    day++;
-    global.day = day;
     dailyTally();
     resetDailyResourceTracking(); // Reset daily resource counters for new day
 
@@ -6098,15 +6109,15 @@ function dayNight() {
     // Optional: Save map
     const saveMap = false;
     if (saveMap) {
-      fs.writeFile(`./maps/map${day}.txt`, JSON.stringify(world))
+      fs.writeFile(`./maps/map${gameState.day}.txt`, JSON.stringify(world))
         .catch(err => {});
     }
     
     // Run entropy at midnight and get statistics
     let entropyStats = { tilesChanged: 0, faunaAdded: 0 };
-    if (lastEntropyTempus !== tempus) {
+    if (lastEntropyTempus !== newTempus) {
       entropyStats = entropy() || { tilesChanged: 0, faunaAdded: 0 };
-      lastEntropyTempus = tempus;
+      lastEntropyTempus = newTempus;
     }
     
     // Count serfs by house AFTER midnight updates
@@ -6147,7 +6158,7 @@ function dayNight() {
     }
     
     // Create daily recap event (for the day that just ended, before day was incremented)
-    const dayForRecap = day - 1;
+    const dayForRecap = gameState.day - 1;
     if (global.eventManager) {
       global.eventManager.dailyRecap(dayForRecap, populationBefore, {
         tilesChanged: entropyStats.tilesChanged || 0,
@@ -6158,19 +6169,16 @@ function dayNight() {
     }
   }
 
-  if (tempus === 'VII.p') {
+  if (newTempus === 'VII.p') {
     // Work day ends (after serfs clock out) - send resource reports
     sendDailyResourceReport();
   }
 
   // Reset entropy guard when tempus moves away from XII.a
-  if (tempus !== 'XII.a' && lastEntropyTempus === 'XII.a') {
+  if (newTempus !== 'XII.a' && lastEntropyTempus === 'XII.a') {
     // Reset guard when tempus moves away from XII.a so entropy can run again next midnight
     lastEntropyTempus = null;
   }
-
-  nightfall = ['VIII.p', 'IX.p', 'X.p', 'XI.p', 'XII.a', 'I.a', 'II.a', 'III.a', 'IV.a'].includes(tempus);
-  global.nightfall = nightfall;
 
   // Track day/night transitions for events
   if (global.eventManager) {
@@ -6186,7 +6194,8 @@ function dayNight() {
     global.lastNightfall = nightfall;
   }
 
-  emit({ msg: 'tempus', tempus, nightfall });
+  // Emit tempus update to clients
+  emit({ msg: 'tempus', tempus: newTempus, nightfall: nightfall });
 
   House.update;
   Kingdom.update;
@@ -6466,6 +6475,16 @@ global.dependencyInjector = dependencyInjector;
 
 io.on('connection', function(socket) {
   socket.id = Math.random();
+  
+  // Prevent duplicate socket entries - check if socket already exists
+  for (const existingId in SOCKET_LIST) {
+    if (SOCKET_LIST[existingId] === socket) {
+      console.warn('[Socket] Socket already in SOCKET_LIST with ID:', existingId, '- removing old entry');
+      delete SOCKET_LIST[existingId];
+      break;
+    }
+  }
+  
   SOCKET_LIST[socket.id] = socket;
 
   socket.on('data', function(string) {
@@ -6552,8 +6571,8 @@ io.on('connection', function(socket) {
           world: world, // Use existing world array
           tileSize,
           mapSize,
-          tempus,
-          nightfall: global.nightfall,
+          tempus: gameState.tempus,
+          nightfall: gameState.nightfall,
           pack: previewPack
         }));
       } else if (data.msg === 'signIn') {
@@ -6570,7 +6589,8 @@ io.on('connection', function(socket) {
               world: world, // Use existing world array
               tileSize,
               mapSize,
-              tempus
+              tempus: gameState.tempus,
+              nightfall: gameState.nightfall
             }));
           } else {
             socket.write(JSON.stringify({ msg: 'signInResponse', success: false }));
@@ -7702,80 +7722,117 @@ io.on('connection', function(socket) {
           }
         } else if (data.msg === 'requestBuildMenu') {
           if (player && player.type === 'player') {
-            // Define all buildings with tier, costs, and dependency logic
-            // Tier I - all available from start (except Villa - no assets)
-            const tier1Buildings = [
-              {type: 'farm', name: 'Farm', wood: 50, stone: 25, tier: 1},
-              {type: 'lumbermill', name: 'Lumbermill', wood: 75, stone: 40, tier: 1},
-              {type: 'mine', name: 'Mine', wood: 60, stone: 80, tier: 1},
-              {type: 'hut', name: 'Hut', wood: 25, stone: 10, tier: 1},
-              {type: 'cottage', name: 'Cottage', wood: 40, stone: 20, tier: 1},
-              {type: 'tavern', name: 'Tavern', wood: 125, stone: 0, tier: 1},
-              {type: 'tower', name: 'Tower', wood: 30, stone: 50, tier: 1},
-              {type: 'forge', name: 'Forge', wood: 50, stone: 100, tier: 1},
-              {type: 'fort', name: 'Fort', wood: 120, stone: 150, tier: 1},
-              {type: 'outpost', name: 'Outpost', wood: 60, stone: 80, tier: 1},
-              {type: 'monastery', name: 'Monastery', wood: 200, stone: 300, tier: 1}
-            ];
+            // Get BuildingPreview instance
+            const buildingPreview = global.buildingPreview;
+            if (!buildingPreview) {
+              console.error('[BUILD MENU] BuildingPreview not available');
+              return;
+            }
+
+            // Get all available buildings from BuildingPreview
+            const allBuildingTypes = buildingPreview.getAvailableBuildings();
             
-            // Check player's built buildings for tier unlocks
-            let hasTavern = false;
-            let hasForge = false;
-            let hasGarrison = false;
+            // Define tier mapping based on prerequisites
+            // Tier I: Buildings available from start
+            const tier1Buildings = ['farm', 'mill', 'lumbermill', 'mine', 'hut', 'cottage', 'tavern', 'tower', 'forge', 'fort', 'outpost', 'monastery'];
             
+            // Tier II: Requires specific Tier I buildings
+            const tier2Requirements = {
+              'dock': 'tavern',
+              'stable': 'tavern',
+              'market': 'tavern',
+              'garrison': 'forge'
+            };
+            
+            // Tier III: Requires Garrison
+            const tier3Buildings = ['stronghold', 'wall', 'gate', 'guardtower'];
+            
+            // Check player's built buildings for prerequisites
+            const playerBuildings = {};
             for (const id in Building.list) {
               const building = Building.list[id];
               if (building.owner === player.id && building.built) {
-                if (building.type === 'tavern') hasTavern = true;
-                if (building.type === 'forge') hasForge = true;
-                if (building.type === 'garrison') hasGarrison = true;
+                playerBuildings[building.type] = true;
               }
             }
             
-            // Tier II - requires specific Tier I buildings
-            const tier2Buildings = [];
-            if (hasTavern) {
-              tier2Buildings.push({type: 'dock', name: 'Dock', wood: 80, stone: 40, tier: 2});
-              tier2Buildings.push({type: 'stable', name: 'Stable', wood: 100, stone: 50, tier: 2});
-              tier2Buildings.push({type: 'market', name: 'Market', wood: 150, stone: 75, tier: 2});
-            }
-            if (hasForge) {
-              tier2Buildings.push({type: 'garrison', name: 'Garrison', wood: 150, stone: 100, tier: 2});
+            // Helper function to determine tier for a building
+            const getBuildingTier = (buildingType) => {
+              if (tier1Buildings.includes(buildingType)) {
+                return 1;
+              }
+              if (tier2Requirements[buildingType]) {
+                return 2;
+              }
+              if (tier3Buildings.includes(buildingType)) {
+                return 3;
+              }
+              // Default to Tier I if not found in mappings
+              console.warn(`[BUILD MENU] Building ${buildingType} not found in tier mapping, defaulting to Tier I`);
+              return 1;
+            };
+            
+            // Helper function to check if building is unlocked
+            const isBuildingUnlocked = (buildingType, tier) => {
+              if (tier === 1) {
+                return true; // All Tier I buildings are always available
+              }
+              if (tier === 2 && tier2Requirements[buildingType]) {
+                const required = tier2Requirements[buildingType];
+                return playerBuildings[required] === true;
+              }
+              if (tier === 3) {
+                return playerBuildings['garrison'] === true;
+              }
+              return false;
+            };
+            
+            // Build building data array dynamically from BuildingPreview
+            const buildingsData = [];
+            
+            for (const buildingType of allBuildingTypes) {
+              const buildingDef = buildingPreview.getBuildingDefinition(buildingType);
+              if (!buildingDef) {
+                console.warn(`[BUILD MENU] Building definition not found for: ${buildingType}`);
+                continue;
+              }
+              
+              const tier = getBuildingTier(buildingType);
+              const unlocked = isBuildingUnlocked(buildingType, tier);
+              
+              // Extract costs from materials property
+              const wood = buildingDef.materials?.wood || 0;
+              const stone = buildingDef.materials?.stone || 0;
+              
+              buildingsData.push({
+                type: buildingType,
+                name: buildingDef.name,
+                wood: wood,
+                stone: stone,
+                tier: tier,
+                unlocked: unlocked
+              });
             }
             
-            // Tier III - requires Garrison
-            const tier3Buildings = [];
-            if (hasGarrison) {
-              tier3Buildings.push({type: 'stronghold', name: 'Stronghold', wood: 200, stone: 300, tier: 3});
-              tier3Buildings.push({type: 'wall', name: 'Wall', wood: 30, stone: 40, tier: 3});
-              tier3Buildings.push({type: 'gate', name: 'Gate', wood: 50, stone: 60, tier: 3});
-              tier3Buildings.push({type: 'guardtower', name: 'Guard Tower', wood: 100, stone: 120, tier: 3});
-            }
-            
-            // Combine all available buildings
-            const allBuildings = [...tier1Buildings, ...tier2Buildings, ...tier3Buildings];
+            // Only include unlocked buildings
+            const availableBuildings = buildingsData.filter(b => b.unlocked);
             
             // Get player resources from BOTH inventory and stores (inventory is checked first when building)
             const playerWood = (player.inventory.wood || 0) + (player.stores.wood || 0);
             const playerStone = (player.inventory.stone || 0) + (player.stores.stone || 0);
             
-            // Mark each building with unlocked status
-            const buildingsData = allBuildings.map(b => ({
-              ...b,
-              unlocked: true // All buildings in their respective tiers are unlocked
-            }));
-            
             console.log('[BUILD MENU] Sending buildMenuData:', {
-              buildingsCount: buildingsData.length,
+              buildingsCount: availableBuildings.length,
+              totalBuildings: buildingsData.length,
               playerWood: playerWood,
               playerStone: playerStone,
-              buildings: buildingsData.map(b => b.name)
+              buildings: availableBuildings.map(b => `${b.name} (T${b.tier})`)
             });
             
             // Send response
             socket.write(JSON.stringify({
               msg: 'buildMenuData',
-              buildings: buildingsData,
+              buildings: availableBuildings,
               playerWood: playerWood,
               playerStone: playerStone
             }));
@@ -7787,9 +7844,10 @@ io.on('connection', function(socket) {
             const c = loc[0];
             const r = loc[1];
             
-            // Use BuildingPreview if available
+            // Use BuildingPreview if available (players use strict terrain rules)
             if (global.buildingPreview) {
-              const validation = global.buildingPreview.validateBuildingPlacement(data.buildingType, c, r, z);
+              const facing = player.facing || 'right';
+              const validation = global.buildingPreview.validateBuildingPlacement(data.buildingType, c, r, z, facing, true); // isPlayer = true
               
               socket.write(JSON.stringify({
                 msg: 'buildPreviewData',
@@ -7805,16 +7863,34 @@ io.on('connection', function(socket) {
             const z = player.z;
             
             if (global.buildingPreview) {
-              const validation = global.buildingPreview.validateBuildingPlacement(data.buildingType, data.tileX, data.tileY, z);
+              // Players use strict terrain rules
+              const facing = player.facing || 'right';
+              const validation = global.buildingPreview.validateBuildingPlacement(data.buildingType, data.tileX, data.tileY, z, facing, true); // isPlayer = true
+              
+              // Build plot array with tile statuses
+              const plot = [];
+              
+              // Add valid tiles
+              if (validation.tiles) {
+                for (const tile of validation.tiles) {
+                  plot.push({ x: tile.x, y: tile.y, status: 'valid' });
+                }
+              }
+              
+              // Add blocked tiles
+              if (validation.blockedTiles) {
+                for (const tile of validation.blockedTiles) {
+                  plot.push({ x: tile.x, y: tile.y, status: 'blocked' });
+                }
+              }
               
               socket.write(JSON.stringify({
                 msg: 'buildValidationData',
                 buildingType: data.buildingType,
                 tileX: data.tileX,
                 tileY: data.tileY,
-                valid: validation.tiles || [],
-                clearable: validation.clearableTiles || [],
-                blocked: validation.blockedTiles || []
+                plot: plot,
+                canBuild: validation.canBuild || false
               }));
             }
           }
@@ -8499,6 +8575,11 @@ io.on('connection', function(socket) {
   });
 
   socket.on('close', function() {
+    // Remove socket from SOCKET_LIST immediately on disconnect
+    if (SOCKET_LIST[socket.id]) {
+      delete SOCKET_LIST[socket.id];
+    }
+    
     // Clean up spectators
     if(global.spectators && global.spectators[socket.id]){
       delete global.spectators[socket.id];
@@ -8508,6 +8589,11 @@ io.on('connection', function(socket) {
   });
 
   socket.onclose = function() {
+    // Remove socket from SOCKET_LIST immediately on disconnect
+    if (SOCKET_LIST[socket.id]) {
+      delete SOCKET_LIST[socket.id];
+    }
+    
     // Clean up spectators
     if(global.spectators && global.spectators[socket.id]){
       delete global.spectators[socket.id];

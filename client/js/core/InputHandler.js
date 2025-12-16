@@ -403,6 +403,15 @@ class InputHandler {
           this.config.buildPreviewMode = false;
           this.config.buildPreviewType = null;
           this.config.buildPreviewData = null;
+          
+          // Also clear window variables
+          if (typeof window !== 'undefined') {
+            window.buildPreviewMode = false;
+            window.buildPreviewType = null;
+            window.buildPreviewData = null;
+            window.buildPreviewValidationCache = null;
+            window.buildPreviewLastTile = null;
+          }
         }
         // Clear selected target using helper method
         this.clearTarget();
@@ -1034,35 +1043,60 @@ class InputHandler {
     } = this.config;
 
     // Handle building preview mode first
-    if (buildPreviewMode && buildPreviewType && buildPreviewData) {
-      // Check if click is on canvas
-      const canvas = document.getElementById('ctx');
-      if (canvas) {
-        const rect = canvas.getBoundingClientRect();
-        const clickX = event.clientX - rect.left;
-        const clickY = event.clientY - rect.top;
-        
-        // Only handle clicks within canvas bounds
-        if (clickX >= 0 && clickX <= canvas.width && clickY >= 0 && clickY <= canvas.height) {
-          // Check if placement is valid
-          if (buildPreviewData.valid) {
-            // Execute build command with tile coordinates
-            socket.send(JSON.stringify({
-              msg: 'buildAt',
-              buildingType: buildPreviewType,
-              tileX: buildPreviewData.tileX,
-              tileY: buildPreviewData.tileY
-            }));
-            
-            // Exit preview mode
-            this.config.buildPreviewMode = false;
-            this.config.buildPreviewType = null;
-            this.config.buildPreviewData = null;
-          } else {
-            // Invalid placement - exit preview mode
-            this.config.buildPreviewMode = false;
-            this.config.buildPreviewType = null;
-            this.config.buildPreviewData = null;
+    if (buildPreviewMode && buildPreviewType) {
+      // Get preview data from config or window scope
+      const previewData = buildPreviewData || (typeof window !== 'undefined' && window.buildPreviewData) || null;
+      
+      if (previewData) {
+        // Check if click is on canvas
+        const canvas = document.getElementById('ctx');
+        if (canvas) {
+          const rect = canvas.getBoundingClientRect();
+          const clickX = event.clientX - rect.left;
+          const clickY = event.clientY - rect.top;
+          
+          // Only handle clicks within canvas bounds
+          if (clickX >= 0 && clickX <= canvas.width && clickY >= 0 && clickY <= canvas.height) {
+            // Check if placement is valid - only build if all tiles are green (valid)
+            if (previewData.valid === true) {
+              // Execute build command with tile coordinates
+              // This places foundation tiles at the cursor position
+              socket.send(JSON.stringify({
+                msg: 'buildAt',
+                buildingType: buildPreviewType,
+                tileX: previewData.tileX,
+                tileY: previewData.tileY
+              }));
+              
+              // Exit preview mode after sending build command
+              // If build fails, it will be canceled via chat message handler
+              this.config.buildPreviewMode = false;
+              this.config.buildPreviewType = null;
+              this.config.buildPreviewData = null;
+              
+              // Also clear window variables
+              if (typeof window !== 'undefined') {
+                window.buildPreviewMode = false;
+                window.buildPreviewType = null;
+                window.buildPreviewData = null;
+                window.buildPreviewValidationCache = null;
+                window.buildPreviewLastTile = null;
+              }
+            } else {
+              // Invalid placement - cancel preview mode
+              this.config.buildPreviewMode = false;
+              this.config.buildPreviewType = null;
+              this.config.buildPreviewData = null;
+              
+              // Also clear window variables
+              if (typeof window !== 'undefined') {
+                window.buildPreviewMode = false;
+                window.buildPreviewType = null;
+                window.buildPreviewData = null;
+                window.buildPreviewValidationCache = null;
+                window.buildPreviewLastTile = null;
+              }
+            }
           }
         }
       }
@@ -1318,10 +1352,19 @@ class InputHandler {
     }
     
     if (this.config.buildPreviewMode) {
-      // Right click cancels preview mode
+      // Right click cancels preview mode immediately
       this.config.buildPreviewMode = false;
       this.config.buildPreviewType = null;
       this.config.buildPreviewData = null;
+      
+      // Also clear window variables
+      if (typeof window !== 'undefined') {
+        window.buildPreviewMode = false;
+        window.buildPreviewType = null;
+        window.buildPreviewData = null;
+        window.buildPreviewValidationCache = null;
+        window.buildPreviewLastTile = null;
+      }
       return;
     }
     

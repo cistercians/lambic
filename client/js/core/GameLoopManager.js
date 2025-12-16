@@ -208,8 +208,13 @@ class GameLoopManager {
     const updatePlayerPortraitHUD = config.updatePlayerPortraitHUD;
     const updateTargetPortraitHUD = config.updateTargetPortraitHUD;
     const renderCursor = config.renderCursor;
-    let buildPreviewMode = config.buildPreviewMode;
-    const buildPreviewType = config.buildPreviewType;
+    // Extract preview mode values - handle both object with .value and direct values
+    let buildPreviewMode = (config.buildPreviewMode && typeof config.buildPreviewMode === 'object' && 'value' in config.buildPreviewMode) 
+      ? config.buildPreviewMode.value 
+      : config.buildPreviewMode;
+    const buildPreviewType = (config.buildPreviewType && typeof config.buildPreviewType === 'object' && 'value' in config.buildPreviewType)
+      ? config.buildPreviewType.value
+      : config.buildPreviewType;
     const renderBuildingPreview = config.renderBuildingPreview;
     const updateAnimations = config.updateAnimations;
     const Player = config.Player;
@@ -386,7 +391,10 @@ class GameLoopManager {
       renderUnified(mode, currentZ, nightfall);
       
       // Render building preview that follows mouse cursor
-      if (buildPreviewMode && buildPreviewType) {
+      // Check window variables first (primary source), then fall back to config
+      const previewMode = (typeof window !== 'undefined' && window.buildPreviewMode) || buildPreviewMode;
+      const previewType = (typeof window !== 'undefined' && window.buildPreviewType) || buildPreviewType;
+      if (previewMode && previewType) {
         renderBuildingPreview();
       }
     } else {

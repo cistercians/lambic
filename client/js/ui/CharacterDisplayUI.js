@@ -202,11 +202,51 @@ class CharacterDisplayUI {
     const slot = document.getElementById(slotId);
     if (!slot) return;
 
+    // Clear slot and add label
     slot.innerHTML = '<div class="equipment-slot-label">' + slotLabel + '</div>';
 
     if (item && item.name) {
-      // Implementation would continue here with item rendering
-      // This is a placeholder for the full implementation
+      // Get item type from item (item.type should be the internal type like "bastardsword")
+      // If not available, try to derive from name by lowercasing and removing spaces
+      let itemType = item.type;
+      if (!itemType && item.name) {
+        // Convert formatted name back to item type format
+        itemType = item.name.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '');
+      }
+      
+      // Get item image if available
+      let itemImg = null;
+      if (typeof window !== 'undefined' && typeof getInventoryItemImage === 'function') {
+        itemImg = getInventoryItemImage(itemType, 1);
+      }
+      
+      // Create item display container
+      const itemContainer = document.createElement('div');
+      itemContainer.className = 'equipment-slot-item';
+      
+      if (itemImg && itemImg.src) {
+        // Add item image
+        const img = document.createElement('img');
+        img.src = itemImg.src;
+        img.style.width = '40px';
+        img.style.height = '40px';
+        img.style.objectFit = 'contain';
+        itemContainer.appendChild(img);
+      }
+      
+      // Add item name
+      const itemName = document.createElement('div');
+      itemName.className = 'equipment-slot-name';
+      itemName.textContent = item.name;
+      itemContainer.appendChild(itemName);
+      
+      slot.appendChild(itemContainer);
+    } else {
+      // Show empty slot
+      const emptySlot = document.createElement('div');
+      emptySlot.className = 'equipment-slot-empty';
+      emptySlot.textContent = 'Empty';
+      slot.appendChild(emptySlot);
     }
   }
 }

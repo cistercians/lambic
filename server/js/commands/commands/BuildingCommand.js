@@ -90,18 +90,20 @@ class BuildingCommand {
     const c = data.overrideC !== undefined ? data.overrideC : loc[0];
     const r = data.overrideR !== undefined ? data.overrideR : loc[1];
 
-    // Validate placement
+    // Validate placement (players use strict terrain rules)
     let validation;
     try {
       const facing = player.facing || 'right';
-      validation = buildingPreview.validateBuildingPlacement(buildingType, c, r, z, facing);
+      validation = buildingPreview.validateBuildingPlacement(buildingType, c, r, z, facing, true); // isPlayer = true
     } catch (error) {
       this.sendError(socket, 'Error: Unable to validate building placement');
       return true; // Command was handled, just failed validation
     }
     
     if (!validation || !validation.canBuild) {
-      this.sendError(socket, 'You cannot build that there.');
+      // Provide specific error message if available (e.g., Dock 50% water requirement)
+      const errorMsg = validation.reason || 'You cannot build that there.';
+      this.sendError(socket, errorMsg);
       return true; // Command was handled, just failed validation
     }
 

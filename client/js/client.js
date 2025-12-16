@@ -281,6 +281,8 @@ var buildPreviewMode = false;
 var buildPreviewType = null;
 var buildPreviewData = null;
 var buildPreviewValidation = null;
+var buildPreviewLastTile = null; // Cache last requested tile position
+var buildPreviewValidationCache = null; // Cache validation response
 
 // Mouse position tracking
 var mousePos = { x: 0, y: 0 };
@@ -827,7 +829,14 @@ var updateTargetPortraitHUD = () => {
 }
 
 // Character display functions extracted to CharacterDisplayUI.js
-var updateCharacterDisplay = (fullUpdate) => { if (!window.characterDisplayUIInstance) window.characterDisplayUIInstance = new CharacterDisplayUI(); window.characterDisplayUIInstance?.updateCharacterDisplay(fullUpdate); }
+var updateCharacterDisplay = (fullUpdate) => { 
+  if (!window.characterDisplayUIInstance) window.characterDisplayUIInstance = new CharacterDisplayUI(); 
+  // Get player object - check both window.selfId and selfId (from scope)
+  const playerId = (typeof window !== 'undefined' && window.selfId) ? window.selfId : (typeof selfId !== 'undefined' ? selfId : null);
+  const player = playerId && typeof Player !== 'undefined' && Player.list && Player.list[playerId] ? Player.list[playerId] : null;
+  if (!player) return;
+  window.characterDisplayUIInstance?.updateCharacterDisplay(player, fullUpdate !== false); 
+}
 var updateCharacterBars = (player) => { if (!window.characterDisplayUIInstance) window.characterDisplayUIInstance = new CharacterDisplayUI(); window.characterDisplayUIInstance?.updateCharacterBars(player); }
 var updateCharacterStats = (player) => { if (!window.characterDisplayUIInstance) window.characterDisplayUIInstance = new CharacterDisplayUI(); window.characterDisplayUIInstance?.updateCharacterStats(player); }
 var updateCharacterSprite = (player) => { if (!window.characterDisplayUIInstance) window.characterDisplayUIInstance = new CharacterDisplayUI(); window.characterDisplayUIInstance?.updateCharacterSprite(player); }
@@ -855,7 +864,13 @@ var renderCatchEmojis = (ctx) => CatchEmojiRenderer?.render?.(ctx);
 // Build menu rendering extracted to BuildMenuUI.js
 var renderBuildMenu = (buildings, playerWood, playerStone) => {
   if (!window.buildMenuUIInstance) { window.buildMenuUIInstance = new BuildMenuUI(); window.buildMenuUIInstance.init(buildMenuContent); }
-  return window.buildMenuUIInstance?.render(buildings, playerWood, playerStone, { socket, buildPreviewMode, buildPreviewType, buildMenuPopup });
+  return window.buildMenuUIInstance?.render(buildings, playerWood, playerStone, { 
+    socket: socket, 
+    buildPreviewMode: { value: buildPreviewMode }, 
+    buildPreviewType: { value: buildPreviewType }, 
+    buildPreviewData: { value: buildPreviewData },
+    buildMenuPopup: buildMenuPopup 
+  });
 }
 
 // Send command to server (used by build menu and other UI components)
@@ -888,9 +903,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Building preview rendering
 var renderBuildingPreview = () => {
-  if (!buildPreviewMode || !buildPreviewType || !selfId || !Player.list[selfId]) {
+  // Check both config object and window variables
+  const previewMode = (typeof window !== 'undefined' && window.buildPreviewMode) || buildPreviewMode;
+  const previewType = (typeof window !== 'undefined' && window.buildPreviewType) || buildPreviewType;
+  
+  if (!previewMode || !previewType || !selfId || !Player.list[selfId]) {
     return;
   }
+  
+  // Use window variables if available, otherwise fall back to local
+  const buildingType = previewType;
   
   // Get mouse position relative to canvas
   var canvas = document.getElementById('ctx');
@@ -907,60 +929,93 @@ var renderBuildingPreview = () => {
   var worldX = (mouseX - WIDTH / 2) / zoom + WIDTH / 2 - viewport.offset[0];
   var worldY = (mouseY - HEIGHT / 2) / zoom + HEIGHT / 2 - viewport.offset[1];
   
-  // Snap to tile grid - this will be the player's standing position (plot origin [0,0])
-  var playerTileX = Math.floor(worldX / tileSize);
-  var playerTileY = Math.floor(worldY / tileSize);
+  // Snap to tile grid - this will be the center tile (cursor position) for the building plot
+  var cursorTileX = Math.floor(worldX / tileSize);
+  var cursorTileY = Math.floor(worldY / tileSize);
+  
+  // Request validation from server if tile position changed
+  if (!buildPreviewLastTile || buildPreviewLastTile.x !== cursorTileX || buildPreviewLastTile.y !== cursorTileY) {
+    buildPreviewLastTile = { x: cursorTileX, y: cursorTileY };
+    // Clear cache
+    buildPreviewValidationCache = null;
+    if (typeof window !== 'undefined') {
+      window.buildPreviewValidationCache = null;
+    }
+    
+    // Request validation from server
+    if (socket && socket.readyState === 1) { // WebSocket.OPEN
+      socket.send(JSON.stringify({
+        msg: 'requestBuildValidation',
+        buildingType: buildingType,
+        tileX: cursorTileX,
+        tileY: cursorTileY
+      }));
+    }
+  }
+  
+  // Use cached validation if available, otherwise draw with default (will update when response arrives)
+  var validation = (typeof window !== 'undefined' && window.buildPreviewValidationCache) || buildPreviewValidationCache;
+  var canBuild = false;
   
   // Get building definition for plot
-  var buildingDef = getBuildingDefinition(buildPreviewType);
+  var buildingDef = getBuildingDefinition(buildingType);
   if (!buildingDef) return;
-  
-  // Check if all tiles are valid
-  var allValid = true;
-  var hasAnyInvalid = false;
   
   // Draw preview tiles
   ctx.save();
   ctx.globalAlpha = 0.6;
   
-  for (var i = 0; i < buildingDef.plot.length; i++) {
-    var plotTile = buildingDef.plot[i];
-    // Add offset from player position (which is the origin [0,0] of the building plot)
-    var previewTileX = playerTileX + plotTile[0];
-    var previewTileY = playerTileY + plotTile[1];
+  if (validation && validation.plot && validation.plot.length > 0) {
+    // Use server validation response
+    canBuild = validation.canBuild || false;
     
-    // Convert to screen coordinates using viewport offset
-    var screenX = previewTileX * tileSize + viewport.offset[0];
-    var screenY = previewTileY * tileSize + viewport.offset[1];
-    
-    // Determine tile color based on validation
-    var tileColor = '#ff6666'; // Default red for blocked
-    var w = (window.world && window.world.length > 0) ? window.world : world;
-    var isValid = isValidTileForBuilding(previewTileX, previewTileY, w);
-    var isClearable = isClearableTile(previewTileX, previewTileY, w);
-    
-    if (isValid || isClearable) {
-      tileColor = '#66ff66'; // Green for valid/clearable
-    } else {
-      tileColor = '#ff6666'; // Red for blocked
-      hasAnyInvalid = true;
-      allValid = false;
+    for (var i = 0; i < validation.plot.length; i++) {
+      var plotTile = validation.plot[i];
+      
+      // Convert tile coordinates to screen coordinates
+      var screenX = plotTile.x * tileSize + viewport.offset[0];
+      var screenY = plotTile.y * tileSize + viewport.offset[1];
+      
+      // Determine tile color based on server validation status
+      var tileColor = plotTile.status === 'valid' ? '#66ff66' : '#ff6666'; // Green for valid, red for blocked
+      
+      // Draw preview tile
+      ctx.fillStyle = tileColor;
+      ctx.fillRect(screenX, screenY, tileSize, tileSize);
     }
+  } else {
+    // Fallback: draw plot based on building definition while waiting for server response
+    canBuild = false; // Default to false until we get validation
     
-    // Draw preview tile
-    ctx.fillStyle = tileColor;
-    ctx.fillRect(screenX, screenY, tileSize, tileSize);
+    for (var i = 0; i < buildingDef.plot.length; i++) {
+      var plotTile = buildingDef.plot[i];
+      // Calculate plot tiles relative to cursor position
+      var previewTileX = cursorTileX + plotTile[0];
+      var previewTileY = cursorTileY + plotTile[1];
+      
+      // Convert to screen coordinates using viewport offset
+      var screenX = previewTileX * tileSize + viewport.offset[0];
+      var screenY = previewTileY * tileSize + viewport.offset[1];
+      
+      // Draw with gray color while waiting for validation
+      ctx.fillStyle = '#888888';
+      ctx.fillRect(screenX, screenY, tileSize, tileSize);
+    }
   }
   
   ctx.restore();
   
   // Store current validation state for click handler
-  // tileX and tileY represent where the player would stand (the origin of the building plot)
   buildPreviewData = {
-    tileX: playerTileX,
-    tileY: playerTileY,
-    valid: allValid
+    tileX: cursorTileX,
+    tileY: cursorTileY,
+    valid: canBuild
   };
+  
+  // Also update window variable for access from other modules
+  if (typeof window !== 'undefined') {
+    window.buildPreviewData = buildPreviewData;
+  }
 }
 // Building preview helpers extracted to BuildingPreviewRenderer.js
 // Initialize BuildingPreviewRenderer instance for helper methods

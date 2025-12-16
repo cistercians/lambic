@@ -27,38 +27,22 @@ class GameState {
 
   updateTime() {
     this.tick++;
+    // NOTE: updateTempus() no longer calculates tempus from tick - tempus is managed by dayNight()
+    // We still call it to sync nightfall, but it won't change tempus
     this.updateTempus();
 
+    // NOTE: Day increment is now handled by dayNight() when hourTick cycles back to 0
+    // We reset tick counter but don't increment day here anymore
     if (this.tick >= this.period) {
       this.tick = 1;
-      this.day++;
-      
-      // Trigger faction AI evaluation on new day
-      if (typeof House !== 'undefined' && House.evaluateAI) {
-        House.evaluateAI();
-      }
+      // Day increment moved to dayNight() function
     }
   }
 
   updateTempus() {
-    // Use the original cycle array logic
-    const cycle = ['XII.a','I.a','II.a','III.a','IV.a','V.a','VI.a','VII.a','VIII.a','IX.a','X.a',
-      'XI.a','XII.p','I.p','II.p','III.p','IV.p','V.p','VI.p','VII.p','VIII.p','IX.p','X.p','XI.p'];
-
-    // Calculate which hour we're in (24 hours total, 0-23)
-    // Each hour should last (period / 24) ticks
-    const hourIndex = Math.floor((this.tick / this.period) * 24);
-    const cycleIndex = hourIndex % 24;
-
-    const newTempus = cycle[cycleIndex];
-    
-    // Don't fire events here - events are fired in dayNight() where tempus changes are actually detected
-    // This function just updates the tempus value every frame
-    
-    this.tempus = newTempus;
-    this.previousTempus = newTempus;
-
-    // Nightfall is true during these hours: VIII.p, IX.p, X.p, XI.p, XII.a, I.a, II.a, III.a, IV.a
+    // NOTE: Tempus is now managed by dayNight() function in lambic.js, which runs every 10 seconds
+    // This function is kept for compatibility but should not override tempus values
+    // It only updates nightfall based on current tempus (which is set by dayNight())
     this.nightfall = ['VIII.p', 'IX.p', 'X.p', 'XI.p', 'XII.a', 'I.a', 'II.a', 'III.a', 'IV.a'].includes(this.tempus);
   }
 

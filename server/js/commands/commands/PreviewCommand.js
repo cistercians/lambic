@@ -62,8 +62,9 @@ class PreviewCommand {
       return false;
     }
 
-    // Validate placement
-    const validation = buildingPreview.validateBuildingPlacement(buildingType, c, r, z);
+    // Validate placement (players use strict terrain rules)
+    const facing = player.facing || 'right';
+    const validation = buildingPreview.validateBuildingPlacement(buildingType, c, r, z, facing, true); // isPlayer = true
     const materialCheck = buildingPreview.checkMaterials(player, buildingType);
 
     // Send preview data to client

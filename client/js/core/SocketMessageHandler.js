@@ -333,6 +333,42 @@ var SocketMessageHandler = {
   },
 
   handleAddToChat: function(data) {
+    // Check for build errors and cancel preview mode if building fails
+    if (data.message && typeof window !== 'undefined' && window.buildPreviewMode) {
+      // Check for build error messages
+      const errorPatterns = [
+        /You cannot build/i,
+        /Missing materials/i,
+        /Cannot build/i,
+        /Error.*build/i,
+        /unable.*build/i
+      ];
+      
+      const messageText = typeof data.message === 'string' ? data.message : 
+                         (data.message.textContent || data.message.innerText || 
+                          (data.message.nodeType === 1 ? data.message.textContent : String(data.message)));
+      
+      for (const pattern of errorPatterns) {
+        if (pattern.test(messageText)) {
+          // Build failed - cancel preview mode
+          console.log('[BuildPreview] Build failed, canceling preview:', messageText);
+          window.buildPreviewMode = false;
+          window.buildPreviewType = null;
+          window.buildPreviewData = null;
+          window.buildPreviewValidationCache = null;
+          window.buildPreviewLastTile = null;
+          
+          // Also update config if available
+          if (this.config && this.config.buildPreviewMode) {
+            this.config.buildPreviewMode.value = false;
+            if (this.config.buildPreviewType) this.config.buildPreviewType.value = null;
+            if (this.config.buildPreviewData) this.config.buildPreviewData.value = null;
+          }
+          break;
+        }
+      }
+    }
+    
     if(typeof chatMessages !== 'undefined') {
       chatMessages.innerHTML += '<div>' + data.message + '</div>';
       // Force scroll to absolute bottom
@@ -435,8 +471,11 @@ var SocketMessageHandler = {
   },
 
   handleBuildValidationData: function(data) {
-    // Validation data received
+    // Validation data received from server - cache it for renderBuildingPreview
     if(typeof window !== 'undefined') {
+      // Store in validation cache
+      window.buildPreviewValidationCache = data;
+      // Also update buildPreviewData for backward compatibility
       window.buildPreviewData = data;
     }
   },

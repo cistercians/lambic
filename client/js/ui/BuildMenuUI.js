@@ -29,8 +29,9 @@ class BuildMenuUI {
    * @param {Array} buildings - Available buildings
    * @param {number} playerWood - Player wood count
    * @param {number} playerStone - Player stone count
+   * @param {object} config - Configuration object with preview mode and socket
    */
-  render(buildings, playerWood, playerStone) {
+  render(buildings, playerWood, playerStone, config) {
     console.log('[BuildMenuUI] Render called with:', {
       initialized: this.initialized,
       hasContainer: !!this.container,
@@ -62,7 +63,7 @@ class BuildMenuUI {
       this.container.appendChild(tier1Header);
       
       tier1.forEach(building => {
-        const tile = this.createBuildingTile(building, playerWood, playerStone);
+        const tile = this.createBuildingTile(building, playerWood, playerStone, config);
         this.container.appendChild(tile);
       });
     }
@@ -88,7 +89,7 @@ class BuildMenuUI {
       this.container.appendChild(tier3Header);
       
       tier3.forEach(building => {
-        const tile = this.createBuildingTile(building, playerWood, playerStone);
+        const tile = this.createBuildingTile(building, playerWood, playerStone, config);
         this.container.appendChild(tile);
       });
     }
@@ -105,9 +106,10 @@ class BuildMenuUI {
    * @param {object} building - Building data
    * @param {number} playerWood - Player wood
    * @param {number} playerStone - Player stone
+   * @param {object} config - Configuration object with preview mode
    * @returns {HTMLElement} Building tile element
    */
-  createBuildingTile(building, playerWood, playerStone) {
+  createBuildingTile(building, playerWood, playerStone, config) {
     const tile = document.createElement('div');
     tile.className = 'building-tile';
     
@@ -157,20 +159,40 @@ class BuildMenuUI {
     command.textContent = `/build ${building.type}`;
     tile.appendChild(command);
 
-    // Click handler
+    // Click handler - activate preview mode instead of building immediately
     if (canAfford) {
       tile.onclick = () => {
-        console.log('[BuildMenuUI] Building clicked:', building.type);
-        if (typeof window.sendCommand === 'function') {
-          window.sendCommand(`/build ${building.type}`);
-          
-          // Close the build menu popup
+        console.log('[BuildMenuUI] Building selected for preview:', building.type);
+        
+        // Update window variables first (primary source of truth)
+        if (typeof window !== 'undefined') {
+          window.buildPreviewMode = true;
+          window.buildPreviewType = building.type;
+          window.buildPreviewData = null;
+          window.buildPreviewValidationCache = null;
+          window.buildPreviewLastTile = null;
+        }
+        
+        // Also update config object if available (for compatibility)
+        if (config) {
+          if (config.buildPreviewMode) config.buildPreviewMode.value = true;
+          if (config.buildPreviewType) config.buildPreviewType.value = building.type;
+          if (config.buildPreviewData) config.buildPreviewData.value = null;
+        }
+        
+        console.log('[BuildMenuUI] Preview mode activated:', {
+          windowPreviewMode: typeof window !== 'undefined' ? window.buildPreviewMode : 'N/A',
+          windowPreviewType: typeof window !== 'undefined' ? window.buildPreviewType : 'N/A'
+        });
+        
+        // Close the build menu popup
+        if (config && config.buildMenuPopup) {
+          config.buildMenuPopup.style.display = 'none';
+        } else {
           const buildMenuPopup = document.getElementById('build-menu-popup');
           if (buildMenuPopup) {
             buildMenuPopup.style.display = 'none';
           }
-        } else {
-          console.error('[BuildMenuUI] sendCommand function not available');
         }
       };
     }
