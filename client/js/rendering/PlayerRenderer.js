@@ -390,66 +390,10 @@ class PlayerRenderer {
       falcon
     } = config;
 
-    // CRITICAL: Explicit validation at start - falcons should NEVER render with maleserf
-    // This is the first line of defense to prevent wrong sprite rendering
-    if (player.class === 'Falcon') {
-      // Check if sprite is maleserf (wrong fallback) - don't render and clear it
-      if (player.sprite && typeof maleserf !== 'undefined' && player.sprite === maleserf) {
-        console.warn('PlayerRenderer: Falcon sprite was set to maleserf - clearing and skipping render');
-        player.sprite = null; // Clear the wrong sprite
-        return; // Don't render falcons with wrong sprite
-      }
-    }
 
-    // Handle falcon rendering first - don't render if sprite isn't loaded or is wrong sprite
-    if (player.class === 'Falcon') {
-      
-      // Do basic visibility checks for falcons
-      // God mode: Hide own character
-      if (godModeCamera.isActive && player.id === selfId) return;
-      
-      // Spectate mode: Hide spectator characters
-      if (spectateCameraSystem.isActive && player.type === 'spectator') return;
-      
-      // Ghost invisibility: Don't render other players' ghosts
-      if (player.ghost && player.id !== selfId) return;
-      
-      // Don't render players boarded on ships (falcons don't board, but check anyway)
-      if (player.isBoarded) return;
-      
-      // Calculate position and try to render falcon - this will return early if sprite not loaded
-      const scaledSpriteSize = player.spriteSize || tileSize;
-      const x = (player.x - (scaledSpriteSize / 2)) - cameraPos.x + WIDTH / 2;
-      const y = (player.y - (scaledSpriteSize / 2)) - cameraPos.y + HEIGHT / 2;
-      
-      if (this.renderFalcon(player, { ctx, x, y, scaledSpriteSize, falcon })) {
-        return; // Falcon rendered (or skipped if not loaded), don't fall through
-      }
-      // If renderFalcon returned false, sprite might not be set yet - don't render
+    // Don't render if sprite not loaded (universal behavior for all classes)
+    if (!player.sprite) {
       return;
-    }
-
-    // Don't render if sprite not loaded (except for Falcons and Wolves which handle their own sprite loading)
-    if (!player.sprite && player.class !== 'Falcon' && player.class !== 'Wolf') {
-      // Try to get sprite for wolves one more time
-      if (player.class === 'Wolf' && typeof window !== 'undefined' && window.wolf) {
-        player.sprite = window.wolf;
-      } else if (player.class === 'Wolf' && typeof wolf !== 'undefined') {
-        player.sprite = wolf;
-      } else {
-        return;
-      }
-    }
-    
-    // For falcons, if sprite is null, try to get it again (in case it loaded since last check)
-    if (player.class === 'Falcon' && !player.sprite) {
-      var falconSprite = getSpriteForClass('Falcon', player.ghost);
-      if (falconSprite) {
-        player.sprite = falconSprite;
-      } else {
-        // Still not loaded - don't render
-        return;
-      }
     }
 
     // God mode: Hide own character

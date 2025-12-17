@@ -1,5 +1,5 @@
-// SimpleSerfBehavior - Ultra-minimal working Serf system
-// Just handles basic movement and building exits
+// SimpleSerfBehavior - Thin wrapper that delegates to state machine
+// Maintains backward compatibility while using new modular system
 
 class SimpleSerfBehavior {
   constructor() {
@@ -7,8 +7,13 @@ class SimpleSerfBehavior {
   }
 
   update(serf) {
-    // Z-level transitions are now handled automatically by Entity.js intent system
-    // Just do basic wandering when idle
+    // Always delegate to state machine if available
+    if (global.serfStateMachine) {
+      global.serfStateMachine.update(serf);
+      return;
+    }
+
+    // Fallback: basic wandering when idle (only if state machine not available)
     if (serf.mode !== 'work') {
       this.handleWandering(serf);
     }

@@ -895,65 +895,8 @@ class SimpleCombat {
       }
     }
 
-    // Use spatial system for aggro checks if available (much faster than iterating all entities)
-    if (global.spatialSystem && global.spatialSystem.findAggroTargets) {
-      const nearbyTargets = global.spatialSystem.findAggroTargets(entity, aggroRange);
-      
-      for (const target of nearbyTargets) {
-        if (!target || target.id === entity.id) continue;
-        if (target.z !== entity.z) continue;
-        
-        // Skip invalid targets
-        if (target.ghost) continue;
-        if (target.type === 'spectator') continue;
-        if (nonCombatClasses.includes(target.class)) continue;
-        // Skip non-combat ship types (fishing and cargo ships can't be targeted)
-        if (target.shipType && nonCombatShipTypes.includes(target.shipType)) continue;
-        if (target.isPrey && entity.class !== 'Wolf') continue;
-        if (target.isPrey && entity.class === 'Serf') continue;
-
-        // STEALTH: Skip stealthed targets that haven't been detected
-        if (target.stealthed && !target.revealed) {
-          if (!this.checkStealthDetection(target, entity)) {
-            continue; // Can't see stealthed target
-          }
-        }
-
-        // Check alliance FIRST - allies should never aggro each other
-        if (global.isAlly && global.isAlly(entity.id, target.id)) {
-          continue; // Skip allies
-        }
-
-        // Peaceful units (Deer, Sheep, Serfs) detect threats but respect ally checks
-        // They should flee from any non-ally entity except their own kind
-        if (isPeaceful) {
-          // Skip same class (deer don't flee from deer, serfs don't flee from serfs)
-          if (target.class === entity.class) continue;
-          // Skip prey animals for serfs (serfs don't flee from deer)
-          if (target.isPrey && entity.class === 'Serf') continue;
-          // Peaceful units check alliance - they only flee from non-allies
-          // Peaceful units don't check innaWoods - they should detect threats regardless
-          // AGGRO (will trigger flee in startCombat)
-          this.startCombat(entity, target);
-          return;
-        }
-
-        // For non-peaceful units, alliance check already done above
-
-        // Check innaWoods compatibility (NPCs can aggro if both in woods OR target is in woods)
-        if (entity.type === 'npc' && target.type === 'player') {
-          if (!(entity.innaWoods === target.innaWoods || (!entity.innaWoods && target.innaWoods))) {
-            continue; // Can't aggro due to woods state
-          }
-        }
-
-        // AGGRO!
-        this.startCombat(entity, target);
-        return;
-      }
-    } else {
-      // Fallback: Simple loop through all players (slower but works without spatial system)
-      for (const id in global.Player.list) {
+    // Iterate through all entities to find aggro targets
+    for (const id in global.Player.list) {
         const target = global.Player.list[id];
 
         if (target.id === entity.id) continue;
@@ -1009,7 +952,6 @@ class SimpleCombat {
         // AGGRO!
         this.startCombat(entity, target);
         return;
-      }
     }
   }
 

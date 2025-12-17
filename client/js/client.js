@@ -32,12 +32,8 @@ var spriteMap = null;
 // Sprite helper extracted to SpriteHelper.js
 var getSpriteForClass = (entityClass, isGhost) => {
   var sprite = window.spriteHelper?.getSpriteForClass?.(entityClass, isGhost);
-  // Special case: Falcons should never get maleserf fallback - return null instead
-  if (entityClass === 'Falcon') {
-    return sprite || null;
-  }
-  // For other classes, use maleserf as fallback if sprite helper not available
-  return sprite || (typeof maleserf !== 'undefined' ? maleserf : null);
+  // Return sprite if available, otherwise null (universal behavior for all classes)
+  return sprite || null;
 };
 
 // Ship wake system extracted to ShipWakeSystem.js
@@ -389,11 +385,15 @@ if (typeof InventoryItemImageHelper !== 'undefined' && !window.inventoryItemImag
     window.inventoryItemImageHelperInstance.setImageAssets(Img);
   }
 }
+// Initialize ItemRarityHelper instance
+if (typeof ItemRarityHelper !== 'undefined' && !window.itemRarityHelperInstance) {
+  window.itemRarityHelperInstance = new ItemRarityHelper();
+}
 var getInventoryItemImage = (itemType, qty) => window.inventoryItemImageHelperInstance?.getInventoryItemImage?.(itemType, qty) || null;
-var getItemRank = (itemType) => ItemRarityHelper?.getItemRank?.(itemType) || 0;
-var getRarityName = (rank) => ItemRarityHelper?.getRarityName?.(rank) || 'Common';
-var getRarityColor = (rank) => ItemRarityHelper?.getRarityColor?.(rank) || '#ffffff';
-var getRarityBorderColor = (rank) => ItemRarityHelper?.getRarityBorderColor?.(rank) || '#808080';
+var getItemRank = (itemType) => window.itemRarityHelperInstance?.getItemRank?.(itemType) || 0;
+var getRarityName = (rank) => window.itemRarityHelperInstance?.getRarityName?.(rank) || 'Common';
+var getRarityColor = (rank) => window.itemRarityHelperInstance?.getRarityColor?.(rank) || '#ffffff';
+var getRarityBorderColor = (rank) => window.itemRarityHelperInstance?.getRarityBorderColor?.(rank) || '#808080';
 var updateInventoryDisplay = () => InventoryHandler?.updateDisplay?.();
 var handleItemLeftClick = (itemType, itemName) => InventoryHandler?.handleLeftClick?.(itemType, itemName);
 var showItemContextMenu = (e, itemType, itemName, count) => InventoryHandler?.showContextMenu?.(e, itemType, itemName, count);

@@ -138,10 +138,6 @@ class OptimizedGameLoop {
     const elapsed = Date.now() - frameStartTime;
     const remainingBudget = frameBudget - elapsed;
     
-    // Update spatial system (track entity positions for efficient queries)
-    if (global.spatialSystem && remainingBudget > frameBudget * 0.1) {
-      global.spatialSystem.updateAllEntities();
-    }
     
     // Update social system (check for spontaneous NPC conversations)
     // Only if we have budget remaining (social updates are lower priority)
@@ -633,6 +629,19 @@ class OptimizedGameLoop {
   // Filter entities based on distance from any player
   spatialFilterEntities(entityPack) {
     if(!Array.isArray(entityPack) || entityPack.length === 0) return entityPack;
+    
+    // Check if any player is in godmode - if so, send all entities (spectator mode should see everything)
+    let hasGodModePlayer = false;
+    for(const id in Player.list) {
+      const player = Player.list[id];
+      if(player && player.type === 'player' && player.godMode) {
+        hasGodModePlayer = true;
+        break;
+      }
+    }
+    
+    // If any player is in godmode, skip spatial filtering and send all entities
+    if(hasGodModePlayer) return entityPack;
     
     // Get all player positions
     const playerPositions = [];

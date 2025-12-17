@@ -107,8 +107,8 @@ var InventoryHandler = {
         var rank = getItemRank(item.type);
         var borderColor = getRarityBorderColor(rank);
         var rarityColor = getRarityColor(rank);
-        itemDiv.style.borderColor = borderColor;
-        itemDiv.style.borderWidth = '2px';
+        // Use border property to override CSS border shorthand
+        itemDiv.style.border = '2px solid ' + borderColor;
         
         // Store item data for click handlers
         itemDiv.dataset.itemType = item.type;

@@ -139,17 +139,12 @@ var SocketMessageHandler = {
           // Fix sprite immediately after creation
           var p = Player.list[playerData.id];
           if(p) {
-            // For falcons, only set sprite if it's actually loaded (prevents wrong sprite assignment)
-            if (p.class === 'Falcon') {
-              var sprite = getSpriteForClass(p.class, p.ghost);
-              if (sprite) {
-                p.sprite = sprite;
-              }
-              // If sprite is null, leave it as null (don't set to maleserf)
-            } else {
-              var sprite = getSpriteForClass(p.class, p.ghost);
+            // Set sprite based on class - only update if we get a valid sprite (don't overwrite existing sprite with null)
+            var sprite = getSpriteForClass(p.class, p.ghost);
+            if (sprite) {
               p.sprite = sprite;
             }
+            // If sprite is null, preserve existing sprite (don't clear it)
             previewLoadedCount++;
           } else {
             console.error('Preview: Failed to create player entity:', playerData.id, playerData.class);
@@ -483,46 +478,33 @@ var SocketMessageHandler = {
   handleGearUpdate: function(data) {
     // Update client-side gear, inventory, and class data
     if(typeof selfId !== 'undefined' && Player.list[selfId]){
+      var player = Player.list[selfId];
+      
       if(data.gear){
-        Player.list[selfId].gear = data.gear;
+        player.gear = data.gear;
       }
       if(data.inventory){
-        Player.list[selfId].inventory = data.inventory;
+        player.inventory = data.inventory;
       }
+      // Update sprite when class changes OR when gear changes (gear affects appearance)
+      // Always recalculate sprite if class is provided to ensure visual updates
       if(data.class){
-        Player.list[selfId].class = data.class;
-        // Update sprite based on new class
-        if(data.class.toLowerCase() === 'serf'){
-          Player.list[selfId].sprite = Player.list[selfId].sex === 'f' ? femaleserf : maleserf;
-        } else {
-          // Try to load sprite for the new class
-          var classLower = data.class.toLowerCase();
-          if(typeof Img !== 'undefined' && Img[classLower + 'd']){
-            Player.list[selfId].sprite = {
-              facedown: Img[classLower + 'd'],
-              faceup: Img[classLower + 'u'],
-              faceleft: Img[classLower + 'l'],
-              faceright: Img[classLower + 'r'],
-              walkdown: [Img[classLower + 'd']],
-              walkup: [Img[classLower + 'u']],
-              walkleft: [Img[classLower + 'l']],
-              walkright: [Img[classLower + 'r']],
-              attackd: Img[classLower + 'attackd'],
-              attacku: Img[classLower + 'attacku'],
-              attackl: Img[classLower + 'attackl'],
-              attackr: Img[classLower + 'attackr']
-            };
-          }
+        player.class = data.class;
+        // Always recalculate sprite when gear updates to ensure visual consistency
+        // This ensures sprite reflects current gear/class state
+        var newSprite = getSpriteForClass(data.class, player.ghost);
+        if(newSprite){
+          player.sprite = newSprite;
         }
       }
       // Refresh both displays when gear changes
       if(typeof updateInventoryDisplay !== 'undefined') {
         updateInventoryDisplay();
       }
-      if(typeof characterPopup !== 'undefined' && characterPopup && characterPopup.style.display === 'block'){
-        if(typeof updateCharacterDisplay !== 'undefined') {
-          updateCharacterDisplay(true); // Force full update including sprite
-        }
+      // Always update character display when gear changes (even if popup not open)
+      // This ensures the sprite canvas is updated immediately - player.sprite is already updated above
+      if(typeof updateCharacterDisplay !== 'undefined') {
+        updateCharacterDisplay(true); // Force full update including sprite
       }
     }
   },
@@ -614,7 +596,10 @@ var SocketMessageHandler = {
       } else {
         // Legacy fallback
         if(player){
-          var building = getBuilding(player.x, player.y);
+          // Use includeWallsAndTopPlot=true when indoors to handle stairs on walls
+          var building = (player.z == 1 || player.z == 2 || player.z == -2) 
+            ? getBuilding(player.x, player.y, true) 
+            : getBuilding(player.x, player.y);
           if(typeof getBgm !== 'undefined'){
             getBgm(player.x, player.y, player.z, building);
           }
@@ -779,22 +764,33 @@ var SocketMessageHandler = {
     for(i in data.pack.player){
       try {
         var playerData = data.pack.player[i];
+        
+        // CRITICAL: Don't overwrite existing player with null class
+        // If player already exists and has a valid class, preserve it
+        var existingPlayer = Player.list[playerData.id];
+        if (existingPlayer && existingPlayer.class && (!playerData.class || playerData.class === null)) {
+          // Preserve existing player - don't recreate with null class
+          continue;
+        }
+        
+        // CRITICAL: If server sends null class for new player, default to SerfM before creation
+        if (!playerData.class || playerData.class === null) {
+          playerData.class = existingPlayer ? existingPlayer.class : 'SerfM';
+        }
+        
         new Player(playerData);
         
-        // Fix sprite immediately after creation (Player constructor defaults to maleserf)
+        // Set sprite after creation - assets are guaranteed to be loaded, so sprite will always be available
         var p = Player.list[playerData.id];
         if(p) {
-          // For falcons, only set sprite if it's actually loaded (prevents wrong sprite assignment)
-          if (p.class === 'Falcon') {
-            var sprite = getSpriteForClass(p.class, p.ghost);
-            if (sprite) {
-              p.sprite = sprite;
-            }
-            // If sprite is null, leave it as null (don't set to maleserf)
-          } else {
-            var sprite = getSpriteForClass(p.class, p.ghost);
-            p.sprite = sprite;
+          // Ensure class is set (should already be set above, but double-check)
+          if (!p.class) {
+            p.class = existingPlayer ? existingPlayer.class : 'SerfM';
           }
+          
+          // Assets are loaded, so sprite will always be available
+          var sprite = getSpriteForClass(p.class, p.ghost);
+          p.sprite = sprite;
           initLoadedCount++;
         } else {
           console.error('Init: Failed to create player entity:', playerData.id, playerData.class);
@@ -942,7 +938,8 @@ var SocketMessageHandler = {
         var oldGhost = p.ghost;
         
         // Update class and track for ship wake system
-        if(pack.class != undefined && p.class !== pack.class) {
+        // CRITICAL: Don't overwrite valid class with null/undefined from server
+        if(pack.class != undefined && pack.class != null && p.class !== pack.class) {
           p.class = pack.class;
           classChanged = true;
           
@@ -1012,34 +1009,29 @@ var SocketMessageHandler = {
           p.action = pack.action;
         }
 
-        // OPTIMIZATION: Only update sprite if class or ghost state changed
-        // Uses O(1) lookup table instead of 125+ if-else comparisons
-        // Update sprite if class/ghost changed or sprite is missing
-        // BUGFIX: Always update sprite for wolves to ensure walk animations work
-        // BUGFIX: For falcons, only update if sprite is actually loaded (not null)
-        if (p.class === 'Falcon') {
-          // Safety check: if sprite is maleserf, clear it immediately
-          if (p.sprite && typeof maleserf !== 'undefined' && p.sprite === maleserf) {
-            console.warn('SocketMessageHandler: Falcon sprite was set to maleserf - clearing it');
-            p.sprite = null;
-          }
-          // For falcons, try to get sprite but only set if it's actually loaded
+        // Sprite management - assets are guaranteed to be loaded, so sprites will always be available
+        // Only update sprite if class or ghost state changed
+        if (classChanged || ghostChanged) {
+          // Class or ghost changed - update sprite (sprites are guaranteed to be loaded)
           var newSprite = getSpriteForClass(p.class, p.ghost);
-          if (newSprite) {
-            // Only set if sprite is actually available (images loaded)
-            // Double-check it's not maleserf
-            if (typeof maleserf !== 'undefined' && newSprite === maleserf) {
-              console.warn('SocketMessageHandler: getSpriteForClass returned maleserf for Falcon - rejecting');
-              p.sprite = null;
+          if (!newSprite) {
+            // Sprite is null - preserve existing if we have one
+            if (p.sprite) {
+              // Keep existing sprite
             } else {
-              p.sprite = newSprite;
+              p.sprite = null;
             }
+          } else {
+            p.sprite = newSprite;
           }
-          // If newSprite is null, leave sprite as is (don't set to null, don't set to maleserf)
-        } else if (classChanged || ghostChanged || !p.sprite || p.class === 'Wolf') {
-          var newSprite = getSpriteForClass(p.class, p.ghost);
-          p.sprite = newSprite; // Set sprite directly (like other NPCs)
+        } else if (typeof selfId !== 'undefined' && p.id === selfId && !p.sprite) {
+          // Player sprite is missing but class/ghost didn't change - retry
+          var retrySprite = getSpriteForClass(p.class, p.ghost);
+          if (retrySprite) {
+            p.sprite = retrySprite;
+          }
         }
+        // If sprite exists and class/ghost didn't change - never touch it (preserve existing sprite)
       }
     }
     // Ensure Arrow.list exists before accessing it
@@ -1113,7 +1105,10 @@ var SocketMessageHandler = {
     if(typeof godModeCamera !== 'undefined' && godModeCamera.needsMusicUpdate && typeof selfId !== 'undefined' && Player.list[selfId]){
       godModeCamera.needsMusicUpdate = false;
       var p = Player.list[selfId];
-      var b = getBuilding(p.x, p.y);
+      // Use includeWallsAndTopPlot=true when indoors to handle stairs on walls
+      var b = (p.z == 1 || p.z == 2 || p.z == -2) 
+        ? getBuilding(p.x, p.y, true) 
+        : getBuilding(p.x, p.y);
       if(typeof getBgm !== 'undefined') {
         getBgm(p.x, p.y, p.z, b);
       }
@@ -1182,7 +1177,8 @@ var SocketMessageHandler = {
       var z = godModeCamera.cameraZ;
       var x = godModeCamera.cameraX;
       var y = godModeCamera.cameraY;
-      var b = (z == 1 || z == 2) ? getBuilding(x, y) : null;
+      // Use includeWallsAndTopPlot=true when indoors to handle stairs on walls
+      var b = (z == 1 || z == 2 || z == -2) ? getBuilding(x, y, true) : null;
       if(typeof getBgm !== 'undefined') {
         getBgm(x, y, z, b);
       }
@@ -1193,10 +1189,11 @@ var SocketMessageHandler = {
         if(typeof getBgm !== 'undefined') {
           getBgm(p.x,p.y,p.z);
         }
-      } else if((p.z == 1 || p.z == 2) && (tempus == 'VIII.p' || tempus == 'IV.a')){
-        var b = getBuilding(p.x,p.y);
+      } else if((p.z == 1 || p.z == 2 || p.z == -2) && (tempus == 'VIII.p' || tempus == 'IV.a')){
+        // Use includeWallsAndTopPlot=true when indoors to handle stairs on walls
+        var b = getBuilding(p.x, p.y, true);
         if(typeof getBgm !== 'undefined') {
-          getBgm(p.x,p.y,p.z,b);
+          getBgm(p.x, p.y, p.z, b);
         }
       }
     }
@@ -1211,7 +1208,10 @@ var SocketMessageHandler = {
       }
       
       // Update music/ambience for initial god mode position
-      var b = (data.cameraZ == 1 || data.cameraZ == 2) ? getBuilding(data.cameraX, data.cameraY) : null;
+      // Use includeWallsAndTopPlot=true when indoors to handle stairs on walls
+      var b = (data.cameraZ == 1 || data.cameraZ == 2 || data.cameraZ == -2) 
+        ? getBuilding(data.cameraX, data.cameraY, true) 
+        : null;
       if(typeof getBgm !== 'undefined') {
         getBgm(data.cameraX, data.cameraY, data.cameraZ, b);
       }
@@ -1269,7 +1269,11 @@ var SocketMessageHandler = {
         
         var p = Player.list[selfId];
         // Directly determine and play normal ambience based on location
-        var building = Building.list[getBuilding(p.x, p.y)];
+        // Use includeWallsAndTopPlot=true when indoors to handle stairs on walls
+        var buildingId = (p.z == 1 || p.z == 2 || p.z == -2) 
+          ? getBuilding(p.x, p.y, true) 
+          : getBuilding(p.x, p.y);
+        var building = Building.list[buildingId];
         
         // Check for weather effects first (storms take priority)
         if(typeof getWeatherEffects !== 'undefined') {

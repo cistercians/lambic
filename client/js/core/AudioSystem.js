@@ -5,6 +5,10 @@
  */
 
 var AudioSystem = {
+  // Track current building state to prevent music changes when moving between floors
+  _currentBuildingId: null,  // Track current building ID
+  _currentIndoorZ: null,     // Track z-level when inside building
+  
   /**
    * Determines and plays appropriate ambient sound based on location
    * @param {number} x - Player X coordinate
@@ -106,8 +110,36 @@ var AudioSystem = {
       AudioCtrl.playlist = null; // Clear playlist to force change on respawn
     }
     
-    var building = Building.list[b];
-    this.soundscape(x,y,z,building);
+    // Check if we're inside a building
+    var isIndoor = (z == 1 || z == 2 || z == -2);
+    
+    // If building ID not provided but we're indoors, try to get it
+    // Use includeWallsAndTopPlot=true since player might be on stairs (wall tiles)
+    var buildingId = b;
+    if (isIndoor && !buildingId && typeof getBuilding !== 'undefined') {
+      buildingId = getBuilding(x, y, true); // Include walls for stairs
+    }
+    
+    // If inside a building, check if we're in the same building
+    if (isIndoor && buildingId && this._currentBuildingId === buildingId) {
+      // Same building, different floor - don't change music
+      var building = Building.list[buildingId];
+      this.soundscape(x, y, z, building || {});
+      return; // Skip music change
+    }
+    
+    // Update tracking
+    if (isIndoor && buildingId) {
+      this._currentBuildingId = buildingId;
+      this._currentIndoorZ = z;
+    } else {
+      // Exited building - clear tracking
+      this._currentBuildingId = null;
+      this._currentIndoorZ = null;
+    }
+    
+    var building = buildingId ? Building.list[buildingId] : null;
+    this.soundscape(x,y,z,building || {});
     // outdoors
     if(z == 0){
       if(nightfall && tempus != 'IV.a'){
@@ -125,23 +157,23 @@ var AudioSystem = {
       bgmPlayer(cave_bgm);
       // indoor
     } else if(z == 1 || z == 2){
-      if(building.type == 'stronghold'){
+      if(building && building.type == 'stronghold'){
         if(nightfall){
           bgmPlayer(stronghold_night_bgm);
         } else {
           bgmPlayer(stronghold_day_bgm);
         }
-      } else if(building.type == 'garrison'){
+      } else if(building && building.type == 'garrison'){
         bgmPlayer(garrison_bgm);
-      } else if(building.type == 'tavern'){
+      } else if(building && building.type == 'tavern'){
         bgmPlayer(tavern_bgm);
-      } else if(building.type == 'monastery'){
+      } else if(building && building.type == 'monastery'){
         bgmPlayer(monastery_bgm);
       } else {
         bgmPlayer(indoors_bgm);
       }
     } else if(z == -2){
-      if(building.type == 'tavern'){
+      if(building && building.type == 'tavern'){
         return;
       } else {
         bgmPlayer(dungeons_bgm);

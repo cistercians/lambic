@@ -2468,6 +2468,10 @@ const Player = function(param) {
   self.type = param.type || 'player';
   self.name = param.name;
   self.hasHorse = false;
+  
+  // Players MUST have a class - Character constructor sets it to null, so we override it
+  // Use param.class if provided, otherwise default to SerfM
+  self.class = param.class || 'SerfM';
   self.spriteSize = tileSize * 1.5;
   self.knighted = false;
   self.crowned = false;
@@ -4711,11 +4715,6 @@ const Player = function(param) {
 
   Player.list[self.id] = self;
   
-  // Add to spatial system
-  if (global.spatialSystem) {
-    global.spatialSystem.addEntity(self.id, self);
-  }
-  
   initPack.player.push(self.getInitPack());
 
   return self;
@@ -4782,28 +4781,6 @@ if (process.env.DEBUG) {
 }
 
 // ============================================================================
-// INITIALIZE SPATIAL SYSTEM
-// ============================================================================
-
-// Initialize intelligent spatial partitioning system
-const SpatialIntegration = require('./server/js/core/SpatialIntegration');
-const spatialSystem = new SpatialIntegration();
-// Initialize after Player.list exists and entities are loaded
-spatialSystem.initialize();
-global.spatialSystem = spatialSystem;
-
-// Re-initialize spatial system to pick up any entities created after modular entities loaded
-// (This ensures all entities including modular ones are tracked)
-if (typeof spatialSystem.reinitialize === 'function') {
-  spatialSystem.reinitialize();
-}
-
-// Register spatial system
-systemRegistry.register('spatial', spatialSystem, { 
-  dependsOn: ['entities'], 
-  priority: 11 
-});
-
 // Initialize building preview system
 const BuildingPreview = require('./server/js/core/BuildingPreview');
 const buildingPreview = new BuildingPreview();
@@ -4906,6 +4883,12 @@ Player.onConnect = function(socket, name, playerType) {
     y: spawnY,
     home: { z: homeZ, loc: homeLoc }
   });
+  
+  // CRITICAL: Set player class (defaults to SerfM, matching NPC behavior)
+  // Character constructor sets class to null, but players need a class for sprites
+  if (!player.class) {
+    player.class = 'SerfM'; // Default to male serf (can be changed via gear/equipment)
+  }
 
   
   // ALPHA Testing: Give player starting items
@@ -4998,11 +4981,6 @@ Player.onDisconnect = function(socket) {
       if (zoneSet) {
         zoneSet.delete(player.id);
       }
-    }
-    
-    // Remove from spatial system
-    if (global.spatialSystem) {
-      global.spatialSystem.removeEntity(socket.id);
     }
     
     // Clear any combat state
@@ -5204,17 +5182,8 @@ Player.update = function() {
       var aggroRange = player.aggroRange || 256;
       var aggroRangeSquared = aggroRange * aggroRange; // Use squared distance to avoid sqrt
       
-      // Use spatial system if available for faster enemy detection
-      var nearbyEnemies = null;
-      if(global.spatialSystem && global.spatialSystem.spatialIndex) {
-        nearbyEnemies = global.spatialSystem.spatialIndex.findNearby(player.x, player.y, aggroRange, (entityId) => {
-          const e = Player.list[entityId];
-          return e && e.id !== player.id && e.z === player.z;
-        });
-      }
-      
-      // Iterate through nearby enemies (or all if spatial system not available)
-      var enemiesToCheck = nearbyEnemies ? nearbyEnemies.map(id => Player.list[id]).filter(Boolean) : Object.values(Player.list);
+      // Iterate through all entities to find nearby enemies
+      var enemiesToCheck = Object.values(Player.list);
       
       for(var j = 0; j < enemiesToCheck.length; j++){
         var enemy = enemiesToCheck[j];
@@ -5330,17 +5299,6 @@ Player.update = function() {
       // Send all players in update packs (spectators are no longer Player entities)
       // Boarded players still need updates (position syncs to ship), they just don't render
       pack.push(player.getUpdatePack());
-    }
-  }
-
-  // ===== BATCH SPATIAL SYSTEM UPDATES (Performance Optimization) =====
-  // Batch spatial system updates instead of per-entity to reduce overhead
-  if (global.spatialSystem) {
-    for (const i in Player.list) {
-      const player = Player.list[i];
-      if (player && !player.toRemove) {
-        global.spatialSystem.updateEntity(i, player);
-      }
     }
   }
 
@@ -6454,17 +6412,6 @@ global.dependencyInjector = dependencyInjector;
     
     if (missingCollections.length > 0) {
       console.warn(`⚠️  Warning: Missing entity collections: ${missingCollections.join(', ')}`);
-    }
-  }
-  
-  // Verify spatial system is initialized
-  if (global.spatialSystem) {
-    const spatialStats = global.spatialSystem.getStats();
-    if (spatialStats && spatialStats.entitiesTracked === 0) {
-      // This is expected at startup - entities are added when players connect
-      if (process.env.DEBUG) {
-        console.log('ℹ️  Spatial system initialized (0 entities tracked - normal at startup)');
-      }
     }
   }
   
@@ -8622,6 +8569,10 @@ global.removePack = removePack;
 // Initialize SIMPLIFIED Serf behavior system - TEMPORARILY DISABLED for debugging
 const SimpleSerfBehavior = require('./server/js/core/SimpleSerfBehavior.js');
 global.simpleSerfBehavior = null; // DISABLED - let Entity.js handle everything
+
+// Initialize NEW Serf State Machine system
+const serfStateMachine = require('./server/js/core/SerfStateMachine.js');
+global.serfStateMachine = serfStateMachine;
 
 // Initialize optimized game loop
 optimizedGameLoop.initialize(gameState, emit);

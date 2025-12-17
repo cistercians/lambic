@@ -454,6 +454,16 @@ class GameLoopManager {
     updatePlayerPortraitHUD();
     updateTargetPortraitHUD();
     
+    // Update character UI sprite/portrait every frame when popup is open (same as portrait HUD)
+    if (typeof window !== 'undefined') {
+      const characterPopup = document.getElementById('character-popup');
+      if (characterPopup && characterPopup.style.display === 'block') {
+        if (typeof updateCharacterDisplay !== 'undefined') {
+          updateCharacterDisplay(false); // Update sprite/portrait without full refresh
+        }
+      }
+    }
+    
     // Check target visibility and auto-deselect if needed (after HUD update)
     this.checkTargetVisibility(config);
     

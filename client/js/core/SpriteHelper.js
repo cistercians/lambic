@@ -8,6 +8,35 @@
 class SpriteHelper {
   constructor() {
     this.spriteMap = null;
+    this.warnedClasses = new Set(); // Track which classes we've warned about
+  }
+
+  /**
+   * Normalize class name to match sprite map keys
+   * @param {string} entityClass - Entity class name
+   * @returns {string} Normalized class name
+   */
+  normalizeClassName(entityClass) {
+    if (!entityClass) return entityClass;
+    
+    // Handle case-insensitive matching for common classes
+    const classLower = entityClass.toLowerCase();
+    
+    // Special handling for Serf classes (case-insensitive)
+    if (classLower === 'serf' || classLower === 'serfm') {
+      return 'Serf'; // Map to 'Serf' which points to maleserf in sprite map
+    }
+    if (classLower === 'serff') {
+      return 'SerfF';
+    }
+    
+    // For other classes, capitalize first letter (handles "falcon" -> "Falcon", etc.)
+    // Only if the class is all lowercase
+    if (entityClass === classLower && entityClass.length > 0) {
+      return entityClass.charAt(0).toUpperCase() + entityClass.slice(1);
+    }
+    
+    return entityClass; // Return as-is if no normalization needed
   }
 
   /**
@@ -17,86 +46,49 @@ class SpriteHelper {
    * @returns {object|null} Sprite object or null
    */
   getSpriteForClass(entityClass, isGhost) {
-    // Safety check: Return default if sprites not loaded yet
-    if (typeof maleserf === 'undefined') {
-      console.warn('getSpriteForClass called before sprites loaded, returning null');
-      return null;
-    }
-
-    // Special handling for Falcon: Check FIRST before spriteMap lookup
-    // Only return falcon if images are actually loaded - don't return it if images aren't ready
-    if (entityClass === 'Falcon') {
-      if (typeof falcon !== 'undefined' && falcon) {
-        // Check if at least one falcon image is loaded
-        const hasLoadedImage = (falcon.facedown && falcon.facedown.complete && falcon.facedown.naturalWidth > 0) ||
-                               (falcon.faceup && falcon.faceup.complete && falcon.faceup.naturalWidth > 0) ||
-                               (falcon.faceleft && falcon.faceleft.complete && falcon.faceleft.naturalWidth > 0) ||
-                               (falcon.faceright && falcon.faceright.complete && falcon.faceright.naturalWidth > 0);
-        if (hasLoadedImage) {
-          return falcon;
-        }
-        // Images not loaded yet - return null to prevent using wrong sprite
-        return null;
-      }
-      // If falcon doesn't exist yet, return null (will be set later when sprite loads)
-      return null;
-    }
-
-    // Lazy initialize sprite map once
+    // Assets are guaranteed to be loaded before client initialization
+    // But rebuild map if it doesn't exist or if critical sprites are missing
+    
+    // Lazy initialize sprite map, or rebuild if critical sprites are missing
     if (!this.spriteMap) {
       this.spriteMap = this.buildSpriteMap();
+    } else {
+      // Safety check: if critical sprites (like maleserf) are missing, rebuild
+      // This handles cases where map was built before sprites were available
+      if (!this.spriteMap['Serf'] && typeof maleserf !== 'undefined') {
+        console.warn('Sprite map missing critical sprites, rebuilding...');
+        this.spriteMap = this.buildSpriteMap();
+      }
     }
 
     // Ghost mode overrides all
     if (isGhost && typeof ghost !== 'undefined') return ghost;
-    if (isGhost) return maleserf; // Fallback if ghost sprite not loaded
+    if (isGhost) return null; // Return null if ghost sprite not available
 
-    // Lookup sprite by class (O(1))
-    const sprite = this.spriteMap[entityClass];
+    // Normalize class name for lookup (handles case variations)
+    const normalizedClass = this.normalizeClassName(entityClass);
+
+    // Lookup sprite by normalized class name (O(1))
+    const sprite = this.spriteMap[normalizedClass];
     if (!sprite) {
-      // Special case: Falcons should return null if sprite not loaded (don't use maleserf fallback)
-      if (entityClass === 'Falcon') {
-        return null;
+      // Try original class name as fallback
+      const fallbackSprite = this.spriteMap[entityClass];
+      if (fallbackSprite) {
+        return fallbackSprite;
       }
-      // Debug: Log unknown classes
-      if (entityClass && entityClass !== 'Serf' && entityClass !== 'SerfM') {
-        console.warn('Unknown entity class:', entityClass, '- using maleserf default');
+      
+      // Debug: Log unknown classes (only once per class to reduce spam)
+      // Exclude Serf variations from warnings
+      const classLower = entityClass ? entityClass.toLowerCase() : '';
+      if (entityClass && classLower !== 'serf' && classLower !== 'serfm' && classLower !== 'serff' && 
+          entityClass !== 'Serf' && entityClass !== 'SerfM' && entityClass !== 'SerfF' && 
+          !this.warnedClasses.has(entityClass)) {
+        console.warn('Unknown entity class:', entityClass, '(normalized:', normalizedClass, ') - returning null');
+        this.warnedClasses.add(entityClass);
       }
-      return maleserf;
-    }
-    // If sprite is explicitly null (e.g., falcon not loaded), return null instead of falling through
-    if (sprite === null && entityClass === 'Falcon') {
       return null;
     }
-    // Additional validation for falcons: even if sprite exists in map, verify images are loaded
-    // This handles the case where spriteMap was built before images loaded
-    if (entityClass === 'Falcon' && sprite) {
-      if (!this.isFalconLoaded()) {
-        // Images not ready yet, return null
-        return null;
-      }
-      // Double-check that sprite is actually the falcon object, not maleserf
-      if (typeof maleserf !== 'undefined' && sprite === maleserf) {
-        console.warn('Falcon sprite was set to maleserf - clearing it');
-        return null;
-      }
-    }
     return sprite;
-  }
-
-  /**
-   * Helper to check if falcon images are actually loaded
-   * @returns {boolean} True if at least one falcon image is loaded
-   */
-  isFalconLoaded() {
-    if (typeof falcon === 'undefined' || !falcon) {
-      return false;
-    }
-    // Check if at least one falcon image is loaded
-    return (falcon.facedown && falcon.facedown.complete && falcon.facedown.naturalWidth > 0) ||
-           (falcon.faceup && falcon.faceup.complete && falcon.faceup.naturalWidth > 0) ||
-           (falcon.faceleft && falcon.faceleft.complete && falcon.faceleft.naturalWidth > 0) ||
-           (falcon.faceright && falcon.faceright.complete && falcon.faceright.naturalWidth > 0);
   }
 
   /**
@@ -104,100 +96,89 @@ class SpriteHelper {
    * @returns {object} Sprite map object
    */
   buildSpriteMap() {
-    // Debug: Check if sprite variables are defined
-    if (typeof falcon === 'undefined') {
-      console.error('CRITICAL: falcon sprite not defined when getSpriteForClass called!');
-    }
-
-    // For falcons, only add to map if images are actually loaded
-    // This prevents storing the falcon object before images are ready
-    let falconSprite = null;
-    if (typeof falcon !== 'undefined' && falcon && this.isFalconLoaded()) {
-      falconSprite = falcon;
-    }
-
-    // Build sprite map using safe references (defaults to maleserf if undefined)
+    // Build sprite map - assets are guaranteed to be loaded, but check anyway for safety
+    // CRITICAL: Check if sprites are actually defined before assigning
     return {
-      'ghost': typeof ghost !== 'undefined' ? ghost : maleserf,
-      'Sheep': typeof sheep !== 'undefined' ? sheep : maleserf,
-      'Deer': typeof deer !== 'undefined' ? deer : maleserf,
-      'Boar': typeof boar !== 'undefined' ? boar : maleserf,
-      'Wolf': (typeof wolf !== 'undefined' ? wolf : (typeof window !== 'undefined' && window.wolf ? window.wolf : maleserf)),
-      'Falcon': falconSprite,
-      'FishingShip': typeof fishingship !== 'undefined' ? fishingship : maleserf,
-      'CargoShip': typeof cargoship !== 'undefined' ? cargoship : maleserf,
-      'Serf': maleserf,
-      'SerfM': maleserf,
-      'SerfF': typeof femaleserf !== 'undefined' ? femaleserf : maleserf,
-      'Rogue': typeof rogue !== 'undefined' ? rogue : maleserf,
-      'Trapper': typeof rogue !== 'undefined' ? rogue : maleserf,
-      'Cutthroat': typeof rogue !== 'undefined' ? rogue : maleserf,
-      'Hunter': typeof hunter !== 'undefined' ? hunter : maleserf,
-      'Outlaw': typeof hunter !== 'undefined' ? hunter : maleserf,
-      'Scout': typeof scout !== 'undefined' ? scout : maleserf,
-      'Ranger': typeof ranger !== 'undefined' ? ranger : maleserf,
-      'Warden': typeof ranger !== 'undefined' ? ranger : maleserf,
-      'Swordsman': typeof swordsman !== 'undefined' ? swordsman : maleserf,
-      'Archer': typeof archer !== 'undefined' ? archer : maleserf,
-      'Horseman': typeof horseman !== 'undefined' ? horseman : maleserf,
-      'MountedArcher': typeof mountedarcher !== 'undefined' ? mountedarcher : maleserf,
-      'Hero': typeof hero !== 'undefined' ? hero : maleserf,
-      'Templar': typeof templar !== 'undefined' ? templar : maleserf,
-      'Hospitaller': typeof templar !== 'undefined' ? templar : maleserf,
-      'Hochmeister': typeof templar !== 'undefined' ? templar : maleserf,
-      'Cavalry': typeof cavalry !== 'undefined' ? cavalry : maleserf,
-      'Knight': typeof knight !== 'undefined' ? knight : maleserf,
-      'Lancer': typeof lancer !== 'undefined' ? lancer : maleserf,
-      'Charlemagne': typeof lancer !== 'undefined' ? lancer : maleserf,
-      'Crusader': typeof crusader !== 'undefined' ? crusader : maleserf,
-      'Priest': typeof monk !== 'undefined' ? monk : maleserf,
-      'Monk': typeof monk !== 'undefined' ? monk : maleserf,
-      'Prior': typeof monk !== 'undefined' ? monk : maleserf,
-      'Mage': typeof mage !== 'undefined' ? mage : maleserf,
-      'Acolyte': typeof mage !== 'undefined' ? mage : maleserf,
-      'Warlock': typeof warlock !== 'undefined' ? warlock : maleserf,
-      'Brother': typeof warlock !== 'undefined' ? warlock : maleserf,
-      'King': typeof king !== 'undefined' ? king : maleserf,
-      'Alaric': typeof king !== 'undefined' ? king : maleserf,
-      'Innkeeper': typeof innkeeper !== 'undefined' ? innkeeper : maleserf,
-      'Shipwright': typeof innkeeper !== 'undefined' ? innkeeper : maleserf,
-      'Bishop': typeof bishop !== 'undefined' ? bishop : maleserf,
-      'Friar': typeof friar !== 'undefined' ? friar : maleserf,
-      'Footsoldier': typeof footsoldier !== 'undefined' ? footsoldier : maleserf,
-      'Skirmisher': typeof skirmisher !== 'undefined' ? skirmisher : maleserf,
-      'Cavalier': typeof cavalier !== 'undefined' ? cavalier : maleserf,
-      'General': typeof general !== 'undefined' ? general : maleserf,
-      'ImperialKnight': typeof teutonicknight !== 'undefined' ? teutonicknight : maleserf,
-      'TeutonicKnight': typeof teutonicknight !== 'undefined' ? teutonicknight : maleserf,
-      'Trebuchet': typeof trebuchet !== 'undefined' ? trebuchet : maleserf,
-      'Oathkeeper': typeof archbishop !== 'undefined' ? archbishop : maleserf,
-      'Archbishop': typeof archbishop !== 'undefined' ? archbishop : maleserf,
-      'Apparition': typeof apparition !== 'undefined' ? apparition : maleserf,
-      'Goth': typeof goth !== 'undefined' ? goth : maleserf,
-      'NorseSword': typeof goth !== 'undefined' ? goth : maleserf,
-      'HighPriestess': typeof highpriestess !== 'undefined' ? highpriestess : maleserf,
-      'Cataphract': typeof marauder !== 'undefined' ? marauder : maleserf,
-      'Carolingian': typeof marauder !== 'undefined' ? marauder : maleserf,
-      'Marauder': typeof marauder !== 'undefined' ? marauder : maleserf,
-      'NorseSpear': typeof norsespear !== 'undefined' ? norsespear : maleserf,
-      'seidr': typeof seidr !== 'undefined' ? seidr : maleserf,
-      'Huskarl': typeof huskarl !== 'undefined' ? huskarl : maleserf,
-      'FrankSword': typeof franksword !== 'undefined' ? franksword : maleserf,
-      'FrankSpear': typeof frankspear !== 'undefined' ? frankspear : maleserf,
-      'FrankBow': typeof frankbow !== 'undefined' ? frankbow : maleserf,
-      'Mangonel': typeof mangonel !== 'undefined' ? mangonel : maleserf,
-      'Malvoisin': typeof malvoisin !== 'undefined' ? malvoisin : maleserf,
-      'CeltAxe': typeof celtaxe !== 'undefined' ? celtaxe : maleserf,
-      'CeltSpear': typeof celtspear !== 'undefined' ? celtspear : maleserf,
-      'Headhunter': typeof headhunter !== 'undefined' ? headhunter : maleserf,
-      'Druid': typeof druid !== 'undefined' ? druid : maleserf,
-      'Morrigan': typeof morrigan !== 'undefined' ? morrigan : maleserf,
-      'Gwenllian': typeof gwenllian !== 'undefined' ? gwenllian : maleserf,
-      'TeutonPike': typeof teutonpike !== 'undefined' ? teutonpike : maleserf,
-      'TeutonBow': typeof teutonbow !== 'undefined' ? teutonbow : maleserf,
-      'Poacher': typeof poacher !== 'undefined' ? poacher : maleserf,
-      'Strongman': typeof strongman !== 'undefined' ? strongman : maleserf,
-      'Condottiere': typeof condottiere !== 'undefined' ? condottiere : maleserf
+      'ghost': typeof ghost !== 'undefined' ? ghost : null,
+      'Sheep': typeof sheep !== 'undefined' ? sheep : null,
+      'Deer': typeof deer !== 'undefined' ? deer : null,
+      'Boar': typeof boar !== 'undefined' ? boar : null,
+      'Wolf': (typeof wolf !== 'undefined' ? wolf : (typeof window !== 'undefined' && window.wolf ? window.wolf : null)),
+      'Falcon': typeof falcon !== 'undefined' ? falcon : null,
+      'FishingShip': typeof fishingship !== 'undefined' ? fishingship : null,
+      'CargoShip': typeof cargoship !== 'undefined' ? cargoship : null,
+      'Serf': (typeof maleserf !== 'undefined' ? maleserf : null),
+      'SerfM': (typeof maleserf !== 'undefined' ? maleserf : null),
+      'SerfF': (typeof femaleserf !== 'undefined' ? femaleserf : (typeof maleserf !== 'undefined' ? maleserf : null)),
+      'Rogue': typeof rogue !== 'undefined' ? rogue : null,
+      'Trapper': typeof rogue !== 'undefined' ? rogue : null,
+      'Cutthroat': typeof rogue !== 'undefined' ? rogue : null,
+      'Hunter': typeof hunter !== 'undefined' ? hunter : null,
+      'Outlaw': typeof hunter !== 'undefined' ? hunter : null,
+      'Scout': typeof scout !== 'undefined' ? scout : null,
+      'Ranger': typeof ranger !== 'undefined' ? ranger : null,
+      'Warden': typeof ranger !== 'undefined' ? ranger : null,
+      'Swordsman': typeof swordsman !== 'undefined' ? swordsman : null,
+      'Archer': typeof archer !== 'undefined' ? archer : null,
+      'Horseman': typeof horseman !== 'undefined' ? horseman : null,
+      'MountedArcher': typeof mountedarcher !== 'undefined' ? mountedarcher : null,
+      'Hero': typeof hero !== 'undefined' ? hero : null,
+      'Templar': typeof templar !== 'undefined' ? templar : null,
+      'Hospitaller': typeof templar !== 'undefined' ? templar : null,
+      'Hochmeister': typeof templar !== 'undefined' ? templar : null,
+      'Cavalry': typeof cavalry !== 'undefined' ? cavalry : null,
+      'Knight': typeof knight !== 'undefined' ? knight : null,
+      'Lancer': typeof lancer !== 'undefined' ? lancer : null,
+      'Charlemagne': typeof lancer !== 'undefined' ? lancer : null,
+      'Crusader': typeof crusader !== 'undefined' ? crusader : null,
+      'Priest': typeof monk !== 'undefined' ? monk : null,
+      'Monk': typeof monk !== 'undefined' ? monk : null,
+      'Prior': typeof monk !== 'undefined' ? monk : null,
+      'Mage': typeof mage !== 'undefined' ? mage : null,
+      'Acolyte': typeof mage !== 'undefined' ? mage : null,
+      'Warlock': typeof warlock !== 'undefined' ? warlock : null,
+      'Brother': typeof warlock !== 'undefined' ? warlock : null,
+      'King': typeof king !== 'undefined' ? king : null,
+      'Alaric': typeof king !== 'undefined' ? king : null,
+      'Innkeeper': typeof innkeeper !== 'undefined' ? innkeeper : null,
+      'Shipwright': typeof innkeeper !== 'undefined' ? innkeeper : null,
+      'Bishop': typeof bishop !== 'undefined' ? bishop : null,
+      'Friar': typeof friar !== 'undefined' ? friar : null,
+      'Footsoldier': typeof footsoldier !== 'undefined' ? footsoldier : null,
+      'Skirmisher': typeof skirmisher !== 'undefined' ? skirmisher : null,
+      'Cavalier': typeof cavalier !== 'undefined' ? cavalier : null,
+      'General': typeof general !== 'undefined' ? general : null,
+      'ImperialKnight': typeof teutonicknight !== 'undefined' ? teutonicknight : null,
+      'TeutonicKnight': typeof teutonicknight !== 'undefined' ? teutonicknight : null,
+      'Trebuchet': typeof trebuchet !== 'undefined' ? trebuchet : null,
+      'Oathkeeper': typeof archbishop !== 'undefined' ? archbishop : null,
+      'Archbishop': typeof archbishop !== 'undefined' ? archbishop : null,
+      'Apparition': typeof apparition !== 'undefined' ? apparition : null,
+      'Goth': typeof goth !== 'undefined' ? goth : null,
+      'NorseSword': typeof goth !== 'undefined' ? goth : null,
+      'HighPriestess': typeof highpriestess !== 'undefined' ? highpriestess : null,
+      'Cataphract': typeof marauder !== 'undefined' ? marauder : null,
+      'Carolingian': typeof marauder !== 'undefined' ? marauder : null,
+      'Marauder': typeof marauder !== 'undefined' ? marauder : null,
+      'NorseSpear': typeof norsespear !== 'undefined' ? norsespear : null,
+      'seidr': typeof seidr !== 'undefined' ? seidr : null,
+      'Huskarl': typeof huskarl !== 'undefined' ? huskarl : null,
+      'FrankSword': typeof franksword !== 'undefined' ? franksword : null,
+      'FrankSpear': typeof frankspear !== 'undefined' ? frankspear : null,
+      'FrankBow': typeof frankbow !== 'undefined' ? frankbow : null,
+      'Mangonel': typeof mangonel !== 'undefined' ? mangonel : null,
+      'Malvoisin': typeof malvoisin !== 'undefined' ? malvoisin : null,
+      'CeltAxe': typeof celtaxe !== 'undefined' ? celtaxe : null,
+      'CeltSpear': typeof celtspear !== 'undefined' ? celtspear : null,
+      'Headhunter': typeof headhunter !== 'undefined' ? headhunter : null,
+      'Druid': typeof druid !== 'undefined' ? druid : null,
+      'Morrigan': typeof morrigan !== 'undefined' ? morrigan : null,
+      'Gwenllian': typeof gwenllian !== 'undefined' ? gwenllian : null,
+      'TeutonPike': typeof teutonpike !== 'undefined' ? teutonpike : null,
+      'TeutonBow': typeof teutonbow !== 'undefined' ? teutonbow : null,
+      'Poacher': typeof poacher !== 'undefined' ? poacher : null,
+      'Strongman': typeof strongman !== 'undefined' ? strongman : null,
+      'Condottiere': typeof condottiere !== 'undefined' ? condottiere : null
     };
   }
 

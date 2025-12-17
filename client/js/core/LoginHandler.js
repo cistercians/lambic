@@ -39,36 +39,48 @@ class LoginHandler {
     
     if (this.signDivSignIn) {
       this.signDivSignIn.onclick = () => {
-        if (this.socket && this.signDivUsername && this.signDivPassword) {
-          this.socket.send(JSON.stringify({
+        // Get socket dynamically from window (may be initialized after LoginHandler creation)
+        var socket = (typeof window !== 'undefined' && window.socket) || this.socket;
+        if (socket && this.signDivUsername && this.signDivPassword) {
+          socket.send(JSON.stringify({
             msg: 'signIn',
             name: this.signDivUsername.value,
             pass: this.signDivPassword.value
           }));
+        } else if (!socket) {
+          console.warn('Cannot sign in: socket not initialized yet. Please wait for assets to load.');
         }
       };
     }
     
     if (this.signDivSignUp) {
       this.signDivSignUp.onclick = () => {
-        if (this.socket && this.signDivUsername && this.signDivPassword) {
-          this.socket.send(JSON.stringify({
+        // Get socket dynamically from window (may be initialized after LoginHandler creation)
+        var socket = (typeof window !== 'undefined' && window.socket) || this.socket;
+        if (socket && this.signDivUsername && this.signDivPassword) {
+          socket.send(JSON.stringify({
             msg: 'signUp',
             name: this.signDivUsername.value,
             pass: this.signDivPassword.value
           }));
+        } else if (!socket) {
+          console.warn('Cannot sign up: socket not initialized yet. Please wait for assets to load.');
         }
       };
     }
     
     if (this.signDivSpectate) {
       this.signDivSpectate.onclick = () => {
-        if (this.socket && this.signDivUsername && this.signDivPassword) {
-          this.socket.send(JSON.stringify({
+        // Get socket dynamically from window (may be initialized after LoginHandler creation)
+        var socket = (typeof window !== 'undefined' && window.socket) || this.socket;
+        if (socket && this.signDivUsername && this.signDivPassword) {
+          socket.send(JSON.stringify({
             msg: 'spectate',
             name: this.signDivUsername.value,
             pass: this.signDivPassword.value
           }));
+        } else if (!socket) {
+          console.warn('Cannot spectate: socket not initialized yet. Please wait for assets to load.');
         }
       };
     }

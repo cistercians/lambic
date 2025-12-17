@@ -20,11 +20,13 @@ class CharacterDisplayUI {
     // Always update HP/Spirit bars (real-time)
     this.updateCharacterBars(player);
 
+    // Always update sprite/portrait (like portrait HUD does every frame)
+    this.updateCharacterSprite(player);
+
     // Only do full update when needed
     if (fullUpdate !== false) {
       this.updateCharacterName(player);
       this.updateCharacterHouse(player);
-      this.updateCharacterSprite(player);
       this.updateCharacterStats(player);
     }
   }
@@ -68,13 +70,31 @@ class CharacterDisplayUI {
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // Use player.sprite directly (same as portrait HUD and game renderer)
+    // The sprite is already updated when gear changes, just draw it
     if (player.sprite && player.sprite.facedown) {
-      ctx.drawImage(player.sprite.facedown, 0, 0, 128, 128);
+      try {
+        ctx.drawImage(player.sprite.facedown, 0, 0, 128, 128);
+      } catch (e) {
+        // Image might not be loaded yet, try other directions
+        const spriteImg = player.sprite.faceup || player.sprite.faceleft || player.sprite.faceright;
+        if (spriteImg) {
+          try {
+            ctx.drawImage(spriteImg, 0, 0, 128, 128);
+          } catch (e2) {
+            // Silently fail if image not ready
+          }
+        }
+      }
     } else if (player.sprite) {
       const spriteImg = player.sprite.facedown || player.sprite.faceup || 
                        player.sprite.faceleft || player.sprite.faceright;
       if (spriteImg) {
-        ctx.drawImage(spriteImg, 0, 0, 128, 128);
+        try {
+          ctx.drawImage(spriteImg, 0, 0, 128, 128);
+        } catch (e) {
+          // Silently fail if image not ready
+        }
       }
     }
   }
@@ -193,6 +213,103 @@ class CharacterDisplayUI {
   }
 
   /**
+   * Map slot ID to server slot name
+   * @param {string} slotId - Slot element ID (e.g., 'equipment-weapon')
+   * @returns {string} Server slot name (e.g., 'weapon')
+   */
+  getSlotName(slotId) {
+    const slotMap = {
+      'equipment-weapon': 'weapon',
+      'equipment-weapon2': 'weapon2',
+      'equipment-head': 'head',
+      'equipment-armor': 'armor',
+      'equipment-accessory': 'accessory'
+    };
+    return slotMap[slotId] || slotId.replace('equipment-', '');
+  }
+
+  /**
+   * Convert item display name to item type key (same mapping as inventory)
+   * @param {string} name - Display name (e.g., 'BastardSword')
+   * @returns {string} Item type key (e.g., 'bastardsword')
+   */
+  getNameToType(name) {
+    // Use the same mapping as InventoryHandler.js
+    const nameToTypeMap = {
+      'WorldMap': 'worldmap',
+      'Crown': 'crown',
+      'Relic': 'relic',
+      'Key': 'key',
+      'HuntingKnife': 'huntingknife',
+      'Dague': 'dague',
+      'Rondel': 'rondel',
+      'Misericorde': 'misericorde',
+      'BastardSword': 'bastardsword',
+      'Longsword': 'longsword',
+      'Zweihander': 'zweihander',
+      'Morallta': 'morallta',
+      'Bow': 'bow',
+      'WelshLongbow': 'welshlongbow',
+      'RusticLance': 'rusticlance',
+      'KnightLance': 'knightlance',
+      'PaladinLance': 'paladinlance',
+      'Arrows': 'arrows',
+      'Brigandine': 'brigandine',
+      'Lamellar': 'lamellar',
+      'Maille': 'maille',
+      'Hauberk': 'hauberk',
+      'Brynja': 'brynja',
+      'Cuirass': 'cuirass',
+      'SteelPlate': 'steelplate',
+      'GreenwichPlate': 'greenwichplate',
+      'GothicPlate': 'gothicplate',
+      'ClericRobe': 'clericrobe',
+      'MonkCowl': 'monkcowl',
+      'BlackCloak': 'blackcloak',
+      'Pickaxe': 'pickaxe',
+      'StoneAxe': 'stoneaxe',
+      'IronAxe': 'ironaxe',
+      'Torch': 'torch',
+      'Wood': 'wood',
+      'Stone': 'stone',
+      'Grain': 'grain',
+      'IronOre': 'ironore',
+      'Iron': 'iron',
+      'Steel': 'steel',
+      'SilverOre': 'silverore',
+      'Silver': 'silver',
+      'GoldOre': 'goldore',
+      'Gold': 'gold',
+      'Diamond': 'diamond',
+      'BoarHide': 'boarhide',
+      'Leather': 'leather',
+      'Bread': 'bread',
+      'Meat': 'meat',
+      'Fish': 'fish',
+      'Lamb': 'lamb',
+      'BoarMeat': 'boarmeat',
+      'Venison': 'venison',
+      'PoachedFish': 'poachedfish',
+      'LambChop': 'lambchop',
+      'BoarShank': 'boarshank',
+      'VenisonLoin': 'venisonloin',
+      'Mead': 'mead',
+      'Saison': 'saison',
+      'Flanders': 'flanders',
+      'BiereDeGarde': 'bieredegarde',
+      'Bordeaux': 'bordeaux',
+      'Bourgogne': 'bourgogne',
+      'Chianti': 'chianti',
+      'Tome': 'tome',
+      'RunicScroll': 'runicscroll',
+      'SacredText': 'sacredtext',
+      'Chest': 'chest',
+      'LockedChest': 'lockedchest'
+    };
+    return nameToTypeMap[name] || name.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '');
+  }
+
+  /**
    * Update equipment slot display
    * @param {string} slotId - Slot element ID
    * @param {object} item - Item object
@@ -202,41 +319,65 @@ class CharacterDisplayUI {
     const slot = document.getElementById(slotId);
     if (!slot) return;
 
+    // Reset slot border to default
+    slot.style.border = '2px solid rgba(255, 255, 255, 0.3)';
+
     // Clear slot and add label
     slot.innerHTML = '<div class="equipment-slot-label">' + slotLabel + '</div>';
 
     if (item && item.name) {
-      // Get item type from item (item.type should be the internal type like "bastardsword")
-      // If not available, try to derive from name by lowercasing and removing spaces
-      let itemType = item.type;
-      if (!itemType && item.name) {
-        // Convert formatted name back to item type format
-        itemType = item.name.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '');
+      // Convert item name to item type key (same as inventory uses)
+      const itemType = this.getNameToType(item.name);
+      
+      // Get item rank and rarity colors (same as inventory)
+      let rank = 0;
+      let borderColor = '#CCCCCC';
+      let rarityColor = '#FFFFFF';
+      if (typeof window !== 'undefined' && typeof getItemRank === 'function' && typeof getRarityBorderColor === 'function' && typeof getRarityColor === 'function') {
+        rank = getItemRank(itemType);
+        borderColor = getRarityBorderColor(rank);
+        rarityColor = getRarityColor(rank);
       }
       
-      // Get item image if available
-      let itemImg = null;
-      if (typeof window !== 'undefined' && typeof getInventoryItemImage === 'function') {
-        itemImg = getInventoryItemImage(itemType, 1);
-      }
+      // Apply rarity border color to slot (same as inventory) - use border property to override CSS
+      slot.style.border = '2px solid ' + borderColor;
+      
+      // Get item image (same pattern as inventory)
+      const itemImg = typeof window !== 'undefined' && typeof getInventoryItemImage === 'function' 
+        ? getInventoryItemImage(itemType, 1) 
+        : null;
       
       // Create item display container
       const itemContainer = document.createElement('div');
       itemContainer.className = 'equipment-slot-item';
       
-      if (itemImg && itemImg.src) {
-        // Add item image
+      // Add click handler to unequip item
+      const slotName = this.getSlotName(slotId);
+      itemContainer.onclick = (e) => {
+        e.stopPropagation();
+        if (typeof socket !== 'undefined' && socket) {
+          socket.send(JSON.stringify({msg: 'unequipItem', slot: slotName}));
+        }
+      };
+      
+      // Add cursor pointer style to indicate clickability
+      itemContainer.style.cursor = 'pointer';
+      
+      // Add image (same pattern as inventory)
+      if (itemImg) {
         const img = document.createElement('img');
         img.src = itemImg.src;
         img.style.width = '40px';
         img.style.height = '40px';
         img.style.objectFit = 'contain';
+        img.style.pointerEvents = 'none'; // Same as inventory - clicks go to parent
         itemContainer.appendChild(img);
       }
       
-      // Add item name
+      // Add item name with rarity color (same as inventory tooltip)
       const itemName = document.createElement('div');
       itemName.className = 'equipment-slot-name';
+      itemName.style.color = rarityColor;
       itemName.textContent = item.name;
       itemContainer.appendChild(itemName);
       

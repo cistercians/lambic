@@ -35,72 +35,72 @@ class SpriteManager {
       return;
     }
 
-    // Build sprite map with safe fallbacks
+    // Build sprite map (returns null if undefined, except for Serf classes)
     this.spriteMap = {
-      'ghost': typeof ghost !== 'undefined' ? ghost : maleserf,
-      'Sheep': typeof sheep !== 'undefined' ? sheep : maleserf,
-      'Deer': typeof deer !== 'undefined' ? deer : maleserf,
-      'Boar': typeof boar !== 'undefined' ? boar : maleserf,
-      'Wolf': typeof wolf !== 'undefined' ? wolf : maleserf,
+      'ghost': typeof ghost !== 'undefined' ? ghost : null,
+      'Sheep': typeof sheep !== 'undefined' ? sheep : null,
+      'Deer': typeof deer !== 'undefined' ? deer : null,
+      'Boar': typeof boar !== 'undefined' ? boar : null,
+      'Wolf': typeof wolf !== 'undefined' ? wolf : null,
       'Falcon': typeof falcon !== 'undefined' ? falcon : null,
-      'FishingShip': typeof fishingship !== 'undefined' ? fishingship : maleserf,
-      'CargoShip': typeof cargoship !== 'undefined' ? cargoship : maleserf,
+      'FishingShip': typeof fishingship !== 'undefined' ? fishingship : null,
+      'CargoShip': typeof cargoship !== 'undefined' ? cargoship : null,
       'Serf': maleserf,
       'SerfM': maleserf,
       'SerfF': typeof femaleserf !== 'undefined' ? femaleserf : maleserf,
-      'Rogue': typeof rogue !== 'undefined' ? rogue : maleserf,
-      'Trapper': typeof rogue !== 'undefined' ? rogue : maleserf,
-      'Cutthroat': typeof rogue !== 'undefined' ? rogue : maleserf,
-      'Hunter': typeof hunter !== 'undefined' ? hunter : maleserf,
-      'Outlaw': typeof hunter !== 'undefined' ? hunter : maleserf,
-      'Scout': typeof scout !== 'undefined' ? scout : maleserf,
-      'Ranger': typeof ranger !== 'undefined' ? ranger : maleserf,
-      'Warden': typeof ranger !== 'undefined' ? ranger : maleserf,
-      'Swordsman': typeof swordsman !== 'undefined' ? swordsman : maleserf,
-      'Archer': typeof archer !== 'undefined' ? archer : maleserf,
-      'Horseman': typeof horseman !== 'undefined' ? horseman : maleserf,
-      'MountedArcher': typeof mountedarcher !== 'undefined' ? mountedarcher : maleserf,
-      'Hero': typeof hero !== 'undefined' ? hero : maleserf,
-      'Templar': typeof templar !== 'undefined' ? templar : maleserf,
-      'Hospitaller': typeof templar !== 'undefined' ? templar : maleserf,
-      'Hochmeister': typeof templar !== 'undefined' ? templar : maleserf,
-      'Cavalry': typeof cavalry !== 'undefined' ? cavalry : maleserf,
-      'Knight': typeof knight !== 'undefined' ? knight : maleserf,
-      'Lancer': typeof lancer !== 'undefined' ? lancer : maleserf,
-      'Charlemagne': typeof lancer !== 'undefined' ? lancer : maleserf,
-      'Crusader': typeof crusader !== 'undefined' ? crusader : maleserf,
-      'Priest': typeof monk !== 'undefined' ? monk : maleserf,
-      'Monk': typeof monk !== 'undefined' ? monk : maleserf,
-      'Prior': typeof monk !== 'undefined' ? monk : maleserf,
-      'Mage': typeof mage !== 'undefined' ? mage : maleserf,
-      'Acolyte': typeof mage !== 'undefined' ? mage : maleserf,
-      'Warlock': typeof warlock !== 'undefined' ? warlock : maleserf,
-      'Brother': typeof warlock !== 'undefined' ? warlock : maleserf,
-      'King': typeof king !== 'undefined' ? king : maleserf,
-      'Alaric': typeof king !== 'undefined' ? king : maleserf,
-      'Innkeeper': typeof innkeeper !== 'undefined' ? innkeeper : maleserf,
-      'Shipwright': typeof innkeeper !== 'undefined' ? innkeeper : maleserf,
-      'Bishop': typeof bishop !== 'undefined' ? bishop : maleserf,
-      'Friar': typeof friar !== 'undefined' ? friar : maleserf,
-      'Footsoldier': typeof footsoldier !== 'undefined' ? footsoldier : maleserf,
-      'Skirmisher': typeof skirmisher !== 'undefined' ? skirmisher : maleserf,
-      'Cavalier': typeof cavalier !== 'undefined' ? cavalier : maleserf,
-      'General': typeof general !== 'undefined' ? general : maleserf,
-      'ImperialKnight': typeof teutonicknight !== 'undefined' ? teutonicknight : maleserf,
-      'TeutonicKnight': typeof teutonicknight !== 'undefined' ? teutonicknight : maleserf,
-      'Trebuchet': typeof trebuchet !== 'undefined' ? trebuchet : maleserf,
-      'Oathkeeper': typeof archbishop !== 'undefined' ? archbishop : maleserf,
-      'Archbishop': typeof archbishop !== 'undefined' ? archbishop : maleserf,
-      'Apparition': typeof apparition !== 'undefined' ? apparition : maleserf,
-      'Goth': typeof goth !== 'undefined' ? goth : maleserf,
-      'NorseSword': typeof goth !== 'undefined' ? goth : maleserf,
-      'HighPriestess': typeof highpriestess !== 'undefined' ? highpriestess : maleserf,
-      'Cataphract': typeof marauder !== 'undefined' ? marauder : maleserf,
-      'Carolingian': typeof marauder !== 'undefined' ? marauder : maleserf,
-      'Marauder': typeof marauder !== 'undefined' ? marauder : maleserf,
-      'NorseSpear': typeof norsespear !== 'undefined' ? norsespear : maleserf,
-      'seidr': typeof seidr !== 'undefined' ? seidr : maleserf,
-      'Huskarl': typeof huskarl !== 'undefined' ? huskarl : maleserf,
+      'Rogue': typeof rogue !== 'undefined' ? rogue : null,
+      'Trapper': typeof rogue !== 'undefined' ? rogue : null,
+      'Cutthroat': typeof rogue !== 'undefined' ? rogue : null,
+      'Hunter': typeof hunter !== 'undefined' ? hunter : null,
+      'Outlaw': typeof hunter !== 'undefined' ? hunter : null,
+      'Scout': typeof scout !== 'undefined' ? scout : null,
+      'Ranger': typeof ranger !== 'undefined' ? ranger : null,
+      'Warden': typeof ranger !== 'undefined' ? ranger : null,
+      'Swordsman': typeof swordsman !== 'undefined' ? swordsman : null,
+      'Archer': typeof archer !== 'undefined' ? archer : null,
+      'Horseman': typeof horseman !== 'undefined' ? horseman : null,
+      'MountedArcher': typeof mountedarcher !== 'undefined' ? mountedarcher : null,
+      'Hero': typeof hero !== 'undefined' ? hero : null,
+      'Templar': typeof templar !== 'undefined' ? templar : null,
+      'Hospitaller': typeof templar !== 'undefined' ? templar : null,
+      'Hochmeister': typeof templar !== 'undefined' ? templar : null,
+      'Cavalry': typeof cavalry !== 'undefined' ? cavalry : null,
+      'Knight': typeof knight !== 'undefined' ? knight : null,
+      'Lancer': typeof lancer !== 'undefined' ? lancer : null,
+      'Charlemagne': typeof lancer !== 'undefined' ? lancer : null,
+      'Crusader': typeof crusader !== 'undefined' ? crusader : null,
+      'Priest': typeof monk !== 'undefined' ? monk : null,
+      'Monk': typeof monk !== 'undefined' ? monk : null,
+      'Prior': typeof monk !== 'undefined' ? monk : null,
+      'Mage': typeof mage !== 'undefined' ? mage : null,
+      'Acolyte': typeof mage !== 'undefined' ? mage : null,
+      'Warlock': typeof warlock !== 'undefined' ? warlock : null,
+      'Brother': typeof warlock !== 'undefined' ? warlock : null,
+      'King': typeof king !== 'undefined' ? king : null,
+      'Alaric': typeof king !== 'undefined' ? king : null,
+      'Innkeeper': typeof innkeeper !== 'undefined' ? innkeeper : null,
+      'Shipwright': typeof innkeeper !== 'undefined' ? innkeeper : null,
+      'Bishop': typeof bishop !== 'undefined' ? bishop : null,
+      'Friar': typeof friar !== 'undefined' ? friar : null,
+      'Footsoldier': typeof footsoldier !== 'undefined' ? footsoldier : null,
+      'Skirmisher': typeof skirmisher !== 'undefined' ? skirmisher : null,
+      'Cavalier': typeof cavalier !== 'undefined' ? cavalier : null,
+      'General': typeof general !== 'undefined' ? general : null,
+      'ImperialKnight': typeof teutonicknight !== 'undefined' ? teutonicknight : null,
+      'TeutonicKnight': typeof teutonicknight !== 'undefined' ? teutonicknight : null,
+      'Trebuchet': typeof trebuchet !== 'undefined' ? trebuchet : null,
+      'Oathkeeper': typeof archbishop !== 'undefined' ? archbishop : null,
+      'Archbishop': typeof archbishop !== 'undefined' ? archbishop : null,
+      'Apparition': typeof apparition !== 'undefined' ? apparition : null,
+      'Goth': typeof goth !== 'undefined' ? goth : null,
+      'NorseSword': typeof goth !== 'undefined' ? goth : null,
+      'HighPriestess': typeof highpriestess !== 'undefined' ? highpriestess : null,
+      'Cataphract': typeof marauder !== 'undefined' ? marauder : null,
+      'Carolingian': typeof marauder !== 'undefined' ? marauder : null,
+      'Marauder': typeof marauder !== 'undefined' ? marauder : null,
+      'NorseSpear': typeof norsespear !== 'undefined' ? norsespear : null,
+      'seidr': typeof seidr !== 'undefined' ? seidr : null,
+      'Huskarl': typeof huskarl !== 'undefined' ? huskarl : null,
       // Add more as needed...
     };
   }
@@ -121,28 +121,11 @@ class SpriteManager {
       return this.spriteMap['ghost'] || null;
     }
 
-    // Special handling for Falcon (don't use fallback)
-    if (entityClass === 'Falcon') {
-      if (typeof falcon !== 'undefined' && falcon && falcon.facedown && 
-          falcon.facedown.complete && falcon.facedown.naturalWidth > 0) {
-        return falcon;
-      }
-      return null; // Don't render falcons until sprite is fully loaded
-    }
-
-    // Lookup in sprite map
+    // Lookup in sprite map (universal behavior for all classes)
     const sprite = this.spriteMap[entityClass];
     
-    if (sprite) {
-      return sprite;
-    }
-
-    // Fallback to maleserf if not found
-    if (typeof maleserf !== 'undefined') {
-      return maleserf;
-    }
-
-    return null;
+    // Return sprite if found, otherwise null (universal behavior)
+    return sprite || null;
   }
 
   /**

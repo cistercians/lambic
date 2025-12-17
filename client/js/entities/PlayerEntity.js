@@ -57,19 +57,9 @@ function PlayerEntity(initPack) {
   self.spirit = initPack.spirit;
   self.spiritMax = initPack.spiritMax;
   self.ghost = initPack.ghost || false;
-  // For falcons, only set sprite if it's actually loaded (not null)
-  // This prevents falcons from getting wrong sprites before images load
-  if (self.class === 'Falcon') {
-    var falconSprite = getSpriteForClass(self.class, self.ghost);
-    self.sprite = falconSprite || null; // Explicitly set to null if not loaded
-    // Defensive check: if sprite was somehow set to maleserf, clear it
-    if (self.sprite && typeof maleserf !== 'undefined' && self.sprite === maleserf) {
-      console.warn('PlayerEntity: Falcon sprite was set to maleserf - clearing it');
-      self.sprite = null;
-    }
-  } else {
-    self.sprite = getSpriteForClass(self.class, self.ghost); // Use correct sprite based on class
-  }
+  // Set sprite based on class - assets are guaranteed to be loaded, so sprite will always be available
+  var sprite = getSpriteForClass(self.class, self.ghost);
+  self.sprite = sprite;
   self.spriteSize = initPack.spriteSize || 64; // Default to 64 if not provided
   self.ranged = initPack.ranged;
   self.action = initPack.action;
@@ -330,18 +320,10 @@ function PlayerEntity(initPack) {
     }
     
     // Legacy fallback rendering (only used if PlayerRenderer not available)
-    // For falcons, don't render if sprite is maleserf or null
-    if (self.class === 'Falcon') {
-      // Check if sprite is maleserf (wrong fallback) - don't render
-      if (self.sprite && typeof maleserf !== 'undefined' && self.sprite === maleserf) {
-        ctx.globalAlpha = 1.0;
-        return; // Don't render falcons with wrong sprite
-      }
-      // If sprite is null, don't render
-      if (!self.sprite) {
-        ctx.globalAlpha = 1.0;
-        return;
-      }
+    // Don't render if sprite is null (universal behavior for all classes)
+    if (!self.sprite) {
+      ctx.globalAlpha = 1.0;
+      return;
     }
     // Work animations (chopping, mining, farming, building, fishing) - use normal size for humans
     if (self.chopping && self.sprite && self.sprite.chopping) {

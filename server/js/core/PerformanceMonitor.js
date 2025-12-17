@@ -13,11 +13,6 @@ class PerformanceMonitor {
       hitRate: 0
     };
     
-    this.spatialIndexStats = {
-      cells: 0,
-      entities: 0
-    };
-    
     this.eventManagerStats = {
       historySize: 0,
       logBufferSize: 0,
@@ -60,7 +55,6 @@ class PerformanceMonitor {
         external: `${externalMB} MB`
       },
       pathCache: this.pathCacheStats,
-      spatialIndex: this.spatialIndexStats,
       eventManager: this.eventManagerStats,
       entities: this.getEntityCounts()
     };
@@ -105,16 +99,6 @@ class PerformanceMonitor {
         ? ((pathCache.stats.hits / (pathCache.stats.hits + pathCache.stats.misses)) * 100).toFixed(1) + '%'
         : '0%'
     };
-  }
-  
-  updateSpatialIndexStats(spatialIndex) {
-    if (!this.enabled) return;
-    if (spatialIndex && spatialIndex.stats) {
-      this.spatialIndexStats = {
-        cells: spatialIndex.stats.cellsUsed || 0,
-        entities: spatialIndex.stats.entitiesTracked || 0
-      };
-    }
   }
   
   updateEventManagerStats(eventManager) {

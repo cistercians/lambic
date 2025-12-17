@@ -92,8 +92,9 @@ class GodModeCameraSystem {
     this.cameraZ = Math.max(-3, Math.min(3, this.cameraZ + dz));
 
     // Update music/ambience when z-level changes
-    const b = (this.cameraZ === 1 || this.cameraZ === 2) ? 
-              getBuilding(this.cameraX, this.cameraY) : null;
+    // Use includeWallsAndTopPlot=true when indoors to handle stairs on walls
+    const b = (this.cameraZ === 1 || this.cameraZ === 2 || this.cameraZ === -2) ? 
+              getBuilding(this.cameraX, this.cameraY, true) : null;
     getBgm(this.cameraX, this.cameraY, this.cameraZ, b);
   }
 
@@ -138,8 +139,9 @@ class GodModeCameraSystem {
     this.cameraZ = faction.z;
 
     // Update music/ambience
-    const b = (this.cameraZ === 1 || this.cameraZ === 2) ? 
-              getBuilding(this.cameraX, this.cameraY) : null;
+    // Use includeWallsAndTopPlot=true when indoors to handle stairs on walls
+    const b = (this.cameraZ === 1 || this.cameraZ === 2 || this.cameraZ === -2) ? 
+              getBuilding(this.cameraX, this.cameraY, true) : null;
     getBgm(this.cameraX, this.cameraY, this.cameraZ, b);
 
     // Display faction name in chat
