@@ -2,6 +2,39 @@
 // Separates work logic from state management for better maintainability
 
 const SerfResourceManager = require('./SerfResourceManager');
+const timerManager = global.timerManager || null;
+
+/**
+ * Clear work timers for a serf
+ * @param {Object} serf - The serf entity
+ */
+function clearWorkTimers(serf) {
+  if (!serf) return;
+  
+  if (serf.workTimerId) {
+    if (timerManager) {
+      timerManager.clear(serf.workTimerId);
+    } else if (global.clearTimeout) {
+      global.clearTimeout(serf.workTimerId);
+    }
+    serf.workTimerId = null;
+  }
+  
+  if (serf.workTimeoutId) {
+    if (timerManager) {
+      timerManager.clear(serf.workTimeoutId);
+    } else if (global.clearTimeout) {
+      global.clearTimeout(serf.workTimeoutId);
+    }
+    serf.workTimeoutId = null;
+  }
+  
+  serf.workTimer = false;
+  serf.working = false;
+  serf.farming = false;
+  serf.chopping = false;
+  serf.mining = false;
+}
 
 class SerfWorkExecutor {
   constructor() {
@@ -131,6 +164,9 @@ class SerfWorkExecutor {
         return;
       }
 
+      // Clear any existing work timers first
+      clearWorkTimers(serf);
+      
       serf.working = true;
       serf.farming = true;
       serf.workTimer = true;
@@ -139,22 +175,42 @@ class SerfWorkExecutor {
       const hq = building;
 
       // Add timeout to prevent infinite waits
-      const workTimeout = setTimeout(() => {
-        if (serf.workTimer) {
-          serf.workTimer = false;
-          serf.working = false;
-          serf.farming = false;
+      const timeoutCallback = () => {
+        if (serf && serf.workTimer) {
+          clearWorkTimers(serf);
         }
-      }, 30000); // 30 second max timeout
+      };
+      
+      let workTimeout;
+      if (timerManager) {
+        const timeoutName = `serf-work-timeout-${serf.id}-${Date.now()}`;
+        serf.workTimeoutId = timeoutName;
+        timerManager.setTimeout(timeoutName, timeoutCallback, 30000);
+        workTimeout = { clear: () => timerManager.clear(timeoutName) };
+      } else {
+        workTimeout = setTimeout(timeoutCallback, 30000);
+        serf.workTimeoutId = workTimeout;
+      }
 
-      setTimeout(() => {
+      const workCallback = () => {
         try {
           // Clear timeout
-          clearTimeout(workTimeout);
+          if (workTimeout && typeof workTimeout.clear === 'function') {
+            workTimeout.clear();
+          } else if (typeof workTimeout === 'number') {
+            clearTimeout(workTimeout);
+          }
+          if (serf.workTimeoutId) {
+            if (timerManager) {
+              timerManager.clear(serf.workTimeoutId);
+            } else if (global.clearTimeout) {
+              global.clearTimeout(serf.workTimeoutId);
+            }
+            serf.workTimeoutId = null;
+          }
 
-          if (!serf.farming) {
-            serf.workTimer = false;
-            serf.working = false;
+          if (!serf || !serf.farming) {
+            clearWorkTimers(serf);
             return;
           }
 
@@ -162,9 +218,7 @@ class SerfWorkExecutor {
           const f = global.Building && global.Building.list ? global.Building.list[b] : null;
           
           if (!f || !f.plot) {
-            serf.workTimer = false;
-            serf.working = false;
-            serf.farming = false;
+            clearWorkTimers(serf);
             return;
           }
 
@@ -284,21 +338,25 @@ class SerfWorkExecutor {
         }
       }
 
-          serf.workTimer = false;
-          serf.working = false;
-          serf.farming = false;
+          clearWorkTimers(serf);
         } catch (error) {
           // Error in work completion - reset flags
-          serf.workTimer = false;
-          serf.working = false;
-          serf.farming = false;
+          clearWorkTimers(serf);
         }
-      }, 10000 / (serf.strength || 1));
+      };
+      
+      const workDelay = 10000 / (serf.strength || 1);
+      if (timerManager) {
+        const workTimerName = `serf-work-${serf.id}-${Date.now()}`;
+        serf.workTimerId = workTimerName;
+        timerManager.setTimeout(workTimerName, workCallback, workDelay);
+      } else {
+        const timeoutId = setTimeout(workCallback, workDelay);
+        serf.workTimerId = timeoutId;
+      }
     } catch (error) {
       // Error starting work - reset flags
-      serf.workTimer = false;
-      serf.working = false;
-      serf.farming = false;
+      clearWorkTimers(serf);
     }
   }
 
@@ -407,6 +465,9 @@ class SerfWorkExecutor {
         return;
       }
 
+      // Clear any existing work timers first
+      clearWorkTimers(serf);
+      
       serf.working = true;
       serf.chopping = true;
       serf.workTimer = true;
@@ -416,30 +477,48 @@ class SerfWorkExecutor {
       }
 
       // Add timeout to prevent infinite waits
-      const workTimeout = setTimeout(() => {
-        if (serf.workTimer) {
-          serf.workTimer = false;
-          serf.working = false;
-          serf.chopping = false;
+      const timeoutCallback = () => {
+        if (serf && serf.workTimer) {
+          clearWorkTimers(serf);
         }
-      }, 30000); // 30 second max timeout
+      };
+      
+      let workTimeout;
+      if (timerManager) {
+        const timeoutName = `serf-work-timeout-${serf.id}-${Date.now()}`;
+        serf.workTimeoutId = timeoutName;
+        timerManager.setTimeout(timeoutName, timeoutCallback, 30000);
+        workTimeout = { clear: () => timerManager.clear(timeoutName) };
+      } else {
+        workTimeout = setTimeout(timeoutCallback, 30000);
+        serf.workTimeoutId = workTimeout;
+      }
 
-      setTimeout(() => {
+      const workCallback = () => {
         try {
           // Clear timeout
-          clearTimeout(workTimeout);
+          if (workTimeout && typeof workTimeout.clear === 'function') {
+            workTimeout.clear();
+          } else if (typeof workTimeout === 'number') {
+            clearTimeout(workTimeout);
+          }
+          if (serf.workTimeoutId) {
+            if (timerManager) {
+              timerManager.clear(serf.workTimeoutId);
+            } else if (global.clearTimeout) {
+              global.clearTimeout(serf.workTimeoutId);
+            }
+            serf.workTimeoutId = null;
+          }
 
-          if (!serf.chopping) {
-            serf.workTimer = false;
-            serf.working = false;
+          if (!serf || !serf.chopping) {
+            clearWorkTimers(serf);
             return;
           }
 
           // Validate spot before tile operations
           if (!Array.isArray(spot) || spot.length !== 2) {
-            serf.workTimer = false;
-            serf.working = false;
-            serf.chopping = false;
+            clearWorkTimers(serf);
             return;
           }
 
@@ -473,21 +552,25 @@ class SerfWorkExecutor {
             }
           }
 
-          serf.workTimer = false;
-          serf.working = false;
-          serf.chopping = false;
+          clearWorkTimers(serf);
         } catch (error) {
           // Error in work completion - reset flags
-          serf.workTimer = false;
-          serf.working = false;
-          serf.chopping = false;
+          clearWorkTimers(serf);
         }
-      }, 10000 / (serf.strength || 1));
+      };
+      
+      const workDelay = 10000 / (serf.strength || 1);
+      if (timerManager) {
+        const workTimerName = `serf-work-${serf.id}-${Date.now()}`;
+        serf.workTimerId = workTimerName;
+        timerManager.setTimeout(workTimerName, workCallback, workDelay);
+      } else {
+        const timeoutId = setTimeout(workCallback, workDelay);
+        serf.workTimerId = timeoutId;
+      }
     } catch (error) {
       // Error starting work - reset flags
-      serf.workTimer = false;
-      serf.working = false;
-      serf.chopping = false;
+      clearWorkTimers(serf);
     }
   }
 
@@ -690,6 +773,9 @@ class SerfWorkExecutor {
         return;
       }
 
+      // Clear any existing work timers first
+      clearWorkTimers(serf);
+      
       serf.working = true;
       serf.mining = true;
       serf.workTimer = true;
@@ -699,30 +785,48 @@ class SerfWorkExecutor {
       }
 
       // Add timeout to prevent infinite waits
-      const workTimeout = setTimeout(() => {
-        if (serf.workTimer) {
-          serf.workTimer = false;
-          serf.working = false;
-          serf.mining = false;
+      const timeoutCallback = () => {
+        if (serf && serf.workTimer) {
+          clearWorkTimers(serf);
         }
-      }, 30000); // 30 second max timeout
+      };
+      
+      let workTimeout;
+      if (timerManager) {
+        const timeoutName = `serf-work-timeout-${serf.id}-${Date.now()}`;
+        serf.workTimeoutId = timeoutName;
+        timerManager.setTimeout(timeoutName, timeoutCallback, 30000);
+        workTimeout = { clear: () => timerManager.clear(timeoutName) };
+      } else {
+        workTimeout = setTimeout(timeoutCallback, 30000);
+        serf.workTimeoutId = workTimeout;
+      }
 
-      setTimeout(() => {
+      const workCallback = () => {
         try {
           // Clear timeout
-          clearTimeout(workTimeout);
+          if (workTimeout && typeof workTimeout.clear === 'function') {
+            workTimeout.clear();
+          } else if (typeof workTimeout === 'number') {
+            clearTimeout(workTimeout);
+          }
+          if (serf.workTimeoutId) {
+            if (timerManager) {
+              timerManager.clear(serf.workTimeoutId);
+            } else if (global.clearTimeout) {
+              global.clearTimeout(serf.workTimeoutId);
+            }
+            serf.workTimeoutId = null;
+          }
 
-          if (!serf.mining) {
-            serf.workTimer = false;
-            serf.working = false;
+          if (!serf || !serf.mining) {
+            clearWorkTimers(serf);
             return;
           }
 
           // Validate spot before operations
           if (!Array.isArray(spot) || spot.length !== 2) {
-            serf.workTimer = false;
-            serf.working = false;
-            serf.mining = false;
+            clearWorkTimers(serf);
             return;
           }
 
@@ -816,21 +920,25 @@ class SerfWorkExecutor {
             serf.action = null;
           }
 
-          serf.workTimer = false;
-          serf.working = false;
-          serf.mining = false;
+          clearWorkTimers(serf);
         } catch (error) {
           // Error in work completion - reset flags
-          serf.workTimer = false;
-          serf.working = false;
-          serf.mining = false;
+          clearWorkTimers(serf);
         }
-      }, 10000 / (serf.strength || 1));
+      };
+      
+      const workDelay = 10000 / (serf.strength || 1);
+      if (timerManager) {
+        const workTimerName = `serf-work-${serf.id}-${Date.now()}`;
+        serf.workTimerId = workTimerName;
+        timerManager.setTimeout(workTimerName, workCallback, workDelay);
+      } else {
+        const timeoutId = setTimeout(workCallback, workDelay);
+        serf.workTimerId = timeoutId;
+      }
     } catch (error) {
       // Error starting work - reset flags
-      serf.workTimer = false;
-      serf.working = false;
-      serf.mining = false;
+      clearWorkTimers(serf);
     }
   }
 
@@ -938,6 +1046,9 @@ class SerfWorkExecutor {
         return;
       }
 
+      // Clear any existing work timers first
+      clearWorkTimers(serf);
+      
       serf.working = true;
       serf.mining = true;
       serf.workTimer = true;
@@ -947,30 +1058,48 @@ class SerfWorkExecutor {
       }
 
       // Add timeout to prevent infinite waits
-      const workTimeout = setTimeout(() => {
-        if (serf.workTimer) {
-          serf.workTimer = false;
-          serf.working = false;
-          serf.mining = false;
+      const timeoutCallback = () => {
+        if (serf && serf.workTimer) {
+          clearWorkTimers(serf);
         }
-      }, 30000); // 30 second max timeout
+      };
+      
+      let workTimeout;
+      if (timerManager) {
+        const timeoutName = `serf-work-timeout-${serf.id}-${Date.now()}`;
+        serf.workTimeoutId = timeoutName;
+        timerManager.setTimeout(timeoutName, timeoutCallback, 30000);
+        workTimeout = { clear: () => timerManager.clear(timeoutName) };
+      } else {
+        workTimeout = setTimeout(timeoutCallback, 30000);
+        serf.workTimeoutId = workTimeout;
+      }
 
-      setTimeout(() => {
+      const workCallback = () => {
         try {
           // Clear timeout
-          clearTimeout(workTimeout);
+          if (workTimeout && typeof workTimeout.clear === 'function') {
+            workTimeout.clear();
+          } else if (typeof workTimeout === 'number') {
+            clearTimeout(workTimeout);
+          }
+          if (serf.workTimeoutId) {
+            if (timerManager) {
+              timerManager.clear(serf.workTimeoutId);
+            } else if (global.clearTimeout) {
+              global.clearTimeout(serf.workTimeoutId);
+            }
+            serf.workTimeoutId = null;
+          }
 
-          if (!serf.mining) {
-            serf.workTimer = false;
-            serf.working = false;
+          if (!serf || !serf.mining) {
+            clearWorkTimers(serf);
             return;
           }
 
           // Validate spot before operations
           if (!Array.isArray(spot) || spot.length !== 2) {
-            serf.workTimer = false;
-            serf.working = false;
-            serf.mining = false;
+            clearWorkTimers(serf);
             return;
           }
 
@@ -1004,21 +1133,25 @@ class SerfWorkExecutor {
             }
           }
 
-          serf.workTimer = false;
-          serf.working = false;
-          serf.mining = false;
+          clearWorkTimers(serf);
         } catch (error) {
           // Error in work completion - reset flags
-          serf.workTimer = false;
-          serf.working = false;
-          serf.mining = false;
+          clearWorkTimers(serf);
         }
-      }, 10000 / (serf.strength || 1));
+      };
+      
+      const workDelay = 10000 / (serf.strength || 1);
+      if (timerManager) {
+        const workTimerName = `serf-work-${serf.id}-${Date.now()}`;
+        serf.workTimerId = workTimerName;
+        timerManager.setTimeout(workTimerName, workCallback, workDelay);
+      } else {
+        const timeoutId = setTimeout(workCallback, workDelay);
+        serf.workTimerId = timeoutId;
+      }
     } catch (error) {
       // Error starting work - reset flags
-      serf.workTimer = false;
-      serf.working = false;
-      serf.mining = false;
+      clearWorkTimers(serf);
     }
   }
 
@@ -1075,6 +1208,9 @@ class SerfWorkExecutor {
     }
   }
 }
+
+// Export clearWorkTimers for external use
+SerfWorkExecutor.clearWorkTimers = clearWorkTimers;
 
 module.exports = SerfWorkExecutor;
 

@@ -434,7 +434,7 @@ function continueServerInitialization() {
 
   if(brotherhoodHQ) {
     const coords = getCenter(brotherhoodHQ.tile[0], brotherhoodHQ.tile[1]);
-    global.factionHQs.push({ name: 'Brotherhood', x: coords[0], y: coords[1], z: 0 });
+    global.factionHQs.push({ name: 'Brotherhood', x: coords[0], y: coords[1], z: -1 });
   }
   if(gothsHQ) {
     const coords = getCenter(gothsHQ.tile[0], gothsHQ.tile[1]);
@@ -1638,6 +1638,29 @@ function isPlayerAdjacentToEntity(entity, entityType, playerLoc) {
   }
   
   return false;
+}
+
+/**
+ * Calculate the facing direction a player should have to face a target location
+ * @param {Array} playerLoc - Player's tile location [x, y]
+ * @param {Array} targetLoc - Target's tile location [x, y]
+ * @returns {string} Facing direction: 'up', 'down', 'left', or 'right'
+ */
+function calculateFacingDirection(playerLoc, targetLoc) {
+  if (!playerLoc || !targetLoc || playerLoc.length < 2 || targetLoc.length < 2) {
+    return 'down'; // Default facing
+  }
+  
+  var diffX = targetLoc[0] - playerLoc[0];
+  var diffY = targetLoc[1] - playerLoc[1];
+  
+  // Prioritize horizontal movement if horizontal distance is greater
+  if (Math.abs(diffX) > Math.abs(diffY)) {
+    return diffX > 0 ? 'right' : 'left';
+  } else {
+    // Vertical distance is greater or equal - face up or down
+    return diffY > 0 ? 'down' : 'up';
+  }
 }
 
 function findClosestAdjacentWalkableTile(entity, entityType, playerZ, playerLoc) {
@@ -3134,6 +3157,11 @@ const Player = function(param) {
                 // Fallback to building center if plot not available
                 if(!interactionLoc){
                   interactionLoc = getLoc(building.x, building.y);
+                }
+                
+                // Face the building
+                if(interactionLoc){
+                  self.facing = calculateFacingDirection(playerLoc, interactionLoc);
                 }
               }
             } else if(self.pendingInteraction.type === 'item'){
@@ -5013,7 +5041,6 @@ Player.onDisconnect = function(socket) {
 // - Handles ship docking checks
 // - Manages zone transitions for players
 // - Cleans up entities marked for removal
-// - Updates spatial system
 // - Collects and returns update packs for network synchronization
 // - Tracks performance metrics
 // Dependencies: Called once per game tick (60fps) from main game loop
@@ -5286,11 +5313,6 @@ Player.update = function() {
       // Use comprehensive cleanup method
       if (player.cleanup) {
         player.cleanup();
-      }
-      
-      // Remove from spatial system
-      if (global.spatialSystem) {
-        global.spatialSystem.removeEntity(i);
       }
       
       delete Player.list[i];
@@ -5990,9 +6012,6 @@ function dayNight() {
     global.eventManager.hourChange(newTempus, gameState.day);
   }
   
-  // Log EVERY hour change
-  console.log(`Day ${gameState.day}, Hour: ${newTempus} (${nightfall ? 'Night' : 'Day'})`);
-  
   // Check if we just transitioned TO XII.a (midnight)
   if (hourTick === 0) {
     // Track population BEFORE midnight updates
@@ -6380,8 +6399,7 @@ global.dependencyInjector = dependencyInjector;
     'gameState',
     'tilemap',
     'entities',
-    'gameLoop',
-    'spatial'
+    'gameLoop'
   ];
   
   const missingSystems = [];
@@ -7297,6 +7315,11 @@ io.on('connection', function(socket) {
                 // Fallback to player's current location if we couldn't get entity location
                 if(!interactionLoc){
                   interactionLoc = playerLoc;
+                }
+                
+                // Set player facing to face the target before interacting
+                if(interactionLoc && (data.entityType === 'building' || data.entityType === 'item')){
+                  player.facing = calculateFacingDirection(playerLoc, interactionLoc);
                 }
                 
                 // Trigger interaction immediately
@@ -8609,11 +8632,6 @@ setInterval(() => {
 
 // Periodic cleanup - every 5 minutes
 setInterval(() => {
-  // Clean up spatial system
-  if(global.spatialSystem){
-    global.spatialSystem.cleanup();
-  }
-  
   // Clean up dead entity references from all systems
   for(const id in Player.list){
     const entity = Player.list[id];
@@ -8672,18 +8690,6 @@ setInterval(() => {
 setInterval(function() {
   emit({ msg: 'init', pack: initPack });
   emit({ msg: 'remove', pack: removePack });
-
-  // Temporarily disable spatial optimization to prevent lag spikes
-  // if (global.spatialSystem) {
-  //   // Only optimize every 30 seconds instead of every second
-  //   if (Date.now() % 30000 < 2000) {
-  //     global.spatialSystem.optimize();
-  //   }
-  //   // Only cleanup every 60 seconds instead of every second
-  //   if (Date.now() % 60000 < 2000) {
-  //     global.spatialSystem.cleanup();
-  //   }
-  // }
 
   // Clear packs
   initPack.player = [];

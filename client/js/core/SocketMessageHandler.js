@@ -141,6 +141,15 @@ var SocketMessageHandler = {
           if(p) {
             // Set sprite based on class - only update if we get a valid sprite (don't overwrite existing sprite with null)
             var sprite = getSpriteForClass(p.class, p.ghost);
+            // CRITICAL: For falcons, always try to get the correct falcon sprite, even if getSpriteForClass returns null
+            if (p.class === 'Falcon' && !sprite) {
+              // Try alternative sources for falcon sprite
+              if (typeof window !== 'undefined' && window.falcon) {
+                sprite = window.falcon;
+              } else if (typeof window !== 'undefined' && window.spriteHelper) {
+                sprite = window.spriteHelper.getSpriteForClass('Falcon', false);
+              }
+            }
             if (sprite) {
               p.sprite = sprite;
             }
@@ -493,6 +502,15 @@ var SocketMessageHandler = {
         // Always recalculate sprite when gear updates to ensure visual consistency
         // This ensures sprite reflects current gear/class state
         var newSprite = getSpriteForClass(data.class, player.ghost);
+        // CRITICAL: For falcons, always try to get the correct falcon sprite, even if getSpriteForClass returns null
+        if (data.class === 'Falcon' && !newSprite) {
+          // Try alternative sources for falcon sprite
+          if (typeof window !== 'undefined' && window.falcon) {
+            newSprite = window.falcon;
+          } else if (typeof window !== 'undefined' && window.spriteHelper) {
+            newSprite = window.spriteHelper.getSpriteForClass('Falcon', false);
+          }
+        }
         if(newSprite){
           player.sprite = newSprite;
         }
@@ -790,6 +808,15 @@ var SocketMessageHandler = {
           
           // Assets are loaded, so sprite will always be available
           var sprite = getSpriteForClass(p.class, p.ghost);
+          // CRITICAL: For falcons, always try to get the correct falcon sprite, even if getSpriteForClass returns null
+          if (p.class === 'Falcon' && !sprite) {
+            // Try alternative sources for falcon sprite
+            if (typeof window !== 'undefined' && window.falcon) {
+              sprite = window.falcon;
+            } else if (typeof window !== 'undefined' && window.spriteHelper) {
+              sprite = window.spriteHelper.getSpriteForClass('Falcon', false);
+            }
+          }
           p.sprite = sprite;
           initLoadedCount++;
         } else {

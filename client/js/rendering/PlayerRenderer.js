@@ -190,25 +190,47 @@ class PlayerRenderer {
       return false;
     }
     
+    // CRITICAL: Don't trust player.sprite - it might be incorrectly set to a serf sprite
+    // Always get the falcon sprite from proper sources, ignoring player.sprite
     // Try multiple sources for falcon sprite:
-    // 1. player.sprite (if set)
-    // 2. falcon from config
-    // 3. window.falcon (exposed from imgloader.js)
-    // 4. spriteHelper.getSpriteForClass
-    let falconSprite = player.sprite;
+    // 1. falcon from config
+    // 2. window.falcon (exposed from imgloader.js)
+    // 3. spriteHelper.getSpriteForClass
+    // 4. Only use player.sprite as last resort if it's actually a falcon sprite
+    let falconSprite = null;
     
-    // If player.sprite is null, try to get from config or global
-    if (!falconSprite) {
+    // First try: falcon from config
+    if (falcon) {
       falconSprite = falcon;
     }
     
-    // If still no sprite, try window.falcon
+    // Second try: window.falcon
     if (!falconSprite && typeof window !== 'undefined') {
       if (typeof window.falcon !== 'undefined' && window.falcon) {
         falconSprite = window.falcon;
-      } else if (window.spriteHelper) {
-        // Fallback: try spriteHelper
-        falconSprite = window.spriteHelper.getSpriteForClass('Falcon', false);
+      }
+    }
+    
+    // Third try: spriteHelper
+    if (!falconSprite && typeof window !== 'undefined' && window.spriteHelper) {
+      falconSprite = window.spriteHelper.getSpriteForClass('Falcon', false);
+    }
+    
+    // Last resort: Only use player.sprite if it's actually a falcon sprite
+    // Check for falcon-specific properties (falconflyd, falconflyu, etc.) which serf sprites don't have
+    if (!falconSprite && player.sprite) {
+      // Falcons have falconflyd/falconflyu/falconflyl/falconflyr properties that serfs don't have
+      // OR check if it's the same object as window.falcon (identity check)
+      const hasFalconProps = player.sprite.falconflyd || player.sprite.falconflyu || 
+                             player.sprite.falconflyl || player.sprite.falconflyr;
+      const isFalconObject = (typeof window !== 'undefined' && window.falcon && player.sprite === window.falcon);
+      
+      if (hasFalconProps || isFalconObject) {
+        falconSprite = player.sprite;
+      } else {
+        // player.sprite is NOT a falcon sprite (probably a serf), so ignore it
+        // This prevents rendering falcons as serfs
+        console.warn('Falcon entity has non-falcon sprite assigned:', player.id, player.class);
       }
     }
     
@@ -431,10 +453,15 @@ class PlayerRenderer {
     // Apply stealth transparency
     this.applyStealth(stealth, ctx);
     
-    // Render sprite based on state
-    // Falcons now render like other NPCs - no special handling needed
-    // (The sprite is set on the entity, and safeDrawImage handles loading)
+    // Render falcons using specialized method
+    if (player.class === 'Falcon') {
+      if (this.renderFalcon(player, { ctx, x, y, scaledSpriteSize, falcon })) {
+        ctx.globalAlpha = 1.0;
+        return; // Falcon rendered, don't fall through
+      }
+    }
 
+    // Render sprite based on state
     // Work animations
     if (this.renderWorkAnimation(player, { ctx, x, y, spriteSize: player.spriteSize, wrk })) {
       ctx.globalAlpha = 1.0;

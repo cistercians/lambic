@@ -277,7 +277,7 @@ class TrainCommand {
       stables: 0
     };
 
-    const buildingList = entityRegistry.getCollection('buildings') || 
+    const buildingList = entityRegistry.getList('buildings') || 
                         (global.Building && global.Building.list ? global.Building.list : {});
 
     for (const id in buildingList) {
@@ -368,7 +368,7 @@ class TrainCommand {
    * @returns {object|null} House entity
    */
   getHouse(houseId) {
-    const houseList = entityRegistry.getCollection('houses') || 
+    const houseList = entityRegistry.getList('houses') || 
                      (global.House && global.House.list ? global.House.list : {});
     return houseList[houseId] || null;
   }

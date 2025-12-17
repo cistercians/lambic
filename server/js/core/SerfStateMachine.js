@@ -5,6 +5,7 @@ const SerfWorkManager = require('./SerfWorkManager');
 const SerfWorkExecutor = require('./SerfWorkExecutor');
 const SerfResourceManager = require('./SerfResourceManager');
 const serfLogger = require('./SerfLogger');
+const timerManager = global.timerManager || null;
 
 // State constants
 const STATES = {
@@ -75,6 +76,8 @@ class SerfStateMachine {
       
       // Reset to safe state
       if (serf) {
+        // Clear any active timers
+        this.clearSerfTimers(serf);
         serf.path = null;
         serf.pathCount = 0;
         this.setState(serf, STATES.IDLE);
@@ -188,10 +191,20 @@ class SerfStateMachine {
    */
   handleDawnTransition(serf, tempus) {
     if (tempus === 'VI.a' && serf.mode !== 'work' && !serf.dayTimer) {
+      // Clear any existing day timer first
+      if (serf.dayTimerId && timerManager) {
+        timerManager.clear(serf.dayTimerId);
+      }
+      
       serf.dayTimer = true;
       const rand = Math.floor(Math.random() * 60000); // 0-60 seconds
       
-      setTimeout(() => {
+      const timerCallback = () => {
+        // Verify serf still exists and is in valid state
+        if (!serf || !this.validateSerf(serf)) {
+          return;
+        }
+        
         if (serf.mode !== 'work') {
           serf.mode = 'work';
           serf.action = null;
@@ -199,7 +212,18 @@ class SerfStateMachine {
           this.setState(serf, STATES.ASSIGNING);
         }
         serf.dayTimer = false;
-      }, rand);
+        serf.dayTimerId = null;
+      };
+      
+      if (timerManager) {
+        const timerName = `serf-dawn-${serf.id}`;
+        serf.dayTimerId = timerName;
+        timerManager.setTimeout(timerName, timerCallback, rand);
+      } else {
+        // Fallback to raw setTimeout if timerManager not available
+        const timeoutId = setTimeout(timerCallback, rand);
+        serf.dayTimerId = timeoutId;
+      }
     }
   }
 
@@ -208,10 +232,20 @@ class SerfStateMachine {
    */
   handleEveningTransition(serf, tempus, period) {
     if (tempus === 'VI.p' && (serf.action === 'task' || serf.action === 'build') && !serf.dayTimer) {
+      // Clear any existing day timer first
+      if (serf.dayTimerId && timerManager) {
+        timerManager.clear(serf.dayTimerId);
+      }
+      
       serf.dayTimer = true;
       const rand = Math.floor(Math.random() * (3600000 / (period * 6)));
       
-      setTimeout(() => {
+      const timerCallback = () => {
+        // Verify serf still exists and is in valid state
+        if (!serf || !this.validateSerf(serf)) {
+          return;
+        }
+        
         if (serf.action === 'task' || serf.action === 'build') {
           serf.action = 'clockout';
           serf.work.spot = null;
@@ -219,7 +253,18 @@ class SerfStateMachine {
           this.workManager.releaseWorkSpot(serf);
         }
         serf.dayTimer = false;
-      }, rand);
+        serf.dayTimerId = null;
+      };
+      
+      if (timerManager) {
+        const timerName = `serf-evening-${serf.id}`;
+        serf.dayTimerId = timerName;
+        timerManager.setTimeout(timerName, timerCallback, rand);
+      } else {
+        // Fallback to raw setTimeout if timerManager not available
+        const timeoutId = setTimeout(timerCallback, rand);
+        serf.dayTimerId = timeoutId;
+      }
     }
   }
 
@@ -228,10 +273,20 @@ class SerfStateMachine {
    */
   handleLateNightTransition(serf, tempus, period) {
     if (tempus === 'XI.p' && (serf.action === 'tavern' || serf.action === 'clockout') && !serf.dayTimer) {
+      // Clear any existing day timer first
+      if (serf.dayTimerId && timerManager) {
+        timerManager.clear(serf.dayTimerId);
+      }
+      
       serf.dayTimer = true;
       const rand = Math.floor(Math.random() * (3600000 / (period / 2)));
       
-      setTimeout(() => {
+      const timerCallback = () => {
+        // Verify serf still exists and is in valid state
+        if (!serf || !this.validateSerf(serf)) {
+          return;
+        }
+        
         if (serf.action === 'tavern' || serf.action === 'clockout') {
           serf.tether = null;
           serf.action = 'home';
@@ -239,7 +294,18 @@ class SerfStateMachine {
           this.setState(serf, STATES.IDLE);
         }
         serf.dayTimer = false;
-      }, rand);
+        serf.dayTimerId = null;
+      };
+      
+      if (timerManager) {
+        const timerName = `serf-latenight-${serf.id}`;
+        serf.dayTimerId = timerName;
+        timerManager.setTimeout(timerName, timerCallback, rand);
+      } else {
+        // Fallback to raw setTimeout if timerManager not available
+        const timeoutId = setTimeout(timerCallback, rand);
+        serf.dayTimerId = timeoutId;
+      }
     }
   }
 
@@ -303,26 +369,168 @@ class SerfStateMachine {
       return STATES.IDLE;
     }
 
-    // Prefer explicit state if set
+    // Prefer explicit state if set - trust explicit states to prevent jittering
+    // Only re-validate if there's been a significant change (mode/action change)
     if (serf.serfState) {
-      return serf.serfState;
+      // Check if mode or action has changed since state was set
+      const stateKey = `${serf.mode}|${serf.action || 'null'}`;
+      if (serf._lastStateKey === stateKey && serf._lastStateKeyState === serf.serfState) {
+        // No significant change - trust the explicit state
+        return serf.serfState;
+      }
+      
+      // Mode or action changed - do a lenient validation
+      // Only invalidate if state is clearly wrong (not just slightly off)
+      if (this.validateStateLenient(serf, serf.serfState)) {
+        // State is reasonable - trust it
+        serf._lastStateKey = stateKey;
+        serf._lastStateKeyState = serf.serfState;
+        return serf.serfState;
+      } else {
+        // State is clearly wrong - reset and infer
+        serfLogger.warn(`Invalid explicit state ${serf.serfState}, inferring new state`, serf);
+        serf.serfState = null;
+        serf._lastStateKey = null;
+        serf._lastStateKeyState = null;
+      }
     }
 
     // Handle clockout action - transitioning from work to idle
     if (serf.action === 'clockout') {
       // If has resources, deposit them first
       if (this.resourceManager.hasResourcesToDeposit(serf)) {
-        return STATES.DEPOSITING;
+        const inferredState = STATES.DEPOSITING;
+        // Set explicit state to avoid re-inference
+        this.setState(serf, inferredState);
+        return inferredState;
       }
       // Otherwise heading home or to tavern
-      return STATES.IDLE;
+      const inferredState = STATES.IDLE;
+      this.setState(serf, inferredState);
+      return inferredState;
     }
 
     // Infer state from serf properties (fallback when explicit state not set)
+    let inferredState;
     if (serf.mode === 'work') {
-      return this.inferWorkState(serf);
+      inferredState = this.inferWorkState(serf);
     } else {
-      return STATES.IDLE;
+      inferredState = STATES.IDLE;
+    }
+    
+    // Set the inferred state explicitly to reduce future inference
+    if (!serf.serfState || serf.serfState !== inferredState) {
+      this.setState(serf, inferredState);
+    }
+    
+    return inferredState;
+  }
+
+  /**
+   * Lenient validation - only invalidates if state is clearly wrong
+   * More permissive than strict validation to prevent jittering
+   * @param {Object} serf - The serf entity
+   * @param {string} state - The state to validate
+   * @returns {boolean} - True if state is reasonably valid
+   */
+  validateStateLenient(serf, state) {
+    if (!serf || !state) {
+      return false;
+    }
+
+    // Basic sanity checks - very lenient
+    switch (state) {
+      case STATES.WORKING:
+        // Just check that we're in work mode - don't require perfect alignment
+        return serf.mode === 'work';
+      
+      case STATES.DEPOSITING:
+        // Depositing is valid if in work mode and has work building
+        return serf.mode === 'work' && serf.work && serf.work.hq;
+      
+      case STATES.TRAVELING:
+        // Traveling is valid if has destination or path
+        return (serf.path && serf.path.length > 0) || 
+               (serf.work && (serf.work.spot || serf.work.hq)) ||
+               serf.mode === 'work';
+      
+      case STATES.BUILDING:
+        // Building is valid if build action exists, OR has hut assigned, OR has work building in work mode
+        return serf.action === 'build' || 
+               serf.hut || 
+               (serf.mode === 'work' && serf.work && serf.work.hq);
+      
+      case STATES.ASSIGNING:
+        // Assigning is valid if in work mode
+        return serf.mode === 'work';
+      
+      case STATES.IDLE:
+        // Idle is always valid
+        return true;
+      
+      case STATES.STUCK:
+        // Stuck is valid if explicitly set
+        return true;
+      
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * Validate that a state is consistent with serf properties (strict)
+   * @param {Object} serf - The serf entity
+   * @param {string} state - The state to validate
+   * @returns {boolean} - True if state is valid
+   */
+  validateState(serf, state) {
+    if (!serf || !state) {
+      return false;
+    }
+
+    // Basic validation rules
+    switch (state) {
+      case STATES.WORKING:
+        // Working state should have work building and spot, with task action
+        // More lenient - don't require mode === 'work' since it might change temporarily
+        return serf.action === 'task' &&
+               serf.work && serf.work.hq;
+      
+      case STATES.DEPOSITING:
+        // Depositing should have resources OR be heading to dropoff
+        // Check if has resources, or if has work building (indicating heading to dropoff)
+        if (this.resourceManager.hasResourcesToDeposit(serf)) {
+          return true;
+        }
+        // Also valid if has work building and dropoff location (serf might have just deposited)
+        const building = this.workManager.getWorkBuilding(serf);
+        return building && this.resourceManager.getDropoffLocation(building) !== null;
+      
+      case STATES.TRAVELING:
+        // Traveling should have a path or destination
+        return (serf.path && serf.path.length > 0) || 
+               (serf.work && serf.work.spot);
+      
+      case STATES.BUILDING:
+        // Building should have build action
+        // Very lenient - just check for build action (mode might change temporarily)
+        return serf.action === 'build';
+      
+      case STATES.ASSIGNING:
+        // Assigning should be in work mode but not have spot assigned yet or action not set to task
+        return serf.mode === 'work' && 
+               (!serf.work || !serf.work.spot || serf.action !== 'task');
+      
+      case STATES.IDLE:
+        // Idle is always valid
+        return true;
+      
+      case STATES.STUCK:
+        // Stuck is valid if explicitly set
+        return true;
+      
+      default:
+        return false;
     }
   }
 
@@ -335,7 +543,18 @@ class SerfStateMachine {
       return STATES.IDLE;
     }
 
-    // Building takes priority
+    // Clockout takes priority - don't infer WORKING/BUILDING during clockout
+    if (serf.action === 'clockout') {
+      // If has resources, need to deposit them first
+      if (this.resourceManager.hasResourcesToDeposit(serf)) {
+        return STATES.DEPOSITING;
+      }
+      // Otherwise, clockout handler will manage going home (IDLE/TRAVELING)
+      // Return IDLE to let clockout handler take over
+      return STATES.IDLE;
+    }
+
+    // Building takes priority (but not during clockout)
     if (serf.action === 'build') {
       return STATES.BUILDING;
     }
@@ -371,10 +590,68 @@ class SerfStateMachine {
   }
 
   /**
+   * Clear all timers for a serf
+   * @param {Object} serf - The serf entity
+   */
+  clearSerfTimers(serf) {
+    if (!serf) return;
+    
+    // Clear day/night transition timer
+    if (serf.dayTimerId && timerManager) {
+      timerManager.clear(serf.dayTimerId);
+      serf.dayTimerId = null;
+    }
+    serf.dayTimer = false;
+    
+    // Clear any work timers (stored by SerfWorkExecutor)
+    if (serf.workTimerId) {
+      if (timerManager) {
+        timerManager.clear(serf.workTimerId);
+      } else if (global.clearTimeout) {
+        global.clearTimeout(serf.workTimerId);
+      }
+      serf.workTimerId = null;
+    }
+    if (serf.workTimeoutId) {
+      if (timerManager) {
+        timerManager.clear(serf.workTimeoutId);
+      } else if (global.clearTimeout) {
+        global.clearTimeout(serf.workTimeoutId);
+      }
+      serf.workTimeoutId = null;
+    }
+  }
+
+  /**
    * Set serf state
    */
   setState(serf, state) {
+    const oldState = serf.serfState;
     serf.serfState = state;
+    
+    // Update state key cache when state changes
+    serf._lastStateKey = `${serf.mode}|${serf.action || 'null'}`;
+    serf._lastStateKeyState = state;
+    
+    // Clear timers when transitioning away from certain states
+    if (oldState !== state) {
+      // Clear work timers when leaving working states
+      if (oldState === STATES.WORKING || oldState === STATES.BUILDING) {
+        // WorkExecutor will handle cleanup, but we ensure it's done
+        if (serf.workTimerId || serf.workTimeoutId) {
+          // Clear is handled by work executor, but verify cleanup
+        }
+      }
+      
+      // Clear day timer when transitioning to idle from clockout
+      if (state === STATES.IDLE && oldState !== STATES.IDLE) {
+        if (serf.dayTimerId && timerManager) {
+          timerManager.clear(serf.dayTimerId);
+          serf.dayTimerId = null;
+        }
+        serf.dayTimer = false;
+      }
+    }
     
     if (this.debug) {
       console.log(`[SerfStateMachine] ${serf.name || serf.id} -> ${state}`);
@@ -534,9 +811,9 @@ class SerfStateMachine {
       const hut = global.Building.list[serf.hut];
       if (hut && !hut.built) {
         // Need to build hut first
-        this.setState(serf, STATES.BUILDING);
         serf.action = 'build';
         serf.mode = 'work';
+        this.setState(serf, STATES.BUILDING);
         return;
       }
     }
@@ -548,12 +825,19 @@ class SerfStateMachine {
         if (!buildingId) {
           // No work available - stay idle
           serf.mode = 'idle';
+          serf.action = null;
           this.setState(serf, STATES.IDLE);
           return;
         }
-        } catch (error) {
-          serfLogger.error(`Error assigning work building`, error, serf);
+      } catch (error) {
+        serfLogger.error(`Error assigning work building`, error, serf);
+        // Rollback: ensure serf is in safe state
         serf.mode = 'idle';
+        serf.action = null;
+        if (serf.work) {
+          serf.work.hq = null;
+          serf.work.spot = null;
+        }
         this.setState(serf, STATES.IDLE);
         return;
       }
@@ -561,9 +845,10 @@ class SerfStateMachine {
 
     const building = this.workManager.getWorkBuilding(serf);
     if (!this.validateBuilding(building)) {
-      // Building doesn't exist or isn't built
+      // Building doesn't exist or isn't built - rollback assignment
       serf.work.hq = null;
-      this.setState(serf, STATES.ASSIGNING);
+      serf.work.spot = null;
+      // Try again next frame
       return;
     }
 
@@ -577,12 +862,19 @@ class SerfStateMachine {
       } else {
         // No spots available - stay idle
         serfLogger.warn(`No work spots available`, serf, { buildingId: building.id || serf.work.hq });
+        // Release building assignment if no spots
+        serf.work.hq = null;
         serf.mode = 'idle';
+        serf.action = null;
         this.setState(serf, STATES.IDLE);
       }
     } catch (error) {
       serfLogger.error(`Error assigning work spot`, error, serf);
+      // Rollback: release work building and go idle
+      serf.work.hq = null;
+      serf.work.spot = null;
       serf.mode = 'idle';
+      serf.action = null;
       this.setState(serf, STATES.IDLE);
     }
   }
@@ -597,12 +889,18 @@ class SerfStateMachine {
 
     const building = this.workManager.getWorkBuilding(serf);
     if (!this.validateBuilding(building)) {
+      // Clear path before reassigning
+      serf.path = null;
+      serf.pathCount = 0;
       this.setState(serf, STATES.ASSIGNING);
       return;
     }
 
     const spot = serf.work.spot;
     if (!this.validateSpot(spot)) {
+      // Clear path before reassigning
+      serf.path = null;
+      serf.pathCount = 0;
       this.setState(serf, STATES.ASSIGNING);
       return;
     }
@@ -614,26 +912,45 @@ class SerfStateMachine {
       ];
 
       if (!loc || !Array.isArray(loc) || loc.length !== 2) {
-        // Invalid location - reassign
+        // Invalid location - clear path and reassign
+        serf.path = null;
+        serf.pathCount = 0;
         this.setState(serf, STATES.ASSIGNING);
         return;
       }
 
       // Check if we've reached the spot
       if (loc.toString() === spot.toString()) {
-        // Reached spot - start working
+        // Reached spot - clear path and start working
+        serf.path = null;
+        serf.pathCount = 0;
         this.setState(serf, STATES.WORKING);
       } else if (!serf.path || serf.path.length === 0) {
-        // No path - request one
+        // No path - request one (but don't clear existing path if count < length)
         if (typeof serf.moveTo === 'function') {
           serf.moveTo(0, spot[0], spot[1]);
         } else {
-          // moveTo not available - reassign
+          // moveTo not available - clear path and reassign
+          serf.path = null;
+          serf.pathCount = 0;
+          this.setState(serf, STATES.ASSIGNING);
+        }
+      } else if (serf.pathCount >= serf.path.length) {
+        // Path completed but not at destination - pathfinding may have failed
+        serf.path = null;
+        serf.pathCount = 0;
+        // Try once more to request path
+        if (typeof serf.moveTo === 'function') {
+          serf.moveTo(0, spot[0], spot[1]);
+        } else {
           this.setState(serf, STATES.ASSIGNING);
         }
       }
     } catch (error) {
       serfLogger.error(`Error in handleTraveling`, error, serf);
+      // Clear path on error
+      serf.path = null;
+      serf.pathCount = 0;
       this.setState(serf, STATES.ASSIGNING);
     }
   }
@@ -643,6 +960,11 @@ class SerfStateMachine {
    */
   handleWorking(serf) {
     if (!this.validateSerf(serf)) {
+      return;
+    }
+
+    // Don't work during clockout - let handleClockout handle it
+    if (serf.action === 'clockout') {
       return;
     }
 
@@ -707,8 +1029,16 @@ class SerfStateMachine {
       return;
     }
 
+    // Prevent conflict with clockout - if clocking out, let handleClockout handle it
+    if (serf.action === 'clockout') {
+      return; // handleClockout is called separately
+    }
+
     const building = this.workManager.getWorkBuilding(serf);
     if (!this.validateBuilding(building)) {
+      // Clear path before reassigning
+      serf.path = null;
+      serf.pathCount = 0;
       this.setState(serf, STATES.ASSIGNING);
       return;
     }
@@ -716,7 +1046,9 @@ class SerfStateMachine {
     // Check if we have resources
     try {
       if (!this.resourceManager.hasResourcesToDeposit(serf)) {
-        // No resources - return to work
+        // No resources - clear path and return to work
+        serf.path = null;
+        serf.pathCount = 0;
         this.setState(serf, STATES.TRAVELING);
         return;
       }
@@ -724,6 +1056,8 @@ class SerfStateMachine {
       if (this.debug) {
         console.error(`[SerfStateMachine] Error checking resources:`, error);
       }
+      serf.path = null;
+      serf.pathCount = 0;
       this.setState(serf, STATES.ASSIGNING);
       return;
     }
@@ -752,6 +1086,8 @@ class SerfStateMachine {
     try {
       const dropoff = this.resourceManager.getDropoffLocation(building);
       if (!this.validateSpot(dropoff)) {
+        serf.path = null;
+        serf.pathCount = 0;
         this.setState(serf, STATES.ASSIGNING);
         return;
       }
@@ -788,19 +1124,35 @@ class SerfStateMachine {
           // Continue anyway - some resources may have been deposited
         }
 
-        // Return to work spot
+        // Clear path and return to work spot
+        serf.path = null;
+        serf.pathCount = 0;
         this.setState(serf, STATES.TRAVELING);
       } else {
         // Path to dropoff
         if (!serf.path && typeof serf.moveTo === 'function') {
           serf.moveTo(0, dropoff[0], dropoff[1]);
         } else if (!serf.path) {
-          // moveTo not available - reassign
+          // moveTo not available - clear and reassign
+          serf.path = null;
+          serf.pathCount = 0;
           this.setState(serf, STATES.ASSIGNING);
+        } else if (serf.pathCount >= serf.path.length) {
+          // Path completed but not at destination - retry
+          serf.path = null;
+          serf.pathCount = 0;
+          if (typeof serf.moveTo === 'function') {
+            serf.moveTo(0, dropoff[0], dropoff[1]);
+          } else {
+            this.setState(serf, STATES.ASSIGNING);
+          }
         }
       }
     } catch (error) {
       serfLogger.error(`Error in handleDepositing`, error, serf);
+      // Clear path on error
+      serf.path = null;
+      serf.pathCount = 0;
       this.setState(serf, STATES.ASSIGNING);
     }
   }
@@ -810,6 +1162,11 @@ class SerfStateMachine {
    */
   handleBuilding(serf) {
     if (!this.validateSerf(serf)) {
+      return;
+    }
+
+    // Don't build during clockout - let handleClockout handle it
+    if (serf.action === 'clockout') {
       return;
     }
 
@@ -941,16 +1298,40 @@ class SerfStateMachine {
       serf.work.spot = null;
       this.workManager.releaseWorkSpot(serf);
       
+      // Reset stuck tracking
+      serf.stuckCounter = 0;
+      serf.lastPos = { x: serf.x, y: serf.y };
+      
       // Reset idle time
       serf.idleTime = 0;
       
-      // Try to reassign
-      this.setState(serf, STATES.ASSIGNING);
+      // Wait a moment before reassigning to avoid immediate re-stuck
+      if (!serf.stuckRecoveryTimer) {
+        serf.stuckRecoveryTimer = true;
+        const recoveryDelay = 1000; // 1 second
+        
+        const recoveryCallback = () => {
+          if (serf && this.validateSerf(serf)) {
+            serf.stuckRecoveryTimer = false;
+            // Try to reassign
+            this.setState(serf, STATES.ASSIGNING);
+          }
+        };
+        
+        if (timerManager) {
+          const timerName = `serf-stuck-recovery-${serf.id}`;
+          timerManager.setTimeout(timerName, recoveryCallback, recoveryDelay);
+        } else {
+          setTimeout(recoveryCallback, recoveryDelay);
+        }
+      }
     } catch (error) {
       serfLogger.error(`Error in handleStuck`, error, serf);
       // Fallback: just go idle
       serf.mode = 'idle';
       serf.action = null;
+      serf.stuckCounter = 0;
+      serf.stuckRecoveryTimer = false;
       this.setState(serf, STATES.IDLE);
     }
   }
@@ -964,8 +1345,19 @@ class SerfStateMachine {
     }
 
     try {
+      // Don't check stuck for serfs who are intentionally stationary
+      // (actively building or working at a spot)
+      if (serf.building || serf.working) {
+        // Reset stuck counter since serf is intentionally stationary
+        serf.stuckCounter = 0;
+        // Still update lastPos for when they start moving again
+        serf.lastPos = { x: serf.x, y: serf.y };
+        return;
+      }
+
       if (!serf.lastPos) {
         serf.lastPos = { x: serf.x, y: serf.y };
+        serf.stuckCounter = 0;
         return;
       }
 
@@ -974,16 +1366,31 @@ class SerfStateMachine {
         Math.pow(serf.y - serf.lastPos.y, 2)
       );
 
-      // Only count as stuck if we have a path but aren't moving
+      // Check if we're trying to reach a spot but not making progress
+      const hasDestination = (serf.work && serf.work.spot) || 
+                             (serf.path && serf.path.length > 0);
+      
+      // Track stuck counter for serfs with path but not moving
       if (serf.path && serf.pathCount < serf.path.length && dist < 2) {
         serf.stuckCounter = (serf.stuckCounter || 0) + 1;
-        
+      } 
+      // Also track stuck for serfs without path but trying to reach a spot
+      else if (!serf.path && hasDestination && dist < 2 && serf.mode === 'work') {
+        serf.stuckCounter = (serf.stuckCounter || 0) + 1;
+      }
+      // Track stuck when waiting for work spot assignment too long (only if not actively working)
+      else if (serf.serfState === STATES.ASSIGNING && hasDestination && !serf.working) {
+        serf.stuckCounter = (serf.stuckCounter || 0) + 1;
+      }
+      else {
+        // Moving or no destination - reset counter
+        serf.stuckCounter = 0;
+      }
+
+      // Transition to STUCK state if counter exceeds threshold
       if (serf.stuckCounter > 180) { // Stuck for 3 seconds at 60fps
         serfLogger.stuck(serf, serf.stuckCounter);
         this.setState(serf, STATES.STUCK);
-        serf.stuckCounter = 0;
-      }
-      } else {
         serf.stuckCounter = 0;
       }
 
@@ -994,6 +1401,7 @@ class SerfStateMachine {
       }
       // Reset lastPos on error
       serf.lastPos = { x: serf.x, y: serf.y };
+      serf.stuckCounter = 0;
     }
   }
 }

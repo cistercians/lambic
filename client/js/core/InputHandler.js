@@ -904,9 +904,9 @@ class InputHandler {
             if (buildingId && Building.list[buildingId]) {
               const building = Building.list[buildingId];
               // Check if building is interactable, built, and player can access it
-              // Note: On client side, building.built might be undefined - assume building exists means it's built
-              // Only exclude if explicitly false
-                const isBuilt = building.built !== false; // Treat undefined/null as true (building exists = built)
+              // Only treat building as built if building.built is explicitly true
+              // Unbuilt buildings (building.built === false or undefined) should not show interact cursor
+                const isBuilt = building.built === true;
                 const isInteractable = isInteractableBuilding(building);
                 
                 // actualSelfId is already defined in outer scope

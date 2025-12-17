@@ -300,6 +300,12 @@ class SerfWorkManager {
         return false;
       }
 
+      // Check if building is still accessible (same house)
+      if (serf.house && building.house !== serf.house) {
+        // Building changed ownership or serf changed house
+        return false;
+      }
+
       // Check if spot is still valid
       if (serf.work.spot) {
         try {
@@ -307,6 +313,12 @@ class SerfWorkManager {
           if (!Array.isArray(spot) || spot.length !== 2) {
             this.releaseWorkSpot(serf);
             return false;
+          }
+
+          // For building work, spot validation is different
+          if (serf.action === 'build') {
+            // Building spots don't need to be in resources array
+            return true;
           }
 
           let spotValid = false;

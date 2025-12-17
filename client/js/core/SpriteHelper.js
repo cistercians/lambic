@@ -53,9 +53,13 @@ class SpriteHelper {
     if (!this.spriteMap) {
       this.spriteMap = this.buildSpriteMap();
     } else {
-      // Safety check: if critical sprites (like maleserf) are missing, rebuild
+      // Safety check: if critical sprites are missing, rebuild
       // This handles cases where map was built before sprites were available
-      if (!this.spriteMap['Serf'] && typeof maleserf !== 'undefined') {
+      const needsRebuild = 
+        (!this.spriteMap['Serf'] && typeof maleserf !== 'undefined') ||
+        (!this.spriteMap['Falcon'] && typeof window !== 'undefined' && window.falcon);
+      
+      if (needsRebuild) {
         console.warn('Sprite map missing critical sprites, rebuilding...');
         this.spriteMap = this.buildSpriteMap();
       }
@@ -69,12 +73,19 @@ class SpriteHelper {
     const normalizedClass = this.normalizeClassName(entityClass);
 
     // Lookup sprite by normalized class name (O(1))
-    const sprite = this.spriteMap[normalizedClass];
+    let sprite = this.spriteMap[normalizedClass];
     if (!sprite) {
       // Try original class name as fallback
-      const fallbackSprite = this.spriteMap[entityClass];
-      if (fallbackSprite) {
-        return fallbackSprite;
+      sprite = this.spriteMap[entityClass];
+      if (sprite) {
+        return sprite;
+      }
+      
+      // CRITICAL: For Falcon class, always try window.falcon if sprite map lookup failed
+      // This prevents falcons from getting null/incorrect sprites
+      if ((normalizedClass === 'Falcon' || entityClass === 'Falcon') && typeof window !== 'undefined' && window.falcon) {
+        console.warn('Falcon sprite not found in sprite map, using window.falcon as fallback');
+        return window.falcon;
       }
       
       // Debug: Log unknown classes (only once per class to reduce spam)
@@ -104,7 +115,7 @@ class SpriteHelper {
       'Deer': typeof deer !== 'undefined' ? deer : null,
       'Boar': typeof boar !== 'undefined' ? boar : null,
       'Wolf': (typeof wolf !== 'undefined' ? wolf : (typeof window !== 'undefined' && window.wolf ? window.wolf : null)),
-      'Falcon': typeof falcon !== 'undefined' ? falcon : null,
+      'Falcon': (typeof falcon !== 'undefined' ? falcon : (typeof window !== 'undefined' && window.falcon ? window.falcon : null)),
       'FishingShip': typeof fishingship !== 'undefined' ? fishingship : null,
       'CargoShip': typeof cargoship !== 'undefined' ? cargoship : null,
       'Serf': (typeof maleserf !== 'undefined' ? maleserf : null),

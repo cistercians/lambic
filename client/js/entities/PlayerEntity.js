@@ -59,6 +59,15 @@ function PlayerEntity(initPack) {
   self.ghost = initPack.ghost || false;
   // Set sprite based on class - assets are guaranteed to be loaded, so sprite will always be available
   var sprite = getSpriteForClass(self.class, self.ghost);
+  // CRITICAL: For falcons, always try to get the correct falcon sprite, even if getSpriteForClass returns null
+  if (self.class === 'Falcon' && !sprite) {
+    // Try alternative sources for falcon sprite
+    if (typeof window !== 'undefined' && window.falcon) {
+      sprite = window.falcon;
+    } else if (typeof window !== 'undefined' && window.spriteHelper) {
+      sprite = window.spriteHelper.getSpriteForClass('Falcon', false);
+    }
+  }
   self.sprite = sprite;
   self.spriteSize = initPack.spriteSize || 64; // Default to 64 if not provided
   self.ranged = initPack.ranged;

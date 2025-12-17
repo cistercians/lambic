@@ -318,7 +318,7 @@ class HouseCommand {
    * @returns {boolean} Is taken
    */
   isHouseNameTaken(name) {
-    const houseList = entityRegistry.getCollection('houses') || 
+    const houseList = entityRegistry.getList('houses') || 
                      (global.House && global.House.list ? global.House.list : {});
 
     for (const id in houseList) {
