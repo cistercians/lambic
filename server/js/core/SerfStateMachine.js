@@ -919,16 +919,50 @@ class SerfStateMachine {
         return;
       }
 
-      // Check if we've reached the spot
-      if (loc.toString() === spot.toString()) {
+      // Check if this is mining work that requires cave entry
+      const isMiningWork = building.type === 'mine' && building.cave && Array.isArray(building.cave);
+      
+      // For mining work, need to enter cave first if not already in cave
+      if (isMiningWork && serf.z !== -1) {
+        // Path to cave entrance first, not directly to work spot
+        const caveEntrance = building.cave;
+        const alreadyAtEntrance = (serf.z === 0 && loc.toString() === caveEntrance.toString());
+        
+        if (!alreadyAtEntrance) {
+          // Store cave entrance for later use
+          if (!serf.caveEntrance || !Array.isArray(serf.caveEntrance)) {
+            serf.caveEntrance = caveEntrance;
+          }
+          
+          // Path to cave entrance on overworld
+          if (!serf.path || serf.path.length === 0) {
+            if (typeof serf.moveTo === 'function') {
+              serf.moveTo(0, caveEntrance[0], caveEntrance[1]);
+            } else {
+              serf.path = null;
+              serf.pathCount = 0;
+              this.setState(serf, STATES.ASSIGNING);
+            }
+          }
+          // Let Entity.js handle z-transition when serf reaches cave entrance
+          return;
+        }
+        // Already at entrance - Entity.js will handle cave entry, then executeMining will handle pathfinding inside cave
+        return;
+      }
+
+      // Check if we've reached the spot (for non-mining work, or mining work already in cave)
+      if (loc.toString() === spot.toString() && (!isMiningWork || serf.z === -1)) {
         // Reached spot - clear path and start working
         serf.path = null;
         serf.pathCount = 0;
         this.setState(serf, STATES.WORKING);
       } else if (!serf.path || serf.path.length === 0) {
-        // No path - request one (but don't clear existing path if count < length)
+        // No path - request one
         if (typeof serf.moveTo === 'function') {
-          serf.moveTo(0, spot[0], spot[1]);
+          // For mining work in cave, use z=-1, otherwise z=0
+          const targetZ = (isMiningWork && serf.z === -1) ? -1 : 0;
+          serf.moveTo(targetZ, spot[0], spot[1]);
         } else {
           // moveTo not available - clear path and reassign
           serf.path = null;
@@ -941,7 +975,9 @@ class SerfStateMachine {
         serf.pathCount = 0;
         // Try once more to request path
         if (typeof serf.moveTo === 'function') {
-          serf.moveTo(0, spot[0], spot[1]);
+          // For mining work in cave, use z=-1, otherwise z=0
+          const targetZ = (isMiningWork && serf.z === -1) ? -1 : 0;
+          serf.moveTo(targetZ, spot[0], spot[1]);
         } else {
           this.setState(serf, STATES.ASSIGNING);
         }
