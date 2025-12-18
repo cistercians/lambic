@@ -26,363 +26,363 @@ class SpriteRegistry {
       // Fauna
       'Falcon': {
         sprite: typeof window !== 'undefined' && window.falcon ? window.falcon : (typeof falcon !== 'undefined' ? falcon : null),
-        spriteSize: tileSize * 7  // 448px
+        spriteSize: 448
       },
       'Sheep': {
         sprite: typeof sheep !== 'undefined' ? sheep : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 64
       },
       'Deer': {
         sprite: typeof deer !== 'undefined' ? deer : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 64
       },
       'Boar': {
         sprite: typeof boar !== 'undefined' ? boar : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 64
       },
       'Wolf': {
         sprite: typeof wolf !== 'undefined' ? wolf : (typeof window !== 'undefined' && window.wolf ? window.wolf : null),
-        spriteSize: tileSize * 1.5
+        spriteSize: 64
       },
 
       // Ships
       'FishingShip': {
         sprite: typeof fishingship !== 'undefined' ? fishingship : null,
-        spriteSize: tileSize * 2  // 128px
+        spriteSize: 128
       },
       'CargoShip': {
         sprite: typeof cargoship !== 'undefined' ? cargoship : null,
-        spriteSize: tileSize * 2.5  // 160px
+        spriteSize: 160
       },
 
       // Serfs
       'Serf': {
         sprite: typeof maleserf !== 'undefined' ? maleserf : null,
-        spriteSize: tileSize * 1.5  // 96px
+        spriteSize: 96
       },
       'SerfM': {
         sprite: typeof maleserf !== 'undefined' ? maleserf : null,
-        spriteSize: tileSize * 1.5  // 96px
+        spriteSize: 96
       },
       'SerfF': {
         sprite: typeof femaleserf !== 'undefined' ? femaleserf : (typeof maleserf !== 'undefined' ? maleserf : null),
-        spriteSize: tileSize * 1.5  // 96px
+        spriteSize: 96
       },
 
-      // Rogue/Hunter classes (tileSize * 1.5)
+      // Rogue/Hunter classes (96px)
       'Rogue': {
         sprite: typeof rogue !== 'undefined' ? rogue : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'Trapper': {
         sprite: typeof rogue !== 'undefined' ? rogue : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'Cutthroat': {
         sprite: typeof rogue !== 'undefined' ? rogue : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'Hunter': {
         sprite: typeof hunter !== 'undefined' ? hunter : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'Outlaw': {
         sprite: typeof hunter !== 'undefined' ? hunter : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'Poacher': {
         sprite: typeof poacher !== 'undefined' ? poacher : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
 
-      // Scout/Ranger classes (tileSize * 1.5)
+      // Scout/Ranger classes (96px)
       'Scout': {
         sprite: typeof scout !== 'undefined' ? scout : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'Ranger': {
         sprite: typeof ranger !== 'undefined' ? ranger : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'Warden': {
         sprite: typeof ranger !== 'undefined' ? ranger : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
 
-      // Military classes (tileSize * 1.5)
+      // Military classes (96px)
       'Swordsman': {
         sprite: typeof swordsman !== 'undefined' ? swordsman : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'Archer': {
         sprite: typeof archer !== 'undefined' ? archer : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'Horseman': {
         sprite: typeof horseman !== 'undefined' ? horseman : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'MountedArcher': {
         sprite: typeof mountedarcher !== 'undefined' ? mountedarcher : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'Hero': {
         sprite: typeof hero !== 'undefined' ? hero : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'Footsoldier': {
         sprite: typeof footsoldier !== 'undefined' ? footsoldier : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'Skirmisher': {
         sprite: typeof skirmisher !== 'undefined' ? skirmisher : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'Cavalier': {
         sprite: typeof cavalier !== 'undefined' ? cavalier : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
 
-      // Knight classes (tileSize * 2)
+      // Knight classes (128px)
       'Cavalry': {
         sprite: typeof cavalry !== 'undefined' ? cavalry : null,
-        spriteSize: tileSize * 2
+        spriteSize: 128
       },
       'Knight': {
         sprite: typeof knight !== 'undefined' ? knight : null,
-        spriteSize: tileSize * 2
+        spriteSize: 128
       },
       'Lancer': {
         sprite: typeof lancer !== 'undefined' ? lancer : null,
-        spriteSize: tileSize * 2
-      },
-      'Charlemagne': {
-        sprite: typeof lancer !== 'undefined' ? lancer : null,
-        spriteSize: tileSize * 2
+        spriteSize: 128
       },
       'Crusader': {
         sprite: typeof crusader !== 'undefined' ? crusader : null,
-        spriteSize: tileSize * 2
+        spriteSize: 128
       },
       'SwissGuard': {
         sprite: typeof footsoldier !== 'undefined' ? footsoldier : null,
-        spriteSize: tileSize * 2
+        spriteSize: 128
       },
       'Mangonel': {
         sprite: typeof mangonel !== 'undefined' ? mangonel : null,
-        spriteSize: tileSize * 2
+        spriteSize: 128
       },
       'Strongman': {
         sprite: typeof strongman !== 'undefined' ? strongman : null,
-        spriteSize: tileSize * 2
+        spriteSize: 128
       },
 
-      // Templar classes (tileSize * 1.5)
+      // Templar classes (96px)
       'Templar': {
         sprite: typeof templar !== 'undefined' ? templar : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'Hospitaller': {
         sprite: typeof templar !== 'undefined' ? templar : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'Hochmeister': {
         sprite: typeof templar !== 'undefined' ? templar : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
+      },
+      // Classes that use 192px (3x)
+      'Charlemagne': {
+        sprite: typeof lancer !== 'undefined' ? lancer : null,
+        spriteSize: 192
       },
       'ImperialKnight': {
         sprite: typeof teutonicknight !== 'undefined' ? teutonicknight : null,
-        spriteSize: tileSize * 2
+        spriteSize: 192
       },
       'TeutonicKnight': {
         sprite: typeof teutonicknight !== 'undefined' ? teutonicknight : null,
-        spriteSize: tileSize * 2
+        spriteSize: 192
+      },
+      'Cataphract': {
+        sprite: typeof cataphract !== 'undefined' ? cataphract : null,
+        spriteSize: 192
+      },
+      'Carolingian': {
+        sprite: typeof carolingian !== 'undefined' ? carolingian : null,
+        spriteSize: 192
+      },
+      'Marauder': {
+        sprite: typeof marauder !== 'undefined' ? marauder : null,
+        spriteSize: 192
       },
 
       // Clergy classes (tileSize * 1.5)
       'Priest': {
         sprite: typeof monk !== 'undefined' ? monk : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'Monk': {
         sprite: typeof monk !== 'undefined' ? monk : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'Prior': {
         sprite: typeof monk !== 'undefined' ? monk : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'Bishop': {
         sprite: typeof bishop !== 'undefined' ? bishop : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'Friar': {
         sprite: typeof friar !== 'undefined' ? friar : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'Brother': {
         sprite: typeof warlock !== 'undefined' ? warlock : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'Acolyte': {
         sprite: typeof mage !== 'undefined' ? mage : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'Oathkeeper': {
         sprite: typeof archbishop !== 'undefined' ? archbishop : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'Archbishop': {
         sprite: typeof archbishop !== 'undefined' ? archbishop : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
 
       // Magic classes (tileSize * 1.5)
       'Mage': {
         sprite: typeof mage !== 'undefined' ? mage : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'Warlock': {
         sprite: typeof warlock !== 'undefined' ? warlock : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
 
       // Royalty classes (tileSize * 1.5)
       'King': {
         sprite: typeof king !== 'undefined' ? king : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'Alaric': {
         sprite: typeof king !== 'undefined' ? king : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'General': {
         sprite: typeof general !== 'undefined' ? general : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
 
       // NPC classes (tileSize * 1.5)
       'Innkeeper': {
         sprite: typeof innkeeper !== 'undefined' ? innkeeper : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'Shipwright': {
         sprite: typeof innkeeper !== 'undefined' ? innkeeper : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'Blacksmith': {
         sprite: typeof innkeeper !== 'undefined' ? innkeeper : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
 
       // Siege equipment
       'Trebuchet': {
         sprite: typeof trebuchet !== 'undefined' ? trebuchet : null,
-        spriteSize: tileSize * 10  // 640px
+        spriteSize: 640
       },
       'Malvoisin': {
         sprite: typeof malvoisin !== 'undefined' ? malvoisin : null,
-        spriteSize: tileSize * 12  // 768px
+        spriteSize: 768
       },
 
       // Special classes
       'Apparition': {
         sprite: typeof apparition !== 'undefined' ? apparition : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
 
       // Norse classes (tileSize * 1.5)
       'Goth': {
         sprite: typeof goth !== 'undefined' ? goth : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'NorseSword': {
         sprite: typeof goth !== 'undefined' ? goth : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'NorseSpear': {
         sprite: typeof norsespear !== 'undefined' ? norsespear : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'Huskarl': {
         sprite: typeof huskarl !== 'undefined' ? huskarl : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'Headhunter': {
         sprite: typeof headhunter !== 'undefined' ? headhunter : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'Seidr': {
         sprite: typeof seidr !== 'undefined' ? seidr : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'HighPriestess': {
         sprite: typeof highpriestess !== 'undefined' ? highpriestess : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'Druid': {
         sprite: typeof druid !== 'undefined' ? druid : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'Morrigan': {
         sprite: typeof morrigan !== 'undefined' ? morrigan : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'Gwenllian': {
         sprite: typeof gwenllian !== 'undefined' ? gwenllian : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
 
-      // Frank classes (tileSize * 1.5)
-      'Cataphract': {
-        sprite: typeof marauder !== 'undefined' ? marauder : null,
-        spriteSize: tileSize * 1.5
-      },
-      'Carolingian': {
-        sprite: typeof marauder !== 'undefined' ? marauder : null,
-        spriteSize: tileSize * 1.5
-      },
-      'Marauder': {
-        sprite: typeof marauder !== 'undefined' ? marauder : null,
-        spriteSize: tileSize * 1.5
-      },
       'FrankSword': {
         sprite: typeof franksword !== 'undefined' ? franksword : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'FrankSpear': {
         sprite: typeof frankspear !== 'undefined' ? frankspear : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'FrankBow': {
         sprite: typeof frankbow !== 'undefined' ? frankbow : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
 
-      // Teuton classes (tileSize * 1.5)
+      // Teuton classes (96px)
       'TeutonPike': {
         sprite: typeof teutonpike !== 'undefined' ? teutonpike : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'TeutonBow': {
         sprite: typeof teutonbow !== 'undefined' ? teutonbow : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
 
       // Celt classes (tileSize * 1.5)
       'CeltAxe': {
         sprite: typeof celtaxe !== 'undefined' ? celtaxe : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
       'CeltSpear': {
         sprite: typeof celtspear !== 'undefined' ? celtspear : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       },
 
       // Mercenary classes
       'Condottiere': {
         sprite: typeof condottiere !== 'undefined' ? condottiere : null,
-        spriteSize: tileSize * 1.5
+        spriteSize: 96
       }
     };
   }

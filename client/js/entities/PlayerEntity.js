@@ -58,21 +58,30 @@ function PlayerEntity(initPack) {
   self.spiritMax = initPack.spiritMax;
   self.ghost = initPack.ghost || false;
   
-  // CRITICAL: Assign sprite using single assignment function
+  // CRITICAL: Server spriteSize is ALWAYS authoritative - use it if provided
+  // The server's getInitPack recalculates spriteSize from class, so it's always correct
+  // Only use registry spriteSize if server didn't send one (shouldn't happen)
+  if (initPack.spriteSize !== undefined && initPack.spriteSize !== null) {
+    // Server sent spriteSize - use it (it's calculated from class in getInitPack)
+    self.spriteSize = initPack.spriteSize;
+  } else {
+    console.warn(`[Client SpriteSize] ${self.class} (id: ${self.id}): server did not send spriteSize - will use registry value`);
+  }
+  
+  // Assign sprite using single assignment function
   // No fallbacks, no defaults - either succeeds or entity is invalid
-  // Use spriteSize from initPack if provided (server-calculated), otherwise will be set by assignSpriteToEntity
   if (typeof window !== 'undefined' && typeof window.assignSpriteToEntity === 'function') {
     if (!assignSpriteToEntity(self, self.class, self.ghost, typeof tileSize !== 'undefined' ? tileSize : 64)) {
       console.error(`Failed to assign sprite for entity ${self.id} class ${self.class}`);
       // Entity will be marked _invalidSprite and won't render
-      // Use spriteSize from initPack if available, otherwise default won't matter (won't render)
-      self.spriteSize = initPack.spriteSize || 96; // Default, but entity won't render
+      // spriteSize was already set from server above, so keep it
     } else {
-      // If server sent spriteSize, prefer it (it's authoritative)
-      // But spriteSize was already set by assignSpriteToEntity, so only override if server sent different value
-      if (initPack.spriteSize && initPack.spriteSize !== self.spriteSize) {
-        console.warn(`Sprite size mismatch: registry says ${self.spriteSize}, server says ${initPack.spriteSize} for class ${self.class}`);
-        // Use server value as it's authoritative
+      // Sprite assigned successfully
+      // If server sent spriteSize, it was already set above and takes precedence
+      // If server didn't send spriteSize, assignSpriteToEntity set it from registry
+      // But server should ALWAYS send spriteSize, so this is just a safety check
+      if (initPack.spriteSize !== undefined && initPack.spriteSize !== null) {
+        // Ensure server value is used (in case assignSpriteToEntity overwrote it)
         self.spriteSize = initPack.spriteSize;
       }
     }

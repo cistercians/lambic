@@ -1813,101 +1813,108 @@ Building.getAllInitPack = function(){
 
 // CHARACTER
 // SPRITE_SIZES - Single source of truth for sprite sizes per entity class
-// This constant ensures sprite sizes are always correct - no defaults to 64
-// All sizes are relative to tileSize (typically 64px)
+// All sizes are hard-coded pixel values - no calculations, no complexity
 const SPRITE_SIZES = {
   // Fauna
-  'Falcon': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 7; }, // 448px
-  'Sheep': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Deer': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Boar': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Wolf': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
+  'Falcon': 448,
+  'Sheep': 64,
+  'Deer': 64,
+  'Boar': 64,
+  'Wolf': 64,
   
   // Ships
-  'FishingShip': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 2; }, // 128px
-  'CargoShip': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 2.5; }, // 160px
+  'FishingShip': 128,
+  'CargoShip': 160,
   
   // Serfs
-  'Serf': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; }, // 96px
-  'SerfM': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; }, // 96px
-  'SerfF': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; }, // 96px
+  'Serf': 96,
+  'SerfM': 96,
+  'SerfF': 96,
   
-  // Most classes use 1.5x (96px)
-  'Rogue': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Trapper': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Cutthroat': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Hunter': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Outlaw': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Poacher': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Scout': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Ranger': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Warden': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Swordsman': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Archer': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Horseman': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'MountedArcher': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Hero': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Footsoldier': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Skirmisher': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Cavalier': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Templar': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Hospitaller': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Hochmeister': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Priest': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Monk': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Prior': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Bishop': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Friar': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Brother': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Acolyte': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Oathkeeper': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Archbishop': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Mage': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Warlock': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'King': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Alaric': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'General': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Innkeeper': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Shipwright': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Blacksmith': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Apparition': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Goth': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'NorseSword': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'NorseSpear': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Huskarl': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Headhunter': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Seidr': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'HighPriestess': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Druid': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Morrigan': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Gwenllian': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Cataphract': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Carolingian': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Marauder': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'FrankSword': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'FrankSpear': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'FrankBow': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'TeutonPike': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'TeutonBow': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'CeltAxe': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'CeltSpear': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
-  'Condottiere': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5; },
+  // Most classes use 96px
+  'Rogue': 96,
+  'Trapper': 96,
+  'Cutthroat': 96,
+  'Hunter': 96,
+  'Outlaw': 96,
+  'Poacher': 96,
+  'Scout': 96,
+  'Ranger': 96,
+  'Warden': 96,
+  'Swordsman': 96,
+  'Archer': 96,
+  'Horseman': 96,
+  'MountedArcher': 96,
+  'Hero': 96,
+  'Footsoldier': 96,
+  'Skirmisher': 96,
+  'Cavalier': 96,
+  'Templar': 96,
+  'Hospitaller': 96,
+  'Hochmeister': 96,
+  'Priest': 96,
+  'Monk': 96,
+  'Prior': 96,
+  'Bishop': 96,
+  'Friar': 96,
+  'Brother': 96,
+  'Acolyte': 96,
+  'Oathkeeper': 96,
+  'Archbishop': 96,
+  'Mage': 96,
+  'Warlock': 96,
+  'King': 96,
+  'Alaric': 96,
+  'General': 96,
+  'Innkeeper': 96,
+  'Shipwright': 96,
+  'Blacksmith': 96,
+  'Apparition': 96,
+  'Goth': 96,
+  'NorseSword': 96,
+  'NorseSpear': 96,
+  'Huskarl': 96,
+  'Headhunter': 96,
+  'Seidr': 96,
+  'HighPriestess': 96,
+  'Druid': 96,
+  'Morrigan': 96,
+  'Gwenllian': 96,
+  'Cataphract': 96,
+  'Carolingian': 96,
+  'Marauder': 96,
+  'FrankSword': 96,
+  'FrankSpear': 96,
+  'FrankBow': 96,
+  'TeutonPike': 96,
+  'TeutonBow': 96,
+  'CeltAxe': 96,
+  'CeltSpear': 96,
+  'Condottiere': 96,
   
-  // Classes that use 2x (128px)
-  'Cavalry': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 2; },
-  'Knight': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 2; },
-  'Lancer': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 2; },
-  'Charlemagne': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 2; },
-  'Crusader': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 2; },
-  'SwissGuard': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 2; },
-  'Mangonel': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 2; },
-  'Strongman': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 2; },
-  'ImperialKnight': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 2; },
-  'TeutonicKnight': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 2; },
+  // Classes that use 128px
+  'Cavalry': 128,
+  'Knight': 128,
+  'Lancer': 128,
+  'Crusader': 128,
+  'SwissGuard': 128,
+  'Mangonel': 128,
+  'Strongman': 128,
+  
+  // Classes that use 192px (3x)
+  'Charlemagne': 192,
+  'ImperialKnight': 192,
+  'TeutonicKnight': 192,
+  'Cataphract': 192,
+  'Carolingian': 192,
+  'Marauder': 192,
+  'Carolingian': 192,
+  'Charlemagne': 192,
+  'Marauder': 192,
   
   // Siege equipment
-  'Trebuchet': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 10; }, // 640px
-  'Malvoisin': function() { return (typeof tileSize !== 'undefined' ? tileSize : 64) * 12; } // 768px
+  'Trebuchet': 640,
+  'Malvoisin': 768
 };
 
 /**
@@ -1916,13 +1923,14 @@ const SPRITE_SIZES = {
  * @returns {number} Sprite size in pixels
  */
 function getSpriteSizeForClass(entityClass) {
-  const sizeFunc = SPRITE_SIZES[entityClass];
-  if (sizeFunc && typeof sizeFunc === 'function') {
-    return sizeFunc();
+  // Hard-coded values - no calculations, no complexity
+  const size = SPRITE_SIZES[entityClass];
+  if (size !== undefined && size !== null) {
+    return size;
   }
-  // Fallback: most entities are 1.5x, but this should rarely be used
+  // Fallback: most entities are 96px, but this should rarely be used
   // If a class is missing from SPRITE_SIZES, it's a bug
-  return (typeof tileSize !== 'undefined' ? tileSize : 64) * 1.5;
+  return 96;
 }
 
 Character = function(param){
@@ -5851,11 +5859,13 @@ Character = function(param){
   // ===== END FIRST CHARACTER UPDATE =====
 
   self.getInitPack = function(){
-    // CRITICAL: Recalculate spriteSize based on class before sending to client
-    // This ensures spriteSize is always correct, even if entity constructor didn't set it
-    if (self.class) {
+    // Set spriteSize from hard-coded lookup - only for Character entities
+    // Items, Buildings, and other entities don't have a class property and don't need sprite sizes
+    // CRITICAL: Include 'fauna' type (Deer, Boar, Wolf, Sheep, Falcon) - they are Character entities with classes
+    if (self.class && (self.type === 'npc' || self.type === 'player' || self.type === 'ship' || self.type === 'fauna')) {
       self.spriteSize = getSpriteSizeForClass(self.class);
     }
+    // For non-character entities, spriteSize is not needed - don't set it and don't warn
     
     var pack = {
       type:self.type,
@@ -5900,11 +5910,13 @@ Character = function(param){
   }
 
   self.getUpdatePack = function(){
-    // CRITICAL: Recalculate spriteSize based on class before sending to client
-    // This ensures spriteSize is always correct, even if class changed
-    if (self.class) {
+    // Set spriteSize from hard-coded lookup - only for Character entities
+    // Items, Buildings, and other entities don't have a class property and don't need sprite sizes
+    // CRITICAL: Include 'fauna' type (Deer, Boar, Wolf, Sheep, Falcon) - they are Character entities with classes
+    if (self.class && (self.type === 'npc' || self.type === 'player' || self.type === 'ship' || self.type === 'fauna')) {
       self.spriteSize = getSpriteSizeForClass(self.class);
     }
+    // For non-character entities, spriteSize is not needed - don't set it
     
     var pack = {
       name:self.name,

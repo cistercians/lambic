@@ -20,3 +20,4 @@ node_modules
 client/img/chars/serf/.DS_Store
 client/img/chars/.DS_Store
 /.cursor
+.cursor/debug.log

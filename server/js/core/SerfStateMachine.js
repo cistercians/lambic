@@ -794,6 +794,15 @@ class SerfStateMachine {
         }
         
         if (serf.z !== serf.home.z || loc.toString() !== serf.home.loc.toString()) {
+          // Ensure transition metadata is available for z-transitions
+          // If serf is in a cave (z=-1) and doesn't have caveEntrance set, get it from work building
+          if (serf.z === -1 && (!serf.caveEntrance || !Array.isArray(serf.caveEntrance))) {
+            const building = this.workManager.getWorkBuilding(serf);
+            if (building && building.type === 'mine' && building.cave && Array.isArray(building.cave)) {
+              serf.caveEntrance = building.cave;
+            }
+          }
+          
           if (!serf.path && typeof serf.moveTo === 'function') {
             serf.moveTo(serf.home.z, serf.home.loc[0], serf.home.loc[1]);
           }

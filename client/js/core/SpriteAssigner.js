@@ -44,9 +44,17 @@ function assignSpriteToEntity(entity, entityClass, isGhost, tileSize) {
     return false;
   }
 
-  // Assign sprite and size
+  // Assign sprite
   entity.sprite = spriteData.sprite;
-  entity.spriteSize = spriteData.spriteSize;
+  
+  // Only set spriteSize if entity doesn't already have one from server
+  // Server spriteSize is always authoritative - don't override it
+  if (entity.spriteSize === undefined || entity.spriteSize === null) {
+    entity.spriteSize = spriteData.spriteSize;
+  } else {
+    // Entity already has spriteSize (from server) - keep it, don't override
+    // Registry size is just for reference, server value takes precedence
+  }
   
   // Validation: Ensure sprite matches class (safety check)
   if (!spriteRegistry.validateSprite(entityClass, entity.sprite)) {
