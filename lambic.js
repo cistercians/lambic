@@ -8547,6 +8547,139 @@ io.on('connection', function(socket) {
           } else {
             socket.write(JSON.stringify({msg:'addToChat', message: '<i>No resources deposited.</i>'}));
           }
+        } else if (data.msg === 'createHouse') {
+          // Handle house creation from UI
+          if(!data.houseName || !data.buildingId){
+            socket.write(JSON.stringify({msg:'addToChat', message: '<i>Invalid house creation request.</i>'}));
+            return;
+          }
+          
+          var building = Building.list[data.buildingId];
+          if(!building){
+            socket.write(JSON.stringify({msg:'addToChat', message: '<i>Building not found.</i>'}));
+            return;
+          }
+          
+          // Validate player is at garrison desk (z=2, own building)
+          if(building.type !== 'garrison'){
+            socket.write(JSON.stringify({msg:'addToChat', message: '<i>Must be at a Garrison.</i>'}));
+            return;
+          }
+          
+          if(building.owner !== socket.id){
+            socket.write(JSON.stringify({msg:'addToChat', message: '<i>Must be at your own Garrison.</i>'}));
+            return;
+          }
+          
+          if(player.z !== 2){
+            socket.write(JSON.stringify({msg:'addToChat', message: '<i>Must be at the desk upstairs.</i>'}));
+            return;
+          }
+          
+          // Validate house name: single word, only a-z characters
+          var houseName = data.houseName.trim().toLowerCase();
+          if(!houseName || houseName.length === 0 || houseName.length > 20){
+            socket.write(JSON.stringify({msg:'addToChat', message: '<i>House name must be 1-20 characters.</i>'}));
+            return;
+          }
+          
+          if(!/^[a-z]+$/.test(houseName)){
+            socket.write(JSON.stringify({msg:'addToChat', message: '<i>House name must be a single word with only lowercase letters (a-z).</i>'}));
+            return;
+          }
+          
+          // Check if name is taken
+          var nameTaken = false;
+          for(var i in House.list){
+            if(House.list[i].name.toLowerCase() === houseName){
+              nameTaken = true;
+              break;
+            }
+          }
+          
+          if(nameTaken){
+            socket.write(JSON.stringify({msg:'addToChat', message: '<i>Name is taken.</i>'}));
+            return;
+          }
+          
+          // Check available flags
+          var availableFlags = typeof getAvailableFlagsForUI === 'function' ? getAvailableFlagsForUI() : [];
+          if(availableFlags.length === 0){
+            socket.write(JSON.stringify({msg:'addToChat', message: '<i>There are too many Houses.</i>'}));
+            return;
+          }
+          
+          // Assign flag
+          var flag = null;
+          var flagIndex = null;
+          
+          if(data.flagIndex !== null && data.flagIndex !== undefined){
+            // Use specified flag
+            flagIndex = parseInt(data.flagIndex, 10);
+            if(isNaN(flagIndex) || flagIndex < 0 || flagIndex > 69){
+              socket.write(JSON.stringify({msg:'addToChat', message: '<i>Invalid flag selection.</i>'}));
+              return;
+            }
+            
+            // Verify flag is still available
+            var flagAvailable = false;
+            for(var i = 0; i < availableFlags.length; i++){
+              if(availableFlags[i].index === flagIndex){
+                flagAvailable = true;
+                flag = availableFlags[i].emoji;
+                break;
+              }
+            }
+            
+            if(!flagAvailable){
+              socket.write(JSON.stringify({msg:'addToChat', message: '<i>Flag is no longer available.</i>'}));
+              return;
+            }
+            
+            // Mark flag as used
+            if(flags[flagIndex]){
+              flags[flagIndex][1] = 1;
+            }
+          } else {
+            // Random flag
+            var randomFlag = availableFlags[Math.floor(Math.random() * availableFlags.length)];
+            flag = randomFlag.emoji;
+            flagIndex = randomFlag.index;
+            
+            // Mark flag as used
+            if(flags[flagIndex]){
+              flags[flagIndex][1] = 1;
+            }
+          }
+          
+          // Create house
+          var loc = getLoc(player.x, player.y);
+          var houseId = Math.random();
+          
+          House({
+            id: houseId,
+            type: 'player',
+            name: houseName,
+            flag: flag,
+            hq: loc,
+            hostile: false
+          });
+          
+          player.house = houseId;
+          
+          // Convert house (if function exists)
+          if(typeof convertHouse === 'function'){
+            convertHouse(player.id);
+          }
+          
+          // Notify clients
+          socket.write(JSON.stringify({
+            msg: 'newFaction',
+            houseList: House.list,
+            kingdomList: Kingdom.list
+          }));
+          
+          socket.write(JSON.stringify({msg:'addToChat', message: '<i>House "' + houseName + '" created!</i>'}));
         } else if (data.msg === 'useItem') {
           if (player && data.itemType) {
             const itemType = data.itemType;

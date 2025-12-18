@@ -190,6 +190,13 @@ class PlayerRenderer {
       return false;
     }
     
+    // #region agent log
+    const playerSprite = player.sprite;
+    const playerSpriteIsFalcon = playerSprite && !!(playerSprite.falconflyd || playerSprite.falconflyu);
+    const playerSpriteIsSerf = playerSprite && playerSprite.facedown && !playerSprite.falconflyd;
+    fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PlayerRenderer.js:renderFalcon',message:'Falcon render - player sprite check',data:{playerId:player.id,playerSpriteIsFalcon,playerSpriteIsSerf,hasConfigFalcon:!!falcon,hasWindowFalcon:typeof window !== 'undefined' && !!window.falcon},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
+    
     // CRITICAL: Don't trust player.sprite - it might be incorrectly set to a serf sprite
     // Always get the falcon sprite from proper sources, ignoring player.sprite
     // Try multiple sources for falcon sprite:
@@ -233,6 +240,13 @@ class PlayerRenderer {
         console.warn('Falcon entity has non-falcon sprite assigned:', player.id, player.class);
       }
     }
+    
+    // #region agent log
+    const finalFalconSprite = falconSprite;
+    const finalIsFalcon = finalFalconSprite && !!(finalFalconSprite.falconflyd || finalFalconSprite.falconflyu);
+    const finalIsSerf = finalFalconSprite && finalFalconSprite.facedown && !finalFalconSprite.falconflyd;
+    fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PlayerRenderer.js:renderFalcon',message:'Falcon render - final sprite check',data:{playerId:player.id,falconSpriteIsNull:!falconSprite,finalIsFalcon,finalIsSerf},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
     
     // If still no sprite, falcon images haven't loaded yet
     if (!falconSprite) {

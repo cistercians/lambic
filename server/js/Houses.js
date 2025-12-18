@@ -3114,6 +3114,42 @@ flags = [
   ['🇼🇫',0], // 69
 ];
 
+// Get available flags for UI display
+getAvailableFlagsForUI = function(){
+  var available = [];
+  var usedFlags = {};
+  
+  // Collect flags used by Houses
+  for(var i in House.list){
+    var house = House.list[i];
+    if(house.flag){
+      usedFlags[house.flag] = true;
+    }
+  }
+  
+  // Collect flags used by Kingdoms
+  for(var i in Kingdom.list){
+    var kingdom = Kingdom.list[i];
+    if(kingdom.flag){
+      usedFlags[kingdom.flag] = true;
+    }
+  }
+  
+  // Check flags array for available flags
+  for(var i = 0; i < flags.length; i++){
+    var flag = flags[i];
+    if(flag && flag[1] === 0 && !usedFlags[flag[0]]){
+      available.push({
+        index: i,
+        emoji: flag[0],
+        available: true
+      });
+    }
+  }
+  
+  return available;
+};
+
 convertHouse = function(id){
   var player = Player.list[id];
   var house = player.house;

@@ -19,6 +19,7 @@ class UIEventHandlers {
     this.setupMarketHandlers();
     this.setupMapHandlers();
     this.setupContextMenuHandlers();
+    this.setupHouseCreationHandlers();
   }
 
   setupChatHandlers() {
@@ -481,6 +482,87 @@ class UIEventHandlers {
         }
       }
     });
+  }
+
+  setupHouseCreationHandlers() {
+    // Get elements
+    const closeBtn = document.getElementById('house-creation-close');
+    const cancelBtn = document.getElementById('house-creation-cancel-btn');
+    const createBtn = document.getElementById('house-creation-create-btn');
+    const flagLeftBtn = document.getElementById('house-flag-left');
+    const flagRightBtn = document.getElementById('house-flag-right');
+    const nameInput = document.getElementById('house-name-input');
+    
+    // Close button
+    if (closeBtn) {
+      closeBtn.onclick = () => {
+        if (typeof window !== 'undefined' && window.HouseCreationUI) {
+          window.HouseCreationUI.closeHouseCreation();
+        }
+      };
+    }
+    
+    // Cancel button
+    if (cancelBtn) {
+      cancelBtn.onclick = () => {
+        if (typeof window !== 'undefined' && window.HouseCreationUI) {
+          window.HouseCreationUI.closeHouseCreation();
+        }
+      };
+    }
+    
+    // Create button
+    if (createBtn) {
+      createBtn.onclick = () => {
+        if (typeof window !== 'undefined' && window.HouseCreationUI) {
+          window.HouseCreationUI.submitHouseCreation();
+        }
+      };
+    }
+    
+    // Flag navigation buttons
+    if (flagLeftBtn) {
+      flagLeftBtn.onclick = () => {
+        if (typeof window !== 'undefined' && window.HouseCreationUI) {
+          window.HouseCreationUI.navigateFlag('left');
+        }
+      };
+    }
+    
+    if (flagRightBtn) {
+      flagRightBtn.onclick = () => {
+        if (typeof window !== 'undefined' && window.HouseCreationUI) {
+          window.HouseCreationUI.navigateFlag('right');
+        }
+      };
+    }
+    
+    // Keyboard handlers
+    if (nameInput) {
+      nameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.keyCode === 13) {
+          e.preventDefault();
+          if (typeof window !== 'undefined' && window.HouseCreationUI) {
+            window.HouseCreationUI.submitHouseCreation();
+          }
+        } else if (e.key === 'Escape' || e.keyCode === 27) {
+          e.preventDefault();
+          if (typeof window !== 'undefined' && window.HouseCreationUI) {
+            window.HouseCreationUI.closeHouseCreation();
+          }
+        } else if (e.key === 'ArrowLeft' || e.keyCode === 37) {
+          e.preventDefault();
+          if (typeof window !== 'undefined' && window.HouseCreationUI) {
+            window.HouseCreationUI.navigateFlag('left');
+          }
+        } else if (e.key === 'ArrowRight' || e.keyCode === 39) {
+          e.preventDefault();
+          if (typeof window !== 'undefined' && window.HouseCreationUI) {
+            window.HouseCreationUI.navigateFlag('right');
+          }
+        }
+      });
+    }
   }
 }
 

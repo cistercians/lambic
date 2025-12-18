@@ -387,7 +387,13 @@ Interact = function(id,loc){
           }
         } else { // create house
           if(build.owner == id){
-            socket.write(JSON.stringify({msg:'addToChat',message:'<b><u>To establish a House</u></b>:<br>/house <i>HouseName</i>'}));
+            // Send openHouseCreation message with available flags
+            var availableFlags = typeof getAvailableFlagsForUI === 'function' ? getAvailableFlagsForUI() : [];
+            socket.write(JSON.stringify({
+              msg: 'openHouseCreation',
+              availableFlags: availableFlags,
+              buildingId: b
+            }));
           } else {
             socket.write(JSON.stringify({msg:'addToChat',message:'<i>This is not your Garrison.</i>'}));
           }

@@ -22,10 +22,15 @@ class SpriteRegistry {
       tileSize = 64; // Fallback
     }
 
+    // #region agent log
+    const falconSprite = typeof window !== 'undefined' && window.falcon ? window.falcon : (typeof falcon !== 'undefined' ? falcon : null);
+    fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SpriteRegistry.js:initialize',message:'Falcon sprite lookup',data:{hasWindowFalcon:typeof window !== 'undefined' && !!window.falcon,hasFalconVar:typeof falcon !== 'undefined' && !!falcon,falconSpriteIsNull:falconSprite === null,falconSpriteType:typeof falconSprite,hasFalconProps:falconSprite && !!(falconSprite.falconflyd || falconSprite.falconflyu)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+
     this.registry = {
       // Fauna
       'Falcon': {
-        sprite: typeof window !== 'undefined' && window.falcon ? window.falcon : (typeof falcon !== 'undefined' ? falcon : null),
+        sprite: falconSprite,
         spriteSize: 448
       },
       'Sheep': {
@@ -410,6 +415,17 @@ class SpriteRegistry {
 
     // Normal lookup
     const data = this.registry[entityClass];
+    
+    // #region agent log
+    if (entityClass === 'Falcon') {
+      const spriteIsNull = !data || !data.sprite;
+      const spriteType = data && data.sprite ? typeof data.sprite : 'null';
+      const isFalconSprite = data && data.sprite && !!(data.sprite.falconflyd || data.sprite.falconflyu);
+      const isSerfSprite = data && data.sprite && !!(data.sprite.facedown && !data.sprite.falconflyd);
+      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SpriteRegistry.js:getSpriteData',message:'Falcon sprite lookup result',data:{hasData:!!data,spriteIsNull,dataSpriteType:spriteType,isFalconSprite,isSerfSprite,registryHasFalcon:!!this.registry['Falcon']},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    }
+    // #endregion
+    
     if (!data || !data.sprite) {
       return null;
     }
