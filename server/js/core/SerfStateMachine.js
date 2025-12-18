@@ -157,6 +157,71 @@ class SerfStateMachine {
   }
 
   /**
+   * Deposit all resources a serf has (common and rare)
+   * @param {Object} serf - The serf entity
+   * @param {Object} building - The building to deposit to
+   * @returns {boolean} - True if any deposits were attempted
+   */
+  depositAllResources(serf, building) {
+    if (!serf || !building) return false;
+    
+    let anyDeposited = false;
+    try {
+      // Common resources (grain, wood, stone, ironore) deposit at >= 10
+      if (serf.inventory.grain >= 10) {
+        const amount = serf.inventory.grain;
+        if (this.resourceManager.depositResource(serf, 'grain', building)) {
+          serfLogger.resourceDeposit(serf, 'grain', amount, building.id || serf.work.hq);
+          anyDeposited = true;
+        }
+      }
+      if (serf.inventory.wood >= 10) {
+        const amount = serf.inventory.wood;
+        if (this.resourceManager.depositResource(serf, 'wood', building)) {
+          serfLogger.resourceDeposit(serf, 'wood', amount, building.id || serf.work.hq);
+          anyDeposited = true;
+        }
+      }
+      if (serf.inventory.stone >= 10) {
+        const amount = serf.inventory.stone;
+        if (this.resourceManager.depositResource(serf, 'stone', building)) {
+          serfLogger.resourceDeposit(serf, 'stone', amount, building.id || serf.work.hq);
+          anyDeposited = true;
+        }
+      }
+      if (serf.inventory.ironore >= 10) {
+        const amount = serf.inventory.ironore;
+        if (this.resourceManager.depositResource(serf, 'ironore', building)) {
+          serfLogger.resourceDeposit(serf, 'ironore', amount, building.id || serf.work.hq);
+          anyDeposited = true;
+        }
+      }
+      // Rare ores deposit immediately at >= 1
+      if (serf.inventory.silverore >= 1) {
+        if (this.resourceManager.depositResource(serf, 'silverore', building, 1)) {
+          serfLogger.resourceDeposit(serf, 'silverore', 1, building.id || serf.work.hq);
+          anyDeposited = true;
+        }
+      }
+      if (serf.inventory.goldore >= 1) {
+        if (this.resourceManager.depositResource(serf, 'goldore', building, 1)) {
+          serfLogger.resourceDeposit(serf, 'goldore', 1, building.id || serf.work.hq);
+          anyDeposited = true;
+        }
+      }
+      if (serf.inventory.diamond >= 1) {
+        if (this.resourceManager.depositResource(serf, 'diamond', building, 1)) {
+          serfLogger.resourceDeposit(serf, 'diamond', 1, building.id || serf.work.hq);
+          anyDeposited = true;
+        }
+      }
+    } catch (error) {
+      serfLogger.error(`Error depositing resources`, error, serf);
+    }
+    return anyDeposited;
+  }
+
+  /**
    * Handle day/night cycle transitions
    * - Dawn (VI.a): Switch from idle to work
    * - Evening (VI.p): Switch from work to clockout
@@ -660,14 +725,13 @@ class SerfStateMachine {
 
   /**
    * Handle clockout action - deposit resources and go home
-   * Extracted to remove duplication between handleDayNightTransitions and handleDepositing
+   * Manages state transitions explicitly for clarity
    * 
    * @param {Object} serf - The serf entity
-   * @returns {boolean} - True if still processing clockout, false if complete
    */
   handleClockout(serf) {
     if (!this.validateSerf(serf)) {
-      return false;
+      return;
     }
 
     try {
@@ -683,64 +747,33 @@ class SerfStateMachine {
             ];
             
             if (!loc || !Array.isArray(loc) || loc.length !== 2) {
-              return false;
+              // Invalid location - just become idle
+              serf.action = null;
+              serf.mode = 'idle';
+              this.setState(serf, STATES.IDLE);
+              return;
             }
             
-            if (loc.toString() === dropoff.toString()) {
+            if (loc.toString() === dropoff.toString() && serf.z === 0) {
               // At dropoff - deposit resources
               serf.facing = 'up';
-              
-              // Deposit all resource types with logging
-              try {
-                if (serf.inventory.grain >= 1) {
-                  const amount = serf.inventory.grain;
-                  if (this.resourceManager.depositResource(serf, 'grain', building)) {
-                    serfLogger.resourceDeposit(serf, 'grain', amount, building.id || serf.work.hq);
-                  }
-                }
-                if (serf.inventory.wood >= 1) {
-                  const amount = serf.inventory.wood;
-                  if (this.resourceManager.depositResource(serf, 'wood', building)) {
-                    serfLogger.resourceDeposit(serf, 'wood', amount, building.id || serf.work.hq);
-                  }
-                }
-                if (serf.inventory.stone >= 1) {
-                  const amount = serf.inventory.stone;
-                  if (this.resourceManager.depositResource(serf, 'stone', building)) {
-                    serfLogger.resourceDeposit(serf, 'stone', amount, building.id || serf.work.hq);
-                  }
-                }
-                if (serf.inventory.ironore >= 1) {
-                  const amount = serf.inventory.ironore;
-                  if (this.resourceManager.depositResource(serf, 'ironore', building)) {
-                    serfLogger.resourceDeposit(serf, 'ironore', amount, building.id || serf.work.hq);
-                  }
-                }
-                if (serf.inventory.silverore >= 1) {
-                  if (this.resourceManager.depositResource(serf, 'silverore', building, 1)) {
-                    serfLogger.resourceDeposit(serf, 'silverore', 1, building.id || serf.work.hq);
-                  }
-                }
-                if (serf.inventory.goldore >= 1) {
-                  if (this.resourceManager.depositResource(serf, 'goldore', building, 1)) {
-                    serfLogger.resourceDeposit(serf, 'goldore', 1, building.id || serf.work.hq);
-                  }
-                }
-                if (serf.inventory.diamond >= 1) {
-                  if (this.resourceManager.depositResource(serf, 'diamond', building, 1)) {
-                    serfLogger.resourceDeposit(serf, 'diamond', 1, building.id || serf.work.hq);
-                  }
-                }
-              } catch (error) {
-                serfLogger.error(`Error depositing resources during clockout`, error, serf);
+              this.depositAllResources(serf, building);
+              // After deposit, check if still has resources - if so, continue depositing
+              if (this.resourceManager.hasResourcesToDeposit(serf)) {
+                this.setState(serf, STATES.DEPOSITING);
+                return;
               }
-            } else if (!serf.path || serf.path.length === 0) {
-              // Path to dropoff
-              if (typeof serf.moveTo === 'function') {
-                serf.moveTo(0, dropoff[0], dropoff[1]);
+              // No more resources - fall through to go home logic
+            } else {
+              // Not at dropoff - path to dropoff (Entity.js will handle z-transition if needed)
+              if (!serf.path || serf.path.length === 0) {
+                if (typeof serf.moveTo === 'function') {
+                  serf.moveTo(0, dropoff[0], dropoff[1]);
+                }
               }
+              this.setState(serf, STATES.DEPOSITING);
+              return;
             }
-            return true; // Still depositing
           }
         }
       }
@@ -757,27 +790,28 @@ class SerfStateMachine {
           serf.action = null;
           serf.mode = 'idle';
           this.setState(serf, STATES.IDLE);
-          return false;
+          return;
         }
         
         if (serf.z !== serf.home.z || loc.toString() !== serf.home.loc.toString()) {
           if (!serf.path && typeof serf.moveTo === 'function') {
             serf.moveTo(serf.home.z, serf.home.loc[0], serf.home.loc[1]);
           }
-          return true; // Still traveling home
+          this.setState(serf, STATES.TRAVELING);
+          return;
         } else {
           // Arrived home - become idle
           serf.action = null;
           serf.mode = 'idle';
           this.setState(serf, STATES.IDLE);
-          return false;
+          return;
         }
       } else {
-        // No home - just become idle
+        // No home - become idle (Entity.js will handle z-transition if needed when pathing elsewhere)
         serf.action = null;
         serf.mode = 'idle';
         this.setState(serf, STATES.IDLE);
-        return false;
+        return;
       }
     } catch (error) {
       serfLogger.error(`Error in handleClockout`, error, serf);
@@ -785,7 +819,7 @@ class SerfStateMachine {
       serf.action = null;
       serf.mode = 'idle';
       this.setState(serf, STATES.IDLE);
-      return false;
+      return;
     }
   }
 
@@ -962,6 +996,9 @@ class SerfStateMachine {
         if (typeof serf.moveTo === 'function') {
           // For mining work in cave, use z=-1, otherwise z=0
           const targetZ = (isMiningWork && serf.z === -1) ? -1 : 0;
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SerfStateMachine.js:1062',message:'handleTraveling requesting path to spot',data:{serfId:serf.id,currentZ:serf.z,targetZ:targetZ,spot:spot,loc:loc,isMiningWork:isMiningWork,pathLength:serf.path?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B,F'})}).catch(()=>{});
+          // #endregion
           serf.moveTo(targetZ, spot[0], spot[1]);
         } else {
           // moveTo not available - clear path and reassign
@@ -969,17 +1006,29 @@ class SerfStateMachine {
           serf.pathCount = 0;
           this.setState(serf, STATES.ASSIGNING);
         }
-      } else if (serf.pathCount >= serf.path.length) {
-        // Path completed but not at destination - pathfinding may have failed
-        serf.path = null;
-        serf.pathCount = 0;
-        // Try once more to request path
-        if (typeof serf.moveTo === 'function') {
-          // For mining work in cave, use z=-1, otherwise z=0
-          const targetZ = (isMiningWork && serf.z === -1) ? -1 : 0;
-          serf.moveTo(targetZ, spot[0], spot[1]);
+      } else if (serf.path && serf.path.length > 0 && serf.pathCount >= serf.path.length) {
+        // Path completed - check if we're close to destination (within 1 tile)
+        const distance = Math.abs(loc[0] - spot[0]) + Math.abs(loc[1] - spot[1]);
+        if (distance <= 1) {
+          // Close enough - consider reached (accounting for pathfinding rounding)
+          serf.path = null;
+          serf.pathCount = 0;
+          this.setState(serf, STATES.WORKING);
         } else {
-          this.setState(serf, STATES.ASSIGNING);
+          // Path completed but not at destination - pathfinding may have failed or path was incomplete
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SerfStateMachine.js:1080',message:'handleTraveling path completed but not at destination',data:{serfId:serf.id,z:serf.z,spot:spot,loc:loc,pathCount:serf.pathCount,pathLength:serf.path?.length||0,isMiningWork:isMiningWork,distance:distance},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D,F'})}).catch(()=>{});
+          // #endregion
+          serf.path = null;
+          serf.pathCount = 0;
+          // Try once more to request path
+          if (typeof serf.moveTo === 'function') {
+            // For mining work in cave, use z=-1, otherwise z=0
+            const targetZ = (isMiningWork && serf.z === -1) ? -1 : 0;
+            serf.moveTo(targetZ, spot[0], spot[1]);
+          } else {
+            this.setState(serf, STATES.ASSIGNING);
+          }
         }
       }
     } catch (error) {
@@ -1031,7 +1080,12 @@ class SerfStateMachine {
     // Execute work
     try {
       const result = this.workExecutor.executeWork(serf, building, spot);
-      
+      // #region agent log
+      if (building && building.type === 'mine') {
+        fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SerfStateMachine.js:1140',message:'handleWorking executeWork result',data:{serfId:serf.id,z:serf.z,result:result,hasResources:this.resourceManager.hasResourcesToDeposit(serf),inventory:JSON.parse(JSON.stringify(serf.inventory||{}))},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,E'})}).catch(()=>{});
+      }
+      // #endregion
+
       // Handle result
       switch (result) {
         case 'working':
@@ -1098,26 +1152,6 @@ class SerfStateMachine {
       return;
     }
 
-    // For miners in cave, exit first - moveTo() handles cave exit automatically
-    if (serf.z === -1 && (serf.inventory.ironore >= 1 || 
-                          serf.inventory.silverore >= 1 || 
-                          serf.inventory.goldore >= 1 || 
-                          serf.inventory.diamond >= 1)) {
-      if (serf.caveEntrance && Array.isArray(serf.caveEntrance) && serf.caveEntrance.length === 2) {
-        try {
-          if (!serf.path && typeof serf.moveTo === 'function') {
-            // moveTo() automatically handles cave exit when called from z=-1 to z=0
-            serf.moveTo(0, serf.caveEntrance[0], serf.caveEntrance[1]);
-          }
-        } catch (error) {
-          if (this.debug) {
-            console.error(`[SerfStateMachine] Error exiting cave:`, error);
-          }
-        }
-        return; // Still exiting cave
-      }
-    }
-
     // Path to dropoff
     try {
       const dropoff = this.resourceManager.getDropoffLocation(building);
@@ -1131,34 +1165,7 @@ class SerfStateMachine {
       if (this.resourceManager.isAtDropoff(serf, building)) {
         // At dropoff - deposit resources
         serf.facing = 'up';
-
-        // Deposit all resource types with error handling
-        try {
-          if (serf.inventory.grain >= 1) {
-            this.resourceManager.depositResource(serf, 'grain', building);
-          }
-          if (serf.inventory.wood >= 1) {
-            this.resourceManager.depositResource(serf, 'wood', building);
-          }
-          if (serf.inventory.stone >= 1) {
-            this.resourceManager.depositResource(serf, 'stone', building);
-          }
-          if (serf.inventory.ironore >= 1) {
-            this.resourceManager.depositResource(serf, 'ironore', building);
-          }
-          if (serf.inventory.silverore >= 1) {
-            this.resourceManager.depositResource(serf, 'silverore', building, 1);
-          }
-          if (serf.inventory.goldore >= 1) {
-            this.resourceManager.depositResource(serf, 'goldore', building, 1);
-          }
-          if (serf.inventory.diamond >= 1) {
-            this.resourceManager.depositResource(serf, 'diamond', building, 1);
-          }
-        } catch (error) {
-          serfLogger.error(`Error depositing resources`, error, serf);
-          // Continue anyway - some resources may have been deposited
-        }
+        this.depositAllResources(serf, building);
 
         // Clear path and return to work spot
         serf.path = null;
@@ -1166,22 +1173,66 @@ class SerfStateMachine {
         this.setState(serf, STATES.TRAVELING);
       } else {
         // Path to dropoff
-        if (!serf.path && typeof serf.moveTo === 'function') {
-          serf.moveTo(0, dropoff[0], dropoff[1]);
-        } else if (!serf.path) {
-          // moveTo not available - clear and reassign
-          serf.path = null;
-          serf.pathCount = 0;
-          this.setState(serf, STATES.ASSIGNING);
-        } else if (serf.pathCount >= serf.path.length) {
-          // Path completed but not at destination - retry
-          serf.path = null;
-          serf.pathCount = 0;
+        const loc = global.getLoc ? global.getLoc(serf.x, serf.y) : [
+          Math.floor(serf.x / 64),
+          Math.floor(serf.y / 64)
+        ];
+        // #region agent log
+        if (building && building.type === 'mine') {
+          fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SerfStateMachine.js:1305',message:'handleDepositing pathing to dropoff',data:{serfId:serf.id,z:serf.z,dropoff:dropoff,loc:loc,hasPath:!!serf.path,pathLength:serf.path?.length||0,pathCount:serf.pathCount,hasResources:this.resourceManager.hasResourcesToDeposit(serf),inventory:JSON.parse(JSON.stringify(serf.inventory||{}))},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+        }
+        // #endregion
+        
+        // Check if we have a valid path
+        if (!serf.path || serf.path.length === 0) {
+          // No path - request one
           if (typeof serf.moveTo === 'function') {
             serf.moveTo(0, dropoff[0], dropoff[1]);
           } else {
+            // moveTo not available - clear and reassign
+            serf.path = null;
+            serf.pathCount = 0;
             this.setState(serf, STATES.ASSIGNING);
           }
+        } else if (serf.pathCount >= serf.path.length) {
+          // Path completed - check if we're close to dropoff (within 1 tile)
+          const distance = Math.abs(loc[0] - dropoff[0]) + Math.abs(loc[1] - dropoff[1]);
+          // #region agent log
+          if (building && building.type === 'mine') {
+            fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SerfStateMachine.js:1320',message:'handleDepositing path completed',data:{serfId:serf.id,z:serf.z,loc:loc,dropoff:dropoff,distance:distance,pathLength:serf.path.length,pathCount:serf.pathCount},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+          }
+          // #endregion
+          if (distance <= 1) {
+            // Close enough - consider at dropoff (accounting for pathfinding rounding)
+            serf.path = null;
+            serf.pathCount = 0;
+            // Will deposit on next cycle (isAtDropoff check will handle it)
+          } else {
+            // Path completed but not at destination - retry
+            // #region agent log
+            if (building && building.type === 'mine') {
+              fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SerfStateMachine.js:1332',message:'handleDepositing path completed but not at dropoff, retrying',data:{serfId:serf.id,z:serf.z,loc:loc,dropoff:dropoff,distance:distance},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+            }
+            // #endregion
+            serf.path = null;
+            serf.pathCount = 0;
+            if (typeof serf.moveTo === 'function') {
+              serf.moveTo(0, dropoff[0], dropoff[1]);
+            } else {
+              this.setState(serf, STATES.ASSIGNING);
+            }
+          }
+        } else {
+          // Has path and still following it - Entity.js will handle movement
+          // Check if we're already at dropoff (might have arrived while pathfinding)
+          const distance = Math.abs(loc[0] - dropoff[0]) + Math.abs(loc[1] - dropoff[1]);
+          if (distance === 0) {
+            // Exactly at dropoff - clear path, will deposit on next check
+            serf.path = null;
+            serf.pathCount = 0;
+            // Next cycle will catch isAtDropoff and deposit
+          }
+          // Otherwise, continue following path (Entity.js handles movement)
         }
       }
     } catch (error) {

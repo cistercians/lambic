@@ -62,15 +62,11 @@ class SerfResourceManager {
         serfWage = 0;
       } else {
         buildingShare = Math.floor(amount * this.BUILDING_SHARE);
+        // Ensure at least 1 goes to building when amount >= 1 (prevents 0 deposit for small amounts)
+        if (amount >= 1 && buildingShare === 0) {
+          buildingShare = 1;
+        }
         serfWage = amount - buildingShare;
-      }
-
-      // Clear serf inventory (subtract amount, not set to 0 for single-item resources)
-      serf.inventory[resourceType] = Math.max(0, (serf.inventory[resourceType] || 0) - amount);
-
-      // Give serf their wage (only for bulk resources)
-      if (serfWage > 0) {
-        serf.stores[resourceType] = (serf.stores[resourceType] || 0) + serfWage;
       }
 
       // Deposit to building's house (not owner) - CRITICAL FIX
@@ -124,21 +120,32 @@ class SerfResourceManager {
         return false;
       }
 
-      // Track daily deposits (building share only)
-      if (building) {
-        if (!building.dailyStores) {
-          building.dailyStores = {};
-        }
-        building.dailyStores[resourceType] = (building.dailyStores[resourceType] || 0) + buildingShare;
-      }
+      // Only decrement inventory and process if deposit succeeded
+      if (deposited) {
+        // Clear serf inventory (subtract amount, not set to 0 for single-item resources)
+        serf.inventory[resourceType] = Math.max(0, (serf.inventory[resourceType] || 0) - amount);
 
-      // Special handling for grain -> flour conversion (mills only)
-      if (resourceType === 'grain' && building.type === 'mill' && serf.inventory) {
-        try {
-          // Convert deposited grain to flour (3:1 ratio - uses building's share only)
-          serf.inventory.flour = (serf.inventory.flour || 0) + Math.floor(buildingShare / 3);
-        } catch (error) {
-          // Flour conversion failed, but deposit succeeded
+        // Give serf their wage (only for bulk resources)
+        if (serfWage > 0) {
+          serf.stores[resourceType] = (serf.stores[resourceType] || 0) + serfWage;
+        }
+
+        // Track daily deposits (building share only)
+        if (building) {
+          if (!building.dailyStores) {
+            building.dailyStores = {};
+          }
+          building.dailyStores[resourceType] = (building.dailyStores[resourceType] || 0) + buildingShare;
+        }
+
+        // Special handling for grain -> flour conversion (mills only)
+        if (resourceType === 'grain' && building.type === 'mill' && serf.inventory) {
+          try {
+            // Convert deposited grain to flour (3:1 ratio - uses building's share only)
+            serf.inventory.flour = (serf.inventory.flour || 0) + Math.floor(buildingShare / 3);
+          } catch (error) {
+            // Flour conversion failed, but deposit succeeded
+          }
         }
       }
 
@@ -165,13 +172,14 @@ class SerfResourceManager {
         return false;
       }
 
-      return ((serf.inventory.wood || 0) >= 1) ||
-             ((serf.inventory.stone || 0) >= 1) ||
-             ((serf.inventory.ironore || 0) >= 1) ||
+      // Common resources (grain, wood, stone, ironore) need >= 10, rare ores need >= 1
+      return ((serf.inventory.wood || 0) >= 10) ||
+             ((serf.inventory.stone || 0) >= 10) ||
+             ((serf.inventory.ironore || 0) >= 10) ||
+             ((serf.inventory.grain || 0) >= 10) ||
              ((serf.inventory.silverore || 0) >= 1) ||
              ((serf.inventory.goldore || 0) >= 1) ||
-             ((serf.inventory.diamond || 0) >= 1) ||
-             ((serf.inventory.grain || 0) >= 1);
+             ((serf.inventory.diamond || 0) >= 1);
     } catch (error) {
       return false;
     }
@@ -239,7 +247,8 @@ class SerfResourceManager {
         return false;
       }
 
-      return loc.toString() === dropoff.toString();
+      // Dropoff location is always on z=0, so serf must be on z=0 to be at dropoff
+      return serf.z === 0 && loc.toString() === dropoff.toString();
     } catch (error) {
       return false;
     }

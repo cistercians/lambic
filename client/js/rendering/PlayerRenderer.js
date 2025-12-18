@@ -413,9 +413,23 @@ class PlayerRenderer {
     } = config;
 
 
+    // NEW: Validate sprite matches class before rendering
+    if (player._invalidSprite) {
+      return; // Don't render invalid entities
+    }
+
     // Don't render if sprite not loaded (universal behavior for all classes)
     if (!player.sprite) {
+      console.warn(`Entity ${player.id} (class: ${player.class}) has no sprite - skipping render`);
       return;
+    }
+
+    // Validate sprite matches class (safety check)
+    if (typeof window !== 'undefined' && window.spriteRegistry && typeof window.spriteRegistry.validateSprite === 'function') {
+      if (!window.spriteRegistry.validateSprite(player.class, player.sprite)) {
+        console.error(`RENDER VALIDATION FAILED: Entity ${player.id} class "${player.class}" has wrong sprite - skipping render`);
+        return; // Don't render - better than wrong sprite
+      }
     }
 
     // God mode: Hide own character
@@ -485,6 +499,12 @@ class PlayerRenderer {
 // Expose to global scope for browser use
 if (typeof window !== 'undefined') {
   window.PlayerRenderer = PlayerRenderer;
+  // Create singleton instance for backward compatibility
+  window.playerRenderer = new PlayerRenderer();
+  // Also expose as static for direct method calls
+  window.PlayerRenderer.render = function(player, config) {
+    return window.playerRenderer.render(player, config);
+  };
 }
 
 // Node.js export for server-side testing

@@ -107,7 +107,7 @@ class SerfWorkExecutor {
       }
 
       // Check if serf has grain to deposit
-      if (serf.inventory.grain >= 1) {
+      if (serf.inventory.grain >= 10) {
         try {
           const resourceManager = this.resourceManager;
           const dropoff = resourceManager.getDropoffLocation(building);
@@ -383,7 +383,7 @@ class SerfWorkExecutor {
       }
 
       // Check if serf has wood to deposit
-      if (serf.inventory.wood >= 1) {
+      if (serf.inventory.wood >= 10) {
         try {
           const resourceManager = this.resourceManager;
           const dropoff = resourceManager.getDropoffLocation(building);
@@ -596,115 +596,70 @@ class SerfWorkExecutor {
         return 'idle';
       }
 
-      // Check if serf has ore to deposit (priority)
-      const hasOre = (serf.inventory.ironore >= 1) || 
-                     (serf.inventory.silverore >= 1) || 
-                     (serf.inventory.goldore >= 1) || 
+      // Check if serf has ore to deposit
+      // Iron ore needs >= 10 (common resource), rare ores deposit immediately at >= 1
+      const hasOre = (serf.inventory.ironore >= 10) ||
+                     (serf.inventory.silverore >= 1) ||
+                     (serf.inventory.goldore >= 1) ||
                      (serf.inventory.diamond >= 1);
 
       if (hasOre) {
         try {
-          // If in cave, exit first
-          if (serf.z === -1) {
-            if (serf.caveEntrance && Array.isArray(serf.caveEntrance) && serf.caveEntrance.length === 2) {
-              if (!serf.path && typeof serf.moveTo === 'function') {
-                serf.moveTo(0, serf.caveEntrance[0], serf.caveEntrance[1]);
-              }
-              return 'depositing';
-            }
-          } else {
-            // On overworld - go to dropoff
-            const resourceManager = this.resourceManager;
-            const dropoff = resourceManager.getDropoffLocation(building);
-            
-            if (!dropoff || !Array.isArray(dropoff)) {
-              return 'idle';
-            }
-
-            if (resourceManager.isAtDropoff(serf, building)) {
-              serf.facing = 'up';
-              
-              // Deposit all ore types
-              try {
-                if (serf.inventory.ironore >= 1) {
-                  resourceManager.depositResource(serf, 'ironore', building);
-                }
-                if (serf.inventory.silverore >= 1) {
-                  resourceManager.depositResource(serf, 'silverore', building, 1);
-                }
-                if (serf.inventory.goldore >= 1) {
-                  resourceManager.depositResource(serf, 'goldore', building, 1);
-                }
-                if (serf.inventory.diamond >= 1) {
-                  resourceManager.depositResource(serf, 'diamond', building, 1);
-                }
-              } catch (error) {
-                // Some deposits may have failed, continue
-              }
-              
-              return 'traveling'; // Return to work spot
-            } else {
-              if (!serf.path && typeof serf.moveTo === 'function') {
-                serf.moveTo(0, dropoff[0], dropoff[1]);
-              }
-              return 'depositing';
-            }
-          }
-        } catch (error) {
-          return 'idle';
-        }
-      }
-
-      // Need to work at spot
-      if (!spot && building.resources && Array.isArray(building.resources) && building.resources.length > 0) {
-        try {
-          // Assign random spot
-          const rand = Math.floor(Math.random() * building.resources.length);
-          if (building.resources[rand] && Array.isArray(building.resources[rand])) {
-            serf.work.spot = building.resources[rand];
-            spot = serf.work.spot;
-          }
-        } catch (error) {
-          return 'idle';
-        }
-      }
-
-      if (!spot || !Array.isArray(spot) || spot.length !== 2) {
-        return 'idle'; // No spots available
-      }
-
-      // If not in cave yet, path to cave entrance
-      if (serf.z !== -1) {
-        if (building.cave && Array.isArray(building.cave) && building.cave.length === 2) {
-          try {
-            const caveEntrance = building.cave;
-            const alreadyAtEntrance = (serf.z === 0 && loc.toString() === caveEntrance.toString());
-            
-            if (!alreadyAtEntrance) {
-              if (!serf.path && typeof serf.moveTo === 'function') {
-                serf.moveTo(0, caveEntrance[0], caveEntrance[1]);
-              }
-            }
-          } catch (error) {
+          const resourceManager = this.resourceManager;
+          const dropoff = resourceManager.getDropoffLocation(building);
+          
+          if (!dropoff || !Array.isArray(dropoff)) {
             return 'idle';
           }
+
+          if (resourceManager.isAtDropoff(serf, building)) {
+            serf.facing = 'up';
+            
+            // Deposit all ore types
+            try {
+              if (serf.inventory.ironore >= 1) {
+                resourceManager.depositResource(serf, 'ironore', building);
+              }
+              if (serf.inventory.silverore >= 1) {
+                resourceManager.depositResource(serf, 'silverore', building, 1);
+              }
+              if (serf.inventory.goldore >= 1) {
+                resourceManager.depositResource(serf, 'goldore', building, 1);
+              }
+              if (serf.inventory.diamond >= 1) {
+                resourceManager.depositResource(serf, 'diamond', building, 1);
+              }
+            } catch (error) {
+              // Some deposits may have failed, continue
+            }
+            
+            return 'traveling'; // Return to work spot
+          } else {
+            // Path to dropoff
+            if (!serf.path && typeof serf.moveTo === 'function') {
+              serf.moveTo(0, dropoff[0], dropoff[1]);
+            }
+            return 'depositing';
+          }
+        } catch (error) {
+          return 'idle';
         }
-        return 'traveling';
       }
 
-      // In cave - validate spot
-      if (loc.toString() === spot.toString() && !serf.workTimer) {
+      // Validate spot if at location
+      if (spot && Array.isArray(spot) && spot.length === 2 && loc.toString() === spot.toString() && !serf.workTimer) {
         try {
           const gt = global.getTile ? global.getTile(1, spot[0], spot[1]) : 0;
           if (gt < 3 || gt > 5) {
             // Rock is gone
+            const depletedSpot = spot.toString();
             serf.work.spot = null;
             
             // Remove from resources
             if (building.resources && Array.isArray(building.resources)) {
               for (let i = building.resources.length - 1; i >= 0; i--) {
                 const f = building.resources[i];
-                if (f && f.toString() === spot.toString()) {
+                if (f && f.toString() === depletedSpot) {
                   building.resources.splice(i, 1);
                 }
               }
@@ -716,6 +671,11 @@ class SerfWorkExecutor {
         }
       }
 
+      // Need to work at spot
+      if (!spot || !Array.isArray(spot) || spot.length !== 2) {
+        return 'idle'; // Need spot assignment
+      }
+
       if (loc.toString() === spot.toString()) {
         // At work spot - execute mining
         if (!serf.workTimer) {
@@ -723,39 +683,9 @@ class SerfWorkExecutor {
         }
         return 'working';
       } else {
-        try {
-          // Path to ore rock in cave - use moveTo() which handles cave pathfinding
-          const currentLoc = global.getLoc ? global.getLoc(serf.x, serf.y) : [
-            Math.floor(serf.x / 64),
-            Math.floor(serf.y / 64)
-          ];
-          
-          if (currentLoc && Array.isArray(currentLoc) && currentLoc.length === 2) {
-            const currentTile = global.getTile ? global.getTile(1, currentLoc[0], currentLoc[1]) : 0;
-            
-            // If stuck on wall, teleport to exit
-            if (currentTile === 1 && serf.caveEntrance && Array.isArray(serf.caveEntrance)) {
-              try {
-                const exitCoords = global.getCenter ? global.getCenter(serf.caveEntrance[0], serf.caveEntrance[1] + 1) : null;
-                if (exitCoords && Array.isArray(exitCoords)) {
-                  serf.x = exitCoords[0];
-                  serf.y = exitCoords[1];
-                  serf.path = null;
-                  serf.pathCount = 0;
-                  return 'idle';
-                }
-              } catch (error) {
-                // Teleport failed, continue with pathfinding
-              }
-            }
-          }
-          
-          // Use moveTo() - it handles cave pathfinding automatically
-          if (!serf.path && typeof serf.moveTo === 'function') {
-            serf.moveTo(-1, spot[0], spot[1]);
-          }
-        } catch (error) {
-          return 'idle';
+        // Path to work spot
+        if (!serf.path && typeof serf.moveTo === 'function') {
+          serf.moveTo(-1, spot[0], spot[1]);
         }
         return 'traveling';
       }
@@ -965,7 +895,7 @@ class SerfWorkExecutor {
       }
 
       // Check if serf has stone to deposit
-      if (serf.inventory.stone >= 1) {
+      if (serf.inventory.stone >= 10) {
         try {
           const resourceManager = this.resourceManager;
           const dropoff = resourceManager.getDropoffLocation(building);

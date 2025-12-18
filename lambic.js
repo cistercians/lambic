@@ -7796,14 +7796,6 @@ io.on('connection', function(socket) {
             const playerWood = (player.inventory.wood || 0) + (player.stores.wood || 0);
             const playerStone = (player.inventory.stone || 0) + (player.stores.stone || 0);
             
-            console.log('[BUILD MENU] Sending buildMenuData:', {
-              buildingsCount: availableBuildings.length,
-              totalBuildings: buildingsData.length,
-              playerWood: playerWood,
-              playerStone: playerStone,
-              buildings: availableBuildings.map(b => `${b.name} (T${b.tier})`)
-            });
-            
             // Send response
             socket.write(JSON.stringify({
               msg: 'buildMenuData',
@@ -8353,38 +8345,69 @@ io.on('connection', function(socket) {
               var grainUsed = flourProduced * 3;
               
               if(grainUsed > 0){
-                inv.grain -= grainUsed;
                 deposited = Math.floor(grainUsed * 2 / 3); // 3 grain -> 2 deposited
                 
-                // Add to owner's stores
+                // Verify deposit target exists before decrementing inventory
+                var depositTargetExists = false;
                 if(Player.list[building.owner]){
-                  if(Player.list[building.owner].house){
-                    House.list[Player.list[building.owner].house].stores.grain = (House.list[Player.list[building.owner].house].stores.grain || 0) + deposited;
-                  } else {
-                    Player.list[building.owner].stores.grain = (Player.list[building.owner].stores.grain || 0) + deposited;
+                  if(Player.list[building.owner].house && House.list[Player.list[building.owner].house]){
+                    depositTargetExists = true;
+                  } else if(Player.list[building.owner].stores){
+                    depositTargetExists = true;
                   }
                 } else if(building.house && House.list[building.house]){
-                  House.list[building.house].stores.grain = (House.list[building.house].stores.grain || 0) + deposited;
+                  depositTargetExists = true;
                 }
                 
-                // Track daily deposits
-                if(!building.dailyStores) building.dailyStores = {};
-                building.dailyStores.grain = (building.dailyStores.grain || 0) + deposited;
-                
-                // Give flour to player
-                inv.flour = (inv.flour || 0) + flourProduced;
-                conversionResults.flour = flourProduced;
-                totalDeposited.grain = deposited;
+                // Only proceed if deposit target exists
+                if(depositTargetExists){
+                  inv.grain -= grainUsed;
+                  
+                  // Add to owner's stores
+                  if(Player.list[building.owner]){
+                    if(Player.list[building.owner].house && House.list[Player.list[building.owner].house]){
+                      House.list[Player.list[building.owner].house].stores.grain = (House.list[Player.list[building.owner].house].stores.grain || 0) + deposited;
+                    } else if(Player.list[building.owner].stores){
+                      Player.list[building.owner].stores.grain = (Player.list[building.owner].stores.grain || 0) + deposited;
+                    }
+                  } else if(building.house && House.list[building.house]){
+                    House.list[building.house].stores.grain = (House.list[building.house].stores.grain || 0) + deposited;
+                  }
+                  
+                  // Track daily deposits
+                  if(!building.dailyStores) building.dailyStores = {};
+                  building.dailyStores.grain = (building.dailyStores.grain || 0) + deposited;
+                  
+                  // Give flour to player
+                  inv.flour = (inv.flour || 0) + flourProduced;
+                  conversionResults.flour = flourProduced;
+                  totalDeposited.grain = deposited;
+                } else {
+                  // Deposit target doesn't exist - don't decrement inventory
+                  deposited = 0;
+                }
               }
             } else if(building.type === 'lumbermill'){
               // Lumbermill: owners get 1:1, non-owners get 2 deposited per 3 given
               if(isOwner){
-                inv.wood -= amountToDeposit;
                 deposited = amountToDeposit;
-                if(player.house){
-                  House.list[player.house].stores.wood = (House.list[player.house].stores.wood || 0) + deposited;
+                
+                // Verify deposit target exists before decrementing inventory
+                var depositTargetExists = (player.house && House.list[player.house]) || player.stores;
+                
+                if(depositTargetExists){
+                  inv.wood -= amountToDeposit;
+                  if(player.house && House.list[player.house]){
+                    House.list[player.house].stores.wood = (House.list[player.house].stores.wood || 0) + deposited;
+                  } else if(player.stores){
+                    player.stores.wood = (player.stores.wood || 0) + deposited;
+                  }
+                  
+                  if(!building.dailyStores) building.dailyStores = {};
+                  building.dailyStores.wood = (building.dailyStores.wood || 0) + deposited;
+                  totalDeposited.wood = deposited;
                 } else {
-                  player.stores.wood = (player.stores.wood || 0) + deposited;
+                  deposited = 0;
                 }
               } else {
                 var chunks = Math.floor(amountToDeposit / 3);
@@ -8392,33 +8415,59 @@ io.on('connection', function(socket) {
                 deposited = chunks * 2;
                 
                 if(woodUsed > 0){
-                  inv.wood -= woodUsed;
+                  // Verify deposit target exists before decrementing inventory
+                  var depositTargetExists = false;
                   if(Player.list[building.owner]){
-                    if(Player.list[building.owner].house){
-                      House.list[Player.list[building.owner].house].stores.wood = (House.list[Player.list[building.owner].house].stores.wood || 0) + deposited;
-                    } else {
-                      Player.list[building.owner].stores.wood = (Player.list[building.owner].stores.wood || 0) + deposited;
+                    if(Player.list[building.owner].house && House.list[Player.list[building.owner].house]){
+                      depositTargetExists = true;
+                    } else if(Player.list[building.owner].stores){
+                      depositTargetExists = true;
                     }
                   } else if(building.house && House.list[building.house]){
-                    House.list[building.house].stores.wood = (House.list[building.house].stores.wood || 0) + deposited;
+                    depositTargetExists = true;
+                  }
+                  
+                  if(depositTargetExists){
+                    inv.wood -= woodUsed;
+                    if(Player.list[building.owner]){
+                      if(Player.list[building.owner].house && House.list[Player.list[building.owner].house]){
+                        House.list[Player.list[building.owner].house].stores.wood = (House.list[Player.list[building.owner].house].stores.wood || 0) + deposited;
+                      } else if(Player.list[building.owner].stores){
+                        Player.list[building.owner].stores.wood = (Player.list[building.owner].stores.wood || 0) + deposited;
+                      }
+                    } else if(building.house && House.list[building.house]){
+                      House.list[building.house].stores.wood = (House.list[building.house].stores.wood || 0) + deposited;
+                    }
+                    
+                    if(!building.dailyStores) building.dailyStores = {};
+                    building.dailyStores.wood = (building.dailyStores.wood || 0) + deposited;
+                    totalDeposited.wood = deposited;
+                  } else {
+                    deposited = 0;
                   }
                 }
-              }
-              
-              if(deposited > 0){
-                if(!building.dailyStores) building.dailyStores = {};
-                building.dailyStores.wood = (building.dailyStores.wood || 0) + deposited;
-                totalDeposited.wood = deposited;
               }
             } else if(building.type === 'mine'){
               // Mine: owners get 1:1, non-owners get 2 deposited per 3 given
               if(isOwner){
-                inv[resourceType] -= amountToDeposit;
                 deposited = amountToDeposit;
-                if(player.house){
-                  House.list[player.house].stores[resourceType] = (House.list[player.house].stores[resourceType] || 0) + deposited;
+                
+                // Verify deposit target exists before decrementing inventory
+                var depositTargetExists = (player.house && House.list[player.house]) || player.stores;
+                
+                if(depositTargetExists){
+                  inv[resourceType] -= amountToDeposit;
+                  if(player.house && House.list[player.house]){
+                    House.list[player.house].stores[resourceType] = (House.list[player.house].stores[resourceType] || 0) + deposited;
+                  } else if(player.stores){
+                    player.stores[resourceType] = (player.stores[resourceType] || 0) + deposited;
+                  }
+                  
+                  if(!building.dailyStores) building.dailyStores = {};
+                  building.dailyStores[resourceType] = (building.dailyStores[resourceType] || 0) + deposited;
+                  totalDeposited[resourceType] = deposited;
                 } else {
-                  player.stores[resourceType] = (player.stores[resourceType] || 0) + deposited;
+                  deposited = 0;
                 }
               } else {
                 var chunks = Math.floor(amountToDeposit / 3);
@@ -8426,23 +8475,37 @@ io.on('connection', function(socket) {
                 deposited = chunks * 2;
                 
                 if(resourceUsed > 0){
-                  inv[resourceType] -= resourceUsed;
+                  // Verify deposit target exists before decrementing inventory
+                  var depositTargetExists = false;
                   if(Player.list[building.owner]){
-                    if(Player.list[building.owner].house){
-                      House.list[Player.list[building.owner].house].stores[resourceType] = (House.list[Player.list[building.owner].house].stores[resourceType] || 0) + deposited;
-                    } else {
-                      Player.list[building.owner].stores[resourceType] = (Player.list[building.owner].stores[resourceType] || 0) + deposited;
+                    if(Player.list[building.owner].house && House.list[Player.list[building.owner].house]){
+                      depositTargetExists = true;
+                    } else if(Player.list[building.owner].stores){
+                      depositTargetExists = true;
                     }
                   } else if(building.house && House.list[building.house]){
-                    House.list[building.house].stores[resourceType] = (House.list[building.house].stores[resourceType] || 0) + deposited;
+                    depositTargetExists = true;
+                  }
+                  
+                  if(depositTargetExists){
+                    inv[resourceType] -= resourceUsed;
+                    if(Player.list[building.owner]){
+                      if(Player.list[building.owner].house && House.list[Player.list[building.owner].house]){
+                        House.list[Player.list[building.owner].house].stores[resourceType] = (House.list[Player.list[building.owner].house].stores[resourceType] || 0) + deposited;
+                      } else if(Player.list[building.owner].stores){
+                        Player.list[building.owner].stores[resourceType] = (Player.list[building.owner].stores[resourceType] || 0) + deposited;
+                      }
+                    } else if(building.house && House.list[building.house]){
+                      House.list[building.house].stores[resourceType] = (House.list[building.house].stores[resourceType] || 0) + deposited;
+                    }
+                    
+                    if(!building.dailyStores) building.dailyStores = {};
+                    building.dailyStores[resourceType] = (building.dailyStores[resourceType] || 0) + deposited;
+                    totalDeposited[resourceType] = deposited;
+                  } else {
+                    deposited = 0;
                   }
                 }
-              }
-              
-              if(deposited > 0){
-                if(!building.dailyStores) building.dailyStores = {};
-                building.dailyStores[resourceType] = (building.dailyStores[resourceType] || 0) + deposited;
-                totalDeposited[resourceType] = deposited;
               }
             }
           }

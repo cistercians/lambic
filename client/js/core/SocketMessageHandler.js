@@ -100,6 +100,10 @@ var SocketMessageHandler = {
     if (typeof window !== 'undefined') {
       window.world = data.world;
       window.tileSize = data.tileSize;
+      // Reinitialize SpriteRegistry with actual tileSize from server
+      if (typeof window !== 'undefined' && typeof window.reinitializeSpriteRegistry === 'function') {
+        window.reinitializeSpriteRegistry(data.tileSize);
+      }
       window.mapSize = data.mapSize;
       window.nightfall = data.nightfall;
       window.tempus = data.tempus;
@@ -118,6 +122,10 @@ var SocketMessageHandler = {
       mapSize = data.mapSize;
       tempus = data.tempus;
       nightfall = data.nightfall;
+      // Reinitialize SpriteRegistry with actual tileSize from server
+      if (typeof window !== 'undefined' && typeof window.reinitializeSpriteRegistry === 'function') {
+        window.reinitializeSpriteRegistry(data.tileSize);
+      }
     }
     
     // Update UI sizing now that tileSize is known
@@ -139,21 +147,9 @@ var SocketMessageHandler = {
           // Fix sprite immediately after creation
           var p = Player.list[playerData.id];
           if(p) {
-            // Set sprite based on class - only update if we get a valid sprite (don't overwrite existing sprite with null)
-            var sprite = getSpriteForClass(p.class, p.ghost);
-            // CRITICAL: For falcons, always try to get the correct falcon sprite, even if getSpriteForClass returns null
-            if (p.class === 'Falcon' && !sprite) {
-              // Try alternative sources for falcon sprite
-              if (typeof window !== 'undefined' && window.falcon) {
-                sprite = window.falcon;
-              } else if (typeof window !== 'undefined' && window.spriteHelper) {
-                sprite = window.spriteHelper.getSpriteForClass('Falcon', false);
-              }
-            }
-            if (sprite) {
-              p.sprite = sprite;
-            }
-            // If sprite is null, preserve existing sprite (don't clear it)
+            // Sprite is assigned in PlayerEntity constructor via assignSpriteToEntity()
+            // If sprite assignment failed there, entity is marked _invalidSprite and won't render
+            // No need to reassign here - PlayerEntity constructor handles it
             previewLoadedCount++;
           } else {
             console.error('Preview: Failed to create player entity:', playerData.id, playerData.class);
@@ -208,6 +204,10 @@ var SocketMessageHandler = {
       if (typeof window !== 'undefined') {
         window.world = world;
         window.tileSize = tileSize;
+        // Reinitialize SpriteRegistry with actual tileSize from server
+        if (typeof window.reinitializeSpriteRegistry === 'function') {
+          window.reinitializeSpriteRegistry(tileSize);
+        }
         window.mapSize = mapSize;
       }
       tempus = data.tempus;
@@ -272,6 +272,10 @@ var SocketMessageHandler = {
       if (typeof window !== 'undefined') {
         window.world = world;
         window.tileSize = tileSize;
+        // Reinitialize SpriteRegistry with actual tileSize from server
+        if (typeof window.reinitializeSpriteRegistry === 'function') {
+          window.reinitializeSpriteRegistry(tileSize);
+        }
         window.mapSize = mapSize;
       }
       tempus = data.tempus;
@@ -499,20 +503,13 @@ var SocketMessageHandler = {
       // Always recalculate sprite if class is provided to ensure visual updates
       if(data.class){
         player.class = data.class;
-        // Always recalculate sprite when gear updates to ensure visual consistency
-        // This ensures sprite reflects current gear/class state
-        var newSprite = getSpriteForClass(data.class, player.ghost);
-        // CRITICAL: For falcons, always try to get the correct falcon sprite, even if getSpriteForClass returns null
-        if (data.class === 'Falcon' && !newSprite) {
-          // Try alternative sources for falcon sprite
-          if (typeof window !== 'undefined' && window.falcon) {
-            newSprite = window.falcon;
-          } else if (typeof window !== 'undefined' && window.spriteHelper) {
-            newSprite = window.spriteHelper.getSpriteForClass('Falcon', false);
-          }
-        }
-        if(newSprite){
-          player.sprite = newSprite;
+        // Always recalculate sprite when gear/class updates using single assignment function
+        // This ensures sprite reflects current gear/class state with proper validation
+        if (typeof window !== 'undefined' && typeof window.assignSpriteToEntity === 'function') {
+          const tileSize = typeof window.tileSize !== 'undefined' ? window.tileSize : 64;
+          assignSpriteToEntity(player, data.class, player.ghost, tileSize);
+        } else {
+          console.error('assignSpriteToEntity not available for gear update');
         }
       }
       // Refresh both displays when gear changes
@@ -798,26 +795,11 @@ var SocketMessageHandler = {
         
         new Player(playerData);
         
-        // Set sprite after creation - assets are guaranteed to be loaded, so sprite will always be available
+        // Sprite is assigned in PlayerEntity constructor via assignSpriteToEntity()
+        // If sprite assignment failed there, entity is marked _invalidSprite and won't render
+        // No need to reassign here - PlayerEntity constructor handles it
         var p = Player.list[playerData.id];
         if(p) {
-          // Ensure class is set (should already be set above, but double-check)
-          if (!p.class) {
-            p.class = existingPlayer ? existingPlayer.class : 'SerfM';
-          }
-          
-          // Assets are loaded, so sprite will always be available
-          var sprite = getSpriteForClass(p.class, p.ghost);
-          // CRITICAL: For falcons, always try to get the correct falcon sprite, even if getSpriteForClass returns null
-          if (p.class === 'Falcon' && !sprite) {
-            // Try alternative sources for falcon sprite
-            if (typeof window !== 'undefined' && window.falcon) {
-              sprite = window.falcon;
-            } else if (typeof window !== 'undefined' && window.spriteHelper) {
-              sprite = window.spriteHelper.getSpriteForClass('Falcon', false);
-            }
-          }
-          p.sprite = sprite;
           initLoadedCount++;
         } else {
           console.error('Init: Failed to create player entity:', playerData.id, playerData.class);
@@ -1036,26 +1018,19 @@ var SocketMessageHandler = {
           p.action = pack.action;
         }
 
-        // Sprite management - assets are guaranteed to be loaded, so sprites will always be available
+        // Sprite management - use single assignment function
         // Only update sprite if class or ghost state changed
         if (classChanged || ghostChanged) {
-          // Class or ghost changed - update sprite (sprites are guaranteed to be loaded)
-          var newSprite = getSpriteForClass(p.class, p.ghost);
-          if (!newSprite) {
-            // Sprite is null - preserve existing if we have one
-            if (p.sprite) {
-              // Keep existing sprite
-            } else {
-              p.sprite = null;
-            }
-          } else {
-            p.sprite = newSprite;
+          // Class or ghost changed - update sprite using single assignment function
+          if (typeof window !== 'undefined' && typeof window.assignSpriteToEntity === 'function') {
+            const tileSize = typeof window.tileSize !== 'undefined' ? window.tileSize : 64;
+            assignSpriteToEntity(p, p.class, p.ghost, tileSize);
           }
         } else if (typeof selfId !== 'undefined' && p.id === selfId && !p.sprite) {
-          // Player sprite is missing but class/ghost didn't change - retry
-          var retrySprite = getSpriteForClass(p.class, p.ghost);
-          if (retrySprite) {
-            p.sprite = retrySprite;
+          // Player sprite is missing but class/ghost didn't change - retry using single assignment function
+          if (typeof window !== 'undefined' && typeof window.assignSpriteToEntity === 'function') {
+            const tileSize = typeof window.tileSize !== 'undefined' ? window.tileSize : 64;
+            assignSpriteToEntity(p, p.class, p.ghost, tileSize);
           }
         }
         // If sprite exists and class/ghost didn't change - never touch it (preserve existing sprite)

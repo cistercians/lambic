@@ -161,6 +161,7 @@ class TilemapSystem {
         const tile = this.getTile(layer, x, y);
         let walkable = this.isWalkable(layer, x, y, tile);
         const isTransition = this.isTransitionTileByMatrix(layer, x, y);
+        const isCaveEntranceTile = this.isCaveEntrance(layer, x, y);
         const isWater = this.isWaterTile(layer, x, y);
         
         // Apply pathfinding options (order matters - most specific first)
@@ -199,6 +200,17 @@ class TilemapSystem {
         // Block water tiles by default (unless handled above - ghost mode already handled)
         else if (isWater && !options.ghost) {
           walkable = false; // Water is not walkable unless targeting water or ghost mode
+        }
+        // Block cave entrances unless they're the target destination
+        // Cave entrances should NOT be used as intermediate path tiles - only as destinations
+        else if (isCaveEntranceTile) {
+          // Only allow if this cave entrance is explicitly the target
+          if (options.targetCaveEntrance && options.targetCaveEntrance[0] === x && options.targetCaveEntrance[1] === y) {
+            walkable = true;
+          } else {
+            // Block cave entrance - paths should not route through them unless it's the destination
+            walkable = false;
+          }
         }
         // ISSUE 1 FIX: Block ALL transition tiles by default unless explicitly targeted
         // This prevents paths from accidentally going through doors, cave entrances, etc.

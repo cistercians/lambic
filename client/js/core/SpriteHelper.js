@@ -81,12 +81,18 @@ class SpriteHelper {
         return sprite;
       }
       
-      // CRITICAL: For Falcon class, always try window.falcon if sprite map lookup failed
-      // This prevents falcons from getting null/incorrect sprites
+      // NOTE: SpriteHelper is now deprecated in favor of SpriteRegistry
+      // This fallback should rarely be needed since SpriteRegistry is the primary system
+      // For Falcon class, try window.falcon if sprite map lookup failed
+      // NEVER fallback to maleserf or any other sprite for non-Serf classes
       if ((normalizedClass === 'Falcon' || entityClass === 'Falcon') && typeof window !== 'undefined' && window.falcon) {
-        console.warn('Falcon sprite not found in sprite map, using window.falcon as fallback');
+        console.warn('Falcon sprite not found in sprite map, using window.falcon as fallback (SpriteHelper deprecated - use SpriteRegistry)');
         return window.falcon;
       }
+      
+      // CRITICAL: Never return maleserf as fallback for non-Serf classes
+      // If sprite is not found, return null (entity will be marked invalid and won't render)
+      // This prevents incorrect rendering (e.g., Falcons rendering as serfs)
       
       // Debug: Log unknown classes (only once per class to reduce spam)
       // Exclude Serf variations from warnings

@@ -4,6 +4,35 @@
  * Extracted from client.js to reduce complexity
  */
 
+// Message queue for messages received before SocketMessageHandler is ready
+var pendingMessages = [];
+
+// Process pending messages once SocketMessageHandler is available
+function processPendingMessages() {
+  if (typeof SocketMessageHandler !== 'undefined' && SocketMessageHandler && SocketMessageHandler.handle) {
+    while (pendingMessages.length > 0) {
+      var msg = pendingMessages.shift();
+      SocketMessageHandler.handle(msg);
+    }
+  }
+}
+
+// Check periodically if SocketMessageHandler is ready (max 5 seconds)
+var checkAttempts = 0;
+var maxCheckAttempts = 100; // 100 * 50ms = 5 seconds max wait
+var checkInterval = setInterval(function() {
+  checkAttempts++;
+  if (typeof SocketMessageHandler !== 'undefined' && SocketMessageHandler && SocketMessageHandler.handle) {
+    processPendingMessages();
+    clearInterval(checkInterval);
+  } else if (checkAttempts >= maxCheckAttempts) {
+    console.error('SocketMessageHandler not available after 5 seconds - giving up');
+    clearInterval(checkInterval);
+    // Clear pending messages to prevent memory leak
+    pendingMessages = [];
+  }
+}, 50);
+
 var SocketManager = {
   /**
    * Clean up existing socket connection
@@ -57,10 +86,16 @@ var SocketManager = {
       var data = JSON.parse(event.data);
       
       // Delegate to SocketMessageHandler
-      if(typeof SocketMessageHandler !== 'undefined' && SocketMessageHandler.handle) {
+      // Handle case where SocketMessageHandler might not be loaded yet
+      if(typeof SocketMessageHandler !== 'undefined' && SocketMessageHandler && typeof SocketMessageHandler.handle === 'function') {
         SocketMessageHandler.handle(data);
+        // Process any pending messages that were queued
+        processPendingMessages();
       } else {
-        console.error('SocketMessageHandler not loaded!');
+        // SocketMessageHandler not loaded yet - queue message
+        // This can happen if socket connects before all scripts finish loading
+        console.warn('SocketMessageHandler not loaded yet, queuing message:', data.msg || 'unknown');
+        pendingMessages.push(data);
       }
     };
 

@@ -4656,3 +4656,28 @@ Img.cursorWork = new Image();
 Img.cursorWork.src = '/client/img/cursors/cursor_work.png';
 Img.cursorRally = new Image();
 Img.cursorRally.src = '/client/img/cursors/cursor_rally.png';
+
+// Initialize SpriteRegistry after all sprites are loaded
+// This must happen after all sprite objects (falcon, maleserf, etc.) are created
+// SpriteRegistry will be initialized with actual tileSize when it becomes available (from server)
+// For now, initialize with default tileSize (64) - will be updated when server sends actual value
+if (typeof window !== 'undefined' && typeof SpriteRegistry !== 'undefined') {
+  // Initialize with default tileSize - will use actual tileSize when available
+  const defaultTileSize = typeof tileSize !== 'undefined' ? tileSize : 64;
+  window.spriteRegistry = new SpriteRegistry();
+  window.spriteRegistry.initialize(defaultTileSize);
+  console.log('SpriteRegistry initialized with', Object.keys(window.spriteRegistry.registry).length, 'entity classes');
+  
+  // Re-initialize with actual tileSize when it becomes available (from server init)
+  // This will be called from client.js after tileSize is received from server
+  if (typeof window !== 'undefined') {
+    window.reinitializeSpriteRegistry = function(actualTileSize) {
+      if (window.spriteRegistry && actualTileSize) {
+        window.spriteRegistry.initialize(actualTileSize);
+        console.log('SpriteRegistry re-initialized with tileSize:', actualTileSize);
+      }
+    };
+  }
+} else {
+  console.warn('SpriteRegistry not available - sprite assignments may fail');
+}

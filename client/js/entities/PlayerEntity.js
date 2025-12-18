@@ -57,19 +57,32 @@ function PlayerEntity(initPack) {
   self.spirit = initPack.spirit;
   self.spiritMax = initPack.spiritMax;
   self.ghost = initPack.ghost || false;
-  // Set sprite based on class - assets are guaranteed to be loaded, so sprite will always be available
-  var sprite = getSpriteForClass(self.class, self.ghost);
-  // CRITICAL: For falcons, always try to get the correct falcon sprite, even if getSpriteForClass returns null
-  if (self.class === 'Falcon' && !sprite) {
-    // Try alternative sources for falcon sprite
-    if (typeof window !== 'undefined' && window.falcon) {
-      sprite = window.falcon;
-    } else if (typeof window !== 'undefined' && window.spriteHelper) {
-      sprite = window.spriteHelper.getSpriteForClass('Falcon', false);
+  
+  // CRITICAL: Assign sprite using single assignment function
+  // No fallbacks, no defaults - either succeeds or entity is invalid
+  // Use spriteSize from initPack if provided (server-calculated), otherwise will be set by assignSpriteToEntity
+  if (typeof window !== 'undefined' && typeof window.assignSpriteToEntity === 'function') {
+    if (!assignSpriteToEntity(self, self.class, self.ghost, typeof tileSize !== 'undefined' ? tileSize : 64)) {
+      console.error(`Failed to assign sprite for entity ${self.id} class ${self.class}`);
+      // Entity will be marked _invalidSprite and won't render
+      // Use spriteSize from initPack if available, otherwise default won't matter (won't render)
+      self.spriteSize = initPack.spriteSize || 96; // Default, but entity won't render
+    } else {
+      // If server sent spriteSize, prefer it (it's authoritative)
+      // But spriteSize was already set by assignSpriteToEntity, so only override if server sent different value
+      if (initPack.spriteSize && initPack.spriteSize !== self.spriteSize) {
+        console.warn(`Sprite size mismatch: registry says ${self.spriteSize}, server says ${initPack.spriteSize} for class ${self.class}`);
+        // Use server value as it's authoritative
+        self.spriteSize = initPack.spriteSize;
+      }
     }
+  } else {
+    // Fallback if SpriteAssigner not loaded yet - mark as invalid
+    console.error('assignSpriteToEntity not available - marking entity as invalid');
+    self._invalidSprite = true;
+    self.sprite = null;
+    self.spriteSize = initPack.spriteSize || 96;
   }
-  self.sprite = sprite;
-  self.spriteSize = initPack.spriteSize || 64; // Default to 64 if not provided
   self.ranged = initPack.ranged;
   self.action = initPack.action;
   self.kills = initPack.kills || 0;
@@ -92,14 +105,21 @@ function PlayerEntity(initPack) {
   }
 
   // Player rendering extracted to PlayerRenderer.js
-  // Use PlayerRenderer.render() instead
+  // Use PlayerRenderer.render() instead - NO LEGACY FALLBACK
+  // If PlayerRenderer is not available, entity will not render (fail fast, don't render wrong)
   self.draw = function() {
-    if (typeof PlayerRenderer !== 'undefined' && PlayerRenderer.render) {
+    // Check for PlayerRenderer class or singleton instance
+    var renderer = (typeof window !== 'undefined' && window.playerRenderer) || 
+                   (typeof window !== 'undefined' && window.PlayerRenderer && typeof window.PlayerRenderer.render === 'function' ? { render: window.PlayerRenderer.render } : null);
+    
+    if (renderer && typeof renderer.render === 'function') {
       // Falcons now work like other NPCs - no special handling needed
       // The sprite is set on the entity, and PlayerRenderer handles rendering
-      return PlayerRenderer.render(self, {
-        ctx: ctx,
+      // Get camera position for config
+      var cameraPos = getCameraPosition();
+      return renderer.render(self, ctx, {
         Img: Img,
+        cameraPos: cameraPos,
         getCameraPosition: getCameraPosition,
         getCurrentZ: getCurrentZ,
         stealthCheck: stealthCheck,
@@ -120,439 +140,10 @@ function PlayerEntity(initPack) {
         safeDrawImage: safeDrawImage
       });
     }
-    // Legacy fallback - keep minimal implementation for backward compatibility
-    if (!self.sprite) {
-      return;
-    }
-    
-    // God mode: Hide the player's own character
-    if (godModeCamera.isActive && self.id === selfId) {
-      return;
-    }
-    
-    // Spectate mode: Hide spectator characters
-    if (spectateCameraSystem.isActive && self.type === 'spectator') {
-      return;
-    }
-    
-    // Phase 2: Ghost Invisibility - Don't render other players' ghosts
-    if (self.ghost && self.id !== selfId) {
-      return; // Other players' ghosts are invisible
-    }
-    
-    // Don't render players who are boarded on ships
-    if (self.isBoarded) {
-      return;
-    }
-    
-    var stealth = stealthCheck(self.id);
-    
-    // Get camera position (works for both logged in and login mode)
-    var cameraPos = getCameraPosition();
-
-    // Phase 6: Apply sprite scaling ONLY for fauna minibosses (Wolf, Boar)
-    var shouldScale = (self.class === 'Wolf' || self.class === 'Boar') && self.spriteScale;
-    var scaledSpriteSize = shouldScale ? (self.spriteSize * self.spriteScale) : self.spriteSize;
-    
-    // Center the sprite based on scaled size
-    var x = (self.x - (scaledSpriteSize / 2)) - cameraPos.x + WIDTH / 2;
-    var y = (self.y - (scaledSpriteSize / 2)) - cameraPos.y + HEIGHT / 2;
-
-    // hp and spirit bars (skip for non-combatant creatures and ghosts)
-    if (stealth < 1.5 && self.class !== 'Falcon' && !self.ghost) {
-      var barX = (self.x - (tileSize / 2)) - cameraPos.x + WIDTH / 2;
-      var barY = (self.y - (tileSize / 2)) - cameraPos.y + HEIGHT / 2;
-
-      var hpWidth = 60 * self.hp / self.hpMax;
-      var spiritWidth = null;
-      var brWidth = 60 * self.breath / self.breathMax;
-      if (self.spirit) {
-        spiritWidth = 60 * self.spirit / self.spiritMax;
-      }
-
-      if (self.hp) {
-        ctx.fillStyle = 'orangered';
-        ctx.fillRect(barX, barY - 30, 60, 6);
-        ctx.fillStyle = 'limegreen';
-        ctx.fillRect(barX, barY - 30, hpWidth, 6);
-      }
-      if (self.spirit) {
-        ctx.fillStyle = 'orangered';
-        ctx.fillRect(barX, barY - 20, 60, 4);
-        ctx.fillStyle = 'royalblue';
-        ctx.fillRect(barX, barY - 20, spiritWidth, 4);
-      }
-      if (self.z == -3) {
-        ctx.fillStyle = 'azure';
-        ctx.fillRect(barX, barY - 30, brWidth, 6);
-      }
-
-      // username
-      if (self.rank) {
-        var allied = allyCheck(self.id);
-        if (self.kingdom && kingdomList && kingdomList[self.kingdom]) {
-          if (allied == 2) {
-            ctx.fillStyle = 'lightskyblue';
-          } else if (allied == 1) {
-            ctx.fillStyle = 'palegreen';
-          } else if (allied == 0) {
-            ctx.fillStyle = 'white';
-          } else if (allied == -1) {
-            ctx.fillStyle = 'orangered';
-          }
-          ctx.font = '15px minion web';
-          ctx.textAlign = 'center';
-          // Serfs don't get flag emoji, only players and military
-          var isSerf = (self.class === 'Serf' || self.class === 'SerfM' || self.class === 'SerfF');
-          var flagDisplay = (!isSerf && kingdomList[self.kingdom].flag) ? kingdomList[self.kingdom].flag + ' ' : '';
-          var displayName = (self.skulls || '') + (self.skulls ? ' ' : '') + flagDisplay + self.rank + self.name;
-          ctx.fillText(displayName, barX + 30, barY - 40, 100);
-        } else if (self.house && houseList && houseList[self.house]) {
-          if (allied == 2) {
-            ctx.fillStyle = 'lightskyblue';
-          } else if (allied == 1) {
-            ctx.fillStyle = 'palegreen';
-          } else if (allied == 0) {
-            ctx.fillStyle = 'white';
-          } else if (allied == -1) {
-            ctx.fillStyle = 'orangered';
-          }
-          ctx.font = '15px minion web';
-          ctx.textAlign = 'center';
-          // Serfs don't get flag emoji, only players and military
-          var isSerf = (self.class === 'Serf' || self.class === 'SerfM' || self.class === 'SerfF');
-          var flagDisplay = (!isSerf && houseList[self.house].flag) ? houseList[self.house].flag + ' ' : '';
-          var displayName = (self.skulls || '') + (self.skulls ? ' ' : '') + flagDisplay + self.rank + self.name;
-          ctx.fillText(displayName, barX + 30, barY - 40, 100);
-        } else {
-          if (allied == 2) {
-            ctx.fillStyle = 'lightskyblue';
-          } else if (allied == 1) {
-            ctx.fillStyle = 'palegreen';
-          } else if (allied == 0) {
-            ctx.fillStyle = 'white';
-          } else if (allied == -1) {
-            ctx.fillStyle = 'orangered';
-          }
-          ctx.font = '15px minion web';
-          ctx.textAlign = 'center';
-          var displayName = (self.skulls || '') + (self.skulls ? ' ' : '') + self.rank + self.name;
-          ctx.fillText(displayName, barX + 30, barY - 40, 100);
-        }
-      } else if (self.name) {
-        var allied = allyCheck(self.id);
-        if (self.kingdom && kingdomList && kingdomList[self.kingdom]) {
-          if (allied == 2) {
-            ctx.fillStyle = 'lightskyblue';
-          } else if (allied == 1) {
-            ctx.fillStyle = 'palegreen';
-          } else if (allied == 0) {
-            ctx.fillStyle = 'white';
-          } else if (allied == -1) {
-            ctx.fillStyle = 'orangered';
-          }
-          ctx.font = '15px minion web';
-          ctx.textAlign = 'center';
-          // Serfs don't get flag emoji, only players and military
-          var isSerf = (self.class === 'Serf' || self.class === 'SerfM' || self.class === 'SerfF');
-          var flagDisplay = (!isSerf && kingdomList[self.kingdom].flag) ? kingdomList[self.kingdom].flag + ' ' : '';
-          var displayName = (self.skulls || '') + (self.skulls ? ' ' : '') + flagDisplay + self.name;
-          ctx.fillText(displayName, barX + 30, barY - 40, 100);
-        } else if (self.house && houseList && houseList[self.house]) {
-          if (allied == 2) {
-            ctx.fillStyle = 'lightskyblue';
-          } else if (allied == 1) {
-            ctx.fillStyle = 'palegreen';
-          } else if (allied == 0) {
-            ctx.fillStyle = 'white';
-          } else if (allied == -1) {
-            ctx.fillStyle = 'orangered';
-          }
-          ctx.font = '15px minion web';
-          ctx.textAlign = 'center';
-          // Serfs don't get flag emoji, only players and military
-          var isSerf = (self.class === 'Serf' || self.class === 'SerfM' || self.class === 'SerfF');
-          var flagDisplay = (!isSerf && houseList[self.house].flag) ? houseList[self.house].flag + ' ' : '';
-          var displayName = (self.skulls || '') + (self.skulls ? ' ' : '') + flagDisplay + self.name;
-          ctx.fillText(displayName, barX + 30, barY - 40, 100);
-        } else {
-          if (allied == 2) {
-            ctx.fillStyle = 'lightskyblue';
-          } else if (allied == 1) {
-            ctx.fillStyle = 'palegreen';
-          } else if (allied == 0) {
-            ctx.fillStyle = 'white';
-          } else if (allied == -1) {
-            ctx.fillStyle = 'orangered';
-          }
-          ctx.font = '15px minion web';
-          ctx.textAlign = 'center';
-          var displayName = (self.skulls || '') + (self.skulls ? ' ' : '') + self.name;
-          ctx.fillText(displayName, barX + 30, barY - 40, 100);
-        }
-      }
-      
-      // Phase 5 & 6: Display skulls for fauna minibosses (above HP bar)
-      if (self.skulls && !self.name) {
-        ctx.font = '20px minion web';
-        ctx.textAlign = 'center';
-        ctx.fillStyle = 'white';
-        ctx.fillText(self.skulls, barX + 30, barY - 45);
-      }
-
-      // status
-      if (self.working) {
-        ctx.fillText(workingIcon[wrk], barX + 80, barY - 20);
-      } else if (self.revealed) {
-        ctx.fillText('👁️', barX + 80, barY - 20);
-      } else if (self.action == 'combat') {
-        ctx.fillText('⚔️', barX + 80, barY - 20)
-      }
-      
-      // Speech bubble for NPCs
-      if (self.speechBubble) {
-        ctx.font = '20px minion web';
-        ctx.fillStyle = 'white';
-        ctx.fillText('💬', barX + 80, barY - 40);
-      }
-    }
-
-    // Apply transparency based on stealth level
-    if (stealth == 2) { // fully stealthed to enemies
-      ctx.globalAlpha = 0.3; // 30% visible (maximum transparency)
-    } else if (stealth == 1.5) { // revealed to enemies
-      ctx.globalAlpha = 0.7; // 70% visible (minimal transparency)
-    } else if (stealth == 1) { // self-view or ally-view
-      ctx.globalAlpha = 0.7; // 70% visible (minimal transparency)
-    } else { // not stealthed
-      ctx.globalAlpha = 1.0; // fully visible
-    }
-    
-    // Legacy fallback rendering (only used if PlayerRenderer not available)
-    // Don't render if sprite is null (universal behavior for all classes)
-    if (!self.sprite) {
-      ctx.globalAlpha = 1.0;
-      return;
-    }
-    // Work animations (chopping, mining, farming, building, fishing) - use normal size for humans
-    if (self.chopping && self.sprite && self.sprite.chopping) {
-      safeDrawImage(
-        self.sprite.chopping[wrk],
-        x,
-        y,
-        self.spriteSize,
-        self.spriteSize
-      );
-    } else if (self.mining && self.sprite.mining) {
-      safeDrawImage(
-        self.sprite.mining[wrk],
-        x,
-        y,
-        self.spriteSize,
-        self.spriteSize
-      );
-    } else if (self.farming && self.sprite.farming) {
-      safeDrawImage(
-        self.sprite.farming[wrk],
-        x,
-        y,
-        self.spriteSize,
-        self.spriteSize
-      );
-    } else if (self.building && self.sprite.building) {
-      safeDrawImage(
-        self.sprite.building[wrk],
-        x,
-        y,
-        self.spriteSize,
-        self.spriteSize
-      );
-    } else if (self.fishing && self.sprite.fishingd) {
-      // Fishing has directional sprites
-      if (self.facing == 'down') {
-        safeDrawImage(self.sprite.fishingd, x, y, self.spriteSize, self.spriteSize);
-      } else if (self.facing == 'up') {
-        safeDrawImage(self.sprite.fishingu, x, y, self.spriteSize, self.spriteSize);
-      } else if (self.facing == 'left') {
-        safeDrawImage(self.sprite.fishingl, x, y, self.spriteSize, self.spriteSize);
-      } else if (self.facing == 'right') {
-        safeDrawImage(self.sprite.fishingr, x, y, self.spriteSize, self.spriteSize);
-      }
-    } else if (self.pressingAttack) {
-      if ((self.gear.weapon && self.gear.weapon.type == 'bow') || self.ranged) {
-        if (self.angle > 45 && self.angle <= 115) {
-          safeDrawImage(
-            self.sprite.attackdb,
-            x,
-            y,
-            scaledSpriteSize,
-            scaledSpriteSize
-          );
-        } else if (self.angle > -135 && self.angle <= -15) {
-          safeDrawImage(
-            self.sprite.attackub,
-            x,
-            y,
-            scaledSpriteSize,
-            scaledSpriteSize
-          );
-        } else if (self.angle > 115 || self.angle <= -135) {
-          safeDrawImage(
-            self.sprite.attacklb,
-            x,
-            y,
-            scaledSpriteSize,
-            scaledSpriteSize
-          );
-        } else if (self.angle > -15 || self.angle <= 45) {
-          safeDrawImage(
-            self.sprite.attackrb,
-            x,
-            y,
-            scaledSpriteSize,
-            scaledSpriteSize
-          );
-        }
-      } else {
-        if (self.facing == 'down') {
-          safeDrawImage(
-            self.sprite.attackd,
-            x,
-            y,
-            scaledSpriteSize,
-            scaledSpriteSize
-          );
-        } else if (self.facing == 'up') {
-          safeDrawImage(
-            self.sprite.attacku,
-            x,
-            y,
-            scaledSpriteSize,
-            scaledSpriteSize
-          );
-        } else if (self.facing == 'left') {
-          safeDrawImage(
-            self.sprite.attackl,
-            x,
-            y,
-            scaledSpriteSize,
-            scaledSpriteSize
-          );
-        } else if (self.facing == 'right') {
-          safeDrawImage(
-            self.sprite.attackr,
-            x,
-            y,
-            scaledSpriteSize,
-            scaledSpriteSize
-          );
-        }
-      }
-    } else if (self.pressingAttack && self.type == 'npc') {
-      if (self.facing == 'down') {
-        safeDrawImage(
-          self.sprite.attackd,
-          x,
-          y,
-          self.spriteSize,
-          self.spriteSize
-        );
-      } else if (self.facing == 'up') {
-        safeDrawImage(
-          self.sprite.attacku,
-          x,
-          y,
-          self.spriteSize,
-          self.spriteSize
-        );
-      } else if (self.facing == 'left') {
-        safeDrawImage(
-          self.sprite.attackl,
-          x,
-          y,
-          self.spriteSize,
-          self.spriteSize
-        );
-      } else if (self.facing == 'right') {
-        safeDrawImage(
-          self.sprite.attackr,
-          x,
-          y,
-          self.spriteSize,
-          self.spriteSize
-        );
-      }
-    } else {
-      // Other entities: Use pressing flags for animation, facing for idle
-      if (self.facing == 'down' && !self.pressingDown) {
-        safeDrawImage(
-          self.sprite.facedown,
-          x,
-          y,
-          scaledSpriteSize,
-          scaledSpriteSize
-        );
-      } else if (self.pressingDown) {
-        safeDrawImage(
-          self.sprite.walkdown[wlk],
-          x,
-          y,
-          scaledSpriteSize,
-          scaledSpriteSize
-        );
-      } else if (self.facing == 'up' && !self.pressingUp) {
-        safeDrawImage(
-          self.sprite.faceup,
-          x,
-          y,
-          scaledSpriteSize,
-          scaledSpriteSize
-        );
-      } else if (self.pressingUp) {
-        safeDrawImage(
-          self.sprite.walkup[wlk],
-          x,
-          y,
-          scaledSpriteSize,
-          scaledSpriteSize
-        );
-      } else if (self.facing == 'left' && !self.pressingLeft) {
-        safeDrawImage(
-          self.sprite.faceleft,
-          x,
-          y,
-          scaledSpriteSize,
-          scaledSpriteSize
-        );
-      } else if (self.pressingLeft) {
-        safeDrawImage(
-          self.sprite.walkleft[wlk],
-          x,
-          y,
-          scaledSpriteSize,
-          scaledSpriteSize
-        );
-      } else if (self.facing == 'right' && !self.pressingRight) {
-        safeDrawImage(
-          self.sprite.faceright,
-          x,
-          y,
-          scaledSpriteSize,
-          scaledSpriteSize
-        );
-      } else if (self.pressingRight) {
-        safeDrawImage(
-          self.sprite.walkright[wlk],
-          x,
-          y,
-          scaledSpriteSize,
-          scaledSpriteSize
-        );
-      }
-    }
-    
-    // Reset transparency
-    ctx.globalAlpha = 1.0;
+    // NO LEGACY FALLBACK - If PlayerRenderer not available, don't render
+    // This prevents incorrect rendering with wrong sprites/sizes
+    console.error(`PlayerRenderer not available - entity ${self.id} (class: ${self.class}) will not render`);
+    return;
   };
 
   Player.list[self.id] = self;

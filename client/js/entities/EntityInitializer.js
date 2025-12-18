@@ -183,7 +183,7 @@ class EntityInitializer {
         hp: initPack.hp,
         hpMax: initPack.hpMax,
         sprite: null,
-        spriteSize: initPack.spriteSize || 64
+        spriteSize: initPack.spriteSize // Server should always send spriteSize - if missing, will be set by SpriteRegistry
       };
       self.draw = function() { /* Fallback - PlayerRenderer should handle this */ };
       Player.list[self.id] = self;
