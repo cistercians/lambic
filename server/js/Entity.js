@@ -1421,6 +1421,7 @@ const FACTION_UNIT_PROGRESSION = {
 };
 
 // Expose to global scope for access by other modules
+global.FACTION_BASIC_UNITS = FACTION_BASIC_UNITS;
 global.FACTION_UNIT_PROGRESSION = FACTION_UNIT_PROGRESSION;
 
 // Auto-upgrade all units with 10+ kills when stable is built
@@ -1837,10 +1838,8 @@ const SPRITE_SIZES = {
   'Cutthroat': 96,
   'Hunter': 96,
   'Outlaw': 96,
-  'Poacher': 96,
   'Scout': 96,
   'Ranger': 96,
-  'Warden': 96,
   'Swordsman': 96,
   'Archer': 96,
   'Horseman': 96,
@@ -1865,7 +1864,6 @@ const SPRITE_SIZES = {
   'Warlock': 96,
   'King': 96,
   'Alaric': 96,
-  'General': 96,
   'Innkeeper': 96,
   'Shipwright': 96,
   'Blacksmith': 96,
@@ -1874,32 +1872,32 @@ const SPRITE_SIZES = {
   'NorseSword': 96,
   'NorseSpear': 96,
   'Huskarl': 96,
-  'Headhunter': 96,
+  'Headhunter': 128,
   'Seidr': 96,
   'HighPriestess': 96,
   'Druid': 96,
-  'Morrigan': 96,
+  'Morrigan': 128,
   'Gwenllian': 96,
-  'Cataphract': 96,
-  'Carolingian': 96,
-  'Marauder': 96,
-  'FrankSword': 96,
+  'FrankSword': 64,
   'FrankSpear': 128,
   'FrankBow': 96,
-  'TeutonPike': 96,
+  'TeutonPike': 128,
   'TeutonBow': 96,
   'CeltAxe': 96,
-  'CeltSpear': 96,
-  'Condottiere': 96,
+  'Condottiere': 128,
   
   // Classes that use 128px
   'Cavalry': 128,
   'Knight': 128,
   'Lancer': 128,
   'Crusader': 128,
+  'CeltSpear': 128,
   'SwissGuard': 128,
   'Mangonel': 128,
   'Strongman': 128,
+  'General': 128,
+  'Warden': 128,
+  'Poacher': 128,
   
   // Classes that use 192px (3x)
   'Charlemagne': 192,
@@ -1907,9 +1905,6 @@ const SPRITE_SIZES = {
   'TeutonicKnight': 192,
   'Cataphract': 192,
   'Carolingian': 192,
-  'Marauder': 192,
-  'Carolingian': 192,
-  'Charlemagne': 192,
   'Marauder': 192,
   
   // Siege equipment
@@ -9658,6 +9653,7 @@ FrankSword = function(param){
   self.class = 'FrankSword';
   self.sex = 'm';
   self.military = true;
+  self.spriteSize = tileSize; // 64px (1x)
   self.damage = 10;
   return self;
 }

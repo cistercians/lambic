@@ -803,8 +803,21 @@ class SerfStateMachine {
             }
           }
           
-          if (!serf.path && typeof serf.moveTo === 'function') {
-            serf.moveTo(serf.home.z, serf.home.loc[0], serf.home.loc[1]);
+          // Check if we have a valid path (following same pattern as handleDepositing)
+          if (!serf.path || serf.path.length === 0) {
+            // No path - request one
+            if (typeof serf.moveTo === 'function') {
+              // Always target z=0, let Entity.js handle z-transition (same pattern as depositing)
+              serf.moveTo(0, serf.home.loc[0], serf.home.loc[1]);
+            } else {
+              // moveTo not available - clear and become idle
+              serf.path = null;
+              serf.pathCount = 0;
+              serf.action = null;
+              serf.mode = 'idle';
+              this.setState(serf, STATES.IDLE);
+              return;
+            }
           }
           this.setState(serf, STATES.TRAVELING);
           return;
@@ -1005,9 +1018,6 @@ class SerfStateMachine {
         if (typeof serf.moveTo === 'function') {
           // For mining work in cave, use z=-1, otherwise z=0
           const targetZ = (isMiningWork && serf.z === -1) ? -1 : 0;
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SerfStateMachine.js:1062',message:'handleTraveling requesting path to spot',data:{serfId:serf.id,currentZ:serf.z,targetZ:targetZ,spot:spot,loc:loc,isMiningWork:isMiningWork,pathLength:serf.path?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B,F'})}).catch(()=>{});
-          // #endregion
           serf.moveTo(targetZ, spot[0], spot[1]);
         } else {
           // moveTo not available - clear path and reassign
@@ -1025,9 +1035,6 @@ class SerfStateMachine {
           this.setState(serf, STATES.WORKING);
         } else {
           // Path completed but not at destination - pathfinding may have failed or path was incomplete
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SerfStateMachine.js:1080',message:'handleTraveling path completed but not at destination',data:{serfId:serf.id,z:serf.z,spot:spot,loc:loc,pathCount:serf.pathCount,pathLength:serf.path?.length||0,isMiningWork:isMiningWork,distance:distance},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D,F'})}).catch(()=>{});
-          // #endregion
           serf.path = null;
           serf.pathCount = 0;
           // Try once more to request path
@@ -1089,11 +1096,6 @@ class SerfStateMachine {
     // Execute work
     try {
       const result = this.workExecutor.executeWork(serf, building, spot);
-      // #region agent log
-      if (building && building.type === 'mine') {
-        fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SerfStateMachine.js:1140',message:'handleWorking executeWork result',data:{serfId:serf.id,z:serf.z,result:result,hasResources:this.resourceManager.hasResourcesToDeposit(serf),inventory:JSON.parse(JSON.stringify(serf.inventory||{}))},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,E'})}).catch(()=>{});
-      }
-      // #endregion
 
       // Handle result
       switch (result) {
@@ -1186,11 +1188,6 @@ class SerfStateMachine {
           Math.floor(serf.x / 64),
           Math.floor(serf.y / 64)
         ];
-        // #region agent log
-        if (building && building.type === 'mine') {
-          fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SerfStateMachine.js:1305',message:'handleDepositing pathing to dropoff',data:{serfId:serf.id,z:serf.z,dropoff:dropoff,loc:loc,hasPath:!!serf.path,pathLength:serf.path?.length||0,pathCount:serf.pathCount,hasResources:this.resourceManager.hasResourcesToDeposit(serf),inventory:JSON.parse(JSON.stringify(serf.inventory||{}))},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-        }
-        // #endregion
         
         // Check if we have a valid path
         if (!serf.path || serf.path.length === 0) {
@@ -1206,11 +1203,6 @@ class SerfStateMachine {
         } else if (serf.pathCount >= serf.path.length) {
           // Path completed - check if we're close to dropoff (within 1 tile)
           const distance = Math.abs(loc[0] - dropoff[0]) + Math.abs(loc[1] - dropoff[1]);
-          // #region agent log
-          if (building && building.type === 'mine') {
-            fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SerfStateMachine.js:1320',message:'handleDepositing path completed',data:{serfId:serf.id,z:serf.z,loc:loc,dropoff:dropoff,distance:distance,pathLength:serf.path.length,pathCount:serf.pathCount},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-          }
-          // #endregion
           if (distance <= 1) {
             // Close enough - consider at dropoff (accounting for pathfinding rounding)
             serf.path = null;
@@ -1218,11 +1210,6 @@ class SerfStateMachine {
             // Will deposit on next cycle (isAtDropoff check will handle it)
           } else {
             // Path completed but not at destination - retry
-            // #region agent log
-            if (building && building.type === 'mine') {
-              fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SerfStateMachine.js:1332',message:'handleDepositing path completed but not at dropoff, retrying',data:{serfId:serf.id,z:serf.z,loc:loc,dropoff:dropoff,distance:distance},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-            }
-            // #endregion
             serf.path = null;
             serf.pathCount = 0;
             if (typeof serf.moveTo === 'function') {

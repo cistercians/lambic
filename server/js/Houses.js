@@ -1304,14 +1304,17 @@ Franks = function(param){
     const resources = global.tilemapSystem.assessBaseResources(self.hq, BASE_RADIUS, 0);
     
     // pawns
+    var basicUnits = global.FACTION_BASIC_UNITS['Franks'];
     for(var i = 0; i < 4; i++){
       var rand = Math.floor(Math.random() * grid.length);
       var select = grid[rand];
       grid.splice(rand,1);
       var c = getCenter(select[0],select[1]);
-      var flip = Math.random();
-      if(flip < 0.25){
-        FrankSword({
+      // Use array-based random selection for proper unit diversity
+      var unitClass = basicUnits[Math.floor(Math.random() * basicUnits.length)];
+      var unitConstructor = global[unitClass];
+      if(unitConstructor){
+        unitConstructor({
           x:c[0],
           y:c[1],
           z:0,
@@ -1320,29 +1323,7 @@ Franks = function(param){
             z:0,
             loc:select
           }
-        })
-      } else if(flip < 0.5){
-        FrankBow({
-          x:c[0],
-          y:c[1],
-          z:0,
-          house:self.id,
-          home:{
-            z:0,
-            loc:select
-          },
-        })
-      } else {
-        FrankSpear({
-          x:c[0],
-          y:c[1],
-          z:0,
-          house:self.id,
-          home:{
-            z:0,
-            loc:select
-          }
-        })
+        });
       }
     }
     
@@ -1993,28 +1974,23 @@ Celts = function(param){
     self.scene.fire = fireId;
     
     // Spawn 4 initial units
+    var basicUnits = global.FACTION_BASIC_UNITS['Celts'];
     for(var i = 0; i < 4; i++){
       var rand = Math.floor(Math.random() * grid.length);
       var select = grid[rand];
       grid.splice(rand,1);
       var c = getCenter(select[0],select[1]);
-      var flip = Math.random();
-      if(flip < 0.618){
-        CeltAxe({
+      // Use array-based random selection for proper unit diversity
+      var unitClass = basicUnits[Math.floor(Math.random() * basicUnits.length)];
+      var unitConstructor = global[unitClass];
+      if(unitConstructor){
+        unitConstructor({
           x:c[0],
           y:c[1],
           z:0,
           house:self.id,
           home:{z:0, loc:select}
-        })
-      } else {
-        CeltSpear({
-          x:c[0],
-          y:c[1],
-          z:0,
-          house:self.id,
-          home:{z:0, loc:select}
-        })
+        });
       }
     }
     
@@ -2429,28 +2405,23 @@ Teutons = function(param){
     self.scene.fire = fireId;
     
     // Spawn 4 initial units
+    var basicUnits = global.FACTION_BASIC_UNITS['Teutons'];
     for(var i = 0; i < 4; i++){
       var rand = Math.floor(Math.random() * grid.length);
       var select = grid[rand];
       grid.splice(rand,1);
       var c = getCenter(select[0],select[1]);
-      var flip = Math.random();
-      if(flip < 0.618){
-        TeutonPike({
+      // Use array-based random selection for proper unit diversity
+      var unitClass = basicUnits[Math.floor(Math.random() * basicUnits.length)];
+      var unitConstructor = global[unitClass];
+      if(unitConstructor){
+        unitConstructor({
           x:c[0],
           y:c[1],
           z:0,
           house:self.id,
           home:{z:0, loc:select}
-        })
-      } else {
-        TeutonBow({
-          x:c[0],
-          y:c[1],
-          z:0,
-          house:self.id,
-          home:{z:0, loc:select}
-        })
+        });
       }
     }
     

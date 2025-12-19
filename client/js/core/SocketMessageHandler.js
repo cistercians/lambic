@@ -1032,26 +1032,10 @@ var SocketMessageHandler = {
         // Sprite management - use single assignment function
         // Only update sprite if class or ghost state changed
         if (classChanged || ghostChanged) {
-          // #region agent log
-          if (p.class === 'Falcon') {
-            const oldSprite = p.sprite;
-            const oldIsFalcon = oldSprite && !!(oldSprite.falconflyd || oldSprite.falconflyu);
-            const oldIsSerf = oldSprite && oldSprite.facedown && !oldSprite.falconflyd;
-            fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SocketMessageHandler.js:handleUpdate',message:'Falcon update - before sprite reassignment',data:{entityId:p.id,classChanged,ghostChanged,oldIsFalcon,oldIsSerf},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-          }
-          // #endregion
           // Class or ghost changed - update sprite using single assignment function
           if (typeof window !== 'undefined' && typeof window.assignSpriteToEntity === 'function') {
             const tileSize = typeof window.tileSize !== 'undefined' ? window.tileSize : 64;
             assignSpriteToEntity(p, p.class, p.ghost, tileSize);
-            // #region agent log
-            if (p.class === 'Falcon') {
-              const newSprite = p.sprite;
-              const newIsFalcon = newSprite && !!(newSprite.falconflyd || newSprite.falconflyu);
-              const newIsSerf = newSprite && newSprite.facedown && !newSprite.falconflyd;
-              fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SocketMessageHandler.js:handleUpdate',message:'Falcon update - after sprite reassignment',data:{entityId:p.id,newIsFalcon,newIsSerf},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-            }
-            // #endregion
           }
         } else if (typeof selfId !== 'undefined' && p.id === selfId && !p.sprite) {
           // Player sprite is missing but class/ghost didn't change - retry using single assignment function

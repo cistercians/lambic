@@ -146,7 +146,7 @@ class SpriteRegistry {
       },
       'Poacher': {
         sprite: typeof poacher !== 'undefined' ? poacher : null,
-        spriteSize: 96
+        spriteSize: 128  // tileSize * 2
       },
 
       // Scout/Ranger classes (96px)
@@ -160,7 +160,7 @@ class SpriteRegistry {
       },
       'Warden': {
         sprite: typeof ranger !== 'undefined' ? ranger : null,
-        spriteSize: 96
+        spriteSize: 128  // tileSize * 2
       },
 
       // Military classes (96px)
@@ -325,7 +325,7 @@ class SpriteRegistry {
       },
       'General': {
         sprite: typeof general !== 'undefined' ? general : null,
-        spriteSize: 96
+        spriteSize: 128  // tileSize * 2
       },
 
       // NPC classes (tileSize * 1.5)
@@ -377,7 +377,7 @@ class SpriteRegistry {
       },
       'Headhunter': {
         sprite: typeof headhunter !== 'undefined' ? headhunter : null,
-        spriteSize: 96
+        spriteSize: 128  // tileSize * 2
       },
       'Seidr': {
         sprite: typeof seidr !== 'undefined' ? seidr : null,
@@ -393,7 +393,7 @@ class SpriteRegistry {
       },
       'Morrigan': {
         sprite: typeof morrigan !== 'undefined' ? morrigan : null,
-        spriteSize: 96
+        spriteSize: 128  // tileSize * 2
       },
       'Gwenllian': {
         sprite: typeof gwenllian !== 'undefined' ? gwenllian : null,
@@ -402,7 +402,7 @@ class SpriteRegistry {
 
       'FrankSword': {
         sprite: typeof franksword !== 'undefined' ? franksword : null,
-        spriteSize: 96
+        spriteSize: 64
       },
       'FrankSpear': {
         sprite: typeof frankspear !== 'undefined' ? frankspear : null,
@@ -413,30 +413,30 @@ class SpriteRegistry {
         spriteSize: 96
       },
 
-      // Teuton classes (96px)
+      // Teuton classes
       'TeutonPike': {
         sprite: typeof teutonpike !== 'undefined' ? teutonpike : null,
-        spriteSize: 96
+        spriteSize: 128  // tileSize * 2
       },
       'TeutonBow': {
         sprite: typeof teutonbow !== 'undefined' ? teutonbow : null,
         spriteSize: 96
       },
 
-      // Celt classes (tileSize * 1.5)
+      // Celt classes
       'CeltAxe': {
         sprite: typeof celtaxe !== 'undefined' ? celtaxe : null,
-        spriteSize: 96
+        spriteSize: 96  // tileSize * 1.5
       },
       'CeltSpear': {
         sprite: typeof celtspear !== 'undefined' ? celtspear : null,
-        spriteSize: 96
+        spriteSize: 128  // tileSize * 2
       },
 
       // Mercenary classes
       'Condottiere': {
         sprite: typeof condottiere !== 'undefined' ? condottiere : null,
-        spriteSize: 96
+        spriteSize: 128  // tileSize * 2
       }
     };
   }
@@ -464,16 +464,6 @@ class SpriteRegistry {
 
     // Normal lookup
     const data = this.registry[entityClass];
-    
-    // #region agent log
-    if (entityClass === 'Falcon') {
-      const spriteIsNull = !data || !data.sprite;
-      const spriteType = data && data.sprite ? typeof data.sprite : 'null';
-      const isFalconSprite = data && data.sprite && !!(data.sprite.falconflyd || data.sprite.falconflyu);
-      const isSerfSprite = data && data.sprite && !!(data.sprite.facedown && !data.sprite.falconflyd);
-      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SpriteRegistry.js:getSpriteData',message:'Falcon sprite lookup result',data:{hasData:!!data,spriteIsNull,dataSpriteType:spriteType,isFalconSprite,isSerfSprite,registryHasFalcon:!!this.registry['Falcon']},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    }
-    // #endregion
     
     if (!data || !data.sprite) {
       return null;
