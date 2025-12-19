@@ -22,10 +22,59 @@ class SpriteRegistry {
       tileSize = 64; // Fallback
     }
 
-    // #region agent log
-    const falconSprite = typeof window !== 'undefined' && window.falcon ? window.falcon : (typeof falcon !== 'undefined' ? falcon : null);
-    fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SpriteRegistry.js:initialize',message:'Falcon sprite lookup',data:{hasWindowFalcon:typeof window !== 'undefined' && !!window.falcon,hasFalconVar:typeof falcon !== 'undefined' && !!falcon,falconSpriteIsNull:falconSprite === null,falconSpriteType:typeof falconSprite,hasFalconProps:falconSprite && !!(falconSprite.falconflyd || falconSprite.falconflyu)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
+    // Get falcon sprite - try multiple sources to ensure it's always available
+    // CRITICAL: window.falcon should always be available after imgloader.js loads,
+    // but we check multiple sources for robustness
+    let falconSprite = null;
+    
+    // First, try to preserve existing registry entry if reinitializing (prevents losing valid sprite)
+    if (this.registry && this.registry['Falcon'] && this.registry['Falcon'].sprite) {
+      const existingSprite = this.registry['Falcon'].sprite;
+      // Validate existing sprite is actually a falcon sprite (falcons have null attack properties)
+      const hasNullAttacks = existingSprite && existingSprite.attackd === null && existingSprite.attacku === null && 
+                            existingSprite.attackl === null && existingSprite.attackr === null;
+      const hasBasicStructure = existingSprite && (existingSprite.facedown || existingSprite.faceup || existingSprite.faceleft || existingSprite.faceright);
+      if (hasNullAttacks && hasBasicStructure) {
+        falconSprite = existingSprite;
+      }
+    }
+    
+    // If we don't have a valid falcon sprite yet, try window.falcon
+    if (!falconSprite && typeof window !== 'undefined' && window.falcon) {
+      falconSprite = window.falcon;
+    } else if (!falconSprite && typeof falcon !== 'undefined' && falcon) {
+      // Fallback to module-scope variable (from imgloader.js if in same scope)
+      falconSprite = falcon;
+    }
+    
+    // Validate falcon sprite is actually a falcon sprite (only if we have one)
+    // CRITICAL: This prevents accidentally using a serf sprite or other wrong sprite
+    // Falcons have null attack properties (attackd, attacku, attackl, attackr are all null)
+    // Serfs have non-null attack properties (they have attack animation Image objects)
+    if (falconSprite) {
+      // Check if it has the basic structure (facedown, etc.)
+      const hasBasicStructure = falconSprite.facedown || falconSprite.faceup || falconSprite.faceleft || falconSprite.faceright;
+      
+      // Only validate if we have basic structure - if not, it's definitely invalid
+      if (!hasBasicStructure) {
+        console.error('SpriteRegistry: Invalid falcon sprite detected (missing basic sprite structure like facedown/faceup). Setting to null.');
+        falconSprite = null;
+      } else {
+        // Falcons have null attack properties - this is the key differentiator from serfs
+        // Check if attack properties exist and are non-null (indicating it's a serf sprite)
+        const hasAttackAnimations = falconSprite.attackd || falconSprite.attacku || falconSprite.attackl || falconSprite.attackr;
+        if (hasAttackAnimations) {
+          console.error('SpriteRegistry: Invalid falcon sprite detected (has attack properties, likely a serf sprite). Falcons should have null attack properties. Setting to null to prevent incorrect rendering.');
+          falconSprite = null;
+        }
+        // If attack properties are null (or undefined), it's likely a valid falcon sprite
+      }
+    }
+    
+    // Warn if falcon sprite is still null after all attempts
+    if (!falconSprite) {
+      console.warn('SpriteRegistry: Could not find valid falcon sprite. Falcon entities may not render correctly until window.falcon is available.');
+    }
 
     this.registry = {
       // Fauna
@@ -357,7 +406,7 @@ class SpriteRegistry {
       },
       'FrankSpear': {
         sprite: typeof frankspear !== 'undefined' ? frankspear : null,
-        spriteSize: 96
+        spriteSize: 128
       },
       'FrankBow': {
         sprite: typeof frankbow !== 'undefined' ? frankbow : null,
@@ -428,6 +477,33 @@ class SpriteRegistry {
     
     if (!data || !data.sprite) {
       return null;
+    }
+
+    // CRITICAL: Validate sprite matches entity class to prevent wrong sprites being assigned
+    // For Falcon class, ensure the sprite is actually a falcon sprite
+    // Falcons have null attack properties (unlike serfs which have attack animations)
+    if (entityClass === 'Falcon') {
+      const sprite = data.sprite;
+      if (!sprite) {
+        return null; // Already handled above, but be safe
+      }
+      
+      // Check if it's likely a serf sprite (has non-null attack properties)
+      // Falcons have attackd, attacku, attackl, attackr all set to null
+      // Serfs have actual attack animation objects
+      const hasAttackAnimations = sprite.attackd || sprite.attacku || sprite.attackl || sprite.attackr;
+      
+      if (hasAttackAnimations) {
+        console.error(`CRITICAL: SpriteRegistry returned sprite with attack animations for Falcon class (likely a serf sprite)! This is a bug. Returning null instead.`);
+        return null;
+      }
+      
+      // Verify it has basic sprite structure (should have facedown, faceup, etc.)
+      const hasBasicStructure = sprite.facedown || sprite.faceup || sprite.faceleft || sprite.faceright;
+      if (!hasBasicStructure) {
+        console.error(`CRITICAL: SpriteRegistry returned invalid sprite for Falcon class (missing basic sprite structure). Returning null instead.`);
+        return null;
+      }
     }
 
     return {

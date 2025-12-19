@@ -5121,9 +5121,17 @@ Player.update = function() {
       else if(player.working){
         shouldUpdate = (Player._updateFrame % 3 === 0);
       }
-      // Update peaceful NPCs and wolves (Deer, Sheep, Boar, Wolf) only every 6th frame
+      // Update peaceful NPCs and wolves (Deer, Sheep, Boar, Wolf)
+      // FIXED: Update every frame when active (path/action), every 2nd frame when idle
+      // Changed from every 6th frame to prevent slow motion movement
       else if(player.class === 'Deer' || player.class === 'Sheep' || player.class === 'Boar' || player.class === 'Wolf'){
-        shouldUpdate = (Player._updateFrame % 6 === 0);
+        // Check if fauna has a path or action (flee/combat) - update every frame when active
+        if(player.path || player.action === 'flee' || player.action === 'combat'){
+          shouldUpdate = true;
+        } else {
+          // Idle fauna update every 2nd frame
+          shouldUpdate = (Player._updateFrame % 2 === 0);
+        }
       }
       // Update serfs/trappers every 4th frame when idle
       else if(player.class === 'Serf' || player.class === 'SerfM' || player.class === 'SerfF' || player.class === 'Trapper'){
@@ -5139,12 +5147,17 @@ Player.update = function() {
       }
     } else if(player.type === 'fauna'){
       // Falcons should always update every frame for smooth flight animation
-      // Other fauna (if any) can be throttled if needed
       if(player.class === 'Falcon'){
         shouldUpdate = true; // Always update falcons for smooth flight
       } else {
-        // Other fauna update every 6th frame (same as peaceful NPCs)
-        shouldUpdate = (Player._updateFrame % 6 === 0);
+        // FIXED: Fauna should update every frame when they have a path or action (moving/fleeing/combat)
+        // This prevents slow motion movement when fauna are actively moving
+        if(player.action === 'combat' || player.action === 'flee' || player.path){
+          shouldUpdate = true; // Always update when active
+        } else {
+          // Update idle fauna every 2nd frame (reduced from every 6th frame)
+          shouldUpdate = (Player._updateFrame % 2 === 0);
+        }
       }
     } else {
       // Always update human players every frame

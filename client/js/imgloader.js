@@ -4673,6 +4673,11 @@ if (typeof window !== 'undefined' && typeof SpriteRegistry !== 'undefined') {
   if (typeof window !== 'undefined') {
     window.reinitializeSpriteRegistry = function(actualTileSize) {
       if (window.spriteRegistry && actualTileSize) {
+        // Ensure window.falcon is available before reinitializing
+        // If it's not available, log a warning but still reinitialize (registry will preserve existing falcon sprite if valid)
+        if (!window.falcon) {
+          console.warn('SpriteRegistry reinitialization: window.falcon not available. Registry will preserve existing falcon sprite if valid.');
+        }
         window.spriteRegistry.initialize(actualTileSize);
         console.log('SpriteRegistry re-initialized with tileSize:', actualTileSize);
       }

@@ -1884,7 +1884,7 @@ const SPRITE_SIZES = {
   'Carolingian': 96,
   'Marauder': 96,
   'FrankSword': 96,
-  'FrankSpear': 96,
+  'FrankSpear': 128,
   'FrankBow': 96,
   'TeutonPike': 96,
   'TeutonBow': 96,
