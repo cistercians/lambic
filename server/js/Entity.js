@@ -2357,6 +2357,8 @@ Character = function(param){
   self.pathEnd = null;
   self.followPoint = null;
   self.caveEntrance = null;
+  self.preferredCaveEntrance = null; // Preferred entrance (from building.cave for mining)
+  self.targetLoc = null; // Final destination during multi-step transitions
   
   // Explicit z-transition system
   self.transitionIntent = null; // 'enter_cave', 'exit_cave', 'enter_building', 'exit_building', etc.
@@ -3038,6 +3040,94 @@ Character = function(param){
     return false;
   };
 
+  /**
+   * Select cave entrance for pathfinding
+   * Priority: preferredEntrance > existing caveEntrance > nearest to target > nearest to current position
+   * 
+   * @param {Object} entity - The entity needing cave entrance
+   * @param {number} targetZ - Target z-level (-1 for entering cave)
+   * @param {Array} targetLoc - Target location [col, row]
+   * @param {Array} preferredEntrance - Preferred entrance (from building.cave for mining)
+   * @returns {Array|null} - [col, row] cave entrance or null
+   */
+  function selectCaveEntrance(entity, targetZ, targetLoc, preferredEntrance) {
+    // Priority 1: Use preferred entrance if provided (from building.cave for mining)
+    if (preferredEntrance && Array.isArray(preferredEntrance) && preferredEntrance.length >= 2) {
+      return preferredEntrance;
+    }
+    
+    // Priority 2: Use existing caveEntrance if already set and valid
+    if (entity.caveEntrance && Array.isArray(entity.caveEntrance) && entity.caveEntrance.length >= 2) {
+      // Validate it still exists in global.caveEntrances
+      if (global.caveEntrances && Array.isArray(global.caveEntrances)) {
+        for (var i = 0; i < global.caveEntrances.length; i++) {
+          var ent = global.caveEntrances[i];
+          if (Array.isArray(ent) && ent.length >= 2 &&
+              ent[0] === entity.caveEntrance[0] && ent[1] === entity.caveEntrance[1]) {
+            return entity.caveEntrance;
+          }
+        }
+      }
+    }
+    
+    // Priority 3: Find nearest cave entrance to target location (for entering cave)
+    if (targetZ === -1 && global.caveEntrances && Array.isArray(global.caveEntrances) && global.caveEntrances.length > 0) {
+      var nearest = null;
+      var bestDist = Infinity;
+      var targetCoords = getCenter(targetLoc[0], targetLoc[1]);
+      
+      for (var i = 0; i < global.caveEntrances.length; i++) {
+        var entrance = global.caveEntrances[i];
+        if (!Array.isArray(entrance) || entrance.length < 2) continue;
+        
+        var entranceCoords = getCenter(entrance[0], entrance[1]);
+        var dist = getDistance(
+          { x: targetCoords[0], y: targetCoords[1] },
+          { x: entranceCoords[0], y: entranceCoords[1] }
+        );
+        
+        if (dist < bestDist) {
+          bestDist = dist;
+          nearest = entrance;
+        }
+      }
+      
+      if (nearest) {
+        return nearest;
+      }
+    }
+    
+    // Priority 4: Find nearest to current position (for exit pathfinding fallback only)
+    // NOTE: This should rarely be needed since caveEntrance should be set when entering
+    // Only used as fallback if entity somehow got into cave without going through enterCave()
+    if (entity.z === -1 && global.caveEntrances && Array.isArray(global.caveEntrances) && global.caveEntrances.length > 0) {
+      var nearest = null;
+      var bestDist = Infinity;
+      
+      for (var i = 0; i < global.caveEntrances.length; i++) {
+        var entrance = global.caveEntrances[i];
+        if (!Array.isArray(entrance) || entrance.length < 2) continue;
+        
+        var entranceCoords = getCenter(entrance[0], entrance[1]);
+        var dist = getDistance(
+          { x: entity.x, y: entity.y },
+          { x: entranceCoords[0], y: entranceCoords[1] }
+        );
+        
+        if (dist < bestDist) {
+          bestDist = dist;
+          nearest = entrance;
+        }
+      }
+      
+      if (nearest) {
+        return nearest;
+      }
+    }
+    
+    return null;
+  }
+
   self.moveTo = function(tz,tc,tr){
     var loc = getLoc(self.x,self.y);
     if(!self.prevLoc){
@@ -3120,39 +3210,81 @@ Character = function(param){
             tLoc = Building.list[tb].entrance;
           } else if(tz == -1){
             // Set intent to enter cave
+            // CRITICAL: Prevent re-entry if serf just exited (within last 2 seconds) and is depositing
+            var justExitedCave = self.lastZTransition && (Date.now() - self.lastZTransition < 2000);
+            var isSerfClass = (self.class === 'Serf' || self.class === 'SerfM' || self.class === 'SerfF');
+            if (isSerfClass && justExitedCave && self.serfState === 'depositing') {
+              // Serf just exited and is depositing - don't allow re-entry
+              // Pathfind on z=0 instead (will be handled by caller retrying with z=0)
+              var serfLogger = global.serfLogger;
+              if(serfLogger){
+                serfLogger.debug(`[moveTo] Blocking cave re-entry: serf=${self.id} justExited=${justExitedCave} state=${self.serfState}`, self);
+              }
+              return; // Don't enter cave - caller should retry with z=0
+            }
+            
             self.transitionIntent = 'enter_cave';
             self.targetZLevel = -1;
-            // tLoc already set to cave entrance coordinates
-          }
-        } else if(self.z == -1 && tz == 0){
-          // Exiting cave (z=-1 to z=0) - set intent and path to the cave EXIT tile
-          self.transitionIntent = 'exit_cave';
-          self.targetZLevel = 0;
-          
-          // Check if caveEntrance exists before accessing it
-          if(self.caveEntrance && Array.isArray(self.caveEntrance) && self.caveEntrance.length >= 2){
-            tLoc = [self.caveEntrance[0], self.caveEntrance[1] + 1]; // Cave exit is one tile south
-          } else {
-            // Fallback: find nearest cave entrance
-            if(global.caveEntrances && global.caveEntrances.length > 0){
-              var nearest = global.caveEntrances[0];
-              var minDist = Infinity;
-              for(var i = 0; i < global.caveEntrances.length; i++){
-                var ent = global.caveEntrances[i];
-                var dist = Math.abs(self.x - ent[0]*global.tileSize) + Math.abs(self.y - ent[1]*global.tileSize);
-                if(dist < minDist){
-                  minDist = dist;
-                  nearest = ent;
-                }
+            
+            // Store final destination for continuation after cave entry
+            self.targetLoc = [tc, tr];
+            
+            // Select cave entrance (preferred from building.cave for mining, or nearest)
+            var preferredEntrance = self.preferredCaveEntrance || null;
+            var caveEntrance = selectCaveEntrance(self, tz, tLoc, preferredEntrance);
+            
+            // Clear preferred entrance after use (to avoid stale values)
+            self.preferredCaveEntrance = null;
+            
+            if (caveEntrance && Array.isArray(caveEntrance) && caveEntrance.length >= 2) {
+              // Store for later use (exit pathfinding)
+              self.caveEntrance = caveEntrance;
+              // Redirect target to cave entrance
+              tLoc = caveEntrance;
+              
+              // Check cooldown for serfs (prevent immediate re-entry after exit)
+              if (isSerfClass && self.mineExitCooldown > 0) {
+                // Cooldown active - wait before pathfinding
+                // Path will be requested again after cooldown expires
+                // Don't clear intent, just delay pathfinding
+                // Note: targetLoc is preserved for retry after cooldown
+                return;
               }
-              self.caveEntrance = nearest;
-              tLoc = [nearest[0], nearest[1] + 1]; // Cave exit is one tile south
             } else {
-              // No cave entrance found, stay in place
+              // No cave entrance found - cannot path to cave
+              self.targetLoc = null;
               return;
             }
           }
-          // Pathfind to the cave exit tile
+        } else if(self.z == -1 && tz == 0){
+          // Exiting cave (z=-1 to z=0) - align with building exit pattern
+          // Set intent and pathfind to exit tile, let transition detection handle actual transition
+          self.transitionIntent = 'exit_cave';
+          self.targetZLevel = 0;
+          
+          // Use stored caveEntrance (set by enterCave() when entering)
+          // Exit is always one tile south of the entrance
+          if(self.caveEntrance && Array.isArray(self.caveEntrance) && self.caveEntrance.length >= 2){
+            tLoc = [self.caveEntrance[0], self.caveEntrance[1] + 1]; // Cave exit is one tile south
+          } else {
+            // Fallback: find nearest cave entrance (shouldn't happen if enterCave() was called)
+            var nearestEntrance = selectCaveEntrance(self, tz, tLoc, null);
+            if(nearestEntrance && Array.isArray(nearestEntrance) && nearestEntrance.length >= 2){
+              self.caveEntrance = nearestEntrance; // Store for future use
+              tLoc = [nearestEntrance[0], nearestEntrance[1] + 1];
+            } else {
+              // No cave entrance found - cannot exit
+              if(self.type === 'npc' && (self.class === 'Serf' || self.class === 'SerfM' || self.class === 'SerfF')){
+                var serfLogger = global.serfLogger;
+                if(serfLogger){
+                  serfLogger.warn(`[moveTo] Cannot exit cave - no entrance found: serf=${self.id} z=${self.z}->${tz}`, self);
+                }
+              }
+              return;
+            }
+          }
+          
+          // Pathfind to the cave exit tile (like building exits pathfind to door)
           if(self.shouldRequestPath(-1, tLoc[0], tLoc[1])){
             self.getPath(-1, tLoc[0], tLoc[1]);
           }
@@ -3905,25 +4037,34 @@ Character = function(param){
           }
         }
         
-        // Check intent to enter cave (with cooldown check for serfs)
-        const isSerfClass = (self.class === 'Serf' || self.class === 'SerfM' || self.class === 'SerfF');
-        const cooldownOK = !isSerfClass || (self.mineExitCooldown === 0);
-        
+        // Check intent to enter cave (cooldown check moved to moveTo())
         // For idle NPCs, allow transition even if not at path destination
         var canTransition = false;
         if(self.type === 'player'){
-          canTransition = !self.zTransitionHalt && self.isAtPathDestination() && cooldownOK;
+          canTransition = !self.zTransitionHalt && self.isAtPathDestination();
         } else if(self.type === 'npc' && self.mode === 'idle'){
-          canTransition = cooldownOK; // Idle NPCs can transition when on cave entrance
+          canTransition = true; // Idle NPCs can transition when on cave entrance
         } else {
-          canTransition = self.isAtPathDestination() && cooldownOK;
+          canTransition = self.isAtPathDestination();
         }
         
         if(self.transitionIntent === 'enter_cave' && canTransition){
+          // Store target location before entering (for continuation after entry)
+          var previousTargetZ = self.targetZLevel;
+          var previousTargetLoc = self.targetLoc;
+          
           self.enterCave(loc);
-        } else if(self.transitionIntent === 'enter_cave' && !cooldownOK){
-          // Serf wants to enter but cooldown active - clear intent to prevent stuck state
-          self.transitionIntent = null;
+          
+          // If we were pathfinding to a location in the cave, continue pathfinding
+          if(previousTargetZ === -1 && previousTargetLoc && Array.isArray(previousTargetLoc) && previousTargetLoc.length >= 2){
+            // Clear transition intent since we've entered
+            self.transitionIntent = null;
+            self.targetZLevel = null;
+            // Continue pathfinding to final destination in cave
+            self.moveTo(-1, previousTargetLoc[0], previousTargetLoc[1]);
+            // Clear stored target after use
+            self.targetLoc = null;
+          }
         }
       } else if(getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 2){
         if(self.class !== 'Falcon'){
@@ -4013,7 +4154,8 @@ Character = function(param){
         self.maxSpd = self.baseSpd  * self.drag;
       }
     } else if(self.z == -1){
-      if(getTile(1,loc[0],loc[1]) == 2){
+      var tileValue = getTile(1,loc[0],loc[1]);
+      if(tileValue == 2){
         // At cave exit - set state
         self.transitionState = 'at_entrance';
         
@@ -4029,15 +4171,39 @@ Character = function(param){
             self.transitionIntent = 'exit_cave';
           }
         }
+        // For serfs in work mode, ensure intent is set if not already set
+        else if(self.type === 'npc' && (self.class === 'Serf' || self.class === 'SerfM' || self.class === 'SerfF') && self.mode === 'work' && !self.transitionIntent){
+          // Serf in work mode at exit - should have intent from moveTo(), but set it if missing
+          self.transitionIntent = 'exit_cave';
+        }
         
         // Check intent to exit cave
         // Also verify zTransitionHalt is not active (second layer of protection)
-        // For idle NPCs, allow transition even if not at path destination
+        // For NPCs (including serfs), allow transition when at exit tile even if path doesn't match exactly
+        // This handles cases where path was cleared or pathfinding completed but destination doesn't match
         var canTransition = false;
         if(self.type === 'player'){
           canTransition = !self.zTransitionHalt && self.isAtPathDestination();
-        } else if(self.type === 'npc' && self.mode === 'idle'){
-          canTransition = true; // Idle NPCs can transition when on cave exit
+        } else if(self.type === 'npc'){
+          // NPCs (including serfs) can transition when at exit tile, even if path doesn't match
+          // Check if we're at the exit tile (tile value 2 on layer 1)
+          var atExitTile = (getTile(1, loc[0], loc[1]) == 2);
+          // Also check if path destination matches (for cases where path is still valid)
+          var pathMatches = self.isAtPathDestination();
+          // For serfs with exit intent, prioritize atExitTile check - if at exit tile, transition immediately
+          if((self.class === 'Serf' || self.class === 'SerfM' || self.class === 'SerfF') && self.transitionIntent === 'exit_cave'){
+            // Serfs: if at exit tile with exit intent, transition immediately (don't wait for path match)
+            canTransition = atExitTile || pathMatches;
+            
+            // Log transition check for serfs
+            var serfLogger = global.serfLogger;
+            if(serfLogger){
+              serfLogger.debug(`[TRANSITION_CHECK] serf=${self.id} z=${self.z} loc=[${loc[0]},${loc[1]}] intent=${self.transitionIntent} atExitTile=${atExitTile} pathMatches=${pathMatches} canTransition=${canTransition} path=${self.path?.length || 0}`, self);
+            }
+          } else {
+            // Other NPCs: use same logic
+            canTransition = atExitTile || pathMatches;
+          }
         } else {
           canTransition = self.isAtPathDestination();
         }
@@ -5085,24 +5251,21 @@ Character = function(param){
     } else {
       if(self.z == 0){ // outdoors
         if(z == -1){ // to cave
-          var cave = [];
-          var best = null;
-          var c = getCoords(c,r);
-          for(i in caveEntrances){
-            var e = getCoords(caveEntrances[i]);
-            var d = getDistance({x:c[0],y:c[1]},{x:e[0],y:e[1]});
-            if(!best || d < best){
-              cave = caveEntrances[i];
-              best = d;
-            }
+          // Use preferred entrance if set, otherwise find nearest
+          var preferredEntrance = self.preferredCaveEntrance || null;
+          var cave = selectCaveEntrance(self, z, [c, r], preferredEntrance);
+          
+          if(cave && Array.isArray(cave) && cave.length >= 2){
+            // Store for later use (exit pathfinding)
+            self.caveEntrance = cave;
+            // When pathfinding to cave entrance, allow only the specific cave entrance
+            var options = {
+              targetCaveEntrance: [cave[0], cave[1]],
+              avoidCaveEntrances: true
+            };
+            var path = global.tilemapSystem.findPath(start, [cave[0], cave[1]], 0, options);
+            self.path = path;
           }
-          // When pathfinding to cave entrance, allow only the specific cave entrance
-          var options = {
-            targetCaveEntrance: [cave[0], cave[1]],
-            avoidCaveEntrances: true
-          };
-          var path = global.tilemapSystem.findPath(start, [cave[0], cave[1]], 0, options);
-          self.path = path;
         } else { // to building
           var ent = Building.list[db].entrance;
           // When pathfinding to a building entrance, allow the specific doorway
@@ -5114,24 +5277,37 @@ Character = function(param){
           self.path = path;
         }
       } else if(self.z == -1){ // cave
-        var best = null;
-        var cave = [];
-        for(i in caveEntrances){
-          var e = getCoords(caveEntrances[i]);
-          var d = self.getDistance({x:e[0],y:e[1]});
-          if(!best || d < best){
-            cave = caveEntrances[i];
-            best = d;
+        // Use stored caveEntrance (set when entering) - exit is one tile south
+        var cave = null;
+        if(self.caveEntrance && Array.isArray(self.caveEntrance) && self.caveEntrance.length >= 2){
+          cave = self.caveEntrance;
+        } else {
+          // Fallback: find nearest cave entrance (shouldn't happen if enterCave() was called)
+          var best = null;
+          for(i in caveEntrances){
+            var e = getCoords(caveEntrances[i]);
+            var d = self.getDistance({x:e[0],y:e[1]});
+            if(!best || d < best){
+              cave = caveEntrances[i];
+              best = d;
+            }
+          }
+          // Store for future use
+          if(cave && Array.isArray(cave)){
+            self.caveEntrance = cave;
           }
         }
-        // Path to the cave exit tile (which is at cave[0], cave[1]+1 on layer 1)
-        var options = {
-          allowSpecificDoor: true,
-          targetDoor: [cave[0], cave[1] + 1]
-        };
-        // Use layer 1 for cave (worldMaps[1] = Underworld)
-        var path = global.tilemapSystem.findPath(start, [cave[0], cave[1] + 1], 1, options);
-        self.path = path;
+        
+        if(cave && Array.isArray(cave) && cave.length >= 2){
+          // Path to the cave exit tile (which is at cave[0], cave[1]+1 on layer 1)
+          var options = {
+            allowSpecificDoor: true,
+            targetDoor: [cave[0], cave[1] + 1]
+          };
+          // Use layer 1 for cave (worldMaps[1] = Underworld)
+          var path = global.tilemapSystem.findPath(start, [cave[0], cave[1] + 1], 1, options);
+          self.path = path;
+        }
       } else if(self.z == 1){ // indoors
         //var gridB1b = cloneGrid(1);
         if(b == db){
@@ -5266,14 +5442,32 @@ Character = function(param){
   };
 
   self.exitCave = function() {
+    var loc = getLoc(self.x, self.y);
+    var preservedEntrance = self.caveEntrance; // Preserve for logging and potential future use
+    if(self.type === 'npc' && (self.class === 'Serf' || self.class === 'SerfM' || self.class === 'SerfF')){
+      var serfLogger = global.serfLogger;
+      if(serfLogger){
+        serfLogger.debug(`[exitCave] serf=${self.id} z=${self.z}->0 loc=[${loc[0]},${loc[1]}] entrance=${preservedEntrance ? '[' + preservedEntrance[0] + ',' + preservedEntrance[1] + ']' : 'null'}`, self);
+      }
+    }
+    // Align with exitBuilding() pattern: clear path and let state machine re-request naturally
     self.z = 0;
     self.path = null;
     self.pathCount = 0;
-    self.caveEntrance = null;
+    self.pathEnd = null; // Clear path end to prevent re-navigation (matches exitBuilding)
+    // DON'T clear caveEntrance - preserve it for future exits
     self.transitionIntent = null;
+    self.transitionState = 'none';
     // Track transition time for NPCs to prevent rapid loops
     if(self.type === 'npc'){
       self.lastZTransition = Date.now();
+    }
+    // Clear movement flags (matches exitBuilding pattern)
+    if(!self.ghost){
+      self.pressingRight = false;
+      self.pressingLeft = false;
+      self.pressingDown = false;
+      self.pressingUp = false;
     }
     self.transitionState = 'none';
     self.innaWoods = false;
@@ -8167,11 +8361,8 @@ Serf = function(param){
       }
     }
 
-    // Use state machine system for serf behavior
-    if (global.serfStateMachine) {
-      global.serfStateMachine.update(self);
-    } else if (global.simpleSerfBehavior) {
-      // Fallback to simplified behavior system
+    // Use simple behavior system for serf behavior
+    if (global.simpleSerfBehavior) {
       global.simpleSerfBehavior.update(self);
     }
     
@@ -8251,31 +8442,47 @@ Serf = function(param){
         self.maxSpd = self.baseSpd  * self.drag;
       }
     } else if(self.z == -1){
-      if(getTile(1,loc[0],loc[1]) == 2){
-        // On cave exit tile - only exit if path is complete (no active navigation)
-        // This universal rule works for all entities without special cases
-        if(!self.path || self.path.length === 0){
-        self.caveEntrance = null;
-        self.z = 0;
-          // Clear path on successful exit (but this was already null/empty)
-        self.path = null;
-        self.pathCount = 0;
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = (self.baseSpd * 0.9)  * self.drag;
-          
-          // Set cooldown to prevent immediate re-entry (120 frames = 2 seconds at 60fps)
-          self.mineExitCooldown = 120;
-          
-        // Clear movement to prevent loops (except for ghosts)
-        if(!self.ghost){
-          self.pressingRight = false;
-          self.pressingLeft = false;
-          self.pressingDown = false;
-          self.pressingUp = false;
+      var tileValue = getTile(1,loc[0],loc[1]);
+      if(tileValue == 2){
+        // At cave exit - set state
+        self.transitionState = 'at_entrance';
+        
+        // For serfs in work mode, ensure intent is set if not already set
+        if(self.mode === 'work' && !self.transitionIntent){
+          // Serf in work mode at exit - should have intent from moveTo(), but set it if missing
+          self.transitionIntent = 'exit_cave';
         }
+        
+        // Check intent to exit cave
+        // For serfs, allow transition when at exit tile, even if path doesn't match exactly
+        // This handles cases where path was cleared or pathfinding completed but destination doesn't match
+        var canTransition = false;
+        if(self.type === 'npc'){
+          // Check if we're at the exit tile (tile value 2 on layer 1)
+          var atExitTile = (getTile(1, loc[0], loc[1]) == 2);
+          // Also check if path destination matches (for cases where path is still valid)
+          var pathMatches = self.isAtPathDestination();
+          // For serfs with exit intent, prioritize atExitTile check - if at exit tile, transition immediately
+          if((self.class === 'Serf' || self.class === 'SerfM' || self.class === 'SerfF') && self.transitionIntent === 'exit_cave'){
+            // Serfs: if at exit tile with exit intent, transition immediately (don't wait for path match)
+            canTransition = atExitTile || pathMatches;
+            
+            // Log transition check for serfs
+            var serfLogger = global.serfLogger;
+            if(serfLogger){
+              serfLogger.debug(`[TRANSITION_CHECK] serf=${self.id} z=${self.z} loc=[${loc[0]},${loc[1]}] intent=${self.transitionIntent} atExitTile=${atExitTile} pathMatches=${pathMatches} canTransition=${canTransition} path=${self.path?.length || 0}`, self);
+            }
+          } else {
+            // Other NPCs: use same logic
+            canTransition = atExitTile || pathMatches;
+          }
+        } else {
+          canTransition = self.isAtPathDestination();
         }
-        // If there IS a path, don't exit - continue into cave
+        
+        if(self.transitionIntent === 'exit_cave' && canTransition){
+          self.exitCave();
+        }
       }
     } else if(self.z == -2){
       if(getTile(8,loc[0],loc[1]) == 5){
@@ -8620,11 +8827,8 @@ Innkeeper = function(param){
     var b = getBuilding(self.x,self.y);
     self.zoneCheck();
 
-    // Use state machine system for serf behavior
-    if (global.serfStateMachine) {
-      global.serfStateMachine.update(self);
-    } else if (global.simpleSerfBehavior) {
-      // Fallback to simplified behavior system
+    // Use simple behavior system for serf behavior
+    if (global.simpleSerfBehavior) {
       global.simpleSerfBehavior.update(self);
     }
 
@@ -8698,27 +8902,47 @@ Innkeeper = function(param){
         self.maxSpd = self.baseSpd  * self.drag;
       }
     } else if(self.z == -1){
-      if(getTile(1,loc[0],loc[1]) == 2){
-        // On cave exit tile - only exit if path is complete (no active navigation)
-        // This universal rule works for all entities without special cases
-        if(!self.path || self.path.length === 0){
-        self.caveEntrance = null;
-        self.z = 0;
-          // Clear path on successful exit (but this was already null/empty)
-        self.path = null;
-        self.pathCount = 0;
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = (self.baseSpd * 0.9)  * self.drag;
-        // Clear movement to prevent loops (except for ghosts)
-        if(!self.ghost){
-          self.pressingRight = false;
-          self.pressingLeft = false;
-          self.pressingDown = false;
-          self.pressingUp = false;
+      var tileValue = getTile(1,loc[0],loc[1]);
+      if(tileValue == 2){
+        // At cave exit - set state
+        self.transitionState = 'at_entrance';
+        
+        // For serfs in work mode, ensure intent is set if not already set
+        if(self.mode === 'work' && !self.transitionIntent){
+          // Serf in work mode at exit - should have intent from moveTo(), but set it if missing
+          self.transitionIntent = 'exit_cave';
         }
+        
+        // Check intent to exit cave
+        // For serfs, allow transition when at exit tile, even if path doesn't match exactly
+        // This handles cases where path was cleared or pathfinding completed but destination doesn't match
+        var canTransition = false;
+        if(self.type === 'npc'){
+          // Check if we're at the exit tile (tile value 2 on layer 1)
+          var atExitTile = (getTile(1, loc[0], loc[1]) == 2);
+          // Also check if path destination matches (for cases where path is still valid)
+          var pathMatches = self.isAtPathDestination();
+          // For serfs with exit intent, prioritize atExitTile check - if at exit tile, transition immediately
+          if((self.class === 'Serf' || self.class === 'SerfM' || self.class === 'SerfF') && self.transitionIntent === 'exit_cave'){
+            // Serfs: if at exit tile with exit intent, transition immediately (don't wait for path match)
+            canTransition = atExitTile || pathMatches;
+            
+            // Log transition check for serfs
+            var serfLogger = global.serfLogger;
+            if(serfLogger){
+              serfLogger.debug(`[TRANSITION_CHECK] serf=${self.id} z=${self.z} loc=[${loc[0]},${loc[1]}] intent=${self.transitionIntent} atExitTile=${atExitTile} pathMatches=${pathMatches} canTransition=${canTransition} path=${self.path?.length || 0}`, self);
+            }
+          } else {
+            // Other NPCs: use same logic
+            canTransition = atExitTile || pathMatches;
+          }
+        } else {
+          canTransition = self.isAtPathDestination();
         }
-        // If there IS a path, don't exit - continue into cave
+        
+        if(self.transitionIntent === 'exit_cave' && canTransition){
+          self.exitCave();
+        }
       }
     } else if(self.z == -2){
       if(getTile(8,loc[0],loc[1]) == 5){

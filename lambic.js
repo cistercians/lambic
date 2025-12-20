@@ -8798,13 +8798,9 @@ global.removePack = removePack;
 
 // Note: global.Item will be set by Entity.js when Item constructor is defined
 
-// Initialize SIMPLIFIED Serf behavior system - TEMPORARILY DISABLED for debugging
+// Initialize Simple Serf Behavior system
 const SimpleSerfBehavior = require('./server/js/core/SimpleSerfBehavior.js');
-global.simpleSerfBehavior = null; // DISABLED - let Entity.js handle everything
-
-// Initialize NEW Serf State Machine system
-const serfStateMachine = require('./server/js/core/SerfStateMachine.js');
-global.serfStateMachine = serfStateMachine;
+global.simpleSerfBehavior = new SimpleSerfBehavior();
 
 // Initialize optimized game loop
 optimizedGameLoop.initialize(gameState, emit);
