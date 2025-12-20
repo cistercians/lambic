@@ -61,6 +61,15 @@ class SimpleSerfBehavior {
       return;
     }
 
+    // PRIORITY: Check if hut needs building first
+    if (serf.hut && global.Building && global.Building.list) {
+      const hut = global.Building.list[serf.hut];
+      if (hut && !hut.built) {
+        serf.action = 'build';
+        return; // Let handleBuild() take over
+      }
+    }
+
     // Check if work building is valid
     const building = this.getWorkBuilding(serf);
     if (!building || !building.built) {

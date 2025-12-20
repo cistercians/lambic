@@ -8584,9 +8584,9 @@ Serf = function(param){
     // Day/night transition logic - works with both old and new systems
     if(tempus == 'VI.a' && self.mode != 'work' && !self.dayTimer){
       self.dayTimer = true;
-      // PERFORMANCE FIX: Spread work assignments over 60 seconds instead of ~10 seconds
+      // PERFORMANCE FIX: Spread work assignments over 15 seconds instead of ~10 seconds
       // This prevents thundering herd when all serfs wake up at dawn
-      var rand = Math.floor(Math.random() * 60000); // 0-60 seconds
+      var rand = Math.floor(Math.random() * 15000); // 0-15 seconds
       if(!global.SERF_DEBUG_MODE) {
         // Only log occasionally to reduce console spam
         if(Math.random() < 0.1) {
@@ -9057,8 +9057,8 @@ Innkeeper = function(param){
 
     if(tempus == 'VI.a' && self.mode !== 'work' && !self.dayTimer){
       self.dayTimer = true;
-      // PERFORMANCE FIX: Spread work assignments over 60 seconds to avoid lag spikes
-      var rand = Math.floor(Math.random() * 60000); // 0-60 seconds
+      // PERFORMANCE FIX: Spread work assignments over 15 seconds to avoid lag spikes
+      var rand = Math.floor(Math.random() * 15000); // 0-15 seconds
       setTimeout(function(){
         self.mode = 'work';
         self.action = null;
