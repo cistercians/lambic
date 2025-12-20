@@ -92,6 +92,30 @@ class SimpleSerfBehavior {
         // No spots available - wait
         return;
       }
+    } else {
+      // Validate work spot is still valid for this building
+      // This catches cases where work.spot was set to a hut plot tile during building
+      let spotValid = false;
+      if (building.resources && Array.isArray(building.resources)) {
+        for (const res of building.resources) {
+          if (Array.isArray(res) && res.length === 2 && res.toString() === serf.work.spot.toString()) {
+            spotValid = true;
+            break;
+          }
+        }
+      }
+      if (!spotValid) {
+        // Work spot is invalid (e.g., was set to hut plot tile) - clear it and reassign
+        serf.work.spot = null;
+        serf.work.assignedSpot = null;
+        serf.path = null;
+        serf.pathCount = 0;
+        const spot = this.assignWorkSpot(serf, building);
+        if (!spot) {
+          // No spots available - wait
+          return;
+        }
+      }
     }
 
     // Execute work based on building type
@@ -151,6 +175,13 @@ class SimpleSerfBehavior {
     const hut = global.Building.list[serf.hut];
     if (!hut || hut.built) {
       serf.action = null;
+      // CRITICAL FIX: Clear work.spot when hut is built - it was set to hut plot tile during building
+      // and is no longer valid as a work spot for the actual work building
+      serf.work.spot = null;
+      serf.work.assignedSpot = null;
+      // Clear path to prevent oscillation
+      serf.path = null;
+      serf.pathCount = 0;
       if (!serf.work.hq) {
         serf.mode = 'idle';
       }
