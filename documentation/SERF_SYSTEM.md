@@ -1351,3 +1351,4 @@ The serf system is a comprehensive economic unit management system that handles:
 7. **Integration**: Seamless integration with Entity system, Houses, and global systems
 
 The system is designed for performance, with centralized behavior handling, efficient spot management, and graceful error handling. Gender restrictions and special features (torch bearers, z-level transitions) add depth to the economic simulation.
+

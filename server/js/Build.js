@@ -109,7 +109,7 @@ Build = function(id){
           House.list[h].military.patrol.push(b.id);
         }
         if(building.type == 'hut' || building.type == 'gothhut' || building.type == 'frankhut' ||
-        building.type == 'celthut' || building.type == 'teuthut'){
+        building.type == 'celthut' || building.type == 'teuthut' || building.type == 'outhut'){
           for(var i in plot){
             matrixChange(0,plot[i][0],plot[i][1],1);
             matrixChange(1,plot[i][0],plot[i][1],0);

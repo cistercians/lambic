@@ -2688,7 +2688,7 @@ Outlaws = function(param){
     
     for(var i = 0; i < numHuts; i++){
       // Use tilemap system to find a valid hut location near the firepit
-      var hutSpot = global.tilemapSystem.findBuildingSpot('hut', firepitLoc, 5, {
+      var hutSpot = global.tilemapSystem.findBuildingSpot('outhut', firepitLoc, 5, {
         excludeTiles: excludedTiles
       });
       
@@ -2702,9 +2702,9 @@ Outlaws = function(param){
           matrixChange(0, plot[j][0], plot[j][1], 1);
           matrixChange(1, plot[j][0], plot[j][1], 0);
           tileChange(0, plot[j][0], plot[j][1], 13);
-          tileChange(3, plot[j][0], plot[j][1], String('hut' + j));
-          // Set entrance tile (hut1 is the entrance)
-          if(getTile(3, plot[j][0], plot[j][1]) == 'hut1'){
+          tileChange(3, plot[j][0], plot[j][1], String('outhut' + j));
+          // Set entrance tile (outhut1 is the entrance)
+          if(getTile(3, plot[j][0], plot[j][1]) == 'outhut1'){
             tileChange(0, plot[j][0], plot[j][1], 14);
             matrixChange(0, plot[j][0], plot[j][1], 0);
             matrixChange(1, plot[j][0], plot[j][1]+1, 0);
@@ -2726,7 +2726,7 @@ Outlaws = function(param){
           x: center[0],
           y: center[1],
           z: 0,
-          type: 'hut',
+          type: 'outhut',
           built: true,
           plot: plot,
           walls: walls,

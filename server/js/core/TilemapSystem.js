@@ -547,6 +547,14 @@ class TilemapSystem {
         excludeBuildings: true,
         hasUpperFloor: false
       },
+      outhut: {
+        plotSize: [2, 2],
+        wallTiles: 2,
+        validTerrain: [TERRAIN.GRASS, TERRAIN.LIGHT_FOREST, TERRAIN.HEAVY_FOREST, TERRAIN.BRUSH], // Outlaws use same terrain as generic hut
+        clearanceRadius: 1,
+        excludeBuildings: true,
+        hasUpperFloor: false
+      },
       mill: {
         plotSize: [2, 2],
         wallTiles: 2,
