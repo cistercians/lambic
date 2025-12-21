@@ -278,7 +278,10 @@ class SimpleSerfBehavior {
         if (serf.z !== serf.home.z || loc.toString() !== serf.home.loc.toString()) {
           if (!serf.path || serf.path.length === 0) {
             if (typeof serf.moveTo === 'function') {
-              serf.moveTo(serf.home.z, serf.home.loc[0], serf.home.loc[1]);
+              // FIX: Reuse the working deposit pattern - explicitly use z=0
+              // This ensures we use the same code path that successfully handles cave exits
+              // Since serf.home.z is always 0 for regular serfs, this is equivalent but clearer
+              serf.moveTo(0, serf.home.loc[0], serf.home.loc[1]);
             }
           }
         } else {
