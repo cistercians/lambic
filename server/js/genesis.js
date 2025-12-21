@@ -57,7 +57,8 @@ function genesis(config = {}){
   // smaller tiles for bigger map
   // should be a factor of canvas width/height
   var tile = 1;
-  var canvasSize = config.mapSize || 192; // Map size (default: 192×192 = 36,864 tiles)
+  var BASE_MAP_SIZE = 128; // Base map size for frequency scaling
+  var canvasSize = config.mapSize || 128; // Map size (default: 128×128 = 16,384 tiles)
   var mapTiles = canvasSize / tile;
 
   // ============================================================================
@@ -66,24 +67,41 @@ function genesis(config = {}){
   
   // RED CHANNEL: Controls large-scale features (continents/oceans/water boundaries)
   // Lower frequency = larger landmasses, Higher frequency = more islands/fractured coastlines
-  var redFrequencyX = config.redFrequencyX || 90; // Horizontal scale for large features
-  var redFrequencyY = config.redFrequencyY || 78; // Vertical scale for large features  
+  var redFrequencyX = config.redFrequencyX || 60; // Horizontal scale for large features (base: 128×128)
+  var redFrequencyY = config.redFrequencyY || 52; // Vertical scale for large features (base: 128×128)
   var redAmplitude = config.redAmplitude || 0.7; // Controls contrast between land/water
   var redOffset = config.redOffset || 0.33;    // Baseline shift
   
   // GREEN CHANNEL: Controls medium-scale features (biomes/terrain patches)
   // Lower frequency = larger biome regions, Higher frequency = more varied/mixed terrain
-  var greenFrequencyX = config.greenFrequencyX || 16; // Horizontal scale for biome features
-  var greenFrequencyY = config.greenFrequencyY || 22; // Vertical scale for biome features
+  var greenFrequencyX = config.greenFrequencyX || 11; // Horizontal scale for biome features (base: 128×128)
+  var greenFrequencyY = config.greenFrequencyY || 15; // Vertical scale for biome features (base: 128×128)
   var greenAmplitude = config.greenAmplitude || 0.74; // Controls biome contrast
   var greenOffset = config.greenOffset || 0.42;   // Baseline shift for biome distribution
   
   // BLUE CHANNEL: Controls fine details and local variation
   // Lower frequency = smoother terrain, Higher frequency = more detailed/noisy terrain
-  var blueFrequencyX = config.blueFrequencyX || 6;   // Horizontal scale for fine details
-  var blueFrequencyY = config.blueFrequencyY || 6;   // Vertical scale for fine details
+  var blueFrequencyX = config.blueFrequencyX || 4;   // Horizontal scale for fine details (base: 128×128)
+  var blueFrequencyY = config.blueFrequencyY || 4;   // Vertical scale for fine details (base: 128×128)
   var blueAmplitude = config.blueAmplitude || 0.35; // Controls detail intensity
   var blueOffset = config.blueOffset || 0.15;      // No baseline shift for details
+
+  // ============================================================================
+  // FREQUENCY SCALING - Scale frequencies to maintain consistent feature scale
+  // ============================================================================
+  // Calculate scale factor based on map size relative to base size
+  // This ensures that larger maps maintain the same feature proportions
+  var scaleFactor = canvasSize / BASE_MAP_SIZE;
+  
+  // Apply scaling to all frequency parameters (preserves feature scale across map sizes)
+  redFrequencyX *= scaleFactor;
+  redFrequencyY *= scaleFactor;
+  greenFrequencyX *= scaleFactor;
+  greenFrequencyY *= scaleFactor;
+  blueFrequencyX *= scaleFactor;
+  blueFrequencyY *= scaleFactor;
+  
+  // Note: Amplitudes and offsets are NOT scaled - they control intensity/baseline, not feature size
 
   // OVERWORLD
   var simplex = new SimplexNoise(),
@@ -522,16 +540,16 @@ function genesis(config = {}){
 // Preset configurations
 const presets = {
   continental: {
-    redFrequencyX: 90,
-    redFrequencyY: 78,
+    redFrequencyX: 60,
+    redFrequencyY: 52,
     redAmplitude: 0.7,
     redOffset: 0.33,
-    greenFrequencyX: 16,
-    greenFrequencyY: 22,
+    greenFrequencyX: 11,
+    greenFrequencyY: 15,
     greenAmplitude: 0.74,
     greenOffset: 0.42,
-    blueFrequencyX: 6,
-    blueFrequencyY: 6,
+    blueFrequencyX: 4,
+    blueFrequencyY: 4,
     blueAmplitude: 0.35,
     blueOffset: 0.15,
     waterThreshold: 0.39,
@@ -541,16 +559,16 @@ const presets = {
     lightForestThreshold: 0.32
   },
   islands: {
-    redFrequencyX: 80,
-    redFrequencyY: 78,
+    redFrequencyX: 53,
+    redFrequencyY: 52,
     redAmplitude: 0.28,
     redOffset: 0.33,
-    greenFrequencyX: 16,
-    greenFrequencyY: 22,
+    greenFrequencyX: 11,
+    greenFrequencyY: 15,
     greenAmplitude: 0.76,
     greenOffset: 0.27,
-    blueFrequencyX: 6,
-    blueFrequencyY: 6,
+    blueFrequencyX: 4,
+    blueFrequencyY: 4,
     blueAmplitude: 0.34,
     blueOffset: 0.16,
     waterThreshold: 0.36,
@@ -560,16 +578,16 @@ const presets = {
     lightForestThreshold: 0.32
   },
   mainland: {
-    redFrequencyX: 74,
-    redFrequencyY: 78,
+    redFrequencyX: 49,
+    redFrequencyY: 52,
     redAmplitude: 0.66,
     redOffset: 0.33,
-    greenFrequencyX: 22,
-    greenFrequencyY: 22,
+    greenFrequencyX: 15,
+    greenFrequencyY: 15,
     greenAmplitude: 0.6,
     greenOffset: 0.41,
-    blueFrequencyX: 6,
-    blueFrequencyY: 6,
+    blueFrequencyX: 4,
+    blueFrequencyY: 4,
     blueAmplitude: 0.35,
     blueOffset: 0.17,
     waterThreshold: 0.64,
@@ -579,16 +597,16 @@ const presets = {
     lightForestThreshold: 0.4
   },
   wild: {
-    redFrequencyX: 32,
-    redFrequencyY: 42,
+    redFrequencyX: 21,
+    redFrequencyY: 28,
     redAmplitude: 0.45,
     redOffset: 0.33,
-    greenFrequencyX: 22,
-    greenFrequencyY: 22,
+    greenFrequencyX: 15,
+    greenFrequencyY: 15,
     greenAmplitude: 0.33,
     greenOffset: 0.42,
-    blueFrequencyX: 6,
-    blueFrequencyY: 6,
+    blueFrequencyX: 4,
+    blueFrequencyY: 4,
     blueAmplitude: 0.33,
     blueOffset: 0.19,
     waterThreshold: 0.55,

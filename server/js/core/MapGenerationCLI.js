@@ -86,20 +86,20 @@ class MapGenerationCLI {
     console.log('╚════════════════════════════════════════╝');
     console.log('');
     console.log('Select a map size:');
-    console.log('  1. Smallest (128×128)');
-    console.log('  2. Small (192×192)');
-    console.log('  3. Medium (256×256) [default]');
-    console.log('  4. Large (320×320)');
-    console.log('  5. Massive (384×384)');
+    console.log('  1. Base (128×128) [default]');
+    console.log('  2. Small (192×192) - 1.5×');
+    console.log('  3. Medium (256×256) - 2×');
+    console.log('  4. Large (320×320) - 2.5×');
+    console.log('  5. Massive (384×384) - 3×');
     console.log('');
 
     while (true) {
       const answer = await this.question('Enter your choice (1-5, or press Enter for default): ');
       const trimmed = answer.trim();
       
-      // If empty, use default (Medium, 256×256)
+      // If empty, use default (Base, 128×128)
       if (trimmed === '') {
-        return 256;
+        return 128;
       }
       
       const choice = parseInt(trimmed);
@@ -273,7 +273,7 @@ class MapGenerationCLI {
     console.log('╚════════════════════════════════════════╝');
     console.log('');
     console.log('Choose setup mode:');
-    console.log('  1. Use defaults (Continental, Medium 256×256)');
+    console.log('  1. Use defaults (Continental, Base 128×128)');
     console.log('  2. Customize settings');
     console.log('');
 
@@ -296,12 +296,12 @@ class MapGenerationCLI {
       // Use defaults for automated deployments
       const defaultConfig = {
         ...genesis.presets.continental,
-        mapSize: 256
+        mapSize: 128
       };
       const result = genesis.generate(defaultConfig);
       return {
         biome: 'continental',
-        mapSize: 256,
+        mapSize: 128,
         worldMaps: result.worldMaps,
         entrances: result.entrances
       };
@@ -319,9 +319,9 @@ class MapGenerationCLI {
       const useDefaults = await this.promptUseDefaults();
 
       if (useDefaults) {
-        // Use default values: Continental biome, Medium (256×256) size
+        // Use default values: Continental biome, Base (128×128) size
         biome = 'continental';
-        mapSize = 256;
+        mapSize = 128;
       }
 
       while (true) {
