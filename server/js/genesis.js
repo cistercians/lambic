@@ -540,23 +540,23 @@ function genesis(config = {}){
 // Preset configurations
 const presets = {
   continental: {
-    redFrequencyX: 60,
-    redFrequencyY: 52,
+    redFrequencyX: 90,
+    redFrequencyY: 78,
     redAmplitude: 0.7,
     redOffset: 0.33,
-    greenFrequencyX: 11,
-    greenFrequencyY: 15,
+    greenFrequencyX: 16,
+    greenFrequencyY: 22,
     greenAmplitude: 0.74,
     greenOffset: 0.42,
-    blueFrequencyX: 4,
-    blueFrequencyY: 4,
+    blueFrequencyX: 6,
+    blueFrequencyY: 6,
     blueAmplitude: 0.35,
     blueOffset: 0.15,
-    waterThreshold: 0.39,
+    waterThreshold: 0.4,
     mountainThreshold: 0.99,
     rocksThreshold: 0.85,
     brushThreshold: 0.3,
-    lightForestThreshold: 0.32
+    lightForestThreshold: 0.31
   },
   islands: {
     redFrequencyX: 53,
