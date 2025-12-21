@@ -2107,8 +2107,28 @@ function randomSpawnHF() {
     // No heavy forest spawns available - fallback to overworld spawns
     return randomSpawnO();
   }
-  const rand = Math.floor(Math.random() * hForestSpawns.length);
-  const point = hForestSpawns[rand];
+  
+  // Filter spawn points to only include tiles in named geographic zones
+  let validSpawns = hForestSpawns;
+  
+  if (global.zoneManager) {
+    validSpawns = hForestSpawns.filter(point => {
+      if (!point || !Array.isArray(point) || point.length < 2) {
+        return false;
+      }
+      const zone = global.zoneManager.getZoneAt([point[0], point[1]]);
+      // Only allow spawns in named geographic zones
+      return zone && zone.type === 'geographic' && zone.name;
+    });
+  }
+  
+  // If no valid zone-based spawns exist, fall back to overworld spawns
+  if (!validSpawns || validSpawns.length === 0) {
+    return randomSpawnO();
+  }
+  
+  const rand = Math.floor(Math.random() * validSpawns.length);
+  const point = validSpawns[rand];
   if (!point || !Array.isArray(point) || point.length < 2) {
     return randomSpawnO();
   }
