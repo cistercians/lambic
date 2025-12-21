@@ -3523,6 +3523,14 @@ var renderTops = function(){
   }
 };
 
+// Helper function to convert distance to alpha value for forest transparency
+var getForestAlpha = function(dist) {
+  if (dist === 40) return 0.4;
+  if (dist === 60) return 0.6;
+  if (dist === 80) return 0.8;
+  return 1.0; // Default: fully opaque for null (beyond ring 3) or any other value
+};
+
 var renderForest = function(){
   // Get camera position (works for both logged in and login mode)
   var cameraPos = getCameraPosition();
@@ -3557,112 +3565,44 @@ var renderForest = function(){
         } else if(maxDist == 3){
           dist = 80;
         }
+        
+        // Calculate alpha based on distance
+        var alpha = getForestAlpha(dist);
+        
         var tile = getTile(0, c, r);
         if(tile >= 1 && tile < 1.3){
-          if(dist == 40){
-            ctx.drawImage(
-              Img.hforest40, // image
-              xOffset - (tileSize/4), // target x
-              yOffset - (tileSize/1.75), // target y
-              tileSize, // target width
-              tileSize * 1.5 // target height
-            );
-          } else if(dist == 60){
-            ctx.drawImage(
-              Img.hforest60, // image
-              xOffset - (tileSize/4), // target x
-              yOffset - (tileSize/1.75), // target y
-              tileSize, // target width
-              tileSize * 1.5 // target height
-            );
-          } else if(dist == 80){
-            ctx.drawImage(
-              Img.hforest80, // image
-              xOffset - (tileSize/4), // target x
-              yOffset - (tileSize/1.75), // target y
-              tileSize, // target width
-              tileSize * 1.5 // target height
-            );
-          } else {
-            ctx.drawImage(
-              Img.hforest, // image
-              xOffset - (tileSize/4), // target x
-              yOffset - (tileSize/1.75), // target y
-              tileSize, // target width
-              tileSize * 1.5 // target height
-            );
-          }
+          ctx.globalAlpha = alpha;
+          ctx.drawImage(
+            Img.hforest, // Always use base image with runtime alpha
+            xOffset - (tileSize/4), // target x
+            yOffset - (tileSize/1.75), // target y
+            tileSize, // target width
+            tileSize * 1.5 // target height
+          );
+          ctx.globalAlpha = 1.0; // Reset alpha
         } else if(tile >= 1 && tile < 1.6){
-          if(dist == 40){
-            ctx.drawImage(
-              Img.hforest40, // image
-              xOffset, // target x
-              yOffset - (tileSize/1.25), // target y
-              tileSize, // target width
-              tileSize * 1.5 // target height
-            );
-          } else if(dist == 60){
-            ctx.drawImage(
-              Img.hforest60, // image
-              xOffset, // target x
-              yOffset - (tileSize/1.25), // target y
-              tileSize, // target width
-              tileSize * 1.5 // target height
-            );
-          } else if(dist == 80){
-            ctx.drawImage(
-              Img.hforest80, // image
-              xOffset, // target x
-              yOffset - (tileSize/1.25), // target y
-              tileSize, // target width
-              tileSize * 1.5 // target height
-            );
-          } else {
-            ctx.drawImage(
-              Img.hforest, // image
-              xOffset, // target x
-              yOffset - (tileSize/1.25), // target y
-              tileSize, // target width
-              tileSize * 1.5 // target height
-            );
-          }
+          ctx.globalAlpha = alpha;
+          ctx.drawImage(
+            Img.hforest, // Always use base image with runtime alpha
+            xOffset, // target x
+            yOffset - (tileSize/1.25), // target y
+            tileSize, // target width
+            tileSize * 1.5 // target height
+          );
+          ctx.globalAlpha = 1.0; // Reset alpha
         } else if(tile >= 1 && tile < 2){
-          if(dist == 40){
-            ctx.drawImage(
-              Img.hforest40, // image
-              xOffset, // target x
-              yOffset - (tileSize/2), // target y
-              tileSize, // target width
-              tileSize * 1.5 // target height
-            );
-          } else if(dist == 60){
-            ctx.drawImage(
-              Img.hforest60, // image
-              xOffset, // target x
-              yOffset - (tileSize/2), // target y
-              tileSize, // target width
-              tileSize * 1.5 // target height
-            );
-          } else if(dist == 80){
-            ctx.drawImage(
-              Img.hforest80, // image
-              xOffset, // target x
-              yOffset - (tileSize/2), // target y
-              tileSize, // target width
-              tileSize * 1.5 // target height
-            );
-          } else {
-            ctx.drawImage(
-              Img.hforest, // image
-              xOffset, // target x
-              yOffset - (tileSize/2), // target y
-              tileSize, // target width
-              tileSize * 1.5 // target height
-            );
+          ctx.globalAlpha = alpha;
+          ctx.drawImage(
+            Img.hforest, // Always use base image with runtime alpha
+            xOffset, // target x
+            yOffset - (tileSize/2), // target y
+            tileSize, // target width
+            tileSize * 1.5 // target height
+          );
+          ctx.globalAlpha = 1.0; // Reset alpha
         }
       }
     }
-  }
 }
 
 
@@ -3671,4 +3611,5 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = MapRenderer;
 } else {
   window.MapRenderer = MapRenderer;
+  window.renderForest = renderForest; // Expose renderForest for use in GameRenderer
 }
