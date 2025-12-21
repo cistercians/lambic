@@ -8602,13 +8602,20 @@ Serf = function(param){
         }
         self.dayTimer = false;
       },rand);
-    } else if(tempus == 'VI.p' && (self.action == 'task' || self.action == 'build') && !self.dayTimer){
+    } else if(tempus == 'VI.p' && 
+         (((self.class === 'Serf' || self.class === 'SerfM' || self.class === 'SerfF') && self.mode == 'work') ||
+          (self.action == 'task' || self.action == 'build')) && 
+         !self.dayTimer){
       self.dayTimer = true;
       var rand = Math.floor(Math.random() * (3600000/(period*6)));
       setTimeout(function(){
-        if(self.action == 'task' || self.action == 'build'){
-        self.action = 'clockout';
-        self.work.spot = null;
+        // Check if serf in work mode OR has task/build action
+        var isSerfInWorkMode = (self.class === 'Serf' || self.class === 'SerfM' || self.class === 'SerfF') && self.mode == 'work';
+        var hasTaskOrBuildAction = (self.action == 'task' || self.action == 'build');
+        
+        if(isSerfInWorkMode || hasTaskOrBuildAction){
+          self.action = 'clockout';
+          self.work.spot = null;
         }
         self.dayTimer = false;
       },rand);

@@ -1003,32 +1003,25 @@ class SimpleSerfBehavior {
       const isClockout = serf.action === 'clockout';
       let anyDeposited = false;
 
-      // Common resources (deposit if >= 10, or any amount during clockout)
+      // Common resources (deposit all when triggered, or any amount during clockout)
       const commonResources = ['grain', 'wood', 'stone', 'ironore'];
       for (const resourceType of commonResources) {
         const amount = serf.inventory[resourceType] || 0;
-        if (isClockout || amount >= 10) {
+        if (isClockout || amount > 0) {
           if (amount > 0 && this.depositResource(serf, resourceType, building)) {
             anyDeposited = true;
           }
         }
       }
 
-      // Rare ores (deposit if >= 1, or any amount during clockout)
+      // Rare ores (deposit all when triggered, or any amount during clockout)
       const rareResources = ['silverore', 'goldore', 'diamond'];
       for (const resourceType of rareResources) {
         const amount = serf.inventory[resourceType] || 0;
-        if (isClockout || amount >= 1) {
-          if (isClockout) {
-            // During clockout, deposit all (one at a time)
-            while ((serf.inventory[resourceType] || 0) > 0 && this.depositResource(serf, resourceType, building, 1)) {
-              anyDeposited = true;
-            }
-          } else {
-            // Normal deposit (just 1)
-            if (amount >= 1 && this.depositResource(serf, resourceType, building, 1)) {
-              anyDeposited = true;
-            }
+        if (isClockout || amount > 0) {
+          // Deposit all rare resources (one at a time)
+          while ((serf.inventory[resourceType] || 0) > 0 && this.depositResource(serf, resourceType, building, 1)) {
+            anyDeposited = true;
           }
         }
       }
