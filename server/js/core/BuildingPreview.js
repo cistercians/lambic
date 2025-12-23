@@ -83,10 +83,10 @@ class BuildingPreview {
         plot: [[0,0],[1,0],[2,0],[0,-1],[1,-1],[2,-1]], // 3x2
         walls: [[0,-2],[1,-2],[2,-2]],
         topPlot: null,
-        requiredTiles: [TERRAIN.EMPTY],
+        requiredTiles: [TERRAIN.EMPTY, TERRAIN.ROCKS, TERRAIN.MOUNTAIN], // Can be built on grass, rocks, or mountains
         clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
         materials: { wood: 50 }, // Wood only
-        playerRequiredTiles: [TERRAIN.EMPTY] // Grass
+        playerRequiredTiles: [TERRAIN.EMPTY, TERRAIN.ROCKS, TERRAIN.MOUNTAIN] // Grass/Rock/Mountain
       },
       fort: {
         name: 'Fort',
