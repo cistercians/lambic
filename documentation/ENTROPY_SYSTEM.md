@@ -177,13 +177,12 @@ const animalRatios = {
 - Purpose: Initial population seeding on first day
 - Example: Ratio 40 → Spawn 24 deer
 
-**Subsequent Days** (`lambic.js:2389`)
-- Formula: `Math.floor((ratio - pop) * multiplier)`
-- Multipliers:
-  - Falcon: `0.01` (1% of deficit per day)
-  - Other animals: `0.02` (2% of deficit per day)
-- Purpose: Gradual population recovery toward target
-- Example: Ratio 40, Pop 21 → Spawn `Math.floor((40-21) * 0.02) = Math.floor(0.38) = 0`
+**Subsequent Days** (`lambic.js:2418-2423`)
+- Formula: `Math.max(1, Math.floor((ratio - pop) * 0.33))`
+- Recovery rate: `0.33` (33% of deficit per day) for ALL fauna types
+- Minimum spawn guarantee: At least 1 animal spawns if population is below ratio
+- Purpose: Rapid population recovery toward target with guaranteed minimum
+- Example: Ratio 40, Pop 21 → Spawn `Math.max(1, Math.floor((40-21) * 0.33)) = Math.max(1, 6) = 6`
 
 **Spawn Location** (`lambic.js:2400`)
 - Uses `randomSpawnHF()` function
@@ -191,13 +190,14 @@ const animalRatios = {
 - Falls back to overworld spawns if no heavy forest available
 - Filters to named geographic zones if `zoneManager` exists
 
-**Entity Creation** (`lambic.js:2404-2410`)
-- Creates entity via constructor: `Deer()`, `Boar()`, `Wolf()`, `Falcon()`
+**Entity Creation** (`lambic.js:2434-2440`)
+- Creates entity via `AnimalConstructor({...})` with options object
+- Animal constructors: `Deer()`, `Boar()`, `Wolf()`, `Falcon()`
 - Parameters:
-  - `x, y`: Spawn coordinates (pixel position)
+  - `x, y`: Spawn coordinates (pixel position from `randomSpawnHF()`)
   - `z: 0` (overworld)
-  - `home`: Home location in tile coordinates
-  - `falconry: false` (for falcons only)
+  - `home`: Home location object with `{ z: 0, loc: [tileX, tileY] }` in tile coordinates
+  - `falconry: false` (for falcons only, undefined for other animals)
 
 ### Fauna Statistics
 
@@ -245,6 +245,7 @@ if (lastEntropyTempus !== newTempus) {
 
 **Entity Creation**
 - Uses global constructors: `Deer()`, `Boar()`, `Wolf()`, `Falcon()`
+- Entities created via `AnimalConstructor({...})` with options object containing `x`, `y`, `z`, `home`, and `falconry` properties
 - Entities automatically registered in `Player.list` upon creation
 - Entities have `type: 'fauna'` and appropriate `class` property
 
@@ -297,16 +298,14 @@ Where divisors are:
 **Spawn Rate:**
 ```
 Day 1: spawn = floor(target * 0.618)
-Day N: spawn = floor((target - current) * multiplier)
+Day N: spawn = max(1, floor((target - current) * 0.33))
 ```
 
-Where multipliers are:
-- Falcon: 0.01 (1% recovery per day)
-- Others: 0.02 (2% recovery per day)
+Recovery rate: `0.33` (33% of deficit per day) for ALL fauna types, with a minimum guarantee of 1 spawn if population is below target.
 
 **Population Recovery:**
-- With 2% recovery rate, population reaches 90% of target in ~50 days
-- With 1% recovery rate (falcons), population reaches 90% of target in ~100 days
+- With 33% recovery rate, population reaches 90% of target in ~3-4 days
+- Minimum spawn guarantee ensures at least 1 animal spawns per day when below target ratio
 
 ---
 
@@ -318,10 +317,10 @@ Where multipliers are:
    - Consider adding maximum spawn limit to prevent overshooting ratios
    - Potential implementation: `Math.min(spawn, ratio - pop)` to cap at deficit
 
-2. **Gradual Recovery Tuning**
-   - Current 2% recovery rate for most animals, 1% for falcons
+2. **Recovery Rate Tuning**
+   - Current 33% recovery rate for all animals with minimum spawn guarantee
    - May need adjustment based on gameplay balance testing
-   - Consider increasing to 5% for faster recovery while maintaining balance
+   - Recovery is quite rapid (90% of target in ~3-4 days), consider reducing if populations recover too quickly
 
 3. **Logging Enhancements**
    - Add more detailed logging for spawn calculations
@@ -372,15 +371,15 @@ Where multipliers are:
 - Falcon: `15 * 0.618 = 9.27 → 9`
 
 **Day 2 Recovery (if pop = 20 deer):**
-- Expected: `(40 - 20) * 0.02 = 0.4 → 0`
-- Spawns 0 animals (deficit too small)
+- Expected: `Math.max(1, Math.floor((40 - 20) * 0.33)) = Math.max(1, 6) = 6`
+- Spawns 6 animals (33% of 20 deficit)
 
 **Day 2 Recovery (if pop = 10 deer):**
-- Expected: `(40 - 10) * 0.02 = 0.6 → 0`
-- Spawns 0 animals (deficit too small)
+- Expected: `Math.max(1, Math.floor((40 - 10) * 0.33)) = Math.max(1, 9) = 9`
+- Spawns 9 animals (33% of 30 deficit)
 
 **Day 2 Recovery (if pop = 0 deer):**
-- Expected: `(40 - 0) * 0.02 = 0.8 → 0`
-- Spawns 0 animals (deficit too small)
+- Expected: `Math.max(1, Math.floor((40 - 0) * 0.33)) = Math.max(1, 13) = 13`
+- Spawns 13 animals (33% of 40 deficit)
 
-**Note**: With 2% recovery rate, only deficits > 50 will spawn 1+ animals on subsequent days. For example, if ratio is 40 and pop is 0, the deficit is 40, which yields `40 * 0.02 = 0.8 → 0` spawns. To spawn at least 1 animal, the deficit must be at least 50 (e.g., ratio 50 with pop 0 yields `50 * 0.02 = 1`).
+**Note**: With 33% recovery rate and minimum spawn guarantee, at least 1 animal spawns whenever population is below target. The recovery rate ensures rapid population growth toward target ratios. For example, if ratio is 40 and pop is 0, the deficit is 40, which yields `Math.max(1, Math.floor(40 * 0.33)) = Math.max(1, 13) = 13` spawns.

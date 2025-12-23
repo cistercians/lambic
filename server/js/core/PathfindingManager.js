@@ -152,7 +152,7 @@ class PathfindingManager {
    */
   _handleMultiZPath(entity, startLoc, targetZ, targetLoc) {
     if (typeof global.createMultiZPath === 'function') {
-      const multiZWaypoints = global.createMultiZPath(entity.z, startLoc, targetZ, targetLoc);
+      const multiZWaypoints = global.createMultiZPath(entity.z, startLoc, targetZ, targetLoc, entity);
       
       if (multiZWaypoints && multiZWaypoints.length > 0) {
         // Store waypoints on entity for multi-z navigation

@@ -1308,7 +1308,10 @@ function cachePath(start, end, z, path) {
 }
 
 // Multi-z pathfinding system for complex journeys
-function createMultiZPath(startZ, startLoc, targetZ, targetLoc) {
+function createMultiZPath(startZ, startLoc, targetZ, targetLoc, entity) {
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:1311',message:'createMultiZPath entry',data:{entityId:entity?entity.id:null,startZ:startZ,startLoc:startLoc,targetZ:targetZ,targetLoc:targetLoc},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+  // #endregion
   const path = [];
   const waypoints = [];
   
@@ -1324,7 +1327,9 @@ function createMultiZPath(startZ, startLoc, targetZ, targetLoc) {
   
   // Find the optimal route through z-levels
   const route = findOptimalZRoute(startZ, targetZ);
-  
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:1326',message:'createMultiZPath route result',data:{entityId:entity?entity.id:null,route:route,routeLength:route.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+  // #endregion
   if (route.length === 0) {
     // Route logging handled via event system
     return null;
@@ -1339,8 +1344,10 @@ function createMultiZPath(startZ, startLoc, targetZ, targetLoc) {
     const toZ = route[i + 1];
     
     // Find transition point between these z-levels
-    const transition = findZTransition(fromZ, toZ, currentLoc, targetLoc);
-    
+    const transition = findZTransition(fromZ, toZ, currentLoc, targetLoc, entity);
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:1342',message:'createMultiZPath transition result',data:{entityId:entity?entity.id:null,fromZ:fromZ,toZ:toZ,hasTransition:!!transition,transition:transition},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
     if (!transition) {
       // Transition logging handled via event system
       return null;
@@ -1367,6 +1374,9 @@ function createMultiZPath(startZ, startLoc, targetZ, targetLoc) {
     nextLoc: null
   });
   
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:1370',message:'createMultiZPath returning waypoints',data:{entityId:entity?entity.id:null,waypointsCount:waypoints.length,waypoints:waypoints},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+  // #endregion
   return waypoints;
 }
 
@@ -1408,27 +1418,43 @@ function findOptimalZRoute(startZ, targetZ) {
 }
 
 // Find transition points between z-levels
-function findZTransition(fromZ, toZ, fromLoc, targetLoc) {
+function findZTransition(fromZ, toZ, fromLoc, targetLoc, entity) {
   if (fromZ === -1 && toZ === 0) {
-    // Cave to overworld: find nearest cave entrance
+    // Cave to overworld: use stored caveEntrance if available (matches special-case handler)
     let bestEntrance = null;
-    let bestDistance = Infinity;
     
-    for (const entrance of caveEntrances) {
-      const distance = getDistance(
-        {x: fromLoc[0], y: fromLoc[1]}, 
-        {x: entrance[0], y: entrance[1]}
-      );
-      if (distance < bestDistance) {
-        bestDistance = distance;
-        bestEntrance = entrance;
+    // Priority 1: Use stored caveEntrance from entity (the entrance they used to enter)
+    // This matches the working special-case handler behavior
+    if (entity && entity.caveEntrance && Array.isArray(entity.caveEntrance) && entity.caveEntrance.length >= 2) {
+      // Validate it still exists in caveEntrances array
+      for (const entrance of global.caveEntrances || []) {
+        if (entrance[0] === entity.caveEntrance[0] && entrance[1] === entity.caveEntrance[1]) {
+          bestEntrance = entity.caveEntrance;
+          break;
+        }
+      }
+    }
+    
+    // Priority 2: Find nearest to current location (not target) if no stored entrance
+    // This matches the special-case handler fallback behavior
+    if (!bestEntrance) {
+      let bestDistance = Infinity;
+      for (const entrance of global.caveEntrances || []) {
+        const distance = getDistance(
+          {x: fromLoc[0], y: fromLoc[1]},  // Use fromLoc (current location), not targetLoc
+          {x: entrance[0], y: entrance[1]}
+        );
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          bestEntrance = entrance;
+        }
       }
     }
     
     if (bestEntrance) {
       return {
-        from: bestEntrance,
-        to: [bestEntrance[0], bestEntrance[1] + 1],
+        from: [bestEntrance[0], bestEntrance[1] + 1], // Cave exit (layer 1)
+        to: bestEntrance, // Overworld entrance
         action: 'exit_cave'
       };
     }
@@ -1439,7 +1465,7 @@ function findZTransition(fromZ, toZ, fromLoc, targetLoc) {
     let bestEntrance = null;
     let bestDistance = Infinity;
     
-    for (const entrance of caveEntrances) {
+    for (const entrance of global.caveEntrances || []) {
       const distance = getDistance(
         {x: targetLoc[0], y: targetLoc[1]}, 
         {x: entrance[0], y: entrance[1]}

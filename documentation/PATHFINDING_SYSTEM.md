@@ -65,11 +65,13 @@ The low-level pathfinding engine that interfaces with the A* library.
 - Delegates key generation to TilemapSystem
 - Stores generated pathfinding grids to avoid regeneration
 
-**Request Queue**:
-- Max concurrent: 10 operations per frame
+**Request Queue** (Built-in):
+- PathfindingSystem has a built-in queue system (not using separate PathfindingRequestQueue.js)
+- Max concurrent: 10 operations per frame (`maxConcurrentPathfinding`)
 - Frame reset: >16ms since last reset
-- Queue processing: Up to 5 requests per call
-- Time budget: 5ms per frame
+- Queue processing: Up to 5 requests per call (`maxProcessPerCall`)
+- Individual operation timeout: 100ms (`maxPathfindingTime`) - prevents blocking on slow pathfinding
+- Note: `PathfindingRequestQueue.js` exists but is not currently integrated into PathfindingSystem
 
 **Object Pool**:
 - Vectors: 50 pooled `[x, y]` arrays
@@ -185,6 +187,15 @@ Version included to invalidate cache when tiles change.
 **File**: `server/js/core/PathfindingManager.js`
 
 Unified high-level API for all pathfinding requests. Single entry point ensures consistent behavior.
+
+**Singleton Pattern**: PathfindingManager is exported as a singleton instance. Import using:
+```javascript
+const pathfindingManager = require('./core/PathfindingManager');
+// Use the singleton instance directly
+pathfindingManager.requestPath(entity, destination, options);
+```
+
+**Note**: While PathfindingManager provides a unified API, many parts of the codebase still call `TilemapSystem.findPath()` or `Entity.getPath()` directly. PathfindingManager is available but not universally adopted.
 
 #### Main Method
 
@@ -398,6 +409,11 @@ Direction codes: `'u'`, `'d'`, `'l'`, `'r'`, `'ul'`, `'ur'`, `'dl'`, `'dr'`, `'l
 - `pathCooldown` prevents spam (90 ticks = 1.5s at 60fps)
 - Applied on pathfinding failure
 - Blocks pathfinding requests while active
+
+**Cooldown Bypass**:
+- Multi-z transitions bypass cooldown: When `|targetZ - currentZ| >= 1`, cooldown is ignored
+- Waypoint processing bypasses cooldown: When processing `multiZWaypoints`, cooldown is ignored
+- This ensures critical navigation requests are not blocked by cooldown timers
 
 #### Multi-Z Pathfinding
 
@@ -631,14 +647,18 @@ NPCs preserve paths across transitions for multi-floor navigation:
 
 ```javascript
 {
-  '-2->-1': [-2, 1, 0, -1],  // Cellar → Cave via building and overworld
+  '-1->2': [-1, 0, 1, 2],    // Cave → Building floor 2 via overworld and building
+  '-1->-2': [-1, 0, 1, -2],  // Cave → Cellar via overworld and building
+  '2->-1': [2, 1, 0, -1],    // Building floor 2 → Cave via building, overworld
   '-3->0': [-3, 0],          // Underwater → Overworld
   '-3->1': [-3, 0, 1],       // Underwater → Building via overworld
   '-3->2': [-3, 0, 1, 2],    // Underwater → Building floor 2
   '-3->-1': [-3, 0, -1],     // Underwater → Cave via overworld
-  '-3->-2': [-3, 0, 1, -2]  // Underwater → Cellar via overworld and building
+  '-3->-2': [-3, 0, 1, -2]   // Underwater → Cellar via overworld and building
 }
 ```
+
+**Note**: Direct movement between -2 (cellar) and -1 (cave) is not possible. Routes like `-2->-1` or `-1->-2` that appear in code are invalid and should not be used. Movement between these z-levels must go through intermediate z-levels (e.g., via overworld and building).
 
 **Fallback Logic**:
 - If `|startZ - targetZ| <= 1`: Direct transition `[startZ, targetZ]`
@@ -725,17 +745,17 @@ return {
 ### Multi-Z Execution
 
 **Entity Properties**:
-- `multiZWaypoints`: Array of waypoints `[{z, loc, action}, ...]`
+- `multiZWaypoints`: Array of waypoints `[{z, loc, action, nextZ, nextLoc}, ...]`
 - `currentWaypoint`: Index of current waypoint
 
 **Execution Flow**:
 1. Entity stores `multiZWaypoints` array
-2. Pathfind to first waypoint
+2. Pathfind to first waypoint's `loc` on waypoint's `z` level
 3. When waypoint reached:
-   - Execute transition (change z-level, update position)
+   - Execute transition action (change z-level to `nextZ`, update position to `nextLoc`)
    - Increment `currentWaypoint`
-   - Pathfind to next waypoint
-4. Repeat until all waypoints completed
+   - If more waypoints exist, pathfind to next waypoint's `loc` on its `z` level
+4. Repeat until all waypoints completed (final waypoint has `nextZ: null`)
 
 ---
 
@@ -770,23 +790,39 @@ return {
 
 ### Grid Cache
 
-**Location**: `TilemapSystem.pathfindingCache` + `PathfindingSystem.gridCache`
+**Dual Cache System**: Both TilemapSystem and PathfindingSystem maintain separate grid caches.
 
-**Structure**: `Map<cacheKey, grid>` or `Map<cacheKey, {grid: Array, timestamp: number}>`
+**TilemapSystem Grid Cache**:
+- **Location**: `TilemapSystem.pathfindingCache`
+- **Structure**: `Map<cacheKey, grid>` (grids stored directly, no timestamp wrapper)
+- **Size**: 50 grids max
+- **TTL**: N/A (version-based invalidation only)
+- **Purpose**: Primary cache for generated pathfinding grids
+- **Invalidation**: Version-based (cache keys include version number)
+
+**PathfindingSystem Grid Cache**:
+- **Location**: `PathfindingSystem.gridCache`
+- **Structure**: `Map<cacheKey, {grid: Array, timestamp: number}>`
+- **Size**: 10 grids max
+- **TTL**: 60 seconds
+- **Purpose**: Secondary cache layer with TTL-based expiration
+- **Invalidation**: Both version-based (via cache key) and TTL-based
 
 **Cache Key Format**: `${layer}_${options}_v${version}`
 
 **Options Encoding**: See [Grid Cache Key Generation](#grid-cache-key-generation)
 
 **Versioning**:
-- `gridVersions`: Map tracking version per layer
-- Incremented when tiles change
+- `gridVersions`: Map tracking version per layer (in TilemapSystem)
+- Incremented when tiles change via `TilemapSystem.setTile()`
 - Cache keys include version, causing automatic misses on stale data
+- Both caches use the same version-based key generation
 
-**Configuration**:
-- TilemapSystem: 50 grids max
-- PathfindingSystem: 10 grids max
-- TTL: 60 seconds
+**Cache Flow**:
+1. PathfindingSystem checks its own grid cache first
+2. If miss, requests grid from TilemapSystem
+3. TilemapSystem checks its cache, generates if needed
+4. PathfindingSystem caches the result in its own cache
 
 ### Cache Invalidation
 
@@ -809,20 +845,24 @@ return {
 
 ### Throttling
 
-**Frame Budget**:
-- Max 10 concurrent pathfinding operations per frame
+**Frame Concurrency**:
+- Max 10 concurrent pathfinding operations per frame (`maxConcurrentPathfinding`)
 - Frame reset: >16ms since last reset
-- Queue overflow: Requests queued for next frame
+- Queue overflow: Requests queued for next frame when limit reached
 
 **Queue Processing**:
-- `processPathfindingQueue()` handles up to 5 queued requests per call
-- Priority-based processing (high → medium → low)
-- Time budget: 5ms per frame
+- `processPathfindingQueue()` handles up to 5 queued requests per call (`maxProcessPerCall`)
+- Processes requests when frame budget allows (up to 10 concurrent operations per frame)
+- No explicit time budget per frame - throttling is based on concurrent operation count
+
+**Operation Timeout**:
+- Individual pathfinding operations have a 100ms timeout (`maxPathfindingTime`)
+- Prevents blocking on slow pathfinding operations
+- This is a safety timeout, not a frame budget
 
 **Priority Levels**:
-- High: Players
-- Medium: Close NPCs (<500 distance)
-- Low: Far NPCs
+- Note: Priority-based processing is not currently implemented in the built-in queue
+- All requests are processed in FIFO order when frame capacity is available
 
 ### Path Smoothing
 
@@ -870,6 +910,50 @@ return {
 **Logging**: Every 10 seconds if enabled
 
 **Access**: `PathfindingSystem.getProfilingStats()`
+
+### PathfindingDiagnostics
+
+**File**: `server/js/core/PathfindingDiagnostics.js`
+
+Aggregates performance data from multiple pathfinding-related systems to provide comprehensive diagnostics.
+
+#### Purpose
+
+- Collects stats from PathfindingSystem, stuck entity analytics, and memory usage
+- Monitors performance thresholds and generates warnings
+- Provides performance scoring and issue identification
+
+#### Key Features
+
+**Performance Thresholds**:
+- Max average pathfinding time: 5ms
+- Max pathfinding time: 50ms
+- Max requests per second: 100
+- Min cache hit rate: 30%
+- Max stuck events per minute: 20
+
+**Metrics Collected**:
+- Pathfinding system stats (from `PathfindingSystem.getProfilingStats()`)
+- Stuck entity statistics (from `stuckEntityAnalytics`)
+- Memory usage (heap, RSS)
+- Performance warnings based on thresholds
+
+**Methods**:
+- `collectStats()` - Gathers all performance data
+- `logDiagnostics()` - Logs comprehensive diagnostics (every 10 seconds)
+- `getPerformanceScore()` - Returns performance score (0-100)
+- `getTopIssues(limit)` - Identifies top performance issues
+- `resetMetrics()` - Resets all collected metrics
+
+**Usage**:
+```javascript
+const diagnostics = require('./core/PathfindingDiagnostics');
+const stats = diagnostics.collectStats();
+const score = diagnostics.getPerformanceScore();
+const issues = diagnostics.getTopIssues(5);
+```
+
+**Note**: PathfindingDiagnostics is a separate diagnostic tool and does not affect pathfinding performance. It aggregates data for monitoring purposes only.
 
 ---
 
@@ -1051,7 +1135,14 @@ var path = global.tilemapSystem.findPath(currentLoc, closestWaterTile, 0, {
 
 ### Multi-Z Waypoint Format
 
-**Structure**: `Array<{z: number, loc: [col, row], action: string}>`
+**Structure**: `Array<{z: number, loc: [col, row], action: string, nextZ: number|null, nextLoc: [col, row]|null}>`
+
+**Fields**:
+- `z`: Current z-level for this waypoint
+- `loc`: Location `[col, row]` for this waypoint
+- `action`: Transition action string (e.g., `'enter_cave'`, `'exit_cave'`, `'go_upstairs'`, etc.)
+- `nextZ`: Next z-level after transition (null for final destination)
+- `nextLoc`: Next location after transition (null for final destination)
 
 **Example**:
 ```javascript
@@ -1059,17 +1150,23 @@ var path = global.tilemapSystem.findPath(currentLoc, closestWaterTile, 0, {
   {
     z: 0,
     loc: [10, 20],
-    action: 'enter_cave'
+    action: 'enter_cave',
+    nextZ: -1,
+    nextLoc: [10, 21]
   },
   {
     z: -1,
     loc: [10, 21],
-    action: 'exit_cave'
+    action: 'exit_cave',
+    nextZ: 0,
+    nextLoc: [10, 20]
   },
   {
     z: 0,
     loc: [15, 25],
-    action: null
+    action: 'arrive',
+    nextZ: null,
+    nextLoc: null
   }
 ]
 ```
@@ -1233,6 +1330,13 @@ Invalidate pathfinding cache for a layer.
 
 ### PathfindingManager
 
+**Singleton Instance**: PathfindingManager is exported as a singleton. Use the default export:
+
+```javascript
+const pathfindingManager = require('./core/PathfindingManager');
+// pathfindingManager is already an instance, use directly
+```
+
 #### `requestPath(entity, destination, options)`
 
 Request a path for an entity (unified API).
@@ -1246,10 +1350,13 @@ Request a path for an entity (unified API).
 
 **Example**:
 ```javascript
+const pathfindingManager = require('./core/PathfindingManager');
 var path = pathfindingManager.requestPath(player, [15, 25], {
   avoidDoors: true
 });
 ```
+
+**Usage Note**: While PathfindingManager provides a unified API, many parts of the codebase still use `TilemapSystem.findPath()` or `Entity.getPath()` directly. PathfindingManager is available for new code or refactoring efforts.
 
 ### Entity
 

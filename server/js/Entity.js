@@ -3246,36 +3246,48 @@ Character = function(param){
             }
           }
         } else if(self.z == -1 && tz == 0){
-          // Exiting cave (z=-1 to z=0) - align with building exit pattern
-          // Set intent and pathfind to exit tile, let transition detection handle actual transition
-          self.transitionIntent = 'exit_cave';
-          self.targetZLevel = 0;
-          
-          // Use stored caveEntrance (set by enterCave() when entering)
-          // Exit is always one tile south of the entrance
-          if(self.caveEntrance && Array.isArray(self.caveEntrance) && self.caveEntrance.length >= 2){
-            tLoc = [self.caveEntrance[0], self.caveEntrance[1] + 1]; // Cave exit is one tile south
-          } else {
-            // Fallback: find nearest cave entrance (shouldn't happen if enterCave() was called)
-            var nearestEntrance = selectCaveEntrance(self, tz, tLoc, null);
-            if(nearestEntrance && Array.isArray(nearestEntrance) && nearestEntrance.length >= 2){
-              self.caveEntrance = nearestEntrance; // Store for future use
-              tLoc = [nearestEntrance[0], nearestEntrance[1] + 1];
-            } else {
-              // No cave entrance found - cannot exit
-              if(self.type === 'npc' && (self.class === 'Serf' || self.class === 'SerfM' || self.class === 'SerfF')){
-                var serfLogger = global.serfLogger;
-                if(serfLogger){
-                  serfLogger.warn(`[moveTo] Cannot exit cave - no entrance found: serf=${self.id} z=${self.z}->${tz}`, self);
-                }
-              }
-              return;
+          // Exiting cave (z=-1 to z=0) - use multi-z pathfinding if available
+          // Check if we should use multi-z pathfinding (for complex journeys like dropoff locations)
+          // Multi-z pathfinding will handle: exit cave -> path to final destination
+          var shouldUseMultiZ = Math.abs(tz - self.z) >= 1;
+          if(shouldUseMultiZ){
+            // Use multi-z pathfinding - call getPath directly with target z-level
+            // This will trigger multi-z pathfinding which handles: exit cave -> path to final destination
+            if(self.shouldRequestPath(tz, tLoc[0], tLoc[1])){
+              self.getPath(tz, tLoc[0], tLoc[1]);
             }
-          }
-          
-          // Pathfind to the cave exit tile (like building exits pathfind to door)
-          if(self.shouldRequestPath(-1, tLoc[0], tLoc[1])){
-            self.getPath(-1, tLoc[0], tLoc[1]);
+            return;
+          } else {
+            // Legacy single-step exit: Set intent and pathfind to exit tile, let transition detection handle actual transition
+            self.transitionIntent = 'exit_cave';
+            self.targetZLevel = 0;
+            
+            // Use stored caveEntrance (set by enterCave() when entering)
+            // Exit is always one tile south of the entrance
+            if(self.caveEntrance && Array.isArray(self.caveEntrance) && self.caveEntrance.length >= 2){
+              tLoc = [self.caveEntrance[0], self.caveEntrance[1] + 1]; // Cave exit is one tile south
+            } else {
+              // Fallback: find nearest cave entrance (shouldn't happen if enterCave() was called)
+              var nearestEntrance = selectCaveEntrance(self, tz, tLoc, null);
+              if(nearestEntrance && Array.isArray(nearestEntrance) && nearestEntrance.length >= 2){
+                self.caveEntrance = nearestEntrance; // Store for future use
+                tLoc = [nearestEntrance[0], nearestEntrance[1] + 1];
+              } else {
+                // No cave entrance found - cannot exit
+                if(self.type === 'npc' && (self.class === 'Serf' || self.class === 'SerfM' || self.class === 'SerfF')){
+                  var serfLogger = global.serfLogger;
+                  if(serfLogger){
+                    serfLogger.warn(`[moveTo] Cannot exit cave - no entrance found: serf=${self.id} z=${self.z}->${tz}`, self);
+                  }
+                }
+                return;
+              }
+            }
+            
+            // Pathfind to the cave exit tile (like building exits pathfind to door)
+            if(self.shouldRequestPath(-1, tLoc[0], tLoc[1])){
+              self.getPath(-1, tLoc[0], tLoc[1]);
+            }
           }
         } else if(self.z == -2){
           var b = getBuilding(cen[0],cen[1]);
@@ -3391,6 +3403,12 @@ Character = function(param){
           }
         } else if(self.z == -3){
           //
+        } else {
+          // Unhandled z-transition - should call getPath for multi-z pathfinding
+          if(self.shouldRequestPath(tz, tLoc[0], tLoc[1])){
+            self.getPath(tz, tLoc[0], tLoc[1]);
+            return;
+          }
         }
       }
     }
@@ -5082,7 +5100,11 @@ Character = function(param){
 
   self.getPath = function(z,c,r){
     // Check pathfinding cooldown to prevent spam
-    if(self.pathCooldown && self.pathCooldown > 0){
+    // EXCEPTION: Allow multi-z pathfinding requests to bypass cooldown (critical for navigation)
+    // Also allow bypass when processing multi-z waypoints (recursive calls for waypoint navigation)
+    const isMultiZTransition = z != self.z && Math.abs(z - self.z) >= 1;
+    const isProcessingWaypoint = self.multiZWaypoints && self.multiZWaypoints.length > 0;
+    if(self.pathCooldown && self.pathCooldown > 0 && !isMultiZTransition && !isProcessingWaypoint){
       return; // Skip pathfinding while on cooldown
     }
     
@@ -5094,10 +5116,11 @@ Character = function(param){
     var cd = getCenter(c,r);
     var db = getBuilding(cd[0],cd[1]);
     
-    // Use multi-z pathfinding for complex journeys
-    if(z != self.z && Math.abs(z - self.z) > 1){
-      var multiZPath = createMultiZPath(self.z, start, z, [c,r]);
-      
+    // Use multi-z pathfinding for complex journeys (including single-level transitions)
+    var zDiff = Math.abs(z - self.z);
+    var shouldUseMultiZ = z != self.z && zDiff >= 1;
+    if(shouldUseMultiZ){
+      var multiZPath = createMultiZPath(self.z, start, z, [c,r], self);
       if(multiZPath && multiZPath.length > 0){
         // Store the multi-z waypoints
         self.multiZWaypoints = multiZPath;

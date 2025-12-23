@@ -157,7 +157,9 @@ class SimpleSerfBehavior {
     } else if (!serf.path || serf.path.length === 0) {
       // Path to dropoff
       if (typeof serf.moveTo === 'function') {
-        serf.moveTo(0, dropoff[0], dropoff[1]);
+        // Use building's z-level if available, otherwise default to 0 (overworld)
+        const dropoffZ = (building && typeof building.z === 'number') ? building.z : 0;
+        serf.moveTo(dropoffZ, dropoff[0], dropoff[1]);
       }
     }
   }
@@ -257,7 +259,9 @@ class SimpleSerfBehavior {
             // Continue to go home logic below
           } else if (!serf.path || serf.path.length === 0) {
             if (typeof serf.moveTo === 'function') {
-              serf.moveTo(0, dropoff[0], dropoff[1]);
+              // Use building's z-level if available, otherwise default to 0 (overworld)
+              const dropoffZ = (building && typeof building.z === 'number') ? building.z : 0;
+              serf.moveTo(dropoffZ, dropoff[0], dropoff[1]);
             }
             return; // Wait for pathfinding
           } else {
@@ -278,10 +282,8 @@ class SimpleSerfBehavior {
         if (serf.z !== serf.home.z || loc.toString() !== serf.home.loc.toString()) {
           if (!serf.path || serf.path.length === 0) {
             if (typeof serf.moveTo === 'function') {
-              // FIX: Reuse the working deposit pattern - explicitly use z=0
-              // This ensures we use the same code path that successfully handles cave exits
-              // Since serf.home.z is always 0 for regular serfs, this is equivalent but clearer
-              serf.moveTo(0, serf.home.loc[0], serf.home.loc[1]);
+              // Use serf.home.z to support multi-z pathfinding (e.g., z=1 for building homes)
+              serf.moveTo(serf.home.z, serf.home.loc[0], serf.home.loc[1]);
             }
           }
         } else {
