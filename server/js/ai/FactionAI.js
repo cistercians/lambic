@@ -3,11 +3,12 @@
 
 const FactionKnowledge = require('./FactionKnowledge');
 const TerritoryManager = require('./TerritoryManager');
-const ResourcePlanner = require('./ResourcePlanner');
 const GoalChain = require('./GoalChain');
 const FactionProfiles = require('./FactionProfiles');
-const ScoutingParty = require('./ScoutingParty');
-const FollowBehavior = require('./FollowBehavior');
+const BuildingService = require('./BuildingService');
+const MilitaryManager = require('./MilitaryManager');
+const GoalExecutor = require('./GoalExecutor');
+const FactionAILogger = require('./FactionAILogger');
 
 // Strategy modules
 const FactionStrategy = require('./strategies/FactionStrategy');
@@ -25,93 +26,56 @@ class FactionAI {
     this.house = house;
     this.knowledge = new FactionKnowledge(house);
     this.territory = new TerritoryManager(house);
-    this.resourcePlanner = new ResourcePlanner();
+    this.buildingService = new BuildingService(house);
+    this.militaryManager = new MilitaryManager(house, this);
+    this.goalExecutor = new GoalExecutor(house, this);
+    this.logger = new FactionAILogger(house);
     this.currentGoalChain = null;
-    this.activeGoals = [];
     this.lastEvaluatedDay = 0; // Track last day evaluated to prevent duplicates
-    this.activeScoutingParties = []; // Track active scouting expeditions
-    this.activeAttackForces = []; // Track active military expeditions
+    
+    // Caching for expensive operations
+    this._cachedMilitaryUnits = null;
+    this._cachedMilitaryUnitsDay = 0;
     
     // Load faction profile and strategy (use house.name for faction type)
     this.profile = FactionProfiles[house.name] || FactionProfiles.Goths;
     this.strategy = this.loadStrategy();
     
-    // Perform initial territory scan
-    this.initialTerritoryScan();
+    // Initial territory scan is now performed automatically by FactionKnowledge constructor
+    
+    // Validate all services after creation (fail fast if initialization failed)
+    this.validateServices();
   }
   
-  // Scan immediate area around HQ for initial knowledge
-  initialTerritoryScan() {
-    const scanRadius = 15;
-    const hq = this.house.hq;
-    const area = global.getArea ? global.getArea(hq, hq, scanRadius) : [];
+  // Validate that all services are properly initialized
+  validateServices() {
+    const services = [
+      { name: 'FactionKnowledge', instance: this.knowledge, class: FactionKnowledge },
+      { name: 'TerritoryManager', instance: this.territory, class: TerritoryManager },
+      { name: 'BuildingService', instance: this.buildingService, class: BuildingService },
+      { name: 'MilitaryManager', instance: this.militaryManager, class: MilitaryManager },
+      { name: 'GoalExecutor', instance: this.goalExecutor, class: GoalExecutor }
+    ];
     
-    let forestCount = 0;
-    let rockCount = 0;
-    let caveCount = 0;
-    let farmlandCount = 0;
+    const errors = [];
     
-    const caveLocations = [];
-    const forestClusters = [];
-    const rockClusters = [];
-    
-    for (const tile of area) {
-      const terrain = global.getTile ? global.getTile(0, tile[0], tile[1]) : 0;
-      
-      if (terrain === 1 || terrain === 2) { // HEAVY_FOREST or LIGHT_FOREST
-        forestCount++;
-        if (forestCount % 5 === 0) forestClusters.push(tile);
+    for (const service of services) {
+      if (!service.instance) {
+        errors.push(`${service.name} not initialized`);
+      } else if (!(service.instance instanceof service.class)) {
+        errors.push(`${service.name} is not an instance of ${service.name}`);
       }
-      if (terrain === 4) { // ROCKS
-        rockCount++;
-        if (rockCount % 5 === 0) rockClusters.push(tile);
-      }
-      if (terrain === 6) { // CAVE_ENTRANCE
-        caveCount++;
-        caveLocations.push(tile);
-      }
-      if (terrain === 7 || terrain === 3) { // EMPTY or BRUSH
-        farmlandCount++;
-      }
-      
-      // Mark as explored
-      const tileKey = `${tile[0]},${tile[1]}`;
-      this.knowledge.exploredTiles.add(tileKey);
     }
     
-    // Register significant resource locations
-    if (caveLocations.length > 0) {
-      caveLocations.forEach(cave => {
-        this.knowledge.knownResources.set(`cave:${cave[0]},${cave[1]}`, {
-          type: 'RESOURCE',
-          location: cave,
-          resourceType: 'cave',
-          density: 20,
-          discoveredAt: Date.now()
-        });
-      });
+    // Strategy doesn't have a base class, so check separately
+    if (!this.strategy) {
+      errors.push('Strategy not initialized');
     }
     
-    if (forestClusters.length > 0) {
-      const bestForest = forestClusters[0];
-      this.knowledge.knownResources.set(`forest:${bestForest[0]},${bestForest[1]}`, {
-        type: 'RESOURCE',
-        location: bestForest,
-        resourceType: 'forest',
-        density: forestCount,
-        discoveredAt: Date.now()
-      });
-    }
-    
-    if (rockClusters.length > 0) {
-      const bestRocks = rockClusters[0];
-      this.knowledge.knownResources.set(`rocks:${bestRocks[0]},${bestRocks[1]}`, {
-        type: 'RESOURCE',
-        location: bestRocks,
-        resourceType: 'rocks',
-        density: rockCount,
-        discoveredAt: Date.now()
-      });
+    if (errors.length > 0) {
+      const timestamp = new Date().toISOString();
+      const errorMessage = `[FactionAI] [${timestamp}] [${this.house.name}] Service initialization failed:\n${errors.join('\n')}`;
+      throw new Error(errorMessage);
     }
   }
   
@@ -144,44 +108,78 @@ class FactionAI {
     }
     this.lastEvaluatedDay = day;
     
-    // Recalculate base territory (dynamic expansion)
-    if (this.house.calculateBaseTerritory) {
-      this.house.calculateBaseTerritory();
-    }
+    // Start report collection
+    this.logger.startReport();
+    
+    // Invalidate caches for new day (day has changed, so cache is stale)
+    this._cachedMilitaryUnits = null;
+    this._cachedMilitaryUnitsDay = day;
+    // BuildingService handles its own caching, no need to invalidate here
+    
+    // Recalculate base territory (dynamic expansion) - now handled by TerritoryManager
+    // TerritoryManager.updateTerritory() is called below, which handles caching
     
     // Update patrol list
     if (this.house.updatePatrolList) {
       this.house.updatePatrolList();
     }
     
-    // Update territory knowledge
+    // Update territory knowledge (cached internally)
     this.territory.updateTerritory();
     
     // Clean up stale enemy information
     this.knowledge.cleanStaleInformation();
     
-    // If we have an active goal chain, continue it
-    if (this.currentGoalChain && !this.currentGoalChain.isComplete()) {
+    // If we have an active goal chain, continue it (persist indefinitely)
+    if (this.currentGoalChain && !this.currentGoalChain.isComplete() && !this.currentGoalChain.isFailed()) {
+      this.logger.updateGoalChain(this.currentGoalChain);
+      this.logger.collectInfo(`Continuing goal chain: ${this.currentGoalChain.getCurrentGoal()?.type || 'none'}`);
       this.executeCurrentGoal();
+      this.logger.updateGoalChain(this.currentGoalChain);
+      this.logger.generateReport();
+      this.logger.clearReport();
       return;
     }
     
-    // Otherwise, evaluate new goals
-    this.evaluateNewGoals();
+    // Only evaluate new goals if current chain is complete or failed
+    if (!this.currentGoalChain || this.currentGoalChain.isComplete() || this.currentGoalChain.isFailed()) {
+      // Clear failed chains
+      if (this.currentGoalChain && this.currentGoalChain.isFailed()) {
+        this.logger.collectInfo(`Chain failed, clearing: ${this.currentGoalChain.getCurrentGoal()?.type || 'unknown'}`);
+        this.currentGoalChain = null;
+      } else if (this.currentGoalChain && this.currentGoalChain.isComplete()) {
+        this.logger.collectInfo(`Chain completed: ${this.currentGoalChain.mainGoal?.type || 'unknown'}`);
+      }
+      
+      // Evaluate new goals
+      this.evaluateNewGoals();
+    }
     
     // Update active scouting parties and attack forces
-    this.updateScoutingParties();
-    this.updateAttackForces();
+    this.militaryManager.updateScoutingParties();
+    this.militaryManager.updateAttackForces();
+    
+    // Update goal chain info and generate report
+    if (this.currentGoalChain) {
+      this.logger.updateGoalChain(this.currentGoalChain);
+    }
+    this.logger.generateReport();
+    this.logger.clearReport();
   }
   
   // Evaluate and select new goals
   evaluateNewGoals() {
     // Delegate to faction-specific strategy
+    const economicGoals = this.strategy.evaluateEconomicGoals();
+    const militaryGoals = this.strategy.evaluateMilitaryGoals();
+    const expansionGoals = this.strategy.evaluateExpansionGoals();
+    const defenseGoals = this.strategy.evaluateDefenseGoals();
+    
     const possibleGoals = [
-      ...this.strategy.evaluateEconomicGoals(),
-      ...this.strategy.evaluateMilitaryGoals(),
-      ...this.strategy.evaluateExpansionGoals(),
-      ...this.strategy.evaluateDefenseGoals()
+      ...economicGoals,
+      ...militaryGoals,
+      ...expansionGoals,
+      ...defenseGoals
     ];
     
     // Filter out goals with 0 utility
@@ -190,59 +188,115 @@ class FactionAI {
     // Sort by utility (highest first)
     validGoals.sort((a, b) => b.utility - a.utility);
     
-    if (validGoals.length > 0) {
-      const topGoal = validGoals[0];
-      
-      // Create goal chain to resolve dependencies
-      this.currentGoalChain = GoalChain.create(this.house, topGoal);
-      
-      this.executeCurrentGoal();
+    if (validGoals.length === 0) {
+      this.logger.collectInfo('No valid goals available');
+      return;
     }
-  }
-  
-  // Execute current goal in the chain
-  executeCurrentGoal() {
-    const goal = this.currentGoalChain.getCurrentGoal();
     
-    if (!goal) {
+    const topGoal = validGoals[0];
+    
+    // Collect goal selection with alternatives
+    this.logger.collectDecision('GOAL_SELECTED', `Selected: ${topGoal.type}`, {
+      selectedGoal: topGoal.type,
+      utility: topGoal.utility,
+      allCandidates: validGoals.map(g => ({ type: g.type, utility: g.utility })),
+      reasoning: `Highest utility (${topGoal.utility}) among ${validGoals.length} candidates`
+    });
+    
+    // Collect alternatives info
+    if (validGoals.length > 1) {
+      const alternatives = validGoals.slice(1).map(g => `${g.type} (${g.utility})`).join(', ');
+      this.logger.collectInfo(`Alternatives considered: ${alternatives}`);
+    }
+    
+    // Create goal chain to resolve dependencies
+    this.currentGoalChain = GoalChain.create(this.house, topGoal, this.logger);
+    
+    // Validate chain after creation
+    if (this.currentGoalChain.errors && this.currentGoalChain.errors.length > 0) {
+      this.logger.collectError(`Chain creation errors for ${topGoal.type}`, null, {
+        reasoning: this.currentGoalChain.errors.join('; ')
+      });
+    }
+    
+    // Collect chain creation info
+    if (this.currentGoalChain.steps.length > 0) {
+      const stepTypes = this.currentGoalChain.steps.map(s => s.type).join(' -> ');
+      this.logger.collectInfo(`Chain created: ${stepTypes}`);
+    }
+    
+    // Check if chain has any steps
+    if (this.currentGoalChain.steps.length === 0) {
+      // If goal can execute, try it directly
+      if (topGoal.canExecute(this.house)) {
+        try {
+          topGoal.execute(this.house);
+          topGoal.status = 'COMPLETED';
+            this.logger.collectAction(`${topGoal.type} executed directly`, {
+              goal: topGoal.type,
+              reasoning: 'No dependencies needed'
+            });
+        } catch (error) {
+          this.logger.logError(`Error executing goal directly: ${topGoal.type}`, error);
+          topGoal.status = 'FAILED';
+        }
+      }
       this.currentGoalChain = null;
       return;
     }
     
-    if (goal.canExecute(this.house)) {
-      try {
-        goal.execute(this.house);
-        goal.status = 'COMPLETED';
-        this.currentGoalChain.advance();
-      } catch (error) {
-        goal.status = 'FAILED';
-        this.currentGoalChain = null; // Abort chain on error
-      }
-    } else {
-      
-      goal.status = 'BLOCKED';
-      
-      // If goal is gathering resources, it's a waiting goal
-      if (goal.type === 'GATHER_RESOURCE') {
-        goal.execute(this.house); // Updates status
-        if (goal.status === 'COMPLETED') {
-          this.currentGoalChain.advance();
-        }
+    this.executeCurrentGoal();
+  }
+  
+  // Execute current goal in the chain (delegates to GoalExecutor)
+  executeCurrentGoal() {
+    const goal = this.currentGoalChain.getCurrentGoal();
+    
+    if (!goal) {
+      this.logger.collectError('No current goal in chain', null);
+      return;
+    }
+    
+    const result = this.goalExecutor.executeGoal(goal, this.currentGoalChain, this.logger);
+    
+    if (result.shouldClearChain) {
+      this.currentGoalChain = null;
+    } else if (result.shouldAdvance) {
+      this.currentGoalChain.advance();
+      const nextGoal = this.currentGoalChain.getCurrentGoal()?.type;
+      if (nextGoal) {
+        this.logger.collectInfo(`Next goal: ${nextGoal}`);
       }
     }
   }
   
   // Get AI status for debugging
   getStatus() {
+    const chainStatus = this.currentGoalChain 
+      ? {
+          currentGoal: this.currentGoalChain.getCurrentGoal()?.type || 'none',
+          progress: (this.currentGoalChain.getProgress() * 100).toFixed(0) + '%',
+          totalSteps: this.currentGoalChain.steps.length,
+          currentStep: this.currentGoalChain.currentStep,
+          errors: this.currentGoalChain.errors || [],
+          isComplete: this.currentGoalChain.isComplete(),
+          isFailed: this.currentGoalChain.isFailed(),
+          summary: this.currentGoalChain.getSummary()
+        }
+      : {
+          currentGoal: 'none',
+          progress: 'N/A',
+          totalSteps: 0,
+          currentStep: 0,
+          errors: [],
+          isComplete: true,
+          isFailed: false
+        };
+    
     return {
       faction: this.house.type,
       name: this.house.name,
-      currentGoal: this.currentGoalChain 
-        ? this.currentGoalChain.getCurrentGoal()?.type 
-        : 'none',
-      goalProgress: this.currentGoalChain
-        ? (this.currentGoalChain.getProgress() * 100).toFixed(0) + '%'
-        : 'N/A',
+      goalChain: chainStatus,
       territory: {
         center: this.territory.coreBase?.center,
         radius: this.territory.coreBase?.radius,
@@ -250,206 +304,62 @@ class FactionAI {
         outposts: this.territory.outposts.length
       },
       knowledge: this.knowledge.getStats(),
-      resources: this.house.stores
+      resources: this.house.stores,
+      military: {
+        units: this.getMilitaryUnits().length,
+        scoutingParties: this.militaryManager.activeScoutingParties.length,
+        attackForces: this.militaryManager.activeAttackForces.length
+      }
     };
   }
 
-  // Deploy a scouting party to a target zone (flexible 1-3 units)
+  // Deploy a scouting party to a target zone (delegates to MilitaryManager)
   deployScoutingParty(targetZone, resourceType) {
-    // Select leader (prefer mounted military unit)
-    const leader = this.selectScoutLeader();
-    if (!leader) {
-      return null;
-    }
-    
-    // Try to select up to 2 backup units (but accept 0-2)
-    const backups = this.selectBackupUnits(2, leader);
-    const totalUnits = 1 + backups.length;
-    
-    // Log party composition
-    if (backups.length === 2) {
-    } else if (backups.length === 1) {
-    } else {
-    }
-    
-    // Mark leader with banner emoji
-    leader.name = `🚩 ${leader.name}`;
-    
-    // Create party (works with 0-2 backups)
-    const party = new ScoutingParty(leader, backups, targetZone, resourceType);
-    this.activeScoutingParties.push(party);
-    
-    // Assign behaviors
-    leader.scoutingParty = party;
-    backups.forEach(unit => {
-      unit.followBehavior = new FollowBehavior(unit, leader);
-      unit.scoutingParty = party;
-    });
-    
-    return party;
+    return this.militaryManager.deployScoutingParty(targetZone, resourceType);
   }
 
-  // Select the best leader for a scouting party (prefer mounted units)
-  selectScoutLeader() {
-    const militaryUnits = this.getMilitaryUnits();
-    
-    // Prefer mounted units
-    const mountedUnits = militaryUnits.filter(unit => 
-      unit.name && (
-        unit.name.includes('cavalier') || 
-        unit.name.includes('cavalry') || 
-        unit.name.includes('horseman') ||
-        unit.name.includes('knight') ||
-        unit.name.includes('mounted')
-      )
-    );
-    
-    if (mountedUnits.length > 0) {
-      return mountedUnits[0];
-    }
-    
-    // Fall back to any military unit
-    return militaryUnits.length > 0 ? militaryUnits[0] : null;
-  }
-
-  // Select backup units for scouting party
-  selectBackupUnits(count, excludeLeader) {
-    const militaryUnits = this.getMilitaryUnits();
-    const availableUnits = militaryUnits.filter(unit => unit.id !== excludeLeader.id);
-    
-    return availableUnits.slice(0, count);
-  }
-
-  // Get all military units belonging to this faction
+  // Get all military units belonging to this faction (cached per day)
   getMilitaryUnits() {
+    const day = global.day || 1;
+    
+    // Return cached result if available
+    if (this._cachedMilitaryUnits !== null && this._cachedMilitaryUnitsDay === day) {
+      return this._cachedMilitaryUnits;
+    }
+    
+    // Calculate and cache
     const militaryUnits = [];
     
     for (const [id, player] of Object.entries(Player.list)) {
       if (player.toRemove || !player.house || player.house.id !== this.house.id) continue;
       
-      // Check if unit is military (not serf, not civilian)
-      if (player.name && !player.name.includes('serf') && !player.name.includes('civilian')) {
+      // Check if unit is military using the military property
+      if (player.military === true) {
         militaryUnits.push(player);
       }
     }
     
+    this._cachedMilitaryUnits = militaryUnits;
+    this._cachedMilitaryUnitsDay = day;
+    
     return militaryUnits;
   }
-
-  // Update all active scouting parties
-  updateScoutingParties() {
-    for (let i = this.activeScoutingParties.length - 1; i >= 0; i--) {
-      const party = this.activeScoutingParties[i];
-      party.update();
-      
-      // Remove completed parties
-      if (party.status === 'completed' || party.status === 'failed') {
-        this.activeScoutingParties.splice(i, 1);
-      }
-    }
+  
+  // Get count of buildings by type (delegates to BuildingService)
+  getBuildingCount(buildingType) {
+    return this.buildingService.getBuildingCount(buildingType);
   }
 
-  // Handle scouting party completion
-  onScoutingComplete(targetZone, purpose, enemiesFound) {
-    if (enemiesFound) {
-      this.planAttackForce(targetZone);
-    } else {
-      this.planOutpost(targetZone, purpose);
-    }
-  }
-
-  // Handle scouting party failure
-  onScoutingFailed(targetZone, purpose) {
-    // Mark zone as hostile for future reference
-    this.knowledge.reportDiscovery(null, {
-      type: 'ENEMY',
-      location: targetZone.center,
-      threatLevel: 'high',
-      tiles: targetZone.tileArray
-    });
-  }
-
-  // Plan attack force for contested zone
-  planAttackForce(targetZone) {
-    const attackForce = this.assembleAttackForce(targetZone.center, 'high');
-    if (attackForce) {
-      this.deployAttackForce(attackForce, targetZone);
-    }
-  }
-
-  // Plan outpost construction
+  // Plan outpost construction (delegates to OutpostPlanner)
   planOutpost(targetZone, resourceType) {
-    // This will be implemented when we create OutpostPlanner
-  }
-
-  // Assemble attack force based on threat level
-  assembleAttackForce(targetLocation, threatLevel) {
-    const militaryUnits = this.getMilitaryUnits();
-    
-    // Determine force size based on threat level
-    let forceSize;
-    switch (threatLevel) {
-      case 'low': forceSize = 3; break;
-      case 'medium': forceSize = 5; break;
-      case 'high': forceSize = 8; break;
-      default: forceSize = 5;
-    }
-    
-    // Limit by available units
-    forceSize = Math.min(forceSize, militaryUnits.length);
-    
-    if (forceSize < 3) {
+    try {
+      const OutpostPlanner = require('./OutpostPlanner');
+      const planner = new OutpostPlanner();
+      return planner.planOutpost(targetZone, resourceType, this.house);
+    } catch (error) {
+      const timestamp = new Date().toISOString();
+      console.error(`[FactionAI] [${timestamp}] [${this.house.name}] Error planning outpost:`, error);
       return null;
-    }
-    
-    // Select strongest units
-    const selectedUnits = militaryUnits.slice(0, forceSize);
-    
-    return {
-      units: selectedUnits,
-      target: targetLocation,
-      threatLevel: threatLevel,
-      status: 'assembled'
-    };
-  }
-
-  // Deploy attack force to target zone
-  deployAttackForce(force, targetZone) {
-    
-    // Set all units to move to target zone
-    force.units.forEach(unit => {
-      unit.moveTo(targetZone.center[0], targetZone.center[1]);
-      unit.action = 'combat'; // Ready for combat
-    });
-    
-    force.status = 'deployed';
-    this.activeAttackForces.push(force);
-  }
-
-  // Update all active attack forces
-  updateAttackForces() {
-    for (let i = this.activeAttackForces.length - 1; i >= 0; i--) {
-      const force = this.activeAttackForces[i];
-      
-      // Check if force has reached target
-      const allAtTarget = force.units.every(unit => {
-        if (unit.toRemove) return true; // Consider dead units as "at target"
-        
-        const distance = Math.sqrt(
-          Math.pow(unit.x - force.target[0], 2) + 
-          Math.pow(unit.y - force.target[1], 2)
-        );
-        return distance <= 10;
-      });
-      
-      if (allAtTarget && force.status === 'deployed') {
-        force.status = 'engaged';
-      }
-      
-      // Remove completed forces
-      if (force.status === 'completed' || force.status === 'defeated') {
-        this.activeAttackForces.splice(i, 1);
-      }
     }
   }
 }

@@ -10,11 +10,24 @@ class TerritoryManager {
     this.outposts = [];
     this.nameGenerator = new NameGenerator();
     this.townName = null;
+    this.lastBuildingCount = 0;
+    this.lastBuildingHash = null;
   }
   
-  // Recalculate territory based on current buildings
+  // Recalculate territory based on current buildings (cached until buildings change)
   updateTerritory() {
+    const logger = this.house.ai?.logger;
     const buildings = this.getBuildingsByHouse();
+    
+    // Check if buildings have changed (cache invalidation)
+    const buildingHash = this.calculateBuildingHash(buildings);
+    if (this.lastBuildingHash === buildingHash && this.coreBase !== null) {
+      // Buildings haven't changed, use cached territory
+      return;
+    }
+    
+    this.lastBuildingCount = buildings.length;
+    this.lastBuildingHash = buildingHash;
     
     if (buildings.length === 0) {
       // No buildings yet - use HQ
@@ -23,6 +36,15 @@ class TerritoryManager {
         radius: 15,
         buildings: []
       };
+      
+      if (logger) {
+        logger.logDecision('TERRITORY_CALCULATED', 'Territory calculated (no buildings, using HQ)', {
+          center: this.house.hq,
+          radius: 15,
+          buildingCount: 0,
+          reasoning: 'No buildings yet, using HQ as center with minimum radius'
+        });
+      }
       return;
     }
     
@@ -32,8 +54,8 @@ class TerritoryManager {
     // Calculate average distance from center to buildings
     const avgDistance = this.calculateAverageDistance(centerOfMass, buildings);
     
-    // Territory radius is 2x average distance (minimum 15 tiles)
-    const territoryRadius = Math.max(avgDistance * 2, 15);
+    // Territory radius is 1.1x average distance (minimum 15 tiles)
+    const territoryRadius = Math.max(avgDistance * 1.1, 15);
     
     // Classify buildings as core base or outposts
     this.coreBase = {
@@ -54,6 +76,7 @@ class TerritoryManager {
         this.addToOutpost(building);
       }
     }
+    
   }
   
   calculateCenterOfMass(buildings) {
@@ -222,20 +245,12 @@ class TerritoryManager {
     return score;
   }
   
-  // Helper: get buildings owned by this house
+  // Helper: get buildings owned by this house (uses BuildingService - fails fast if unavailable)
   getBuildingsByHouse() {
-    const buildings = [];
-    
-    if (typeof Building !== 'undefined' && Building.list) {
-      for (const id in Building.list) {
-        const building = Building.list[id];
-        if (building.owner === this.house.id) {
-          buildings.push(building);
-        }
-      }
+    if (!this.house.ai || !this.house.ai.buildingService) {
+      throw new Error(`BuildingService not available for ${this.house.name || 'unknown'} - check FactionAI initialization`);
     }
-    
-    return buildings;
+    return this.house.ai.buildingService.getBuildings();
   }
   
   // Helper: calculate distance between two points
@@ -248,6 +263,103 @@ class TerritoryManager {
     const dx = point1[0] - point2[0];
     const dy = point1[1] - point2[1];
     return Math.sqrt(dx * dx + dy * dy);
+  }
+  
+  // Calculate hash of building list for cache invalidation
+  // Uses sum of building IDs + count for robust hash that detects changes
+  // More robust than count:lastId (handles edge cases like remove+re-add)
+  calculateBuildingHash(buildings) {
+    if (buildings.length === 0) return '0:0';
+    
+    // Calculate sum of all building IDs (more robust than just last ID)
+    let idSum = 0;
+    let validIds = 0;
+    
+    for (const building of buildings) {
+      if (building && building.id !== undefined && building.id !== null) {
+        idSum += building.id;
+        validIds++;
+      }
+    }
+    
+    // Hash: count + sum of IDs + number of valid IDs
+    // This combination ensures we detect:
+    // - Count changes (buildings added/removed)
+    // - ID changes (different buildings)
+    // - Edge cases (same count, different buildings)
+    return `${buildings.length}:${idSum}:${validIds}`;
+  }
+  
+  // Check if coordinates are within base territory (for compatibility with Houses.js)
+  isInBaseTerritory(x, y) {
+    if (!this.coreBase) {
+      this.updateTerritory();
+    }
+    
+    if (!this.coreBase) return false;
+    
+    const center = this.coreBase.center;
+    const centerCoords = global.getCenter ? global.getCenter(center[0], center[1]) : [center[0] * 64, center[1] * 64];
+    const dist = Math.sqrt(Math.pow(x - centerCoords[0], 2) + Math.pow(y - centerCoords[1], 2));
+    const radiusInPixels = this.coreBase.radius * (global.tileSize || 64);
+    
+    return dist <= radiusInPixels;
+  }
+  
+  // Get base center coordinates (for compatibility with Houses.js)
+  getBaseCenter() {
+    if (!this.coreBase) {
+      this.updateTerritory();
+    }
+    return this.coreBase ? this.coreBase.center : this.house.hq;
+  }
+  
+  // Get base center coordinates in pixels (for compatibility with Houses.js)
+  getBaseCenterCoords() {
+    if (!this.coreBase) {
+      this.updateTerritory();
+    }
+    if (!this.coreBase) {
+      const hq = this.house.hq;
+      return global.getCenter ? global.getCenter(hq[0], hq[1]) : [hq[0] * 64, hq[1] * 64];
+    }
+    const center = this.coreBase.center;
+    return global.getCenter ? global.getCenter(center[0], center[1]) : [center[0] * 64, center[1] * 64];
+  }
+  
+  // Get base radius in pixels (for compatibility with Houses.js)
+  getBaseRadius() {
+    if (!this.coreBase) {
+      this.updateTerritory();
+    }
+    const radius = this.coreBase ? this.coreBase.radius : 15;
+    return radius * (global.tileSize || 64);
+  }
+  
+  // Handle colony absorption (moved from Houses.js)
+  absorbColonies() {
+    if (!this.coreBase) {
+      this.updateTerritory();
+    }
+    if (!this.coreBase) return;
+    
+    const buildings = this.getBuildingsByHouse();
+    const center = this.coreBase.center;
+    const centerCoords = this.getBaseCenterCoords();
+    const radiusInPixels = this.getBaseRadius();
+    
+    for (const building of buildings) {
+      if (building.isColony && building.built) {
+        const dx = building.x - centerCoords[0];
+        const dy = building.y - centerCoords[1];
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist <= radiusInPixels) {
+          // Colony absorbed into base
+          building.isColony = false;
+        }
+      }
+    }
   }
 
   // Generate town name for this faction

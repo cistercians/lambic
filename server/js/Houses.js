@@ -23,76 +23,35 @@ House = function(param){
   self.hasStable = false;
   self.hasStronghold = false;
   
-  // Calculate base territory (average of building positions)
+  // Calculate base territory - now delegated to TerritoryManager
+  // Kept for backward compatibility, but TerritoryManager handles the actual calculation
   self.calculateBaseTerritory = function() {
-    var buildings = [];
-    var totalX = 0;
-    var totalY = 0;
-    var count = 0;
-    
-    // FIRST PASS: Find all HQ buildings (exclude colonies)
-    for (var bid in Building.list) {
-      var b = Building.list[bid];
-      if (b.house === self.id && b.built && !b.isColony) {
-        buildings.push(b);
-        totalX += b.x;
-        totalY += b.y;
-        count++;
-      }
-    }
-    
-    if (count === 0) {
-      // Fallback to HQ
+    // Delegate to TerritoryManager if AI system exists
+    if (self.ai && self.ai.territory) {
+      self.ai.territory.updateTerritory();
+      self.ai.territory.absorbColonies();
+      
+      // Update house properties for backward compatibility
+      self.baseCenter = self.ai.territory.getBaseCenter();
+      self.baseCenterCoords = self.ai.territory.getBaseCenterCoords();
+      self.baseRadius = self.ai.territory.getBaseRadius();
+    } else {
+      // Fallback if no AI system (shouldn't happen in normal operation)
       var hqCoords = getCenter(self.hq[0], self.hq[1]);
       self.baseCenter = [self.hq[0], self.hq[1]];
       self.baseCenterCoords = hqCoords;
-      self.baseRadius = 10 * tileSize;
-      return;
+      self.baseRadius = 15 * tileSize;
     }
-    
-    // Calculate new center (average position)
-    var avgX = totalX / count;
-    var avgY = totalY / count;
-    var centerTile = getLoc(avgX, avgY);
-    self.baseCenter = centerTile;
-    self.baseCenterCoords = [avgX, avgY];
-    
-    // Calculate average distance from center
-    var totalDist = 0;
-    for (var i = 0; i < buildings.length; i++) {
-      var dx = buildings[i].x - avgX;
-      var dy = buildings[i].y - avgY;
-      var dist = Math.sqrt(dx * dx + dy * dy);
-      totalDist += dist;
-    }
-    
-    var avgDist = totalDist / count;
-    
-    // Base radius = 1.25x average distance (minimum 10 tiles)
-    self.baseRadius = Math.max(avgDist * 1.25, 10 * tileSize);
-    
-    // SECOND PASS: Check if any colonies are now within expanded base radius
-    var absorbedCount = 0;
-    for (var bid in Building.list) {
-      var b = Building.list[bid];
-      if (b.house === self.id && b.built && b.isColony) {
-        // Check if colony is now within base radius
-        var dx = b.x - avgX;
-        var dy = b.y - avgY;
-        var dist = Math.sqrt(dx * dx + dy * dy);
-        
-        if (dist <= self.baseRadius) {
-          // Colony absorbed into base
-          b.isColony = false;
-          absorbedCount++;
-        }
-      }
-    }
-    
   };
   
   // Check if coordinates are within base territory
   self.isInBaseTerritory = function(x, y) {
+    // Delegate to TerritoryManager if AI system exists
+    if (self.ai && self.ai.territory) {
+      return self.ai.territory.isInBaseTerritory(x, y);
+    }
+    
+    // Fallback if no AI system
     if (!self.baseCenterCoords) return false;
     
     var dx = x - self.baseCenterCoords[0];
@@ -119,6 +78,43 @@ House = function(param){
     }
     
     self.patrolBuildings = patrolBuildings;
+    
+    // If we have patrol buildings, assign patrol mode to idle military units
+    if(patrolBuildings.length > 0){
+      self.assignPatrolToIdleMilitary();
+    }
+  };
+  
+  // Assign patrol mode to existing idle military units
+  self.assignPatrolToIdleMilitary = function(){
+    if(!self.patrolBuildings || self.patrolBuildings.length === 0){
+      return; // No patrol buildings to guard
+    }
+    
+    // Find all military units for this faction that are idle
+    for(var id in Player.list){
+      var unit = Player.list[id];
+      if(!unit || unit.toRemove) continue;
+      
+      // Check if unit belongs to this faction and is military
+      if(unit.house === self.id && unit.military === true){
+        // Check if unit is idle or doesn't have a mode set
+        if(!unit.mode || unit.mode === 'idle'){
+          // Assign patrol mode
+          unit.mode = 'patrol';
+          
+          // Initialize patrol object if it doesn't exist
+          if(!unit.patrol){
+            unit.patrol = {
+              enabled: true,
+              targetTiles: {},
+              idleTimer: 0,
+              resumePoint: null
+            };
+          }
+        }
+      }
+    }
   };
   
   self.enemies = [];
@@ -247,6 +243,11 @@ House.evaluateAI = function(){
       try {
         house.ai.evaluateAndAct();
       } catch (error) {
+        // Log errors instead of silently swallowing them
+        console.error(`[FactionAI] Error evaluating AI for faction ${house.name || house.id}:`, error);
+        if (error.stack) {
+          console.error(error.stack);
+        }
       }
     }
   }

@@ -799,9 +799,43 @@ var SocketMessageHandler = {
           continue;
         }
         
-        // CRITICAL: If server sends null class for new player, default to SerfM before creation
+        // CRITICAL: Fallback check - if type is missing but class indicates fauna, set type to 'fauna'
+        const faunaClasses = ['Deer', 'Boar', 'Wolf', 'Falcon', 'Sheep'];
+        if (faunaClasses.includes(playerData.class) && playerData.type !== 'fauna') {
+          console.warn('[FAUNA DEBUG] Fauna class detected but type not "fauna" - fixing:', {
+            id: playerData.id,
+            class: playerData.class,
+            currentType: playerData.type
+          });
+          playerData.type = 'fauna';
+        }
+        
+        // CRITICAL: Handle missing class property
+        // Fauna entities MUST have a class - don't default to SerfM
         if (!playerData.class || playerData.class === null) {
-          playerData.class = existingPlayer ? existingPlayer.class : 'SerfM';
+          // Check if type indicates fauna (fallback if class is missing)
+          if (playerData.type === 'fauna' || faunaClasses.includes(playerData.class)) {
+            // Fauna entities require a valid class - skip creation if missing
+            console.error('Init: Fauna entity missing class property:', playerData.id, playerData.type);
+            initErrorCount++;
+            continue;
+          } else {
+            // For non-fauna entities (players/npcs), default to SerfM if missing
+            playerData.class = existingPlayer ? existingPlayer.class : 'SerfM';
+          }
+        }
+        
+        // Log fauna entity creation for debugging
+        if (playerData.type === 'fauna' || ['Deer', 'Boar', 'Wolf', 'Falcon', 'Sheep'].includes(playerData.class)) {
+          console.log('[FAUNA DEBUG] Creating fauna entity from init pack:', {
+            id: playerData.id,
+            type: playerData.type,
+            class: playerData.class,
+            name: playerData.name,
+            hasSpriteSize: playerData.spriteSize !== undefined,
+            spriteSize: playerData.spriteSize,
+            fullInitPack: JSON.stringify(playerData)
+          });
         }
         
         new Player(playerData);
@@ -880,6 +914,82 @@ var SocketMessageHandler = {
       if(!pack || !pack.id) continue; // Skip invalid entries
       
       var p = Player.list[pack.id];
+      
+      // Log if update pack contains fauna data but entity doesn't exist
+      const faunaClasses = ['Deer', 'Boar', 'Wolf', 'Falcon', 'Sheep'];
+      const isFaunaUpdate = pack.type === 'fauna' || faunaClasses.includes(pack.class);
+      if (isFaunaUpdate && !p) {
+        console.warn('[FAUNA DEBUG] Update pack received for fauna entity that doesn\'t exist on client - creating from update pack:', {
+          id: pack.id,
+          type: pack.type,
+          class: pack.class,
+          note: 'Entity should have been created via init pack first, but creating from update pack as fallback'
+        });
+        
+        // CRITICAL: Create entity from update pack if it doesn't exist
+        // This handles cases where init pack was missed or entity was created after client connected
+        // Convert update pack to init pack format
+        if (pack.class && (pack.type === 'fauna' || faunaClasses.includes(pack.class))) {
+          // Ensure type is set correctly
+          if (!pack.type && faunaClasses.includes(pack.class)) {
+            pack.type = 'fauna';
+          }
+          
+          // CRITICAL: Fauna entities MUST have class - don't create if missing
+          if (!pack.class) {
+            console.error('[FAUNA DEBUG] Cannot create fauna entity from update pack - missing class:', pack);
+          } else {
+            // Create entity from update pack data
+            try {
+              new Player({
+                id: pack.id,
+                type: pack.type || 'fauna',
+                class: pack.class,
+                name: pack.name,
+                x: pack.x,
+                y: pack.y,
+                z: pack.z,
+                hp: pack.hp,
+                hpMax: pack.hpMax,
+                spriteSize: pack.spriteSize,
+                // Include other properties that might be in update pack
+                house: pack.house,
+                kingdom: pack.kingdom,
+                rank: pack.rank,
+                gear: pack.gear,
+                friends: pack.friends,
+                enemies: pack.enemies,
+                innaWoods: pack.innaWoods,
+                onMtn: pack.onMtn,
+                facing: pack.facing,
+                stealthed: pack.stealthed,
+                revealed: pack.revealed,
+                spirit: pack.spirit,
+                spiritMax: pack.spiritMax,
+                action: pack.action,
+                ghost: pack.ghost,
+                kills: pack.kills,
+                skulls: pack.skulls,
+                spriteScale: pack.spriteScale
+              });
+              
+              p = Player.list[pack.id];
+              if (p) {
+                console.log('[FAUNA DEBUG] Successfully created fauna entity from update pack:', {
+                  id: p.id,
+                  type: p.type,
+                  class: p.class,
+                  hasSprite: !!p.sprite,
+                  spriteClass: p.sprite ? (p.sprite.attackd ? 'serf-like' : 'fauna-like') : 'none'
+                });
+              }
+            } catch (e) {
+              console.error('[FAUNA DEBUG] Failed to create fauna entity from update pack:', e, pack);
+            }
+          }
+        }
+      }
+      
       if(p){
         // Track last non-visual update time for throttling
         if (!p._lastNonVisualUpdate) {
@@ -960,6 +1070,16 @@ var SocketMessageHandler = {
         // Update class and track for ship wake system
         // CRITICAL: Don't overwrite valid class with null/undefined from server
         if(pack.class != undefined && pack.class != null && p.class !== pack.class) {
+          // Log fauna class changes for debugging
+          if (p.type === 'fauna' || ['Deer', 'Boar', 'Wolf', 'Falcon', 'Sheep'].includes(p.class) || ['Deer', 'Boar', 'Wolf', 'Falcon', 'Sheep'].includes(pack.class)) {
+            console.log('[FAUNA DEBUG] Class change in update pack:', {
+              id: p.id,
+              type: p.type,
+              oldClass: p.class,
+              newClass: pack.class,
+              packType: pack.type
+            });
+          }
           p.class = pack.class;
           classChanged = true;
           

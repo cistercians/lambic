@@ -10,25 +10,89 @@
 7. [Knowledge & Scouting](#knowledge--scouting)
 8. [Expansion & Outposts](#expansion--outposts)
 9. [Strategic Decision Making](#strategic-decision-making)
-10. [Data Flow & Integration](#data-flow--integration)
+10. [Caching & Performance](#caching--performance)
+11. [Error Handling & Validation](#error-handling--validation)
+12. [Data Flow & Integration](#data-flow--integration)
 
 ---
 
 ## System Overview
 
-The Faction AI system is a comprehensive decision-making framework that controls all NPC faction behavior in the game. It operates on a daily evaluation cycle, making strategic decisions about resource gathering, building construction, military training, territory expansion, and defensive actions.
+The Faction AI system is a comprehensive, optimized decision-making framework that controls all NPC faction behavior in the game. It operates on a daily evaluation cycle, making strategic decisions about resource gathering, building construction, military training, territory expansion, and defensive actions.
 
 ### Key Characteristics
-- **Daily Evaluation**: AI decisions are made once per in-game day
-- **Goal-Driven**: All actions are organized as goals with dependencies
-- **Territory-Based**: Dynamic territory calculation based on building positions
-- **Fog of War**: Factions only know about areas they've explored
-- **Faction-Specific**: Each faction has unique strategic preferences
+- **Daily Evaluation**: AI decisions are made once per in-game day (prevented from running multiple times per day)
+- **Goal-Driven**: All actions are organized as goals with dependencies that are automatically resolved
+- **Goal Chain Persistence**: Goal chains persist indefinitely until complete or failed (not recreated daily)
+- **Territory-Based**: Dynamic territory calculation based on building positions with intelligent caching
+- **Fog of War**: Factions only know about areas they've explored (FactionKnowledge system)
+- **Faction-Specific**: Each faction has unique strategic preferences via Strategy pattern
+- **Optimized Caching**: Multiple caching layers for performance (buildings, military units, territory)
+- **Fail-Fast Validation**: Service initialization validation ensures errors are caught early
+- **Structured Error Handling**: All errors include context (faction, goal type, step, timestamp)
+
+### Architecture Components
+
+The system is organized into focused, single-responsibility components:
+
+1. **FactionAI** (`server/js/ai/FactionAI.js`) - Main orchestrator, coordinates all subsystems
+2. **GoalChain** (`server/js/ai/GoalChain.js`) - Iterative dependency resolution for goals
+3. **GoalExecutor** (`server/js/ai/GoalExecutor.js`) - Handles goal execution logic
+4. **BuildingService** (`server/js/ai/BuildingService.js`) - Single source of truth for building queries with caching
+5. **TerritoryManager** (`server/js/ai/TerritoryManager.js`) - Dynamic territory calculation and management
+6. **MilitaryManager** (`server/js/ai/MilitaryManager.js`) - Scouting parties and attack forces
+7. **FactionKnowledge** (`server/js/ai/FactionKnowledge.js`) - Fog of war and exploration tracking
+8. **Goals** (`server/js/ai/Goals.js`) - Goal type definitions and execution
+9. **FactionStrategy** (`server/js/ai/strategies/`) - Faction-specific strategic evaluation
 
 ### Main Entry Point
-- **File**: `server/js/Houses.js` (line 243)
+- **File**: `server/js/Houses.js` (line 239)
 - **Function**: `House.evaluateAI()` - Called once per day for all factions
-- **Controller**: `server/js/ai/FactionAI.js` - Main AI logic
+- **Controller**: `server/js/ai/FactionAI.js` - Main AI logic orchestrator
+
+### System Architecture
+
+```
+House.evaluateAI() [Houses.js]
+    ↓
+FactionAI [Orchestrator]
+    ├─→ FactionKnowledge [Knowledge & Exploration]
+    │     └─→ Initial territory scan (constructor)
+    │     └─→ Discovery tracking
+    │
+    ├─→ TerritoryManager [Territory Calculation]
+    │     └─→ Uses BuildingService for building queries
+    │     └─→ Hash-based caching
+    │
+    ├─→ BuildingService [Building Queries]
+    │     └─→ Per-day caching (O(1) when cached)
+    │     └─→ Single source of truth
+    │
+    ├─→ MilitaryManager [Military Operations]
+    │     └─→ Scouting parties
+    │     └─→ Attack forces
+    │     └─→ Delegates to FactionAI for military units
+    │
+    ├─→ GoalExecutor [Goal Execution]
+    │     └─→ Structured error handling
+    │     └─→ Execution flow control
+    │
+    ├─→ GoalChain [Dependency Resolution]
+    │     └─→ Iterative queue-based resolution
+    │     └─→ Blocking factor caching
+    │     └─→ Resolution path tracing
+    │
+    └─→ FactionStrategy [Strategic Evaluation]
+          └─→ Faction-specific goal generation
+          └─→ Uses BuildingService for building counts
+```
+
+**Data Flow**:
+- Building queries → BuildingService (cached)
+- Military queries → FactionAI.getMilitaryUnits() (cached)
+- Territory queries → TerritoryManager (hash-cached)
+- Goal execution → GoalExecutor → Goals → BuildingConstructor
+- Knowledge updates → FactionKnowledge (persistent)
 
 ---
 
@@ -36,36 +100,49 @@ The Faction AI system is a comprehensive decision-making framework that controls
 
 ### 1. FactionAI Controller (`server/js/ai/FactionAI.js`)
 
-The central orchestrator that coordinates all faction behavior.
+The central orchestrator that coordinates all faction behavior. Delegates specific responsibilities to specialized services.
 
 #### Initialization
 ```javascript
 constructor(house) {
   this.house = house;
-  this.knowledge = new FactionKnowledge(house);
-  this.territory = new TerritoryManager(house);
-  this.resourcePlanner = new ResourcePlanner();
-  this.currentGoalChain = null;
-  this.activeGoals = [];
-  this.lastEvaluatedDay = 0;
-  this.activeScoutingParties = [];
-  this.activeAttackForces = [];
+  this.knowledge = new FactionKnowledge(house);        // Knowledge & exploration
+  this.territory = new TerritoryManager(house);        // Territory calculation
+  this.buildingService = new BuildingService(house);   // Building queries (cached)
+  this.militaryManager = new MilitaryManager(house, this); // Military operations
+  this.goalExecutor = new GoalExecutor(house, this);    // Goal execution
+  this.currentGoalChain = null;                        // Active goal chain (persists)
+  this.lastEvaluatedDay = 0;                           // Prevent duplicate evaluations
+  
+  // Caching for expensive operations
+  this._cachedMilitaryUnits = null;
+  this._cachedMilitaryUnitsDay = 0;
   
   // Load faction-specific strategy
   this.profile = FactionProfiles[house.name] || FactionProfiles.Goths;
   this.strategy = this.loadStrategy();
   
-  // Initial territory scan
-  this.initialTerritoryScan();
+  // Initial territory scan performed automatically by FactionKnowledge constructor
+  
+  // Validate all services after creation (fail fast if initialization failed)
+  this.validateServices();
 }
 ```
 
+#### Service Validation
+All services are validated after initialization to catch errors early:
+- Checks that each service instance exists
+- Verifies each service is correct type (instanceof check)
+- Throws structured error with timestamp and faction name if validation fails
+- Prevents silent failures during execution
+
 #### Initial Territory Scan
-Performed on AI initialization:
+**Location**: Performed automatically in `FactionKnowledge` constructor (not in FactionAI)
 - Scans 15-tile radius around HQ
 - Counts resources: forest, rocks, caves, farmland
 - Registers significant resource locations in knowledge base
 - Marks tiles as explored
+- This is knowledge gathering, so it belongs in FactionKnowledge
 
 #### Daily Evaluation Cycle (`evaluateAndAct()`)
 
@@ -93,6 +170,7 @@ Performed on AI initialization:
 
 ```javascript
 evaluateNewGoals() {
+  // Delegate to faction-specific strategy
   const possibleGoals = [
     ...this.strategy.evaluateEconomicGoals(),
     ...this.strategy.evaluateMilitaryGoals(),
@@ -100,45 +178,315 @@ evaluateNewGoals() {
     ...this.strategy.evaluateDefenseGoals()
   ];
   
+  // Filter out goals with 0 utility
   const validGoals = possibleGoals.filter(g => g.utility > 0);
+  
+  // Sort by utility (highest first)
   validGoals.sort((a, b) => b.utility - a.utility);
   
   if (validGoals.length > 0) {
     const topGoal = validGoals[0];
+    
+    // Create goal chain to resolve dependencies (iterative queue-based)
     this.currentGoalChain = GoalChain.create(this.house, topGoal);
+    
+    // Validate chain after creation
+    if (this.currentGoalChain.errors && this.currentGoalChain.errors.length > 0) {
+      // Log errors but continue (chain may still be usable)
+    }
+    
+    // Check if chain has steps (empty chain means goal is immediately executable)
+    if (this.currentGoalChain.steps.length === 0) {
+      // Try executing goal directly if it can execute
+      if (topGoal.canExecute(this.house)) {
+        try {
+          topGoal.execute(this.house);
+          topGoal.status = 'COMPLETED';
+        } catch (error) {
+          // Log error and mark as failed
+        }
+      }
+      this.currentGoalChain = null;
+      return;
+    }
+    
+    // Execute first goal in chain
     this.executeCurrentGoal();
   }
 }
 ```
 
+#### Goal Execution (`executeCurrentGoal()`)
+
+Delegates to `GoalExecutor` for execution logic:
+- Gets current goal from chain
+- Delegates execution to `goalExecutor.executeGoal()`
+- Handles chain advancement or clearing based on result
+- Separates execution logic from chain management
+
 #### Scouting System
 
 **Deploy Scouting Party** (line 258):
-- Selects mounted leader (preferred) or any military unit
-- Selects 0-2 backup units
-- Creates `ScoutingParty` instance
-- Assigns follow behavior to backup units
-- Leader marked with 🚩 emoji
+- Delegates to `MilitaryManager.deployScoutingParty()`
+- See MilitaryManager section for details
 
-**Scouting Party Update** (line 340):
-- Updates all active parties each day
-- Removes completed/failed parties
-- Handles discovery reporting
+**Scouting Party Update**:
+- Delegates to `MilitaryManager.updateScoutingParties()`
+- See MilitaryManager section for details
 
 #### Military System
 
-**Attack Force Assembly** (line 386):
-- Determines force size based on threat level:
+All military operations are handled by `MilitaryManager`:
+- Scouting party management
+- Attack force assembly and deployment
+- Unit selection logic
+- See MilitaryManager section for details
+
+---
+
+### 2. BuildingService (`server/js/ai/BuildingService.js`)
+
+Single source of truth for all building-related queries with intelligent per-day caching.
+
+#### Purpose
+- Centralizes building access to prevent duplication
+- Provides consistent building queries across the system
+- Implements efficient caching to avoid redundant Building.list iterations
+- Fails fast if not properly initialized (no fallback paths)
+
+#### Initialization
+```javascript
+constructor(house) {
+  this.house = house;
+  this._cachedBuildings = null;           // Cached building list
+  this._cachedBuildingCounts = {};        // Cached counts by type
+  this._cacheDay = 0;                     // Day when cache was created
+  this._debug = false;                    // Optional debug logging
+}
+```
+
+#### Caching Strategy
+
+**Per-Day Caching**:
+- All caches are invalidated when `global.day` changes
+- Building list cached after first access
+- Building counts cached individually by type
+- O(1) lookups when cached, O(n) only on cache miss
+
+**Cache Optimization**:
+- `getBuildingCount()` checks count cache first before fetching all buildings
+- Only calls `getBuildings()` if count cache miss
+- Prevents unnecessary full building list iteration
+
+#### API Methods
+
+**getBuildings()**:
+- Returns all buildings owned by house (built only)
+- Cached per day
+- Optional debug logging for cache hits/misses
+
+**getBuildingCount(buildingType)**:
+- Returns count of buildings by type
+- Optimized: checks count cache first (O(1) when cached)
+- Only fetches full building list on cache miss (O(n))
+- Example: `house.ai.buildingService.getBuildingCount('mill')`
+
+**hasBuildingType(buildingType)**:
+- Returns true if house has at least one building of type
+- Uses `getBuildingCount()` internally
+
+**getBuildingsByType(buildingType)**:
+- Returns array of buildings matching type
+- Uses cached `getBuildings()` internally
+
+**getFirstBuildingOfType(buildingType)**:
+- Returns first building of type or null
+- Uses `getBuildingsByType()` internally
+
+**invalidateCache()**:
+- Manually invalidates all caches
+- Useful when buildings are added/removed outside normal flow
+
+**setDebug(enabled)**:
+- Enables/disables debug logging for cache operations
+- Logs cache hits, misses, and cache updates
+- Useful for performance debugging
+
+#### Integration
+
+All building access throughout the system goes through BuildingService:
+- `Goals.js` - Uses BuildingService for requirement checks
+- `TerritoryManager.js` - Uses BuildingService for building queries
+- `FactionStrategy.js` - Uses BuildingService for building counts
+- `ResourcePlanner.js` - Uses BuildingService for production calculations
+
+**Fail-Fast Approach**:
+- No fallback to direct Building.list access
+- Throws error if BuildingService unavailable
+- Indicates initialization bug, not recoverable error
+
+---
+
+### 3. GoalExecutor (`server/js/ai/GoalExecutor.js`)
+
+Handles goal execution logic, separate from chain management. Provides structured error handling and execution flow control.
+
+#### Purpose
+- Separates execution logic from chain management
+- Provides consistent error formatting
+- Handles blocked goals intelligently
+- Returns structured results for chain advancement
+
+#### Initialization
+```javascript
+constructor(house, factionAI) {
+  this.house = house;
+  this.factionAI = factionAI;
+}
+```
+
+#### Execution Flow
+
+**executeGoal(goal, goalChain)**:
+1. Validates goal exists
+2. Checks if goal can execute
+3. Routes to appropriate handler:
+   - `executeExecutableGoal()` - Goal can execute
+   - `handleBlockedGoal()` - Goal is blocked
+
+**Returns structured result**:
+```javascript
+{
+  success: boolean,           // Whether execution succeeded
+  shouldAdvance: boolean,    // Whether to advance to next goal
+  shouldClearChain: boolean  // Whether to clear the chain
+}
+```
+
+#### Executable Goal Execution
+
+**executeExecutableGoal(goal, goalChain)**:
+- Executes goal in try-catch block
+- Marks goal as COMPLETED on success
+- On error: creates structured error object, logs with context, marks goal as FAILED
+- Returns success result with shouldAdvance=true
+
+#### Blocked Goal Handling
+
+**handleBlockedGoal(goal, goalChain)**:
+- Special handling for GATHER_RESOURCE goals (passive waiting)
+- For other goals: logs detailed blocking information
+- Creates structured error with:
+  - Timestamp
+  - Faction name
+  - Goal type
+  - Step number
+  - Blocking details (resources/buildings)
+- Marks goal as FAILED (indicates chain resolution issue)
+- Returns failure result
+
+#### Error Formatting
+
+**formatError(faction, goalType, step, message, details)**:
+- Creates consistent error structure:
+```javascript
+{
+  timestamp: ISO string,
+  faction: string,
+  goalType: string,
+  step: number | null,
+  message: string,
+  details: object
+}
+```
+
+All errors logged with format: `[GoalExecutor] [timestamp] [faction] [goalType] [step] message`
+
+---
+
+### 4. MilitaryManager (`server/js/ai/MilitaryManager.js`)
+
+Handles all military operations: scouting parties, attack forces, and unit selection.
+
+#### Purpose
+- Encapsulates all military-related AI logic
+- Manages active scouting parties and attack forces
+- Handles unit selection for missions
+- Delegates military unit queries to FactionAI (for caching)
+
+#### Initialization
+```javascript
+constructor(house, factionAI) {
+  this.house = house;
+  this.factionAI = factionAI;
+  this.activeAttackForces = [];
+}
+```
+
+#### Scouting Party Management
+
+**deployScoutingParty(targetZone, resourceType)**:
+1. Selects scout leader (prefers mounted units)
+2. Selects 0-2 backup units
+3. Creates `ScoutingParty` instance
+4. Assigns follow behavior to backup units
+5. Marks leader with 🚩 emoji
+6. Returns party instance or null if no units available
+
+**selectScoutLeader()**:
+- Prefers mounted units (cavalier, cavalry, horseman, knight, mounted)
+- Falls back to any military unit
+- Returns null if no military units available
+
+**selectBackupUnits(count, excludeLeader)**:
+- Selects up to `count` units (typically 2)
+- Excludes leader from selection
+- Returns array (may be empty if insufficient units)
+
+**updateScoutingParties()**:
+- Updates all active scouting parties each day
+- Removes completed/failed parties
+- Handles discovery reporting to FactionKnowledge
+- Calls completion/failure callbacks
+
+**onScoutingComplete(targetZone, purpose, enemiesFound)**:
+- If enemies found: plans attack force
+- If clear: plans outpost via `factionAI.planOutpost()`
+
+**onScoutingFailed(targetZone, purpose)**:
+- Handles scouting failure (unit died, threat too high, etc.)
+- Logs failure for debugging
+
+#### Attack Force Management
+
+**planAttackForce(targetZone)**:
+- Determines threat level
+- Plans appropriate force size
+
+**assembleAttackForce(targetLocation, threatLevel)**:
+- Determines force size based on threat:
   - Low: 3 units
   - Medium: 5 units
   - High: 8 units
 - Selects strongest available units
 - Minimum 3 units required
 
-**Attack Force Deployment** (line 417):
+**deployAttackForce(force, targetZone)**:
 - Sets all units to move to target
 - Marks units as combat-ready
 - Tracks engagement status
+
+**updateAttackForces()**:
+- Updates all active attack forces each day
+- Removes completed/failed forces
+- Handles engagement status
+
+#### Unit Selection
+
+**getMilitaryUnits()**:
+- Always delegates to `FactionAI.getMilitaryUnits()` for caching
+- No fallback (fails fast if FactionAI unavailable)
+- Single source of truth for military units
 
 ---
 
@@ -347,13 +695,15 @@ class Goal {
     this.utility = utility;              // 0-100 priority score
     this.resourceCost = {};              // {wood: 50, stone: 30}
     this.buildingRequirements = [];      // ['garrison', 'mill']
-    this.prerequisites = [];             // Other goals that must complete first
     this.status = 'PENDING';            // PENDING, IN_PROGRESS, BLOCKED, COMPLETED, FAILED
-    this.blockedBy = [];                // What's preventing execution
+    this.blockedBy = [];                // What's preventing execution (updated by canExecute)
     this.location = null;               // Where to execute this goal
+    this.error = null;                  // Error object if execution failed
   }
 }
 ```
+
+**Note**: The `prerequisites` field was removed - dependencies are handled by GoalChain resolution instead.
 
 ### Goal Types
 
@@ -400,18 +750,26 @@ class Goal {
 
 ### Goal Execution
 
-**Can Execute Check** (`canExecute()`):
-- Checks building requirements (has building type?)
-- Checks resource requirements (has enough resources?)
-- Updates `blockedBy` array with blocking factors
+**Can Execute Check** (`canExecute(house)`):
+- Checks building requirements using `BuildingService.hasBuildingType()`
+- Checks resource requirements (compares `house.stores` to `resourceCost`)
+- Updates `blockedBy` array with blocking factors:
+  - `{ type: 'BUILDING', value: 'garrison' }` for missing buildings
+  - `{ type: 'RESOURCE', resource: 'wood', have: 10, need: 50 }` for insufficient resources
 - Returns true if no blockers
+- **Fails fast** if BuildingService unavailable (no fallback)
+
+**Get Blocking Factors** (`getBlockingFactors(house)`):
+- Calls `canExecute()` internally to update `blockedBy`
+- Returns the `blockedBy` array
+- Used by GoalChain for dependency resolution
 
 **Execute Method**:
-- Each goal type overrides `execute()`
-- Deducts resources from `house.stores`
-- Calls `BuildingConstructor` methods
-- Updates goal status
-- Returns success/failure
+- Each goal type overrides `execute(house)`
+- Deducts resources from `house.stores` (validates first)
+- Calls `BuildingConstructor` methods via `getBuildingConstructor(house)`
+- Updates goal status to COMPLETED or FAILED
+- Throws errors with actionable messages (e.g., "need 40 wood (have 10)")
 
 ---
 
@@ -419,7 +777,16 @@ class Goal {
 
 ### System: GoalChain (`server/js/ai/GoalChain.js`)
 
-Automatically resolves goal dependencies by creating executable chains of subgoals.
+Automatically resolves goal dependencies by creating executable chains of subgoals using an **iterative queue-based approach** (not recursive) for better traceability and debugging.
+
+### Key Features
+
+- **Iterative Resolution**: Queue-based processing instead of recursion
+- **Context-Aware Cycle Detection**: Tracks goal type + blocking context to prevent false positives
+- **Blocking Factor Caching**: Avoids redundant `canExecute()` calls
+- **Resolution Path Tracing**: Full dependency resolution path logged for debugging
+- **Goal Chain Persistence**: Chains persist indefinitely until complete or failed (not recreated daily)
+- **Maximum Depth**: 5 levels (reduced from 10 for safety)
 
 ### Dependency Resolution
 
@@ -433,57 +800,106 @@ BuildGarrison blocked by resources:
 Chain: [GatherWood(50), GatherStone(30), BuildGarrison, GatherGrain(10), TrainMilitary]
 ```
 
-### Chain Creation Process
+### Chain Creation Process (Iterative Queue-Based)
 
 ```javascript
 static create(house, goal) {
   const chain = new GoalChain(goal);
+  const errors = [];
+  const resolutionPath = []; // Track dependency resolution path
   
-  function resolveGoal(g, depth = 0) {
-    // Prevent infinite recursion (max depth 10)
-    if (depth > 10) return;
+  // Queue of goals to process: {goal, parent, depth, reason}
+  const queue = [{ goal, parent: null, depth: 0, reason: 'main goal' }];
+  
+  // Track visited goals with context to prevent cycles
+  // Key: goal type + blocking context (e.g., "BUILD_GARRISON:for-TRAIN_MILITARY")
+  const visited = new Map();
+  
+  // Track blocking factors cache to avoid redundant canExecute() calls
+  const blockingCache = new Map();
+  
+  // Process queue iteratively
+  while (queue.length > 0) {
+    const { goal: g, parent, depth, reason } = queue.shift();
     
-    // If goal can execute, add it
-    if (g.canExecute(house)) {
-      chain.steps.push(g);
-      return;
+    // Prevent infinite loops (max depth 5)
+    if (depth > 5) {
+      errors.push(`Maximum depth (5) reached resolving ${g.type}`);
+      continue;
     }
     
-    // Resolve blocking factors
-    const blocking = g.getBlockingFactors(house);
+    // Create context key for cycle detection
+    const contextKey = parent ? `${g.type}:for-${parent.type}` : g.type;
     
+    // Prevent cycles - check if we've seen this goal in this context
+    if (visited.has(contextKey)) {
+      continue; // Already processed
+    }
+    visited.set(contextKey, { goal: g, parent, depth, reason });
+    
+    // Check if goal can execute (cache blocking factors)
+    let blocking;
+    const cacheKey = `${g.type}:${house.id}`;
+    if (blockingCache.has(cacheKey)) {
+      blocking = blockingCache.get(cacheKey);
+    } else {
+      blocking = g.getBlockingFactors(house);
+      blockingCache.set(cacheKey, blocking);
+    }
+    
+    if (blocking.length === 0) {
+      // Goal can execute - add it directly
+      chain.steps.push(g);
+      continue;
+    }
+    
+    // Goal is blocked - resolve blocking factors
     for (const block of blocking) {
       if (block.type === 'BUILDING') {
-        // Need to build something first
         const buildGoal = createBuildingGoal(block.value);
-        resolveGoal(buildGoal, depth + 1); // Recursive
+        if (buildGoal) {
+          queue.push({
+            goal: buildGoal,
+            parent: g,
+            depth: depth + 1,
+            reason: `needs building: ${block.value}`
+          });
+        }
       } else if (block.type === 'RESOURCE') {
-        // Check if resource in territory
-        if (canGatherResourceInTerritory(house, block.resource)) {
-          // Build gathering building
-          const buildingType = getResourceBuildingType(block.resource);
+        const buildingType = chain.getResourceBuildingType(block.resource);
+        if (buildingType) {
           const buildGoal = createBuildingGoal(buildingType);
-          resolveGoal(buildGoal, depth + 1);
-        } else {
-          // Check adjacent zones for outpost
-          const outpostGoal = findResourceInAdjacentZones(house, block.resource);
-          if (outpostGoal) {
-            resolveGoal(outpostGoal, depth + 1);
-          } else {
-            // Gather what we can
-            const deficit = block.need - block.have;
-            chain.steps.push(new GatherResourceGoal(block.resource, deficit));
+          if (buildGoal) {
+            queue.push({
+              goal: buildGoal,
+              parent: g,
+              depth: depth + 1,
+              reason: `needs resource: ${block.resource} (requires ${buildingType})`
+            });
           }
+        }
+        
+        // Add gather goal to wait for resources
+        const deficit = block.need - block.have;
+        if (deficit > 0) {
+          chain.steps.push(new GatherResourceGoal(block.resource, block.need));
         }
       }
     }
     
-    // Finally add the main goal
+    // Finally add the main goal (after its dependencies)
     chain.steps.push(g);
   }
   
-  resolveGoal(goal);
+  // Remove duplicates (keep last occurrence)
   chain.steps = chain.removeDuplicates(chain.steps);
+  
+  // Store errors and resolution path for debugging
+  if (errors.length > 0) {
+    chain.errors = errors;
+  }
+  chain.resolutionPath = resolutionPath; // Always stored for debugging
+  
   return chain;
 }
 ```
@@ -491,24 +907,70 @@ static create(house, goal) {
 ### Chain Execution
 
 **Methods**:
-- `getCurrentGoal()` - Returns next goal to execute
-- `advance()` - Moves to next goal in chain
-- `isComplete()` - Checks if all goals finished
-- `getProgress()` - Returns 0-1 progress value
+- `getCurrentGoal()` - Returns next goal to execute (or null if complete)
+- `advance()` - Moves to next goal in chain, returns true if more steps remain
+- `isComplete()` - Checks if all goals finished (`currentStep >= steps.length`)
+- `isFailed()` - Checks if chain has failed (current goal failed or any prerequisite failed)
+- `getProgress()` - Returns 0-1 progress value (`currentStep / steps.length`)
+- `getSummary()` - Returns summary object with main goal, steps, progress, remaining
 
 **Duplicate Removal**:
-- Tracks last occurrence of each goal type
-- Keeps only the last occurrence (avoids redundant goals)
+- Single-pass algorithm: tracks last index of each goal type
+- Keeps only the last occurrence (later goals may have updated requirements)
+- O(n) time complexity
+
+### Goal Chain Persistence
+
+**Key Behavior**: Goal chains persist indefinitely until complete or failed
+- Chains are **not** recreated daily
+- Only create new chain when:
+  - Current chain is complete (`isComplete()` returns true)
+  - Current chain has failed (`isFailed()` returns true)
+  - No chain exists (first evaluation or after clearing)
+
+**Chain Lifecycle**:
+1. Chain created when new goal selected
+2. Chain persists across days, executing one goal per day
+3. Chain advances after each successful goal execution
+4. Chain cleared when complete or failed
+5. New chain created only after clearing
+
+This prevents unnecessary re-evaluation and ensures goals are completed even if they take multiple days.
+
+### Resolution Path Tracing
+
+Each chain stores a `resolutionPath` array documenting the dependency resolution process:
+```javascript
+{
+  goal: 'BUILD_GARRISON',
+  depth: 0,
+  reason: 'main goal',
+  parent: null,
+  canExecute: false,
+  blocking: [
+    { type: 'RESOURCE', value: 'wood', need: 50, have: 10 },
+    { type: 'BUILDING', value: 'forge' }
+  ]
+}
+```
+
+This enables debugging of complex dependency chains and understanding why certain goals were selected.
 
 ### Resource Resolution Strategy
 
-1. **Check Territory**: Can resource be gathered in current territory?
-   - If yes: Create build gathering building goal
-   
-2. **Check Adjacent Zones**: Is resource in adjacent zones?
-   - If yes: Create EstablishOutpostGoal
-   
-3. **Otherwise**: Create GatherResourceGoal (passive waiting)
+1. **Check Building Type**: Maps resource to required building type
+   - stone → quarry
+   - wood → lumbermill
+   - grain → farm
+   - iron → mine
+
+2. **Build Gathering Building**: If building type exists, create build goal
+   - Added to queue for resolution
+   - Will be built before resource gathering
+
+3. **Add Gather Goal**: Create GatherResourceGoal to wait for resources
+   - Passive goal that checks resource levels daily
+   - Completes when target amount reached
 
 ---
 
@@ -516,19 +978,63 @@ static create(house, goal) {
 
 ### System: TerritoryManager (`server/js/ai/TerritoryManager.js`)
 
-Dynamically calculates and manages faction territory boundaries based on building positions.
+Dynamically calculates and manages faction territory boundaries based on building positions with intelligent hash-based caching.
 
 ### Territory Calculation
 
-**Recalculated Daily** in `updateTerritory()`:
+**Cached Until Buildings Change** in `updateTerritory()`:
 
-1. **Get All Buildings**: Finds all buildings owned by faction
-2. **Calculate Center of Mass**: Average position of all buildings
-3. **Calculate Average Distance**: Average distance from center to buildings
-4. **Set Territory Radius**: `max(avgDistance * 2, 15 tiles)`
-5. **Classify Buildings**:
+1. **Get All Buildings**: Uses `BuildingService.getBuildings()` (fails fast if unavailable)
+2. **Check Cache**: Calculates building hash, compares to last hash
+   - If hash matches and territory exists: use cached territory (early return)
+   - If hash differs or no territory: recalculate
+3. **Calculate Center of Mass**: Average position of all buildings
+4. **Calculate Average Distance**: Average distance from center to buildings
+5. **Set Territory Radius**: `max(avgDistance * 1.1, 15 tiles)` (1.1x multiplier, minimum 15)
+6. **Classify Buildings**:
    - Within radius: Core base buildings
    - Beyond radius: Outpost buildings
+
+### Building Hash Calculation
+
+**Hash Formula**: `count:sumOfIDs:validIds`
+
+```javascript
+calculateBuildingHash(buildings) {
+  if (buildings.length === 0) return '0:0';
+  
+  let idSum = 0;
+  let validIds = 0;
+  
+  for (const building of buildings) {
+    if (building && building.id !== undefined && building.id !== null) {
+      idSum += building.id;
+      validIds++;
+    }
+  }
+  
+  return `${buildings.length}:${idSum}:${validIds}`;
+}
+```
+
+**Why This Hash**:
+- Detects count changes (buildings added/removed)
+- Detects ID changes (different buildings)
+- Handles edge cases (same count, different buildings)
+- More robust than simple count:lastId approach
+
+### Caching Strategy
+
+**Cache Invalidation**:
+- Territory recalculated only when building hash changes
+- Hash calculated from: building count + sum of IDs + valid ID count
+- Cached territory stored in `this.coreBase`
+- Last hash stored in `this.lastBuildingHash`
+
+**Performance**:
+- O(1) when cached (just hash comparison)
+- O(n) only when buildings change (full recalculation)
+- Prevents unnecessary recalculations on days with no building changes
 
 ### Core Base Structure
 
@@ -620,14 +1126,17 @@ this.lastUpdated = new Map();           // Timestamps
 
 ### Initial Territory Scan
 
-**On AI Initialization**:
+**Location**: Performed automatically in `FactionKnowledge` constructor (not in FactionAI)
+
+**On AI Initialization** (`performInitialTerritoryScan()`):
 - Scans 15-tile radius around HQ
 - Counts resources: forest, rocks, caves, farmland
 - Registers significant locations:
-  - Caves: High priority (density 20)
-  - Forests: Best cluster location
-  - Rocks: Best cluster location
-- Marks all tiles as explored
+  - Caves: High priority (density 20), all cave locations registered
+  - Forests: Best cluster location (first cluster found)
+  - Rocks: Best cluster location (first cluster found)
+- Marks all tiles in scan radius as explored
+- This is knowledge gathering, so it belongs in FactionKnowledge, not FactionAI
 
 ### Discovery Reporting
 
@@ -1000,51 +1509,23 @@ Each faction has its own strategy file that extends `FactionStrategy`:
 
 ### System: ResourcePlanner (`server/js/ai/ResourcePlanner.js`)
 
-Plans resource acquisition to meet goal requirements and estimates production capabilities.
+**Status**: Currently instantiated but not actively used in goal chain resolution. GoalChain handles resource resolution directly.
+
+**Note**: ResourcePlanner exists and can be used for resource planning calculations, but the current goal chain resolution system handles dependencies directly without using ResourcePlanner.
+
+**Integration**: Uses BuildingService for building queries (fails fast if unavailable).
 
 ### Planning Methods
 
 #### Plan for Goal (`planForGoal()`)
-```javascript
-planForGoal(house, goal) {
-  if (goal.canExecute(house)) {
-    return { ready: true, subgoals: [] };
-  }
-  
-  const subgoals = [];
-  
-  for (const block of goal.blockedBy) {
-    if (block.type === 'RESOURCE') {
-      const deficit = block.need - block.have;
-      subgoals.push(new GatherResourceGoal(block.resource, deficit));
-    } else if (block.type === 'BUILDING') {
-      subgoals.push(createBuildingGoal(block.value));
-    }
-  }
-  
-  return { ready: false, subgoals };
-}
-```
+- Determines if goal can execute
+- Creates subgoals for blocking factors
+- Currently not used in active goal chain resolution
 
 #### Estimate Gather Time (`estimateGatherTime()`)
-```javascript
-estimateGatherTime(house, resources) {
-  const rates = this.calculateProductionRates(house);
-  let maxDays = 0;
-  
-  for (const [resource, amount] of Object.entries(resources)) {
-    const rate = rates[resource] || 0;
-    if (rate > 0) {
-      const time = amount / rate;
-      maxDays = Math.max(maxDays, time);
-    } else {
-      return Infinity; // Can't produce this resource
-    }
-  }
-  
-  return Math.ceil(maxDays);
-}
-```
+- Estimates time to gather required resources
+- Uses production rate calculations
+- Can be used for planning but not currently integrated
 
 ### Production Rate Calculation
 
@@ -1058,36 +1539,259 @@ estimateGatherTime(house, resources) {
 - Each serf adds +0.5 to all resource production rates
 
 **Calculation**:
+- Uses BuildingService for building counts (via `getBuildingCount()`)
+- Fails fast if BuildingService unavailable
+
+---
+
+## Caching & Performance
+
+### Caching Strategies
+
+The system implements multiple layers of caching to optimize performance:
+
+#### 1. BuildingService Caching
+
+**Per-Day Caching**:
+- Building list cached after first access
+- Building counts cached individually by type
+- Cache key: `buildingType` + `_cacheDay`
+- Cache invalidated when `global.day` changes
+
+**Optimization**:
+- `getBuildingCount()` checks count cache first (O(1) when cached)
+- Only calls `getBuildings()` on cache miss (O(n) only when needed)
+- Prevents redundant Building.list iterations
+
+**Cache Structure**:
 ```javascript
-calculateProductionRates(house) {
-  const buildings = this.getBuildingsByHouse(house);
-  const serfs = this.getSerfsByHouse(house);
-  
-  const rates = {
-    wood: this.countBuildingType(buildings, 'lumbermill') * 5,
-    stone: this.countBuildingType(buildings, 'mine') * 4,
-    grain: this.countBuildingType(buildings, 'farm') * 3,
-    ironore: this.countBuildingType(buildings, 'mine') * 2
-  };
-  
-  const serfBonus = serfs.length * 0.5;
-  rates.wood += serfBonus;
-  rates.stone += serfBonus;
-  rates.grain += serfBonus;
-  
-  return rates;
+{
+  _cachedBuildings: Array | null,      // Full building list
+  _cachedBuildingCounts: {},           // { 'mill': 2, 'farm': 5, ... }
+  _cacheDay: number                    // Day when cache was created
 }
 ```
 
-### Affordability Check
+**Debug Logging**:
+- Optional debug mode via `setDebug(true)`
+- Logs cache hits/misses for performance analysis
+- Example: `[BuildingService] Cache HIT for mill count: 2`
 
-**Can Afford** (`canAfford()`):
-- Checks if house has all required resources
-- Returns false if any resource is insufficient
+#### 2. FactionAI Military Units Caching
 
-**Calculate Deficit** (`calculateDeficit()`):
-- Compares current resources to required
-- Returns object with only shortfalls (positive values)
+**Per-Day Caching**:
+- Military units list cached after first calculation
+- Cache invalidated when day changes
+- Prevents redundant Player.list iterations
+
+**Cache Structure**:
+```javascript
+{
+  _cachedMilitaryUnits: Array | null,
+  _cachedMilitaryUnitsDay: number
+}
+```
+
+**Access Pattern**:
+- `getMilitaryUnits()` checks cache first
+- Calculates and caches on miss
+- MilitaryManager always delegates to FactionAI (single source of truth)
+
+#### 3. TerritoryManager Hash-Based Caching
+
+**Hash-Based Invalidation**:
+- Territory cached until buildings change
+- Hash calculated: `count:sumOfIDs:validIds`
+- Compares hash to detect building changes
+- Only recalculates when hash differs
+
+**Cache Structure**:
+```javascript
+{
+  coreBase: { center, radius, buildings },
+  lastBuildingHash: string,
+  lastBuildingCount: number
+}
+```
+
+**Performance**:
+- O(1) hash comparison when cached
+- O(n) recalculation only when buildings change
+- Prevents unnecessary recalculations on days with no building changes
+
+#### 4. GoalChain Blocking Factor Caching
+
+**Per-Goal Caching**:
+- Blocking factors cached during chain resolution
+- Cache key: `${goalType}:${house.id}}`
+- Prevents redundant `canExecute()` calls
+- Only calculated once per goal type per resolution
+
+**Cache Structure**:
+```javascript
+{
+  blockingCache: Map<string, Array>  // goalType:houseId -> blocking factors
+}
+```
+
+### Performance Optimizations
+
+#### Iterative vs Recursive Resolution
+
+**Before**: Recursive goal chain resolution
+- Hard to trace and debug
+- Stack depth concerns
+- Difficult to show resolution state
+
+**After**: Iterative queue-based resolution
+- Easy to trace (queue state visible)
+- No stack depth issues
+- Can log queue state for debugging
+- Better error reporting
+
+#### Blocking Factor Caching
+
+**Optimization**: Cache blocking factors during chain resolution
+- Prevents calling `canExecute()` multiple times for same goal
+- Reduces redundant BuildingService queries
+- Improves resolution performance
+
+#### Building Hash Optimization
+
+**Before**: Full string concatenation of all building IDs
+- Expensive for many buildings
+- O(n) string operations
+
+**After**: Sum of IDs + count + valid IDs
+- O(n) calculation but simpler
+- More robust hash (detects more change types)
+- Faster comparison
+
+#### Single-Pass Duplicate Removal
+
+**Algorithm**: Track last index, filter in single pass
+- O(n) time complexity
+- Clear and efficient
+- Keeps last occurrence (most up-to-date requirements)
+
+---
+
+## Error Handling & Validation
+
+### Service Initialization Validation
+
+**Location**: `FactionAI.validateServices()`
+
+All services are validated after initialization to catch errors early:
+
+```javascript
+validateServices() {
+  const services = [
+    { name: 'FactionKnowledge', instance: this.knowledge, class: FactionKnowledge },
+    { name: 'TerritoryManager', instance: this.territory, class: TerritoryManager },
+    { name: 'BuildingService', instance: this.buildingService, class: BuildingService },
+    { name: 'MilitaryManager', instance: this.militaryManager, class: MilitaryManager },
+    { name: 'GoalExecutor', instance: this.goalExecutor, class: GoalExecutor }
+  ];
+  
+  // Validate each service exists and is correct type
+  // Throw structured error if validation fails
+}
+```
+
+**Validation Checks**:
+- Service instance exists (not null/undefined)
+- Service is correct type (instanceof check)
+- Strategy exists (no base class, so separate check)
+
+**Error Format**:
+```
+[FactionAI] [timestamp] [faction] Service initialization failed:
+- FactionKnowledge not initialized
+- BuildingService is not an instance of BuildingService
+```
+
+### Structured Error Messages
+
+All errors follow consistent format for easy parsing and debugging:
+
+**Error Structure**:
+```javascript
+{
+  timestamp: "2024-01-15T10:30:45.123Z",
+  faction: "Goths",
+  goalType: "BUILD_MILL",
+  step: 2,
+  message: "Error executing goal: Insufficient resources",
+  details: {
+    resourceBlocks: [{ resource: 'wood', need: 40, have: 10 }],
+    buildingBlocks: []
+  }
+}
+```
+
+**Error Logging Format**:
+```
+[Component] [timestamp] [faction] [goalType] [step] message
+```
+
+**Examples**:
+- `[GoalExecutor] [2024-01-15T10:30:45.123Z] [Goths] [BUILD_MILL] [step 2] Error executing goal: Insufficient resources`
+- `[FactionAI] [2024-01-15T10:30:45.123Z] [Goths] [BUILD_MILL] Goal chain creation errors: [...]`
+
+### Goal Chain Error Tracking
+
+**Chain Errors**:
+- Stored in `chain.errors` array
+- Collected during resolution (max depth, unknown building types, etc.)
+- Exposed in `getStatus()` for debugging
+- Logged with resolution path
+
+**Resolution Path**:
+- Always stored in `chain.resolutionPath`
+- Documents dependency resolution process
+- Includes: goal, depth, reason, parent, canExecute, blocking factors
+- Useful for debugging complex chains
+
+### Fail-Fast Approach
+
+**No Fallback Paths**:
+- BuildingService access fails fast if unavailable
+- Indicates initialization bug, not recoverable error
+- All building access goes through BuildingService
+- Removed all fallback paths to direct Building.list access
+
+**Benefits**:
+- Errors caught immediately
+- No silent failures
+- Clear error messages indicate root cause
+- Easier debugging
+
+### Error Handling in Daily Evaluation
+
+**Location**: `server/js/Houses.js` line 239
+
+```javascript
+House.evaluateAI = function(){
+  for(var i in House.list){
+    var house = House.list[i];
+    if(house.ai && house.ai.evaluateAndAct){
+      try {
+        house.ai.evaluateAndAct();
+      // Errors logged with stack traces instead of silently swallowed
+      // Prevents one faction from breaking others
+      // But errors are now visible for debugging
+      console.error(`[FactionAI] Error evaluating AI for faction ${house.name || house.id}:`, error);
+        if (error.stack) {
+          console.error(error.stack);
+        }
+      } catch (error) {
+        // Error logged but doesn't break other factions
+      }
+    }
+  }
+}
+```
 
 ---
 
@@ -1098,45 +1802,69 @@ calculateProductionRates(house) {
 ```
 Game Loop (Daily)
   ↓
-House.evaluateAI() [Houses.js:243]
+House.evaluateAI() [Houses.js:239]
   ↓
-FactionAI.evaluateAndAct() [FactionAI.js:138]
+FactionAI.evaluateAndAct() [FactionAI.js:100]
   ↓
+  ├─→ Check lastEvaluatedDay (prevent duplicates)
+  ├─→ Invalidate caches for new day
   ├─→ TerritoryManager.updateTerritory()
+  │     ├─→ BuildingService.getBuildings() (cached)
+  │     ├─→ Calculate hash (count:sumOfIDs:validIds)
+  │     ├─→ If hash matches: use cached territory
+  │     └─→ If hash differs: recalculate (1.1x multiplier)
   ├─→ house.updatePatrolList()
   ├─→ knowledge.cleanStaleInformation()
   │
-  ├─→ IF currentGoalChain exists:
+  ├─→ IF currentGoalChain exists AND not complete AND not failed:
   │     └─→ executeCurrentGoal()
+  │           ├─→ GoalExecutor.executeGoal()
+  │           │     ├─→ goal.canExecute() (uses BuildingService)
+  │           │     ├─→ goal.execute() (if executable)
+  │           │     │     ├─→ BuildingConstructor.buildX()
+  │           │     │     │     └─→ tilemapSystem.findBuildingSpot()
+  │           │     │     │     └─→ Create building entity
+  │           │     │     └─→ Deduct resources
+  │           │     └─→ Return { success, shouldAdvance, shouldClearChain }
+  │           └─→ If shouldAdvance: goalChain.advance()
+  │           └─→ If shouldClearChain: currentGoalChain = null
   │
-  └─→ ELSE:
+  └─→ ELSE (no chain OR complete OR failed):
+        ├─→ Clear failed chains
         ├─→ strategy.evaluateEconomicGoals()
         ├─→ strategy.evaluateMilitaryGoals()
         ├─→ strategy.evaluateExpansionGoals()
         ├─→ strategy.evaluateDefenseGoals()
+        │     └─→ All use BuildingService for building counts
         │
         ├─→ Filter & sort goals by utility
         ├─→ GoalChain.create(topGoal)
-        │     └─→ Recursively resolve dependencies
+        │     ├─→ Iterative queue-based resolution
+        │     ├─→ Blocking factor caching
+        │     ├─→ Context-aware cycle detection
+        │     ├─→ Resolution path tracing
+        │     └─→ Duplicate removal
         │
+        ├─→ Validate chain (check for errors)
         └─→ executeCurrentGoal()
-              ├─→ goal.canExecute()
-              ├─→ goal.execute()
-              │     ├─→ BuildingConstructor.buildX()
-              │     │     └─→ tilemapSystem.findBuildingSpot()
-              │     │     └─→ Create building entity
-              │     │
-              │     └─→ Deduct resources
-              │
-              └─→ goalChain.advance()
+  │
+  └─→ MilitaryManager.updateScoutingParties()
+  └─→ MilitaryManager.updateAttackForces()
 ```
 
 ### Integration Points
 
 #### House Integration (`server/js/Houses.js`)
-- **Line 243**: `House.evaluateAI()` - Daily evaluation entry point
-- **Line 27**: `calculateBaseTerritory()` - Territory calculation
-- **Line 95**: `isInBaseTerritory()` - Colony detection
+- **Line 239**: `House.evaluateAI()` - Daily evaluation entry point
+  - Iterates all houses, calls `house.ai.evaluateAndAct()`
+  - Error handling prevents one faction from breaking others
+  - Errors logged with stack traces for debugging
+- **Line 28**: `calculateBaseTerritory()` - Territory calculation
+  - Delegates to `house.ai.territory.updateTerritory()`
+  - Delegates to `house.ai.territory.absorbColonies()`
+  - Updates `baseCenter`, `baseCenterCoords`, `baseRadius` from TerritoryManager
+- **Line 48**: `isInBaseTerritory(x, y)` - Colony detection
+  - Delegates to `house.ai.territory.isInBaseTerritory(x, y)`
 - **Line 107**: `updatePatrolList()` - Patrol building tracking
 
 #### Tilemap System Integration
@@ -1192,7 +1920,8 @@ This prevents AI state from being saved/loaded, ensuring fresh evaluation on gam
 ### 2. Chain of Responsibility
 - `GoalChain` resolves dependencies automatically
 - Each goal can be blocked, creating subgoals
-- Recursive resolution ensures all prerequisites met
+- Iterative queue-based resolution ensures all prerequisites met
+- Goal chains persist until complete or failed
 
 ### 3. Observer Pattern
 - Scouts report discoveries to `FactionKnowledge`
@@ -1217,21 +1946,21 @@ This prevents AI state from being saved/loaded, ensuring fresh evaluation on gam
 - Only one evaluation per day (tracked by `lastEvaluatedDay`)
 - Prevents duplicate evaluations
 - Error handling prevents one faction from blocking others
+- Early returns prevent unnecessary work
 
 ### Search Optimization
 - HQ placement: Tests up to 500 locations (not entire map)
 - Building placement: Expanding radius search (stops when found)
 - Outpost finding: Samples every 5th tile (not exhaustive)
 
-### Caching
-- `MapAnalyzer.analysisCache` - Caches map analysis
-- `TerritoryManager` - Recalculates only when needed
-- `FactionKnowledge` - Persistent knowledge (no recalculation)
+### Caching (See Caching & Performance Section)
+All caching strategies are documented in the [Caching & Performance](#caching--performance) section above.
 
 ### Memory Management
 - Stale enemy information cleaned (5-minute TTL)
-- Completed scouting parties removed
-- Completed attack forces removed
+- Completed scouting parties removed (handled by MilitaryManager)
+- Completed attack forces removed (handled by MilitaryManager)
+- Goal chains cleared when complete or failed
 
 ---
 
@@ -1256,15 +1985,27 @@ This prevents AI state from being saved/loaded, ensuring fresh evaluation on gam
 
 ## Summary
 
-The Faction AI system is a sophisticated, goal-driven architecture that:
+The Faction AI system is a sophisticated, optimized, goal-driven architecture that:
 
-1. **Evaluates daily** to make strategic decisions
-2. **Resolves dependencies** automatically through goal chains
-3. **Manages territory** dynamically based on building positions
-4. **Explores the map** through scouting parties
-5. **Expands strategically** through outpost establishment
-6. **Adapts per faction** through strategy modules and profiles
-7. **Tracks knowledge** with fog of war system
-8. **Plans resources** to meet goal requirements
+1. **Evaluates daily** to make strategic decisions (once per day, prevented from duplicates)
+2. **Resolves dependencies** automatically through iterative goal chains (queue-based, not recursive)
+3. **Persists goal chains** indefinitely until complete or failed (not recreated daily)
+4. **Manages territory** dynamically with hash-based caching (1.1x multiplier, cached until buildings change)
+5. **Explores the map** through scouting parties (managed by MilitaryManager)
+6. **Expands strategically** through outpost establishment
+7. **Adapts per faction** through strategy modules and profiles
+8. **Tracks knowledge** with fog of war system (FactionKnowledge with initial territory scan)
+9. **Optimizes performance** through multiple caching layers (BuildingService, FactionAI, TerritoryManager)
+10. **Validates services** on initialization (fail-fast approach)
+11. **Handles errors** with structured logging (timestamp, faction, goal type, step, details)
 
-The system is modular, extensible, and designed to create believable, strategic NPC faction behavior that adapts to the game state while maintaining faction-specific characteristics.
+### Architecture Principles
+
+- **Single Source of Truth**: Each data type has one clear access point (BuildingService for buildings, FactionAI for military units)
+- **Fail Fast**: No fallback paths - errors caught immediately with clear messages
+- **Separation of Concerns**: Clear responsibilities (FactionAI orchestrates, GoalExecutor executes, MilitaryManager handles military)
+- **Performance Optimized**: Multiple caching layers, iterative algorithms, hash-based invalidation
+- **Easily Diagnosable**: Structured errors, resolution path tracing, optional debug logging
+- **Modular & Extensible**: Clear extension points for new goals, buildings, factions, strategies
+
+The system is modular, extensible, and designed to create believable, strategic NPC faction behavior that adapts to the game state while maintaining faction-specific characteristics. All components are optimized for performance, reliability, and ease of debugging.

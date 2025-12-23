@@ -47,15 +47,14 @@ class ResourcePlanner {
   
   // Calculate daily production rates for each resource
   calculateProductionRates(house) {
-    const buildings = this.getBuildingsByHouse(house);
     const serfs = this.getSerfsByHouse(house);
     
-    // Base rates per building type (estimated)
+    // Base rates per building type (estimated) - use BuildingService if available
     const rates = {
-      wood: this.countBuildingType(buildings, 'lumbermill') * 5,
-      stone: this.countBuildingType(buildings, 'mine') * 4,
-      grain: this.countBuildingType(buildings, 'farm') * 3,
-      ironore: this.countBuildingType(buildings, 'mine') * 2
+      wood: this.getBuildingCount(house, 'lumbermill') * 5,
+      stone: this.getBuildingCount(house, 'mine') * 4,
+      grain: this.getBuildingCount(house, 'farm') * 3,
+      ironore: this.getBuildingCount(house, 'mine') * 2
     };
     
     // Bonus from serfs (each serf adds a small amount)
@@ -90,20 +89,12 @@ class ResourcePlanner {
     return deficit;
   }
   
-  // Helper: get buildings owned by house
+  // Helper: get buildings owned by house (uses BuildingService - fails fast if unavailable)
   getBuildingsByHouse(house) {
-    const buildings = [];
-    
-    if (typeof Building !== 'undefined' && Building.list) {
-      for (const id in Building.list) {
-        const building = Building.list[id];
-        if (building.owner === house.id) {
-          buildings.push(building);
-        }
-      }
+    if (!house.ai || !house.ai.buildingService) {
+      throw new Error(`BuildingService not available for ${house.name || 'unknown'} - check FactionAI initialization`);
     }
-    
-    return buildings;
+    return house.ai.buildingService.getBuildings();
   }
   
   // Helper: get serfs owned by house
@@ -122,9 +113,19 @@ class ResourcePlanner {
     return serfs;
   }
   
-  // Helper: count building types
+  // Helper: count building types (uses BuildingService if available, otherwise counts from array)
   countBuildingType(buildings, type) {
+    // If buildings is from BuildingService, it's already filtered
+    // Otherwise, filter the provided array
     return buildings.filter(b => b.type === type).length;
+  }
+  
+  // Helper: get building count using BuildingService (fails fast if unavailable)
+  getBuildingCount(house, type) {
+    if (!house.ai || !house.ai.buildingService) {
+      throw new Error(`BuildingService not available for ${house.name || 'unknown'} - check FactionAI initialization`);
+    }
+    return house.ai.buildingService.getBuildingCount(type);
   }
 }
 

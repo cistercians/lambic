@@ -793,3 +793,6 @@ The military system is a sophisticated multi-layer system:
 4. **AI Layer** - Strategic decision-making, goal planning, and resource allocation
 
 Units transition between multiple behavior states (idle, patrol, combat, scouting, retreat) based on faction goals, enemy detection, and territory defense needs. The system supports both individual unit autonomy and coordinated group operations.
+
+
+

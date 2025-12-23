@@ -353,3 +353,6 @@ The system tracks:
 - Ring buffer for history (prevents memory growth)
 - Automatic cleanup of stale events (5 minute intervals)
 - Efficient position-based queries (radius squared calculations)
+
+
+

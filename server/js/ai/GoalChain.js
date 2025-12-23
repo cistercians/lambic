@@ -11,91 +11,275 @@ class GoalChain {
   }
   
   // Convert a blocked goal into a chain of achievable subgoals
-  static create(house, goal) {
+  // Iterative queue-based approach for better traceability and debugging
+  static create(house, goal, logger = null) {
     const chain = new GoalChain(goal);
-    const visited = new Set();
+    const errors = [];
+    const resolutionPath = []; // Track dependency resolution path for debugging
     
-    function resolveGoal(g, depth = 0) {
-      // Prevent infinite recursion
-      if (depth > 10) {
-        return;
+    // Collect chain creation start
+    if (logger) {
+      logger.collectInfo(`Resolving dependencies for ${goal.type}`);
+    }
+    
+    // Queue of goals to process: {goal, parent, depth, reason}
+    const queue = [{ goal, parent: null, depth: 0, reason: 'main goal' }];
+    
+    // Track visited goals with context to prevent cycles
+    // Key: goal type + blocking context (e.g., "BUILD_GARRISON:needs-forge")
+    const visited = new Map();
+    
+    // Track blocking factors cache to avoid redundant canExecute() calls
+    const blockingCache = new Map();
+    
+    // Track goals that are blocked and waiting for dependencies
+    // Map: goal -> array of dependency goal types it's waiting for
+    const deferredGoals = new Map();
+    
+    // Process queue iteratively
+    while (queue.length > 0) {
+      const { goal: g, parent, depth, reason } = queue.shift();
+      
+      // Prevent infinite loops
+      if (depth > 5) {
+        errors.push(`Maximum depth (5) reached resolving ${g.type} (from ${parent?.type || 'root'})`);
+        continue;
       }
       
-      // Prevent cycles
-      if (visited.has(g.type)) {
-        return;
-      }
-      visited.add(g.type);
+      // Create context key for cycle detection (goal type + what it's blocking)
+      const contextKey = parent ? `${g.type}:for-${parent.type}` : g.type;
       
-      // If goal can execute, add it directly
-      if (g.canExecute(house)) {
+      // Prevent cycles - check if we've seen this goal in this context
+      if (visited.has(contextKey)) {
+        // Already processed this goal in this context - skip
+        continue;
+      }
+      visited.set(contextKey, { goal: g, parent, depth, reason });
+      
+      // Log resolution path
+      const pathEntry = {
+        goal: g.type,
+        depth,
+        reason,
+        parent: parent?.type || null,
+        canExecute: false,
+        blocking: []
+      };
+      
+      // Check if goal can execute (cache blocking factors to avoid redundant calls)
+      let blocking;
+      const cacheKey = `${g.type}:${house.id}`;
+      if (blockingCache.has(cacheKey)) {
+        blocking = blockingCache.get(cacheKey);
+      } else {
+        blocking = g.getBlockingFactors(house);
+        blockingCache.set(cacheKey, blocking);
+      }
+      
+      if (blocking.length === 0) {
+        // Goal can execute - add it directly
         chain.steps.push(g);
-        return;
+        pathEntry.canExecute = true;
+        resolutionPath.push(pathEntry);
+        
+        continue;
       }
       
-      // Recursively resolve blocking factors
-      const blocking = g.getBlockingFactors(house);
+      // Goal is blocked - log blocking factors
+      pathEntry.blocking = blocking.map(b => ({
+        type: b.type,
+        value: b.value || b.resource || 'unknown',
+        need: b.need,
+        have: b.have
+      }));
+      resolutionPath.push(pathEntry);
       
+      if (logger && blocking.length > 0) {
+        const blockingSummary = blocking.map(b => b.type === 'BUILDING' ? `need ${b.value}` : `need ${b.resource} (have ${b.have}, need ${b.need})`).join(', ');
+        logger.collectInfo(`${g.type} blocked: ${blockingSummary}`);
+      }
+      
+      // Track if we added any dependencies for this goal
+      let dependenciesAdded = false;
+      
+      // Resolve blocking factors linearly (no complex fallbacks)
       for (const block of blocking) {
         if (block.type === 'BUILDING') {
-          // Need to build something first
+          // Need to build something first - simple linear dependency
           const buildGoal = createBuildingGoal(block.value);
-          resolveGoal(buildGoal, depth + 1); // Recursive
+          if (!buildGoal) {
+            errors.push(`Unknown building type: ${block.value} - check createBuildingGoal() function in Goals.js`);
+            if (logger) {
+              logger.logError(`Unknown building type: ${block.value}`, null);
+            }
+            continue;
+          }
+          
+          queue.push({
+            goal: buildGoal,
+            parent: g,
+            depth: depth + 1,
+            reason: `needs building: ${block.value}`
+          });
+          dependenciesAdded = true;
+          
+          if (logger) {
+            logger.collectInfo(`  -> Need ${buildGoal.type} (for ${g.type})`);
+          }
         } else if (block.type === 'RESOURCE') {
-          // Check if resource exists in faction territory first
-          if (chain.canGatherResourceInTerritory(house, block.resource)) {
-            // Resource available in territory - build gathering building
-            const buildingType = chain.getResourceBuildingType(block.resource);
+          // Check if we can gather this resource in territory
+          const buildingType = chain.getResourceBuildingType(block.resource);
+          if (buildingType) {
+            // Try to build gathering building first
             const buildGoal = createBuildingGoal(buildingType);
-            resolveGoal(buildGoal, depth + 1);
-          } else {
-            // Resource not in territory - check adjacent zones
-            const outpostGoal = chain.findResourceInAdjacentZones(house, block.resource);
-            if (outpostGoal) {
-              resolveGoal(outpostGoal, depth + 1);
+            if (buildGoal) {
+              queue.push({
+                goal: buildGoal,
+                parent: g,
+                depth: depth + 1,
+                reason: `needs resource: ${block.resource} (requires ${buildingType})`
+              });
+              dependenciesAdded = true;
+              
+              if (logger) {
+                logger.collectInfo(`  -> Need ${buildGoal.type} to gather ${block.resource} (for ${g.type})`);
+              }
             } else {
-              // Resource not found nearby - gather what we can
-              const deficit = block.need - block.have;
-              chain.steps.push(new GatherResourceGoal(block.resource, deficit));
+              errors.push(`Cannot create build goal for ${buildingType} (needed for ${block.resource}) - check building definitions`);
+              if (logger) {
+                logger.collectError(`Cannot create build goal for ${buildingType}`, null);
+              }
+            }
+          } else {
+            errors.push(`No building type defined for resource ${block.resource} - check getResourceBuildingType() in GoalChain.js`);
+            if (logger) {
+              logger.collectError(`No building type defined for resource ${block.resource}`, null);
+            }
+          }
+          
+          // Add gather goal to wait for resources
+          const deficit = block.need - block.have;
+          if (deficit > 0) {
+            const gatherGoal = new GatherResourceGoal(block.resource, block.need);
+            chain.steps.push(gatherGoal);
+            dependenciesAdded = true;
+            resolutionPath.push({
+              goal: gatherGoal.type,
+              depth: depth + 1,
+              reason: `gather ${block.resource} (need ${block.need}, have ${block.have})`,
+              parent: g.type,
+              canExecute: false,
+              blocking: []
+            });
+            
+            if (logger) {
+              logger.collectInfo(`  -> Need to gather ${block.resource} (have ${block.have}, need ${block.need})`);
             }
           }
         }
       }
       
-      // Finally add the main goal
-      chain.steps.push(g);
+      // If we added dependencies, defer this goal until after dependencies are processed
+      if (dependenciesAdded) {
+        // Track which dependencies this goal is waiting for
+        const waitingFor = [];
+        for (const block of blocking) {
+          if (block.type === 'BUILDING') {
+            waitingFor.push(block.value);
+          } else if (block.type === 'RESOURCE') {
+            const buildingType = chain.getResourceBuildingType(block.resource);
+            if (buildingType) {
+              waitingFor.push(buildingType);
+            }
+          }
+        }
+        deferredGoals.set(g, waitingFor);
+        // Don't add to steps yet - will be added after dependencies
+      } else {
+        // No dependencies could be added (all errors or unresolvable) - add goal anyway
+        // It will fail but at least it's in the chain for error reporting
+        chain.steps.push(g);
+      }
     }
     
-    resolveGoal(goal);
+    // Add deferred goals after their dependencies are in the chain
+    // Check each deferred goal to see if its dependencies are now in the chain
+    const addedGoalTypes = new Set(chain.steps.map(s => s.type));
+    const addedBuildingTypes = new Set(chain.steps.map(s => {
+      // Extract building type from goal type (e.g., BUILD_FORGE -> forge)
+      if (s.type.startsWith('BUILD_')) {
+        return s.type.replace('BUILD_', '').toLowerCase();
+      }
+      return null;
+    }).filter(Boolean));
+    
+    // Process deferred goals - add them if their dependencies are satisfied
+    let changed = true;
+    while (changed && deferredGoals.size > 0) {
+      changed = false;
+      for (const [deferredGoal, waitingFor] of deferredGoals.entries()) {
+        // Check if all dependencies are in the chain
+        // waitingFor contains building types (e.g., "forge"), check if BUILD_FORGE is in chain
+        const allDependenciesMet = waitingFor.every(dep => {
+          // Check if dependency building type has a corresponding goal in the chain
+          const expectedGoalType = `BUILD_${dep.toUpperCase()}`;
+          return addedGoalTypes.has(expectedGoalType) || addedBuildingTypes.has(dep);
+        });
+        
+        if (allDependenciesMet) {
+          chain.steps.push(deferredGoal);
+          addedGoalTypes.add(deferredGoal.type);
+          if (deferredGoal.type.startsWith('BUILD_')) {
+            addedBuildingTypes.add(deferredGoal.type.replace('BUILD_', '').toLowerCase());
+          }
+          deferredGoals.delete(deferredGoal);
+          changed = true;
+        }
+      }
+    }
+    
+    // Add any remaining deferred goals (dependencies couldn't be resolved)
+    for (const [deferredGoal] of deferredGoals.entries()) {
+      chain.steps.push(deferredGoal);
+    }
     
     // Remove duplicates (keep last occurrence)
     chain.steps = chain.removeDuplicates(chain.steps);
+    
+    // Store errors and resolution path for debugging
+    if (errors.length > 0) {
+      chain.errors = errors;
+    }
+    chain.resolutionPath = resolutionPath; // Always store path for debugging
+    
+    // Collect chain creation completion
+    if (logger && chain.steps.length > 0) {
+      const stepTypes = chain.steps.map(s => s.type).join(' -> ');
+      logger.collectInfo(`Chain resolved: ${stepTypes}`);
+    }
+    
+    // Log errors if any
+    if (errors.length > 0) {
+      const timestamp = new Date().toISOString();
+      console.warn(`[GoalChain] [${timestamp}] Errors creating chain for ${goal.type}:`, errors);
+      console.warn(`[GoalChain] Resolution path:`, JSON.stringify(resolutionPath, null, 2));
+    }
     
     return chain;
   }
   
   // Remove duplicate goals, keeping the last occurrence
+  // Single-pass algorithm: track last index of each goal type, then filter
+  // We keep the last occurrence because later goals may have updated requirements
   removeDuplicates(steps) {
-    const seen = new Map();
-    const result = [];
-    
-    // Go through steps and track last index of each type
+    // Track the last index where each goal type appears
+    const lastIndex = new Map();
     for (let i = 0; i < steps.length; i++) {
-      const step = steps[i];
-      const key = step.type;
-      seen.set(key, i);
+      lastIndex.set(steps[i].type, i);
     }
     
-    // Only keep steps at their last occurrence
-    for (let i = 0; i < steps.length; i++) {
-      const step = steps[i];
-      const key = step.type;
-      if (seen.get(key) === i) {
-        result.push(step);
-      }
-    }
-    
-    return result;
+    // Keep only steps that appear at their last index
+    return steps.filter((step, index) => lastIndex.get(step.type) === index);
   }
   
   // Get current goal to execute
@@ -115,6 +299,26 @@ class GoalChain {
   // Check if chain is complete
   isComplete() {
     return this.currentStep >= this.steps.length;
+  }
+  
+  // Check if chain has failed
+  isFailed() {
+    // Check if current goal has failed
+    const currentGoal = this.getCurrentGoal();
+    if (currentGoal && currentGoal.status === 'FAILED') {
+      return true;
+    }
+    
+    // Check if any step has failed irrecoverably
+    for (let i = 0; i < this.currentStep && i < this.steps.length; i++) {
+      if (this.steps[i].status === 'FAILED') {
+        // Check if this failure blocks the chain
+        // For now, any failure in a prerequisite fails the chain
+        return true;
+      }
+    }
+    
+    return false;
   }
   
   // Get remaining steps
@@ -139,31 +343,10 @@ class GoalChain {
     };
   }
 
-  // Check if resource can be gathered within faction territory
-  canGatherResourceInTerritory(house, resourceType) {
-    if (!global.zoneManager || !house.territory) return false;
-    
-    const hqZone = this.getHQZone(house);
-    if (!hqZone) return false;
-    
-    const territoryZones = global.zoneManager.getAdjacentZones(hqZone.id, house.territory.coreBase.radius);
-    
-    for (const zone of territoryZones) {
-      if (global.zoneManager.isZoneInTerritory(zone, house)) {
-        const resources = global.zoneManager.getZoneResourceTypes(zone);
-        if (this.hasResourceType(resources, resourceType)) {
-          return true;
-        }
-      }
-    }
-    
-    return false;
-  }
-
   // Get building type needed for resource gathering
   getResourceBuildingType(resourceType) {
     const buildingTypes = {
-      stone: 'quarry',
+      stone: 'mine',  // Mines can gather stone
       wood: 'lumbermill',
       grain: 'farm',
       iron: 'mine'
@@ -171,58 +354,6 @@ class GoalChain {
     return buildingTypes[resourceType] || 'workshop';
   }
 
-  // Find resource in adjacent zones and create outpost goal
-  findResourceInAdjacentZones(house, resourceType) {
-    if (!global.zoneManager || !house.knowledge) return null;
-    
-    const hqZone = this.getHQZone(house);
-    if (!hqZone) return null;
-    
-    const adjacentZones = global.zoneManager.getAdjacentZones(hqZone.id);
-    const suitableZones = house.knowledge.findZonesWithResource(resourceType, adjacentZones);
-    
-    if (suitableZones.length > 0) {
-      const { EstablishOutpostGoal } = require('./Goals');
-      const bestZone = suitableZones[0].zone;
-      return new EstablishOutpostGoal(resourceType, bestZone);
-    }
-    
-    return null;
-  }
-
-  // Helper: Check if resources object has the required resource type
-  hasResourceType(resources, resourceType) {
-    switch (resourceType) {
-      case 'stone':
-        return resources.rocks > 10;
-      case 'wood':
-        return resources.forest > 10;
-      case 'grain':
-        return resources.farmland > 15;
-      case 'iron':
-        return resources.caves > 0;
-      default:
-        return false;
-    }
-  }
-
-  // Helper: Get HQ zone
-  getHQZone(house) {
-    if (!global.zoneManager || !house.hq) return null;
-    
-    const hqTile = house.hq;
-    const zonesAtHQ = global.zoneManager.getZonesAt(hqTile);
-    
-    // Find the faction territory zone
-    for (const zoneId of zonesAtHQ) {
-      const zone = global.zoneManager.zones.get(zoneId);
-      if (zone && zone.type === 'faction_territory' && zone.faction === house.id) {
-        return zone;
-      }
-    }
-    
-    return null;
-  }
 }
 
 module.exports = GoalChain;

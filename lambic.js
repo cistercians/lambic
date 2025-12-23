@@ -2347,22 +2347,55 @@ function entropy() {
     falcon: Math.min(Math.floor(biomes.hForest / 800), maxFalcons)  // Majestic but not rare, capped by map size
   };
 
-  const animalPops = { deer: 0, boar: 0, wolf: 0, falcon: 0 };
+  // CRITICAL: Use capitalized class names to match entity constructors (Deer, Boar, Wolf, Falcon)
+  // Also support lowercase for backwards compatibility
+  const animalPops = { deer: 0, boar: 0, wolf: 0, falcon: 0, Deer: 0, Boar: 0, Wolf: 0, Falcon: 0 };
 
-  for (const i in Player.list) {
-    const cl = Player.list[i].class;
-    if (animalPops[cl] !== undefined) {
-      animalPops[cl]++;
+  // Count existing fauna - handle case where Player.list might not exist yet
+  if (global.Player && global.Player.list) {
+    for (const i in Player.list) {
+      const entity = Player.list[i];
+      if (!entity) continue;
+      const cl = entity.class;
+      // Check both lowercase and capitalized versions
+      const clLower = cl ? cl.toLowerCase() : '';
+      if (animalPops[cl] !== undefined) {
+        animalPops[cl]++;
+      } else if (animalPops[clLower] !== undefined) {
+        animalPops[clLower]++;
+        // Also update capitalized version for consistency
+        if (cl && cl !== clLower) {
+          animalPops[cl] = (animalPops[cl] || 0) + 1;
+        }
+      }
     }
   }
+  
+  // Sum lowercase and capitalized counts for each animal type
+  // Always define totalPops even if Player.list doesn't exist
+  const totalPops = {
+    deer: (animalPops.deer || 0) + (animalPops.Deer || 0),
+    boar: (animalPops.boar || 0) + (animalPops.Boar || 0),
+    wolf: (animalPops.wolf || 0) + (animalPops.Wolf || 0),
+    falcon: (animalPops.falcon || 0) + (animalPops.Falcon || 0)
+  };
 
   let faunaSpawned = 0;
   
   const spawnAnimal = (type, ratio, pop, AnimalConstructor) => {
+    let num = 0;
+    
     if (pop < ratio) {
-      const num = day === 1
-        ? Math.floor(ratio * 0.618) // Initial spawn on day 1
-        : Math.floor((ratio - pop) * (type === 'falcon' ? 0.01 : 0.02));
+      if (global.day === 1) {
+        num = Math.floor(ratio * 0.618); // Initial spawn on day 1
+      } else {
+        const deficit = ratio - pop;
+        // Use 33% recovery rate for all fauna types
+        const recoveryRate = 0.33;
+        const baseSpawn = Math.floor(deficit * recoveryRate);
+        // Guarantee at least 1 spawn if population is below ratio
+        num = Math.max(1, baseSpawn);
+      }
 
       // Spawn logging handled via event system
       faunaSpawned += num;
@@ -2370,25 +2403,27 @@ function entropy() {
       for (let i = 0; i < num; i++) {
         const sp = randomSpawnHF();
         const sLoc = getLoc(sp[0], sp[1]);
-        AnimalConstructor({
+        
+        // Log each fauna entity creation
+        const faunaEntity = AnimalConstructor({
           x: sp[0],
           y: sp[1],
           z: 0,
           home: { z: 0, loc: [sLoc[0], sLoc[1]] },
           falconry: type === 'falcon' ? false : undefined
         });
+        
+        // Fauna entity creation verified silently (no logging)
       }
-      return num;
-    } else {
-      // Skip spawn logging handled via event system
-      return 0;
     }
+    
+    return num;
   };
 
-  spawnAnimal('deer', animalRatios.deer, animalPops.deer, Deer);
-  spawnAnimal('boar', animalRatios.boar, animalPops.boar, Boar);
-  spawnAnimal('wolf', animalRatios.wolf, animalPops.wolf, Wolf);
-  spawnAnimal('falcon', animalRatios.falcon, animalPops.falcon, Falcon);
+  spawnAnimal('deer', animalRatios.deer, totalPops.deer, Deer);
+  spawnAnimal('boar', animalRatios.boar, totalPops.boar, Boar);
+  spawnAnimal('wolf', animalRatios.wolf, totalPops.wolf, Wolf);
+  spawnAnimal('falcon', animalRatios.falcon, totalPops.falcon, Falcon);
 
   // Individual tile updates are handled by tileChange function
   
@@ -6026,6 +6061,7 @@ function dayNight() {
   // When we cycle back to XII.a (hourTick = 0), increment the day
   if (hourTick === 0) {
     gameState.day++;
+    global.day = gameState.day;  // Sync global.day with gameState.day
   }
   
   // Update tempus in gameState and sync local/global variables
@@ -6066,6 +6102,10 @@ function dayNight() {
         const entity = Player.list[id];
         if (entity.type === 'player') {
           populationBefore.players++;
+        } else if (entity.type === 'fauna' || ['Deer', 'Boar', 'Wolf', 'Falcon', 'Sheep', 'deer', 'boar', 'wolf', 'falcon', 'sheep'].includes(entity.class)) {
+          // CRITICAL: Check type === 'fauna' first, then check class (case-insensitive)
+          // Fauna entities should have type === 'fauna' but check class as fallback
+          populationBefore.fauna++;
         } else if (entity.type === 'npc' || entity.class === 'serf' || entity.class === 'maleserf' || entity.class === 'femaleserf') {
           populationBefore.npcs++;
           // Count serfs by house
@@ -6073,8 +6113,6 @@ function dayNight() {
             const houseName = House.list[entity.house].name || entity.house;
             serfsBeforeByHouse[houseName] = (serfsBeforeByHouse[houseName] || 0) + 1;
           }
-        } else if (['deer', 'boar', 'wolf', 'falcon'].includes(entity.class)) {
-          populationBefore.fauna++;
         } else if (entity.military && entity.house && House.list[entity.house]) {
           // Count military units by house
           const houseName = House.list[entity.house].name || entity.house;
@@ -8913,6 +8951,8 @@ setInterval(() => {
 
 // Keep old interval for init/remove packs (less frequent)
 setInterval(function() {
+  // Fauna entities are included in initPack but not logged individually
+  
   emit({ msg: 'init', pack: initPack });
   emit({ msg: 'remove', pack: removePack });
 

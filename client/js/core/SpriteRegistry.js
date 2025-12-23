@@ -495,6 +495,28 @@ class SpriteRegistry {
         return null;
       }
     }
+    
+    // For Boar and Wolf, validate they have the correct sprite structure
+    // Boars and Wolves have attack animations (they're aggressive fauna), but we need to ensure
+    // we're not accidentally using a serf sprite
+    if (entityClass === 'Boar' || entityClass === 'Wolf') {
+      const sprite = data.sprite;
+      if (!sprite) {
+        return null;
+      }
+      
+      // Verify it has basic sprite structure (should have facedown, faceup, etc.)
+      const hasBasicStructure = sprite.facedown || sprite.faceup || sprite.faceleft || sprite.faceright;
+      if (!hasBasicStructure) {
+        console.error(`CRITICAL: SpriteRegistry returned invalid sprite for ${entityClass} class (missing basic sprite structure). Returning null instead.`);
+        return null;
+      }
+      
+      // Boars and Wolves should have attack animations (they're aggressive)
+      // But we can't easily distinguish between a boar/wolf sprite and a serf sprite
+      // by attack animations alone. Instead, we rely on the registry lookup being correct.
+      // If the sprite is in the registry for this class, it should be the correct one.
+    }
 
     return {
       sprite: data.sprite,

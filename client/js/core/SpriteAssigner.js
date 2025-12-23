@@ -36,16 +36,84 @@ function assignSpriteToEntity(entity, entityClass, isGhost, tileSize) {
 
   const spriteData = spriteRegistry.getSpriteData(entityClass, isGhost);
   
+  // CRITICAL: Fallback check - if type is missing but class indicates fauna, treat as fauna
+  const faunaClasses = ['Deer', 'Boar', 'Wolf', 'Falcon', 'Sheep'];
+  if (faunaClasses.includes(entityClass) && entity.type !== 'fauna') {
+    console.warn('[FAUNA DEBUG] Fauna class detected but type not "fauna" - fixing in SpriteAssigner:', {
+      entityId: entity.id,
+      entityClass: entityClass,
+      currentType: entity.type
+    });
+    entity.type = 'fauna';
+  }
+  
+  // Log fauna sprite assignment attempts for debugging
+  const isFauna = entity.type === 'fauna' || faunaClasses.includes(entityClass);
+  if (isFauna) {
+    console.log('[FAUNA DEBUG] Sprite assignment attempt:', {
+      entityId: entity.id,
+      entityType: entity.type,
+      entityClass: entityClass,
+      spriteFound: !!(spriteData && spriteData.sprite),
+      spriteSize: spriteData ? spriteData.spriteSize : null,
+      spriteHasAttackAnimations: spriteData && spriteData.sprite ? !!(spriteData.sprite.attackd || spriteData.sprite.attacku) : false
+    });
+  }
+  
   if (!spriteData || !spriteData.sprite) {
-    console.error(`CRITICAL: No sprite found for class "${entityClass}"`);
+    console.error(`CRITICAL: No sprite found for class "${entityClass}"`, isFauna ? '(FAUNA ENTITY)' : '');
     entity._invalidSprite = true; // Mark as invalid - won't render
     entity.sprite = null;
     entity.spriteSize = tileSize ? (tileSize * 1.5) : 96; // Default fallback, but entity won't render
     return false;
   }
 
+  // CRITICAL: Validate sprite is appropriate for fauna entities
+  // Some fauna (Boar, Wolf) have attack animations, but we need to ensure
+  // we're not assigning serf sprites to fauna entities
+  // The way to check: validate that the sprite matches what's in the registry
+  if (isFauna && spriteData.sprite) {
+    // Check if sprite matches the expected sprite from registry
+    // This ensures we're using the correct sprite, not a serf sprite
+    const registryData = spriteRegistry.registry[entityClass];
+    if (registryData && registryData.sprite) {
+      // If registry has a sprite for this class, it must match
+      if (spriteData.sprite !== registryData.sprite) {
+        console.error(`CRITICAL: Sprite mismatch for fauna entity! Expected sprite from registry but got different sprite.`, {
+          entityId: entity.id,
+          entityType: entity.type,
+          entityClass: entityClass,
+          expectedSprite: registryData.sprite,
+          actualSprite: spriteData.sprite
+        });
+        entity._invalidSprite = true;
+        entity.sprite = null;
+        return false;
+      }
+    } else {
+      // Registry doesn't have a sprite for this class - this shouldn't happen
+      console.error(`CRITICAL: No sprite in registry for fauna class "${entityClass}"`, {
+        entityId: entity.id,
+        entityType: entity.type,
+        entityClass: entityClass
+      });
+      entity._invalidSprite = true;
+      entity.sprite = null;
+      return false;
+    }
+  }
+  
   // Assign sprite
   entity.sprite = spriteData.sprite;
+  
+  // Log successful fauna sprite assignment
+  if (isFauna) {
+    console.log('[FAUNA DEBUG] Sprite assigned successfully:', {
+      entityId: entity.id,
+      entityClass: entityClass,
+      spriteType: spriteData.sprite.attackd ? 'serf-like (HAS ATTACK)' : 'fauna-like (NO ATTACK)'
+    });
+  }
   
   // Only set spriteSize if entity doesn't already have one from server
   // Server spriteSize is always authoritative - don't override it
@@ -60,7 +128,7 @@ function assignSpriteToEntity(entity, entityClass, isGhost, tileSize) {
   const validationResult = spriteRegistry.validateSprite(entityClass, entity.sprite);
   
   if (!validationResult) {
-    console.error(`CRITICAL: Sprite mismatch for class "${entityClass}" - sprite validation failed`);
+    console.error(`CRITICAL: Sprite mismatch for class "${entityClass}" - sprite validation failed`, isFauna ? '(FAUNA ENTITY)' : '');
     entity._invalidSprite = true;
     return false;
   }

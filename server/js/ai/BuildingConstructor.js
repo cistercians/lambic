@@ -6,6 +6,25 @@ class BuildingConstructor {
     this.house = house;
   }
   
+  // Get buildings by type (delegates to BuildingService if available)
+  getBuildingsByType(buildingType) {
+    if (this.house.ai && this.house.ai.buildingService) {
+      return this.house.ai.buildingService.getBuildingsByType(buildingType);
+    }
+    
+    // Fallback: calculate directly
+    const buildings = [];
+    if (typeof Building !== 'undefined' && Building.list) {
+      for (const id in Building.list) {
+        const building = Building.list[id];
+        if (building.owner === this.house.id && building.type === buildingType && building.built) {
+          buildings.push(building);
+        }
+      }
+    }
+    return buildings;
+  }
+  
   // Construct a mill
   buildMill(location = null) {
     const hq = this.house.hq;

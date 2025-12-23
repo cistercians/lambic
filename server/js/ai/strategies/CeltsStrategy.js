@@ -14,7 +14,7 @@ class CeltsStrategy extends FactionStrategy {
   evaluateEconomicGoals() {
     const goals = [];
     
-    // Celts prioritize mines near caves
+    // Celts prioritize mines near caves (faction-specific behavior)
     const knownCaves = this.house.ai && this.house.ai.knowledge
       ? this.house.ai.knowledge.getBestResourceLocation('cave')
       : null;
@@ -22,7 +22,7 @@ class CeltsStrategy extends FactionStrategy {
     if (knownCaves) {
       const mineCount = this.countBuildingType('mine');
       if (mineCount < 2) {
-        const goal = new BuildMineGoal(knownCaves);
+        const goal = new BuildMineGoal(knownCaves.location);
         goals.push(this.modifyGoalUtility(goal)); // Gets 1.5x utility
       }
     } else {
@@ -34,19 +34,9 @@ class CeltsStrategy extends FactionStrategy {
       }
     }
     
-    // NEVER build lumbermills (utility is 0 in profile)
-    // This is automatically handled by shouldBuildBuilding check
-    
-    // Modest farming
-    const mills = this.countBuildingType('mill');
-    const farms = this.countBuildingType('farm');
-    const farmsPerMill = this.profile.buildingPreferences.farm.farmsPerMill || 3;
-    
-    if (mills === 0 && this.shouldBuildBuilding('mill')) {
-      goals.push(this.modifyGoalUtility(new BuildMillGoal()));
-    } else if (mills > 0 && farms / mills < farmsPerMill && this.shouldBuildBuilding('farm')) {
-      goals.push(this.modifyGoalUtility(new BuildFarmGoal()));
-    }
+    // Use base class helpers for common patterns
+    goals.push(...this.evaluateMillAndFarmGoals());
+    goals.push(...this.evaluateForgeGoal());
     
     // Build regular mines (not near caves) if needed
     const mineCount = this.countBuildingType('mine');
@@ -54,36 +44,21 @@ class CeltsStrategy extends FactionStrategy {
       goals.push(this.modifyGoalUtility(new BuildMineGoal()));
     }
     
+    // NEVER build lumbermills (utility is 0 in profile)
+    // This is automatically handled by shouldBuildBuilding check
+    
     return goals;
   }
   
   evaluateMilitaryGoals() {
     const goals = [];
     
-    // Guerrilla warfare - more scouts, balanced units
-    if (this.house.ai && this.house.ai.knowledge) {
-      const exploredTiles = this.house.ai.knowledge.exploredTiles.size;
-      if (exploredTiles < 150) { // Celts explore more
-        const scoutGoal = new DeployScoutGoal();
-        goals.push(this.modifyGoalUtility(scoutGoal)); // Gets 1.3x utility
-      }
-    }
+    // Guerrilla warfare - more scouts (faction-specific: Celts explore more)
+    goals.push(...this.evaluateScoutingGoal(150)); // Celts explore more (150 vs 100 default)
     
-    // Check garrison
-    const garrison = this.countBuildingType('garrison');
-    if (garrison === 0 && this.shouldBuildBuilding('garrison')) {
-      const garrisonGoal = require('../Goals').BuildGarrisonGoal;
-      goals.push(this.modifyGoalUtility(new garrisonGoal()));
-    }
-    
-    // Train military (balanced infantry/ranged)
-    const militarySize = this.house.military.units.i + this.house.military.units.ii;
-    const desiredSize = this.profile.desiredMilitarySize || 12;
-    
-    if (militarySize < desiredSize && garrison > 0) {
-      const trainGoal = new TrainMilitaryGoal();
-      goals.push(this.modifyGoalUtility(trainGoal)); // Gets 1.2x utility
-    }
+    // Use base class helpers for common patterns
+    goals.push(...this.evaluateGarrisonGoal());
+    goals.push(...this.evaluateMilitaryTrainingGoal());
     
     return goals;
   }

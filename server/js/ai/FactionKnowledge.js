@@ -8,6 +8,86 @@ class FactionKnowledge {
     this.knownResources = new Map(); // Resource locations we've discovered
     this.knownEnemies = new Map(); // Enemy units/bases we've seen
     this.lastUpdated = new Map(); // When we last saw each location
+    
+    // Perform initial territory scan on construction
+    this.performInitialTerritoryScan();
+  }
+  
+  // Scan immediate area around HQ for initial knowledge
+  performInitialTerritoryScan() {
+    const scanRadius = 15;
+    const hq = this.house.hq;
+    if (!hq) return;
+    
+    const area = global.getArea ? global.getArea(hq, hq, scanRadius) : [];
+    
+    let forestCount = 0;
+    let rockCount = 0;
+    let caveCount = 0;
+    let farmlandCount = 0;
+    
+    const caveLocations = [];
+    const forestClusters = [];
+    const rockClusters = [];
+    
+    for (const tile of area) {
+      const terrain = global.getTile ? global.getTile(0, tile[0], tile[1]) : 0;
+      
+      if (terrain === 1 || terrain === 2) { // HEAVY_FOREST or LIGHT_FOREST
+        forestCount++;
+        if (forestCount % 5 === 0) forestClusters.push(tile);
+      }
+      if (terrain === 4) { // ROCKS
+        rockCount++;
+        if (rockCount % 5 === 0) rockClusters.push(tile);
+      }
+      if (terrain === 6) { // CAVE_ENTRANCE
+        caveCount++;
+        caveLocations.push(tile);
+      }
+      if (terrain === 7 || terrain === 3) { // EMPTY or BRUSH
+        farmlandCount++;
+      }
+      
+      // Mark as explored
+      const tileKey = `${tile[0]},${tile[1]}`;
+      this.exploredTiles.add(tileKey);
+    }
+    
+    // Register significant resource locations
+    if (caveLocations.length > 0) {
+      caveLocations.forEach(cave => {
+        this.knownResources.set(`cave:${cave[0]},${cave[1]}`, {
+          type: 'RESOURCE',
+          location: cave,
+          resourceType: 'cave',
+          density: 20,
+          discoveredAt: Date.now()
+        });
+      });
+    }
+    
+    if (forestClusters.length > 0) {
+      const bestForest = forestClusters[0];
+      this.knownResources.set(`forest:${bestForest[0]},${bestForest[1]}`, {
+        type: 'RESOURCE',
+        location: bestForest,
+        resourceType: 'forest',
+        density: forestCount,
+        discoveredAt: Date.now()
+      });
+    }
+    
+    if (rockClusters.length > 0) {
+      const bestRocks = rockClusters[0];
+      this.knownResources.set(`rocks:${bestRocks[0]},${bestRocks[1]}`, {
+        type: 'RESOURCE',
+        location: bestRocks,
+        resourceType: 'rocks',
+        density: rockCount,
+        discoveredAt: Date.now()
+      });
+    }
   }
   
   // Scout reports new information

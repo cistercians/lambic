@@ -10,6 +10,7 @@ const FactionProfiles = {
       farm: { utility: 45, farmsPerMill: 4 },
       mine: { utility: 40, preferStone: true },
       lumbermill: { utility: 35, minForest: 10 },
+      forge: { utility: 40 },
       garrison: { utility: 30 }
     },
     
@@ -27,6 +28,7 @@ const FactionProfiles = {
     utilityModifiers: {
       BUILD_FARM: 1.2, // Goths love farming
       BUILD_MINE: 1.1,
+      BUILD_FORGE: 1.0, // Standard priority
       TRAIN_MILITARY: 0.9,
       EXPAND_TERRITORY: 0.8
     }
@@ -39,6 +41,7 @@ const FactionProfiles = {
       mill: { utility: 40, maxCount: 2 },
       farm: { utility: 35, farmsPerMill: 3 },
       lumbermill: { utility: 0 }, // Celts NEVER build lumbermills!
+      forge: { utility: 45 },
       garrison: { utility: 45 }
     },
     
@@ -53,6 +56,7 @@ const FactionProfiles = {
     utilityModifiers: {
       BUILD_MINE: 1.5, // Celts prioritize mining heavily
       BUILD_LUMBERMILL: 0, // Never build these
+      BUILD_FORGE: 1.1, // Military-focused
       TRAIN_MILITARY: 1.2,
       SCOUT_TERRITORY: 1.3, // More cautious/aware
       DEPLOY_SCOUT: 1.3
@@ -64,6 +68,7 @@ const FactionProfiles = {
     buildingPreferences: {
       mine: { utility: 55, preferOre: true },
       lumbermill: { utility: 50, minForest: 12 },
+      forge: { utility: 55 },
       garrison: { utility: 60 }, // Military-focused
       mill: { utility: 35, maxCount: 2 },
       farm: { utility: 30, farmsPerMill: 3 }
@@ -79,6 +84,7 @@ const FactionProfiles = {
     
     utilityModifiers: {
       BUILD_GARRISON: 1.3,
+      BUILD_FORGE: 1.2, // High priority for military-focused faction
       TRAIN_MILITARY: 1.4,
       ATTACK_ENEMY: 1.5, // More likely to attack
       BUILD_MINE: 1.2,
@@ -92,6 +98,7 @@ const FactionProfiles = {
       mill: { utility: 55, maxCount: 4 },
       farm: { utility: 50, farmsPerMill: 5 }, // Best farmers
       lumbermill: { utility: 40, minForest: 10 },
+      forge: { utility: 35 },
       garrison: { utility: 35 },
       mine: { utility: 30 }
     },
@@ -107,6 +114,7 @@ const FactionProfiles = {
     utilityModifiers: {
       BUILD_FARM: 1.5, // Franks are farming experts
       BUILD_MILL: 1.3,
+      BUILD_FORGE: 1.0, // Standard priority
       EXPAND_TERRITORY: 1.1
     }
   },
@@ -116,6 +124,7 @@ const FactionProfiles = {
     buildingPreferences: {
       lumbermill: { utility: 55, minForest: 8 },
       mine: { utility: 45, preferStone: true },
+      forge: { utility: 45 },
       garrison: { utility: 50 },
       mill: { utility: 35, maxCount: 2 },
       farm: { utility: 30, farmsPerMill: 3 }
@@ -131,6 +140,7 @@ const FactionProfiles = {
     
     utilityModifiers: {
       BUILD_LUMBERMILL: 1.4,
+      BUILD_FORGE: 1.0, // Standard priority (Norsemen don't build, but profile exists)
       TRAIN_MILITARY: 1.3,
       ATTACK_ENEMY: 1.2
     }
@@ -142,6 +152,7 @@ const FactionProfiles = {
       mill: { utility: 45, maxCount: 2 },
       farm: { utility: 40, farmsPerMill: 3 },
       mine: { utility: 40 },
+      forge: { utility: 50 },
       garrison: { utility: 50 },
       lumbermill: { utility: 35, minForest: 10 }
     },
@@ -156,6 +167,7 @@ const FactionProfiles = {
     
     utilityModifiers: {
       BUILD_GARRISON: 1.2,
+      BUILD_FORGE: 1.0, // Standard priority (Brotherhood doesn't build, but profile exists)
       DEFEND_TERRITORY: 1.5,
       TRAIN_MILITARY: 1.1
     }
@@ -166,6 +178,7 @@ const FactionProfiles = {
     buildingPreferences: {
       lumbermill: { utility: 50, minForest: 8 },
       mine: { utility: 45 },
+      forge: { utility: 40 },
       garrison: { utility: 40 },
       mill: { utility: 30, maxCount: 1 },
       farm: { utility: 25, farmsPerMill: 2 }
@@ -190,6 +203,7 @@ const FactionProfiles = {
     economicPriorities: ['stone', 'ore', 'forest'],
     buildingPreferences: {
       mine: { utility: 55, preferOre: true },
+      forge: { utility: 55 },
       garrison: { utility: 60 },
       lumbermill: { utility: 40, minForest: 10 },
       mill: { utility: 25, maxCount: 1 },
@@ -206,6 +220,7 @@ const FactionProfiles = {
     
     utilityModifiers: {
       BUILD_GARRISON: 1.4,
+      BUILD_FORGE: 1.0, // Standard priority (Mercenaries don't build, but profile exists)
       TRAIN_MILITARY: 1.5,
       BUILD_MINE: 1.3,
       ATTACK_ENEMY: 1.4

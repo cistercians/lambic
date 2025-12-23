@@ -1487,12 +1487,10 @@ Garrison = function(param){
         return;
       }
       
-      // Check food availability (fish first, then grain)
-      var fish = house.stores.fish || 0;
+      // Check grain availability (10 grain per unit)
       var grain = house.stores.grain || 0;
-      var totalFood = fish + grain;
       
-      if(totalFood < 20) return; // Need at least 20 food to produce a unit
+      if(grain < 10) return; // Need at least 10 grain to produce a unit
       
       // Count current military units for this house
       var militaryCount = 0;
@@ -1503,8 +1501,8 @@ Garrison = function(param){
         }
       }
       
-      // Determine max garrison size based on total food (1 unit per 50 food available)
-      var maxGarrison = Math.floor(totalFood / 50);
+      // Determine max garrison size based on grain (1 unit per 50 grain available)
+      var maxGarrison = Math.floor(grain / 50);
       if(militaryCount >= maxGarrison) return; // Already at capacity
       
       // Spawn location
@@ -1556,22 +1554,13 @@ Garrison = function(param){
         var randomIndex = Math.floor(Math.random() * factionUnits.length);
         unitClass = factionUnits[randomIndex];
         
-        var wood = house.stores.wood || 0;
-        if(totalFood < 20 || wood < 10){
+        // Check resources (need 10 grain)
+        if(grain < 10){
           return;
         }
         
-        // Consume fish first, then grain
-        if(fish >= 20){
-          house.stores.fish -= 20;
-        } else {
-          // Use fish first, then remainder from grain
-          var fishUsed = fish;
-          var grainNeeded = 20 - fishUsed;
-          house.stores.fish = 0;
-          house.stores.grain -= grainNeeded;
-        }
-        house.stores.wood -= 10;
+        // Consume grain
+        house.stores.grain -= 10;
       }
       
       
@@ -4681,9 +4670,13 @@ Character = function(param){
             self.patrol.idleTimer--;
             // Don't move while idling
           } else {
-            // Get HQ position and territory radius
-            var hqCoords = getCenter(house.hq[0], house.hq[1]);
-            var territoryRadius = (house.territoryRadius || 30) * tileSize; // Default 30 tiles
+            // Get base center and radius (use baseRadius instead of territoryRadius)
+            var baseCenter = house.baseCenterCoords;
+            if (!baseCenter) {
+              // Fallback to HQ if baseCenterCoords not set
+              baseCenter = getCenter(house.hq[0], house.hq[1]);
+            }
+            var territoryRadius = house.baseRadius || (30 * tileSize); // Use baseRadius, default 30 tiles
             
             // Find all buildings within faction territory
             var buildingsInTerritory = [];
@@ -4694,13 +4687,13 @@ Character = function(param){
               
               if(!b || !b.built) continue;
               
-              // Calculate distance from HQ (not from unit)
-              var dx = b.x - hqCoords[0];
-              var dy = b.y - hqCoords[1];
-              var distFromHQ = Math.sqrt(dx * dx + dy * dy);
+              // Calculate distance from base center (not from unit)
+              var dx = b.x - baseCenter[0];
+              var dy = b.y - baseCenter[1];
+              var distFromCenter = Math.sqrt(dx * dx + dy * dy);
               
               // Only consider buildings within faction territory
-              if(distFromHQ <= territoryRadius){
+              if(distFromCenter <= territoryRadius){
                 buildingsInTerritory.push(b);
               }
             }
@@ -4716,6 +4709,11 @@ Character = function(param){
             // Pick a RANDOM building from those in territory (not nearest - avoids loops)
             var randomIndex = Math.floor(Math.random() * buildingsInTerritory.length);
             var targetBuilding = buildingsInTerritory[randomIndex];
+            
+            // Initialize stuck detection tracking
+            if(!self.patrol.lastTarget){
+              self.patrol.lastTarget = {building: null, tile: null, attempts: 0};
+            }
             
             // Pick a walkable tile near the building
             if(!self.patrol.targetTiles){
@@ -4754,10 +4752,28 @@ Character = function(param){
               buildingLoc = self.patrol.targetTiles[targetBuilding.id];
             }
             
-            var buildingDist = self.getDistance({x: targetBuilding.x, y: targetBuilding.y});
+            // Stuck detection: If same target for too long, try different building
+            if(self.patrol.lastTarget.building === targetBuilding.id && 
+               self.patrol.lastTarget.tile && 
+               self.patrol.lastTarget.tile.toString() === buildingLoc.toString()){
+              self.patrol.lastTarget.attempts++;
+              if(self.patrol.lastTarget.attempts > 60){ // 1 second at 60fps
+                // Try different building - clear this target and reset
+                delete self.patrol.targetTiles[targetBuilding.id];
+                self.patrol.lastTarget = {building: null, tile: null, attempts: 0};
+                return; // Skip this frame, try again next frame
+              }
+            } else {
+              // New target, reset counter
+              self.patrol.lastTarget = {building: targetBuilding.id, tile: buildingLoc, attempts: 0};
+            }
             
-            // Check if arrived at building (within 3 tiles)
-            if(buildingDist <= tileSize * 3){
+            // Check distance to chosen patrol tile instead of building center
+            var patrolTileCenter = getCenter(buildingLoc[0], buildingLoc[1]);
+            var patrolDist = self.getDistance({x: patrolTileCenter[0], y: patrolTileCenter[1]});
+            
+            // Check if arrived at patrol tile (within 2 tiles)
+            if(patrolDist <= tileSize * 2){
               // Arrived - start idle timer
               self.patrol.idleTimer = Math.floor(Math.random() * 600) + 300; // 5-15 seconds
               
@@ -4775,7 +4791,13 @@ Character = function(param){
               } else {
                 // On overworld, path to chosen patrol point
                 if(buildingLoc && buildingLoc.length === 2){
-                  self.moveTo(targetZ, buildingLoc[0], buildingLoc[1]);
+                  // Only call moveTo if we don't have a valid path already
+                  if(!self.path || !self.pathEnd || 
+                     self.pathEnd.loc[0] !== buildingLoc[0] || 
+                     self.pathEnd.loc[1] !== buildingLoc[1] ||
+                     self.pathEnd.z !== targetZ){
+                    self.moveTo(targetZ, buildingLoc[0], buildingLoc[1]);
+                  }
                 }
               }
             }
@@ -6048,6 +6070,30 @@ Character = function(param){
   // ===== END FIRST CHARACTER UPDATE =====
 
   self.getInitPack = function(){
+    // CRITICAL: Ensure fauna entities have both type and class set
+    // If class indicates fauna but type is missing, set type to 'fauna'
+    const faunaClasses = ['Deer', 'Boar', 'Wolf', 'Falcon', 'Sheep'];
+    if (faunaClasses.includes(self.class) && self.type !== 'fauna') {
+      console.warn('CRITICAL: Fauna class detected but type not set to "fauna" - fixing:', {
+        id: self.id,
+        class: self.class,
+        currentType: self.type
+      });
+      self.type = 'fauna';
+    }
+    
+    // CRITICAL: Validate that fauna entities always have a class property
+    // Fauna entities (Deer, Boar, Wolf, Sheep, Falcon) must have class set for proper rendering
+    if (self.type === 'fauna' && (!self.class || self.class === null || self.class === undefined)) {
+      console.error('CRITICAL: Fauna entity missing class property in getInitPack:', {
+        id: self.id,
+        type: self.type,
+        name: self.name
+      });
+      // Don't return incomplete pack - this will cause rendering issues on client
+      // The entity should have class set by its constructor (Deer, Boar, Wolf, etc.)
+    }
+    
     // Set spriteSize from hard-coded lookup - only for Character entities
     // Items, Buildings, and other entities don't have a class property and don't need sprite sizes
     // CRITICAL: Include 'fauna' type (Deer, Boar, Wolf, Sheep, Falcon) - they are Character entities with classes
@@ -6160,7 +6206,9 @@ Character = function(param){
 
   Player.list[self.id] = self;
 
-  initPack.player.push(self.getInitPack());
+  const initPackData = self.getInitPack();
+  initPack.player.push(initPackData);
+  
   return self;
 }
 

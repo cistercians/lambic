@@ -17,6 +17,46 @@ function PlayerEntity(initPack) {
   self.y = initPack.y;
   self.z = initPack.z;
   self.class = initPack.class;
+  
+  // CRITICAL: Fallback check - if type is missing but class indicates fauna, set type to 'fauna'
+  const faunaClasses = ['Deer', 'Boar', 'Wolf', 'Falcon', 'Sheep'];
+  if (faunaClasses.includes(self.class) && self.type !== 'fauna') {
+    console.warn('[FAUNA DEBUG] Fauna class detected but type not "fauna" - fixing in PlayerEntity:', {
+      id: self.id,
+      class: self.class,
+      currentType: self.type
+    });
+    self.type = 'fauna';
+  }
+  
+  // CRITICAL: Validate fauna entities have valid class property
+  // Fauna entities (type === 'fauna') MUST have a class for proper rendering
+  // If missing, mark entity as invalid to prevent rendering with wrong sprite
+  if (self.type === 'fauna' && (!self.class || self.class === null || self.class === undefined)) {
+    console.error('CRITICAL: Fauna entity missing class property in PlayerEntity:', {
+      id: self.id,
+      type: self.type,
+      name: self.name
+    });
+    // Mark as invalid - entity will not render
+    self._invalidSprite = true;
+    self.sprite = null;
+    // Don't proceed with sprite assignment - entity is invalid
+  }
+  
+  // Log fauna entity creation for debugging
+  if (self.type === 'fauna' || ['Deer', 'Boar', 'Wolf', 'Falcon', 'Sheep'].includes(self.class)) {
+    console.log('[FAUNA DEBUG] PlayerEntity created:', {
+      id: self.id,
+      type: self.type,
+      class: self.class,
+      name: self.name,
+      spriteSize: initPack.spriteSize,
+      hasClass: !!self.class,
+      hasType: !!self.type
+    });
+  }
+  
   self.rank = initPack.rank;
   self.friends = initPack.friends,
   self.enemies = initPack.enemies,
@@ -70,7 +110,8 @@ function PlayerEntity(initPack) {
   
   // Assign sprite using single assignment function
   // No fallbacks, no defaults - either succeeds or entity is invalid
-  if (typeof window !== 'undefined' && typeof window.assignSpriteToEntity === 'function') {
+  // Skip sprite assignment if entity is already marked as invalid (e.g., fauna missing class)
+  if (!self._invalidSprite && typeof window !== 'undefined' && typeof window.assignSpriteToEntity === 'function') {
     if (!assignSpriteToEntity(self, self.class, self.ghost, typeof tileSize !== 'undefined' ? tileSize : 64)) {
       console.error(`Failed to assign sprite for entity ${self.id} class ${self.class}`);
       // Entity will be marked _invalidSprite and won't render

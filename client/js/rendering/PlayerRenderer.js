@@ -424,10 +424,41 @@ class PlayerRenderer {
       return;
     }
 
+    // CRITICAL: Fallback check - if type is missing but class indicates fauna, treat as fauna
+    const faunaClasses = ['Deer', 'Boar', 'Wolf', 'Falcon', 'Sheep'];
+    if (faunaClasses.includes(player.class) && player.type !== 'fauna') {
+      console.warn('[FAUNA DEBUG] Fauna class detected but type not "fauna" - fixing in PlayerRenderer:', {
+        id: player.id,
+        class: player.class,
+        currentType: player.type
+      });
+      player.type = 'fauna';
+    }
+    
+    // CRITICAL: Validate peaceful fauna entities don't have serf sprites
+    // Aggressive fauna (Wolf, Boar) SHOULD have attack animations - they're supposed to attack
+    // Peaceful fauna (Deer, Sheep, Falcon) should NOT have attack animations - if they do, it's likely a serf sprite
+    const isFauna = player.type === 'fauna' || faunaClasses.includes(player.class);
+    const aggressiveFauna = ['Wolf', 'Boar'];
+    const peacefulFauna = ['Deer', 'Sheep', 'Falcon'];
+    const isAggressiveFauna = aggressiveFauna.includes(player.class);
+    const isPeacefulFauna = peacefulFauna.includes(player.class);
+    
+    if (isFauna && player.sprite && isPeacefulFauna) {
+      // Only validate peaceful fauna - they should NOT have attack animations
+      const hasAttackAnimations = player.sprite.attackd || player.sprite.attacku || 
+                                  player.sprite.attackl || player.sprite.attackr;
+      if (hasAttackAnimations) {
+        console.error(`CRITICAL RENDER VALIDATION: Peaceful fauna entity ${player.id} (class: ${player.class}, type: ${player.type}) has serf sprite with attack animations - skipping render`);
+        return; // Don't render - better than wrong sprite
+      }
+    }
+    // Note: Aggressive fauna (Wolf, Boar) are allowed to have attack animations - this is expected behavior
+
     // Validate sprite matches class (safety check)
     if (typeof window !== 'undefined' && window.spriteRegistry && typeof window.spriteRegistry.validateSprite === 'function') {
       if (!window.spriteRegistry.validateSprite(player.class, player.sprite)) {
-        console.error(`RENDER VALIDATION FAILED: Entity ${player.id} class "${player.class}" has wrong sprite - skipping render`);
+        console.error(`RENDER VALIDATION FAILED: Entity ${player.id} class "${player.class}" has wrong sprite - skipping render`, isFauna ? '(FAUNA ENTITY)' : '');
         return; // Don't render - better than wrong sprite
       }
     }
