@@ -1309,9 +1309,6 @@ function cachePath(start, end, z, path) {
 
 // Multi-z pathfinding system for complex journeys
 function createMultiZPath(startZ, startLoc, targetZ, targetLoc, entity) {
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:1311',message:'createMultiZPath entry',data:{entityId:entity?entity.id:null,startZ:startZ,startLoc:startLoc,targetZ:targetZ,targetLoc:targetLoc},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-  // #endregion
   const path = [];
   const waypoints = [];
   
@@ -1327,9 +1324,6 @@ function createMultiZPath(startZ, startLoc, targetZ, targetLoc, entity) {
   
   // Find the optimal route through z-levels
   const route = findOptimalZRoute(startZ, targetZ);
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:1326',message:'createMultiZPath route result',data:{entityId:entity?entity.id:null,route:route,routeLength:route.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-  // #endregion
   if (route.length === 0) {
     // Route logging handled via event system
     return null;
@@ -1345,9 +1339,6 @@ function createMultiZPath(startZ, startLoc, targetZ, targetLoc, entity) {
     
     // Find transition point between these z-levels
     const transition = findZTransition(fromZ, toZ, currentLoc, targetLoc, entity);
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:1342',message:'createMultiZPath transition result',data:{entityId:entity?entity.id:null,fromZ:fromZ,toZ:toZ,hasTransition:!!transition,transition:transition},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
     if (!transition) {
       // Transition logging handled via event system
       return null;
@@ -1374,9 +1365,6 @@ function createMultiZPath(startZ, startLoc, targetZ, targetLoc, entity) {
     nextLoc: null
   });
   
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:1370',message:'createMultiZPath returning waypoints',data:{entityId:entity?entity.id:null,waypointsCount:waypoints.length,waypoints:waypoints},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-  // #endregion
   return waypoints;
 }
 

@@ -13,6 +13,7 @@ function LightEntity(initPack) {
   self.y = initPack.y;
   self.z = initPack.z;
   self.radius = initPack.radius;
+  self.parent = initPack.parent; // Store parent ID to identify light source type
 
   Light.list[self.id] = self;
   return self;

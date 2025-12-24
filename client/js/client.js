@@ -1604,7 +1604,7 @@ var renderMap = () => {
   var r = window.mapRenderer || mapRenderer || null;
   if (r?.render) {
     var w = window.world || world || null;
-    r.render({ ctx, WIDTH, HEIGHT, currentZoom, tileSize, viewport, getCurrentZ, Building, Player, world: w, getTile, getBuilding, clouds, cld, waterTiles, wtr, Img, shipWakes, selfId, godModeCamera, BuildingPreviewRenderer: window.BuildingPreviewRenderer || null });
+    r.render({ ctx, WIDTH, HEIGHT, currentZoom, tileSize, viewport, getCurrentZ, Building, Player, world: w, getTile, getBuilding, getCoords, clouds, cld, waterTiles, wtr, Img, shipWakes, selfId, godModeCamera, BuildingPreviewRenderer: window.BuildingPreviewRenderer || null });
   }
 }
 

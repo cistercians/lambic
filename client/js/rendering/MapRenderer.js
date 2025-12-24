@@ -388,7 +388,7 @@ class MapRenderer {
           );
         } else if(tile == 11){
           // Get building at this tile to check baseTerrain
-          const getCoords = config.getCoords || ((c, r) => [c * 64, r * 64]);
+          const getCoords = config.getCoords || ((c, r) => [c * (config.tileSize || 64), r * (config.tileSize || 64)]);
           const bCoords = getCoords(c, r);
           const building = getBuilding(bCoords[0], bCoords[1], true);
           
@@ -396,7 +396,10 @@ class MapRenderer {
           let baseTerrainValue = 7; // Default to EMPTY (grass)
           if (building && Building && Building.list && Building.list[building]) {
             const b = Building.list[building];
-            if (b.plot && b.baseTerrain) {
+            
+            // Only use baseTerrain if it has data (length > 0)
+            // Empty arrays are truthy but don't contain terrain data
+            if (b.plot && b.baseTerrain && b.baseTerrain.length > 0) {
               baseTerrainValue = this.getBaseTerrainForTile(c, r, getBuilding, getCoords, b.plot, b.baseTerrain);
             }
           }
@@ -437,7 +440,7 @@ class MapRenderer {
           );
         } else if(tile == 12){
           // Get building at this tile to check baseTerrain
-          const getCoords = config.getCoords || ((c, r) => [c * 64, r * 64]);
+          const getCoords = config.getCoords || ((c, r) => [c * (config.tileSize || 64), r * (config.tileSize || 64)]);
           const bCoords = getCoords(c, r);
           const building = getBuilding(bCoords[0], bCoords[1], true);
           
@@ -445,7 +448,9 @@ class MapRenderer {
           let baseTerrainValue = 7; // Default to EMPTY (grass)
           if (building && Building && Building.list && Building.list[building]) {
             const b = Building.list[building];
-            if (b.plot && b.baseTerrain) {
+            
+            // Only use baseTerrain if it has data (length > 0)
+            if (b.plot && b.baseTerrain && b.baseTerrain.length > 0) {
               baseTerrainValue = this.getBaseTerrainForTile(c, r, getBuilding, getCoords, b.plot, b.baseTerrain);
             }
           }
@@ -496,7 +501,7 @@ class MapRenderer {
           var bTile = getTile(3,c,r);
           
           // Get building at this tile to check baseTerrain
-          const getCoords = config.getCoords || ((c, r) => [c * 64, r * 64]);
+          const getCoords = config.getCoords || ((c, r) => [c * (config.tileSize || 64), r * (config.tileSize || 64)]);
           const bCoords = getCoords(c, r);
           const building = getBuilding(bCoords[0], bCoords[1], true);
           
@@ -504,7 +509,9 @@ class MapRenderer {
           let baseTerrainValue = 7; // Default to EMPTY (grass)
           if (building && Building && Building.list && Building.list[building]) {
             const b = Building.list[building];
-            if (b.plot && b.baseTerrain) {
+            
+            // Only use baseTerrain if it has data (length > 0)
+            if (b.plot && b.baseTerrain && b.baseTerrain.length > 0) {
               baseTerrainValue = this.getBaseTerrainForTile(c, r, getBuilding, getCoords, b.plot, b.baseTerrain);
             }
           }

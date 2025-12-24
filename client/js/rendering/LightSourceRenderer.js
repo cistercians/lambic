@@ -255,8 +255,14 @@ class LightSourceRenderer {
 
       if (light.z === playerZ || light.z === 99) {
         // Determine if we need to draw cutout
-        const needsCutout = (light.z === 0 || light.z === -1 || light.z === -2 || light.z === 99) ||
-            ((light.z === 1 || light.z === 2) && !hasFire(playerZ, cameraPos.x, cameraPos.y));
+        // For z=0, z=-1, z=-2, and z=99 lights, always draw cutout (torches, firepits, cave lights, etc.)
+        // For z=1 or z=2 lights (building interiors), only draw cutout if there's no firepit
+        let needsCutout = false;
+        if (light.z === 0 || light.z === -1 || light.z === -2 || light.z === 99) {
+          needsCutout = true;
+        } else if (light.z === 1 || light.z === 2) {
+          needsCutout = !hasFire(playerZ, cameraPos.x, cameraPos.y);
+        }
         
         // Get target context for cutout (null if no cutout needed)
         const cutoutTarget = needsCutout ? targetCtx : null;

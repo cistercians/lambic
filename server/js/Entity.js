@@ -988,8 +988,11 @@ Tavern = function(param){
       var rand = Math.floor(Math.random() * select.length);
       var plot = select[rand];
       var walls = wselect[rand];
+      // Store original terrain before changing tiles
+      var baseTerrain = [];
       for(var i in plot){
         var p = plot[i];
+        baseTerrain.push(getTile(0, p[0], p[1]));
         tileChange(0,p[0],p[1],11);
         tileChange(6,p[0],p[1],0);
       }
@@ -1009,6 +1012,7 @@ Tavern = function(param){
         plot:plot,
         walls:walls,
         topPlot:null,
+        baseTerrain:baseTerrain,
         mats:{
           wood:30,
           stone:0
@@ -13101,6 +13105,16 @@ Light = function(param){
   self.toRemove = false;
   self.toUpdate = false;
   var super_update = self.update;
+  
+  // Safety check: ensure parent item exists before accessing its properties
+  if(!Item.list || !Item.list[self.parent]){
+    console.error('Light constructor: Parent item not found in Item.list', {parentId: self.parent, lightId: self.id});
+    self.toRemove = true; // Mark for removal if parent doesn't exist
+    Light.list[self.id] = self;
+    initPack.light.push(self.getInitPack());
+    return self;
+  }
+  
   if(Item.list[self.parent].type == 'LitTorch'){
     self.toUpdate = true;
     self.update = function(){
@@ -13114,7 +13128,8 @@ Light = function(param){
       super_update();
     }
   } else {
-    if(Item.list[self.parent].type == 'Campfire'){
+    // Campfire and Firepit lights don't need special update logic, just mark as updateable
+    if(Item.list[self.parent].type == 'Campfire' || Item.list[self.parent].type == 'Firepit'){
       self.toUpdate = true;
     }
     self.update = function(){
@@ -13131,7 +13146,8 @@ Light = function(param){
       x:self.x,
       y:self.y,
       z:self.z,
-      radius:self.radius
+      radius:self.radius,
+      parent:self.parent // Include parent to identify light sources (firepit, torch, etc.)
     };
   }
 
