@@ -374,8 +374,11 @@ Goths = function(param){
     if(hutSpot){
       var plot = hutSpot.plot;
       var walls = hutSpot.walls;
+      // Store original terrain before changing tiles
+      var baseTerrain = [];
       for(var i in plot){
         var p = plot[i];
+        baseTerrain.push(getTile(0, p[0], p[1]));
         tileChange(0,p[0],p[1],11);
         tileChange(6,p[0],p[1],0);
       }
@@ -393,6 +396,7 @@ Goths = function(param){
         built:false,
         plot:plot,
         walls:walls,
+        baseTerrain:baseTerrain,
         mats:{
           wood:30,
           stone:0
@@ -635,8 +639,11 @@ Goths = function(param){
       
       // Add mill plot to excluded tiles
       excludedTiles.push(...m1);
+      // Store original terrain before changing tiles
+      var baseTerrain = [];
       for(var i in m1){
         var n = m1[i];
+        baseTerrain.push(getTile(0, n[0], n[1]));
         tileChange(0,n[0],n[1],13);
         tileChange(3,n[0],n[1],String('mill' + i));
         matrixChange(0,n[0],n[1],1);
@@ -655,6 +662,7 @@ Goths = function(param){
         built:true,
         plot:m1,
         topPlot:m1top,
+        baseTerrain:baseTerrain,
         mats:{
           wood:40,
           stone:0
@@ -701,8 +709,11 @@ Goths = function(param){
         var m2c = getCenter(m2[0][0],m2[0][1]);
         excludedTiles.push(...m2);
         
+        // Store original terrain before changing tiles
+        var baseTerrain2 = [];
         for(var i in m2){
           var n = m2[i];
+          baseTerrain2.push(getTile(0, n[0], n[1]));
           tileChange(0,n[0],n[1],13);
           tileChange(3,n[0],n[1],String('mill' + i));
           matrixChange(0,n[0],n[1],1);
@@ -721,6 +732,7 @@ Goths = function(param){
           built:true,
           plot:m2,
           topPlot:m2top,
+          baseTerrain:baseTerrain2,
           mats:{
             wood:40,
             stone:0
@@ -784,7 +796,10 @@ Goths = function(param){
         const plot = mineSpot.plot;
         const center = getCenter(plot[0][0], plot[0][1]);
         
+        // Store original terrain before changing tiles
+        var baseTerrain = [];
         for(var i in plot){
+          baseTerrain.push(getTile(0, plot[i][0], plot[i][1]));
           tileChange(0,plot[i][0],plot[i][1],13);
           tileChange(3,plot[i][0],plot[i][1],String('mine' + i));
           matrixChange(0,plot[i][0],plot[i][1],1);
@@ -800,6 +815,7 @@ Goths = function(param){
           type:'mine',
           built:true,
           plot:plot,
+          baseTerrain:baseTerrain,
           mats:{wood:40, stone:0},
           req:5,
           hp:150
@@ -911,24 +927,28 @@ Goths = function(param){
     var rand = Math.floor(Math.random() * grid.length);
     var twr = grid[rand];
     var plot = [twr,[twr[0]+1,twr[1]],[twr[0],twr[1]+1],[twr[0]+1,twr[1]+1]];
-    var topPlot = [[twr[0],twr[1]-1],[twr[0]+1,twr[1]-1]];
-    for(var i in plot){
-      tileChange(0,plot[i][0],plot[i][1],11);
-      tileChange(6,plot[i][0],plot[i][1],0);
-    }
-    var coords = getCoords(twr[0],twr[1]);
-    Guardtower({
-      owner:self.id,
-      house:self.id,
-      kingdom:self.kingdom,
-      x:coords[0],
-      y:coords[1],
-      z:0,
-      type:'gothtower',
-      built:false,
-      plot:plot,
-      topPlot:topPlot
-    })
+      var topPlot = [[twr[0],twr[1]-1],[twr[0]+1,twr[1]-1]];
+      // Store original terrain before changing tiles
+      var baseTerrain = [];
+      for(var i in plot){
+        baseTerrain.push(getTile(0, plot[i][0], plot[i][1]));
+        tileChange(0,plot[i][0],plot[i][1],11);
+        tileChange(6,plot[i][0],plot[i][1],0);
+      }
+      var coords = getCoords(twr[0],twr[1]);
+      Guardtower({
+        owner:self.id,
+        house:self.id,
+        kingdom:self.kingdom,
+        x:coords[0],
+        y:coords[1],
+        z:0,
+        type:'gothtower',
+        built:false,
+        plot:plot,
+        topPlot:topPlot,
+        baseTerrain:baseTerrain
+      })
   }
 
   var super_update = self.update;
@@ -974,8 +994,11 @@ Goths = function(param){
           var topPlot = [select[2],select[3]];
           var ent = plot[7];
           var coords = getCoords(ent[0],ent[1]);
+          // Store original terrain before changing tiles
+          var baseTerrain = [];
           for(var i in plot){
             var p = plot[i];
+            baseTerrain.push(getTile(0, p[0], p[1]));
             tileChange(0,p[0],p[1],11);
             tileChange(6,p[0],p[1],0);
           }
@@ -987,6 +1010,7 @@ Goths = function(param){
             x:coords[0],
             y:coords[1],
             z:0,
+            baseTerrain:baseTerrain,
             type:'gothmarket',
             built:false,
             plot:plot,
@@ -1078,8 +1102,11 @@ Franks = function(param){
     if(hutSpot){
       var plot = hutSpot.plot;
       var walls = hutSpot.walls;
+      // Store original terrain before changing tiles
+      var baseTerrain = [];
       for(var i in plot){
         var p = plot[i];
+        baseTerrain.push(getTile(0, p[0], p[1]));
         tileChange(0,p[0],p[1],11);
         tileChange(6,p[0],p[1],0);
       }
@@ -1097,6 +1124,7 @@ Franks = function(param){
         built:false,
         plot:plot,
         walls:walls,
+        baseTerrain:baseTerrain,
         mats:{
           wood:30,
           stone:0
@@ -1342,8 +1370,11 @@ Franks = function(param){
       var m1c = getCenter(m1[0][0],m1[0][1]);
       excludedTiles.push(...m1);
       
+      // Store original terrain before changing tiles
+      var baseTerrain = [];
       for(var i in m1){
         var n = m1[i];
+        baseTerrain.push(getTile(0, n[0], n[1]));
         tileChange(0,n[0],n[1],13);
         tileChange(3,n[0],n[1],String('mill' + i));
         matrixChange(0,n[0],n[1],1);
@@ -1362,6 +1393,7 @@ Franks = function(param){
         built:true,
         plot:m1,
         topPlot:m1top,
+        baseTerrain:baseTerrain,
         mats:{
           wood:40,
           stone:0
@@ -1408,8 +1440,11 @@ Franks = function(param){
         var m2c = getCenter(m2[0][0],m2[0][1]);
         excludedTiles.push(...m2);
         
+        // Store original terrain before changing tiles
+        var baseTerrain2 = [];
         for(var i in m2){
           var n = m2[i];
+          baseTerrain2.push(getTile(0, n[0], n[1]));
           tileChange(0,n[0],n[1],13);
           tileChange(3,n[0],n[1],String('mill' + i));
           matrixChange(0,n[0],n[1],1);
@@ -1428,6 +1463,7 @@ Franks = function(param){
           built:true,
           plot:m2,
           topPlot:m2top,
+          baseTerrain:baseTerrain2,
           mats:{
             wood:40,
             stone:0
@@ -1496,7 +1532,10 @@ Franks = function(param){
           const topPlot = lumberSpot.topPlot;
           const center = getCenter(plot[0][0], plot[0][1]);
           
+          // Store original terrain before changing tiles
+          var baseTerrain = [];
           for(var i in plot){
+            baseTerrain.push(getTile(0, plot[i][0], plot[i][1]));
             tileChange(0,plot[i][0],plot[i][1],13);
             tileChange(3,plot[i][0],plot[i][1],String('lumbermill' + i));
             matrixChange(0,plot[i][0],plot[i][1],1);
@@ -1515,6 +1554,7 @@ Franks = function(param){
             built:true,
             plot:plot,
             topPlot:topPlot,
+            baseTerrain:baseTerrain,
             mats:{wood:25, stone:0},
             req:5,
             hp:100
@@ -1535,7 +1575,10 @@ Franks = function(param){
         const plot = mineSpot.plot;
         const center = getCenter(plot[0][0], plot[0][1]);
         
+        // Store original terrain before changing tiles
+        var baseTerrain = [];
         for(var i in plot){
+          baseTerrain.push(getTile(0, plot[i][0], plot[i][1]));
           tileChange(0,plot[i][0],plot[i][1],13);
           tileChange(3,plot[i][0],plot[i][1],String('mine' + i));
           matrixChange(0,plot[i][0],plot[i][1],1);
@@ -1551,6 +1594,7 @@ Franks = function(param){
           type:'mine',
           built:true,
           plot:plot,
+          baseTerrain:baseTerrain,
           mats:{wood:40, stone:0},
           req:5,
           hp:150
@@ -1568,7 +1612,10 @@ Franks = function(param){
         const plot = mineSpot.plot;
         const center = getCenter(plot[0][0], plot[0][1]);
         
+        // Store original terrain before changing tiles
+        var baseTerrain = [];
         for(var i in plot){
+          baseTerrain.push(getTile(0, plot[i][0], plot[i][1]));
           tileChange(0,plot[i][0],plot[i][1],13);
           tileChange(3,plot[i][0],plot[i][1],String('mine' + i));
           matrixChange(0,plot[i][0],plot[i][1],1);
@@ -1584,6 +1631,7 @@ Franks = function(param){
           type:'mine',
           built:true,
           plot:plot,
+          baseTerrain:baseTerrain,
           mats:{wood:40, stone:0},
           req:5,
           hp:150
@@ -1655,7 +1703,10 @@ Franks = function(param){
     var twr = grid[rand];
     var plot = [twr,[twr[0]+1,twr[1]],[twr[0],twr[1]+1],[twr[0]+1,twr[1]+1]];
     var topPlot = [[twr[0],twr[1]-1],[twr[0]+1,twr[1]-1]];
+    // Store original terrain before changing tiles
+    var baseTerrain = [];
     for(var i in plot){
+      baseTerrain.push(getTile(0, plot[i][0], plot[i][1]));
       tileChange(0,plot[i][0],plot[i][1],11);
       tileChange(6,plot[i][0],plot[i][1],0);
     }
@@ -1670,7 +1721,8 @@ Franks = function(param){
       type:'franktower',
       built:false,
       plot:plot,
-      topPlot:topPlot
+      topPlot:topPlot,
+      baseTerrain:baseTerrain
     })
   }
 
@@ -1722,8 +1774,11 @@ Celts = function(param){
     if(hutSpot){
       var plot = hutSpot.plot;
       var walls = hutSpot.walls;
+      // Store original terrain before changing tiles
+      var baseTerrain = [];
       for(var i in plot){
         var p = plot[i];
+        baseTerrain.push(getTile(0, p[0], p[1]));
         tileChange(0,p[0],p[1],11);
         tileChange(6,p[0],p[1],0);
       }
@@ -1732,6 +1787,7 @@ Celts = function(param){
       var id = Math.random();
       Building({
         id:id,
+        baseTerrain:baseTerrain,
         house:self.id,
         owner:self.id,
         x:center[0],
@@ -2014,7 +2070,10 @@ Celts = function(param){
           const center = getCenter(plot[0][0], plot[0][1]);
           excludedTiles.push(...plot);
           
+          // Store original terrain before changing tiles
+          var baseTerrain = [];
           for(var i in plot){
+            baseTerrain.push(getTile(0, plot[i][0], plot[i][1]));
             tileChange(0,plot[i][0],plot[i][1],13);
             tileChange(3,plot[i][0],plot[i][1],String('mine' + i));
             matrixChange(0,plot[i][0],plot[i][1],1);
@@ -2030,6 +2089,7 @@ Celts = function(param){
           type:'mine',
           built:true,
             plot:plot,
+            baseTerrain:baseTerrain,
             mats:{wood:40, stone:0},
           req:5,
           hp:150
@@ -2105,7 +2165,10 @@ Celts = function(param){
     var twr = grid[rand];
     var plot = [twr,[twr[0]+1,twr[1]],[twr[0],twr[1]+1],[twr[0]+1,twr[1]+1]];
     var topPlot = [[twr[0],twr[1]-1],[twr[0]+1,twr[1]-1]];
+    // Store original terrain before changing tiles
+    var baseTerrain = [];
     for(var i in plot){
+      baseTerrain.push(getTile(0, plot[i][0], plot[i][1]));
       tileChange(0,plot[i][0],plot[i][1],11);
       tileChange(6,plot[i][0],plot[i][1],0);
     }
@@ -2120,7 +2183,8 @@ Celts = function(param){
       type:'celttower',
       built:false,
       plot:plot,
-      topPlot:topPlot
+      topPlot:topPlot,
+      baseTerrain:baseTerrain
     })
   }
 
@@ -2172,8 +2236,11 @@ Teutons = function(param){
     if(hutSpot){
       var plot = hutSpot.plot;
       var walls = hutSpot.walls;
+      // Store original terrain before changing tiles
+      var baseTerrain = [];
       for(var i in plot){
         var p = plot[i];
+        baseTerrain.push(getTile(0, p[0], p[1]));
         tileChange(0,p[0],p[1],11);
         tileChange(6,p[0],p[1],0);
       }
@@ -2182,6 +2249,7 @@ Teutons = function(param){
       var id = Math.random();
       Building({
         id:id,
+        baseTerrain:baseTerrain,
         house:self.id,
         owner:self.id,
         x:center[0],
@@ -2444,7 +2512,10 @@ Teutons = function(param){
           const center = getCenter(plot[0][0], plot[0][1]);
           excludedTiles.push(...plot);
           
+          // Store original terrain before changing tiles
+          var baseTerrain = [];
           for(var i in plot){
+            baseTerrain.push(getTile(0, plot[i][0], plot[i][1]));
             tileChange(0,plot[i][0],plot[i][1],13);
             tileChange(3,plot[i][0],plot[i][1],String('mine' + i));
             matrixChange(0,plot[i][0],plot[i][1],1);
@@ -2460,6 +2531,7 @@ Teutons = function(param){
         type:'mine',
         built:true,
             plot:plot,
+            baseTerrain:baseTerrain,
             mats:{wood:40, stone:0},
         req:5,
         hp:150
@@ -2482,7 +2554,10 @@ Teutons = function(param){
           const center = getCenter(plot[0][0], plot[0][1]);
           excludedTiles.push(...plot);
           
+          // Store original terrain before changing tiles
+          var baseTerrain = [];
           for(var i in plot){
+            baseTerrain.push(getTile(0, plot[i][0], plot[i][1]));
             tileChange(0,plot[i][0],plot[i][1],13);
             tileChange(3,plot[i][0],plot[i][1],String('mine' + i));
             matrixChange(0,plot[i][0],plot[i][1],1);
@@ -2498,6 +2573,7 @@ Teutons = function(param){
           type:'mine',
           built:true,
             plot:plot,
+            baseTerrain:baseTerrain,
             mats:{wood:40, stone:0},
           req:5,
           hp:150
@@ -2698,6 +2774,12 @@ Outlaws = function(param){
         var walls = hutSpot.walls || [[plot[0][0],plot[0][1]-2],[plot[1][0],plot[1][1]-2]];
         var center = getCenter(plot[0][0], plot[0][1]);
         
+        // Store original terrain before changing tiles
+        var baseTerrain = [];
+        for(var j = 0; j < plot.length; j++){
+          baseTerrain.push(getTile(0, plot[j][0], plot[j][1]));
+        }
+        
         // Update terrain tiles exactly like Build.js does for completed huts
         for(var j = 0; j < plot.length; j++){
           matrixChange(0, plot[j][0], plot[j][1], 1);
@@ -2732,6 +2814,7 @@ Outlaws = function(param){
           plot: plot,
           walls: walls,
           entrance: null, // Will be set by tile logic above
+          baseTerrain: baseTerrain,
           mats: { wood: 30, stone: 0 },
           req: 5,
           hp: 150

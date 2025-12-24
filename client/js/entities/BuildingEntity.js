@@ -15,6 +15,7 @@ function BuildingEntity(initPack) {
   self.plot = initPack.plot;
   self.walls = initPack.walls;
   self.topPlot = initPack.topPlot;
+  self.baseTerrain = initPack.baseTerrain || [];
 
   Building.list[self.id] = self;
   return self;

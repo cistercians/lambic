@@ -13,6 +13,51 @@ class MapRenderer {
   }
 
   /**
+   * Get base terrain value for a tile by finding the building that contains it
+   * @param {number} c - Column
+   * @param {number} r - Row
+   * @param {function} getBuilding - Function to get building at coordinates
+   * @param {function} getCoords - Function to convert tile to coordinates
+   * @param {Array} plot - Building plot array
+   * @param {Array} baseTerrain - Building baseTerrain array
+   * @returns {number} Terrain value (defaults to 7 = EMPTY/grass)
+   */
+  getBaseTerrainForTile(c, r, getBuilding, getCoords, plot, baseTerrain) {
+    if (!plot || !baseTerrain || baseTerrain.length === 0) {
+      return 7; // Default to EMPTY (grass)
+    }
+
+    // Find index of this tile in the plot
+    for (let i = 0; i < plot.length; i++) {
+      if (plot[i] && plot[i][0] === c && plot[i][1] === r) {
+        return baseTerrain[i] !== undefined ? baseTerrain[i] : 7;
+      }
+    }
+
+    return 7; // Default to EMPTY (grass) if tile not found in plot
+  }
+
+  /**
+   * Get base image for a terrain value
+   * @param {number} terrain - Terrain value (may be float like 4.0-4.9 for rocks)
+   * @param {object} Img - Image assets
+   * @returns {object|null} Image object or null
+   */
+  getBaseImageForTerrain(terrain, Img) {
+    // TERRAIN constants: ROCKS = 4 (stored as 4.0-4.9), MOUNTAIN = 5 (stored as 5.0-5.9)
+    // Use Math.floor to handle float values correctly
+    const terrainInt = Math.floor(terrain);
+    
+    // Use rocks base for ROCKS (4.0-4.9) and MOUNTAIN (5.0-5.9)
+    if (terrainInt === 4 || terrainInt === 5) {
+      return Img.rocks1 || null;
+    }
+    
+    // Default to grass for all other terrain types (EMPTY=7, BRUSH=3, LIGHT_FOREST=2, HEAVY_FOREST=1)
+    return Img.grass || null;
+  }
+
+  /**
    * Render the map for the current z-layer
    * @param {object} config - Configuration object with all dependencies
    */
@@ -218,46 +263,9 @@ class MapRenderer {
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile >= 4 && tile < 4.3){
-          ctx.drawImage(
-            Img.grass, // image
-            xOffset, // target x
-            yOffset, // target y
-            tileSize, // target width
-            tileSize // target height
-          );
-          ctx.drawImage(
-            Img.rocks, // image
-            xOffset - (tileSize/4), // target x
-            yOffset - (tileSize/3), // target y
-            tileSize, // target width
-            tileSize // target height
-          );
-        } else if(tile >= 4 && tile < 4.6){
-          ctx.drawImage(
-            Img.grass, // image
-            xOffset, // target x
-            yOffset, // target y
-            tileSize, // target width
-            tileSize // target height
-          );
-          ctx.drawImage(
-            Img.rocks, // image
-            xOffset - (tileSize/3), // target x
-            yOffset - (tileSize/4), // target y
-            tileSize, // target width
-            tileSize // target height
-          );
         } else if(tile >= 4 && tile < 5){
           ctx.drawImage(
-            Img.grass, // image
-            xOffset, // target x
-            yOffset, // target y
-            tileSize, // target width
-            tileSize // target height
-          );
-          ctx.drawImage(
-            Img.rocks, // image
+            Img.rocks1, // image
             xOffset, // target x
             yOffset, // target y
             tileSize, // target width
@@ -265,7 +273,7 @@ class MapRenderer {
           );
         } else if(tile >= 5 && tile < 5.3){
           ctx.drawImage(
-            Img.grass, // image
+            Img.rocks1, // image
             xOffset, // target x
             yOffset, // target y
             tileSize, // target width
@@ -280,7 +288,7 @@ class MapRenderer {
           );;
         } else if(tile >= 5 && tile < 5.6){
           ctx.drawImage(
-            Img.grass, // image
+            Img.rocks1, // image
             xOffset, // target x
             yOffset, // target y
             tileSize, // target width
@@ -295,7 +303,7 @@ class MapRenderer {
           );;
         } else if(tile >= 5 && tile < 6){
           ctx.drawImage(
-            Img.grass, // image
+            Img.rocks1, // image
             xOffset, // target x
             yOffset, // target y
             tileSize, // target width
@@ -310,7 +318,7 @@ class MapRenderer {
           );;
         } else if(tile == 6){
           ctx.drawImage(
-            Img.grass, // image
+            Img.rocks1, // image
             xOffset, // target x
             yOffset, // target y
             tileSize, // target width
@@ -356,13 +364,32 @@ class MapRenderer {
             tileSize // target height
           );
         } else if(tile == 11){
-          ctx.drawImage(
-            Img.grass, // image
-            xOffset, // target x
-            yOffset, // target y
-            tileSize, // target width
-            tileSize // target height
-          );
+          // Get building at this tile to check baseTerrain
+          const getCoords = config.getCoords || ((c, r) => [c * 64, r * 64]);
+          const bCoords = getCoords(c, r);
+          const building = getBuilding(bCoords[0], bCoords[1], true);
+          
+          // Get base terrain for this tile
+          let baseTerrainValue = 7; // Default to EMPTY (grass)
+          if (building && Building && Building.list && Building.list[building]) {
+            const b = Building.list[building];
+            if (b.plot && b.baseTerrain) {
+              baseTerrainValue = this.getBaseTerrainForTile(c, r, getBuilding, getCoords, b.plot, b.baseTerrain);
+            }
+          }
+          
+          // Draw appropriate base image
+          const baseImage = this.getBaseImageForTerrain(baseTerrainValue, Img);
+          if (baseImage) {
+            ctx.drawImage(
+              baseImage, // image (grass or rocks)
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          }
+          
           ctx.drawImage(
             Img.build1, // image
             xOffset, // target x
@@ -386,13 +413,32 @@ class MapRenderer {
             tileSize // target height
           );
         } else if(tile == 12){
-          ctx.drawImage(
-            Img.grass, // image
-            xOffset, // target x
-            yOffset, // target y
-            tileSize, // target width
-            tileSize // target height
-          );
+          // Get building at this tile to check baseTerrain
+          const getCoords = config.getCoords || ((c, r) => [c * 64, r * 64]);
+          const bCoords = getCoords(c, r);
+          const building = getBuilding(bCoords[0], bCoords[1], true);
+          
+          // Get base terrain for this tile
+          let baseTerrainValue = 7; // Default to EMPTY (grass)
+          if (building && Building && Building.list && Building.list[building]) {
+            const b = Building.list[building];
+            if (b.plot && b.baseTerrain) {
+              baseTerrainValue = this.getBaseTerrainForTile(c, r, getBuilding, getCoords, b.plot, b.baseTerrain);
+            }
+          }
+          
+          // Draw appropriate base image
+          const baseImage = this.getBaseImageForTerrain(baseTerrainValue, Img);
+          if (baseImage) {
+            ctx.drawImage(
+              baseImage, // image (grass or rocks)
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          }
+          
           ctx.drawImage(
             Img.build2, // image
             xOffset, // target x
@@ -425,13 +471,32 @@ class MapRenderer {
           );
         } else if(tile == 13 || tile == 14 || tile == 15 || tile == 16 || tile == 17 || tile == 19 || tile == 20 || tile == 20.5){
           var bTile = getTile(3,c,r);
-          ctx.drawImage(
-            Img.grass, // image
-            xOffset, // target x
-            yOffset, // target y
-            tileSize, // target width
-            tileSize // target height
-          );
+          
+          // Get building at this tile to check baseTerrain
+          const getCoords = config.getCoords || ((c, r) => [c * 64, r * 64]);
+          const bCoords = getCoords(c, r);
+          const building = getBuilding(bCoords[0], bCoords[1], true);
+          
+          // Get base terrain for this tile
+          let baseTerrainValue = 7; // Default to EMPTY (grass)
+          if (building && Building && Building.list && Building.list[building]) {
+            const b = Building.list[building];
+            if (b.plot && b.baseTerrain) {
+              baseTerrainValue = this.getBaseTerrainForTile(c, r, getBuilding, getCoords, b.plot, b.baseTerrain);
+            }
+          }
+          
+          // Draw appropriate base image
+          const baseImage = this.getBaseImageForTerrain(baseTerrainValue, Img);
+          if (baseImage) {
+            ctx.drawImage(
+              baseImage, // image (grass or rocks)
+              xOffset, // target x
+              yOffset, // target y
+              tileSize, // target width
+              tileSize // target height
+            );
+          }
           if(bTile == 'hut0'){
             ctx.drawImage(
               Img.hut0, // image

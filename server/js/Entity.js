@@ -124,6 +124,7 @@ Building = function(param){
   self.plot = param.plot;
   self.walls = param.walls;
   self.topPlot = param.topPlot;
+  self.baseTerrain = param.baseTerrain || []; // Original terrain values for each plot tile
   
   self.mats = param.mats;
   self.req = param.req;
@@ -245,7 +246,8 @@ Building = function(param){
       occ:self.occ,
       plot:self.plot,
       walls:self.walls,
-      topPlot:self.topPlot
+      topPlot:self.topPlot,
+      baseTerrain:self.baseTerrain || []
     }
   }
 

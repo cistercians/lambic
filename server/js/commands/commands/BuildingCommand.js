@@ -196,13 +196,14 @@ class BuildingCommand {
       return false;
     }
     
-    this.updateTilesForBuilding(buildingType, plot, validation);
+    // Store original terrain before changing tiles
+    const baseTerrain = this.updateTilesForBuilding(buildingType, plot, validation);
     
     // Create building entity with built: false
     // Pass validation.walls and validation.topPlot which are already calculated correctly
     const building = buildingType === 'dock' && topPlot
-      ? this.createBuildingEntityWithTopPlot(player, buildingType, plot, c, r, z, buildingDef, topPlot)
-      : this.createBuildingEntity(player, buildingType, plot, c, r, z, buildingDef, validation.walls, validation.topPlot);
+      ? this.createBuildingEntityWithTopPlot(player, buildingType, plot, c, r, z, buildingDef, topPlot, baseTerrain)
+      : this.createBuildingEntity(player, buildingType, plot, c, r, z, buildingDef, validation.walls, validation.topPlot, baseTerrain);
     
     if (building) {
       // Update map
@@ -294,9 +295,10 @@ class BuildingCommand {
    * @param {number} z - Z level
    * @param {object} buildingDef - Building definition
    * @param {Array} topPlot - Pre-calculated topPlot
+   * @param {Array} baseTerrain - Original terrain values for each plot tile
    * @returns {object|null} Building entity
    */
-  createBuildingEntityWithTopPlot(player, buildingType, plot, c, r, z, buildingDef, topPlot) {
+  createBuildingEntityWithTopPlot(player, buildingType, plot, c, r, z, buildingDef, topPlot, baseTerrain) {
     const getCoords = global.getCoords || ((c, r) => [c * 64, r * 64]);
     const getCenter = global.getCenter || ((c, r) => [c * 64, r * 64]);
     
@@ -315,6 +317,7 @@ class BuildingCommand {
       plot: plot,
       walls: null,
       topPlot: topPlot,
+      baseTerrain: baseTerrain || [],
       mats: buildingDef.materials || {},
       req: 5,
       hp: 150
@@ -340,9 +343,10 @@ class BuildingCommand {
    * @param {object} buildingDef - Building definition
    * @param {Array|null} validationWalls - Pre-calculated walls from validation (optional)
    * @param {Array|null} validationTopPlot - Pre-calculated topPlot from validation (optional)
+   * @param {Array} baseTerrain - Original terrain values for each plot tile
    * @returns {object|null} Building entity
    */
-  createBuildingEntity(player, buildingType, plot, c, r, z, buildingDef, validationWalls, validationTopPlot) {
+  createBuildingEntity(player, buildingType, plot, c, r, z, buildingDef, validationWalls, validationTopPlot, baseTerrain) {
     const getCoords = global.getCoords || ((c, r) => [c * 64, r * 64]);
     const getCenter = global.getCenter || ((c, r) => [c * 64, r * 64]);
     
@@ -380,6 +384,7 @@ class BuildingCommand {
       plot: plot,
       walls: walls,
       topPlot: topPlot,
+      baseTerrain: baseTerrain || [],
       mats: buildingDef.materials || {},
       req: 5, // Default requirement
       hp: 150 // Default HP
@@ -413,17 +418,18 @@ class BuildingCommand {
    * @param {string} buildingType - Building type
    * @param {Array} plot - Plot tiles
    * @param {object} validation - Validation result
+   * @returns {Array} Array of original terrain values (one per plot tile)
    */
   updateTilesForBuilding(buildingType, plot, validation) {
     // Match NPC code pattern exactly - use for...in loop like Houses.js
     if (!plot || !Array.isArray(plot)) {
-      return;
+      return [];
     }
     
     // Lay foundation tiles for all tiles in the plot (matching NPC code pattern from Houses.js)
     // Use global.tileChange to match how farm code accesses it
     if (typeof global.tileChange !== 'function') {
-      return;
+      return [];
     }
     
     // Get getTile function
@@ -431,18 +437,25 @@ class BuildingCommand {
       (z, c, r) => global.tilemapSystem.getTile(z, c, r) : null);
     
     if (!getTile) {
-      return;
+      return [];
     }
+    
+    // Store original terrain values before changing tiles
+    const baseTerrain = [];
     
     for (var i in plot) {
       var n = plot[i];
       if (!Array.isArray(n) || n.length < 2) {
+        baseTerrain.push(7); // Default to EMPTY (grass) if invalid
         continue;
       }
       
+      // Get original terrain BEFORE changing it
+      const originalTerrain = getTile(0, n[0], n[1]);
+      baseTerrain.push(originalTerrain);
+      
       // Check if current tile is water (TERRAIN.WATER = 0)
-      const currentTile = getTile(0, n[0], n[1]);
-      const isWater = currentTile === 0;
+      const isWater = originalTerrain === 0;
       
       // Use 11.5 for water tiles, 11 for land tiles
       const foundationTile = isWater ? 11.5 : 11;
@@ -456,6 +469,8 @@ class BuildingCommand {
         global.matrixChange(0, n[0], n[1], 0); // Mark as walkable in pathfinding matrix
       }
     }
+    
+    return baseTerrain;
   }
 
   /**
