@@ -21,11 +21,6 @@ function PlayerEntity(initPack) {
   // CRITICAL: Fallback check - if type is missing but class indicates fauna, set type to 'fauna'
   const faunaClasses = ['Deer', 'Boar', 'Wolf', 'Falcon', 'Sheep'];
   if (faunaClasses.includes(self.class) && self.type !== 'fauna') {
-    console.warn('[FAUNA DEBUG] Fauna class detected but type not "fauna" - fixing in PlayerEntity:', {
-      id: self.id,
-      class: self.class,
-      currentType: self.type
-    });
     self.type = 'fauna';
   }
   
@@ -42,19 +37,6 @@ function PlayerEntity(initPack) {
     self._invalidSprite = true;
     self.sprite = null;
     // Don't proceed with sprite assignment - entity is invalid
-  }
-  
-  // Log fauna entity creation for debugging
-  if (self.type === 'fauna' || ['Deer', 'Boar', 'Wolf', 'Falcon', 'Sheep'].includes(self.class)) {
-    console.log('[FAUNA DEBUG] PlayerEntity created:', {
-      id: self.id,
-      type: self.type,
-      class: self.class,
-      name: self.name,
-      spriteSize: initPack.spriteSize,
-      hasClass: !!self.class,
-      hasType: !!self.type
-    });
   }
   
   self.rank = initPack.rank;

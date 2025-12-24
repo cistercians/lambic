@@ -12,12 +12,6 @@ Img.water3 = new Image();
 Img.water3.src = '/client/img/tiles/water3.png';
 Img.hforest = new Image();
 Img.hforest.src = '/client/img/tiles/hforest.png';
-Img.hforest40 = new Image();
-Img.hforest40.src = '/client/img/tiles/hforest40.png';
-Img.hforest60 = new Image();
-Img.hforest60.src = '/client/img/tiles/hforest60.png';
-Img.hforest80 = new Image();
-Img.hforest80.src = '/client/img/tiles/hforest80.png';
 Img.forest = new Image();
 Img.forest.src = '/client/img/tiles/forest.png';
 Img.brush = new Image();
@@ -4668,7 +4662,6 @@ if (typeof window !== 'undefined' && typeof SpriteRegistry !== 'undefined') {
   const defaultTileSize = typeof tileSize !== 'undefined' ? tileSize : 64;
   window.spriteRegistry = new SpriteRegistry();
   window.spriteRegistry.initialize(defaultTileSize);
-  console.log('SpriteRegistry initialized with', Object.keys(window.spriteRegistry.registry).length, 'entity classes');
   
   // Re-initialize with actual tileSize when it becomes available (from server init)
   // This will be called from client.js after tileSize is received from server
@@ -4681,7 +4674,6 @@ if (typeof window !== 'undefined' && typeof SpriteRegistry !== 'undefined') {
           console.warn('SpriteRegistry reinitialization: window.falcon not available. Registry will preserve existing falcon sprite if valid.');
         }
         window.spriteRegistry.initialize(actualTileSize);
-        console.log('SpriteRegistry re-initialized with tileSize:', actualTileSize);
       }
     };
   }

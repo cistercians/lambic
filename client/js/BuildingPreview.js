@@ -55,12 +55,7 @@ class BuildingPreviewRenderer {
       this.overlayCanvas.style.height = gameCanvas.style.height;
       this.overlayCanvas.style.left = gameCanvas.style.left;
       this.overlayCanvas.style.top = gameCanvas.style.top;
-      
-      console.log('BuildingPreview: Overlay canvas resized to match game canvas');
-      console.log('Game canvas position:', gameCanvas.style.left, gameCanvas.style.top);
-      console.log('Overlay canvas position:', this.overlayCanvas.style.left, this.overlayCanvas.style.top);
     } else {
-      console.log('BuildingPreview: Game canvas not found for resizing');
     }
   }
 

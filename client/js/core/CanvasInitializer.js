@@ -41,7 +41,6 @@ class CanvasInitializer {
     const setCanvasSize = () => {
       const WIDTH = window.innerWidth || 800;
       const HEIGHT = window.innerHeight || 600;
-      console.log('[CanvasInitializer] Setting canvas size:', { WIDTH, HEIGHT, currentWidth: ctxCanvas.width, currentHeight: ctxCanvas.height });
       
       // Force set canvas size - explicitly set to override any defaults
       if (ctxCanvas) {
@@ -65,13 +64,6 @@ class CanvasInitializer {
         cursorOverlayCanvas.style.width = WIDTH + 'px';
         cursorOverlayCanvas.style.height = HEIGHT + 'px';
       }
-      
-      console.log('[CanvasInitializer] Canvas size after setting:', { 
-        ctxWidth: ctxCanvas?.width, 
-        ctxHeight: ctxCanvas?.height,
-        lightingWidth: lightingCanvas?.width,
-        lightingHeight: lightingCanvas?.height
-      });
     };
     
     // Set immediately if possible
@@ -81,7 +73,6 @@ class CanvasInitializer {
     if (typeof requestAnimationFrame !== 'undefined') {
       requestAnimationFrame(setCanvasSize);
     }
-    console.log('[CanvasInitializer] Canvas size after setting:', { ctxWidth: ctxCanvas.width, ctxHeight: ctxCanvas.height, lightingWidth: lightingCanvas.width, lightingHeight: lightingCanvas.height });
 
     // Initialize contexts
     this.ctx = ctxCanvas.getContext('2d');

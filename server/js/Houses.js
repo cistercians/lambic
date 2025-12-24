@@ -837,7 +837,10 @@ Goths = function(param){
           const topPlot = lumberSpot.topPlot;
           const center = getCenter(plot[0][0], plot[0][1]);
           
+          // Store original terrain before changing tiles
+          var baseTerrain = [];
           for(var i in plot){
+            baseTerrain.push(getTile(0, plot[i][0], plot[i][1]));
             tileChange(0,plot[i][0],plot[i][1],13);
             tileChange(3,plot[i][0],plot[i][1],String('lumbermill' + i));
             matrixChange(0,plot[i][0],plot[i][1],1);
@@ -856,6 +859,7 @@ Goths = function(param){
             built:true,
             plot:plot,
             topPlot:topPlot,
+            baseTerrain:baseTerrain,
             mats:{wood:25, stone:0},
             req:5,
             hp:100
@@ -2603,7 +2607,10 @@ Teutons = function(param){
             const center = getCenter(plot[0][0], plot[0][1]);
             excludedTiles.push(...plot);
             
+            // Store original terrain before changing tiles
+            var baseTerrain = [];
             for(var i in plot){
+              baseTerrain.push(getTile(0, plot[i][0], plot[i][1]));
               tileChange(0,plot[i][0],plot[i][1],13);
               tileChange(3,plot[i][0],plot[i][1],String('lumbermill' + i));
               matrixChange(0,plot[i][0],plot[i][1],1);
@@ -2622,6 +2629,7 @@ Teutons = function(param){
           built:true,
               plot:plot,
               topPlot:topPlot,
+              baseTerrain:baseTerrain,
               mats:{wood:25, stone:0},
           req:5,
           hp:100

@@ -6608,17 +6608,10 @@ io.on('connection', function(socket) {
           });
         }
         
-        // Add buildings to preview
+        // Add buildings to preview - use getInitPack() to ensure all properties including baseTerrain are included
         for (const i in Building.list) {
           const b = Building.list[i];
-          previewPack.building.push({
-            id: b.id,
-            type: b.type,
-            hp: b.hp,
-            occ: b.occ,
-            plot: b.plot,
-            walls: b.walls
-          });
+          previewPack.building.push(b.getInitPack());
         }
         
         socket.write(JSON.stringify({

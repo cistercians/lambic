@@ -289,11 +289,83 @@ if (tile >= 1 && tile < 1.3) {
 Buildings are rendered across multiple layers:
 
 - **Layer 0**: Foundation/floor tiles
-- **Layer 1**: Building base tiles
+- **Layer 1**: Building base tiles (with adaptive base terrain rendering)
 - **Layer 2**: Building walls
 - **Layer 3**: Building details
 - **Layer 4**: Building interiors (for z=1,2)
 - **Layer 5**: Building roofs (rendered separately by BuildingTopsRenderer)
+
+#### Adaptive Base Terrain Rendering
+
+Buildings store the original terrain values that existed before they were constructed in a `baseTerrain` array. This allows buildings to render with the correct base layer (grass, rocks, etc.) instead of always defaulting to grass. This is particularly important for buildings like mines that are often constructed on rock terrain.
+
+**How it works:**
+
+1. **Server-side**: When a building is created, the original terrain values are captured before `tileChange` modifies the tiles:
+   ```javascript
+   var baseTerrain = [];
+   for(var i in plot){
+     baseTerrain.push(getTile(0, plot[i][0], plot[i][1])); // Capture BEFORE tileChange
+     tileChange(0, plot[i][0], plot[i][1], 13); // Change to building tile
+   }
+   Building({ ..., baseTerrain: baseTerrain });
+   ```
+
+2. **Building Serialization**: Buildings are serialized using `Building.getInitPack()`, which includes `baseTerrain`:
+   ```javascript
+   self.getInitPack = function(){
+     return {
+       id: self.id,
+       type: self.type,
+       plot: self.plot,
+       baseTerrain: self.baseTerrain || [], // Critical for client rendering
+       // ... other properties
+     }
+   }
+   ```
+
+3. **Client-side Rendering**: When rendering building tiles (tiles 11, 12, 13), `MapRenderer` looks up the building entity and uses its `baseTerrain` array to determine which base image to draw:
+   ```javascript
+   const building = getBuilding(bCoords[0], bCoords[1], true);
+   if (building && BuildingRef.list[building]) {
+     const b = BuildingRef.list[building];
+     if (b.plot && b.baseTerrain && b.baseTerrain.length > 0) {
+       baseTerrainValue = this.getBaseTerrainForTile(c, r, getBuilding, getCoords, b.plot, b.baseTerrain);
+     }
+   }
+   ```
+
+**Important Notes:**
+
+- **Empty Arrays**: The code checks `b.baseTerrain.length > 0` because empty arrays are truthy but don't contain terrain data. Buildings without `baseTerrain` data will default to grass (terrain value 7).
+
+- **Login Camera Mode**: The `previewData` message (used for login camera mode) must use `Building.getInitPack()` when serializing buildings, not manual object construction. Manual serialization can miss properties like `baseTerrain` and `topPlot`.
+
+- **Faction AI Buildings**: Buildings created by faction AI with `built:true` must also capture `baseTerrain` before `tileChange` calls, just like player-constructed buildings.
+
+**Troubleshooting Base Terrain Issues:**
+
+If buildings are rendering with incorrect base layers:
+
+1. **Check Server Serialization**: Verify that `Building.getInitPack()` includes `baseTerrain` in the return object.
+
+2. **Check Message Construction**: For `previewData` messages, ensure buildings are serialized using `building.getInitPack()` rather than manually constructing objects:
+   ```javascript
+   // CORRECT:
+   previewPack.building.push(building.getInitPack());
+   
+   // INCORRECT (missing baseTerrain):
+   previewPack.building.push({
+     id: building.id,
+     type: building.type,
+     plot: building.plot
+     // Missing baseTerrain!
+   });
+   ```
+
+3. **Check Building Creation**: Verify that `baseTerrain` is captured before `tileChange` calls on the server, especially for faction AI-created buildings with `built:true`.
+
+4. **Check Client-side Building Reference**: Ensure `BuildingRef` in `MapRenderer` correctly references the global `Building` object to access `Building.list`.
 
 #### Cloud Pattern Rendering
 
@@ -1432,6 +1504,70 @@ getCameraPosition() {
 ```
 
 This allows `GameRenderer` to work with any camera system.
+
+---
+
+## Client-Server Data Synchronization
+
+### Building Entity Synchronization
+
+Buildings are synchronized from server to client through two primary message types:
+
+#### Init Message (Player/God Mode)
+
+When a player connects or enters god mode, buildings are sent via the `init` message:
+
+```javascript
+// Server-side (lambic.js)
+emit({ msg: 'init', pack: initPack });
+
+// Buildings are added to initPack when created
+initPack.building.push(building.getInitPack());
+```
+
+The `init` message uses `Building.getInitPack()`, which ensures all properties including `baseTerrain` are included.
+
+#### PreviewData Message (Login Camera Mode)
+
+Before a player spawns, the login camera mode uses the `previewData` message:
+
+```javascript
+// Server-side (lambic.js - requestPreviewData handler)
+socket.write(JSON.stringify({
+  msg: 'previewData',
+  pack: {
+    building: [] // Must use building.getInitPack() here
+  }
+}));
+```
+
+**Critical**: The `previewData` message must use `building.getInitPack()` when adding buildings to the pack. Manual object construction will miss properties like `baseTerrain` and `topPlot`, causing rendering issues in login camera mode.
+
+#### Client-side Building Initialization
+
+On the client, both message types use the same construction path:
+
+```javascript
+// client/js/core/SocketMessageHandler.js
+if(data.pack.building) {
+  for(i in data.pack.building){
+    new Building(data.pack.building[i]); // Uses BuildingEntity constructor
+  }
+}
+```
+
+The `BuildingEntity` constructor correctly handles `baseTerrain`:
+
+```javascript
+// client/js/entities/BuildingEntity.js
+function BuildingEntity(initPack) {
+  // ...
+  self.baseTerrain = initPack.baseTerrain || [];
+  // ...
+}
+```
+
+**Key Insight**: If rendering works correctly in player/god mode but fails in login camera mode, check whether `previewData` message construction uses `getInitPack()` for buildings.
 
 ---
 

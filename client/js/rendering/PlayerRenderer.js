@@ -427,11 +427,6 @@ class PlayerRenderer {
     // CRITICAL: Fallback check - if type is missing but class indicates fauna, treat as fauna
     const faunaClasses = ['Deer', 'Boar', 'Wolf', 'Falcon', 'Sheep'];
     if (faunaClasses.includes(player.class) && player.type !== 'fauna') {
-      console.warn('[FAUNA DEBUG] Fauna class detected but type not "fauna" - fixing in PlayerRenderer:', {
-        id: player.id,
-        class: player.class,
-        currentType: player.type
-      });
       player.type = 'fauna';
     }
     

@@ -158,7 +158,8 @@ class EntityInitializer {
         occ: initPack.occ, 
         plot: initPack.plot, 
         walls: initPack.walls,
-        topPlot: initPack.topPlot
+        topPlot: initPack.topPlot,
+        baseTerrain: initPack.baseTerrain || []
       };
       Building.list[self.id] = self;
       return self;

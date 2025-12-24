@@ -70,8 +70,6 @@ class UIEventHandlers {
       return;
     }
     
-    console.log('Attaching chat handlers to form and input');
-    
     // Handle form submission
     chatForm.onsubmit = (e) => {
       e.preventDefault();
@@ -97,8 +95,6 @@ class UIEventHandlers {
       }
     }, true); // Use capture phase
     chatInput._chatHandlerAttached = true;
-    
-    console.log('Chat handlers attached successfully');
   }
 
   submitChatMessage() {

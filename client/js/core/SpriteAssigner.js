@@ -47,18 +47,7 @@ function assignSpriteToEntity(entity, entityClass, isGhost, tileSize) {
     entity.type = 'fauna';
   }
   
-  // Log fauna sprite assignment attempts for debugging
   const isFauna = entity.type === 'fauna' || faunaClasses.includes(entityClass);
-  if (isFauna) {
-    console.log('[FAUNA DEBUG] Sprite assignment attempt:', {
-      entityId: entity.id,
-      entityType: entity.type,
-      entityClass: entityClass,
-      spriteFound: !!(spriteData && spriteData.sprite),
-      spriteSize: spriteData ? spriteData.spriteSize : null,
-      spriteHasAttackAnimations: spriteData && spriteData.sprite ? !!(spriteData.sprite.attackd || spriteData.sprite.attacku) : false
-    });
-  }
   
   if (!spriteData || !spriteData.sprite) {
     console.error(`CRITICAL: No sprite found for class "${entityClass}"`, isFauna ? '(FAUNA ENTITY)' : '');
@@ -105,15 +94,6 @@ function assignSpriteToEntity(entity, entityClass, isGhost, tileSize) {
   
   // Assign sprite
   entity.sprite = spriteData.sprite;
-  
-  // Log successful fauna sprite assignment
-  if (isFauna) {
-    console.log('[FAUNA DEBUG] Sprite assigned successfully:', {
-      entityId: entity.id,
-      entityClass: entityClass,
-      spriteType: spriteData.sprite.attackd ? 'serf-like (HAS ATTACK)' : 'fauna-like (NO ATTACK)'
-    });
-  }
   
   // Only set spriteSize if entity doesn't already have one from server
   // Server spriteSize is always authoritative - don't override it

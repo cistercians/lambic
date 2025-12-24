@@ -78,13 +78,21 @@ class MapRenderer {
       getCurrentZ,
       getTile,
       getBuilding,
-      Building,
+      Building: Building,
       shipWakes,
       selfId,
       Player,
       godModeCamera,
       BuildingPreviewRenderer
     } = config;
+
+    // Use the same Building reference that getBuilding uses
+    // getBuilding uses the global Building.list from client.js, so we need to use the same reference
+    // Try window.Building first (set after entity initialization), then fall back to config.Building
+    // Note: Both should point to the same object after initialization, but window.Building is more reliable
+    const BuildingRef = (typeof window !== 'undefined' && window.Building && window.Building.list) 
+      ? window.Building 
+      : Building;
 
     // Get current z-layer (supports login camera, god mode, and normal play)
     const z = getCurrentZ();
@@ -394,8 +402,8 @@ class MapRenderer {
           
           // Get base terrain for this tile
           let baseTerrainValue = 7; // Default to EMPTY (grass)
-          if (building && Building && Building.list && Building.list[building]) {
-            const b = Building.list[building];
+          if (building && BuildingRef && BuildingRef.list && BuildingRef.list[building]) {
+            const b = BuildingRef.list[building];
             
             // Only use baseTerrain if it has data (length > 0)
             // Empty arrays are truthy but don't contain terrain data
@@ -446,8 +454,8 @@ class MapRenderer {
           
           // Get base terrain for this tile
           let baseTerrainValue = 7; // Default to EMPTY (grass)
-          if (building && Building && Building.list && Building.list[building]) {
-            const b = Building.list[building];
+          if (building && BuildingRef && BuildingRef.list && BuildingRef.list[building]) {
+            const b = BuildingRef.list[building];
             
             // Only use baseTerrain if it has data (length > 0)
             if (b.plot && b.baseTerrain && b.baseTerrain.length > 0) {
@@ -507,8 +515,8 @@ class MapRenderer {
           
           // Get base terrain for this tile
           let baseTerrainValue = 7; // Default to EMPTY (grass)
-          if (building && Building && Building.list && Building.list[building]) {
-            const b = Building.list[building];
+          if (building && BuildingRef && BuildingRef.list && BuildingRef.list[building]) {
+            const b = BuildingRef.list[building];
             
             // Only use baseTerrain if it has data (length > 0)
             if (b.plot && b.baseTerrain && b.baseTerrain.length > 0) {

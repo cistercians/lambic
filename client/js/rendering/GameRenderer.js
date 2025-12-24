@@ -139,7 +139,9 @@ class GameRenderer {
     
     // FOREST OVERLAY (z=0 only)
     if(currentZ === 0) {
-      renderForest();
+      if (typeof window !== 'undefined' && typeof window.renderForest === 'function') {
+        window.renderForest();
+      }
     }
     renderTops();
     

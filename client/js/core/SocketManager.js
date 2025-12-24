@@ -77,7 +77,6 @@ var SocketManager = {
     
     // Track socket listeners
     newSocket.onopen = function(){
-      console.log('Client connection opened');
       // Request initial world data for login screen preview
       newSocket.send(JSON.stringify({msg:'requestPreviewData'}));
     };

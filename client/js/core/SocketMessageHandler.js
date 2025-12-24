@@ -87,16 +87,6 @@ var SocketMessageHandler = {
 
   handlePreviewData: function(data) {
     // Load world data for login screen preview (no selfId set)
-    console.log('Preview data received:', {
-      worldLayers: data.world ? data.world.length : 0,
-      tileSize: data.tileSize,
-      mapSize: data.mapSize,
-      tempus: data.tempus,
-      nightfall: data.nightfall,
-      players: data.pack.player ? data.pack.player.length : 0,
-      items: data.pack.item ? data.pack.item.length : 0,
-      buildings: data.pack.building ? data.pack.building.length : 0
-    });
     
     // Store in global scope FIRST so GameLoopManager can access updated values immediately
     if (typeof window !== 'undefined') {
@@ -137,7 +127,6 @@ var SocketMessageHandler = {
     
     // Load entities for preview
     if(data.pack.player) {
-      console.log('Preview: Loading', data.pack.player.length, 'player entities...');
       var previewLoadedCount = 0;
       var previewErrorCount = 0;
       
@@ -167,7 +156,6 @@ var SocketMessageHandler = {
           previewErrorCount++;
         }
       }
-      console.log('Preview: Loaded', previewLoadedCount, 'players,', previewErrorCount, 'errors, total in list:', Object.keys(Player.list).length);
     }
     if(data.pack.item) {
       for(i in data.pack.item){
@@ -187,11 +175,9 @@ var SocketMessageHandler = {
         falconCount++;
       }
     }
-    console.log('Falcons available for camera:', falconCount);
     
     // Start login camera system once data is loaded
     if(typeof loginCameraSystem !== 'undefined' && loginCameraSystem && !loginCameraSystem.isActive) {
-      console.log('Starting login camera system');
       loginCameraSystem.start(Player.list);
     }
   },
@@ -771,7 +757,6 @@ var SocketMessageHandler = {
         console.log('AudioManager started for player');
       }
     }
-    console.log('Init received - selfId:', typeof selfId !== 'undefined' ? selfId : 'undefined', 'Players:', data.pack.player ? data.pack.player.length : 0);
     
     // Only clear entities if this is an initial init message (has selfId)
     if(data.selfId !== undefined) {
@@ -783,7 +768,6 @@ var SocketMessageHandler = {
     }
     
     // { player : [{id:123,number:'1',x:0,y:0},{id:1,x:0,y:0}] arrow : []}
-    console.log('Init: Loading', data.pack.player ? data.pack.player.length : 0, 'player entities...');
     var initLoadedCount = 0;
     var initErrorCount = 0;
     
@@ -802,11 +786,6 @@ var SocketMessageHandler = {
         // CRITICAL: Fallback check - if type is missing but class indicates fauna, set type to 'fauna'
         const faunaClasses = ['Deer', 'Boar', 'Wolf', 'Falcon', 'Sheep'];
         if (faunaClasses.includes(playerData.class) && playerData.type !== 'fauna') {
-          console.warn('[FAUNA DEBUG] Fauna class detected but type not "fauna" - fixing:', {
-            id: playerData.id,
-            class: playerData.class,
-            currentType: playerData.type
-          });
           playerData.type = 'fauna';
         }
         
@@ -823,19 +802,6 @@ var SocketMessageHandler = {
             // For non-fauna entities (players/npcs), default to SerfM if missing
             playerData.class = existingPlayer ? existingPlayer.class : 'SerfM';
           }
-        }
-        
-        // Log fauna entity creation for debugging
-        if (playerData.type === 'fauna' || ['Deer', 'Boar', 'Wolf', 'Falcon', 'Sheep'].includes(playerData.class)) {
-          console.log('[FAUNA DEBUG] Creating fauna entity from init pack:', {
-            id: playerData.id,
-            type: playerData.type,
-            class: playerData.class,
-            name: playerData.name,
-            hasSpriteSize: playerData.spriteSize !== undefined,
-            spriteSize: playerData.spriteSize,
-            fullInitPack: JSON.stringify(playerData)
-          });
         }
         
         new Player(playerData);
@@ -860,10 +826,8 @@ var SocketMessageHandler = {
         initErrorCount++;
       }
     }
-    console.log('Init: Loaded', initLoadedCount, 'players,', initErrorCount, 'errors, total in Player.list:', Object.keys(Player.list).length);
     for(i in data.pack.arrow){
       new Arrow(data.pack.arrow[i]);
-      console.log('Client: Arrow created from init pack:', data.pack.arrow[i].id, 'angle:', data.pack.arrow[i].angle);
     }
     for(i in data.pack.item){
       new Item(data.pack.item[i]);
@@ -877,9 +841,7 @@ var SocketMessageHandler = {
     
     // If spectate mode is active, start camera after entities are loaded
     if(typeof spectateCameraSystem !== 'undefined' && spectateCameraSystem && spectateCameraSystem.isActive) {
-      console.log('Init received, starting spectate camera in 500ms...');
       setTimeout(function(){
-        console.log('Starting spectate camera now');
         if(spectateCameraSystem && spectateCameraSystem.start) {
           spectateCameraSystem.start();
         }
@@ -919,13 +881,6 @@ var SocketMessageHandler = {
       const faunaClasses = ['Deer', 'Boar', 'Wolf', 'Falcon', 'Sheep'];
       const isFaunaUpdate = pack.type === 'fauna' || faunaClasses.includes(pack.class);
       if (isFaunaUpdate && !p) {
-        console.warn('[FAUNA DEBUG] Update pack received for fauna entity that doesn\'t exist on client - creating from update pack:', {
-          id: pack.id,
-          type: pack.type,
-          class: pack.class,
-          note: 'Entity should have been created via init pack first, but creating from update pack as fallback'
-        });
-        
         // CRITICAL: Create entity from update pack if it doesn't exist
         // This handles cases where init pack was missed or entity was created after client connected
         // Convert update pack to init pack format
@@ -937,7 +892,7 @@ var SocketMessageHandler = {
           
           // CRITICAL: Fauna entities MUST have class - don't create if missing
           if (!pack.class) {
-            console.error('[FAUNA DEBUG] Cannot create fauna entity from update pack - missing class:', pack);
+            // Skip creation if class is missing
           } else {
             // Create entity from update pack data
             try {
@@ -974,17 +929,8 @@ var SocketMessageHandler = {
               });
               
               p = Player.list[pack.id];
-              if (p) {
-                console.log('[FAUNA DEBUG] Successfully created fauna entity from update pack:', {
-                  id: p.id,
-                  type: p.type,
-                  class: p.class,
-                  hasSprite: !!p.sprite,
-                  spriteClass: p.sprite ? (p.sprite.attackd ? 'serf-like' : 'fauna-like') : 'none'
-                });
-              }
             } catch (e) {
-              console.error('[FAUNA DEBUG] Failed to create fauna entity from update pack:', e, pack);
+              console.error('Failed to create fauna entity from update pack:', e, pack);
             }
           }
         }
@@ -1070,16 +1016,6 @@ var SocketMessageHandler = {
         // Update class and track for ship wake system
         // CRITICAL: Don't overwrite valid class with null/undefined from server
         if(pack.class != undefined && pack.class != null && p.class !== pack.class) {
-          // Log fauna class changes for debugging
-          if (p.type === 'fauna' || ['Deer', 'Boar', 'Wolf', 'Falcon', 'Sheep'].includes(p.class) || ['Deer', 'Boar', 'Wolf', 'Falcon', 'Sheep'].includes(pack.class)) {
-            console.log('[FAUNA DEBUG] Class change in update pack:', {
-              id: p.id,
-              type: p.type,
-              oldClass: p.class,
-              newClass: pack.class,
-              packType: pack.type
-            });
-          }
           p.class = pack.class;
           classChanged = true;
           
