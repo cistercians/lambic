@@ -89,7 +89,10 @@ The `terraform()` function converts HSV values to terrain types:
    - **Mountain**: `V > mountainThreshold` (0.99)
      - Value: `5 + random(0.0-0.9)` (MOUNTAIN with variation)
    - **Rocks**: `V > rocksThreshold` (0.85)
-     - Value: `4 + random(0.0-0.9)` (ROCKS with variation)
+     - Split into two types based on HSV value range:
+       - **Regular rocks** (lower 2/3 of rock range): Value `4` (integer, no decimals)
+       - **Large rocks** (upper 1/3 of rock range): Value `4.01-4.99` (decimals used for overlay offset)
+     - Upper third boundary: `rocksThreshold + (0.99 - rocksThreshold) * (2/3)`
    - **Brush**: `H <= brushThreshold` (0.3)
      - Value: `3 + random(0.0-0.9)` (BRUSH with variation)
    - **Heavy Forest**: Default (everything else)
@@ -259,11 +262,15 @@ Based on TERRAIN constants defined in `lambic.js`:
 - **1**: HEAVY_FOREST (with random 0.0-0.9 variation) - **Only forest type generated initially**
 - **2**: LIGHT_FOREST (with random 0.0-0.9 variation) - **Not generated initially; only appears when heavy forest resources drop to ≤100 units**
 - **3**: BRUSH (with random 0.0-0.9 variation)
-- **4**: ROCKS (with random 0.0-0.9 variation)
+- **4**: ROCKS (regular rocks - integer value)
+- **4.x**: LARGE_ROCKS (large rocks - decimal values 4.01-4.99, decimals used for overlay offset)
+  - Regular rocks: Value `4` (no decimals)
+  - Large rocks: Value `4.01-4.99` (decimals used for offsetting rocks.png overlay)
+  - Large rocks occupy the upper third of the rock HSV value range
 - **5**: MOUNTAIN (with random 0.0-0.9 variation)
 - **6**: CAVE_ENTRANCE (placed during cave generation)
 
-**Note**: The random variation (0.0-0.9) is added to base terrain values for visual diversity. For example, a mountain tile might have value `5.47` instead of exactly `5`.
+**Note**: Most terrain types have random variation (0.0-0.9) added to base terrain values for visual diversity. For example, a mountain tile might have value `5.47` instead of exactly `5`. However, regular rocks use the integer value `4` (no decimals), while large rocks use `4.01-4.99` (decimals used for overlay offset rendering).
 
 **Important**: Light forest is no longer generated during initial map creation. All forest areas start as heavy forest. Light forest only appears dynamically when heavy forest resources are depleted below the threshold (100 units) through gameplay actions like tree chopping.
 

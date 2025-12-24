@@ -263,11 +263,34 @@ class MapRenderer {
             tileSize, // target width
             tileSize // target height
           );
-        } else if(tile >= 4 && tile < 5){
+        } else if(tile === 4){
+          // Regular rocks: just rocky.png base
           ctx.drawImage(
             Img.rocky, // image
             xOffset, // target x
             yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+        } else if(tile > 4 && tile < 5){
+          // Large rocks: rocky.png base + rocks.png overlay with offset
+          ctx.drawImage(
+            Img.rocky, // base image
+            xOffset, // target x
+            yOffset, // target y
+            tileSize, // target width
+            tileSize // target height
+          );
+          // Calculate offset from decimal portion (tile - 4, range 0.01-0.99)
+          const decimalOffset = tile - 4;
+          // Map decimal to offset range: use it to vary offset similar to mountain pattern
+          // Use decimal to create offset variation (0.01-0.99 maps to -tileSize/4 to +tileSize/4)
+          const offsetX = (decimalOffset - 0.5) * (tileSize / 2); // Range from -tileSize/4 to +tileSize/4
+          const offsetY = (decimalOffset - 0.5) * (tileSize / 3); // Range from -tileSize/6 to +tileSize/6
+          ctx.drawImage(
+            Img.rocks, // overlay image
+            xOffset + offsetX, // target x with offset
+            yOffset + offsetY, // target y with offset
             tileSize, // target width
             tileSize // target height
           );

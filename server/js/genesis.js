@@ -193,7 +193,16 @@ function genesis(config = {}){
             i++;
           // ROCKS: Value > rocksThreshold (high elevation, rocky terrain)
           } else if (source[i][1] > rocksThreshold){
-            oSet.push(4 + Number((Math.random()*0.9).toFixed(2)));
+            // Split rocks into regular (lower 2/3) and large (upper 1/3)
+            // Upper third boundary: rocksThreshold + (0.99 - rocksThreshold) * (2/3)
+            const upperThirdBoundary = rocksThreshold + (0.99 - rocksThreshold) * (2/3);
+            if (source[i][1] > upperThirdBoundary && source[i][1] <= 0.99) {
+              // Large rocks (upper third): use 4.x with decimals for offset (4.01-4.99)
+              oSet.push(4 + 0.01 + Number((Math.random() * 0.98).toFixed(2)));
+            } else {
+              // Regular rocks (lower 2/3): use integer 4 (no decimals)
+              oSet.push(4);
+            }
             uSet.push(0);
             i++;
           // BRUSH: Hue <= brushThreshold (dry/arid regions)
