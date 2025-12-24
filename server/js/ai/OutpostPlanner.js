@@ -134,7 +134,8 @@ class OutpostPlanner {
         // Check for resource-specific terrain
         switch (resourceType) {
           case 'stone':
-            if (terrain === 4) proximity += 3; // Rocks
+            // Only count large rocks (resource-carrying), not visual rocks
+            if (global.isLargeRock && global.isLargeRock(terrain)) proximity += 3; // Large rocks only
             if (terrain === 6) proximity += 5; // Caves
             break;
           case 'wood':

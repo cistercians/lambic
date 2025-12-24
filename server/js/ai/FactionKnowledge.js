@@ -37,7 +37,8 @@ class FactionKnowledge {
         forestCount++;
         if (forestCount % 5 === 0) forestClusters.push(tile);
       }
-      if (terrain === 4) { // ROCKS
+      // Only count large rocks (resource-carrying), not visual rocks
+      if (global.isLargeRock && global.isLargeRock(terrain)) {
         rockCount++;
         if (rockCount % 5 === 0) rockClusters.push(tile);
       }

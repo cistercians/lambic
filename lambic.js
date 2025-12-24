@@ -92,6 +92,13 @@ const Z_LEVELS = {
 global.TERRAIN = TERRAIN;
 global.Z_LEVELS = Z_LEVELS;
 
+// Helper function to check if terrain is a large rock (resource-carrying)
+// Large rocks have values > TERRAIN.ROCKS (4) && < TERRAIN.MOUNTAIN (5)
+function isLargeRock(terrain) {
+  return terrain > TERRAIN.ROCKS && terrain < TERRAIN.MOUNTAIN;
+}
+global.isLargeRock = isLargeRock;
+
 const TILE_SIZE = 64;
 const FACTION_IDS = {
   BROTHERHOOD: 1,

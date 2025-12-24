@@ -126,7 +126,8 @@ class MapAnalyzer {
       // Count terrain types (using TERRAIN constants from lambic.js)
       if (terrain === 7 || terrain === 3) resources.farmland++; // EMPTY or BRUSH
       if (terrain === 1 || terrain === 2) resources.forest++; // HEAVY_FOREST or LIGHT_FOREST
-      if (terrain === 4) resources.rocks++; // ROCKS
+      // Only count large rocks (resource-carrying), not visual rocks
+      if (global.isLargeRock && global.isLargeRock(terrain)) resources.rocks++; // Large rocks only
       if (terrain === 6) resources.caves++; // CAVE_ENTRANCE
       if (terrain === 0) resources.water++; // WATER
     }
@@ -384,8 +385,21 @@ class MapAnalyzer {
       }
     }
     
+    // Calculate visual and large rock counts for mining potential
+    let visualRockCount = 0;
+    let largeRockCount = 0;
+    const TERRAIN = global.TERRAIN;
+    for (const t of area) {
+      const terrain = this.getTerrain(t[0], t[1], layer);
+      if (terrain === TERRAIN.ROCKS) {
+        visualRockCount++;
+      } else if (global.isLargeRock && global.isLargeRock(terrain)) {
+        largeRockCount++;
+      }
+    }
+    
     // Score the location
-    const score = this.scoreHQLocationForFaction(tile, requirements, terrainCounts, area.length);
+    const score = this.scoreHQLocationForFaction(tile, requirements, terrainCounts, area.length, visualRockCount, largeRockCount);
     
     return {
       isValid: true,
@@ -398,7 +412,7 @@ class MapAnalyzer {
   }
   
   // Score HQ location based on faction priorities
-  scoreHQLocationForFaction(tile, requirements, terrainCounts, totalTiles) {
+  scoreHQLocationForFaction(tile, requirements, terrainCounts, totalTiles, visualRockCount = 0, largeRockCount = 0) {
     let score = 0;
     const priorities = requirements.priorities;
     
@@ -420,7 +434,8 @@ class MapAnalyzer {
     
     // Mining potential (Teutons)
     if (priorities.miningPotential) {
-      const miningCount = (terrainCounts[4] || 0) + (terrainCounts[5] || 0); // ROCKS + MOUNTAIN
+      // Count visual rocks (for placement) + large rocks (for resources) + mountains
+      const miningCount = visualRockCount + largeRockCount + (terrainCounts[5] || 0); // MOUNTAIN = 5
       const miningPercentage = miningCount / totalTiles;
       score += priorities.miningPotential * miningPercentage * 100;
     }
@@ -581,10 +596,12 @@ class MapAnalyzer {
   
   getMountainSpawnPoints() {
     const mountains = [];
+    const TERRAIN = global.TERRAIN;
     for (let c = 5; c < this.mapSize - 5; c += 3) {
       for (let r = 5; r < this.mapSize - 5; r += 3) {
         const terrain = this.getTerrain(c, r, 0);
-        if (terrain >= 4.0 && terrain < 5.0) { // ROCKS (4.0-4.99)
+        // Include visual rocks (TERRAIN.ROCKS = 4) and large rocks (> 4 && < 5)
+        if (terrain === TERRAIN.ROCKS || (global.isLargeRock && global.isLargeRock(terrain))) {
           mountains.push([c, r]);
         } else if (terrain >= 5.0 && terrain < 6.0) { // MOUNTAIN (5.0-5.99)
           mountains.push([c, r]);

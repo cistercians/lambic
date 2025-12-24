@@ -242,7 +242,8 @@ const TERRAIN = {
 | 1 | HEAVY_FOREST | Dense forest | Yes | Limited |
 | 2 | LIGHT_FOREST | Light forest | Yes | Yes (with clearing) |
 | 3 | BRUSH | Brush/scrubland | Yes | Yes (with clearing) |
-| 4 | ROCKS | Rock formations | Yes | Limited |
+| 4 | ROCKS | Visual rock (walkable, no resources) | Yes | Yes (mines) |
+| 4.01-4.99 | LARGE_ROCKS | Large rock (has stone resources on layer 6) | Yes | No (workable by mines) |
 | 5 | MOUNTAIN | Mountain terrain | Yes | Limited (mines only) |
 | 6 | CAVE_ENTRANCE | Cave entrance | Yes | No |
 | 7 | EMPTY | Grass/clear terrain | Yes | Yes |
@@ -1211,7 +1212,7 @@ for (const [nx, ny] of nearbyZones) {
 {
   plotSize: [2, 2],                    // 2x2
   wallTiles: 0,
-  validTerrain: [TERRAIN.EMPTY, TERRAIN.ROCKS, TERRAIN.MOUNTAIN],
+  validTerrain: [TERRAIN.ROCKS, TERRAIN.MOUNTAIN], // Visual rocks (4) or mountains
   clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
   hasUpperFloor: false
 }
@@ -1581,7 +1582,7 @@ Each faction has unique requirements for HQ placement:
   searchLayer: 0,
   minTerrainPercentage: 0.55,
   priorities: {
-    miningPotential: 45,
+    miningPotential: 45,  // Counts visual rocks (placement) + large rocks (resources) + mountains
     lumberAccess: 35,
     terrainDiversity: 20
   },
@@ -1592,6 +1593,8 @@ Each faction has unique requirements for HQ placement:
   economicBuildings: ['mine', 'mine', 'lumbermill', 'lumbermill']
 }
 ```
+
+**Note**: Teutons prioritize visual rock areas (TERRAIN.ROCKS = 4) for HQ placement, with large rocks (4.01-4.99) counted separately for mining potential assessment.
 
 #### Norsemen
 ```javascript

@@ -238,7 +238,9 @@ class TerritoryManager {
       // TERRAIN constants from lambic.js
       if (terrain === 7 || terrain === 3) score += 2; // EMPTY or BRUSH
       if (terrain === 1 || terrain === 2) score += 3; // HEAVY_FOREST or LIGHT_FOREST
-      if (terrain === 4) score += 2; // ROCKS
+      const TERRAIN = global.TERRAIN;
+      if (terrain === TERRAIN.ROCKS) score += 2; // Visual rocks (placement only)
+      if (global.isLargeRock && global.isLargeRock(terrain)) score += 5; // Large rocks (actual resources)
       if (terrain === 6) score += 10; // CAVE_ENTRANCE
     }
     

@@ -967,6 +967,28 @@ class TilemapSystem {
       score += forestCount * 2;
     }
     
+    // Mine-specific scoring: prefer visual rocks with adjacent large rocks
+    if (buildingType === 'mine') {
+      const plotTerrain = this.getTile(0, tile[0], tile[1]);
+      const TERRAIN = global.TERRAIN;
+      
+      // Bonus for placing on visual rock tile (exact match, not Math.floor)
+      if (plotTerrain === TERRAIN.ROCKS) {
+        score += 50;
+      }
+      
+      // Bonus for adjacent large rocks (resource-carrying)
+      let largeRockCount = 0;
+      const searchArea = global.getArea(tile, tile, 1); // 1-tile radius
+      for (const t of searchArea) {
+        const terrain = this.getTile(0, t[0], t[1]);
+        if (global.isLargeRock && global.isLargeRock(terrain)) {
+          largeRockCount++;
+        }
+      }
+      score += largeRockCount * 10; // +10 per adjacent large rock
+    }
+    
     // Bonus for proximity to required buildings (e.g., farms near mills)
     if (requirements.requiresNearby) {
       const { buildingType: requiredType, maxDistance } = requirements.requiresNearby;
@@ -1253,9 +1275,21 @@ class TilemapSystem {
     const area = global.getArea(tile, tile, evalRadius);
     
     const terrainCounts = {};
+    let visualRockCount = 0;
+    let largeRockCount = 0;
+    
     for (const t of area) {
-      const terrain = Math.floor(this.getTile(layer, t[0], t[1]));
-      terrainCounts[terrain] = (terrainCounts[terrain] || 0) + 1;
+      const terrain = this.getTile(layer, t[0], t[1]);
+      const terrainFloor = Math.floor(terrain);
+      terrainCounts[terrainFloor] = (terrainCounts[terrainFloor] || 0) + 1;
+      
+      // Count visual vs large rocks separately (before Math.floor)
+      const TERRAIN = global.TERRAIN;
+      if (terrain === TERRAIN.ROCKS) {
+        visualRockCount++;
+      } else if (global.isLargeRock && global.isLargeRock(terrain)) {
+        largeRockCount++;
+      }
     }
     
     const priorities = requirements.priorities;
@@ -1292,7 +1326,8 @@ class TilemapSystem {
     
     // Mining potential (Teutons)
     if (priorities.miningPotential) {
-      const miningCount = (terrainCounts[5] || 0) + (terrainCounts[6] || 0);
+      // Count visual rocks for placement + large rocks for resources + mountains
+      const miningCount = visualRockCount + largeRockCount + (terrainCounts[5] || 0); // MOUNTAIN = 5
       const miningPercentage = miningCount / area.length;
       score += priorities.miningPotential * miningPercentage * 100;
     }
@@ -1453,17 +1488,24 @@ class TilemapSystem {
     const hqCenter = global.getCenter(hq[0], hq[1]);
     
     // Count terrain types
+    const TERRAIN = global.TERRAIN;
     for (const tile of area) {
-      const terrain = Math.floor(this.getTile(z, tile[0], tile[1]));
+      const terrain = this.getTile(z, tile[0], tile[1]);
+      const terrainFloor = Math.floor(terrain);
       
-      if (terrain === 1) resources.heavyForest++;
-      else if (terrain === 2) resources.lightForest++;
-      else if (terrain === 7) resources.grass++;
-      else if (terrain === 4) resources.rocks++;
-      else if (terrain === 5) resources.mountains++;
-      else if (terrain === 0) resources.water++;
+      if (terrainFloor === 1) resources.heavyForest++;
+      else if (terrainFloor === 2) resources.lightForest++;
+      else if (terrainFloor === 7) resources.grass++;
+      else if (terrain === TERRAIN.ROCKS) {
+        // Visual rocks (exact match)
+        resources.rocks++;
+      } else if (global.isLargeRock && global.isLargeRock(terrain)) {
+        // Large rocks (resource-carrying)
+        resources.rocks++;
+      } else if (terrainFloor === 5) resources.mountains++;
+      else if (terrainFloor === 0) resources.water++;
       
-      if (terrain === 7 || terrain === 3) resources.buildableSpace++;
+      if (terrainFloor === 7 || terrainFloor === 3) resources.buildableSpace++;
     }
     
     resources.totalForest = resources.heavyForest + resources.lightForest;

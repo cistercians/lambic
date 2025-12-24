@@ -291,8 +291,17 @@ Building = function(param){
       });
     } else if(self.type === 'mine'){
       self.resources = self.resources.filter(r => {
-        var tile = getTile(1, r[0], r[1]);
-        return tile >= 2 && tile < 5; // Has ore/stone
+        if(self.cave){
+          // Ore mine - check layer 1 for cave rocks
+          var tile = getTile(1, r[0], r[1]);
+          return tile >= 2 && tile < 5; // Has ore
+        } else {
+          // Stone mine - check layer 6 for stone resources and verify it's a large rock
+          var layer6Res = getTile(6, r[0], r[1]);
+          var terrain = getTile(0, r[0], r[1]);
+          // Only keep large rocks (resource-carrying) with resources on layer 6
+          return (global.isLargeRock && global.isLargeRock(terrain)) && layer6Res > 0;
+        }
       });
     } else if(self.type === 'mill' || self.type === 'farm'){
       // Farms are handled specially (see below)
@@ -753,7 +762,8 @@ Mine = function(param){
         var dist = self.getDistance({x:c[0],y:c[1]});
         if(dist <= 384){
           var gt = getTile(0,r[0],r[1]);
-          if(gt >= 4 && gt < 6){
+          // Only scan for large rocks (resource-carrying), not visual rocks (TERRAIN.ROCKS = 4)
+          if(global.isLargeRock && global.isLargeRock(gt)){
             self.resources.push(r);
           }
         }

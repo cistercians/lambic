@@ -98,7 +98,8 @@ class ScoutBehavior {
       
       // Count terrain types
       if (terrain === 1 || terrain === 2) resources.forest++; // HEAVY_FOREST or LIGHT_FOREST
-      if (terrain === 4) resources.rocks++; // ROCKS
+      // Only count large rocks (resource-carrying), not visual rocks
+      if (global.isLargeRock && global.isLargeRock(terrain)) resources.rocks++; // Large rocks only
       if (terrain === 7 || terrain === 3) resources.farmland++; // EMPTY or BRUSH
       if (terrain === 6) resources.cave++; // CAVE_ENTRANCE
     }

@@ -384,6 +384,7 @@ startLumberingWork(serf, building, spot) {
 
 **B. Stone Mining** - lines 833-899
 - Uses layer 6 for stone
+- Only works on large rock tiles (4.01-4.99), not visual rock tiles (TERRAIN.ROCKS = 4)
 - `serf.inventory.stone += 10` per mine
 - `tileChange(6, spot[0], spot[1], -1)` - Depletes stone
 - Converts to cave tile when depleted
