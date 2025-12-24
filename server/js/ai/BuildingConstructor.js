@@ -44,6 +44,12 @@ class BuildingConstructor {
     const topPlot = spot.topPlot;
     const center = global.getCenter(plot[0][0], plot[0][1]);
     
+    // Store original terrain before changing tiles
+    const baseTerrain = [];
+    for (const tile of plot) {
+      baseTerrain.push(global.getTile(0, tile[0], tile[1]));
+    }
+    
     // Update terrain tiles
     for (const tile of plot) {
       global.tileChange(0, tile[0], tile[1], 13); // BUILD marker
@@ -66,6 +72,7 @@ class BuildingConstructor {
       built: true,
       plot: plot,
       topPlot: topPlot,
+      baseTerrain: baseTerrain,
       mats: { wood: 40, stone: 0 },
       req: 5,
       hp: 150
@@ -143,6 +150,12 @@ class BuildingConstructor {
     const plot = spot.plot;
     const center = global.getCenter(plot[0][0], plot[0][1]);
     
+    // Store original terrain before changing tiles
+    const baseTerrain = [];
+    for (let i = 0; i < plot.length; i++) {
+      baseTerrain.push(global.getTile(0, plot[i][0], plot[i][1]));
+    }
+    
     // Update terrain (mines are just a base plot, no topPlot)
     for (let i = 0; i < plot.length; i++) {
       global.tileChange(0, plot[i][0], plot[i][1], 13);
@@ -162,6 +175,7 @@ class BuildingConstructor {
       type: 'mine',
       built: true,
       plot: plot,
+      baseTerrain: baseTerrain,
       mats: { wood: 40, stone: 0 },
       req: 5,
       hp: 150
@@ -194,6 +208,12 @@ class BuildingConstructor {
     const topPlot = spot.topPlot;
     const center = global.getCenter(plot[0][0], plot[0][1]);
     
+    // Store original terrain before changing tiles
+    const baseTerrain = [];
+    for (let i = 0; i < plot.length; i++) {
+      baseTerrain.push(global.getTile(0, plot[i][0], plot[i][1]));
+    }
+    
     // Update terrain
     for (let i = 0; i < plot.length; i++) {
       global.tileChange(0, plot[i][0], plot[i][1], 13);
@@ -216,6 +236,7 @@ class BuildingConstructor {
       built: true,
       plot: plot,
       topPlot: topPlot,
+      baseTerrain: baseTerrain,
       mats: { wood: 35, stone: 0 },
       req: 5,
       hp: 150
@@ -248,6 +269,12 @@ class BuildingConstructor {
     const walls = spot.walls;
     const center = global.getCenter(plot[0][0], plot[0][1]);
     
+    // Store original terrain before changing tiles (constructForge will change them)
+    const baseTerrain = [];
+    for (const tile of plot) {
+      baseTerrain.push(global.getTile(0, tile[0], tile[1]));
+    }
+    
     // Create forge building
     const forgeId = Math.random();
     Forge({
@@ -262,6 +289,7 @@ class BuildingConstructor {
       plot: plot,
       walls: walls,
       topPlot: null,
+      baseTerrain: baseTerrain,
       mats: { wood: 50, stone: 100 },
       req: 5,
       hp: 200
@@ -301,6 +329,12 @@ class BuildingConstructor {
     const walls = spot.walls;
     const center = global.getCenter(plot[0][0], plot[0][1]);
     
+    // Store original terrain before changing tiles (constructGarrison will change them)
+    const baseTerrain = [];
+    for (const tile of plot) {
+      baseTerrain.push(global.getTile(0, tile[0], tile[1]));
+    }
+    
     // Create garrison
     const garrisonId = Math.random();
     const entrance = [plot[0][0], plot[0][1]];
@@ -320,6 +354,7 @@ class BuildingConstructor {
       walls: walls,
       entrance: entrance,
       ustairs: ustairs,
+      baseTerrain: baseTerrain,
       mats: { wood: 50, stone: 30 },
       req: 5,
       hp: 200

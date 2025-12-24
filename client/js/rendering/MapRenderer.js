@@ -50,7 +50,7 @@ class MapRenderer {
     
     // Use rocks base for ROCKS (4.0-4.9) and MOUNTAIN (5.0-5.9)
     if (terrainInt === 4 || terrainInt === 5) {
-      return Img.rocks1 || null;
+      return Img.rocky || null;
     }
     
     // Default to grass for all other terrain types (EMPTY=7, BRUSH=3, LIGHT_FOREST=2, HEAVY_FOREST=1)
@@ -265,7 +265,7 @@ class MapRenderer {
           );
         } else if(tile >= 4 && tile < 5){
           ctx.drawImage(
-            Img.rocks1, // image
+            Img.rocky, // image
             xOffset, // target x
             yOffset, // target y
             tileSize, // target width
@@ -273,7 +273,7 @@ class MapRenderer {
           );
         } else if(tile >= 5 && tile < 5.3){
           ctx.drawImage(
-            Img.rocks1, // image
+            Img.rocky, // image
             xOffset, // target x
             yOffset, // target y
             tileSize, // target width
@@ -288,7 +288,7 @@ class MapRenderer {
           );;
         } else if(tile >= 5 && tile < 5.6){
           ctx.drawImage(
-            Img.rocks1, // image
+            Img.rocky, // image
             xOffset, // target x
             yOffset, // target y
             tileSize, // target width
@@ -303,7 +303,7 @@ class MapRenderer {
           );;
         } else if(tile >= 5 && tile < 6){
           ctx.drawImage(
-            Img.rocks1, // image
+            Img.rocky, // image
             xOffset, // target x
             yOffset, // target y
             tileSize, // target width
@@ -318,7 +318,7 @@ class MapRenderer {
           );;
         } else if(tile == 6){
           ctx.drawImage(
-            Img.rocks1, // image
+            Img.rocky, // image
             xOffset, // target x
             yOffset, // target y
             tileSize, // target width

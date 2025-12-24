@@ -63,6 +63,7 @@ Players place building foundations using the `/build [building type]` command. T
    - Deducts required materials from both sources
 
 6. **Foundation Placement**
+   - Stores original terrain values for each plot tile before changing tiles
    - Updates terrain tiles to foundation markers:
      - Land tiles: `BUILD_MARKER` (11)
      - Water tiles: `BUILD_MARKER_ALT` (11.5)
@@ -72,6 +73,7 @@ Players place building foundations using the `/build [building type]` command. T
 7. **Building Entity Creation**
    - Creates Building entity with `built: false`
    - Stores plot, walls, topPlot coordinates
+   - Stores `baseTerrain` array containing original terrain values for each plot tile
    - Sets materials, req (default 5), hp (default 150)
 
 #### Special Cases
@@ -97,8 +99,10 @@ Faction AI places buildings during initialization and expansion phases:
    - Validates clearance radius if required
 
 3. **Construction** (`BuildingConstructor.build[Type]()`)
+   - Stores original terrain values for each plot tile before changing tiles
    - Updates terrain tiles immediately
    - Creates building entity with `built: true` (instant completion for AI)
+   - Passes `baseTerrain` array to building constructor for adaptive base layer rendering
    - Places building-specific tiles and items
 
 #### Building Spot Scoring
@@ -390,6 +394,7 @@ Building = function(param){
   self.plot = param.plot;          // Array of [col, row] coordinates
   self.walls = param.walls;        // Array of wall tile coordinates
   self.topPlot = param.topPlot;    // Array of upper floor tile coordinates
+  self.baseTerrain = param.baseTerrain || []; // Original terrain values for each plot tile
   self.mats = param.mats;          // Materials object {wood: X, stone: Y}
   self.req = param.req;            // Required work value (default 5)
   self.hp = param.hp;              // Building health points
@@ -424,6 +429,7 @@ Building = function(param){
 - **plot**: Array of `[col, row]` coordinates defining building footprint
 - **walls**: Array of `[col, row]` coordinates for wall tiles (one row above top plot row)
 - **topPlot**: Array of `[col, row]` coordinates for upper floor tiles (layer 5)
+- **baseTerrain**: Array of original terrain values for each plot tile (used for adaptive base layer rendering)
 
 #### Construction Properties
 
@@ -1240,9 +1246,11 @@ The `BuildingConstructor` class (`server/js/ai/BuildingConstructor.js`) handles 
 #### Construction Flow
 
 1. **Find Building Spot**: Uses `TilemapSystem.findBuildingSpot()`
-2. **Update Tiles**: Immediately updates terrain tiles
-3. **Create Entity**: Creates building with `built: true` (instant completion)
-4. **Territory Check**: Marks building as colony if outside base territory
+2. **Store Base Terrain**: Captures original terrain values for each plot tile before changing tiles
+3. **Update Tiles**: Immediately updates terrain tiles
+4. **Create Entity**: Creates building with `built: true` (instant completion)
+   - Passes `baseTerrain` array to building constructor for adaptive base layer rendering
+5. **Territory Check**: Marks building as colony if outside base territory
 
 ### TilemapSystem Integration
 
@@ -1308,6 +1316,12 @@ var millSpot = global.tilemapSystem.findBuildingSpot('mill', self.hq, 5, {
 });
 
 if(millSpot){
+  // Store original terrain before changing tiles
+  var baseTerrain = [];
+  for(var i in millSpot.plot){
+    baseTerrain.push(getTile(0, millSpot.plot[i][0], millSpot.plot[i][1]));
+  }
+  
   // Update tiles
   for(var i in millSpot.plot){
     tileChange(0, plot[i][0], plot[i][1], 13);
@@ -1320,7 +1334,8 @@ if(millSpot){
     house: self.id,
     built: true,
     plot: millSpot.plot,
-    topPlot: millSpot.topPlot
+    topPlot: millSpot.topPlot,
+    baseTerrain: baseTerrain  // For adaptive base layer rendering
   });
 }
 ```
@@ -1485,9 +1500,29 @@ Client receives building data via `getInitPack()`:
   occ: building.occ,
   plot: building.plot,
   walls: building.walls,
-  topPlot: building.topPlot
+  topPlot: building.topPlot,
+  baseTerrain: building.baseTerrain || []  // Original terrain values for adaptive rendering
 }
 ```
+
+### Adaptive Base Layer Rendering
+
+Buildings use an adaptive base layer system that preserves the original terrain appearance:
+
+#### Base Terrain Storage
+- **When**: Original terrain values are captured before any tile changes during foundation placement
+- **Where**: Stored in `building.baseTerrain` array, one value per plot tile
+- **Purpose**: Allows client-side rendering to show appropriate base layer (grass or rocks) based on original terrain
+
+#### Rendering Logic
+- **Grass Base**: Used for buildings on grass, brush, light forest, or heavy forest (terrain values 1-3, 7)
+- **Rocks Base**: Used for buildings on rocks or mountains (terrain values 4-5)
+- **Implementation**: Client-side `MapRenderer` uses `baseTerrain` to determine which base image to draw under building tiles
+
+#### Terrain Value Handling
+- Terrain values are stored as floats (e.g., 4.0-4.9 for rocks, 5.0-5.9 for mountains)
+- Rendering uses `Math.floor(terrain)` for terrain type comparison
+- Defaults to grass base if `baseTerrain` is missing or empty (backward compatibility)
 
 ### Performance Considerations
 
