@@ -38,6 +38,11 @@ class SimpleSerfBehavior {
         this.handleBuild(serf);
       } else if (serf.action === 'clockout') {
         this.handleClockout(serf);
+      } else if (serf.action === 'flee') {
+        // Use SimpleFlee system for fleeing
+        if (global.simpleFlee) {
+          global.simpleFlee.update(serf);
+        }
       } else if (serf.mode !== 'work') {
         this.handleWandering(serf);
       }

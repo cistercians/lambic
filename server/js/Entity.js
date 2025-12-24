@@ -142,38 +142,75 @@ Building = function(param){
     
     // Create bidirectional dock association (called when ship docks at new location)
     self.createDockAssociation = function(otherDockId){
-      if(!otherDockId || otherDockId === self.id) return;
+      console.log('[createDockAssociation] Called for dock', self.id, 'with otherDockId', otherDockId);
+      
+      if(!otherDockId || otherDockId === self.id) {
+        console.log('[createDockAssociation] Early return: invalid otherDockId or self.id match');
+        return;
+      }
       
       var otherDock = Building.list[otherDockId];
-      if(!otherDock || otherDock.type !== 'dock') return;
+      if(!otherDock || otherDock.type !== 'dock') {
+        console.log('[createDockAssociation] Early return: otherDock not found or not a dock', otherDock ? otherDock.type : 'not found');
+        return;
+      }
+      
+      // Log network state before association
+      var networkBefore = self.network ? self.network.slice() : [];
+      var otherNetworkBefore = otherDock.network ? otherDock.network.slice() : [];
+      console.log('[createDockAssociation] Network state BEFORE:');
+      console.log('  Dock', self.id, 'network:', networkBefore, 'cargoShip:', self.cargoShip);
+      console.log('  Dock', otherDockId, 'network:', otherNetworkBefore, 'cargoShip:', otherDock.cargoShip);
       
       // Add to this dock's network
       if(self.network.indexOf(otherDockId) === -1){
         self.network.push(otherDockId);
+        console.log('[createDockAssociation] Added', otherDockId, 'to dock', self.id, 'network');
+      } else {
+        console.log('[createDockAssociation] Dock', otherDockId, 'already in dock', self.id, 'network');
       }
       
       // Add this dock to other dock's network (bidirectional)
       if(!otherDock.network) otherDock.network = [];
       if(otherDock.network.indexOf(self.id) === -1){
         otherDock.network.push(self.id);
+        console.log('[createDockAssociation] Added', self.id, 'to dock', otherDockId, 'network');
+      } else {
+        console.log('[createDockAssociation] Dock', self.id, 'already in dock', otherDockId, 'network');
       }
+      
+      // Log network state after association
+      console.log('[createDockAssociation] Network state AFTER:');
+      console.log('  Dock', self.id, 'network:', self.network, 'network.length:', self.network.length, 'cargoShip:', self.cargoShip);
+      console.log('  Dock', otherDockId, 'network:', otherDock.network, 'network.length:', otherDock.network.length, 'cargoShip:', otherDock.cargoShip);
       
       // Spawn cargo ships if needed
       // Spawn at this dock if it just got its first connection
+      console.log('[createDockAssociation] Checking cargo ship spawn for dock', self.id, '- network.length === 1?', self.network.length === 1, '!cargoShip?', !self.cargoShip);
       if(self.network.length === 1 && !self.cargoShip){
+        console.log('[createDockAssociation] SPAWNING cargo ship for dock', self.id);
         self.spawnCargoShip();
+      } else {
+        console.log('[createDockAssociation] NOT spawning cargo ship for dock', self.id, '- conditions not met');
       }
       
       // Spawn at other dock if it just got its first connection
+      console.log('[createDockAssociation] Checking cargo ship spawn for dock', otherDockId, '- network.length === 1?', otherDock.network.length === 1, '!cargoShip?', !otherDock.cargoShip);
       if(otherDock.network.length === 1 && !otherDock.cargoShip){
+        console.log('[createDockAssociation] SPAWNING cargo ship for dock', otherDockId);
         otherDock.spawnCargoShip();
+      } else {
+        console.log('[createDockAssociation] NOT spawning cargo ship for dock', otherDockId, '- conditions not met');
       }
     };
     
     // Spawn cargo ship for this dock
     self.spawnCargoShip = function(){
+      console.log('[spawnCargoShip] Attempting to spawn cargo ship for dock', self.id);
+      
       // Find water tile adjacent to dock
       var waterTile = null;
+      console.log('[spawnCargoShip] Searching for water tile adjacent to dock', self.id, 'with plot:', self.plot);
       for(var i in self.plot){
         var dockLoc = self.plot[i];
         var adjacent = [
@@ -186,8 +223,10 @@ Building = function(param){
         for(var j in adjacent){
           var at = adjacent[j];
           if(at[0] >= 0 && at[0] < global.mapSize && at[1] >= 0 && at[1] < global.mapSize){
-            if(getTile(0, at[0], at[1]) == 0){ // Water
+            var tileValue = getTile(0, at[0], at[1]);
+            if(tileValue == 0){ // Water
               waterTile = at;
+              console.log('[spawnCargoShip] Found water tile at', at);
               break;
             }
           }
@@ -196,17 +235,19 @@ Building = function(param){
       }
       
       if(!waterTile){
+        console.log('[spawnCargoShip] FAILED: No water tile found adjacent to dock', self.id);
         return;
       }
       
       // Create cargo ship at water tile adjacent to dock
       // Check if CargoShip function exists (defined later in file)
       if(typeof CargoShip === 'undefined'){
+        console.log('[spawnCargoShip] FAILED: CargoShip function is undefined');
         return;
       }
       
       var waterCoords = getCenter(waterTile[0], waterTile[1]);
-      
+      console.log('[spawnCargoShip] Creating cargo ship at water coordinates', waterCoords);
       
       var cargoShip = null;
       try {
@@ -218,23 +259,30 @@ Building = function(param){
           currentDock: self.id,
           mode: 'waiting'
         });
+        console.log('[spawnCargoShip] Cargo ship created with ID', cargoShip ? cargoShip.id : 'null');
       } catch(err){
+        console.log('[spawnCargoShip] FAILED: Exception creating cargo ship:', err);
         return;
       }
       
       // Select first destination and start waiting
       if(cargoShip && cargoShip.selectNextDestination){
+        console.log('[spawnCargoShip] Attempting to select next destination for cargo ship', cargoShip.id);
         if(cargoShip.selectNextDestination()){
+          console.log('[spawnCargoShip] SUCCESS: Cargo ship', cargoShip.id, 'created and destination selected for dock', self.id);
           cargoShip.announceDestination();
           cargoShip.startWaiting();
           self.cargoShip = cargoShip.id;
+          console.log('[spawnCargoShip] Dock', self.id, 'cargoShip property set to', self.cargoShip);
         } else {
+          console.log('[spawnCargoShip] FAILED: Could not select next destination for cargo ship', cargoShip.id);
           // Failed to select destination, remove ship
           if(cargoShip.toRemove !== undefined){
             cargoShip.toRemove = true;
           }
         }
       } else {
+        console.log('[spawnCargoShip] FAILED: Cargo ship missing selectNextDestination method', cargoShip ? 'cargoShip exists but no method' : 'cargoShip is null');
       }
     };
   }
@@ -6376,27 +6424,41 @@ Character.prototype.checkDockContact = function() {
   
   var loc = getLoc(self.x, self.y);
   var buildingId = getBuilding(self.x, self.y);
+  console.log('[checkDockContact] Ship', self.id, 'at location', loc, 'buildingId:', buildingId);
   
   if(buildingId) {
     var building = Building.list[buildingId];
+    console.log('[checkDockContact] Building found:', building ? building.type : 'null');
     
     // Check if it's a dock
     if(building && building.type === 'dock') {
+      console.log('[checkDockContact] Dock detected. Ship house:', self.house, 'dock house:', building.house, 'ship kingdom:', self.kingdom, 'dock kingdom:', building.kingdom);
+      
       // Check if friendly (same house/kingdom) OR if player owns both ship and dock
       var isFriendly = (building.house === self.house) || 
                        (building.kingdom && building.kingdom === self.kingdom);
+      console.log('[checkDockContact] Initial isFriendly (house/kingdom match):', isFriendly);
       
       // Also allow docking if player owns both the ship and the dock
       if(!isFriendly && self.owner && building.owner) {
         isFriendly = (self.owner === building.owner);
+        console.log('[checkDockContact] Checking owner match - ship owner:', self.owner, 'dock owner:', building.owner, 'match:', isFriendly);
       }
       
+      console.log('[checkDockContact] Final isFriendly:', isFriendly);
       if(isFriendly) {
+        console.log('[checkDockContact] Calling dockAtPort for dock', building.id);
         // Store ship at dock
         self.dockAtPort(building.id);
         return true;
+      } else {
+        console.log('[checkDockContact] NOT docking - not friendly');
       }
+    } else {
+      console.log('[checkDockContact] Building is not a dock');
     }
+  } else {
+    console.log('[checkDockContact] No building at location');
   }
   
   return false;
@@ -6406,14 +6468,33 @@ Character.prototype.checkDockContact = function() {
 Character.prototype.dockAtPort = function(dockId) {
   var self = this;
   var dock = Building.list[dockId];
-  if(!dock) return;
+  if(!dock) {
+    console.log('[dockAtPort] Dock not found for dockId:', dockId);
+    return;
+  }
   
-  // Record this dock visit - create association BEFORE updating lastDock
-  if(self.lastDock && self.lastDock !== dockId) {
-    // Create dock network association using OLD lastDock
-    if(dock.createDockAssociation) {
-      dock.createDockAssociation(self.lastDock);
-    }
+  // Prevent duplicate docking (ship might already be stored)
+  if(self.mode === 'docked' && self.dockedTimer <= 0) {
+    console.log('[dockAtPort] Ship already docked and stored, skipping');
+    return;
+  }
+  
+  // INFORMATION TRANSFER: Pass boat's home dock data to this dock
+  // This creates network associations between docks, enabling cargo ship routes
+  // Must happen BEFORE updating lastDock to ensure proper association tracking
+  console.log('[dockAtPort] Boat', self.id, 'docking at dock', dockId);
+  console.log('[dockAtPort] Boat home dock (self.dock):', self.dock, 'last dock (self.lastDock):', self.lastDock);
+  var dockToAssociate = self.dock || self.lastDock;
+  console.log('[dockAtPort] Dock to associate:', dockToAssociate);
+  if(dockToAssociate && dockToAssociate !== dockId && dock.createDockAssociation) {
+    console.log('[dockAtPort] Creating association between dock', dockId, 'and dock', dockToAssociate);
+    // Transfer home dock information: create bidirectional network association
+    // This allows the dock to know about the boat's origin dock
+    dock.createDockAssociation(dockToAssociate);
+  } else {
+    if(!dockToAssociate) console.log('[dockAtPort] No dock to associate (both self.dock and self.lastDock are falsy)');
+    if(dockToAssociate === dockId) console.log('[dockAtPort] Skipping association (dockToAssociate === dockId)');
+    if(!dock.createDockAssociation) console.log('[dockAtPort] Dock missing createDockAssociation method');
   }
   
   // Automatically unload fish from ship to owner's stores
@@ -7546,11 +7627,14 @@ FishingShip = function(param){
         }
         
         if(atDock){
-          // Ship is at a dock - set to docked mode with timer
-          self.mode = 'docked';
-          self.name = 'Fishing Ship ⚓';
-          self.dockedTimer = 3600; // 1 hour before storing
-          self.lastDock = dockBuildingId;
+          // Ship is at a dock - call dockAtPort to create associations and store ship
+          console.log('[disembarkPassenger] Ship at dock, calling dockAtPort for dock', dockBuildingId);
+          // Use Character.prototype to ensure method is available
+          if(Character.prototype.dockAtPort) {
+            Character.prototype.dockAtPort.call(self, dockBuildingId);
+          } else {
+            console.log('[disembarkPassenger] ERROR: dockAtPort method not found on Character.prototype');
+          }
         } else {
           // Not at dock - set to anchored
           self.mode = 'anchored';
@@ -8448,6 +8532,12 @@ Serf = function(param){
       }
     }
 
+    // Prevent serfs from entering combat mode (they should only flee)
+    if (self.action === 'combat') {
+      self.action = null;
+      return;
+    }
+    
     // Use simple behavior system for serf behavior
     if (global.simpleSerfBehavior) {
       global.simpleSerfBehavior.update(self);
@@ -8920,6 +9010,12 @@ Innkeeper = function(param){
     var loc = getLoc(self.x,self.y);
     var b = getBuilding(self.x,self.y);
     self.zoneCheck();
+
+    // Prevent serfs from entering combat mode (they should only flee)
+    if (self.action === 'combat') {
+      self.action = null;
+      return;
+    }
 
     // Use simple behavior system for serf behavior
     if (global.simpleSerfBehavior) {
