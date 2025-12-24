@@ -327,7 +327,7 @@ class PlayerRenderer {
     if (!player.pressingAttack) return false;
 
     // Bow/ranged attack (angle-based)
-    if ((player.gear.weapon && player.gear.weapon.type === 'bow') || player.ranged) {
+    if ((player.gear && player.gear.weapon && player.gear.weapon.type === 'bow') || player.ranged) {
       if (player.angle > 45 && player.angle <= 115) {
         this.safeDrawImage(player.sprite.attackdb, x, y, scaledSpriteSize, scaledSpriteSize, ctx);
       } else if (player.angle > -135 && player.angle <= -15) {
