@@ -168,7 +168,6 @@ function genesis(config = {}){
   var mountainThreshold = config.mountainThreshold !== undefined ? config.mountainThreshold : 0.99;  // Value threshold for mountains (0.99 = very high elevation)
   var rocksThreshold = config.rocksThreshold !== undefined ? config.rocksThreshold : 0.85;     // Value threshold for rocks (0.85 = high elevation)
   var brushThreshold = config.brushThreshold !== undefined ? config.brushThreshold : 0.3;     // Hue threshold for brush (0.3 = dry/arid regions)
-  var lightForestThreshold = config.lightForestThreshold !== undefined ? config.lightForestThreshold : 0.32; // Hue threshold for light forest (0.32 = transition zone)
 
   // converts (h,v) data to game tilemap format
   function terraform(source, width, height, tileWidth, tileHeight){
@@ -202,12 +201,7 @@ function genesis(config = {}){
             oSet.push(3 + Number((Math.random()*0.9).toFixed(2)));
             uSet.push(0);
             i++;
-          // LIGHT FOREST: Hue < lightForestThreshold (transitional forest)
-          } else if (source[i][0] < lightForestThreshold){
-            oSet.push(2 + Number((Math.random()*0.9).toFixed(2)));
-            uSet.push(0);
-            i++;
-          // HEAVY FOREST: Default terrain (dense forest)
+          // HEAVY FOREST: Default terrain (dense forest - all remaining forest areas)
           } else {
             oSet.push(1 + Number((Math.random()*0.9).toFixed(2)));
             uSet.push(0);
@@ -506,9 +500,7 @@ function genesis(config = {}){
   // add resources to Overworld
   for(x = 0; x < mapTiles; x++){
     for(y = 0; y < mapTiles; y++){
-      if((worldMaps[0][y][x] >= 2 && worldMaps[0][y][x] < 3) || (worldMaps[0][y][x] >= 4 && worldMaps[0][y][x] < 5)){
-        worldMaps[6][y][x] = 50;
-      } else if((worldMaps[0][y][x] >= 1 && worldMaps[0][y][x] < 2) || (worldMaps[0][y][x] >= 5 && worldMaps[0][y][x] < 6)){
+      if((worldMaps[0][y][x] >= 1 && worldMaps[0][y][x] < 2) || (worldMaps[0][y][x] >= 5 && worldMaps[0][y][x] < 6)){
         worldMaps[6][y][x] = 100;
       } else {
         continue;
@@ -554,9 +546,8 @@ const presets = {
     blueOffset: 0.15,
     waterThreshold: 0.4,
     mountainThreshold: 0.99,
-    rocksThreshold: 0.85,
-    brushThreshold: 0.3,
-    lightForestThreshold: 0.31
+    rocksThreshold: 0.87,
+    brushThreshold: 0.3
   },
   islands: {
     redFrequencyX: 53,
@@ -574,8 +565,7 @@ const presets = {
     waterThreshold: 0.36,
     mountainThreshold: 0.99,
     rocksThreshold: 0.85,
-    brushThreshold: 0.3,
-    lightForestThreshold: 0.32
+    brushThreshold: 0.3
   },
   mainland: {
     redFrequencyX: 49,
@@ -593,27 +583,25 @@ const presets = {
     waterThreshold: 0.64,
     mountainThreshold: 0.99,
     rocksThreshold: 0.83,
-    brushThreshold: 0.32,
-    lightForestThreshold: 0.4
+    brushThreshold: 0.32
   },
   wild: {
-    redFrequencyX: 21,
-    redFrequencyY: 28,
+    redFrequencyX: 32,
+    redFrequencyY: 42,
     redAmplitude: 0.45,
     redOffset: 0.33,
-    greenFrequencyX: 15,
-    greenFrequencyY: 15,
+    greenFrequencyX: 22,
+    greenFrequencyY: 22,
     greenAmplitude: 0.33,
     greenOffset: 0.42,
-    blueFrequencyX: 4,
-    blueFrequencyY: 4,
+    blueFrequencyX: 6,
+    blueFrequencyY: 6,
     blueAmplitude: 0.33,
     blueOffset: 0.19,
-    waterThreshold: 0.55,
+    waterThreshold: 0.52,
     mountainThreshold: 0.99,
-    rocksThreshold: 0.83,
-    brushThreshold: 0.3,
-    lightForestThreshold: 0.32
+    rocksThreshold: 0.77,
+    brushThreshold: 0.31
   }
 };
 

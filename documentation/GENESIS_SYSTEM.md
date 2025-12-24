@@ -92,10 +92,9 @@ The `terraform()` function converts HSV values to terrain types:
      - Value: `4 + random(0.0-0.9)` (ROCKS with variation)
    - **Brush**: `H <= brushThreshold` (0.3)
      - Value: `3 + random(0.0-0.9)` (BRUSH with variation)
-   - **Light Forest**: `H < lightForestThreshold` (0.32)
-     - Value: `2 + random(0.0-0.9)` (LIGHT_FOREST with variation)
    - **Heavy Forest**: Default (everything else)
      - Value: `1 + random(0.0-0.9)` (HEAVY_FOREST with variation)
+     - **Note**: Light forest is not generated initially. It only appears when heavy forest resources are depleted below 100 units through gameplay.
 
 4. **Add random variation** (0.0-0.9) to terrain values for visual variety
    - Applied via: `Number((Math.random()*0.9).toFixed(2))`
@@ -167,13 +166,10 @@ The `geoform()` function generates cave systems using a random walk algorithm:
 
 Resources are placed based on terrain type:
 
-- **Light Forest (2-3) or Rocks (4-5)**: 50 units
-  - Condition: `worldMaps[0][y][x] >= 2 && worldMaps[0][y][x] < 3` OR `worldMaps[0][y][x] >= 4 && worldMaps[0][y][x] < 5`
-  - Sets: `worldMaps[6][y][x] = 50`
-
 - **Heavy Forest (1-2) or Mountain (5-6)**: 100 units
   - Condition: `worldMaps[0][y][x] >= 1 && worldMaps[0][y][x] < 2` OR `worldMaps[0][y][x] >= 5 && worldMaps[0][y][x] < 6`
   - Sets: `worldMaps[6][y][x] = 100`
+  - **Note**: All forest areas are initially generated as heavy forest with 100 resource units. Light forest only appears when heavy forest resources are depleted to ≤100 units through gameplay.
 
 #### Underworld Resources (Layer 7)
 
@@ -254,23 +250,22 @@ These thresholds convert HSV values into terrain types:
 - **brushThreshold**: 0.3
   - Hue threshold for brush
   - Dry/arid regions
-- **lightForestThreshold**: 0.32
-  - Hue threshold for light forest
-  - Transitional forest zone
 
 ## Terrain Type Values
 
 Based on TERRAIN constants defined in `lambic.js`:
 
 - **0**: WATER
-- **1**: HEAVY_FOREST (with random 0.0-0.9 variation)
-- **2**: LIGHT_FOREST (with random 0.0-0.9 variation)
+- **1**: HEAVY_FOREST (with random 0.0-0.9 variation) - **Only forest type generated initially**
+- **2**: LIGHT_FOREST (with random 0.0-0.9 variation) - **Not generated initially; only appears when heavy forest resources drop to ≤100 units**
 - **3**: BRUSH (with random 0.0-0.9 variation)
 - **4**: ROCKS (with random 0.0-0.9 variation)
 - **5**: MOUNTAIN (with random 0.0-0.9 variation)
 - **6**: CAVE_ENTRANCE (placed during cave generation)
 
 **Note**: The random variation (0.0-0.9) is added to base terrain values for visual diversity. For example, a mountain tile might have value `5.47` instead of exactly `5`.
+
+**Important**: Light forest is no longer generated during initial map creation. All forest areas start as heavy forest. Light forest only appears dynamically when heavy forest resources are depleted below the threshold (100 units) through gameplay actions like tree chopping.
 
 ## Integration with Game Systems
 
@@ -393,9 +388,10 @@ To modify world generation, adjust these parameters in `server/js/genesis.js`:
    - Adjust frequencies, amplitudes, and offsets
    - See comments for experimentation guide
 
-2. **Terrain thresholds** (lines 149-154)
+2. **Terrain thresholds** (lines 167-170)
    - Modify terrain distribution
    - Lower thresholds = more of that terrain type
+   - Note: lightForestThreshold has been removed - all forest areas are now generated as heavy forest
 
 3. **Cave generation parameters** (lines 270-277)
    - `maxTunnels`: Total tunnel segments (default: 250)
@@ -403,12 +399,13 @@ To modify world generation, adjust these parameters in `server/js/genesis.js`:
    - `roomChance`: Room creation probability (default: 0.18)
    - `branchChance`: Branch creation probability (default: 0.45)
 
-4. **Resource placement logic** (lines 489-513)
-   - Overworld resource amounts (50, 100)
+4. **Resource placement logic** (lines 506-517)
+   - Overworld resource amounts: Heavy forest and mountains get 100 units
    - Underworld ore probability (0.2 = 20%)
    - Underworld ore amount (150)
+   - Note: Light forest resource placement has been removed - all forest starts as heavy forest with 100 units
 
-5. **Entrance placement probability** (line 259)
+5. **Entrance placement probability** (line 277)
    - Currently: `Math.random() > 0.25` (75% chance)
    - Change threshold to adjust entrance density
 
@@ -422,10 +419,11 @@ To modify world generation, adjust these parameters in `server/js/genesis.js`:
 - **Random variation** (0.0-0.9) is added to terrain values for visual diversity
 - **Cave entrances** are placed at mountain edges (elevation transitions)
 - **Underworld starts as completely solid** (value 1), then carved out by cave generation
-- **Resource layers use numeric values** (50, 100, 150) rather than terrain type codes
+- **Resource layers use numeric values** (100, 150) rather than terrain type codes
 - The **blue channel** in noise generation is set to a fixed value (70) and doesn't contribute to terrain classification
 - **Coordinate system**: Be aware of the `[y][x]` vs `(x, y)` difference between old and new systems
 - **Generation is deterministic** only if SimplexNoise is seeded (currently not seeded, so each run is unique)
+- **Forest generation**: Only heavy forest is generated initially. Light forest only appears when heavy forest resources are depleted to ≤100 units through gameplay
 
 ## Example: Modifying Terrain Distribution
 
@@ -448,6 +446,8 @@ To create larger, more connected landmasses:
 var redFrequencyX = 70; // Changed from 90
 var redFrequencyY = 60; // Changed from 78
 ```
+
+**Note**: The `lightForestThreshold` parameter has been removed. All forest areas are now generated as heavy forest. To affect forest distribution, adjust other thresholds (waterThreshold, brushThreshold, etc.) which control how much land becomes forest vs other terrain types.
 
 ## Related Systems
 

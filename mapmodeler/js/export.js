@@ -53,8 +53,7 @@ class MapExporter {
     report += `var waterThreshold = ${params.waterThreshold};    // Hue threshold for water\n`;
     report += `var mountainThreshold = ${params.mountainThreshold};  // Value threshold for mountains\n`;
     report += `var rocksThreshold = ${params.rocksThreshold};     // Value threshold for rocks\n`;
-    report += `var brushThreshold = ${params.brushThreshold};     // Hue threshold for brush\n`;
-    report += `var lightForestThreshold = ${params.lightForestThreshold}; // Hue threshold for light forest\n\n`;
+    report += `var brushThreshold = ${params.brushThreshold};     // Hue threshold for brush\n\n`;
     
     // Terrain distribution section
     if (mapData.distribution) {
@@ -68,7 +67,6 @@ class MapExporter {
       report += `// Total tiles: ${totalTiles}\n`;
       report += `// Water: ${dist.water} tiles (${((dist.water / totalTiles) * 100).toFixed(1)}%)\n`;
       report += `// Heavy Forest: ${dist.heavyForest} tiles (${((dist.heavyForest / totalTiles) * 100).toFixed(1)}%)\n`;
-      report += `// Light Forest: ${dist.lightForest} tiles (${((dist.lightForest / totalTiles) * 100).toFixed(1)}%)\n`;
       report += `// Brush: ${dist.brush} tiles (${((dist.brush / totalTiles) * 100).toFixed(1)}%)\n`;
       report += `// Rocks: ${dist.rocks} tiles (${((dist.rocks / totalTiles) * 100).toFixed(1)}%)\n`;
       report += `// Mountain: ${dist.mountain} tiles (${((dist.mountain / totalTiles) * 100).toFixed(1)}%)\n`;
@@ -87,7 +85,7 @@ class MapExporter {
         report += `// This is a balanced map (${waterPercent.toFixed(1)}% water, ${landPercent.toFixed(1)}% land)\n`;
       }
       
-      const forestPercent = ((dist.heavyForest + dist.lightForest) / totalTiles) * 100;
+      const forestPercent = (dist.heavyForest / totalTiles) * 100;
       if (forestPercent > 40) {
         report += `// Forest-dominant terrain (${forestPercent.toFixed(1)}% forest)\n`;
       } else if (forestPercent < 20) {
@@ -139,7 +137,7 @@ class MapExporter {
     report += `${params.blueFrequencyX}, ${params.blueFrequencyY}, ${params.blueAmplitude}, ${params.blueOffset}\n\n`;
     
     report += `// Thresholds\n`;
-    report += `${params.waterThreshold}, ${params.mountainThreshold}, ${params.rocksThreshold}, ${params.brushThreshold}, ${params.lightForestThreshold}\n`;
+    report += `${params.waterThreshold}, ${params.mountainThreshold}, ${params.rocksThreshold}, ${params.brushThreshold}\n`;
     
     return report;
   }

@@ -26,7 +26,6 @@ class MapControls {
       mountainThreshold: 0.99,
       rocksThreshold: 0.85,
       brushThreshold: 0.3,
-      lightForestThreshold: 0.32,
       mapSize: 192
     };
     
@@ -136,7 +135,6 @@ class MapControls {
       'mountainThreshold': 'mountainThreshold',
       'rocksThreshold': 'rocksThreshold',
       'brushThreshold': 'brushThreshold',
-      'lightForestThreshold': 'lightForestThreshold',
       'mapSize': 'mapSize'
     };
     
@@ -236,7 +234,6 @@ class MapControls {
       'mountainThreshold': 'mountainThreshold',
       'rocksThreshold': 'rocksThreshold',
       'brushThreshold': 'brushThreshold',
-      'lightForestThreshold': 'lightForestThreshold',
       'mapSize': 'mapSize'
     };
     
@@ -275,8 +272,7 @@ class MapControls {
         waterThreshold: 0.55,
         mountainThreshold: 0.97,
         rocksThreshold: 0.86,
-        brushThreshold: 0.26,
-        lightForestThreshold: 0.31
+        brushThreshold: 0.26
       },
       islands: {
         redFrequencyX: 100,
@@ -294,8 +290,7 @@ class MapControls {
         waterThreshold: 0.45,
         mountainThreshold: 0.95,
         rocksThreshold: 0.82,
-        brushThreshold: 0.24,
-        lightForestThreshold: 0.28
+        brushThreshold: 0.24
       },
       continents: {
         redFrequencyX: 80,
@@ -313,8 +308,7 @@ class MapControls {
         waterThreshold: 0.6,
         mountainThreshold: 0.97,
         rocksThreshold: 0.86,
-        brushThreshold: 0.26,
-        lightForestThreshold: 0.31
+        brushThreshold: 0.26
       },
       varied: {
         redFrequencyX: 120,
@@ -332,8 +326,7 @@ class MapControls {
         waterThreshold: 0.55,
         mountainThreshold: 0.96,
         rocksThreshold: 0.88,
-        brushThreshold: 0.22,
-        lightForestThreshold: 0.26
+        brushThreshold: 0.22
       }
     };
     
@@ -384,14 +377,12 @@ class MapControls {
     report += `var waterThreshold = ${this.currentParams.waterThreshold};\n`;
     report += `var mountainThreshold = ${this.currentParams.mountainThreshold};\n`;
     report += `var rocksThreshold = ${this.currentParams.rocksThreshold};\n`;
-    report += `var brushThreshold = ${this.currentParams.brushThreshold};\n`;
-    report += `var lightForestThreshold = ${this.currentParams.lightForestThreshold};\n\n`;
+    report += `var brushThreshold = ${this.currentParams.brushThreshold};\n\n`;
     
     if (mapData && mapData.distribution) {
       report += `// TERRAIN DISTRIBUTION\n`;
       report += `// Water: ${mapData.distribution.water} tiles (${((mapData.distribution.water / (mapData.mapSize * mapData.mapSize)) * 100).toFixed(1)}%)\n`;
       report += `// Heavy Forest: ${mapData.distribution.heavyForest} tiles (${((mapData.distribution.heavyForest / (mapData.mapSize * mapData.mapSize)) * 100).toFixed(1)}%)\n`;
-      report += `// Light Forest: ${mapData.distribution.lightForest} tiles (${((mapData.distribution.lightForest / (mapData.mapSize * mapData.mapSize)) * 100).toFixed(1)}%)\n`;
       report += `// Brush: ${mapData.distribution.brush} tiles (${((mapData.distribution.brush / (mapData.mapSize * mapData.mapSize)) * 100).toFixed(1)}%)\n`;
       report += `// Rocks: ${mapData.distribution.rocks} tiles (${((mapData.distribution.rocks / (mapData.mapSize * mapData.mapSize)) * 100).toFixed(1)}%)\n`;
       report += `// Mountain: ${mapData.distribution.mountain} tiles (${((mapData.distribution.mountain / (mapData.mapSize * mapData.mapSize)) * 100).toFixed(1)}%)\n`;

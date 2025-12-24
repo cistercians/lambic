@@ -45,7 +45,8 @@ A standalone web-based tool for experimenting with noise algorithm parameters to
 - **Mountain Threshold**: Controls mountain frequency
 - **Rocks Threshold**: Controls rocky terrain frequency
 - **Brush Threshold**: Controls arid regions
-- **Light Forest Threshold**: Controls transitional forest areas
+
+**Note**: Light forest is no longer generated during initial map creation. All forest areas start as heavy forest. Light forest only appears when heavy forest resources are depleted below 100 units through gameplay.
 
 ## Presets
 

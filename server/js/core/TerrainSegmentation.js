@@ -154,12 +154,12 @@ class TerrainSegmentation {
         return { type: 'waters', baseName: 'Waters' };
         
       case 1: // HEAVY_FOREST
-        if (size < 20) return null; // Reduced from 80
+        if (size < 20) return null; // Too small to be a zone
+        // Smaller heavy forest zones are "Woods", larger ones are "Forest"
+        if (size >= 75) {
+          return { type: 'forest', baseName: 'Forest' };
+        }
         return { type: 'woods', baseName: 'Woods' };
-        
-      case 2: // LIGHT_FOREST
-        if (size < 15) return null; // Reduced from 50
-        return { type: 'forest', baseName: 'Forest' };
         
       case 3: // BRUSH
         if (size < 50) return null; // Increased from 30 to reduce small patches

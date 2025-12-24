@@ -115,7 +115,6 @@ function generateMap(params = {}) {
     mountainThreshold: 0.99,
     rocksThreshold: 0.85,
     brushThreshold: 0.3,
-    lightForestThreshold: 0.32,
     
     // Map settings
     mapSize: 192,
@@ -220,12 +219,7 @@ function generateMap(params = {}) {
             oSet.push(3 + Number((Math.random()*0.9).toFixed(2)));
             uSet.push(0);
             i++;
-          // LIGHT FOREST: Hue < lightForestThreshold (transitional forest)
-          } else if (source[i][0] < config.lightForestThreshold){
-            oSet.push(2 + Number((Math.random()*0.9).toFixed(2)));
-            uSet.push(0);
-            i++;
-          // HEAVY FOREST: Default terrain (dense forest)
+          // HEAVY FOREST: Default terrain (dense forest - all remaining forest areas)
           } else {
             oSet.push(1 + Number((Math.random()*0.9).toFixed(2)));
             uSet.push(0);
