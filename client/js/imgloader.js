@@ -889,6 +889,11 @@ var ghost = {
   walkright: ghostwalkr,
 };
 
+// Expose ghost to window for access from modules
+if (typeof window !== 'undefined') {
+  window.ghost = ghost;
+}
+
 // rogue
 // stand
 // regular

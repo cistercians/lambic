@@ -454,10 +454,20 @@ class SpriteRegistry {
     }
 
     // Ghost mode - use ghost sprite, size from registry
-    if (isGhost && typeof ghost !== 'undefined') {
-      const data = this.registry[entityClass];
-      if (data) {
-        return { sprite: ghost, spriteSize: data.spriteSize };
+    if (isGhost) {
+      // Try multiple sources for ghost sprite (similar to falcon/wolf handling)
+      let ghostSprite = null;
+      if (typeof ghost !== 'undefined') {
+        ghostSprite = ghost;
+      } else if (typeof window !== 'undefined' && window.ghost) {
+        ghostSprite = window.ghost;
+      }
+      
+      if (ghostSprite) {
+        const data = this.registry[entityClass];
+        if (data) {
+          return { sprite: ghostSprite, spriteSize: data.spriteSize };
+        }
       }
       return null;
     }

@@ -336,31 +336,50 @@ class PlayerRenderer {
 
     if (!player.pressingAttack) return false;
 
+    // Ghosts don't have attack animations - skip rendering
+    if (player.ghost) return false;
+
     // Bow/ranged attack (angle-based)
     if ((player.gear && player.gear.weapon && player.gear.weapon.type === 'bow') || player.ranged) {
       if (player.angle > 45 && player.angle <= 115) {
-        this.safeDrawImage(player.sprite.attackdb, x, y, scaledSpriteSize, scaledSpriteSize, ctx);
+        if (player.sprite.attackdb) {
+          this.safeDrawImage(player.sprite.attackdb, x, y, scaledSpriteSize, scaledSpriteSize, ctx);
+          return true;
+        }
       } else if (player.angle > -135 && player.angle <= -15) {
-        this.safeDrawImage(player.sprite.attackub, x, y, scaledSpriteSize, scaledSpriteSize, ctx);
+        if (player.sprite.attackub) {
+          this.safeDrawImage(player.sprite.attackub, x, y, scaledSpriteSize, scaledSpriteSize, ctx);
+          return true;
+        }
       } else if (player.angle > 115 || player.angle <= -135) {
-        this.safeDrawImage(player.sprite.attacklb, x, y, scaledSpriteSize, scaledSpriteSize, ctx);
+        if (player.sprite.attacklb) {
+          this.safeDrawImage(player.sprite.attacklb, x, y, scaledSpriteSize, scaledSpriteSize, ctx);
+          return true;
+        }
       } else if (player.angle > -15 || player.angle <= 45) {
-        this.safeDrawImage(player.sprite.attackrb, x, y, scaledSpriteSize, scaledSpriteSize, ctx);
+        if (player.sprite.attackrb) {
+          this.safeDrawImage(player.sprite.attackrb, x, y, scaledSpriteSize, scaledSpriteSize, ctx);
+          return true;
+        }
       }
-      return true;
+      return false; // No attack sprite available
     }
 
     // Melee attack (direction-based)
-    if (player.facing === 'down') {
+    if (player.facing === 'down' && player.sprite.attackd) {
       this.safeDrawImage(player.sprite.attackd, x, y, scaledSpriteSize, scaledSpriteSize, ctx);
-    } else if (player.facing === 'up') {
+      return true;
+    } else if (player.facing === 'up' && player.sprite.attacku) {
       this.safeDrawImage(player.sprite.attacku, x, y, scaledSpriteSize, scaledSpriteSize, ctx);
-    } else if (player.facing === 'left') {
+      return true;
+    } else if (player.facing === 'left' && player.sprite.attackl) {
       this.safeDrawImage(player.sprite.attackl, x, y, scaledSpriteSize, scaledSpriteSize, ctx);
-    } else if (player.facing === 'right') {
+      return true;
+    } else if (player.facing === 'right' && player.sprite.attackr) {
       this.safeDrawImage(player.sprite.attackr, x, y, scaledSpriteSize, scaledSpriteSize, ctx);
+      return true;
     }
-    return true;
+    return false; // No attack sprite available
   }
 
   /**
@@ -449,7 +468,8 @@ class PlayerRenderer {
     const isAggressiveFauna = aggressiveFauna.includes(player.class);
     const isPeacefulFauna = peacefulFauna.includes(player.class);
     
-    if (isFauna && player.sprite && isPeacefulFauna) {
+    // Skip fauna validation for ghosts - they use ghost sprite which doesn't have attack animations
+    if (!player.ghost && isFauna && player.sprite && isPeacefulFauna) {
       // Only validate peaceful fauna - they should NOT have attack animations
       const hasAttackAnimations = player.sprite.attackd || player.sprite.attacku || 
                                   player.sprite.attackl || player.sprite.attackr;
@@ -461,7 +481,8 @@ class PlayerRenderer {
     // Note: Aggressive fauna (Wolf, Boar) are allowed to have attack animations - this is expected behavior
 
     // Validate sprite matches class (safety check)
-    if (typeof window !== 'undefined' && window.spriteRegistry && typeof window.spriteRegistry.validateSprite === 'function') {
+    // Skip validation for ghosts - they always use the ghost sprite regardless of class
+    if (!player.ghost && typeof window !== 'undefined' && window.spriteRegistry && typeof window.spriteRegistry.validateSprite === 'function') {
       if (!window.spriteRegistry.validateSprite(player.class, player.sprite)) {
         console.error(`RENDER VALIDATION FAILED: Entity ${player.id} class "${player.class}" has wrong sprite - skipping render`, isFauna ? '(FAUNA ENTITY)' : '');
         return; // Don't render - better than wrong sprite
@@ -518,8 +539,8 @@ class PlayerRenderer {
       return;
     }
 
-    // Attack animations
-    if (this.renderAttackAnimation(player, { ctx, x, y, scaledSpriteSize })) {
+    // Attack animations (skip for ghosts - they don't have attack sprites)
+    if (!player.ghost && this.renderAttackAnimation(player, { ctx, x, y, scaledSpriteSize })) {
       ctx.globalAlpha = 1.0;
       return;
     }

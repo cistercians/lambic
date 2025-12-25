@@ -66,8 +66,15 @@ class SpriteHelper {
     }
 
     // Ghost mode overrides all
-    if (isGhost && typeof ghost !== 'undefined') return ghost;
-    if (isGhost) return null; // Return null if ghost sprite not available
+    if (isGhost) {
+      // Try multiple sources for ghost sprite (similar to falcon/wolf handling)
+      if (typeof ghost !== 'undefined') {
+        return ghost;
+      } else if (typeof window !== 'undefined' && window.ghost) {
+        return window.ghost;
+      }
+      return null; // Return null if ghost sprite not available
+    }
 
     // Normalize class name for lookup (handles case variations)
     const normalizedClass = this.normalizeClassName(entityClass);

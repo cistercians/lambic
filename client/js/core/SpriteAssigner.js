@@ -50,7 +50,23 @@ function assignSpriteToEntity(entity, entityClass, isGhost, tileSize) {
   const isFauna = entity.type === 'fauna' || faunaClasses.includes(entityClass);
   
   if (!spriteData || !spriteData.sprite) {
-    console.error(`CRITICAL: No sprite found for class "${entityClass}"`, isFauna ? '(FAUNA ENTITY)' : '');
+    // Special handling for ghost mode - check if ghost sprite is available
+    if (isGhost) {
+      const ghostSprite = (typeof ghost !== 'undefined' ? ghost : (typeof window !== 'undefined' && window.ghost ? window.ghost : null));
+      if (ghostSprite) {
+        const data = spriteRegistry.registry[entityClass];
+        if (data) {
+          console.log(`[GHOST SPRITE] Assigning ghost sprite to entity ${entity.id} (class: ${entityClass})`);
+          entity.sprite = ghostSprite;
+          entity.spriteSize = data.spriteSize;
+          entity._invalidSprite = false;
+          return true;
+        }
+      }
+      console.error(`CRITICAL: Ghost sprite not available for entity ${entity.id} (class: ${entityClass})`);
+    } else {
+      console.error(`CRITICAL: No sprite found for class "${entityClass}"`, isFauna ? '(FAUNA ENTITY)' : '');
+    }
     entity._invalidSprite = true; // Mark as invalid - won't render
     entity.sprite = null;
     entity.spriteSize = tileSize ? (tileSize * 1.5) : 96; // Default fallback, but entity won't render
@@ -105,12 +121,15 @@ function assignSpriteToEntity(entity, entityClass, isGhost, tileSize) {
   }
   
   // Validation: Ensure sprite matches class (safety check)
-  const validationResult = spriteRegistry.validateSprite(entityClass, entity.sprite);
-  
-  if (!validationResult) {
-    console.error(`CRITICAL: Sprite mismatch for class "${entityClass}" - sprite validation failed`, isFauna ? '(FAUNA ENTITY)' : '');
-    entity._invalidSprite = true;
-    return false;
+  // Skip validation for ghosts - they always use the ghost sprite regardless of class
+  if (!isGhost) {
+    const validationResult = spriteRegistry.validateSprite(entityClass, entity.sprite);
+    
+    if (!validationResult) {
+      console.error(`CRITICAL: Sprite mismatch for class "${entityClass}" - sprite validation failed`, isFauna ? '(FAUNA ENTITY)' : '');
+      entity._invalidSprite = true;
+      return false;
+    }
   }
   
   // Success - clear invalid flag
