@@ -528,6 +528,25 @@ class SimpleCombat {
         return;
       }
       
+      // For players, validate that target is actually in combat with them
+      if (entity.type === 'player') {
+        const target = global.Player.list[state.target];
+        if (!target) {
+          // Target doesn't exist - end combat
+          this.endCombat(entity, target);
+          return;
+        }
+        
+        // Validate target is actually in combat with this player
+        if (target.action !== 'combat' || 
+            !target.combatState || 
+            target.combatState.target !== entity.id) {
+          // Target is not in combat with player - clear player's combat target
+          this.endCombat(entity, target);
+          return;
+        }
+      }
+      
       // Validate combat state consistency
       if (!this.validateCombatState(entity)) {
         return; // State was invalid and cleared
@@ -911,6 +930,9 @@ class SimpleCombat {
 
   // Check for enemies to aggro
   checkAggro(entity) {
+    // Skip players - they don't use aggro system (they choose targets explicitly)
+    if (entity.type === 'player') return;
+    
     // Skip peaceful/non-combat classes
     const nonCombatClasses = ['Falcon', 'FishingShip'];
     if (nonCombatClasses.includes(entity.class)) return;
@@ -1155,9 +1177,6 @@ class SimpleCombat {
         // Just clear the pending fields
         target.combatState.pendingTarget = null;
         target.combatState.pendingStartTime = null;
-        if (global.debugCombat) {
-          console.log(`[startCombat] NPC counter-aggro, converting attack intent to combat ${entity.id} <- ${target.id}`);
-        }
       }
     } else if (target.type === 'player') {
       // Use initCombatState to properly initialize player combat state
@@ -1169,9 +1188,6 @@ class SimpleCombat {
           // Just clear the pending fields
           target.combatState.pendingTarget = null;
           target.combatState.pendingStartTime = null;
-          if (global.debugCombat) {
-            console.log(`[startCombat] Counter-aggro, converting attack intent to combat ${entity.id} <- ${target.id}`);
-          }
         }
         // Send chat message to player
         const attackerName = entity.name || entity.class;

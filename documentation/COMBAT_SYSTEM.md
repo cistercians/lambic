@@ -47,11 +47,11 @@ The aggro system determines when and how combat is initiated between entities. I
 ### Aggro Detection Flow
 
 ```
-Entity Update Loop
+Entity Update Loop (NPCs only)
     ↓
 checkAggro(entity)
     ↓
-[Skip if: returning, already in combat, non-combat class]
+[Skip if: player, returning, already in combat, non-combat class]
     ↓
 [Check pending stealth aggro first]
     ↓
@@ -68,7 +68,29 @@ For each potential target:
     └─ startCombat(entity, target)
 ```
 
+**Note**: Players do not have an aggro system. The `checkAggro()` method explicitly skips players (`entity.type === 'player'`). Players choose targets explicitly via attack commands or receive combat targets through counter-aggro when NPCs attack them.
+
 ### Key Components
+
+#### Player Aggro System
+
+**Players do not have an aggro system**. The `checkAggro()` method explicitly skips players with a defensive check:
+
+**Code Reference**: `SimpleCombat.js:934-937`
+
+```javascript
+checkAggro(entity) {
+  // Skip players - they don't use aggro system (they choose targets explicitly)
+  if (entity.type === 'player') return;
+  // ... rest of aggro logic for NPCs only
+}
+```
+
+Players only get combat targets through:
+1. **Explicit attack intent**: Player right-clicks or uses attack commands (sets `combatState.pendingTarget` via `setAttackIntent()`)
+2. **Counter-aggro**: When an NPC attacks a player, counter-aggro logic sets the player's combat target
+
+Players have an `aggroRange` property, but it's only used for attack-move detection (detecting enemies while pathfinding with attack-move command), not for automatic aggro.
 
 #### Aggro Range Detection
 
@@ -164,16 +186,46 @@ if (peaceful.includes(entity.class)) {
 
 When an entity is attacked, it automatically counter-aggros if it's a military NPC or player.
 
-**Code Reference**: `SimpleCombat.js:1020-1039`
+**Code Reference**: `SimpleCombat.js:1174-1204`
 
 ```javascript
 // Counter-aggro
 if (target.type === 'npc' && target.military && target.action !== 'combat') {
   this.startCombat(target, entity);
 } else if (target.type === 'player') {
-  this.initCombatState(target, entity.id);
-  target.autoAttackPaused = false;
-  // Send attack notification to player
+  // Use initCombatState to properly initialize player combat state
+  if (this.initCombatState(target, entity.id)) {
+    // Handle attack intent conversion if player had attack intent on this entity
+    if (target.combatState && target.combatState.pendingTarget === entity.id) {
+      target.combatState.pendingTarget = null;
+      target.combatState.pendingStartTime = null;
+    }
+    // Send attack notification to player
+  }
+}
+```
+
+**Player Counter-Aggro Validation**: Players have additional validation in their combat update loop to ensure they only pathfind when their target is actually in combat with them. If the target is not in combat (doesn't have `action === 'combat'` or `combatState.target !== player.id`), the player's combat target is cleared.
+
+**Code Reference**: `SimpleCombat.js:531-551`
+
+```javascript
+// For players, validate that target is actually in combat with them
+if (entity.type === 'player') {
+  const target = global.Player.list[state.target];
+  if (!target) {
+    this.endCombat(entity, target);
+    return;
+  }
+  
+  // Validate target is actually in combat with this player
+  if (target.action !== 'combat' || 
+      !target.combatState || 
+      target.combatState.target !== entity.id) {
+    // Target is not in combat with player - clear player's combat target
+    this.endCombat(entity, target);
+    return;
+  }
 }
 ```
 
@@ -312,7 +364,9 @@ These classes never participate in combat:
 - `FishingShip`
 - Ship types: `fishingship`, `cargoship`
 
-**Code Reference**: `SimpleCombat.js:770-775`
+**Code Reference**: `SimpleCombat.js:939-941`
+
+Additionally, **players are excluded from the aggro system** - they do not automatically detect and engage enemies based on proximity. Players must explicitly choose targets or receive combat targets through counter-aggro when attacked.
 
 ---
 
@@ -586,7 +640,15 @@ Default combat behaviors handle auto-attacking, damage calculation, defense appl
 ```
 Combat Update Loop (update())
     ↓
+[Handle attack intent (pendingTarget) if present]
+    ↓
 [Validate combat state and target]
+    ↓
+[For players: Validate target is actually in combat with player]
+    ├─ If target not in combat → endCombat() and return
+    └─ If target is in combat → continue
+    ↓
+[Validate combat state consistency]
     ↓
 [Check distance and ranges]
     ↓
@@ -597,6 +659,30 @@ Combat Update Loop (update())
 [In attack range?]
     ├─ Yes → handleAttack()
     └─ No → handleChase()
+```
+
+**Player Combat Validation**: Players have additional validation to ensure they only engage when their target is actually in combat with them. This prevents players from pathfinding toward enemies that haven't engaged them yet.
+
+**Code Reference**: `SimpleCombat.js:531-551`
+
+```javascript
+// For players, validate that target is actually in combat with them
+if (entity.type === 'player') {
+  const target = global.Player.list[state.target];
+  if (!target) {
+    this.endCombat(entity, target);
+    return;
+  }
+  
+  // Validate target is actually in combat with this player
+  if (target.action !== 'combat' || 
+      !target.combatState || 
+      target.combatState.target !== entity.id) {
+    // Target is not in combat with player - clear player's combat target
+    this.endCombat(entity, target);
+    return;
+  }
+}
 ```
 
 ### Key Components
@@ -1781,7 +1867,20 @@ DEFENSE_RANGE = 1000;      // 10 tiles (military units)
 
 ## Known Issues and Gaps
 
-### 1. No HP-Based Escape
+### 1. Player Auto-Targeting Issue
+
+**Status**: RESOLVED
+
+**Previous Issue**: Players automatically received combat targets and pathfound toward enemies when enemies came into range, even though the enemy hadn't engaged them. This created a timing gap where players would pathfind before NPCs actually initiated combat.
+
+**Solution Implemented**: 
+1. Added explicit check in `checkAggro()` to skip players (defensive safeguard at `SimpleCombat.js:934-937`)
+2. Added validation in player combat update (`SimpleCombat.js:531-551`) to ensure target is actually in combat before pathfinding
+3. Players now only pathfind when their target has `action === 'combat'` and `combatState.target === player.id`
+
+**Result**: Players only engage in combat when they explicitly set attack intent OR when an NPC actually attacks them and enters combat state.
+
+### 2. No HP-Based Escape
 
 **Issue**: Combatants don't automatically attempt escape when HP drops low.
 
@@ -1789,7 +1888,7 @@ DEFENSE_RANGE = 1000;      // 10 tiles (military units)
 
 **Future Enhancement**: Implement HP threshold-based escape system.
 
-### 2. Skills System Not Implemented
+### 3. Skills System Not Implemented
 
 **Issue**: Stealth exists but is hardcoded, not a learnable skill.
 
@@ -1797,7 +1896,7 @@ DEFENSE_RANGE = 1000;      // 10 tiles (military units)
 
 **Future Enhancement**: Create comprehensive skills framework.
 
-### 3. Combat State Management Edge Cases
+### 4. Combat State Management Edge Cases
 
 **Status**: RESOLVED
 
@@ -1807,7 +1906,7 @@ DEFENSE_RANGE = 1000;      // 10 tiles (military units)
 
 **Result**: Eliminated state inconsistencies, simplified validation (single object check), improved maintainability, and prevented edge cases through unified state management.
 
-### 4. Position Swapping Complexity
+### 5. Position Swapping Complexity
 
 **Status**: RESOLVED
 
@@ -1817,7 +1916,7 @@ DEFENSE_RANGE = 1000;      // 10 tiles (military units)
 
 **Result**: Reduced code complexity from ~100 lines to ~30 lines, eliminated timeout/attempt tracking, improved maintainability and performance.
 
-### 5. No Damage Types
+### 6. No Damage Types
 
 **Issue**: All damage is treated the same (no physical/magic/elemental types).
 
