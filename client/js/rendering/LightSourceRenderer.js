@@ -100,7 +100,6 @@ class LightSourceRenderer {
     ctx.globalCompositeOperation = 'lighter';
     const radialGradient = ctx.createRadialGradient(x, y, 0, x, y, adjustedRadius);
     radialGradient.addColorStop(0.0, '#AA8');
-    radialGradient.addColorStop(0.2 + rnd, '#AA8');
     radialGradient.addColorStop(0.7 + rnd, '#330');
     radialGradient.addColorStop(0.90, '#110');
     radialGradient.addColorStop(1, '#000');
