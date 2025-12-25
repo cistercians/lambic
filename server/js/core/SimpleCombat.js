@@ -864,7 +864,11 @@ class SimpleCombat {
     const isPeaceful = peaceful.includes(entity.class);
     if (!isPeaceful && (entity.action === 'returning' || entity.action === 'combat')) return;
     if (isPeaceful && entity.action === 'returning') return; // Peaceful units can't detect threats when returning home
-    // Peaceful units CAN detect threats while fleeing (allows them to switch to closer threats)
+    
+    // For serfs that are already fleeing, skip aggro check (they're already handling the threat)
+    if (isPeaceful && entity.action === 'flee' && peaceful.slice(0, 3).includes(entity.class)) {
+      return; // Serfs already fleeing - no need to re-check aggro
+    }
     
     // Handle pending stealth attacks
     if (this.handlePendingStealthAggro(entity)) {

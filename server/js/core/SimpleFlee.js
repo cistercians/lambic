@@ -101,7 +101,7 @@ class SimpleFlee {
       // Clear flee target tracking
       entity._fleeTarget = null;
       entity._fleeTargetCheckTimer = 0;
-      entity._fleeMoveToCooldown = 0;
+      entity._fleeDestinationCooldown = 0;
       entity.action = null;
       return;
     }
@@ -139,7 +139,7 @@ class SimpleFlee {
       // Clear flee target tracking
       entity._fleeTarget = null;
       entity._fleeTargetCheckTimer = 0;
-      entity._fleeMoveToCooldown = 0;
+      entity._fleeDestinationCooldown = 0;
       entity.action = null;
       
       // Special behavior for deer - try to find forest
@@ -176,37 +176,55 @@ class SimpleFlee {
       
       // If we have a current target and shouldn't re-evaluate, just ensure pathfinding continues
       if (entity._fleeTarget && !shouldReevaluate) {
-        // If we have a valid path, let it continue (moveTo handles pathfinding internally)
+        // If we have a valid path, let it continue
         if (entity.path && entity.path.length > 0) {
-          return; // Path exists, continue following it
+          // Check if fleeing to ally and within proximity - switch to random flee
+          if (entity._fleeTarget.type === 'ally' && entity._fleeTarget.allyId && global.Player.list[entity._fleeTarget.allyId]) {
+            const ally = global.Player.list[entity._fleeTarget.allyId];
+            if (ally) {
+              const dx = ally.x - entity.x;
+              const dy = ally.y - entity.y;
+              const distance = Math.sqrt(dx * dx + dy * dy);
+              // If within 3 tiles (192 units), switch to random flee
+              if (distance <= 192) {
+                entity._fleeTarget = null; // Clear target to fall through to random flee
+              } else {
+                return; // Continue pathfinding to ally
+              }
+            } else {
+              entity._fleeTarget = null; // Ally no longer exists
+            }
+          } else {
+            return; // Continue following path to home or other target
+          }
         }
         
-        // Path is gone - use cooldown to prevent calling moveTo every frame
-        if (!entity._fleeMoveToCooldown) {
-          entity._fleeMoveToCooldown = 0;
-        }
-        
-        if (entity._fleeMoveToCooldown > 0) {
-          entity._fleeMoveToCooldown--;
-          return; // Wait for cooldown before re-pathfinding
-        }
-        
-        // Re-pathfind to same target (with cooldown to prevent oscillation)
+        // Path is empty - re-pathfind to same destination if still valid
         if (entity._fleeTarget.type === 'ally' && entity._fleeTarget.allyId && global.Player.list[entity._fleeTarget.allyId]) {
           const ally = global.Player.list[entity._fleeTarget.allyId];
           if (ally && ally.z === entity.z) {
-            const allyLoc = global.getLoc(ally.x, ally.y);
-            if (entity.moveTo) {
-              entity.moveTo(ally.z, allyLoc[0], allyLoc[1]);
-              entity._fleeMoveToCooldown = 30; // 30 frames = 0.5 seconds cooldown
+            // Check proximity - if within 3 tiles, switch to random flee
+            const dx = ally.x - entity.x;
+            const dy = ally.y - entity.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            if (distance <= 192) {
+              entity._fleeTarget = null; // Clear target to fall through to random flee
+            } else {
+              // Re-pathfind to ally (no cooldown - destination hasn't changed)
+              const allyLoc = global.getLoc(ally.x, ally.y);
+              if (entity.moveTo) {
+                entity.moveTo(ally.z, allyLoc[0], allyLoc[1]);
+              }
+              return;
             }
+          } else {
+            entity._fleeTarget = null; // Ally invalid
           }
-          return;
         } else if (entity._fleeTarget.type === 'home' && entity.home) {
+          // Re-pathfind to home (no cooldown - destination hasn't changed)
           const homeZ = entity.home.z !== undefined ? entity.home.z : entity.z;
           if (entity.moveTo) {
             entity.moveTo(homeZ, entity.home.loc[0], entity.home.loc[1]);
-            entity._fleeMoveToCooldown = 30; // 30 frames = 0.5 seconds cooldown
           }
           return;
         }
@@ -219,19 +237,46 @@ class SimpleFlee {
         const nearestAlly = this.findNearestAlliedMilitaryUnit(entity, maxAllyDistance);
         
         if (nearestAlly && entity.moveTo) {
-          // Check if target changed
-          const newTarget = { type: 'ally', allyId: nearestAlly.unit.id };
-          const targetChanged = !entity._fleeTarget || 
-            entity._fleeTarget.type !== 'ally' || 
-            entity._fleeTarget.allyId !== nearestAlly.unit.id;
+          // Check proximity - if already within 3 tiles, don't pathfind, use random flee
+          const dx = nearestAlly.unit.x - entity.x;
+          const dy = nearestAlly.unit.y - entity.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
           
-          if (targetChanged || !entity.path || entity.path.length === 0) {
-            entity.moveTo(nearestAlly.z, nearestAlly.loc[0], nearestAlly.loc[1]);
-            entity._fleeTarget = newTarget;
-            if (!entity._fleeMoveToCooldown) entity._fleeMoveToCooldown = 0;
-            entity._fleeMoveToCooldown = 30; // Cooldown after calling moveTo
+          if (distance <= 192) {
+            // Already close enough - use random flee
+            entity._fleeTarget = null;
+            // Fall through to random flee logic
+          } else {
+            // Check if destination changed (compare coordinates, not just ID)
+            const allyLoc = global.getLoc(nearestAlly.unit.x, nearestAlly.unit.y);
+            const newDestKey = `${nearestAlly.z},${allyLoc[0]},${allyLoc[1]}`;
+            const currentDestKey = entity._fleeTarget && entity._fleeTarget.destKey ? entity._fleeTarget.destKey : null;
+            const destinationChanged = newDestKey !== currentDestKey;
+            
+            // Only set cooldown if destination actually changed
+            if (destinationChanged) {
+              if (!entity._fleeDestinationCooldown) {
+                entity._fleeDestinationCooldown = 0;
+              }
+              entity._fleeDestinationCooldown = 10; // Small cooldown only when destination changes
+            } else {
+              // Destination same - no cooldown, just re-pathfind if needed
+              entity._fleeDestinationCooldown = 0;
+            }
+            
+            // Pathfind if destination changed or path is empty
+            if (destinationChanged || !entity.path || entity.path.length === 0) {
+              entity.moveTo(nearestAlly.z, allyLoc[0], allyLoc[1]);
+              entity._fleeTarget = { 
+                type: 'ally', 
+                allyId: nearestAlly.unit.id,
+                destKey: newDestKey,
+                z: nearestAlly.z,
+                loc: allyLoc
+              };
+            }
+            return; // Ally found, use pathfinding - don't do random flee
           }
-          return; // Ally found, use pathfinding - don't do random flee
         }
         
         // Priority 2: Flee to home location if available and built
@@ -246,15 +291,29 @@ class SimpleFlee {
           }
           
           if (canFleeHome && entity.moveTo) {
-            const newTarget = { type: 'home' };
-            const targetChanged = !entity._fleeTarget || entity._fleeTarget.type !== 'home';
             const homeZ = entity.home.z !== undefined ? entity.home.z : entity.z;
+            const newDestKey = `${homeZ},${entity.home.loc[0]},${entity.home.loc[1]}`;
+            const currentDestKey = entity._fleeTarget && entity._fleeTarget.destKey ? entity._fleeTarget.destKey : null;
+            const destinationChanged = newDestKey !== currentDestKey;
             
-            if (targetChanged || !entity.path || entity.path.length === 0) {
+            // Only set cooldown if destination actually changed
+            if (destinationChanged) {
+              if (!entity._fleeDestinationCooldown) {
+                entity._fleeDestinationCooldown = 0;
+              }
+              entity._fleeDestinationCooldown = 10; // Small cooldown only when destination changes
+            } else {
+              entity._fleeDestinationCooldown = 0;
+            }
+            
+            if (destinationChanged || !entity.path || entity.path.length === 0) {
               entity.moveTo(homeZ, entity.home.loc[0], entity.home.loc[1]);
-              entity._fleeTarget = newTarget;
-              if (!entity._fleeMoveToCooldown) entity._fleeMoveToCooldown = 0;
-              entity._fleeMoveToCooldown = 30; // Cooldown after calling moveTo
+              entity._fleeTarget = { 
+                type: 'home',
+                destKey: newDestKey,
+                z: homeZ,
+                loc: entity.home.loc
+              };
             }
             return; // Home available, use pathfinding - don't do random flee
           }
@@ -262,6 +321,11 @@ class SimpleFlee {
         
         // No valid target found - clear flee target and fall through to random flee
         entity._fleeTarget = null;
+      }
+      
+      // Handle destination change cooldown (only used to prevent oscillation)
+      if (entity._fleeDestinationCooldown && entity._fleeDestinationCooldown > 0) {
+        entity._fleeDestinationCooldown--;
       }
       
       // Priority 3: Fall through to random direction flee (handled below)

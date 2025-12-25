@@ -8608,6 +8608,13 @@ Serf = function(param){
   self.initializeSerf();
 
   self.update = function(){
+    // CRITICAL: Prevent serfs from entering combat mode FIRST (before any other logic)
+    // This ensures combat mode is blocked immediately, even if something tries to set it
+    if (self.action === 'combat') {
+      self.action = null;
+      return;
+    }
+    
     var loc = getLoc(self.x,self.y);
     self.zoneCheck();
     
@@ -8623,12 +8630,6 @@ Serf = function(param){
           self.lightTorch(Math.random());
         }
       }
-    }
-
-    // Prevent serfs from entering combat mode (they should only flee)
-    if (self.action === 'combat') {
-      self.action = null;
-      return;
     }
     
     // Use simple behavior system for serf behavior
