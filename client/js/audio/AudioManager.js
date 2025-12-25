@@ -66,12 +66,21 @@ class AudioManager {
     const building = Building.list[getBuilding(player.x, player.y)];
     const weatherEffects = getWeatherEffects(player.x, player.y, player.z);
     
-    return {
+    // Determine shipType: use player.shipType if set, otherwise check boardedShip entity
+    let shipType = player.shipType || null;
+    if (!shipType && player.boardedShip) {
+      const boardedShipEntity = Player.list[player.boardedShip];
+      if (boardedShipEntity && boardedShipEntity.shipType) {
+        shipType = boardedShipEntity.shipType;
+      }
+    }
+    
+    const context = {
       x: player.x,
       y: player.y,
       z: player.z,
       ghost: player.ghost || false,
-      shipType: player.shipType || null,
+      shipType: shipType,
       buildingType: building ? building.type : null,
       buildingOcc: building ? building.occ : 0,
       hasFire: (player.z === 1 || player.z === 2) ? hasFire(player.z, player.x, player.y) : false,
@@ -80,6 +89,10 @@ class AudioManager {
       inStorm: weatherEffects && weatherEffects.storm.active && weatherEffects.storm.intensity > 0.3,
       stormIntensity: weatherEffects && weatherEffects.storm.active ? weatherEffects.storm.intensity : 0
     };
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AudioManager.js:82',message:'AudioManager getAudioContext',data:{playerId:selfId,shipType:context.shipType,isBoarded:player.isBoarded,boardedShip:player.boardedShip,z:context.z,tempus:context.tempus,nightfall:context.nightfall},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'G'})}).catch(()=>{});
+    // #endregion
+    return context;
   }
   
   /**
@@ -89,8 +102,18 @@ class AudioManager {
     if(!this.lastContext) return true;
     
     // Check critical changes (priority order)
-    if(newContext.ghost !== this.lastContext.ghost) return true;
-    if(newContext.shipType !== this.lastContext.shipType) return true;
+    if(newContext.ghost !== this.lastContext.ghost) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AudioManager.js:92',message:'Context changed: ghost',data:{oldGhost:this.lastContext.ghost,newGhost:newContext.ghost,shipType:newContext.shipType},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
+      return true;
+    }
+    if(newContext.shipType !== this.lastContext.shipType) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AudioManager.js:93',message:'Context changed: shipType',data:{oldShipType:this.lastContext.shipType,newShipType:newContext.shipType},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
+      return true;
+    }
     if(newContext.z !== this.lastContext.z) return true;
     if(newContext.inStorm !== this.lastContext.inStorm) return true;
     
@@ -101,8 +124,26 @@ class AudioManager {
       return false;
     }
     
-    if(newContext.nightfall !== this.lastContext.nightfall) return true;
-    if(newContext.tempus !== this.lastContext.tempus) return true;
+    // Don't change audio for tempus/nightfall changes if on a ship (ship audio takes priority)
+    // Check if NEW context has shipType (even if old context didn't) - prevents day/night from overriding ship audio
+    if(newContext.shipType) {
+      // On ship - ignore tempus/nightfall changes
+      if(newContext.buildingType !== this.lastContext.buildingType) return true;
+      return false;
+    }
+    
+    if(newContext.nightfall !== this.lastContext.nightfall) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AudioManager.js:104',message:'Context changed: nightfall',data:{oldNightfall:this.lastContext.nightfall,newNightfall:newContext.nightfall,shipType:newContext.shipType,hasShipType:!!newContext.shipType},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
+      return true;
+    }
+    if(newContext.tempus !== this.lastContext.tempus) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AudioManager.js:105',message:'Context changed: tempus',data:{oldTempus:this.lastContext.tempus,newTempus:newContext.tempus,shipType:newContext.shipType,hasShipType:!!newContext.shipType},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
+      return true;
+    }
     if(newContext.buildingType !== this.lastContext.buildingType) return true;
     
     return false;
@@ -145,6 +186,9 @@ class AudioManager {
     
     // Priority 2: Ship
     if(context.shipType){
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AudioManager.js:147',message:'Selecting ship BGM',data:{shipType:context.shipType,z:context.z,tempus:context.tempus,nightfall:context.nightfall},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
       return ship_bgm;
     }
     
@@ -159,6 +203,9 @@ class AudioManager {
       return context.buildingType === 'tavern' ? null : dungeons_bgm;
     } else if(context.z === 0){
       // Overworld - time-based
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AudioManager.js:162',message:'Selecting overworld BGM',data:{shipType:context.shipType,hasShipType:!!context.shipType,z:context.z,tempus:context.tempus,nightfall:context.nightfall},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
       if(context.nightfall && context.tempus !== 'IV.a'){
         return overworld_night_bgm;
       } else if(['IV.a', 'V.a', 'VI.a', 'VII.a', 'VIII.a', 'IX.a'].includes(context.tempus)){

@@ -965,7 +965,15 @@ class InputHandler {
                       break;
                     }
                   }
+                } else {
+                  // For all other buildings: if the building was detected (meaning we're hovering over it),
+                  // and it's interactable, then the tile is interactable by default
+                  // This handles buildings like houses, taverns, markets, etc. where any part of the building is interactable
+                  isInteractableTile = true;
                 }
+              } else {
+                // Building has no plot array - if it was detected and is interactable, allow interaction
+                isInteractableTile = true;
               }
               
               // Set hoveredInteractable if all conditions are met AND the tile is interactable

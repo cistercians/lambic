@@ -22,7 +22,8 @@ var AudioSystem = {
       var weatherEffects = getWeatherEffects(x, y, z);
       if(weatherEffects && weatherEffects.storm.active && weatherEffects.storm.intensity > 0.3){
         // If on a ship during storm, play seastorm ambience (navigator or passenger)
-        if(Player.list[selfId].shipType || Player.list[selfId].isBoarded){
+        var player = Player.list[selfId];
+        if(player && (player.shipType || player.isBoarded || player.boardedShip)){
           ambPlayer(Amb.seastorm);
         } else {
           ambPlayer(Amb.rain);
@@ -32,7 +33,8 @@ var AudioSystem = {
     }
     
     // Check if player is on a ship (navigator or passenger) - overrides all other ambience
-    if(Player.list[selfId] && (Player.list[selfId].shipType || Player.list[selfId].isBoarded)){
+    var player = Player.list[selfId];
+    if(player && (player.shipType || player.isBoarded || player.boardedShip)){
       ambPlayer(Amb.sea); // Keep sea ambience while on any ship
       return; // Skip other checks
     }

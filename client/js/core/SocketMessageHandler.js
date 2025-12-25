@@ -592,14 +592,12 @@ var SocketMessageHandler = {
           selfId = data.newSelfId;
         }
       }
-      console.log('Now controlling player:', selfId);
       
       // CRITICAL: Clear isBoarded flag immediately
       var player = Player.list[selfId];
       if(player){
         player.isBoarded = false;
         player.boardedShip = null;
-        console.log('🏖️ Player visible again - isBoarded:', player.isBoarded);
       }
       
       // Force audio update (using AudioManager if available, fallback to legacy)
@@ -670,13 +668,6 @@ var SocketMessageHandler = {
         if (typeof selfId !== 'undefined') {
           selfId = data.shipId;
         }
-        console.log('⚓ Now controlling ship:', data.shipId);
-        console.log('⚓ Ship exists in Player.list?', !!Player.list[data.shipId]);
-        if(Player.list[data.shipId]){
-          console.log('⚓ Ship position:', Player.list[data.shipId].x, Player.list[data.shipId].y);
-        } else {
-          console.log('⚠️ ERROR: Ship entity not found in Player.list! Camera will not follow!');
-        }
         
         // Switch BGM to ship playlist and add sea ambience
         if(typeof bgmPlayer !== 'undefined' && typeof ship_bgm !== 'undefined'){
@@ -691,16 +682,8 @@ var SocketMessageHandler = {
       if(typeof selfId !== 'undefined') {
         var player = Player.list[selfId];
         if(player){
-          console.log('🚢 CLIENT: Before boarding - Player z:', player.z);
           player.isBoarded = true;
           player.boardedShip = data.shipId;
-          console.log('🚢 CLIENT: After setting isBoarded - Player z:', player.z);
-          
-          // Check ship z
-          var ship = Player.list[data.shipId];
-          if(ship){
-            console.log('🚢 CLIENT: Ship z:', ship.z);
-          }
         }
         
         // Passengers also get ship BGM and sea ambience
@@ -710,8 +693,6 @@ var SocketMessageHandler = {
         if(typeof ambPlayer !== 'undefined'){
           ambPlayer('/client/audio/amb/sea.mp3');
         }
-        
-        console.log('🚢 Boarded as passenger');
       }
     }
   },
@@ -946,10 +927,30 @@ var SocketMessageHandler = {
         
         // OPTIMIZATION: Skip position update if position hasn't changed (common for stationary entities)
         // This reduces unnecessary object mutations and improves cache coherence
+        // EXCEPTION: Always update ship positions immediately (don't skip) - prevents visual artifacts
         var posChanged = false;
-        if(pack.x != undefined && p.x !== pack.x) { p.x = pack.x; posChanged = true; }
-        if(pack.y != undefined && p.y !== pack.y) { p.y = pack.y; posChanged = true; }
-        if(pack.z != undefined && p.z !== pack.z) { p.z = pack.z; posChanged = true; }
+        var isShip = p.type === 'ship';
+        if(pack.x != undefined && p.x !== pack.x) { 
+          // #region agent log
+          if(isShip) fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SocketMessageHandler.js:932',message:'Ship X position update',data:{shipId:p.id,shipType:p.shipType,oldX:p.x,newX:pack.x},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'F'})}).catch(()=>{});
+          // #endregion
+          p.x = pack.x; 
+          posChanged = true; 
+        }
+        if(pack.y != undefined && p.y !== pack.y) { 
+          // #region agent log
+          if(isShip) fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SocketMessageHandler.js:936',message:'Ship Y position update',data:{shipId:p.id,shipType:p.shipType,oldY:p.y,newY:pack.y},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'F'})}).catch(()=>{});
+          // #endregion
+          p.y = pack.y; 
+          posChanged = true; 
+        }
+        if(pack.z != undefined && p.z !== pack.z) { 
+          // #region agent log
+          if(isShip) fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SocketMessageHandler.js:940',message:'Ship Z position update',data:{shipId:p.id,shipType:p.shipType,oldZ:p.z,newZ:pack.z},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'F'})}).catch(()=>{});
+          // #endregion
+          p.z = pack.z; 
+          posChanged = true; 
+        }
         if(pack.facing != undefined) p.facing = pack.facing;
         if(pack.angle != undefined) p.angle = pack.angle;
         
@@ -1051,7 +1052,12 @@ var SocketMessageHandler = {
         
         var now = Date.now();
         if (now - p._lastNonVisualUpdate > 500) {
-          if(pack.name != undefined) p.name = pack.name;
+          if(pack.name != undefined) {
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SocketMessageHandler.js:1035',message:'Updating entity name',data:{entityId:p.id,entityType:p.type,oldName:p.name,newName:pack.name,isShip:p.type==='ship',isBoarded:typeof selfId!=='undefined'&&p.id===selfId&&p.isBoarded,boardedShip:p.boardedShip},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'E'})}).catch(()=>{});
+            // #endregion
+            p.name = pack.name;
+          }
           if(pack.house != undefined) p.house = pack.house;
           if(pack.kingdom != undefined) p.kingdom = pack.kingdom;
           if(pack.rank != undefined) p.rank = pack.rank;
@@ -1062,6 +1068,12 @@ var SocketMessageHandler = {
           if(pack.skulls != undefined) p.skulls = pack.skulls;
           
           p._lastNonVisualUpdate = now;
+        } else if(pack.name != undefined && p.type === 'ship') {
+          // Always update ship names immediately (don't throttle) - critical for anchor emoji display
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SocketMessageHandler.js:1047',message:'Updating ship name immediately (bypass throttle)',data:{entityId:p.id,oldName:p.name,newName:pack.name,isBoarded:typeof selfId!=='undefined'&&p.id===selfId&&p.isBoarded,boardedShip:p.boardedShip},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'E'})}).catch(()=>{});
+          // #endregion
+          p.name = pack.name;
         }
         
         // Always update health/spirit (important for gameplay)
@@ -1079,7 +1091,13 @@ var SocketMessageHandler = {
         // Update ship-specific properties
         if(pack.sailPoints != undefined) p.sailPoints = pack.sailPoints;
         if(pack.shipMode != undefined) p.shipMode = pack.shipMode;
-        if(pack.shipType != undefined) p.shipType = pack.shipType;
+        // Always update shipType immediately (don't throttle) - critical for audio context
+        if(pack.shipType != undefined) {
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SocketMessageHandler.js:1080',message:'Setting player.shipType from pack (bypass throttle)',data:{playerId:p.id,oldShipType:p.shipType,newShipType:pack.shipType,isBoarded:p.isBoarded,boardedShip:p.boardedShip},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'G'})}).catch(()=>{});
+          // #endregion
+          p.shipType = pack.shipType;
+        }
         if(pack.isPlayerControlled != undefined) p.isPlayerControlled = pack.isPlayerControlled;
         
         // Handle action updates
@@ -1401,7 +1419,7 @@ var SocketMessageHandler = {
         
         // Skip music changes if player is on a ship
         if(typeof bgmPlayer !== 'undefined') {
-          if(p.shipType || p.isBoarded){
+          if(p.shipType || p.isBoarded || p.boardedShip){
             if(typeof ship_bgm !== 'undefined') {
               bgmPlayer(ship_bgm); // Keep ship music
             }

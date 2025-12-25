@@ -142,75 +142,42 @@ Building = function(param){
     
     // Create bidirectional dock association (called when ship docks at new location)
     self.createDockAssociation = function(otherDockId){
-      console.log('[createDockAssociation] Called for dock', self.id, 'with otherDockId', otherDockId);
-      
       if(!otherDockId || otherDockId === self.id) {
-        console.log('[createDockAssociation] Early return: invalid otherDockId or self.id match');
         return;
       }
       
       var otherDock = Building.list[otherDockId];
       if(!otherDock || otherDock.type !== 'dock') {
-        console.log('[createDockAssociation] Early return: otherDock not found or not a dock', otherDock ? otherDock.type : 'not found');
         return;
       }
-      
-      // Log network state before association
-      var networkBefore = self.network ? self.network.slice() : [];
-      var otherNetworkBefore = otherDock.network ? otherDock.network.slice() : [];
-      console.log('[createDockAssociation] Network state BEFORE:');
-      console.log('  Dock', self.id, 'network:', networkBefore, 'cargoShip:', self.cargoShip);
-      console.log('  Dock', otherDockId, 'network:', otherNetworkBefore, 'cargoShip:', otherDock.cargoShip);
       
       // Add to this dock's network
       if(self.network.indexOf(otherDockId) === -1){
         self.network.push(otherDockId);
-        console.log('[createDockAssociation] Added', otherDockId, 'to dock', self.id, 'network');
-      } else {
-        console.log('[createDockAssociation] Dock', otherDockId, 'already in dock', self.id, 'network');
       }
       
       // Add this dock to other dock's network (bidirectional)
       if(!otherDock.network) otherDock.network = [];
       if(otherDock.network.indexOf(self.id) === -1){
         otherDock.network.push(self.id);
-        console.log('[createDockAssociation] Added', self.id, 'to dock', otherDockId, 'network');
-      } else {
-        console.log('[createDockAssociation] Dock', self.id, 'already in dock', otherDockId, 'network');
       }
-      
-      // Log network state after association
-      console.log('[createDockAssociation] Network state AFTER:');
-      console.log('  Dock', self.id, 'network:', self.network, 'network.length:', self.network.length, 'cargoShip:', self.cargoShip);
-      console.log('  Dock', otherDockId, 'network:', otherDock.network, 'network.length:', otherDock.network.length, 'cargoShip:', otherDock.cargoShip);
       
       // Spawn cargo ships if needed
       // Spawn at this dock if it just got its first connection
-      console.log('[createDockAssociation] Checking cargo ship spawn for dock', self.id, '- network.length === 1?', self.network.length === 1, '!cargoShip?', !self.cargoShip);
       if(self.network.length === 1 && !self.cargoShip){
-        console.log('[createDockAssociation] SPAWNING cargo ship for dock', self.id);
         self.spawnCargoShip();
-      } else {
-        console.log('[createDockAssociation] NOT spawning cargo ship for dock', self.id, '- conditions not met');
       }
       
       // Spawn at other dock if it just got its first connection
-      console.log('[createDockAssociation] Checking cargo ship spawn for dock', otherDockId, '- network.length === 1?', otherDock.network.length === 1, '!cargoShip?', !otherDock.cargoShip);
       if(otherDock.network.length === 1 && !otherDock.cargoShip){
-        console.log('[createDockAssociation] SPAWNING cargo ship for dock', otherDockId);
         otherDock.spawnCargoShip();
-      } else {
-        console.log('[createDockAssociation] NOT spawning cargo ship for dock', otherDockId, '- conditions not met');
       }
     };
     
     // Spawn cargo ship for this dock
     self.spawnCargoShip = function(){
-      console.log('[spawnCargoShip] Attempting to spawn cargo ship for dock', self.id);
-      
       // Find water tile adjacent to dock
       var waterTile = null;
-      console.log('[spawnCargoShip] Searching for water tile adjacent to dock', self.id, 'with plot:', self.plot);
       for(var i in self.plot){
         var dockLoc = self.plot[i];
         var adjacent = [
@@ -226,7 +193,6 @@ Building = function(param){
             var tileValue = getTile(0, at[0], at[1]);
             if(tileValue == 0){ // Water
               waterTile = at;
-              console.log('[spawnCargoShip] Found water tile at', at);
               break;
             }
           }
@@ -235,19 +201,16 @@ Building = function(param){
       }
       
       if(!waterTile){
-        console.log('[spawnCargoShip] FAILED: No water tile found adjacent to dock', self.id);
         return;
       }
       
       // Create cargo ship at water tile adjacent to dock
       // Check if CargoShip function exists (defined later in file)
       if(typeof CargoShip === 'undefined'){
-        console.log('[spawnCargoShip] FAILED: CargoShip function is undefined');
         return;
       }
       
       var waterCoords = getCenter(waterTile[0], waterTile[1]);
-      console.log('[spawnCargoShip] Creating cargo ship at water coordinates', waterCoords);
       
       var cargoShip = null;
       try {
@@ -259,30 +222,22 @@ Building = function(param){
           currentDock: self.id,
           mode: 'waiting'
         });
-        console.log('[spawnCargoShip] Cargo ship created with ID', cargoShip ? cargoShip.id : 'null');
       } catch(err){
-        console.log('[spawnCargoShip] FAILED: Exception creating cargo ship:', err);
         return;
       }
       
       // Select first destination and start waiting
       if(cargoShip && cargoShip.selectNextDestination){
-        console.log('[spawnCargoShip] Attempting to select next destination for cargo ship', cargoShip.id);
         if(cargoShip.selectNextDestination()){
-          console.log('[spawnCargoShip] SUCCESS: Cargo ship', cargoShip.id, 'created and destination selected for dock', self.id);
           cargoShip.announceDestination();
           cargoShip.startWaiting();
           self.cargoShip = cargoShip.id;
-          console.log('[spawnCargoShip] Dock', self.id, 'cargoShip property set to', self.cargoShip);
         } else {
-          console.log('[spawnCargoShip] FAILED: Could not select next destination for cargo ship', cargoShip.id);
           // Failed to select destination, remove ship
           if(cargoShip.toRemove !== undefined){
             cargoShip.toRemove = true;
           }
         }
-      } else {
-        console.log('[spawnCargoShip] FAILED: Cargo ship missing selectNextDestination method', cargoShip ? 'cargoShip exists but no method' : 'cargoShip is null');
       }
     };
   }
@@ -5322,6 +5277,12 @@ Character = function(param){
           self.path = path;
           self.pathCount = 0; // Initialize path counter
         } else {
+          // Safety check: ensure building exists and has dstairs
+          if(!b || !Building.list[b] || !Building.list[b].dstairs){
+            self.path = null;
+            self.pathCount = 0;
+            return;
+          }
           //var gridB3b = cloneGrid(-2);
           var stairs = Building.list[b].dstairs;
           //var path = finder.findPath(start[0], start[1], stairs[0], stairs[1], gridB1b);
@@ -5348,6 +5309,12 @@ Character = function(param){
           self.pathCount = 0; // Initialize path counter
         } else {
           // Moving to different building - path to exit first
+          // Safety check: ensure building exists and has entrance
+          if(!b || !Building.list[b] || !Building.list[b].entrance){
+            self.path = null;
+            self.pathCount = 0;
+            return;
+          }
           var exit = Building.list[b].entrance;
           // Use tilemap system for pathfinding on building floor 1 (layer 3)
           var path = global.tilemapSystem.findPath(start, [exit[0],exit[1]+1], 3);
@@ -5378,6 +5345,12 @@ Character = function(param){
           self.pathCount = 0; // Initialize path counter
         } else {
           // Moving to different building - path to stairs first
+          // Safety check: ensure building exists and has ustairs
+          if(!b || !Building.list[b] || !Building.list[b].ustairs){
+            self.path = null;
+            self.pathCount = 0;
+            return;
+          }
           var stairs = Building.list[b].ustairs;
           // Use tilemap system for pathfinding on building floor 2 (layer 5)
           // Allow stairs as destination only
@@ -5456,36 +5429,78 @@ Character = function(param){
         }
       } else if(self.z == 1){ // indoors
         //var gridB1b = cloneGrid(1);
+        // Safety check: ensure building exists
+        if(!b || !Building.list[b]){
+          self.path = null;
+          self.pathCount = 0;
+          return;
+        }
         if(b == db){
           if(z == 2){ // to upstairs
+            // Safety check: ensure building has ustairs
+            if(!Building.list[b].ustairs){
+              self.path = null;
+              self.pathCount = 0;
+              return;
+            }
             var stairs = Building.list[b].ustairs;
             //var path = finder.findPath(start[0], start[1], stairs[0], stairs[1], gridB1b);
             //self.path = path;
             self.moveTo(stairs);
           } else if(z == -2){ // to cellar/dungeon
+            // Safety check: ensure building has dstairs
+            if(!Building.list[b].dstairs){
+              self.path = null;
+              self.pathCount = 0;
+              return;
+            }
             var stairs = Building.list[b].dstairs;
             //var path = finder.findPath(start[0], start[1], stairs[0], stairs[1], gridB1b);
             //self.path = path;
             self.moveTo(stairs);
           } else { // outdoors
+            // Safety check: ensure building has entrance
+            if(!Building.list[b].entrance){
+              self.path = null;
+              self.pathCount = 0;
+              return;
+            }
             var exit = Building.list[b].entrance;
             //var path = finder.findPath(start[0], start[1], exit[0], exit[1]+1, gridB1b);
             //self.path = path;
             self.moveTo([exit[0],exit[1]+1]);
           }
         } else {
+          // Safety check: ensure building has entrance
+          if(!Building.list[b].entrance){
+            self.path = null;
+            self.pathCount = 0;
+            return;
+          }
           var exit = Building.list[b].entrance;
           //var path = finder.findPath(start[0], start[1], exit[0], exit[1]+1, gridB1b);
           //self.path = path;
           self.moveTo([exit[0],exit[1]+1]);
         }
       } else if(self.z == 2){ // upstairs
+        // Safety check: ensure building exists and has ustairs
+        if(!b || !Building.list[b] || !Building.list[b].ustairs){
+          self.path = null;
+          self.pathCount = 0;
+          return;
+        }
         //var gridB2b = cloneGrid(2);
         var stairs = Building.list[b].ustairs;
         //var path = finder.findPath(start[0], start[1], stairs[0], stairs[1], gridB2b);
         //self.path = path;
         self.moveTo(stairs);
       } else if(self.z == -2){ // cellar/dungeon
+        // Safety check: ensure building exists and has dstairs
+        if(!b || !Building.list[b] || !Building.list[b].dstairs){
+          self.path = null;
+          self.pathCount = 0;
+          return;
+        }
         //var gridB3b = cloneGrid(-2);
         var stairs = Building.list[b].dstairs;
         //var path = finder.findPath(start[0], start[1], stairs[0], stairs[1], gridB3b);
@@ -6259,11 +6274,14 @@ Character = function(param){
       isBoarded:self.isBoarded,
       boardedShip:self.boardedShip
     };
-    // Add ship-specific properties if this is a ship
+    // Add ship-specific properties if this is a ship OR if player is boarded on a ship
     if(self.shipType){
       pack.shipType = self.shipType;
-      pack.isPlayerControlled = self.isPlayerControlled;
-      pack.owner = self.owner; // Include owner for ship ownership checks
+      // Only include ship control properties if this entity is actually a ship
+      if(self.type === 'ship'){
+        pack.isPlayerControlled = self.isPlayerControlled;
+        pack.owner = self.owner; // Include owner for ship ownership checks
+      }
     }
     return pack;
   }
@@ -6319,11 +6337,14 @@ Character = function(param){
       isBoarded:self.isBoarded,
       boardedShip:self.boardedShip
     };
-    // Add ship-specific properties if this is a ship
+    // Add ship-specific properties if this is a ship OR if player is boarded on a ship
     if(self.shipType){
       pack.shipType = self.shipType;
-      pack.isPlayerControlled = self.isPlayerControlled;
-      pack.owner = self.owner; // Include owner for ship ownership checks
+      // Only include ship control properties if this entity is actually a ship
+      if(self.type === 'ship'){
+        pack.isPlayerControlled = self.isPlayerControlled;
+        pack.owner = self.owner; // Include owner for ship ownership checks
+      }
     }
     return pack;
   }
@@ -6374,19 +6395,16 @@ Building.prototype.createDockAssociation = function(otherDockId) {
 Building.prototype.retrieveShip = function(playerId, shipIndex) {
   var self = this;
   if(self.type !== 'dock') {
-    console.log('[retrieveShip] Error: Not a dock');
     return null;
   }
   
   // Check if shipIndex is valid
   if(!self.storedShips || shipIndex < 0 || shipIndex >= self.storedShips.length) {
-    console.log('[retrieveShip] Error: Invalid shipIndex', shipIndex, 'storedShips length:', self.storedShips ? self.storedShips.length : 0);
     // Also check if ship is active in Player.list (not yet stored)
     // Try to find ship by owner in active ships at this dock
     for(var shipId in Player.list){
       var activeShip = Player.list[shipId];
       if(activeShip.type === 'ship' && activeShip.owner == playerId && (activeShip.lastDock === self.id || activeShip.dock === self.id)){
-        console.log('[retrieveShip] Found active ship at dock, returning ship ID:', activeShip.id);
         return activeShip.id; // Return active ship ID instead of trying to retrieve
       }
     }
@@ -6397,11 +6415,8 @@ Building.prototype.retrieveShip = function(playerId, shipIndex) {
   
   // Verify player owns this ship (use == for type coercion, IDs might be string or number)
   if(shipData.owner != playerId) {
-    console.log('[retrieveShip] Error: Player', playerId, 'does not own ship', shipData.shipId, 'owner is', shipData.owner);
     return null;
   }
-  
-  console.log('[retrieveShip] Retrieving ship', shipData.shipId, 'for player', playerId, 'from dock', self.id);
   
   // Remove from storage
   self.storedShips.splice(shipIndex, 1);
@@ -6447,11 +6462,9 @@ Building.prototype.retrieveShip = function(playerId, shipIndex) {
   // Recreate ship based on type
   var shipConstructor = global[constructorName];
   if(!shipConstructor) {
-    console.log('[retrieveShip] ERROR: Ship constructor not found:', constructorName);
     return null;
   }
   
-  console.log('[retrieveShip] Creating ship with constructor:', constructorName, 'at', spawnCoords);
   var ship = shipConstructor({
     x: spawnCoords[0],
     y: spawnCoords[1],
@@ -6464,15 +6477,11 @@ Building.prototype.retrieveShip = function(playerId, shipIndex) {
   });
   
   if(!ship) {
-    console.log('[retrieveShip] ERROR: Ship constructor returned null');
     return null;
   }
   
-  console.log('[retrieveShip] Ship created with ID:', ship.id, 'type:', ship.shipType);
-  
   // Verify ship is in Player.list
   if(!Player.list[ship.id]) {
-    console.log('[retrieveShip] ERROR: Ship not found in Player.list after creation!');
     return null;
   }
   
@@ -6489,7 +6498,6 @@ Building.prototype.retrieveShip = function(playerId, shipIndex) {
   // Restore last dock reference
   ship.lastDock = self.id;
   
-  console.log('[retrieveShip] Successfully recreated ship', ship.id, 'from stored data. Ship in Player.list:', !!Player.list[ship.id]);
   return ship.id;
 };
 
@@ -6576,7 +6584,7 @@ Character.prototype.dockAtPort = function(dockId) {
   } else {
     if(!dockToAssociate) console.log('[dockAtPort] No dock to associate (both self.dock and self.lastDock are falsy)');
     if(dockToAssociate === dockId) console.log('[dockAtPort] Skipping association (dockToAssociate === dockId)');
-    if(!dock.createDockAssociation) console.log('[dockAtPort] Dock missing createDockAssociation method');
+    // Dock association method should exist
   }
   
   // Automatically unload fish from ship to owner's stores
@@ -7554,6 +7562,10 @@ FishingShip = function(param){
     // This prevents terrain checks from setting z=-3 when player is moved to water
     player.isBoarded = true;
     player.boardedShip = self.id;
+    // Set shipType for passengers (navigators switch selfId to ship, so they don't need this)
+    if(!isNavigator){
+      player.shipType = self.shipType; // Set shipType so AudioManager can detect ship context
+    }
     
     // Now sync player position to ship
     // Player's position becomes the ship's position
@@ -7617,6 +7629,7 @@ FishingShip = function(param){
     player.z = 0;
     player.isBoarded = false;
     player.boardedShip = null;
+    player.shipType = null; // Clear shipType when disembarking
     player.boardCooldown = 180; // 3 second cooldown
     
     // If this was the navigator, transfer control
@@ -7722,12 +7735,9 @@ FishingShip = function(param){
         
         if(atDock){
           // Ship is at a dock - call dockAtPort to create associations and store ship
-          console.log('[disembarkPassenger] Ship at dock, calling dockAtPort for dock', dockBuildingId);
           // Use Character.prototype to ensure method is available
           if(Character.prototype.dockAtPort) {
             Character.prototype.dockAtPort.call(self, dockBuildingId);
-          } else {
-            console.log('[disembarkPassenger] ERROR: dockAtPort method not found on Character.prototype');
           }
         } else {
           // Not at dock - set to anchored
@@ -8168,6 +8178,7 @@ CargoShip = function(param){
       if(self.path.length === 0){
         // Arrived at dock
         self.mode = 'docked';
+        self.name = 'Cargo Ship ⚓'; // Update name to show anchor when docked
         self.currentDock = self.targetDock;
         
         // Create dock network association (cargo ships also link docks)
@@ -8204,6 +8215,28 @@ CargoShip = function(param){
   };
   
   self.update = function(){
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Entity.js:8251',message:'CargoShip update called',data:{shipId:self.id,mode:self.mode,name:self.name,hasAnchor:self.name && self.name.includes('⚓')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    // FIRST: Ensure name is always in sync with mode (run every frame as safeguard)
+    if(self.mode === 'sailing'){
+      // Ensure anchor emoji is removed from name when sailing
+      if(!self.name || self.name.includes('⚓')){
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Entity.js:8255',message:'CargoShip removing anchor emoji',data:{shipId:self.id,mode:self.mode,oldName:self.name,newName:'Cargo Ship'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
+        self.name = 'Cargo Ship';
+      }
+    } else if(self.mode === 'waiting' || self.mode === 'docked'){
+      // Ensure anchor emoji is present when waiting/docked
+      if(!self.name || !self.name.includes('⚓')){
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Entity.js:8260',message:'CargoShip adding anchor emoji',data:{shipId:self.id,mode:self.mode,oldName:self.name,newName:'Cargo Ship ⚓'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
+        self.name = 'Cargo Ship ⚓';
+      }
+    }
+    
     // Handle combat state (if ship gets aggroed)
     if(self.action === 'combat'){
       if(global.simpleCombat){
@@ -8222,6 +8255,9 @@ CargoShip = function(param){
       self.waitTimer--;
       if(self.waitTimer === 0 && self.mode === 'waiting'){
         // Depart for destination
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Entity.js:8283',message:'CargoShip mode change waiting->sailing',data:{shipId:self.id,oldMode:'waiting',newMode:'sailing',oldName:self.name},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
         self.mode = 'sailing';
         self.name = 'Cargo Ship';
         
@@ -8240,10 +8276,6 @@ CargoShip = function(param){
     
     // Handle sailing mode
     if(self.mode === 'sailing'){
-      // Ensure anchor emoji is removed from name when sailing
-      if(self.name && self.name.includes('⚓')){
-        self.name = 'Cargo Ship';
-      }
       self.navigateToTarget();
     }
     
@@ -8303,11 +8335,18 @@ CargoShip = function(param){
     
     // CRITICAL: Mark player as boarded AND sync all coordinates atomically
     // This prevents terrain checks from setting z=-3 when player is moved to water
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Entity.js:8359',message:'CargoShip boardPassenger BEFORE setting player properties',data:{shipId:self.id,shipType:self.shipType,playerId:playerId,playerShipType:player.shipType,playerIsBoarded:player.isBoarded},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
     player.isBoarded = true;
     player.boardedShip = self.id;
+    player.shipType = self.shipType; // Set shipType so AudioManager can detect ship context
     player.x = self.x;
     player.y = self.y;
     player.z = 0; // Always overworld, don't sync z from ship
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Entity.js:8364',message:'CargoShip boardPassenger AFTER setting player properties',data:{shipId:self.id,shipType:self.shipType,playerId:playerId,playerShipType:player.shipType,playerIsBoarded:player.isBoarded,playerBoardedShip:player.boardedShip},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
     
     // EXTRA SAFETY: Force z=0 explicitly again after all position updates
     player.z = 0;
@@ -8359,6 +8398,7 @@ CargoShip = function(param){
     player.z = 0;
     player.isBoarded = false;
     player.boardedShip = null;
+    player.shipType = null; // Clear shipType when disembarking
     player.boardCooldown = 180;
     
     // Remove from passengers

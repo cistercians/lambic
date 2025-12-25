@@ -93,67 +93,46 @@ class BoardShipCommand extends BaseCommand {
     const Building = this.getGlobal('Building');
     const Player = this.getGlobal('Player');
     if (!Building || !Building.list || !Player || !Player.list) {
-      console.log('[BoardShipCommand.findStoredShip] Missing globals');
       return null;
     }
-
-    console.log('[BoardShipCommand.findStoredShip] Searching for shipId:', shipId, 'playerId:', playerId);
 
     // Search all docks for the stored ship
     for (const dockId in Building.list) {
       const dock = Building.list[dockId];
       if (dock.type !== 'dock' || !dock.storedShips) continue;
 
-      console.log('[BoardShipCommand.findStoredShip] Checking dock', dockId, 'with', dock.storedShips.length, 'stored ships');
-
       // Find ship in storedShips array
       for (let i = 0; i < dock.storedShips.length; i++) {
         const storedShip = dock.storedShips[i];
-        console.log('[BoardShipCommand.findStoredShip] Checking stored ship', i, ':', storedShip.shipId, 'type:', storedShip.shipType, 'owner:', storedShip.owner);
         
         // Cargo ships are public transport (no ownership check), but they shouldn't be stored
         // For other ships, verify ownership (use == for type coercion)
         const isOwned = storedShip.shipType === 'cargoship' || storedShip.owner == playerId;
         // Use == for shipId comparison in case of type mismatch (string vs number)
         const shipIdMatch = String(storedShip.shipId) === String(shipId);
-        console.log('[BoardShipCommand.findStoredShip] Ship ID match:', shipIdMatch, 'isOwned:', isOwned);
         
         if (shipIdMatch && isOwned) {
-          console.log('[BoardShipCommand.findStoredShip] Found matching ship at dock', dockId, 'index', i);
           // Retrieve the ship from storage (spawns it adjacent to dock)
           // Call retrieveShip via Building.prototype to ensure it's accessible even if not directly on the object
           if (Building && Building.prototype && typeof Building.prototype.retrieveShip === 'function') {
-            console.log('[BoardShipCommand.findStoredShip] Calling retrieveShip for player', playerId, 'at index', i);
             const retrievedShipId = Building.prototype.retrieveShip.call(dock, playerId, i);
-            console.log('[BoardShipCommand.findStoredShip] retrieveShip returned shipId:', retrievedShipId);
             
             if (retrievedShipId) {
               // Ship should now be in Player.list with the new ID
               if (Player.list && Player.list[retrievedShipId]) {
                 const ship = Player.list[retrievedShipId];
-                console.log('[BoardShipCommand.findStoredShip] Found retrieved ship in Player.list:', ship.id, 'type:', ship.shipType);
                 // Verify it's actually a ship
                 if (ship.shipType || ship.type === 'ship') {
-                  console.log('[BoardShipCommand.findStoredShip] SUCCESS: Returning ship', ship.id);
                   return ship;
-                } else {
-                  console.log('[BoardShipCommand.findStoredShip] ERROR: Retrieved entity is not a ship');
                 }
-              } else {
-                console.log('[BoardShipCommand.findStoredShip] ERROR: Ship not found in Player.list after retrieval');
               }
-            } else {
-              console.log('[BoardShipCommand.findStoredShip] ERROR: retrieveShip returned null');
             }
-          } else {
-            console.log('[BoardShipCommand.findStoredShip] ERROR: Building.prototype.retrieveShip is not a function');
           }
           return null;
         }
       }
     }
 
-    console.log('[BoardShipCommand.findStoredShip] Ship not found in any dock');
     return null;
   }
 }
