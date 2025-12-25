@@ -3613,14 +3613,16 @@ const Player = function(param) {
     // OLD:   self.spirit = Math.min(self.spirit + 0.0017, self.spiritMax);
     // OLD: }
 
-    // PLAYER AUTO-COMBAT - Auto-follow and auto-attack when in combat mode
-    // Also handle pending stealth attacks
+    // PLAYER AUTO-COMBAT - Auto-follow and auto-attack when in combat mode or attack intent
     // SimpleCombat.update() handles all validation internally, no need for duplicate checks
     if ((self.action === 'combat' && self.combat.target && !self.autoAttackPaused) ||
-        (self.stealthed && !self.revealed && self._pendingCombatTarget)) {
+        (self.combatState && self.combatState.pendingTarget)) {
       // Use SimpleCombat system for player auto-combat (same as NPCs)
-      // This handles both normal combat and pending stealth attacks, including all validation
+      // This handles both normal combat and attack intent, including all validation
       if (global.simpleCombat) {
+        if (global.debugCombat && self.combatState && self.combatState.pendingTarget) {
+          console.log(`[PlayerUpdate] Attack intent detected ${self.id} -> ${self.combatState.pendingTarget}`);
+        }
         global.simpleCombat.update(self);
       }
     }
@@ -5278,12 +5280,11 @@ Player.update = function() {
       }
     }
     
-    // NPC COMBAT UPDATE - Handle combat for NPCs (and players with pending stealth attacks)
-    if (player.type === 'npc' && player.action === 'combat' && global.simpleCombat) {
-      global.simpleCombat.update(player);
-    } else if (player.type === 'npc' && player.stealthed && !player.revealed && player._pendingCombatTarget) {
-      // NPC with pending stealth attack - update to handle stealth combat
-      global.simpleCombat.update(player);
+    // NPC COMBAT UPDATE - Handle combat for NPCs (including attack intent)
+    if (player.type === 'npc' && global.simpleCombat) {
+      if (player.action === 'combat' || (player.combatState && player.combatState.pendingTarget)) {
+        global.simpleCombat.update(player);
+      }
     }
     
     // Update fishing if player is fishing
@@ -5321,10 +5322,13 @@ Player.update = function() {
           var distanceSquared = dx*dx + dy*dy; // Use squared distance to avoid sqrt
           
           if(distanceSquared <= aggroRangeSquared){
-            // Enemy in range - interrupt path and engage
-            // Use SimpleCombat to handle stealth properly
+            // Enemy in range - interrupt path and set attack intent
+            // Combat will start naturally when in range or when damage is dealt
             if (global.simpleCombat) {
-              global.simpleCombat.startCombat(player, enemy);
+              if (global.debugCombat) {
+                console.log(`[attack-move] Enemy detected, setting attack intent ${player.id} -> ${enemy.id}`);
+              }
+              global.simpleCombat.setAttackIntent(player, enemy.id);
             } else {
               player.combat.target = enemy.id;
               player.action = 'combat';
@@ -7281,27 +7285,18 @@ io.on('connection', function(socket) {
           if(player && data.targetId){
             var target = Player.list[data.targetId];
             if(target){
-              // STEALTH: If target is stealthed, reveal them when player engages
-              if (target.stealthed && !target.revealed) {
-                target.stealthed = false;
-                target.revealed = false;
-              }
-              
-              // STEALTH: If player is stealthed, remove stealth when engaging combat
-              if (player.stealthed) {
-                player.stealthed = false;
-                player.revealed = false;
-              }
-              
               // Clear previous commands (combat overrides everything)
               player.attackMoveTarget = null;
               
               // Re-enable auto-attacking (player explicitly commanded attack)
               player.autoAttackPaused = false;
               
-              // Start combat using simpleCombat system (properly initializes combat and auto-attacking)
+              // Set attack intent using simpleCombat system (pathfinds to target, combat starts when in range)
               if (global.simpleCombat) {
-                global.simpleCombat.startCombat(player, target);
+                if (global.debugCombat) {
+                  console.log(`[engageCombat] Player setting attack intent ${player.id} -> ${data.targetId}`);
+                }
+                global.simpleCombat.setAttackIntent(player, data.targetId);
               } else {
                 // Fallback for systems without simpleCombat
                 player.combat.target = data.targetId;

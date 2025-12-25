@@ -224,6 +224,43 @@ class SimpleCombat {
     return true;
   }
 
+  // Set attack intent (works for all entity types - players and NPCs)
+  setAttackIntent(entity, targetId) {
+    // Validate target exists
+    const target = global.Player.list[targetId];
+    if (!target || !this.isTargetValid(target, entity)) {
+      if (global.debugCombat) {
+        console.warn(`[setAttackIntent] Cannot set attack intent - invalid target ${targetId}`);
+      }
+      return false;
+    }
+    
+    const state = this.ensureCombatState(entity);
+    state.pendingTarget = targetId;
+    state.pendingStartTime = Date.now();
+    // Do NOT set action='combat' or state.target or state.startTime (these remain null/undefined)
+    // Do NOT clear existing path (let pathfinding happen naturally)
+    // Do NOT remove stealth (stealthed characters can have attack intent)
+    
+    if (global.debugCombat) {
+      console.log(`[setAttackIntent] ${entity.type} ${entity.id} -> ${targetId}`);
+    }
+    
+    return true;
+  }
+
+  // Clear attack intent (works for all entity types - players and NPCs)
+  clearAttackIntent(entity) {
+    if (!entity.combatState) return;
+    
+    entity.combatState.pendingTarget = null;
+    entity.combatState.pendingStartTime = null;
+    
+    if (global.debugCombat) {
+      console.log(`[clearAttackIntent] ${entity.type} ${entity.id}`);
+    }
+  }
+
   // ============================================================================
   // FACING & DAMAGE
   // ============================================================================
@@ -473,18 +510,18 @@ class SimpleCombat {
   // MAIN COMBAT UPDATE
   // ============================================================================
 
-  // Main combat update - called every frame for entities with action='combat' or pending stealth attacks
+  // Main combat update - called every frame for entities with action='combat' or attack intent (pendingTarget)
   update(entity) {
     try {
-      // Handle pending stealth attacks
+      // Handle attack intent (works for all entities - players and NPCs, stealth and regular)
       if (this.handlePendingStealthAttack(entity)) {
-        return; // Still handling stealth approach
+        return; // Still handling attack intent approach
       }
       
       // Validate combat state - single check
       const state = entity.combatState;
       if (!state || !state.target) {
-        // Check if there's a pending stealth attack
+        // Check if there's an attack intent
         if (!state || !state.pendingTarget) {
           entity.action = null;
         }
@@ -600,44 +637,61 @@ class SimpleCombat {
     }
   }
 
-  // Handle pending stealth attack approach
+  // Handle attack intent (works for all entities - players and NPCs, stealth and regular)
   handlePendingStealthAttack(entity) {
     const state = entity.combatState;
-    if (!entity.stealthed || entity.revealed || !state || !state.pendingTarget) {
+    if (!state || !state.pendingTarget) {
       return false;
     }
     
     const pendingTarget = global.Player.list[state.pendingTarget];
     if (!this.isTargetValid(pendingTarget, entity)) {
       if (state) {
-        state.pendingTarget = null;
-        state.pendingStartTime = null;
+        this.clearAttackIntent(entity);
+      }
+      if (global.debugCombat) {
+        console.log(`[handleAttackIntent] Invalid target, clearing intent ${entity.id}`);
       }
       return false;
     }
     
-    // Check if target detected the stealthed attacker
-    if (this.checkStealthDetection(entity, pendingTarget)) {
-      // Detected! Reveal and start combat
-      this.removeStealth(entity);
-      this.initCombatState(entity, pendingTarget.id);
-      return false; // Continue to normal combat
+    // For stealthed entities (any type): Check if target detected them
+    if (entity.stealthed && !entity.revealed) {
+      if (this.checkStealthDetection(entity, pendingTarget)) {
+        // Detected! Reveal and start combat
+        this.removeStealth(entity);
+        this.initCombatState(entity, pendingTarget.id);
+        this.clearAttackIntent(entity);
+        if (global.debugCombat) {
+          console.log(`[handleAttackIntent] Target detected stealthed entity, converting to combat ${entity.id} -> ${pendingTarget.id}`);
+        }
+        return false; // Continue to normal combat
+      }
     }
     
-    // Still stealthed - move towards target to attack
+    // Check timeout
+    if (state.pendingStartTime && 
+        Date.now() - state.pendingStartTime > this.PENDING_COMBAT_TIMEOUT) {
+      this.clearAttackIntent(entity);
+      if (global.debugCombat) {
+        console.log(`[handleAttackIntent] Timeout, clearing intent ${entity.id}`);
+      }
+      return false;
+    }
+    
+    // Calculate distance and attack range
     const distance = this.getDistance(entity, pendingTarget);
     const attackRange = this.getAttackRange(entity);
     
+    // If in attack range: Convert to full combat
     if (distance <= attackRange) {
-      // In range - can attack (combat will start on first attack)
-      // Set up combat state so attack logic can proceed
-      const combatState = this.ensureCombatState(entity);
-      combatState.target = pendingTarget.id;
-      entity.action = 'combat'; // Ensure action is set
-      // Maintain backward compatibility
-      if (!entity.combat) entity.combat = {};
-      entity.combat.target = pendingTarget.id;
-      return false; // Continue to attack logic
+      // In range - convert to full combat
+      this.initCombatState(entity, pendingTarget.id);
+      this.clearAttackIntent(entity);
+      if (global.debugCombat) {
+        console.log(`[handleAttackIntent] In attack range, converting to combat ${entity.id} -> ${pendingTarget.id}`);
+      }
+      return false; // Continue to normal combat logic
     }
     
     // Not in range - pathfind to target
@@ -657,17 +711,13 @@ class SimpleCombat {
       }
       
       entity.moveTo(pendingTarget.z, targetLoc[0], targetLoc[1]);
+      
+      if (global.debugCombat) {
+        console.log(`[handleAttackIntent] Pathfinding to target, distance: ${distance.toFixed(2)} ${entity.id} -> ${pendingTarget.id}`);
+      }
     }
     
-    // Check timeout
-    if (state.pendingStartTime && 
-        Date.now() - state.pendingStartTime > this.PENDING_COMBAT_TIMEOUT) {
-      state.pendingTarget = null;
-      state.pendingStartTime = null;
-      return false;
-    }
-    
-    return true; // Still handling stealth approach
+    return true; // Still handling attack intent approach
   }
 
   // Check leash range
@@ -698,6 +748,17 @@ class SimpleCombat {
   // Handle attack logic
   handleAttack(entity, target) {
     try {
+      // Convert attack intent to full combat if entity has pendingTarget but not full combat state
+      const state = this.ensureCombatState(entity);
+      if (state.pendingTarget && !state.target) {
+        // Convert attack intent to combat
+        this.initCombatState(entity, state.pendingTarget);
+        this.clearAttackIntent(entity);
+        if (global.debugCombat) {
+          console.log(`[handleAttack] Converting attack intent to combat ${entity.type} ${entity.id} -> ${state.pendingTarget}`);
+        }
+      }
+      
       // Ensure autoAttackPaused is cleared before attacking
       if (entity.type === 'player') {
         entity.autoAttackPaused = false;
@@ -718,8 +779,7 @@ class SimpleCombat {
         return;
       }
       
-      // Initialize combat state if needed
-      const state = this.ensureCombatState(entity);
+      // Initialize combat state if needed (state already declared above)
       if (!state.lastAttack) {
         state.lastAttack = 0;
       }
@@ -1089,10 +1149,30 @@ class SimpleCombat {
     // Counter-aggro
     if (target.type === 'npc' && target.military && target.action !== 'combat') {
       this.startCombat(target, entity);
+      // After recursive startCombat call, check if target had attack intent on entity
+      if (target.combatState && target.combatState.pendingTarget === entity.id) {
+        // startCombat already called initCombatState which set target.combatState.target = entity.id
+        // Just clear the pending fields
+        target.combatState.pendingTarget = null;
+        target.combatState.pendingStartTime = null;
+        if (global.debugCombat) {
+          console.log(`[startCombat] NPC counter-aggro, converting attack intent to combat ${entity.id} <- ${target.id}`);
+        }
+      }
     } else if (target.type === 'player') {
       // Use initCombatState to properly initialize player combat state
       // This validates target and clears autoAttackPaused
       if (this.initCombatState(target, entity.id)) {
+        // Handle attack intent conversion: If target has attack intent on this entity, convert it to full combat
+        if (target.combatState && target.combatState.pendingTarget === entity.id) {
+          // initCombatState already set target.combatState.target = entity.id above
+          // Just clear the pending fields
+          target.combatState.pendingTarget = null;
+          target.combatState.pendingStartTime = null;
+          if (global.debugCombat) {
+            console.log(`[startCombat] Counter-aggro, converting attack intent to combat ${entity.id} <- ${target.id}`);
+          }
+        }
         // Send chat message to player
         const attackerName = entity.name || entity.class;
         const socket = global.SOCKET_LIST[target.id];
