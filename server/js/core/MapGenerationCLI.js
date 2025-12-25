@@ -11,7 +11,7 @@ class MapGenerationCLI {
       0: '🟦',  // WATER
       1: '🌲',  // HEAVY_FOREST
       2: '🌿',  // LIGHT_FOREST
-      3: '🟩',  // BRUSH
+      3: '🌿',  // BRUSH
       4: '🪨',  // ROCKS
       5: '🏔️',  // MOUNTAIN
       6: '🕳️'   // CAVE_ENTRANCE
@@ -223,7 +223,7 @@ class MapGenerationCLI {
 
     // Legend
     console.log('Legend:');
-    console.log('  🟦 Water  🌲 Heavy Forest  🌿 Light Forest  🟩 Brush  🪨 Rocks  🏔️ Mountain');
+    console.log('  🟦 Water  🌲 Heavy Forest  🌿 Brush  🪨 Rocks  🏔️ Mountain');
     console.log('');
     console.log(`Map Size: ${mapWidth}×${mapHeight} tiles | Preview: ${previewWidth}×${previewHeight} (scale: ${scale}x)`);
     console.log('');
