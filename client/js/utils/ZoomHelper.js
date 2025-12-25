@@ -37,9 +37,9 @@ class ZoomHelper {
       return this.mountainZoom; // 0.75x zoom for login camera
     }
     
-    // Zoom out for ship view
-    if (selfId && player && player.shipType) {
-      return this.mountainZoom; // 0.75x zoom for ships
+    // Zoom out for ship view (when controlling a ship OR when boarded as passenger)
+    if (selfId && player && (player.shipType || player.boardedShip)) {
+      return this.mountainZoom; // 0.75x zoom for ships or when boarded on ship
     }
     
     // Zoom in when inside buildings and cellars (z=1,2,-2)

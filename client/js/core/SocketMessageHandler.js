@@ -685,8 +685,10 @@ var SocketMessageHandler = {
         if(typeof ambPlayer !== 'undefined'){
           ambPlayer('/client/audio/amb/sea.mp3');
         }
-      } else {
-        // Just a passenger - mark as boarded but don't switch control
+      }
+    } else {
+      // Just a passenger - mark as boarded but don't switch control
+      if(typeof selfId !== 'undefined') {
         var player = Player.list[selfId];
         if(player){
           console.log('🚢 CLIENT: Before boarding - Player z:', player.z);

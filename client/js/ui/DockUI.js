@@ -11,7 +11,7 @@ class DockUI {
 
   /**
    * Update dock display
-   * @param {object} dockData - Dock data { availableShips, ownedShips, cargoShips, playerResources }
+   * @param {object} dockData - Dock data { availableShips, ownedShips, cargoShips, playerResources, dockName }
    */
   updateDockDisplay(dockData) {
     if (!dockData) return;
@@ -20,6 +20,16 @@ class DockUI {
     const ownedShips = dockData.ownedShips || [];
     const cargoShips = dockData.cargoShips || [];
     const playerResources = dockData.playerResources || {};
+    const dockName = dockData.dockName || 'Dock';
+
+    // Update dock title with dock's zone name
+    const dockHeader = document.getElementById('dock-header');
+    if (dockHeader) {
+      const titleElement = dockHeader.querySelector('h3');
+      if (titleElement) {
+        titleElement.textContent = `⚓ ${dockName} - Ship Management`;
+      }
+    }
 
     // Get DOM elements (would be injected)
     const dockShipList = document.getElementById('dock-ship-list');

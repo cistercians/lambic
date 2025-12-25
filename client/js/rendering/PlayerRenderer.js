@@ -42,6 +42,11 @@ class PlayerRenderer {
   renderBars(player, config) {
     const { ctx, barX, barY, stealth } = config;
     
+    // Hide bars when player is on board a ship
+    if (player.boardedShip) {
+      return;
+    }
+    
     if (stealth >= 1.5 || player.class === 'Falcon' || player.ghost) {
       return; // Skip bars for stealthed/enemy-only views, falcons, ghosts
     }
@@ -92,6 +97,11 @@ class PlayerRenderer {
    */
   renderName(player, config) {
     const { ctx, barX, barY, allyCheck, kingdomList, houseList } = config;
+    
+    // Hide name when player is on board a ship
+    if (player.boardedShip) {
+      return;
+    }
     
     if (!player.rank && !player.name) return;
 
@@ -467,8 +477,8 @@ class PlayerRenderer {
     // Ghost invisibility: Don't render other players' ghosts
     if (player.ghost && player.id !== selfId) return;
 
-    // Don't render players boarded on ships
-    if (player.isBoarded) return;
+    // Don't render players boarded on ships (check both isBoarded and boardedShip for safety)
+    if (player.isBoarded || player.boardedShip) return;
 
     const stealth = stealthCheck(player.id);
     

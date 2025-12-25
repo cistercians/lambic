@@ -190,6 +190,7 @@ Interact = function(id,loc){
           socket.write(JSON.stringify({
             msg: 'openDock',
             dockId: b,
+            dockName: building.zoneName || building.name || 'Dock',
             availableShips: availableShips,
             ownedShips: ownedShips,
             cargoShips: cargoShips,

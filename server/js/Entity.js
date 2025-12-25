@@ -1415,16 +1415,53 @@ Dock = function(param){
     }
   }
   
-  // Find geographic zone on init
+  // Find geographic zone on init - use land zone from plot tiles, not water zone
   self.findZone = function() {
-    if(global.zoneManager) {
+    console.log('[Dock findZone] Starting zone detection for dock', self.id, 'at location', getLoc(self.x, self.y));
+    if(global.zoneManager && self.plot) {
+      console.log('[Dock findZone] Dock has', self.plot.length, 'plot tiles');
+      // Iterate through dock's plot tiles to find a tile with value 11 (BUILD_MARKER = land tile)
+      // Docks use tile value 11 for land tiles and 11.5 for water tiles
+      for(var i = 0; i < self.plot.length; i++) {
+        var plotTile = self.plot[i];
+        var tileValue = getTile(0, plotTile[0], plotTile[1]);
+        console.log('[Dock findZone] Plot tile', i, 'at', plotTile, 'tile value:', tileValue, '(11=land, 11.5=water)');
+        
+        // Check if this is a land tile (tile value 11 = BUILD_MARKER)
+        if(tileValue === 11) {
+          console.log('[Dock findZone] Found land tile (value 11) at', plotTile, '- checking zone');
+          // Found a land tile - get zone name from this location
+          var zone = global.zoneManager.getZoneAt(plotTile);
+          console.log('[Dock findZone] Zone found:', zone ? (zone.type + ' - ' + zone.name) : 'null');
+      
+          // Only use geographic features (not faction territories)
+          if(zone && zone.type === 'geographic') {
+            self.zoneName = zone.name;
+            console.log('[Dock findZone] SUCCESS: Dock', self.id, 'named as', self.zoneName, 'from land tile', plotTile);
+            return; // Found land zone, stop searching
+          } else if(zone) {
+            console.log('[Dock findZone] Zone found but type is', zone.type, '(not geographic), skipping');
+          }
+        } else {
+          console.log('[Dock findZone] Tile', plotTile, 'is water (tile value', tileValue, '!= 11), skipping');
+        }
+      }
+      
+      // Fallback: if no land tile found with zone, try center location
+      console.log('[Dock findZone] No land zone found in plot tiles, trying center location as fallback');
       var loc = getLoc(self.x, self.y);
       var zone = global.zoneManager.getZoneAt(loc);
-      
-      // Only use geographic features (not faction territories)
+      console.log('[Dock findZone] Center location', loc, 'zone:', zone ? (zone.type + ' - ' + zone.name) : 'null');
       if(zone && zone.type === 'geographic') {
         self.zoneName = zone.name;
+        console.log('[Dock findZone] FALLBACK: Dock', self.id, 'named as', self.zoneName, 'from center location');
+      } else {
+        console.log('[Dock findZone] WARNING: No geographic zone found for dock', self.id, '- using default name');
+        self.zoneName = self.zoneName || 'Dock';
       }
+    } else {
+      console.log('[Dock findZone] ERROR: zoneManager or plot not available for dock', self.id);
+      self.zoneName = self.zoneName || 'Dock';
     }
   };
   
@@ -6336,13 +6373,35 @@ Building.prototype.createDockAssociation = function(otherDockId) {
 // Retrieve ship from storage
 Building.prototype.retrieveShip = function(playerId, shipIndex) {
   var self = this;
-  if(self.type !== 'dock') return null;
-  if(shipIndex < 0 || shipIndex >= self.storedShips.length) return null;
+  if(self.type !== 'dock') {
+    console.log('[retrieveShip] Error: Not a dock');
+    return null;
+  }
+  
+  // Check if shipIndex is valid
+  if(!self.storedShips || shipIndex < 0 || shipIndex >= self.storedShips.length) {
+    console.log('[retrieveShip] Error: Invalid shipIndex', shipIndex, 'storedShips length:', self.storedShips ? self.storedShips.length : 0);
+    // Also check if ship is active in Player.list (not yet stored)
+    // Try to find ship by owner in active ships at this dock
+    for(var shipId in Player.list){
+      var activeShip = Player.list[shipId];
+      if(activeShip.type === 'ship' && activeShip.owner == playerId && (activeShip.lastDock === self.id || activeShip.dock === self.id)){
+        console.log('[retrieveShip] Found active ship at dock, returning ship ID:', activeShip.id);
+        return activeShip.id; // Return active ship ID instead of trying to retrieve
+      }
+    }
+    return null;
+  }
   
   var shipData = self.storedShips[shipIndex];
   
   // Verify player owns this ship (use == for type coercion, IDs might be string or number)
-  if(shipData.owner != playerId) return null;
+  if(shipData.owner != playerId) {
+    console.log('[retrieveShip] Error: Player', playerId, 'does not own ship', shipData.shipId, 'owner is', shipData.owner);
+    return null;
+  }
+  
+  console.log('[retrieveShip] Retrieving ship', shipData.shipId, 'for player', playerId, 'from dock', self.id);
   
   // Remove from storage
   self.storedShips.splice(shipIndex, 1);
@@ -6405,9 +6464,15 @@ Building.prototype.retrieveShip = function(playerId, shipIndex) {
     ship.stores = shipData.cargo;
   }
   
+  // Restore inventory (for fishing ships)
+  if(shipData.inventory) {
+    ship.inventory = shipData.inventory;
+  }
+  
   // Restore last dock reference
   ship.lastDock = self.id;
   
+  console.log('[retrieveShip] Successfully recreated ship', ship.id, 'from stored data');
   return ship.id;
 };
 
@@ -7002,13 +7067,26 @@ FishingShip = function(param){
           // Initialize storedShips array if needed
           if(!dock.storedShips) dock.storedShips = [];
           
+          // Check if ship is already in storedShips (avoid duplicates)
+          var alreadyStored = false;
+          for(var i = 0; i < dock.storedShips.length; i++){
+            if(dock.storedShips[i].shipId === self.id){
+              alreadyStored = true;
+              break;
+            }
+          }
+          
+          if(!alreadyStored){
           // Store ship data at the dock
           dock.storedShips.push({
             shipId: self.id,
             shipType: self.shipType || self.class,
             owner: self.owner,
-            cargo: self.stores || {}
+              cargo: self.stores || {},
+              inventory: self.inventory || {}
           });
+            console.log('[Ship Storage] Stored ship', self.id, 'at dock', dockId, 'owner:', self.owner);
+          }
         }
         
         // Remove ship from active play
@@ -7963,8 +8041,8 @@ CargoShip = function(param){
     
     var isReturning = self.targetDock === self.homeDock;
     var announcement = isReturning ? 
-      '<b>🚢 Cargo Ship</b>: <i>Now returning to ' + targetDockName + '</i>' :
-      '<b>🚢 Cargo Ship</b>: <i>Next destination: ' + targetDockName + '</i>';
+      '<b>⛵ Cargo Ship</b>: <i>Now returning to ' + targetDockName + '</i>' :
+      '<b>⛵ Cargo Ship</b>: <i>Next destination: ' + targetDockName + '</i>';
     
     // Broadcast to nearby area (10 tiles)
     for(var playerId in Player.list){
@@ -8234,7 +8312,7 @@ CargoShip = function(param){
       var timeRemaining = Math.ceil(self.waitTimer / 60);
       socket.write(JSON.stringify({
         msg: 'addToChat',
-        message: '<i>🚢 Boarded cargo ship to <b>' + targetDockName + '</b>. Departing in ' + timeRemaining + ' seconds. (' + self.passengers.length + '/' + self.maxPassengers + ' passengers)</i>'
+        message: '<i>⛵ Boarded cargo ship to <b>' + targetDockName + '</b>. Departing in ' + timeRemaining + ' seconds. (' + self.passengers.length + '/' + self.maxPassengers + ' passengers)</i>'
       }));
     }
     
