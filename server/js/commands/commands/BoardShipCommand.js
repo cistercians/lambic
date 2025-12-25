@@ -85,13 +85,14 @@ class BoardShipCommand extends BaseCommand {
 
   /**
    * Find a stored ship by ID across all docks
-   * @param {string} shipId - Ship ID to find
+   * @param {string} shipId - Ship ID to find (original ship ID before being stored)
    * @param {string} playerId - Player ID (to verify ownership)
    * @returns {object|null} Ship entity or null
    */
   findStoredShip(shipId, playerId) {
     const Building = this.getGlobal('Building');
-    if (!Building || !Building.list) return null;
+    const Player = this.getGlobal('Player');
+    if (!Building || !Building.list || !Player || !Player.list) return null;
 
     // Search all docks for the stored ship
     for (const dockId in Building.list) {
@@ -105,14 +106,19 @@ class BoardShipCommand extends BaseCommand {
         // For other ships, verify ownership (use == for type coercion)
         const isOwned = storedShip.shipType === 'cargoship' || storedShip.owner == playerId;
         // Use == for shipId comparison in case of type mismatch (string vs number)
-        if (storedShip.shipId == shipId && isOwned) {
-          // Retrieve the ship from storage
+        if (String(storedShip.shipId) === String(shipId) && isOwned) {
+          // Retrieve the ship from storage (spawns it adjacent to dock)
           if (typeof dock.retrieveShip === 'function') {
             const retrievedShipId = dock.retrieveShip(playerId, i);
             if (retrievedShipId) {
-              const Player = this.getGlobal('Player');
-              if (Player && Player.list && Player.list[retrievedShipId]) {
-                return Player.list[retrievedShipId];
+              // Wait a frame for ship to be created, then find it
+              // Ship should now be in Player.list with the new ID
+              if (Player.list && Player.list[retrievedShipId]) {
+                const ship = Player.list[retrievedShipId];
+                // Verify it's actually a ship
+                if (ship.shipType || ship.type === 'ship') {
+                  return ship;
+                }
               }
             }
           }

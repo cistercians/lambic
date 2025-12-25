@@ -106,7 +106,7 @@ Interact = function(id,loc){
           // Find owned ships at THIS dock (FishingShip entities owned by this player)
           var ownedShips = [];
           
-          // Check stored ships at this dock
+          // Check stored ships at this dock (de-spawned ships that are still visible in UI)
           if(building.storedShips){
             for(var i in building.storedShips){
               var storedShip = building.storedShips[i];
@@ -115,7 +115,7 @@ Interact = function(id,loc){
                   id: storedShip.shipId,
                   type: storedShip.shipType,
                   name: storedShip.shipType === 'fishingship' ? '🐟 Fishing Ship' : storedShip.shipType,
-                  inventory: storedShip.cargo || {},
+                  inventory: storedShip.inventory || storedShip.cargo || {},
                   storedPlayer: null,
                   isStored: true
                 });
@@ -123,10 +123,23 @@ Interact = function(id,loc){
             }
           }
           
-          // Check active ships that are docked/anchored at this dock
+          // Check active ships that are docked/anchored at this dock (not yet de-spawned)
+          // Also check if ship is already stored to avoid duplicates
           for(var shipId in Player.list){
             var ship = Player.list[shipId];
             if(ship.shipType && ship.owner == id && !ship.toRemove && (ship.mode === 'docked' || ship.mode === 'anchored')){
+              // Skip if this ship is already in storedShips (shouldn't happen, but safety check)
+              var isAlreadyStored = false;
+              if(building.storedShips){
+                for(var j = 0; j < building.storedShips.length; j++){
+                  if(building.storedShips[j].shipId == shipId){
+                    isAlreadyStored = true;
+                    break;
+                  }
+                }
+              }
+              if(isAlreadyStored) continue;
+              
               // Check if ship's lastDock matches this dock OR if ship is near any dock plot tile
               var isAtThisDock = false;
               

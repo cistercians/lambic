@@ -6683,19 +6683,18 @@ Character.prototype.dockAtPort = function(dockId) {
     self.isPlayerControlled = false;
   }
   
-  // Store ship data at the CURRENT dock (where it just docked)
-  dock.storedShips.push({
-    shipId: self.id,
-    shipType: self.shipType || self.class,
-    owner: self.owner,
-    cargo: self.stores // Preserve other cargo
-  });
-  
-  // Update last dock AFTER creating association and storing
+  // Set ship to docked mode and start timer (do NOT store immediately)
+  // Ship remains in Player.list and visible in UI until timer expires
+  self.mode = 'docked';
+  self.dockedTimer = 3600; // 1 hour (60 seconds * 60 frames/sec)
   self.lastDock = dockId;
   
-  // Remove ship from active play
-  delete Player.list[self.id];
+  // Update ship name to show docked status
+  if(self.shipType === 'fishingship'){
+    self.name = 'Fishing Ship ⚓';
+  }
+  
+  console.log('[dockAtPort] Ship', self.id, 'docked at dock', dockId, '- timer set to', self.dockedTimer, 'frames');
   
 };
 
@@ -7077,15 +7076,15 @@ FishingShip = function(param){
           }
           
           if(!alreadyStored){
-          // Store ship data at the dock
-          dock.storedShips.push({
-            shipId: self.id,
-            shipType: self.shipType || self.class,
-            owner: self.owner,
+            // Store ship data at the dock when timer expires
+            dock.storedShips.push({
+              shipId: self.id,
+              shipType: self.shipType || self.class,
+              owner: self.owner,
               cargo: self.stores || {},
               inventory: self.inventory || {}
-          });
-            console.log('[Ship Storage] Stored ship', self.id, 'at dock', dockId, 'owner:', self.owner);
+            });
+            console.log('[Ship Storage] Timer expired - stored ship', self.id, 'at dock', dockId, 'owner:', self.owner);
           }
         }
         
