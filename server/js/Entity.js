@@ -1372,50 +1372,35 @@ Dock = function(param){
   
   // Find geographic zone on init - use land zone from plot tiles, not water zone
   self.findZone = function() {
-    console.log('[Dock findZone] Starting zone detection for dock', self.id, 'at location', getLoc(self.x, self.y));
     if(global.zoneManager && self.plot) {
-      console.log('[Dock findZone] Dock has', self.plot.length, 'plot tiles');
       // Iterate through dock's plot tiles to find a tile with value 11 (BUILD_MARKER = land tile)
       // Docks use tile value 11 for land tiles and 11.5 for water tiles
       for(var i = 0; i < self.plot.length; i++) {
         var plotTile = self.plot[i];
         var tileValue = getTile(0, plotTile[0], plotTile[1]);
-        console.log('[Dock findZone] Plot tile', i, 'at', plotTile, 'tile value:', tileValue, '(11=land, 11.5=water)');
         
         // Check if this is a land tile (tile value 11 = BUILD_MARKER)
         if(tileValue === 11) {
-          console.log('[Dock findZone] Found land tile (value 11) at', plotTile, '- checking zone');
           // Found a land tile - get zone name from this location
           var zone = global.zoneManager.getZoneAt(plotTile);
-          console.log('[Dock findZone] Zone found:', zone ? (zone.type + ' - ' + zone.name) : 'null');
       
           // Only use geographic features (not faction territories)
           if(zone && zone.type === 'geographic') {
             self.zoneName = zone.name;
-            console.log('[Dock findZone] SUCCESS: Dock', self.id, 'named as', self.zoneName, 'from land tile', plotTile);
             return; // Found land zone, stop searching
-          } else if(zone) {
-            console.log('[Dock findZone] Zone found but type is', zone.type, '(not geographic), skipping');
           }
-        } else {
-          console.log('[Dock findZone] Tile', plotTile, 'is water (tile value', tileValue, '!= 11), skipping');
         }
       }
       
       // Fallback: if no land tile found with zone, try center location
-      console.log('[Dock findZone] No land zone found in plot tiles, trying center location as fallback');
       var loc = getLoc(self.x, self.y);
       var zone = global.zoneManager.getZoneAt(loc);
-      console.log('[Dock findZone] Center location', loc, 'zone:', zone ? (zone.type + ' - ' + zone.name) : 'null');
       if(zone && zone.type === 'geographic') {
         self.zoneName = zone.name;
-        console.log('[Dock findZone] FALLBACK: Dock', self.id, 'named as', self.zoneName, 'from center location');
       } else {
-        console.log('[Dock findZone] WARNING: No geographic zone found for dock', self.id, '- using default name');
         self.zoneName = self.zoneName || 'Dock';
       }
     } else {
-      console.log('[Dock findZone] ERROR: zoneManager or plot not available for dock', self.id);
       self.zoneName = self.zoneName || 'Dock';
     }
   };
@@ -6559,32 +6544,22 @@ Character.prototype.dockAtPort = function(dockId) {
   var self = this;
   var dock = Building.list[dockId];
   if(!dock) {
-    console.log('[dockAtPort] Dock not found for dockId:', dockId);
     return;
   }
   
   // Prevent duplicate docking (ship might already be stored)
   if(self.mode === 'docked' && self.dockedTimer <= 0) {
-    console.log('[dockAtPort] Ship already docked and stored, skipping');
     return;
   }
   
   // INFORMATION TRANSFER: Pass boat's home dock data to this dock
   // This creates network associations between docks, enabling cargo ship routes
   // Must happen BEFORE updating lastDock to ensure proper association tracking
-  console.log('[dockAtPort] Boat', self.id, 'docking at dock', dockId);
-  console.log('[dockAtPort] Boat home dock (self.dock):', self.dock, 'last dock (self.lastDock):', self.lastDock);
   var dockToAssociate = self.dock || self.lastDock;
-  console.log('[dockAtPort] Dock to associate:', dockToAssociate);
   if(dockToAssociate && dockToAssociate !== dockId && dock.createDockAssociation) {
-    console.log('[dockAtPort] Creating association between dock', dockId, 'and dock', dockToAssociate);
     // Transfer home dock information: create bidirectional network association
     // This allows the dock to know about the boat's origin dock
     dock.createDockAssociation(dockToAssociate);
-  } else {
-    if(!dockToAssociate) console.log('[dockAtPort] No dock to associate (both self.dock and self.lastDock are falsy)');
-    if(dockToAssociate === dockId) console.log('[dockAtPort] Skipping association (dockToAssociate === dockId)');
-    // Dock association method should exist
   }
   
   // Automatically unload fish from ship to owner's stores
@@ -6719,7 +6694,6 @@ Character.prototype.dockAtPort = function(dockId) {
     self.name = 'Fishing Ship ⚓';
   }
   
-  console.log('[dockAtPort] Ship', self.id, 'docked at dock', dockId, '- timer set to', self.dockedTimer, 'frames');
   
 };
 
@@ -7109,7 +7083,6 @@ FishingShip = function(param){
               cargo: self.stores || {},
               inventory: self.inventory || {}
             });
-            console.log('[Ship Storage] Timer expired - stored ship', self.id, 'at dock', dockId, 'owner:', self.owner);
           }
         }
         
@@ -8215,24 +8188,15 @@ CargoShip = function(param){
   };
   
   self.update = function(){
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Entity.js:8251',message:'CargoShip update called',data:{shipId:self.id,mode:self.mode,name:self.name,hasAnchor:self.name && self.name.includes('⚓')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
     // FIRST: Ensure name is always in sync with mode (run every frame as safeguard)
     if(self.mode === 'sailing'){
       // Ensure anchor emoji is removed from name when sailing
       if(!self.name || self.name.includes('⚓')){
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Entity.js:8255',message:'CargoShip removing anchor emoji',data:{shipId:self.id,mode:self.mode,oldName:self.name,newName:'Cargo Ship'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-        // #endregion
         self.name = 'Cargo Ship';
       }
     } else if(self.mode === 'waiting' || self.mode === 'docked'){
       // Ensure anchor emoji is present when waiting/docked
       if(!self.name || !self.name.includes('⚓')){
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Entity.js:8260',message:'CargoShip adding anchor emoji',data:{shipId:self.id,mode:self.mode,oldName:self.name,newName:'Cargo Ship ⚓'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-        // #endregion
         self.name = 'Cargo Ship ⚓';
       }
     }
@@ -8255,9 +8219,6 @@ CargoShip = function(param){
       self.waitTimer--;
       if(self.waitTimer === 0 && self.mode === 'waiting'){
         // Depart for destination
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Entity.js:8283',message:'CargoShip mode change waiting->sailing',data:{shipId:self.id,oldMode:'waiting',newMode:'sailing',oldName:self.name},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-        // #endregion
         self.mode = 'sailing';
         self.name = 'Cargo Ship';
         
@@ -8335,18 +8296,12 @@ CargoShip = function(param){
     
     // CRITICAL: Mark player as boarded AND sync all coordinates atomically
     // This prevents terrain checks from setting z=-3 when player is moved to water
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Entity.js:8359',message:'CargoShip boardPassenger BEFORE setting player properties',data:{shipId:self.id,shipType:self.shipType,playerId:playerId,playerShipType:player.shipType,playerIsBoarded:player.isBoarded},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-    // #endregion
     player.isBoarded = true;
     player.boardedShip = self.id;
     player.shipType = self.shipType; // Set shipType so AudioManager can detect ship context
     player.x = self.x;
     player.y = self.y;
     player.z = 0; // Always overworld, don't sync z from ship
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Entity.js:8364',message:'CargoShip boardPassenger AFTER setting player properties',data:{shipId:self.id,shipType:self.shipType,playerId:playerId,playerShipType:player.shipType,playerIsBoarded:player.isBoarded,playerBoardedShip:player.boardedShip},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-    // #endregion
     
     // EXTRA SAFETY: Force z=0 explicitly again after all position updates
     player.z = 0;

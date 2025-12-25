@@ -931,23 +931,14 @@ var SocketMessageHandler = {
         var posChanged = false;
         var isShip = p.type === 'ship';
         if(pack.x != undefined && p.x !== pack.x) { 
-          // #region agent log
-          if(isShip) fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SocketMessageHandler.js:932',message:'Ship X position update',data:{shipId:p.id,shipType:p.shipType,oldX:p.x,newX:pack.x},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'F'})}).catch(()=>{});
-          // #endregion
           p.x = pack.x; 
           posChanged = true; 
         }
         if(pack.y != undefined && p.y !== pack.y) { 
-          // #region agent log
-          if(isShip) fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SocketMessageHandler.js:936',message:'Ship Y position update',data:{shipId:p.id,shipType:p.shipType,oldY:p.y,newY:pack.y},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'F'})}).catch(()=>{});
-          // #endregion
           p.y = pack.y; 
           posChanged = true; 
         }
         if(pack.z != undefined && p.z !== pack.z) { 
-          // #region agent log
-          if(isShip) fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SocketMessageHandler.js:940',message:'Ship Z position update',data:{shipId:p.id,shipType:p.shipType,oldZ:p.z,newZ:pack.z},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'F'})}).catch(()=>{});
-          // #endregion
           p.z = pack.z; 
           posChanged = true; 
         }
@@ -1053,9 +1044,6 @@ var SocketMessageHandler = {
         var now = Date.now();
         if (now - p._lastNonVisualUpdate > 500) {
           if(pack.name != undefined) {
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SocketMessageHandler.js:1035',message:'Updating entity name',data:{entityId:p.id,entityType:p.type,oldName:p.name,newName:pack.name,isShip:p.type==='ship',isBoarded:typeof selfId!=='undefined'&&p.id===selfId&&p.isBoarded,boardedShip:p.boardedShip},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'E'})}).catch(()=>{});
-            // #endregion
             p.name = pack.name;
           }
           if(pack.house != undefined) p.house = pack.house;
@@ -1070,9 +1058,6 @@ var SocketMessageHandler = {
           p._lastNonVisualUpdate = now;
         } else if(pack.name != undefined && p.type === 'ship') {
           // Always update ship names immediately (don't throttle) - critical for anchor emoji display
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SocketMessageHandler.js:1047',message:'Updating ship name immediately (bypass throttle)',data:{entityId:p.id,oldName:p.name,newName:pack.name,isBoarded:typeof selfId!=='undefined'&&p.id===selfId&&p.isBoarded,boardedShip:p.boardedShip},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'E'})}).catch(()=>{});
-          // #endregion
           p.name = pack.name;
         }
         
@@ -1093,9 +1078,6 @@ var SocketMessageHandler = {
         if(pack.shipMode != undefined) p.shipMode = pack.shipMode;
         // Always update shipType immediately (don't throttle) - critical for audio context
         if(pack.shipType != undefined) {
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SocketMessageHandler.js:1080',message:'Setting player.shipType from pack (bypass throttle)',data:{playerId:p.id,oldShipType:p.shipType,newShipType:pack.shipType,isBoarded:p.isBoarded,boardedShip:p.boardedShip},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'G'})}).catch(()=>{});
-          // #endregion
           p.shipType = pack.shipType;
         }
         if(pack.isPlayerControlled != undefined) p.isPlayerControlled = pack.isPlayerControlled;
