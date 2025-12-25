@@ -86,7 +86,9 @@ var AudioSystem = {
    */
   getBgm: function(x, y, z, b) {
     // Check if player is controlling a ship OR is a passenger - overrides all other music
-    if(Player.list[selfId] && (Player.list[selfId].shipType || Player.list[selfId].isBoarded)){
+    // Check both isBoarded and boardedShip to ensure we catch all cases
+    var player = Player.list[selfId];
+    if(player && (player.shipType || player.isBoarded || player.boardedShip)){
       bgmPlayer(ship_bgm); // Keep ship music while on ship
       this.soundscape(x,y,z,{}); // Handle ship ambience (sea.mp3)
       return; // Skip other checks

@@ -870,6 +870,22 @@ class InputHandler {
                 // On client side, building.built might be undefined - assume building exists means it's built
                 if (!b || (b.built === false) || !isInteractableBuilding(b)) continue;
                 
+                // For docks, ONLY check plot[4] (the non-walkable interactable tile)
+                // Don't use building center check for docks - they must be detected via plot[4]
+                if (b.type === 'dock' && b.plot && Array.isArray(b.plot) && b.plot[4] && b.plot[4].length >= 2) {
+                  const plot4X = b.plot[4][0] * tileSize + tileSize / 2;
+                  const plot4Y = b.plot[4][1] * tileSize + tileSize / 2;
+                  const dx = plot4X - worldX;
+                  const dy = plot4Y - worldY;
+                  const dist = Math.sqrt(dx * dx + dy * dy);
+                  if (dist < tileSize * 0.8) {
+                    buildingId = b.id;
+                    break;
+                  }
+                  // Skip center check and other plot tiles for docks
+                  continue;
+                }
+                
                 // Check if mouse is near building center (within 1.5 tiles)
                 if (b.x !== undefined && b.y !== undefined) {
                   const dx = b.x - worldX;
@@ -928,9 +944,15 @@ class InputHandler {
               if (building.plot && Array.isArray(building.plot)) {
                 if (building.type === 'dock') {
                   // For docks: only plot[4] (the non-walkable tile) is interactable
-                  // Check if hovered tile matches plot[4] - the non-walkable tile
+                  // Check if hovered position is close to plot[4] - use distance check like building detection
                   if (building.plot[4] && building.plot[4].length >= 2) {
-                    if (building.plot[4][0] === hoveredTile[0] && building.plot[4][1] === hoveredTile[1]) {
+                    const plot4X = building.plot[4][0] * tileSize + tileSize / 2;
+                    const plot4Y = building.plot[4][1] * tileSize + tileSize / 2;
+                    const dx = plot4X - worldX;
+                    const dy = plot4Y - worldY;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    // Use same distance threshold as building detection (0.8 tiles)
+                    if (dist < tileSize * 0.8) {
                       isInteractableTile = true;
                     }
                   }

@@ -31,6 +31,14 @@ class SimpleCombat {
     if (target.hp !== null && target.hp <= 0) return false;
     // Additional validation: check if target still exists in Player.list
     if (global.Player.list && !global.Player.list[target.id]) return false;
+    
+    // Skip boarded players - they are not targetable (only the ship should be targetable)
+    if (target.isBoarded || target.boardedShip) return false;
+    
+    // For fauna (wolves and boars), skip ships - they should not target ships
+    const faunaClasses = ['Wolf', 'Boar'];
+    if (faunaClasses.includes(entity.class) && target.shipType) return false;
+    
     return true;
   }
 
@@ -910,6 +918,14 @@ class SimpleCombat {
         if (target.shipType && nonCombatShipTypes.includes(target.shipType)) continue;
         if (target.isPrey && entity.class !== 'Wolf') continue;
         if (target.isPrey && entity.class === 'Serf') continue;
+        
+        // Skip boarded players - they are not targetable (only the ship should be targetable)
+        if (target.isBoarded || target.boardedShip) continue;
+        
+        // For fauna (wolves and boars), skip ships - they should not target ships
+        // Enemy NPCs can still target ships
+        const faunaClasses = ['Wolf', 'Boar'];
+        if (faunaClasses.includes(entity.class) && target.shipType) continue;
 
         const distance = this.getDistance(target, entity);
         if (distance > aggroRange) continue;

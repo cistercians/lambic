@@ -6446,8 +6446,12 @@ Building.prototype.retrieveShip = function(playerId, shipIndex) {
   
   // Recreate ship based on type
   var shipConstructor = global[constructorName];
-  if(!shipConstructor) return null;
+  if(!shipConstructor) {
+    console.log('[retrieveShip] ERROR: Ship constructor not found:', constructorName);
+    return null;
+  }
   
+  console.log('[retrieveShip] Creating ship with constructor:', constructorName, 'at', spawnCoords);
   var ship = shipConstructor({
     x: spawnCoords[0],
     y: spawnCoords[1],
@@ -6458,6 +6462,19 @@ Building.prototype.retrieveShip = function(playerId, shipIndex) {
     kingdom: self.kingdom,
     mode: 'docked' // Start in docked mode
   });
+  
+  if(!ship) {
+    console.log('[retrieveShip] ERROR: Ship constructor returned null');
+    return null;
+  }
+  
+  console.log('[retrieveShip] Ship created with ID:', ship.id, 'type:', ship.shipType);
+  
+  // Verify ship is in Player.list
+  if(!Player.list[ship.id]) {
+    console.log('[retrieveShip] ERROR: Ship not found in Player.list after creation!');
+    return null;
+  }
   
   // Restore cargo
   if(shipData.cargo) {
@@ -6472,7 +6489,7 @@ Building.prototype.retrieveShip = function(playerId, shipIndex) {
   // Restore last dock reference
   ship.lastDock = self.id;
   
-  console.log('[retrieveShip] Successfully recreated ship', ship.id, 'from stored data');
+  console.log('[retrieveShip] Successfully recreated ship', ship.id, 'from stored data. Ship in Player.list:', !!Player.list[ship.id]);
   return ship.id;
 };
 
@@ -8223,6 +8240,10 @@ CargoShip = function(param){
     
     // Handle sailing mode
     if(self.mode === 'sailing'){
+      // Ensure anchor emoji is removed from name when sailing
+      if(self.name && self.name.includes('⚓')){
+        self.name = 'Cargo Ship';
+      }
       self.navigateToTarget();
     }
     
