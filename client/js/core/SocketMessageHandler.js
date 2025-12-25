@@ -1308,7 +1308,6 @@ var SocketMessageHandler = {
       if(typeof ambPlayer !== 'undefined' && typeof Amb !== 'undefined') {
         ambPlayer(Amb.spirits); // Play spirits ambience
       }
-      console.log('Ghost mode activated: playing death music');
       
       // Pause AudioManager briefly to let manual audio play, then let it take over
       if(typeof audioManager !== 'undefined'){
@@ -1323,7 +1322,6 @@ var SocketMessageHandler = {
       // Player respawned - force audio update via AudioManager
       if(typeof audioManager !== 'undefined' && audioManager.forceUpdate){
         audioManager.forceUpdate();
-        console.log('Ghost mode deactivated: AudioManager updating to normal audio');
       } else {
         // Legacy fallback: immediately switch to normal music and ambience
         // Stop current music and force immediate change
@@ -1463,7 +1461,6 @@ var SocketMessageHandler = {
             }
           }
         }
-        console.log('Ghost mode deactivated: immediately switched to normal music');
       }
     }
   },

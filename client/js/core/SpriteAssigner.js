@@ -39,11 +39,6 @@ function assignSpriteToEntity(entity, entityClass, isGhost, tileSize) {
   // CRITICAL: Fallback check - if type is missing but class indicates fauna, treat as fauna
   const faunaClasses = ['Deer', 'Boar', 'Wolf', 'Falcon', 'Sheep'];
   if (faunaClasses.includes(entityClass) && entity.type !== 'fauna') {
-    console.warn('[FAUNA DEBUG] Fauna class detected but type not "fauna" - fixing in SpriteAssigner:', {
-      entityId: entity.id,
-      entityClass: entityClass,
-      currentType: entity.type
-    });
     entity.type = 'fauna';
   }
   
@@ -56,14 +51,12 @@ function assignSpriteToEntity(entity, entityClass, isGhost, tileSize) {
       if (ghostSprite) {
         const data = spriteRegistry.registry[entityClass];
         if (data) {
-          console.log(`[GHOST SPRITE] Assigning ghost sprite to entity ${entity.id} (class: ${entityClass})`);
           entity.sprite = ghostSprite;
           entity.spriteSize = data.spriteSize;
           entity._invalidSprite = false;
           return true;
         }
       }
-      console.error(`CRITICAL: Ghost sprite not available for entity ${entity.id} (class: ${entityClass})`);
     } else {
       console.error(`CRITICAL: No sprite found for class "${entityClass}"`, isFauna ? '(FAUNA ENTITY)' : '');
     }
