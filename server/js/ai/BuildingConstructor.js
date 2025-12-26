@@ -178,15 +178,200 @@ class BuildingConstructor {
     return false; // No valid location found
   }
   
-  // Construct a mine
-  buildMine(location = null) {
+  // Check if a mill can be placed (validation-only)
+  canPlaceMill(location = null) {
     const hq = this.house.hq;
     const searchCenter = location || hq;
     const radius = location ? 3 : 10;
     
-    const spot = global.tilemapSystem.findBuildingSpot('mine', searchCenter, radius, {
+    const spot = global.tilemapSystem.findBuildingSpot('mill', searchCenter, radius, {
       excludeTiles: this.getOccupiedTiles()
     });
+    
+    return spot !== null && spot.plot && spot.plot[0];
+  }
+  
+  // Check if a mine can be placed (validation-only)
+  canPlaceMine(location = null, mineType = 'any') {
+    const hq = this.house.hq;
+    const searchCenter = location || hq;
+    const radius = location ? 3 : 10;
+    
+    // Use same logic as buildMine but just check for spot
+    let spot = null;
+    if (mineType === 'stone') {
+      spot = global.tilemapSystem.findBuildingSpot('mine', searchCenter, radius, {
+        excludeTiles: this.getOccupiedTiles()
+      });
+      if (spot && spot.plot && spot.plot[0]) {
+        const nearCave = this.isNearCaveEntrance(spot.plot[0]);
+        if (nearCave) {
+          spot = null; // Stone mine shouldn't be near cave
+        }
+      }
+    } else if (mineType === 'cave') {
+      if (global.caveEntrances && global.caveEntrances.length > 0) {
+        for (const cave of global.caveEntrances) {
+          const caveLoc = cave.loc || cave;
+          if (!caveLoc || !Array.isArray(caveLoc)) continue;
+          const caveSearchRadius = 6;
+          spot = global.tilemapSystem.findBuildingSpot('mine', caveLoc, caveSearchRadius, {
+            excludeTiles: this.getOccupiedTiles()
+          });
+          if (spot) break;
+        }
+      }
+      if (!spot) {
+        spot = global.tilemapSystem.findBuildingSpot('mine', searchCenter, radius, {
+          excludeTiles: this.getOccupiedTiles()
+        });
+      }
+    } else {
+      spot = global.tilemapSystem.findBuildingSpot('mine', searchCenter, radius, {
+        excludeTiles: this.getOccupiedTiles()
+      });
+    }
+    
+    return spot !== null && spot.plot && spot.plot[0];
+  }
+  
+  // Check if a lumbermill can be placed (validation-only)
+  canPlaceLumbermill(location = null) {
+    const hq = this.house.hq;
+    const searchCenter = location || hq;
+    const radius = location ? 3 : 10;
+    
+    const spot = global.tilemapSystem.findBuildingSpot('lumbermill', searchCenter, radius, {
+      excludeTiles: this.getOccupiedTiles()
+    });
+    
+    return spot !== null && spot.plot && spot.plot[0];
+  }
+  
+  // Check if a forge can be placed (validation-only)
+  canPlaceForge(location = null) {
+    const hq = this.house.hq;
+    const searchCenter = location || hq;
+    const radius = location ? 3 : 10;
+    
+    const spot = global.tilemapSystem.findBuildingSpot('forge', searchCenter, radius, {
+      excludeTiles: this.getOccupiedTiles()
+    });
+    
+    return spot !== null && spot.plot && spot.plot[0];
+  }
+  
+  // Check if a garrison can be placed (validation-only)
+  canPlaceGarrison(location = null) {
+    const hq = this.house.hq;
+    const searchCenter = location || hq;
+    const radius = location ? 3 : 10;
+    
+    const spot = global.tilemapSystem.findBuildingSpot('garrison', searchCenter, radius, {
+      excludeTiles: this.getOccupiedTiles()
+    });
+    
+    return spot !== null && spot.plot && spot.plot[0];
+  }
+  
+  // Check if location is near a cave entrance (within 384 pixels / ~6 tiles)
+  isNearCaveEntrance(location) {
+    if (!location || !Array.isArray(location) || location.length < 2) {
+      return null;
+    }
+    
+    const TERRAIN = global.TERRAIN || {};
+    const CAVE_ENTRANCE = TERRAIN.CAVE_ENTRANCE || 6;
+    const CAVE_PROXIMITY_DISTANCE = 384; // pixels (6 tiles * 64 pixels)
+    
+    // Check global.caveEntrances array if available
+    if (global.caveEntrances && Array.isArray(global.caveEntrances)) {
+      const locCoords = global.getCenter ? global.getCenter(location[0], location[1]) : [location[0] * 64, location[1] * 64];
+      
+      for (const cave of global.caveEntrances) {
+        const caveLoc = cave.loc || cave;
+        if (!caveLoc || !Array.isArray(caveLoc) || caveLoc.length < 2) continue;
+        
+        const caveCoords = global.getCenter ? global.getCenter(caveLoc[0], caveLoc[1]) : [caveLoc[0] * 64, caveLoc[1] * 64];
+        const distance = Math.sqrt(
+          Math.pow(caveCoords[0] - locCoords[0], 2) + 
+          Math.pow(caveCoords[1] - locCoords[1], 2)
+        );
+        
+        if (distance <= CAVE_PROXIMITY_DISTANCE) {
+          return caveLoc; // Return cave location for mine.cave property
+        }
+      }
+    }
+    
+    // Fallback: check nearby tiles for CAVE_ENTRANCE terrain
+    const searchRadius = 6; // tiles
+    for (let dr = -searchRadius; dr <= searchRadius; dr++) {
+      for (let dc = -searchRadius; dc <= searchRadius; dc++) {
+        const checkTile = [location[0] + dc, location[1] + dr];
+        const terrain = global.getTile ? global.getTile(0, checkTile[0], checkTile[1]) : null;
+        
+        if (terrain === CAVE_ENTRANCE) {
+          // Found cave entrance nearby
+          return checkTile;
+        }
+      }
+    }
+    
+    return null; // No cave entrance nearby
+  }
+  
+  // Construct a mine
+  buildMine(location = null, mineType = 'any') {
+    const hq = this.house.hq;
+    const searchCenter = location || hq;
+    const radius = location ? 3 : 10;
+    
+    // If mineType is specified, adjust search behavior
+    let spot = null;
+    if (mineType === 'stone') {
+      // Prefer locations NOT near caves (stone mines)
+      spot = global.tilemapSystem.findBuildingSpot('mine', searchCenter, radius, {
+        excludeTiles: this.getOccupiedTiles()
+      });
+      
+      // Verify it's not near a cave
+      if (spot && spot.plot && spot.plot[0]) {
+        const nearCave = this.isNearCaveEntrance(spot.plot[0]);
+        if (nearCave) {
+          // This location is near a cave, try to find another
+          spot = null; // Will search again below
+        }
+      }
+    } else if (mineType === 'cave') {
+      // Prefer locations near caves (ore mines)
+      // First try to find a spot near a cave
+      if (global.caveEntrances && global.caveEntrances.length > 0) {
+        for (const cave of global.caveEntrances) {
+          const caveLoc = cave.loc || cave;
+          if (!caveLoc || !Array.isArray(caveLoc)) continue;
+          
+          const caveSearchRadius = 6; // tiles
+          spot = global.tilemapSystem.findBuildingSpot('mine', caveLoc, caveSearchRadius, {
+            excludeTiles: this.getOccupiedTiles()
+          });
+          
+          if (spot) break;
+        }
+      }
+      
+      // Fallback to normal search if no cave spot found
+      if (!spot) {
+        spot = global.tilemapSystem.findBuildingSpot('mine', searchCenter, radius, {
+          excludeTiles: this.getOccupiedTiles()
+        });
+      }
+    } else {
+      // 'any' - use normal search
+      spot = global.tilemapSystem.findBuildingSpot('mine', searchCenter, radius, {
+        excludeTiles: this.getOccupiedTiles()
+      });
+    }
     
     if (!spot || !spot.plot || !spot.plot[0]) {
       return null;
@@ -194,6 +379,9 @@ class BuildingConstructor {
     
     const plot = spot.plot;
     const center = global.getCenter(plot[0][0], plot[0][1]);
+    
+    // Check if this location is near a cave entrance
+    const nearCave = this.isNearCaveEntrance(plot[0]);
     
     // Store original terrain before changing tiles
     const baseTerrain = [];
@@ -210,7 +398,7 @@ class BuildingConstructor {
     
     // Create mine (no topPlot property needed)
     const mineId = Math.random();
-    Mine({
+    const mineParams = {
       id: mineId,
       house: this.house.id,
       owner: this.house.id,
@@ -224,7 +412,14 @@ class BuildingConstructor {
       mats: { wood: 40, stone: 0 },
       req: 5,
       hp: 150
-    });
+    };
+    
+    // Set cave property if near cave entrance (this determines if it's an ore mine)
+    if (nearCave) {
+      mineParams.cave = nearCave;
+    }
+    
+    Mine(mineParams);
     
     // Check if building is outside base territory (mark as colony)
     const building = global.Building.list[mineId];

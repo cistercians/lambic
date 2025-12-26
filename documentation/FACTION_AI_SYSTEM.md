@@ -178,51 +178,128 @@ evaluateNewGoals() {
     ...this.strategy.evaluateDefenseGoals()
   ];
   
-  // Filter out goals with 0 utility
-  const validGoals = possibleGoals.filter(g => g.utility > 0);
+  // Phase 8: Resource Balance Monitoring
+  const resourceBalance = this.checkResourceBalance();
   
-  // Sort by utility (highest first)
-  validGoals.sort((a, b) => b.utility - a.utility);
+  // Phase 9: Goal Consideration Tracking
+  possibleGoals.forEach(g => {
+    if (g.utility > 0) {
+      this.recordGoalConsideration(g.type);
+    }
+  });
   
-  if (validGoals.length > 0) {
-    const topGoal = validGoals[0];
+  // Filter out goals with 0 utility and apply filters
+  const validGoals = possibleGoals.filter(g => {
+    if (g.utility <= 0) return false;
+    
+    // Check if goal should be avoided due to recent failures
+    if (this.shouldAvoidGoal(g.type)) return false;
+    
+    // Check if goal can execute (resources, buildings)
+    if (!g.canExecute(this.house)) {
+      // Phase 7: Force dependency chain for high-value goals even if blocked
+      if (g.type === 'BUILD_GARRISON' || g.type === 'BUILD_FORGE') {
+        // Don't filter out - will force chain creation
+        return true;
+      }
+      return false;
+    }
+    
+    // Phase 3: Location pre-validation
+    if (g.canPlace && typeof g.canPlace === 'function') {
+      if (!g.canPlace(this.house)) return false;
+    }
+    
+    return true;
+  });
+  
+  // Phase 8: Apply resource balance boosts
+  possibleGoals.forEach(g => {
+    if (g.type === 'BUILD_MINE' && (resourceBalance.imbalances.stoneScarce || resourceBalance.imbalances.needsStone)) {
+      g.utility *= 1.5; // Boost stone mine utility when stone is scarce
+    }
+  });
+  
+  // Apply failure penalties (adaptive learning)
+  const adjustedGoals = validGoals.map(g => {
+    let adjustedUtility = this.getAdjustedUtility(g);
+    
+    // Phase 9: Force goal selection after multiple considerations
+    if (this.shouldForceGoalSelection(g.type) && adjustedUtility > 0) {
+      adjustedUtility = Math.max(adjustedUtility, 50); // Minimum 50 utility
+    }
+    
+    return { goal: g, utility: adjustedUtility };
+  });
+  
+  // Sort by adjusted utility
+  adjustedGoals.sort((a, b) => b.utility - a.utility);
+  const sortedGoals = adjustedGoals.map(item => item.goal);
+  
+  if (sortedGoals.length > 0) {
+    let topGoal = sortedGoals[0];
+    
+    // Phase 7: Force dependency chain for high-value goals
+    if ((topGoal.type === 'BUILD_GARRISON' || topGoal.type === 'BUILD_FORGE') && !topGoal.canExecute(this.house)) {
+      // Boost utility of prerequisite goals
+      if (topGoal.type === 'BUILD_GARRISON') {
+        const forgeGoal = possibleGoals.find(g => g.type === 'BUILD_FORGE');
+        if (forgeGoal) forgeGoal.utility = Math.max(forgeGoal.utility, 60);
+      }
+    }
     
     // Create goal chain to resolve dependencies (iterative queue-based)
-    this.currentGoalChain = GoalChain.create(this.house, topGoal);
+    this.currentGoalChain = GoalChain.create(this.house, topGoal, this.logger);
     
-    // Validate chain after creation
-    if (this.currentGoalChain.errors && this.currentGoalChain.errors.length > 0) {
-      // Log errors but continue (chain may still be usable)
-    }
-    
-    // Check if chain has steps (empty chain means goal is immediately executable)
-    if (this.currentGoalChain.steps.length === 0) {
-      // Try executing goal directly if it can execute
-      if (topGoal.canExecute(this.house)) {
-        try {
-          topGoal.execute(this.house);
-          topGoal.status = 'COMPLETED';
-        } catch (error) {
-          // Log error and mark as failed
-        }
-      }
-      this.currentGoalChain = null;
-      return;
-    }
-    
-    // Execute first goal in chain
-    this.executeCurrentGoal();
+    // ... rest of chain creation and execution
   }
 }
 ```
+
+**New Methods**:
+
+**checkResourceBalance()** (Phase 8):
+- Calculates resource ratios (wood:stone, grain:stone)
+- Identifies imbalances (stone scarce, wood excessive, etc.)
+- Returns balance analysis with resource counts and imbalance flags
+
+**recordGoalConsideration(goalType)** (Phase 9):
+- Tracks how many times each goal has been considered
+- Stores consideration count and last consideration day
+- Used for stagnation prevention
+
+**shouldForceGoalSelection(goalType)** (Phase 9):
+- Returns true if goal has been considered 3+ times
+- Used to force selection of repeatedly considered goals
+- Prevents infinite consideration loops
 
 #### Goal Execution (`executeCurrentGoal()`)
 
 Delegates to `GoalExecutor` for execution logic:
 - Gets current goal from chain
 - Delegates execution to `goalExecutor.executeGoal()`
+- **Execution Verification** (Phase 6): GoalExecutor verifies buildings were actually created
+- Tracks failures for adaptive learning (`recordGoalFailure()`)
 - Handles chain advancement or clearing based on result
 - Separates execution logic from chain management
+
+#### Resource Production Tracking
+
+**getResourceProductionRate(resourceType)**:
+- Returns production rate per building per day
+- Stone: 5 per stone mine
+- Wood: 8 per lumbermill
+- Grain: 10 per farm
+- Ores: 3 ironore, 2 silverore, 1 goldore per cave mine
+
+**estimateGatheringTime(resourceType, targetAmount)**:
+- Calculates days needed to gather target amount
+- Accounts for mine types (stone mines for stone, cave mines for ores)
+- Returns Infinity if no production capacity
+
+**canGatherWithinReasonableTime(resourceType, targetAmount, maxDays)**:
+- Checks if resources can be gathered within reasonable time (default 10 days)
+- Used by GatherResourceGoal to determine if goal is feasible
 
 #### Scouting System
 
@@ -290,6 +367,18 @@ constructor(house) {
 - Optimized: checks count cache first (O(1) when cached)
 - Only fetches full building list on cache miss (O(n))
 - Example: `house.ai.buildingService.getBuildingCount('mill')`
+
+**getStoneMineCount()**:
+- Returns count of stone mines (mines that are NOT near caves)
+- Checks for mines where `building.cave` is null or false
+- Cached per day like other building counts
+- Used for stone resource production calculations
+
+**getCaveMineCount()**:
+- Returns count of cave mines (mines that ARE near caves)
+- Checks for mines where `building.cave` is truthy
+- Cached per day like other building counts
+- Used for ore resource production calculations (ironore, silverore, goldore)
 
 **hasBuildingType(buildingType)**:
 - Returns true if house has at least one building of type
@@ -366,10 +455,24 @@ constructor(house, factionAI) {
 #### Executable Goal Execution
 
 **executeExecutableGoal(goal, goalChain)**:
+- Tracks building count before execution (for verification)
 - Executes goal in try-catch block
+- **Execution Verification** (Phase 6):
+  - Invalidates BuildingService cache to ensure fresh counts
+  - Verifies building was actually created using `verifyBuildingCreation()`
+  - Checks building count increased (before vs after)
+  - Marks goal as FAILED if verification fails
+  - Throws error to trigger retry or alternative goal selection
 - Marks goal as COMPLETED on success
 - On error: creates structured error object, logs with context, marks goal as FAILED
 - Returns success result with shouldAdvance=true
+
+**verifyBuildingCreation(goal, house)**:
+- Checks if goal is a building goal (startsWith 'BUILD_')
+- For farms: Checks if any farm exists for the house (simplified check)
+- For other buildings: Verifies building exists in Building.list with correct owner, type, and built status
+- Returns true if building exists, false otherwise
+- Prevents silent execution failures where goals complete but buildings aren't created
 
 #### Blocked Goal Handling
 
@@ -594,26 +697,49 @@ Handles all building construction for AI factions, ensuring proper placement and
 
 ### Building Types & Placement Logic
 
+All building types now have corresponding `canPlaceX()` validation methods for pre-placement checks:
+- `canPlaceMill(location)` - Validates mill placement
+- `canPlaceFarm(location)` - Validates farm placement (checks all mills with incremental radius)
+- `canPlaceMine(location, mineType)` - Validates mine placement (with mine type preference)
+- `canPlaceLumbermill(location)` - Validates lumbermill placement
+- `canPlaceForge(location)` - Validates forge placement
+- `canPlaceGarrison(location)` - Validates garrison placement
+
 #### 1. Mill (`buildMill()`)
 - **Search**: 10 tiles from HQ (or 3 if location specified)
 - **Cost**: {wood: 40, stone: 20}
 - **Requirements**: None
 - **Placement**: Uses `tilemapSystem.findBuildingSpot('mill', ...)`
 - **Validation**: Excludes occupied tiles (HQ + existing buildings)
+- **canPlaceMill()**: Pre-placement validation method
 
 #### 2. Farm (`buildFarm()`)
-- **Search**: 4 tiles from nearest mill
+- **Search**: 6-10 tiles from ALL mills (incremental radius expansion)
 - **Cost**: {wood: 20}
 - **Requirements**: Mill must exist
-- **Placement**: Finds mill, searches nearby
+- **Placement**: Iterates through all mills, tries each with expanding radius (6→8→10)
 - **Special**: Terrain changed to FARM_SEED (8)
+- **canPlaceFarm()**: Pre-placement validation that checks all mills with incremental radius
 
-#### 3. Mine (`buildMine()`)
+#### 3. Mine (`buildMine(location, mineType)`)
 - **Search**: 10 tiles from HQ (or 3 if location specified)
 - **Cost**: {wood: 30, stone: 20}
 - **Requirements**: None
 - **Placement**: Can be on EMPTY, ROCKS, or MOUNTAIN terrain
-- **Validation**: Checks plot validity
+- **Mine Types** (Phase 2.4: Mine Type Differentiation):
+  - **Stone Mines**: Built away from caves (mineType='stone')
+    - Produces stone resources
+    - Searches for locations NOT near cave entrances
+  - **Cave Mines**: Built near caves (mineType='cave')
+    - Produces ores (ironore, silverore, goldore)
+    - Searches near cave entrances (within 384 pixels / ~6 tiles)
+    - Sets `building.cave` property to cave location
+  - **Any**: Normal search (mineType='any')
+- **Cave Detection**: `isNearCaveEntrance(location)` checks:
+  - Global `caveEntrances` array for proximity
+  - Terrain layer for CAVE_ENTRANCE tiles within 6-tile radius
+- **Validation**: Checks plot validity and cave proximity
+- **canPlaceMine(location, mineType)**: Validation method for pre-placement checks
 
 #### 4. Lumbermill (`buildLumbermill()`)
 - **Search**: 10 tiles from HQ (or 3 if location specified)
@@ -621,6 +747,7 @@ Handles all building construction for AI factions, ensuring proper placement and
 - **Requirements**: None
 - **Placement**: Should be near forest
 - **Validation**: Verifies nearby forest (5-tile radius, min 10-12 forest tiles)
+- **canPlaceLumbermill()**: Pre-placement validation method
 
 #### 5. Forge (`buildForge()`)
 - **Search**: 10 tiles from HQ (or 3 if location specified)
@@ -628,6 +755,7 @@ Handles all building construction for AI factions, ensuring proper placement and
 - **Requirements**: None
 - **Placement**: Uses unified construction system
 - **Special**: Updates patrol list after construction
+- **canPlaceForge()**: Pre-placement validation method
 
 #### 6. Garrison (`buildGarrison()`)
 - **Search**: 10 tiles from HQ (or 3 if location specified)
@@ -635,6 +763,7 @@ Handles all building construction for AI factions, ensuring proper placement and
 - **Requirements**: Forge must exist
 - **Placement**: Uses unified construction system
 - **Special**: Updates patrol list after construction
+- **canPlaceGarrison()**: Pre-placement validation method
 
 ### Colony System
 
@@ -713,11 +842,11 @@ class Goal {
 |------|---------|------|--------------|-------|
 | **BuildMillGoal** | 45 | {wood: 40, stone: 20} | None | Foundation for food production |
 | **BuildFarmGoal** | 40 | {wood: 20} | Mill | Requires mill to process grain |
-| **BuildMineGoal** | 45 | {wood: 30, stone: 20} | None | Can specify location |
+| **BuildMineGoal** | 45 | {wood: 30, stone: 20} | None | Can specify location and mineType ('stone', 'cave', or 'any') |
 | **BuildLumbermillGoal** | 40 | {wood: 35, stone: 15} | None | Can specify location |
 | **BuildForgeGoal** | 40 | {wood: 50, stone: 100} | None | Enables military equipment |
 | **BuildGarrisonGoal** | 50 | {wood: 50, stone: 30} | Forge | Military training facility |
-| **GatherResourceGoal** | 30 | None | None | Passive - waits for serfs |
+| **GatherResourceGoal** | 30 | None | None | Active - checks for gathering buildings, verifies mine types (stone vs cave) |
 
 #### Military Goals
 
@@ -753,10 +882,12 @@ class Goal {
 **Can Execute Check** (`canExecute(house)`):
 - Checks building requirements using `BuildingService.hasBuildingType()`
 - Checks resource requirements (compares `house.stores` to `resourceCost`)
+- **Location Validation** (Phase 3): For building goals, also checks `canPlace(house)` if method exists
 - Updates `blockedBy` array with blocking factors:
   - `{ type: 'BUILDING', value: 'garrison' }` for missing buildings
   - `{ type: 'RESOURCE', resource: 'wood', have: 10, need: 50 }` for insufficient resources
-- Returns true if no blockers
+  - `{ type: 'LOCATION', value: 'no valid location' }` for placement failures
+- Returns true if no blockers (resources, buildings, AND location)
 - **Fails fast** if BuildingService unavailable (no fallback)
 
 **Get Blocking Factors** (`getBlockingFactors(house)`):
@@ -787,6 +918,8 @@ Automatically resolves goal dependencies by creating executable chains of subgoa
 - **Resolution Path Tracing**: Full dependency resolution path logged for debugging
 - **Goal Chain Persistence**: Chains persist indefinitely until complete or failed (not recreated daily)
 - **Maximum Depth**: 5 levels (reduced from 10 for safety)
+- **Mine Type Differentiation** (Phase 2.4): Distinguishes stone mines from cave mines in resource resolution
+- **Enhanced Resource Resolution**: Checks existing building types before adding new ones, builds multiple if needed
 
 ### Dependency Resolution
 
@@ -868,14 +1001,48 @@ static create(house, goal) {
       } else if (block.type === 'RESOURCE') {
         const buildingType = chain.getResourceBuildingType(block.resource);
         if (buildingType) {
-          const buildGoal = createBuildingGoal(buildingType);
+          // Phase 2.4: Determine mine type preference
+          let mineType = 'any';
+          if (block.resource === 'stone') {
+            mineType = 'stone'; // Need stone mine
+          } else if (block.resource === 'ironore' || block.resource === 'silverore' || block.resource === 'goldore' || block.resource === 'iron') {
+            mineType = 'cave'; // Need cave mine
+          }
+          
+          // Check if gathering building already exists (with correct type for mines)
+          const hasBuilding = GoalChain.hasGatheringBuilding(house, block.resource, mineType);
+          
+          if (!hasBuilding) {
+            let buildGoal = createBuildingGoal(buildingType);
+            // Set mine type for mines
+            if (buildingType === 'mine' && buildGoal) {
+              buildGoal.mineType = mineType;
+            }
           if (buildGoal) {
             queue.push({
               goal: buildGoal,
               parent: g,
               depth: depth + 1,
-              reason: `needs resource: ${block.resource} (requires ${buildingType})`
-            });
+                reason: `needs resource: ${block.resource} (requires ${buildingType}${mineType !== 'any' ? ` - ${mineType} type` : ''})`
+              });
+            }
+            
+            // For large deficits (>100), build additional gathering buildings
+            const deficit = block.need - block.have;
+            if (deficit > 100) {
+              let additionalBuildGoal = createBuildingGoal(buildingType);
+              if (buildingType === 'mine' && additionalBuildGoal) {
+                additionalBuildGoal.mineType = mineType;
+              }
+              if (additionalBuildGoal) {
+                queue.push({
+                  goal: additionalBuildGoal,
+                  parent: g,
+                  depth: depth + 1,
+                  reason: `needs resource: ${block.resource} (large deficit, requires additional ${buildingType})`
+                });
+              }
+            }
           }
         }
         
@@ -959,17 +1126,30 @@ This enables debugging of complex dependency chains and understanding why certai
 ### Resource Resolution Strategy
 
 1. **Check Building Type**: Maps resource to required building type
-   - stone → quarry
+   - stone → mine (stone mine, not cave mine)
    - wood → lumbermill
    - grain → farm
-   - iron → mine
+   - iron/ironore/silverore/goldore → mine (cave mine, not stone mine)
 
-2. **Build Gathering Building**: If building type exists, create build goal
+2. **Mine Type Differentiation** (Phase 2.4):
+   - For stone: Creates BUILD_MINE with `mineType='stone'` (prefers locations away from caves)
+   - For ores: Creates BUILD_MINE with `mineType='cave'` (prefers locations near caves)
+   - Checks existing mine types using `getStoneMineCount()` and `getCaveMineCount()`
+   - Only builds new mines if correct type doesn't exist
+   - `hasGatheringBuilding()` method distinguishes stone mines from cave mines
+
+3. **Build Gathering Building**: If building type doesn't exist (with correct type for mines), create build goal
    - Added to queue for resolution
    - Will be built before resource gathering
+   - For large deficits (>100), builds additional gathering buildings
+   - Mine goals include `mineType` property to ensure correct type is built
 
-3. **Add Gather Goal**: Create GatherResourceGoal to wait for resources
-   - Passive goal that checks resource levels daily
+4. **Add Gather Goal**: Create GatherResourceGoal to wait for resources
+   - **Active goal** (Phase 2.1): Checks for gathering buildings and verifies they're operational
+   - Verifies correct mine type exists (stone mines for stone, cave mines for ores)
+   - Uses `hasGatheringBuilding()` which checks mine types appropriately
+   - Marks as BLOCKED if infrastructure missing or production too slow
+   - Estimates gathering time based on production rates
    - Completes when target amount reached
 
 ---
@@ -1825,6 +2005,10 @@ FactionAI.evaluateAndAct() [FactionAI.js:100]
   │           │     │     │     └─→ tilemapSystem.findBuildingSpot()
   │           │     │     │     └─→ Create building entity
   │           │     │     └─→ Deduct resources
+  │           │     ├─→ verifyBuildingCreation() (Phase 6: Execution Verification)
+  │           │     │     ├─→ Invalidate BuildingService cache
+  │           │     │     ├─→ Verify building exists in Building.list
+  │           │     │     └─→ Check building count increased
   │           │     └─→ Return { success, shouldAdvance, shouldClearChain }
   │           └─→ If shouldAdvance: goalChain.advance()
   │           └─→ If shouldClearChain: currentGoalChain = null
@@ -1837,7 +2021,13 @@ FactionAI.evaluateAndAct() [FactionAI.js:100]
         ├─→ strategy.evaluateDefenseGoals()
         │     └─→ All use BuildingService for building counts
         │
-        ├─→ Filter & sort goals by utility
+        ├─→ checkResourceBalance() (Phase 8: Resource Balance Monitoring)
+        ├─→ recordGoalConsideration() (Phase 9: Goal Consideration Tracking)
+        ├─→ Filter goals (utility, canExecute, canPlace, avoid failures)
+        ├─→ Apply resource balance boosts (Phase 8)
+        ├─→ Apply failure penalties (adaptive learning)
+        ├─→ Force goal selection if considered 3+ times (Phase 9)
+        ├─→ Force dependency chain for high-value goals (Phase 7)
         ├─→ GoalChain.create(topGoal)
         │     ├─→ Iterative queue-based resolution
         │     ├─→ Blocking factor caching
@@ -1998,6 +2188,13 @@ The Faction AI system is a sophisticated, optimized, goal-driven architecture th
 9. **Optimizes performance** through multiple caching layers (BuildingService, FactionAI, TerritoryManager)
 10. **Validates services** on initialization (fail-fast approach)
 11. **Handles errors** with structured logging (timestamp, faction, goal type, step, details)
+12. **Verifies execution** (Phase 6): Confirms buildings are actually created after goal execution
+13. **Differentiates mine types** (Phase 2.4): Distinguishes stone mines from cave mines for proper resource production
+14. **Monitors resource balance** (Phase 8): Identifies imbalances and boosts gathering building utilities
+15. **Prevents stagnation** (Phase 9): Tracks goal considerations and forces selection after multiple attempts
+16. **Forces dependency chains** (Phase 7): Ensures high-value goals create prerequisite chains even when blocked
+17. **Validates locations** (Phase 3): Pre-checks building placement before goal selection
+18. **Adaptive learning**: Tracks failures and adjusts goal utilities to prevent repeated failures
 
 ### Architecture Principles
 

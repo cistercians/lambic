@@ -40,6 +40,7 @@ class FactionAI {
     // Goal failure tracking for adaptive learning
     this.goalFailureHistory = new Map(); // Map<goalType, {failureCount, lastFailureDay, consecutiveFailures}>
     this.chainFailureHistory = new Map(); // Map<goalType, {failureReason, lastFailureDay, blockingFactors}>
+    this.goalConsiderationHistory = new Map(); // Map<goalType, {considerationCount, lastConsiderationDay}>
     
     // Load faction profile and strategy (use house.name for faction type)
     this.profile = FactionProfiles[house.name] || FactionProfiles.Goths;
@@ -203,6 +204,16 @@ class FactionAI {
       ...defenseGoals
     ];
     
+    // Check resource balance and apply boosts (Phase 8: Resource Balance Monitoring)
+    const resourceBalance = this.checkResourceBalance();
+    
+    // Track goal considerations (Phase 9: Goal Selection Stagnation Prevention)
+    possibleGoals.forEach(g => {
+      if (g.utility > 0) {
+        this.recordGoalConsideration(g.type);
+      }
+    });
+    
     // Filter out goals with 0 utility and goals that can't execute (including location checks)
     const validGoals = possibleGoals.filter(g => {
       if (g.utility <= 0) {
@@ -217,8 +228,15 @@ class FactionAI {
       
       // Check if goal can execute (resources, buildings)
       if (!g.canExecute(this.house)) {
-        this.logger.collectInfo(`Filtered goal ${g.type}: cannot execute (blocked by: ${g.blockedBy.map(b => b.type === 'RESOURCE' ? `${b.resource}` : b.value).join(', ')})`);
-        return false;
+        // Phase 7: Force dependency chain for high-value goals even if blocked
+        if (g.type === 'BUILD_GARRISON' || g.type === 'BUILD_FORGE') {
+          // Don't filter out - we'll force chain creation below
+          // But still log the blocking
+          this.logger.collectInfo(`High-value goal ${g.type} is blocked but will force dependency chain`);
+        } else {
+          this.logger.collectInfo(`Filtered goal ${g.type}: cannot execute (blocked by: ${g.blockedBy.map(b => b.type === 'RESOURCE' ? `${b.resource}` : b.value).join(', ')})`);
+          return false;
+        }
       }
       
       // Check if building goals can be placed (location validation)
@@ -232,9 +250,33 @@ class FactionAI {
       return true;
     });
     
+    // Apply resource balance boosts to utilities (Phase 8)
+    possibleGoals.forEach(g => {
+      if (g.type === 'BUILD_MINE') {
+        // Boost stone mine utility when stone is scarce
+        if (resourceBalance.imbalances.stoneScarce || resourceBalance.imbalances.needsStone) {
+          g.utility *= 1.5; // 50% boost
+          this.logger.collectInfo(`Boosted ${g.type} utility due to stone scarcity (${resourceBalance.resources.stone} stone)`);
+        }
+      } else if (g.type === 'BUILD_LUMBERMILL') {
+        // Boost lumbermill utility when wood is scarce
+        if (resourceBalance.imbalances.needsWood) {
+          g.utility *= 1.3; // 30% boost
+        }
+      }
+    });
+    
     // Apply failure penalties to utilities (adaptive learning)
     const adjustedGoals = validGoals.map(g => {
-      const adjustedUtility = this.getAdjustedUtility(g);
+      let adjustedUtility = this.getAdjustedUtility(g);
+      
+      // Phase 9: Force goal selection after multiple considerations
+      if (this.shouldForceGoalSelection(g.type) && adjustedUtility > 0) {
+        // Boost utility to ensure selection
+        adjustedUtility = Math.max(adjustedUtility, 50); // Minimum 50 utility
+        this.logger.collectInfo(`Forcing ${g.type} selection after ${this.getGoalConsiderationCount(g.type)} considerations (boosted to ${adjustedUtility})`);
+      }
+      
       return { goal: g, utility: adjustedUtility };
     });
     
@@ -249,7 +291,7 @@ class FactionAI {
       return;
     }
     
-    const topGoal = sortedGoals[0];
+    let topGoal = sortedGoals[0];
     const topUtility = adjustedGoals[0].utility;
     
     // Collect goal selection with alternatives
@@ -278,11 +320,24 @@ class FactionAI {
       this.logger.collectInfo(`Avoiding goal ${topGoal.type}: recent chain failure with same blocking factors`);
       // Try next goal in list
       if (sortedGoals.length > 1) {
-        const nextGoal = sortedGoals[1];
-        this.logger.collectInfo(`Selecting alternative goal: ${nextGoal.type}`);
-        topGoal = nextGoal;
+        topGoal = sortedGoals[1];
+        this.logger.collectInfo(`Selecting alternative goal: ${topGoal.type}`);
       } else {
         this.logger.collectInfo('No alternative goals available, proceeding with primary goal despite recent failure');
+      }
+    }
+    
+    // Phase 7: Force dependency chain for high-value goals even if blocked
+    if ((topGoal.type === 'BUILD_GARRISON' || topGoal.type === 'BUILD_FORGE') && !topGoal.canExecute(this.house)) {
+      this.logger.collectInfo(`Forcing dependency chain creation for blocked high-value goal: ${topGoal.type}`);
+      // Boost utility of prerequisite goals
+      if (topGoal.type === 'BUILD_GARRISON') {
+        // Find BUILD_FORGE goal and boost its utility
+        const forgeGoal = possibleGoals.find(g => g.type === 'BUILD_FORGE');
+        if (forgeGoal) {
+          forgeGoal.utility = Math.max(forgeGoal.utility, 60); // Boost to high priority
+          this.logger.collectInfo(`Boosted BUILD_FORGE utility to ${forgeGoal.utility} (prerequisite for BUILD_GARRISON)`);
+        }
       }
     }
     
@@ -696,12 +751,12 @@ class FactionAI {
   getResourceProductionRate(resourceType) {
     // Basic production rates per building per day (simplified estimates)
     const productionRates = {
-      stone: 5, // 5 stone per mine per day
+      stone: 5, // 5 stone per stone mine per day
       wood: 8,  // 8 wood per lumbermill per day
       grain: 10, // 10 grain per farm per day
-      ironore: 3, // 3 iron ore per mine per day
-      silverore: 2, // 2 silver ore per mine per day
-      goldore: 1  // 1 gold ore per mine per day
+      ironore: 3, // 3 iron ore per cave mine per day
+      silverore: 2, // 2 silver ore per cave mine per day
+      goldore: 1  // 1 gold ore per cave mine per day
     };
     
     return productionRates[resourceType] || 0;
@@ -722,14 +777,21 @@ class FactionAI {
       return Infinity; // Can't produce this resource
     }
     
-    // Get number of gathering buildings
-    const tempChain = new GoalChain(null);
-    const buildingType = tempChain.getResourceBuildingType(resourceType);
-    if (!buildingType) {
-      return Infinity; // No building type defined
+    // Get number of gathering buildings (accounting for mine types)
+    let buildingCount = 0;
+    if (resourceType === 'stone') {
+      buildingCount = this.buildingService.getStoneMineCount();
+    } else if (resourceType === 'ironore' || resourceType === 'silverore' || resourceType === 'goldore') {
+      buildingCount = this.buildingService.getCaveMineCount();
+    } else {
+      const tempChain = new GoalChain(null);
+      const buildingType = tempChain.getResourceBuildingType(resourceType);
+      if (!buildingType) {
+        return Infinity; // No building type defined
+      }
+      buildingCount = this.buildingService.getBuildingCount(buildingType);
     }
     
-    const buildingCount = this.buildingService.getBuildingCount(buildingType);
     if (buildingCount === 0) {
       return Infinity; // No buildings to produce
     }
@@ -747,6 +809,60 @@ class FactionAI {
   canGatherWithinReasonableTime(resourceType, targetAmount, maxDays = 10) {
     const daysNeeded = this.estimateGatheringTime(resourceType, targetAmount);
     return daysNeeded <= maxDays;
+  }
+  
+  // Check resource balance and identify imbalances
+  checkResourceBalance() {
+    const stores = this.house.stores || {};
+    const wood = stores.wood || 0;
+    const stone = stores.stone || 0;
+    const grain = stores.grain || 0;
+    
+    // Calculate ratios
+    const woodStoneRatio = stone > 0 ? wood / stone : (wood > 0 ? Infinity : 1);
+    const grainStoneRatio = stone > 0 ? grain / stone : (grain > 0 ? Infinity : 1);
+    
+    // Identify imbalances
+    const imbalances = {
+      stoneScarce: stone < 50, // Stone is critically low
+      woodExcessive: woodStoneRatio > 20, // Wood is 20x more than stone
+      grainExcessive: grainStoneRatio > 10, // Grain is 10x more than stone
+      needsStone: stone < 100, // Need stone for forge/garrison
+      needsWood: wood < 50, // Need wood for basic buildings
+      needsGrain: grain < 50 // Need grain for military
+    };
+    
+    return {
+      resources: { wood, stone, grain },
+      ratios: { woodStoneRatio, grainStoneRatio },
+      imbalances: imbalances
+    };
+  }
+  
+  // Track goal consideration for stagnation prevention
+  recordGoalConsideration(goalType) {
+    const day = global.day || 1;
+    const history = this.goalConsiderationHistory.get(goalType) || {
+      considerationCount: 0,
+      lastConsiderationDay: 0
+    };
+    
+    history.considerationCount++;
+    history.lastConsiderationDay = day;
+    
+    this.goalConsiderationHistory.set(goalType, history);
+  }
+  
+  // Get consideration count for a goal type
+  getGoalConsiderationCount(goalType) {
+    const history = this.goalConsiderationHistory.get(goalType);
+    return history ? history.considerationCount : 0;
+  }
+  
+  // Check if goal should be forced due to multiple considerations
+  shouldForceGoalSelection(goalType) {
+    const considerationCount = this.getGoalConsiderationCount(goalType);
+    return considerationCount >= 3; // Force after 3 considerations
   }
 }
 

@@ -99,16 +99,8 @@ class BuildMillGoal extends Goal {
       return false;
     }
     
-    // Check if location is available (validation-only)
-    const hq = house.hq;
-    const searchCenter = this.location || hq;
-    const radius = this.location ? 3 : 10;
-    
-    const spot = global.tilemapSystem.findBuildingSpot('mill', searchCenter, radius, {
-      excludeTiles: constructor.getOccupiedTiles()
-    });
-    
-    return spot !== null;
+    // Use BuildingConstructor's validation method
+    return constructor.canPlaceMill(this.location);
   }
   
   // Override canExecute to also check location
@@ -236,11 +228,12 @@ class BuildFarmGoal extends Goal {
 }
 
 class BuildMineGoal extends Goal {
-  constructor(location = null) {
+  constructor(location = null, mineType = 'any') {
     super('BUILD_MINE', 45);
     this.resourceCost = { wood: 30, stone: 20 };
     this.buildingRequirements = [];
     this.location = location;
+    this.mineType = mineType; // 'stone', 'cave', or 'any'
   }
   
   // Check if mine can be placed at a valid location
@@ -250,16 +243,8 @@ class BuildMineGoal extends Goal {
       return false;
     }
     
-    // Check if location is available (validation-only)
-    const hq = house.hq;
-    const searchCenter = this.location || hq;
-    const radius = this.location ? 3 : 10;
-    
-    const spot = global.tilemapSystem.findBuildingSpot('mine', searchCenter, radius, {
-      excludeTiles: constructor.getOccupiedTiles()
-    });
-    
-    return spot !== null && spot.plot && spot.plot[0];
+    // Use BuildingConstructor's validation method
+    return constructor.canPlaceMine(this.location, this.mineType);
   }
   
   // Override canExecute to also check location
@@ -281,7 +266,7 @@ class BuildMineGoal extends Goal {
       throw new Error('BuildingConstructor not available');
     }
     
-    const mineId = constructor.buildMine(this.location);
+    const mineId = constructor.buildMine(this.location, this.mineType);
     
     if (mineId) {
       if (house.stores.wood < this.resourceCost.wood || house.stores.stone < this.resourceCost.stone) {
@@ -326,16 +311,8 @@ class BuildLumbermillGoal extends Goal {
       return false;
     }
     
-    // Check if location is available (validation-only)
-    const hq = house.hq;
-    const searchCenter = this.location || hq;
-    const radius = this.location ? 3 : 10;
-    
-    const spot = global.tilemapSystem.findBuildingSpot('lumbermill', searchCenter, radius, {
-      excludeTiles: constructor.getOccupiedTiles()
-    });
-    
-    return spot !== null;
+    // Use BuildingConstructor's validation method
+    return constructor.canPlaceLumbermill(this.location);
   }
   
   // Override canExecute to also check location
@@ -388,16 +365,8 @@ class BuildForgeGoal extends Goal {
       return false;
     }
     
-    // Check if location is available (validation-only)
-    const hq = house.hq;
-    const searchCenter = this.location || hq;
-    const radius = this.location ? 3 : 10;
-    
-    const spot = global.tilemapSystem.findBuildingSpot('forge', searchCenter, radius, {
-      excludeTiles: constructor.getOccupiedTiles()
-    });
-    
-    return spot !== null;
+    // Use BuildingConstructor's validation method
+    return constructor.canPlaceForge(this.location);
   }
   
   // Override canExecute to also check location
@@ -450,16 +419,8 @@ class BuildGarrisonGoal extends Goal {
       return false;
     }
     
-    // Check if location is available (validation-only)
-    const hq = house.hq;
-    const searchCenter = this.location || hq;
-    const radius = this.location ? 3 : 10;
-    
-    const spot = global.tilemapSystem.findBuildingSpot('garrison', searchCenter, radius, {
-      excludeTiles: constructor.getOccupiedTiles()
-    });
-    
-    return spot !== null;
+    // Use BuildingConstructor's validation method
+    return constructor.canPlaceGarrison(this.location);
   }
   
   // Override canExecute to also check location
@@ -533,6 +494,43 @@ class GatherResourceGoal extends Goal {
       return false;
     }
     
+    // For stone, need stone mines (not cave mines)
+    if (this.resource === 'stone') {
+      const stoneMineCount = house.ai.buildingService.getStoneMineCount();
+      if (stoneMineCount === 0) {
+        return false; // No stone mines exist
+      }
+      
+      // Check if at least one stone mine is built and operational
+      const buildings = house.ai.buildingService.getBuildingsByType('mine');
+      for (const building of buildings) {
+        if (building && building.built && !building.cave) {
+          // Stone mine exists and is built
+          return true;
+        }
+      }
+      return false;
+    }
+    
+    // For ores, need cave mines (not stone mines)
+    if (this.resource === 'ironore' || this.resource === 'silverore' || this.resource === 'goldore' || this.resource === 'iron') {
+      const caveMineCount = house.ai.buildingService.getCaveMineCount();
+      if (caveMineCount === 0) {
+        return false; // No cave mines exist
+      }
+      
+      // Check if at least one cave mine is built and operational
+      const buildings = house.ai.buildingService.getBuildingsByType('mine');
+      for (const building of buildings) {
+        if (building && building.built && building.cave) {
+          // Cave mine exists and is built
+          return true;
+        }
+      }
+      return false;
+    }
+    
+    // For other resources (wood, grain), use standard check
     const buildingCount = house.ai.buildingService.getBuildingCount(buildingType);
     if (buildingCount === 0) {
       return false; // No gathering building exists

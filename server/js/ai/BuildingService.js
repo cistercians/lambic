@@ -87,6 +87,60 @@ class BuildingService {
     return count;
   }
   
+  // Get count of stone mines (mines that are NOT near caves)
+  getStoneMineCount() {
+    const day = global.day || 1;
+    const cacheKey = 'stone_mine';
+    
+    if (this._cachedBuildingCounts[cacheKey] !== undefined && this._cacheDay === day) {
+      return this._cachedBuildingCounts[cacheKey];
+    }
+    
+    const buildings = this.getBuildings();
+    let count = 0;
+    for (const building of buildings) {
+      if (building.type === 'mine' && !building.cave) {
+        // Mine exists and doesn't have cave property (stone mine)
+        count++;
+      }
+    }
+    
+    this._cachedBuildingCounts[cacheKey] = count;
+    if (this._cacheDay !== day) {
+      this._cacheDay = day;
+      this._cachedBuildingCounts = { [cacheKey]: count };
+    }
+    
+    return count;
+  }
+  
+  // Get count of cave mines (mines that ARE near caves)
+  getCaveMineCount() {
+    const day = global.day || 1;
+    const cacheKey = 'cave_mine';
+    
+    if (this._cachedBuildingCounts[cacheKey] !== undefined && this._cacheDay === day) {
+      return this._cachedBuildingCounts[cacheKey];
+    }
+    
+    const buildings = this.getBuildings();
+    let count = 0;
+    for (const building of buildings) {
+      if (building.type === 'mine' && building.cave) {
+        // Mine exists and has cave property (ore mine)
+        count++;
+      }
+    }
+    
+    this._cachedBuildingCounts[cacheKey] = count;
+    if (this._cacheDay !== day) {
+      this._cacheDay = day;
+      this._cachedBuildingCounts = { [cacheKey]: count };
+    }
+    
+    return count;
+  }
+  
   // Check if house has a building type
   hasBuildingType(buildingType) {
     return this.getBuildingCount(buildingType) > 0;

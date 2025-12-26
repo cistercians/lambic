@@ -132,23 +132,37 @@ class GoalChain {
           // Check if we can gather this resource in territory
           const buildingType = chain.getResourceBuildingType(block.resource);
           if (buildingType) {
-            // Check if gathering building already exists
-            const hasBuilding = GoalChain.hasGatheringBuilding(house, block.resource);
+            // For stone, need stone mines; for ores, need cave mines
+            let mineType = 'any';
+            if (block.resource === 'stone') {
+              mineType = 'stone'; // Need stone mine
+            } else if (block.resource === 'ironore' || block.resource === 'silverore' || block.resource === 'goldore' || block.resource === 'iron') {
+              mineType = 'cave'; // Need cave mine
+            }
+            
+            // Check if gathering building already exists (with correct type for mines)
+            const hasBuilding = GoalChain.hasGatheringBuilding(house, block.resource, mineType);
             
             if (!hasBuilding) {
               // Need to build gathering building first
-              const buildGoal = createBuildingGoal(buildingType);
+              let buildGoal = createBuildingGoal(buildingType);
+              
+              // For mines, set the mine type preference
+              if (buildingType === 'mine' && buildGoal && buildGoal.constructor.name === 'BuildMineGoal') {
+                buildGoal.mineType = mineType;
+              }
+              
               if (buildGoal) {
                 queue.push({
                   goal: buildGoal,
                   parent: g,
                   depth: depth + 1,
-                  reason: `needs resource: ${block.resource} (requires ${buildingType})`
+                  reason: `needs resource: ${block.resource} (requires ${buildingType}${mineType !== 'any' ? ` - ${mineType} type` : ''})`
                 });
                 dependenciesAdded = true;
                 
                 if (logger) {
-                  logger.collectInfo(`  -> Need ${buildGoal.type} to gather ${block.resource} (for ${g.type})`);
+                  logger.collectInfo(`  -> Need ${buildGoal.type} to gather ${block.resource} (for ${g.type})${mineType !== 'any' ? ` - ${mineType} mine` : ''}`);
                 }
               } else {
                 errors.push(`Cannot create build goal for ${buildingType} (needed for ${block.resource}) - check building definitions`);
@@ -164,17 +178,23 @@ class GoalChain {
               // For very large deficits (>100), consider building additional gathering buildings
               if (deficit > 100 && buildingsNeeded > 0) {
                 // Add one more building goal for large resource needs
-                const additionalBuildGoal = createBuildingGoal(buildingType);
+                let additionalBuildGoal = createBuildingGoal(buildingType);
+                
+                // Set mine type for additional mine
+                if (buildingType === 'mine' && additionalBuildGoal && additionalBuildGoal.constructor.name === 'BuildMineGoal') {
+                  additionalBuildGoal.mineType = mineType;
+                }
+                
                 if (additionalBuildGoal) {
                   queue.push({
                     goal: additionalBuildGoal,
                     parent: g,
                     depth: depth + 1,
-                    reason: `needs resource: ${block.resource} (large deficit, requires additional ${buildingType})`
+                    reason: `needs resource: ${block.resource} (large deficit, requires additional ${buildingType}${mineType !== 'any' ? ` - ${mineType} type` : ''})`
                   });
                   
                   if (logger) {
-                    logger.collectInfo(`  -> Need additional ${additionalBuildGoal.type} for large ${block.resource} deficit (${deficit})`);
+                    logger.collectInfo(`  -> Need additional ${additionalBuildGoal.type} for large ${block.resource} deficit (${deficit})${mineType !== 'any' ? ` - ${mineType} mine` : ''}`);
                   }
                 }
               }
@@ -392,7 +412,7 @@ class GoalChain {
   }
   
   // Check if house has gathering building for a resource type
-  static hasGatheringBuilding(house, resourceType) {
+  static hasGatheringBuilding(house, resourceType, mineType = 'any') {
     if (!house.ai || !house.ai.buildingService) {
       return false;
     }
@@ -403,6 +423,39 @@ class GoalChain {
       return false;
     }
     
+    // For stone, need stone mines (not cave mines)
+    if (resourceType === 'stone') {
+      const stoneMineCount = house.ai.buildingService.getStoneMineCount();
+      if (stoneMineCount === 0) {
+        return false;
+      }
+      
+      const buildings = house.ai.buildingService.getBuildingsByType('mine');
+      for (const building of buildings) {
+        if (building && building.built && !building.cave) {
+          return true; // Stone mine exists
+        }
+      }
+      return false;
+    }
+    
+    // For ores, need cave mines (not stone mines)
+    if (resourceType === 'ironore' || resourceType === 'silverore' || resourceType === 'goldore' || resourceType === 'iron') {
+      const caveMineCount = house.ai.buildingService.getCaveMineCount();
+      if (caveMineCount === 0) {
+        return false;
+      }
+      
+      const buildings = house.ai.buildingService.getBuildingsByType('mine');
+      for (const building of buildings) {
+        if (building && building.built && building.cave) {
+          return true; // Cave mine exists
+        }
+      }
+      return false;
+    }
+    
+    // For other resources, use standard check
     const buildingCount = house.ai.buildingService.getBuildingCount(buildingType);
     if (buildingCount === 0) {
       return false;

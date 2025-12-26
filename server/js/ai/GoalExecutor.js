@@ -48,12 +48,103 @@ class GoalExecutor {
     }
   }
   
+  // Verify building was actually created after execution
+  verifyBuildingCreation(goal, house) {
+    if (!goal.type.startsWith('BUILD_')) {
+      return true; // Not a building goal, skip verification
+    }
+    
+    const buildingType = goal.type.replace('BUILD_', '').toLowerCase();
+    
+    // Get building service to check counts
+    if (!house.ai || !house.ai.buildingService) {
+      return false; // Can't verify without building service
+    }
+    
+    // Check if building exists in Building.list
+    // For farms, we need to check differently since Farm constructor doesn't return ID
+    if (buildingType === 'farm') {
+      // Farms are tracked differently - check if any farm exists for this house
+      const buildings = house.ai.buildingService.getBuildings();
+      const farmCount = buildings.filter(b => b.type === 'farm' && b.owner === house.id).length;
+      // If we have farms, assume one was just created (simplified check)
+      return farmCount > 0;
+    }
+    
+    // For other buildings, check Building.list directly
+    if (typeof Building !== 'undefined' && Building.list) {
+      for (const id in Building.list) {
+        const building = Building.list[id];
+        if (building.owner === house.id && building.type === buildingType && building.built) {
+          // Building exists and is built - verification passed
+          return true;
+        }
+      }
+    }
+    
+    return false; // Building not found
+  }
+  
   // Execute a goal that can be executed
   executeExecutableGoal(goal, goalChain, logger = null) {
     const step = goalChain ? goalChain.currentStep : null;
     
+    // Track building count before execution (for verification)
+    let beforeCount = 0;
+    if (goal.type.startsWith('BUILD_')) {
+      const buildingType = goal.type.replace('BUILD_', '').toLowerCase();
+      if (this.house.ai && this.house.ai.buildingService) {
+        beforeCount = this.house.ai.buildingService.getBuildingCount(buildingType);
+      }
+    }
+    
     try {
       goal.execute(this.house);
+      
+      // Verify building was actually created (Phase 6: Execution Verification)
+      if (goal.type.startsWith('BUILD_')) {
+        const buildingType = goal.type.replace('BUILD_', '').toLowerCase();
+        
+        // Invalidate cache to ensure fresh counts
+        if (this.house.ai && this.house.ai.buildingService) {
+          this.house.ai.buildingService.invalidateCache();
+        }
+        
+        const verificationPassed = this.verifyBuildingCreation(goal, this.house);
+        
+        if (!verificationPassed) {
+          // Execution failed - building wasn't created
+          goal.status = 'FAILED';
+          const error = new Error(`Building ${buildingType} was not created after execution. Location may be invalid or construction failed.`);
+          
+          if (logger) {
+            logger.logError(`Execution verification failed: ${goal.type}`, error, {
+              goal: goal.type,
+              buildingType: buildingType,
+              beforeCount: beforeCount
+            });
+          }
+          
+          throw error;
+        }
+        
+        // Verify building count increased (additional check)
+        if (this.house.ai && this.house.ai.buildingService) {
+          const afterCount = this.house.ai.buildingService.getBuildingCount(buildingType);
+          if (afterCount <= beforeCount && buildingType !== 'farm') {
+            // Building count didn't increase (farms are handled differently)
+            goal.status = 'FAILED';
+            const error = new Error(`Building count for ${buildingType} did not increase (before: ${beforeCount}, after: ${afterCount})`);
+            
+            if (logger) {
+              logger.logError(`Building count verification failed: ${goal.type}`, error);
+            }
+            
+            throw error;
+          }
+        }
+      }
+      
       goal.status = 'COMPLETED';
       
       if (logger) {
