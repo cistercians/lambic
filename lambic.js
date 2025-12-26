@@ -3615,8 +3615,8 @@ const Player = function(param) {
 
     // PLAYER AUTO-COMBAT - Auto-follow and auto-attack when in combat mode or attack intent
     // SimpleCombat.update() handles all validation internally, no need for duplicate checks
-    if ((self.action === 'combat' && self.combat.target && !self.autoAttackPaused) ||
-        (self.combatState && self.combatState.pendingTarget)) {
+    // Always update if combatState exists - update() method handles validation and cleanup
+    if (self.combatState && (!self.autoAttackPaused || self.combatState.pendingTarget)) {
       // Use SimpleCombat system for player auto-combat (same as NPCs)
       // This handles both normal combat and attack intent, including all validation
       if (global.simpleCombat) {
@@ -5281,10 +5281,9 @@ Player.update = function() {
     }
     
     // NPC COMBAT UPDATE - Handle combat for NPCs (including attack intent)
-    if (player.type === 'npc' && global.simpleCombat) {
-      if (player.action === 'combat' || (player.combatState && player.combatState.pendingTarget)) {
-        global.simpleCombat.update(player);
-      }
+    // Always update if combatState exists - update() method handles validation and cleanup
+    if (player.type === 'npc' && global.simpleCombat && player.combatState) {
+      global.simpleCombat.update(player);
     }
     
     // Update fishing if player is fishing

@@ -21,7 +21,27 @@ class SimpleCombat {
   // HELPER METHODS - Target Validation & State
   // ============================================================================
 
-  // Validate if a target is valid for combat
+  /**
+   * Get entity by ID from Player.list or Character.list
+   * This centralizes the lookup pattern used throughout the combat system
+   * @param {string|number} id - Entity ID to lookup
+   * @returns {Object|null} Entity object or null if not found
+   */
+  getEntityById(id) {
+    if (!id) return null;
+    let entity = global.Player.list[id];
+    if (!entity && global.Character && global.Character.list) {
+      entity = global.Character.list[id];
+    }
+    return entity || null;
+  }
+
+  /**
+   * Validate if a target is valid for combat
+   * @param {Object} target - Target entity to validate
+   * @param {Object} entity - Entity performing the validation
+   * @returns {boolean} True if target is valid for combat
+   */
   isTargetValid(target, entity) {
     if (!target) return false;
     if (target.toRemove) return false;
@@ -51,7 +71,7 @@ class SimpleCombat {
     
     // If state exists, check if target is valid
     if (state.target) {
-      const target = global.Player.list[state.target];
+      const target = this.getEntityById(state.target);
       if (!this.isTargetValid(target, entity)) {
         // Invalid target - auto-repair by clearing state
         this.clearCombatState(entity);
@@ -65,15 +85,13 @@ class SimpleCombat {
 
   // Get attack range for an entity
   getAttackRange(entity) {
-    var range;
     if (entity.class === 'Boar') {
-      range = this.BOAR_ATTACK_RANGE;
+      return this.BOAR_ATTACK_RANGE;
     } else if (entity.ranged) {
-      range = this.RANGED_ATTACK_RANGE;
+      return this.RANGED_ATTACK_RANGE;
     } else {
-      range = this.MELEE_ATTACK_RANGE;
+      return this.MELEE_ATTACK_RANGE;
     }
-    return range;
   }
 
   // Get melee range for an entity
@@ -88,6 +106,79 @@ class SimpleCombat {
     const dx = entity2.x - entity1.x;
     const dy = entity2.y - entity1.y;
     return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  /**
+   * Get pathfinding layer for a given z-level
+   * @param {number} z - Z-level (0 = overworld, -1 = cave, etc.)
+   * @returns {number} Pathfinding layer number
+   */
+  getPathfindingLayer(z) {
+    if (z === 0) return 0; // Overworld
+    if (z === -1) return 1; // Cave (underworld)
+    if (z === -2) return 8; // Cellar
+    if (z === 1) return 3; // Building floor 1
+    if (z === 2) return 5; // Building floor 2
+    return 0; // Default to overworld
+  }
+
+  /**
+   * Get pathfinding options for a given z-level
+   * @param {number} z - Z-level
+   * @param {Object|null} entity - Optional entity for context
+   * @returns {Object} Pathfinding options object
+   */
+  getPathfindingOptions(z, entity = null) {
+    const options = {};
+    
+    if (z === 0) {
+      // Overworld
+      options.avoidDoors = true;
+      options.avoidCaveExits = false;
+    } else if (z === -1) {
+      // Cave (underworld)
+      options.avoidCaveExits = true;
+    }
+    // Other z-levels don't need special options
+    
+    return options;
+  }
+
+  /**
+   * Create pathfinding path for players using tilemapSystem
+   * @param {Object} entity - Player entity
+   * @param {Array<number>} targetLoc - Target location [x, y]
+   * @param {number} z - Z-level
+   * @returns {boolean} True if path was created successfully
+   */
+  createPlayerPath(entity, targetLoc, z) {
+    if (!global.tilemapSystem || entity.type !== 'player') {
+      return false;
+    }
+
+    const startLoc = global.getLoc(entity.x, entity.y);
+    const layer = this.getPathfindingLayer(z);
+    const options = this.getPathfindingOptions(z, entity);
+
+    const path = global.tilemapSystem.findPath(startLoc, [targetLoc[0], targetLoc[1]], layer, options);
+    if (path && path.length > 0) {
+      // Smooth path if not in cave
+      if (z !== -1 && typeof global.smoothPath === 'function') {
+        const smoothedPath = global.smoothPath(path, z);
+        entity.path = smoothedPath;
+      } else {
+        entity.path = path;
+      }
+      // Set pathCount to skip first waypoint if we're already at it
+      const firstWaypoint = path[0];
+      if (firstWaypoint && firstWaypoint[0] === startLoc[0] && firstWaypoint[1] === startLoc[1]) {
+        entity.pathCount = 1;
+      } else {
+        entity.pathCount = 0;
+      }
+      return true;
+    }
+    return false;
   }
 
   // Find best adjacent tile to target (for melee positioning)
@@ -159,6 +250,38 @@ class SimpleCombat {
     }
   }
 
+  /**
+   * Convert attack intent to full combat and attack if in range
+   * This consolidates the duplicate logic used in handlePendingStealthAttack
+   * @param {Object} entity - Entity with attack intent
+   * @param {string|number} targetId - Target entity ID
+   * @param {number} rangeTolerance - Range tolerance in pixels (default: 1)
+   * @returns {boolean} True if combat was initiated
+   */
+  convertToCombatAndAttack(entity, targetId, rangeTolerance = 1) {
+    // Clear path to stop movement when we reach range
+    if (entity.path) {
+      entity.path = null;
+    }
+    
+    const combatInitResult = this.initCombatState(entity, targetId);
+    this.clearAttackIntent(entity);
+    
+    // Immediately attack if in range (don't wait for next frame)
+    if (combatInitResult && entity.combatState && entity.combatState.target) {
+      const target = this.getEntityById(entity.combatState.target);
+      if (target && this.isTargetValid(target, entity)) {
+        const currentDistance = this.getDistance(entity, target);
+        const currentAttackRange = this.getAttackRange(entity);
+        if (currentDistance <= currentAttackRange + rangeTolerance) {
+          this.handleAttack(entity, target);
+        }
+      }
+    }
+    
+    return combatInitResult;
+  }
+
   // Ensure combat state object exists and return it
   ensureCombatState(entity) {
     if (!entity.combatState) {
@@ -194,18 +317,20 @@ class SimpleCombat {
   }
 
   // Initialize combat state for entity
+  /**
+   * Initialize combat state for an entity
+   * @param {Object} entity - Entity to initialize combat state for
+   * @param {string|number} targetId - Target entity ID
+   * @returns {boolean} True if combat state was initialized successfully
+   */
   initCombatState(entity, targetId) {
-    // Validate target exists before initializing
-    // Check both Player.list and Character.list (NPCs might be in either)
-    var target = global.Player.list[targetId];
-    if (!target && global.Character && global.Character.list) {
-      target = global.Character.list[targetId];
-    }
-    
-    
-    if (!target || !this.isTargetValid(target, entity)) {
-      return false;
-    }
+    try {
+      // Validate target exists before initializing
+      const target = this.getEntityById(targetId);
+      
+      if (!target || !this.isTargetValid(target, entity)) {
+        return false;
+      }
     
     // Set home location for NPCs without one (for disengage logic based on distance from home)
     if (entity.type === 'npc' && (!entity.home || !entity.home.loc)) {
@@ -238,15 +363,22 @@ class SimpleCombat {
       }
     }
     return true;
+    } catch (error) {
+      console.error('Error in initCombatState:', error);
+      return false;
+    }
   }
 
-  // Set attack intent (works for all entity types - players and NPCs)
+  /**
+   * Set attack intent (works for all entity types - players and NPCs)
+   * @param {Object} entity - Entity setting attack intent
+   * @param {string|number} targetId - Target entity ID
+   * @returns {boolean} True if attack intent was set successfully
+   */
   setAttackIntent(entity, targetId) {
-    // Validate target exists - check both Player.list and Character.list (NPCs might be in either)
-    var target = global.Player.list[targetId];
-    if (!target && global.Character && global.Character.list) {
-      target = global.Character.list[targetId];
-    }
+    try {
+    // Validate target exists
+    const target = this.getEntityById(targetId);
     if (!target || !this.isTargetValid(target, entity)) {
       return false;
     }
@@ -269,9 +401,16 @@ class SimpleCombat {
     }
     
     return true;
+    } catch (error) {
+      console.error('Error in setAttackIntent:', error);
+      return false;
+    }
   }
 
-  // Clear attack intent (works for all entity types - players and NPCs)
+  /**
+   * Clear attack intent (works for all entity types - players and NPCs)
+   * @param {Object} entity - Entity to clear attack intent for
+   */
   clearAttackIntent(entity) {
     if (!entity.combatState) return;
     
@@ -551,6 +690,12 @@ class SimpleCombat {
       
       // Validate combat state - single check
       const state = entity.combatState;
+      
+      // Ensure action is set when combat state exists (defensive programming)
+      if (state && !entity.action) {
+        entity.action = 'combat';
+      }
+      
       if (!state || !state.target) {
         // Check if there's an attack intent
         if (!state || !state.pendingTarget) {
@@ -562,7 +707,7 @@ class SimpleCombat {
       // For players, validate target exists (but don't require target to be in combat yet)
       // This allows players to initiate attacks even if target hasn't aggro'd
       if (entity.type === 'player') {
-        const target = global.Player.list[state.target];
+        const target = this.getEntityById(state.target);
         if (!target) {
           // Target doesn't exist - end combat
           this.endCombat(entity, target);
@@ -599,7 +744,7 @@ class SimpleCombat {
       }
       
       // Cache target reference to prevent mid-update changes
-      const target = global.Player.list[state.target];
+      const target = this.getEntityById(state.target);
       
       // Validate target early
       if (!this.isTargetValid(target, entity)) {
@@ -607,12 +752,13 @@ class SimpleCombat {
         return;
       }
 
+      // Cache distance and attack range calculations (used multiple times)
+      const distance = this.getDistance(entity, target);
+      const attackRange = this.getAttackRange(entity);
+
       // Check if auto-attacking is paused (player issued navigation command)
       if (entity.autoAttackPaused) {
         // Check if we should resume auto-attack (target in range or timeout)
-        const distance = this.getDistance(entity, target);
-        const attackRange = this.getAttackRange(entity);
-        
         // Clear pause if target is in attack range
         if (distance <= attackRange) {
           entity.autoAttackPaused = false;
@@ -634,9 +780,6 @@ class SimpleCombat {
           return; // Skip combat updates but keep combat status
         }
       }
-
-      const distance = this.getDistance(entity, target);
-      const attackRange = this.getAttackRange(entity);
 
       // Check leash range (distance from home location)
       if (this.checkLeashRange(entity)) {
@@ -690,21 +833,8 @@ class SimpleCombat {
     }
   }
 
-  // Handle attack intent (works for all entities - players and NPCs, stealth and regular)
-  handlePendingStealthAttack(entity) {
-    const state = entity.combatState;
-    if (!state || !state.pendingTarget) {
-      return false;
-    }
-    
-    const pendingTarget = global.Player.list[state.pendingTarget];
-    if (!this.isTargetValid(pendingTarget, entity)) {
-      if (state) {
-        this.clearAttackIntent(entity);
-      }
-      return false;
-    }
-    
+  // Check and handle stealth detection for attack intent
+  checkAndHandleStealthDetection(entity, pendingTarget) {
     // For stealthed entities (any type): Check if target detected them
     if (entity.stealthed && !entity.revealed) {
       if (this.checkStealthDetection(entity, pendingTarget)) {
@@ -712,8 +842,111 @@ class SimpleCombat {
         this.removeStealth(entity);
         this.initCombatState(entity, pendingTarget.id);
         this.clearAttackIntent(entity);
-        return false; // Continue to normal combat
+        return true; // Was detected, combat started
       }
+    }
+    return false; // Not detected or not stealthed
+  }
+
+  // Check if in range and convert to combat if so
+  checkRangeAndConvert(entity, pendingTarget, distance, attackRange, rangeTolerance) {
+    const effectiveRange = attackRange + rangeTolerance;
+    const isInRange = distance <= effectiveRange;
+    
+    if (isInRange) {
+      // In range - convert to full combat immediately and attack
+      this.convertToCombatAndAttack(entity, pendingTarget.id, rangeTolerance);
+      return true; // Converted to combat
+    }
+    
+    // If we have a path and are now in range, clear the path and convert to combat
+    // This handles the case where pathfinding brought us into range
+    if (entity.path && distance <= attackRange + rangeTolerance) {
+      this.convertToCombatAndAttack(entity, pendingTarget.id, rangeTolerance);
+      return true; // Converted to combat
+    }
+    
+    return false; // Not in range
+  }
+
+  // Calculate optimal pathfinding target location
+  calculatePathfindingTarget(entity, pendingTarget, attackRange) {
+      const targetLoc = global.getLoc(pendingTarget.x, pendingTarget.y);
+      
+      // For melee, pathfind to adjacent tile
+      if (!entity.ranged) {
+        const adjacentTile = this.findAdjacentTile(entity, pendingTarget);
+        if (adjacentTile) {
+          targetLoc[0] = adjacentTile[0];
+          targetLoc[1] = adjacentTile[1];
+        }
+      // If no adjacent tile found, use target location directly (will reposition when close)
+      } else {
+        // For ranged units, pathfind to a position at attack range distance from target
+        const dx = pendingTarget.x - entity.x;
+        const dy = pendingTarget.y - entity.y;
+        const currentDist = Math.sqrt(dx * dx + dy * dy);
+        if (currentDist > 0) {
+          // Normalize direction vector (from entity to target)
+          const dirX = dx / currentDist;
+          const dirY = dy / currentDist;
+          
+          // Calculate optimal position: target position minus (direction * attackRange)
+          // Use 90% of range to get closer to max range while still accounting for tile-based pathfinding
+          const optimalDistFromTarget = attackRange * 0.9;
+          const optimalX = pendingTarget.x - dirX * optimalDistFromTarget;
+          const optimalY = pendingTarget.y - dirY * optimalDistFromTarget;
+          const optimalLoc = global.getLoc(optimalX, optimalY);
+          
+          // Verify the optimal position is actually between entity and target (not behind entity)
+          const toOptimalX = optimalX - entity.x;
+          const toOptimalY = optimalY - entity.y;
+          const dotProduct = dx * toOptimalX + dy * toOptimalY;
+          
+          // If dot product is negative, optimal position is behind entity (wrong direction)
+        if (dotProduct >= 0) {
+            targetLoc[0] = optimalLoc[0];
+            targetLoc[1] = optimalLoc[1];
+          }
+        // If dot product < 0, fall through to use target location directly
+      }
+    }
+    
+    return targetLoc;
+  }
+
+  // Create path to target for attack intent
+  createPathToTarget(entity, pendingTarget) {
+    const attackRange = this.getAttackRange(entity);
+    const targetLoc = this.calculatePathfindingTarget(entity, pendingTarget, attackRange);
+    
+    // For players, use tilemapSystem pathfinding (same as clickNavigate and attackMove)
+    if (entity.type === 'player') {
+      this.createPlayerPath(entity, targetLoc, pendingTarget.z);
+    } else if (entity.moveTo) {
+      // For NPCs, use moveTo method
+      entity.moveTo(pendingTarget.z, targetLoc[0], targetLoc[1]);
+    }
+  }
+
+  // Handle attack intent (works for all entities - players and NPCs, stealth and regular)
+  handlePendingStealthAttack(entity) {
+    const state = entity.combatState;
+    if (!state || !state.pendingTarget) {
+      return false;
+    }
+    
+    const pendingTarget = this.getEntityById(state.pendingTarget);
+    if (!this.isTargetValid(pendingTarget, entity)) {
+      if (state) {
+        this.clearAttackIntent(entity);
+      }
+      return false;
+    }
+    
+    // Check and handle stealth detection
+    if (this.checkAndHandleStealthDetection(entity, pendingTarget)) {
+      return false; // Combat started, continue to normal combat
     }
     
     // Check timeout
@@ -726,146 +959,24 @@ class SimpleCombat {
     // Calculate distance and attack range
     const distance = this.getDistance(entity, pendingTarget);
     const attackRange = this.getAttackRange(entity);
-    
-    // ALWAYS check if we're in range first - even if we're pathfinding
-    // This allows us to convert to combat as soon as we reach range
-    // Use small tolerance (1 pixel) to account for floating point precision and pathfinding stopping slightly short
     const rangeTolerance = 1;
-    const effectiveRange = attackRange + rangeTolerance;
-    const isInRange = distance <= effectiveRange;
     
-    if (isInRange) {
-      // In range - convert to full combat immediately and attack
-      // Clear path to stop movement when we reach range
-      if (entity.path) {
-        entity.path = null;
-      }
-      
-      const combatInitResult = this.initCombatState(entity, pendingTarget.id);
-      
-      this.clearAttackIntent(entity);
-      
-      // Immediately attack if in range (don't wait for next frame)
-      // This ensures attack-move attacks as soon as player enters range
-      if (combatInitResult && entity.combatState && entity.combatState.target) {
-        const target = global.Player.list[entity.combatState.target];
-        if (!target && global.Character && global.Character.list) {
-          target = global.Character.list[entity.combatState.target];
-        }
-        if (target && this.isTargetValid(target, entity)) {
-          const currentDistance = this.getDistance(entity, target);
-          const currentAttackRange = this.getAttackRange(entity);
-          if (currentDistance <= currentAttackRange + rangeTolerance) {
-            this.handleAttack(entity, target);
-          }
-        }
-      }
-      
-      return false; // Continue to normal combat logic
-    }
-    
-    // Not in range - pathfind to target (for both ranged and melee)
-    // Only start new pathfinding if we don't already have a path
-    // But also check if we're already pathfinding and have reached range
-    
-    // If we have a path and are now in range, clear the path and convert to combat
-    // This handles the case where pathfinding brought us into range
-    if (entity.path && distance <= attackRange + rangeTolerance) {
-      entity.path = null;
-      // Convert to combat immediately
-      const combatInitResult = this.initCombatState(entity, pendingTarget.id);
-      this.clearAttackIntent(entity);
-      
-      // Immediately attack if in range (don't wait for next frame)
-      // This ensures attack-move attacks as soon as player enters range during pathfinding
-      if (combatInitResult && entity.combatState && entity.combatState.target) {
-        const target = global.Player.list[entity.combatState.target];
-        if (!target && global.Character && global.Character.list) {
-          target = global.Character.list[entity.combatState.target];
-        }
-        if (target && this.isTargetValid(target, entity)) {
-          const currentDistance = this.getDistance(entity, target);
-          const currentAttackRange = this.getAttackRange(entity);
-          if (currentDistance <= currentAttackRange + rangeTolerance) {
-            this.handleAttack(entity, target);
-          }
-        }
-      }
-      
-      return false; // Continue to normal combat logic
+    // Check if in range and convert if so
+    if (this.checkRangeAndConvert(entity, pendingTarget, distance, attackRange, rangeTolerance)) {
+      return false; // Converted to combat
     }
     
     // If we have a path but are still out of range, check if we need to recalculate
     // This handles cases where the path is stuck or invalid
     // Recalculate if we're still significantly out of range (more than 1.1x attack range)
-    // This prevents infinite recalculation but allows recovery from stuck paths
     if (entity.path && distance > attackRange * 1.1) {
       // Path might be stuck or invalid - clear it to allow recalculation
       entity.path = null;
     }
     
-    if (!entity.path && entity.moveTo) {
-      const targetLoc = global.getLoc(pendingTarget.x, pendingTarget.y);
-      
-      // For melee, pathfind to adjacent tile
-      if (!entity.ranged) {
-        const adjacentTile = this.findAdjacentTile(entity, pendingTarget);
-        if (adjacentTile) {
-          targetLoc[0] = adjacentTile[0];
-          targetLoc[1] = adjacentTile[1];
-        } else {
-          // No adjacent tile found - try direct path to target (will reposition when close)
-          // Don't block, allow pathfinding to proceed
-        }
-      } else {
-        // For ranged units, pathfind to a position at attack range distance from target
-        // We want to approach the target until we're at attackRange distance, then stop
-        // Calculate direction from entity to target
-        const dx = pendingTarget.x - entity.x;
-        const dy = pendingTarget.y - entity.y;
-        const currentDist = Math.sqrt(dx * dx + dy * dy);
-        if (currentDist > 0) {
-          // Normalize direction vector (from entity to target)
-          const dirX = dx / currentDist;
-          const dirY = dy / currentDist;
-          
-          // Calculate optimal position: target position minus (direction * attackRange)
-          // This gives us a point that is attackRange distance from target, along the line from entity to target
-          // Use 90% of range to get closer to max range while still accounting for tile-based pathfinding
-          // This ensures we get well within range, not just barely in range
-          const optimalDistFromTarget = attackRange * 0.9;
-          const optimalX = pendingTarget.x - dirX * optimalDistFromTarget;
-          const optimalY = pendingTarget.y - dirY * optimalDistFromTarget;
-          const optimalLoc = global.getLoc(optimalX, optimalY);
-          
-          // Verify the optimal position is actually between entity and target (not behind entity)
-          // Calculate vector from entity to optimal position
-          const toOptimalX = optimalX - entity.x;
-          const toOptimalY = optimalY - entity.y;
-          const dotProduct = dx * toOptimalX + dy * toOptimalY;
-          
-          // If dot product is negative, optimal position is behind entity (wrong direction)
-          // This shouldn't happen with correct math, but check anyway
-          if (dotProduct < 0) {
-            // Optimal position is behind entity - something is wrong, use target location directly
-            // Fall through to use target location
-          } else {
-            targetLoc[0] = optimalLoc[0];
-            targetLoc[1] = optimalLoc[1];
-          }
-        }
-        // If currentDist is 0 (shouldn't happen), fall through to pathfinding to target location
-      }
-      
-      // Calculate expected distance from optimal position to target
-      const optimalLocX = targetLoc[0] * 64 + 32; // Convert tile to pixel coordinates (assuming 64px tiles)
-      const optimalLocY = targetLoc[1] * 64 + 32;
-      const optimalDistToTarget = Math.sqrt(
-        Math.pow(pendingTarget.x - optimalLocX, 2) + 
-        Math.pow(pendingTarget.y - optimalLocY, 2)
-      );
-      
-      entity.moveTo(pendingTarget.z, targetLoc[0], targetLoc[1]);
+    // Create path if we don't have one
+    if (!entity.path) {
+      this.createPathToTarget(entity, pendingTarget);
     }
     
     return true; // Still handling attack intent approach
@@ -946,12 +1057,6 @@ class SimpleCombat {
         this.handleStealthAttack(entity, target);
       }
       
-      // Final target validation before attack (cached target may have changed)
-      if (!this.isTargetValid(target, entity)) {
-        this.endCombat(entity, target);
-        return;
-      }
-      
       // Remove stealth when attacking (if still stealthed)
       this.removeStealth(entity);
       this.removeStealth(target); // Attack reveals target
@@ -1008,12 +1113,6 @@ class SimpleCombat {
 
   // Handle chase logic
   handleChase(entity, target) {
-    // Final target validation before chasing
-    if (!this.isTargetValid(target, entity)) {
-      this.endCombat(entity, target);
-      return;
-    }
-    
     if (!entity.path && entity.moveTo) {
       // Initialize combat state and pathfinding failure counter if needed
       const state = this.ensureCombatState(entity);
@@ -1079,40 +1178,46 @@ class SimpleCombat {
   // AGGRO & COMBAT INITIATION
   // ============================================================================
 
-  // Check for enemies to aggro
-  checkAggro(entity) {
+  /**
+   * Check if entity should skip aggro check (early exit conditions)
+   * @param {Object} entity - Entity to check
+   * @returns {boolean} True if aggro check should be skipped
+   */
+  shouldSkipAggroCheck(entity) {
     // Skip players - they don't use aggro system (they choose targets explicitly)
-    if (entity.type === 'player') return;
+    if (entity.type === 'player') return true;
     
     // Skip peaceful/non-combat classes
     const nonCombatClasses = ['Falcon', 'FishingShip'];
-    if (nonCombatClasses.includes(entity.class)) return;
+    if (nonCombatClasses.includes(entity.class)) return true;
     
     // Skip non-combat ship types (fishing and cargo ships can't aggro)
     const nonCombatShipTypes = ['fishingship', 'cargoship'];
-    if (entity.shipType && nonCombatShipTypes.includes(entity.shipType)) return;
+    if (entity.shipType && nonCombatShipTypes.includes(entity.shipType)) return true;
     
     // Skip if returning or already in combat (but allow peaceful units to detect threats even if fleeing)
     const peaceful = ['Serf', 'SerfM', 'SerfF', 'Deer', 'Sheep'];
     const isPeaceful = peaceful.includes(entity.class);
-    if (!isPeaceful && (entity.action === 'returning' || entity.action === 'combat')) return;
-    if (isPeaceful && entity.action === 'returning') return; // Peaceful units can't detect threats when returning home
+    if (!isPeaceful && (entity.action === 'returning' || entity.action === 'combat')) return true;
+    if (isPeaceful && entity.action === 'returning') return true; // Peaceful units can't detect threats when returning home
     
     // For serfs that are already fleeing, skip aggro check (they're already handling the threat)
     if (isPeaceful && entity.action === 'flee' && peaceful.slice(0, 3).includes(entity.class)) {
-      return; // Serfs already fleeing - no need to re-check aggro
+      return true; // Serfs already fleeing - no need to re-check aggro
     }
     
-    // Handle pending stealth attacks
-    if (this.handlePendingStealthAggro(entity)) {
-      return; // Still handling stealth approach
+    return false;
     }
 
-    const aggroRange = entity.aggroRange || 512;
-    const defenseRange = 1000; // 10 tiles - military units respond to fleeing serfs
+  /**
+   * Check for defensive aggro (military units defending fleeing serfs)
+   * @param {Object} entity - Military unit to check
+   * @returns {boolean} True if defensive aggro was triggered
+   */
+  checkDefensiveAggro(entity) {
+    if (!entity.military || !entity.house) return false;
     
-    // PRIORITY: Defend fleeing allied serfs (military units only)
-    if (entity.military && entity.house) {
+    const defenseRange = 1000; // 10 tiles - military units respond to fleeing serfs
       const serfClasses = ['Serf', 'SerfM', 'SerfF'];
       
       for (const id in global.Player.list) {
@@ -1125,7 +1230,7 @@ class SimpleCombat {
             serf.combatState && serf.combatState.target) {
           
           // Serf is being chased - find the attacker
-          const attacker = global.Player.list[serf.combatState.target];
+        const attacker = this.getEntityById(serf.combatState.target);
           
           if (attacker && attacker.z === entity.z) {
             const distance = this.getDistance(attacker, entity);
@@ -1133,64 +1238,72 @@ class SimpleCombat {
             // Military units have extended defensive range
             if (distance <= defenseRange) {
               this.startCombat(entity, attacker);
-              return;
-            }
+            return true; // Found defensive target
           }
         }
       }
     }
+    
+    return false; // No defensive target found
+  }
 
-    // Iterate through all entities to find aggro targets
-    for (const id in global.Player.list) {
-        const target = global.Player.list[id];
-
-        if (target.id === entity.id) continue;
-        if (target.z !== entity.z) continue;
+  /**
+   * Check if entity can aggro a specific target
+   * @param {Object} entity - Entity checking aggro
+   * @param {Object} target - Potential target
+   * @param {number} aggroRange - Aggro range in pixels
+   * @param {boolean} isPeaceful - Whether entity is peaceful
+   * @returns {boolean} True if entity can aggro this target
+   */
+  canAggroTarget(entity, target, aggroRange, isPeaceful) {
+    // Basic validation
+    if (target.id === entity.id) return false;
+    if (target.z !== entity.z) return false;
         
         // Skip invalid targets
-        if (target.ghost) continue;
-        if (target.type === 'spectator') continue;
-        if (nonCombatClasses.includes(target.class)) continue;
-        // Skip non-combat ship types (fishing and cargo ships can't be targeted)
-        if (target.shipType && nonCombatShipTypes.includes(target.shipType)) continue;
-        if (target.isPrey && entity.class !== 'Wolf') continue;
-        if (target.isPrey && entity.class === 'Serf') continue;
+    if (target.ghost) return false;
+    if (target.type === 'spectator') return false;
+    
+    const nonCombatClasses = ['Falcon', 'FishingShip'];
+    if (nonCombatClasses.includes(target.class)) return false;
+    
+    const nonCombatShipTypes = ['fishingship', 'cargoship'];
+    if (target.shipType && nonCombatShipTypes.includes(target.shipType)) return false;
+    if (target.isPrey && entity.class !== 'Wolf') return false;
+    if (target.isPrey && entity.class === 'Serf') return false;
         
         // Skip boarded players - they are not targetable (only the ship should be targetable)
-        if (target.isBoarded || target.boardedShip) continue;
+    if (target.isBoarded || target.boardedShip) return false;
         
         // For fauna (wolves and boars), skip ships - they should not target ships
-        // Enemy NPCs can still target ships
         const faunaClasses = ['Wolf', 'Boar'];
-        if (faunaClasses.includes(entity.class) && target.shipType) continue;
+    if (faunaClasses.includes(entity.class) && target.shipType) return false;
 
+    // Check distance
         const distance = this.getDistance(target, entity);
-        if (distance > aggroRange) continue;
+    if (distance > aggroRange) return false;
 
         // STEALTH: Skip stealthed targets that haven't been detected
         if (target.stealthed && !target.revealed) {
           if (!this.checkStealthDetection(target, entity)) {
-            continue; // Can't see stealthed target
+        return false; // Can't see stealthed target
           }
         }
 
         // Check alliance FIRST - allies should never aggro each other
         if (global.isAlly && global.isAlly(entity.id, target.id)) {
-          continue; // Skip allies
+      return false; // Skip allies
         }
 
         // Peaceful units (Deer, Sheep, Serfs) detect threats but respect ally checks
-        // They should flee from any non-ally entity except their own kind
         if (isPeaceful) {
           // Skip same class (deer don't flee from deer, serfs don't flee from serfs)
-          if (target.class === entity.class) continue;
+      if (target.class === entity.class) return false;
           // Skip prey animals for serfs (serfs don't flee from deer)
-          if (target.isPrey && entity.class === 'Serf') continue;
+      if (target.isPrey && entity.class === 'Serf') return false;
           // Peaceful units check alliance - they only flee from non-allies
           // Peaceful units don't check innaWoods - they should detect threats regardless
-          // AGGRO (will trigger flee in startCombat)
-          this.startCombat(entity, target);
-          return;
+      return true; // Can aggro (will trigger flee in startCombat)
         }
 
         // For non-peaceful units, alliance check already done above
@@ -1198,14 +1311,54 @@ class SimpleCombat {
         // Check innaWoods compatibility (NPCs can aggro if both in woods OR target is in woods)
         if (entity.type === 'npc' && target.type === 'player') {
           if (!(entity.innaWoods === target.innaWoods || (!entity.innaWoods && target.innaWoods))) {
-            continue; // Can't aggro due to woods state
-          }
-        }
+        return false; // Can't aggro due to woods state
+      }
+    }
 
+    return true; // Can aggro
+  }
+
+  /**
+   * Find and process aggro targets
+   * @param {Object} entity - Entity looking for targets
+   * @param {number} aggroRange - Aggro range in pixels
+   * @param {boolean} isPeaceful - Whether entity is peaceful
+   * @returns {boolean} True if a target was found and combat started
+   */
+  findAggroTargets(entity, aggroRange, isPeaceful) {
+    for (const id in global.Player.list) {
+      const target = global.Player.list[id];
+      
+      if (this.canAggroTarget(entity, target, aggroRange, isPeaceful)) {
         // AGGRO!
         this.startCombat(entity, target);
-        return;
+        return true; // Found target
+      }
     }
+    return false; // No target found
+  }
+
+  // Check for enemies to aggro
+  checkAggro(entity) {
+    // Early exit checks
+    if (this.shouldSkipAggroCheck(entity)) return;
+    
+    // Handle pending stealth attacks
+    if (this.handlePendingStealthAggro(entity)) {
+      return; // Still handling stealth approach
+    }
+
+    const aggroRange = entity.aggroRange || 512;
+    const peaceful = ['Serf', 'SerfM', 'SerfF', 'Deer', 'Sheep'];
+    const isPeaceful = peaceful.includes(entity.class);
+    
+    // PRIORITY: Defend fleeing allied serfs (military units only)
+    if (this.checkDefensiveAggro(entity)) {
+      return; // Found defensive target
+    }
+
+    // Find regular aggro targets
+    this.findAggroTargets(entity, aggroRange, isPeaceful);
   }
 
   // Handle pending stealth aggro
@@ -1215,7 +1368,7 @@ class SimpleCombat {
       return false;
     }
     
-    const pendingTarget = global.Player.list[state.pendingTarget];
+    const pendingTarget = this.getEntityById(state.pendingTarget);
     if (!pendingTarget || pendingTarget.z !== entity.z) {
       if (state) {
         state.pendingTarget = null;
@@ -1244,11 +1397,17 @@ class SimpleCombat {
   }
 
   // Start combat
+  /**
+   * Start combat between two entities
+   * @param {Object} entity - Attacking entity
+   * @param {Object} target - Target entity
+   */
   startCombat(entity, target) {
-    // CRITICAL: Check if entities are allies - never start combat between allies
-    if (global.isAlly && global.isAlly(entity.id, target.id)) {
-      return; // Don't start combat - they are allies
-    }
+    try {
+      // CRITICAL: Check if entities are allies - never start combat between allies
+      if (global.isAlly && global.isAlly(entity.id, target.id)) {
+        return; // Don't start combat - they are allies
+      }
     
     // Skip non-combat ship types (fishing and cargo ships can't participate in combat)
     const nonCombatShipTypes = ['fishingship', 'cargoship'];
@@ -1352,15 +1511,27 @@ class SimpleCombat {
       }
       // If initCombatState failed, target was invalid - combat won't start
     }
+    } catch (error) {
+      console.error('Error in startCombat:', error);
+      // Ensure state cleanup on error
+      if (entity && entity.combatState) {
+        this.clearCombatState(entity);
+      }
+    }
   }
 
-  // End combat for both sides
+  /**
+   * End combat for an entity
+   * @param {Object} entity - Entity to end combat for
+   * @param {Object|null} target - Optional target entity (will be looked up if not provided)
+   */
   endCombat(entity, target) {
-    if (!entity) return;
+    try {
+      if (!entity) return;
 
     // If target not provided, look it up from combat state
     if (!target && entity.combatState && entity.combatState.target) {
-      target = global.Player.list[entity.combatState.target];
+      target = this.getEntityById(entity.combatState.target);
     }
 
     // Clear all combat state
@@ -1400,29 +1571,10 @@ class SimpleCombat {
     // Resume attack-move if active (for players, use pathfinding system)
     if (entity.attackMoveTarget) {
       const attackTarget = entity.attackMoveTarget;
-      if (entity.type === 'player' && global.tilemapSystem) {
+      if (entity.type === 'player') {
         // Use pathfinding system for players
-        const startLoc = global.getLoc(entity.x, entity.y);
-        const layer = attackTarget.z === 0 ? 0 : (attackTarget.z === -1 ? 1 : (attackTarget.z === -2 ? 8 : (attackTarget.z === 1 ? 3 : 5)));
-        const options = {
-          avoidDoors: true,
-          avoidCaveExits: false
-        };
-        const path = global.tilemapSystem.findPath(startLoc, [attackTarget.col, attackTarget.row], layer, options);
-        if (path && path.length > 0) {
-          if (attackTarget.z !== -1 && typeof global.smoothPath === 'function') {
-            const smoothedPath = global.smoothPath(path, attackTarget.z);
-            entity.path = smoothedPath;
-          } else {
-            entity.path = path;
-          }
-          const firstWaypoint = path[0];
-          if (firstWaypoint && firstWaypoint[0] === startLoc[0] && firstWaypoint[1] === startLoc[1]) {
-            entity.pathCount = 1;
-          } else {
-            entity.pathCount = 0;
-          }
-        }
+        const targetLoc = [attackTarget.col, attackTarget.row];
+        this.createPlayerPath(entity, targetLoc, attackTarget.z);
       } else if (entity.moveTo) {
         // Fallback for NPCs
         entity.moveTo(attackTarget.z, attackTarget.col, attackTarget.row);
@@ -1468,6 +1620,13 @@ class SimpleCombat {
         if (playerSocket) {
           playerSocket.write(JSON.stringify({ msg: 'addToChat', message: '<i>You escaped from combat.</i>' }));
         }
+      }
+    }
+    } catch (error) {
+      console.error('Error in endCombat:', error);
+      // Ensure state cleanup on error
+      if (entity && entity.combatState) {
+        this.clearCombatState(entity);
       }
     }
   }

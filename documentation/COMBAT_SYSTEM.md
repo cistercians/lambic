@@ -27,7 +27,11 @@ The combat system uses a unified `combatState` object to manage all combat-relat
 - `ensureCombatState(entity)` - Initializes and returns combat state object
 - `clearCombatState(entity)` - Clears all combat state in one call
 
-This unified approach prevents state inconsistencies and simplifies debugging.
+**Game Loop Integration**: The game loop checks for `combatState` existence rather than `action === 'combat'`, ensuring combat updates are always called when combat state exists. The `update()` method defensively ensures `action` is set when `combatState` exists, maintaining state consistency.
+
+**Single Validation Point**: Target validation happens once at the start of `update()` (line 744), and the cached target is used throughout the update cycle. `handleAttack()` and `handleChase()` trust this validation and do not perform redundant checks, eliminating inconsistencies.
+
+This unified approach prevents state inconsistencies, simplifies debugging, and ensures reliable combat updates.
 
 ---
 
@@ -40,9 +44,9 @@ The aggro system determines when and how combat is initiated between entities. I
 ### Core Files
 
 - **Primary**: `server/js/core/SimpleCombat.js`
-  - `checkAggro()` (lines 742-911)
-  - `startCombat()` (lines 949-1040)
-  - `handlePendingStealthAggro()` (lines 914-946)
+  - `checkAggro()` (lines 1083-1209)
+  - `startCombat()` (lines 1247-1355)
+  - `handlePendingStealthAggro()` (lines 1212-1244)
 
 ### Aggro Detection Flow
 
@@ -57,7 +61,7 @@ checkAggro(entity)
     ↓
 [Priority: Defend fleeing allied serfs (military units)]
     ↓
-[Spatial System: Find nearby targets within aggroRange]
+[Iterate through all entities in Player.list]
     ↓
 For each potential target:
     ├─ Validate target (ghost, spectator, same z-level)
@@ -99,23 +103,27 @@ Players have an `aggroRange` property, but it's only used for attack-move detect
 - **Defense Range**: 1000px (10 tiles) for military units defending fleeing serfs
 - **Detection Range**: 128px (2 tiles) for stealth detection
 
-**Code Reference**: `SimpleCombat.js:789`
+**Code Reference**: `SimpleCombat.js:1111-1112`
 
 ```javascript
 const aggroRange = entity.aggroRange || 512;
 const defenseRange = 1000; // Military units respond to fleeing serfs
 ```
 
-#### Spatial System Optimization
+#### Target Finding
 
-The system uses `global.spatialSystem.findAggroTargets()` for efficient target finding instead of iterating all entities.
+The system iterates through all entities in `global.Player.list` to find potential aggro targets within range. Each entity is validated for combat eligibility before aggro is initiated.
 
-**Code Reference**: `SimpleCombat.js:822-876`
+**Code Reference**: `SimpleCombat.js:1143-1208`
 
 ```javascript
-if (global.spatialSystem && global.spatialSystem.findAggroTargets) {
-  const nearbyTargets = global.spatialSystem.findAggroTargets(entity, aggroRange);
-  // Process targets...
+// Iterate through all entities to find aggro targets
+for (const id in global.Player.list) {
+    const target = global.Player.list[id];
+    
+    // Skip invalid targets (ghost, spectator, same z-level, etc.)
+    // Check distance, alliance, stealth detection
+    // Start combat if valid
 }
 ```
 
@@ -123,9 +131,10 @@ if (global.spatialSystem && global.spatialSystem.findAggroTargets) {
 
 Allies never aggro each other. The check happens early in the aggro process.
 
-**Code Reference**: `SimpleCombat.js:819-821, 878-880`
+**Code Reference**: `SimpleCombat.js:1177-1180`
 
 ```javascript
+// Check alliance FIRST - allies should never aggro each other
 if (global.isAlly && global.isAlly(entity.id, target.id)) {
   continue; // Skip allies
 }
@@ -141,7 +150,7 @@ The alliance system (`global.isAlly()`) is defined in `lambic.js:1656-1743` and 
 
 Stealthed units can only be detected within 128px (2 tiles).
 
-**Code Reference**: `SimpleCombat.js:290-296, 812-817, 871-876`
+**Code Reference**: `SimpleCombat.js:396-402`
 
 ```javascript
 checkStealthDetection(stealthedEntity, detector) {
@@ -161,7 +170,7 @@ checkStealthDetection(stealthedEntity, detector) {
 
 Peaceful units (Serfs, Deer, Sheep) trigger flee behavior instead of combat when aggro'd.
 
-**Code Reference**: `SimpleCombat.js:1012-1023`
+**Code Reference**: `SimpleCombat.js:1288-1303`
 
 ```javascript
 const peaceful = ['Serf', 'SerfM', 'SerfF', 'Deer', 'Sheep'];
@@ -186,7 +195,7 @@ if (peaceful.includes(entity.class)) {
 
 When an entity is attacked, it automatically counter-aggros if it's a military NPC or player.
 
-**Code Reference**: `SimpleCombat.js:1174-1204`
+**Code Reference**: `SimpleCombat.js:1322-1354`
 
 ```javascript
 // Counter-aggro
@@ -205,35 +214,45 @@ if (target.type === 'npc' && target.military && target.action !== 'combat') {
 }
 ```
 
-**Player Counter-Aggro Validation**: Players have additional validation in their combat update loop to ensure they only pathfind when their target is actually in combat with them. If the target is not in combat (doesn't have `action === 'combat'` or `combatState.target !== player.id`), the player's combat target is cleared.
+**Player Combat Validation**: Players have validation in their combat update loop to ensure target exists. For player-initiated attacks, the system allows attacks even if the target hasn't aggro'd yet. However, for NPCs that should have aggro'd (military NPCs within aggro range), the system validates that the target is actually engaging.
 
-**Code Reference**: `SimpleCombat.js:531-551`
+**Code Reference**: `SimpleCombat.js:562-588`
 
 ```javascript
-// For players, validate that target is actually in combat with them
+// For players, validate target exists (but don't require target to be in combat yet)
+// This allows players to initiate attacks even if target hasn't aggro'd
 if (entity.type === 'player') {
   const target = global.Player.list[state.target];
   if (!target) {
+    // Target doesn't exist - end combat
     this.endCombat(entity, target);
     return;
   }
   
-  // Validate target is actually in combat with this player
-  if (target.action !== 'combat' || 
-      !target.combatState || 
-      target.combatState.target !== entity.id) {
-    // Target is not in combat with player - clear player's combat target
+  // Only validate target is in combat if target is an NPC that should have aggro'd
+  // Allow player-initiated attacks even if target hasn't aggro'd yet
+  // This prevents clearing combat when player initiates attack from range
+  if (target.type === 'npc' && target.military) {
+    // For NPCs, check if they should have aggro'd but haven't
+    // Only clear if target is dead, removed, or clearly invalid
+    if (target.hp !== null && target.hp <= 0) {
     this.endCombat(entity, target);
     return;
+    }
   }
 }
 ```
+
+**Key Points**:
+- Players can initiate attacks even if target hasn't aggro'd yet (allows ranged attacks from outside aggro range)
+- System only validates NPCs that should have aggro'd but haven't
+- Prevents premature combat clearing when player initiates attack from range
 
 #### Military Unit Defensive Aggro
 
 Military units have extended range (1000px) to defend fleeing allied serfs.
 
-**Code Reference**: `SimpleCombat.js:766-792`
+**Code Reference**: `SimpleCombat.js:1114-1141`
 
 ```javascript
 if (entity.military && entity.house) {
@@ -256,13 +275,14 @@ if (entity.military && entity.house) {
 
 #### Pending Stealth Attack System
 
-Stealthed units can approach targets before revealing themselves. Combat doesn't start until:
+Stealthed units can approach targets before revealing themselves. The system uses the attack intent system (see [Attack Intent System](#attack-intent-system)) to handle stealth approaches. Combat doesn't start until:
 1. The stealthed unit attacks (first strike)
 2. The target detects the stealthed unit (within 128px)
 
-**Code Reference**: `SimpleCombat.js:960-988`
+**Code Reference**: `SimpleCombat.js:1258-1274` (in `startCombat()`), `SimpleCombat.js:1212-1244` (in `checkAggro()`)
 
 ```javascript
+// In startCombat() - when stealthed unit aggro's
 if (entity.stealthed && !entity.revealed) {
   if (this.checkStealthDetection(entity, target)) {
     // Detected - reveal and start combat
@@ -275,16 +295,25 @@ if (entity.stealthed && !entity.revealed) {
     return; // Don't start combat yet
   }
 }
+
+// In checkAggro() - handlePendingStealthAggro()
+handlePendingStealthAggro(entity) {
+  // Check if stealthed unit is approaching target
+  // Returns true if still approaching, false if ready to attack
+}
 ```
 
 **Pending Stealth Attack Flow**:
 ```
-Stealthed Unit Aggro
+Stealthed Unit Aggro (checkAggro)
     ↓
 [Target not detected yet]
     ↓
 Set combatState.pendingTarget
     ↓
+handlePendingStealthAggro() checks approach status
+    ↓
+[In combat update loop]
 handlePendingStealthAttack() moves unit closer
     ↓
 [Check detection each frame]
@@ -293,11 +322,13 @@ handlePendingStealthAttack() moves unit closer
 [If timeout (5s)] → Cancel pending attack
 ```
 
+**Note**: The pending stealth attack system uses the same attack intent infrastructure as regular attack intent, but with additional stealth detection checks.
+
 #### InnaWoods Compatibility
 
 NPCs can only aggro players if both are in the same "woods" state OR the target is in woods.
 
-**Code Reference**: `SimpleCombat.js:840-844, 899-903`
+**Code Reference**: `SimpleCombat.js:1198-1203`
 
 ```javascript
 if (entity.type === 'npc' && target.type === 'player') {
@@ -311,7 +342,7 @@ if (entity.type === 'npc' && target.type === 'player') {
 
 When combat starts, the system initializes combat state using a unified `combatState` object that consolidates all combat-related state.
 
-**Code Reference**: `SimpleCombat.js:159-173`
+**Code Reference**: `SimpleCombat.js:196-241`
 
 ```javascript
 initCombatState(entity, targetId) {
@@ -357,6 +388,92 @@ entity.combatState = {
 - Prevents edge cases (state is always consistent)
 - Simpler debugging (all state visible in one place)
 
+### Attack Intent System
+
+The attack intent system allows entities (players and NPCs) to set a target for attack before entering full combat range. This enables pathfinding toward targets and automatic conversion to full combat when in range.
+
+**Code Reference**: `SimpleCombat.js:243-272, 693-872`
+
+**Key Methods**:
+- `setAttackIntent(entity, targetId)` - Sets pending target for attack
+- `clearAttackIntent(entity)` - Clears pending attack intent
+- `handlePendingStealthAttack(entity)` - Handles pathfinding and range checking for attack intent (called in combat update loop)
+- `handlePendingStealthAggro(entity)` - Handles pending stealth aggro during aggro checks (called in checkAggro)
+
+**Attack Intent Flow**:
+```
+Entity sets attack intent (setAttackIntent)
+    ↓
+combatState.pendingTarget = targetId
+entity.action = 'combat' (enables update loop)
+    ↓
+handlePendingStealthAttack() called each frame
+    ↓
+[Check if in attack range]
+    ├─ In range → Convert to full combat (initCombatState)
+    └─ Out of range → Pathfind toward target
+    ↓
+[Pathfinding]
+    ├─ Melee → Pathfind to adjacent tile
+    └─ Ranged → Pathfind to optimal position at 90% of attack range
+    ↓
+[Reach range during pathfinding]
+    ↓
+Convert to full combat immediately and attack
+```
+
+**Features**:
+1. **Range Checking with Tolerance**: Uses 1px tolerance to account for floating point precision and pathfinding stopping slightly short
+2. **Automatic Conversion**: When entity reaches attack range, automatically converts from attack intent to full combat state
+3. **Immediate Attack**: When converting to combat, immediately attempts attack if in range (doesn't wait for next frame)
+4. **Pathfinding Support**: 
+   - Melee units pathfind to adjacent tile
+   - Ranged units pathfind to optimal position at 90% of attack range from target
+5. **Stealth Support**: Works for both stealthed and non-stealthed entities
+6. **Timeout Protection**: Cancels attack intent after 5 seconds if target not reached
+
+**Code Example**:
+```javascript
+// Set attack intent
+setAttackIntent(entity, targetId) {
+  const state = this.ensureCombatState(entity);
+  state.pendingTarget = targetId;
+  state.pendingStartTime = Date.now();
+  entity.action = 'combat'; // Enable update loop
+  // Do NOT set state.target yet (only set when in range)
+}
+
+// Handle attack intent (called in update loop)
+handlePendingStealthAttack(entity) {
+  const state = entity.combatState;
+  if (!state || !state.pendingTarget) return false;
+  
+  const pendingTarget = global.Player.list[state.pendingTarget];
+  const distance = this.getDistance(entity, pendingTarget);
+  const attackRange = this.getAttackRange(entity);
+  const rangeTolerance = 1;
+  
+  // Check if in range
+  if (distance <= attackRange + rangeTolerance) {
+    // Convert to full combat
+    this.initCombatState(entity, pendingTarget.id);
+    this.clearAttackIntent(entity);
+    // Immediately attack if in range
+    this.handleAttack(entity, pendingTarget);
+    return false; // Continue to normal combat
+  }
+  
+  // Not in range - pathfind toward target
+  // ... pathfinding logic ...
+  return true; // Still handling attack intent
+}
+```
+
+**Use Cases**:
+- **Player Attack-Move**: Player right-clicks enemy, entity pathfinds and attacks when in range
+- **Stealth Approach**: Stealthed unit approaches target before revealing
+- **Ranged Kiting**: Ranged unit approaches to optimal distance before engaging
+
 ### Non-Combat Classes
 
 These classes never participate in combat:
@@ -364,7 +481,7 @@ These classes never participate in combat:
 - `FishingShip`
 - Ship types: `fishingship`, `cargoship`
 
-**Code Reference**: `SimpleCombat.js:939-941`
+**Code Reference**: `SimpleCombat.js:1087-1093`
 
 Additionally, **players are excluded from the aggro system** - they do not automatically detect and engage enemies based on proximity. Players must explicitly choose targets or receive combat targets through counter-aggro when attacked.
 
@@ -379,11 +496,11 @@ Combat pathing determines how entities move during combat, handling melee positi
 ### Core Files
 
 - **Primary**: `server/js/core/SimpleCombat.js`
-  - `handleChase()` (lines 669-735)
-  - `ensureMeleePositioning()` (lines 387-414)
-  - `getPositioningPriority()` (lines 88-113)
-  - `moveAwayFromTarget()` (lines 283-346)
-  - `findAdjacentTile()` (lines 56-84)
+  - `handleChase()` (lines 1009-1076)
+  - `ensureMeleePositioning()` (lines 504-536)
+  - `getPositioningPriority()` (lines 124-152)
+  - `moveAwayFromTarget()` (lines 439-502)
+  - `findAdjacentTile()` (lines 94-122)
 
 ### Movement Flow
 
@@ -410,7 +527,7 @@ handleChase(entity, target)
 
 Melee units must be on adjacent tiles, never the same tile as their target. The system uses a priority-based approach to prevent position swapping.
 
-**Code Reference**: `SimpleCombat.js:387-414`
+**Code Reference**: `SimpleCombat.js:504-536`
 
 **Key Logic**:
 1. Check if entity and target are on same tile
@@ -468,7 +585,7 @@ ensureMeleePositioning(entity, target) {
 
 Ranged units maintain distance from targets. If too close (<96px), they back away.
 
-**Code Reference**: `SimpleCombat.js:515-517, 623-633`
+**Code Reference**: `SimpleCombat.js:649-652, 887-898`
 
 ```javascript
 // Ranged unit kiting
@@ -492,7 +609,7 @@ handleRangedKiting(entity, target) {
 
 Calculates direction away from target and moves 2 tiles in that direction.
 
-**Code Reference**: `SimpleCombat.js:283-346`
+**Code Reference**: `SimpleCombat.js:439-502`
 
 ```javascript
 moveAwayFromTarget(entity, target) {
@@ -514,7 +631,7 @@ moveAwayFromTarget(entity, target) {
 
 Melee units pathfind to the closest walkable adjacent tile to their target.
 
-**Code Reference**: `SimpleCombat.js:56-84`
+**Code Reference**: `SimpleCombat.js:94-122`
 
 ```javascript
 findAdjacentTile(entity, target) {
@@ -537,7 +654,9 @@ findAdjacentTile(entity, target) {
 
 If pathfinding fails 3 times consecutively, combat is dropped.
 
-**Code Reference**: `SimpleCombat.js:737-759`
+**Code Reference**: `SimpleCombat.js:1161-1179`
+
+**Note**: `handleChase()` no longer performs redundant target validation - the target is already validated in `update()` before `handleChase()` is called.
 
 ```javascript
 entity._pathfindTimeout = setTimeout(() => {
@@ -562,7 +681,7 @@ entity._pathfindTimeout = setTimeout(() => {
 
 NPCs run (faster speed) when chasing in combat.
 
-**Code Reference**: `SimpleCombat.js:711-718`
+**Code Reference**: `SimpleCombat.js:1024-1032`
 
 ```javascript
 // NPCs run when chasing in combat
@@ -582,7 +701,7 @@ if (entity.type === 'npc' && !entity.running) {
 
 Entities return home if they chase too far from their spawn/home location.
 
-**Code Reference**: `SimpleCombat.js:506-512, 611-620`
+**Code Reference**: `SimpleCombat.js:874-885, 641-647`
 
 ```javascript
 checkLeashRange(entity) {
@@ -591,11 +710,17 @@ checkLeashRange(entity) {
   const homeX = entity.home.loc[0] * 64;
   const homeY = entity.home.loc[1] * 64;
   const homeDist = Math.sqrt(Math.pow(entity.x - homeX, 2) + Math.pow(entity.y - homeY, 2));
-  const leashRange = entity.wanderRange || 2048;
+  // Use 2x aggro range as default (matching boar implementation: 256 = 2x 128)
+  const leashRange = entity.wanderRange || ((entity.aggroRange || 512) * 2);
   
   return homeDist > leashRange;
 }
 ```
+
+**Leash Range Calculation**:
+- Default: `2x aggroRange` (e.g., 512px aggro = 1024px leash)
+- Can be overridden via `entity.wanderRange` property
+- Example: Default aggro of 512px results in 1024px leash range
 
 If leash range exceeded:
 1. End combat
@@ -604,16 +729,23 @@ If leash range exceeded:
 
 ### Attack Range Constants
 
-**Code Reference**: `SimpleCombat.js:7-12`
+**Code Reference**: `SimpleCombat.js:7-18`
 
 ```javascript
 this.MELEE_RANGE = 96;           // 1.5 tiles - actual attack range for melee
 this.MELEE_ATTACK_RANGE = 96;    // Max range to start attacking
-this.RANGED_ATTACK_RANGE = 256; // 4 tiles
+this.RANGED_ATTACK_RANGE = 640; // 10 tiles - greater than default NPC aggro range of 512 (8 tiles) so players can attack from outside aggro
 this.RANGED_KITE_DISTANCE = 96; // Too close - back away
 this.BOAR_ATTACK_RANGE = 64;    // 1 tile - boars have shorter range
 this.DETECTION_RANGE = 128;     // 2 tiles for stealth detection
+this.MELEE_COOLDOWN = 1000;     // 1 second
+this.RANGED_COOLDOWN = 1500;    // 1.5 seconds
+this.KITE_CHECK_INTERVAL = 2000; // 2 seconds
+this.PENDING_COMBAT_TIMEOUT = 5000; // 5 seconds
+this.AUTO_ATTACK_RESUME_TIMEOUT = 3000; // 3 seconds - auto-resume after navigation
 ```
+
+**Note**: The `RANGED_ATTACK_RANGE` is intentionally larger (640px) than the default NPC aggro range (512px) to allow players to attack NPCs from outside their aggro range, providing a tactical advantage for ranged combat.
 
 **Range Methods**:
 - `getAttackRange(entity)`: Returns attack range based on entity type
@@ -630,60 +762,87 @@ Default combat behaviors handle auto-attacking, damage calculation, defense appl
 ### Core Files
 
 - **Primary**: `server/js/core/SimpleCombat.js`
-  - `handleAttack()` (lines 607-666)
-  - `calculateDamage()` (lines 194-237)
-  - `applyDamage()` (lines 238-273)
-  - `updateFacingToTarget()` (lines 181-193)
+  - `handleAttack()` (lines 900-1007)
+  - `calculateDamage()` (lines 299-341)
+  - `applyDamage()` (lines 343-379)
+  - `updateFacingToTarget()` (lines 286-297)
 
 ### Combat Update Flow
 
 ```
-Combat Update Loop (update())
+Game Loop (lambic.js)
+    ↓
+[Check if combatState exists]
+    ├─ Player: if (combatState && (!autoAttackPaused || pendingTarget))
+    └─ NPC: if (combatState)
+    ↓
+SimpleCombat.update(entity)
     ↓
 [Handle attack intent (pendingTarget) if present]
+    ├─ If handling attack intent → pathfind and check range
+    └─ If in range → convert to full combat and attack
     ↓
-[Validate combat state and target]
+[Ensure action is set when combatState exists (defensive)]
     ↓
-[For players: Validate target is actually in combat with player]
-    ├─ If target not in combat → endCombat() and return
-    └─ If target is in combat → continue
+[Validate combat state and target - SINGLE VALIDATION POINT]
+    ├─ If invalid → endCombat() and return
+    └─ If valid → cache target reference
+    ↓
+[For players: Validate target exists]
+    ├─ If target doesn't exist → endCombat() and return
+    └─ If target exists → continue (allow player-initiated attacks)
     ↓
 [Validate combat state consistency]
     ↓
-[Check distance and ranges]
+[Check auto-attack pause (players only)]
+    ├─ If paused and target in range → resume auto-attack
+    └─ If paused and target out of range → wait for timeout or range
+    ↓
+[Check leash range]
+    ├─ If exceeded → endCombat() and return
+    └─ If within range → continue
+    ↓
+[Cache distance and attack range calculations]
     ↓
 [Handle ranged kiting if needed]
     ↓
 [Handle melee positioning if needed]
     ↓
 [In attack range?]
-    ├─ Yes → handleAttack()
-    └─ No → handleChase()
+    ├─ Yes → handleAttack() (no redundant validation)
+    └─ No → handleChase() (no redundant validation)
 ```
 
-**Player Combat Validation**: Players have additional validation to ensure they only engage when their target is actually in combat with them. This prevents players from pathfinding toward enemies that haven't engaged them yet.
+**Player Combat Validation**: Players have validation to ensure target exists. The system allows player-initiated attacks even if the target hasn't aggro'd yet, which enables ranged attacks from outside aggro range. See the [Player Aggro System](#player-aggro-system) section for details.
 
-**Code Reference**: `SimpleCombat.js:531-551`
+**Code Reference**: `SimpleCombat.js:703-727`
 
 ```javascript
-// For players, validate that target is actually in combat with them
+// For players, validate target exists (but don't require target to be in combat yet)
+// This allows players to initiate attacks even if target hasn't aggro'd
 if (entity.type === 'player') {
-  const target = global.Player.list[state.target];
+  const target = this.getEntityById(state.target);
   if (!target) {
+    // Target doesn't exist - end combat
     this.endCombat(entity, target);
     return;
   }
   
-  // Validate target is actually in combat with this player
-  if (target.action !== 'combat' || 
-      !target.combatState || 
-      target.combatState.target !== entity.id) {
-    // Target is not in combat with player - clear player's combat target
-    this.endCombat(entity, target);
-    return;
+  // Only validate target is in combat if target is an NPC that should have aggro'd
+  // Allow player-initiated attacks even if target hasn't aggro'd yet
+  // This prevents clearing combat when player initiates attack from range
+  if (target.type === 'npc' && target.military) {
+    // For NPCs, check if they should have aggro'd but haven't
+    // Only clear if target is dead, removed, or clearly invalid
+    if (target.hp !== null && target.hp <= 0) {
+      this.endCombat(entity, target);
+      return;
+    }
   }
 }
 ```
+
+**Single Validation Point**: Target validation happens once at the start of `update()` (line 744). The cached target is then used throughout the update cycle. `handleAttack()` and `handleChase()` no longer perform redundant validations, trusting the validation from `update()`.
 
 ### Key Components
 
@@ -691,7 +850,7 @@ if (entity.type === 'player') {
 
 Entities automatically attack when in range, respecting cooldown timers.
 
-**Code Reference**: `SimpleCombat.js:607-666`
+**Code Reference**: `SimpleCombat.js:1006-1112`
 
 **Cooldown Constants**:
 - **Melee**: 1000ms (1 second)
@@ -709,17 +868,63 @@ handleAttack(entity, target) {
   }
   
   // Perform attack...
+  // Note: Target validation is NOT performed here - it's already validated in update()
   state.lastAttack = now;
 }
 ```
 
-**Auto-Attack Pause**: Players can pause auto-attack with navigation commands (`autoAttackPaused` flag).
+**Validation**: Target validation is performed once in `update()` at the start of the update cycle. `handleAttack()` and `handleChase()` trust this validation and do not re-validate, eliminating redundant checks and potential inconsistencies.
+
+**Auto-Attack Pause**: Players can pause auto-attack with navigation commands (`autoAttackPaused` flag). The system automatically resumes auto-attack when:
+- Target enters attack range
+- Auto-resume timeout expires (3 seconds)
+
+**Code Reference**: `SimpleCombat.js:753-776`
+
+**Game Loop Integration**: The game loop checks `combatState` existence rather than `action === 'combat'`, ensuring combat updates are called whenever combat state exists. This prevents entities from getting stuck when state exists but `action` isn't set.
+
+**Code Reference**: `lambic.js:3618-3628` (players), `lambic.js:5284-5288` (NPCs)
+
+```javascript
+// Player update loop
+if (self.combatState && (!self.autoAttackPaused || self.combatState.pendingTarget)) {
+  global.simpleCombat.update(self);
+}
+
+// NPC update loop
+if (player.type === 'npc' && global.simpleCombat && player.combatState) {
+  global.simpleCombat.update(player);
+}
+```
+
+```javascript
+// Check if auto-attacking is paused (player issued navigation command)
+if (entity.autoAttackPaused) {
+  const distance = this.getDistance(entity, target);
+  const attackRange = this.getAttackRange(entity);
+  
+  // Clear pause if target is in attack range
+  if (distance <= attackRange) {
+    entity.autoAttackPaused = false;
+  } else {
+    // Set timeout to auto-resume if navigation takes too long
+    if (!entity._autoAttackResumeTimeout) {
+      entity._autoAttackResumeTimeout = setTimeout(() => {
+        if (entity && entity.autoAttackPaused) {
+          entity.autoAttackPaused = false;
+        }
+      }, this.AUTO_ATTACK_RESUME_TIMEOUT);
+    }
+    return; // Skip combat updates but keep combat status
+  }
+}
+```
 
 #### Damage Calculation
 
 Damage is calculated as: `weaponDamage - armorDefense` with a minimum of 1 damage.
 
-**Code Reference**: `SimpleCombat.js:194-237`
+**Code Reference**: `SimpleCombat.js:299-341`
 
 ```javascript
 calculateDamage(attacker, target) {
@@ -775,7 +980,7 @@ calculateDamage(attacker, target) {
 
 Damage is applied to target HP and triggers combat events.
 
-**Code Reference**: `SimpleCombat.js:238-273`
+**Code Reference**: `SimpleCombat.js:343-379`
 
 ```javascript
 applyDamage(attacker, target, damageType = 'melee') {
@@ -819,25 +1024,34 @@ applyDamage(attacker, target, damageType = 'melee') {
 
 Melee attacks apply damage directly using `applyDamage()`.
 
-**Code Reference**: `SimpleCombat.js:662-665`
+**Code Reference**: `SimpleCombat.js:1104`
 
 ```javascript
 // Melee attack - use standardized damage calculation
 this.applyDamage(entity, target, 'melee');
-entity._lastCombatAttack = now;
+state.lastAttack = now;
 ```
+
+**Note**: Target validation is not performed in `handleAttack()` - the target is already validated in `update()` before `handleAttack()` is called.
 
 #### Ranged Attacks
 
 Ranged attacks use the `shootArrow()` method which creates an Arrow entity.
 
-**Code Reference**: `SimpleCombat.js:651-660`
+**Code Reference**: `SimpleCombat.js:1068-1093`
 
 ```javascript
 if (entity.ranged && entity.shootArrow) {
+  // For players, check if they have arrows before shooting
+  if (entity.type === 'player') {
+    if (!entity.inventory.arrows || entity.inventory.arrows <= 0) {
+      return; // Cannot shoot without arrows
+    }
+  }
+  
   // Ranged units shoot arrows
   entity.shootArrow(target.id);
-  entity._lastCombatAttack = now;
+  state.lastAttack = now;
   
   // Check if target died (arrow might have hit instantly)
   if (!this.isTargetValid(target, entity)) {
@@ -846,6 +1060,8 @@ if (entity.ranged && entity.shootArrow) {
   }
 }
 ```
+
+**Note**: The target validation check after shooting is necessary because the arrow might have killed the target instantly. However, the initial target validation happens in `update()` before `handleAttack()` is called.
 
 **Arrow System**:
 - Arrows are entities that travel to target
@@ -865,7 +1081,7 @@ if (self.type === 'player' && self.inventory.arrows > 0) {
 
 Entities face their target before attacking.
 
-**Code Reference**: `SimpleCombat.js:181-193`
+**Code Reference**: `SimpleCombat.js:286-297`
 
 ```javascript
 updateFacingToTarget(entity, target) {
@@ -885,7 +1101,7 @@ updateFacingToTarget(entity, target) {
 
 Attack animations are triggered via the `pressingAttack` flag.
 
-**Code Reference**: `SimpleCombat.js:260-265`
+**Code Reference**: `SimpleCombat.js:365-371`
 
 ```javascript
 if (attacker.pressingAttack !== undefined) {
@@ -902,7 +1118,7 @@ The client-side rendering system uses this flag to display attack sprites (see `
 
 First attack from stealth removes stealth from both attacker and target.
 
-**Code Reference**: `SimpleCombat.js:632-645`
+**Code Reference**: `SimpleCombat.js:944-957`
 
 ```javascript
 // STEALTH COMBAT: Handle first stealth attack
@@ -951,7 +1167,7 @@ SimpleFlee.update()
 
 Peaceful units (Serfs, Deer, Sheep) automatically flee when aggro'd instead of fighting.
 
-**Code Reference**: `SimpleCombat.js:990-1004`
+**Code Reference**: `SimpleCombat.js:1288-1303`
 
 ```javascript
 const peaceful = ['Serf', 'SerfM', 'SerfF', 'Deer', 'Sheep'];
@@ -1103,7 +1319,7 @@ entity.fleeCooldown = 30; // 30 frames = 0.5 seconds at 60fps
 
 When combat ends due to distance, escape messages are sent.
 
-**Code Reference**: `SimpleCombat.js:1131-1146`
+**Code Reference**: `SimpleCombat.js:1457-1472`
 
 ```javascript
 // Send escape message to player (when player escapes)
@@ -1130,7 +1346,7 @@ if (entity.type === 'player' && target) {
 
 When an enemy gives up the chase, a message is sent to the player.
 
-**Code Reference**: `SimpleCombat.js:1118-1128`
+**Code Reference**: `SimpleCombat.js:1444-1454`
 
 ```javascript
 // Send escape message to player (when enemy gives up)
@@ -1683,7 +1899,9 @@ stealthCheck(id, config) {
 
 Stealthed units can approach targets before revealing themselves.
 
-**Code Reference**: `SimpleCombat.js:546-608, 940-969`
+**Code Reference**: `SimpleCombat.js:693-872`
+
+**Note**: The `handlePendingStealthAttack()` method handles both stealthed and non-stealthed attack intent, making it a general-purpose attack intent handler. The method name is a legacy from when it was stealth-specific. There is also a separate `handlePendingStealthAggro()` method (lines 1212-1244) that handles pending stealth aggro during aggro checks.
 
 ```javascript
 handlePendingStealthAttack(entity) {
@@ -1808,7 +2026,7 @@ Based on the game's combat system, potential skills could include:
 
 The combat system relies on several other systems:
 
-1. **Spatial System** (`server/js/core/SpatialIntegration.js`): Efficient aggro target finding
+1. **Pathfinding System**: Movement during combat (via `entity.moveTo()`)
 2. **Pathfinding System** (`server/js/core/PathfindingManager.js`): Movement during combat
 3. **Event System** (`server/js/core/EventManager.js`): Combat event tracking
 4. **Social System** (`server/js/core/SocialSystem.js`): Death witness recording
@@ -1822,12 +2040,12 @@ The combat system relies on several other systems:
 
 ### Combat Constants
 
-**File**: `server/js/core/SimpleCombat.js:7-16`
+**File**: `server/js/core/SimpleCombat.js:7-18`
 
 ```javascript
 MELEE_RANGE = 96;           // 1.5 tiles - actual attack range
 MELEE_ATTACK_RANGE = 96;   // Max range to start attacking
-RANGED_ATTACK_RANGE = 256; // 4 tiles
+RANGED_ATTACK_RANGE = 640; // 10 tiles - greater than default NPC aggro range of 512 (8 tiles) so players can attack from outside aggro
 RANGED_KITE_DISTANCE = 96; // Too close - back away
 BOAR_ATTACK_RANGE = 64;    // 1 tile
 DETECTION_RANGE = 128;     // 2 tiles for stealth
@@ -1835,6 +2053,7 @@ MELEE_COOLDOWN = 1000;     // 1 second
 RANGED_COOLDOWN = 1500;    // 1.5 seconds
 KITE_CHECK_INTERVAL = 2000; // 2 seconds
 PENDING_COMBAT_TIMEOUT = 5000; // 5 seconds
+AUTO_ATTACK_RESUME_TIMEOUT = 3000; // 3 seconds - auto-resume after navigation
 ```
 
 ### Flee Constants
@@ -1874,11 +2093,11 @@ DEFENSE_RANGE = 1000;      // 10 tiles (military units)
 **Previous Issue**: Players automatically received combat targets and pathfound toward enemies when enemies came into range, even though the enemy hadn't engaged them. This created a timing gap where players would pathfind before NPCs actually initiated combat.
 
 **Solution Implemented**: 
-1. Added explicit check in `checkAggro()` to skip players (defensive safeguard at `SimpleCombat.js:934-937`)
-2. Added validation in player combat update (`SimpleCombat.js:531-551`) to ensure target is actually in combat before pathfinding
-3. Players now only pathfind when their target has `action === 'combat'` and `combatState.target === player.id`
+1. Added explicit check in `checkAggro()` to skip players (defensive safeguard at `SimpleCombat.js:1084-1085`)
+2. Updated player combat validation (`SimpleCombat.js:562-588`) to allow player-initiated attacks even if target hasn't aggro'd yet
+3. Players can now initiate attacks via attack intent system, which handles pathfinding and automatic conversion to combat when in range
 
-**Result**: Players only engage in combat when they explicitly set attack intent OR when an NPC actually attacks them and enters combat state.
+**Result**: Players can initiate attacks via attack intent (right-click or attack commands), which pathfinds toward target and automatically converts to full combat when in range. Players also receive combat targets through counter-aggro when NPCs attack them.
 
 ### 2. No HP-Based Escape
 
@@ -1900,11 +2119,15 @@ DEFENSE_RANGE = 1000;      // 10 tiles (military units)
 
 **Status**: RESOLVED
 
-**Previous Issue**: Combat state was scattered across multiple properties (`entity.combat.target`, `_pendingCombatTarget`, `_pendingCombatStartTime`, `_combatStartTime`, `_lastCombatAttack`, `_pathfindingFailures`), creating edge cases where state could be inconsistent.
+**Previous Issue**: Combat state was scattered across multiple properties (`entity.combat.target`, `_pendingCombatTarget`, `_pendingCombatStartTime`, `_combatStartTime`, `_lastCombatAttack`, `_pathfindingFailures`), creating edge cases where state could be inconsistent. Additionally, the game loop only called `update()` when `action === 'combat'`, which could cause entities to get stuck if `combatState` existed but `action` wasn't set.
 
-**Solution Implemented**: Unified combat state object (`entity.combatState`) that consolidates all combat-related state into a single structured object. Added helper methods `ensureCombatState()` and `clearCombatState()` for consistent state management.
+**Solution Implemented**: 
+1. Unified combat state object (`entity.combatState`) that consolidates all combat-related state into a single structured object. Added helper methods `ensureCombatState()` and `clearCombatState()` for consistent state management.
+2. Updated game loop to check `combatState` existence instead of `action === 'combat'`, ensuring combat always updates when state exists.
+3. Added defensive state cleanup in `update()` to ensure `action` is set when `combatState` exists.
+4. Removed redundant target validations from `handleAttack()` and `handleChase()`, establishing a single validation point in `update()`.
 
-**Result**: Eliminated state inconsistencies, simplified validation (single object check), improved maintainability, and prevented edge cases through unified state management.
+**Result**: Eliminated state inconsistencies, simplified validation (single object check, single validation point), improved maintainability, prevented edge cases through unified state management, and ensured combat always updates when state exists.
 
 ### 5. Position Swapping Complexity
 

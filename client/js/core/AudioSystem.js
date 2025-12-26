@@ -124,10 +124,24 @@ var AudioSystem = {
       buildingId = getBuilding(x, y, true); // Include walls for stairs
     }
     
+    // Get building object early - b might be a building ID or null
+    var building = null;
+    if (buildingId) {
+      building = Building.list[buildingId];
+    }
+    
+    // If indoors and building not found, always try to look it up by position
+    if (isIndoor && !building && typeof getBuilding !== 'undefined') {
+      var lookupId = getBuilding(x, y, true);
+      if (lookupId) {
+        buildingId = lookupId;
+        building = Building.list[lookupId];
+      }
+    }
+    
     // If inside a building, check if we're in the same building
     if (isIndoor && buildingId && this._currentBuildingId === buildingId) {
       // Same building, different floor - don't change music
-      var building = Building.list[buildingId];
       this.soundscape(x, y, z, building || {});
       return; // Skip music change
     }
@@ -141,8 +155,6 @@ var AudioSystem = {
       this._currentBuildingId = null;
       this._currentIndoorZ = null;
     }
-    
-    var building = buildingId ? Building.list[buildingId] : null;
     this.soundscape(x,y,z,building || {});
     // outdoors
     if(z == 0){
@@ -168,7 +180,12 @@ var AudioSystem = {
           bgmPlayer(stronghold_day_bgm);
         }
       } else if(building && building.type == 'garrison'){
-        bgmPlayer(garrison_bgm);
+        if(typeof garrison_bgm !== 'undefined') {
+          bgmPlayer(garrison_bgm);
+        } else {
+          // Fallback if garrison_bgm not loaded
+          bgmPlayer(indoors_bgm);
+        }
       } else if(building && building.type == 'tavern'){
         bgmPlayer(tavern_bgm);
       } else if(building && building.type == 'monastery'){
