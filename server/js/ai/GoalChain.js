@@ -8,6 +8,8 @@ class GoalChain {
     this.mainGoal = mainGoal;
     this.steps = [];
     this.currentStep = 0;
+    this.failureReason = null; // Track why chain failed
+    this.blockingFactors = []; // Track blocking factors at failure
   }
   
   // Convert a blocked goal into a chain of achievable subgoals
@@ -130,50 +132,82 @@ class GoalChain {
           // Check if we can gather this resource in territory
           const buildingType = chain.getResourceBuildingType(block.resource);
           if (buildingType) {
-            // Try to build gathering building first
-            const buildGoal = createBuildingGoal(buildingType);
-            if (buildGoal) {
-              queue.push({
-                goal: buildGoal,
-                parent: g,
-                depth: depth + 1,
-                reason: `needs resource: ${block.resource} (requires ${buildingType})`
-              });
-              dependenciesAdded = true;
+            // Check if gathering building already exists
+            const hasBuilding = GoalChain.hasGatheringBuilding(house, block.resource);
+            
+            if (!hasBuilding) {
+              // Need to build gathering building first
+              const buildGoal = createBuildingGoal(buildingType);
+              if (buildGoal) {
+                queue.push({
+                  goal: buildGoal,
+                  parent: g,
+                  depth: depth + 1,
+                  reason: `needs resource: ${block.resource} (requires ${buildingType})`
+                });
+                dependenciesAdded = true;
+                
+                if (logger) {
+                  logger.collectInfo(`  -> Need ${buildGoal.type} to gather ${block.resource} (for ${g.type})`);
+                }
+              } else {
+                errors.push(`Cannot create build goal for ${buildingType} (needed for ${block.resource}) - check building definitions`);
+                if (logger) {
+                  logger.collectError(`Cannot create build goal for ${buildingType}`, null);
+                }
+              }
               
-              if (logger) {
-                logger.collectInfo(`  -> Need ${buildGoal.type} to gather ${block.resource} (for ${g.type})`);
+              // Check if we need multiple buildings for large deficits
+              const deficit = block.need - block.have;
+              const buildingsNeeded = GoalChain.estimateBuildingsNeeded(house, block.resource, deficit);
+              
+              // For very large deficits (>100), consider building additional gathering buildings
+              if (deficit > 100 && buildingsNeeded > 0) {
+                // Add one more building goal for large resource needs
+                const additionalBuildGoal = createBuildingGoal(buildingType);
+                if (additionalBuildGoal) {
+                  queue.push({
+                    goal: additionalBuildGoal,
+                    parent: g,
+                    depth: depth + 1,
+                    reason: `needs resource: ${block.resource} (large deficit, requires additional ${buildingType})`
+                  });
+                  
+                  if (logger) {
+                    logger.collectInfo(`  -> Need additional ${additionalBuildGoal.type} for large ${block.resource} deficit (${deficit})`);
+                  }
+                }
               }
             } else {
-              errors.push(`Cannot create build goal for ${buildingType} (needed for ${block.resource}) - check building definitions`);
+              // Building exists - just need to gather resources
               if (logger) {
-                logger.collectError(`Cannot create build goal for ${buildingType}`, null);
+                logger.collectInfo(`  -> ${buildingType} exists, will gather ${block.resource}`);
+              }
+            }
+            
+            // Add gather goal to wait for resources (only if there's a deficit)
+            const deficit = block.need - block.have;
+            if (deficit > 0) {
+              const gatherGoal = new GatherResourceGoal(block.resource, block.need);
+              chain.steps.push(gatherGoal);
+              dependenciesAdded = true;
+              resolutionPath.push({
+                goal: gatherGoal.type,
+                depth: depth + 1,
+                reason: `gather ${block.resource} (need ${block.need}, have ${block.have})`,
+                parent: g.type,
+                canExecute: false,
+                blocking: []
+              });
+              
+              if (logger) {
+                logger.collectInfo(`  -> Need to gather ${block.resource} (have ${block.have}, need ${block.need})`);
               }
             }
           } else {
             errors.push(`No building type defined for resource ${block.resource} - check getResourceBuildingType() in GoalChain.js`);
             if (logger) {
               logger.collectError(`No building type defined for resource ${block.resource}`, null);
-            }
-          }
-          
-          // Add gather goal to wait for resources
-          const deficit = block.need - block.have;
-          if (deficit > 0) {
-            const gatherGoal = new GatherResourceGoal(block.resource, block.need);
-            chain.steps.push(gatherGoal);
-            dependenciesAdded = true;
-            resolutionPath.push({
-              goal: gatherGoal.type,
-              depth: depth + 1,
-              reason: `gather ${block.resource} (need ${block.need}, have ${block.have})`,
-              parent: g.type,
-              canExecute: false,
-              blocking: []
-            });
-            
-            if (logger) {
-              logger.collectInfo(`  -> Need to gather ${block.resource} (have ${block.have}, need ${block.need})`);
             }
           }
         }
@@ -349,9 +383,52 @@ class GoalChain {
       stone: 'mine',  // Mines can gather stone
       wood: 'lumbermill',
       grain: 'farm',
-      iron: 'mine'
+      iron: 'mine',
+      ironore: 'mine',
+      silverore: 'mine',
+      goldore: 'mine'
     };
     return buildingTypes[resourceType] || 'workshop';
+  }
+  
+  // Check if house has gathering building for a resource type
+  static hasGatheringBuilding(house, resourceType) {
+    if (!house.ai || !house.ai.buildingService) {
+      return false;
+    }
+    
+    const chain = new GoalChain(null);
+    const buildingType = chain.getResourceBuildingType(resourceType);
+    if (!buildingType) {
+      return false;
+    }
+    
+    const buildingCount = house.ai.buildingService.getBuildingCount(buildingType);
+    if (buildingCount === 0) {
+      return false;
+    }
+    
+    // Check if at least one building is built and operational
+    const buildings = house.ai.buildingService.getBuildingsByType(buildingType);
+    for (const building of buildings) {
+      if (building && building.built) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+  
+  // Estimate if we need multiple gathering buildings based on deficit
+  static estimateBuildingsNeeded(house, resourceType, deficit) {
+    // Simple heuristic: if deficit is large (>50), might need multiple buildings
+    // For now, return 1 if no building exists, 0 if building exists
+    if (GoalChain.hasGatheringBuilding(house, resourceType)) {
+      return 0; // Building exists, no need to build more
+    }
+    
+    // Large deficits might benefit from multiple buildings, but start with 1
+    return 1;
   }
 
 }

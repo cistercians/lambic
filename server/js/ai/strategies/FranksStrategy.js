@@ -49,6 +49,34 @@ class FranksStrategy extends FactionStrategy {
     
     return goals;
   }
+  
+  // Get alternative goals when primary goal fails
+  getAlternativeGoals(primaryGoal, failureReason) {
+    const alternatives = [];
+    
+    // If BUILD_FARM fails, suggest building more mills or lumbermills
+    if (primaryGoal.type === 'BUILD_FARM') {
+      const mills = this.countBuildingType('mill');
+      const maxMills = this.profile.buildingPreferences.mill.maxCount || 4;
+      
+      if (mills < maxMills) {
+        // Build another mill to create more farm placement opportunities
+        const millGoal = new BuildMillGoal();
+        millGoal.utility = millGoal.utility * 1.2; // Boost utility for alternative
+        alternatives.push(millGoal);
+      }
+      
+      // Also suggest lumbermill as alternative
+      const lumbermills = this.countBuildingType('lumbermill');
+      if (lumbermills < 2) {
+        const lumbermillGoal = new BuildLumbermillGoal();
+        lumbermillGoal.utility = lumbermillGoal.utility * 1.1; // Boost utility
+        alternatives.push(lumbermillGoal);
+      }
+    }
+    
+    return alternatives;
+  }
 }
 
 module.exports = FranksStrategy;

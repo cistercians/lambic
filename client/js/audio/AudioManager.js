@@ -63,7 +63,42 @@ class AudioManager {
     const player = Player.list[selfId];
     if(!player) return null;
     
-    const building = Building.list[getBuilding(player.x, player.y)];
+    // Improved building lookup - use robust logic matching AudioSystem
+    const isIndoor = (player.z === 1 || player.z === 2 || player.z === -2);
+    let buildingId = null;
+    let building = null;
+    
+    if (isIndoor && typeof getBuilding !== 'undefined') {
+      // Use includeWallsAndTopPlot=true when indoors to handle stairs on walls
+      buildingId = getBuilding(player.x, player.y, true);
+      if (buildingId) {
+        building = Building.list[buildingId];
+      }
+      
+      // If building not found, try with position offsets to handle edge cases
+      if (!building) {
+        const offsets = [
+          [0, 0], [0, -1], [0, 1], [-1, 0], [1, 0],
+          [-1, -1], [1, -1], [-1, 1], [1, 1]
+        ];
+        for (let i = 0; i < offsets.length && !building; i++) {
+          const offsetX = player.x + (offsets[i][0] * (typeof tileSize !== 'undefined' ? tileSize : 64));
+          const offsetY = player.y + (offsets[i][1] * (typeof tileSize !== 'undefined' ? tileSize : 64));
+          const retryId = getBuilding(offsetX, offsetY, true);
+          if (retryId && Building.list[retryId]) {
+            buildingId = retryId;
+            building = Building.list[retryId];
+            break;
+          }
+        }
+      }
+    } else if (!isIndoor && typeof getBuilding !== 'undefined') {
+      buildingId = getBuilding(player.x, player.y);
+      if (buildingId) {
+        building = Building.list[buildingId];
+      }
+    }
+    
     const weatherEffects = getWeatherEffects(player.x, player.y, player.z);
     
     // Determine shipType: use player.shipType if set, otherwise check boardedShip entity
@@ -177,10 +212,42 @@ class AudioManager {
     // Priority 3: Location-based
     if(context.z === -1){
       return cave_bgm;
-    } else if(context.z === 1){
-      return context.buildingType === 'monastery' ? null : indoors_bgm;
-    } else if(context.z === 2){
+    } else if(context.z === 1 || context.z === 2){
+      // Check building type - ensure building exists and has type property
+      if(context.buildingType){
+        // Use case-insensitive comparison and trim whitespace
+        const buildingType = String(context.buildingType).toLowerCase().trim();
+        
+        if(buildingType === 'stronghold'){
+          if(context.nightfall){
+            return stronghold_night_bgm;
+          } else {
+            return stronghold_day_bgm;
+          }
+        } else if(buildingType === 'garrison'){
+          if(typeof garrison_bgm !== 'undefined') {
+            return garrison_bgm;
+          } else {
+            // Fallback if garrison_bgm not loaded
+            return indoors_bgm;
+          }
+        } else if(buildingType === 'tavern'){
+          if(typeof tavern_bgm !== 'undefined') {
+            return tavern_bgm;
+          } else {
+            return indoors_bgm;
+          }
+        } else if(buildingType === 'monastery'){
+          // No music in monasteries (returns null)
+          return null;
+        } else {
+          // Building found but type doesn't match any special cases
+          return indoors_bgm;
+        }
+      } else {
+        // No building found or building has no type - play default indoor music
       return indoors_bgm;
+      }
     } else if(context.z === -2){
       return context.buildingType === 'tavern' ? null : dungeons_bgm;
     } else if(context.z === 0){

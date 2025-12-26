@@ -1498,14 +1498,27 @@ Garrison = function(param){
   self.patrol = true;
   
   self.update = function(){
-    // Debug: Log that garrison update is being called
-    if(self.productionTimer === 0 || self.productionTimer % 3600 === 0){
-    }
-    
     // Automated military production (only if owner has a House)
     self.productionTimer++;
     if(self.productionTimer >= 18000){
       self.productionTimer = 0;
+      
+      if(global.console && global.console.log){
+        console.log('[Garrison] Production timer triggered', {
+          garrisonId: self.id,
+          built: self.built,
+          house: self.house,
+          owner: self.owner
+        });
+      }
+      
+      // Check if building is built
+      if(!self.built){
+        if(global.console && global.console.log){
+          console.log('[Garrison] Production skipped: Building not built', self.id);
+        }
+        return;
+      }
       
       // Resolve house ownership (works for both player and NPC factions)
       var house = null;
@@ -1525,13 +1538,21 @@ Garrison = function(param){
       
       if(!house){
         // No house found - garrison can't produce units
+        if(global.console && global.console.log){
+          console.log('[Garrison] Production failed: No house found for garrison', self.id);
+        }
         return;
       }
       
-      // Check grain availability (10 grain per unit)
+      // Determine unit type based on faction progression and buildings (check early)
+      var progression = FACTION_UNIT_PROGRESSION[house.name];
+      var unitClass;
       var grain = house.stores.grain || 0;
+      var fish = house.stores.fish || 0;
+      var wood = house.stores.wood || 0;
       
-      if(grain < 10) return; // Need at least 10 grain to produce a unit
+      // Calculate max garrison size before consuming resources (based on original grain)
+      var maxGarrison = Math.floor(grain / 50);
       
       // Count current military units for this house
       var militaryCount = 0;
@@ -1542,21 +1563,33 @@ Garrison = function(param){
         }
       }
       
-      // Determine max garrison size based on grain (1 unit per 50 grain available)
-      var maxGarrison = Math.floor(grain / 50);
-      if(militaryCount >= maxGarrison) return; // Already at capacity
-      
-      // Spawn location
-      var sp = self.plot[7] || self.plot[0];
-      var spCoords = getCenter(sp[0], sp[1]);
-      
-      // Determine unit type based on faction progression and buildings
-      var progression = FACTION_UNIT_PROGRESSION[house.name];
-      var unitClass;
-      
+      // Check capacity before attempting production
+      if(militaryCount >= maxGarrison){
+        if(global.console && global.console.log){
+          console.log('[Garrison] Production failed: At capacity', {
+            house: house.name,
+            militaryCount: militaryCount,
+            maxGarrison: maxGarrison
+          });
+        }
+        return; // Already at capacity
+      }
       
       if(progression){
-        // Use progression system
+        // Use progression system - requires 20 total food (fish + grain) and 10 wood
+        var totalFood = fish + grain;
+        if(totalFood < 20 || wood < 10){
+          if(global.console && global.console.log){
+            console.log('[Garrison] Production failed: Insufficient resources', {
+              house: house.name,
+              totalFood: totalFood,
+              requiredFood: 20,
+              wood: wood,
+              requiredWood: 10
+            });
+          }
+          return;
+        }
         
         // Check if stronghold exists (produces elite units)
         if(house.hasStronghold && progression.elite){
@@ -1564,14 +1597,13 @@ Garrison = function(param){
         } else {
           // No stronghold, produce basic units
           var basicUnits = progression.basic;
+          if(!basicUnits || basicUnits.length === 0){
+            if(global.console && global.console.log){
+              console.log('[Garrison] Production failed: No basic units defined for progression', house.name);
+            }
+            return;
+          }
           unitClass = basicUnits[Math.floor(Math.random() * basicUnits.length)];
-        }
-        
-        // Check resources (basic units need food + wood)
-        // Consume fish first, then grain
-        var wood = house.stores.wood || 0;
-        if(totalFood < 20 || wood < 10){
-          return;
         }
         
         // Consume fish first, then grain
@@ -1587,22 +1619,36 @@ Garrison = function(param){
         house.stores.wood -= 10;
       } else {
         // Fallback for factions without progression defined (use old system)
+        // Requires 10 grain
+        if(grain < 10){
+          if(global.console && global.console.log){
+            console.log('[Garrison] Production failed: Insufficient grain', {
+              house: house.name,
+              grain: grain,
+              required: 10
+            });
+          }
+          return;
+        }
+        
         var factionUnits = FACTION_BASIC_UNITS[house.name];
         if(!factionUnits || factionUnits.length === 0){
+          if(global.console && global.console.log){
+            console.log('[Garrison] Production failed: No faction units defined', house.name);
+          }
           return;
         }
         
         var randomIndex = Math.floor(Math.random() * factionUnits.length);
         unitClass = factionUnits[randomIndex];
         
-        // Check resources (need 10 grain)
-        if(grain < 10){
-          return;
-        }
-        
         // Consume grain
         house.stores.grain -= 10;
       }
+      
+      // Spawn location
+      var sp = self.plot[7] || self.plot[0];
+      var spCoords = getCenter(sp[0], sp[1]);
       
       
       if(unitClass){
@@ -1610,37 +1656,76 @@ Garrison = function(param){
         // Spawn the unit using global constructor
         var unitConstructor = global[unitClass];
         if(unitConstructor){
-          var newUnit = unitConstructor({
-          x:spCoords[0],
-          y:spCoords[1],
-          z:1,
-          house:house.id,
-          kingdom:house.kingdom,
-          home:{z:1, loc:sp}
-        });
-          
-          // Initialize patrol mode (uses faction's universal patrol list)
-          newUnit.mode = 'patrol';
-          newUnit.patrol = {
-            enabled: true,
-            targetTiles: {}, // Cache of chosen patrol points per building
-            idleTimer: 0,
-            resumePoint: null
-          };
-          
-          // Create military recruitment event
-          if(global.eventManager){
-            global.eventManager.militaryUnitRecruited(
-              unitClass,
-              house.name,
-              house.id,
-              { x: newUnit.x, y: newUnit.y, z: newUnit.z }
-            );
+          try {
+            var newUnit = unitConstructor({
+              x:spCoords[0],
+              y:spCoords[1],
+              z:self.z || 0,
+              house:house.id,
+              kingdom:house.kingdom,
+              home:{z:self.z || 0, loc:sp}
+            });
+            
+            if(newUnit){
+              // Initialize patrol mode (uses faction's universal patrol list)
+              newUnit.mode = 'patrol';
+              newUnit.patrol = {
+                enabled: true,
+                targetTiles: {}, // Cache of chosen patrol points per building
+                idleTimer: 0,
+                resumePoint: null
+              };
+              
+              // Create military recruitment event
+              if(global.eventManager){
+                global.eventManager.militaryUnitRecruited(
+                  unitClass,
+                  house.name,
+                  house.id,
+                  { x: newUnit.x, y: newUnit.y, z: newUnit.z }
+                );
+              }
+              
+              if(global.console && global.console.log){
+                console.log('[Garrison] Unit produced successfully', {
+                  house: house.name,
+                  unitClass: unitClass,
+                  location: { x: newUnit.x, y: newUnit.y, z: newUnit.z }
+                });
+              }
+            } else {
+              if(global.console && global.console.log){
+                console.log('[Garrison] Production failed: Unit constructor returned null', {
+                  house: house.name,
+                  unitClass: unitClass
+                });
+              }
+            }
+          } catch(error){
+            if(global.console && global.console.error){
+              console.error('[Garrison] Production failed: Error spawning unit', {
+                house: house.name,
+                unitClass: unitClass,
+                error: error.message || error
+              });
+            }
           }
-          
         } else {
+          if(global.console && global.console.log){
+            console.log('[Garrison] Production failed: Unit constructor not found', {
+              house: house.name,
+              unitClass: unitClass,
+              available: Object.keys(global).filter(k => typeof global[k] === 'function' && k === unitClass)
+            });
+          }
         }
       } else {
+        if(global.console && global.console.log){
+          console.log('[Garrison] Production failed: No unit class determined', {
+            house: house.name,
+            progression: !!progression
+          });
+        }
       }
     }
   }

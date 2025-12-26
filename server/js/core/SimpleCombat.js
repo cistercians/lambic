@@ -1038,11 +1038,6 @@ class SimpleCombat {
         this.handleChase(entity, target);
         return;
       }
-      
-      // Initialize combat state if needed (state already declared above)
-      if (!state.lastAttack) {
-        state.lastAttack = 0;
-      }
 
       const now = Date.now();
       const cooldownMs = entity.ranged ? this.RANGED_COOLDOWN : this.MELEE_COOLDOWN;

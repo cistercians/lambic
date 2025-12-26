@@ -89,48 +89,93 @@ class BuildingConstructor {
   
   // Construct a farm
   buildFarm(location = null) {
-    // Find nearest mill if no location specified
+    // Configurable search radius (default: 6, can expand up to 10)
+    const FARM_SEARCH_RADIUS = 6;
+    const MAX_SEARCH_RADIUS = 10;
+    
+    // Find all mills if no location specified
     const mills = this.getBuildingsByType('mill');
     if (mills.length === 0) {
       return null;
     }
     
-    const mill = mills[0]; // Use first mill
-    const searchCenter = mill.plot[0];
-    
-    const spot = global.tilemapSystem.findBuildingSpot('farm', searchCenter, 4, {
-      excludeTiles: this.getOccupiedTiles()
-    });
-    
-    if (!spot) {
-      return null;
+    // Try each mill with increasing radius if needed
+    for (const mill of mills) {
+      const searchCenter = mill.plot[0];
+      let radius = FARM_SEARCH_RADIUS;
+      
+      // Try with increasing radius if initial search fails
+      while (radius <= MAX_SEARCH_RADIUS) {
+        const spot = global.tilemapSystem.findBuildingSpot('farm', searchCenter, radius, {
+          excludeTiles: this.getOccupiedTiles()
+        });
+        
+        if (spot) {
+          const plot = spot.plot;
+          const center = global.getCenter(plot[4][0], plot[4][1]);
+          
+          // Update terrain
+          for (const tile of plot) {
+            global.tileChange(0, tile[0], tile[1], 8); // FARM_SEED
+            global.tileChange(6, tile[0], tile[1], 0);
+          }
+          
+          // Create farm
+          const farm = Farm({
+            house: this.house.id,
+            owner: this.house.id,
+            x: center[0],
+            y: center[1],
+            z: 0,
+            type: 'farm',
+            built: true,
+            plot: plot
+          });
+          
+          // Note: Farms cannot be marked as colonies because the Farm constructor doesn't return an ID
+          // This is a limitation of the current Farm implementation
+          
+          return true;
+        }
+        
+        // Try next radius increment
+        radius += 2;
+      }
     }
     
-    const plot = spot.plot;
-    const center = global.getCenter(plot[4][0], plot[4][1]);
+    // No suitable location found near any mill
+    return null;
+  }
+  
+  // Check if a farm can be placed (validation-only, doesn't build)
+  canPlaceFarm(location = null) {
+    const FARM_SEARCH_RADIUS = 6;
+    const MAX_SEARCH_RADIUS = 10;
     
-    // Update terrain
-    for (const tile of plot) {
-      global.tileChange(0, tile[0], tile[1], 8); // FARM_SEED
-      global.tileChange(6, tile[0], tile[1], 0);
+    const mills = this.getBuildingsByType('mill');
+    if (mills.length === 0) {
+      return false;
     }
     
-    // Create farm
-    const farm = Farm({
-      house: this.house.id,
-      owner: this.house.id,
-      x: center[0],
-      y: center[1],
-      z: 0,
-      type: 'farm',
-      built: true,
-      plot: plot
-    });
+    // Check each mill with increasing radius
+    for (const mill of mills) {
+      const searchCenter = mill.plot[0];
+      let radius = FARM_SEARCH_RADIUS;
+      
+      while (radius <= MAX_SEARCH_RADIUS) {
+        const spot = global.tilemapSystem.findBuildingSpot('farm', searchCenter, radius, {
+          excludeTiles: this.getOccupiedTiles()
+        });
+        
+        if (spot) {
+          return true; // Found a valid location
+        }
+        
+        radius += 2;
+      }
+    }
     
-    // Note: Farms cannot be marked as colonies because the Farm constructor doesn't return an ID
-    // This is a limitation of the current Farm implementation
-    
-    return true;
+    return false; // No valid location found
   }
   
   // Construct a mine

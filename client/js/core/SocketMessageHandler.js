@@ -1382,11 +1382,41 @@ var SocketMessageHandler = {
         
         var p = Player.list[selfId];
         // Directly determine and play normal ambience based on location
+        // Improved building lookup to ensure we find the building correctly
+        var isIndoor = (p.z == 1 || p.z == 2 || p.z == -2);
+        var buildingId = null;
+        var building = null;
+        
+        if (isIndoor && typeof getBuilding !== 'undefined') {
         // Use includeWallsAndTopPlot=true when indoors to handle stairs on walls
-        var buildingId = (p.z == 1 || p.z == 2 || p.z == -2) 
-          ? getBuilding(p.x, p.y, true) 
-          : getBuilding(p.x, p.y);
-        var building = Building.list[buildingId];
+          buildingId = getBuilding(p.x, p.y, true);
+          if (buildingId) {
+            building = Building.list[buildingId];
+          }
+          
+          // If building not found, try with position offsets to handle edge cases
+          if (!building) {
+            var offsets = [
+              [0, 0], [0, -1], [0, 1], [-1, 0], [1, 0],
+              [-1, -1], [1, -1], [-1, 1], [1, 1]
+            ];
+            for (var i = 0; i < offsets.length && !building; i++) {
+              var offsetX = p.x + (offsets[i][0] * (typeof tileSize !== 'undefined' ? tileSize : 64));
+              var offsetY = p.y + (offsets[i][1] * (typeof tileSize !== 'undefined' ? tileSize : 64));
+              var retryId = getBuilding(offsetX, offsetY, true);
+              if (retryId && Building.list[retryId]) {
+                buildingId = retryId;
+                building = Building.list[retryId];
+                break;
+              }
+            }
+          }
+        } else if (!isIndoor && typeof getBuilding !== 'undefined') {
+          buildingId = getBuilding(p.x, p.y);
+          if (buildingId) {
+            building = Building.list[buildingId];
+          }
+        }
         
         // Check for weather effects first (storms take priority)
         if(typeof getWeatherEffects !== 'undefined') {
@@ -1468,7 +1498,12 @@ var SocketMessageHandler = {
               bgmPlayer(cave_bgm);
             }
           } else if(p.z == 1 || p.z == 2){
-            if(building && building.type == 'stronghold'){
+            // Check building type - ensure building exists and has type property
+            if(building && building.type){
+              // Use case-insensitive comparison and trim whitespace
+              var buildingType = String(building.type).toLowerCase().trim();
+              
+              if(buildingType == 'stronghold'){
               if(nightfall){
                 if(typeof stronghold_night_bgm !== 'undefined') {
                   bgmPlayer(stronghold_night_bgm);
@@ -1478,19 +1513,39 @@ var SocketMessageHandler = {
                   bgmPlayer(stronghold_day_bgm);
                 }
               }
-            } else if(building && building.type == 'garrison'){
+              } else if(buildingType == 'garrison'){
               if(typeof garrison_bgm !== 'undefined') {
                 bgmPlayer(garrison_bgm);
+                } else {
+                  // Fallback if garrison_bgm not loaded
+                  if(typeof indoors_bgm !== 'undefined') {
+                    bgmPlayer(indoors_bgm);
               }
-            } else if(building && building.type == 'tavern'){
+                }
+              } else if(buildingType == 'tavern'){
               if(typeof tavern_bgm !== 'undefined') {
                 bgmPlayer(tavern_bgm);
               }
-            } else if(building && building.type == 'monastery'){
+              } else if(buildingType == 'monastery'){
               if(typeof monastery_bgm !== 'undefined') {
                 bgmPlayer(monastery_bgm);
               }
             } else {
+                // Building found but type doesn't match any special cases
+                // Debug: log building type for troubleshooting (remove in production)
+                if(typeof console !== 'undefined' && console.log) {
+                  console.log('SocketHandler: Building type "' + building.type + '" does not match special cases, playing indoor music');
+                }
+                if(typeof indoors_bgm !== 'undefined') {
+                  bgmPlayer(indoors_bgm);
+                }
+              }
+            } else {
+              // No building found or building has no type - play default indoor music
+              // Debug: log for troubleshooting (remove in production)
+              if(typeof console !== 'undefined' && console.log) {
+                console.log('SocketHandler: No building found at z=' + p.z + ', x=' + p.x + ', y=' + p.y + ', buildingId=' + buildingId);
+              }
               if(typeof indoors_bgm !== 'undefined') {
                 bgmPlayer(indoors_bgm);
               }

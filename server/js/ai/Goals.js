@@ -92,6 +92,36 @@ class BuildMillGoal extends Goal {
     this.buildingRequirements = [];
   }
   
+  // Check if mill can be placed at a valid location
+  canPlace(house) {
+    const constructor = getBuildingConstructor(house);
+    if (!constructor) {
+      return false;
+    }
+    
+    // Check if location is available (validation-only)
+    const hq = house.hq;
+    const searchCenter = this.location || hq;
+    const radius = this.location ? 3 : 10;
+    
+    const spot = global.tilemapSystem.findBuildingSpot('mill', searchCenter, radius, {
+      excludeTiles: constructor.getOccupiedTiles()
+    });
+    
+    return spot !== null;
+  }
+  
+  // Override canExecute to also check location
+  canExecute(house) {
+    // First check standard requirements (resources, buildings)
+    if (!super.canExecute(house)) {
+      return false;
+    }
+    
+    // Then check if location is available
+    return this.canPlace(house);
+  }
+  
   execute(house) {
     const constructor = getBuildingConstructor(house);
     const logger = house.ai?.logger;
@@ -142,6 +172,28 @@ class BuildFarmGoal extends Goal {
     this.buildingRequirements = ['mill']; // Need mill to process grain
   }
   
+  // Check if farm can be placed at a valid location
+  canPlace(house) {
+    const constructor = getBuildingConstructor(house);
+    if (!constructor) {
+      return false;
+    }
+    
+    // Use BuildingConstructor's validation method
+    return constructor.canPlaceFarm(this.location);
+  }
+  
+  // Override canExecute to also check location
+  canExecute(house) {
+    // First check standard requirements (resources, buildings)
+    if (!super.canExecute(house)) {
+      return false;
+    }
+    
+    // Then check if location is available
+    return this.canPlace(house);
+  }
+  
   execute(house) {
     const constructor = getBuildingConstructor(house);
     const logger = house.ai?.logger;
@@ -169,7 +221,7 @@ class BuildFarmGoal extends Goal {
       }
     } else {
       this.status = 'FAILED';
-      const error = new Error('Failed to find suitable location for farm - need mill nearby (within 4 tiles). Build mill first or find location closer to existing mill.');
+      const error = new Error('Failed to find suitable location for farm - need mill nearby (within 6-10 tiles). Build mill first or find location closer to existing mill.');
       
       if (logger) {
         logger.logError('Failed to build farm - no suitable location', error, {
@@ -189,6 +241,36 @@ class BuildMineGoal extends Goal {
     this.resourceCost = { wood: 30, stone: 20 };
     this.buildingRequirements = [];
     this.location = location;
+  }
+  
+  // Check if mine can be placed at a valid location
+  canPlace(house) {
+    const constructor = getBuildingConstructor(house);
+    if (!constructor) {
+      return false;
+    }
+    
+    // Check if location is available (validation-only)
+    const hq = house.hq;
+    const searchCenter = this.location || hq;
+    const radius = this.location ? 3 : 10;
+    
+    const spot = global.tilemapSystem.findBuildingSpot('mine', searchCenter, radius, {
+      excludeTiles: constructor.getOccupiedTiles()
+    });
+    
+    return spot !== null && spot.plot && spot.plot[0];
+  }
+  
+  // Override canExecute to also check location
+  canExecute(house) {
+    // First check standard requirements (resources, buildings)
+    if (!super.canExecute(house)) {
+      return false;
+    }
+    
+    // Then check if location is available
+    return this.canPlace(house);
   }
   
   execute(house) {
@@ -237,6 +319,36 @@ class BuildLumbermillGoal extends Goal {
     this.location = location;
   }
   
+  // Check if lumbermill can be placed at a valid location
+  canPlace(house) {
+    const constructor = getBuildingConstructor(house);
+    if (!constructor) {
+      return false;
+    }
+    
+    // Check if location is available (validation-only)
+    const hq = house.hq;
+    const searchCenter = this.location || hq;
+    const radius = this.location ? 3 : 10;
+    
+    const spot = global.tilemapSystem.findBuildingSpot('lumbermill', searchCenter, radius, {
+      excludeTiles: constructor.getOccupiedTiles()
+    });
+    
+    return spot !== null;
+  }
+  
+  // Override canExecute to also check location
+  canExecute(house) {
+    // First check standard requirements (resources, buildings)
+    if (!super.canExecute(house)) {
+      return false;
+    }
+    
+    // Then check if location is available
+    return this.canPlace(house);
+  }
+  
   execute(house) {
     const constructor = getBuildingConstructor(house);
     
@@ -269,6 +381,36 @@ class BuildForgeGoal extends Goal {
     this.buildingRequirements = []; // No prerequisites for forge
   }
   
+  // Check if forge can be placed at a valid location
+  canPlace(house) {
+    const constructor = getBuildingConstructor(house);
+    if (!constructor) {
+      return false;
+    }
+    
+    // Check if location is available (validation-only)
+    const hq = house.hq;
+    const searchCenter = this.location || hq;
+    const radius = this.location ? 3 : 10;
+    
+    const spot = global.tilemapSystem.findBuildingSpot('forge', searchCenter, radius, {
+      excludeTiles: constructor.getOccupiedTiles()
+    });
+    
+    return spot !== null;
+  }
+  
+  // Override canExecute to also check location
+  canExecute(house) {
+    // First check standard requirements (resources, buildings)
+    if (!super.canExecute(house)) {
+      return false;
+    }
+    
+    // Then check if location is available
+    return this.canPlace(house);
+  }
+  
   execute(house) {
     const constructor = getBuildingConstructor(house);
     
@@ -299,6 +441,36 @@ class BuildGarrisonGoal extends Goal {
     super('BUILD_GARRISON', 50);
     this.resourceCost = { wood: 50, stone: 30 };
     this.buildingRequirements = ['forge']; // Need forge to craft military equipment
+  }
+  
+  // Check if garrison can be placed at a valid location
+  canPlace(house) {
+    const constructor = getBuildingConstructor(house);
+    if (!constructor) {
+      return false;
+    }
+    
+    // Check if location is available (validation-only)
+    const hq = house.hq;
+    const searchCenter = this.location || hq;
+    const radius = this.location ? 3 : 10;
+    
+    const spot = global.tilemapSystem.findBuildingSpot('garrison', searchCenter, radius, {
+      excludeTiles: constructor.getOccupiedTiles()
+    });
+    
+    return spot !== null;
+  }
+  
+  // Override canExecute to also check location
+  canExecute(house) {
+    // First check standard requirements (resources, buildings)
+    if (!super.canExecute(house)) {
+      return false;
+    }
+    
+    // Then check if location is available
+    return this.canPlace(house);
   }
   
   execute(house) {
@@ -335,19 +507,84 @@ class GatherResourceGoal extends Goal {
     this.buildingRequirements = [];
   }
   
+  // Get building type needed for this resource
+  getRequiredBuildingType() {
+    const buildingTypes = {
+      stone: 'mine',
+      wood: 'lumbermill',
+      grain: 'farm',
+      iron: 'mine',
+      ironore: 'mine',
+      silverore: 'mine',
+      goldore: 'mine'
+    };
+    return buildingTypes[this.resource] || null;
+  }
+  
+  // Check if gathering building exists and is operational
+  hasGatheringBuilding(house) {
+    const buildingType = this.getRequiredBuildingType();
+    if (!buildingType) {
+      return false; // No building type defined for this resource
+    }
+    
+    // Check if building exists
+    if (!house.ai || !house.ai.buildingService) {
+      return false;
+    }
+    
+    const buildingCount = house.ai.buildingService.getBuildingCount(buildingType);
+    if (buildingCount === 0) {
+      return false; // No gathering building exists
+    }
+    
+    // Check if buildings are built and have workers (basic operational check)
+    const buildings = house.ai.buildingService.getBuildingsByType(buildingType);
+    for (const building of buildings) {
+      if (building && building.built) {
+        // Building exists and is built - consider it operational
+        // (More detailed worker checking could be added here)
+        return true;
+      }
+    }
+    
+    return false;
+  }
+  
   execute(house) {
-    // This goal is passive - serfs will gather over time
     // Check if we've reached target
     const current = house.stores[this.resource] || 0;
     if (current >= this.targetAmount) {
       this.status = 'COMPLETED';
-    } else {
-      this.status = 'IN_PROGRESS';
+      return;
     }
+    
+    // Check if gathering building exists - if not, mark as BLOCKED
+    if (!this.hasGatheringBuilding(house)) {
+      this.status = 'BLOCKED';
+      const buildingType = this.getRequiredBuildingType();
+      this.blockedBy = [{
+        type: 'BUILDING',
+        value: buildingType || 'unknown',
+        reason: `Need ${buildingType} to gather ${this.resource}`
+      }];
+      return;
+    }
+    
+    // Building exists - resources will gather over time
+    this.status = 'IN_PROGRESS';
   }
   
   canExecute(house) {
-    // Gathering has no prerequisites
+    // Check if gathering building exists
+    if (!this.hasGatheringBuilding(house)) {
+      this.blockedBy = [{
+        type: 'BUILDING',
+        value: this.getRequiredBuildingType() || 'unknown'
+      }];
+      return false;
+    }
+    
     return true;
   }
 }
