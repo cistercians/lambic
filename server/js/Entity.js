@@ -1546,6 +1546,13 @@ Garrison = function(param){
       
       // Determine unit type based on faction progression and buildings (check early)
       var progression = FACTION_UNIT_PROGRESSION[house.name];
+      // Fallback to Player progression for unknown faction names (player-created houses)
+      if(!progression && FACTION_UNIT_PROGRESSION['Player']){
+        progression = FACTION_UNIT_PROGRESSION['Player'];
+        if(global.console && global.console.log){
+          console.log('[Garrison] Using Player progression as fallback for faction', house.name);
+        }
+      }
       var unitClass;
       var grain = house.stores.grain || 0;
       var fish = house.stores.fish || 0;
@@ -1632,11 +1639,19 @@ Garrison = function(param){
         }
         
         var factionUnits = FACTION_BASIC_UNITS[house.name];
+        // Fallback to Player progression basic units for unknown faction names
         if(!factionUnits || factionUnits.length === 0){
-          if(global.console && global.console.log){
-            console.log('[Garrison] Production failed: No faction units defined', house.name);
+          if(FACTION_UNIT_PROGRESSION['Player'] && FACTION_UNIT_PROGRESSION['Player'].basic){
+            factionUnits = FACTION_UNIT_PROGRESSION['Player'].basic;
+            if(global.console && global.console.log){
+              console.log('[Garrison] Using Player basic units as fallback for faction', house.name);
+            }
+          } else {
+            if(global.console && global.console.log){
+              console.log('[Garrison] Production failed: No faction units defined', house.name);
+            }
+            return;
           }
-          return;
         }
         
         var randomIndex = Math.floor(Math.random() * factionUnits.length);

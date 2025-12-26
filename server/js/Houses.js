@@ -1,7 +1,14 @@
+// Helper function to capitalize first letter of names
+function capitalizeName(name) {
+  if (!name || typeof name !== 'string') return name;
+  if (name.length === 0) return name;
+  return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+}
+
 House = function(param){
   var self = Entity(param);
   self.type = param.type;
-  self.name = param.name;
+  self.name = capitalizeName(param.name);
   self.flag = param.flag;
   self.hq = param.hq;
   self.leader = param.leader;

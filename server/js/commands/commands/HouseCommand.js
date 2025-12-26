@@ -106,6 +106,13 @@ class HouseCommand {
       return false;
     }
 
+    // Helper function to capitalize first letter
+    const capitalizeName = (name) => {
+      if (!name || typeof name !== 'string') return name;
+      if (name.length === 0) return name;
+      return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+    };
+
     // Parse house name and flag
     let houseName;
     let flagNumber = null;
@@ -123,6 +130,9 @@ class HouseCommand {
       // /house name (auto-assign flag)
       houseName = parts.join(' ');
     }
+    
+    // Capitalize house name
+    houseName = capitalizeName(houseName);
 
     // Validate house name
     if (this.isHouseNameTaken(houseName)) {
@@ -321,9 +331,17 @@ class HouseCommand {
     const houseList = entityRegistry.getList('houses') || 
                      (global.House && global.House.list ? global.House.list : {});
 
+    // Capitalize for comparison
+    const capitalizeName = (n) => {
+      if (!n || typeof n !== 'string') return n;
+      if (n.length === 0) return n;
+      return n.charAt(0).toUpperCase() + n.slice(1).toLowerCase();
+    };
+    const normalizedName = capitalizeName(name);
+
     for (const id in houseList) {
       const house = houseList[id];
-      if (house.name === name) {
+      if (house.name && capitalizeName(house.name) === normalizedName) {
         return true;
       }
     }

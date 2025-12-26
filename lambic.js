@@ -2562,10 +2562,18 @@ try {
 // PLAYER CLASS
 // ============================================================================
 
+// Helper function to capitalize first letter of names
+function capitalizeName(name) {
+  if (!name || typeof name !== 'string') return name;
+  if (name.length === 0) return name;
+  return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+}
+global.capitalizeName = capitalizeName;
+
 const Player = function(param) {
   const self = Character(param);
   self.type = param.type || 'player';
-  self.name = param.name;
+  self.name = capitalizeName(param.name);
   self.hasHorse = false;
   
   // Players MUST have a class - Character constructor sets it to null, so we override it
@@ -4930,6 +4938,14 @@ function findNeutralTaverns() {
 
 Player.onConnect = function(socket, name, playerType) {
   playerType = playerType || 'player'; // Default to normal player
+  
+  // Capitalize player name
+  const capitalizeName = global.capitalizeName || function(n) {
+    if (!n || typeof n !== 'string') return n;
+    if (n.length === 0) return n;
+    return n.charAt(0).toUpperCase() + n.slice(1).toLowerCase();
+  };
+  name = capitalizeName(name);
   
   socket.write(JSON.stringify({
     msg: 'tempus',
