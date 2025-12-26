@@ -5294,13 +5294,37 @@ Player.update = function() {
     
     // Attack-move: check for enemies while pathing
     // Only check if we have a path and are not already in combat
-    if(player.attackMoveTarget && player.path && player.path.length > 0 && !player.combat.target){
-      // Check for enemies in aggro range
-      var aggroRange = player.aggroRange || 256;
-      var aggroRangeSquared = aggroRange * aggroRange; // Use squared distance to avoid sqrt
+    // Check both old combat.target and new combatState.target
+    var hasCombatTarget = (player.combat && player.combat.target) || (player.combatState && player.combatState.target);
+    
+    // #region agent log
+    if (player.attackMoveTarget) {
+      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:5299',message:'Attack-move check',data:{playerId:player.id,hasAttackMoveTarget:!!player.attackMoveTarget,hasPath:!!player.path,pathLength:player.path ? player.path.length : 0,hasCombatTarget:hasCombatTarget,combatTarget:player.combat ? player.combat.target : null,combatStateTarget:player.combatState ? player.combatState.target : null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'CC'})}).catch(()=>{});
+    }
+    // #endregion
+    
+    if(player.attackMoveTarget && player.path && player.path.length > 0 && !hasCombatTarget){
+      // Determine detection range based on weapon type
+      // For ranged weapons: use max ranged attack range (640 pixels)
+      // For melee weapons: use aggro range (256 pixels)
+      var detectionRange = 256; // Default to aggro range for melee
+      if (global.simpleCombat && player.ranged) {
+        detectionRange = global.simpleCombat.getAttackRange(player);
+      } else {
+        detectionRange = player.aggroRange || 256;
+      }
+      var detectionRangeSquared = detectionRange * detectionRange; // Use squared distance to avoid sqrt
+      
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:5309',message:'Attack-move detection range',data:{playerId:player.id,isRanged:player.ranged,detectionRange:detectionRange,aggroRange:player.aggroRange},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'DD'})}).catch(()=>{});
+      // #endregion
       
       // Iterate through all entities to find nearby enemies
+      // Check both Player.list and Character.list (NPCs)
       var enemiesToCheck = Object.values(Player.list);
+      if (global.Character && global.Character.list) {
+        enemiesToCheck = enemiesToCheck.concat(Object.values(global.Character.list));
+      }
       
       for(var j = 0; j < enemiesToCheck.length; j++){
         var enemy = enemiesToCheck[j];
@@ -5321,12 +5345,15 @@ Player.update = function() {
           var dy = enemy.y - player.y;
           var distanceSquared = dx*dx + dy*dy; // Use squared distance to avoid sqrt
           
-          if(distanceSquared <= aggroRangeSquared){
+          if(distanceSquared <= detectionRangeSquared){
             // Enemy in range - interrupt path and set attack intent
             // Combat will start naturally when in range or when damage is dealt
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:5337',message:'Attack-move enemy detected',data:{playerId:player.id,enemyId:enemy.id,enemyType:enemy.type,distance:Math.sqrt(distanceSquared),detectionRange:detectionRange,inRange:distanceSquared <= detectionRangeSquared},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'EE'})}).catch(()=>{});
+            // #endregion
             if (global.simpleCombat) {
               if (global.debugCombat) {
-                console.log(`[attack-move] Enemy detected, setting attack intent ${player.id} -> ${enemy.id}`);
+                console.log(`[attack-move] Enemy detected, setting attack intent ${player.id} -> ${enemy.id} (range: ${Math.sqrt(distanceSquared).toFixed(1)}, detection: ${detectionRange})`);
               }
               global.simpleCombat.setAttackIntent(player, enemy.id);
             } else {
@@ -5441,6 +5468,9 @@ Player.update = function() {
 // Recalculate player stats based on equipped gear
 global.recalculatePlayerStats = function(playerId){
   var player = Player.list[playerId];
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:5442',message:'recalculatePlayerStats called',data:{playerId:playerId,hasPlayer:!!player,hasGear:!!(player && player.gear),gearWeapon:player && player.gear ? (typeof player.gear.weapon === 'object' ? JSON.stringify(player.gear.weapon) : player.gear.weapon) : null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B'})}).catch(()=>{});
+  // #endregion
   if(!player || !player.gear) return;
   
   // Reset bonuses to base values
@@ -5451,13 +5481,46 @@ global.recalculatePlayerStats = function(playerId){
   player.defense = 0; // Base defense
   
   // Apply weapon bonuses
-  if(player.gear.weapon && equip[player.gear.weapon]){
-    var weapon = equip[player.gear.weapon];
+  var weapon = null;
+  const equip = global.equip || {};
+  if(player.gear.weapon){
+    // Check if player.gear.weapon is already the weapon object or a key string
+    if(typeof player.gear.weapon === 'object' && player.gear.weapon.type){
+      weapon = player.gear.weapon;
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:5458',message:'Weapon found as object',data:{weaponType:weapon.type,weaponName:weapon.name},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
+    } else if(equip[player.gear.weapon]){
+      weapon = equip[player.gear.weapon];
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:5460',message:'Weapon found via equip lookup',data:{gearWeaponKey:player.gear.weapon,weaponType:weapon.type,weaponName:weapon.name},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
+    } else {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:5461',message:'Weapon lookup failed',data:{gearWeapon:typeof player.gear.weapon === 'object' ? JSON.stringify(player.gear.weapon) : player.gear.weapon,isObject:typeof player.gear.weapon === 'object',hasType:player.gear.weapon && player.gear.weapon.type,hasEquip:!!global.equip,equipKeys:global.equip ? Object.keys(global.equip).slice(0,5) : []},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
+    }
+  }
+  
+  if(weapon){
     player.damage = weapon.dmg || player.damage;
     player.attackRate = weapon.attackrate || player.attackRate;
     player.strength += weapon.strengthBonus || 0;
     player.dexterity += weapon.dexterityBonus || 0;
     player.hpMax += weapon.hpBonus || 0;
+    
+    // Set ranged flag based on weapon type
+    var wasRanged = player.ranged;
+    player.ranged = (weapon.type === 'bow');
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:5472',message:'Setting ranged flag',data:{weaponType:weapon.type,isBow:weapon.type === 'bow',wasRanged:wasRanged,nowRanged:player.ranged},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B,F'})}).catch(()=>{});
+    // #endregion
+  } else {
+    // No weapon equipped - not ranged
+    player.ranged = false;
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:5475',message:'No weapon - setting ranged to false',data:{playerId:playerId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
   }
   
   // Apply armor bonuses
@@ -7282,8 +7345,18 @@ io.on('connection', function(socket) {
           }
         } else if (data.msg === 'engageCombat') {
           // Right-click combat engagement or A+left-click on enemy
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:7319',message:'engageCombat message received',data:{playerId:player ? player.id : null,hasPlayer:!!player,targetId:data.targetId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'K'})}).catch(()=>{});
+          // #endregion
           if(player && data.targetId){
+            // Check both Player.list and Character.list (NPCs might be in either)
             var target = Player.list[data.targetId];
+            if(!target && Character && Character.list && Character.list[data.targetId]){
+              target = Character.list[data.targetId];
+            }
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:7323',message:'Looking up target in Player.list and Character.list',data:{targetId:data.targetId,foundInPlayerList:!!Player.list[data.targetId],foundInCharacterList:!!(Character && Character.list && Character.list[data.targetId]),targetFound:!!target,hasSimpleCombat:!!global.simpleCombat},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'K'})}).catch(()=>{});
+            // #endregion
             if(target){
               // Clear previous commands (combat overrides everything)
               player.attackMoveTarget = null;
@@ -7296,13 +7369,23 @@ io.on('connection', function(socket) {
                 if (global.debugCombat) {
                   console.log(`[engageCombat] Player setting attack intent ${player.id} -> ${data.targetId}`);
                 }
-                global.simpleCombat.setAttackIntent(player, data.targetId);
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:7335',message:'Calling setAttackIntent',data:{playerId:player.id,targetId:data.targetId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'K'})}).catch(()=>{});
+                // #endregion
+                const result = global.simpleCombat.setAttackIntent(player, data.targetId);
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:7337',message:'setAttackIntent returned',data:{playerId:player.id,targetId:data.targetId,result:result},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'K'})}).catch(()=>{});
+                // #endregion
               } else {
                 // Fallback for systems without simpleCombat
                 player.combat.target = data.targetId;
                 player.action = 'combat';
                 player._lastCombatAttack = 0; // Reset attack timer
               }
+            } else {
+              // #region agent log
+              fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:7342',message:'Target not found in Player.list',data:{targetId:data.targetId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'K'})}).catch(()=>{});
+              // #endregion
             }
           }
         } else if (data.msg === 'interact') {
@@ -8053,6 +8136,10 @@ io.on('connection', function(socket) {
                   }
                   player.gear.weapon = item;
                   player.inventory[itemType]--;
+                  // Recalculate player stats after equipping weapon
+                  if (typeof recalculatePlayerStats === 'function') {
+                    recalculatePlayerStats(player.id);
+                  }
                   socket.write(JSON.stringify({
                     msg: 'addToChat',
                     message: `<i>You equipped</i> <b style="color:${rarityColor}">[${item.name}]</b>.`
@@ -8071,6 +8158,10 @@ io.on('connection', function(socket) {
                   }
                   player.gear.armor = item;
                   player.inventory[itemType]--;
+                  // Recalculate player stats after equipping armor
+                  if (typeof recalculatePlayerStats === 'function') {
+                    recalculatePlayerStats(player.id);
+                  }
                   socket.write(JSON.stringify({
                     msg: 'addToChat',
                     message: `<i>You equipped</i> <b style="color:${rarityColor}">[${item.name}]</b>.`
@@ -8089,6 +8180,10 @@ io.on('connection', function(socket) {
                   }
                   player.gear.head = item;
                   player.inventory[itemType]--;
+                  // Recalculate player stats after equipping head gear
+                  if (typeof recalculatePlayerStats === 'function') {
+                    recalculatePlayerStats(player.id);
+                  }
                   socket.write(JSON.stringify({
                     msg: 'addToChat',
                     message: `<i>You equipped</i> <b style="color:${rarityColor}">[${item.name}]</b>.`

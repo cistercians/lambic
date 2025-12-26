@@ -151,8 +151,18 @@ class EquipCommand {
     if (!player.gear.weapon) {
       player.gear.weapon = weaponItem;
       player.inventory[itemName]--;
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'EquipCommand.js:152',message:'Weapon equipped',data:{playerId:player.id,itemName:itemName,weaponType:weaponItem.type,weaponItem:JSON.stringify(weaponItem),gearWeaponType:typeof player.gear.weapon},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       if (typeof recalculatePlayerStats === 'function') {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'EquipCommand.js:155',message:'Calling recalculatePlayerStats',data:{playerId:player.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
         recalculatePlayerStats(player.id);
+      } else {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'EquipCommand.js:155',message:'recalculatePlayerStats function not found',data:{playerId:player.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
       }
       this.sendMessage(socket, `You equipped a <b>${this.formatItemName(itemName)}</b>.`);
       return true;

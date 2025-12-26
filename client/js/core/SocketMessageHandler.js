@@ -954,6 +954,30 @@ var SocketMessageHandler = {
         
         // Update activity state (visual)
         if(pack.working != undefined) p.working = pack.working;
+        
+        // Update player.target and set selectedTarget for HUD (for player's own entity)
+        if(typeof selfId !== 'undefined' && p.id === selfId && pack.target !== undefined) {
+          p.target = pack.target;
+          // Set selectedTarget when player.target is set (for attack intent or combat)
+          if(pack.target) {
+            if(typeof selectedTarget !== 'undefined') {
+              selectedTarget = pack.target;
+              // Sync to window for other modules
+              if(typeof window !== 'undefined') {
+                window.selectedTarget = pack.target;
+              }
+            }
+          } else {
+            // Clear selectedTarget when player.target is cleared
+            if(typeof selectedTarget !== 'undefined') {
+              selectedTarget = null;
+              if(typeof window !== 'undefined') {
+                window.selectedTarget = null;
+              }
+            }
+          }
+        }
+        
         if(pack.combat != undefined) {
           // Check if player was previously in combat
           var wasInCombat = p.combat && p.combat.target;
@@ -1111,6 +1135,21 @@ var SocketMessageHandler = {
       var pack = data.pack.arrow[i];
       var b = Arrow.list[data.pack.arrow[i].id];
       if(b){
+        // Store previous position for interpolation before updating
+        if(pack.x !== undefined || pack.y !== undefined) {
+          // Only update interpolation state if position changed
+          if(pack.x !== undefined && b.targetX !== pack.x) {
+            b.prevX = b.renderX || b.targetX || b.x;
+            b.targetX = pack.x;
+          }
+          if(pack.y !== undefined && b.targetY !== pack.y) {
+            b.prevY = b.renderY || b.targetY || b.y;
+            b.targetY = pack.y;
+          }
+          b.lastUpdateTime = Date.now();
+        }
+        
+        // Update actual position (for collision checks, etc.)
         if(pack.angle != undefined)
           b.angle = pack.angle;
         if(pack.x != undefined)
@@ -1119,6 +1158,11 @@ var SocketMessageHandler = {
           b.y = pack.y;
         if(pack.z != undefined)
           b.z = pack.z;
+        if(pack.innaWoods != undefined)
+          b.innaWoods = pack.innaWoods;
+      } else {
+        // Arrow doesn't exist yet - create it from update pack
+        new Arrow(pack);
       }
     }
     // Ensure Item.list exists before accessing it

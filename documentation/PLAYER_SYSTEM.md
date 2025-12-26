@@ -1274,3 +1274,4 @@ The Player system is a comprehensive entity system that provides:
 
 Players are the primary interactive entities in Lambic, with sophisticated systems for movement, work, combat, and world interaction, all built on top of the Character base class with player-specific enhancements.
 
+

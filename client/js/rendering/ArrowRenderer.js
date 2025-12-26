@@ -69,7 +69,9 @@ class ArrowRenderer {
     // Get arrow image based on angle
     const arrowImg = this.getArrowImage(arrow.angle, Img);
     if (arrowImg) {
-      ctx.drawImage(arrowImg, x, y, tileSize, tileSize);
+      // Arrows should be half the size of a tile
+      const arrowSize = tileSize / 2;
+      ctx.drawImage(arrowImg, x, y, arrowSize, arrowSize);
     }
   }
 }

@@ -6,7 +6,7 @@ class SimpleCombat {
     // Combat constants
     this.MELEE_RANGE = 96; // 1.5 tiles - actual attack range for melee units
     this.MELEE_ATTACK_RANGE = 96; // Max range to start attacking
-    this.RANGED_ATTACK_RANGE = 256; // 4 tiles
+    this.RANGED_ATTACK_RANGE = 640; // 10 tiles - greater than default NPC aggro range of 512 (8 tiles) so players can attack from outside aggro
     this.RANGED_KITE_DISTANCE = 96; // Too close - back away
     this.BOAR_ATTACK_RANGE = 64; // Boars have standard melee range (1 tile)
     this.DETECTION_RANGE = 128; // 2 tiles for stealth detection
@@ -54,9 +54,6 @@ class SimpleCombat {
       const target = global.Player.list[state.target];
       if (!this.isTargetValid(target, entity)) {
         // Invalid target - auto-repair by clearing state
-        if (global.debugCombat) {
-          console.warn(`[SimpleCombat] Invalid combat state for ${entity.id}, clearing state`);
-        }
         this.clearCombatState(entity);
         entity.action = null;
         return false;
@@ -68,9 +65,15 @@ class SimpleCombat {
 
   // Get attack range for an entity
   getAttackRange(entity) {
-    if (entity.class === 'Boar') return this.BOAR_ATTACK_RANGE;
-    if (entity.ranged) return this.RANGED_ATTACK_RANGE;
-    return this.MELEE_ATTACK_RANGE;
+    var range;
+    if (entity.class === 'Boar') {
+      range = this.BOAR_ATTACK_RANGE;
+    } else if (entity.ranged) {
+      range = this.RANGED_ATTACK_RANGE;
+    } else {
+      range = this.MELEE_ATTACK_RANGE;
+    }
+    return range;
   }
 
   // Get melee range for an entity
@@ -193,27 +196,40 @@ class SimpleCombat {
   // Initialize combat state for entity
   initCombatState(entity, targetId) {
     // Validate target exists before initializing
-    const target = global.Player.list[targetId];
+    // Check both Player.list and Character.list (NPCs might be in either)
+    var target = global.Player.list[targetId];
+    if (!target && global.Character && global.Character.list) {
+      target = global.Character.list[targetId];
+    }
+    
+    
     if (!target || !this.isTargetValid(target, entity)) {
-      if (global.debugCombat) {
-        console.warn(`[SimpleCombat] Cannot initialize combat state - invalid target ${targetId}`);
-      }
       return false;
+    }
+    
+    // Set home location for NPCs without one (for disengage logic based on distance from home)
+    if (entity.type === 'npc' && (!entity.home || !entity.home.loc)) {
+      const currentLoc = global.getLoc(entity.x, entity.y);
+      entity.home = { z: entity.z, loc: currentLoc };
     }
     
     const state = this.ensureCombatState(entity);
     entity.action = 'combat';
     state.target = targetId;
     state.startTime = Date.now();
+    // Preserve lastAttack to maintain cooldown - only initialize if not set
+    if (state.lastAttack === undefined || state.lastAttack === null) {
     state.lastAttack = 0;
+    }
     state.pendingTarget = null;
     state.pendingStartTime = null;
     state.pathfindingFailures = 0;
     // Maintain backward compatibility
     if (!entity.combat) entity.combat = {};
     entity.combat.target = targetId;
-    // For players, ensure autoAttackPaused is cleared so they can fight
+    // For players, also set entity.target for UI (portrait HUD)
     if (entity.type === 'player') {
+      entity.target = targetId;
       entity.autoAttackPaused = false;
       // Clear any resume timeout
       if (entity._autoAttackResumeTimeout) {
@@ -226,24 +242,30 @@ class SimpleCombat {
 
   // Set attack intent (works for all entity types - players and NPCs)
   setAttackIntent(entity, targetId) {
-    // Validate target exists
-    const target = global.Player.list[targetId];
+    // Validate target exists - check both Player.list and Character.list (NPCs might be in either)
+    var target = global.Player.list[targetId];
+    if (!target && global.Character && global.Character.list) {
+      target = global.Character.list[targetId];
+    }
     if (!target || !this.isTargetValid(target, entity)) {
-      if (global.debugCombat) {
-        console.warn(`[setAttackIntent] Cannot set attack intent - invalid target ${targetId}`);
-      }
       return false;
     }
     
     const state = this.ensureCombatState(entity);
     state.pendingTarget = targetId;
     state.pendingStartTime = Date.now();
-    // Do NOT set action='combat' or state.target or state.startTime (these remain null/undefined)
+    // Set action to ensure combat update loop runs (needed for pathfinding when outside range)
+    // This allows the update loop to continue checking range and pathfinding
+    // Always set to 'combat' when setting attack intent, even if action is already set
+    // This ensures the combat update loop runs for pathfinding
+    entity.action = 'combat';
+    // Do NOT set state.target or state.startTime (these remain null/undefined until in range)
     // Do NOT clear existing path (let pathfinding happen naturally)
     // Do NOT remove stealth (stealthed characters can have attack intent)
     
-    if (global.debugCombat) {
-      console.log(`[setAttackIntent] ${entity.type} ${entity.id} -> ${targetId}`);
+    // For players, set entity.target immediately for HUD display (even before combat starts)
+    if (entity.type === 'player') {
+      entity.target = targetId;
     }
     
     return true;
@@ -255,10 +277,6 @@ class SimpleCombat {
     
     entity.combatState.pendingTarget = null;
     entity.combatState.pendingStartTime = null;
-    
-    if (global.debugCombat) {
-      console.log(`[clearAttackIntent] ${entity.type} ${entity.id}`);
-    }
   }
 
   // ============================================================================
@@ -389,15 +407,27 @@ class SimpleCombat {
     this.removeStealth(entity);
     this.removeStealth(target); // Attack reveals target too
     
-    // Initialize combat state
+    // Initialize combat state (but preserve lastAttack to maintain cooldown)
+    const state = this.ensureCombatState(entity);
+    const savedLastAttack = state.lastAttack || 0;
     this.initCombatState(entity, target.id);
+    // Restore lastAttack to maintain cooldown
+    if (savedLastAttack > 0) {
+      state.lastAttack = savedLastAttack;
+    }
     
     // Counter-aggro if target is NPC or player
     if (target.type === 'npc' && target.military && target.action !== 'combat') {
       this.removeStealth(target);
       this.startCombat(target, entity);
     } else if (target.type === 'player') {
+      const targetState = this.ensureCombatState(target);
+      const targetSavedLastAttack = targetState.lastAttack || 0;
       this.initCombatState(target, entity.id);
+      // Restore lastAttack to maintain cooldown
+      if (targetSavedLastAttack > 0) {
+        targetState.lastAttack = targetSavedLastAttack;
+      }
     }
   }
 
@@ -513,6 +543,7 @@ class SimpleCombat {
   // Main combat update - called every frame for entities with action='combat' or attack intent (pendingTarget)
   update(entity) {
     try {
+      
       // Handle attack intent (works for all entities - players and NPCs, stealth and regular)
       if (this.handlePendingStealthAttack(entity)) {
         return; // Still handling attack intent approach
@@ -528,7 +559,8 @@ class SimpleCombat {
         return;
       }
       
-      // For players, validate that target is actually in combat with them
+      // For players, validate target exists (but don't require target to be in combat yet)
+      // This allows players to initiate attacks even if target hasn't aggro'd
       if (entity.type === 'player') {
         const target = global.Player.list[state.target];
         if (!target) {
@@ -537,13 +569,21 @@ class SimpleCombat {
           return;
         }
         
-        // Validate target is actually in combat with this player
-        if (target.action !== 'combat' || 
-            !target.combatState || 
-            target.combatState.target !== entity.id) {
-          // Target is not in combat with player - clear player's combat target
+        // Only validate target is in combat if target is an NPC that should have aggro'd
+        // Allow player-initiated attacks even if target hasn't aggro'd yet
+        // This prevents clearing combat when player initiates attack from range
+        if (target.type === 'npc' && target.military) {
+          // For NPCs, check if they should have aggro'd but haven't
+          // Only clear if target is clearly not engaging (not just "not in combat yet")
+          const distance = this.getDistance(entity, target);
+          const aggroRange = target.aggroRange || 512;
+          
+          // If player is within aggro range but NPC hasn't aggro'd, that's fine (might be stealthed or other reasons)
+          // Only clear if target is dead, removed, or clearly invalid
+          if (target.hp !== null && target.hp <= 0) {
           this.endCombat(entity, target);
           return;
+          }
         }
       }
       
@@ -597,15 +637,8 @@ class SimpleCombat {
 
       const distance = this.getDistance(entity, target);
       const attackRange = this.getAttackRange(entity);
-      const maxChaseRange = (entity.aggroRange || 512) * 2;
 
-      // Too far? End combat
-      if (distance > maxChaseRange) {
-        this.endCombat(entity, target);
-        return;
-      }
-
-      // Check leash range
+      // Check leash range (distance from home location)
       if (this.checkLeashRange(entity)) {
         this.endCombat(entity, target);
         entity.action = 'returning';
@@ -640,16 +673,17 @@ class SimpleCombat {
       }
 
       // Attack or chase
-      if (distance <= attackRange) {
+      // Both ranged and melee units must be within attack range to attack
+      // For ranged: If too far, pathfind to get within range first
+      // Use small tolerance (1 pixel) to account for floating point precision
+      const rangeTolerance = 1;
+      if (distance <= attackRange + rangeTolerance) {
         this.handleAttack(entity, target);
       } else {
         this.handleChase(entity, target);
       }
     } catch (error) {
       // Error handling - ensure state cleanup
-      if (global.debugCombat) {
-        console.error(`[SimpleCombat] Error in update for ${entity.id}:`, error);
-      }
       // Clear combat state on error to prevent stuck state
       this.clearCombatState(entity);
       entity.action = null;
@@ -668,9 +702,6 @@ class SimpleCombat {
       if (state) {
         this.clearAttackIntent(entity);
       }
-      if (global.debugCombat) {
-        console.log(`[handleAttackIntent] Invalid target, clearing intent ${entity.id}`);
-      }
       return false;
     }
     
@@ -681,9 +712,6 @@ class SimpleCombat {
         this.removeStealth(entity);
         this.initCombatState(entity, pendingTarget.id);
         this.clearAttackIntent(entity);
-        if (global.debugCombat) {
-          console.log(`[handleAttackIntent] Target detected stealthed entity, converting to combat ${entity.id} -> ${pendingTarget.id}`);
-        }
         return false; // Continue to normal combat
       }
     }
@@ -692,9 +720,6 @@ class SimpleCombat {
     if (state.pendingStartTime && 
         Date.now() - state.pendingStartTime > this.PENDING_COMBAT_TIMEOUT) {
       this.clearAttackIntent(entity);
-      if (global.debugCombat) {
-        console.log(`[handleAttackIntent] Timeout, clearing intent ${entity.id}`);
-      }
       return false;
     }
     
@@ -702,18 +727,83 @@ class SimpleCombat {
     const distance = this.getDistance(entity, pendingTarget);
     const attackRange = this.getAttackRange(entity);
     
-    // If in attack range: Convert to full combat
-    if (distance <= attackRange) {
-      // In range - convert to full combat
-      this.initCombatState(entity, pendingTarget.id);
-      this.clearAttackIntent(entity);
-      if (global.debugCombat) {
-        console.log(`[handleAttackIntent] In attack range, converting to combat ${entity.id} -> ${pendingTarget.id}`);
+    // ALWAYS check if we're in range first - even if we're pathfinding
+    // This allows us to convert to combat as soon as we reach range
+    // Use small tolerance (1 pixel) to account for floating point precision and pathfinding stopping slightly short
+    const rangeTolerance = 1;
+    const effectiveRange = attackRange + rangeTolerance;
+    const isInRange = distance <= effectiveRange;
+    
+    if (isInRange) {
+      // In range - convert to full combat immediately and attack
+      // Clear path to stop movement when we reach range
+      if (entity.path) {
+        entity.path = null;
       }
+      
+      const combatInitResult = this.initCombatState(entity, pendingTarget.id);
+      
+      this.clearAttackIntent(entity);
+      
+      // Immediately attack if in range (don't wait for next frame)
+      // This ensures attack-move attacks as soon as player enters range
+      if (combatInitResult && entity.combatState && entity.combatState.target) {
+        const target = global.Player.list[entity.combatState.target];
+        if (!target && global.Character && global.Character.list) {
+          target = global.Character.list[entity.combatState.target];
+        }
+        if (target && this.isTargetValid(target, entity)) {
+          const currentDistance = this.getDistance(entity, target);
+          const currentAttackRange = this.getAttackRange(entity);
+          if (currentDistance <= currentAttackRange + rangeTolerance) {
+            this.handleAttack(entity, target);
+          }
+        }
+      }
+      
       return false; // Continue to normal combat logic
     }
     
-    // Not in range - pathfind to target
+    // Not in range - pathfind to target (for both ranged and melee)
+    // Only start new pathfinding if we don't already have a path
+    // But also check if we're already pathfinding and have reached range
+    
+    // If we have a path and are now in range, clear the path and convert to combat
+    // This handles the case where pathfinding brought us into range
+    if (entity.path && distance <= attackRange + rangeTolerance) {
+      entity.path = null;
+      // Convert to combat immediately
+      const combatInitResult = this.initCombatState(entity, pendingTarget.id);
+      this.clearAttackIntent(entity);
+      
+      // Immediately attack if in range (don't wait for next frame)
+      // This ensures attack-move attacks as soon as player enters range during pathfinding
+      if (combatInitResult && entity.combatState && entity.combatState.target) {
+        const target = global.Player.list[entity.combatState.target];
+        if (!target && global.Character && global.Character.list) {
+          target = global.Character.list[entity.combatState.target];
+        }
+        if (target && this.isTargetValid(target, entity)) {
+          const currentDistance = this.getDistance(entity, target);
+          const currentAttackRange = this.getAttackRange(entity);
+          if (currentDistance <= currentAttackRange + rangeTolerance) {
+            this.handleAttack(entity, target);
+          }
+        }
+      }
+      
+      return false; // Continue to normal combat logic
+    }
+    
+    // If we have a path but are still out of range, check if we need to recalculate
+    // This handles cases where the path is stuck or invalid
+    // Recalculate if we're still significantly out of range (more than 1.1x attack range)
+    // This prevents infinite recalculation but allows recovery from stuck paths
+    if (entity.path && distance > attackRange * 1.1) {
+      // Path might be stuck or invalid - clear it to allow recalculation
+      entity.path = null;
+    }
+    
     if (!entity.path && entity.moveTo) {
       const targetLoc = global.getLoc(pendingTarget.x, pendingTarget.y);
       
@@ -727,13 +817,55 @@ class SimpleCombat {
           // No adjacent tile found - try direct path to target (will reposition when close)
           // Don't block, allow pathfinding to proceed
         }
+      } else {
+        // For ranged units, pathfind to a position at attack range distance from target
+        // We want to approach the target until we're at attackRange distance, then stop
+        // Calculate direction from entity to target
+        const dx = pendingTarget.x - entity.x;
+        const dy = pendingTarget.y - entity.y;
+        const currentDist = Math.sqrt(dx * dx + dy * dy);
+        if (currentDist > 0) {
+          // Normalize direction vector (from entity to target)
+          const dirX = dx / currentDist;
+          const dirY = dy / currentDist;
+          
+          // Calculate optimal position: target position minus (direction * attackRange)
+          // This gives us a point that is attackRange distance from target, along the line from entity to target
+          // Use 90% of range to get closer to max range while still accounting for tile-based pathfinding
+          // This ensures we get well within range, not just barely in range
+          const optimalDistFromTarget = attackRange * 0.9;
+          const optimalX = pendingTarget.x - dirX * optimalDistFromTarget;
+          const optimalY = pendingTarget.y - dirY * optimalDistFromTarget;
+          const optimalLoc = global.getLoc(optimalX, optimalY);
+          
+          // Verify the optimal position is actually between entity and target (not behind entity)
+          // Calculate vector from entity to optimal position
+          const toOptimalX = optimalX - entity.x;
+          const toOptimalY = optimalY - entity.y;
+          const dotProduct = dx * toOptimalX + dy * toOptimalY;
+          
+          // If dot product is negative, optimal position is behind entity (wrong direction)
+          // This shouldn't happen with correct math, but check anyway
+          if (dotProduct < 0) {
+            // Optimal position is behind entity - something is wrong, use target location directly
+            // Fall through to use target location
+          } else {
+            targetLoc[0] = optimalLoc[0];
+            targetLoc[1] = optimalLoc[1];
+          }
+        }
+        // If currentDist is 0 (shouldn't happen), fall through to pathfinding to target location
       }
+      
+      // Calculate expected distance from optimal position to target
+      const optimalLocX = targetLoc[0] * 64 + 32; // Convert tile to pixel coordinates (assuming 64px tiles)
+      const optimalLocY = targetLoc[1] * 64 + 32;
+      const optimalDistToTarget = Math.sqrt(
+        Math.pow(pendingTarget.x - optimalLocX, 2) + 
+        Math.pow(pendingTarget.y - optimalLocY, 2)
+      );
       
       entity.moveTo(pendingTarget.z, targetLoc[0], targetLoc[1]);
-      
-      if (global.debugCombat) {
-        console.log(`[handleAttackIntent] Pathfinding to target, distance: ${distance.toFixed(2)} ${entity.id} -> ${pendingTarget.id}`);
-      }
     }
     
     return true; // Still handling attack intent approach
@@ -746,7 +878,8 @@ class SimpleCombat {
     const homeX = entity.home.loc[0] * 64;
     const homeY = entity.home.loc[1] * 64;
     const homeDist = Math.sqrt(Math.pow(entity.x - homeX, 2) + Math.pow(entity.y - homeY, 2));
-    const leashRange = entity.wanderRange || 2048;
+    // Use 2x aggro range as default (matching boar implementation: 256 = 2x 128)
+    const leashRange = entity.wanderRange || ((entity.aggroRange || 512) * 2);
     
     return homeDist > leashRange;
   }
@@ -773,9 +906,6 @@ class SimpleCombat {
         // Convert attack intent to combat
         this.initCombatState(entity, state.pendingTarget);
         this.clearAttackIntent(entity);
-        if (global.debugCombat) {
-          console.log(`[handleAttack] Converting attack intent to combat ${entity.type} ${entity.id} -> ${state.pendingTarget}`);
-        }
       }
       
       // Ensure autoAttackPaused is cleared before attacking
@@ -831,7 +961,23 @@ class SimpleCombat {
       
       // Perform attack (state already declared above)
       if (entity.ranged && entity.shootArrow) {
-        // Ranged units shoot arrows
+        // For players, check if they have arrows before shooting
+        // NPCs have unlimited arrows, so no check needed
+        if (entity.type === 'player') {
+          if (!entity.inventory.arrows || entity.inventory.arrows <= 0) {
+            return; // Cannot shoot without arrows - skip attack this frame
+          }
+        }
+        
+      // Ranged units shoot arrows (arrow count will be decremented in shootArrow)
+      
+      // Ensure target enters combat when attacked (if not already in combat)
+      if (target.type === 'npc' && target.military && target.action !== 'combat') {
+        this.startCombat(target, entity);
+      } else if (target.type === 'player' && (!target.combatState || !target.combatState.target || target.combatState.target !== entity.id)) {
+        this.initCombatState(target, entity.id);
+      }
+      
         entity.shootArrow(target.id);
         state.lastAttack = now;
         
@@ -842,14 +988,19 @@ class SimpleCombat {
         }
       } else {
         // Melee attack - use standardized damage calculation
+        
+        // Ensure target enters combat when attacked (if not already in combat)
+        if (target.type === 'npc' && target.military && target.action !== 'combat') {
+          this.startCombat(target, entity);
+        } else if (target.type === 'player' && (!target.combatState || !target.combatState.target || target.combatState.target !== entity.id)) {
+          this.initCombatState(target, entity.id);
+        }
+        
         this.applyDamage(entity, target, 'melee');
         state.lastAttack = now;
       }
     } catch (error) {
       // Error handling
-      if (global.debugCombat) {
-        console.error(`[SimpleCombat] Error in handleAttack for ${entity.id}:`, error);
-      }
       // Ensure state cleanup on error
       this.endCombat(entity, target);
     }

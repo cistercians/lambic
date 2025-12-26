@@ -267,3 +267,4 @@ equip = {
 
   // accessories
 }
+global.equip = equip;

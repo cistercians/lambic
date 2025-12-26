@@ -4052,12 +4052,38 @@ Character = function(param){
         
         // If player was in combat and autoAttackPaused was set, resume auto-attack
         // This allows players to navigate during combat and resume attacking when path completes
+        // Only resume if player still has a combat target within range
         if(self.action === 'combat' && self.autoAttackPaused){
-          self.autoAttackPaused = false;
-          // Clear any resume timeout
-          if(self._autoAttackResumeTimeout){
-            clearTimeout(self._autoAttackResumeTimeout);
-            self._autoAttackResumeTimeout = null;
+          // Check if player still has a valid combat target
+          var hasValidTarget = false;
+          if(self.combatState && self.combatState.target){
+            var targetId = self.combatState.target;
+            var target = global.Player.list[targetId];
+            if(!target && global.Character && global.Character.list){
+              target = global.Character.list[targetId];
+            }
+            
+            if(target && global.simpleCombat){
+              // Check if target is still valid and within range
+              var distance = global.simpleCombat.getDistance(self, target);
+              var attackRange = global.simpleCombat.getAttackRange(self);
+              
+              // Use small tolerance (1 pixel) to account for floating point precision
+              var rangeTolerance = 1;
+              if(distance <= attackRange + rangeTolerance){
+                hasValidTarget = true;
+              }
+            }
+          }
+          
+          // Resume auto-attack if target is still valid and within range
+          if(hasValidTarget){
+            self.autoAttackPaused = false;
+            // Clear any resume timeout
+            if(self._autoAttackResumeTimeout){
+              clearTimeout(self._autoAttackResumeTimeout);
+              self._autoAttackResumeTimeout = null;
+            }
           }
         }
       }
@@ -6320,7 +6346,8 @@ Character = function(param){
       skulls:self.skulls,
       spriteScale:self.spriteScale,
       isBoarded:self.isBoarded,
-      boardedShip:self.boardedShip
+      boardedShip:self.boardedShip,
+      target:self.target
     };
     // Add ship-specific properties if this is a ship OR if player is boarded on a ship
     if(self.shipType){
@@ -10582,9 +10609,16 @@ Arrow = function(param){
         const zoneKey = `${zc},${zr}`;
         const zoneEntities = zones.get(zoneKey) || new Set();
         for(const entityId of zoneEntities){
+          // Check both players and NPCs (NPCs are also in Player.list with type='npc')
           var p = Player.list[entityId];
+          if(!p && Character && Character.list && Character.list[entityId]){
+            p = Character.list[entityId];
+          }
           if(p){
             if(self.getDistance(p) < 32 && self.z == p.z && self.parent != p.id){
+              // #region agent log
+              fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Entity.js:10588',message:'Arrow hit target',data:{arrowId:self.id,targetId:entityId,targetType:p.type || 'unknown',distance:self.getDistance(p)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'J'})}).catch(()=>{});
+              // #endregion
               // Get parent entity (attacker) - could be player, NPC, or building
               var attacker = Player.list[self.parent];
               var isBuildingArrow = !attacker;
