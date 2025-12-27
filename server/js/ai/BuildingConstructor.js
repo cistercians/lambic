@@ -35,6 +35,131 @@ class BuildingConstructor {
     return true; // All tiles are forest
   }
   
+  // Find a building spot on forest terrain (for Celts)
+  // Searches for spots where all plot tiles are on HEAVY_FOREST or LIGHT_FOREST
+  findBuildingSpotOnForest(buildingType, searchCenter, maxRadius, options = {}) {
+    const TERRAIN = global.TERRAIN || {};
+    const getTile = global.getTile || (() => 0);
+    const getBuilding = global.getBuilding || (() => null);
+    const excludeTilesArray = options.excludeTiles || [];
+    const mapSize = global.mapSize || 192;
+    
+    // Convert exclude tiles array to Set for efficient lookup
+    const excludeTilesSet = new Set();
+    for (const tile of excludeTilesArray) {
+      if (Array.isArray(tile) && tile.length >= 2) {
+        excludeTilesSet.add(`${tile[0]},${tile[1]}`);
+      }
+    }
+    
+    // Get building definition to know the plot shape
+    let buildingDef = null;
+    if (global.BuildingPreview) {
+      const preview = new global.BuildingPreview();
+      buildingDef = preview.buildingDefinitions[buildingType];
+    }
+    
+    if (!buildingDef || !buildingDef.plot) {
+      // Fallback: try to use findBuildingSpot anyway and check if it's on forest
+      const spot = global.tilemapSystem.findBuildingSpot(buildingType, searchCenter, maxRadius, options);
+      if (spot && this.isSpotOnForest(spot)) {
+        return spot;
+      }
+      return null;
+    }
+    
+    const plot = buildingDef.plot; // Relative plot coordinates
+    const walls = buildingDef.walls || [];
+    
+    // Search in expanding radius from center
+    for (let radius = 5; radius <= maxRadius; radius += 5) {
+      // Sample points in a spiral pattern for efficiency (more samples at larger radii)
+      const samplePoints = [];
+      const numSamples = Math.min(8 + Math.floor(radius / 5), 16); // 8-16 samples depending on radius
+      for (let i = 0; i < numSamples; i++) {
+        const angle = (i / numSamples) * Math.PI * 2;
+        const x = Math.floor(searchCenter[0] + Math.cos(angle) * radius);
+        const y = Math.floor(searchCenter[1] + Math.sin(angle) * radius);
+        
+        // Clamp to map bounds
+        const col = Math.max(0, Math.min(mapSize - 1, x));
+        const row = Math.max(0, Math.min(mapSize - 1, y));
+        samplePoints.push([col, row]);
+      }
+      
+      // Try each sample point as the center of the building plot
+      for (const centerTile of samplePoints) {
+        const [centerCol, centerRow] = centerTile;
+        
+        // Check if center tile is on forest
+        const centerTerrain = getTile(0, centerCol, centerRow);
+        if (centerTerrain !== TERRAIN.HEAVY_FOREST && centerTerrain !== TERRAIN.LIGHT_FOREST) {
+          continue; // Center not on forest, skip
+        }
+        
+        // Build the actual plot coordinates from relative plot
+        const actualPlot = [];
+        let allOnForest = true;
+        let anyOccupied = false;
+        
+        for (const relativeTile of plot) {
+          const [relX, relY] = relativeTile;
+          const absCol = centerCol + relX;
+          const absRow = centerRow + relY;
+          
+          // Bounds check
+          if (absCol < 0 || absCol >= mapSize || absRow < 0 || absRow >= mapSize) {
+            allOnForest = false;
+            break;
+          }
+          
+          // Check if tile is on forest
+          const terrain = getTile(0, absCol, absRow);
+          if (terrain !== TERRAIN.HEAVY_FOREST && terrain !== TERRAIN.LIGHT_FOREST) {
+            allOnForest = false;
+            break;
+          }
+          
+          // Check if tile is occupied (in exclude list)
+          const tileKey = `${absCol},${absRow}`;
+          if (excludeTilesSet.has(tileKey)) {
+            anyOccupied = true;
+            break;
+          }
+          
+          // Check if there's already a building here (more thorough check)
+          const centerCoords = global.getCenter ? global.getCenter(absCol, absRow) : [absCol * 64, absRow * 64];
+          const buildingAtTile = getBuilding(centerCoords[0], centerCoords[1]);
+          if (buildingAtTile) {
+            anyOccupied = true;
+            break;
+          }
+          
+          actualPlot.push([absCol, absRow]);
+        }
+        
+        // If all tiles are on forest and not occupied, we found a valid spot
+        if (allOnForest && !anyOccupied && actualPlot.length === plot.length) {
+          // Build walls coordinates if needed
+          const actualWalls = [];
+          if (walls && walls.length > 0) {
+            for (const relativeWall of walls) {
+              const [relX, relY] = relativeWall;
+              actualWalls.push([centerCol + relX, centerRow + relY]);
+            }
+          }
+          
+          return {
+            plot: actualPlot,
+            walls: actualWalls.length > 0 ? actualWalls : null
+          };
+        }
+      }
+    }
+    
+    return null; // No valid forest spot found
+  }
+  
   // Get buildings by type (delegates to BuildingService if available)
   getBuildingsByType(buildingType) {
     if (this.house.ai && this.house.ai.buildingService) {
@@ -73,22 +198,25 @@ class BuildingConstructor {
   buildMill(location = null) {
     const hq = this.house.hq;
     const searchCenter = location || hq;
-    
-    // Try multiple radii if initial search fails (location blocking fallback)
-    const radii = location ? [3, 6, 10, 15] : [10, 15, 20, 25];
     let spot = null;
     
-    for (const radius of radii) {
-      spot = global.tilemapSystem.findBuildingSpot('mill', searchCenter, radius, {
+    // For Celts: must search specifically for forest terrain
+    if (this.isCelts()) {
+      const maxRadius = location ? 15 : 25;
+      spot = this.findBuildingSpotOnForest('mill', searchCenter, maxRadius, {
         excludeTiles: this.getOccupiedTiles()
       });
-      if (spot && spot.plot && spot.plot[0]) {
-        // For Celts: mills require wood, so must be on forest tiles
-        if (this.isCelts() && !this.isSpotOnForest(spot)) {
-          spot = null;
-          continue; // Try next radius
+    } else {
+      // For other factions: use standard search (grass)
+      const radii = location ? [3, 6, 10, 15] : [10, 15, 20, 25];
+      
+      for (const radius of radii) {
+        spot = global.tilemapSystem.findBuildingSpot('mill', searchCenter, radius, {
+          excludeTiles: this.getOccupiedTiles()
+        });
+        if (spot && spot.plot && spot.plot[0]) {
+          break; // Found a spot, use it
         }
-        break; // Found a spot, use it
       }
     }
     
@@ -100,17 +228,19 @@ class BuildingConstructor {
         for (const existingMill of existingBuildings) {
           if (!existingMill.plot || !existingMill.plot[0]) continue;
           const millLoc = existingMill.plot[0];
-          for (const radius of [5, 10, 15]) {
-            spot = global.tilemapSystem.findBuildingSpot('mill', millLoc, radius, {
+          
+          if (this.isCelts()) {
+            spot = this.findBuildingSpotOnForest('mill', millLoc, 15, {
               excludeTiles: this.getOccupiedTiles()
             });
-            if (spot && spot.plot && spot.plot[0]) {
-              // For Celts: mills require wood, so must be on forest tiles
-              if (this.isCelts() && !this.isSpotOnForest(spot)) {
-                spot = null;
-                continue;
+          } else {
+            for (const radius of [5, 10, 15]) {
+              spot = global.tilemapSystem.findBuildingSpot('mill', millLoc, radius, {
+                excludeTiles: this.getOccupiedTiles()
+              });
+              if (spot && spot.plot && spot.plot[0]) {
+                break;
               }
-              break;
             }
           }
           if (spot) break;
@@ -124,17 +254,19 @@ class BuildingConstructor {
           for (const farm of farms) {
             if (!farm.plot || !farm.plot[0]) continue;
             const farmLoc = farm.plot[0];
-            for (const radius of [5, 10, 15]) {
-              spot = global.tilemapSystem.findBuildingSpot('mill', farmLoc, radius, {
+            
+            if (this.isCelts()) {
+              spot = this.findBuildingSpotOnForest('mill', farmLoc, 15, {
                 excludeTiles: this.getOccupiedTiles()
               });
-              if (spot && spot.plot && spot.plot[0]) {
-                // For Celts: mills require wood, so must be on forest tiles
-                if (this.isCelts() && !this.isSpotOnForest(spot)) {
-                  spot = null;
-                  continue;
+            } else {
+              for (const radius of [5, 10, 15]) {
+                spot = global.tilemapSystem.findBuildingSpot('mill', farmLoc, radius, {
+                  excludeTiles: this.getOccupiedTiles()
+                });
+                if (spot && spot.plot && spot.plot[0]) {
+                  break;
                 }
-                break;
               }
             }
             if (spot) break;
@@ -404,7 +536,16 @@ class BuildingConstructor {
     const hq = this.house.hq;
     const searchCenter = location || hq;
     
-    // Try multiple radii if initial search fails (location blocking fallback)
+    // For Celts: must search specifically for forest terrain
+    if (this.isCelts()) {
+      const maxRadius = location ? 15 : 25;
+      const spot = this.findBuildingSpotOnForest('mill', searchCenter, maxRadius, {
+        excludeTiles: this.getOccupiedTiles()
+      });
+      return spot !== null && spot.plot && spot.plot[0];
+    }
+    
+    // For other factions: use standard search (grass)
     const radii = location ? [3, 6, 10] : [10, 15, 20];
     
     for (const radius of radii) {
@@ -412,10 +553,6 @@ class BuildingConstructor {
         excludeTiles: this.getOccupiedTiles()
       });
       if (spot && spot.plot && spot.plot[0]) {
-        // For Celts: mills require wood, so must be on forest tiles
-        if (this.isCelts() && !this.isSpotOnForest(spot)) {
-          continue; // Try next radius
-        }
         return true;
       }
     }
@@ -908,26 +1045,29 @@ class BuildingConstructor {
   buildForge(location = null) {
     const hq = this.house.hq;
     const searchCenter = location || hq;
-    
-    // Try multiple radii if initial search fails (location blocking fallback)
-    const radii = location ? [3, 6, 10] : [10, 15, 20];
     let spot = null;
     
-    for (const radius of radii) {
-      spot = global.tilemapSystem.findBuildingSpot('forge', searchCenter, radius, {
+    // For Celts: must search specifically for forest terrain
+    if (this.isCelts()) {
+      const maxRadius = location ? 10 : 20;
+      spot = this.findBuildingSpotOnForest('forge', searchCenter, maxRadius, {
         excludeTiles: this.getOccupiedTiles()
       });
-      if (spot && spot.plot && spot.plot[0]) {
-        // For Celts: forges require wood, so must be on forest tiles
-        if (this.isCelts() && !this.isSpotOnForest(spot)) {
-          spot = null;
-          continue; // Try next radius
+    } else {
+      // For other factions: use standard search (grass/rock/mountain)
+      const radii = location ? [3, 6, 10] : [10, 15, 20];
+      
+      for (const radius of radii) {
+        spot = global.tilemapSystem.findBuildingSpot('forge', searchCenter, radius, {
+          excludeTiles: this.getOccupiedTiles()
+        });
+        if (spot && spot.plot && spot.plot[0]) {
+          break; // Found a spot, use it
         }
-        break; // Found a spot, use it
       }
     }
     
-    if (!spot) {
+    if (!spot || !spot.plot || !spot.plot[0]) {
       return null;
     }
     
