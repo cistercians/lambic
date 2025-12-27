@@ -26,6 +26,25 @@ class Goal {
     this.location = null; // Where to execute this goal
   }
   
+  // Check if house/faction is Celts
+  isCelts(house) {
+    const factionName = house?.name || '';
+    const baseName = factionName.replace(/\s+\d+$/, '').trim().toLowerCase();
+    return baseName === 'celts';
+  }
+  
+  // Get adjusted resource cost (faction-specific modifications)
+  getAdjustedResourceCost(house) {
+    const adjusted = { ...this.resourceCost };
+    
+    // Celts: remove wood costs (they must build on forest tiles instead)
+    if (this.isCelts(house) && adjusted.wood !== undefined) {
+      delete adjusted.wood;
+    }
+    
+    return adjusted;
+  }
+  
   // Check if goal can be executed
   canExecute(house) {
     this.blockedBy = [];
@@ -37,8 +56,9 @@ class Goal {
       }
     }
     
-    // Check resource requirements
-    for (const [resource, amount] of Object.entries(this.resourceCost)) {
+    // Check resource requirements (using adjusted costs for faction-specific rules)
+    const adjustedCosts = this.getAdjustedResourceCost(house);
+    for (const [resource, amount] of Object.entries(adjustedCosts)) {
       const available = house.stores[resource] || 0;
       if (available < amount) {
         this.blockedBy.push({
@@ -131,12 +151,15 @@ class BuildMillGoal extends Goal {
     const millId = constructor.buildMill(this.location);
     
     if (millId) {
-      // Deduct resources
-      if (house.stores.wood < this.resourceCost.wood) {
-        const haveWood = house.stores.wood || 0;
-        throw new Error(`Insufficient resources to build mill: need ${this.resourceCost.wood} wood (have ${haveWood}). Build resource gathering buildings or wait for serfs to gather.`);
+      // Deduct resources (using adjusted costs - Celts exempt from wood)
+      const adjustedCosts = this.getAdjustedResourceCost(house);
+      if (adjustedCosts.wood !== undefined) {
+        if (house.stores.wood < adjustedCosts.wood) {
+          const haveWood = house.stores.wood || 0;
+          throw new Error(`Insufficient resources to build mill: need ${adjustedCosts.wood} wood (have ${haveWood}). Build resource gathering buildings or wait for serfs to gather.`);
+        }
+        house.stores.wood -= adjustedCosts.wood;
       }
-      house.stores.wood -= this.resourceCost.wood;
       this.status = 'COMPLETED';
       
       if (logger) {
@@ -279,11 +302,15 @@ class BuildMineGoal extends Goal {
     const mineId = constructor.buildMine(this.location, this.mineType);
     
     if (mineId) {
-      if (house.stores.wood < this.resourceCost.wood) {
-        const haveWood = house.stores.wood || 0;
-        throw new Error(`Insufficient resources to build mine: need ${this.resourceCost.wood} wood (have ${haveWood}). Build resource gathering buildings or wait for serfs to gather.`);
+      // Deduct resources (using adjusted costs - Celts exempt from wood)
+      const adjustedCosts = this.getAdjustedResourceCost(house);
+      if (adjustedCosts.wood !== undefined) {
+        if (house.stores.wood < adjustedCosts.wood) {
+          const haveWood = house.stores.wood || 0;
+          throw new Error(`Insufficient resources to build mine: need ${adjustedCosts.wood} wood (have ${haveWood}). Build resource gathering buildings or wait for serfs to gather.`);
+        }
+        house.stores.wood -= adjustedCosts.wood;
       }
-      house.stores.wood -= this.resourceCost.wood;
       this.status = 'COMPLETED';
       
       if (logger) {
@@ -349,11 +376,15 @@ class BuildLumbermillGoal extends Goal {
     const lumbermillId = constructor.buildLumbermill(this.location);
     
     if (lumbermillId) {
-      if (house.stores.wood < this.resourceCost.wood) {
-        const haveWood = house.stores.wood || 0;
-        throw new Error(`Insufficient resources to build lumbermill: need ${this.resourceCost.wood} wood (have ${haveWood}). Build resource gathering buildings or wait for serfs to gather.`);
+      // Deduct resources (using adjusted costs - Celts exempt from wood)
+      const adjustedCosts = this.getAdjustedResourceCost(house);
+      if (adjustedCosts.wood !== undefined) {
+        if (house.stores.wood < adjustedCosts.wood) {
+          const haveWood = house.stores.wood || 0;
+          throw new Error(`Insufficient resources to build lumbermill: need ${adjustedCosts.wood} wood (have ${haveWood}). Build resource gathering buildings or wait for serfs to gather.`);
+        }
+        house.stores.wood -= adjustedCosts.wood;
       }
-      house.stores.wood -= this.resourceCost.wood;
       this.status = 'COMPLETED';
     } else {
       this.status = 'FAILED';
@@ -406,11 +437,15 @@ class BuildForgeGoal extends Goal {
     const forgeId = constructor.buildForge(this.location);
     
     if (forgeId) {
-      if (house.stores.wood < this.resourceCost.wood) {
-        const haveWood = house.stores.wood || 0;
-        throw new Error(`Insufficient resources to build forge: need ${this.resourceCost.wood} wood (have ${haveWood}). Build lumbermill or wait for serfs to gather.`);
+      // Deduct resources (using adjusted costs - Celts exempt from wood)
+      const adjustedCosts = this.getAdjustedResourceCost(house);
+      if (adjustedCosts.wood !== undefined) {
+        if (house.stores.wood < adjustedCosts.wood) {
+          const haveWood = house.stores.wood || 0;
+          throw new Error(`Insufficient resources to build forge: need ${adjustedCosts.wood} wood (have ${haveWood}). Build lumbermill or wait for serfs to gather.`);
+        }
+        house.stores.wood -= adjustedCosts.wood;
       }
-      house.stores.wood -= this.resourceCost.wood;
       this.status = 'COMPLETED';
     } else {
       this.status = 'FAILED';
@@ -978,18 +1013,20 @@ class ScoutForResourceGoal extends Goal {
     }
   }
   
-  // Find a zone that likely has the required resource
+  // Find a zone that likely has the required resource (must not be a known zone)
   findResourceZone(house) {
-    if (!house.ai || !house.ai.knowledge) {
+    if (!house.ai || !house.ai.knowledge || !global.zoneManager) {
       return null;
     }
     
     const hq = house.hq;
     if (!hq) return null;
     
+    const knowledge = house.ai.knowledge;
+    
     // Try to find zones with this resource using knowledge system
-    // For now, use a simple approach: search in expanding rings from HQ
-    const searchRadius = [20, 30, 40]; // tiles
+    // Search in expanding rings from HQ
+    const searchRadius = [20, 30, 40, 50]; // tiles
     const mapSize = global.mapSize || 192;
     
     for (const radius of searchRadius) {
@@ -1002,19 +1039,26 @@ class ScoutForResourceGoal extends Goal {
         const col = Math.max(0, Math.min(mapSize - 1, targetCol));
         const row = Math.max(0, Math.min(mapSize - 1, targetRow));
         
-        // Create zone-like object
-        const zone = {
-          center: [col, row],
-          id: `scout_resource_${this.resourceType}_${Date.now()}`,
-          name: `Scout for ${this.resourceType}`,
-          resourceType: this.resourceType
-        };
+        // Get zone at this location
+        const zone = global.zoneManager.getZoneAt([col, row]);
+        if (!zone || !zone.id) continue;
         
-        // Basic validation - zone is within reasonable distance
-        return zone;
+        // Skip known zones (zones intersecting HQ radius don't require scouting)
+        if (knowledge.isZoneKnown(zone.id)) {
+          continue; // Skip this zone, it's known
+        }
+        
+        // Check if zone has the required resource
+        if (global.zoneManager.getZoneResourceTypes) {
+          const resources = global.zoneManager.getZoneResourceTypes(zone);
+          if (knowledge.hasResourceType(resources, this.resourceType)) {
+            return zone; // Found unknown zone with resource
+          }
+        }
       }
     }
     
+    // No suitable zone found - return null
     return null;
   }
 }
@@ -1049,6 +1093,11 @@ class EstablishOutpostGoal extends Goal {
   
   canExecute(house) {
     this.blockedBy = [];
+    
+    // If targetZone is not provided, try to find a suitable zone for expansion
+    if (!this.targetZone && global.zoneManager && house.ai && house.ai.knowledge) {
+      this.targetZone = this.findExpansionZone(house);
+    }
     
     // Check if target zone is still valid
     if (!this.targetZone) {
@@ -1195,7 +1244,8 @@ class EstablishOutpostGoal extends Goal {
       // Zone is known - plan outpost directly without scouting
       const OutpostPlanner = require('./OutpostPlanner');
       const planner = new OutpostPlanner();
-      this.outpostPlan = planner.planOutpost(this.targetZone, this.resourceType, house);
+      // Use null resourceType if not specified - planner will handle it
+      this.outpostPlan = planner.planOutpost(this.targetZone, this.resourceType || null, house);
       
       if (!this.outpostPlan) {
         this.status = 'FAILED';
@@ -1209,7 +1259,9 @@ class EstablishOutpostGoal extends Goal {
     }
     
     // Zone is unknown - deploy scouting party
-    this.scoutingParty = house.ai.deployScoutingParty(this.targetZone, this.resourceType);
+    // Use 'terrain_placement' as purpose if resourceType is null (for territory expansion)
+    const purpose = this.resourceType || 'terrain_placement';
+    this.scoutingParty = house.ai.deployScoutingParty(this.targetZone, purpose);
     
     if (!this.scoutingParty) {
       this.status = 'FAILED';
@@ -1232,7 +1284,8 @@ class EstablishOutpostGoal extends Goal {
     // Zone is clear - plan outpost construction
     const OutpostPlanner = require('./OutpostPlanner');
     const planner = new OutpostPlanner();
-    this.outpostPlan = planner.planOutpost(this.targetZone, this.resourceType, house);
+    // Use null resourceType if not specified - planner will handle it
+    this.outpostPlan = planner.planOutpost(this.targetZone, this.resourceType || null, house);
     
     if (!this.outpostPlan) {
       this.status = 'FAILED';
@@ -1318,6 +1371,51 @@ class EstablishOutpostGoal extends Goal {
     }
   }
   
+  // Find a suitable zone for territory expansion (when resourceType is null)
+  findExpansionZone(house) {
+    if (!global.zoneManager || !house.ai || !house.ai.knowledge) {
+      return null;
+    }
+    
+    const hq = house.hq;
+    if (!hq) return null;
+    
+    const knowledge = house.ai.knowledge;
+    
+    // Search in expanding rings from HQ for zones with suitable terrain (EMPTY terrain)
+    const searchRadius = [15, 25, 35, 45]; // tiles
+    const mapSize = global.mapSize || 192;
+    
+    for (const radius of searchRadius) {
+      // Check 8 directions (N, NE, E, SE, S, SW, W, NW)
+      for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 4) {
+        const targetCol = Math.floor(hq[0] + Math.cos(angle) * radius);
+        const targetRow = Math.floor(hq[1] + Math.sin(angle) * radius);
+        
+        // Clamp to map bounds
+        const col = Math.max(0, Math.min(mapSize - 1, targetCol));
+        const row = Math.max(0, Math.min(mapSize - 1, targetRow));
+        
+        // Get zone at this location
+        const zone = global.zoneManager.getZoneAt([col, row]);
+        if (!zone || !zone.id) continue;
+        
+        // Skip known zones (zones intersecting HQ radius don't require scouting)
+        if (knowledge.isZoneKnown(zone.id)) {
+          continue; // Skip this zone, it's known
+        }
+        
+        // For expansion (no specific resource needed), accept any geographic zone
+        // The zone will be scouted and an outpost established there
+        if (zone.type === 'geographic') {
+          return zone; // Found suitable zone for expansion
+        }
+      }
+    }
+    
+    return null; // No suitable zone found
+  }
+  
   // Helper: Get military units (fallback method - prefer using house.ai.getMilitaryUnits())
   getMilitaryUnits(house) {
     const militaryUnits = [];
@@ -1399,7 +1497,9 @@ class EstablishOutpostGoal extends Goal {
   
   // Get goal description
   getDescription() {
-    return `Establish outpost in ${this.targetZone.name} for ${this.resourceType}`;
+    const zoneName = this.targetZone ? (this.targetZone.name || 'unknown zone') : 'unknown zone';
+    const purpose = this.resourceType || 'territory expansion';
+    return `Establish outpost in ${zoneName} for ${purpose}`;
   }
 }
 

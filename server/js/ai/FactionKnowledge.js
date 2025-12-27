@@ -208,6 +208,12 @@ class FactionKnowledge {
     
     if (needed >= required) return false; // Have enough
     
+    // First check known zones (zones intersecting HQ radius) - these don't require scouting
+    const knownZonesWithResource = this.getKnownZoneResources(resourceType);
+    if (knownZonesWithResource.length > 0) {
+      return false; // Resource available in known zones (no gap, can access without scouting)
+    }
+    
     // Check if resource exists in faction territory
     if (global.zoneManager && this.house.territory) {
       const hqZone = this.getHQZone();
@@ -364,35 +370,77 @@ class FactionKnowledge {
     if (!global.zoneManager) return;
     
     const hq = this.house.hq;
-    if (!hq) return;
+    if (!hq || !Array.isArray(hq) || hq.length < 2) return;
     
-    // Get base radius (use TerritoryManager if available, otherwise use house.baseRadius)
+    // Get base radius (minimum 10 tiles)
     let baseRadius = 10; // Default radius in tiles
     if (this.house.ai && this.house.ai.territory) {
       this.house.ai.territory.updateTerritory();
       const coreBase = this.house.ai.territory.coreBase;
       if (coreBase && coreBase.radius) {
-        baseRadius = coreBase.radius;
+        baseRadius = Math.max(10, coreBase.radius); // Ensure minimum 10 tiles
       }
     } else if (this.house.baseRadius) {
       // baseRadius is in pixels, convert to tiles (assuming tileSize = 64)
       const tileSize = global.tileSize || 64;
-      baseRadius = Math.ceil(this.house.baseRadius / tileSize);
+      baseRadius = Math.max(10, Math.ceil(this.house.baseRadius / tileSize)); // Ensure minimum 10 tiles
     }
     
-    // Get all zones near HQ within base radius
-    const nearbyZones = global.zoneManager.getZonesNear(hq, baseRadius);
+    const hqTileX = hq[0];
+    const hqTileY = hq[1];
     
-    for (const zone of nearbyZones) {
-      if (!zone || !zone.id) continue;
+    // Sample tiles within radius (every 2 tiles for performance, or all tiles for small radius)
+    const sampleInterval = baseRadius > 20 ? 2 : 1; // Sample every 2 tiles if radius > 20, otherwise every tile
+    
+    const zoneSet = new Set(); // Track unique zone IDs
+    
+    // Iterate through tiles in a square grid around HQ
+    for (let dy = -baseRadius; dy <= baseRadius; dy += sampleInterval) {
+      for (let dx = -baseRadius; dx <= baseRadius; dx += sampleInterval) {
+        // Check if tile is within circular radius
+        const distanceSquared = dx * dx + dy * dy;
+        if (distanceSquared > baseRadius * baseRadius) continue;
+        
+        const tileX = hqTileX + dx;
+        const tileY = hqTileY + dy;
+        
+        // Get zone at this tile position
+        let zone = null;
+        if (global.zoneManager.getZoneAt) {
+          zone = global.zoneManager.getZoneAt([tileX, tileY]);
+        } else if (global.zoneManager.getZonesAt) {
+          // Fallback: getZonesAt returns array, take first
+          const zonesAt = global.zoneManager.getZonesAt([tileX, tileY]);
+          zone = zonesAt && zonesAt.length > 0 ? zonesAt[0] : null;
+        }
+        
+        if (zone && zone.id) {
+          zoneSet.add(zone.id);
+        }
+      }
+    }
+    
+    // Process all unique zones found
+    for (const zoneId of zoneSet) {
+      // Get zone object (try different ways zoneManager might store zones)
+      let zone = null;
+      if (global.zoneManager.zones && global.zoneManager.zones.get) {
+        zone = global.zoneManager.zones.get(zoneId);
+      } else if (global.zoneManager.zones && global.zoneManager.zones[zoneId]) {
+        zone = global.zoneManager.zones[zoneId];
+      } else if (global.zoneManager.getZoneById) {
+        zone = global.zoneManager.getZoneById(zoneId);
+      }
       
-      // Mark zone as known
-      this.knownZones.add(zone.id);
-      
-      // Store zone resource information
-      if (global.zoneManager.getZoneResourceTypes) {
-        const resources = global.zoneManager.getZoneResourceTypes(zone);
-        this.zoneResourceInfo.set(zone.id, resources);
+      if (zone && zone.id) {
+        // Mark zone as known
+        this.knownZones.add(zone.id);
+        
+        // Store zone resource information
+        if (global.zoneManager.getZoneResourceTypes) {
+          const resources = global.zoneManager.getZoneResourceTypes(zone);
+          this.zoneResourceInfo.set(zone.id, resources);
+        }
       }
     }
   }
@@ -405,6 +453,51 @@ class FactionKnowledge {
   // Get resource information for a known zone
   getZoneResources(zoneId) {
     return this.zoneResourceInfo.get(zoneId) || null;
+  }
+  
+  // Get all known zones that contain a specific resource type
+  getKnownZoneResources(resourceType) {
+    const zonesWithResource = [];
+    
+    for (const zoneId of this.knownZones) {
+      const resources = this.zoneResourceInfo.get(zoneId);
+      if (resources && this.hasResourceType(resources, resourceType)) {
+        // Get zone object
+        let zone = null;
+        if (global.zoneManager) {
+          if (global.zoneManager.zones && global.zoneManager.zones.get) {
+            zone = global.zoneManager.zones.get(zoneId);
+          } else if (global.zoneManager.zones && global.zoneManager.zones[zoneId]) {
+            zone = global.zoneManager.zones[zoneId];
+          } else if (global.zoneManager.getZoneById) {
+            zone = global.zoneManager.getZoneById(zoneId);
+          }
+        }
+        
+        if (zone) {
+          zonesWithResource.push(zone);
+        }
+      }
+    }
+    
+    return zonesWithResource;
+  }
+  
+  // Mark a zone as known after successful scouting (call when scouting party returns successfully)
+  markZoneAsKnown(zone) {
+    if (!zone || !zone.id) return;
+    
+    // Don't add zones that are already known
+    if (this.knownZones.has(zone.id)) return;
+    
+    // Mark zone as known
+    this.knownZones.add(zone.id);
+    
+    // Store zone resource information
+    if (global.zoneManager && global.zoneManager.getZoneResourceTypes) {
+      const resources = global.zoneManager.getZoneResourceTypes(zone);
+      this.zoneResourceInfo.set(zone.id, resources);
+    }
   }
   
   // Update known zones (call when territory expands)

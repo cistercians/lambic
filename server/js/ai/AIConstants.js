@@ -52,7 +52,8 @@ const TIME_THRESHOLDS = {
   MAX_GATHERING_DAYS: 10,             // Maximum reasonable time to gather resources
   GOAL_FORCE_CONSIDERATIONS: 3,       // Force goal selection after 3 considerations
   AVOID_GOAL_DAYS: 1,                 // Avoid goal if failed within last day
-  AVOID_CHAIN_GOAL_DAYS: 2            // Avoid chain goal if failed within last 2 days
+  AVOID_CHAIN_GOAL_DAYS: 2,           // Avoid chain goal if failed within last 2 days
+  GOAL_ABANDONMENT_COOLDOWN: 10       // Days before abandoned goal can be reconsidered
 };
 
 // Utility adjustment multipliers and penalties
@@ -70,7 +71,9 @@ const UTILITY_ADJUSTMENTS = {
 
 // Failure thresholds
 const FAILURE_THRESHOLDS = {
-  AVOID_GOAL_CONSECUTIVE: 3           // Avoid goal if 3+ consecutive failures
+  AVOID_GOAL_CONSECUTIVE: 3,          // Avoid goal if 3+ consecutive failures
+  GOAL_ABANDONMENT_FAILURES: 10,      // Abandon goal after 10 consecutive failures
+  GOAL_ABANDONMENT_DAYS: 15           // Abandon goal if failed for 15+ days total
 };
 
 // Display constants

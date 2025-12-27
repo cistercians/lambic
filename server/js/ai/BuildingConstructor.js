@@ -6,6 +6,35 @@ class BuildingConstructor {
     this.house = house;
   }
   
+  // Check if house/faction is Celts
+  isCelts() {
+    const factionName = this.house?.name || '';
+    const baseName = factionName.replace(/\s+\d+$/, '').trim().toLowerCase();
+    return baseName === 'celts';
+  }
+  
+  // Check if a building spot is on forest tiles (HEAVY_FOREST or LIGHT_FOREST)
+  isSpotOnForest(spot) {
+    if (!spot || !spot.plot || !Array.isArray(spot.plot)) {
+      return false;
+    }
+    
+    const TERRAIN = global.TERRAIN || {};
+    const getTile = global.getTile || (() => 0);
+    
+    // Check all tiles in the plot
+    for (const tile of spot.plot) {
+      if (!Array.isArray(tile) || tile.length < 2) continue;
+      const terrain = getTile(0, tile[0], tile[1]);
+      // Check if terrain is HEAVY_FOREST (1) or LIGHT_FOREST (2)
+      if (terrain !== TERRAIN.HEAVY_FOREST && terrain !== TERRAIN.LIGHT_FOREST) {
+        return false; // At least one tile is not forest
+      }
+    }
+    
+    return true; // All tiles are forest
+  }
+  
   // Get buildings by type (delegates to BuildingService if available)
   getBuildingsByType(buildingType) {
     if (this.house.ai && this.house.ai.buildingService) {
@@ -53,7 +82,12 @@ class BuildingConstructor {
       spot = global.tilemapSystem.findBuildingSpot('mill', searchCenter, radius, {
         excludeTiles: this.getOccupiedTiles()
       });
-      if (spot) {
+      if (spot && spot.plot && spot.plot[0]) {
+        // For Celts: mills require wood, so must be on forest tiles
+        if (this.isCelts() && !this.isSpotOnForest(spot)) {
+          spot = null;
+          continue; // Try next radius
+        }
         break; // Found a spot, use it
       }
     }
@@ -70,7 +104,14 @@ class BuildingConstructor {
             spot = global.tilemapSystem.findBuildingSpot('mill', millLoc, radius, {
               excludeTiles: this.getOccupiedTiles()
             });
-            if (spot) break;
+            if (spot && spot.plot && spot.plot[0]) {
+              // For Celts: mills require wood, so must be on forest tiles
+              if (this.isCelts() && !this.isSpotOnForest(spot)) {
+                spot = null;
+                continue;
+              }
+              break;
+            }
           }
           if (spot) break;
         }
@@ -85,9 +126,16 @@ class BuildingConstructor {
             const farmLoc = farm.plot[0];
             for (const radius of [5, 10, 15]) {
               spot = global.tilemapSystem.findBuildingSpot('mill', farmLoc, radius, {
-      excludeTiles: this.getOccupiedTiles()
-    });
-              if (spot) break;
+                excludeTiles: this.getOccupiedTiles()
+              });
+              if (spot && spot.plot && spot.plot[0]) {
+                // For Celts: mills require wood, so must be on forest tiles
+                if (this.isCelts() && !this.isSpotOnForest(spot)) {
+                  spot = null;
+                  continue;
+                }
+                break;
+              }
             }
             if (spot) break;
           }
@@ -360,10 +408,14 @@ class BuildingConstructor {
     const radii = location ? [3, 6, 10] : [10, 15, 20];
     
     for (const radius of radii) {
-    const spot = global.tilemapSystem.findBuildingSpot('mill', searchCenter, radius, {
-      excludeTiles: this.getOccupiedTiles()
-    });
+      const spot = global.tilemapSystem.findBuildingSpot('mill', searchCenter, radius, {
+        excludeTiles: this.getOccupiedTiles()
+      });
       if (spot && spot.plot && spot.plot[0]) {
+        // For Celts: mills require wood, so must be on forest tiles
+        if (this.isCelts() && !this.isSpotOnForest(spot)) {
+          continue; // Try next radius
+        }
         return true;
       }
     }
@@ -372,6 +424,7 @@ class BuildingConstructor {
   }
   
   // Check if a mine can be placed (validation-only)
+  // Note: Mines are exempt from forest tile requirement for Celts (they need to be near cave entrances)
   canPlaceMine(location = null, mineType = 'any') {
     const hq = this.house.hq;
     const searchCenter = location || hq;
@@ -441,10 +494,14 @@ class BuildingConstructor {
     const radii = location ? [3, 6, 10] : [10, 15, 20];
     
     for (const radius of radii) {
-    const spot = global.tilemapSystem.findBuildingSpot('lumbermill', searchCenter, radius, {
-      excludeTiles: this.getOccupiedTiles()
-    });
+      const spot = global.tilemapSystem.findBuildingSpot('lumbermill', searchCenter, radius, {
+        excludeTiles: this.getOccupiedTiles()
+      });
       if (spot && spot.plot && spot.plot[0]) {
+        // For Celts: lumbermills require wood, so must be on forest tiles (though Celts don't build them)
+        if (this.isCelts() && !this.isSpotOnForest(spot)) {
+          continue; // Try next radius
+        }
         return true;
       }
     }
@@ -456,13 +513,25 @@ class BuildingConstructor {
   canPlaceForge(location = null) {
     const hq = this.house.hq;
     const searchCenter = location || hq;
-    const radius = location ? 3 : 10;
     
-    const spot = global.tilemapSystem.findBuildingSpot('forge', searchCenter, radius, {
-      excludeTiles: this.getOccupiedTiles()
-    });
+    // Try multiple radii if initial search fails
+    const radii = location ? [3, 6, 10] : [10, 15, 20];
     
-    return spot !== null && spot.plot && spot.plot[0];
+    for (const radius of radii) {
+      const spot = global.tilemapSystem.findBuildingSpot('forge', searchCenter, radius, {
+        excludeTiles: this.getOccupiedTiles()
+      });
+      
+      if (spot && spot.plot && spot.plot[0]) {
+        // For Celts: forges require wood, so must be on forest tiles
+        if (this.isCelts() && !this.isSpotOnForest(spot)) {
+          continue; // Try next radius
+        }
+        return true;
+      }
+    }
+    
+    return false;
   }
   
   // Check if a garrison can be placed (validation-only)
@@ -578,6 +647,7 @@ class BuildingConstructor {
           const nearCave = this.isNearCaveEntrance(spot.plot[0]);
           if (!nearCave) {
             break; // Found valid stone mine location (not near cave)
+            // Note: Mines are exempt from forest tile requirement for Celts (they need to be near cave entrances)
           }
           // Near cave, reject this spot and try next radius
           spot = null;
@@ -597,6 +667,7 @@ class BuildingConstructor {
           });
           
           if (spot) break;
+          // Note: Mines are exempt from forest tile requirement for Celts (they need to be near cave entrances)
         }
       }
       
@@ -607,6 +678,7 @@ class BuildingConstructor {
             excludeTiles: this.getOccupiedTiles()
           });
           if (spot) break;
+          // Note: Mines are exempt from forest tile requirement for Celts (they need to be near cave entrances)
         }
       }
     } else {
@@ -616,6 +688,7 @@ class BuildingConstructor {
           excludeTiles: this.getOccupiedTiles()
         });
         if (spot) break;
+        // Note: Mines are exempt from forest tile requirement for Celts (they need to be near cave entrances)
       }
     }
     
@@ -632,6 +705,7 @@ class BuildingConstructor {
               excludeTiles: this.getOccupiedTiles()
             });
             if (spot) break;
+            // Note: Mines are exempt from forest tile requirement for Celts (they need to be near cave entrances)
           }
           if (spot) break;
         }
@@ -646,9 +720,10 @@ class BuildingConstructor {
             const outpostLoc = outpost.plot[0];
             for (const radius of [5, 10, 15]) {
               spot = global.tilemapSystem.findBuildingSpot('mine', outpostLoc, radius, {
-        excludeTiles: this.getOccupiedTiles()
-      });
+                excludeTiles: this.getOccupiedTiles()
+              });
               if (spot) break;
+              // Note: Mines are exempt from forest tile requirement for Celts (they need to be near cave entrances)
             }
             if (spot) break;
           }
@@ -840,9 +915,14 @@ class BuildingConstructor {
     
     for (const radius of radii) {
       spot = global.tilemapSystem.findBuildingSpot('forge', searchCenter, radius, {
-      excludeTiles: this.getOccupiedTiles()
-    });
-      if (spot) {
+        excludeTiles: this.getOccupiedTiles()
+      });
+      if (spot && spot.plot && spot.plot[0]) {
+        // For Celts: forges require wood, so must be on forest tiles
+        if (this.isCelts() && !this.isSpotOnForest(spot)) {
+          spot = null;
+          continue; // Try next radius
+        }
         break; // Found a spot, use it
       }
     }

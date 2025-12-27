@@ -143,6 +143,11 @@ class MilitaryManager {
     if (enemiesFound) {
       this.planAttackForce(targetZone);
     } else {
+      // Zone is clear - mark it as known (zones are only added to knownZones after successful scout return)
+      if (targetZone && targetZone.id && this.factionAI && this.factionAI.knowledge) {
+        this.factionAI.knowledge.markZoneAsKnown(targetZone);
+      }
+      
       this.factionAI.planOutpost(targetZone, purpose);
     }
   }

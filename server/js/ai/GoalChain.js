@@ -489,13 +489,73 @@ class GoalChain {
           // Log the issue and mark goal as potentially unachievable
           if (logger) {
             logger.collectInfo(`  -> ${g.type} blocked by location: ${block.value || 'no valid location found'}`);
-            logger.collectInfo(`  -> Location blocking cannot be resolved by dependencies - goal may be unachievable`);
           }
           
-          // For some goals, location blocking might be temporary (territory expansion, etc.)
-          // But for now, we'll still add the goal to the chain and let it fail during execution
-          // This allows the goal executor to handle retries or suggest alternatives
-          dependenciesAdded = false; // Location blocking doesn't create dependencies
+          // For BUILD_FORGE: if location blocking has occurred multiple times, try territory expansion
+          if (g.type === 'BUILD_FORGE' && house.ai) {
+            const goalType = g.type;
+            const history = house.ai.goalFailureHistory?.get(goalType);
+            const locationBlockCount = history?.locationBlockCount || 0;
+            
+            // If location blocked 3+ times, suggest territory expansion via ESTABLISH_OUTPOST
+            if (locationBlockCount >= 3) {
+              // Check if scouting is feasible (units available)
+              let canScout = false;
+              if (house.ai.getMilitaryUnits) {
+                const militaryUnits = house.ai.getMilitaryUnits();
+                const availableUnits = militaryUnits.filter(unit => {
+                  if (!unit || unit.toRemove) return false;
+                  if (unit.scoutingParty) return false;
+                  return true;
+                });
+                canScout = availableUnits.length >= 1;
+              }
+              
+              if (canScout) {
+                // Add ESTABLISH_OUTPOST goal to expand territory
+                // This will scout for a suitable zone and establish an outpost, expanding territory
+                const { EstablishOutpostGoal } = require('./Goals');
+                
+                // For forge placement, we don't need a specific resource - just territory expansion
+                // Pass null for both resourceType and targetZone - EstablishOutpostGoal will find a suitable zone
+                const outpostGoal = new EstablishOutpostGoal(null, null);
+                
+                // Check for cycle before adding
+                const hasOutpostInChain = ancestorChain.includes('ESTABLISH_OUTPOST');
+                if (!hasOutpostInChain) {
+                  queue.push({
+                    goal: outpostGoal,
+                    parent: g,
+                    depth: depth + 1,
+                    reason: `needs location: forge placement blocked (territory expansion needed)`
+                  });
+                  dependenciesAdded = true;
+                  
+                  if (logger) {
+                    logger.collectInfo(`  -> Need ESTABLISH_OUTPOST for territory expansion (forge location blocked ${locationBlockCount} times)`);
+                  }
+                  
+                  continue; // Continue processing - will add forge goal after outpost
+                } else {
+                  if (logger) {
+                    logger.collectInfo(`  -> Skipping ESTABLISH_OUTPOST (cycle detected) - forge may be unachievable`);
+                  }
+                }
+              } else {
+                if (logger) {
+                  logger.collectInfo(`  -> Location blocking cannot be resolved - no units available for territory expansion`);
+                }
+              }
+            } else {
+              if (logger) {
+                logger.collectInfo(`  -> Location blocking may be temporary - will retry (blocked ${locationBlockCount} times, threshold: 3)`);
+              }
+            }
+          }
+          
+          // Location blocking doesn't create dependencies by default
+          // (territory expansion is only for BUILD_FORGE with multiple location blocks)
+          dependenciesAdded = false;
         } else if (block.type === 'UNITS') {
           // Unit blocking - need military units
           // This is typically handled by the goal itself (e.g., ESTABLISH_OUTPOST waits for units)
@@ -642,7 +702,55 @@ class GoalChain {
       console.warn(`[GoalChain] Resolution path:`, JSON.stringify(resolutionPath, null, 2));
     }
     
+    // Validate chain for permanent location blocking
+    GoalChain._validateChain(chain, house, logger);
+    
     return chain;
+  }
+  
+  // Validate chain - check for permanent location blocking
+  static _validateChain(chain, house, logger) {
+    if (!chain || !chain.steps || chain.steps.length === 0) {
+      return; // Empty chain, nothing to validate
+    }
+    
+    if (!house || !house.ai) {
+      return; // No AI system, skip validation
+    }
+    
+    // Check each building goal in the chain for permanent location blocking
+    for (const step of chain.steps) {
+      if (!step || !step.type) continue;
+      
+      // Only check building goals for location blocking
+      if (!step.type.startsWith('BUILD_')) continue;
+      
+      // Check if this goal has persistent location blocking
+      const goalType = step.type;
+      const history = house.ai.goalFailureHistory?.get(goalType);
+      const locationBlockCount = history?.locationBlockCount || 0;
+      
+      // If location blocked 5+ times, consider it permanent
+      if (locationBlockCount >= 5) {
+        // For BUILD_FORGE, we handle it with territory expansion (already added if needed)
+        // For other buildings, permanent location blocking means the chain is invalid
+        if (goalType !== 'BUILD_FORGE') {
+          const errorMsg = `Permanent location blocking detected for ${goalType} (blocked ${locationBlockCount} times) - rejecting chain`;
+          chain.errors = chain.errors || [];
+          chain.errors.push(errorMsg);
+          
+          if (logger) {
+            logger.collectError(`Chain validation failed for ${goalType}`, null, {
+              reason: errorMsg
+            });
+          }
+          
+          // Clear steps to prevent execution
+          chain.steps = [];
+          return; // Stop validation, chain is invalid
+        }
+      }
+    }
   }
   
   // Remove duplicate goals, keeping the last occurrence

@@ -209,14 +209,15 @@ class ScoutingParty {
       return;
     }
     
-    // Simple dawn detection: check if it's currently day (nightfall === false)
-    const currentNightfall = global.gameState ? (global.gameState.nightfall || false) : false;
-    const isDawn = !currentNightfall; // Dawn is when nightfall is false
+    // Dawn detection: check if current hour is VI.a (dawn hour, same as serfs use)
+    // Use global.tempus which matches the hour system used by serfs
+    const currentTempus = global.tempus || (global.gameState ? global.gameState.tempus : null);
+    const isDawn = currentTempus === 'VI.a';
     
     if (isDawn) {
       // Dawn detected - start traveling to target
       const factionName = this.leader.house ? this.leader.house.name : 'Unknown';
-      console.log(`[SCOUT] ${factionName}: Dawn detected - party starting journey to target`);
+      console.log(`[SCOUT] ${factionName}: Dawn detected (VI.a) - party starting journey to target`);
       this.startTravelingToTarget();
     }
     
@@ -368,8 +369,9 @@ class ScoutingParty {
       }
     }
     
-    // Check for dawn (simple check: nightfall === false means it's day/dawn)
-    const isDawn = !currentNightfall; // Dawn is when nightfall is false
+    // Check for dawn: use VI.a hour (same as serfs use for dawn detection)
+    const currentTempus = global.tempus || (global.gameState ? global.gameState.tempus : null);
+    const isDawn = currentTempus === 'VI.a';
     
     if (isDawn) {
       // Dawn detected - time to return

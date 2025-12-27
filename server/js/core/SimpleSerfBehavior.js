@@ -526,15 +526,36 @@ class SimpleSerfBehavior {
               if (isAvailable) {
                 availableSpots.push(res);
               } else {
-                // Log when spot is filtered out by isSpotAvailable (throttled)
+                // Log when spot is filtered out by isSpotAvailable (throttled, building-specific)
+                const now = Date.now();
+                let throttleKey;
                 if (building.type === 'mine' && building.cave) {
-                  const now = Date.now();
-                  const throttleKey = `caveMineSpotFiltered-${building.id}`;
-                  const lastLog = this.logThrottle[throttleKey];
-                  if (!lastLog || (now - lastLog) > this.LOG_THROTTLE_MS * 3) {
-                    console.log(`[SERF WORK] ${factionName}: Cave mine spot [${res[0]}, ${res[1]}] filtered out by isSpotAvailable`);
-                    this.logThrottle[throttleKey] = now;
+                  throttleKey = `caveMineSpotFiltered-${building.id}`;
+                } else if (building.type === 'lumbermill') {
+                  throttleKey = `lumbermillSpotFiltered-${building.id}`;
+                } else if (building.type === 'mill') {
+                  throttleKey = `millSpotFiltered-${building.id}`;
+                } else {
+                  throttleKey = `spotFiltered-${building.type}-${building.id}`;
+                }
+                
+                const lastLog = this.logThrottle[throttleKey];
+                if (!lastLog || (now - lastLog) > this.LOG_THROTTLE_MS * 3) {
+                  // Log filtered spot with context
+                  const house = building.owner && global.House && global.House.list ? global.House.list[building.owner] : null;
+                  const houseName = house ? house.name : 'Unknown';
+                  console.log(`[SERF WORK] ${houseName}: ${building.type} spot [${res[0]}, ${res[1]}] filtered out by isSpotAvailable`);
+                  
+                  // For lumbermills, provide additional context
+                  if (building.type === 'lumbermill') {
+                    const TERRAIN = global.TERRAIN || {};
+                    const getTile = global.getTile || (() => 0);
+                    const terrain = getTile(6, res[0], res[1]); // Check resource layer (tree layer)
+                    const baseTerrain = getTile(0, res[0], res[1]); // Check base terrain
+                    console.log(`[SERF WORK] ${houseName}: Lumbermill spot [${res[0]}, ${res[1]}] - resource terrain: ${terrain}, base terrain: ${baseTerrain}`);
                   }
+                  
+                  this.logThrottle[throttleKey] = now;
                 }
               }
             } else {
@@ -588,7 +609,31 @@ class SimpleSerfBehavior {
         const lastLog = this.logThrottle[throttleKey];
         if (!lastLog || (now - lastLog) > this.LOG_THROTTLE_MS * 2) {
           const hasIsSpotAvailable = building.isSpotAvailable && typeof building.isSpotAvailable === 'function';
-          console.warn(`[SERF WORK] ${factionName}: No available spots for ${building.type} at [${building.x}, ${building.y}] - resources: ${building.resources.length}, isSpotAvailable: ${hasIsSpotAvailable}, cave: ${building.cave ? 'yes' : 'no'}`);
+          const totalResources = building.resources ? building.resources.length : 0;
+          const filteredOut = totalResources - availableSpots.length;
+          
+          // Enhanced logging with detailed diagnostics
+          let diagnosticMsg = `[SERF WORK] ${factionName}: No available spots for ${building.type} at [${building.x}, ${building.y}]`;
+          diagnosticMsg += ` - total resources: ${totalResources}, available: ${availableSpots.length}, filtered: ${filteredOut}`;
+          diagnosticMsg += `, isSpotAvailable: ${hasIsSpotAvailable}, cave: ${building.cave ? 'yes' : 'no'}`;
+          
+          // Add building-specific diagnostics
+          if (building.type === 'lumbermill') {
+            // Check if building has forest tiles nearby
+            const hasForestNearby = this.checkForestNearby(building);
+            diagnosticMsg += `, forest nearby: ${hasForestNearby}`;
+          } else if (building.type === 'mine') {
+            diagnosticMsg += `, mine type: ${building.cave ? 'cave' : 'stone'}`;
+          }
+          
+          console.warn(diagnosticMsg);
+          
+          // Also log to FactionAI logger if available
+          const house = building.owner && global.House && global.House.list ? global.House.list[building.owner] : null;
+          if (house && house.ai && house.ai.logger) {
+            house.ai.logger.collectInfo(`Work spot assignment failed for ${building.type} at [${building.x}, ${building.y}]: ${totalResources} resources, ${availableSpots.length} available after filtering`);
+          }
+          
           this.logThrottle[throttleKey] = now;
         }
         return null;

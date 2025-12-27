@@ -401,7 +401,12 @@ class FactionAI {
       }
       
       if (this.shouldAvoidGoal(g.type)) {
-        this.logger.collectInfo(`Filtered goal ${g.type}: avoiding due to recent consecutive failures (utility: ${originalUtility})`);
+        const history = this.goalFailureHistory.get(g.type);
+        const isAbandoned = history && history.abandoned;
+        const reason = isAbandoned 
+          ? 'abandoned due to excessive failures' 
+          : 'avoiding due to recent consecutive failures';
+        this.logger.collectInfo(`Filtered goal ${g.type}: ${reason} (utility: ${originalUtility})`);
         return false;
       }
       
@@ -651,13 +656,30 @@ class FactionAI {
       lastFailureDay: 0,
       consecutiveFailures: 0,
       locationBlockCount: 0,
-      lastLocationBlockDay: 0
+      lastLocationBlockDay: 0,
+      firstFailureDay: 0,
+      abandoned: false,
+      abandonedDay: 0
     };
     
     // Initialize location blocking fields if not present
     if (history.locationBlockCount === undefined) {
       history.locationBlockCount = 0;
       history.lastLocationBlockDay = 0;
+    }
+    
+    // Initialize abandonment tracking fields if not present
+    if (history.firstFailureDay === undefined) {
+      history.firstFailureDay = 0;
+    }
+    if (history.abandoned === undefined) {
+      history.abandoned = false;
+      history.abandonedDay = 0;
+    }
+    
+    // Track first failure day
+    if (history.firstFailureDay === 0) {
+      history.firstFailureDay = day;
     }
     
     // Check if this is a consecutive failure (failed on previous day)
@@ -779,6 +801,57 @@ class FactionAI {
     return Math.max(UTILITY_THRESHOLDS.MINIMUM, adjustedUtility);
   }
   
+  // Check if goal should be abandoned due to repeated failures
+  shouldAbandonGoal(goalType) {
+    const day = global.day || 1;
+    const history = this.goalFailureHistory.get(goalType);
+    
+    if (!history) {
+      return false;
+    }
+    
+    // Check if already abandoned
+    if (history.abandoned) {
+      // Check if cooldown period has passed
+      const daysSinceAbandonment = day - history.abandonedDay;
+      if (daysSinceAbandonment >= TIME_THRESHOLDS.GOAL_ABANDONMENT_COOLDOWN) {
+        // Reset abandonment after cooldown
+        history.abandoned = false;
+        history.abandonedDay = 0;
+        history.consecutiveFailures = 0; // Reset consecutive failures
+        this.goalFailureHistory.set(goalType, history);
+        if (this.logger) {
+          this.logger.collectInfo(`Goal ${goalType} abandonment reset after cooldown period`);
+        }
+        return false;
+      }
+      return true; // Still in abandonment cooldown
+    }
+    
+    // Check abandonment thresholds
+    const consecutiveFailures = history.consecutiveFailures || 0;
+    const totalFailureDays = history.failureCount || 0;
+    
+    if (consecutiveFailures >= FAILURE_THRESHOLDS.GOAL_ABANDONMENT_FAILURES ||
+        totalFailureDays >= FAILURE_THRESHOLDS.GOAL_ABANDONMENT_DAYS) {
+      // Mark as abandoned
+      history.abandoned = true;
+      history.abandonedDay = day;
+      this.goalFailureHistory.set(goalType, history);
+      
+      if (this.logger) {
+        const reason = consecutiveFailures >= FAILURE_THRESHOLDS.GOAL_ABANDONMENT_FAILURES
+          ? `${consecutiveFailures} consecutive failures`
+          : `${totalFailureDays} total failure days`;
+        this.logger.collectInfo(`Goal ${goalType} abandoned: ${reason}`);
+      }
+      
+      return true;
+    }
+    
+    return false;
+  }
+  
   // Check if goal should be avoided due to recent failures
   shouldAvoidGoal(goalType) {
     const day = global.day || 1;
@@ -786,6 +859,11 @@ class FactionAI {
     
     if (!history) {
       return false;
+    }
+    
+    // First check if goal should be abandoned
+    if (this.shouldAbandonGoal(goalType)) {
+      return true;
     }
     
     // Avoid if failed within last day and has high consecutive failures
