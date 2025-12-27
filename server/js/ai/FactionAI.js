@@ -11,6 +11,7 @@ const GoalExecutor = require('./GoalExecutor');
 const FactionAILogger = require('./FactionAILogger');
 const ProductionMonitor = require('./services/ProductionMonitor');
 const ResourceBalanceAnalyzer = require('./services/ResourceBalanceAnalyzer');
+const CombatRecorder = require('./services/CombatRecorder');
 const { ScoutForResourceGoal, GatherResourceGoal, createBuildingGoal, BuildMillGoal, BuildMineGoal, BuildFarmGoal } = require('./Goals');
 const OutpostPlanner = require('./OutpostPlanner');
 const {
@@ -46,6 +47,7 @@ class FactionAI {
     this.logger = new FactionAILogger(house);
     this.productionMonitor = new ProductionMonitor(this);
     this.resourceBalanceAnalyzer = new ResourceBalanceAnalyzer(this.buildingService);
+    this.combatRecorder = new CombatRecorder(house, this);
     this.currentGoalChain = null;
     this.lastEvaluatedDay = 0; // Track last day evaluated to prevent duplicates
     
@@ -154,6 +156,16 @@ class FactionAI {
     
     // Track resource production (monitoring)
     this.productionMonitor.monitor(day);
+    
+    // Get daily combat recap and insights
+    const combatRecap = this.combatRecorder.getDailyRecap(day);
+    const combatInsights = this.combatRecorder.getCombatInsights();
+    if (this.logger) {
+      this.logger.recordCombatRecap(combatRecap, combatInsights);
+    }
+    
+    // Clean up old combat events (keep last 30 days)
+    this.combatRecorder.clearOldEvents(30);
     
     // Start report collection
     this.logger.startReport();

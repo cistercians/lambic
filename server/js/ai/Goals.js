@@ -766,19 +766,89 @@ class GatherResourceGoal extends Goal {
 class TrainMilitaryGoal extends Goal {
   constructor(unitCount = 1) {
     super('TRAIN_MILITARY', 50);
-    this.resourceCost = { grain: 10 * unitCount };
+    // Resource costs will be determined dynamically based on unit type
+    this.resourceCost = {}; // Set in execute() based on unit type
     this.buildingRequirements = ['garrison'];
     this.unitCount = unitCount;
   }
   
   execute(house) {
-    // Validate resources before deducting
-    if (house.stores.grain < this.resourceCost.grain) {
-      throw new Error(`Insufficient grain: need ${this.resourceCost.grain}, have ${house.stores.grain || 0}`);
+    // Determine unit type and costs before validation
+    var progression = global.FACTION_UNIT_PROGRESSION ? global.FACTION_UNIT_PROGRESSION[house.name] : null;
+    var unitClass;
+    var isMounted = false;
+    var isElite = false;
+    
+    if (progression) {
+      // Check if stronghold exists (produces elite units)
+      if (house.hasStronghold && progression.elite) {
+        unitClass = progression.elite;
+        isElite = true;
+        // Check if elite unit is mounted
+        if (unitClass && typeof unitClass === 'string') {
+          var nameLower = unitClass.toLowerCase();
+          isMounted = nameLower.includes('cavalier') || nameLower.includes('cavalry') || 
+                      nameLower.includes('horseman') || nameLower.includes('knight') || 
+                      nameLower.includes('mounted');
+        }
+      } else {
+        // Basic units
+        var basicUnits = progression.basic;
+        if (basicUnits && basicUnits.length > 0) {
+          unitClass = basicUnits[Math.floor(Math.random() * basicUnits.length)];
+          // Check if basic unit is mounted
+          if (unitClass && typeof unitClass === 'string') {
+            var nameLower = unitClass.toLowerCase();
+            isMounted = nameLower.includes('cavalier') || nameLower.includes('cavalry') || 
+                        nameLower.includes('horseman') || nameLower.includes('knight') || 
+                        nameLower.includes('mounted');
+          }
+        }
+      }
     }
     
-    // Deduct resources
-    house.stores.grain -= this.resourceCost.grain;
+    // Calculate resource costs based on unit type (manual training has costs)
+    var grain = house.stores.grain || 0;
+    var fish = house.stores.fish || 0;
+    var iron = house.stores.iron || 0;
+    
+    // Basic units: 20 food (fish + grain)
+    var requiredFood = 20;
+    var requiredIron = 0;
+    
+    if (isMounted) {
+      // Mounted units: double food + double iron (40 food + 2×iron)
+      requiredFood = 40;
+      requiredIron = 20; // Assuming 10 iron per unit, double = 20
+    } else if (isElite) {
+      // Elite units: food + iron (20 food + iron)
+      requiredFood = 20;
+      requiredIron = 10;
+    }
+    // else: Basic units use default (20 food, 0 iron)
+    
+    // Validate resources before deducting
+    var totalFood = grain + fish;
+    if (totalFood < requiredFood) {
+      throw new Error(`Insufficient food: need ${requiredFood} (grain + fish), have ${totalFood}`);
+    }
+    if (requiredIron > 0 && iron < requiredIron) {
+      throw new Error(`Insufficient iron: need ${requiredIron}, have ${iron || 0}`);
+    }
+    
+    // Deduct resources (manual training costs resources)
+    if (fish >= requiredFood) {
+      house.stores.fish -= requiredFood;
+    } else {
+      // Use fish first, then remainder from grain
+      var fishUsed = fish;
+      var grainNeeded = requiredFood - fishUsed;
+      house.stores.fish = 0;
+      house.stores.grain -= grainNeeded;
+    }
+    if (requiredIron > 0) {
+      house.stores.iron -= requiredIron;
+    }
     
     // Find a garrison building for this faction
     var garrison = null;

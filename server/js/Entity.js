@@ -1690,9 +1690,6 @@ Garrison = function(param){
       var fish = house.stores.fish || 0;
       var wood = house.stores.wood || 0;
       
-      // Calculate max garrison size before consuming resources (based on original grain)
-      var maxGarrison = Math.floor(grain / 50);
-      
       // Count current military units for this house
       var militaryCount = 0;
       for(var id in Player.list){
@@ -1702,34 +1699,42 @@ Garrison = function(param){
         }
       }
       
-      // Check capacity before attempting production
-      if(militaryCount >= maxGarrison){
+      // Surplus resource validation for automatic training (units are FREE, but need surplus food)
+      // Each unit requires 10 food in stores to be supported
+      var requiredReserve = militaryCount * 10; // Food needed to support existing units
+      var totalFood = grain + fish; // Total available food
+      var surplusFood = totalFood - requiredReserve; // Food available after reserving for existing units
+      
+      // Check if we have surplus to support a new unit
+      if(surplusFood < 10){
         if(global.console && global.console.log){
-          console.log('[Garrison] Production failed: At capacity', {
+          console.log('[Garrison] Production failed: Insufficient surplus food', {
             house: house.name,
             militaryCount: militaryCount,
-            maxGarrison: maxGarrison
+            totalFood: totalFood,
+            requiredReserve: requiredReserve,
+            surplusFood: surplusFood,
+            required: 10
           });
         }
-        return; // Already at capacity
+        return; // Can't train - not enough surplus
+      }
+      
+      // If surplusFood < 0, faction is over-extended (more units than food supports)
+      if(surplusFood < 0){
+        if(global.console && global.console.log){
+          console.log('[Garrison] Production failed: Over-extended (more units than food supports)', {
+            house: house.name,
+            militaryCount: militaryCount,
+            totalFood: totalFood,
+            requiredReserve: requiredReserve,
+            surplusFood: surplusFood
+          });
+        }
+        return; // Can't train - over-extended
       }
       
       if(progression){
-        // Use progression system - requires 20 total food (fish + grain) and 10 wood
-        var totalFood = fish + grain;
-        if(totalFood < 20 || wood < 10){
-          if(global.console && global.console.log){
-            console.log('[Garrison] Production failed: Insufficient resources', {
-              house: house.name,
-              totalFood: totalFood,
-              requiredFood: 20,
-              wood: wood,
-              requiredWood: 10
-            });
-          }
-          return;
-        }
-        
         // Check if stronghold exists (produces elite units)
         if(house.hasStronghold && progression.elite){
           unitClass = progression.elite;
@@ -1745,17 +1750,9 @@ Garrison = function(param){
           unitClass = basicUnits[Math.floor(Math.random() * basicUnits.length)];
         }
         
-        // Consume fish first, then grain
-        if(fish >= 20){
-          house.stores.fish -= 20;
-        } else {
-          // Use fish first, then remainder from grain
-          var fishUsed = fish;
-          var grainNeeded = 20 - fishUsed;
-          house.stores.fish = 0;
-          house.stores.grain -= grainNeeded;
-        }
-        house.stores.wood -= 10;
+        // Automatic training is FREE - no resource consumption
+        // Units are included in garrison building cost
+        // Only surplus food check is required (already validated above)
       } else {
         // Fallback for factions without progression defined (use old system)
         // Requires 10 grain
@@ -1789,8 +1786,9 @@ Garrison = function(param){
         var randomIndex = Math.floor(Math.random() * factionUnits.length);
         unitClass = factionUnits[randomIndex];
         
-        // Consume grain
-        house.stores.grain -= 10;
+        // Automatic training is FREE - no resource consumption
+        // Units are included in garrison building cost
+        // Only surplus food check is required (already validated above)
       }
       
       // Spawn location
@@ -9123,6 +9121,25 @@ Serf = function(param){
       // PERFORMANCE FIX: Spread work assignments over 15 seconds instead of ~10 seconds
       // This prevents thundering herd when all serfs wake up at dawn
       var rand = Math.floor(Math.random() * 15000); // 0-15 seconds
+      
+      // DIAGNOSTIC LOGGING: Track dawn transition for mining serfs
+      var isMineSerf = false;
+      var buildingType = 'unknown';
+      if(self.work && self.work.hq && global.Building && global.Building.list){
+        var building = global.Building.list[self.work.hq];
+        if(building){
+          buildingType = building.type || 'unknown';
+          isMineSerf = (building.type === 'mine');
+        }
+      }
+      var factionName = self.house && global.House && global.House.list 
+        ? (global.House.list[self.house]?.name || 'Unknown')
+        : 'Unknown';
+      
+      if(isMineSerf){
+        console.log(`[SERF DAWN] ${factionName}: Mining serf ${self.id} at dawn - work.hq: ${self.work?.hq || 'none'}, building type: ${buildingType}, hut: ${self.hut || 'none'}, mode: ${self.mode}, scheduled transition in ${rand}ms`);
+      }
+      
       if(!global.SERF_DEBUG_MODE) {
         // Only log occasionally to reduce console spam
         if(Math.random() < 0.1) {
@@ -9131,6 +9148,11 @@ Serf = function(param){
       }
       setTimeout(function(){
         if(self.mode != 'work'){ // Double-check mode hasn't changed
+          // DIAGNOSTIC LOGGING: Verify transition completed
+          if(isMineSerf){
+            console.log(`[SERF DAWN] ${factionName}: Mining serf ${self.id} transitioning to work mode - work.hq: ${self.work?.hq || 'none'}, building exists: ${(self.work?.hq && global.Building && global.Building.list && global.Building.list[self.work.hq]) ? 'yes' : 'no'}`);
+          }
+          
         self.mode = 'work';
         self.action = null;
           self.work.spot = null; // Clear previous work spot

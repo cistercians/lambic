@@ -276,9 +276,19 @@ class FactionAILogger {
         conflictZones: 0,
         zonesCleared: 0,
         contestedBanners: 0
-      }
+      },
+      combatRecap: null,
+      combatInsights: null
     };
     this.reportStarted = true;
+  }
+  
+  // Record combat recap data
+  recordCombatRecap(recap, insights) {
+    if (!this.enabled || !this.reportStarted) return;
+    
+    this.reportData.combatRecap = recap;
+    this.reportData.combatInsights = insights;
   }
   
   // Collect decision data
@@ -431,6 +441,29 @@ class FactionAILogger {
       lines.push(`  Zones Cleared: ${scouting.zonesCleared || 0}`);
       lines.push(`  Conflict Zones Discovered: ${scouting.conflictZones || 0}`);
       lines.push(`  Contested Banners Placed: ${scouting.contestedBanners || 0}`);
+      lines.push('');
+    }
+    
+    // Combat Recap
+    if (data.combatRecap && (data.combatRecap.totalKills > 0 || data.combatRecap.totalDeaths > 0)) {
+      const recap = data.combatRecap;
+      const insights = data.combatInsights || {};
+      lines.push('COMBAT RECAP:');
+      lines.push(`  Kills: ${recap.totalKills || 0}, Deaths: ${recap.totalDeaths || 0}`);
+      lines.push(`  Momentum: ${recap.momentum > 0 ? '+' : ''}${recap.momentum || 0} ${recap.momentum > 0 ? '(positive)' : recap.momentum < 0 ? '(negative)' : '(neutral)'}`);
+      
+      if (insights.highestActivityZone && insights.highestActivityZoneEvents > 0) {
+        lines.push(`  Highest Activity Zone: ${insights.highestActivityZone} (${insights.highestActivityZoneEvents} events)`);
+      }
+      
+      if (insights.primaryThreat && insights.primaryThreatKills > 0) {
+        lines.push(`  Primary Threat: ${insights.primaryThreat} (${insights.primaryThreatKills} kills against us)`);
+      }
+      
+      if (insights.baseUnderAttack || (recap.baseDefense && recap.baseDefense.events > 0)) {
+        lines.push(`  Base Defense: Combat in base territory (${recap.baseDefense?.events || 0} events, ${recap.baseDefense?.deaths || 0} deaths)`);
+      }
+      
       lines.push('');
     }
     
