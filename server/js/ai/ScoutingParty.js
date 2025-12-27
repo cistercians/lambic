@@ -7,9 +7,9 @@ class ScoutingParty {
     this.backupUnits = backupUnits || []; // Array of 0-2 backup units (flexible party size)
     this.targetZone = targetZone;
     this.purpose = purpose; // 'resource_scout', resource type ('stone', 'wood', etc.), or 'establish_outpost'
-    this.status = 'rallying'; // rallying, traveling, waiting_for_nightfall, camping, returning, failed
+    this.status = 'on_hold'; // on_hold, traveling, camping, returning, failed
     this.arrivalDay = null; // Day when party reached target zone
-    this.deploymentDay = global.day || 1; // Day when party was deployed (for rallying timeout)
+    this.deploymentDay = global.day || 1; // Day when party was deployed
     this.lastDay = global.day || 1; // Last day tracked for day change detection
     this.campfire = null; // ID of InfiniteFire item for campfire
     this.contestedBannerPlaced = false; // Flag to ensure only one contested banner per mission
@@ -58,13 +58,6 @@ class ScoutingParty {
     if (this.leader && this.leader.house && this.leader.house.ai && this.leader.house.ai.logger) {
       this.leader.house.ai.logger.recordScoutingDeployment();
     }
-    
-    // Initialize nightfall tracking (must be set in constructor for dawn detection)
-    if (global.gameState) {
-      this.lastNightfallState = global.gameState.nightfall || false;
-    } else {
-      this.lastNightfallState = false; // Default to day if gameState not available
-    }
   }
   
   // Assign mission orders to units (called after party creation)
@@ -77,23 +70,23 @@ class ScoutingParty {
       return;
     }
     
-    // Set leader to idle initially (waiting for dawn)
+    // Set leader to scout mode (ready but idle, waiting for dawn)
     if (this.leader.mode !== undefined) {
-      this.leader.mode = 'idle';
+      this.leader.mode = 'scout';
     }
     if (this.leader.action !== undefined) {
       this.leader.action = 'idle';
     }
     
     // Backup units should follow leader (followBehavior is already assigned in MilitaryManager)
-    // Ensure followBehavior is active
+    // Ensure followBehavior is active - they will follow when leader starts moving
     this.backupUnits.forEach(unit => {
       if (unit && !unit.toRemove) {
         if (!unit.followBehavior) {
           const FollowBehavior = require('./FollowBehavior');
           unit.followBehavior = new FollowBehavior(unit, this.leader);
         }
-        // Set mode to follow/idle so they stay near leader
+        // Set mode to idle (they'll follow automatically when leader moves)
         if (unit.mode !== undefined) {
           unit.mode = 'idle';
         }
@@ -106,7 +99,7 @@ class ScoutingParty {
     this.missionOrdersAssigned = true;
     
     const factionName = this.leader.house ? this.leader.house.name : 'Unknown';
-    console.log(`[SCOUT] ${factionName}: Mission orders assigned - units rallying around leader`);
+    console.log(`[SCOUT] ${factionName}: Mission orders assigned - party on hold until dawn`);
   }
   
   // Start traveling to target (called at dawn)
@@ -191,22 +184,12 @@ class ScoutingParty {
       }
     });
     
-    // Debug logging for rallying state
-    if (this.status === 'rallying') {
-      const factionName = this.leader ? (this.leader.house ? this.leader.house.name : 'Unknown') : 'Unknown';
-      const currentNightfall = global.gameState ? (global.gameState.nightfall || false) : false;
-      console.log(`[SCOUT DEBUG] ${factionName}: update() called - status: ${this.status}, day: ${currentDay}, deploymentDay: ${this.deploymentDay}, nightfall: ${currentNightfall}`);
-    }
-    
     switch (this.status) {
-      case 'rallying':
-        this.updateRallying();
+      case 'on_hold':
+        this.updateOnHold();
         break;
       case 'traveling':
         this.updateTraveling();
-        break;
-      case 'waiting_for_nightfall':
-        this.updateWaitingForNightfall();
         break;
       case 'camping':
         this.updateCamping();
@@ -219,109 +202,26 @@ class ScoutingParty {
     }
   }
 
-  // Update rallying state (units gather around leader, wait for dawn)
-  updateRallying() {
+  // Update on_hold state (waiting for dawn trigger)
+  updateOnHold() {
     if (!this.leader || this.leader.toRemove) {
       this.status = 'failed';
       return;
     }
     
-    const currentDay = global.day || 1;
+    // Simple dawn detection: check if it's currently day (nightfall === false)
     const currentNightfall = global.gameState ? (global.gameState.nightfall || false) : false;
-    const factionName = this.leader.house ? this.leader.house.name : 'Unknown';
+    const isDawn = !currentNightfall; // Dawn is when nightfall is false
     
-    // Improved dawn detection: check if it's currently day (not night) when in rallying state
-    const isDay = !currentNightfall;
-    
-    // Check if day has changed since deployment
-    const dayChanged = currentDay > this.deploymentDay;
-    
-    // Timeout fallback: if party has been rallying for more than 0.5 days (12 hours), force transition
-    // Since we track by day, we use a fractional day check
-    const daysRallying = currentDay - this.deploymentDay;
-    // Reduced timeout: if day changed since deployment, or if same day and it's been more than half a day
-    // Use a more aggressive timeout: if day changed OR if it's currently day and we deployed yesterday
-    const timeoutReached = (daysRallying >= 1) || (daysRallying >= 0 && isDay && currentDay > this.deploymentDay);
-    
-    // More aggressive timeout: if it's currently day and we've been rallying (same day or next day), force transition
-    const aggressiveTimeout = isDay && (daysRallying >= 0);
-    
-    // Immediate transition: if deployed during day on same day, start immediately
-    const sameDayDeployment = currentDay === this.deploymentDay && isDay;
-    
-    // Force transition if all units are rallied (don't wait for dawn)
-    // This allows parties to start immediately when ready, even during nightfall
-    
-    // Check if all units are rallied (within reasonable distance of leader)
-    let allUnitsRallied = false;
-    if (this.leader && this.units && this.units.length > 0) {
-      const leaderLoc = global.getLoc ? global.getLoc(this.leader.x, this.leader.y) : [
-        Math.floor(this.leader.x / 64),
-        Math.floor(this.leader.y / 64)
-      ];
-      allUnitsRallied = this.units.every(unitId => {
-        const unit = global.Player && global.Player.list ? global.Player.list[unitId] : null;
-        if (!unit || unit.toRemove) return false;
-        const unitLoc = global.getLoc ? global.getLoc(unit.x, unit.y) : [
-          Math.floor(unit.x / 64),
-          Math.floor(unit.y / 64)
-        ];
-        if (!unitLoc || !leaderLoc) return false;
-        // Check if unit is within 3 tiles of leader
-        const distance = Math.abs(unitLoc[0] - leaderLoc[0]) + Math.abs(unitLoc[1] - leaderLoc[1]);
-        return distance <= 3;
-      });
-    }
-    
-    // Check for dawn transition (nightfall went from true to false)
-    // Ensure lastNightfallState is initialized (fallback if constructor didn't set it)
-    if (this.lastNightfallState === undefined) {
-      this.lastNightfallState = currentNightfall;
-    }
-    const isDawn = this.lastNightfallState === true && currentNightfall === false;
-    
-    // Log transition condition values for debugging
-    console.log(`[SCOUT DEBUG] ${factionName}: updateRallying() - isDay: ${isDay}, dayChanged: ${dayChanged}, timeoutReached: ${timeoutReached}, aggressiveTimeout: ${aggressiveTimeout}, sameDayDeployment: ${sameDayDeployment}, isDawn: ${isDawn}, currentDay: ${currentDay}, deploymentDay: ${this.deploymentDay}, daysRallying: ${daysRallying}, lastNightfallState: ${this.lastNightfallState}, currentNightfall: ${currentNightfall}`);
-    
-    // Time-based fallback: if rallying for > 6 hours (half day), force transition regardless of day/night
-    const hoursRallying = (currentDay - this.deploymentDay) * 24; // Rough estimate (assuming 24 hours per day)
-    const halfDayTimeout = hoursRallying >= 12 || (daysRallying >= 0.5);
-    
-    // Transition to traveling if:
-    // 1. All units are rallied (don't wait for dawn if ready) - PRIORITY: start immediately when ready
-    // 2. Same day deployment during day (immediate start)
-    // 3. It's currently day (deployed during day, should start immediately)
-    // 4. Dawn transition detected (night -> day)
-    // 5. Day changed since deployment
-    // 6. Aggressive timeout: if it's day and we've been rallying (force transition during day)
-    // 7. Full day timeout reached (safety fallback)
-    // 8. Half-day timeout: if rallying for > 6 hours, force transition
-    if (allUnitsRallied || sameDayDeployment || isDay || isDawn || dayChanged || aggressiveTimeout || timeoutReached || halfDayTimeout) {
-      this.lastNightfallState = currentNightfall;
-      const reason = allUnitsRallied ? 'all units rallied' : sameDayDeployment ? 'same day deployment (daytime)' : isDay ? 'currently day' : isDawn ? 'dawn transition' : dayChanged ? 'day changed' : aggressiveTimeout ? 'aggressive timeout (daytime)' : halfDayTimeout ? 'half-day timeout' : 'timeout';
-      console.log(`[SCOUT] ${factionName}: Rallying complete - transitioning to traveling (reason: ${reason}, day ${currentDay}, deployed day ${this.deploymentDay})`);
-      
-      // Verify startTravelingToTarget is called
-      const statusBefore = this.status;
+    if (isDawn) {
+      // Dawn detected - start traveling to target
+      const factionName = this.leader.house ? this.leader.house.name : 'Unknown';
+      console.log(`[SCOUT] ${factionName}: Dawn detected - party starting journey to target`);
       this.startTravelingToTarget();
-      const statusAfter = this.status;
-      
-      if (statusAfter === 'traveling') {
-        console.log(`[SCOUT] ${factionName}: Successfully transitioned to traveling state`);
-      } else {
-        console.warn(`[SCOUT] ${factionName}: WARNING - startTravelingToTarget() called but status is still ${statusAfter} (was ${statusBefore})`);
-      }
-      return;
     }
     
-    // Update last nightfall state
-    this.lastNightfallState = currentNightfall;
-    
-    // Keep leader idle, backup units will follow (handled by followBehavior)
-    // Ensure leader stays idle
-    if (this.leader.mode !== undefined && this.leader.mode !== 'idle') {
-      this.leader.mode = 'idle';
-    }
+    // Keep leader idle until dawn (mode is already set to 'scout' in assignMissionOrders)
+    // Followers will automatically follow when leader starts moving
   }
   
   // Check if leader has reached target zone
@@ -361,7 +261,7 @@ class ScoutingParty {
     // Consider reached if within 10 tiles (640 pixels) of zone center
     const reachDistance = 10 * 64; // 10 tiles in pixels
     if (distance <= reachDistance) {
-      this.status = 'waiting_for_nightfall';
+      this.status = 'camping';
       this.arrivalDay = global.day || 1;
       
       // Set leader to idle at destination
@@ -370,6 +270,12 @@ class ScoutingParty {
       }
       if (this.leader.action !== undefined) {
         this.leader.action = 'idle';
+      }
+      
+      // Build campfire if it's nightfall, otherwise wait for nightfall
+      const currentNightfall = global.gameState ? (global.gameState.nightfall || false) : false;
+      if (currentNightfall && !this.campfire) {
+        this.buildCampfire();
       }
       
       // Log reaching destination
@@ -405,36 +311,7 @@ class ScoutingParty {
     }
   }
 
-  // Wait until nightfall to build campfire
-  updateWaitingForNightfall() {
-    if (!this.leader || this.leader.toRemove) {
-      this.status = 'failed';
-      return;
-    }
-    
-    // Check if it's nightfall
-    const currentNightfall = global.gameState ? (global.gameState.nightfall || false) : false;
-    
-    // Build campfire when nightfall occurs
-    if (currentNightfall && !this.campfire) {
-      this.buildCampfire();
-    }
-    
-    // If campfire is built, transition to camping
-    if (this.campfire) {
-      this.status = 'camping';
-      
-      // Set leader to guard campfire (idle at campfire location)
-      if (this.leader.mode !== undefined) {
-        this.leader.mode = 'idle';
-      }
-      if (this.leader.action !== undefined) {
-        this.leader.action = 'idle';
-      }
-    }
-  }
-
-  // Guard campfire overnight
+  // Guard campfire overnight (or wait at destination until nightfall, then camp)
   updateCamping() {
     if (!this.leader || this.leader.toRemove) {
       this.status = 'failed';
@@ -442,13 +319,21 @@ class ScoutingParty {
       return;
     }
     
-    // Check if campfire still exists
+    // Check current nightfall state (used for both campfire building and dawn detection)
+    const currentNightfall = global.gameState ? (global.gameState.nightfall || false) : false;
+    
+    // Build campfire if it's nightfall and we don't have one yet
+    if (currentNightfall && !this.campfire) {
+      this.buildCampfire();
+    }
+    
+    // Check if campfire still exists (if we built one)
     if (this.campfire && (!global.Item || !global.Item.list || !global.Item.list[this.campfire])) {
       // Campfire was removed - might have been destroyed
       this.campfire = null;
     }
     
-    // Keep units near campfire (within 15 tiles = 960 pixels)
+    // Keep units near campfire (within 15 tiles = 960 pixels) if campfire exists
     const leaderPos = [this.leader.x, this.leader.y];
     const campfireItem = this.campfire ? (global.Item && global.Item.list ? global.Item.list[this.campfire] : null) : null;
     
@@ -473,17 +358,21 @@ class ScoutingParty {
           this.leader.action = 'idle';
         }
       }
+    } else {
+      // No campfire yet (waiting for nightfall) - ensure leader stays at destination
+      if (this.leader.mode !== undefined) {
+        this.leader.mode = 'idle';
+      }
+      if (this.leader.action !== undefined) {
+        this.leader.action = 'idle';
+      }
     }
     
-    // Check for daybreak (nightfall transitions from true to false, or day changed)
-    const currentNightfall = global.gameState ? (global.gameState.nightfall || false) : false;
-    const currentDay = global.day || 1;
-    const isDawn = this.lastNightfallState === true && currentNightfall === false;
-    const dayChanged = currentDay > this.arrivalDay;
+    // Check for dawn (simple check: nightfall === false means it's day/dawn)
+    const isDawn = !currentNightfall; // Dawn is when nightfall is false
     
-    if (isDawn || dayChanged) {
-      // Daybreak - time to return
-      this.lastNightfallState = currentNightfall;
+    if (isDawn) {
+      // Dawn detected - time to return
       this.status = 'returning';
       this.cleanupCampfire();
       
@@ -492,11 +381,13 @@ class ScoutingParty {
       if (hq && this.leader.moveTo && typeof this.leader.moveTo === 'function') {
         this.leader.moveTo(this.leader.z || 0, hq[0], hq[1]);
         
-        // Set mode for return journey
+        // Leader is already in scout mode, just ensure it's set
         if (this.leader.mode !== undefined) {
           this.leader.mode = 'scout';
         }
       }
+      
+      // Followers will automatically follow because followBehavior is already active
       
       // Log zone cleared and return
       const factionName = this.leader.house ? this.leader.house.name : 'Unknown';
