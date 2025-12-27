@@ -33,14 +33,14 @@ class TerritoryManager {
       // No buildings yet - use HQ
       this.coreBase = {
         center: this.house.hq,
-        radius: 15,
+        radius: 10,
         buildings: []
       };
       
       if (logger) {
         logger.logDecision('TERRITORY_CALCULATED', 'Territory calculated (no buildings, using HQ)', {
           center: this.house.hq,
-          radius: 15,
+          radius: 10,
           buildingCount: 0,
           reasoning: 'No buildings yet, using HQ as center with minimum radius'
         });
@@ -54,8 +54,8 @@ class TerritoryManager {
     // Calculate average distance from center to buildings
     const avgDistance = this.calculateAverageDistance(centerOfMass, buildings);
     
-    // Territory radius is 1.1x average distance (minimum 15 tiles)
-    const territoryRadius = Math.max(avgDistance * 1.1, 15);
+    // Territory radius is 1.1x average distance (minimum 10 tiles)
+    const territoryRadius = Math.max(avgDistance * 1.1, 10);
     
     // Classify buildings as core base or outposts
     this.coreBase = {
@@ -334,7 +334,7 @@ class TerritoryManager {
     if (!this.coreBase) {
       this.updateTerritory();
     }
-    const radius = this.coreBase ? this.coreBase.radius : 15;
+    const radius = this.coreBase ? this.coreBase.radius : 10;
     return radius * (global.tileSize || 64);
   }
   

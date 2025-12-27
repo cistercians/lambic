@@ -9,6 +9,20 @@ const BuildingService = require('./BuildingService');
 const MilitaryManager = require('./MilitaryManager');
 const GoalExecutor = require('./GoalExecutor');
 const FactionAILogger = require('./FactionAILogger');
+const ProductionMonitor = require('./services/ProductionMonitor');
+const ResourceBalanceAnalyzer = require('./services/ResourceBalanceAnalyzer');
+const { ScoutForResourceGoal, GatherResourceGoal, createBuildingGoal, BuildMillGoal, BuildMineGoal, BuildFarmGoal } = require('./Goals');
+const OutpostPlanner = require('./OutpostPlanner');
+const {
+  UTILITY_THRESHOLDS,
+  RESOURCE_THRESHOLDS,
+  RESOURCE_RATIOS,
+  PRODUCTION_RATES,
+  TIME_THRESHOLDS,
+  UTILITY_ADJUSTMENTS,
+  FAILURE_THRESHOLDS,
+  DISPLAY
+} = require('./AIConstants');
 
 // Strategy modules
 const FactionStrategy = require('./strategies/FactionStrategy');
@@ -30,6 +44,8 @@ class FactionAI {
     this.militaryManager = new MilitaryManager(house, this);
     this.goalExecutor = new GoalExecutor(house, this);
     this.logger = new FactionAILogger(house);
+    this.productionMonitor = new ProductionMonitor(this);
+    this.resourceBalanceAnalyzer = new ResourceBalanceAnalyzer(this.buildingService);
     this.currentGoalChain = null;
     this.lastEvaluatedDay = 0; // Track last day evaluated to prevent duplicates
     
@@ -41,6 +57,9 @@ class FactionAI {
     this.goalFailureHistory = new Map(); // Map<goalType, {failureCount, lastFailureDay, consecutiveFailures}>
     this.chainFailureHistory = new Map(); // Map<goalType, {failureReason, lastFailureDay, blockingFactors}>
     this.goalConsiderationHistory = new Map(); // Map<goalType, {considerationCount, lastConsiderationDay}>
+    
+    // Fallback goal suggestions (from location blocking)
+    this.suggestedFallbackGoals = new Set(); // Set of goal suggestions like "SCOUT_FOR_RESOURCE:stone"
     
     // Load faction profile and strategy (use house.name for faction type)
     this.profile = FactionProfiles[house.name] || FactionProfiles.Goths;
@@ -103,15 +122,38 @@ class FactionAI {
     }
   }
   
+  // Check if faction is non-economic (should be excluded from economic goals and reporting)
+  isNonEconomicFaction() {
+    const excludedFactions = ['Brotherhood', 'Outlaws', 'Norsemen', 'Mercenaries'];
+    const factionName = this.house?.name || '';
+    const baseName = factionName.replace(/\s+\d+$/, '').trim(); // Remove trailing numbers
+    return excludedFactions.includes(baseName);
+  }
+  
   // Called once per in-game day
   evaluateAndAct() {
     const day = global.day || 1;
+    const factionName = this.house?.name || 'Unknown';
     
     // Prevent multiple evaluations on the same day
     if (this.lastEvaluatedDay === day) {
+      if (this.logger) {
+        this.logger.collectInfo(`evaluateAndAct() called but already evaluated today (Day ${day})`);
+      } else {
+        console.log(`[FactionAI] ${factionName}: evaluateAndAct() called but already evaluated today (Day ${day})`);
+      }
       return;
     }
     this.lastEvaluatedDay = day;
+    
+    if (this.logger) {
+      this.logger.collectInfo(`evaluateAndAct() called for Day ${day}`);
+    } else {
+      console.log(`[FactionAI] ${factionName}: evaluateAndAct() called for Day ${day}`);
+    }
+    
+    // Track resource production (monitoring)
+    this.productionMonitor.monitor(day);
     
     // Start report collection
     this.logger.startReport();
@@ -131,6 +173,9 @@ class FactionAI {
     
     // Update territory knowledge (cached internally)
     this.territory.updateTerritory();
+    
+    // Update known zones when territory changes (zones intersecting base radius)
+    this.knowledge.updateKnownZones();
     
     // Clean up stale enemy information
     this.knowledge.cleanStaleInformation();
@@ -174,6 +219,11 @@ class FactionAI {
       }
       
       // Evaluate new goals
+      if (this.logger) {
+        this.logger.collectInfo(`Evaluating new goals for Day ${day}`);
+      } else {
+        console.log(`[FactionAI] ${factionName}: Evaluating new goals for Day ${day}`);
+      }
       this.evaluateNewGoals();
     }
     
@@ -191,134 +241,321 @@ class FactionAI {
   
   // Evaluate and select new goals
   evaluateNewGoals() {
+    const factionName = this.house?.name || 'Unknown';
+    const isNonEconomic = this.isNonEconomicFaction();
+    
+    // Phase 1-6: Collect all possible goals
+    const possibleGoals = this._collectGoals();
+    
+    // For non-economic factions, skip goal evaluation if no goals available
+    if (isNonEconomic && possibleGoals.length === 0) {
+      if (this.logger) {
+        this.logger.collectInfo('Non-economic faction: No goals available, skipping goal evaluation');
+      }
+      return;
+    }
+    
+    // Phase 7: Check resource balance (only for economic factions)
+    const resourceBalance = isNonEconomic ? null : this.resourceBalanceAnalyzer.checkResourceBalance(this.house.stores);
+    
+    // Phase 8: Track goal considerations
+    this._trackGoalConsiderations(possibleGoals);
+    
+    // Phase 9: Apply resource balance boosts (only for economic factions)
+    if (!isNonEconomic && resourceBalance) {
+      this._applyResourceBoosts(possibleGoals, resourceBalance);
+    }
+    
+    // Phase 10: Apply goal forcing
+    this._applyGoalForcing(possibleGoals);
+    
+    // Phase 11: Filter goals
+    const validGoals = this._filterGoals(possibleGoals);
+    
+    // Phase 12: Log filtered goals
+    this._logFilteredGoals(factionName, validGoals);
+    
+    // Phase 13: Adjust utilities with failure penalties
+    const { adjustedGoals, sortedGoals } = this._adjustUtilities(validGoals);
+    
+    // Phase 14: Select top goal and create chain
+    this._selectTopGoalAndCreateChain(adjustedGoals, sortedGoals, possibleGoals, factionName);
+  }
+  
+  // Private helper methods for evaluateNewGoals
+  
+  // Collect all possible goals from strategy and fallbacks
+  _collectGoals() {
+    const factionName = this.house?.name || 'Unknown';
+    const isNonEconomic = this.isNonEconomicFaction();
+    
     // Delegate to faction-specific strategy
-    const economicGoals = this.strategy.evaluateEconomicGoals();
+    const economicGoals = isNonEconomic ? [] : this.strategy.evaluateEconomicGoals();
     const militaryGoals = this.strategy.evaluateMilitaryGoals();
     const expansionGoals = this.strategy.evaluateExpansionGoals();
+    // Non-economic factions should not engage in resource scouting
+    const resourceScoutingGoals = isNonEconomic ? [] : (this.strategy.evaluateResourceScoutingGoals ? this.strategy.evaluateResourceScoutingGoals() : []);
     const defenseGoals = this.strategy.evaluateDefenseGoals();
     
-    const possibleGoals = [
+    if (!isNonEconomic) {
+      if (this.logger) {
+        this.logger.collectInfo(`Goal evaluation - Economic: ${economicGoals.length}, Military: ${militaryGoals.length}, Expansion: ${expansionGoals.length}, ResourceScouting: ${resourceScoutingGoals.length}, Defense: ${defenseGoals.length}`);
+      } else {
+        console.log(`[FactionAI] ${factionName}: Goal evaluation - Economic: ${economicGoals.length}, Military: ${militaryGoals.length}, Expansion: ${expansionGoals.length}, ResourceScouting: ${resourceScoutingGoals.length}, Defense: ${defenseGoals.length}`);
+      }
+    }
+    
+    // Include pending recovery goals from production monitoring (only for economic factions)
+    const recoveryGoals = isNonEconomic ? [] : (this._pendingRecoveryGoals || []);
+    this._pendingRecoveryGoals = [];
+    
+    // Check for suggested fallback goals (from location blocking) - skip for non-economic factions
+    const fallbackScoutGoals = [];
+    if (!isNonEconomic && this.suggestedFallbackGoals && this.suggestedFallbackGoals.size > 0) {
+      for (const suggestion of this.suggestedFallbackGoals) {
+        const [goalType, resourceType] = suggestion.split(':');
+        if (goalType === 'SCOUT_FOR_RESOURCE' && resourceType) {
+          const scoutGoal = new ScoutForResourceGoal(resourceType);
+          scoutGoal.utility = UTILITY_THRESHOLDS.FALLBACK_SCOUT;
+          fallbackScoutGoals.push(scoutGoal);
+          this.logger.collectInfo(`Added fallback SCOUT_FOR_RESOURCE for ${resourceType} due to location blocking`);
+        }
+      }
+      this.suggestedFallbackGoals.clear();
+    }
+    
+    return [
       ...economicGoals,
       ...militaryGoals,
       ...expansionGoals,
-      ...defenseGoals
+      ...resourceScoutingGoals,
+      ...defenseGoals,
+      ...recoveryGoals,
+      ...fallbackScoutGoals
     ];
-    
-    // Check resource balance and apply boosts (Phase 8: Resource Balance Monitoring)
-    const resourceBalance = this.checkResourceBalance();
-    
-    // Track goal considerations (Phase 9: Goal Selection Stagnation Prevention)
-    possibleGoals.forEach(g => {
+  }
+  
+  // Track goal considerations for stagnation prevention
+  _trackGoalConsiderations(goals) {
+    goals.forEach(g => {
       if (g.utility > 0) {
         this.recordGoalConsideration(g.type);
       }
     });
+  }
+  
+  // Apply resource balance boosts to goals (only for economic factions)
+  _applyResourceBoosts(goals, resourceBalance) {
+    if (!resourceBalance) {
+      return; // Skip if resource balance is null (non-economic factions)
+    }
     
-    // Filter out goals with 0 utility and goals that can't execute (including location checks)
-    const validGoals = possibleGoals.filter(g => {
+    goals.forEach(g => {
+      if (g.type === 'BUILD_MINE') {
+        const stoneAmount = resourceBalance.resources.stone || 0;
+        if (stoneAmount < RESOURCE_THRESHOLDS.STONE_SCARCE || resourceBalance.imbalances.stoneScarce || resourceBalance.imbalances.needsStone) {
+          if (g.mineType === undefined || g.mineType === 'any') {
+            g.mineType = 'stone';
+            this.logger.collectInfo(`Set BUILD_MINE mineType to 'stone' due to stone scarcity`);
+          }
+          const originalUtility = g.utility;
+          g.utility *= UTILITY_ADJUSTMENTS.STONE_SCARCE_BOOST;
+          this.logger.collectInfo(`Boosted ${g.type} utility due to stone scarcity (${stoneAmount} stone, ${originalUtility} -> ${g.utility})`);
+          if (stoneAmount < RESOURCE_THRESHOLDS.STONE_VERY_LOW) {
+            g.utility *= UTILITY_ADJUSTMENTS.STONE_VERY_LOW_BOOST;
+            this.logger.collectInfo(`Additional boost for very low stone: ${g.utility}`);
+          }
+        }
+      } else if (g.type === 'BUILD_LUMBERMILL') {
+        if (resourceBalance.imbalances.needsWood) {
+          const originalUtility = g.utility;
+          g.utility *= UTILITY_ADJUSTMENTS.WOOD_SCARCE_BOOST;
+          this.logger.collectInfo(`Boosted ${g.type} utility due to wood scarcity (${originalUtility} -> ${g.utility})`);
+        }
+      }
+    });
+  }
+  
+  // Apply goal forcing to goals
+  _applyGoalForcing(goals) {
+    goals.forEach(g => {
+      if (this.shouldForceGoalSelection(g.type) && g.utility > 0) {
+        const originalUtility = g.utility;
+        g.utility = Math.max(g.utility, UTILITY_THRESHOLDS.FORCED_MIN);
+        this.logger.collectInfo(`Forcing ${g.type} selection (consideration ${this.getGoalConsiderationCount(g.type)}, boosted from ${originalUtility} to ${g.utility})`);
+      }
+    });
+  }
+  
+  // Filter goals based on utility, executability, and location checks
+  _filterGoals(goals) {
+    return goals.filter(g => {
+      const originalUtility = g.utility;
+      const isHighUtility = originalUtility >= UTILITY_THRESHOLDS.HIGH;
+      const isForced = this.shouldForceGoalSelection(g.type);
+      const isHighValueGoal = g.type === 'BUILD_GARRISON' || g.type === 'BUILD_FORGE' || g.type === 'ESTABLISH_OUTPOST';
+      
       if (g.utility <= 0) {
+        this.logger.collectInfo(`Filtered goal ${g.type}: utility is ${g.utility} (too low)`);
         return false;
       }
       
-      // Check if goal should be avoided due to recent failures
       if (this.shouldAvoidGoal(g.type)) {
-        this.logger.collectInfo(`Filtered goal ${g.type}: avoiding due to recent consecutive failures`);
+        this.logger.collectInfo(`Filtered goal ${g.type}: avoiding due to recent consecutive failures (utility: ${originalUtility})`);
         return false;
       }
       
-      // Check if goal can execute (resources, buildings)
       if (!g.canExecute(this.house)) {
-        // Phase 7: Force dependency chain for high-value goals even if blocked
-        if (g.type === 'BUILD_GARRISON' || g.type === 'BUILD_FORGE') {
-          // Don't filter out - we'll force chain creation below
-          // But still log the blocking
-          this.logger.collectInfo(`High-value goal ${g.type} is blocked but will force dependency chain`);
+        const blockingSummary = g.blockedBy.map(b => {
+          if (b.type === 'RESOURCE') return `${b.resource} (have ${b.have}, need ${b.need})`;
+          if (b.type === 'BUILDING') return `need ${b.value}`;
+          if (b.type === 'LOCATION') return b.value;
+          return b.value || b.type;
+        }).join(', ');
+        
+        if (isHighValueGoal || isHighUtility || isForced) {
+          const reason = isForced ? 'forced due to multiple considerations' : isHighUtility ? 'high utility goal' : 'high-value goal';
+          this.logger.collectInfo(`Goal ${g.type} is blocked (${blockingSummary}) but will force dependency chain (${reason}, utility: ${originalUtility})`);
         } else {
-          this.logger.collectInfo(`Filtered goal ${g.type}: cannot execute (blocked by: ${g.blockedBy.map(b => b.type === 'RESOURCE' ? `${b.resource}` : b.value).join(', ')})`);
+          this.logger.collectInfo(`Filtered goal ${g.type}: cannot execute (blocked by: ${blockingSummary}, utility: ${originalUtility})`);
           return false;
         }
       }
       
-      // Check if building goals can be placed (location validation)
       if (g.canPlace && typeof g.canPlace === 'function') {
         if (!g.canPlace(this.house)) {
-          this.logger.collectInfo(`Filtered goal ${g.type}: no valid location available`);
-          return false;
+          this.recordLocationBlocking(g.type);
+          
+          if (isHighValueGoal || isHighUtility || isForced) {
+            const hasLocationBlock = g.blockedBy.some(b => b.type === 'LOCATION');
+            if (!hasLocationBlock) {
+              g.blockedBy.push({ type: 'LOCATION', value: 'no valid location available' });
+            }
+            this.logger.collectInfo(`Goal ${g.type} has no valid location but will force dependency chain (utility: ${originalUtility})`);
+          } else {
+            this.logger.collectInfo(`Filtered goal ${g.type}: no valid location available (utility: ${originalUtility})`);
+            return false;
+          }
         }
       }
       
       return true;
     });
-    
-    // Apply resource balance boosts to utilities (Phase 8)
-    possibleGoals.forEach(g => {
-      if (g.type === 'BUILD_MINE') {
-        // Boost stone mine utility when stone is scarce
-        if (resourceBalance.imbalances.stoneScarce || resourceBalance.imbalances.needsStone) {
-          g.utility *= 1.5; // 50% boost
-          this.logger.collectInfo(`Boosted ${g.type} utility due to stone scarcity (${resourceBalance.resources.stone} stone)`);
-        }
-      } else if (g.type === 'BUILD_LUMBERMILL') {
-        // Boost lumbermill utility when wood is scarce
-        if (resourceBalance.imbalances.needsWood) {
-          g.utility *= 1.3; // 30% boost
-        }
+  }
+  
+  // Log filtered goals
+  _logFilteredGoals(factionName, validGoals) {
+    if (this.logger) {
+      this.logger.collectInfo(`Valid goals after filtering: ${validGoals.length}`);
+      if (validGoals.length > 0) {
+        const topGoals = validGoals.slice(0, DISPLAY.TOP_GOALS_COUNT).map(g => `${g.type}(${g.utility})`).join(', ');
+        this.logger.collectInfo(`Top goals: ${topGoals}`);
       }
-    });
-    
-    // Apply failure penalties to utilities (adaptive learning)
-    const adjustedGoals = validGoals.map(g => {
+    } else {
+      console.log(`[FactionAI] ${factionName}: Valid goals after filtering: ${validGoals.length}`);
+      if (validGoals.length > 0) {
+        const topGoals = validGoals.slice(0, DISPLAY.TOP_GOALS_COUNT).map(g => `${g.type}(${g.utility})`).join(', ');
+        console.log(`[FactionAI] ${factionName}: Top goals: ${topGoals}`);
+      }
+    }
+  }
+  
+  // Adjust utilities with failure penalties and sort
+  _adjustUtilities(goals) {
+    const adjustedGoals = goals.map(g => {
+      const originalUtility = g.utility;
       let adjustedUtility = this.getAdjustedUtility(g);
+      const penaltyApplied = adjustedUtility < originalUtility;
       
-      // Phase 9: Force goal selection after multiple considerations
       if (this.shouldForceGoalSelection(g.type) && adjustedUtility > 0) {
-        // Boost utility to ensure selection
-        adjustedUtility = Math.max(adjustedUtility, 50); // Minimum 50 utility
-        this.logger.collectInfo(`Forcing ${g.type} selection after ${this.getGoalConsiderationCount(g.type)} considerations (boosted to ${adjustedUtility})`);
+        adjustedUtility = Math.max(adjustedUtility, UTILITY_THRESHOLDS.FORCED_MIN);
       }
       
-      return { goal: g, utility: adjustedUtility };
+      if (penaltyApplied) {
+        this.logger.collectInfo(`Utility adjustment for ${g.type}: ${originalUtility} -> ${adjustedUtility} (penalty applied)`);
+      }
+      
+      return { goal: g, utility: adjustedUtility, originalUtility: originalUtility };
     });
     
-    // Sort by adjusted utility (highest first)
     adjustedGoals.sort((a, b) => b.utility - a.utility);
-    
-    // Extract goals from adjusted list
-    const sortedGoals = adjustedGoals.map(item => item.goal);
+    let sortedGoals = adjustedGoals.map(item => item.goal);
     
     if (sortedGoals.length === 0) {
-      this.logger.collectInfo('No valid goals available');
+      this.logger.collectInfo('No valid goals available - generating fallback goals');
+      const fallbackGoals = this.generateFallbackGoals();
+      if (fallbackGoals.length > 0) {
+        sortedGoals = fallbackGoals;
+        this.logger.collectInfo(`Generated ${fallbackGoals.length} fallback goals`);
+      } else {
+        this.logger.collectInfo('No fallback goals could be generated');
+        return { adjustedGoals: [], sortedGoals: [] };
+      }
+    }
+    
+    return { adjustedGoals, sortedGoals };
+  }
+  
+  // Select top goal and create chain
+  _selectTopGoalAndCreateChain(adjustedGoals, sortedGoals, possibleGoals, factionName) {
+    if (sortedGoals.length === 0) {
       return;
     }
     
     let topGoal = sortedGoals[0];
-    const topUtility = adjustedGoals[0].utility;
+    const topUtility = adjustedGoals.length > 0 ? adjustedGoals[0].utility : topGoal.utility;
+    const topGoalOriginalUtility = adjustedGoals.length > 0 && adjustedGoals[0] ? adjustedGoals[0].originalUtility : topGoal.utility;
     
-    // Collect goal selection with alternatives
+    if (this.logger) {
+      this.logger.collectInfo(`Selected goal: ${topGoal.type} (utility: ${topUtility})`);
+    } else {
+      console.log(`[FactionAI] ${factionName}: Selected goal: ${topGoal.type} (utility: ${topUtility})`);
+    }
+    
+    const allCandidates = adjustedGoals.length > 0 ? adjustedGoals.map(item => ({
+      type: item.goal.type,
+      utility: item.utility,
+      originalUtility: item.originalUtility || item.goal.utility,
+      canExecute: item.goal.canExecute ? item.goal.canExecute(this.house) : true,
+      blockedBy: item.goal.blockedBy || []
+    })) : sortedGoals.map(g => ({
+      type: g.type,
+      utility: g.utility,
+      originalUtility: g.utility,
+      canExecute: g.canExecute ? g.canExecute(this.house) : true,
+      blockedBy: g.blockedBy || []
+    }));
+    
     this.logger.collectDecision('GOAL_SELECTED', `Selected: ${topGoal.type}`, {
       selectedGoal: topGoal.type,
       utility: topUtility,
-      originalUtility: topGoal.utility,
-      allCandidates: adjustedGoals.map(item => ({ 
-        type: item.goal.type, 
-        utility: item.utility,
-        originalUtility: item.goal.utility
-      })),
-      reasoning: `Highest adjusted utility (${topUtility}) among ${sortedGoals.length} candidates`
+      originalUtility: topGoalOriginalUtility,
+      allCandidates: allCandidates,
+      reasoning: `Highest adjusted utility (${topUtility}, orig: ${topGoalOriginalUtility}) among ${sortedGoals.length} candidates`
     });
     
-    // Collect alternatives info
+    this.logger.collectInfo(`Goal selection comparison (${allCandidates.length} candidates):`);
+    allCandidates.forEach((candidate, index) => {
+      const status = index === 0 ? 'SELECTED' : 'alternative';
+      const blockingInfo = candidate.blockedBy.length > 0 
+        ? ` [blocked by: ${candidate.blockedBy.map(b => b.type === 'RESOURCE' ? `${b.resource}` : b.value || b.type).join(', ')}]`
+        : '';
+      this.logger.collectInfo(`  ${status}: ${candidate.type} - utility: ${candidate.utility} (orig: ${candidate.originalUtility})${blockingInfo}`);
+    });
+    
     if (sortedGoals.length > 1) {
-      const alternatives = adjustedGoals.slice(1).map(item => 
-        `${item.goal.type} (${item.utility}, orig: ${item.goal.utility})`
-      ).join(', ');
+      const alternatives = adjustedGoals.length > 0 
+        ? adjustedGoals.slice(1).map(item => 
+            `${item.goal.type} (adj: ${item.utility}, orig: ${item.originalUtility || item.goal.utility})`
+          ).join(', ')
+        : sortedGoals.slice(1).map(g => 
+            `${g.type} (${g.utility})`
+          ).join(', ');
       this.logger.collectInfo(`Alternatives considered: ${alternatives}`);
     }
     
-    // Check if we should avoid this goal due to recent chain failure
     if (this.shouldAvoidChainGoal(topGoal.type)) {
       this.logger.collectInfo(`Avoiding goal ${topGoal.type}: recent chain failure with same blocking factors`);
-      // Try next goal in list
       if (sortedGoals.length > 1) {
         topGoal = sortedGoals[1];
         this.logger.collectInfo(`Selecting alternative goal: ${topGoal.type}`);
@@ -327,47 +564,41 @@ class FactionAI {
       }
     }
     
-    // Phase 7: Force dependency chain for high-value goals even if blocked
-    if ((topGoal.type === 'BUILD_GARRISON' || topGoal.type === 'BUILD_FORGE') && !topGoal.canExecute(this.house)) {
-      this.logger.collectInfo(`Forcing dependency chain creation for blocked high-value goal: ${topGoal.type}`);
-      // Boost utility of prerequisite goals
+    const shouldForceChain = (topGoal.type === 'BUILD_GARRISON' || topGoal.type === 'BUILD_FORGE' || topGoal.type === 'ESTABLISH_OUTPOST') && !topGoal.canExecute(this.house);
+    if (shouldForceChain) {
+      this.logger.collectInfo(`Forcing dependency chain creation for blocked high-value goal: ${topGoal.type} (utility: ${topGoalOriginalUtility})`);
       if (topGoal.type === 'BUILD_GARRISON') {
-        // Find BUILD_FORGE goal and boost its utility
         const forgeGoal = possibleGoals.find(g => g.type === 'BUILD_FORGE');
         if (forgeGoal) {
-          forgeGoal.utility = Math.max(forgeGoal.utility, 60); // Boost to high priority
-          this.logger.collectInfo(`Boosted BUILD_FORGE utility to ${forgeGoal.utility} (prerequisite for BUILD_GARRISON)`);
+          const originalForgeUtility = forgeGoal.utility;
+          forgeGoal.utility = Math.max(forgeGoal.utility, UTILITY_THRESHOLDS.FORCED_MIN);
+          this.logger.collectInfo(`Boosted BUILD_FORGE utility from ${originalForgeUtility} to ${forgeGoal.utility} (prerequisite for BUILD_GARRISON)`);
         }
       }
     }
     
-    // Create goal chain to resolve dependencies
     this.currentGoalChain = GoalChain.create(this.house, topGoal, this.logger);
     
-    // Validate chain after creation
     if (this.currentGoalChain.errors && this.currentGoalChain.errors.length > 0) {
       this.logger.collectError(`Chain creation errors for ${topGoal.type}`, null, {
         reasoning: this.currentGoalChain.errors.join('; ')
       });
     }
     
-    // Collect chain creation info
     if (this.currentGoalChain.steps.length > 0) {
       const stepTypes = this.currentGoalChain.steps.map(s => s.type).join(' -> ');
       this.logger.collectInfo(`Chain created: ${stepTypes}`);
     }
     
-    // Check if chain has any steps
     if (this.currentGoalChain.steps.length === 0) {
-      // If goal can execute, try it directly
       if (topGoal.canExecute(this.house)) {
         try {
           topGoal.execute(this.house);
           topGoal.status = 'COMPLETED';
-            this.logger.collectAction(`${topGoal.type} executed directly`, {
-              goal: topGoal.type,
-              reasoning: 'No dependencies needed'
-            });
+          this.logger.collectAction(`${topGoal.type} executed directly`, {
+            goal: topGoal.type,
+            reasoning: 'No dependencies needed'
+          });
         } catch (error) {
           this.logger.logError(`Error executing goal directly: ${topGoal.type}`, error);
           topGoal.status = 'FAILED';
@@ -418,8 +649,16 @@ class FactionAI {
     const history = this.goalFailureHistory.get(goalType) || {
       failureCount: 0,
       lastFailureDay: 0,
-      consecutiveFailures: 0
+      consecutiveFailures: 0,
+      locationBlockCount: 0,
+      lastLocationBlockDay: 0
     };
+    
+    // Initialize location blocking fields if not present
+    if (history.locationBlockCount === undefined) {
+      history.locationBlockCount = 0;
+      history.lastLocationBlockDay = 0;
+    }
     
     // Check if this is a consecutive failure (failed on previous day)
     if (history.lastFailureDay === day - 1) {
@@ -435,6 +674,33 @@ class FactionAI {
     
     if (this.logger) {
       this.logger.collectInfo(`Goal failure recorded: ${goalType} (failures: ${history.failureCount}, consecutive: ${history.consecutiveFailures})`);
+    }
+  }
+  
+  // Record location blocking for a goal (separate from general failures)
+  recordLocationBlocking(goalType) {
+    const day = global.day || 1;
+    const history = this.goalFailureHistory.get(goalType) || {
+      failureCount: 0,
+      lastFailureDay: 0,
+      consecutiveFailures: 0,
+      locationBlockCount: 0,
+      lastLocationBlockDay: 0
+    };
+    
+    // Initialize location blocking fields if not present
+    if (history.locationBlockCount === undefined) {
+      history.locationBlockCount = 0;
+      history.lastLocationBlockDay = 0;
+    }
+    
+    history.locationBlockCount++;
+    history.lastLocationBlockDay = day;
+    
+    this.goalFailureHistory.set(goalType, history);
+    
+    if (this.logger) {
+      this.logger.collectInfo(`Location blocking recorded: ${goalType} (location blocks: ${history.locationBlockCount})`);
     }
   }
   
@@ -485,20 +751,32 @@ class FactionAI {
     }
     
     // Calculate failure penalty
-    // -10% per failure, up to -50% max
-    // Additional -10% per consecutive failure
-    const failurePenalty = Math.min(0.5, history.failureCount * 0.1);
-    const consecutivePenalty = Math.min(0.1, history.consecutiveFailures * 0.1);
+    const failurePenalty = Math.min(
+      UTILITY_ADJUSTMENTS.FAILURE_PENALTY_MAX,
+      history.failureCount * UTILITY_ADJUSTMENTS.FAILURE_PENALTY_PER_FAILURE
+    );
+    const consecutivePenalty = Math.min(
+      UTILITY_ADJUSTMENTS.CONSECUTIVE_FAILURE_PENALTY,
+      history.consecutiveFailures * UTILITY_ADJUSTMENTS.CONSECUTIVE_FAILURE_PENALTY
+    );
     const totalPenalty = failurePenalty + consecutivePenalty;
     
-    // Cooldown: if failed recently (within last 2 days), apply additional penalty
+    // Location blocking penalty: if location-blocked multiple times, reduce utility
+    const locationBlockCount = history.locationBlockCount || 0;
+    const locationBlockPenalty = locationBlockCount >= UTILITY_ADJUSTMENTS.LOCATION_BLOCK_THRESHOLD 
+      ? UTILITY_ADJUSTMENTS.LOCATION_BLOCK_PENALTY 
+      : 0;
+    
+    // Cooldown: if failed recently (within cooldown period), apply additional penalty
     const daysSinceFailure = day - history.lastFailureDay;
-    const cooldownPenalty = daysSinceFailure <= 2 ? 0.2 : 0;
+    const cooldownPenalty = daysSinceFailure <= TIME_THRESHOLDS.FAILURE_COOLDOWN_DAYS 
+      ? UTILITY_ADJUSTMENTS.COOLDOWN_PENALTY 
+      : 0;
     
-    const adjustedUtility = baseUtility * (1 - totalPenalty - cooldownPenalty);
+    const adjustedUtility = baseUtility * (1 - totalPenalty - locationBlockPenalty - cooldownPenalty);
     
-    // Minimum utility threshold (don't go below 10)
-    return Math.max(10, adjustedUtility);
+    // Minimum utility threshold
+    return Math.max(UTILITY_THRESHOLDS.MINIMUM, adjustedUtility);
   }
   
   // Check if goal should be avoided due to recent failures
@@ -512,7 +790,8 @@ class FactionAI {
     
     // Avoid if failed within last day and has high consecutive failures
     const daysSinceFailure = day - history.lastFailureDay;
-    if (daysSinceFailure <= 1 && history.consecutiveFailures >= 3) {
+    if (daysSinceFailure <= TIME_THRESHOLDS.AVOID_GOAL_DAYS && 
+        history.consecutiveFailures >= FAILURE_THRESHOLDS.AVOID_GOAL_CONSECUTIVE) {
       return true; // Too many consecutive failures, avoid for now
     }
     
@@ -538,15 +817,27 @@ class FactionAI {
       }, resourceBlocks[0]);
       
       // Check if gathering building exists
-      const tempChain = new GoalChain(null);
-      const buildingType = tempChain.getResourceBuildingType(largestDeficit.resource);
+      const buildingType = GoalChain.getResourceBuildingType(largestDeficit.resource);
+      
+      // Deadlock detection: If BUILD_MINE needs stone but stone production is broken, suggest SCOUT_FOR_RESOURCE
+      if (buildingType === 'mine' && largestDeficit.resource === 'stone' && !GoalChain.hasGatheringBuilding(this.house, largestDeficit.resource)) {
+        // Check if stone production is broken (would create deadlock)
+        if (this.productionMonitor.getProductionIssueDays('stone') >= TIME_THRESHOLDS.PRODUCTION_ISSUE_DAYS) {
+          // Stone production broken - suggest scouting instead
+          if (this.logger) {
+            this.logger.collectInfo(`Deadlock detected - BUILD_MINE needs stone but stone production broken, suggesting SCOUT_FOR_RESOURCE`);
+          } else {
+            console.log(`[FactionAI] ${this.house.name}: Deadlock detected - BUILD_MINE needs stone but stone production broken, suggesting SCOUT_FOR_RESOURCE`);
+          }
+          return new ScoutForResourceGoal('stone');
+        }
+      }
+      
       if (buildingType && !GoalChain.hasGatheringBuilding(this.house, largestDeficit.resource)) {
         // Need to build gathering building
-        const { createBuildingGoal } = require('./Goals');
         return createBuildingGoal(buildingType);
       } else {
         // Building exists, just need to gather
-        const { GatherResourceGoal } = require('./Goals');
         return new GatherResourceGoal(largestDeficit.resource, largestDeficit.need);
       }
     }
@@ -554,7 +845,6 @@ class FactionAI {
     // Check for building blocks - suggest building that building
     const buildingBlocks = blockingFactors.filter(b => b.type === 'BUILDING');
     if (buildingBlocks.length > 0) {
-      const { createBuildingGoal } = require('./Goals');
       return createBuildingGoal(buildingBlocks[0].value);
     }
     
@@ -579,9 +869,9 @@ class FactionAI {
       return false;
     }
     
-    // Avoid if failed within last 2 days with same blocking factors
+    // Avoid if failed within cooldown period with same blocking factors
     const daysSinceFailure = day - history.lastFailureDay;
-    if (daysSinceFailure <= 2) {
+    if (daysSinceFailure <= TIME_THRESHOLDS.AVOID_CHAIN_GOAL_DAYS) {
       // Check if blocking factors are still present
       const currentBlocking = this.getCurrentBlockingFactors(goalType);
       if (currentBlocking && this.hasSameBlockingFactors(history.blockingFactors, currentBlocking)) {
@@ -623,8 +913,6 @@ class FactionAI {
     }
     
     // Default alternatives based on goal type
-    const { createBuildingGoal } = require('./Goals');
-    
     if (primaryGoal.type === 'BUILD_FARM') {
       // If farm fails, try mill or lumbermill
       alternatives.push(createBuildingGoal('mill'));
@@ -634,8 +922,7 @@ class FactionAI {
       const blockingFactors = primaryGoal.getBlockingFactors(this.house);
       const resourceBlocks = blockingFactors.filter(b => b.type === 'RESOURCE');
       for (const block of resourceBlocks) {
-        const tempChain = new GoalChain(null);
-        const buildingType = tempChain.getResourceBuildingType(block.resource);
+        const buildingType = GoalChain.getResourceBuildingType(block.resource);
         if (buildingType && !GoalChain.hasGatheringBuilding(this.house, block.resource)) {
           alternatives.push(createBuildingGoal(buildingType));
         }
@@ -654,12 +941,13 @@ class FactionAI {
     });
   }
   
+  
   // Get AI status for debugging
   getStatus() {
     const chainStatus = this.currentGoalChain 
       ? {
           currentGoal: this.currentGoalChain.getCurrentGoal()?.type || 'none',
-          progress: (this.currentGoalChain.getProgress() * 100).toFixed(0) + '%',
+          progress: (this.currentGoalChain.getProgress() * DISPLAY.PROGRESS_PERCENTAGE_MULTIPLIER).toFixed(0) + '%',
           totalSteps: this.currentGoalChain.steps.length,
           currentStep: this.currentGoalChain.currentStep,
           errors: this.currentGoalChain.errors || [],
@@ -691,7 +979,7 @@ class FactionAI {
       resources: this.house.stores,
       military: {
         units: this.getMilitaryUnits().length,
-        scoutingParties: this.militaryManager.activeScoutingParties.length,
+        scoutingParties: this.militaryManager.scoutingParties.length,
         attackForces: this.militaryManager.activeAttackForces.length
       }
     };
@@ -715,7 +1003,7 @@ class FactionAI {
     const militaryUnits = [];
     
     for (const [id, player] of Object.entries(Player.list)) {
-      if (player.toRemove || !player.house || player.house.id !== this.house.id) continue;
+      if (player.toRemove || !player.house || player.house !== this.house.id) continue;
       
       // Check if unit is military using the military property
       if (player.military === true) {
@@ -737,7 +1025,6 @@ class FactionAI {
   // Plan outpost construction (delegates to OutpostPlanner)
   planOutpost(targetZone, resourceType) {
     try {
-      const OutpostPlanner = require('./OutpostPlanner');
       const planner = new OutpostPlanner();
       return planner.planOutpost(targetZone, resourceType, this.house);
     } catch (error) {
@@ -747,97 +1034,6 @@ class FactionAI {
     }
   }
   
-  // Get resource production rate (simplified - assumes fixed rates per building)
-  getResourceProductionRate(resourceType) {
-    // Basic production rates per building per day (simplified estimates)
-    const productionRates = {
-      stone: 5, // 5 stone per stone mine per day
-      wood: 8,  // 8 wood per lumbermill per day
-      grain: 10, // 10 grain per farm per day
-      ironore: 3, // 3 iron ore per cave mine per day
-      silverore: 2, // 2 silver ore per cave mine per day
-      goldore: 1  // 1 gold ore per cave mine per day
-    };
-    
-    return productionRates[resourceType] || 0;
-  }
-  
-  // Estimate time needed to gather a resource amount
-  estimateGatheringTime(resourceType, targetAmount) {
-    const currentAmount = this.house.stores[resourceType] || 0;
-    const deficit = targetAmount - currentAmount;
-    
-    if (deficit <= 0) {
-      return 0; // Already have enough
-    }
-    
-    // Get production rate per building
-    const ratePerBuilding = this.getResourceProductionRate(resourceType);
-    if (ratePerBuilding === 0) {
-      return Infinity; // Can't produce this resource
-    }
-    
-    // Get number of gathering buildings (accounting for mine types)
-    let buildingCount = 0;
-    if (resourceType === 'stone') {
-      buildingCount = this.buildingService.getStoneMineCount();
-    } else if (resourceType === 'ironore' || resourceType === 'silverore' || resourceType === 'goldore') {
-      buildingCount = this.buildingService.getCaveMineCount();
-    } else {
-      const tempChain = new GoalChain(null);
-      const buildingType = tempChain.getResourceBuildingType(resourceType);
-      if (!buildingType) {
-        return Infinity; // No building type defined
-      }
-      buildingCount = this.buildingService.getBuildingCount(buildingType);
-    }
-    
-    if (buildingCount === 0) {
-      return Infinity; // No buildings to produce
-    }
-    
-    // Calculate total production per day
-    const totalProductionPerDay = ratePerBuilding * buildingCount;
-    
-    // Estimate days needed (round up)
-    const daysNeeded = Math.ceil(deficit / totalProductionPerDay);
-    
-    return daysNeeded;
-  }
-  
-  // Check if resources can be gathered within reasonable time (e.g., 10 days)
-  canGatherWithinReasonableTime(resourceType, targetAmount, maxDays = 10) {
-    const daysNeeded = this.estimateGatheringTime(resourceType, targetAmount);
-    return daysNeeded <= maxDays;
-  }
-  
-  // Check resource balance and identify imbalances
-  checkResourceBalance() {
-    const stores = this.house.stores || {};
-    const wood = stores.wood || 0;
-    const stone = stores.stone || 0;
-    const grain = stores.grain || 0;
-    
-    // Calculate ratios
-    const woodStoneRatio = stone > 0 ? wood / stone : (wood > 0 ? Infinity : 1);
-    const grainStoneRatio = stone > 0 ? grain / stone : (grain > 0 ? Infinity : 1);
-    
-    // Identify imbalances
-    const imbalances = {
-      stoneScarce: stone < 50, // Stone is critically low
-      woodExcessive: woodStoneRatio > 20, // Wood is 20x more than stone
-      grainExcessive: grainStoneRatio > 10, // Grain is 10x more than stone
-      needsStone: stone < 100, // Need stone for forge/garrison
-      needsWood: wood < 50, // Need wood for basic buildings
-      needsGrain: grain < 50 // Need grain for military
-    };
-    
-    return {
-      resources: { wood, stone, grain },
-      ratios: { woodStoneRatio, grainStoneRatio },
-      imbalances: imbalances
-    };
-  }
   
   // Track goal consideration for stagnation prevention
   recordGoalConsideration(goalType) {
@@ -862,7 +1058,42 @@ class FactionAI {
   // Check if goal should be forced due to multiple considerations
   shouldForceGoalSelection(goalType) {
     const considerationCount = this.getGoalConsiderationCount(goalType);
-    return considerationCount >= 3; // Force after 3 considerations
+    return considerationCount >= TIME_THRESHOLDS.GOAL_FORCE_CONSIDERATIONS;
+  }
+  
+  // Generate fallback goals when no goals are available
+  generateFallbackGoals() {
+    // Non-economic factions should not have fallback economic goals
+    if (this.isNonEconomicFaction()) {
+      return [];
+    }
+    
+    const fallbackGoals = [];
+    // Check basic building counts
+    const mills = this.buildingService.getBuildingCount('mill');
+    const mines = this.buildingService.getBuildingCount('mine');
+    const farms = this.buildingService.getBuildingCount('farm');
+    
+    // Always try to ensure basic infrastructure exists
+    if (mills === 0) {
+      const millGoal = new BuildMillGoal();
+      millGoal.utility = UTILITY_THRESHOLDS.FALLBACK_MILL;
+      fallbackGoals.push(millGoal);
+    }
+    
+    if (mines === 0) {
+      const mineGoal = new BuildMineGoal();
+      mineGoal.utility = UTILITY_THRESHOLDS.FALLBACK_MILL - 10; // Slightly lower than mill
+      fallbackGoals.push(mineGoal);
+    }
+    
+    if (farms === 0 && mills > 0) {
+      const farmGoal = new BuildFarmGoal();
+      farmGoal.utility = UTILITY_THRESHOLDS.FALLBACK_FARM;
+      fallbackGoals.push(farmGoal);
+    }
+    
+    return fallbackGoals;
   }
 }
 

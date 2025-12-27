@@ -24,6 +24,11 @@ class MercenariesStrategy extends FactionStrategy {
     // No expansion for underground faction
     return [];
   }
+  
+  evaluateResourceScoutingGoals() {
+    // Non-resource-gathering faction - no scouting goals
+    return [];
+  }
 }
 
 module.exports = MercenariesStrategy;

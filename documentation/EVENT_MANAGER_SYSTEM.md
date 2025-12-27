@@ -181,11 +181,108 @@ Every event contains:
 
 ### 8. FACTION
 
-**Purpose**: Faction-related activities (category defined but no events found)
+**Purpose**: Faction-related activities, particularly scouting missions and expansion activities
+
+**Direct Usage Locations**:
+- `server/js/ai/ScoutingParty.js` - All scouting mission events
 
 **Event Details**:
-- Currently unused category
-- Reserved for future faction system events
+
+All faction events are created using Pattern 2 (direct `createEvent()`) - no helper methods.
+
+**Scouting Mission Events**:
+
+1. **"departed on scouting mission"** (Constructor)
+   - Subject: Leader unit ID
+   - SubjectName: Leader name
+   - Target: Target zone ID (optional)
+   - TargetName: Target zone name or coordinates
+   - House: House ID
+   - HouseName: House name
+   - Quantity: Total units in party
+   - Communication: NONE
+   - Position: Leader starting position
+   - Metadata: { purpose, targetZone, unitCount }
+
+2. **"reached scouting destination"** (updateTraveling())
+   - Subject: Leader unit ID
+   - SubjectName: Leader name
+   - Target: Target zone ID (optional)
+   - TargetName: Target zone name or coordinates
+   - House: House ID
+   - HouseName: House name
+   - Communication: NONE
+   - Position: Destination coordinates (zone center)
+   - Metadata: { arrivalDay, targetZone }
+
+3. **"set up campfire"** (buildCampfire())
+   - Subject: Leader unit ID
+   - SubjectName: Leader name
+   - House: House ID
+   - HouseName: House name
+   - Communication: NONE
+   - Position: Campfire location
+   - Metadata: { day, arrivalDay }
+
+4. **"zone cleared for expansion"** (updateCamping())
+   - Subject: Leader unit ID
+   - SubjectName: Leader name
+   - House: House ID
+   - HouseName: House name
+   - Communication: NONE
+   - Position: Zone location
+   - Metadata: { targetZone, purpose }
+
+5. **"returning from scouting mission"** (updateCamping())
+   - Subject: Leader unit ID
+   - SubjectName: Leader name
+   - House: House ID
+   - HouseName: House name
+   - Communication: NONE
+   - Position: Current location
+   - Metadata: { missionSuccess, zoneCleared }
+
+6. **"engaged in combat with enemy faction"** (handleFactionAttack())
+   - Subject: Leader unit ID
+   - SubjectName: Leader name
+   - Target: Enemy house ID
+   - TargetName: Enemy house name
+   - House: House ID
+   - HouseName: House name
+   - Communication: AREA (visible to nearby players)
+   - Position: Combat location
+   - Metadata: { enemyHouseId, enemyHouseName, missionFailed }
+
+7. **"scouting mission failed"** (handleFactionAttack(), checkReturnComplete())
+   - Subject: Leader unit ID
+   - SubjectName: Leader name
+   - Target: Enemy house ID (if combat-related)
+   - TargetName: Enemy house name (if combat-related)
+   - House: House ID
+   - HouseName: House name
+   - Communication: NONE
+   - Position: Failure location
+   - Metadata: { failureReason, enemyHouseId } or { failureReason: 'all units lost', survivors: 0 }
+
+8. **"placed contested banner"** (placeContestedBanner())
+   - Subject: Leader unit ID
+   - SubjectName: Leader name
+   - Target: Banner item ID (optional)
+   - House: House ID
+   - HouseName: House name
+   - Communication: AREA (visible to nearby players)
+   - Position: Banner location
+   - Metadata: { enemyHouseId, enemyHouseName, conflictZone }
+
+9. **"returned from scouting mission"** (checkReturnComplete())
+   - Subject: Leader unit ID
+   - SubjectName: Leader name
+   - House: House ID
+   - HouseName: House name
+   - Quantity: Number of survivors
+   - Communication: NONE
+   - Position: HQ location
+   - Metadata: { survivors, missionSuccess }
 
 ### 9. MILITARY
 
@@ -337,6 +434,7 @@ Used for custom events that don't fit helper methods:
 - Zone/cave entries
 - Serf resource deposits
 - Military unit upgrades
+- Faction scouting activities
 
 ## Event Statistics Tracking
 
@@ -353,6 +451,7 @@ The system tracks:
 - Ring buffer for history (prevents memory growth)
 - Automatic cleanup of stale events (5 minute intervals)
 - Efficient position-based queries (radius squared calculations)
+
 
 
 

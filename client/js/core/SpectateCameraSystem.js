@@ -12,6 +12,7 @@ class SpectateCameraSystem {
     this.cameraY = 0;
     this.cameraZ = 0;
     this.lockDuration = 8000; // 8 seconds minimum lock time
+    this.maxLockDuration = 15000; // 15 seconds maximum lock time
     this.lastPriorityLevel = 'other';
     this.lockStartTime = 0;
     this.lastTargetCheckTime = 0;
@@ -128,6 +129,7 @@ class SpectateCameraSystem {
     this.currentTargetId = targetId;
     this.isTransitioning = true;
     this.transitionStartTime = Date.now();
+    this.lockStartTime = Date.now(); // Track when we locked onto this target
   }
 
   /**
@@ -209,18 +211,31 @@ class SpectateCameraSystem {
           this.setNewTarget(bestTarget.id, PlayerList);
         }
       } else {
-        // Check if we should switch to a better target
-        const currentPriority = this.evaluateCharacterPriority(PlayerList[this.currentTargetId]);
-        const bestPriority = bestTarget.priority;
-
-        // Priority order: combat > economic > other
-        if (bestPriority === 'combat' && currentPriority !== 'combat') {
-          // Always switch to combat targets
-          this.setNewTarget(bestTarget.id, PlayerList);
-        } else if (bestPriority === 'economic' && currentPriority === 'other') {
-          // Switch from other to economic if transition is allowed
-          if (now - this.transitionStartTime >= this.minTransitionDuration) {
+        // Check if maximum lock duration has expired - force switch to prevent getting stuck
+        const timeLocked = now - this.lockStartTime;
+        if (timeLocked >= this.maxLockDuration) {
+          // Force switch to a different target if available
+          if (bestTarget.id && bestTarget.id !== this.currentTargetId) {
             this.setNewTarget(bestTarget.id, PlayerList);
+          } else {
+            // No different target available, but we've been locked too long
+            // Reset lock time to allow another maxLockDuration period
+            this.lockStartTime = now;
+          }
+        } else {
+          // Check if we should switch to a better target
+          const currentPriority = this.evaluateCharacterPriority(PlayerList[this.currentTargetId]);
+          const bestPriority = bestTarget.priority;
+
+          // Priority order: combat > economic > other
+          if (bestPriority === 'combat' && currentPriority !== 'combat') {
+            // Always switch to combat targets
+            this.setNewTarget(bestTarget.id, PlayerList);
+          } else if (bestPriority === 'economic' && currentPriority === 'other') {
+            // Switch from other to economic if transition is allowed
+            if (now - this.transitionStartTime >= this.minTransitionDuration) {
+              this.setNewTarget(bestTarget.id, PlayerList);
+            }
           }
         }
       }
@@ -255,6 +270,7 @@ class SpectateCameraSystem {
   stop() {
     this.isActive = false;
     this.currentTargetId = null;
+    this.lockStartTime = 0;
   }
 }
 

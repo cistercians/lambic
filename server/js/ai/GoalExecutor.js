@@ -188,22 +188,57 @@ class GoalExecutor {
   handleBlockedGoal(goal, goalChain, logger = null) {
     const step = goalChain ? goalChain.currentStep : null;
     goal.status = 'BLOCKED';
+    
+    // Check if faction should be logged (exclude non-resource-gathering factions)
+    const excludedFactions = ['Brotherhood', 'Outlaws', 'Norsemen', 'Mercenaries'];
+    const factionName = this.house.name || '';
+    const baseName = factionName.replace(/\s+\d+$/, '').trim(); // Remove trailing numbers
+    if (excludedFactions.includes(baseName)) {
+      // Skip logging for excluded factions - just mark as failed and return
+      goal.status = 'FAILED';
+      return { success: false, shouldAdvance: false, shouldClearChain: false };
+    }
+    
     const blocking = goal.getBlockingFactors(this.house);
     
     // GATHER_RESOURCE goals are passive waiting goals - check if complete
+    // Call execute() to check resource levels each day
     if (goal.type === 'GATHER_RESOURCE') {
-      goal.execute(this.house); // Updates status based on current resources
+      // Re-execute to check current resource levels (execute checks completion each time)
+      goal.execute(this.house);
+      
+      // If execute() marked it as COMPLETED, we're done
       if (goal.status === 'COMPLETED') {
-      if (logger) {
-        logger.collectAction(`${goal.type} completed`, {
-          reasoning: 'Resources gathered',
-          goal: goal.type,
-          status: 'COMPLETED'
-        });
-      }
+        if (logger) {
+          logger.collectAction(`${goal.type} completed`, {
+            reasoning: 'Resources gathered',
+            goal: goal.type,
+            status: 'COMPLETED'
+          });
+        }
         return { success: true, shouldAdvance: true, shouldClearChain: false };
       }
-      // If still IN_PROGRESS, wait for next day
+      
+      // If BLOCKED due to production issue, mark as failed (production problem)
+      if (goal.status === 'BLOCKED') {
+        const blocking = goal.getBlockingFactors(this.house);
+        const productionBlock = blocking.find(b => b.type === 'PRODUCTION');
+        
+        if (productionBlock) {
+          // Production issue - mark as failed so chain can be cleared
+          goal.status = 'FAILED';
+          if (logger) {
+            logger.collectError(`GATHER_RESOURCE blocked: ${goal.resource}`, null, {
+              reasoning: productionBlock.reason || 'No production detected',
+              current: goal.lastResourceLevel || 0,
+              target: goal.targetAmount
+            });
+          }
+          return { success: false, shouldAdvance: false, shouldClearChain: false };
+        }
+      }
+      
+      // If still IN_PROGRESS or BLOCKED (building issue), wait for next day
       return { success: false, shouldAdvance: false, shouldClearChain: false };
     }
     
@@ -216,6 +251,9 @@ class GoalExecutor {
     // Log detailed blocking information
     const resourceBlocks = blocking.filter(b => b.type === 'RESOURCE');
     const buildingBlocks = blocking.filter(b => b.type === 'BUILDING');
+    const unitBlocks = blocking.filter(b => b.type === 'UNITS');
+    const resourceGapBlocks = blocking.filter(b => b.type === 'RESOURCE_GAP');
+    const locationBlocks = blocking.filter(b => b.type === 'LOCATION');
     
     const errorObj = this.formatError(
       this.house.name,
@@ -228,7 +266,10 @@ class GoalExecutor {
           need: b.need,
           have: b.have
         })),
-        buildingBlocks: buildingBlocks.map(b => b.value)
+        buildingBlocks: buildingBlocks.map(b => b.value),
+        unitBlocks: unitBlocks.map(b => ({ need: b.need, have: b.have })),
+        resourceGapBlocks: resourceGapBlocks.map(b => ({ value: b.value })),
+        locationBlocks: locationBlocks.map(b => b.value)
       }
     );
     
@@ -237,11 +278,37 @@ class GoalExecutor {
     if (logger) {
       const blockingSummary = [
         ...resourceBlocks.map(b => `need ${b.resource} (have ${b.have}, need ${b.need})`),
-        ...buildingBlocks.map(b => `need ${b.value}`)
+        ...buildingBlocks.map(b => `need ${b.value}`),
+        ...unitBlocks.map(b => `need ${b.need} military units (have ${b.have})`),
+        ...resourceGapBlocks.map(b => b.value),
+        ...locationBlocks.map(b => b.value)
       ].join(', ');
       logger.collectError(`Goal blocked: ${goal.type}`, null, {
         reasoning: blockingSummary
       });
+    }
+    
+    // Log location blocking specifically for debugging
+    if (locationBlocks.length > 0) {
+      const locationReason = locationBlocks.map(b => b.value).join(', ');
+      console.warn(`[GoalExecutor] [${errorObj.timestamp}] [${errorObj.faction}] [${goal.type}] Location blocking detected: ${locationReason}`);
+      
+      // Suggest fallback: if BUILD_MINE or BUILD_MILL fails due to location, suggest SCOUT_FOR_RESOURCE
+      if (goal.type === 'BUILD_MINE' || goal.type === 'BUILD_MILL') {
+        const house = this.house;
+        if (house && house.ai) {
+          // Track that we should suggest scouting for this resource
+          const resourceType = goal.type === 'BUILD_MINE' ? 'stone' : 'grain';
+          if (!house.ai.suggestedFallbackGoals) {
+            house.ai.suggestedFallbackGoals = new Set();
+          }
+          house.ai.suggestedFallbackGoals.add(`SCOUT_FOR_RESOURCE:${resourceType}`);
+          
+          if (logger) {
+            logger.collectInfo(`Location blocking for ${goal.type} - will suggest SCOUT_FOR_RESOURCE for ${resourceType} on next evaluation`);
+          }
+        }
+      }
     }
     
     // Mark chain as failed - will create new chain on next evaluation

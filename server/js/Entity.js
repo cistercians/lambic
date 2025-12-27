@@ -336,29 +336,150 @@ Building = function(param){
       plotsToCheck = self.plot || [];
     }
     
+    // Track tile states for debugging
+    var tileStateCounts = { tile8: 0, tile9: 0, tile10: 0, other: 0 };
+    var resourceCounts = { below50: 0, above50: 0 };
+    
     for(var i in plotsToCheck){
       var p = plotsToCheck[i];
       var tile = getTile(0, p[0], p[1]);
       var res = getTile(6, p[0], p[1]);
       
-      if(tile === 8){ // Barren/Growing phase
-        if(res < 50){
+      // Track tile states
+      if(tile === 8) tileStateCounts.tile8++;
+      else if(tile === 9) tileStateCounts.tile9++;
+      else if(tile === 10) tileStateCounts.tile10++;
+      else tileStateCounts.other++;
+      
+      // Track resource levels (for debugging)
+      if(tile === 8){
+        if(res < 5) resourceCounts.below50++;
+        else resourceCounts.above50++;
+      } else if(tile === 9){
+        if(res < 10) resourceCounts.below50++;
+        else resourceCounts.above50++;
+      } else if(tile === 10){
+        if(res > 0) resourceCounts.below50++;
+        else resourceCounts.above50++;
+      }
+      
+      if(tile === 8){ // Barren phase - needs work until res >= 5
+        if(res < 5){
           barren.push(p); // Needs planting/watering
-        } else {
-          growing.push(p); // Still growing, maxed resources
         }
-      } else if(tile === 9){ // Wheat ready
-        wheat.push(p);
+        // If res >= 5, exclude (ready for phase transition to growing)
+      } else if(tile === 9){ // Growing phase - needs work until res >= 10
+        if(res < 10){
+          growing.push(p); // Still needs work
+        }
+        // If res >= 10, exclude (ready for phase transition to grain)
+      } else if(tile === 10){ // Grain phase - harvest until res === 0
+        if(res > 0){
+          wheat.push(p); // Has grain to harvest
+        }
+        // If res === 0, exclude (depleted, ready for phase transition back to barren)
       }
     }
     
-    // Assign based on farm state
+    // Get current time once for all throttling checks
+    const now = Date.now();
+    
+    // Log tile state diagnostics when state changes (throttled)
+    if(!self._farmTileState){
+      self._farmTileState = { tile8: 0, tile9: 0, tile10: 0, lastLogTime: 0 };
+    }
+    
+    const tileStateChanged = 
+      self._farmTileState.tile8 !== tileStateCounts.tile8 ||
+      self._farmTileState.tile9 !== tileStateCounts.tile9 ||
+      self._farmTileState.tile10 !== tileStateCounts.tile10;
+    
+    const timeSinceLastTileLog = now - self._farmTileState.lastLogTime;
+    const TILE_STATE_LOG_THROTTLE_MS = 60000; // 1 minute between tile state logs
+    
+    if(tileStateChanged && timeSinceLastTileLog > TILE_STATE_LOG_THROTTLE_MS){
+      const buildingName = self.type === 'mill' ? 'mill' : 'farm';
+      const ownerName = self.owner && global.House && global.House.list 
+        ? (global.House.list[self.owner]?.name || 'Unknown')
+        : 'Unknown';
+      
+      console.log(`[FARM RESOURCES] ${ownerName}: ${buildingName} tile state changed - tile8: ${tileStateCounts.tile8}, tile9: ${tileStateCounts.tile9}, tile10: ${tileStateCounts.tile10}, other: ${tileStateCounts.other}, resources (below50: ${resourceCounts.below50}, above50: ${resourceCounts.above50})`);
+      
+      self._farmTileState.tile8 = tileStateCounts.tile8;
+      self._farmTileState.tile9 = tileStateCounts.tile9;
+      self._farmTileState.tile10 = tileStateCounts.tile10;
+      self._farmTileState.lastLogTime = now;
+    }
+    
+    // Initialize state tracking if needed
+    if(!self._farmResourceState){
+      self._farmResourceState = { wheat: 0, barren: 0, growing: 0, lastLogTime: 0 };
+    }
+    
+    // Check for state changes
+    const stateChanged = 
+      self._farmResourceState.wheat !== wheat.length ||
+      self._farmResourceState.barren !== barren.length ||
+      self._farmResourceState.growing !== growing.length;
+    const timeSinceLastLog = now - self._farmResourceState.lastLogTime;
+    const LOG_THROTTLE_MS = 30000; // 30 seconds between logs
+    const shouldLog = stateChanged && timeSinceLastLog > LOG_THROTTLE_MS;
+    
+    // Log only on state changes (throttled)
+    if(shouldLog){
+      const buildingName = self.type === 'mill' ? 'mill' : 'farm';
+      const ownerName = self.owner && global.House && global.House.list 
+        ? (global.House.list[self.owner]?.name || 'Unknown')
+        : 'Unknown';
+      
+      // Log state change
+      console.log(`[FARM RESOURCES] ${ownerName}: ${buildingName} resource counts changed - wheat: ${wheat.length} (was ${self._farmResourceState.wheat}), barren: ${barren.length} (was ${self._farmResourceState.barren}), growing: ${growing.length} (was ${self._farmResourceState.growing})`);
+      
+      // Update state tracking
+      self._farmResourceState.wheat = wheat.length;
+      self._farmResourceState.barren = barren.length;
+      self._farmResourceState.growing = growing.length;
+      self._farmResourceState.lastLogTime = now;
+    }
+    
+    // Assign based on farm state - PRIORITIZE WHEAT (grain tiles)
+    // Priority order: wheat (type 10) > growing (type 9) > barren (type 8)
     if(wheat.length > 0){
-      // Wheat mode - only assign wheat tiles
+      // Wheat mode - only assign wheat tiles (grain should be prioritized)
       self.resources = wheat;
+      
+      // Log when wheat becomes available (state change from 0 to >0)
+      if(shouldLog && self._farmResourceState.wheat === 0 && wheat.length > 0){
+        const buildingName = self.type === 'mill' ? 'mill' : 'farm';
+        const ownerName = self.owner && global.House && global.House.list 
+          ? (global.House.list[self.owner]?.name || 'Unknown')
+          : 'Unknown';
+        console.log(`[FARM RESOURCES] ${ownerName}: ${buildingName} prioritizing ${wheat.length} grain tiles`);
+      }
+    } else if(growing.length > 0){
+      // Growing mode - assign growing tiles (type 9)
+      self.resources = growing;
+      
+      // Log when growing becomes available (state change)
+      if(shouldLog && self._farmResourceState.growing === 0 && growing.length > 0){
+        const buildingName = self.type === 'mill' ? 'mill' : 'farm';
+        const ownerName = self.owner && global.House && global.House.list 
+          ? (global.House.list[self.owner]?.name || 'Unknown')
+          : 'Unknown';
+        console.log(`[FARM RESOURCES] ${ownerName}: ${buildingName} assigning ${growing.length} growing tiles`);
+      }
     } else {
-      // Growing mode - only assign barren tiles (not maxed)
+      // Barren mode - assign barren tiles (type 8)
       self.resources = barren;
+      
+      // Only log "no grain available" if we had grain before (state change)
+      if(shouldLog && self._farmResourceState.wheat > 0 && wheat.length === 0){
+        const buildingName = self.type === 'mill' ? 'mill' : 'farm';
+        const ownerName = self.owner && global.House && global.House.list 
+          ? (global.House.list[self.owner]?.name || 'Unknown')
+          : 'Unknown';
+        console.log(`[FARM RESOURCES] ${ownerName}: ${buildingName} no grain available, using ${barren.length} barren tiles`);
+      }
     }
   };
 
@@ -453,48 +574,8 @@ Mill = function(param){
         }
       }
     }
-    for(var i in self.farms){
-      var plot = self.farms[i];
-      
-      // First, check if farm has any harvest tiles (type 10 with wheat)
-      var hasHarvest = false;
-      for(var n in plot){
-        var p = plot[n];
-        var gt = getTile(0,p[0],p[1]);
-        var gr = getTile(6,p[0],p[1]);
-        if(gt == 10 && gr > 0){
-          hasHarvest = true;
-          break;
-        }
-      }
-      
-      // Add tiles based on farm state
-      var add = [];
-      for(var n in plot){
-        var p = plot[n];
-        var gt = getTile(0,p[0],p[1]);
-        var gr = getTile(6,p[0],p[1]);
-        
-        if(hasHarvest){
-          // Farm is in harvest mode - ONLY work on wheat tiles
-          if(gt == 10 && gr > 0){
-          add.push(p);
-        }
-        } else {
-          // Farm is in barren/growing mode - work on tiles that need it
-          // - Barren (type 8) with resources < 5
-          // - Growing (type 9) with resources < 10
-          if((gt == 8 && gr < 5) || (gt == 9 && gr < 10)){
-            add.push(p);
-          }
-        }
-      }
-      
-      // Add all workable tiles to resources
-        for(var x in add){
-          self.resources.push(add[x]);
-      }
-    }
+    // Farm resource management is now handled by updateFarmResources()
+    // This method only handles serf spawning logic
   }
   self.findFarms = function(){
     for(var i in Building.list){
@@ -729,18 +810,41 @@ Mine = function(param){
     }
   }
   self.getRes = function(){
+    // Reset cave classification
+    self.cave = null;
+    
+    // Check distance to cave entrances (6 tiles = 384 pixels)
     for(var i in caveEntrances){
       var cave = caveEntrances[i];
       var c = getCenter(cave[0],cave[1]);
       var dist = self.getDistance({x:c[0],y:c[1]});
       if(dist <= 384){
         self.cave = cave;
+        // Log mine classification (only once per mine)
+        if(!self._classificationLogged){
+          const ownerName = self.owner && global.House && global.House.list 
+            ? (global.House.list[self.owner]?.name || 'Unknown')
+            : 'Unknown';
+          console.log(`[MINE CLASSIFICATION] ${ownerName}: Mine at [${Math.floor(self.x)}, ${Math.floor(self.y)}] classified as CAVE MINE (distance to cave: ${Math.floor(dist)}, threshold: 384)`);
+          self._classificationLogged = true;
+        }
+        break; // Found a cave entrance, no need to check others
       }
+    }
+    
+    // Log if mine is classified as stone mine (only once)
+    if(!self.cave && !self._classificationLogged){
+      const ownerName = self.owner && global.House && global.House.list 
+        ? (global.House.list[self.owner]?.name || 'Unknown')
+        : 'Unknown';
+      console.log(`[MINE CLASSIFICATION] ${ownerName}: Mine at [${Math.floor(self.x)}, ${Math.floor(self.y)}] classified as STONE MINE (no cave entrance within 384 pixels)`);
+      self._classificationLogged = true;
     }
     if(self.cave){
       // Ore mine - scan z=-1 cave layer for rocks (stored in tilemap layer 1)
       var caveEntranceCoords = getCenter(self.cave[0], self.cave[1]);
       var area = getArea(self.cave,self.cave,10); // Area around cave entrance, not mine
+      var resourcesBefore = self.resources.length;
       for(var i in area){
         var r = area[i];
         // Check cave layer 1 for rocks - cave tiles at z=-1 are stored in layer 1
@@ -750,26 +854,54 @@ Mine = function(param){
           var rockCoords = getCenter(r[0], r[1]);
           var dist = getDistance({x: caveEntranceCoords[0], y: caveEntranceCoords[1]}, {x: rockCoords[0], y: rockCoords[1]});
           if(dist <= 640){ // Within 10 tiles of cave entrance
-          self.resources.push(r);
+            // Ensure r is a valid [col, row] array before pushing
+            if(Array.isArray(r) && r.length === 2 && typeof r[0] === 'number' && typeof r[1] === 'number'){
+              self.resources.push(r);
+            } else {
+              console.warn(`[MINE] Cave mine: Invalid resource format from getArea - expected [col, row], got:`, r);
+            }
+          }
         }
       }
+      // Diagnostic logging: Check if cave mine found resources
+      if(self.resources.length === 0 && !self._noResourcesLogged){
+        const ownerName = self.owner && global.House && global.House.list 
+          ? (global.House.list[self.owner]?.name || 'Unknown')
+          : 'Unknown';
+        console.warn(`[MINE RESOURCE SCAN] ${ownerName}: Cave mine at [${Math.floor(self.x)}, ${Math.floor(self.y)}] found NO ore resources after scanning z=-1 (cave entrance: [${self.cave[0]}, ${self.cave[1]}])`);
+        self._noResourcesLogged = true;
       }
     } else {
       // Stone mine - scan z=0 for stone patches
       var loc = getLoc(self.x,self.y);
       var loc1 = [loc[0]+1,loc[1]-1];
       var area = getArea(loc,loc1,6);
+      var resourcesBefore = self.resources.length;
       for(var i in area){
         var r = area[i];
         var c = getCenter(r[0],r[1]);
         var dist = self.getDistance({x:c[0],y:c[1]});
         if(dist <= 384){
           var gt = getTile(0,r[0],r[1]);
-          // Only scan for large rocks (resource-carrying), not visual rocks (TERRAIN.ROCKS = 4)
-          if(global.isLargeRock && global.isLargeRock(gt)){
+          // Check for all stone types:
+          // - Regular stone: exactly 4 (TERRAIN.ROCKS)
+          // - Large stone: > 4 && < 5 (decimal rocks)
+          // - Mountain: >= 5 && < 6 (TERRAIN.MOUNTAIN with possible decimals)
+          var isStoneResource = (gt === 4) || 
+                                (gt > 4 && gt < 5) || 
+                                (gt >= 5 && gt < 6);
+          if(isStoneResource){
             self.resources.push(r);
           }
         }
+      }
+      // Diagnostic logging: Check if stone mine found resources
+      if(self.resources.length === 0 && !self._noResourcesLogged){
+        const ownerName = self.owner && global.House && global.House.list 
+          ? (global.House.list[self.owner]?.name || 'Unknown')
+          : 'Unknown';
+        console.warn(`[MINE RESOURCE SCAN] ${ownerName}: Stone mine at [${Math.floor(self.x)}, ${Math.floor(self.y)}] found NO stone resources after scanning z=0`);
+        self._noResourcesLogged = true;
       }
     }
   }
@@ -5104,8 +5236,14 @@ Character = function(param){
       // SCOUT
     } else if(self.mode == 'scout'){
       if(!self.action){
+        // Add null check to prevent crash
+        if(!self.scout || !self.scout.target){
+          // Invalid scout state - reset to idle
+          self.mode = 'idle';
+          return;
+        }
         var dest = self.scout.target;
-        if(loc.toString() == dest.toString()){
+        if(dest && loc && loc.toString() == dest.toString()){
           if(self.scout.reached){
             self.scout.timer--;
             if(self.scout.timer == 0){

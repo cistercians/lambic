@@ -42,8 +42,9 @@ The system is organized into focused, single-responsibility components:
 5. **TerritoryManager** (`server/js/ai/TerritoryManager.js`) - Dynamic territory calculation and management
 6. **MilitaryManager** (`server/js/ai/MilitaryManager.js`) - Scouting parties and attack forces
 7. **FactionKnowledge** (`server/js/ai/FactionKnowledge.js`) - Fog of war and exploration tracking
-8. **Goals** (`server/js/ai/Goals.js`) - Goal type definitions and execution
-9. **FactionStrategy** (`server/js/ai/strategies/`) - Faction-specific strategic evaluation
+8. **FactionAILogger** (`server/js/ai/FactionAILogger.js`) - Daily reports and scouting statistics tracking
+9. **Goals** (`server/js/ai/Goals.js`) - Goal type definitions and execution
+10. **FactionStrategy** (`server/js/ai/strategies/`) - Faction-specific strategic evaluation
 
 ### Main Entry Point
 - **File**: `server/js/Houses.js` (line 239)
@@ -118,6 +119,20 @@ constructor(house) {
   this._cachedMilitaryUnits = null;
   this._cachedMilitaryUnitsDay = 0;
   
+  // Goal failure tracking for adaptive learning
+  this.goalFailureHistory = new Map(); // Map<goalType, {failureCount, lastFailureDay, consecutiveFailures, locationBlockCount, lastLocationBlockDay}>
+  this.chainFailureHistory = new Map(); // Map<goalType, {failureReason, lastFailureDay, blockingFactors}>
+  this.goalConsiderationHistory = new Map(); // Map<goalType, {considerationCount, lastConsiderationDay}>
+  
+  // Fallback goal suggestions (from location blocking)
+  this.suggestedFallbackGoals = new Set(); // Set of goal suggestions like "SCOUT_FOR_RESOURCE:stone"
+  
+  // Resource production monitoring (tracking and recovery)
+  this._lastResourceLevels = null; // Previous day's resource levels
+  this._productionRates = {}; // Production rate tracking
+  this._productionIssueDays = {}; // Track days with production issues per resource
+  this._pendingRecoveryGoals = []; // Recovery goals generated from production monitoring
+  
   // Load faction-specific strategy
   this.profile = FactionProfiles[house.name] || FactionProfiles.Goths;
   this.strategy = this.loadStrategy();
@@ -138,123 +153,136 @@ All services are validated after initialization to catch errors early:
 
 #### Initial Territory Scan
 **Location**: Performed automatically in `FactionKnowledge` constructor (not in FactionAI)
+- `performInitialTerritoryScan()` called in constructor (line 16)
+- `scanKnownZones()` called in constructor (line 19) to scan for zones intersecting HQ/base radius
 - Scans 15-tile radius around HQ
 - Counts resources: forest, rocks, caves, farmland
-- Registers significant resource locations in knowledge base
-- Marks tiles as explored
+- Only counts large rocks (resource-carrying), not visual rocks
+- Registers significant resource locations in knowledge base:
+  - All cave locations registered (high priority, density 20)
+  - Best forest cluster location registered
+  - Best rock cluster location registered
+- Marks all tiles in scan radius as explored
 - This is knowledge gathering, so it belongs in FactionKnowledge
 
 #### Daily Evaluation Cycle (`evaluateAndAct()`)
 
-**Called once per in-game day** (line 138):
+**Called once per in-game day** (line 118):
 
-1. **Territory Update** (lines 148-155)
-   - Recalculate base territory boundaries
-   - Update patrol building list
-   - Update territory knowledge
+1. **Duplicate Prevention** (lines 123-127)
+   - Checks `lastEvaluatedDay` to prevent multiple evaluations on same day
+   - Early return if already evaluated today
 
-2. **Goal Chain Continuation** (lines 164-167)
+2. **Resource Production Monitoring** (line 132)
+   - Calls `monitorResourceProduction()` to track production issues
+   - Only for economic factions (non-economic factions skip this)
+   - Triggers recovery goals if production broken for 2+ days
+
+3. **Cache Invalidation** (lines 138-140)
+   - Invalidates military units cache for new day
+   - BuildingService handles its own cache invalidation
+
+4. **Territory Update** (lines 146-157)
+   - Updates patrol building list
+   - Recalculates base territory boundaries (cached)
+   - Updates known zones in territory
+   - Cleans stale enemy information
+
+5. **Goal Chain Continuation** (lines 160-167)
    - If active goal chain exists and incomplete, continue execution
-   - Otherwise, evaluate new goals
+   - Updates logger with current chain state
+   - Generates report and returns early
 
-3. **New Goal Evaluation** (line 170)
-   - Strategy modules generate possible goals
-   - Goals filtered (utility > 0) and sorted
-   - Top goal selected and converted to goal chain
+6. **Chain Failure Handling** (lines 173-195)
+   - If chain failed, records failure and analyzes for recovery goal
+   - If recovery goal found, creates new chain and executes
+   - Clears failed chains
 
-4. **Ongoing Operations** (lines 173-174)
-   - Update scouting parties
-   - Update attack forces
+7. **New Goal Evaluation** (line 199)
+   - Calls `evaluateNewGoals()` to generate and select new goals
+   - Includes recovery goals and fallback goals from location blocking
+
+8. **Ongoing Operations** (lines 202-204)
+   - Updates scouting parties
+   - Updates attack forces
+
+9. **Report Generation** (lines 206-211)
+   - Updates goal chain info in logger
+   - Generates daily report
+   - Clears report data
 
 #### Goal Evaluation Process (`evaluateNewGoals()`)
 
-```javascript
-evaluateNewGoals() {
-  // Delegate to faction-specific strategy
-  const possibleGoals = [
-    ...this.strategy.evaluateEconomicGoals(),
-    ...this.strategy.evaluateMilitaryGoals(),
-    ...this.strategy.evaluateExpansionGoals(),
-    ...this.strategy.evaluateDefenseGoals()
-  ];
-  
-  // Phase 8: Resource Balance Monitoring
-  const resourceBalance = this.checkResourceBalance();
-  
-  // Phase 9: Goal Consideration Tracking
-  possibleGoals.forEach(g => {
-    if (g.utility > 0) {
-      this.recordGoalConsideration(g.type);
-    }
-  });
-  
-  // Filter out goals with 0 utility and apply filters
-  const validGoals = possibleGoals.filter(g => {
-    if (g.utility <= 0) return false;
-    
-    // Check if goal should be avoided due to recent failures
-    if (this.shouldAvoidGoal(g.type)) return false;
-    
-    // Check if goal can execute (resources, buildings)
-    if (!g.canExecute(this.house)) {
-      // Phase 7: Force dependency chain for high-value goals even if blocked
-      if (g.type === 'BUILD_GARRISON' || g.type === 'BUILD_FORGE') {
-        // Don't filter out - will force chain creation
-        return true;
-      }
-      return false;
-    }
-    
-    // Phase 3: Location pre-validation
-    if (g.canPlace && typeof g.canPlace === 'function') {
-      if (!g.canPlace(this.house)) return false;
-    }
-    
-    return true;
-  });
-  
-  // Phase 8: Apply resource balance boosts
-  possibleGoals.forEach(g => {
-    if (g.type === 'BUILD_MINE' && (resourceBalance.imbalances.stoneScarce || resourceBalance.imbalances.needsStone)) {
-      g.utility *= 1.5; // Boost stone mine utility when stone is scarce
-    }
-  });
-  
-  // Apply failure penalties (adaptive learning)
-  const adjustedGoals = validGoals.map(g => {
-    let adjustedUtility = this.getAdjustedUtility(g);
-    
-    // Phase 9: Force goal selection after multiple considerations
-    if (this.shouldForceGoalSelection(g.type) && adjustedUtility > 0) {
-      adjustedUtility = Math.max(adjustedUtility, 50); // Minimum 50 utility
-    }
-    
-    return { goal: g, utility: adjustedUtility };
-  });
-  
-  // Sort by adjusted utility
-  adjustedGoals.sort((a, b) => b.utility - a.utility);
-  const sortedGoals = adjustedGoals.map(item => item.goal);
-  
-  if (sortedGoals.length > 0) {
-    let topGoal = sortedGoals[0];
-    
-    // Phase 7: Force dependency chain for high-value goals
-    if ((topGoal.type === 'BUILD_GARRISON' || topGoal.type === 'BUILD_FORGE') && !topGoal.canExecute(this.house)) {
-      // Boost utility of prerequisite goals
-      if (topGoal.type === 'BUILD_GARRISON') {
-        const forgeGoal = possibleGoals.find(g => g.type === 'BUILD_FORGE');
-        if (forgeGoal) forgeGoal.utility = Math.max(forgeGoal.utility, 60);
-      }
-    }
-    
-    // Create goal chain to resolve dependencies (iterative queue-based)
-    this.currentGoalChain = GoalChain.create(this.house, topGoal, this.logger);
-    
-    // ... rest of chain creation and execution
-  }
-}
-```
+**Process Overview** (lines 215-541):
+
+1. **Non-Economic Faction Check** (line 217)
+   - Determines if faction should skip economic goals
+
+2. **Goal Generation** (lines 221-225)
+   - Economic goals: skipped for non-economic factions
+   - Military, expansion, defense goals: always generated
+   - Resource scouting goals: if strategy supports it
+   - Recovery goals: from production monitoring (economic factions only)
+   - Fallback scout goals: from location blocking suggestions
+
+3. **Resource Balance Analysis** (line 264)
+   - Calculates resource ratios and identifies imbalances
+
+4. **Goal Consideration Tracking** (lines 267-271)
+   - Records all goals with utility > 0 for stagnation prevention
+
+5. **Resource Balance Boosts** (lines 274-301)
+   - **Before filtering** (affects selection priority)
+   - BUILD_MINE: 1.5x boost when stone < 50 or stone scarce
+   - BUILD_MINE: Additional 1.3x boost when stone < 20
+   - Sets mineType to 'stone' when stone needed
+   - BUILD_LUMBERMILL: 1.3x boost when wood scarce
+
+6. **Goal Forcing** (lines 304-311)
+   - **Before filtering** (ensures forced goals aren't filtered out)
+   - Forces minimum utility of 60 for goals considered 3+ times
+
+7. **Goal Filtering** (lines 315-375)
+   - Filters goals with utility <= 0
+   - Filters goals that should be avoided (consecutive failures)
+   - **Special handling for blocked goals**:
+     - High-value goals (BUILD_GARRISON, BUILD_FORGE, ESTABLISH_OUTPOST): kept even if blocked
+     - High-utility goals (utility >= 50): kept even if blocked
+     - Forced goals: kept even if blocked
+     - All other blocked goals: filtered out
+   - **Location validation**:
+     - Records location blocking for utility adjustment
+     - High-value/high-utility/forced goals: kept even if no location
+     - Other goals: filtered out if no valid location
+
+8. **Utility Adjustment** (lines 385-402)
+   - Applies failure penalties via `getAdjustedUtility()`
+   - Maintains forced goal utility (minimum 60) after penalties
+   - Logs utility adjustments for debugging
+
+9. **Sorting** (lines 405-408)
+   - Sorts by adjusted utility (highest first)
+
+10. **Fallback Goals** (lines 410-421)
+    - If no valid goals, generates fallback goals
+    - Ensures faction stays active
+
+11. **Goal Selection** (lines 423-485)
+    - Selects top goal from sorted list
+    - Checks chain failure avoidance (skips if recently failed with same blockers)
+    - Selects alternative if primary goal should be avoided
+
+12. **Dependency Chain Forcing** (lines 487-502)
+    - For high-value blocked goals, boosts prerequisite utilities
+    - BUILD_GARRISON: boosts BUILD_FORGE utility to 60
+
+13. **Chain Creation** (line 505)
+    - Creates goal chain with dependency resolution
+    - Validates chain after creation
+
+14. **Execution** (line 540)
+    - Executes first goal in chain if chain has steps
+    - Otherwise executes goal directly or clears chain
 
 **New Methods**:
 
@@ -272,6 +300,141 @@ evaluateNewGoals() {
 - Returns true if goal has been considered 3+ times
 - Used to force selection of repeatedly considered goals
 - Prevents infinite consideration loops
+- Forces minimum utility of 60 when goal is selected
+
+#### Non-Economic Factions System
+
+**isNonEconomicFaction()** (line 110):
+- Checks if faction is excluded from economic goals and production monitoring
+- Excluded factions: `['Brotherhood', 'Outlaws', 'Norsemen', 'Mercenaries']`
+- Handles faction names with trailing numbers (e.g., "Outlaws 1" → "Outlaws")
+- Returns true if faction base name is in excluded list
+
+**Impact on Goal Evaluation**:
+- Economic goals are skipped for non-economic factions (line 221)
+- Production monitoring is skipped (line 869)
+- Recovery goals are not generated for non-economic factions (line 233)
+- Logging is reduced (economic goal counts not logged)
+
+**Rationale**:
+- Non-economic factions (raiders, outlaws, mercenaries) focus on military/expansion
+- Economic building goals don't apply to these factions
+- Production monitoring would generate noise for factions that don't gather resources
+
+#### Resource Production Monitoring
+
+**monitorResourceProduction(currentDay)** (line 867):
+- Tracks resource production rates daily (wood, stone, grain, ironore)
+- Calculates production changes from previous day
+- Counts production buildings (stone mines vs cave mines separately)
+- Counts serfs working at buildings
+- Logs production status for debugging
+- Detects production issues (zero or negative production with low resources)
+- Tracks days with production issues per resource (`_productionIssueDays`)
+- Triggers recovery goals when production broken for 2+ days
+
+**Production Issue Detection**:
+- Resource production is zero or negative AND resource level < 50
+- Average production rate is <= 0
+- Tracks consecutive days with issues
+
+**diagnoseProductionIssue(resource, buildings, currentDay)** (line 966):
+- Identifies root cause of production problems
+- Checks: building existence, building built status, serf assignment
+- Logs detailed diagnostics including which buildings lack serfs
+- Root causes:
+  - No building exists → need to build
+  - Buildings exist but not built → construction incomplete
+  - Buildings built but no serfs → serf assignment issue
+  - Buildings and serfs exist → deposit logic issue
+
+**triggerProductionRecovery(resource, currentDay)** (line 1050):
+- Generates recovery goals when production broken for 2+ days
+- Only triggers if building doesn't exist (not serf/deposit issues)
+- Creates appropriate building goal (mine, lumbermill, farm)
+- Sets mine type for stone mines (`mineType = 'stone'`)
+- Sets high utility (70) to ensure selection
+- Marks goal as recovery goal (`isRecoveryGoal = true`)
+- Stores in `_pendingRecoveryGoals` array for next evaluation
+
+**Recovery Goal Integration**:
+- Recovery goals are added to goal evaluation pool (line 233)
+- Only included for economic factions
+- Cleared after use (prevents duplicate recovery attempts)
+
+#### Fallback Goal Generation
+
+**generateFallbackGoals()** (line 1306):
+- Creates fallback goals when no valid goals available after filtering
+- Ensures faction stays active even when all goals filtered out
+- Creates basic infrastructure goals:
+  - BuildMillGoal (utility 30) if no mills exist
+  - BuildMineGoal (utility 25) if no mines exist
+  - BuildFarmGoal (utility 20) if no farms exist (requires mills)
+- Returns array of fallback goals
+- Used in `evaluateNewGoals()` when `sortedGoals.length === 0` (line 411)
+
+**When Used**:
+- After all goal filtering and adjustment
+- When no goals pass utility/execution/location checks
+- Prevents faction from becoming inactive
+
+#### Location Blocking System
+
+**recordLocationBlocking(goalType)** (line 610):
+- Tracks location blocking separately from general failures
+- Updates `goalFailureHistory` with location block count and last block day
+- Used for utility adjustment (location-blocked 3+ times reduces utility by 50%)
+- Called when `canPlace()` returns false during goal filtering (line 358)
+
+**suggestedFallbackGoals** (line 46):
+- Set of goal suggestions from location blocking (e.g., "SCOUT_FOR_RESOURCE:stone")
+- Used when BUILD_MINE or BUILD_MILL fails due to location (GoalExecutor line 301)
+- Converted to ScoutForResourceGoal during goal evaluation (line 239-246)
+- High utility (65) to ensure selection
+- Cleared after use (line 250)
+
+**Location Blocking Flow**:
+1. Goal filtering checks `canPlace()` (line 355)
+2. If fails, `recordLocationBlocking()` called (line 358)
+3. For BUILD_MINE/BUILD_MILL, GoalExecutor suggests SCOUT_FOR_RESOURCE (line 297-311)
+4. Suggestion added to `suggestedFallbackGoals` Set
+5. Next evaluation converts suggestions to goals with high utility
+
+#### Chain Failure Analysis
+
+**analyzeChainFailure(chain)** (line 722):
+- Analyzes failed chain to suggest recovery goal
+- Extracts blocking factors from current goal
+- Prioritizes resource with largest deficit
+- Special handling:
+  - Stone production deadlock: suggests SCOUT_FOR_RESOURCE if production broken
+  - Building blocks: suggests building that building
+  - Resource blocks: suggests gathering building if missing, otherwise gather goal
+  - Location issues: suggests alternative building goals
+- Returns recovery goal or null
+
+**shouldAvoidChainGoal(goalType)** (line 784):
+- Checks if goal should be avoided due to recent chain failure
+- Avoids if failed within last 2 days with same blocking factors
+- Compares current blocking factors with failure history
+- Used during goal selection to skip recently failed goals (line 476)
+
+**Chain Failure Flow**:
+1. Chain fails (goal execution fails or goal blocked)
+2. `recordChainFailure()` stores failure details (line 178, 637)
+3. `analyzeChainFailure()` suggests recovery goal (line 181)
+4. If recovery goal found, creates new chain immediately (line 184)
+5. Otherwise, clears chain and evaluates new goals normally
+
+**getAlternativeGoals(primaryGoal, failureReason)** (line 826):
+- Generates alternative goals when primary goal fails
+- Delegates to strategy if `getAlternativeGoals()` method exists
+- Default alternatives:
+  - BUILD_FARM fails → try BUILD_MILL or BUILD_LUMBERMILL
+  - BUILD_FORGE/BUILD_GARRISON fails → prioritize resource gathering buildings
+- Filters alternatives to only executable ones
+- Returns array of alternative goals
 
 #### Goal Execution (`executeCurrentGoal()`)
 
@@ -306,10 +469,14 @@ Delegates to `GoalExecutor` for execution logic:
 **Deploy Scouting Party** (line 258):
 - Delegates to `MilitaryManager.deployScoutingParty()`
 - See MilitaryManager section for details
+- Scouting activities are integrated with Event Manager (FACTION category events)
+- See ScoutingParty section for Event Manager integration details
 
 **Scouting Party Update**:
 - Delegates to `MilitaryManager.updateScoutingParties()`
 - See MilitaryManager section for details
+- Scouting statistics tracked in FactionAILogger for daily reports
+- See FactionAILogger section for scouting statistics tracking
 
 #### Military System
 
@@ -507,7 +674,89 @@ All errors logged with format: `[GoalExecutor] [timestamp] [faction] [goalType] 
 
 ---
 
-### 4. MilitaryManager (`server/js/ai/MilitaryManager.js`)
+### 4. FactionAILogger (`server/js/ai/FactionAILogger.js`)
+
+Centralized logging and reporting utility for faction AI. Handles daily report generation, scouting statistics tracking, and structured logging.
+
+#### Purpose
+- Provides consistent logging format across faction AI system
+- Generates daily reports summarizing faction activity
+- Tracks scouting mission statistics for daily reports
+- Collects decision, action, and error data for analysis
+- **Faction Filtering**: Only enables logging for specific factions (reduces log noise)
+
+#### Initialization
+
+**Faction Filtering** (lines 7-13):
+- Only enables logging for: `['Teutons', 'Goths', 'Celts', 'Franks']`
+- Case-insensitive matching (handles variations in faction names)
+- Handles faction names with trailing numbers (e.g., "Goths 1" → "Goths")
+- All other factions have logging disabled by default
+- Can be manually enabled via `setEnabled(true)` if needed
+
+**Log Levels**:
+- `DEBUG`: Detailed debugging information (currently disabled for reduced verbosity)
+- `INFO`: General information messages
+- `DECISION`: Goal selection and strategic decisions
+- `ACTION`: Actions taken (building construction, etc.)
+- `ERROR`: Error messages (always logged regardless of level)
+
+#### Daily Reports
+
+**Report Generation**:
+- `startReport()` - Initializes report data collection for new day
+- `generateReport()` - Formats and outputs complete daily report
+- `formatReport()` - Formats report data as structured text
+- Reports include: Current state, goal chain, decisions, actions, errors, and scouting activity
+
+**Report Structure**:
+- Header with faction name and day
+- Current state (resources, buildings, territory, military)
+- **SCOUTING ACTIVITY** section (if any scouting occurred):
+  - Parties Deployed
+  - Missions Completed
+  - Missions Failed (combat encounters)
+  - Zones Cleared
+  - Conflict Zones Discovered
+  - Contested Banners Placed
+- Goal chain status and progress
+- Decisions made during the day
+- Actions taken
+- Errors encountered
+- Reasoning summary
+
+#### Scouting Statistics Tracking
+
+**Tracking Methods**:
+- `recordScoutingDeployment()` - Called when scouting party is deployed
+- `recordScoutingCompletion()` - Called when party returns successfully
+- `recordScoutingFailure()` - Called when mission fails
+- `recordConflictZone()` - Called when conflict zone is discovered
+- `recordZoneCleared()` - Called when zone is cleared for expansion
+- `recordContestedBanner()` - Called when contested banner is placed
+
+**Statistics Storage**:
+- Stored in `reportData.scoutingStats` object
+- Initialized in `startReport()` with daily counters
+- Reset automatically each day when new report starts
+- All statistics default to 0
+
+**Integration**:
+- Called from `ScoutingParty` at appropriate points:
+  - Deployment: Constructor
+  - Zone cleared: `updateCamping()` (when transitioning to returning)
+  - Failure/Conflict: `handleFactionAttack()`
+  - Completion: `checkReturnComplete()` (when party returns successfully)
+  - Contested banner: `placeContestedBanner()`
+
+**Report Display**:
+- SCOUTING ACTIVITY section only displayed if any scouting activity occurred
+- Shows all tracked metrics with counts
+- Includes contextual information (e.g., "Missions Failed: X (combat encounters)")
+
+---
+
+### 5. MilitaryManager (`server/js/ai/MilitaryManager.js`)
 
 Handles all military operations: scouting parties, attack forces, and unit selection.
 
@@ -551,6 +800,8 @@ constructor(house, factionAI) {
 - Removes completed/failed parties
 - Handles discovery reporting to FactionKnowledge
 - Calls completion/failure callbacks
+- ScoutingParty instances handle their own Event Manager event creation
+- Scouting statistics tracked in FactionAILogger (called from ScoutingParty)
 
 **onScoutingComplete(targetZone, purpose, enemiesFound)**:
 - If enemies found: plans attack force
@@ -913,13 +1164,19 @@ Automatically resolves goal dependencies by creating executable chains of subgoa
 ### Key Features
 
 - **Iterative Resolution**: Queue-based processing instead of recursion
+- **Ancestor Chain Cycle Detection**: Tracks full ancestor chain to detect cycles (e.g., SCOUT_FOR_RESOURCE -> BUILD_LUMBERMILL -> SCOUT_FOR_RESOURCE)
 - **Context-Aware Cycle Detection**: Tracks goal type + blocking context to prevent false positives
 - **Blocking Factor Caching**: Avoids redundant `canExecute()` calls
+- **Deferred Goals System**: Defers gather goals until building dependencies are in chain
+- **Production Feasibility Checking**: Validates production capacity before creating gather goals
+- **Resource Gap Detection**: Checks for resource gaps and suggests scouting when needed
+- **Deadlock Detection**: Prevents stone production deadlocks (BUILD_MINE needs stone but production broken)
 - **Resolution Path Tracing**: Full dependency resolution path logged for debugging
 - **Goal Chain Persistence**: Chains persist indefinitely until complete or failed (not recreated daily)
 - **Maximum Depth**: 5 levels (reduced from 10 for safety)
 - **Mine Type Differentiation** (Phase 2.4): Distinguishes stone mines from cave mines in resource resolution
 - **Enhanced Resource Resolution**: Checks existing building types before adding new ones, builds multiple if needed
+- **Chain Validation**: Validates first step can execute after dependency resolution
 
 ### Dependency Resolution
 
@@ -1144,13 +1401,66 @@ This enables debugging of complex dependency chains and understanding why certai
    - For large deficits (>100), builds additional gathering buildings
    - Mine goals include `mineType` property to ensure correct type is built
 
-4. **Add Gather Goal**: Create GatherResourceGoal to wait for resources
+4. **Resource Gap Detection** (lines 236-299):
+   - Checks if resource gap exists (resource not available in territory)
+   - If gap and no building, checks if scouting is feasible (units available)
+   - Adds SCOUT_FOR_RESOURCE goal before building goal
+   - Prevents cycles: skips scouting if already in ancestor chain
+   - Skips scouting if no units available (prevents infinite loops)
+
+5. **Deadlock Detection** (lines 302-324):
+   - For BUILD_MINE needing stone: checks if stone production is broken
+   - If production broken for 2+ days, suggests SCOUT_FOR_RESOURCE instead
+   - Prevents deadlock: need stone to build mine, but stone production broken
+
+6. **Build Gathering Building** (lines 302-394):
+   - If building doesn't exist, creates build goal
+   - Sets mine type for mines (`mineType = 'stone'` or `'cave'`)
+   - Checks for cycles: skips if building type already in ancestor chain with SCOUT_FOR_RESOURCE
+   - For large deficits (>100), builds additional gathering buildings
+
+7. **Production Feasibility Checking** (lines 406-441):
+   - Before creating GATHER_RESOURCE goal, checks if production is feasible
+   - Uses `checkProductionFeasibility()` to estimate days needed
+   - Production feasible if can gather within 10 days
+   - If not feasible and building exists: builds additional production building
+   - Defers gather goal until additional building completes
+
+8. **Deferred Goals System** (lines 448-584):
+   - Gather goals are deferred if building needs to be built first
+   - Deferred goals map: `goal -> array of dependency building types`
+   - After all dependencies processed, deferred goals are added to chain
+   - Ensures gather goals execute after building goals complete
+   - Gather goal target includes 10% buffer to account for production delays
+
+9. **Add Gather Goal**: Create GatherResourceGoal to wait for resources
+   - **Deferred if building needs to be built**: Added after dependencies processed
+   - **Added immediately if building exists**: Only if production is feasible
    - **Active goal** (Phase 2.1): Checks for gathering buildings and verifies they're operational
    - Verifies correct mine type exists (stone mines for stone, cave mines for ores)
    - Uses `hasGatheringBuilding()` which checks mine types appropriately
    - Marks as BLOCKED if infrastructure missing or production too slow
    - Estimates gathering time based on production rates
    - Completes when target amount reached
+
+**Production Feasibility Checking** (`checkProductionFeasibility()`, line 810):
+- Estimates production rate per day (base rate × building count × 50% efficiency)
+- Base rates: stone: 5, wood: 5, grain: 10, ores: 3/2/1 per day
+- Calculates days needed to gather deficit
+- Returns `{feasible: boolean, daysNeeded: number, productionRate: number}`
+- Production feasible if `daysNeeded <= 10 && productionRate > 0`
+- If not feasible: triggers additional building construction
+
+**Location and Unit Blocking** (lines 485-504):
+- **LOCATION blocking**: Cannot be resolved by dependencies
+- Goal may be unachievable, but added anyway to let executor handle retries
+- **UNITS blocking**: Goal waits for units to become available (no dependencies created)
+
+**Guardtower Special Handling** (lines 157-196):
+- For ESTABLISH_OUTPOST goals needing guardtower:
+- Creates BuildGuardtowerGoal with outpost location
+- Special exception: BUILD_MINE (stone) can be built before guardtower if stone < 120
+- Prevents outpost expansion deadlock
 
 ---
 
@@ -1170,7 +1480,7 @@ Dynamically calculates and manages faction territory boundaries based on buildin
    - If hash differs or no territory: recalculate
 3. **Calculate Center of Mass**: Average position of all buildings
 4. **Calculate Average Distance**: Average distance from center to buildings
-5. **Set Territory Radius**: `max(avgDistance * 1.1, 15 tiles)` (1.1x multiplier, minimum 15)
+5. **Set Territory Radius**: `max(avgDistance * 1.1, 10 tiles)` (1.1x multiplier, minimum 10)
 6. **Classify Buildings**:
    - Within radius: Core base buildings
    - Beyond radius: Outpost buildings
@@ -1221,7 +1531,7 @@ calculateBuildingHash(buildings) {
 ```javascript
 this.coreBase = {
   center: [c, r],           // Center of mass
-  radius: 15,              // Territory radius (minimum 15)
+  radius: 10,              // Territory radius (minimum 10)
   buildings: [...]          // Buildings within radius
 };
 ```
@@ -1366,7 +1676,133 @@ this.lastUpdated = new Map();           // Timestamps
 
 ---
 
+### System: ScoutingParty (`server/js/ai/ScoutingParty.js`)
+
+Manages scouting party state and behavior during exploration missions. Implements day-based scouting with overnight camping, campfire management, and faction attack detection.
+
+#### Event Manager Integration
+
+All scouting activities are recorded as FACTION category events using the Event Manager system. Events are created at key points in the scouting lifecycle:
+
+- **Departure**: When party is deployed (constructor)
+- **Destination Reached**: When party arrives at target zone (updateTraveling())
+- **Campfire Setup**: When campfire is built at nightfall (buildCampfire())
+- **Zone Cleared**: When zone is marked as clear for expansion (updateCamping())
+- **Returning**: When party begins return journey (updateCamping())
+- **Combat Encounter**: When attacked by enemy faction (handleFactionAttack())
+- **Mission Failed**: When mission fails due to combat or unit loss (handleFactionAttack(), checkReturnComplete())
+- **Contested Banner**: When contested banner is placed after combat (placeContestedBanner())
+- **Return Complete**: When party successfully returns to HQ (checkReturnComplete())
+
+See Event Manager System documentation (Section 8: FACTION) for detailed event structures and metadata.
+
+#### Scouting Party Composition
+
+**Leader Selection**:
+- Prefers mounted units (cavalier, cavalry, horseman, knight, mounted)
+- Falls back to any military unit
+- Leader marked with 🚩 emoji
+
+**Backup Units**:
+- Selects 0-2 additional units (flexible)
+- Units follow leader using `FollowBehavior`
+- All units assigned to `ScoutingParty`
+
+#### Mission Flow (Day-Based System)
+
+1. **Deployment** (Constructor):
+   - Party created with leader, backup units, target zone, and purpose
+   - Status set to 'rallying' (units gather around leader, wait for dawn)
+   - Event created: "departed on scouting mission"
+   - Logger records deployment for daily report
+   - `assignMissionOrders()` called to set units to idle initially
+
+2. **Rallying** (`updateRallying()`):
+   - Units gather around leader (waiting for dawn)
+   - Checks for dawn transition or timeout
+   - Transitions to 'traveling' when ready (at dawn or after timeout)
+   - Calls `startTravelingToTarget()` to begin journey
+
+3. **Traveling** (`updateTraveling()`):
+   - Party moves to target zone
+   - When destination reached:
+     - Status transitions to 'waiting_for_nightfall'
+     - Arrival day recorded
+     - Event created: "reached scouting destination"
+
+4. **Waiting for Nightfall** (`updateWaitingForNightfall()`):
+   - Party waits until nightfall
+   - When nightfall occurs:
+     - Status transitions to 'camping'
+     - Campfire built (InfiniteFire)
+     - Event created: "set up campfire"
+
+5. **Camping** (`updateCamping()`):
+   - Party guards campfire overnight
+   - Must be present when midnight hits (presence recorded on both days)
+   - Units stay within 15 tiles of campfire
+   - When daybreak occurs (day > arrivalDay):
+     - Campfire cleaned up (removed)
+     - Zone marked as clear
+     - Status transitions to 'returning'
+     - Events created: "zone cleared for expansion", "returning from scouting mission"
+     - Logger records zone cleared for daily report
+
+6. **Returning** (`updateReturning()`):
+   - Party moves back to HQ
+   - When HQ reached:
+     - Status transitions to 'completed'
+     - Event created: "returned from scouting mission"
+     - Logger records completion for daily report
+
+7. **Combat Detection** (`checkForFactionAttack()`):
+   - Monitors unit HP for damage
+   - Scans for nearby enemy players (not fauna/neutral)
+   - If faction enemy detected:
+     - Calls `handleFactionAttack()`
+
+8. **Faction Attack Handling** (`handleFactionAttack()`):
+   - Status set to 'failed'
+   - Contested banner placed at location
+   - Conflict zone reported to FactionKnowledge
+   - Campfire cleaned up
+   - Events created: "engaged in combat with enemy faction", "scouting mission failed", "placed contested banner"
+   - Logger records failure and conflict zone for daily report
+   - Party triggers retreat
+
+9. **Contested Banner** (`placeContestedBanner()`):
+   - Creates 'contestedbanner' item at leader location
+   - Only one banner per mission (flag prevents duplicates)
+   - Event created: "placed contested banner"
+   - Logger records contested banner for daily report
+
+#### State Machine
+
+States: `rallying` → `traveling` → `waiting_for_nightfall` → `camping` → `returning` → `completed` | `failed`
+
+- **rallying**: Units gather around leader, waiting for dawn before starting journey
+- **traveling**: Moving to target zone
+- **waiting_for_nightfall**: Reached destination, waiting for night
+- **camping**: Guarding campfire overnight
+- **returning**: Journey back to HQ
+- **completed**: Successfully returned
+- **failed**: Mission failed (combat encounter or unit loss)
+
+#### Daily Report Integration
+
+Scouting statistics are tracked in FactionAILogger for inclusion in daily reports:
+- Deployment recorded when party created
+- Completion recorded when party returns successfully
+- Failure recorded when mission fails
+- Conflict zone recorded when enemy faction encountered
+- Zone cleared recorded when zone marked for expansion
+- Contested banner recorded when banner placed
+
+See FactionAILogger section for details on report formatting.
+
 ### System: ScoutBehavior (`server/js/ai/ScoutBehavior.js`)
+
+**Note**: This system is superseded by ScoutingParty for faction AI scouting missions. ScoutingParty provides more comprehensive day-based scouting with Event Manager integration.
 
 Controls individual scout unit behavior during exploration missions.
 
@@ -1949,7 +2385,7 @@ All errors follow consistent format for easy parsing and debugging:
 
 ### Error Handling in Daily Evaluation
 
-**Location**: `server/js/Houses.js` line 239
+**Location**: `server/js/Houses.js` line 246
 
 ```javascript
 House.evaluateAI = function(){
@@ -1958,6 +2394,7 @@ House.evaluateAI = function(){
     if(house.ai && house.ai.evaluateAndAct){
       try {
         house.ai.evaluateAndAct();
+      } catch (error) {
       // Errors logged with stack traces instead of silently swallowed
       // Prevents one faction from breaking others
       // But errors are now visible for debugging
@@ -1965,8 +2402,6 @@ House.evaluateAI = function(){
         if (error.stack) {
           console.error(error.stack);
         }
-      } catch (error) {
-        // Error logged but doesn't break other factions
       }
     }
   }
@@ -1982,22 +2417,31 @@ House.evaluateAI = function(){
 ```
 Game Loop (Daily)
   ↓
-House.evaluateAI() [Houses.js:239]
+House.evaluateAI() [Houses.js:246]
   ↓
-FactionAI.evaluateAndAct() [FactionAI.js:100]
+FactionAI.evaluateAndAct() [FactionAI.js:118]
   ↓
-  ├─→ Check lastEvaluatedDay (prevent duplicates)
-  ├─→ Invalidate caches for new day
-  ├─→ TerritoryManager.updateTerritory()
+  ├─→ Check lastEvaluatedDay (prevent duplicates) [line 123]
+  ├─→ monitorResourceProduction() (economic factions only) [line 132]
+  │     ├─→ Track resource levels and production rates
+  │     ├─→ Detect production issues
+  │     ├─→ diagnoseProductionIssue() if issue detected
+  │     └─→ triggerProductionRecovery() if broken 2+ days
+  ├─→ logger.startReport() [line 135]
+  ├─→ Invalidate caches for new day [line 138]
+  ├─→ house.updatePatrolList() [line 146]
+  ├─→ territory.updateTerritory() [line 151]
   │     ├─→ BuildingService.getBuildings() (cached)
   │     ├─→ Calculate hash (count:sumOfIDs:validIds)
   │     ├─→ If hash matches: use cached territory
   │     └─→ If hash differs: recalculate (1.1x multiplier)
-  ├─→ house.updatePatrolList()
-  ├─→ knowledge.cleanStaleInformation()
+  ├─→ knowledge.updateKnownZones() [line 154]
+  ├─→ knowledge.cleanStaleInformation() [line 157]
   │
   ├─→ IF currentGoalChain exists AND not complete AND not failed:
+  │     ├─→ logger.updateGoalChain()
   │     └─→ executeCurrentGoal()
+  │           ├─→ GoalExecutor.executeGoal()
   │           ├─→ GoalExecutor.executeGoal()
   │           │     ├─→ goal.canExecute() (uses BuildingService)
   │           │     ├─→ goal.execute() (if executable)
@@ -2014,21 +2458,37 @@ FactionAI.evaluateAndAct() [FactionAI.js:100]
   │           └─→ If shouldClearChain: currentGoalChain = null
   │
   └─→ ELSE (no chain OR complete OR failed):
-        ├─→ Clear failed chains
-        ├─→ strategy.evaluateEconomicGoals()
-        ├─→ strategy.evaluateMilitaryGoals()
-        ├─→ strategy.evaluateExpansionGoals()
-        ├─→ strategy.evaluateDefenseGoals()
-        │     └─→ All use BuildingService for building counts
-        │
-        ├─→ checkResourceBalance() (Phase 8: Resource Balance Monitoring)
-        ├─→ recordGoalConsideration() (Phase 9: Goal Consideration Tracking)
-        ├─→ Filter goals (utility, canExecute, canPlace, avoid failures)
-        ├─→ Apply resource balance boosts (Phase 8)
-        ├─→ Apply failure penalties (adaptive learning)
-        ├─→ Force goal selection if considered 3+ times (Phase 9)
-        ├─→ Force dependency chain for high-value goals (Phase 7)
-        ├─→ GoalChain.create(topGoal)
+        ├─→ IF chain failed:
+        │     ├─→ recordChainFailure() [line 178]
+        │     ├─→ analyzeChainFailure() [line 181]
+        │     └─→ IF recovery goal found: create chain and execute [line 184-189]
+        ├─→ Clear failed chains [line 192]
+        ├─→ evaluateNewGoals() [line 199]
+        │     ├─→ Check isNonEconomicFaction() [line 217]
+        │     ├─→ strategy.evaluateEconomicGoals() (skipped for non-economic) [line 221]
+        │     ├─→ strategy.evaluateMilitaryGoals() [line 222]
+        │     ├─→ strategy.evaluateExpansionGoals() [line 223]
+        │     ├─→ strategy.evaluateResourceScoutingGoals() [line 224]
+        │     ├─→ strategy.evaluateDefenseGoals() [line 225]
+        │     ├─→ Add recovery goals from _pendingRecoveryGoals [line 233]
+        │     ├─→ Add fallback scout goals from suggestedFallbackGoals [line 237-251]
+        │     ├─→ checkResourceBalance() (Phase 8) [line 264]
+        │     ├─→ recordGoalConsideration() for all goals (Phase 9) [line 267]
+        │     ├─→ Apply resource balance boosts BEFORE filtering (Phase 8) [line 274]
+        │     ├─→ Apply goal forcing BEFORE filtering (Phase 9) [line 304]
+        │     ├─→ Filter goals [line 315]
+        │     │     ├─→ Filter utility <= 0
+        │     │     ├─→ Filter shouldAvoidGoal()
+        │     │     ├─→ Keep high-value/high-utility/forced goals even if blocked
+        │     │     ├─→ recordLocationBlocking() if canPlace() fails
+        │     │     └─→ Keep high-value/high-utility/forced goals even if no location
+        │     ├─→ Apply failure penalties (getAdjustedUtility) [line 385]
+        │     ├─→ Sort by adjusted utility [line 405]
+        │     ├─→ IF no valid goals: generateFallbackGoals() [line 411]
+        │     ├─→ Select top goal [line 423]
+        │     ├─→ Check shouldAvoidChainGoal() [line 476]
+        │     ├─→ Force dependency chain for high-value goals [line 487]
+        │     └─→ GoalChain.create(topGoal) [line 505]
         │     ├─→ Iterative queue-based resolution
         │     ├─→ Blocking factor caching
         │     ├─→ Context-aware cycle detection
@@ -2045,17 +2505,17 @@ FactionAI.evaluateAndAct() [FactionAI.js:100]
 ### Integration Points
 
 #### House Integration (`server/js/Houses.js`)
-- **Line 239**: `House.evaluateAI()` - Daily evaluation entry point
+- **Line 246**: `House.evaluateAI()` - Daily evaluation entry point
   - Iterates all houses, calls `house.ai.evaluateAndAct()`
   - Error handling prevents one faction from breaking others
   - Errors logged with stack traces for debugging
-- **Line 28**: `calculateBaseTerritory()` - Territory calculation
+- **Line 30**: `calculateBaseTerritory()` - Territory calculation
   - Delegates to `house.ai.territory.updateTerritory()`
   - Delegates to `house.ai.territory.absorbColonies()`
   - Updates `baseCenter`, `baseCenterCoords`, `baseRadius` from TerritoryManager
-- **Line 48**: `isInBaseTerritory(x, y)` - Colony detection
+- **Line 50**: `isInBaseTerritory(x, y)` - Colony detection
   - Delegates to `house.ai.territory.isInBaseTerritory(x, y)`
-- **Line 107**: `updatePatrolList()` - Patrol building tracking
+- **Line 109**: `updatePatrolList()` - Patrol building tracking
 
 #### Tilemap System Integration
 - `tilemapSystem.findBuildingSpot()` - Building placement validation
@@ -2195,6 +2655,17 @@ The Faction AI system is a sophisticated, optimized, goal-driven architecture th
 16. **Forces dependency chains** (Phase 7): Ensures high-value goals create prerequisite chains even when blocked
 17. **Validates locations** (Phase 3): Pre-checks building placement before goal selection
 18. **Adaptive learning**: Tracks failures and adjusts goal utilities to prevent repeated failures
+19. **Non-economic faction support**: Excludes certain factions (Brotherhood, Outlaws, Norsemen, Mercenaries) from economic goals and production monitoring
+20. **Production monitoring**: Tracks resource production rates, detects issues, and triggers recovery goals when production broken for 2+ days
+21. **Production diagnostics**: Identifies root causes of production problems (missing buildings, serf assignment, deposit logic)
+22. **Fallback goals**: Generates basic infrastructure goals when no valid goals available to keep factions active
+23. **Location blocking tracking**: Tracks location blocking separately from failures and suggests scouting when appropriate
+24. **Chain failure analysis**: Analyzes failed chains to suggest recovery goals based on blocking factors
+25. **Deferred goals**: Defers gather goals until building dependencies are satisfied in chain
+26. **Production feasibility**: Validates production capacity before creating gather goals, builds additional buildings if needed
+27. **Resource gap detection**: Detects when resources not available in territory and suggests scouting
+28. **Deadlock prevention**: Prevents stone production deadlocks (BUILD_MINE needs stone but production broken)
+29. **Logger faction filtering**: Only enables detailed logging for specific factions (Teutons, Goths, Celts, Franks) to reduce log noise
 
 ### Architecture Principles
 

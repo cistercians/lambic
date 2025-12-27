@@ -15,11 +15,13 @@ class SpectatorDirector {
     this.combatParticipants = new Map(); // playerId -> {damage, attacks, lastActivity}
     this.buildingActivity = new Map(); // buildingId -> {completions, activity}
     this.economicActivity = new Map(); // playerId -> {milestones, activity}
+    this.factionActivity = new Map(); // subjectId -> {events, lastActivity, position}
     
     // Priority weights for different event types
     this.priorities = {
       DEATH: 100,
       COMBAT_DAMAGE: 10,
+      FACTION_AI: 10,  // Same priority as combat
       BUILDING_COMPLETION: 20,
       ECONOMIC_MILESTONE: 5,
       ENVIRONMENT: 1
@@ -49,6 +51,7 @@ class SpectatorDirector {
     this.combatParticipants.clear();
     this.buildingActivity.clear();
     this.economicActivity.clear();
+    this.factionActivity.clear();
     console.log('SpectatorDirector: Stopped');
   }
   
@@ -75,6 +78,9 @@ class SpectatorDirector {
         break;
       case 'Environment':
         this.processEnvironmentEvent(event);
+        break;
+      case 'Faction':
+        this.processFactionEvent(event);
         break;
     }
     
@@ -183,6 +189,29 @@ class SpectatorDirector {
     this.considerTarget('environment', this.priorities.ENVIRONMENT, null);
   }
   
+  processFactionEvent(event) {
+    if (!event.subject || !event.position) return;
+    
+    const subjectId = event.subject;
+    
+    // Track faction activity
+    if (!this.factionActivity.has(subjectId)) {
+      this.factionActivity.set(subjectId, {
+        events: 0,
+        lastActivity: Date.now(),
+        position: event.position
+      });
+    }
+    
+    const faction = this.factionActivity.get(subjectId);
+    faction.events++;
+    faction.lastActivity = Date.now();
+    faction.position = event.position;
+    
+    // Faction AI events have same priority as combat
+    this.considerTarget(subjectId, this.priorities.FACTION_AI, event.position);
+  }
+  
   // ============================================================================
   // TARGET SELECTION LOGIC
   // ============================================================================
@@ -246,6 +275,16 @@ class SpectatorDirector {
       const timeSinceActivity = now - economic.lastActivity;
       if (timeSinceActivity < 60000) { // Last minute
         score += 5;
+      }
+    }
+    
+    if (this.factionActivity.has(targetId)) {
+      const faction = this.factionActivity.get(targetId);
+      score += faction.events * 2;
+      
+      const timeSinceActivity = now - faction.lastActivity;
+      if (timeSinceActivity < 10000) { // Last 10 seconds
+        score += 20;
       }
     }
     
@@ -324,6 +363,15 @@ class SpectatorDirector {
       }
     }
     
+    // Check faction activity
+    for (const [id, faction] of this.factionActivity) {
+      const score = this.calculateTargetScore(id, this.priorities.FACTION_AI);
+      if (score > bestScore) {
+        bestScore = score;
+        bestTarget = { id, position: faction.position };
+      }
+    }
+    
     if (bestTarget) {
       this.switchToTarget(bestTarget.id, bestTarget.position, 'most_active');
     }
@@ -359,6 +407,13 @@ class SpectatorDirector {
     for (const [id, economic] of this.economicActivity) {
       if (now - economic.lastActivity > maxAge) {
         this.economicActivity.delete(id);
+      }
+    }
+    
+    // Clean faction activity
+    for (const [id, faction] of this.factionActivity) {
+      if (now - faction.lastActivity > maxAge) {
+        this.factionActivity.delete(id);
       }
     }
     
@@ -411,6 +466,7 @@ class SpectatorDirector {
       combatParticipants: this.combatParticipants.size,
       buildingActivity: this.buildingActivity.size,
       economicActivity: this.economicActivity.size,
+      factionActivity: this.factionActivity.size,
       recentEvents: this.recentEvents.length
     };
   }
@@ -432,6 +488,11 @@ class SpectatorDirector {
         id,
         milestones: data.milestones,
         totalQuantity: data.totalQuantity,
+        lastActivity: new Date(data.lastActivity).toISOString()
+      })),
+      factionActivity: Array.from(this.factionActivity.entries()).map(([id, data]) => ({
+        id,
+        events: data.events,
         lastActivity: new Date(data.lastActivity).toISOString()
       }))
     };

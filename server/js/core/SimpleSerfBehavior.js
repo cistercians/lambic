@@ -8,6 +8,8 @@ class SimpleSerfBehavior {
   constructor() {
     this.BUILDING_SHARE = 0.85; // 85% to building
     this.SERF_WAGE = 0.15; // 15% wage for serf
+    this.logThrottle = {}; // Throttle frequent logs: {serfId: {lastLogTime: timestamp, lastState: state}}
+    this.LOG_THROTTLE_MS = 5000; // Only log same message every 5 seconds per serf
   }
 
   /**
@@ -62,6 +64,23 @@ class SimpleSerfBehavior {
    */
   handleDefaultWork(serf) {
     if (serf.mode !== 'work') {
+      // Log when serfs are not in work mode (for cave mine debugging, throttled)
+      if (serf.work && serf.work.hq && global.Building && global.Building.list) {
+        const building = global.Building.list[serf.work.hq];
+        if (building && building.type === 'mine' && building.cave) {
+          const now = Date.now();
+          const throttleKey = `caveMineIdle-${serf.id}`;
+          const lastLog = this.logThrottle[throttleKey];
+          // Increase throttle time to 30 seconds (6x default) to reduce spam
+          if (!lastLog || (now - lastLog) > this.LOG_THROTTLE_MS * 6) {
+            const factionName = serf.house && global.House && global.House.list 
+              ? (global.House.list[serf.house]?.name || 'Unknown')
+              : 'Unknown';
+            console.warn(`[SERF WORK] ${factionName}: Cave mine serf not in 'work' mode - mode: ${serf.mode}, work.hq: ${serf.work.hq}, hut: ${serf.hut || 'none'}`);
+            this.logThrottle[throttleKey] = now;
+          }
+        }
+      }
       this.handleWandering(serf);
       return;
     }
@@ -78,6 +97,15 @@ class SimpleSerfBehavior {
     // Check if work building is valid
     const building = this.getWorkBuilding(serf);
     if (!building || !building.built) {
+      // Log why work building is invalid
+      const factionName = serf.house && global.House && global.House.list 
+        ? (global.House.list[serf.house]?.name || 'Unknown')
+        : 'Unknown';
+      const hasWorkHq = serf.work && serf.work.hq;
+      const buildingId = hasWorkHq ? serf.work.hq : 'none';
+      const buildingExists = hasWorkHq && global.Building && global.Building.list && global.Building.list[buildingId];
+      const buildingBuilt = buildingExists ? global.Building.list[buildingId].built : false;
+      console.warn(`[SERF WORK] ${factionName}: Work building invalid for serf - work.hq: ${buildingId}, building exists: ${buildingExists}, built: ${buildingBuilt}, serf.mode: ${serf.mode}, serf.hut: ${serf.hut || 'none'}`);
       serf.mode = 'idle';
       serf.work.hq = null;
       serf.work.spot = null;
@@ -94,6 +122,19 @@ class SimpleSerfBehavior {
     if (!serf.work.spot) {
       const spot = this.assignWorkSpot(serf, building);
       if (!spot) {
+        // No spots available - log why (throttled)
+        const now = Date.now();
+        const throttleKey = `noWorkSpot-${building.id}`;
+        const lastLog = this.logThrottle[throttleKey];
+        if (!lastLog || (now - lastLog) > this.LOG_THROTTLE_MS * 2) {
+          const factionName = building.owner && global.House && global.House.list 
+            ? (global.House.list[building.owner]?.name || 'Unknown')
+            : 'Unknown';
+          const hasResources = building.resources && Array.isArray(building.resources);
+          const resourceCount = hasResources ? building.resources.length : 0;
+          console.warn(`[SERF WORK] ${factionName}: No work spot assigned for serf at ${building.type} - building.resources exists: ${hasResources}, count: ${resourceCount}, building.updateResources: ${typeof building.updateResources === 'function'}`);
+          this.logThrottle[throttleKey] = now;
+        }
         // No spots available - wait
         return;
       }
@@ -143,8 +184,15 @@ class SimpleSerfBehavior {
       return;
     }
 
+    const house = building.owner ? (global.House && global.House.list ? global.House.list[building.owner] : null) : null;
+    const houseName = house ? house.name : 'Unknown';
+    const resourceTypes = Object.keys(serf.inventory || {}).filter(r => (serf.inventory[r] || 0) > 0);
+    const hasStoneOrIronore = resourceTypes.some(r => r === 'stone' || r === 'ironore');
+
     const dropoff = this.getDropoffLocation(building);
     if (!dropoff) {
+      // Log dropoff location failure (not throttled - this is an error)
+      console.log(`[SERF DEPOSIT] ${houseName}: Failed to get dropoff location for ${building.type} at [${building.x}, ${building.y}], z=${building.z}`);
       serf.action = null;
       return;
     }
@@ -154,16 +202,64 @@ class SimpleSerfBehavior {
       Math.floor(serf.y / 64)
     ];
 
-    if (this.isAtDropoff(serf, building)) {
+    const isAtDropoff = this.isAtDropoff(serf, building);
+    
+    // Throttled logging - only log state changes or every 5 seconds
+    const now = Date.now();
+    const throttleKey = `deposit-${serf.id}`;
+    const lastState = this.logThrottle[throttleKey];
+    const stateChanged = !lastState || lastState.isAtDropoff !== isAtDropoff;
+    const shouldLog = stateChanged || (now - (lastState?.lastLogTime || 0)) > this.LOG_THROTTLE_MS;
+    
+    if (hasStoneOrIronore && shouldLog) {
+      if (stateChanged && isAtDropoff) {
+        // Log when reaching dropoff (state change)
+        console.log(`[SERF DEPOSIT DEBUG] ${houseName}: Reached dropoff for ${building.type} - serf loc=[${loc[0]}, ${loc[1]}], dropoff=[${dropoff[0]}, ${dropoff[1]}], serf.z=${serf.z}, building.z=${building.z || 0}`);
+      } else if (!isAtDropoff) {
+        // Throttled log when not at dropoff
+        console.log(`[SERF DEPOSIT DEBUG] ${houseName}: Pathfinding to dropoff [${dropoff[0]}, ${dropoff[1]}] for ${building.type} (serf.z=${serf.z}, building.z=${building.z || 0})`);
+      }
+      this.logThrottle[throttleKey] = { lastLogTime: now, isAtDropoff };
+    }
+
+    if (isAtDropoff) {
       // At dropoff - deposit all resources
+      // Log serf inventory before deposit attempt (for debugging)
+      if (hasStoneOrIronore) {
+        const inventoryBefore = Object.keys(serf.inventory || {}).filter(r => (serf.inventory[r] || 0) > 0)
+          .map(r => `${r}:${serf.inventory[r]}`).join(', ');
+        console.log(`[SERF DEPOSIT DEBUG] ${houseName}: At dropoff, attempting deposit - serf inventory: ${inventoryBefore || 'empty'}, serf.z=${serf.z}, building.z=${building.z || 0}`);
+      }
+      
       serf.facing = 'up';
-      this.depositAllResources(serf, building);
+      const deposited = this.depositAllResources(serf, building);
+      if (!deposited) {
+        // Log deposit failure (not throttled - this is an error)
+        console.log(`[SERF DEPOSIT] ${houseName}: Failed to deposit resources (${resourceTypes.join(', ')}) to ${building.type} at [${building.x}, ${building.y}], z=${building.z}, serf z=${serf.z}`);
+      } else if (hasStoneOrIronore) {
+        // Log successful deposit (not throttled - this is important)
+        const depositedAmounts = resourceTypes.map(r => `${r}:${serf.inventory[r] || 0}`).join(', ');
+        console.log(`[SERF DEPOSIT DEBUG] ${houseName}: Successfully deposited stone/ironore to ${building.type} - serf had: ${depositedAmounts}`);
+      }
       serf.action = null; // Resume work
     } else if (!serf.path || serf.path.length === 0) {
       // Path to dropoff
       if (typeof serf.moveTo === 'function') {
         // Use building's z-level if available, otherwise default to 0 (overworld)
+        // CRITICAL: For cave mines, building is at z=0, so serfs at z=-1 must pathfind to z=0
         const dropoffZ = (building && typeof building.z === 'number') ? building.z : 0;
+        
+        // Enhanced logging for cave mine deposits when pathfinding
+        if (building.type === 'mine' && building.cave && serf.z !== dropoffZ) {
+          const now = Date.now();
+          const throttleKey = `caveMinePathfind-${serf.id}`;
+          const lastLog = this.logThrottle[throttleKey];
+          if (!lastLog || (now - lastLog) > this.LOG_THROTTLE_MS * 2) {
+            console.log(`[SERF DEPOSIT DEBUG] ${houseName}: Cave mine serf pathfinding from z=${serf.z} to z=${dropoffZ} for dropoff [${dropoff[0]}, ${dropoff[1]}]`);
+            this.logThrottle[throttleKey] = now;
+          }
+        }
+        
         serf.moveTo(dropoffZ, dropoff[0], dropoff[1]);
       }
     }
@@ -383,28 +479,118 @@ class SimpleSerfBehavior {
 
       // Find available spots
       if (!building.resources || !Array.isArray(building.resources) || building.resources.length === 0) {
-        return null;
+        // For mines, try refreshing resources if empty
+        if (building.type === 'mine' && typeof building.getRes === 'function') {
+          try {
+            building.getRes();
+            // Check again after refresh
+            if (building.resources && Array.isArray(building.resources) && building.resources.length > 0) {
+              // Resources found after refresh, continue with assignment
+            } else {
+              // Still empty after refresh - log for debugging (throttled)
+              const now = Date.now();
+              const throttleKey = `mineNoResources-${building.id}`;
+              const lastLog = this.logThrottle[throttleKey];
+              if (!lastLog || (now - lastLog) > this.LOG_THROTTLE_MS * 3) {
+                const factionName = building.owner && global.House && global.House.list 
+                  ? (global.House.list[building.owner]?.name || 'Unknown')
+                  : 'Unknown';
+                console.warn(`[SERF WORK] ${factionName}: Mine at [${building.x}, ${building.y}] has no resources after getRes() - cave: ${building.cave ? 'yes' : 'no'}`);
+                this.logThrottle[throttleKey] = now;
+              }
+              return null;
+            }
+          } catch (error) {
+            console.error(`[SERF WORK] Error calling getRes() for mine:`, error);
+            return null;
+          }
+        } else {
+          return null;
+        }
       }
 
       const availableSpots = [];
+      const factionName = building.owner && global.House && global.House.list 
+        ? (global.House.list[building.owner]?.name || 'Unknown')
+        : 'Unknown';
+      
+      // Removed routine "Processing cave mine resources" log to reduce spam
+      // Only log when there are issues (no resources, etc.) - handled below
+      
       for (const i in building.resources) {
         try {
           const res = building.resources[i];
           if (Array.isArray(res) && res.length === 2) {
             if (building.isSpotAvailable && typeof building.isSpotAvailable === 'function') {
-              if (building.isSpotAvailable(res)) {
+              const isAvailable = building.isSpotAvailable(res);
+              if (isAvailable) {
                 availableSpots.push(res);
+              } else {
+                // Log when spot is filtered out by isSpotAvailable (throttled)
+                if (building.type === 'mine' && building.cave) {
+                  const now = Date.now();
+                  const throttleKey = `caveMineSpotFiltered-${building.id}`;
+                  const lastLog = this.logThrottle[throttleKey];
+                  if (!lastLog || (now - lastLog) > this.LOG_THROTTLE_MS * 3) {
+                    console.log(`[SERF WORK] ${factionName}: Cave mine spot [${res[0]}, ${res[1]}] filtered out by isSpotAvailable`);
+                    this.logThrottle[throttleKey] = now;
+                  }
+                }
               }
             } else {
               availableSpots.push(res);
             }
+          } else {
+            // Log invalid resource format (throttled)
+            const now = Date.now();
+            const throttleKey = `invalidResourceFormat-${building.id}`;
+            const lastLog = this.logThrottle[throttleKey];
+            if (!lastLog || (now - lastLog) > this.LOG_THROTTLE_MS * 3) {
+              console.warn(`[SERF WORK] ${factionName}: Invalid resource format at index ${i} for ${building.type} - not an array of length 2:`, res);
+              if (building.type === 'mine' && building.cave) {
+                console.warn(`[SERF WORK] ${factionName}: Cave mine resource at index ${i} has invalid format - type: ${typeof res}, isArray: ${Array.isArray(res)}, length: ${Array.isArray(res) ? res.length : 'N/A'}`);
+              }
+              this.logThrottle[throttleKey] = now;
+            }
           }
         } catch (error) {
+          // Log errors (throttled to avoid spam)
+          const now = Date.now();
+          const throttleKey = `resourceProcessingError-${building.id}`;
+          const lastLog = this.logThrottle[throttleKey];
+          if (!lastLog || (now - lastLog) > this.LOG_THROTTLE_MS * 3) {
+            console.error(`[SERF WORK] ${factionName}: Error processing resource at index ${i} for ${building.type}:`, error);
+            this.logThrottle[throttleKey] = now;
+          }
           continue;
+        }
+      }
+      
+      // Log final available spots count for cave mines (throttled)
+      if (building.type === 'mine' && building.cave && availableSpots.length === 0) {
+        // Only log when there are no spots (this is a problem)
+        const now = Date.now();
+        const throttleKey = `caveMineNoSpots-${building.id}`;
+        const lastLog = this.logThrottle[throttleKey];
+        if (!lastLog || (now - lastLog) > this.LOG_THROTTLE_MS * 2) {
+          console.warn(`[SERF WORK] ${factionName}: Cave mine available spots after processing: ${availableSpots.length} out of ${building.resources.length} resources`);
+          this.logThrottle[throttleKey] = now;
         }
       }
 
       if (availableSpots.length === 0) {
+        // Log why no spots available (throttled)
+        const factionName = building.owner && global.House && global.House.list 
+          ? (global.House.list[building.owner]?.name || 'Unknown')
+          : 'Unknown';
+        const now = Date.now();
+        const throttleKey = `noAvailableSpots-${building.id}`;
+        const lastLog = this.logThrottle[throttleKey];
+        if (!lastLog || (now - lastLog) > this.LOG_THROTTLE_MS * 2) {
+          const hasIsSpotAvailable = building.isSpotAvailable && typeof building.isSpotAvailable === 'function';
+          console.warn(`[SERF WORK] ${factionName}: No available spots for ${building.type} at [${building.x}, ${building.y}] - resources: ${building.resources.length}, isSpotAvailable: ${hasIsSpotAvailable}, cave: ${building.cave ? 'yes' : 'no'}`);
+          this.logThrottle[throttleKey] = now;
+        }
         return null;
       }
 
@@ -493,8 +679,13 @@ class SimpleSerfBehavior {
 
       if (!loc || !Array.isArray(loc) || loc.length !== 2) return;
 
-      // Check if at work spot
-      if (spot && Array.isArray(spot) && spot.length === 2 && loc.toString() === spot.toString()) {
+      // Determine expected z-level for work spot
+      const expectedZ = (building.type === 'mine' && building.cave) ? -1 : 0;
+      const atCorrectZ = serf.z === expectedZ;
+      const atCorrectXY = spot && Array.isArray(spot) && spot.length === 2 && loc.toString() === spot.toString();
+
+      // Check if at work spot (both x,y AND z-level must match)
+      if (atCorrectXY && atCorrectZ) {
         // At spot - start work based on building type
         switch (building.type) {
           case 'mill':
@@ -513,7 +704,20 @@ class SimpleSerfBehavior {
             break;
         }
       } else if (!serf.path || serf.path.length === 0) {
-        // Path to work spot
+        // Not at spot or wrong z-level - path to work spot
+        if (atCorrectXY && !atCorrectZ) {
+          // At correct x,y but wrong z-level - log for debugging (heavily throttled)
+          const now = Date.now();
+          const throttleKey = `wrongZLevel-${serf.id}`;
+          const lastLog = this.logThrottle[throttleKey];
+          if (!lastLog || (now - lastLog) > this.LOG_THROTTLE_MS * 5) {
+            const factionName = building.owner && global.House && global.House.list 
+              ? (global.House.list[building.owner]?.name || 'Unknown')
+              : 'Unknown';
+            console.log(`[SERF WORK] ${factionName}: Serf at work spot x,y but wrong z-level (serf.z=${serf.z}, expected=${expectedZ}) - pathfinding to correct z-level`);
+            this.logThrottle[throttleKey] = now;
+          }
+        }
         if (typeof serf.moveTo === 'function') {
           const targetZ = (building.type === 'mine' && building.cave) ? -1 : 0;
           serf.moveTo(targetZ, spot[0], spot[1]);
@@ -601,10 +805,14 @@ class SimpleSerfBehavior {
             }
 
             if (count === 9) {
-              // All tiles ready
+              // All tiles ready - transition from barren (8) to growing (9)
               for (const i in f.plot) {
                 const p = f.plot[i];
                 global.tileChange(0, p[0], p[1], 9);
+              }
+              // Re-add all tiles to work spots (now all are type 9)
+              if (hq.updateFarmResources) {
+                hq.updateFarmResources();
               }
             } else {
               const res = global.getTile(6, spot[0], spot[1]);
@@ -635,11 +843,15 @@ class SimpleSerfBehavior {
             }
 
             if (count === 9) {
-              // All tiles ready
+              // All tiles ready - transition from growing (9) to grain (10)
               for (const i in f.plot) {
                 const p = f.plot[i];
                 global.tileChange(0, p[0], p[1], 10);
                 global.tileChange(6, p[0], p[1], 10);
+              }
+              // Re-add all tiles to work spots (now all are type 10)
+              if (hq.updateFarmResources) {
+                hq.updateFarmResources();
               }
             } else {
               const res = global.getTile(6, spot[0], spot[1]);
@@ -674,10 +886,17 @@ class SimpleSerfBehavior {
               }
 
               if (count === 9) {
-                for (const i in f.plot) {
-                  const p = f.plot[i];
-                  if (p.toString() !== spot.toString()) {
-                    hq.resources.push(p);
+                // All tiles depleted - transition from grain (10) to barren (8)
+                // Re-add all tiles to work spots (now all are type 8)
+                if (hq.updateFarmResources) {
+                  hq.updateFarmResources();
+                } else {
+                  // Fallback: manually add all tiles (excluding current spot)
+                  for (const i in f.plot) {
+                    const p = f.plot[i];
+                    if (p.toString() !== spot.toString()) {
+                      hq.resources.push(p);
+                    }
                   }
                 }
               } else {
@@ -1077,13 +1296,52 @@ class SimpleSerfBehavior {
         serfWage = amount - buildingShare;
       }
 
+      // Enhanced logging for stone/ironore deposits (throttled)
+      const isStoneOrIronore = resourceType === 'stone' || resourceType === 'ironore';
+      const house = building.house && global.House && global.House.list ? global.House.list[building.house] : null;
+      const houseName = house ? house.name : 'Unknown';
+      
+      // Diagnostic logging for stone deposits at cave-classified mines
+      if (resourceType === 'stone' && building.type === 'mine' && building.cave) {
+        const now = Date.now();
+        const throttleKey = `stoneDepositCaveMine-${building.id}`;
+        const lastLog = this.logThrottle[throttleKey];
+        if (!lastLog || (now - lastLog) > this.LOG_THROTTLE_MS * 5) {
+          console.log(`[MINE DEPOSIT DIAGNOSTIC] ${houseName}: Attempting stone deposit at cave-classified mine [${Math.floor(building.x)}, ${Math.floor(building.y)}] - amount: ${amount}, building.cave: yes`);
+          this.logThrottle[throttleKey] = now;
+        }
+      }
+      
+      // Only log depositResource calls occasionally (throttled)
+      if (isStoneOrIronore) {
+        const now = Date.now();
+        const throttleKey = `depositResource-${building.id}-${resourceType}`;
+        const lastLog = this.logThrottle[throttleKey];
+        if (!lastLog || (now - lastLog) > this.LOG_THROTTLE_MS) {
+          // Only log occasionally, not every call
+          this.logThrottle[throttleKey] = now;
+        }
+      }
+
       // Deposit to building's house
       let deposited = false;
       if (building.house && global.House && global.House.list && global.House.list[building.house]) {
         const house = global.House.list[building.house];
         if (house && house.stores) {
-          house.stores[resourceType] = (house.stores[resourceType] || 0) + buildingShare;
+          const beforeAmount = house.stores[resourceType] || 0;
+          house.stores[resourceType] = beforeAmount + buildingShare;
           deposited = true;
+          
+          // Only log actual deposits occasionally (throttled, but successful deposits are important)
+          if (isStoneOrIronore && buildingShare > 0) {
+            const now = Date.now();
+            const throttleKey = `depositSuccess-${building.id}-${resourceType}`;
+            const lastLog = this.logThrottle[throttleKey];
+            if (!lastLog || (now - lastLog) > this.LOG_THROTTLE_MS) {
+              console.log(`[SERF DEPOSIT DEBUG] ${houseName}: Deposited ${buildingShare} ${resourceType} to house stores (${beforeAmount} -> ${house.stores[resourceType]})`);
+              this.logThrottle[throttleKey] = now;
+            }
+          }
 
           // Create deposit event
           if (global.eventManager && typeof global.eventManager.createEvent === 'function' && buildingShare > 0) {
@@ -1188,7 +1446,45 @@ class SimpleSerfBehavior {
         return false;
       }
 
-      return serf.z === 0 && loc.toString() === dropoff.toString();
+      // Check if serf is at the building's z-level (not hardcoded to 0)
+      // This fixes stone mine deposits - serfs must be at building.z, not necessarily z=0
+      const buildingZ = (building && typeof building.z === 'number') ? building.z : 0;
+      const atCorrectZ = serf.z === buildingZ;
+      const atCorrectXY = loc.toString() === dropoff.toString();
+      
+      // Enhanced logging for cave mines when not at dropoff
+      if (building.type === 'mine' && building.cave && !atCorrectZ) {
+        const house = building.owner && global.House && global.House.list 
+          ? global.House.list[building.owner] : null;
+        const houseName = house ? house.name : 'Unknown';
+        const now = Date.now();
+        const throttleKey = `isAtDropoffZ-${serf.id}`;
+        const lastLog = this.logThrottle[throttleKey];
+        if (!lastLog || (now - lastLog) > this.LOG_THROTTLE_MS * 2) {
+          console.log(`[SERF DEPOSIT DEBUG] ${houseName}: Cave mine serf not at dropoff z-level - serf.z=${serf.z}, building.z=${buildingZ}, atXY=${atCorrectXY}`);
+          this.logThrottle[throttleKey] = now;
+        }
+      }
+      
+      // Diagnostic logging for stone deposits at cave-classified mines
+      // This helps detect if stone deposits are failing due to misclassification
+      if (building.type === 'mine' && building.cave && atCorrectZ && atCorrectXY) {
+        const house = building.owner && global.House && global.House.list 
+          ? global.House.list[building.owner] : null;
+        const houseName = house ? house.name : 'Unknown';
+        const serfHasStone = serf.inventory && serf.inventory.stone && serf.inventory.stone > 0;
+        if (serfHasStone) {
+          const now = Date.now();
+          const throttleKey = `stoneDepositAtCaveMine-${building.id}`;
+          const lastLog = this.logThrottle[throttleKey];
+          if (!lastLog || (now - lastLog) > this.LOG_THROTTLE_MS * 5) {
+            console.log(`[MINE DEPOSIT DIAGNOSTIC] ${houseName}: Stone deposit attempt at cave-classified mine [${Math.floor(building.x)}, ${Math.floor(building.y)}] - serf has stone: ${serf.inventory.stone}, building.cave: ${building.cave ? 'yes' : 'no'}`);
+            this.logThrottle[throttleKey] = now;
+          }
+        }
+      }
+      
+      return atCorrectZ && atCorrectXY;
     } catch (error) {
       return false;
     }

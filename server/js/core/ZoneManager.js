@@ -93,7 +93,7 @@ class ZoneManager {
     });
   }
 
-  // Get zone at specific tile coordinates
+  // Get zone at specific tile coordinates (returns single zone, prioritized)
   getZoneAt(tile) {
     const key = `${tile[0]},${tile[1]}`;
     const zoneIds = this.tileIndex.get(key) || [];
@@ -113,6 +113,12 @@ class ZoneManager {
     
     // Return first geographic feature
     return this.zones.get(zoneIds[0]);
+  }
+  
+  // Get all zones at specific tile coordinates (returns array of zone IDs)
+  getZonesAt(tile) {
+    const key = `${tile[0]},${tile[1]}`;
+    return this.tileIndex.get(key) || [];
   }
 
   // Check if player entered a new zone

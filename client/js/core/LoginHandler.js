@@ -73,13 +73,18 @@ class LoginHandler {
       this.signDivSpectate.onclick = () => {
         // Get socket dynamically from window (may be initialized after LoginHandler creation)
         var socket = (typeof window !== 'undefined' && window.socket) || this.socket;
-        if (socket && this.signDivUsername && this.signDivPassword) {
+        if (socket) {
+          // Get values, default to empty string if not filled
+          // This allows guest spectating when fields are blank
+          const name = (this.signDivUsername && this.signDivUsername.value) || '';
+          const pass = (this.signDivPassword && this.signDivPassword.value) || '';
+          
           socket.send(JSON.stringify({
             msg: 'spectate',
-            name: this.signDivUsername.value,
-            pass: this.signDivPassword.value
+            name: name,
+            pass: pass
           }));
-        } else if (!socket) {
+        } else {
           console.warn('Cannot spectate: socket not initialized yet. Please wait for assets to load.');
         }
       };

@@ -89,7 +89,7 @@ class FactionAILogger {
     const militaryUnits = this.house.ai.getMilitaryUnits ? this.house.ai.getMilitaryUnits() : [];
     return {
       unitCount: militaryUnits.length,
-      scoutingParties: this.house.ai.militaryManager?.activeScoutingParties?.length || 0,
+      scoutingParties: this.house.ai.militaryManager?.scoutingParties?.length || 0,
       attackForces: this.house.ai.militaryManager?.activeAttackForces?.length || 0
     };
   }
@@ -268,7 +268,15 @@ class FactionAILogger {
       decisions: [],
       actions: [],
       errors: [],
-      info: []
+      info: [],
+      scoutingStats: {
+        deployments: 0,
+        completions: 0,
+        failures: 0,
+        conflictZones: 0,
+        zonesCleared: 0,
+        contestedBanners: 0
+      }
     };
     this.reportStarted = true;
   }
@@ -412,6 +420,20 @@ class FactionAILogger {
     lines.push(`  Military: units: ${military.unitCount || 0}, scouting: ${military.scoutingParties || 0}, attacks: ${military.attackForces || 0}`);
     lines.push('');
     
+    // Scouting Activity
+    const scouting = data.scoutingStats || {};
+    if (scouting.deployments > 0 || scouting.completions > 0 || scouting.failures > 0 || 
+        scouting.conflictZones > 0 || scouting.zonesCleared > 0 || scouting.contestedBanners > 0) {
+      lines.push('SCOUTING ACTIVITY:');
+      lines.push(`  Parties Deployed: ${scouting.deployments || 0}`);
+      lines.push(`  Missions Completed: ${scouting.completions || 0}`);
+      lines.push(`  Missions Failed: ${scouting.failures || 0}${scouting.failures > 0 ? ' (combat encounters)' : ''}`);
+      lines.push(`  Zones Cleared: ${scouting.zonesCleared || 0}`);
+      lines.push(`  Conflict Zones Discovered: ${scouting.conflictZones || 0}`);
+      lines.push(`  Contested Banners Placed: ${scouting.contestedBanners || 0}`);
+      lines.push('');
+    }
+    
     // Goal Chain
     if (data.goalChain) {
       lines.push('GOAL CHAIN:');
@@ -505,6 +527,46 @@ class FactionAILogger {
   clearReport() {
     this.reportData = null;
     this.reportStarted = false;
+  }
+  
+  // ============================================================================
+  // SCOUTING STATISTICS TRACKING
+  // ============================================================================
+  
+  // Record scouting party deployment
+  recordScoutingDeployment() {
+    if (!this.enabled || !this.reportStarted || !this.reportData) return;
+    this.reportData.scoutingStats.deployments++;
+  }
+  
+  // Record scouting mission completion
+  recordScoutingCompletion() {
+    if (!this.enabled || !this.reportStarted || !this.reportData) return;
+    this.reportData.scoutingStats.completions++;
+  }
+  
+  // Record scouting mission failure
+  recordScoutingFailure() {
+    if (!this.enabled || !this.reportStarted || !this.reportData) return;
+    this.reportData.scoutingStats.failures++;
+  }
+  
+  // Record conflict zone discovery
+  recordConflictZone() {
+    if (!this.enabled || !this.reportStarted || !this.reportData) return;
+    this.reportData.scoutingStats.conflictZones++;
+  }
+  
+  // Record zone cleared for expansion
+  recordZoneCleared() {
+    if (!this.enabled || !this.reportStarted || !this.reportData) return;
+    this.reportData.scoutingStats.zonesCleared++;
+  }
+  
+  // Record contested banner placement
+  recordContestedBanner() {
+    if (!this.enabled || !this.reportStarted || !this.reportData) return;
+    this.reportData.scoutingStats.contestedBanners++;
   }
 }
 

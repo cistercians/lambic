@@ -26,6 +26,11 @@ class NorsemenStrategy extends FactionStrategy {
     // No expansion - temporary faction
     return [];
   }
+  
+  evaluateResourceScoutingGoals() {
+    // Non-resource-gathering faction - no scouting goals
+    return [];
+  }
 }
 
 module.exports = NorsemenStrategy;

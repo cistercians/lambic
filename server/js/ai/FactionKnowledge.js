@@ -1,16 +1,24 @@
 // Faction Knowledge Database
 // Tracks what each faction knows about the world (fog of war for AI)
 
+const { RESOURCE_THRESHOLDS } = require('./AIConstants');
+
 class FactionKnowledge {
   constructor(house) {
     this.house = house;
     this.exploredTiles = new Set(); // Tiles we've seen (stored as "x,y" strings)
     this.knownResources = new Map(); // Resource locations we've discovered
     this.knownEnemies = new Map(); // Enemy units/bases we've seen
+    this.conflictZones = new Map(); // Conflict zones where scouting parties were attacked (stored as "x,y" -> conflict info)
     this.lastUpdated = new Map(); // When we last saw each location
+    this.knownZones = new Set(); // Zone IDs that intersect HQ/base radius (don't require scouting)
+    this.zoneResourceInfo = new Map(); // Zone ID -> resource information from getZoneResourceTypes()
     
     // Perform initial territory scan on construction
     this.performInitialTerritoryScan();
+    
+    // Scan for known zones (zones intersecting HQ/base radius)
+    this.scanKnownZones();
   }
   
   // Scan immediate area around HQ for initial knowledge
@@ -276,12 +284,12 @@ class FactionKnowledge {
 
   // Helper: Get required amount of resource for current goals
   getRequiredAmount(resourceType) {
-    // This would ideally check current goals, but for now use simple thresholds
+    // This would ideally check current goals, but for now use simple thresholds from constants
     const thresholds = {
-      stone: 50,
-      wood: 100,
-      grain: 30,
-      iron: 20
+      stone: RESOURCE_THRESHOLDS.STONE_SCARCE,
+      wood: RESOURCE_THRESHOLDS.WOOD_NEEDED * 2, // Wood needed * 2 for threshold
+      grain: RESOURCE_THRESHOLDS.GRAIN_NEEDED - 20, // Slightly less than grain needed
+      iron: 20 // Iron threshold not in constants, keeping original value
     };
     return thresholds[resourceType] || 0;
   }
@@ -326,6 +334,85 @@ class FactionKnowledge {
     const dx = point1[0] - point2[0];
     const dy = point1[1] - point2[1];
     return Math.sqrt(dx * dx + dy * dy);
+  }
+  
+  // Report a conflict zone (where scouting party was attacked by enemy faction)
+  reportConflictZone(location, enemyHouseId, enemyHouseName) {
+    const locationKey = `${location[0]},${location[1]}`;
+    this.conflictZones.set(locationKey, {
+      location: location,
+      enemyHouseId: enemyHouseId,
+      enemyHouseName: enemyHouseName || 'Unknown',
+      reportedAt: Date.now(),
+      reportedDay: global.day || 1
+    });
+  }
+  
+  // Get all conflict zones
+  getConflictZones() {
+    return Array.from(this.conflictZones.values());
+  }
+  
+  // Check if a location is a known conflict zone
+  isConflictZone(location) {
+    const locationKey = `${location[0]},${location[1]}`;
+    return this.conflictZones.has(locationKey);
+  }
+  
+  // Scan for zones that intersect HQ/base radius and mark them as known
+  scanKnownZones() {
+    if (!global.zoneManager) return;
+    
+    const hq = this.house.hq;
+    if (!hq) return;
+    
+    // Get base radius (use TerritoryManager if available, otherwise use house.baseRadius)
+    let baseRadius = 10; // Default radius in tiles
+    if (this.house.ai && this.house.ai.territory) {
+      this.house.ai.territory.updateTerritory();
+      const coreBase = this.house.ai.territory.coreBase;
+      if (coreBase && coreBase.radius) {
+        baseRadius = coreBase.radius;
+      }
+    } else if (this.house.baseRadius) {
+      // baseRadius is in pixels, convert to tiles (assuming tileSize = 64)
+      const tileSize = global.tileSize || 64;
+      baseRadius = Math.ceil(this.house.baseRadius / tileSize);
+    }
+    
+    // Get all zones near HQ within base radius
+    const nearbyZones = global.zoneManager.getZonesNear(hq, baseRadius);
+    
+    for (const zone of nearbyZones) {
+      if (!zone || !zone.id) continue;
+      
+      // Mark zone as known
+      this.knownZones.add(zone.id);
+      
+      // Store zone resource information
+      if (global.zoneManager.getZoneResourceTypes) {
+        const resources = global.zoneManager.getZoneResourceTypes(zone);
+        this.zoneResourceInfo.set(zone.id, resources);
+      }
+    }
+  }
+  
+  // Check if a zone is known (intersects base radius, no scouting needed)
+  isZoneKnown(zoneId) {
+    return this.knownZones.has(zoneId);
+  }
+  
+  // Get resource information for a known zone
+  getZoneResources(zoneId) {
+    return this.zoneResourceInfo.get(zoneId) || null;
+  }
+  
+  // Update known zones (call when territory expands)
+  updateKnownZones() {
+    // Clear and rescan
+    this.knownZones.clear();
+    this.zoneResourceInfo.clear();
+    this.scanKnownZones();
   }
 }
 

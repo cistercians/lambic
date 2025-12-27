@@ -8,7 +8,7 @@ class MilitaryManager {
   constructor(house, factionAI) {
     this.house = house;
     this.factionAI = factionAI;
-    this.activeScoutingParties = [];
+    this.scoutingParties = []; // Active scouting parties
     this.activeAttackForces = [];
   }
   
@@ -39,12 +39,17 @@ class MilitaryManager {
     );
     const reasoning = mountedUnits.length > 0 ? 'Selected mounted leader (preferred)' : 'No mounted units available, selected any military unit';
     
+    // Remove any existing flags before adding new one (prevent stacking)
+    if (leader.name && leader.name.includes('🚩')) {
+      leader.name = leader.name.replace(/🚩\s*/g, '').trim();
+    }
+    
     // Mark leader with banner emoji
     leader.name = `🚩 ${leader.name}`;
     
     // Create party (works with 0-2 backups)
     const party = new ScoutingParty(leader, backups, targetZone, resourceType);
-    this.activeScoutingParties.push(party);
+    this.scoutingParties.push(party);
     
     // Assign behaviors
     leader.scoutingParty = party;
@@ -53,12 +58,16 @@ class MilitaryManager {
       unit.scoutingParty = party;
     });
     
+    // Assign mission orders to units
+    party.assignMissionOrders();
+    
     if (logger) {
       logger.collectAction('Deploying scouting party', {
         reasoning: `${totalUnits} units (${reasoning})`
       });
     }
     
+    // Note: ScoutingParty constructor logs deployment details
     return party;
   }
   
@@ -118,13 +127,13 @@ class MilitaryManager {
   
   // Update all active scouting parties
   updateScoutingParties() {
-    for (let i = this.activeScoutingParties.length - 1; i >= 0; i--) {
-      const party = this.activeScoutingParties[i];
+    for (let i = this.scoutingParties.length - 1; i >= 0; i--) {
+      const party = this.scoutingParties[i];
       party.update();
       
-      // Remove completed parties
+      // Remove completed parties (they clean themselves up)
       if (party.status === 'completed' || party.status === 'failed') {
-        this.activeScoutingParties.splice(i, 1);
+        this.scoutingParties.splice(i, 1);
       }
     }
   }

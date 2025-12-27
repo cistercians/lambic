@@ -88,7 +88,7 @@ class Goal {
 class BuildMillGoal extends Goal {
   constructor() {
     super('BUILD_MILL', 45);
-    this.resourceCost = { wood: 40, stone: 20 };
+    this.resourceCost = { wood: 60 };
     this.buildingRequirements = [];
   }
   
@@ -111,7 +111,12 @@ class BuildMillGoal extends Goal {
     }
     
     // Then check if location is available
-    return this.canPlace(house);
+    if (!this.canPlace(house)) {
+      this.blockedBy.push({ type: 'LOCATION', value: 'no valid mill location found' });
+      return false;
+    }
+    
+    return true;
   }
   
   execute(house) {
@@ -127,13 +132,11 @@ class BuildMillGoal extends Goal {
     
     if (millId) {
       // Deduct resources
-      if (house.stores.wood < this.resourceCost.wood || house.stores.stone < this.resourceCost.stone) {
+      if (house.stores.wood < this.resourceCost.wood) {
         const haveWood = house.stores.wood || 0;
-        const haveStone = house.stores.stone || 0;
-        throw new Error(`Insufficient resources to build mill: need ${this.resourceCost.wood} wood (have ${haveWood}), need ${this.resourceCost.stone} stone (have ${haveStone}). Build resource gathering buildings or wait for serfs to gather.`);
+        throw new Error(`Insufficient resources to build mill: need ${this.resourceCost.wood} wood (have ${haveWood}). Build resource gathering buildings or wait for serfs to gather.`);
       }
       house.stores.wood -= this.resourceCost.wood;
-      house.stores.stone -= this.resourceCost.stone;
       this.status = 'COMPLETED';
       
       if (logger) {
@@ -160,7 +163,7 @@ class BuildMillGoal extends Goal {
 class BuildFarmGoal extends Goal {
   constructor() {
     super('BUILD_FARM', 40);
-    this.resourceCost = { wood: 20 };
+    this.resourceCost = {};
     this.buildingRequirements = ['mill']; // Need mill to process grain
   }
   
@@ -183,7 +186,12 @@ class BuildFarmGoal extends Goal {
     }
     
     // Then check if location is available
-    return this.canPlace(house);
+    if (!this.canPlace(house)) {
+      this.blockedBy.push({ type: 'LOCATION', value: 'no valid farm location found near mill' });
+      return false;
+    }
+    
+    return true;
   }
   
   execute(house) {
@@ -197,16 +205,12 @@ class BuildFarmGoal extends Goal {
     const farmId = constructor.buildFarm(this.location);
     
     if (farmId) {
-      if (house.stores.wood < this.resourceCost.wood) {
-        const haveWood = house.stores.wood || 0;
-        throw new Error(`Insufficient resources to build farm: need ${this.resourceCost.wood} wood (have ${haveWood}). Build lumbermill or wait for serfs to gather wood.`);
-      }
-      house.stores.wood -= this.resourceCost.wood;
+      // Farm has no resource cost
       this.status = 'COMPLETED';
       
       if (logger) {
         logger.collectAction('Built farm', {
-          reasoning: `Cost: ${this.resourceCost.wood} wood`,
+          reasoning: `Cost: No cost`,
           buildingType: 'farm',
           status: 'COMPLETED'
         });
@@ -230,7 +234,7 @@ class BuildFarmGoal extends Goal {
 class BuildMineGoal extends Goal {
   constructor(location = null, mineType = 'any') {
     super('BUILD_MINE', 45);
-    this.resourceCost = { wood: 30, stone: 20 };
+    this.resourceCost = { wood: 60 };
     this.buildingRequirements = [];
     this.location = location;
     this.mineType = mineType; // 'stone', 'cave', or 'any'
@@ -255,7 +259,13 @@ class BuildMineGoal extends Goal {
     }
     
     // Then check if location is available
-    return this.canPlace(house);
+    if (!this.canPlace(house)) {
+      const mineTypeDesc = this.mineType === 'stone' ? 'stone mine' : this.mineType === 'cave' ? 'cave mine' : 'mine';
+      this.blockedBy.push({ type: 'LOCATION', value: `no valid ${mineTypeDesc} location found` });
+      return false;
+    }
+    
+    return true;
   }
   
   execute(house) {
@@ -269,18 +279,16 @@ class BuildMineGoal extends Goal {
     const mineId = constructor.buildMine(this.location, this.mineType);
     
     if (mineId) {
-      if (house.stores.wood < this.resourceCost.wood || house.stores.stone < this.resourceCost.stone) {
+      if (house.stores.wood < this.resourceCost.wood) {
         const haveWood = house.stores.wood || 0;
-        const haveStone = house.stores.stone || 0;
-        throw new Error(`Insufficient resources to build mine: need ${this.resourceCost.wood} wood (have ${haveWood}), need ${this.resourceCost.stone} stone (have ${haveStone}). Build resource gathering buildings or wait for serfs to gather.`);
+        throw new Error(`Insufficient resources to build mine: need ${this.resourceCost.wood} wood (have ${haveWood}). Build resource gathering buildings or wait for serfs to gather.`);
       }
       house.stores.wood -= this.resourceCost.wood;
-      house.stores.stone -= this.resourceCost.stone;
       this.status = 'COMPLETED';
       
       if (logger) {
         logger.logAction('Built mine', {
-          reasoning: `Cost: ${this.resourceCost.wood} wood, ${this.resourceCost.stone} stone`
+          reasoning: `Cost: ${this.resourceCost.wood} wood`
         });
       }
     } else {
@@ -299,7 +307,7 @@ class BuildMineGoal extends Goal {
 class BuildLumbermillGoal extends Goal {
   constructor(location = null) {
     super('BUILD_LUMBERMILL', 40);
-    this.resourceCost = { wood: 35, stone: 15 };
+    this.resourceCost = { wood: 75 };
     this.buildingRequirements = [];
     this.location = location;
   }
@@ -323,7 +331,12 @@ class BuildLumbermillGoal extends Goal {
     }
     
     // Then check if location is available
-    return this.canPlace(house);
+    if (!this.canPlace(house)) {
+      this.blockedBy.push({ type: 'LOCATION', value: 'no valid lumbermill location found near forest' });
+      return false;
+    }
+    
+    return true;
   }
   
   execute(house) {
@@ -336,13 +349,11 @@ class BuildLumbermillGoal extends Goal {
     const lumbermillId = constructor.buildLumbermill(this.location);
     
     if (lumbermillId) {
-      if (house.stores.wood < this.resourceCost.wood || house.stores.stone < this.resourceCost.stone) {
+      if (house.stores.wood < this.resourceCost.wood) {
         const haveWood = house.stores.wood || 0;
-        const haveStone = house.stores.stone || 0;
-        throw new Error(`Insufficient resources to build lumbermill: need ${this.resourceCost.wood} wood (have ${haveWood}), need ${this.resourceCost.stone} stone (have ${haveStone}). Build resource gathering buildings or wait for serfs to gather.`);
+        throw new Error(`Insufficient resources to build lumbermill: need ${this.resourceCost.wood} wood (have ${haveWood}). Build resource gathering buildings or wait for serfs to gather.`);
       }
       house.stores.wood -= this.resourceCost.wood;
-      house.stores.stone -= this.resourceCost.stone;
       this.status = 'COMPLETED';
     } else {
       this.status = 'FAILED';
@@ -354,7 +365,7 @@ class BuildLumbermillGoal extends Goal {
 class BuildForgeGoal extends Goal {
   constructor() {
     super('BUILD_FORGE', 40);
-    this.resourceCost = { wood: 50, stone: 100 };
+    this.resourceCost = { wood: 50 };
     this.buildingRequirements = []; // No prerequisites for forge
   }
   
@@ -377,7 +388,12 @@ class BuildForgeGoal extends Goal {
     }
     
     // Then check if location is available
-    return this.canPlace(house);
+    if (!this.canPlace(house)) {
+      this.blockedBy.push({ type: 'LOCATION', value: 'no valid forge location found' });
+      return false;
+    }
+    
+    return true;
   }
   
   execute(house) {
@@ -390,13 +406,11 @@ class BuildForgeGoal extends Goal {
     const forgeId = constructor.buildForge(this.location);
     
     if (forgeId) {
-      if (house.stores.wood < this.resourceCost.wood || house.stores.stone < this.resourceCost.stone) {
+      if (house.stores.wood < this.resourceCost.wood) {
         const haveWood = house.stores.wood || 0;
-        const haveStone = house.stores.stone || 0;
-        throw new Error(`Insufficient resources to build forge: need ${this.resourceCost.wood} wood (have ${haveWood}), need ${this.resourceCost.stone} stone (have ${haveStone}). Build lumbermill and mine or wait for serfs to gather.`);
+        throw new Error(`Insufficient resources to build forge: need ${this.resourceCost.wood} wood (have ${haveWood}). Build lumbermill or wait for serfs to gather.`);
       }
       house.stores.wood -= this.resourceCost.wood;
-      house.stores.stone -= this.resourceCost.stone;
       this.status = 'COMPLETED';
     } else {
       this.status = 'FAILED';
@@ -408,7 +422,7 @@ class BuildForgeGoal extends Goal {
 class BuildGarrisonGoal extends Goal {
   constructor() {
     super('BUILD_GARRISON', 50);
-    this.resourceCost = { wood: 50, stone: 30 };
+    this.resourceCost = { stone: 100 };
     this.buildingRequirements = ['forge']; // Need forge to craft military equipment
   }
   
@@ -431,7 +445,12 @@ class BuildGarrisonGoal extends Goal {
     }
     
     // Then check if location is available
-    return this.canPlace(house);
+    if (!this.canPlace(house)) {
+      this.blockedBy.push({ type: 'LOCATION', value: 'no valid garrison location found' });
+      return false;
+    }
+    
+    return true;
   }
   
   execute(house) {
@@ -444,17 +463,78 @@ class BuildGarrisonGoal extends Goal {
     const garrisonId = constructor.buildGarrison(this.location);
     
     if (garrisonId) {
-      if (house.stores.wood < this.resourceCost.wood || house.stores.stone < this.resourceCost.stone) {
-        const haveWood = house.stores.wood || 0;
+      if (house.stores.stone < this.resourceCost.stone) {
         const haveStone = house.stores.stone || 0;
-        throw new Error(`Insufficient resources to build garrison: need ${this.resourceCost.wood} wood (have ${haveWood}), need ${this.resourceCost.stone} stone (have ${haveStone}). Requires forge first - build forge and gather resources.`);
+        throw new Error(`Insufficient resources to build garrison: need ${this.resourceCost.stone} stone (have ${haveStone}). Requires forge first - build forge and gather resources.`);
       }
-      house.stores.wood -= this.resourceCost.wood;
       house.stores.stone -= this.resourceCost.stone;
       this.status = 'COMPLETED';
     } else {
       this.status = 'FAILED';
       throw new Error('Failed to find suitable location for garrison - no valid placement found within search radius. Requires forge first - ensure forge is built, then try expanding territory.');
+    }
+  }
+}
+
+class BuildGuardtowerGoal extends Goal {
+  constructor(targetLocation) {
+    super('BUILD_GUARDTOWER', 60);
+    this.resourceCost = { stone: 120 }; // From BuildingPreview.js
+    this.buildingRequirements = []; // No building requirements
+    this.targetLocation = targetLocation; // [col, row] tile coordinates for outpost location
+  }
+  
+  // Check if guardtower can be placed at target location
+  canPlace(house) {
+    const constructor = getBuildingConstructor(house);
+    if (!constructor) {
+      return false;
+    }
+    
+    // Use BuildingConstructor's validation method
+    return constructor.canPlaceGuardtower(this.targetLocation);
+  }
+  
+  // Override canExecute to also check location
+  canExecute(house) {
+    // First check standard requirements (resources)
+    if (!super.canExecute(house)) {
+      return false;
+    }
+    
+    // Then check if location is available
+    if (!this.targetLocation) {
+      this.blockedBy.push({ type: 'LOCATION', value: 'no target location specified' });
+      return false;
+    }
+    
+    if (!this.canPlace(house)) {
+      this.blockedBy.push({ type: 'LOCATION', value: 'no valid guardtower location found at outpost' });
+      return false;
+    }
+    
+    return true;
+  }
+  
+  execute(house) {
+    const constructor = getBuildingConstructor(house);
+    
+    if (!constructor) {
+      throw new Error('BuildingConstructor not available');
+    }
+    
+    const guardtowerId = constructor.buildGuardtower(this.targetLocation);
+    
+    if (guardtowerId) {
+      if (house.stores.stone < this.resourceCost.stone) {
+        const haveStone = house.stores.stone || 0;
+        throw new Error(`Insufficient resources to build guardtower: need ${this.resourceCost.stone} stone (have ${haveStone})`);
+      }
+      house.stores.stone -= this.resourceCost.stone;
+      this.status = 'COMPLETED';
+    } else {
+      this.status = 'FAILED';
+      throw new Error('Failed to find suitable location for guardtower at outpost location');
     }
   }
 }
@@ -466,6 +546,9 @@ class GatherResourceGoal extends Goal {
     this.targetAmount = amount;
     this.resourceCost = {}; // No cost to gather
     this.buildingRequirements = [];
+    this.lastResourceLevel = null; // Track previous resource level to detect production
+    this.daysWithoutProduction = 0; // Track days without resource increase
+    this.initialResourceLevel = null; // Track initial level when goal created
   }
   
   // Get building type needed for this resource
@@ -550,11 +633,14 @@ class GatherResourceGoal extends Goal {
   }
   
   execute(house) {
-    // Check if we've reached target
     const current = house.stores[this.resource] || 0;
-    if (current >= this.targetAmount) {
-      this.status = 'COMPLETED';
-      return;
+    const factionName = house.name || 'Unknown';
+    
+    // Initialize tracking on first execution
+    if (this.initialResourceLevel === null) {
+      this.initialResourceLevel = current;
+      this.lastResourceLevel = current;
+      console.log(`[GATHER_RESOURCE] ${factionName}: Started gathering ${this.resource} - current: ${current}, target: ${this.targetAmount}`);
     }
     
     // Check if gathering building exists - if not, mark as BLOCKED
@@ -566,11 +652,62 @@ class GatherResourceGoal extends Goal {
         value: buildingType || 'unknown',
         reason: `Need ${buildingType} to gather ${this.resource}`
       }];
+      console.log(`[GATHER_RESOURCE] ${factionName}: Blocked - no ${buildingType} to gather ${this.resource}`);
       return;
     }
     
-    // Building exists - resources will gather over time
-    this.status = 'IN_PROGRESS';
+    // Check if resources are increasing (production is happening)
+    const resourcesIncreased = current > this.lastResourceLevel;
+    if (resourcesIncreased) {
+      // Production is happening - reset days without production
+      this.daysWithoutProduction = 0;
+      const increase = current - this.lastResourceLevel;
+      console.log(`[GATHER_RESOURCE] ${factionName}: Gathering ${this.resource} - current: ${current}, target: ${this.targetAmount}, increased by: ${increase} today`);
+    } else {
+      // No production this day
+      this.daysWithoutProduction++;
+      console.log(`[GATHER_RESOURCE] ${factionName}: Gathering ${this.resource} - current: ${current}, target: ${this.targetAmount}, no increase (${this.daysWithoutProduction} days without production)`);
+      
+      // If no production for 3+ days, mark as BLOCKED (production issue)
+      if (this.daysWithoutProduction >= 3) {
+        this.status = 'BLOCKED';
+        this.blockedBy = [{
+          type: 'PRODUCTION',
+          value: 'no production detected',
+          reason: `No ${this.resource} production for ${this.daysWithoutProduction} days despite having gathering building`
+        }];
+        console.warn(`[GATHER_RESOURCE] ${factionName}: Blocked - no production detected for ${this.daysWithoutProduction} days (current: ${current}, target: ${this.targetAmount})`);
+        return;
+      }
+    }
+    
+    // Update last resource level for next check
+    this.lastResourceLevel = current;
+    
+    // Check if we've reached the target
+    // CRITICAL: Never complete if current < targetAmount (validation check)
+    if (current < this.targetAmount) {
+      // Not at target yet - continue gathering
+      this.status = 'IN_PROGRESS';
+      return;
+    }
+    
+    // At or above target - only complete if resources actually increased during goal execution
+    const increasedSinceStart = current > this.initialResourceLevel;
+    
+    if (increasedSinceStart) {
+      // Resources increased during goal execution - complete
+      this.status = 'COMPLETED';
+      const increase = current - this.initialResourceLevel;
+      console.log(`[GATHER_RESOURCE] ${factionName}: Completed gathering ${this.resource} - reached ${current} (target: ${this.targetAmount}, increased by: ${increase})`);
+      return;
+    } else {
+      // At target but no increase - production isn't working, don't complete
+      // Continue waiting for actual production or will be marked BLOCKED after timeout
+      console.log(`[GATHER_RESOURCE] ${factionName}: At target ${current} but no increase detected (started at ${this.initialResourceLevel}) - waiting for production`);
+      this.status = 'IN_PROGRESS';
+      return; // Don't complete, keep waiting
+    }
   }
   
   canExecute(house) {
@@ -770,6 +907,118 @@ class DeployScoutGoal extends Goal {
   }
 }
 
+class ScoutForResourceGoal extends Goal {
+  constructor(resourceType) {
+    super('SCOUT_FOR_RESOURCE', 60); // Higher utility than general scouting
+    this.resourceCost = {}; // No cost
+    this.buildingRequirements = [];
+    this.resourceType = resourceType; // 'stone', 'wood', 'grain', etc.
+  }
+  
+  canExecute(house) {
+    // Check if resource gap still exists
+    if (!house.ai || !house.ai.knowledge) {
+      return false;
+    }
+    
+    if (!house.ai.knowledge.identifyResourceGap(this.resourceType)) {
+      // Resource gap no longer exists - goal not needed
+      this.blockedBy = [{ type: 'RESOURCE_GAP', value: 'resource gap resolved' }];
+      return false;
+    }
+    
+    // Check if target zone is known (intersects base radius) - if so, skip scouting requirement
+    const targetZone = this.findResourceZone(house);
+    if (targetZone && targetZone.id && house.ai.knowledge.isZoneKnown(targetZone.id)) {
+      // Zone is known - no scouting needed, goal can execute without units
+      return true;
+    }
+    
+    // Zone is unknown - need military units for scouting
+    if (!house.ai.getMilitaryUnits) {
+      return false;
+    }
+    
+    const militaryUnits = house.ai.getMilitaryUnits();
+    if (militaryUnits.length === 0) {
+      this.blockedBy = [{ type: 'UNITS', need: 1, have: 0 }];
+      return false;
+    }
+    
+    return true;
+  }
+  
+  execute(house) {
+    if (!this.canExecute(house)) {
+      this.status = 'BLOCKED';
+      return;
+    }
+    
+    // Check if AI system exists
+    if (!house.ai || !house.ai.deployScoutingParty) {
+      this.status = 'FAILED';
+      return;
+    }
+    
+    // Find target zone with the required resource
+    var targetZone = this.findResourceZone(house);
+    
+    if (!targetZone) {
+      this.status = 'FAILED';
+      return;
+    }
+    
+    // Deploy scouting party with resource type as purpose
+    var party = house.ai.deployScoutingParty(targetZone, this.resourceType);
+    
+    if (party) {
+      this.status = 'COMPLETED';
+    } else {
+      this.status = 'FAILED';
+    }
+  }
+  
+  // Find a zone that likely has the required resource
+  findResourceZone(house) {
+    if (!house.ai || !house.ai.knowledge) {
+      return null;
+    }
+    
+    const hq = house.hq;
+    if (!hq) return null;
+    
+    // Try to find zones with this resource using knowledge system
+    // For now, use a simple approach: search in expanding rings from HQ
+    const searchRadius = [20, 30, 40]; // tiles
+    const mapSize = global.mapSize || 192;
+    
+    for (const radius of searchRadius) {
+      // Check 8 directions (N, NE, E, SE, S, SW, W, NW)
+      for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 4) {
+        const targetCol = Math.floor(hq[0] + Math.cos(angle) * radius);
+        const targetRow = Math.floor(hq[1] + Math.sin(angle) * radius);
+        
+        // Clamp to map bounds
+        const col = Math.max(0, Math.min(mapSize - 1, targetCol));
+        const row = Math.max(0, Math.min(mapSize - 1, targetRow));
+        
+        // Create zone-like object
+        const zone = {
+          center: [col, row],
+          id: `scout_resource_${this.resourceType}_${Date.now()}`,
+          name: `Scout for ${this.resourceType}`,
+          resourceType: this.resourceType
+        };
+        
+        // Basic validation - zone is within reasonable distance
+        return zone;
+      }
+    }
+    
+    return null;
+  }
+}
+
 class DefendTerritoryGoal extends Goal {
   constructor() {
     super('DEFEND_TERRITORY', 80);
@@ -801,17 +1050,62 @@ class EstablishOutpostGoal extends Goal {
   canExecute(house) {
     this.blockedBy = [];
     
-    // Check if we have at least 1 military unit for scouting (prefer 3: 1 leader + 2 backup)
-    const militaryUnits = this.getMilitaryUnits(house);
-    if (militaryUnits.length < 1) {
-      this.blockedBy.push({ type: 'UNITS', need: 1, have: militaryUnits.length });
-      return false;
-    }
-    
     // Check if target zone is still valid
     if (!this.targetZone) {
       this.blockedBy.push({ type: 'ZONE', value: 'target zone not found' });
       return false;
+    }
+    
+    // Check if zone is known (intersects base radius) - if so, skip scouting requirement
+    let isZoneKnown = false;
+    if (house.ai && house.ai.knowledge && this.targetZone.id) {
+      isZoneKnown = house.ai.knowledge.isZoneKnown(this.targetZone.id);
+    }
+    
+    // Check if guardtower exists at outpost location (REQUIRED before establishing outpost)
+    const guardtowerExists = this.checkGuardtowerAtLocation(house);
+    if (!guardtowerExists) {
+      this.blockedBy.push({ type: 'BUILDING', value: 'guardtower', need: 'guardtower at outpost location' });
+      // Guardtower is required - goal cannot execute until it's built
+      return false;
+    }
+    
+    // If zone is not known, we need scouting (military units required)
+    if (!isZoneKnown) {
+      // Check if we have at least 1 military unit for scouting (prefer 3: 1 leader + 2 backup)
+      // Use FactionAI.getMilitaryUnits() for consistency (single source of truth)
+      let militaryUnits = [];
+      if (house.ai && house.ai.getMilitaryUnits) {
+        militaryUnits = house.ai.getMilitaryUnits();
+      } else {
+        // Fallback to local method if AI not available
+        militaryUnits = this.getMilitaryUnits(house);
+      }
+      
+      // Exclude units that are already assigned to scouting parties (they're busy)
+      const availableUnits = militaryUnits.filter(unit => {
+        if (!unit || unit.toRemove) return false;
+        // Exclude if assigned to a scouting party
+        if (unit.scoutingParty) return false;
+        return true;
+      });
+      
+      if (availableUnits.length < 1) {
+        const totalUnits = militaryUnits.length;
+        const busyUnits = totalUnits - availableUnits.length;
+        this.blockedBy.push({ 
+          type: 'UNITS', 
+          need: 1, 
+          have: availableUnits.length,
+          totalUnits: totalUnits,
+          busyUnits: busyUnits
+        });
+        
+        // Log for debugging
+        const factionName = house.name || 'Unknown';
+        console.log(`[ESTABLISH_OUTPOST] ${factionName}: No available military units (total: ${totalUnits}, busy: ${busyUnits}, available: ${availableUnits.length})`);
+        return false;
+      }
     }
     
     // If zone system is available, use it for validation
@@ -852,13 +1146,69 @@ class EstablishOutpostGoal extends Goal {
     return true;
   }
   
+  // Check if guardtower exists at outpost location (within 5 tiles of zone center)
+  checkGuardtowerAtLocation(house) {
+    if (!this.targetZone || !this.targetZone.center) return false;
+    
+    const zoneCenter = this.targetZone.center;
+    const searchRadius = 5; // tiles
+    
+    // Get all guardtowers owned by this house
+    if (!house.ai || !house.ai.buildingService) return false;
+    const buildings = house.ai.buildingService.getBuildings();
+    
+    for (const building of buildings) {
+      if (!building || !building.built || building.type !== 'guardtower') continue;
+      if (building.owner !== house.id) continue;
+      
+      // Check if building is near zone center
+      if (building.plot && building.plot.length > 0) {
+        const buildingTile = building.plot[0]; // First tile of building
+        const distance = Math.sqrt(
+          Math.pow(buildingTile[0] - zoneCenter[0], 2) + 
+          Math.pow(buildingTile[1] - zoneCenter[1], 2)
+        );
+        
+        if (distance <= searchRadius) {
+          return true; // Guardtower found near outpost location
+        }
+      }
+    }
+    
+    return false; // No guardtower found
+  }
+  
   execute(house) {
     if (!this.canExecute(house)) {
       this.status = 'BLOCKED';
       return false;
     }
     
-    // Deploy scouting party
+    // Check if zone is known (intersects base radius) - if so, skip scouting
+    let isZoneKnown = false;
+    if (house.ai && house.ai.knowledge && this.targetZone && this.targetZone.id) {
+      isZoneKnown = house.ai.knowledge.isZoneKnown(this.targetZone.id);
+    }
+    
+    // If zone is known, skip scouting and proceed directly to outpost planning
+    if (isZoneKnown) {
+      // Zone is known - plan outpost directly without scouting
+      const OutpostPlanner = require('./OutpostPlanner');
+      const planner = new OutpostPlanner();
+      this.outpostPlan = planner.planOutpost(this.targetZone, this.resourceType, house);
+      
+      if (!this.outpostPlan) {
+        this.status = 'FAILED';
+        this.blockedBy.push({ type: 'LOCATION', value: 'no suitable outpost location found' });
+        return false;
+      }
+      
+      // Start outpost construction
+      this.startOutpostConstruction(house);
+      return true;
+    }
+    
+    // Zone is unknown - deploy scouting party
     this.scoutingParty = house.ai.deployScoutingParty(this.targetZone, this.resourceType);
     
     if (!this.scoutingParty) {
@@ -968,12 +1318,28 @@ class EstablishOutpostGoal extends Goal {
     }
   }
   
-  // Helper: Get military units
+  // Helper: Get military units (fallback method - prefer using house.ai.getMilitaryUnits())
   getMilitaryUnits(house) {
     const militaryUnits = [];
     
+    // Use FactionAI method if available (single source of truth)
+    if (house.ai && house.ai.getMilitaryUnits) {
+      return house.ai.getMilitaryUnits();
+    }
+    
+    // Fallback implementation
     for (const [id, player] of Object.entries(Player.list)) {
-      if (player.toRemove || !player.house || player.house.id !== house.id) continue;
+      if (player.toRemove) continue;
+      
+      // Check house ownership - handle both house object and house ID
+      const playerHouse = player.house;
+      if (!playerHouse) continue;
+      
+      // Handle both cases: player.house is ID or player.house is object
+      const playerHouseId = typeof playerHouse === 'object' ? playerHouse.id : playerHouse;
+      const houseId = typeof house === 'object' ? house.id : house;
+      
+      if (playerHouseId !== houseId) continue;
       
       // Check if unit is military using the military property
       if (player.military === true) {
@@ -1060,10 +1426,19 @@ function createBuildingGoal(buildingType) {
   switch(buildingType) {
     case 'mill': return new BuildMillGoal();
     case 'farm': return new BuildFarmGoal();
-    case 'mine': return new BuildMineGoal();
+    case 'mine': {
+      // Default to stone mine when created for stone needs
+      // Note: mineType can be overridden by GoalChain when resource needs are known
+      return new BuildMineGoal(null, 'any'); // 'any' will be set to 'stone' or 'cave' by GoalChain based on resource needs
+    }
     case 'lumbermill': return new BuildLumbermillGoal();
     case 'forge': return new BuildForgeGoal();
     case 'garrison': return new BuildGarrisonGoal();
+    case 'guardtower': {
+      // Guardtower requires a target location (for outpost)
+      // If no location provided, return null (should be created with location)
+      return null;
+    }
     default:
       return new Goal('BUILD_UNKNOWN', 0);
   }
@@ -1077,9 +1452,11 @@ module.exports = {
   BuildLumbermillGoal,
   BuildForgeGoal,
   BuildGarrisonGoal,
+  BuildGuardtowerGoal,
   GatherResourceGoal,
   TrainMilitaryGoal,
   DeployScoutGoal,
+  ScoutForResourceGoal,
   DefendTerritoryGoal,
   EstablishOutpostGoal,
   AttackEnemyGoal,

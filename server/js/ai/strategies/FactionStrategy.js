@@ -199,6 +199,41 @@ class FactionStrategy {
     return goals;
   }
   
+  // Evaluate resource scouting goals (check for resource gaps)
+  evaluateResourceScoutingGoals() {
+    const goals = [];
+    const logger = this.getLogger();
+    
+    if (!this.house.ai || !this.house.ai.knowledge) {
+      return goals;
+    }
+    
+    // Check critical resources for gaps
+    const criticalResources = ['stone', 'wood', 'grain'];
+    
+    for (const resourceType of criticalResources) {
+      // Check if resource gap exists
+      if (this.house.ai.knowledge.identifyResourceGap(resourceType)) {
+        const { ScoutForResourceGoal } = require('../Goals');
+        const scoutGoal = new ScoutForResourceGoal(resourceType);
+        const modifiedGoal = this.modifyGoalUtility(scoutGoal);
+        
+        if (logger) {
+          logger.collectDecision('RESOURCE_SCOUTING_GOAL', `Consider SCOUT_FOR_RESOURCE (${resourceType}, utility: ${modifiedGoal.utility})`, {
+            goal: 'SCOUT_FOR_RESOURCE',
+            resourceType: resourceType,
+            utility: modifiedGoal.utility,
+            reasoning: `Resource gap detected for ${resourceType}`
+          });
+        }
+        
+        goals.push(modifiedGoal);
+      }
+    }
+    
+    return goals;
+  }
+  
   evaluateDefenseGoals() {
     const goals = [];
     

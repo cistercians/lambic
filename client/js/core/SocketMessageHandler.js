@@ -19,7 +19,14 @@ var SocketMessageHandler = {
     } else if(data.msg == 'signUpResponse'){
       this.handleSignUpResponse(data);
     } else if(data.msg == 'bgm'){
-      if(typeof getBgm !== 'undefined') {
+      // For spectators, only update ambient sound (not BGM)
+      if(typeof spectateCameraSystem !== 'undefined' && spectateCameraSystem && spectateCameraSystem.isActive) {
+        // Spectator mode - only update ambient sound, skip BGM
+        if(typeof AudioSystem !== 'undefined' && AudioSystem.soundscape) {
+          AudioSystem.soundscape(data.x, data.y, data.z, data.b || {});
+        }
+      } else if(typeof getBgm !== 'undefined') {
+        // Normal player - update both BGM and ambient sound
         getBgm(data.x, data.y, data.z, data.b);
       }
     } else if(data.msg == 'addToChat'){
@@ -281,13 +288,12 @@ var SocketMessageHandler = {
         window.loginCameraSystem.stop();
       }
       
-      // Stop all audio (login music, ambience) when entering spectate mode
+      // Stop background music when entering spectate mode (keep ambient sound playing)
       if(window.AudioCtrl) {
         AudioCtrl.bgm.pause();
         AudioCtrl.bgm.currentTime = 0;
-        AudioCtrl.amb.pause();
-        AudioCtrl.amb.currentTime = 0;
         AudioCtrl.playlist = null;
+        // Note: Ambient sound (amb) is intentionally NOT stopped - spectators should hear ambient sounds
       }
       
       // Hide login overlay
@@ -838,7 +844,21 @@ var SocketMessageHandler = {
           console.log('SpectatorDirector initialized');
         }
         
-        // Spectators don't have a selfId or player character, music is handled by camera
+        // Initialize ambient sound for spectators based on camera position
+        // Spectators don't receive bgm messages from server, so we trigger it manually
+        // Only initialize ambient sound (not BGM) for spectators
+        if(typeof AudioSystem !== 'undefined' && AudioSystem.soundscape && spectateCameraSystem) {
+          const cameraPos = spectateCameraSystem.getCameraPosition();
+          if(cameraPos) {
+            // Trigger ambient sound initialization based on camera position
+            // Use z=0 (overworld) as default if camera hasn't moved yet
+            // Pass empty building object since we don't have building info for camera position
+            AudioSystem.soundscape(cameraPos.x || 0, cameraPos.y || 0, cameraPos.z || 0, {});
+          } else {
+            // Fallback: initialize with default overworld position
+            AudioSystem.soundscape(0, 0, 0, {});
+          }
+        }
       }, 500);
     }
   },

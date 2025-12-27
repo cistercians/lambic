@@ -22,7 +22,7 @@ class CeltsStrategy extends FactionStrategy {
     if (knownCaves) {
       const mineCount = this.countBuildingType('mine');
       if (mineCount < 2) {
-        const goal = new BuildMineGoal(knownCaves.location);
+        const goal = new BuildMineGoal(knownCaves.location, 'cave'); // Cave mine for ores
         goals.push(this.modifyGoalUtility(goal)); // Gets 1.5x utility
       }
     } else {

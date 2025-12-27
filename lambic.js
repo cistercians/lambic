@@ -490,6 +490,9 @@ global.tick = gameState.tick;
 global.tempus = gameState.tempus;
 global.nightfall = gameState.nightfall;
 
+// Initialize guest spectator counter for auto-generated guest names
+global.guestSpectatorCounter = 0;
+
 // Removed speed multiplier - just use baseSpd directly
 
 // Expose the new modular systems globally
@@ -6748,79 +6751,96 @@ io.on('connection', function(socket) {
           socket.write(JSON.stringify({ msg: 'signUpResponse', success: false }));
         }
       } else if (data.msg === 'spectate') {
-        // Spectate mode with authentication
-        isValidPassword(data, function(res) {
-          if (res) {
-            // Authentication successful - create spectator
-            socket.write(JSON.stringify({
-              msg: 'tempus',
-              tempus,
-              nightfall
-            }));
-            
-            // Track spectator without creating a Player entity
-            // Spectators are just camera viewers, no game entity needed
-            global.spectators = global.spectators || {};
-            global.spectators[socket.id] = {
-              name: data.name,
-              id: socket.id,
-              type: 'spectator'
-            };
-            
-            
-            // Use existing world array (already in sync with tilemap system)
-            // Reconstructing was causing severe connection lag
-            
-            socket.write(JSON.stringify({
-              msg: 'spectateResponse',
-              success: true,
-              world: world, // Use existing world array
-              tileSize,
-              mapSize,
-              tempus
-            }));
-            
-            // Send faction data
-            socket.write(JSON.stringify({
-              msg: 'newFaction',
-              houseList: House.list,
-              kingdomList: Kingdom.list
-            }));
-            
-            // Send init pack with all entities - NO selfId for spectators
-            socket.write(JSON.stringify({
-              msg: 'init',
-              selfId: null, // Spectators don't have a player character
-              pack: {
-                player: Player.getAllInitPack(),
-                arrow: Arrow.getAllInitPack(),
-                item: Item.getAllInitPack(),
-                light: Light.getAllInitPack(),
-                building: Building.getAllInitPack()
-              }
-            }));
-            
-            // Send spectator welcome message
-            const spectatorWelcome = `
-              <div style="text-align: center; padding: 10px; color: #FFFFFF;">
-                <p style="margin: 3px 0; color: #888888;">════════════════════════════════</p>
-                <p style="margin: 5px 0; color: #4CAF50; font-size: 18px; font-weight: bold;">👁️ SPECTATE MODE 👁️</p>
-                <p style="margin: 5px 0; color: #FFFFFF;">Server: <span style="color: #4CAF50; font-weight: bold;">${global.serverName}</span></p>
-                <p style="margin: 3px 0; color: #888888;">════════════════════════════════</p>
-                <p style="margin: 2px 0; color: #CCCCCC;"><span style="color: #FFD700; font-weight: bold;">Controls:</span> <b>ESC</b> Exit Spectate • <b>Enter</b> Chat</p>
-                <p style="margin: 3px 0; color: #888888;">════════════════════════════════</p>
-              </div>
-            `;
-            
-            socket.write(JSON.stringify({
-              msg: 'addToChat',
-              message: spectatorWelcome
-            }));
-            
-          } else {
-            socket.write(JSON.stringify({ msg: 'spectateResponse', success: false }));
-          }
-        });
+        // Spectate mode - supports both authenticated and guest spectators
+        // Helper function to create spectator (used by both authenticated and guest paths)
+        const createSpectator = function(spectatorName) {
+          socket.write(JSON.stringify({
+            msg: 'tempus',
+            tempus,
+            nightfall
+          }));
+          
+          // Track spectator without creating a Player entity
+          // Spectators are just camera viewers, no game entity needed
+          global.spectators = global.spectators || {};
+          global.spectators[socket.id] = {
+            name: spectatorName,
+            id: socket.id,
+            type: 'spectator'
+          };
+          
+          // Use existing world array (already in sync with tilemap system)
+          // Reconstructing was causing severe connection lag
+          
+          socket.write(JSON.stringify({
+            msg: 'spectateResponse',
+            success: true,
+            world: world, // Use existing world array
+            tileSize,
+            mapSize,
+            tempus
+          }));
+          
+          // Send faction data
+          socket.write(JSON.stringify({
+            msg: 'newFaction',
+            houseList: House.list,
+            kingdomList: Kingdom.list
+          }));
+          
+          // Send init pack with all entities - NO selfId for spectators
+          socket.write(JSON.stringify({
+            msg: 'init',
+            selfId: null, // Spectators don't have a player character
+            pack: {
+              player: Player.getAllInitPack(),
+              arrow: Arrow.getAllInitPack(),
+              item: Item.getAllInitPack(),
+              light: Light.getAllInitPack(),
+              building: Building.getAllInitPack()
+            }
+          }));
+          
+          // Send spectator welcome message
+          const spectatorWelcome = `
+            <div style="text-align: center; padding: 10px; color: #FFFFFF;">
+              <p style="margin: 3px 0; color: #888888;">════════════════════════════════</p>
+              <p style="margin: 5px 0; color: #4CAF50; font-size: 18px; font-weight: bold;">👁️ SPECTATE MODE 👁️</p>
+              <p style="margin: 5px 0; color: #FFFFFF;">Server: <span style="color: #4CAF50; font-weight: bold;">${global.serverName}</span></p>
+              <p style="margin: 3px 0; color: #888888;">════════════════════════════════</p>
+              <p style="margin: 2px 0; color: #CCCCCC;"><span style="color: #FFD700; font-weight: bold;">Controls:</span> <b>ESC</b> Exit Spectate • <b>Enter</b> Chat</p>
+              <p style="margin: 3px 0; color: #888888;">════════════════════════════════</p>
+            </div>
+          `;
+          
+          socket.write(JSON.stringify({
+            msg: 'addToChat',
+            message: spectatorWelcome
+          }));
+        };
+        
+        // Check if credentials are provided (non-empty strings after trimming)
+        const hasCredentials = data.name && data.name.trim() && data.pass && data.pass.trim();
+        
+        if (hasCredentials) {
+          // Try authentication
+          isValidPassword(data, function(res) {
+            if (res) {
+              // Authentication successful - create authenticated spectator
+              createSpectator(data.name);
+            } else {
+              // Authentication failed - create guest spectator
+              global.guestSpectatorCounter++;
+              const guestName = `Guest(${global.guestSpectatorCounter})`;
+              createSpectator(guestName);
+            }
+          });
+        } else {
+          // No credentials provided - create guest spectator
+          global.guestSpectatorCounter++;
+          const guestName = `Guest(${global.guestSpectatorCounter})`;
+          createSpectator(guestName);
+        }
       } else if (data.msg === 'spectatorChat') {
         const spectator = global.spectators && global.spectators[socket.id];
         if(spectator){

@@ -2690,7 +2690,7 @@ class MapRenderer {
           );
         } else if(tile == 0){
           ctx.drawImage(
-            Img.sand, // image
+            Img.rocky, // image
             xOffset, // target x
             yOffset, // target y
             tileSize, // target width

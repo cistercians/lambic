@@ -22,6 +22,11 @@ class OutlawsStrategy extends FactionStrategy {
     // Future: Mobile camps, temporary outposts
     return [];
   }
+  
+  evaluateResourceScoutingGoals() {
+    // Non-resource-gathering faction - no scouting goals
+    return [];
+  }
 }
 
 module.exports = OutlawsStrategy;
