@@ -316,6 +316,13 @@ Building = function(param){
   self.updateFarmResources = function(){
     if(self.type !== 'mill' && self.type !== 'farm') return;
     
+    // CRITICAL FIX: Clear assigned spots proactively before processing tile states
+    // This ensures spots are always cleared before new resource assignment,
+    // preventing persistent blocking between phase transitions
+    if(self.assignedSpots){
+      self.assignedSpots = {}; // Clear all assigned spots at start of update
+    }
+    
     var barren = [];
     var growing = [];
     var wheat = [];
@@ -442,10 +449,6 @@ Building = function(param){
       self._farmResourceState.lastLogTime = now;
     }
     
-    // Check if resources are being reassigned (phase transition)
-    const oldResources = self.resources || [];
-    const oldResourceSet = new Set(oldResources.map(r => `${r[0]},${r[1]}`));
-    
     // Assign based on farm state - PRIORITIZE WHEAT (grain tiles)
     // Priority order: wheat (type 10) > growing (type 9) > barren (type 8)
     if(wheat.length > 0){
@@ -484,27 +487,6 @@ Building = function(param){
           : 'Unknown';
         console.log(`[FARM RESOURCES] ${ownerName}: ${buildingName} no grain available, using ${barren.length} barren tiles`);
       }
-    }
-    
-    // CRITICAL FIX: Clear assigned spots when resources change (phase transitions)
-    // When farm tiles transition phases (barren→growing→wheat→barren), the resource list changes
-    // Old assigned spots may no longer be valid, so we must clear them to prevent permanent blocking
-    const newResourceSet = new Set(self.resources.map(r => `${r[0]},${r[1]}`));
-    const resourcesChanged = oldResources.length !== self.resources.length || 
-                            ![...oldResourceSet].every(key => newResourceSet.has(key));
-    
-    if(resourcesChanged && self.assignedSpots){
-      // Resources have changed (phase transition), clear all assigned spots
-      // Serfs will get new assignments on their next work cycle
-      const clearedCount = Object.keys(self.assignedSpots).length;
-      if(clearedCount > 0 && shouldLog){
-        const buildingName = self.type === 'mill' ? 'mill' : 'farm';
-        const ownerName = self.owner && global.House && global.House.list 
-          ? (global.House.list[self.owner]?.name || 'Unknown')
-          : 'Unknown';
-        console.log(`[FARM RESOURCES] ${ownerName}: ${buildingName} cleared ${clearedCount} assigned spots due to resource list change`);
-      }
-      self.assignedSpots = {}; // Clear all assigned spots
     }
   };
 

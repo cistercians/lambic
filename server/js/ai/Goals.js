@@ -334,7 +334,7 @@ class BuildMineGoal extends Goal {
 class BuildLumbermillGoal extends Goal {
   constructor(location = null) {
     super('BUILD_LUMBERMILL', 40);
-    this.resourceCost = { wood: 75 };
+    this.resourceCost = { wood: 40 }; // Reduced from 75 to prevent circular dependency
     this.buildingRequirements = [];
     this.location = location;
   }

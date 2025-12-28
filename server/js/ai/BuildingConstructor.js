@@ -44,6 +44,24 @@ class BuildingConstructor {
     const excludeTilesArray = options.excludeTiles || [];
     const mapSize = global.mapSize || 192;
     
+    // Diagnostic logging - get faction name for context
+    const factionName = this.house?.name || 'Unknown';
+    const logKey = `celts-forest-search-${factionName}-${buildingType}`;
+    const now = Date.now();
+    
+    // Throttle logging (only log every 30 seconds per building type per faction)
+    if (!this._forestSearchLogThrottle) {
+      this._forestSearchLogThrottle = {};
+    }
+    const lastLog = this._forestSearchLogThrottle[logKey] || 0;
+    const LOG_THROTTLE_MS = 30000; // 30 seconds
+    const shouldLog = (now - lastLog) > LOG_THROTTLE_MS;
+    
+    if (shouldLog) {
+      console.log(`[CELTS FOREST SEARCH] ${factionName}: Searching for ${buildingType} on forest terrain - center: [${searchCenter[0]}, ${searchCenter[1]}], maxRadius: ${maxRadius}`);
+      this._forestSearchLogThrottle[logKey] = now;
+    }
+    
     // Convert exclude tiles array to Set for efficient lookup
     const excludeTilesSet = new Set();
     for (const tile of excludeTilesArray) {
@@ -61,15 +79,32 @@ class BuildingConstructor {
     
     if (!buildingDef || !buildingDef.plot) {
       // Fallback: try to use findBuildingSpot anyway and check if it's on forest
+      if (shouldLog) {
+        console.log(`[CELTS FOREST SEARCH] ${factionName}: No building definition found for ${buildingType}, using fallback search`);
+      }
       const spot = global.tilemapSystem.findBuildingSpot(buildingType, searchCenter, maxRadius, options);
       if (spot && this.isSpotOnForest(spot)) {
+        if (shouldLog) {
+          console.log(`[CELTS FOREST SEARCH] ${factionName}: Found valid forest spot via fallback search`);
+        }
         return spot;
+      }
+      if (shouldLog) {
+        console.log(`[CELTS FOREST SEARCH] ${factionName}: Fallback search did not find valid forest spot`);
       }
       return null;
     }
     
     const plot = buildingDef.plot; // Relative plot coordinates
     const walls = buildingDef.walls || [];
+    
+    // Track statistics for logging
+    let totalForestTilesChecked = 0;
+    let totalSamplePointsChecked = 0;
+    let forestTilesFound = 0;
+    let rejectedNotForest = 0;
+    let rejectedOccupied = 0;
+    let rejectedBounds = 0;
     
     // Search in expanding radius from center
     for (let radius = 5; radius <= maxRadius; radius += 5) {
@@ -90,12 +125,16 @@ class BuildingConstructor {
       // Try each sample point as the center of the building plot
       for (const centerTile of samplePoints) {
         const [centerCol, centerRow] = centerTile;
+        totalSamplePointsChecked++;
         
         // Check if center tile is on forest
         const centerTerrain = getTile(0, centerCol, centerRow);
         if (centerTerrain !== TERRAIN.HEAVY_FOREST && centerTerrain !== TERRAIN.LIGHT_FOREST) {
+          rejectedNotForest++;
           continue; // Center not on forest, skip
         }
+        
+        forestTilesFound++; // Found a forest tile at center
         
         // Build the actual plot coordinates from relative plot
         const actualPlot = [];
@@ -110,13 +149,17 @@ class BuildingConstructor {
           // Bounds check
           if (absCol < 0 || absCol >= mapSize || absRow < 0 || absRow >= mapSize) {
             allOnForest = false;
+            rejectedBounds++;
             break;
           }
+          
+          totalForestTilesChecked++;
           
           // Check if tile is on forest
           const terrain = getTile(0, absCol, absRow);
           if (terrain !== TERRAIN.HEAVY_FOREST && terrain !== TERRAIN.LIGHT_FOREST) {
             allOnForest = false;
+            rejectedNotForest++;
             break;
           }
           
@@ -124,6 +167,7 @@ class BuildingConstructor {
           const tileKey = `${absCol},${absRow}`;
           if (excludeTilesSet.has(tileKey)) {
             anyOccupied = true;
+            rejectedOccupied++;
             break;
           }
           
@@ -132,6 +176,7 @@ class BuildingConstructor {
           const buildingAtTile = getBuilding(centerCoords[0], centerCoords[1]);
           if (buildingAtTile) {
             anyOccupied = true;
+            rejectedOccupied++;
             break;
           }
           
@@ -149,11 +194,25 @@ class BuildingConstructor {
             }
           }
           
+          if (shouldLog) {
+            console.log(`[CELTS FOREST SEARCH] ${factionName}: Found valid forest spot for ${buildingType} at radius ${radius} - center: [${centerCol}, ${centerRow}]`);
+          }
+          
           return {
             plot: actualPlot,
             walls: actualWalls.length > 0 ? actualWalls : null
           };
         }
+      }
+    }
+    
+    // Log diagnostic summary if no spot found
+    if (shouldLog) {
+      console.log(`[CELTS FOREST SEARCH] ${factionName}: No valid forest spot found for ${buildingType} after searching radius up to ${maxRadius}`);
+      console.log(`[CELTS FOREST SEARCH] ${factionName}: Diagnostic stats - Sample points checked: ${totalSamplePointsChecked}, Forest tiles found: ${forestTilesFound}, Tiles checked: ${totalForestTilesChecked}`);
+      console.log(`[CELTS FOREST SEARCH] ${factionName}: Rejection reasons - Not forest: ${rejectedNotForest}, Occupied: ${rejectedOccupied}, Bounds: ${rejectedBounds}`);
+      if (forestTilesFound === 0) {
+        console.log(`[CELTS FOREST SEARCH] ${factionName}: WARNING - No forest tiles found in search radius. HQ may not be near forest terrain.`);
       }
     }
     

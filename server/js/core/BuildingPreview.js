@@ -25,7 +25,7 @@ class BuildingPreview {
         topPlot: [[0,-1],[1,-1]],
         requiredTiles: [TERRAIN.EMPTY],
         clearableTiles: [TERRAIN.BRUSH, TERRAIN.LIGHT_FOREST],
-        materials: { wood: 75 }, // Wood only
+        materials: { wood: 40 }, // Wood only (reduced from 75 to prevent circular dependency)
         playerRequiredTiles: [TERRAIN.EMPTY] // Grass
       },
       mine: {
