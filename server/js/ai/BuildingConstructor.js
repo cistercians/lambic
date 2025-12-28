@@ -73,8 +73,30 @@ class BuildingConstructor {
     // Get building definition to know the plot shape
     let buildingDef = null;
     if (global.BuildingPreview) {
-      const preview = new global.BuildingPreview();
-      buildingDef = preview.buildingDefinitions[buildingType];
+      try {
+        const preview = new global.BuildingPreview();
+        if (preview && preview.buildingDefinitions) {
+          buildingDef = preview.buildingDefinitions[buildingType];
+          
+          // Debug: if lookup fails, log available keys
+          if (!buildingDef && shouldLog) {
+            const availableKeys = Object.keys(preview.buildingDefinitions || {});
+            console.log(`[CELTS FOREST SEARCH] ${factionName}: Building type '${buildingType}' not found in buildingDefinitions. Available keys: ${availableKeys.join(', ')}`);
+          }
+        } else {
+          if (shouldLog) {
+            console.log(`[CELTS FOREST SEARCH] ${factionName}: BuildingPreview created but buildingDefinitions is missing`);
+          }
+        }
+      } catch (error) {
+        if (shouldLog) {
+          console.log(`[CELTS FOREST SEARCH] ${factionName}: Error creating BuildingPreview: ${error.message}`);
+        }
+      }
+    } else {
+      if (shouldLog) {
+        console.log(`[CELTS FOREST SEARCH] ${factionName}: global.BuildingPreview is not available`);
+      }
     }
     
     if (!buildingDef || !buildingDef.plot) {
@@ -528,27 +550,48 @@ class BuildingConstructor {
     const FARM_SEARCH_RADIUS = 6;
     const MAX_SEARCH_RADIUS = 15; // Expanded for location blocking fallback
     
+    const factionName = this.house?.name || 'Unknown';
     const mills = this.getBuildingsByType('mill');
+    
     if (mills.length === 0) {
+      console.log(`[FARM PLACEMENT] ${factionName}: No mills found - cannot place farm`);
       return false;
     }
     
+    console.log(`[FARM PLACEMENT] ${factionName}: Checking farm placement near ${mills.length} mill(s)`);
+    
     // Check each mill with increasing radius
-    for (const mill of mills) {
-      const searchCenter = mill.plot[0];
+    for (let i = 0; i < mills.length; i++) {
+      const mill = mills[i];
+      const searchCenter = mill.plot && mill.plot[0] ? mill.plot[0] : null;
+      
+      if (!searchCenter) {
+        console.log(`[FARM PLACEMENT] ${factionName}: Mill ${i} has no valid plot center`);
+        continue;
+      }
+      
+      console.log(`[FARM PLACEMENT] ${factionName}: Checking mill ${i} at [${searchCenter[0]}, ${searchCenter[1]}]`);
+      
       let radius = FARM_SEARCH_RADIUS;
+      let candidateCount = 0;
       
       while (radius <= MAX_SEARCH_RADIUS) {
+        const occupiedTiles = this.getOccupiedTiles();
         const spot = global.tilemapSystem.findBuildingSpot('farm', searchCenter, radius, {
-          excludeTiles: this.getOccupiedTiles()
+          excludeTiles: occupiedTiles
         });
         
+        candidateCount++;
+        
         if (spot) {
+          console.log(`[FARM PLACEMENT] ${factionName}: Found valid farm location at radius ${radius} near mill ${i}`);
           return true; // Found a valid location
         }
         
         radius += 2;
       }
+      
+      console.log(`[FARM PLACEMENT] ${factionName}: No valid location found near mill ${i} (checked ${candidateCount} radii up to ${MAX_SEARCH_RADIUS})`);
     }
     
     // Fallback: if no spot found near mills, try searching near HQ
@@ -732,45 +775,71 @@ class BuildingConstructor {
   
   // Check if a garrison can be placed (validation-only)
   canPlaceGarrison(location = null) {
+    const factionName = this.house?.name || 'Unknown';
     const hq = this.house.hq;
     const searchCenter = location || hq;
     
+    if (!searchCenter) {
+      console.log(`[GARRISON PLACEMENT] ${factionName}: No HQ or location provided`);
+      return false;
+    }
+    
+    console.log(`[GARRISON PLACEMENT] ${factionName}: Checking garrison placement at [${searchCenter[0]}, ${searchCenter[1]}]`);
+    
     // Try multiple radii if initial search fails (location blocking fallback)
     const radii = location ? [3, 6, 10, 15] : [10, 15, 20, 25];
+    const occupiedTiles = this.getOccupiedTiles();
+    
+    console.log(`[GARRISON PLACEMENT] ${factionName}: Checking ${radii.length} radii, ${occupiedTiles.length} occupied tiles to exclude`);
     
     for (const radius of radii) {
-    const spot = global.tilemapSystem.findBuildingSpot('garrison', searchCenter, radius, {
-        excludeTiles: this.getOccupiedTiles()
+      const spot = global.tilemapSystem.findBuildingSpot('garrison', searchCenter, radius, {
+        excludeTiles: occupiedTiles
       });
       
       if (spot && spot.plot && spot.plot[0]) {
+        console.log(`[GARRISON PLACEMENT] ${factionName}: Found valid garrison location at radius ${radius}`);
         return true; // Found valid location
       }
     }
     
+    console.log(`[GARRISON PLACEMENT] ${factionName}: No valid garrison location found after checking all radii`);
     return false; // No valid location found
   }
   
   // Check if a guardtower can be placed (validation-only)
   canPlaceGuardtower(location = null) {
+    const factionName = this.house?.name || 'Unknown';
+    
     if (!location || !Array.isArray(location) || location.length < 2) {
+      console.log(`[GUARDTOWER PLACEMENT] ${factionName}: No valid location provided`);
       return false;
     }
     
     // Check if faction has a tower type (Norsemen and others don't have towers)
     const towerType = this.getFactionTowerType();
     if (!towerType) {
+      console.log(`[GUARDTOWER PLACEMENT] ${factionName}: Faction does not have tower type`);
       return false; // Faction doesn't have tower type
     }
     
     const searchCenter = location;
     const radius = 5; // Search within 5 tiles of target location
+    const occupiedTiles = this.getOccupiedTiles();
+    
+    console.log(`[GUARDTOWER PLACEMENT] ${factionName}: Checking guardtower placement at [${searchCenter[0]}, ${searchCenter[1]}] with tower type ${towerType}, radius ${radius}`);
     
     const spot = global.tilemapSystem.findBuildingSpot(towerType, searchCenter, radius, {
-      excludeTiles: this.getOccupiedTiles()
+      excludeTiles: occupiedTiles
     });
     
-    return spot !== null && spot.plot && spot.plot[0];
+    if (spot !== null && spot.plot && spot.plot[0]) {
+      console.log(`[GUARDTOWER PLACEMENT] ${factionName}: Found valid guardtower location`);
+      return true;
+    }
+    
+    console.log(`[GUARDTOWER PLACEMENT] ${factionName}: No valid guardtower location found at outpost`);
+    return false;
   }
   
   // Check if location is near a cave entrance (within 384 pixels / ~6 tiles)

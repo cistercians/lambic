@@ -444,8 +444,8 @@ class FactionAILogger {
       lines.push('');
     }
     
-    // Combat Recap
-    if (data.combatRecap && (data.combatRecap.totalKills > 0 || data.combatRecap.totalDeaths > 0)) {
+    // Combat Recap (always show if recap exists, even if no kills/deaths to indicate system is working)
+    if (data.combatRecap) {
       const recap = data.combatRecap;
       const insights = data.combatInsights || {};
       lines.push('COMBAT RECAP:');
@@ -462,6 +462,11 @@ class FactionAILogger {
       
       if (insights.baseUnderAttack || (recap.baseDefense && recap.baseDefense.events > 0)) {
         lines.push(`  Base Defense: Combat in base territory (${recap.baseDefense?.events || 0} events, ${recap.baseDefense?.deaths || 0} deaths)`);
+      }
+      
+      // Show if system is working but no combat occurred
+      if (recap.totalKills === 0 && recap.totalDeaths === 0) {
+        lines.push(`  No combat events recorded for this day.`);
       }
       
       lines.push('');

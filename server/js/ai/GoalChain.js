@@ -730,10 +730,10 @@ class GoalChain {
       const history = house.ai.goalFailureHistory?.get(goalType);
       const locationBlockCount = history?.locationBlockCount || 0;
       
-      // If location blocked 5+ times, consider it permanent
-      if (locationBlockCount >= 5) {
+      // If location blocked 8+ times, consider it permanent (increased from 5 to 8)
+      if (locationBlockCount >= 8) {
         // For BUILD_FORGE, we handle it with territory expansion (already added if needed)
-        // For other buildings, permanent location blocking means the chain is invalid
+        // For BUILD_GARRISON and other buildings, permanent location blocking means the chain is invalid
         if (goalType !== 'BUILD_FORGE') {
           const errorMsg = `Permanent location blocking detected for ${goalType} (blocked ${locationBlockCount} times) - rejecting chain`;
           chain.errors = chain.errors || [];

@@ -43,8 +43,11 @@ The system is organized into focused, single-responsibility components:
 6. **MilitaryManager** (`server/js/ai/MilitaryManager.js`) - Scouting parties and attack forces
 7. **FactionKnowledge** (`server/js/ai/FactionKnowledge.js`) - Fog of war and exploration tracking
 8. **FactionAILogger** (`server/js/ai/FactionAILogger.js`) - Daily reports and scouting statistics tracking
-9. **Goals** (`server/js/ai/Goals.js`) - Goal type definitions and execution
-10. **FactionStrategy** (`server/js/ai/strategies/`) - Faction-specific strategic evaluation
+9. **ProductionMonitor** (`server/js/ai/services/ProductionMonitor.js`) - Resource production monitoring and recovery goal generation
+10. **ResourceBalanceAnalyzer** (`server/js/ai/services/ResourceBalanceAnalyzer.js`) - Resource balance analysis and utility calculations
+11. **CombatRecorder** (`server/js/ai/services/CombatRecorder.js`) - Combat event tracking and military intelligence
+12. **Goals** (`server/js/ai/Goals.js`) - Goal type definitions and execution
+13. **FactionStrategy** (`server/js/ai/strategies/`) - Faction-specific strategic evaluation
 
 ### Main Entry Point
 - **File**: `server/js/Houses.js` (line 239)
@@ -74,6 +77,21 @@ FactionAI [Orchestrator]
     │     └─→ Attack forces
     │     └─→ Delegates to FactionAI for military units
     │
+    ├─→ ProductionMonitor [Production Monitoring]
+    │     └─→ Resource production rate tracking
+    │     └─→ Production issue detection
+    │     └─→ Recovery goal generation
+    │
+    ├─→ ResourceBalanceAnalyzer [Resource Analysis]
+    │     └─→ Resource balance calculations
+    │     └─→ Production rate estimates
+    │     └─→ Gathering time estimates
+    │
+    ├─→ CombatRecorder [Combat Intelligence]
+    │     └─→ Combat event tracking
+    │     └─→ Daily combat recaps
+    │     └─→ Military insights
+    │
     ├─→ GoalExecutor [Goal Execution]
     │     └─→ Structured error handling
     │     └─→ Execution flow control
@@ -92,6 +110,9 @@ FactionAI [Orchestrator]
 - Building queries → BuildingService (cached)
 - Military queries → FactionAI.getMilitaryUnits() (cached)
 - Territory queries → TerritoryManager (hash-cached)
+- Production monitoring → ProductionMonitor (tracks rates, generates recovery goals)
+- Resource balance → ResourceBalanceAnalyzer (calculates imbalances and ratios)
+- Combat events → CombatRecorder (tracks kills/deaths, provides insights)
 - Goal execution → GoalExecutor → Goals → BuildingConstructor
 - Knowledge updates → FactionKnowledge (persistent)
 
@@ -112,6 +133,10 @@ constructor(house) {
   this.buildingService = new BuildingService(house);   // Building queries (cached)
   this.militaryManager = new MilitaryManager(house, this); // Military operations
   this.goalExecutor = new GoalExecutor(house, this);    // Goal execution
+  this.logger = new FactionAILogger(house);            // Logging and reporting
+  this.productionMonitor = new ProductionMonitor(this); // Production monitoring
+  this.resourceBalanceAnalyzer = new ResourceBalanceAnalyzer(this.buildingService); // Resource balance analysis
+  this.combatRecorder = new CombatRecorder(house, this); // Combat event tracking
   this.currentGoalChain = null;                        // Active goal chain (persists)
   this.lastEvaluatedDay = 0;                           // Prevent duplicate evaluations
   
@@ -127,11 +152,8 @@ constructor(house) {
   // Fallback goal suggestions (from location blocking)
   this.suggestedFallbackGoals = new Set(); // Set of goal suggestions like "SCOUT_FOR_RESOURCE:stone"
   
-  // Resource production monitoring (tracking and recovery)
-  this._lastResourceLevels = null; // Previous day's resource levels
-  this._productionRates = {}; // Production rate tracking
-  this._productionIssueDays = {}; // Track days with production issues per resource
-  this._pendingRecoveryGoals = []; // Recovery goals generated from production monitoring
+  // Pending recovery goals (managed by ProductionMonitor service)
+  this._pendingRecoveryGoals = []; // Recovery goals generated from production monitoring (set by ProductionMonitor.triggerRecovery())
   
   // Load faction-specific strategy
   this.profile = FactionProfiles[house.name] || FactionProfiles.Goths;
@@ -167,46 +189,54 @@ All services are validated after initialization to catch errors early:
 
 #### Daily Evaluation Cycle (`evaluateAndAct()`)
 
-**Called once per in-game day** (line 118):
+**Called once per in-game day** (line 136):
 
-1. **Duplicate Prevention** (lines 123-127)
+1. **Duplicate Prevention** (lines 140-148)
    - Checks `lastEvaluatedDay` to prevent multiple evaluations on same day
    - Early return if already evaluated today
 
-2. **Resource Production Monitoring** (line 132)
-   - Calls `monitorResourceProduction()` to track production issues
+2. **Resource Production Monitoring** (line 158)
+   - Calls `productionMonitor.monitor(day)` to track production issues
    - Only for economic factions (non-economic factions skip this)
    - Triggers recovery goals if production broken for 2+ days
+   - Managed by ProductionMonitor service (see ProductionMonitor section)
 
-3. **Cache Invalidation** (lines 138-140)
+3. **Combat Intelligence** (lines 161-174)
+   - Calls `combatRecorder.getDailyRecap(day)` to get combat statistics
+   - Calls `combatRecorder.getCombatInsights()` for strategic insights
+   - Records combat recap in logger for daily reports
+   - Calls `combatRecorder.clearOldEvents(30)` to clean up old events
+   - Managed by CombatRecorder service (see CombatRecorder section)
+
+4. **Cache Invalidation** (lines 179-182)
    - Invalidates military units cache for new day
    - BuildingService handles its own cache invalidation
 
-4. **Territory Update** (lines 146-157)
+5. **Territory Update** (lines 187-199)
    - Updates patrol building list
    - Recalculates base territory boundaries (cached)
    - Updates known zones in territory
    - Cleans stale enemy information
 
-5. **Goal Chain Continuation** (lines 160-167)
+6. **Goal Chain Continuation** (lines 201-210)
    - If active goal chain exists and incomplete, continue execution
    - Updates logger with current chain state
    - Generates report and returns early
 
-6. **Chain Failure Handling** (lines 173-195)
+7. **Chain Failure Handling** (lines 215-235)
    - If chain failed, records failure and analyzes for recovery goal
    - If recovery goal found, creates new chain and executes
    - Clears failed chains
 
-7. **New Goal Evaluation** (line 199)
+8. **New Goal Evaluation** (line 245)
    - Calls `evaluateNewGoals()` to generate and select new goals
    - Includes recovery goals and fallback goals from location blocking
 
-8. **Ongoing Operations** (lines 202-204)
+9. **Ongoing Operations** (lines 248-250)
    - Updates scouting parties
    - Updates attack forces
 
-9. **Report Generation** (lines 206-211)
+10. **Report Generation** (lines 252-257)
    - Updates goal chain info in logger
    - Generates daily report
    - Clears report data
@@ -225,8 +255,9 @@ All services are validated after initialization to catch errors early:
    - Recovery goals: from production monitoring (economic factions only)
    - Fallback scout goals: from location blocking suggestions
 
-3. **Resource Balance Analysis** (line 264)
-   - Calculates resource ratios and identifies imbalances
+3. **Resource Balance Analysis** (line 277)
+   - Calls `resourceBalanceAnalyzer.checkResourceBalance(house.stores)` to calculate resource ratios and identify imbalances
+   - Returns balance analysis with resource counts and imbalance flags
 
 4. **Goal Consideration Tracking** (lines 267-271)
    - Records all goals with utility > 0 for stagnation prevention
@@ -286,17 +317,12 @@ All services are validated after initialization to catch errors early:
 
 **New Methods**:
 
-**checkResourceBalance()** (Phase 8):
-- Calculates resource ratios (wood:stone, grain:stone)
-- Identifies imbalances (stone scarce, wood excessive, etc.)
-- Returns balance analysis with resource counts and imbalance flags
-
-**recordGoalConsideration(goalType)** (Phase 9):
+**recordGoalConsideration(goalType)** (Phase 8):
 - Tracks how many times each goal has been considered
 - Stores consideration count and last consideration day
 - Used for stagnation prevention
 
-**shouldForceGoalSelection(goalType)** (Phase 9):
+**shouldForceGoalSelection(goalType)** (Phase 10):
 - Returns true if goal has been considered 3+ times
 - Used to force selection of repeatedly considered goals
 - Prevents infinite consideration loops
@@ -311,56 +337,15 @@ All services are validated after initialization to catch errors early:
 - Returns true if faction base name is in excluded list
 
 **Impact on Goal Evaluation**:
-- Economic goals are skipped for non-economic factions (line 221)
-- Production monitoring is skipped (line 869)
-- Recovery goals are not generated for non-economic factions (line 233)
+- Economic goals are skipped for non-economic factions (line 311)
+- Production monitoring is skipped (ProductionMonitor.monitor() returns early)
+- Recovery goals are not generated for non-economic factions (line 327)
 - Logging is reduced (economic goal counts not logged)
 
 **Rationale**:
 - Non-economic factions (raiders, outlaws, mercenaries) focus on military/expansion
 - Economic building goals don't apply to these factions
 - Production monitoring would generate noise for factions that don't gather resources
-
-#### Resource Production Monitoring
-
-**monitorResourceProduction(currentDay)** (line 867):
-- Tracks resource production rates daily (wood, stone, grain, ironore)
-- Calculates production changes from previous day
-- Counts production buildings (stone mines vs cave mines separately)
-- Counts serfs working at buildings
-- Logs production status for debugging
-- Detects production issues (zero or negative production with low resources)
-- Tracks days with production issues per resource (`_productionIssueDays`)
-- Triggers recovery goals when production broken for 2+ days
-
-**Production Issue Detection**:
-- Resource production is zero or negative AND resource level < 50
-- Average production rate is <= 0
-- Tracks consecutive days with issues
-
-**diagnoseProductionIssue(resource, buildings, currentDay)** (line 966):
-- Identifies root cause of production problems
-- Checks: building existence, building built status, serf assignment
-- Logs detailed diagnostics including which buildings lack serfs
-- Root causes:
-  - No building exists → need to build
-  - Buildings exist but not built → construction incomplete
-  - Buildings built but no serfs → serf assignment issue
-  - Buildings and serfs exist → deposit logic issue
-
-**triggerProductionRecovery(resource, currentDay)** (line 1050):
-- Generates recovery goals when production broken for 2+ days
-- Only triggers if building doesn't exist (not serf/deposit issues)
-- Creates appropriate building goal (mine, lumbermill, farm)
-- Sets mine type for stone mines (`mineType = 'stone'`)
-- Sets high utility (70) to ensure selection
-- Marks goal as recovery goal (`isRecoveryGoal = true`)
-- Stores in `_pendingRecoveryGoals` array for next evaluation
-
-**Recovery Goal Integration**:
-- Recovery goals are added to goal evaluation pool (line 233)
-- Only included for economic factions
-- Cleared after use (prevents duplicate recovery attempts)
 
 #### Fallback Goal Generation
 
@@ -448,19 +433,21 @@ Delegates to `GoalExecutor` for execution logic:
 
 #### Resource Production Tracking
 
-**getResourceProductionRate(resourceType)**:
+These methods are now part of ResourceBalanceAnalyzer service (see ResourceBalanceAnalyzer section):
+
+**resourceBalanceAnalyzer.getResourceProductionRate(resourceType)**:
 - Returns production rate per building per day
 - Stone: 5 per stone mine
-- Wood: 8 per lumbermill
+- Wood: 5 per lumbermill
 - Grain: 10 per farm
 - Ores: 3 ironore, 2 silverore, 1 goldore per cave mine
 
-**estimateGatheringTime(resourceType, targetAmount)**:
+**resourceBalanceAnalyzer.estimateGatheringTime(resourceType, targetAmount, currentAmount)**:
 - Calculates days needed to gather target amount
 - Accounts for mine types (stone mines for stone, cave mines for ores)
 - Returns Infinity if no production capacity
 
-**canGatherWithinReasonableTime(resourceType, targetAmount, maxDays)**:
+**resourceBalanceAnalyzer.canGatherWithinReasonableTime(resourceType, targetAmount, currentAmount, maxDays)**:
 - Checks if resources can be gathered within reasonable time (default 10 days)
 - Used by GatherResourceGoal to determine if goal is feasible
 
@@ -583,7 +570,236 @@ All building access throughout the system goes through BuildingService:
 
 ---
 
-### 3. GoalExecutor (`server/js/ai/GoalExecutor.js`)
+### 3. ProductionMonitor (`server/js/ai/services/ProductionMonitor.js`)
+
+Monitors resource production rates and triggers recovery goals when production is broken.
+
+#### Purpose
+- Tracks resource production rates daily (wood, stone, grain, ironore)
+- Detects production issues (zero or negative production with low resources)
+- Provides detailed diagnostics for production problems
+- Generates recovery goals when production broken for 2+ days
+- Only active for economic factions (non-economic factions skip monitoring)
+
+#### Initialization
+```javascript
+constructor(factionAI) {
+  this.factionAI = factionAI;
+  this.house = factionAI.house;
+  this.buildingService = factionAI.buildingService;
+  this.logger = factionAI.logger;
+  
+  // State tracking
+  this.lastResourceLevels = null;        // Previous day's resource levels
+  this.productionRates = {};             // Production rate tracking
+  this.productionIssueDays = {};         // Track days with production issues per resource
+}
+```
+
+#### Production Monitoring (`monitor(currentDay)`)
+
+Called daily during `FactionAI.evaluateAndAct()`:
+
+1. **Skip for Non-Economic Factions**: Returns early if `factionAI.isNonEconomicFaction()` is true
+2. **Track Resource Levels**: Gets current resource levels from `house.stores`
+3. **Calculate Production Rates**: Calculates change since last day
+4. **Log Production Status**: Logs production rates, building counts, and serf counts
+5. **Detect Production Issues**: Checks if production is zero/negative with low resources
+6. **Track Issue Days**: Increments `productionIssueDays[resource]` for each day with issues
+7. **Diagnose Issues**: Calls `diagnoseProductionIssue()` to identify root cause
+8. **Trigger Recovery**: Calls `triggerRecovery()` if production broken for 2+ days
+
+#### Production Issue Detection
+
+**Conditions**:
+- Resource production is zero or negative AND resource level < 50
+- Average production rate is <= 0
+- Tracks consecutive days with issues
+
+**Issue Tracking**:
+- `productionIssueDays[resource]` increments each day with issues
+- Resets to 0 when production becomes positive
+
+#### Production Diagnostics (`diagnoseProductionIssue(resource, currentDay)`)
+
+Identifies root cause of production problems:
+
+1. **Check Building Existence**: Counts buildings of required type (distinguishes stone mines from cave mines)
+2. **Check Building Status**: Counts built vs unbuilt buildings
+3. **Check Serf Assignment**: Counts serfs assigned to production buildings
+4. **Log Diagnostics**: Logs detailed information about buildings and serfs
+5. **Identify Root Cause**:
+   - No building exists → need to build
+   - Buildings exist but not built → construction incomplete
+   - Buildings built but no serfs → serf assignment issue
+   - Buildings and serfs exist → deposit logic issue
+
+#### Recovery Goal Generation (`triggerRecovery(resource)`)
+
+Generates recovery goals when production broken for 2+ days:
+
+1. **Check Issue Duration**: Only triggers if `productionIssueDays[resource] >= 2`
+2. **Verify Root Cause**: Only triggers if building doesn't exist (not serf/deposit issues)
+3. **Create Building Goal**: Creates appropriate building goal (mine, lumbermill, farm)
+4. **Set Mine Type**: For stone mines, sets `mineType = 'stone'`
+5. **Set High Utility**: Sets utility to 70 to ensure selection
+6. **Mark as Recovery Goal**: Sets `isRecoveryGoal = true`
+7. **Store for Next Evaluation**: Adds to `factionAI._pendingRecoveryGoals` array
+
+**Recovery Goal Integration**:
+- Recovery goals are added to goal evaluation pool in `evaluateNewGoals()`
+- Only included for economic factions
+- Cleared after use (prevents duplicate recovery attempts)
+
+#### Production Status Logging
+
+Logs detailed production information including:
+- Current resource levels
+- Production rates (change since last day)
+- Building counts (distinguishes stone mines from cave mines)
+- Serf counts working at production buildings
+- Production status (positive/negative/zero)
+
+---
+
+### 4. ResourceBalanceAnalyzer (`server/js/ai/services/ResourceBalanceAnalyzer.js`)
+
+Analyzes resource balance and provides utility methods for resource calculations.
+
+#### Purpose
+- Calculates resource ratios (wood:stone, grain:stone)
+- Identifies imbalances (stone scarce, wood excessive, etc.)
+- Estimates production rates and gathering times
+- Provides resource balance analysis for goal evaluation
+
+#### Initialization
+```javascript
+constructor(buildingService) {
+  this.buildingService = buildingService;
+}
+```
+
+#### Resource Balance Analysis (`checkResourceBalance(stores)`)
+
+Calculates resource balance and identifies imbalances:
+
+1. **Get Resource Counts**: Extracts wood, stone, grain from stores
+2. **Calculate Ratios**: 
+   - `woodStoneRatio = wood / stone` (or Infinity if stone is 0)
+   - `grainStoneRatio = grain / stone` (or Infinity if stone is 0)
+3. **Identify Imbalances**:
+   - `stoneScarce`: stone < 50
+   - `woodExcessive`: woodStoneRatio > threshold
+   - `grainExcessive`: grainStoneRatio > threshold
+   - `needsStone`: stone < threshold
+   - `needsWood`: wood < threshold
+   - `needsGrain`: grain < threshold
+4. **Return Analysis**: Returns object with resource counts and imbalance flags
+
+#### Production Rate Estimation (`getResourceProductionRate(resourceType)`)
+
+Returns production rate per building per day:
+- Stone: 5 per stone mine
+- Wood: 5 per lumbermill
+- Grain: 10 per farm
+- Ironore: 3 per cave mine
+- Silverore: 2 per cave mine
+- Goldore: 1 per cave mine
+
+#### Gathering Time Estimation (`estimateGatheringTime(resourceType, targetAmount, currentAmount)`)
+
+Estimates days needed to gather target amount:
+
+1. **Calculate Deficit**: `targetAmount - currentAmount`
+2. **Get Production Rate**: Uses `getResourceProductionRate()` to get rate per building
+3. **Get Building Count**: 
+   - For stone: uses `buildingService.getStoneMineCount()`
+   - For ores: uses `buildingService.getCaveMineCount()`
+   - For others: uses `buildingService.getBuildingCount()`
+4. **Calculate Days**: `Math.ceil(deficit / (ratePerBuilding * buildingCount))`
+5. **Return**: Days needed (or Infinity if no production capacity)
+
+#### Feasibility Checking (`canGatherWithinReasonableTime(resourceType, targetAmount, currentAmount, maxDays)`)
+
+Checks if resources can be gathered within reasonable time (default 10 days):
+- Uses `estimateGatheringTime()` to get days needed
+- Returns true if `daysNeeded <= maxDays && daysNeeded < Infinity`
+
+---
+
+### 5. CombatRecorder (`server/js/ai/services/CombatRecorder.js`)
+
+Tracks combat events (kills/deaths) for faction AI military intelligence.
+
+#### Purpose
+- Subscribes to EventManager DEATH events
+- Records combat events (kills and deaths) involving the faction
+- Provides daily combat recaps with statistics
+- Generates combat insights for strategic decision-making
+- Tracks combat events by zone, enemy type, and location
+
+#### Initialization
+```javascript
+constructor(house, factionAI) {
+  this.house = house;
+  this.factionAI = factionAI;
+  this.combatEvents = []; // Array of combat events
+  this.subscriberId = `combat_recorder_${house.id}`;
+  
+  // Subscribe to EventManager DEATH events
+  global.eventManager.subscribe(
+    this.subscriberId,
+    global.eventManager.categories.DEATH,
+    this.onDeathEvent.bind(this)
+  );
+}
+```
+
+#### Combat Event Recording (`onDeathEvent(event)`)
+
+Handles death events from EventManager:
+
+1. **Extract Victim and Killer**: Gets victim and killer units from event
+2. **Check Faction Involvement**: Only records if victim or killer belongs to faction
+3. **Record Event**: Calls `recordCombatEvent()` to store the event
+4. **Classify Enemy Type**: Determines if enemy is faction, fauna, or neutral
+5. **Track Location**: Records zone and tile location of combat
+
+#### Daily Combat Recap (`getDailyRecap(day)`)
+
+Generates combat statistics for a specific day:
+
+**Statistics Included**:
+- `totalKills`: Number of kills by faction units
+- `totalDeaths`: Number of faction unit deaths
+- `momentum`: Calculated as `kills - deaths` (positive = winning, negative = losing)
+- `zones`: Breakdown by zone ID (kills, deaths, total events)
+- `threats`: Breakdown by enemy faction/type (kills, deaths)
+- `baseDefense`: Events occurring in base territory (events, kills, deaths)
+
+**Base Defense Tracking**:
+- Checks if combat location is in base territory using `factionAI.territory.isInBaseTerritory()`
+- Tracks events occurring in base territory separately
+
+#### Combat Insights (`getCombatInsights()`)
+
+Provides strategic insights from combat events:
+
+- Identifies primary threats (enemy factions causing most deaths)
+- Identifies successful engagements (zones with positive kill/death ratios)
+- Tracks combat trends over time
+- Provides recommendations for military strategy
+
+#### Event Cleanup (`clearOldEvents(maxAgeDays)`)
+
+Removes combat events older than specified number of days:
+- Prevents memory bloat from accumulating events
+- Keeps recent events for tactical analysis
+- Default cleanup keeps last 30 days of events
+
+---
+
+### 6. GoalExecutor (`server/js/ai/GoalExecutor.js`)
 
 Handles goal execution logic, separate from chain management. Provides structured error handling and execution flow control.
 
@@ -674,7 +890,7 @@ All errors logged with format: `[GoalExecutor] [timestamp] [faction] [goalType] 
 
 ---
 
-### 4. FactionAILogger (`server/js/ai/FactionAILogger.js`)
+### 7. FactionAILogger (`server/js/ai/FactionAILogger.js`)
 
 Centralized logging and reporting utility for faction AI. Handles daily report generation, scouting statistics tracking, and structured logging.
 
@@ -756,7 +972,7 @@ Centralized logging and reporting utility for faction AI. Handles daily report g
 
 ---
 
-### 5. MilitaryManager (`server/js/ai/MilitaryManager.js`)
+### 8. MilitaryManager (`server/js/ai/MilitaryManager.js`)
 
 Handles all military operations: scouting parties, attack forces, and unit selection.
 
@@ -2419,24 +2635,28 @@ Game Loop (Daily)
   ↓
 House.evaluateAI() [Houses.js:246]
   ↓
-FactionAI.evaluateAndAct() [FactionAI.js:118]
+FactionAI.evaluateAndAct() [FactionAI.js:136]
   ↓
-  ├─→ Check lastEvaluatedDay (prevent duplicates) [line 123]
-  ├─→ monitorResourceProduction() (economic factions only) [line 132]
+  ├─→ Check lastEvaluatedDay (prevent duplicates) [line 140]
+  ├─→ productionMonitor.monitor(day) (economic factions only) [line 158]
   │     ├─→ Track resource levels and production rates
   │     ├─→ Detect production issues
-  │     ├─→ diagnoseProductionIssue() if issue detected
-  │     └─→ triggerProductionRecovery() if broken 2+ days
-  ├─→ logger.startReport() [line 135]
-  ├─→ Invalidate caches for new day [line 138]
-  ├─→ house.updatePatrolList() [line 146]
-  ├─→ territory.updateTerritory() [line 151]
+  │     ├─→ productionMonitor.diagnoseProductionIssue() if issue detected
+  │     └─→ productionMonitor.triggerRecovery() if broken 2+ days (sets _pendingRecoveryGoals)
+  ├─→ combatRecorder.getDailyRecap(day) [line 161]
+  ├─→ combatRecorder.getCombatInsights() [line 162]
+  ├─→ logger.recordCombatRecap() [line 170]
+  ├─→ combatRecorder.clearOldEvents(30) [line 174]
+  ├─→ logger.startReport() [line 177]
+  ├─→ Invalidate caches for new day [line 179]
+  ├─→ house.updatePatrolList() [line 188]
+  ├─→ territory.updateTerritory() [line 193]
   │     ├─→ BuildingService.getBuildings() (cached)
   │     ├─→ Calculate hash (count:sumOfIDs:validIds)
   │     ├─→ If hash matches: use cached territory
   │     └─→ If hash differs: recalculate (1.1x multiplier)
-  ├─→ knowledge.updateKnownZones() [line 154]
-  ├─→ knowledge.cleanStaleInformation() [line 157]
+  ├─→ knowledge.updateKnownZones() [line 196]
+  ├─→ knowledge.cleanStaleInformation() [line 199]
   │
   ├─→ IF currentGoalChain exists AND not complete AND not failed:
   │     ├─→ logger.updateGoalChain()
@@ -2459,22 +2679,22 @@ FactionAI.evaluateAndAct() [FactionAI.js:118]
   │
   └─→ ELSE (no chain OR complete OR failed):
         ├─→ IF chain failed:
-        │     ├─→ recordChainFailure() [line 178]
-        │     ├─→ analyzeChainFailure() [line 181]
-        │     └─→ IF recovery goal found: create chain and execute [line 184-189]
-        ├─→ Clear failed chains [line 192]
-        ├─→ evaluateNewGoals() [line 199]
-        │     ├─→ Check isNonEconomicFaction() [line 217]
-        │     ├─→ strategy.evaluateEconomicGoals() (skipped for non-economic) [line 221]
-        │     ├─→ strategy.evaluateMilitaryGoals() [line 222]
-        │     ├─→ strategy.evaluateExpansionGoals() [line 223]
-        │     ├─→ strategy.evaluateResourceScoutingGoals() [line 224]
-        │     ├─→ strategy.evaluateDefenseGoals() [line 225]
-        │     ├─→ Add recovery goals from _pendingRecoveryGoals [line 233]
-        │     ├─→ Add fallback scout goals from suggestedFallbackGoals [line 237-251]
-        │     ├─→ checkResourceBalance() (Phase 8) [line 264]
-        │     ├─→ recordGoalConsideration() for all goals (Phase 9) [line 267]
-        │     ├─→ Apply resource balance boosts BEFORE filtering (Phase 8) [line 274]
+        │     ├─→ recordChainFailure() [line 220]
+        │     ├─→ analyzeChainFailure() [line 223]
+        │     └─→ IF recovery goal found: create chain and execute [line 224-231]
+        ├─→ Clear failed chains [line 234]
+        ├─→ evaluateNewGoals() [line 245]
+        │     ├─→ Check isNonEconomicFaction() [line 263]
+        │     ├─→ strategy.evaluateEconomicGoals() (skipped for non-economic) [line 311]
+        │     ├─→ strategy.evaluateMilitaryGoals() [line 312]
+        │     ├─→ strategy.evaluateExpansionGoals() [line 313]
+        │     ├─→ strategy.evaluateResourceScoutingGoals() [line 315]
+        │     ├─→ strategy.evaluateDefenseGoals() [line 316]
+        │     ├─→ Add recovery goals from _pendingRecoveryGoals [line 327]
+        │     ├─→ Add fallback scout goals from suggestedFallbackGoals [line 331-343]
+        │     ├─→ resourceBalanceAnalyzer.checkResourceBalance(house.stores) (Phase 7) [line 277]
+        │     ├─→ recordGoalConsideration() for all goals (Phase 8) [line 280]
+        │     ├─→ Apply resource balance boosts BEFORE filtering (Phase 9) [line 283]
         │     ├─→ Apply goal forcing BEFORE filtering (Phase 9) [line 304]
         │     ├─→ Filter goals [line 315]
         │     │     ├─→ Filter utility <= 0
@@ -2656,22 +2876,24 @@ The Faction AI system is a sophisticated, optimized, goal-driven architecture th
 17. **Validates locations** (Phase 3): Pre-checks building placement before goal selection
 18. **Adaptive learning**: Tracks failures and adjusts goal utilities to prevent repeated failures
 19. **Non-economic faction support**: Excludes certain factions (Brotherhood, Outlaws, Norsemen, Mercenaries) from economic goals and production monitoring
-20. **Production monitoring**: Tracks resource production rates, detects issues, and triggers recovery goals when production broken for 2+ days
-21. **Production diagnostics**: Identifies root causes of production problems (missing buildings, serf assignment, deposit logic)
-22. **Fallback goals**: Generates basic infrastructure goals when no valid goals available to keep factions active
-23. **Location blocking tracking**: Tracks location blocking separately from failures and suggests scouting when appropriate
-24. **Chain failure analysis**: Analyzes failed chains to suggest recovery goals based on blocking factors
-25. **Deferred goals**: Defers gather goals until building dependencies are satisfied in chain
-26. **Production feasibility**: Validates production capacity before creating gather goals, builds additional buildings if needed
-27. **Resource gap detection**: Detects when resources not available in territory and suggests scouting
-28. **Deadlock prevention**: Prevents stone production deadlocks (BUILD_MINE needs stone but production broken)
-29. **Logger faction filtering**: Only enables detailed logging for specific factions (Teutons, Goths, Celts, Franks) to reduce log noise
+20. **Production monitoring**: ProductionMonitor service tracks resource production rates, detects issues, and triggers recovery goals when production broken for 2+ days
+21. **Resource balance analysis**: ResourceBalanceAnalyzer service calculates resource ratios, identifies imbalances, and estimates production rates
+22. **Combat intelligence**: CombatRecorder service tracks combat events, provides daily recaps, and generates military insights
+23. **Production diagnostics**: ProductionMonitor identifies root causes of production problems (missing buildings, serf assignment, deposit logic)
+24. **Fallback goals**: Generates basic infrastructure goals when no valid goals available to keep factions active
+25. **Location blocking tracking**: Tracks location blocking separately from failures and suggests scouting when appropriate
+26. **Chain failure analysis**: Analyzes failed chains to suggest recovery goals based on blocking factors
+27. **Deferred goals**: Defers gather goals until building dependencies are satisfied in chain
+28. **Production feasibility**: ResourceBalanceAnalyzer validates production capacity before creating gather goals, builds additional buildings if needed
+29. **Resource gap detection**: Detects when resources not available in territory and suggests scouting
+30. **Deadlock prevention**: Prevents stone production deadlocks (BUILD_MINE needs stone but production broken)
+31. **Logger faction filtering**: Only enables detailed logging for specific factions (Teutons, Goths, Celts, Franks) to reduce log noise
 
 ### Architecture Principles
 
-- **Single Source of Truth**: Each data type has one clear access point (BuildingService for buildings, FactionAI for military units)
+- **Single Source of Truth**: Each data type has one clear access point (BuildingService for buildings, FactionAI for military units, ProductionMonitor for production tracking, ResourceBalanceAnalyzer for resource analysis, CombatRecorder for combat events)
 - **Fail Fast**: No fallback paths - errors caught immediately with clear messages
-- **Separation of Concerns**: Clear responsibilities (FactionAI orchestrates, GoalExecutor executes, MilitaryManager handles military)
+- **Separation of Concerns**: Clear responsibilities (FactionAI orchestrates, GoalExecutor executes, MilitaryManager handles military, ProductionMonitor tracks production, ResourceBalanceAnalyzer analyzes resources, CombatRecorder tracks combat)
 - **Performance Optimized**: Multiple caching layers, iterative algorithms, hash-based invalidation
 - **Easily Diagnosable**: Structured errors, resolution path tracing, optional debug logging
 - **Modular & Extensible**: Clear extension points for new goals, buildings, factions, strategies

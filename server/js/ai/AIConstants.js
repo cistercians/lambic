@@ -72,8 +72,8 @@ const UTILITY_ADJUSTMENTS = {
 // Failure thresholds
 const FAILURE_THRESHOLDS = {
   AVOID_GOAL_CONSECUTIVE: 3,          // Avoid goal if 3+ consecutive failures
-  GOAL_ABANDONMENT_FAILURES: 10,      // Abandon goal after 10 consecutive failures
-  GOAL_ABANDONMENT_DAYS: 15           // Abandon goal if failed for 15+ days total
+  GOAL_ABANDONMENT_FAILURES: 15,      // Abandon goal after 15 consecutive failures (increased from 10)
+  GOAL_ABANDONMENT_DAYS: 20           // Abandon goal if failed for 20+ days total (increased from 15)
 };
 
 // Display constants

@@ -10,11 +10,22 @@ class CombatRecorder {
     
     // Subscribe to EventManager DEATH events
     if (global.eventManager) {
-      global.eventManager.subscribe(
+      const subscribed = global.eventManager.subscribe(
         this.subscriberId,
         global.eventManager.categories.DEATH,
         this.onDeathEvent.bind(this)
       );
+      
+      // Diagnostic logging (once per faction)
+      const factionName = house?.name || 'Unknown';
+      if (subscribed) {
+        console.log(`[COMBAT RECORDER] ${factionName}: Successfully subscribed to DEATH events`);
+      } else {
+        console.log(`[COMBAT RECORDER] ${factionName}: Failed to subscribe to DEATH events`);
+      }
+    } else {
+      const factionName = house?.name || 'Unknown';
+      console.log(`[COMBAT RECORDER] ${factionName}: global.eventManager is not available`);
     }
   }
   
@@ -23,7 +34,23 @@ class CombatRecorder {
    * @param {Object} event - Death event from EventManager
    */
   onDeathEvent(event) {
+    // Diagnostic: log all death events (throttled to avoid spam)
+    if (!this._eventLogThrottle) {
+      this._eventLogThrottle = { lastLog: 0, eventCount: 0 };
+    }
+    this._eventLogThrottle.eventCount++;
+    
+    const now = Date.now();
+    const LOG_THROTTLE_MS = 10000; // Log every 10 seconds
+    const shouldLog = (now - this._eventLogThrottle.lastLog) > LOG_THROTTLE_MS;
+    
     if (!event || !event.subject || !event.target) {
+      if (shouldLog) {
+        const factionName = this.house?.name || 'Unknown';
+        console.log(`[COMBAT RECORDER] ${factionName}: Received invalid death event (missing subject/target). Total events received: ${this._eventLogThrottle.eventCount}`);
+        this._eventLogThrottle.lastLog = now;
+        this._eventLogThrottle.eventCount = 0;
+      }
       return; // Need both victim and killer
     }
     
@@ -32,6 +59,12 @@ class CombatRecorder {
     const killer = event.target ? (global.Player && global.Player.list ? global.Player.list[event.target] : null) : null;
     
     if (!victim || !event.position) {
+      if (shouldLog) {
+        const factionName = this.house?.name || 'Unknown';
+        console.log(`[COMBAT RECORDER] ${factionName}: Received death event but victim/position invalid. Total events received: ${this._eventLogThrottle.eventCount}`);
+        this._eventLogThrottle.lastLog = now;
+        this._eventLogThrottle.eventCount = 0;
+      }
       return; // Need valid victim and position
     }
     
@@ -43,6 +76,14 @@ class CombatRecorder {
     // Record event if it involves our faction
     if (isOurVictim || isOurKiller) {
       this.recordCombatEvent(victim, killer, event.position, isOurKiller);
+      
+      if (shouldLog) {
+        const factionName = this.house?.name || 'Unknown';
+        const eventType = isOurKiller ? 'kill' : 'death';
+        console.log(`[COMBAT RECORDER] ${factionName}: Recorded ${eventType} event (our ${eventType}). Total events received: ${this._eventLogThrottle.eventCount}, total recorded: ${this.combatEvents.length}`);
+        this._eventLogThrottle.lastLog = now;
+        this._eventLogThrottle.eventCount = 0;
+      }
     }
   }
   
@@ -144,6 +185,16 @@ class CombatRecorder {
    */
   getDailyRecap(day) {
     const dayEvents = this.combatEvents.filter(e => e.day === day);
+    
+    // Diagnostic: log recap generation (throttled)
+    if (!this._recapLogThrottle) {
+      this._recapLogThrottle = { lastLogDay: 0 };
+    }
+    if (day !== this._recapLogThrottle.lastLogDay) {
+      const factionName = this.house?.name || 'Unknown';
+      console.log(`[COMBAT RECORDER] ${factionName}: Generating daily recap for day ${day}. Events for this day: ${dayEvents.length}, total events: ${this.combatEvents.length}`);
+      this._recapLogThrottle.lastLogDay = day;
+    }
     
     const recap = {
       day: day,

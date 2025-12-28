@@ -955,32 +955,45 @@ class DeployScoutGoal extends Goal {
   }
   
   execute(house) {
+    const factionName = house?.name || 'Unknown';
+    console.log(`[SCOUT GOAL] ${factionName}: DeployScoutGoal.execute() called`);
+    
     // Check if AI system exists
     if (!house.ai || !house.ai.deployScoutingParty) {
+      console.log(`[SCOUT GOAL] ${factionName}: Failed - AI system or deployScoutingParty method missing`);
       this.status = 'FAILED';
       return;
     }
     
     // Check if we have military units available
-    if (!house.ai.getMilitaryUnits || house.ai.getMilitaryUnits().length === 0) {
+    const militaryUnits = house.ai.getMilitaryUnits ? house.ai.getMilitaryUnits() : [];
+    if (militaryUnits.length === 0) {
+      console.log(`[SCOUT GOAL] ${factionName}: Failed - No military units available`);
       this.status = 'FAILED';
       return;
     }
+    
+    console.log(`[SCOUT GOAL] ${factionName}: Found ${militaryUnits.length} military units`);
     
     // Find an unexplored location to scout
     var targetZone = this.findScoutDestination(house);
     
     if (!targetZone) {
+      console.log(`[SCOUT GOAL] ${factionName}: Failed - Could not find scout destination`);
       this.status = 'FAILED';
       return;
     }
+    
+    console.log(`[SCOUT GOAL] ${factionName}: Target zone found: ${targetZone.id || 'unknown'} at [${targetZone.center?.[0]}, ${targetZone.center?.[1]}]`);
     
     // Deploy scouting party
     var party = house.ai.deployScoutingParty(targetZone, 'resource_scout');
     
     if (party) {
+      console.log(`[SCOUT GOAL] ${factionName}: Scouting party deployed successfully`);
       this.status = 'COMPLETED';
     } else {
+      console.log(`[SCOUT GOAL] ${factionName}: Failed - deployScoutingParty returned null`);
       this.status = 'FAILED';
     }
   }
@@ -1054,13 +1067,18 @@ class ScoutForResourceGoal extends Goal {
   }
   
   execute(house) {
+    const factionName = house?.name || 'Unknown';
+    console.log(`[SCOUT GOAL] ${factionName}: ScoutForResourceGoal.execute() called for resource: ${this.resourceType}`);
+    
     if (!this.canExecute(house)) {
+      console.log(`[SCOUT GOAL] ${factionName}: Blocked - canExecute() returned false`);
       this.status = 'BLOCKED';
       return;
     }
     
     // Check if AI system exists
     if (!house.ai || !house.ai.deployScoutingParty) {
+      console.log(`[SCOUT GOAL] ${factionName}: Failed - AI system or deployScoutingParty method missing`);
       this.status = 'FAILED';
       return;
     }
@@ -1069,16 +1087,21 @@ class ScoutForResourceGoal extends Goal {
     var targetZone = this.findResourceZone(house);
     
     if (!targetZone) {
+      console.log(`[SCOUT GOAL] ${factionName}: Failed - Could not find resource zone for ${this.resourceType}`);
       this.status = 'FAILED';
       return;
     }
+    
+    console.log(`[SCOUT GOAL] ${factionName}: Target zone found: ${targetZone.id || targetZone.name || 'unknown'} for resource ${this.resourceType}`);
     
     // Deploy scouting party with resource type as purpose
     var party = house.ai.deployScoutingParty(targetZone, this.resourceType);
     
     if (party) {
+      console.log(`[SCOUT GOAL] ${factionName}: Scouting party deployed successfully for ${this.resourceType}`);
       this.status = 'COMPLETED';
     } else {
+      console.log(`[SCOUT GOAL] ${factionName}: Failed - deployScoutingParty returned null`);
       this.status = 'FAILED';
     }
   }

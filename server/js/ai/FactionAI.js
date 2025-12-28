@@ -160,6 +160,12 @@ class FactionAI {
     // Get daily combat recap and insights
     const combatRecap = this.combatRecorder.getDailyRecap(day);
     const combatInsights = this.combatRecorder.getCombatInsights();
+    
+    // Diagnostic: log recap data
+    if (combatRecap && (combatRecap.totalKills > 0 || combatRecap.totalDeaths > 0)) {
+      console.log(`[COMBAT RECORDER] ${this.house.name}: Day ${day} recap - Kills: ${combatRecap.totalKills}, Deaths: ${combatRecap.totalDeaths}, Momentum: ${combatRecap.momentum}`);
+    }
+    
     if (this.logger) {
       this.logger.recordCombatRecap(combatRecap, combatInsights);
     }

@@ -15,12 +15,17 @@ class MilitaryManager {
   // Deploy a scouting party to a target zone (flexible 1-3 units)
   deployScoutingParty(targetZone, resourceType) {
     const logger = this.factionAI?.logger;
+    const factionName = this.factionAI?.house?.name || 'Unknown';
+    console.log(`[SCOUT DEPLOY] ${factionName}: deployScoutingParty() called for zone: ${targetZone?.id || targetZone?.name || 'unknown'}, purpose: ${resourceType}`);
     
     // Select leader (prefer mounted military unit)
     const leader = this.selectScoutLeader();
     if (!leader) {
+      console.log(`[SCOUT DEPLOY] ${factionName}: Failed - No scout leader available`);
       return null;
     }
+    
+    console.log(`[SCOUT DEPLOY] ${factionName}: Selected leader: ${leader.id || 'unknown'}`);
     
     // Try to select up to 2 backup units (but accept 0-2)
     const backups = this.selectBackupUnits(2, leader);
@@ -48,8 +53,16 @@ class MilitaryManager {
     leader.name = `🚩 ${leader.name}`;
     
     // Create party (works with 0-2 backups)
+    console.log(`[SCOUT DEPLOY] ${factionName}: Creating ScoutingParty with ${backups.length} backup units`);
     const party = new ScoutingParty(leader, backups, targetZone, resourceType);
+    
+    if (!party) {
+      console.log(`[SCOUT DEPLOY] ${factionName}: Failed - ScoutingParty constructor returned null`);
+      return null;
+    }
+    
     this.scoutingParties.push(party);
+    console.log(`[SCOUT DEPLOY] ${factionName}: ScoutingParty created successfully, total parties: ${this.scoutingParties.length}`);
     
     // Assign behaviors
     leader.scoutingParty = party;
@@ -60,6 +73,7 @@ class MilitaryManager {
     
     // Assign mission orders to units
     party.assignMissionOrders();
+    console.log(`[SCOUT DEPLOY] ${factionName}: Mission orders assigned to scouting party`);
     
     if (logger) {
       logger.collectAction('Deploying scouting party', {
