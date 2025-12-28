@@ -277,7 +277,9 @@ class BuildMineGoal extends Goal {
   // Override canExecute to also check location
   canExecute(house) {
     // First check standard requirements (resources, buildings)
+    // Note: super.canExecute() resets blockedBy, so we preserve any blocks it adds
     if (!super.canExecute(house)) {
+      // Parent found blocks (resources/buildings) - return false with those blocks
       return false;
     }
     
@@ -319,6 +321,9 @@ class BuildMineGoal extends Goal {
         });
       }
     } else {
+      // Build failed - no valid location found
+      // This should have been caught by canExecute/canPlace, but if we get here,
+      // location validation passed but actual build failed (race condition or terrain changed)
       this.status = 'FAILED';
       const error = new Error('Failed to find suitable location for mine - no valid placement found. Mines can be placed on EMPTY, ROCKS, or MOUNTAIN terrain within search radius.');
       

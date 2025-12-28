@@ -653,7 +653,7 @@ class GoalChain {
     chain.steps = chain.removeDuplicates(chain.steps);
     
     // Validate chain: Check if first step can actually execute
-    // If first step can't execute even after dependency resolution, mark chain as potentially failed
+    // If first step can't execute even after dependency resolution, reject the chain
     if (chain.steps.length > 0) {
       const firstStep = chain.steps[0];
       const firstStepBlocking = firstStep.getBlockingFactors ? firstStep.getBlockingFactors(house) : [];
@@ -661,15 +661,26 @@ class GoalChain {
       
       if (locationBlocks.length > 0 && firstStepBlocking.length === locationBlocks.length) {
         // First step is blocked only by location - this is a problem
-        // Location blocking can't be resolved by dependencies
+        // Location blocking can't be resolved by dependencies, so reject the chain
+        const locationReasons = locationBlocks.map(b => b.value || 'no valid location').join(', ');
+        const errorMsg = `First step ${firstStep.type} blocked by location: ${locationReasons} - rejecting chain`;
+        chain.errors = chain.errors || [];
+        chain.errors.push(errorMsg);
+        
         if (logger) {
-          const locationReasons = locationBlocks.map(b => b.value || 'no valid location').join(', ');
-          logger.collectInfo(`Chain validation: First step ${firstStep.type} blocked by location: ${locationReasons}`);
-          console.warn(`[GoalChain] Chain validation: First step ${firstStep.type} blocked by location: ${locationReasons} - chain may fail during execution`);
+          logger.collectError(`Chain validation failed: ${firstStep.type} blocked by location`, null, {
+            reason: locationReasons
+          });
+          console.warn(`[GoalChain] Chain validation: ${errorMsg}`);
         }
-        // Don't mark as failed yet - let executor handle retries
+        
+        // Clear steps to prevent execution of invalid chain
+        chain.steps = [];
+        chain.currentStep = 0;
+        return chain; // Return chain with no steps (will be rejected)
       } else if (firstStepBlocking.length > 0) {
         // First step has other blocking factors (should have been resolved)
+        // These might be temporary (resources that will be gathered), so warn but allow chain
         if (logger) {
           const blockingSummary = firstStepBlocking.map(b => {
             if (b.type === 'RESOURCE') return `${b.resource} (have ${b.have}, need ${b.need})`;

@@ -9,23 +9,21 @@ class CombatRecorder {
     this.subscriberId = `combat_recorder_${house.id}`;
     
     // Subscribe to EventManager DEATH events
-    if (global.eventManager) {
-      const subscribed = global.eventManager.subscribe(
+    if (global.eventManager && global.eventManager.categories && global.eventManager.categories.DEATH) {
+      global.eventManager.subscribe(
         this.subscriberId,
         global.eventManager.categories.DEATH,
         this.onDeathEvent.bind(this)
       );
-      
-      // Diagnostic logging (once per faction)
-      const factionName = house?.name || 'Unknown';
-      if (subscribed) {
-        console.log(`[COMBAT RECORDER] ${factionName}: Successfully subscribed to DEATH events`);
-      } else {
-        console.log(`[COMBAT RECORDER] ${factionName}: Failed to subscribe to DEATH events`);
-      }
+      // Subscription doesn't return a value - if eventManager exists, subscription succeeds
+      // Events will be received via onDeathEvent callback if subscription is active
     } else {
       const factionName = house?.name || 'Unknown';
-      console.log(`[COMBAT RECORDER] ${factionName}: global.eventManager is not available`);
+      if (!global.eventManager) {
+        console.warn(`[COMBAT RECORDER] ${factionName}: global.eventManager is not available - combat tracking disabled`);
+      } else if (!global.eventManager.categories || !global.eventManager.categories.DEATH) {
+        console.warn(`[COMBAT RECORDER] ${factionName}: DEATH event category not available - combat tracking disabled`);
+      }
     }
   }
   

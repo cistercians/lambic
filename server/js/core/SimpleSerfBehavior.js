@@ -224,22 +224,37 @@ class SimpleSerfBehavior {
 
     if (isAtDropoff) {
       // At dropoff - deposit all resources
-      // Log serf inventory before deposit attempt (for debugging)
+      // Log serf inventory before deposit attempt (for debugging) - THROTTLED
       if (hasStoneOrIronore) {
-        const inventoryBefore = Object.keys(serf.inventory || {}).filter(r => (serf.inventory[r] || 0) > 0)
-          .map(r => `${r}:${serf.inventory[r]}`).join(', ');
-        console.log(`[SERF DEPOSIT DEBUG] ${houseName}: At dropoff, attempting deposit - serf inventory: ${inventoryBefore || 'empty'}, serf.z=${serf.z}, building.z=${building.z || 0}`);
+        const throttleKeyAttempt = `depositAttempt-${serf.id}-${building.id}`;
+        const lastAttemptLog = this.logThrottle[throttleKeyAttempt];
+        if (!lastAttemptLog || (now - lastAttemptLog) > this.LOG_THROTTLE_MS * 3) {
+          const inventoryBefore = Object.keys(serf.inventory || {}).filter(r => (serf.inventory[r] || 0) > 0)
+            .map(r => `${r}:${serf.inventory[r]}`).join(', ');
+          console.log(`[SERF DEPOSIT DEBUG] ${houseName}: At dropoff, attempting deposit - serf inventory: ${inventoryBefore || 'empty'}, serf.z=${serf.z}, building.z=${building.z || 0}`);
+          this.logThrottle[throttleKeyAttempt] = now;
+        }
       }
       
       serf.facing = 'up';
       const deposited = this.depositAllResources(serf, building);
       if (!deposited) {
-        // Log deposit failure (not throttled - this is an error)
-        console.log(`[SERF DEPOSIT] ${houseName}: Failed to deposit resources (${resourceTypes.join(', ')}) to ${building.type} at [${building.x}, ${building.y}], z=${building.z}, serf z=${serf.z}`);
+        // Log deposit failure - THROTTLED (recurring errors should be throttled to avoid spam)
+        const throttleKeyFailure = `depositFailure-${serf.id}-${building.id}`;
+        const lastFailureLog = this.logThrottle[throttleKeyFailure];
+        if (!lastFailureLog || (now - lastFailureLog) > this.LOG_THROTTLE_MS * 3) {
+          console.log(`[SERF DEPOSIT] ${houseName}: Failed to deposit resources (${resourceTypes.join(', ')}) to ${building.type} at [${building.x}, ${building.y}], z=${building.z}, serf z=${serf.z}`);
+          this.logThrottle[throttleKeyFailure] = now;
+        }
       } else if (hasStoneOrIronore) {
-        // Log successful deposit (not throttled - this is important)
-        const depositedAmounts = resourceTypes.map(r => `${r}:${serf.inventory[r] || 0}`).join(', ');
-        console.log(`[SERF DEPOSIT DEBUG] ${houseName}: Successfully deposited stone/ironore to ${building.type} - serf had: ${depositedAmounts}`);
+        // Log successful deposit - THROTTLED (frequent successes don't need constant logging)
+        const throttleKeySuccess = `depositSuccessDebug-${serf.id}-${building.id}`;
+        const lastSuccessLog = this.logThrottle[throttleKeySuccess];
+        if (!lastSuccessLog || (now - lastSuccessLog) > this.LOG_THROTTLE_MS * 2) {
+          const depositedAmounts = resourceTypes.map(r => `${r}:${serf.inventory[r] || 0}`).join(', ');
+          console.log(`[SERF DEPOSIT DEBUG] ${houseName}: Successfully deposited stone/ironore to ${building.type} - serf had: ${depositedAmounts}`);
+          this.logThrottle[throttleKeySuccess] = now;
+        }
       }
       serf.action = null; // Resume work
     } else if (!serf.path || serf.path.length === 0) {

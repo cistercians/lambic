@@ -72,30 +72,17 @@ class BuildingConstructor {
     
     // Get building definition to know the plot shape
     let buildingDef = null;
-    if (global.BuildingPreview) {
-      try {
-        const preview = new global.BuildingPreview();
-        if (preview && preview.buildingDefinitions) {
-          buildingDef = preview.buildingDefinitions[buildingType];
-          
-          // Debug: if lookup fails, log available keys
-          if (!buildingDef && shouldLog) {
-            const availableKeys = Object.keys(preview.buildingDefinitions || {});
-            console.log(`[CELTS FOREST SEARCH] ${factionName}: Building type '${buildingType}' not found in buildingDefinitions. Available keys: ${availableKeys.join(', ')}`);
-          }
-        } else {
-          if (shouldLog) {
-            console.log(`[CELTS FOREST SEARCH] ${factionName}: BuildingPreview created but buildingDefinitions is missing`);
-          }
-        }
-      } catch (error) {
-        if (shouldLog) {
-          console.log(`[CELTS FOREST SEARCH] ${factionName}: Error creating BuildingPreview: ${error.message}`);
-        }
+    if (global.buildingPreview && global.buildingPreview.buildingDefinitions) {
+      buildingDef = global.buildingPreview.buildingDefinitions[buildingType];
+      
+      // Debug: if lookup fails, log available keys
+      if (!buildingDef && shouldLog) {
+        const availableKeys = Object.keys(global.buildingPreview.buildingDefinitions || {});
+        console.log(`[CELTS FOREST SEARCH] ${factionName}: Building type '${buildingType}' not found in buildingDefinitions. Available keys: ${availableKeys.join(', ')}`);
       }
     } else {
       if (shouldLog) {
-        console.log(`[CELTS FOREST SEARCH] ${factionName}: global.BuildingPreview is not available`);
+        console.log(`[CELTS FOREST SEARCH] ${factionName}: global.buildingPreview is not available or missing buildingDefinitions`);
       }
     }
     
@@ -753,7 +740,16 @@ class BuildingConstructor {
     const hq = this.house.hq;
     const searchCenter = location || hq;
     
-    // Try multiple radii if initial search fails
+    // For Celts: must search specifically for forest terrain
+    if (this.isCelts()) {
+      const maxRadius = location ? 10 : 20;
+      const spot = this.findBuildingSpotOnForest('forge', searchCenter, maxRadius, {
+        excludeTiles: this.getOccupiedTiles()
+      });
+      return spot !== null && spot.plot && spot.plot[0];
+    }
+    
+    // For other factions: use standard search (grass/rock/mountain)
     const radii = location ? [3, 6, 10] : [10, 15, 20];
     
     for (const radius of radii) {
@@ -762,10 +758,6 @@ class BuildingConstructor {
       });
       
       if (spot && spot.plot && spot.plot[0]) {
-        // For Celts: forges require wood, so must be on forest tiles
-        if (this.isCelts() && !this.isSpotOnForest(spot)) {
-          continue; // Try next radius
-        }
         return true;
       }
     }
