@@ -45,6 +45,8 @@ var SocketMessageHandler = {
       this.handleBuildMenuData(data);
     } else if(data.msg == 'resourceScoreboard' || data.msg == 'resourceScoreboardUpdate'){
       this.handleResourceScoreboard(data);
+    } else if(data.msg == 'battlegroundsLeaderboard'){
+      this.handleBattlegroundsLeaderboard(data);
     } else if(data.msg == 'buildPreviewData'){
       this.handleBuildPreviewData(data);
     } else if(data.msg == 'buildValidationData'){
@@ -61,6 +63,24 @@ var SocketMessageHandler = {
       this.handleOpenChest(data);
     } else if(data.msg == 'openHouseCreation'){
       this.handleOpenHouseCreation(data);
+    } else if(data.msg == 'openBattlegroundsLobby'){
+      this.handleOpenBattlegroundsLobby(data);
+    } else if(data.msg == 'pokerInvitation'){
+      this.handlePokerInvitation(data);
+    } else if(data.msg == 'battlegroundsMatchUpdate'){
+      this.handleBattlegroundsMatchUpdate(data);
+    } else if(data.msg == 'battlegroundsMatchEnd'){
+      this.handleBattlegroundsMatchEnd(data);
+    } else if(data.msg == 'battlegroundsVotingStart'){
+      this.handleBattlegroundsVotingStart(data);
+    } else if(data.msg == 'battlegroundsVotingUpdate'){
+      this.handleBattlegroundsVotingUpdate(data);
+    } else if(data.msg == 'battlegroundsVotingResults'){
+      this.handleBattlegroundsVotingResults(data);
+    } else if(data.msg == 'battlegroundsLobbyUpdate'){
+      this.handleBattlegroundsLobbyUpdate(data);
+    } else if(data.msg == 'battlegroundsLobbyChat'){
+      this.handleBattlegroundsLobbyChat(data);
     } else if(data.msg == 'disembarkShip'){
       this.handleDisembarkShip(data);
     } else if(data.msg == 'fishCatch'){
@@ -77,6 +97,12 @@ var SocketMessageHandler = {
       this.handleBuildingPreview(data);
     } else if(data.msg == 'init'){
       this.handleInit(data);
+    } else if(data.msg == 'battlegroundWorld'){
+      this.handleBattlegroundWorld(data);
+    } else if(data.msg == 'battlegroundsMapPreview'){
+      if(this.handleBattlegroundsMapPreview) {
+        this.handleBattlegroundsMapPreview(data);
+      }
     } else if(data.msg == 'update'){
       this.handleUpdate(data);
     } else if(data.msg == 'remove'){
@@ -465,6 +491,15 @@ var SocketMessageHandler = {
     }
   },
 
+  handleBattlegroundsLeaderboard: function(data) {
+    // Update Battlegrounds leaderboard UI
+    if(typeof window !== 'undefined' && window.scoreboardUIInstance) {
+      window.scoreboardUIInstance.updateBattlegroundsLeaderboard(data.data || [], data.sortBy || 'wins');
+    } else if(typeof updateBattlegroundsLeaderboard !== 'undefined') {
+      updateBattlegroundsLeaderboard(data.data || [], data.sortBy || 'wins');
+    }
+  },
+
   handleBuildPreviewData: function(data) {
     // Preview data received - preview is now active and will follow cursor
     if(typeof window !== 'undefined') {
@@ -584,6 +619,84 @@ var SocketMessageHandler = {
     } else {
       console.error('HouseCreationUI not available');
     }
+  },
+
+  handleOpenBattlegroundsLobby: function(data) {
+    // Open Battlegrounds lobby UI
+    if(typeof window !== 'undefined' && window.battlegroundsLobbyUI) {
+      // Set socket reference
+      if(typeof socket !== 'undefined') {
+        window.battlegroundsLobbyUI.setSocket(socket);
+      } else if(typeof window !== 'undefined' && window.socket) {
+        window.battlegroundsLobbyUI.setSocket(window.socket);
+      }
+      
+      if(data.lobbyState) {
+        window.battlegroundsLobbyUI.show(data.lobbyState);
+      }
+    }
+  },
+
+  handlePokerInvitation: function(data) {
+    // Show poker invitation popup
+    let popup = document.getElementById('poker-invitation-popup');
+    if (!popup) {
+      // Create popup if it doesn't exist
+      popup = document.createElement('div');
+      popup.id = 'poker-invitation-popup';
+      popup.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: rgba(0, 0, 0, 0.9); padding: 30px; border-radius: 10px; z-index: 10000; border: 2px solid rgba(255, 255, 255, 0.3); min-width: 300px; text-align: center; display: none;';
+      popup.innerHTML = `
+        <h3 style="color: white; margin-top: 0;">Poker Invitation</h3>
+        <p id="poker-invitation-text" style="color: white; margin: 20px 0;"></p>
+        <div style="display: flex; gap: 10px; justify-content: center;">
+          <button id="poker-accept-btn" style="background-color: rgba(0, 200, 0, 0.7); color: white; border: 1px solid rgba(255, 255, 255, 0.3); padding: 10px 20px; font-size: 14px; cursor: pointer; border-radius: 5px;">Accept</button>
+          <button id="poker-decline-btn" style="background-color: rgba(200, 0, 0, 0.7); color: white; border: 1px solid rgba(255, 255, 255, 0.3); padding: 10px 20px; font-size: 14px; cursor: pointer; border-radius: 5px;">Decline</button>
+        </div>
+      `;
+      document.body.appendChild(popup);
+    }
+    
+    const textElement = document.getElementById('poker-invitation-text');
+    const acceptBtn = document.getElementById('poker-accept-btn');
+    const declineBtn = document.getElementById('poker-decline-btn');
+    
+    if (textElement) {
+      textElement.textContent = data.inviterName + ' has invited you to play poker. Accept?';
+    }
+    
+    // Get socket
+    const currentSocket = (typeof socket !== 'undefined') ? socket : (typeof window !== 'undefined' && window.socket ? window.socket : null);
+    
+    // Remove old event listeners by cloning buttons
+    const newAcceptBtn = acceptBtn.cloneNode(true);
+    const newDeclineBtn = declineBtn.cloneNode(true);
+    acceptBtn.parentNode.replaceChild(newAcceptBtn, acceptBtn);
+    declineBtn.parentNode.replaceChild(newDeclineBtn, declineBtn);
+    
+    // Add event listeners
+    newAcceptBtn.onclick = function() {
+      if (currentSocket) {
+        currentSocket.send(JSON.stringify({
+          msg: 'pokerAcceptInvitation',
+          inviterId: data.inviterId,
+          sessionId: data.sessionId
+        }));
+      }
+      popup.style.display = 'none';
+    };
+    
+    newDeclineBtn.onclick = function() {
+      if (currentSocket) {
+        currentSocket.send(JSON.stringify({
+          msg: 'pokerDeclineInvitation',
+          inviterId: data.inviterId,
+          sessionId: data.sessionId
+        }));
+      }
+      popup.style.display = 'none';
+    };
+    
+    popup.style.display = 'block';
   },
 
   handleDisembarkShip: function(data) {
@@ -728,6 +841,101 @@ var SocketMessageHandler = {
   },
 
   handleInit: function(data) {
+    // Handle battleground context switching
+    
+    if(data.inBattleground && data.battlegroundMatchId) {
+      if(typeof window !== 'undefined') {
+        // CRITICAL: Check for battleground world data FIRST before setting inBattleground flag
+        // This ensures we don't set inBattleground=true without a valid world context
+        let bgWorld = null;
+        if(window.battlegroundWorlds && window.battlegroundWorlds[data.battlegroundMatchId]) {
+          bgWorld = window.battlegroundWorlds[data.battlegroundMatchId];
+        } else if(data.world && data.tileSize && data.mapSize && Array.isArray(data.world)) {
+          // World data sent directly in init message (fallback)
+          // CRITICAL: Only use data.world if it's a valid array
+          bgWorld = {
+            world: data.world,
+            tileSize: data.tileSize,
+            mapSize: data.mapSize,
+            startingZ: data.startingZ || 0
+          };
+          // Store it for future reference
+          if(!window.battlegroundWorlds) {
+            window.battlegroundWorlds = {};
+          }
+          window.battlegroundWorlds[data.battlegroundMatchId] = bgWorld;
+        }
+        
+        // Only set battleground context if we have valid world data
+        if(bgWorld && bgWorld.world && Array.isArray(bgWorld.world)) {
+          // CRITICAL: Set battleground context variables
+          // GameLoopManager will use battlegroundWorld when inBattleground is true
+          window.battlegroundWorld = bgWorld.world;
+          window.battlegroundTileSize = bgWorld.tileSize;
+          window.battlegroundMapSize = bgWorld.mapSize;
+          window.currentBattlegroundMatchId = data.battlegroundMatchId;
+          window.inBattleground = true; // Set flag ONLY after world data is ready
+          
+          // DO NOT update global world/tileSize/mapSize variables here
+          // GameLoopManager will read from window.battlegroundWorld when rendering
+          
+          console.log('[CLIENT] handleInit: Switched to battleground world:', data.battlegroundMatchId);
+          console.log('[CLIENT] handleInit: window.inBattleground =', window.inBattleground);
+          console.log('[CLIENT] handleInit: window.battlegroundMapSize =', window.battlegroundMapSize);
+          console.log('[CLIENT] handleInit: window.battlegroundWorld type =', typeof window.battlegroundWorld, Array.isArray(window.battlegroundWorld) ? `${window.battlegroundWorld.length} layers` : 'not array');
+          
+          // Debug: Check if world data is valid
+          if (Array.isArray(bgWorld.world) && bgWorld.world.length > 0) {
+            console.log('[CLIENT] handleInit: Battleground world layer 0 size:', Array.isArray(bgWorld.world[0]) ? `${bgWorld.world[0].length}x${bgWorld.world[0][0] ? bgWorld.world[0][0].length : 0}` : 'invalid');
+          } else {
+            console.error('[CLIENT] handleInit: Battleground world data is invalid:', bgWorld.world);
+          }
+        } else {
+          // CRITICAL: Don't set inBattleground=true if world data is not available
+          // This prevents GameLoopManager from trying to use non-existent battleground world
+          console.error('[CLIENT] handleInit: Cannot switch to battleground - world data not available for match:', data.battlegroundMatchId);
+          console.error('[CLIENT] handleInit: bgWorld =', bgWorld, 'window.battlegroundWorlds =', window.battlegroundWorlds);
+          console.error('[CLIENT] handleInit: data.world =', !!data.world, 'data.mapSize =', data.mapSize, 'data.tileSize =', data.tileSize);
+          console.error('[CLIENT] handleInit: data.world isArray =', Array.isArray(data.world));
+          
+          // Clear any partial battleground state
+          if(typeof window !== 'undefined') {
+            window.inBattleground = false;
+            window.battlegroundWorld = null;
+            window.currentBattlegroundMatchId = null;
+          }
+        }
+      }
+    } else if(data.inBattleground === false) {
+      // Explicitly leaving battleground - clear battleground context and switch back to main world
+      if(typeof window !== 'undefined') {
+        window.currentBattlegroundMatchId = null;
+        window.inBattleground = false;
+        window.battlegroundWorld = null;
+        
+        // Switch back to main world if world data is provided in init message
+        if(data.world && data.tileSize && data.mapSize) {
+          // Update world variables for rendering (switch back to main world)
+          if(typeof world !== 'undefined') {
+            world = data.world;
+          }
+          if(typeof tileSize !== 'undefined') {
+            tileSize = data.tileSize;
+          }
+          if(typeof mapSize !== 'undefined') {
+            mapSize = data.mapSize;
+          }
+          
+          // Also update window variables (for GameLoopManager and other systems)
+          window.world = data.world;
+          window.tileSize = data.tileSize;
+          window.mapSize = data.mapSize;
+          
+          console.log('Switched back to main world, mapSize:', data.mapSize);
+        }
+      }
+    }
+    
     // Only update selfId if this is an initial init message (has selfId)
     if(data.selfId !== undefined) {
       if(typeof selfId !== 'undefined') {
@@ -748,17 +956,33 @@ var SocketMessageHandler = {
     }
     
     // Only clear entities if this is an initial init message (has selfId)
-    if(data.selfId !== undefined) {
-      Player.list = {};
-      Arrow.list = {};
-      Item.list = {};
-      Light.list = {};
-      Building.list = {};
+    // Don't clear entities for battleground spawns (preserve existing entities)
+    // Don't clear entities when switching back from battleground (preserve buildings/items)
+    if(data.selfId !== undefined && !data.inBattleground) {
+      // Only clear if we're truly initializing (first time connecting), not restoring from battleground
+      // Check if we were previously in a battleground to avoid clearing entities on restore
+      const wasInBattleground = typeof window !== 'undefined' && window.currentBattlegroundMatchId;
+      if (!wasInBattleground) {
+        Player.list = {};
+        Arrow.list = {};
+        Item.list = {};
+        Light.list = {};
+        Building.list = {};
+      } else {
+        // We're restoring from battleground - don't clear entities, just update player position
+        console.log('Restoring from battleground - preserving entities (buildings, items, etc.)');
+      }
     }
     
     // { player : [{id:123,number:'1',x:0,y:0},{id:1,x:0,y:0}] arrow : []}
     var initLoadedCount = 0;
     var initErrorCount = 0;
+    
+    // Only process pack if it exists
+    if(!data.pack) {
+      console.warn('Init message missing pack data');
+      return;
+    }
     
     for(i in data.pack.player){
       try {
@@ -1590,6 +1814,261 @@ var SocketMessageHandler = {
     }
     if(typeof kingdomList !== 'undefined') {
       kingdomList = data.kingdomList;
+    }
+  },
+
+  handleBattlegroundsMatchUpdate: function(data) {
+    // Update match UI with match data
+    if(typeof window !== 'undefined' && window.battlegroundsMatchUI) {
+      if(data.match) {
+        const matchStatus = data.match.status;
+        
+        // Only hide lobby UI when match is in_progress (player should be spawned by then)
+        // Keep lobby visible during map_preview and starting statuses
+        if(matchStatus === 'in_progress' && window.battlegroundsLobbyUI && window.battlegroundsLobbyUI.isActive) {
+          window.battlegroundsLobbyUI.hide();
+        }
+        
+        // Update lobby UI with match data if it's still visible (map_preview or starting status)
+        // Keep lobby visible during map_preview and starting phases
+        if((matchStatus === 'map_preview' || matchStatus === 'starting') && window.battlegroundsLobbyUI) {
+          // Update lobby with match participants (including NPCs)
+          if(data.match.participants && data.match.participants.length > 0) {
+            const participants = data.match.participants.map(p => {
+              // Use class/sex from participant data if available, otherwise try to get from Player.list
+              const entityClass = p.class || (typeof global !== 'undefined' && global.Player && global.Player.list[p.id] ? global.Player.list[p.id].class : 'SerfM');
+              const entitySex = p.sex || (typeof global !== 'undefined' && global.Player && global.Player.list[p.id] ? global.Player.list[p.id].sex : 'm');
+              
+              return {
+                id: p.id,
+                name: p.name || (p.isNPC ? (p.class || 'NPC') : 'Player'),
+                team: p.team || null,
+                isNPC: p.isNPC || false,
+                class: entityClass,
+                sex: entitySex
+              };
+            });
+            
+            const lobbyState = {
+              players: participants, // Keep for backward compatibility
+              participants: participants, // New: explicit participants array
+              gameMode: data.match.gameMode,
+              status: matchStatus,
+              countdownTimer: data.match.countdownTimer || 0
+            };
+            
+            // Ensure lobby is visible and update state
+            if(!window.battlegroundsLobbyUI.isActive) {
+              window.battlegroundsLobbyUI.show(lobbyState);
+            } else {
+              // Update lobby state (this will re-render with new countdown timer and NPCs)
+              window.battlegroundsLobbyUI.updateLobbyState(lobbyState);
+            }
+          } else {
+            // Even without participants, update countdown timer (but don't clear existing players)
+            const updateState = {
+              gameMode: data.match.gameMode,
+              status: matchStatus,
+              countdownTimer: data.match.countdownTimer || 0
+            };
+            if(!window.battlegroundsLobbyUI.isActive) {
+              window.battlegroundsLobbyUI.show(updateState);
+            } else {
+              window.battlegroundsLobbyUI.updateLobbyState(updateState);
+            }
+          }
+        }
+        
+        // Check if this is the first update (show UI if not already active)
+        if(!window.battlegroundsMatchUI.isActive && matchStatus === 'in_progress') {
+          window.battlegroundsMatchUI.show(data.match);
+        } else if(window.battlegroundsMatchUI.isActive) {
+          window.battlegroundsMatchUI.updateMatchData(data.match);
+        }
+      }
+    }
+  },
+
+  handleBattlegroundsMatchEnd: function(data) {
+    // Hide match UI after match ends
+    if(typeof window !== 'undefined' && window.battlegroundsMatchUI) {
+      // Keep UI visible briefly to show final results, then hide after a delay
+      if(data.endData) {
+        // Update UI with end data
+        if(window.battlegroundsMatchUI.matchData) {
+          window.battlegroundsMatchUI.matchData.status = 'ending';
+          window.battlegroundsMatchUI.matchData.endData = data.endData;
+          window.battlegroundsMatchUI.update();
+        }
+      }
+      
+      // Hide match UI after 2 seconds and show post-game UI
+      setTimeout(() => {
+        if(window.battlegroundsMatchUI) {
+          window.battlegroundsMatchUI.hide();
+        }
+        
+        // Show post-game UI
+        if(window.battlegroundsPostGameUI && data.endData) {
+          const matchData = window.battlegroundsMatchUI ? window.battlegroundsMatchUI.matchData : null;
+          window.battlegroundsPostGameUI.show(data.endData, matchData);
+        }
+      }, 2000);
+    }
+  },
+
+  handleBattlegroundsVotingStart: function(data) {
+    // Voting has started - update post-game UI with voting interface
+    if(typeof window !== 'undefined' && window.battlegroundsPostGameUI) {
+      const votingState = {
+        matchId: data.matchId,
+        isClassicMap: data.isClassicMap,
+        mapId: data.mapId,
+        votingDuration: data.votingDuration,
+        remainingTime: data.votingDuration,
+        yesVotes: 0,
+        noVotes: 0,
+        totalVotes: 0,
+        remainingVotes: 0,
+        totalHumanPlayers: 0
+      };
+      window.battlegroundsPostGameUI.updateVotingState(votingState);
+    }
+  },
+
+  handleBattlegroundsVotingUpdate: function(data) {
+    // Update voting status
+    if(typeof window !== 'undefined' && window.battlegroundsPostGameUI) {
+      const votingState = {
+        matchId: data.matchId,
+        yesVotes: data.yesVotes || 0,
+        noVotes: data.noVotes || 0,
+        totalVotes: data.totalVotes || 0,
+        remainingVotes: data.remainingVotes || 0,
+        totalHumanPlayers: data.totalHumanPlayers || 0
+      };
+      window.battlegroundsPostGameUI.updateVotingState(votingState);
+    }
+  },
+
+  handleBattlegroundsVotingResults: function(data) {
+    // Voting has ended - show results
+    if(typeof window !== 'undefined' && window.battlegroundsPostGameUI && data.results) {
+      const results = data.results;
+      
+      // Update UI with results message
+      const container = window.battlegroundsPostGameUI.container;
+      if(container) {
+        let messageHtml = '<div style="margin-top: 20px; padding: 15px; background-color: rgba(255,255,255,0.1); border-radius: 5px; text-align: center;">';
+        
+        if(results.saved) {
+          messageHtml += '<div style="color: #00ff00; font-size: 16px; margin-bottom: 5px;">✓ Map saved as Classic Map!</div>';
+        } else if(results.positiveVotesIncremented) {
+          messageHtml += '<div style="color: #00ff00; font-size: 16px; margin-bottom: 5px;">✓ Classic Map rating increased!</div>';
+        } else {
+          messageHtml += '<div style="color: #ffaa00; font-size: 16px; margin-bottom: 5px;">Map not saved</div>';
+        }
+        
+        messageHtml += `<div style="color: #aaa; font-size: 14px;">Final votes: ${results.yesVotes} Yes / ${results.noVotes} No</div>`;
+        messageHtml += '</div>';
+        
+        // Append to existing content
+        container.innerHTML += messageHtml;
+      }
+      
+      // Hide UI after 5 seconds
+      setTimeout(() => {
+        if(window.battlegroundsPostGameUI) {
+          window.battlegroundsPostGameUI.hide();
+        }
+      }, 5000);
+    }
+  },
+
+  handleBattlegroundsLobbyUpdate: function(data) {
+    // Update lobby UI with new state
+    if(typeof window !== 'undefined' && window.battlegroundsLobbyUI && data.lobby) {
+      window.battlegroundsLobbyUI.updateLobbyState(data.lobby);
+    }
+  },
+
+  handleBattlegroundsLobbyChat: function(data) {
+    // Lobby chat is now routed through the main game chat system
+    // This handler is kept for backward compatibility but messages
+    // are sent directly via addToChat from the server
+    // No separate action needed here
+  },
+
+  handleBattlegroundsMapPreview: function(data) {
+    // Show map preview during map_preview phase
+    // The preview should be shown in the lobby center column, not separate window
+    if(typeof window !== 'undefined' && window.battlegroundsMapPreviewUI && data.preview) {
+      // Get the lobby center column if lobby is active
+      let targetContainer = null;
+      if(window.battlegroundsLobbyUI && window.battlegroundsLobbyUI.isActive && window.battlegroundsLobbyUI.container) {
+        const centerColumn = window.battlegroundsLobbyUI.container.querySelector('#battlegrounds-lobby-map-preview');
+        if(centerColumn) {
+          targetContainer = centerColumn;
+        }
+      }
+      
+      // Show map preview (render into lobby center if available, otherwise separate window)
+      window.battlegroundsMapPreviewUI.show(data.preview, targetContainer);
+      
+      // If lobby is active, trigger a re-render to show the preview
+      if(window.battlegroundsLobbyUI && window.battlegroundsLobbyUI.isActive) {
+        // Re-render lobby to update center column with map preview
+        setTimeout(() => {
+          if(window.battlegroundsLobbyUI && window.battlegroundsLobbyUI.lobbyState) {
+            window.battlegroundsLobbyUI.render();
+          }
+        }, 100);
+      }
+    }
+  },
+
+  handleBattlegroundWorld: function(data) {
+    // Receive battleground world data and store it
+    // This allows the client to switch to battleground map context
+    console.log('[CLIENT] handleBattlegroundWorld called:', {
+      hasWorld: !!data.world,
+      matchId: data.matchId,
+      mapSize: data.mapSize,
+      tileSize: data.tileSize,
+      worldType: typeof data.world,
+      worldIsArray: Array.isArray(data.world),
+      worldLength: Array.isArray(data.world) ? data.world.length : 'N/A'
+    });
+    
+    if(data.world && data.matchId && Array.isArray(data.world)) {
+      // Store battleground world data
+      // CRITICAL: Only store if world data is a valid array
+      if(typeof window !== 'undefined') {
+        if(!window.battlegroundWorlds) {
+          window.battlegroundWorlds = {};
+        }
+        window.battlegroundWorlds[data.matchId] = {
+          world: data.world,
+          tileSize: data.tileSize || 64,
+          mapSize: data.mapSize,
+          startingZ: data.startingZ || 0
+        };
+        
+        // CRITICAL: Set battleground context variables
+        // These will be used by GameLoopManager for rendering
+        window.battlegroundWorld = data.world;
+        window.battlegroundTileSize = data.tileSize || 64;
+        window.battlegroundMapSize = data.mapSize;
+        window.currentBattlegroundMatchId = data.matchId;
+        window.inBattleground = true;
+        
+        console.log('[CLIENT] Stored battleground world for match:', data.matchId);
+        console.log('[CLIENT] Set window.inBattleground =', window.inBattleground);
+        console.log('[CLIENT] Set window.battlegroundWorld:', Array.isArray(window.battlegroundWorld) ? `${window.battlegroundWorld.length} layers` : typeof window.battlegroundWorld);
+        console.log('[CLIENT] Set window.battlegroundMapSize =', window.battlegroundMapSize);
+      }
+    } else {
+      console.error('[CLIENT] handleBattlegroundWorld: Missing world or matchId', { hasWorld: !!data.world, matchId: data.matchId });
     }
   }
 };

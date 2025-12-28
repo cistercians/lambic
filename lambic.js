@@ -149,6 +149,7 @@ const OptimizedGameLoop = require('./server/js/core/OptimizedGameLoop.js');
 const SimpleCombat = require('./server/js/core/SimpleCombat.js');
 const { TilemapIntegration } = require('./server/js/core/TilemapIntegration.js');
 const BuildingConstruction = require('./server/js/core/BuildingConstruction.js');
+const { mapContextManager } = require('./server/js/core/MapContextManager.js');
 
 // Import new registry systems (Phase 1: Foundation)
 const systemRegistry = require('./server/js/core/SystemRegistry.js');
@@ -158,6 +159,9 @@ const entityRegistry = require('./server/js/core/EntityRegistry.js');
 // Import CLI for map generation
 const MapGenerationCLI = require('./server/js/core/MapGenerationCLI');
 const genesis = require('./server/js/genesis');
+
+// Import Battlegrounds system
+const BattlegroundsLobbyManager = require('./server/js/battlegrounds/BattlegroundsLobbyManager');
 
 // Initialize world asynchronously with CLI
 let world = null;
@@ -196,6 +200,10 @@ function continueServerInitialization() {
   const tilemapIntegration = new TilemapIntegration();
   tilemapIntegration.initializeFromWorldArray(world, gameState.mapSize);
   global.tilemapSystem = tilemapIntegration;
+
+  // Initialize map context manager for multiple map instances (battlegrounds)
+  mapContextManager.init(global.tilemapSystem);
+  global.mapContextManager = mapContextManager;
 
   // Register tilemap system in registry
   systemRegistry.register('tilemap', tilemapIntegration, { 
@@ -378,6 +386,49 @@ function continueServerInitialization() {
     excludedHQs.push(teutonsHQ.tile);
     Teutons({ id: FACTION_IDS.TEUTONS, type: 'npc', name: 'Teutons', flag: '', hq: teutonsHQ.tile, hostile: true });
   }
+
+  // Initialize Battlegrounds system
+  const BattlegroundsMatchManager = require('./server/js/battlegrounds/BattlegroundsMatchManager');
+  const BattlegroundsHouseManager = require('./server/js/battlegrounds/BattlegroundsHouseManager');
+  const BattlegroundsMapGenerator = require('./server/js/battlegrounds/BattlegroundsMapGenerator');
+  const BattlegroundsScoreManager = require('./server/js/battlegrounds/BattlegroundsScoreManager');
+  const BattlegroundsEliteNPCManager = require('./server/js/battlegrounds/BattlegroundsEliteNPCManager');
+  const BattlegroundsMapLibrary = require('./server/js/battlegrounds/BattlegroundsMapLibrary');
+  
+  const battlegroundsLobbyManager = new BattlegroundsLobbyManager();
+  const battlegroundsMatchManager = new BattlegroundsMatchManager();
+  const battlegroundsHouseManager = new BattlegroundsHouseManager();
+  const battlegroundsMapGenerator = new BattlegroundsMapGenerator();
+  const battlegroundsScoreManager = new BattlegroundsScoreManager();
+  const battlegroundsEliteNPCManager = new BattlegroundsEliteNPCManager();
+  const BattlegroundsWeatherManager = require('./server/js/battlegrounds/BattlegroundsWeatherManager');
+  const battlegroundsWeatherManager = new BattlegroundsWeatherManager();
+  const battlegroundsMapLibrary = new BattlegroundsMapLibrary();
+  
+  // Wire up dependencies
+  battlegroundsMatchManager.setMapGenerator(battlegroundsMapGenerator);
+  battlegroundsMatchManager.setHouseManager(battlegroundsHouseManager);
+  battlegroundsMatchManager.setEliteNPCManager(battlegroundsEliteNPCManager);
+  battlegroundsMatchManager.setScoreManager(battlegroundsScoreManager);
+  battlegroundsMatchManager.setWeatherManager(battlegroundsWeatherManager);
+  battlegroundsMatchManager.setMapLibrary(battlegroundsMapLibrary);
+  
+  // Start weather update monitoring
+  battlegroundsWeatherManager.startWeatherUpdates();
+  
+  global.battlegroundsMapLibrary = battlegroundsMapLibrary;
+  
+  battlegroundsMatchManager.setMatchEndCallback((match) => {
+    // Reset lobby after match ends
+    battlegroundsLobbyManager.resetLobby();
+  });
+  
+  battlegroundsLobbyManager.setMatchManager(battlegroundsMatchManager);
+  
+  global.battlegroundsLobbyManager = battlegroundsLobbyManager;
+  global.battlegroundsMatchManager = battlegroundsMatchManager;
+  global.battlegroundsHouseManager = battlegroundsHouseManager;
+  global.battlegroundsScoreManager = battlegroundsScoreManager;
 
   // Spawn Outlaws - keep spawning until no more valid locations with 50-tile spacing
   let outlawCount = 0;
@@ -822,14 +873,36 @@ function getCenter(c, r) {
   return [(c * tileSize) + (tileSize / 2), (r * tileSize) + (tileSize / 2)];
 }
 
-function getTile(l, c, r) {
+function getTile(l, c, r, entityId) {
+  // If entityId is provided, use context-aware tile access
+  if (entityId && global.mapContextManager) {
+    const contextMapSize = global.mapContextManager.getMapSize(entityId);
+    if (contextMapSize > 0 && r >= 0 && r < contextMapSize && c >= 0 && c < contextMapSize) {
+      return global.mapContextManager.getTile(l, c, r, entityId);
+    }
+    return undefined;
+  }
+  
+  // Default: main world (backward compatibility)
   if (r >= 0 && r < mapSize && c >= 0 && c < mapSize) {
     return global.tilemapSystem.getTile(l, c, r);
   }
   return undefined;
 }
 
-function getLocTile(l, x, y) {
+function getLocTile(l, x, y, entityId) {
+  // If entityId is provided, use context-aware tile access
+  if (entityId && global.mapContextManager) {
+    const contextMapSize = global.mapContextManager.getMapSize(entityId);
+    const contextMapPx = contextMapSize * (global.tileSize || 64);
+    if (x >= 0 && x <= contextMapPx && y >= 0 && y <= contextMapPx) {
+      const loc = getLoc(x, y);
+      return global.mapContextManager.getTile(l, loc[0], loc[1], entityId);
+    }
+    return undefined;
+  }
+  
+  // Default: main world (backward compatibility)
   if (x >= 0 && x <= mapPx && y >= 0 && y <= mapPx) {
     const loc = getLoc(x, y);
     return global.tilemapSystem.getTile(l, loc[0], loc[1]);
@@ -841,12 +914,34 @@ function getDistance(pt1, pt2) {
   return Math.sqrt(Math.pow(pt1.x - pt2.x, 2) + Math.pow(pt1.y - pt2.y, 2));
 }
 
-function tileChange(l, c, r, n, incr = false) {
+function tileChange(l, c, r, n, incr = false, entityId) {
   // Validate inputs
   if (typeof l !== 'number' || typeof c !== 'number' || typeof r !== 'number') {
     return;
   }
   
+  // If entityId is provided, use context-aware tile change
+  if (entityId && global.mapContextManager) {
+    const contextMapSize = global.mapContextManager.getMapSize(entityId);
+    if (contextMapSize > 0 && c >= 0 && c < contextMapSize && r >= 0 && r < contextMapSize) {
+      // Get current tile value first
+      const currentTile = global.mapContextManager.getTile(l, c, r, entityId);
+      if (currentTile === undefined) return;
+      
+      // Calculate new tile value
+      let newTileValue = n;
+      if (incr) {
+        newTileValue = currentTile + n;
+      }
+      
+      // Update tile via context manager
+      global.mapContextManager.setTile(l, c, r, newTileValue, entityId);
+      return;
+    }
+    return;
+  }
+  
+  // Default: main world (backward compatibility)
   if (c < 0 || c >= mapSize || r < 0 || r >= mapSize) {
     return;
   }
@@ -1968,6 +2063,50 @@ function isAlly(entity1Id, entity2Id) {
   const entity2 = Player.list[entity2Id];
   if (!entity1 || !entity2) return false;
 
+  // Check if either entity is in a battleground match
+  const entity1InBG = entity1.inBattleground && entity1.battlegroundMatchId;
+  const entity2InBG = entity2.inBattleground && entity2.battlegroundMatchId;
+  
+  // If both are in the same battleground match, use battleground house rules
+  if (entity1InBG && entity2InBG && entity1.battlegroundMatchId === entity2.battlegroundMatchId) {
+    // Use battleground house manager to check alliance
+    if (global.battlegroundsHouseManager) {
+      const house1 = entity1.house;
+      const house2 = entity2.house;
+      
+      // Check if these are temporary battleground houses
+      if (global.battlegroundsHouseManager.isTemporaryHouse(house1) || 
+          global.battlegroundsHouseManager.isTemporaryHouse(house2)) {
+        // Same temporary house = allies
+        if (house1 === house2) {
+          return true;
+        }
+        
+        // Check if houses are enemies
+        const tempHouse1 = global.battlegroundsHouseManager.getTemporaryHouse(house1);
+        const tempHouse2 = global.battlegroundsHouseManager.getTemporaryHouse(house2);
+        
+        if (tempHouse1 && tempHouse1.enemies && tempHouse1.enemies.indexOf(house2) !== -1) {
+          return false;
+        }
+        if (tempHouse2 && tempHouse2.enemies && tempHouse2.enemies.indexOf(house1) !== -1) {
+          return false;
+        }
+        
+        // Different houses in battleground = enemies (unless explicitly allies)
+        return false;
+      }
+    }
+    
+    // Fallback: if both in battleground but house check failed, they're enemies
+    return false;
+  }
+  
+  // If one is in battleground and other isn't, they're not allies
+  if (entity1InBG !== entity2InBG) {
+    return false;
+  }
+
   const class1 = entity1.class;
   const class2 = entity2.class;
   const isSerf = (cls) => cls === 'Serf' || cls === 'SerfM' || cls === 'SerfF';
@@ -2058,6 +2197,28 @@ function allyCheck(playerId, otherId) {
   const player = Player.list[playerId];
   const other = Player.list[otherId];
   if (!player || !other) return 0;
+  
+  // Check if either is in battleground
+  const playerInBG = player.inBattleground && player.battlegroundMatchId;
+  const otherInBG = other.inBattleground && other.battlegroundMatchId;
+  
+  // If both are in the same battleground match, use battleground rules
+  if (playerInBG && otherInBG && player.battlegroundMatchId === other.battlegroundMatchId) {
+    const isAllyResult = isAlly(playerId, otherId);
+    if (isAllyResult) {
+      // Same temporary house = same faction
+      if (player.house && other.house && player.house === other.house) {
+        return 2; // Same faction
+      }
+      return 1; // Allies
+    }
+    return -1; // Enemies in battleground
+  }
+  
+  // If one is in battleground and other isn't, they're neutral
+  if (playerInBG !== otherInBG) {
+    return 0; // Neutral (different contexts)
+  }
   
   // If both have no house property (are neutral), return neutral
   if (!player.house && !other.house) {
@@ -2663,23 +2824,30 @@ const Player = function(param) {
     var deathLocation = getLoc(self.x, self.y);
     var deathZ = self.z;
     
+    // Check if player is in a battleground match
+    const isInBattleground = self.inBattleground && self.battlegroundMatchId;
+    
     // Phase 5: Kill Tracking
     var killerName = 'Unknown';
+    var killerId = null;
     if (report.id) {
       const killer = Player.list[report.id];
       if (killer) {
         killerName = killer.name || killer.class;
-        // Kill tracking logged via death event
+        killerId = report.id;
         
-        // Track kill and award skulls
-        killer.kills = (killer.kills || 0) + 1;
-        
-        // Update skull display based on kill count (simplified)
-        if(killer.kills >= 10){
-          killer.skulls = '☠️'; // Skull and crossbones
-        } else if(killer.kills >= 3){
-          killer.skulls = '💀'; // Single skull
+        // Track kill and award skulls (only in normal game, not battlegrounds)
+        if (!isInBattleground) {
+          killer.kills = (killer.kills || 0) + 1;
+          
+          // Update skull display based on kill count (simplified)
+          if(killer.kills >= 10){
+            killer.skulls = '☠️'; // Skull and crossbones
+          } else if(killer.kills >= 3){
+            killer.skulls = '💀'; // Single skull
+          }
         }
+        // Battleground kill tracking is handled in the battleground death section below
         
         // Kill count tracking logged via death event
         
@@ -2758,7 +2926,8 @@ const Player = function(param) {
     }
     
     // Scatter items in random pattern around skeleton
-    if(droppedItems.length > 0){
+    // Skip item drops in battlegrounds
+    if(droppedItems.length > 0 && !isInBattleground){
       // Item drops logged via death event
       
       for(var i in droppedItems){
@@ -2784,7 +2953,61 @@ const Player = function(param) {
     
     // Death broadcasts are now handled by eventManager.death() above
     
-    // GHOST MODE FOR PLAYERS (NPCs respawn immediately)
+    // BATTLEGROUNDS DEATH HANDLING
+    if(isInBattleground && self.type === 'player'){
+      // IMPORTANT: Check if already dead to prevent repeated deaths
+      // Check this FIRST before any other processing
+      if(self.inBattlegroundDead){
+        // Already dead, don't process death again
+        return;
+      }
+      
+      // Also check if already dead (hp <= 0 and alive === false)
+      if(!self.alive && self.hp <= 0){
+        // Already dead, set flag and return
+        self.inBattlegroundDead = true;
+        return;
+      }
+      
+      // Mark as dead but don't enter ghost mode
+      // Set flag IMMEDIATELY to prevent any other code from processing this death
+      self.inBattlegroundDead = true;
+      self.alive = false;
+      self.hp = 0;
+      
+      // Clear combat state
+      self.combat.target = null;
+      self.action = null;
+      self.path = null;
+      self.pathCount = 0;
+      
+      // Handle battleground death - skip ghost mode, enable spectator mode
+      if(global.battlegroundsMatchManager){
+        // Call battleground death handler which will enable spectator mode
+        // This must be called AFTER setting alive=false so the handler can properly detect death
+        global.battlegroundsMatchManager.handleParticipantDeath(self.id, killerId);
+      }
+      
+      // Send death message
+      var socket = SOCKET_LIST[self.id];
+      if(socket){
+        var deathMsg = '<span style="color:#ff0000;"><b>☠️ YOU DIED</b></span>';
+        if(killerId){
+          var killer = Player.list[killerId];
+          if(killer){
+            deathMsg += '<br>Killed by: ' + (killer.name || killer.class);
+          }
+        } else if(report.cause){
+          deathMsg += '<br>Cause: ' + report.cause;
+        }
+        deathMsg += '<br><br><span style="color:#aaaaff;">👁️ Entering spectator mode...</span>';
+        socket.write(JSON.stringify({msg:'addToChat',message: deathMsg}));
+      }
+      
+      return; // Exit early, don't enter ghost mode
+    }
+    
+    // GHOST MODE FOR PLAYERS (NPCs respawn immediately) - Only for non-battleground deaths
     if(self.type === 'player'){
       // Enter ghost mode
       self.ghost = true;
@@ -3371,7 +3594,9 @@ const Player = function(param) {
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = (self.baseSpd * 0.9) * self.drag;
-        socket.write(JSON.stringify({ msg: 'bgm', x: self.x, y: self.y, z: self.z }));
+        if (socket) {
+          socket.write(JSON.stringify({ msg: 'bgm', x: self.x, y: self.y, z: self.z }));
+        }
       }
     } else if (self.z === Z_LEVELS.CELLAR) {
       // Only transition if player doesn't already have a path (prevents re-triggering)
@@ -3508,16 +3733,22 @@ const Player = function(param) {
       self.innaWoods = false;
       self.onMtn = false;
       self.maxSpd = self.baseSpd * self.drag;
-      setTimeout(() => {
-        socket.write(JSON.stringify({ msg: 'bgm', x: self.x, y: self.y, z: self.z, b }));
-      }, 100);
+      // Only send BGM updates to players (NPCs don't have sockets)
+      if (socket) {
+        setTimeout(() => {
+          socket.write(JSON.stringify({ msg: 'bgm', x: self.x, y: self.y, z: self.z, b }));
+        }, 100);
+      }
     } else if (tile === TERRAIN.WATER && !self.ghost) {
       // Ghosts can walk over water without going underwater
       self.z = Z_LEVELS.UNDERWATER;
       self.innaWoods = false;
       self.onMtn = false;
       self.maxSpd = (self.baseSpd * 0.2) * self.drag;
-      socket.write(JSON.stringify({ msg: 'bgm', x: self.x, y: self.y, z: self.z }));
+      // Only send BGM updates to players (NPCs don't have sockets)
+      if (socket) {
+        socket.write(JSON.stringify({ msg: 'bgm', x: self.x, y: self.y, z: self.z }));
+      }
     } else {
       self.innaWoods = false;
       self.onMtn = false;
@@ -4822,7 +5053,8 @@ const Player = function(param) {
       spriteScale: self.spriteScale,
       working: self.working ? true : false, // For spectate camera priority
       combat: (self.combat && self.combat.target) ? { target: self.combat.target } : null, // Send full combat object with target for client
-      fleeing: self.fleeing ? true : false // For spectate camera priority
+      fleeing: self.fleeing ? true : false, // For spectate camera priority
+      pokerTurn: self.pokerTurn ? true : false // Indicates it's this player's turn in poker
     };
   };
 
@@ -5028,6 +5260,7 @@ Player.onConnect = function(socket, name, playerType) {
   player.inventory.steelplate = 1;
   player.inventory.bread = 2;
   player.inventory.saison = 1;
+  player.inventory.deckofcards = 1;
 
   // REMOVED: Duplicate socket.on('data') listener - all game messages are now handled in the main connection handler
   // This prevents memory leaks from multiple listeners accumulating on the same socket
@@ -7669,6 +7902,15 @@ io.on('connection', function(socket) {
             data: resources
           }));
         } else if (data.msg === 'msgToServer') {
+          // Check for lobby chat command
+          if (player && data.message && data.message.trim().startsWith('/lobby ')) {
+            const lobbyMessage = data.message.trim().substring(7).trim(); // Remove '/lobby ' prefix
+            if (lobbyMessage && global.battlegroundsLobbyManager) {
+              global.battlegroundsLobbyManager.sendLobbyChat(socket.id, lobbyMessage);
+            }
+            return; // Don't process as regular chat
+          }
+          
           if(player && player.ghost){
             socket.write(JSON.stringify({ msg: 'addToChat', message: `<i>Ghosts cannot speak</i>` }));
           } else {
@@ -7891,6 +8133,97 @@ io.on('connection', function(socket) {
               }
               recipient.write(JSON.stringify({ msg: 'addToChat', message: `<b>@${senderName}</b> whispers: <i>${data.message}</i>` }));
               socket.write(JSON.stringify({ msg: 'addToChat', message: `To ${data.recip}: <i>${data.message}</i>` }));
+            }
+          }
+        } else if (data.msg === 'getBattlegroundsLeaderboard') {
+          // Send Battlegrounds leaderboard data to client
+          if (global.battlegroundsScoreManager) {
+            const sortBy = data.sortBy || 'wins'; // Default sort by wins
+            const leaderboard = global.battlegroundsScoreManager.getLeaderboard(sortBy);
+            socket.write(JSON.stringify({
+              msg: 'battlegroundsLeaderboard',
+              data: leaderboard,
+              sortBy: sortBy
+            }));
+          } else {
+            const sortBy = data.sortBy || 'wins';
+            socket.write(JSON.stringify({
+              msg: 'battlegroundsLeaderboard',
+              data: [],
+              sortBy: sortBy
+            }));
+          }
+        } else if (data.msg === 'joinBattlegroundsLobby') {
+          // Join battlegrounds lobby
+          if (global.battlegroundsLobbyManager) {
+            const result = global.battlegroundsLobbyManager.joinLobby(socket.id, player.name || 'Player');
+            if (result.success) {
+              const lobbyState = global.battlegroundsLobbyManager.getLobbyState(socket.id);
+              socket.write(JSON.stringify({
+                msg: 'openBattlegroundsLobby',
+                lobbyState: lobbyState
+              }));
+            } else {
+              socket.write(JSON.stringify({
+                msg: 'addToChat',
+                message: `<i>${result.message}</i>`
+              }));
+            }
+          }
+        } else if (data.msg === 'leaveBattlegroundsLobby') {
+          // Leave battlegrounds lobby
+          if (global.battlegroundsLobbyManager) {
+            global.battlegroundsLobbyManager.leaveLobby(socket.id);
+          }
+        } else if (data.msg === 'selectBattlegroundsTeam') {
+          // Select team for Skirmish/Assault
+          if (global.battlegroundsLobbyManager && data.team) {
+            const result = global.battlegroundsLobbyManager.selectTeam(socket.id, data.team);
+            if (!result.success) {
+              socket.write(JSON.stringify({
+                msg: 'addToChat',
+                message: `<i>${result.message}</i>`
+              }));
+            }
+          }
+        } else if (data.msg === 'battlegroundsLobbyChat') {
+          // Send lobby chat message
+          if (global.battlegroundsLobbyManager && data.message) {
+            global.battlegroundsLobbyManager.sendLobbyChat(socket.id, data.message);
+          }
+        } else if (data.msg === 'switchBattlegroundsSpectator') {
+          // Switch spectator target
+          if (global.battlegroundsMatchManager && global.battlegroundsMatchManager.spectatorSystem && data.targetId) {
+            const result = global.battlegroundsMatchManager.spectatorSystem.switchSpectatorTarget(socket.id, data.targetId);
+            if (!result) {
+              socket.write(JSON.stringify({
+                msg: 'addToChat',
+                message: '<i>Cannot switch to that target.</i>'
+              }));
+            }
+          }
+        } else if (data.msg === 'nextBattlegroundsSpectator') {
+          // Switch to next spectator target
+          if (global.battlegroundsMatchManager && global.battlegroundsMatchManager.spectatorSystem) {
+            const nextTarget = global.battlegroundsMatchManager.spectatorSystem.getNextSpectatorTarget(socket.id);
+            if (nextTarget) {
+              global.battlegroundsMatchManager.spectatorSystem.switchSpectatorTarget(socket.id, nextTarget);
+            }
+          }
+        } else if (data.msg === 'prevBattlegroundsSpectator') {
+          // Switch to previous spectator target
+          if (global.battlegroundsMatchManager && global.battlegroundsMatchManager.spectatorSystem) {
+            const prevTarget = global.battlegroundsMatchManager.spectatorSystem.getPreviousSpectatorTarget(socket.id);
+            if (prevTarget) {
+              global.battlegroundsMatchManager.spectatorSystem.switchSpectatorTarget(socket.id, prevTarget);
+            }
+          }
+        } else if (data.msg === 'battlegroundsMapVote') {
+          // Record player's vote on a map
+          if (global.battlegroundsMatchManager && global.battlegroundsMatchManager.mapVotingSystem) {
+            const match = global.battlegroundsMatchManager.currentMatch;
+            if (match && match.matchId === data.matchId) {
+              global.battlegroundsMatchManager.mapVotingSystem.recordVote(data.matchId, socket.id, data.vote);
             }
           }
         } else if (data.msg === 'requestBuildMenu') {
@@ -8941,6 +9274,18 @@ io.on('connection', function(socket) {
                   msg: 'addToChat',
                   message: `<i>You drank</i> <b style="color:${rarityColor}">[${itemName}]</b> <i>and restored</i> <span style="color:#00ff00;">${hpRestore} HP</span>.`
                 }));
+              } else if (itemType === 'deckofcards') {
+                // Handle deck of cards - start poker game
+                const pokerGameManager = require('./server/js/games/PokerGameManager.js');
+                const result = pokerGameManager.createInvitation(player.id);
+                
+                if (!result.success) {
+                  socket.write(JSON.stringify({
+                    msg: 'addToChat',
+                    message: `<i>${result.message}</i>`
+                  }));
+                }
+                // Game will start automatically after 10 seconds via PokerGameManager.startGameIfReady
               } else {
                 socket.write(JSON.stringify({
                   msg: 'addToChat',
@@ -8948,6 +9293,35 @@ io.on('connection', function(socket) {
                 }));
               }
             }
+          }
+        } else if (data.msg === 'pokerAcceptInvitation') {
+          // Accept poker invitation
+          if (player && data.inviterId && data.sessionId) {
+            const pokerGameManager = require('./server/js/games/PokerGameManager.js');
+            const result = pokerGameManager.acceptInvitation(player.id, data.inviterId, data.sessionId);
+            
+            if (result.success) {
+              socket.write(JSON.stringify({
+                msg: 'addToChat',
+                message: '<i>You have accepted the poker invitation.</i>'
+              }));
+            } else {
+              socket.write(JSON.stringify({
+                msg: 'addToChat',
+                message: `<i>${result.message}</i>`
+              }));
+            }
+          }
+        } else if (data.msg === 'pokerDeclineInvitation') {
+          // Decline poker invitation
+          if (player && data.inviterId && data.sessionId) {
+            const pokerGameManager = require('./server/js/games/PokerGameManager.js');
+            pokerGameManager.declineInvitation(player.id, data.inviterId, data.sessionId);
+            
+            socket.write(JSON.stringify({
+              msg: 'addToChat',
+              message: '<i>You have declined the poker invitation.</i>'
+            }));
           }
         }
       }
@@ -8966,6 +9340,11 @@ io.on('connection', function(socket) {
       delete global.spectators[socket.id];
     }
     
+    // Clean up battlegrounds lobby
+    if(global.battlegroundsLobbyManager){
+      global.battlegroundsLobbyManager.leaveLobby(socket.id);
+    }
+    
     Player.onDisconnect(socket);
   });
 
@@ -8978,6 +9357,11 @@ io.on('connection', function(socket) {
     // Clean up spectators
     if(global.spectators && global.spectators[socket.id]){
       delete global.spectators[socket.id];
+    }
+    
+    // Clean up battlegrounds lobby
+    if(global.battlegroundsLobbyManager){
+      global.battlegroundsLobbyManager.leaveLobby(socket.id);
     }
     
     Player.onDisconnect(socket);

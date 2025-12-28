@@ -4559,12 +4559,33 @@ Character = function(param){
         }
       }
     } else if(self.z == -3){
+      // In battlegrounds, prevent drowning deaths (player should be spawned at correct z)
+      if(self.inBattleground && self.battlegroundMatchId){
+        // Don't process drowning in battlegrounds - this shouldn't happen
+        // If player is underwater in battleground, it's a spawn bug, not a drowning
+        // Just surface them immediately
+        if(getTile(0,loc[0],loc[1]) != 0){
+          self.transitionState = 'at_entrance';
+          if(self.type === 'player' && !self.zTransitionHalt){
+            self.transitionIntent = 'surface_water';
+          }
+          if(self.transitionIntent === 'surface_water'){
+            self.surfaceFromWater();
+          }
+        }
+        return;
+      }
+      
       if(self.breath > 0){
         self.breath -= 0.25;
       } else {
         self.hp -= 0.5;
       }
       if(self.hp !== null && self.hp <= 0){
+        // Check if already dead to prevent repeated deaths
+        if(self.inBattleground && self.inBattlegroundDead){
+          return; // Already dead in battleground
+        }
         self.die({cause:'drowned'});
       }
       if(getTile(0,loc[0],loc[1]) != 0){
@@ -4743,13 +4764,15 @@ Character = function(param){
       if(!self.action){
         // Military units only switch to patrol on first spawn (not every frame)
         // Removed automatic idle→patrol transition to prevent infinite loops
-        var cHome = getCenter(self.home.loc[0],self.home.loc[1]);
-        var hDist = self.getDistance({x:cHome[0],y:cHome[1]});
-        if(hDist > self.wanderRange){
-          if(!self.path){
-            self.return();
-          }
-        } else if(self.idleTime == 0){
+        // Check if home exists before accessing (Battlegrounds NPCs may not have home)
+        if(self.home && self.home.loc){
+          var cHome = getCenter(self.home.loc[0],self.home.loc[1]);
+          var hDist = self.getDistance({x:cHome[0],y:cHome[1]});
+          if(hDist > self.wanderRange){
+            if(!self.path){
+              self.return();
+            }
+          } else if(self.idleTime == 0){
           if(!self.path){
             // Check if NPC is on any transition tile and should transition
             var shouldTransition = false;
@@ -4871,6 +4894,8 @@ Character = function(param){
             }
           }
         }
+        // End of if(self.home && self.home.loc) block
+      }
       } else if(self.action == 'combat'){
         // Use SimpleCombat for all combat logic
         if(global.simpleCombat){
@@ -10088,6 +10113,7 @@ Monk = function(param){
   self.baseSpd = 2;
   self.runSpd = 4; // Monk run speed
   self.isNonCombatant = true; // Civilian NPC
+  self.spriteSize = getSpriteSizeForClass('Monk'); // 96px
 }
 
 Bishop = function(param){
@@ -10435,6 +10461,7 @@ Seidr = function(param){
   self.rank = '♝ ';
   self.cleric = true;
   self.baseSpd = 2;
+  self.spriteSize = getSpriteSizeForClass('Seidr'); // 96px
 }
 
 Huskarl = function(param){
@@ -10622,6 +10649,7 @@ Gwenllian = function(param){
   self.sex = 'f';
   self.rank = '♛ ';
   self.torchBearer = true;
+  self.spriteSize = getSpriteSizeForClass('Gwenllian'); // 96px
 }
 
 TeutonPike = function(param){

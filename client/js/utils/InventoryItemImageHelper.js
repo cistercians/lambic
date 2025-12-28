@@ -125,6 +125,8 @@ class InventoryItemImageHelper {
       return qty > 4 ? this.Img.cookedmeats : this.Img.cookedmeat;
     } else if (type === 'torch') {
       return this.Img.torch;
+    } else if (type === 'deckofcards') {
+      return this.Img.deckofcards;
     } else if (type === 'crown') {
       return this.Img.crown;
     } else if (type === 'relic') {

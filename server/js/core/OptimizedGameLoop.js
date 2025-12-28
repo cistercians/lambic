@@ -643,12 +643,19 @@ class OptimizedGameLoop {
     // If any player is in godmode, skip spatial filtering and send all entities
     if(hasGodModePlayer) return entityPack;
     
-    // Get all player positions
+    // Get all player positions with map context information
     const playerPositions = [];
     for(const id in Player.list) {
       const player = Player.list[id];
       if(player && player.type === 'player' && typeof player.x === 'number' && typeof player.y === 'number') {
-        playerPositions.push({ x: player.x, y: player.y, z: player.z });
+        playerPositions.push({ 
+          x: player.x, 
+          y: player.y, 
+          z: player.z,
+          playerId: id,
+          inBattleground: !!(player.inBattleground && player.battlegroundMatchId),
+          battlegroundMatchId: player.battlegroundMatchId || null
+        });
       }
     }
     
@@ -665,11 +672,19 @@ class OptimizedGameLoop {
         continue;
       }
       
-      // Check if entity is near any player
+      // Get entity's map context
+      const entityPlayer = entity.id ? Player.list[entity.id] : null;
+      const entityInBattleground = !!(entityPlayer && entityPlayer.inBattleground && entityPlayer.battlegroundMatchId);
+      const entityMatchId = entityPlayer ? (entityPlayer.battlegroundMatchId || null) : null;
+      
+      // Check if entity is near any player AND in same map context
       let isNearPlayer = false;
       for(const playerPos of playerPositions) {
-        // Only check distance if on same z-level
-        if(entity.z === playerPos.z) {
+        // CRITICAL: Only check distance if on same z-level AND same map context (both in battleground with same matchId, or both in main world)
+        const sameMapContext = (playerPos.inBattleground && entityInBattleground && playerPos.battlegroundMatchId === entityMatchId) ||
+                               (!playerPos.inBattleground && !entityInBattleground);
+        
+        if(entity.z === playerPos.z && sameMapContext) {
           const dx = entity.x - playerPos.x;
           const dy = entity.y - playerPos.y;
           const distanceSquared = dx * dx + dy * dy;
@@ -682,11 +697,28 @@ class OptimizedGameLoop {
       }
       
       // Check if this is a falcon (always include falcons regardless of distance - they're flying and should be visible)
-      const player = entity.id ? Player.list[entity.id] : null;
-      const isFalcon = player && player.class === 'Falcon';
+      const isFalcon = entityPlayer && entityPlayer.class === 'Falcon';
       
-      // Always include: player's own entity, entities on different z-levels (for building interiors), and falcons
-      if(isNearPlayer || (entity.id && Player.list[entity.id] && Player.list[entity.id].type === 'player') || isFalcon) {
+      // Always include player's own entity (required for movement updates)
+      const isOwnEntity = entity.id && Player.list[entity.id] && Player.list[entity.id].type === 'player';
+      if(isOwnEntity) {
+        // Always include player's own entity regardless of map context (needed for movement)
+        filtered.push(entity);
+      } else if(isFalcon) {
+        // For falcons, check if any player in same map context
+        let hasMatchingContext = false;
+        for(const playerPos of playerPositions) {
+          const sameMapContext = (playerPos.inBattleground && entityInBattleground && playerPos.battlegroundMatchId === entityMatchId) ||
+                                 (!playerPos.inBattleground && !entityInBattleground);
+          if(sameMapContext && entity.z === playerPos.z) {
+            hasMatchingContext = true;
+            break;
+          }
+        }
+        if(hasMatchingContext) {
+          filtered.push(entity);
+        }
+      } else if(isNearPlayer) {
         filtered.push(entity);
       }
     }

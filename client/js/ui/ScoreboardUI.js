@@ -6,7 +6,101 @@
 
 class ScoreboardUI {
   constructor() {
-    // Dependencies would be injected here
+    this.currentTab = 'resources';
+    this.initTabs();
+  }
+
+  /**
+   * Initialize tab switching functionality
+   */
+  initTabs() {
+    // Wait for DOM to be ready
+    if (typeof document !== 'undefined') {
+      document.addEventListener('DOMContentLoaded', () => {
+        this.setupTabs();
+      });
+      
+      // Also try immediately in case DOM is already ready
+      if (document.readyState === 'loading') {
+        // DOM is still loading, wait for DOMContentLoaded
+      } else {
+        // DOM is already loaded
+        this.setupTabs();
+      }
+    }
+  }
+
+  /**
+   * Setup tab click handlers
+   */
+  setupTabs() {
+    const tabs = document.querySelectorAll('.scoreboard-tab');
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        const tabName = tab.getAttribute('data-tab');
+        this.switchTab(tabName);
+      });
+    });
+
+    // Setup sort dropdown for Battlegrounds tab
+    const sortSelect = document.getElementById('bg-leaderboard-sort');
+    if (sortSelect) {
+      sortSelect.addEventListener('change', (e) => {
+        const sortBy = e.target.value;
+        this.requestBattlegroundsLeaderboard(sortBy);
+      });
+    }
+  }
+
+  /**
+   * Switch to a different tab
+   */
+  switchTab(tabName) {
+    this.currentTab = tabName;
+
+    // Update tab buttons
+    const tabs = document.querySelectorAll('.scoreboard-tab');
+    tabs.forEach(tab => {
+      if (tab.getAttribute('data-tab') === tabName) {
+        tab.classList.add('active');
+      } else {
+        tab.classList.remove('active');
+      }
+    });
+
+    // Update tab content
+    const resourcesTab = document.getElementById('scoreboard-resources-tab');
+    const battlegroundsTab = document.getElementById('scoreboard-battlegrounds-tab');
+    
+    if (tabName === 'resources') {
+      if (resourcesTab) resourcesTab.classList.add('active');
+      if (battlegroundsTab) battlegroundsTab.classList.remove('active');
+    } else if (tabName === 'battlegrounds') {
+      if (resourcesTab) resourcesTab.classList.remove('active');
+      if (battlegroundsTab) battlegroundsTab.classList.add('active');
+      
+      // Request leaderboard data when switching to Battlegrounds tab
+      const sortSelect = document.getElementById('bg-leaderboard-sort');
+      const sortBy = sortSelect ? sortSelect.value : 'wins';
+      this.requestBattlegroundsLeaderboard(sortBy);
+    }
+  }
+
+  /**
+   * Request Battlegrounds leaderboard from server
+   */
+  requestBattlegroundsLeaderboard(sortBy = 'wins') {
+    if (typeof socket !== 'undefined' && socket) {
+      socket.send(JSON.stringify({
+        msg: 'getBattlegroundsLeaderboard',
+        sortBy: sortBy
+      }));
+    } else if (typeof window !== 'undefined' && window.socket) {
+      window.socket.send(JSON.stringify({
+        msg: 'getBattlegroundsLeaderboard',
+        sortBy: sortBy
+      }));
+    }
   }
 
   /**
@@ -72,6 +166,57 @@ class ScoreboardUI {
       
       scoreboardBody.appendChild(row);
     }
+  }
+
+  /**
+   * Update Battlegrounds leaderboard UI
+   * @param {Array} leaderboardData - Array of player stats
+   * @param {string} sortBy - Sort field used
+   */
+  updateBattlegroundsLeaderboard(leaderboardData, sortBy = 'wins') {
+    const leaderboardBody = document.getElementById('battlegrounds-leaderboard-body');
+    if (!leaderboardBody) {
+      console.warn('Battlegrounds leaderboard body element not found');
+      return;
+    }
+
+    // Clear existing rows
+    leaderboardBody.innerHTML = '';
+
+    if (!leaderboardData || leaderboardData.length === 0) {
+      const emptyRow = document.createElement('tr');
+      emptyRow.innerHTML = '<td colspan="9" style="text-align:center;color:#888;padding:20px;">No Battlegrounds statistics available</td>';
+      leaderboardBody.appendChild(emptyRow);
+      return;
+    }
+
+    // Build table rows
+    leaderboardData.forEach((playerStats, index) => {
+      const row = document.createElement('tr');
+      
+      // Add rank class for top 3
+      if (index === 0) row.classList.add('top1');
+      else if (index === 1) row.classList.add('top2');
+      else if (index === 2) row.classList.add('top3');
+      
+      const rank = index + 1;
+      const winRate = playerStats.winRate || 0;
+      const kdr = playerStats.kdr || 0;
+      
+      row.innerHTML = `
+        <td class="placement">${rank}</td>
+        <td>${playerStats.playerName}</td>
+        <td>${playerStats.matchesPlayed || 0}</td>
+        <td>${playerStats.wins || 0}</td>
+        <td>${playerStats.losses || 0}</td>
+        <td>${playerStats.kills || 0}</td>
+        <td>${playerStats.deaths || 0}</td>
+        <td>${kdr.toFixed(2)}</td>
+        <td>${winRate.toFixed(2)}%</td>
+      `;
+      
+      leaderboardBody.appendChild(row);
+    });
   }
 }
 

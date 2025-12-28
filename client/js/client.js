@@ -510,6 +510,17 @@ var updateChestDisplay = function(inventory) {
 };
 
 var formatItemName = function(itemType) {
+  // Special case mappings for item names
+  var specialNames = {
+    'deckofcards': 'DeckOfCards',
+    'worldmap': 'WorldMap',
+    'cavemap': 'CaveMap'
+  };
+  
+  if (specialNames[itemType.toLowerCase()]) {
+    return specialNames[itemType.toLowerCase()];
+  }
+  
   return itemType.charAt(0).toUpperCase() + itemType.slice(1).replace(/([A-Z])/g, ' $1');
 };
 
@@ -895,6 +906,7 @@ var toggleResourceScoreboard = () => {
 
 // Scoreboard UI extracted to ScoreboardUI.js
 var updateScoreboardUI = (factionResources) => { if (!window.scoreboardUIInstance) window.scoreboardUIInstance = new ScoreboardUI(); window.scoreboardUIInstance?.updateScoreboardUI(factionResources); }
+var updateBattlegroundsLeaderboard = (leaderboardData, sortBy) => { if (!window.scoreboardUIInstance) window.scoreboardUIInstance = new ScoreboardUI(); window.scoreboardUIInstance?.updateBattlegroundsLeaderboard(leaderboardData, sortBy); }
 
 document.addEventListener('DOMContentLoaded', () => {
   const cb = document.querySelector('.scoreboard-close');
@@ -1352,7 +1364,13 @@ var mapCoordinateHelper = typeof MapCoordinateHelper !== 'undefined' ? new MapCo
 
 // Map coordinate helper functions extracted to MapCoordinateHelper.js
 var getTile = (l, c, r) => {
-  var w = (window.world && window.world.length > 0) ? window.world : world;
+  // CRITICAL: Use battleground world if in battleground, otherwise use main world
+  var w;
+  if (typeof window !== 'undefined' && window.inBattleground && window.battlegroundWorld && window.battlegroundWorld.length > 0) {
+    w = window.battlegroundWorld;
+  } else {
+    w = (window.world && window.world.length > 0) ? window.world : world;
+  }
   return mapCoordinateHelper?.getTile?.(l, c, r, w) || (w[l]?.[r]?.[c]) || 0;
 }
 var getLoc = (x, y) => mapCoordinateHelper?.getLoc?.(x, y, tileSize) || [Math.floor(x/tileSize), Math.floor(y/tileSize)];

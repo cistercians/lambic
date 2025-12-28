@@ -88,6 +88,17 @@ class InventoryUI {
    * @returns {string} Formatted name
    */
   formatItemName(itemType) {
+    // Special case mappings for item names
+    const specialNames = {
+      'deckofcards': 'DeckOfCards',
+      'worldmap': 'WorldMap',
+      'cavemap': 'CaveMap'
+    };
+    
+    if (specialNames[itemType.toLowerCase()]) {
+      return specialNames[itemType.toLowerCase()];
+    }
+    
     return itemType.charAt(0).toUpperCase() + itemType.slice(1).replace(/([A-Z])/g, ' $1');
   }
 

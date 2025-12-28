@@ -25,6 +25,7 @@ class ItemFactory {
       ironaxe: { maxStack: 1, class: 'tool', rank: 0 },
       huntingknife: { maxStack: 1, class: 'tool', rank: 0 },
       torch: { maxStack: 10, class: 'tool', rank: 0 },
+      deckofcards: { maxStack: 1, class: 'tool', rank: 0 },
       
       // Weapons
       dague: { maxStack: 1, class: 'weapon', rank: 0 },

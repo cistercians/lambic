@@ -391,13 +391,20 @@ Interact = function(id,loc){
         // TODO: Implement banking/account management
         socket.write(JSON.stringify({msg:'addToChat',message:'<i>Market account management - coming soon</i>'}));
       } else if(build.type == 'garrison'){
+        // Check if player is in battlegrounds - if so, don't allow desk interaction
+        if(player.inBattleground === true){
+          socket.write(JSON.stringify({msg:'addToChat',message:'<i>Cannot access desk while in Battlegrounds.</i>'}));
+          return;
+        }
+
+        // Original house management logic
         if(build.house){
           if(player.house){
             if(player.house == build.house && player.rank){
-              // access military report
+              // access military report (no UI yet, so nothing happens)
             }
           } else {
-            // request to join house
+            // request to join house (no UI yet, so nothing happens)
           }
         } else { // create house
           if(build.owner == id){
@@ -408,8 +415,75 @@ Interact = function(id,loc){
               availableFlags: availableFlags,
               buildingId: b
             }));
+            return; // House creation takes priority, don't show battlegrounds
           } else {
             socket.write(JSON.stringify({msg:'addToChat',message:'<i>This is not your Garrison.</i>'}));
+          }
+        }
+        
+        // If we get here, either the garrison has a house or player doesn't own it
+        // Offer Battlegrounds access if friendly/neutral
+        var canAccessBattlegrounds = false;
+        if(build.house){
+          if(player.house){
+            if(player.house == build.house){
+              canAccessBattlegrounds = true; // Own faction
+            } else {
+              // Check if friendly/neutral (not hostile)
+              var playerHouse = House.list[player.house];
+              var buildHouse = House.list[build.house];
+              if(playerHouse && buildHouse){
+                // Check if explicitly enemies
+                var isHostile = false;
+                if(playerHouse.enemies && playerHouse.enemies.indexOf(build.house) !== -1){
+                  isHostile = true;
+                }
+                if(buildHouse.enemies && buildHouse.enemies.indexOf(player.house) !== -1){
+                  isHostile = true;
+                }
+                if(buildHouse.hostile && player.house !== build.house){
+                  isHostile = true;
+                }
+                if(!isHostile){
+                  canAccessBattlegrounds = true; // Friendly/neutral faction
+                }
+              }
+            }
+          } else {
+            // Player has no house - check if garrison faction is hostile to neutrals
+            var buildHouse = House.list[build.house];
+            if(buildHouse && !buildHouse.hostile){
+              canAccessBattlegrounds = true; // Neutral players can access non-hostile garrisons
+            }
+          }
+        } else {
+          // No house assigned - neutral garrison (owner case already handled above)
+          canAccessBattlegrounds = true;
+        }
+
+        // Offer Battlegrounds access if friendly/neutral
+        if(canAccessBattlegrounds){
+          // Check if battlegrounds lobby manager exists
+          if(typeof global.battlegroundsLobbyManager !== 'undefined' && global.battlegroundsLobbyManager){
+            try {
+              // Actually join the lobby first
+              var result = global.battlegroundsLobbyManager.joinLobby(id, player.name || 'Player');
+              if (result.success) {
+                var lobbyState = global.battlegroundsLobbyManager.getLobbyState(id);
+                socket.write(JSON.stringify({
+                  msg: 'openBattlegroundsLobby',
+                  lobbyState: lobbyState
+                }));
+              } else {
+                socket.write(JSON.stringify({msg:'addToChat',message:`<i>${result.message}</i>`}));
+              }
+            } catch(e) {
+              console.error('Error joining lobby:', e);
+              socket.write(JSON.stringify({msg:'addToChat',message:'<i>Error accessing Battlegrounds lobby. Please try again.</i>'}));
+            }
+          } else {
+            // Battlegrounds system not initialized yet
+            socket.write(JSON.stringify({msg:'addToChat',message:'<i>Battlegrounds system is not available at this time.</i>'}));
           }
         }
       }

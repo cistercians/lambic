@@ -1548,6 +1548,104 @@
     background: rgba(50, 50, 50, 0.5);
   }
 
+  .scoreboard-table tbody tr.top1 td {
+    background-color: rgba(255, 215, 0, 0.2);
+  }
+  .scoreboard-table tbody tr.top2 td {
+    background-color: rgba(192, 192, 192, 0.2);
+  }
+  .scoreboard-table tbody tr.top3 td {
+    background-color: rgba(205, 127, 50, 0.2);
+  }
+  .scoreboard-table tbody tr.top1:hover td {
+    background-color: rgba(255, 215, 0, 0.3);
+  }
+  .scoreboard-table tbody tr.top2:hover td {
+    background-color: rgba(192, 192, 192, 0.3);
+  }
+  .scoreboard-table tbody tr.top3:hover td {
+    background-color: rgba(205, 127, 50, 0.3);
+  }
+  .scoreboard-table td.placement {
+    font-weight: bold;
+    text-align: center;
+  }
+
+  /* Scoreboard Tabs */
+  .scoreboard-tabs {
+    display: flex;
+    gap: 5px;
+    padding: 10px 20px;
+    background-color: rgba(20, 20, 20, 0.8);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  .scoreboard-tab {
+    padding: 8px 16px;
+    background-color: rgba(40, 40, 40, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 5px 5px 0 0;
+    color: white;
+    cursor: pointer;
+    font-family: monospace;
+    font-size: 14px;
+    transition: background-color 0.2s;
+  }
+
+  .scoreboard-tab:hover {
+    background-color: rgba(60, 60, 60, 0.8);
+  }
+
+  .scoreboard-tab.active {
+    background-color: rgba(80, 80, 80, 0.9);
+    border-bottom: 1px solid rgba(80, 80, 80, 0.9);
+    position: relative;
+    top: 1px;
+  }
+
+  .scoreboard-tab-content {
+    display: none;
+  }
+
+  .scoreboard-tab-content.active {
+    display: block;
+  }
+
+  .battlegrounds-leaderboard-controls {
+    padding: 15px 20px;
+    background-color: rgba(20, 20, 20, 0.6);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .battlegrounds-leaderboard-controls label {
+    color: white;
+    font-family: monospace;
+    font-size: 14px;
+  }
+
+  .battlegrounds-leaderboard-controls select {
+    padding: 5px 10px;
+    background-color: rgba(0, 0, 0, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+    color: white;
+    font-family: monospace;
+    font-size: 14px;
+    cursor: pointer;
+  }
+
+  .battlegrounds-leaderboard-controls select:hover {
+    background-color: rgba(20, 20, 20, 0.8);
+  }
+
+  .battlegrounds-leaderboard-controls select:focus {
+    outline: none;
+    border-color: rgba(255, 255, 255, 0.5);
+  }
+
   .faction-name {
     text-align: left !important;
     font-weight: bold;
@@ -2129,31 +2227,70 @@
     <!-- Resource Scoreboard (hidden) -->
     <div id="resource-scoreboard" class="scoreboard">
       <div class="scoreboard-header">
-        <h2>📊 Resource Scoreboard</h2>
+        <h2>📊 Scoreboard</h2>
         <span class="scoreboard-close">×</span>
       </div>
-      <table class="scoreboard-table">
-        <thead>
-          <tr>
-            <th>Faction</th>
-            <th>🌾 Grain</th>
-            <th>🐟 Fish</th>
-            <th>🪵 Lumber</th>
-            <th>🪨 Stone</th>
-            <th>⛏️ Iron Ore</th>
-            <th>🔥 Iron</th>
-            <th>⚒️ Steel</th>
-            <th>💎 Silver</th>
-            <th>✨ Gold</th>
-            <th>👷 Serfs</th>
-            <th>⚔️ Military</th>
-            <th>🏛️ Buildings</th>
-          </tr>
-        </thead>
-        <tbody id="scoreboard-body">
-          <!-- Rows populated dynamically -->
-        </tbody>
-      </table>
+      <!-- Tabs -->
+      <div class="scoreboard-tabs">
+        <button class="scoreboard-tab active" data-tab="resources">Resources</button>
+        <button class="scoreboard-tab" data-tab="battlegrounds">Battlegrounds</button>
+      </div>
+      <!-- Resources Tab -->
+      <div id="scoreboard-resources-tab" class="scoreboard-tab-content active">
+        <table class="scoreboard-table">
+          <thead>
+            <tr>
+              <th>Faction</th>
+              <th>🌾 Grain</th>
+              <th>🐟 Fish</th>
+              <th>🪵 Lumber</th>
+              <th>🪨 Stone</th>
+              <th>⛏️ Iron Ore</th>
+              <th>🔥 Iron</th>
+              <th>⚒️ Steel</th>
+              <th>💎 Silver</th>
+              <th>✨ Gold</th>
+              <th>👷 Serfs</th>
+              <th>⚔️ Military</th>
+              <th>🏛️ Buildings</th>
+            </tr>
+          </thead>
+          <tbody id="scoreboard-body">
+            <!-- Rows populated dynamically -->
+          </tbody>
+        </table>
+      </div>
+      <!-- Battlegrounds Tab -->
+      <div id="scoreboard-battlegrounds-tab" class="scoreboard-tab-content">
+        <div class="battlegrounds-leaderboard-controls">
+          <label for="bg-leaderboard-sort">Sort by:</label>
+          <select id="bg-leaderboard-sort">
+            <option value="wins">Wins</option>
+            <option value="kills">Kills</option>
+            <option value="kdr">K/D Ratio</option>
+            <option value="winRate">Win Rate</option>
+            <option value="matchesPlayed">Matches Played</option>
+          </select>
+        </div>
+        <table class="scoreboard-table">
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Player</th>
+              <th>Matches</th>
+              <th>Wins</th>
+              <th>Losses</th>
+              <th>Kills</th>
+              <th>Deaths</th>
+              <th>K/D</th>
+              <th>Win Rate</th>
+            </tr>
+          </thead>
+          <tbody id="battlegrounds-leaderboard-body">
+            <!-- Rows populated dynamically -->
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
   
@@ -2232,6 +2369,10 @@
 <script src="/client/js/ui/DepositUI.js"></script>
 <script src="/client/js/ui/HouseCreationUI.js"></script>
 <script src="/client/js/ui/ScoreboardUI.js"></script>
+<script src="/client/js/ui/BattlegroundsLobbyUI.js"></script>
+<script src="/client/js/ui/BattlegroundsMapPreviewUI.js"></script>
+<script src="/client/js/ui/BattlegroundsMatchUI.js"></script>
+<script src="/client/js/ui/BattlegroundsPostGameUI.js"></script>
 <script src="/client/js/ui/CharacterDisplayUI.js"></script>
 <script src="/client/js/ui/BuildMenuUI.js"></script>
 

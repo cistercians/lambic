@@ -154,21 +154,40 @@ class GameLoopManager {
     if (typeof window !== 'undefined') {
       // Always read from window if available (SocketMessageHandler sets these)
       // Check if window values exist AND are valid (not empty/zero)
-      if (window.world !== undefined && window.world && window.world.length > 0) {
+      // Check if we're in a battleground and use battleground world if available
+      // CRITICAL: This must check inBattleground FIRST to ensure we use the correct world
+      if (typeof window !== 'undefined' && window.inBattleground && window.battlegroundWorld) {
+        // Use battleground world data (this is a separate map from the main world)
+        world = window.battlegroundWorld;
+        tileSize = (window.battlegroundTileSize !== undefined && window.battlegroundTileSize > 0) 
+          ? window.battlegroundTileSize 
+          : config.tileSize;
+        mapSize = (window.battlegroundMapSize !== undefined && window.battlegroundMapSize > 0) 
+          ? window.battlegroundMapSize 
+          : config.mapSize;
+        
+        // Debug logging (more frequent to help diagnose issues)
+        if (typeof console !== 'undefined' && Math.random() < 0.05) { // Log 5% of frames
+          console.log('GameLoop: Using battleground world, mapSize:', mapSize, 'tileSize:', tileSize, 'world layers:', Array.isArray(world) ? world.length : 'invalid', 'inBattleground:', window.inBattleground);
+        }
+      } else if (window.world !== undefined && window.world && window.world.length > 0) {
+        // Use main world data (when not in battleground)
         world = window.world;
       } else {
+        // Fallback to config world
         world = config.world;
       }
       
-      if (window.tileSize !== undefined && window.tileSize > 0) {
+      if (window.tileSize !== undefined && window.tileSize > 0 && !window.inBattleground) {
         tileSize = window.tileSize;
-      } else {
+      } else if (!window.inBattleground) {
         tileSize = config.tileSize;
       }
       
-      if (window.mapSize !== undefined && window.mapSize > 0) {
+      // CRITICAL: Don't overwrite mapSize if we're in battleground (it's already set from battleground context above)
+      if (window.mapSize !== undefined && window.mapSize > 0 && !window.inBattleground) {
         mapSize = window.mapSize;
-      } else {
+      } else if (!window.inBattleground) {
         mapSize = config.mapSize;
       }
     } else {

@@ -55,6 +55,7 @@ var InventoryHandler = {
       {type: 'stoneaxe', name: 'StoneAxe'},
       {type: 'ironaxe', name: 'IronAxe'},
       {type: 'torch', name: 'Torch'},
+      {type: 'deckofcards', name: 'DeckOfCards'},
       // Resources
       {type: 'wood', name: 'Wood'},
       {type: 'stone', name: 'Stone'},
@@ -98,7 +99,8 @@ var InventoryHandler = {
     ];
     
     inventoryItems.forEach(function(item){
-      var count = player.inventory[item.type];
+      // Check if inventory property exists before accessing (fixes battleground mode error)
+      var count = (player.inventory && player.inventory[item.type]) ? player.inventory[item.type] : 0;
       if(count && count > 0){
         var itemDiv = document.createElement('div');
         itemDiv.className = 'inventory-item';

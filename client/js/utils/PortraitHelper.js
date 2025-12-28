@@ -85,8 +85,8 @@ class PortraitHelper {
       'Innkeeper': this.Img.portraitInnkeeper,
       'Shipwright': this.Img.portraitShipwright,
       'Blacksmith': this.Img.portraitBlacksmith,
-      'Gwenllian': this.Img.portraitDruid,
       'Apparition': this.Img.portraitSerfM
+      // Note: Gwenllian removed from fallback map - let it use standard lookup (portraitGwenllian)
     };
 
     // Check fallback map

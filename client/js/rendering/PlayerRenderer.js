@@ -147,8 +147,10 @@ class PlayerRenderer {
   renderStatus(player, config) {
     const { ctx, barX, barY, workingIcon, wrk } = config;
 
-    // Status icons
-    if (player.working && workingIcon) {
+    // Status icons (priority: poker turn > working > revealed > combat)
+    if (player.pokerTurn) {
+      ctx.fillText('🃏', barX + 80, barY - 20);
+    } else if (player.working && workingIcon) {
       ctx.fillText(workingIcon[wrk], barX + 80, barY - 20);
     } else if (player.revealed) {
       ctx.fillText('👁️', barX + 80, barY - 20);

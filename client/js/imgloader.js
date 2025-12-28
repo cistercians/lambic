@@ -76,8 +76,16 @@ Img.lstairsu = new Image();
 Img.lstairsu.src = '/client/img/tiles/lstairsu.png';
 Img.road = new Image();
 Img.road.src = '/client/img/tiles/road.png';
-Img.sand = new Image();
-Img.sand.src = '/client/img/tiles/sand.png';
+Img.sand1 = new Image();
+Img.sand1.src = '/client/img/tiles/sand1.png';
+Img.sand2 = new Image();
+Img.sand2.src = '/client/img/tiles/sand2.png';
+Img.sand3 = new Image();
+Img.sand3.src = '/client/img/tiles/sand3.png';
+Img.sand4 = new Image();
+Img.sand4.src = '/client/img/tiles/sand4.png';
+Img.sand5 = new Image();
+Img.sand5.src = '/client/img/tiles/sand5.png';
 
 // BUILDINGS
 // allied
@@ -4317,6 +4325,8 @@ Img.pickaxe = new Image();
 Img.pickaxe.src = '/client/img/items/pickaxe.png';
 Img.torch = new Image();
 Img.torch.src = '/client/img/items/torch.png';
+Img.deckofcards = new Image();
+Img.deckofcards.src = '/client/img/items/deckofcards.png';
 Img.torch1 = new Image();
 Img.torch1.src = '/client/img/items/torch1.png';
 Img.torch2 = new Image();

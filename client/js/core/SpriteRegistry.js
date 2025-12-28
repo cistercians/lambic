@@ -258,7 +258,7 @@ class SpriteRegistry {
         spriteSize: 192
       },
       'Carolingian': {
-        sprite: typeof carolingian !== 'undefined' ? carolingian : null,
+        sprite: typeof marauder !== 'undefined' ? marauder : null,
         spriteSize: 192
       },
       'Marauder': {
@@ -338,7 +338,7 @@ class SpriteRegistry {
         spriteSize: 96
       },
       'Blacksmith': {
-        sprite: typeof innkeeper !== 'undefined' ? innkeeper : null,
+        sprite: typeof maleserf !== 'undefined' ? maleserf : null,
         spriteSize: 96
       },
 

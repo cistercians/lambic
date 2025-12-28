@@ -5,6 +5,25 @@ function capitalizeName(name) {
   return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
 }
 
+// Helper function to check if a house should be allowed to spawn (battlegrounds check)
+function canHouseSpawn(house) {
+  if (!house) return false;
+  
+  // Don't spawn for temporary battleground houses
+  if (house.isBattlegroundHouse || house.temporary) {
+    return false;
+  }
+  
+  // Check if house is a temporary battleground house via house manager
+  if (global.battlegroundsHouseManager && global.battlegroundsHouseManager.isTemporaryHouse) {
+    if (global.battlegroundsHouseManager.isTemporaryHouse(house.id)) {
+      return false;
+    }
+  }
+  
+  return true;
+}
+
 House = function(param){
   var self = Entity(param);
   self.type = param.type;
@@ -268,6 +287,11 @@ Brotherhood = function(param){
     fire:null
   }
   self.spawn = function(cl,spawn){
+    // Don't spawn for temporary battleground houses
+    if (!canHouseSpawn(self)) {
+      return;
+    }
+    
     var c = getCenter(spawn.loc[0],spawn.loc[1]);
     if(cl == 'Brother'){
       Brother({
@@ -534,6 +558,11 @@ Goths = function(param){
     }
   }
   self.spawn = function(cl,spawn){
+    // Don't spawn for temporary battleground houses
+    if (!canHouseSpawn(self)) {
+      return;
+    }
+    
     var c = getCenter(spawn.loc[0],spawn.loc[1]);
     if(cl == 'Goth'){
       Goth({
@@ -1266,6 +1295,11 @@ Franks = function(param){
     }
   }
   self.spawn = function(cl,spawn){
+    // Don't spawn for temporary battleground houses
+    if (!canHouseSpawn(self)) {
+      return;
+    }
+    
     var c = getCenter(spawn.loc[0],spawn.loc[1]);
     if(cl == 'FrankSword'){
       FrankSword({
@@ -1938,6 +1972,11 @@ Celts = function(param){
     }
   }
   self.spawn = function(cl,spawn){
+    // Don't spawn for temporary battleground houses
+    if (!canHouseSpawn(self)) {
+      return;
+    }
+    
     var c = getCenter(spawn.loc[0],spawn.loc[1]);
     if(cl == 'CeltAxe'){
       CeltAxe({
@@ -2400,6 +2439,11 @@ Teutons = function(param){
     }
   }
   self.spawn = function(cl,spawn){
+    // Don't spawn for temporary battleground houses
+    if (!canHouseSpawn(self)) {
+      return;
+    }
+    
     var c = getCenter(spawn.loc[0],spawn.loc[1]);
     if(cl == 'TeutonPike'){
       TeutonPike({
@@ -2726,7 +2770,18 @@ Outlaws = function(param){
     fire:null
   }
   self.spawn = function(rank,spawn){
+    // Outlaws can spawn in battlegrounds (real houses, not temporary)
+    // Only block if this is somehow a temporary battleground house
+    if (self.isBattlegroundHouse || self.temporary) {
+      return;
+    }
+    if (global.battlegroundsHouseManager && global.battlegroundsHouseManager.isTemporaryHouse && 
+        global.battlegroundsHouseManager.isTemporaryHouse(self.id)) {
+      return;
+    }
+    
     var c = getCenter(spawn.loc[0],spawn.loc[1]);
+    var cl = rank; // Use rank parameter (original code used cl which was undefined)
     if(cl == 'Trapper'){
       Trapper({
         x:c[0],
@@ -2907,7 +2962,18 @@ Mercenaries = function(param){
     swordrack:null,
   }
   self.spawn = function(rank,spawn){
+    // Mercenaries can spawn in battlegrounds (don't check battleground house flag for them)
+    // But still check if it's a temporary house
+    if (self.isBattlegroundHouse || self.temporary) {
+      return;
+    }
+    if (global.battlegroundsHouseManager && global.battlegroundsHouseManager.isTemporaryHouse && 
+        global.battlegroundsHouseManager.isTemporaryHouse(self.id)) {
+      return;
+    }
+    
     var c = getCenter(spawn.loc[0],spawn.loc[1]);
+    var cl = rank; // Use rank parameter (original code used cl which was undefined)
     if(cl == 'Cutthroat'){
       Cutthroat({
         x:c[0],
