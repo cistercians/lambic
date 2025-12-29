@@ -10,6 +10,8 @@ class BattlegroundsMatchUI {
     this.updateInterval = null;
     this.container = null;
     this.timerElement = null;
+    this.timerContainer = null;
+    this.leaveButton = null;
     this.scoreElement = null;
     this.statusElement = null;
     this.gameModeElement = null;
@@ -42,11 +44,46 @@ class BattlegroundsMatchUI {
       this.statusElement.style.marginBottom = '5px';
       this.statusElement.style.textAlign = 'center';
       
+      // Create container for timer and leave button
+      this.timerContainer = document.createElement('div');
+      this.timerContainer.style.display = 'flex';
+      this.timerContainer.style.flexDirection = 'column';
+      this.timerContainer.style.alignItems = 'center';
+      this.timerContainer.style.gap = '5px';
+      this.timerContainer.style.marginBottom = '10px';
+      this.timerContainer.style.pointerEvents = 'auto'; // Enable pointer events for interactive elements
+      
       this.timerElement = document.createElement('div');
       this.timerElement.style.fontSize = '24px';
       this.timerElement.style.fontWeight = 'bold';
-      this.timerElement.style.marginBottom = '10px';
       this.timerElement.style.textAlign = 'center';
+      
+      // Create LEAVE button (small and subtle)
+      this.leaveButton = document.createElement('button');
+      this.leaveButton.textContent = 'LEAVE';
+      this.leaveButton.style.fontSize = '11px';
+      this.leaveButton.style.padding = '4px 8px';
+      this.leaveButton.style.backgroundColor = 'rgba(200, 0, 0, 0.3)';
+      this.leaveButton.style.border = '1px solid rgba(255, 255, 255, 0.2)';
+      this.leaveButton.style.borderRadius = '3px';
+      this.leaveButton.style.color = 'rgba(255, 255, 255, 0.7)';
+      this.leaveButton.style.cursor = 'pointer';
+      this.leaveButton.style.fontFamily = 'monospace';
+      this.leaveButton.style.opacity = '0.6';
+      this.leaveButton.style.transition = 'opacity 0.2s';
+      this.leaveButton.style.pointerEvents = 'auto'; // Enable pointer events for button
+      this.leaveButton.onclick = () => this.exitMatch();
+      this.leaveButton.onmouseover = function() { 
+        this.style.opacity = '0.9';
+        this.style.backgroundColor = 'rgba(200, 0, 0, 0.5)';
+      };
+      this.leaveButton.onmouseout = function() { 
+        this.style.opacity = '0.6';
+        this.style.backgroundColor = 'rgba(200, 0, 0, 0.3)';
+      };
+      
+      this.timerContainer.appendChild(this.timerElement);
+      this.timerContainer.appendChild(this.leaveButton);
       
       this.gameModeElement = document.createElement('div');
       this.gameModeElement.style.fontSize = '14px';
@@ -66,7 +103,7 @@ class BattlegroundsMatchUI {
       
       // Assemble container
       this.container.appendChild(this.statusElement);
-      this.container.appendChild(this.timerElement);
+      this.container.appendChild(this.timerContainer);
       this.container.appendChild(this.gameModeElement);
       this.container.appendChild(this.mapTypeElement);
       this.container.appendChild(this.scoreElement);
@@ -262,6 +299,52 @@ class BattlegroundsMatchUI {
     if (this.updateInterval) {
       clearInterval(this.updateInterval);
       this.updateInterval = null;
+    }
+  }
+
+  /**
+   * Exit match
+   */
+  exitMatch() {
+    console.log('[BattlegroundsMatchUI] exitMatch called');
+    
+    // Get socket - try multiple ways to access it
+    let socketToUse = null;
+    if (typeof window !== 'undefined' && window.socket) {
+      socketToUse = window.socket;
+    } else if (typeof socket !== 'undefined') {
+      socketToUse = socket;
+    } else if (typeof window !== 'undefined' && window.SOCKET) {
+      socketToUse = window.SOCKET;
+    }
+
+    if (!socketToUse) {
+      console.error('[BattlegroundsMatchUI] No socket available for exiting match');
+      alert('Unable to exit match: No connection to server');
+      return;
+    }
+
+    const message = JSON.stringify({
+      msg: 'exitBattlegroundsMatch'
+    });
+
+    console.log('[BattlegroundsMatchUI] Sending exitBattlegroundsMatch message:', message);
+
+    try {
+      // Try send first (most common for WebSocket)
+      if (typeof socketToUse.send === 'function') {
+        socketToUse.send(message);
+        console.log('[BattlegroundsMatchUI] Message sent via socket.send()');
+      } else if (typeof socketToUse.write === 'function') {
+        socketToUse.write(message);
+        console.log('[BattlegroundsMatchUI] Message sent via socket.write()');
+      } else {
+        console.error('[BattlegroundsMatchUI] Socket has neither send() nor write() method');
+        alert('Unable to exit match: Invalid socket connection');
+      }
+    } catch (e) {
+      console.error('[BattlegroundsMatchUI] Error exiting match:', e);
+      alert('Error exiting match: ' + e.message);
     }
   }
 }

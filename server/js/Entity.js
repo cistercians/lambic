@@ -503,6 +503,10 @@ Farm = function(param){
   self.findMill = function(){
     for(var i in Building.list){
       var m = Building.list[i];
+      // CRITICAL: Check map context - only interact with buildings in same context
+      if(global.mapContextHelpers && !global.mapContextHelpers.areInSameContext(self, m)) {
+        continue;
+      }
       var dist = getDistance({x:self.x,y:self.y},{x:m.x,y:m.y});
       if(m.type == 'mill' && dist <= 384 && m.house == self.house){
         Building.list[m.id].farms[self.id] = self.plot;
@@ -587,6 +591,10 @@ Mill = function(param){
   self.findFarms = function(){
     for(var i in Building.list){
       var f = Building.list[i];
+      // CRITICAL: Check map context - only interact with buildings in same context
+      if(global.mapContextHelpers && !global.mapContextHelpers.areInSameContext(self, f)) {
+        continue;
+      }
       var dist = getDistance({x:self.x,y:self.y},{x:f.x,y:f.y});
       if(f.type == 'farm' && dist <= 384 && f.house == self.house && !f.mill){
         self.farms[f.id] = f.plot;
@@ -687,6 +695,10 @@ Lumbermill = function(param){
   self.findTavern = function(){
     for(var i in Building.list){
       var t = Building.list[i];
+      // CRITICAL: Check map context - only interact with buildings in same context
+      if(global.mapContextHelpers && !global.mapContextHelpers.areInSameContext(self, t)) {
+        continue;
+      }
       var dist = getDistance({x:self.x,y:self.y},{x:t.x,y:t.y});
       if(t.type == 'tavern' && dist <= 1280 && t.house == self.house){
         self.tavern = t.id;
@@ -810,6 +822,10 @@ Mine = function(param){
   self.findTavern = function(){
     for(var i in Building.list){
       var t = Building.list[i];
+      // CRITICAL: Check map context - only interact with buildings in same context
+      if(global.mapContextHelpers && !global.mapContextHelpers.areInSameContext(self, t)) {
+        continue;
+      }
       var dist = getDistance({x:self.x,y:self.y},{x:t.x,y:t.y});
       if(t.type == 'tavern' && dist <= 1280 && t.house == self.house){
         self.tavern = t.id;
@@ -939,9 +955,13 @@ Outpost = function(param){
       
       // Scan for enemies within 12 tiles (768px)
       var detectionRadius = 768;
-      for(var id in Player.list){
-        var enemy = Player.list[id];
-        if(!enemy || enemy.z !== 0) continue; // Only detect on overworld
+      // Use context-aware entity filtering to only check entities in same context
+      const enemyCandidates = global.mapContextHelpers 
+        ? global.mapContextHelpers.getEntitiesInSameContext(self, { z: 0 })
+        : Object.values(Player.list).filter(p => p && p.z === 0);
+      
+      for(var enemy of enemyCandidates){
+        if(!enemy) continue;
         
         // Skip ghosts - they are invisible
         if(enemy.ghost) continue;
@@ -972,9 +992,13 @@ Outpost = function(param){
         
         // Command nearby guards to respond
         var responseRadius = 1280; // 20 tiles
-        for(var guardId in Player.list){
-          var guard = Player.list[guardId];
-          if(!guard || guard.z !== 0) continue;
+        // Use context-aware entity filtering to only check entities in same context
+        const guardCandidates = global.mapContextHelpers 
+          ? global.mapContextHelpers.getEntitiesInSameContext(self, { z: 0 })
+          : Object.values(Player.list).filter(p => p && p.z === 0);
+        
+        for(var guard of guardCandidates){
+          if(!guard) continue;
           
           // Check if it's a military unit
           if(!guard.military) continue;
@@ -1018,9 +1042,13 @@ Guardtower = function(param){
       var nearestEnemy = null;
       var nearestDist = Infinity;
       
-      for(var id in Player.list){
-        var enemy = Player.list[id];
-        if(!enemy || enemy.z !== 0) continue; // Only target on overworld
+      // Use context-aware entity filtering to only check entities in same context
+      const enemyCandidates = global.mapContextHelpers 
+        ? global.mapContextHelpers.getEntitiesInSameContext(self, { z: 0 })
+        : Object.values(Player.list).filter(p => p && p.z === 0);
+      
+      for(var enemy of enemyCandidates){
+        if(!enemy) continue;
         
         // Skip ghosts - they are invisible
         if(enemy.ghost) continue;
@@ -1068,6 +1096,10 @@ Tavern = function(param){
   self.findBuildings = function(){
     for(var i in Building.list){
       var b = Building.list[i];
+      // CRITICAL: Check map context - only interact with buildings in same context
+      if(global.mapContextHelpers && !global.mapContextHelpers.areInSameContext(self, b)) {
+        continue;
+      }
       var dist = getDistance({x:self.x,y:self.y},{x:b.x,y:b.y});
       if(dist <= 1280 && b.house == self.house){
         if(b.type == 'mill' || b.type == 'lumbermill' || b.type == 'mine' || b.type == 'dock' || b.type == 'market'){
@@ -1287,8 +1319,12 @@ Tavern = function(param){
       self.healTimer = 0;
       
       // Check all players to find those inside this tavern
-      for(var id in Player.list){
-        var entity = Player.list[id];
+      // Use context-aware entity filtering to only check entities in same context
+      const entityCandidates = global.mapContextHelpers 
+        ? global.mapContextHelpers.getEntitiesInSameContext(self, { z: 1 })
+        : Object.values(Player.list).filter(p => p && (p.z === 1 || p.z === 2));
+      
+      for(var entity of entityCandidates){
         if(!entity || (entity.z !== 1 && entity.z !== 2)) continue; // Inside buildings (z=1 or z=2)
         
         // Check if entity is inside THIS tavern
@@ -1321,9 +1357,13 @@ Monastery = function(param){
       self.healTimer = 0;
       
       // Check all players to find those inside this monastery
-      for(var id in Player.list){
-        var entity = Player.list[id];
-        if(!entity || entity.z !== 1) continue; // Only inside buildings (z=1)
+      // Use context-aware entity filtering to only check entities in same context
+      const entityCandidates = global.mapContextHelpers 
+        ? global.mapContextHelpers.getEntitiesInSameContext(self, { z: 1 })
+        : Object.values(Player.list).filter(p => p && p.z === 1);
+      
+      for(var entity of entityCandidates){
+        if(!entity) continue;
         
         // Check if entity is inside THIS monastery
         var entityBuilding = getBuilding(entity.x, entity.y);
@@ -1349,6 +1389,10 @@ Market = function(param){
   self.findTavern = function(){
     for(var i in Building.list){
       var t = Building.list[i];
+      // CRITICAL: Check map context - only interact with buildings in same context
+      if(global.mapContextHelpers && !global.mapContextHelpers.areInSameContext(self, t)) {
+        continue;
+      }
       var dist = getDistance({x:self.x,y:self.y},{x:t.x,y:t.y});
       if(t.type == 'tavern' && dist <= 1280){
         self.tavern = t.id;
@@ -1502,6 +1546,10 @@ Dock = function(param){
   self.findTavern = function(){
     for(var i in Building.list){
       var t = Building.list[i];
+      // CRITICAL: Check map context - only interact with buildings in same context
+      if(global.mapContextHelpers && !global.mapContextHelpers.areInSameContext(self, t)) {
+        continue;
+      }
       var dist = getDistance({x:self.x,y:self.y},{x:t.x,y:t.y});
       if(t.type == 'tavern' && dist <= 1280 && t.house == self.house){
         self.tavern = t.id;
@@ -2140,11 +2188,11 @@ const SPRITE_SIZES = {
   'NorseSpear': 96,
   'Huskarl': 96,
   'Headhunter': 128,
-  'Seidr': 96,
+  'Seidr': 64,
   'HighPriestess': 96,
   'Druid': 96,
   'Morrigan': 128,
-  'Gwenllian': 96,
+  'Gwenllian': 64,
   'FrankSword': 64,
   'FrankSpear': 128,
   'FrankBow': 96,
@@ -10463,7 +10511,7 @@ Seidr = function(param){
   self.rank = '♝ ';
   self.cleric = true;
   self.baseSpd = 2;
-  self.spriteSize = getSpriteSizeForClass('Seidr'); // 96px
+  self.spriteSize = getSpriteSizeForClass('Seidr'); // 64px
 }
 
 Huskarl = function(param){
@@ -10651,7 +10699,7 @@ Gwenllian = function(param){
   self.sex = 'f';
   self.rank = '♛ ';
   self.torchBearer = true;
-  self.spriteSize = getSpriteSizeForClass('Gwenllian'); // 96px
+  self.spriteSize = getSpriteSizeForClass('Gwenllian'); // 64px
 }
 
 TeutonPike = function(param){
@@ -10869,6 +10917,14 @@ Arrow = function(param){
     self.damage = parentEntity.dmg; // Store parent's damage
     self.parentX = parentEntity.x; // Store parent's position for collision checks
     self.parentY = parentEntity.y;
+    // Inherit map context from parent
+    if(global.mapContextHelpers) {
+      global.mapContextHelpers.setEntityContext(self, parentEntity.battlegroundMatchId || null);
+    } else {
+      // Fallback if helpers not available
+      self.inBattleground = !!(parentEntity.inBattleground && parentEntity.battlegroundMatchId);
+      self.battlegroundMatchId = parentEntity.battlegroundMatchId || null;
+    }
   } else {
     // Parent is not a player (e.g., building like guardtower)
     self.innaWoods = false;

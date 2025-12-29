@@ -52,6 +52,18 @@ class SimpleCombat {
     // Additional validation: check if target still exists in Player.list
     if (global.Player.list && !global.Player.list[target.id]) return false;
     
+    // CRITICAL: Check map context - entities from different map contexts cannot interact
+    const entityInBG = entity.inBattleground && entity.battlegroundMatchId;
+    const targetInBG = target.inBattleground && target.battlegroundMatchId;
+    
+    // If one is in battleground and other isn't, they're in different map contexts
+    if (entityInBG !== targetInBG) return false;
+    
+    // If both are in battlegrounds but different matches, they're in different contexts
+    if (entityInBG && targetInBG && entity.battlegroundMatchId !== target.battlegroundMatchId) {
+      return false;
+    }
+    
     // Skip boarded players - they are not targetable (only the ship should be targetable)
     if (target.isBoarded || target.boardedShip) return false;
     
@@ -1226,8 +1238,13 @@ class SimpleCombat {
     const defenseRange = 1000; // 10 tiles - military units respond to fleeing serfs
       const serfClasses = ['Serf', 'SerfM', 'SerfF'];
       
-      for (const id in global.Player.list) {
-        const serf = global.Player.list[id];
+      // Use context-aware entity filtering to only check entities in same context
+      const candidates = global.mapContextHelpers 
+        ? global.mapContextHelpers.getEntitiesInSameContext(entity, { excludeId: entity.id, type: 'npc' })
+        : Object.values(global.Player.list).filter(p => p && p.id !== entity.id && p.type === 'npc');
+      
+      for (const serf of candidates) {
+        if (!serf) continue;
         
         // Check if this is a fleeing serf from our faction
         if (serfClasses.includes(serf.class) && 
@@ -1239,6 +1256,11 @@ class SimpleCombat {
         const attacker = this.getEntityById(serf.combatState.target);
           
           if (attacker && attacker.z === entity.z) {
+            // Verify attacker is in same context
+            if (global.mapContextHelpers && !global.mapContextHelpers.areInSameContext(entity, attacker)) {
+              continue;
+            }
+            
             const distance = this.getDistance(attacker, entity);
             
             // Military units have extended defensive range
@@ -1265,6 +1287,11 @@ class SimpleCombat {
     // Basic validation
     if (target.id === entity.id) return false;
     if (target.z !== entity.z) return false;
+    
+    // CRITICAL: Check map context - entities from different map contexts cannot aggro each other
+    if (global.mapContextHelpers && !global.mapContextHelpers.areInSameContext(entity, target)) {
+      return false;
+    }
         
         // Skip invalid targets
     if (target.ghost) return false;
@@ -1332,8 +1359,13 @@ class SimpleCombat {
    * @returns {boolean} True if a target was found and combat started
    */
   findAggroTargets(entity, aggroRange, isPeaceful) {
-    for (const id in global.Player.list) {
-      const target = global.Player.list[id];
+    // Use context-aware entity filtering to only check entities in same context
+    const candidates = global.mapContextHelpers 
+      ? global.mapContextHelpers.getEntitiesInSameContext(entity, { excludeId: entity.id })
+      : Object.values(global.Player.list).filter(p => p && p.id !== entity.id);
+    
+    for (const target of candidates) {
+      if (!target) continue;
       
       if (this.canAggroTarget(entity, target, aggroRange, isPeaceful)) {
         // AGGRO!

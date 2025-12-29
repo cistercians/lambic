@@ -1923,6 +1923,11 @@ var SocketMessageHandler = {
   },
 
   handleBattlegroundsMatchEnd: function(data) {
+    // Hide map preview when match ends
+    if(typeof window !== 'undefined' && window.battlegroundsMapPreviewUI) {
+      window.battlegroundsMapPreviewUI.hide();
+    }
+    
     // Hide match UI after match ends
     if(typeof window !== 'undefined' && window.battlegroundsMatchUI) {
       // Keep UI visible briefly to show final results, then hide after a delay
@@ -2021,6 +2026,10 @@ var SocketMessageHandler = {
   handleBattlegroundsLobbyUpdate: function(data) {
     // Update lobby UI with new state
     if(typeof window !== 'undefined' && window.battlegroundsLobbyUI && data.lobby) {
+      // Clear map preview if lobby status is 'waiting' (match ended, lobby reset)
+      if(data.lobby.status === 'waiting' && window.battlegroundsMapPreviewUI) {
+        window.battlegroundsMapPreviewUI.hide();
+      }
       window.battlegroundsLobbyUI.updateLobbyState(data.lobby);
     }
   },

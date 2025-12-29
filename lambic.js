@@ -150,6 +150,7 @@ const SimpleCombat = require('./server/js/core/SimpleCombat.js');
 const { TilemapIntegration } = require('./server/js/core/TilemapIntegration.js');
 const BuildingConstruction = require('./server/js/core/BuildingConstruction.js');
 const { mapContextManager } = require('./server/js/core/MapContextManager.js');
+const mapContextHelpers = require('./server/js/core/MapContextHelpers.js');
 
 // Import new registry systems (Phase 1: Foundation)
 const systemRegistry = require('./server/js/core/SystemRegistry.js');
@@ -204,6 +205,7 @@ function continueServerInitialization() {
   // Initialize map context manager for multiple map instances (battlegrounds)
   mapContextManager.init(global.tilemapSystem);
   global.mapContextManager = mapContextManager;
+  global.mapContextHelpers = mapContextHelpers;
 
   // Register tilemap system in registry
   systemRegistry.register('tilemap', tilemapIntegration, { 
@@ -898,16 +900,9 @@ function getTile(l, c, r, entityId) {
 
 // Context-aware pathfinding wrapper
 function findPathContextAware(startLoc, endLoc, layer, options, entityId) {
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:900',message:'findPathContextAware called',data:{startLoc,endLoc,layer,hasEntityId:!!entityId,entityId,hasMapContextManager:!!global.mapContextManager},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-  // #endregion
-  
   // Use MapContextManager if entityId is provided
   if (entityId && global.mapContextManager) {
     const result = global.mapContextManager.findPath(startLoc, endLoc, layer, options, entityId);
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:903',message:'findPathContextAware result from MapContextManager',data:{hasResult:result!==null,resultLength:result?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
     return result;
   }
   
@@ -1315,11 +1310,16 @@ global.getInteractableBuilding = getInteractableBuilding;
 function isTileOccupied(tileX, tileY, z, excludeEntityId = null, contextEntityId = null) {
   if (!global.Player || !global.Player.list) return false;
   
-  for (const id in global.Player.list) {
-    const entity = global.Player.list[id];
-    if (!entity || entity.id === excludeEntityId) continue;
-    if (entity.z !== z) continue;
-    if (entity.toRemove) continue; // Don't count entities being removed
+  // Get context entity if provided
+  const contextEntity = contextEntityId ? global.Player.list[contextEntityId] : null;
+  
+  // Use context-aware entity filtering if context is provided
+  const candidates = (contextEntity && global.mapContextHelpers)
+    ? global.mapContextHelpers.getEntitiesInSameContext(contextEntity, { excludeId: excludeEntityId, z: z })
+    : Object.values(global.Player.list).filter(p => p && p.id !== excludeEntityId && p.z === z);
+  
+  for (const entity of candidates) {
+    if (!entity || entity.toRemove) continue;
     
     // Use entity's own ID for context when getting location
     const entityLoc = getLoc(entity.x, entity.y, entity.id);
@@ -2160,9 +2160,15 @@ function isAlly(entity1Id, entity2Id) {
     return false;
   }
   
-  // If one is in battleground and other isn't, they're not allies
+  // CRITICAL: If one is in battleground and other isn't, they're in different map contexts
+  // They should not be able to interact at all (not just "not allies" - completely isolated)
   if (entity1InBG !== entity2InBG) {
-    return false;
+    return false; // Not allies, and combat/interaction systems should check this
+  }
+  
+  // Additional safety: If both are in battlegrounds but different matches, they're in different contexts
+  if (entity1InBG && entity2InBG && entity1.battlegroundMatchId !== entity2.battlegroundMatchId) {
+    return false; // Different battleground matches = different map contexts
   }
 
   const class1 = entity1.class;
@@ -3256,19 +3262,7 @@ const Player = function(param) {
 
   self.updateSpd = function() {
     let loc = getLoc(self.x, self.y);
-    // #region agent log - only log once per player when in battleground
-    if (self.inBattleground && !self._terrainCheckLogged) {
-      self._terrainCheckLogged = true;
-      try{fsSync.appendFileSync('/Users/johan/Documents/GitHub/lambic/.cursor/debug.log',JSON.stringify({location:'lambic.js:3201',message:'Terrain check in player update - FIRST CALL',data:{playerId:self.id,x:self.x,y:self.y,z:self.z,locX:loc[0],locY:loc[1],inBattleground:self.inBattleground,matchId:self.battlegroundMatchId,passingEntityId:false},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})+'\n');}catch(e){}
-    }
-    // #endregion
-    const currentTile = getTile(0, loc[0], loc[1], self.id); // FIX: Pass entityId!
-    // #region agent log - only log once
-    if (self.inBattleground && !self._terrainResultLogged) {
-      self._terrainResultLogged = true;
-      try{fsSync.appendFileSync('/Users/johan/Documents/GitHub/lambic/.cursor/debug.log',JSON.stringify({location:'lambic.js:3202',message:'Terrain check result - FIRST CALL',data:{playerId:self.id,tileValue:currentTile,locX:loc[0],locY:loc[1],passedEntityId:true},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})+'\n');}catch(e){}
-    }
-    // #endregion
+    const currentTile = getTile(0, loc[0], loc[1], self.id);
     
     // Apply terrain modifiers BEFORE movement
     const socket = SOCKET_LIST[self.id];
@@ -5482,6 +5476,19 @@ Player.update = function() {
 
   // ===== ENTITY UPDATE LOOP (lines 3673-3790) =====
   // Iterate through all entities and call their individual update functions
+  // #region agent log
+  // Hypothesis A: Count battleground NPCs in Player.list
+  let bgNPCsInList = 0;
+  for (const id in Player.list) {
+    const p = Player.list[id];
+    if (p && p.type === 'npc' && p.inBattleground && p.battlegroundMatchId) {
+      bgNPCsInList++;
+    }
+  }
+  if (bgNPCsInList > 0) {
+    fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:5466',message:'Battleground NPCs in Player.list',data:{bgNPCsCount:bgNPCsInList,totalEntities:Object.keys(Player.list).length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+  }
+  // #endregion
   for (const i in Player.list) {
     const player = Player.list[i];
     
@@ -5517,8 +5524,12 @@ Player.update = function() {
     // PERFORMANCE OPTIMIZATION: Skip updates for idle/low-priority NPCs
     var shouldUpdate = true;
     if(player.type === 'npc'){
+      // CRITICAL: Always update battleground NPCs every frame (they're in active combat matches)
+      if(player.inBattleground && player.battlegroundMatchId){
+        shouldUpdate = true;
+      }
       // Always update if in combat or has a path
-      if(player.action === 'combat' || player.path){
+      else if(player.action === 'combat' || player.path){
         shouldUpdate = true;
       }
       // Update working NPCs every 3rd frame (they're mostly stationary)
@@ -5589,10 +5600,31 @@ Player.update = function() {
       }
     }
     
+    // #region agent log
+    // Hypothesis A: Check if battleground NPCs are in Player.list and getting updated
+    if(player.type === 'npc' && player.inBattleground && player.battlegroundMatchId) {
+      const oldX = player.x;
+      const oldY = player.y;
+      const hasPath = !!(player.path && player.path.length > 0);
+      const hasTargetLoc = !!player.targetLoc;
+      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:5573',message:'NPC update entry',data:{npcId:player.id,type:player.type,class:player.class,inBattleground:player.inBattleground,matchId:player.battlegroundMatchId,x:oldX,y:oldY,hasPath,hasTargetLoc,alive:player.alive},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    }
+    // #endregion
+    
     // Track per-entity update time (only for slow entities to avoid overhead)
     const entityUpdateStart = Date.now();
     player.update();
     const entityUpdateTime = Date.now() - entityUpdateStart;
+    
+    // #region agent log
+    // Hypothesis A: Check if NPC position changed after update
+    if(player.type === 'npc' && player.inBattleground && player.battlegroundMatchId) {
+      const newX = player.x;
+      const newY = player.y;
+      const positionChanged = (newX !== oldX || newY !== oldY);
+      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:5577',message:'NPC update exit',data:{npcId:player.id,x:newX,y:newY,positionChanged,hasPath:!!(player.path && player.path.length > 0)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    }
+    // #endregion
     
     // Track slow entity updates (>1ms) by type
     if(entityUpdateTime > 1 && !Player._perfData.entityUpdateTimes[entityClass]) {
@@ -5622,12 +5654,6 @@ Player.update = function() {
     // Check both old combat.target and new combatState.target
     var hasCombatTarget = (player.combat && player.combat.target) || (player.combatState && player.combatState.target);
     
-    // #region agent log
-    if (player.attackMoveTarget) {
-      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:5299',message:'Attack-move check',data:{playerId:player.id,hasAttackMoveTarget:!!player.attackMoveTarget,hasPath:!!player.path,pathLength:player.path ? player.path.length : 0,hasCombatTarget:hasCombatTarget,combatTarget:player.combat ? player.combat.target : null,combatStateTarget:player.combatState ? player.combatState.target : null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'CC'})}).catch(()=>{});
-    }
-    // #endregion
-    
     if(player.attackMoveTarget && player.path && player.path.length > 0 && !hasCombatTarget){
       // Determine detection range based on weapon type
       // For ranged weapons: use max ranged attack range (640 pixels)
@@ -5639,10 +5665,6 @@ Player.update = function() {
         detectionRange = player.aggroRange || 256;
       }
       var detectionRangeSquared = detectionRange * detectionRange; // Use squared distance to avoid sqrt
-      
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:5309',message:'Attack-move detection range',data:{playerId:player.id,isRanged:player.ranged,detectionRange:detectionRange,aggroRange:player.aggroRange},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'DD'})}).catch(()=>{});
-      // #endregion
       
       // Iterate through all entities to find nearby enemies
       // Check both Player.list and Character.list (NPCs)
@@ -5673,9 +5695,6 @@ Player.update = function() {
           if(distanceSquared <= detectionRangeSquared){
             // Enemy in range - interrupt path and set attack intent
             // Combat will start naturally when in range or when damage is dealt
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:5337',message:'Attack-move enemy detected',data:{playerId:player.id,enemyId:enemy.id,enemyType:enemy.type,distance:Math.sqrt(distanceSquared),detectionRange:detectionRange,inRange:distanceSquared <= detectionRangeSquared},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'EE'})}).catch(()=>{});
-            // #endregion
             if (global.simpleCombat) {
               if (global.debugCombat) {
                 console.log(`[attack-move] Enemy detected, setting attack intent ${player.id} -> ${enemy.id} (range: ${Math.sqrt(distanceSquared).toFixed(1)}, detection: ${detectionRange})`);
@@ -5765,7 +5784,15 @@ Player.update = function() {
     } else {
       // Send all players in update packs (spectators are no longer Player entities)
       // Boarded players still need updates (position syncs to ship), they just don't render
-      pack.push(player.getUpdatePack());
+      const updatePack = player.getUpdatePack();
+      pack.push(updatePack);
+      
+      // #region agent log
+      // Hypothesis A: Check if battleground NPCs are in pack
+      if(player.type === 'npc' && player.inBattleground && player.battlegroundMatchId) {
+        fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:5770',message:'NPC added to pack',data:{npcId:player.id,x:updatePack.x,y:updatePack.y,z:updatePack.z,hasPath:!!player.path},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      }
+      // #endregion
     }
   }
 
@@ -5793,9 +5820,6 @@ Player.update = function() {
 // Recalculate player stats based on equipped gear
 global.recalculatePlayerStats = function(playerId){
   var player = Player.list[playerId];
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:5442',message:'recalculatePlayerStats called',data:{playerId:playerId,hasPlayer:!!player,hasGear:!!(player && player.gear),gearWeapon:player && player.gear ? (typeof player.gear.weapon === 'object' ? JSON.stringify(player.gear.weapon) : player.gear.weapon) : null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B'})}).catch(()=>{});
-  // #endregion
   if(!player || !player.gear) return;
   
   // Reset bonuses to base values
@@ -5812,18 +5836,8 @@ global.recalculatePlayerStats = function(playerId){
     // Check if player.gear.weapon is already the weapon object or a key string
     if(typeof player.gear.weapon === 'object' && player.gear.weapon.type){
       weapon = player.gear.weapon;
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:5458',message:'Weapon found as object',data:{weaponType:weapon.type,weaponName:weapon.name},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
     } else if(equip[player.gear.weapon]){
       weapon = equip[player.gear.weapon];
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:5460',message:'Weapon found via equip lookup',data:{gearWeaponKey:player.gear.weapon,weaponType:weapon.type,weaponName:weapon.name},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
-    } else {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:5461',message:'Weapon lookup failed',data:{gearWeapon:typeof player.gear.weapon === 'object' ? JSON.stringify(player.gear.weapon) : player.gear.weapon,isObject:typeof player.gear.weapon === 'object',hasType:player.gear.weapon && player.gear.weapon.type,hasEquip:!!global.equip,equipKeys:global.equip ? Object.keys(global.equip).slice(0,5) : []},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
     }
   }
   
@@ -5835,17 +5849,10 @@ global.recalculatePlayerStats = function(playerId){
     player.hpMax += weapon.hpBonus || 0;
     
     // Set ranged flag based on weapon type
-    var wasRanged = player.ranged;
     player.ranged = (weapon.type === 'bow');
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:5472',message:'Setting ranged flag',data:{weaponType:weapon.type,isBow:weapon.type === 'bow',wasRanged:wasRanged,nowRanged:player.ranged},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B,F'})}).catch(()=>{});
-    // #endregion
   } else {
     // No weapon equipped - not ranged
     player.ranged = false;
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:5475',message:'No weapon - setting ranged to false',data:{playerId:playerId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
   }
   
   // Apply armor bonuses
@@ -7275,28 +7282,6 @@ io.on('connection', function(socket) {
             var tileY = data.tileY;
             var z = data.z;
             
-            // #region agent log
-            const fsSync = require('fs');
-            const logData = {
-              location: 'lambic.js:7276',
-              message: 'Click navigation received',
-              data: {
-                clientZ: data.z,
-                playerZ: player.z,
-                tileX,
-                tileY,
-                playerId: player.id
-              },
-              timestamp: Date.now(),
-              sessionId: 'debug-session',
-              runId: 'run2',
-              hypothesisId: 'J'
-            };
-            try {
-              fsSync.appendFileSync('/Users/johan/Documents/GitHub/lambic/.cursor/debug.log', JSON.stringify(logData) + '\n');
-            } catch (e) {}
-            // #endregion
-            
             // For indoor navigation (z=1 or z=2), ensure player's current z-level matches
             // Use player's current z-level if they're indoors to ensure consistency
             if((z === 1 || z === 2) && player.z !== z){
@@ -7379,30 +7364,7 @@ io.on('connection', function(socket) {
               }
             } else if(z === -1 || z === -2){
               // Caves - use isWalkable function to check pathfinding matrix (same as buildings)
-              // #region agent log
-              const fsSync = require('fs');
-              const walkableResult = isWalkable(z, tileX, tileY, player.id);
-              const logData = {
-                location: 'lambic.js:7374',
-                message: 'isWalkable check for z=-1 or z=-2',
-                data: {
-                  z,
-                  tileX,
-                  tileY,
-                  playerId: player.id,
-                  isWalkableResult: walkableResult,
-                  playerZ: player.z
-                },
-                timestamp: Date.now(),
-                sessionId: 'debug-session',
-                runId: 'run2',
-                hypothesisId: 'K'
-              };
-              try {
-                fsSync.appendFileSync('/Users/johan/Documents/GitHub/lambic/.cursor/debug.log', JSON.stringify(logData) + '\n');
-              } catch (e) {}
-              // #endregion
-              isWalkableTile = walkableResult;
+              isWalkableTile = isWalkable(z, tileX, tileY, player.id);
             } else if(z === 1 || z === 2){
               // Inside buildings - skip manual walkability check and let pathfinding handle it
               // The tilemap system's pathfinding will determine if the tile is reachable
@@ -7491,30 +7453,6 @@ io.on('connection', function(socket) {
               } else if(z === -1){
                 layer = 1; // Cave (underworld)
                 
-                // #region agent log
-                const fsSync = require('fs');
-                const logData = {
-                  location: 'lambic.js:7434',
-                  message: 'Player at z=-1, setting layer=1 for pathfinding',
-                  data: {
-                    playerZ: z,
-                    layer,
-                    startLoc,
-                    targetLoc: [tileX, tileY],
-                    playerId: player.id,
-                    hasPath: !!player.path,
-                    pathLength: player.path?.length || 0
-                  },
-                  timestamp: Date.now(),
-                  sessionId: 'debug-session',
-                  runId: 'run2',
-                  hypothesisId: 'I'
-                };
-                try {
-                  fsSync.appendFileSync('/Users/johan/Documents/GitHub/lambic/.cursor/debug.log', JSON.stringify(logData) + '\n');
-                } catch (e) {}
-                // #endregion
-                
                 // Check if target is a cave exit
                 var isTargetCaveExit = false;
                 var isStartCaveExit = false;
@@ -7545,30 +7483,6 @@ io.on('connection', function(socket) {
                 }
               } else if(z === -2){
                 layer = 8; // Cellar
-                
-                // #region agent log
-                const fsSync = require('fs');
-                const logData = {
-                  location: 'lambic.js:7540',
-                  message: 'Player at z=-2, setting layer=8 for pathfinding',
-                  data: {
-                    playerZ: z,
-                    layer,
-                    startLoc,
-                    targetLoc: [tileX, tileY],
-                    playerId: player.id,
-                    hasPath: !!player.path,
-                    pathLength: player.path?.length || 0
-                  },
-                  timestamp: Date.now(),
-                  sessionId: 'debug-session',
-                  runId: 'run2',
-                  hypothesisId: 'L'
-                };
-                try {
-                  fsSync.appendFileSync('/Users/johan/Documents/GitHub/lambic/.cursor/debug.log', JSON.stringify(logData) + '\n');
-                } catch (e) {}
-                // #endregion
               } else if(z === -3){
                 layer = 2; // Underwater
                 // Underwater pathfinding - no need to avoid water (player is already underwater)
@@ -7579,56 +7493,7 @@ io.on('connection', function(socket) {
                 layer = 5; // Building floor 2
               }
               
-              // #region agent log
-              if(z === -1 || z === -2) {
-                const fsSync = require('fs');
-                const logData = {
-                  location: 'lambic.js:7552',
-                  message: 'About to call findPathContextAware for z=-1 or z=-2',
-                  data: {
-                    playerZ: z,
-                    layer,
-                    startLoc,
-                    targetLoc: [tileX, tileY],
-                    playerId: player.id,
-                    options
-                  },
-                  timestamp: Date.now(),
-                  sessionId: 'debug-session',
-                  runId: 'run2',
-                  hypothesisId: z === -1 ? 'I' : 'L'
-                };
-                try {
-                  fsSync.appendFileSync('/Users/johan/Documents/GitHub/lambic/.cursor/debug.log', JSON.stringify(logData) + '\n');
-                } catch (e) {}
-              }
-              // #endregion
-              
               var path = findPathContextAware(startLoc, [tileX, tileY], layer, options, player.id);
-              
-              // #region agent log
-              if(z === -1 || z === -2) {
-                const fsSync = require('fs');
-                const logData = {
-                  location: 'lambic.js:7579',
-                  message: 'findPathContextAware returned for z=-1 or z=-2',
-                  data: {
-                    playerZ: z,
-                    layer,
-                    hasPath: path !== null,
-                    pathLength: path?.length || 0,
-                    pathFirstWaypoint: path?.[0] || null
-                  },
-                  timestamp: Date.now(),
-                  sessionId: 'debug-session',
-                  runId: 'run2',
-                  hypothesisId: z === -1 ? 'I' : 'L'
-                };
-                try {
-                  fsSync.appendFileSync('/Users/johan/Documents/GitHub/lambic/.cursor/debug.log', JSON.stringify(logData) + '\n');
-                } catch (e) {}
-              }
-              // #endregion
               
               if(path && path.length > 0){
                 // Apply smoothing for non-cave paths
@@ -7841,18 +7706,12 @@ io.on('connection', function(socket) {
           }
         } else if (data.msg === 'engageCombat') {
           // Right-click combat engagement or A+left-click on enemy
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:7319',message:'engageCombat message received',data:{playerId:player ? player.id : null,hasPlayer:!!player,targetId:data.targetId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'K'})}).catch(()=>{});
-          // #endregion
           if(player && data.targetId){
             // Check both Player.list and Character.list (NPCs might be in either)
             var target = Player.list[data.targetId];
             if(!target && Character && Character.list && Character.list[data.targetId]){
               target = Character.list[data.targetId];
             }
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:7323',message:'Looking up target in Player.list and Character.list',data:{targetId:data.targetId,foundInPlayerList:!!Player.list[data.targetId],foundInCharacterList:!!(Character && Character.list && Character.list[data.targetId]),targetFound:!!target,hasSimpleCombat:!!global.simpleCombat},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'K'})}).catch(()=>{});
-            // #endregion
             if(target){
               // Clear previous commands (combat overrides everything)
               player.attackMoveTarget = null;
@@ -7865,23 +7724,13 @@ io.on('connection', function(socket) {
                 if (global.debugCombat) {
                   console.log(`[engageCombat] Player setting attack intent ${player.id} -> ${data.targetId}`);
                 }
-                // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:7335',message:'Calling setAttackIntent',data:{playerId:player.id,targetId:data.targetId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'K'})}).catch(()=>{});
-                // #endregion
                 const result = global.simpleCombat.setAttackIntent(player, data.targetId);
-                // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:7337',message:'setAttackIntent returned',data:{playerId:player.id,targetId:data.targetId,result:result},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'K'})}).catch(()=>{});
-                // #endregion
               } else {
                 // Fallback for systems without simpleCombat
                 player.combat.target = data.targetId;
                 player.action = 'combat';
                 player._lastCombatAttack = 0; // Reset attack timer
               }
-            } else {
-              // #region agent log
-              fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:7342',message:'Target not found in Player.list',data:{targetId:data.targetId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'K'})}).catch(()=>{});
-              // #endregion
             }
           }
         } else if (data.msg === 'interact') {
@@ -8399,6 +8248,20 @@ io.on('connection', function(socket) {
             }
           }
         } else if (data.msg === 'leaveBattlegroundsLobby') {
+          if (global.battlegroundsLobbyManager) {
+            global.battlegroundsLobbyManager.leaveLobby(socket.id);
+          }
+        } else if (data.msg === 'exitBattlegroundsMatch') {
+          if (global.battlegroundsMatchManager) {
+            const result = global.battlegroundsMatchManager.exitMatch(socket.id);
+            if (!result.success) {
+              // Send error message to client
+              socket.write(JSON.stringify({
+                msg: 'addToChat',
+                message: `<i style="color: #ff0000;">[Battlegrounds] ${result.message || 'Failed to exit match'}</i>`
+              }));
+            }
+          }
           // Leave battlegrounds lobby
           if (global.battlegroundsLobbyManager) {
             global.battlegroundsLobbyManager.leaveLobby(socket.id);

@@ -2,6 +2,12 @@
  * SocketManager.js
  * Handles WebSocket connection initialization and cleanup
  * Extracted from client.js to reduce complexity
+ * 
+ * Note: If you see "ERR_BLOCKED_BY_CLIENT" errors in the console when connecting,
+ * this is typically caused by browser extensions (ad blockers, privacy tools) blocking
+ * the initial SockJS /io/info request. SockJS automatically falls back to other
+ * transport methods, so the connection should still work. If the connection fails
+ * completely, try disabling browser extensions or adding localhost to their whitelist.
  */
 
 // Message queue for messages received before SocketMessageHandler is ready
@@ -99,11 +105,30 @@ var SocketManager = {
     };
 
     newSocket.onerror = function(event){
-      console.log('Client error: ' + event);
+      // Note: ERR_BLOCKED_BY_CLIENT errors are common when browser extensions
+      // (ad blockers, privacy tools) block the initial /io/info request.
+      // SockJS automatically falls back to other transport methods, so this
+      // error can usually be ignored if the connection eventually succeeds.
+      var errorMsg = event && event.target ? event.target.toString() : String(event);
+      
+      // Only log if it's not a blocked-by-client error (those are expected)
+      if (errorMsg.indexOf('ERR_BLOCKED_BY_CLIENT') === -1 && 
+          errorMsg.indexOf('blocked') === -1) {
+        console.warn('Socket connection error:', errorMsg);
+      } else {
+        // Silently handle blocked-by-client errors - SockJS will retry with other transports
+        console.debug('Connection attempt blocked by browser extension (this is usually harmless)');
+      }
     };
     
     newSocket.onclose = function(event){
-      console.log('Client connection closed: ' + event.code);
+      // Check if this was an abnormal closure (not a clean disconnect)
+      if (event.code !== 1000 && event.code !== 1001) {
+        console.warn('Socket connection closed abnormally. Code:', event.code, 'Reason:', event.reason || 'Unknown');
+      } else {
+        console.log('Socket connection closed normally');
+      }
+      
       // Cleanup on disconnect (performance tools handle their own cleanup)
       // Reset selfId on disconnect (access global selfId)
       if (typeof window !== 'undefined' && window.selfId !== undefined) {

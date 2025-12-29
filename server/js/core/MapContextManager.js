@@ -71,13 +71,6 @@ class MapContextManager {
       const matchId = entity.battlegroundMatchId;
       const mapData = this.battlegroundMaps[matchId];
       
-      // #region agent log - only log first time per entity
-      if (!entity._mapContextLogged) {
-        entity._mapContextLogged = true;
-        try{fsSync.appendFileSync('/Users/johan/Documents/GitHub/lambic/.cursor/debug.log',JSON.stringify({location:'MapContextManager.js:57',message:'Entity in battleground - FIRST CHECK',data:{entityId:entityId,inBattleground:entity.inBattleground,matchId:entity.battlegroundMatchId,hasMapData:!!mapData,registeredMatches:Object.keys(this.battlegroundMaps)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})+'\n');}catch(e){}
-      }
-      // #endregion
-      
       if (mapData) {
         // MapData is now an object with {type, data, mapSize} or legacy array format
         if (mapData.data && mapData.mapSize) {
@@ -373,10 +366,6 @@ class MapContextManager {
   findPath(startLoc, endLoc, layer, options, entityId) {
     const context = this.getMapContext(entityId);
     
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MapContextManager.js:370',message:'MapContextManager.findPath called',data:{hasContext:!!context,contextType:context?.type,matchId:context?.matchId,entityId,layer},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-    // #endregion
-    
     if (!context) return null;
 
     if (context.type === 'battleground') {
@@ -404,30 +393,15 @@ class MapContextManager {
         z = layerToZMap[layer];
       }
       
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MapContextManager.js:395',message:'Battleground pathfinding - layer to z mapping',data:{layer,originalZ:layer,mappedZ:z,hasLayerToZMap:layerToZMap.hasOwnProperty(layer)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
-      // #endregion
-      
       // Battleground: get the matrix (2D array) instead of PF.Grid object
       // The grids are stored as PF.Grid objects, but we need the underlying matrix
       if (global.battlegroundsMatchManager && global.battlegroundsMatchManager.currentMatch) {
         const match = global.battlegroundsMatchManager.currentMatch;
         
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MapContextManager.js:401',message:'Checking match pathfinding data',data:{hasMatch:!!match,matchId:match?.matchId,contextMatchId:context?.matchId,matches:match?.matchId === context?.matchId,hasPathfinding:!!match?.pathfinding,hasMatrices:!!match?.pathfinding?.matrices,availableZLevels:match?.pathfinding?.matrices ? Object.keys(match.pathfinding.matrices) : []},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
-        // #endregion
-        
         if (match.matchId === context.matchId && match.pathfinding && match.pathfinding.matrices) {
           const matrix = match.pathfinding.matrices[z];
           
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MapContextManager.js:407',message:'Got pathfinding matrix for battleground',data:{hasMatrix:!!matrix,matrixType:matrix?.constructor?.name,z,layer,mappedZ:z,matrixLength:matrix?.length,matrixFirstRowLength:matrix?.[0]?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-          // #endregion
-          
           if (!matrix) {
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MapContextManager.js:411',message:'Matrix is null for z-level',data:{z,layer,availableZLevels:Object.keys(match.pathfinding.matrices)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
-            // #endregion
             return null;
           }
 
@@ -436,10 +410,6 @@ class MapContextManager {
           // PF.Grid expects: 0=walkable, 1=blocked
           // So we need to convert 2 (transition) to 0 (walkable)
           const pfGridArray = matrix.map(row => row.map(cell => (cell === 2) ? 0 : cell));
-      
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MapContextManager.js:402',message:'Matrix converted for PF',data:{pfGridArrayLength:pfGridArray?.length,pfGridArrayFirstRowLength:pfGridArray?.[0]?.length,startLoc,endLoc},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-          // #endregion
 
           // Use PF (pathfinding) library to find path
           const PF = require('pathfinding');
@@ -458,16 +428,9 @@ class MapContextManager {
               pfGrid
             );
             
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MapContextManager.js:417',message:'Pathfinding completed',data:{hasPath:path!==null,pathLength:path?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
-            // #endregion
-            
             // PF returns path in format [[x1,y1], [x2,y2], ...]
             return path && path.length > 0 ? path : null;
           } catch (e) {
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MapContextManager.js:424',message:'Pathfinding exception',data:{error:e.message,stack:e.stack},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
-            // #endregion
             console.error('Pathfinding error:', e);
             return null;
           }

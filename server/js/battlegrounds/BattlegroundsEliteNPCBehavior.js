@@ -50,6 +50,11 @@ class BattlegroundsEliteNPCBehavior {
       return global.Player.list[npcId];
     }).filter(npc => npc && !npc.toRemove);
 
+    // #region agent log
+    // Hypothesis B: Check if behavior system is running and finding NPCs
+    fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCBehavior.js:51',message:'Behavior update running',data:{eliteNPCsCount:eliteNPCs.length,npcsFound:npcs.length,npcIds:npcs.map(n => n.id)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+
     npcs.forEach(npc => {
       if (!npc || !npc.alive || npc.toRemove) return;
 
@@ -247,8 +252,16 @@ class BattlegroundsEliteNPCBehavior {
       }
     } else {
       // No enemies nearby, move towards target
+      // #region agent log
+      // Hypothesis E: Check if moveTo() exists and is being called
+      const hasMoveTo = typeof npc.moveTo === 'function';
+      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCBehavior.js:250',message:'Issuing movement command',data:{npcId:npc.id,hasMoveTo,targetX,targetY,targetZ,currentX:npc.x,currentY:npc.y},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+      // #endregion
       if (typeof npc.moveTo === 'function') {
         npc.moveTo(targetZ, targetX, targetY);
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCBehavior.js:252',message:'moveTo() called',data:{npcId:npc.id,hasPathAfter:!!(npc.path && npc.path.length > 0)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+        // #endregion
       } else {
         // Fallback: set path directly
         const getLoc = global.getLoc || ((x, y) => {
@@ -260,6 +273,9 @@ class BattlegroundsEliteNPCBehavior {
         if (targetLoc) {
           npc.path = null; // Clear existing path
           npc.targetLoc = { loc: targetLoc, z: targetZ };
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCBehavior.js:262',message:'Fallback targetLoc set',data:{npcId:npc.id,targetLoc},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+          // #endregion
         }
       }
     }
@@ -329,16 +345,16 @@ class BattlegroundsEliteNPCBehavior {
     let nearestEnemy = null;
     let nearestDistance = Infinity;
 
-    for (const id in global.Player.list) {
-      const entity = global.Player.list[id];
+    // Use context-aware entity filtering to only check entities in same context
+    const candidates = global.mapContextHelpers 
+      ? global.mapContextHelpers.getEntitiesInSameContext(npc, { excludeId: npc.id })
+      : Object.values(global.Player.list).filter(p => p && p.id !== npc.id);
+    
+    for (const entity of candidates) {
+      if (!entity) continue;
       
-      // Skip if same entity, not alive, or to remove
-      if (entity.id === npc.id || !entity.alive || entity.toRemove) continue;
-
-      // Skip if not in same battleground match
-      if (npc.battlegroundMatchId && entity.battlegroundMatchId !== npc.battlegroundMatchId) {
-        continue;
-      }
+      // Skip if not alive, or to remove
+      if (!entity.alive || entity.toRemove) continue;
 
       // Skip if on different z-level
       if (entity.z !== npc.z) continue;

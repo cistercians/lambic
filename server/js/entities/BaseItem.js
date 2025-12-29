@@ -47,6 +47,13 @@ class BaseItem {
   
   // Universal pickup logic for all items
   pickup(playerId) {
+    // CRITICAL: Check map context - player and item must be in same context
+    if (global.Player && global.Player.list && global.mapContextHelpers) {
+      const player = global.Player.list[playerId];
+      if (player && !global.mapContextHelpers.areInSameContext(player, this)) {
+        return; // Different map contexts - cannot pickup
+      }
+    }
     const player = global.Player.list[playerId];
     const socket = global.SOCKET_LIST[playerId];
     

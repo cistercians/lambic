@@ -128,6 +128,38 @@ class BattlegroundsMatchManager {
       eliteNPCs: []
     };
 
+    // Plan elite NPCs BEFORE map generation so they're available for lobby display
+    let plannedNPCs = [];
+    if (this.eliteNPCManager) {
+      plannedNPCs = this.eliteNPCManager.planEliteNPCs(this.currentMatch);
+      
+      // Add planned NPCs to participants list immediately (for lobby display)
+      plannedNPCs.forEach(npcInfo => {
+        if (npcInfo && npcInfo.id) {
+          const npcParticipant = {
+            id: npcInfo.id,
+            name: npcInfo.name || 'NPC',
+            team: npcInfo.team || null,
+            isNPC: true,
+            kills: 0,
+            deaths: 0,
+            alive: true,
+            class: npcInfo.class || 'SerfM',
+            sex: npcInfo.sex || 'm'
+          };
+          this.currentMatch.participants.push(npcParticipant);
+        }
+      });
+      
+      // Store planned NPCs for later spawning
+      this.currentMatch.plannedNPCs = plannedNPCs;
+      
+      // Notify lobby that NPCs have been planned (for UI display)
+      if (global.battlegroundsLobbyManager) {
+        global.battlegroundsLobbyManager.broadcastLobbyUpdate();
+      }
+    }
+
     // Generate map
     try {
       const mapData = await this.generateMap(gameMode, mapSize);
@@ -180,45 +212,39 @@ class BattlegroundsMatchManager {
         this.houseManager.createBattlegroundHouses(this.currentMatch);
       }
       
-      // Spawn elite NPCs BEFORE map preview so they're included in participants list
-      if (this.eliteNPCManager) {
-        const eliteNPCs = this.eliteNPCManager.spawnEliteNPCs(this.currentMatch);
+      // Spawn elite NPCs using pre-planned NPCs (they're already in participants list)
+      if (this.eliteNPCManager && this.currentMatch.plannedNPCs) {
+        const eliteNPCs = this.eliteNPCManager.spawnEliteNPCs(this.currentMatch, this.currentMatch.plannedNPCs);
         this.currentMatch.eliteNPCs = eliteNPCs;
         
-        // Add NPCs to participants list with class/sex for portraits
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:188',message:'Adding NPCs to participants',data:{eliteNPCsCount:eliteNPCs.length,eliteNPCsIds:eliteNPCs.map(n=>n?.id),currentParticipantsCount:this.currentMatch.participants.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-        // #endregion
-        
+        // Update participant entries with actual NPC entity data (class/sex from spawned entity)
         eliteNPCs.forEach(npcInfo => {
           if (npcInfo && npcInfo.id) {
+            // Find the participant entry we created during planning
+            const participant = this.currentMatch.participants.find(p => p.id === npcInfo.id);
+            if (participant) {
             // Get the actual NPC entity to get class/sex/name
             const npcEntity = global.Player.list[npcInfo.id];
-            const npcParticipant = {
-              id: npcInfo.id,
-              name: npcInfo.name || (npcEntity ? (npcEntity.name || npcEntity.class || npcInfo.type) : (npcInfo.type || 'NPC')),
-              team: npcInfo.team || null,
-              isNPC: true,
-              kills: 0,
-              deaths: 0,
-              alive: true,
-              class: npcInfo.class || (npcEntity ? (npcEntity.class || 'SerfM') : 'SerfM'),
-              sex: npcInfo.sex || (npcEntity ? (npcEntity.sex || 'm') : 'm')
-            };
-            this.currentMatch.participants.push(npcParticipant);
+              if (npcEntity) {
+                // Update with actual entity data
+                participant.name = npcInfo.name || (npcEntity.name || npcEntity.class || npcInfo.type || 'NPC');
+                participant.class = npcInfo.class || npcEntity.class || 'SerfM';
+                participant.sex = npcInfo.sex || npcEntity.sex || 'm';
+              } else {
+                // Use planned data if entity not available yet
+                participant.name = npcInfo.name || 'NPC';
+                participant.class = npcInfo.class || 'SerfM';
+                participant.sex = npcInfo.sex || 'm';
+              }
+            }
           }
         });
         
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:207',message:'NPCs added to participants',data:{newParticipantsCount:this.currentMatch.participants.length,npcParticipants:this.currentMatch.participants.filter(p=>p.isNPC).map(p=>({id:p.id,name:p.name}))},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-        // #endregion
+        // Clear planned NPCs after spawning
+        delete this.currentMatch.plannedNPCs;
       }
       
-      // Notify lobby that NPCs have been added
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:211',message:'Calling broadcastLobbyUpdate',data:{hasLobbyManager:!!global.battlegroundsLobbyManager,participantsCount:this.currentMatch.participants.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-      // #endregion
-      
+      // Notify lobby that NPCs have been spawned (update with actual entity data)
       if (global.battlegroundsLobbyManager) {
         global.battlegroundsLobbyManager.broadcastLobbyUpdate();
       }
@@ -348,6 +374,10 @@ class BattlegroundsMatchManager {
     
     this.currentMatch.originalPlayerState = {};
     players.forEach(player => {
+      // Get current player object to access inventory
+      const p = global.Player.list[player.id];
+      if (!p) return;
+      
       // Use pre-stored positions if provided (from lobby join time), otherwise use current position
       if (originalPositions && originalPositions[player.id]) {
         const storedPos = originalPositions[player.id];
@@ -357,21 +387,20 @@ class BattlegroundsMatchManager {
           y: storedPos.y,
           z: storedPos.z,
           house: storedPos.house,
-          inBattleground: false
+          inBattleground: false,
+          inventory: p.inventory ? JSON.parse(JSON.stringify(p.inventory)) : null
         };
       } else {
         // Fallback: use current position (shouldn't happen if lobby manager stores positions)
-        const p = global.Player.list[player.id];
-        if (p) {
           console.log(`Storing current state for player ${player.id} (fallback): x=${p.x}, y=${p.y}, z=${p.z}, house=${p.house}`);
           this.currentMatch.originalPlayerState[player.id] = {
             x: p.x,
             y: p.y,
             z: p.z,
             house: p.house,
-            inBattleground: p.inBattleground || false
+          inBattleground: p.inBattleground || false,
+          inventory: p.inventory ? JSON.parse(JSON.stringify(p.inventory)) : null
           };
-        }
       }
     });
   }
@@ -405,6 +434,11 @@ class BattlegroundsMatchManager {
         this.startMatchCountdown();
       }
     }, 1000);
+    
+    // Update lobby with map type
+    if (global.battlegroundsLobbyManager) {
+      global.battlegroundsLobbyManager.broadcastLobbyUpdate();
+    }
   }
 
   /**
@@ -412,6 +446,19 @@ class BattlegroundsMatchManager {
    */
   startMatchCountdown() {
     if (!this.currentMatch) return;
+    
+    // Check if any human players remain before starting countdown
+    const humanPlayers = this.currentMatch.participants.filter(p => !p.isNPC);
+    if (humanPlayers.length === 0) {
+      console.log('No human players in match, ending match early');
+      this.endMatch({ 
+        reason: 'no_human_players',
+        winner: null,
+        winnerType: null,
+        message: 'Match cancelled: No human players'
+      });
+      return;
+    }
     
     // First, spawn all players and NPCs
     this.spawnParticipants();
@@ -515,8 +562,14 @@ class BattlegroundsMatchManager {
       player.x = spawnPoint.x;
       player.y = spawnPoint.y;
       player.z = validZ;
+      
+      // CRITICAL: Set map context using helper for consistency
+      if (global.mapContextHelpers) {
+        global.mapContextHelpers.setEntityContext(player, this.currentMatch.matchId);
+      } else {
       player.inBattleground = true;
       player.battlegroundMatchId = this.currentMatch.matchId;
+      }
       
       // #region agent log
       try{const fs=require('fs');fs.appendFileSync('/Users/johan/Documents/GitHub/lambic/.cursor/debug.log',JSON.stringify({location:'BattlegroundsMatchManager.js:500',message:'AFTER setting player position',data:{playerId:participant.id,newX:player.x,newY:player.y,newZ:player.z,newInBG:player.inBattleground,newMatchId:player.battlegroundMatchId,spawnX:spawnPoint.x,spawnY:spawnPoint.y,spawnZ:spawnPoint.z},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})+'\n');}catch(e){}
@@ -566,6 +619,29 @@ class BattlegroundsMatchManager {
             console.error(`[BattlegroundsMatchManager] Cannot send battlegroundWorld: mapData=${!!mapData}, worldData=${!!(mapData && mapData.worldData)}`);
           }
           
+          // Collect NPC entities for init pack
+          const npcPlayers = [];
+          this.currentMatch.participants.forEach(p => {
+            if (p.isNPC) {
+              const npc = global.Player.list[p.id];
+              if (npc) {
+                npcPlayers.push({
+                  id: p.id,
+                  x: npc.x,
+                  y: npc.y,
+                  z: npc.z,
+                  class: npc.class || p.class || 'SerfM',
+                  sex: npc.sex || p.sex || 'm',
+                  name: npc.name || p.name || 'NPC',
+                  hp: npc.hp || npc.hpMax || 100,
+                  hpMax: npc.hpMax || 100,
+                  inBattleground: true,
+                  battlegroundMatchId: this.currentMatch.matchId
+                });
+              }
+            }
+          });
+          
           // Then send init pack update to switch to battleground context
           // Include world data in init message as fallback if battlegroundWorld message was missed
           const initMsg = {
@@ -584,7 +660,8 @@ class BattlegroundsMatchManager {
             mapSize: this.currentMatch.mapSize,
             startingZ: mapData.startingZ || 0,
             pack: {
-              player: [{
+              player: [
+                {
                 id: participant.id,
                 x: player.x,
                 y: player.y,
@@ -596,7 +673,9 @@ class BattlegroundsMatchManager {
                 hpMax: player.hpMax || 100,
                 inBattleground: true,
                 battlegroundMatchId: this.currentMatch.matchId
-              }],
+                },
+                ...npcPlayers // Include all NPCs in init pack
+              ],
               arrow: [],
               item: [],
               light: [],
@@ -662,8 +741,35 @@ class BattlegroundsMatchManager {
       });
     }, 2000); // Check after 2 seconds
     
-    // Elite NPCs are already spawned before post-processing (see startMatch method)
-    // They are already in participants list, so no need to spawn again here
+    // Send spawn updates for NPCs to clients
+    // NPCs are already spawned and in participants list
+    this.currentMatch.participants.forEach((participant) => {
+      if (participant.isNPC) {
+        const npc = global.Player.list[participant.id];
+        if (npc) {
+          // Send init pack update for NPC to all participants
+          const participants = this.currentMatch.participants.map(p => p.id);
+          participants.forEach(playerId => {
+            const socket = global.SOCKET_LIST[playerId];
+            if (socket) {
+              // Send player update with NPC data
+              socket.write(JSON.stringify({
+                msg: 'playerUpdate',
+                id: participant.id,
+                x: npc.x,
+                y: npc.y,
+                z: npc.z,
+                class: npc.class || participant.class || 'SerfM',
+                sex: npc.sex || participant.sex || 'm',
+                name: npc.name || participant.name || 'NPC',
+                inBattleground: true,
+                battlegroundMatchId: this.currentMatch.matchId
+              }));
+            }
+          });
+        }
+      }
+    });
     
     // Send spawn updates to clients
     this.broadcastSpawnUpdate();
@@ -816,11 +922,201 @@ class BattlegroundsMatchManager {
     
     this.updateInterval = setInterval(() => {
       if (this.currentMatch && this.currentMatch.status === 'in_progress') {
+        // Check if any human players remain
+        if (!this.checkActiveHumanPlayers()) {
+          console.log('No active human players in match, ending match early');
+          this.endMatch({
+            reason: 'no_human_players',
+            winner: null,
+            winnerType: null,
+            message: 'Match ended: No active human players'
+          });
+          return;
+        }
+        
         if (this.currentGameMode && this.currentGameMode.update) {
           this.currentGameMode.update();
         }
       }
     }, this.updateIntervalMs);
+  }
+  
+  /**
+   * Check if there are any active human players in the match
+   * @returns {boolean} True if at least one human player is alive
+   */
+  checkActiveHumanPlayers() {
+    if (!this.currentMatch) return false;
+    
+    const humanPlayers = this.currentMatch.participants.filter(p => !p.isNPC && p.alive);
+    return humanPlayers.length > 0;
+  }
+  
+  /**
+   * Exit match for a player
+   * @param {string} playerId - Player ID to exit
+   */
+  exitMatch(playerId) {
+    if (!this.currentMatch) {
+      return { success: false, message: 'No active match' };
+    }
+    
+    // Find participant
+    const participant = this.currentMatch.participants.find(p => p.id === playerId);
+    if (!participant) {
+      return { success: false, message: 'Player not in match' };
+    }
+    
+    // Skip if NPC
+    if (participant.isNPC) {
+      return { success: false, message: 'Cannot exit NPC' };
+    }
+    
+    // Mark participant as dead/alive=false (they're leaving)
+    participant.alive = false;
+    
+        // Restore player to original position
+        if (this.currentMatch.originalPlayerState && this.currentMatch.originalPlayerState[playerId]) {
+          const player = global.Player.list[playerId];
+          if (player) {
+            const originalState = this.currentMatch.originalPlayerState[playerId];
+            
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:959',message:'exitMatch called - BEFORE context clear',data:{playerId,hasPlayer:!!player,currentInBG:player.inBattleground,currentMatchId:player.battlegroundMatchId,matchId:this.currentMatch.matchId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
+            // #endregion
+            
+            player.x = originalState.x;
+            player.y = originalState.y;
+            player.z = originalState.z;
+            player.house = originalState.house;
+            
+            // CRITICAL: Clear map context using helper for consistency
+            if (global.mapContextHelpers) {
+              global.mapContextHelpers.setEntityContext(player, null);
+            } else {
+              player.inBattleground = false;
+              player.battlegroundMatchId = null;
+            }
+            
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:990',message:'exitMatch - AFTER helper clear',data:{playerId,hasHelper:!!global.mapContextHelpers,inBattleground:player.inBattleground,battlegroundMatchId:player.battlegroundMatchId,stillHasContext:!!(player.inBattleground || player.battlegroundMatchId)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
+            // #endregion
+            
+            // Defensive check: ensure context is definitely cleared
+            if (player.inBattleground || player.battlegroundMatchId) {
+              console.warn(`[BattlegroundsMatchManager] Context not cleared for player ${playerId} on exit, forcing clear`);
+              // #region agent log
+              fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:997',message:'exitMatch - Context still set, forcing clear',data:{playerId,inBattleground:player.inBattleground,battlegroundMatchId:player.battlegroundMatchId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
+              // #endregion
+              player.inBattleground = false;
+              player.battlegroundMatchId = null;
+            }
+            
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:1001',message:'exitMatch - FINAL context state',data:{playerId,inBattleground:player.inBattleground,battlegroundMatchId:player.battlegroundMatchId,contextCleared:!(player.inBattleground || player.battlegroundMatchId)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
+            // #endregion
+            
+            // Restore inventory if it was stored
+            if (originalState.inventory) {
+              player.inventory = JSON.parse(JSON.stringify(originalState.inventory));
+              console.log(`Restored inventory for player ${playerId} on exit`);
+            }
+        
+        // Send position update to client
+        const socket = global.SOCKET_LIST[playerId];
+        if (socket) {
+          // Send playerUpdate first
+          socket.write(JSON.stringify({
+            msg: 'playerUpdate',
+            id: playerId,
+            x: originalState.x,
+            y: originalState.y,
+            z: originalState.z,
+            inBattleground: false,
+            battlegroundMatchId: null
+          }));
+          
+          // Then send init message to switch back to main world
+          socket.write(JSON.stringify({
+            msg: 'init',
+            id: playerId,
+            selfId: playerId,
+            x: originalState.x,
+            y: originalState.y,
+            z: originalState.z,
+            inBattleground: false,
+            battlegroundMatchId: null,
+            world: global.world || null,
+            tileSize: global.tileSize || 64,
+            mapSize: global.mapSize || 1024,
+            pack: {
+              player: [{
+                id: playerId,
+                x: originalState.x,
+                y: originalState.y,
+                z: originalState.z,
+                class: player.class || 'SerfM',
+                sex: player.sex || 'm',
+                name: player.name || 'Player',
+                hp: player.hp || player.hpMax || 100,
+                hpMax: player.hpMax || 100,
+                inBattleground: false,
+                battlegroundMatchId: null
+              }],
+              arrow: [],
+              item: [],
+              light: [],
+              building: []
+            }
+          }));
+        }
+      }
+    }
+    
+    // Broadcast exit to other participants
+    this.broadcastParticipantExit(playerId);
+    
+    // Check if any human players remain
+    if (!this.checkActiveHumanPlayers()) {
+      console.log('No active human players remaining after exit, ending match');
+      this.endMatch({
+        reason: 'no_human_players',
+        winner: null,
+        winnerType: null,
+        message: 'Match ended: All human players left'
+      });
+    } else {
+      // Update scores
+      this.updateScores();
+    }
+    
+    return { success: true, message: 'Exited match' };
+  }
+  
+  /**
+   * Broadcast participant exit to all participants
+   */
+  broadcastParticipantExit(playerId) {
+    if (!this.currentMatch) return;
+    
+    const participants = this.currentMatch.participants.map(p => p.id);
+    const exitedPlayer = global.Player.list[playerId];
+    
+    participants.forEach(id => {
+      const socket = global.SOCKET_LIST[id];
+      if (socket) {
+        try {
+          socket.write(JSON.stringify({
+            msg: 'battlegroundsParticipantExit',
+            matchId: this.currentMatch.matchId,
+            playerId: playerId,
+            playerName: exitedPlayer ? (exitedPlayer.name || exitedPlayer.class) : 'Unknown'
+          }));
+        } catch (e) {
+          console.error(`Error broadcasting exit to participant ${id}:`, e);
+        }
+      }
+    });
   }
   
   /**
@@ -917,6 +1213,19 @@ class BattlegroundsMatchManager {
     // This prevents NPCs from being restored to the main world
     if (this.eliteNPCManager) {
       const eliteNPCs = this.currentMatch.eliteNPCs || [];
+      
+      // Also ensure all battleground NPCs are removed from Player.list
+      // This is a defensive cleanup to catch any NPCs that weren't properly removed
+      if (global.Player && global.Player.list) {
+        for (const id in global.Player.list) {
+          const entity = global.Player.list[id];
+          if (entity && entity.type === 'npc' && entity.battlegroundMatchId === matchId) {
+            console.log(`[BattlegroundsMatchManager] Removing stray battleground NPC ${id} during match end`);
+            entity.toRemove = true;
+            delete global.Player.list[id];
+          }
+        }
+      }
       if (eliteNPCs.length > 0) {
         this.eliteNPCManager.removeEliteNPCs(eliteNPCs);
       }
@@ -926,6 +1235,54 @@ class BattlegroundsMatchManager {
     
     // Restore player states (only players, not NPCs)
     this.restorePlayerStates();
+    
+    // CRITICAL: Final defensive check - ensure all players have context cleared
+    // This catches any players that might have been missed during restoration
+    if (this.currentMatch && this.currentMatch.participants) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:1226',message:'endMatch - Starting final defensive check',data:{matchId:this.currentMatch.matchId,participantsCount:this.currentMatch.participants.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
+      // #endregion
+      
+      this.currentMatch.participants.forEach(participant => {
+        if (participant.isNPC) return; // Skip NPCs
+        
+        const player = global.Player.list[participant.id];
+        if (player) {
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:1230',message:'endMatch - Checking player context',data:{playerId:participant.id,hasPlayer:!!player,inBattleground:player.inBattleground,battlegroundMatchId:player.battlegroundMatchId,hasContext:!!(player.inBattleground || player.battlegroundMatchId)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
+          // #endregion
+          
+          if (player.inBattleground || player.battlegroundMatchId) {
+            console.warn(`[BattlegroundsMatchManager] Player ${participant.id} still has battleground context after match end, forcing clear`);
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:1231',message:'endMatch - Player still has context, clearing',data:{playerId:participant.id,inBattleground:player.inBattleground,battlegroundMatchId:player.battlegroundMatchId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
+            // #endregion
+            
+            if (global.mapContextHelpers) {
+              global.mapContextHelpers.setEntityContext(player, null);
+            } else {
+              player.inBattleground = false;
+              player.battlegroundMatchId = null;
+            }
+            
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:1238',message:'endMatch - After clearing context',data:{playerId:participant.id,inBattleground:player.inBattleground,battlegroundMatchId:player.battlegroundMatchId,contextCleared:!(player.inBattleground || player.battlegroundMatchId)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
+            // #endregion
+            
+            // Send update to client to ensure they're notified
+            const socket = global.SOCKET_LIST[participant.id];
+            if (socket) {
+              socket.write(JSON.stringify({
+                msg: 'playerUpdate',
+                id: participant.id,
+                inBattleground: false,
+                battlegroundMatchId: null
+              }));
+            }
+          }
+        }
+      });
+    }
     
     // Cleanup temporary Houses
     if (this.houseManager) {
@@ -994,12 +1351,48 @@ class BattlegroundsMatchManager {
       }
       
       console.log(`Restoring player ${playerId} to original position: x=${originalState.x}, y=${originalState.y}, z=${originalState.z}, house=${originalState.house}`);
+      
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:1353',message:'restorePlayerStates - BEFORE context clear',data:{playerId,hasPlayer:!!player,currentInBG:player.inBattleground,currentMatchId:player.battlegroundMatchId,matchId:this.currentMatch.matchId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
+      // #endregion
+      
       player.x = originalState.x;
       player.y = originalState.y;
       player.z = originalState.z;
       player.house = originalState.house;
+      
+      // CRITICAL: Clear map context using helper for consistency
+      // Also ensure it's definitely cleared (defensive check)
+      if (global.mapContextHelpers) {
+        global.mapContextHelpers.setEntityContext(player, null);
+      } else {
       player.inBattleground = false;
       player.battlegroundMatchId = null;
+      }
+      
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:1364',message:'restorePlayerStates - AFTER helper clear',data:{playerId,hasHelper:!!global.mapContextHelpers,inBattleground:player.inBattleground,battlegroundMatchId:player.battlegroundMatchId,stillHasContext:!!(player.inBattleground || player.battlegroundMatchId)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
+      // #endregion
+      
+      // Defensive check: ensure context is definitely cleared
+      if (player.inBattleground || player.battlegroundMatchId) {
+        console.warn(`[BattlegroundsMatchManager] Context not cleared for player ${playerId}, forcing clear`);
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:1371',message:'restorePlayerStates - Context still set, forcing clear',data:{playerId,inBattleground:player.inBattleground,battlegroundMatchId:player.battlegroundMatchId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
+        // #endregion
+        player.inBattleground = false;
+        player.battlegroundMatchId = null;
+      }
+      
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:1376',message:'restorePlayerStates - FINAL context state',data:{playerId,inBattleground:player.inBattleground,battlegroundMatchId:player.battlegroundMatchId,contextCleared:!(player.inBattleground || player.battlegroundMatchId)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
+      // #endregion
+      
+      // Restore inventory if it was stored
+      if (originalState.inventory) {
+        player.inventory = JSON.parse(JSON.stringify(originalState.inventory));
+        console.log(`Restored inventory for player ${playerId}`);
+      }
       
       // Send position update to client so they're teleported back correctly
       // Find socket by player ID

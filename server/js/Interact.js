@@ -12,6 +12,11 @@ Interact = function(id,loc){
       var building = Building.list[b];
       var inv = player.inventory;
       
+      // CRITICAL: Check map context - player and building must be in same context
+      if(global.mapContextHelpers && !global.mapContextHelpers.areInSameContext(player, building)) {
+        return; // Different map contexts - cannot interact
+      }
+      
       // Check if building is built before allowing interaction
       if(!building.built){
         return; // Building is still under construction, no interaction allowed

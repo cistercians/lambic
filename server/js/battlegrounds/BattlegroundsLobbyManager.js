@@ -188,10 +188,26 @@ class BattlegroundsLobbyManager {
   }
 
   /**
+   * Check if lobby has any human players
+   * @returns {boolean} True if at least one human player exists
+   */
+  hasHumanPlayers() {
+    return this.lobbyState.players.some(p => !p.isNPC);
+  }
+
+  /**
    * Start countdown timer
    */
   startCountdown() {
     if (this.lobbyState.status !== 'waiting' && this.lobbyState.status !== 'countdown') {
+      return;
+    }
+
+    // Check for human players when countdown starts
+    if (!this.hasHumanPlayers()) {
+      console.log('No human players in lobby, cancelling countdown');
+      this.broadcastLobbyChat('Match cancelled: No human players in lobby', 'system');
+      this.resetLobby();
       return;
     }
 
@@ -221,6 +237,14 @@ class BattlegroundsLobbyManager {
   startMatch() {
     if (this.lobbyState.status === 'in_match') {
       return; // Already started
+    }
+
+    // Check for human players before starting match (second checkpoint)
+    if (!this.hasHumanPlayers()) {
+      console.log('No human players in lobby, cancelling match start');
+      this.broadcastLobbyChat('Match cancelled: No human players in lobby', 'system');
+      this.resetLobby();
+      return;
     }
 
     // Lock teams
@@ -409,11 +433,18 @@ class BattlegroundsLobbyManager {
       // #endregion
     }
 
+    // Get map type from match if available
+    let mapType = null;
+    if (this.matchManager && this.matchManager.currentMatch) {
+      mapType = this.matchManager.currentMatch.mapType;
+    }
+
     const lobbyData = {
       players: allPlayers,
       participants: allPlayers, // Also include as participants for compatibility
       waitingList: this.lobbyState.waitingList.length,
       gameMode: this.lobbyState.gameMode,
+      mapType: mapType, // Include map type for UI display
       countdownTimer: this.lobbyState.countdownTimer,
       status: this.lobbyState.status
     };

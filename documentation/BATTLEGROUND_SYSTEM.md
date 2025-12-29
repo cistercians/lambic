@@ -174,6 +174,9 @@ async startMatch(matchConfig) → Promise<void>
 // End match and calculate results
 endMatch(endReason) → void
 
+// Exit match for a player (restores original position)
+exitMatch(playerId) → {success: boolean, message: string}
+
 // Spawn all participants
 spawnParticipants() → void
 
@@ -188,6 +191,15 @@ update() → void
 
 // Cleanup after match
 finishMatch() → void
+
+// Handle participant death
+handleParticipantDeath(playerId, killerId) → void
+
+// Check if player is in a match
+isPlayerInMatch(playerId) → boolean
+
+// Get match by match ID
+getMatch(matchId) → Object | null
 ```
 
 **State Management**:
@@ -393,13 +405,53 @@ validateMap(mapData, gameMode) → {valid: boolean, issues: Array<string>}
 - Stronghold construction (Assault mode)
 - Lighting adjustments
 - Path clearing for spawn areas
+- Dungeon building placement (for dungeon maps)
+- Dungeon tunnel generation (for dungeon maps)
 
 **Key Methods**:
 
 ```javascript
 // Post-process map for game mode
 postProcessMap(mapData, gameMode, participants) → Object
+
+// Post-process dungeon map (places buildings and generates tunnels)
+postProcessDungeon(worldData, mapData, match) → Object
 ```
+
+---
+
+### BattlegroundsDungeonBuildingPlacer
+
+**Location**: `server/js/battlegrounds/BattlegroundsDungeonBuildingPlacer.js`
+
+**Purpose**: Places buildings (strongholds, taverns) for dungeon maps and creates cellar plots at z=-2.
+
+**Features**:
+- Places buildings based on game mode (Deathmatch: 1 stronghold + 1 tavern, Skirmish: 2 strongholds + 1 tavern)
+- Automatically creates cellar plots at z=-2 for each building
+- Generates walkable floor tiles in cellars
+- Finds valid building spots using terrain validation
+
+**Key Methods**:
+
+```javascript
+// Place buildings for dungeon map
+placeDungeonBuildings(worldData, mapSize, gameMode) → Array<Object>
+
+// Place a single building
+placeBuilding(buildingType, buildingDef, overworldLayer, cellarLayer, mapSize, excludedTiles, preferredCenter) → Object
+
+// Find building spot in worldData
+findBuildingSpotInWorldData(buildingType, buildingDef, overworldLayer, mapSize, excludedTiles, preferredCenter) → Object
+
+// Create cellar floors
+createCellarFloors(cellarLayer, cellarPlot, mapSize) → void
+```
+
+**Building Placement**:
+- **Deathmatch**: 1 stronghold (random) + 1 tavern (random)
+- **Skirmish**: 2 strongholds (left/right sides at 25%/75%) + 1 tavern (random)
+- Buildings automatically create cellar plots at z=-2 upon placement
 
 ---
 
@@ -524,9 +576,12 @@ cleanupAllTemporaryHouses() → void
 **Purpose**: Spawns and manages elite NPCs to balance teams.
 
 **Spawn Logic**:
-- Spawns when team size difference ≥ 2
-- Spawns difference / 2 NPCs (rounded down)
-- NPCs assigned to smaller team
+- **Deathmatch**: Ensures minimum 4 participants total
+- **Skirmish**: Ensures minimum 3 players per team, then balances teams
+- **Assault**: Ensures exactly 5 vs 5 (10 total players)
+- Uses draft system: no duplicate NPC types per match
+- NPCs are planned before map generation (for lobby display)
+- NPCs assigned to smaller team (for team modes)
 - Elite NPCs use enhanced AI behaviors
 
 **Walkability Validation**:
@@ -539,15 +594,30 @@ cleanupAllTemporaryHouses() → void
 **Key Methods**:
 
 ```javascript
-// Spawn elite NPCs for match
-spawnEliteNPCs(match) → Array<npcId>
+// Plan elite NPCs before spawning (draft system - no duplicates)
+planEliteNPCs(match) → Array<Object>
+
+// Spawn elite NPCs for match (uses planned NPCs if provided)
+spawnEliteNPCs(match, plannedNPCs) → Array<npcId>
+
+// Spawn a single elite NPC
+spawnEliteNPC(match, team, index, plannedNPC) → npcId | null
 
 // Clear all elite NPCs
 clearAll() → void
 
 // Get spawn point for NPC (validates walkability)
 getNPCSpawnPoint(match, team, index) → {x, y, z} | null
+
+// Calculate how many NPCs are needed
+calculateNPCCount(match) → number
 ```
+
+**NPC Planning System**:
+- `planEliteNPCs()` is called before map generation to plan NPCs (draft system - no duplicate types)
+- Planned NPCs are added to participants list for lobby display
+- `spawnEliteNPCs()` uses planned NPCs when provided, ensuring consistency
+- NPC types are tracked to prevent duplicates within a match
 
 ---
 
@@ -904,8 +974,8 @@ getPathfindingGrid(matchId) → Grid | null
 - Map preview integration (renders in center column)
 
 **UI Dimensions**:
-- Width: 1000px (max 80vw)
-- Max Height: 75vh
+- Width: 750px (max 60vw)
+- Max Height: 56vh
 - Position: Centered on screen
 - Z-index: 2000 (above game UI, below modals)
 
@@ -1129,6 +1199,8 @@ global.battlegroundsEliteNPCManager
 | `battlegroundsVotingResults` | Voting results | `{results: Object}` |
 | `battlegroundsLeaderboard` | Leaderboard data | `{data: Array, sortBy: string}` |
 | `openBattlegroundsLobby` | Open lobby UI | `{lobbyState: Object}` |
+| `battlegroundsParticipantExit` | Participant exited match | `{matchId, playerId, playerName}` |
+| `battlegroundsParticipantDeath` | Participant died | `{matchId, playerId, playerName, killerId, killerName}` |
 
 #### Client → Server Messages
 
@@ -1136,11 +1208,13 @@ global.battlegroundsEliteNPCManager
 |---------|---------|----------------|
 | `joinBattlegroundsLobby` | Join lobby | (no data) |
 | `leaveBattlegroundsLobby` | Leave lobby | (no data) |
+| `exitBattlegroundsMatch` | Exit active match | (no data) |
 | `selectBattlegroundsTeam` | Select team | `{team: 'team1' | 'team2'}` |
 | `battlegroundsLobbyChat` | Send chat | `{message: string}` |
-| `battlegroundsMapVote` | Vote on map | `{vote: 'yes' | 'no'}` |
+| `battlegroundsMapVote` | Vote on map | `{vote: 'yes' | 'no', matchId: string}` |
 | `getBattlegroundsLeaderboard` | Request leaderboard | `{sortBy: string}` |
 | `prevBattlegroundsSpectator` | Previous spectator target | (no data) |
+| `switchBattlegroundsSpectator` | Switch spectator target | `{targetId: string}` |
 
 ### Client-Side Message Routing
 
@@ -1554,10 +1628,23 @@ decayRate: per second if no attackers
 
 ### Elite NPC Spawning
 
-```javascript
-spawnThreshold: 2,  // Team difference ≥ 2 triggers spawns
-spawnCount: Math.floor(difference / 2)  // Spawn difference/2 NPCs
-```
+**Deathmatch**:
+- Minimum 4 participants total
+- NPCs added until minimum reached
+
+**Skirmish**:
+- Minimum 3 players per team
+- Teams balanced iteratively (NPCs added to smaller team)
+- Continues until both teams have at least 3 players AND are balanced
+
+**Assault**:
+- Always ensures exactly 5 vs 5 (10 total players)
+- NPCs added to reach target count
+
+**Draft System**:
+- No duplicate NPC types per match
+- NPCs planned before map generation (visible in lobby)
+- Uses `planEliteNPCs()` before spawning
 
 ---
 
@@ -1830,6 +1917,7 @@ server/js/battlegrounds/
 ├── BattlegroundsMapGenerator.js
 ├── BattlegroundsMapValidator.js
 ├── BattlegroundsMapPostProcessor.js
+├── BattlegroundsDungeonBuildingPlacer.js
 ├── BattlegroundsMapLibrary.js
 ├── BattlegroundsMapVotingSystem.js
 ├── BattlegroundsHouseManager.js
@@ -1874,7 +1962,15 @@ server/js/Interact.js (desk interaction)
 
 ## Version History
 
-- **v1.2** (Current): Critical rendering and entity filtering fixes
+- **v1.3** (Current): Documentation updates and feature additions
+  - Added `BattlegroundsDungeonBuildingPlacer` component documentation
+  - Added `planEliteNPCs()` method documentation
+  - Added `exitMatch()` method documentation
+  - Updated UI dimensions (750px/60vw/56vh)
+  - Added new socket messages (`battlegroundsParticipantExit`, `battlegroundsParticipantDeath`)
+  - Updated Elite NPC spawning logic documentation
+
+- **v1.2**: Critical rendering and entity filtering fixes
   - Fixed `getTile()` function to use `window.battlegroundWorld` when `window.inBattleground` is true
   - Fixed `spatialFilterEntities()` to filter entities by map context (battleground vs main world)
   - Fixed player's own entity always being included in spatial filter for movement updates
@@ -1914,5 +2010,5 @@ Potential areas for future development:
 
 ---
 
-*Last Updated: January 2025 (v1.2 - Critical rendering and entity filtering fixes)*
+*Last Updated: January 2025 (v1.3 - Documentation audit and updates)*
 

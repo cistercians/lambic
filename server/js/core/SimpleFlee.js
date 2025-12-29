@@ -24,11 +24,16 @@ class SimpleFlee {
     const entityHouse = global.House && global.House.list ? global.House.list[entity.house] : null;
     const allies = entityHouse ? (entityHouse.allies || []) : [];
     
-    for (const id in global.Player.list) {
-      const unit = global.Player.list[id];
+    // Use context-aware entity filtering to only check entities in same context
+    const candidates = global.mapContextHelpers 
+      ? global.mapContextHelpers.getEntitiesInSameContext(entity, { excludeId: entity.id })
+      : Object.values(global.Player.list).filter(p => p && p.id !== entity.id);
+    
+    for (const unit of candidates) {
+      if (!unit) continue;
       
       // Must be military unit
-      if (!unit || !unit.military || unit.military !== true) continue;
+      if (!unit.military || unit.military !== true) continue;
       
       // Must be on same z-level
       if (unit.z !== entity.z) continue;

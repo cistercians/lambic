@@ -381,7 +381,7 @@ class SpriteRegistry {
       },
       'Seidr': {
         sprite: typeof seidr !== 'undefined' ? seidr : null,
-        spriteSize: 96
+        spriteSize: 64
       },
       'HighPriestess': {
         sprite: typeof highpriestess !== 'undefined' ? highpriestess : null,
@@ -397,7 +397,7 @@ class SpriteRegistry {
       },
       'Gwenllian': {
         sprite: typeof gwenllian !== 'undefined' ? gwenllian : null,
-        spriteSize: 96
+        spriteSize: 64
       },
 
       'FrankSword': {

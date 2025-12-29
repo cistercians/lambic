@@ -116,34 +116,8 @@ class BattlegroundsPathfindingManager {
       // Check if worldData[9] exists (dungeon cellar layer), otherwise default to all blocked
       const cellarLayer = worldData[9];
       
-      // #region agent log
-      const fsSync = require('fs');
-      const logData = {
-        location: 'BattlegroundsPathfindingManager.js:114',
-        message: 'Generating pathfinding matrix for z=-2 (cellar)',
-        data: {
-          z: -2,
-          mapSize,
-          hasCellarLayer: !!cellarLayer,
-          cellarLayerType: cellarLayer?.constructor?.name,
-          cellarLayerLength: cellarLayer?.length,
-          worldDataLength: worldData?.length,
-          worldDataKeys: worldData ? Object.keys(worldData) : []
-        },
-        timestamp: Date.now(),
-        sessionId: 'debug-session',
-        runId: 'run2',
-        hypothesisId: 'M'
-      };
-      try {
-        fsSync.appendFileSync('/Users/johan/Documents/GitHub/lambic/.cursor/debug.log', JSON.stringify(logData) + '\n');
-      } catch (e) {}
-      // #endregion
-      
       if (cellarLayer) {
         // Use dungeon cellar layer data (same logic as z=-1 caves)
-        let walkableCount = 0;
-        let blockedCount = 0;
         for (let x = 0; x < mapSize; x++) {
           for (let y = 0; y < mapSize; y++) {
             const tile = cellarLayer[y] ? cellarLayer[y][x] : 1;
@@ -151,36 +125,13 @@ class BattlegroundsPathfindingManager {
             // Floor (0), exits (2), and ore (3.x) are walkable (0); walls (1) are blocked (1)
             if (tile === 1) {
               grid[y][x] = 1; // Blocked (walls)
-              blockedCount++;
             } else if (tile === 2) {
               grid[y][x] = 0; // Walkable (cave exit)
-              walkableCount++;
             } else {
               grid[y][x] = 0; // Walkable (floor, ore, etc.)
-              walkableCount++;
             }
           }
         }
-        
-        // #region agent log
-        const logData2 = {
-          location: 'BattlegroundsPathfindingManager.js:133',
-          message: 'z=-2 matrix generation complete',
-          data: {
-            z: -2,
-            walkableCount,
-            blockedCount,
-            totalTiles: mapSize * mapSize
-          },
-          timestamp: Date.now(),
-          sessionId: 'debug-session',
-          runId: 'run2',
-          hypothesisId: 'M'
-        };
-        try {
-          fsSync.appendFileSync('/Users/johan/Documents/GitHub/lambic/.cursor/debug.log', JSON.stringify(logData2) + '\n');
-        } catch (e) {}
-        // #endregion
       } else {
         // No cellar layer - start with all blocked (same as building floors)
         for (let x = 0; x < mapSize; x++) {
@@ -188,26 +139,6 @@ class BattlegroundsPathfindingManager {
             grid[y][x] = 1; // All blocked initially
           }
         }
-        
-        // #region agent log
-        const logData3 = {
-          location: 'BattlegroundsPathfindingManager.js:140',
-          message: 'z=-2 matrix: no cellar layer, all blocked',
-          data: {
-            z: -2,
-            mapSize,
-            worldDataLength: worldData?.length,
-            worldDataKeys: worldData ? Object.keys(worldData) : []
-          },
-          timestamp: Date.now(),
-          sessionId: 'debug-session',
-          runId: 'run2',
-          hypothesisId: 'M'
-        };
-        try {
-          fsSync.appendFileSync('/Users/johan/Documents/GitHub/lambic/.cursor/debug.log', JSON.stringify(logData3) + '\n');
-        } catch (e) {}
-        // #endregion
       }
     }
 

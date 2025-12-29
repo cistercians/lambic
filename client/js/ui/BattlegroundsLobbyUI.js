@@ -215,7 +215,7 @@ class BattlegroundsLobbyUI {
       <h2 style="margin: 0 0 10px 0; color: #ffd700;">BATTLEGROUNDS LOBBY</h2>
       <div style="display: flex; justify-content: center; gap: 20px; align-items: center; flex-wrap: wrap;">
         <div style="font-size: 14px; color: #aaa;">Mode: <span style="color: #fff;">${gameMode ? this.formatGameMode(gameMode) : 'Unknown'}</span></div>
-        <div style="font-size: 14px; color: #aaa;">Status: <span style="color: ${this.getStatusColor(status)};">${status || 'waiting'}</span></div>
+        <div style="font-size: 14px; color: #aaa;">Map: <span style="color: #fff;">${this.lobbyState.mapType ? (this.lobbyState.mapType.charAt(0).toUpperCase() + this.lobbyState.mapType.slice(1)) : '???'}</span></div>
         ${countdownTimer > 0 ? `<div style="font-size: 20px; color: #00ff00; font-weight: bold; text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);">${status === 'map_preview' ? 'Map Preview: ' : status === 'starting' ? 'Match Starting: ' : 'Starting in: '}${countdownTimer}s</div>` : ''}
       </div>
     `;
