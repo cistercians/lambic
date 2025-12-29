@@ -1011,6 +1011,17 @@ class SimpleCombat {
   // Handle attack logic
   handleAttack(entity, target) {
     try {
+      // Prevent attacks if player is in battleground match that hasn't started yet
+      if (entity.inBattleground && entity.battlegroundMatchId) {
+        const matchManager = global.battlegroundsMatchManager;
+        if (matchManager && matchManager.currentMatch && 
+            matchManager.currentMatch.matchId === entity.battlegroundMatchId &&
+            matchManager.currentMatch.status === 'starting') {
+          // Match is in countdown phase - attacks disabled
+          return;
+        }
+      }
+      
       // Convert attack intent to full combat if entity has pendingTarget but not full combat state
       const state = this.ensureCombatState(entity);
       if (state.pendingTarget && !state.target) {

@@ -98,16 +98,16 @@ module.exports = function(Character, globals) {
         self.idleTime--;
       }
       if(self.z == 0){
-        if(getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 2){
+        if(getTile(0,loc[0],loc[1],self.id) >= 1 && getTile(0,loc[0],loc[1],self.id) < 2){
           self.innaWoods = true;
           self.onMtn = false;
-        } else if(getTile(0,loc[0],loc[1]) >= 2 && getTile(0,loc[0],loc[1]) < 4){
+        } else if(getTile(0,loc[0],loc[1],self.id) >= 2 && getTile(0,loc[0],loc[1],self.id) < 4){
           self.innaWoods = false;
           self.onMtn = false;
-        } else if(getTile(0,loc[0],loc[1]) >= 4 && getTile(0,loc[0],loc[1]) < 5){
+        } else if(getTile(0,loc[0],loc[1],self.id) >= 4 && getTile(0,loc[0],loc[1],self.id) < 5){
           self.innaWoods = false;
           self.onMtn = false;
-        } else if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6 && !self.onMtn){
+        } else if(getTile(0,loc[0],loc[1],self.id) >= 5 && getTile(0,loc[0],loc[1],self.id) < 6 && !self.onMtn){
           self.innaWoods = false;
           // Don't modify maxSpd when fleeing (SimpleFlee manages speed)
           if(self.action !== 'flee'){
@@ -116,27 +116,27 @@ module.exports = function(Character, globals) {
           setTimeout(function(){
             // Check CURRENT location, not stale loc from 2 seconds ago
             var currentLoc = getLoc(self.x, self.y);
-            if(getTile(0,currentLoc[0],currentLoc[1]) >= 5 && getTile(0,currentLoc[0],currentLoc[1]) < 6){
+            if(getTile(0,currentLoc[0],currentLoc[1],self.id) >= 5 && getTile(0,currentLoc[0],currentLoc[1],self.id) < 6){
               self.onMtn = true;
             }
           },2000);
-        } else if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6 && self.onMtn){
+        } else if(getTile(0,loc[0],loc[1],self.id) >= 5 && getTile(0,loc[0],loc[1],self.id) < 6 && self.onMtn){
           // Don't modify maxSpd when fleeing (SimpleFlee manages speed)
           if(self.action !== 'flee'){
             self.maxSpd = self.baseSpd * self.drag;
           }
-        } else if(getTile(0,loc[0],loc[1]) == 6){
+        } else if(getTile(0,loc[0],loc[1],self.id) == 6){
           // Wolves should not enter caves - ignore cave entrances
           self.innaWoods = false;
           self.onMtn = false;
-        } else if(getTile(0,loc[0],loc[1]) == 18){
+        } else if(getTile(0,loc[0],loc[1],self.id) == 18){
           self.innaWoods = false;
           self.onMtn = false;
           // Don't modify maxSpd when fleeing (SimpleFlee manages speed)
           if(self.action !== 'flee'){
             self.maxSpd = self.baseSpd * self.drag;
           }
-        } else if(getTile(0,loc[0],loc[1]) == 0){
+        } else if(getTile(0,loc[0],loc[1],self.id) == 0){
           // Wolves should not enter water - stay on overworld
           // Note: Pathfinding should already avoid water, but this is a safety check
           self.innaWoods = false;
@@ -154,7 +154,7 @@ module.exports = function(Character, globals) {
           }
         }
       } else if(self.z == -1){
-        if(getTile(1,loc[0],loc[1]) == 2){
+        if(getTile(1,loc[0],loc[1],self.id) == 2){
           // On cave exit tile - only exit if path is complete (no active navigation)
           // This universal rule works for all entities without special cases
           if(!self.path || self.path.length === 0){
@@ -172,7 +172,7 @@ module.exports = function(Character, globals) {
       if(!self.action){
         self.baseSpd = 3;
         if(!self.nightmode && self.z == 0){
-          var t = getTile(0,loc[0],loc[1]);
+          var t = getTile(0,loc[0],loc[1],self.id);
           if(t >= 2 && !self.path){
             self.return();
           } else {

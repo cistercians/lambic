@@ -31,7 +31,7 @@ class BattlegroundsMapValidator {
     const startingZ = mapData.startingZ || 0;
 
     // Basic checks
-    const basicCheck = this.checkBasicStructure(worldData, mapSize, startingZ);
+    const basicCheck = this.checkBasicStructure(worldData, mapSize, startingZ, mapType);
     if (!basicCheck.valid) {
       return basicCheck;
     }
@@ -51,14 +51,21 @@ class BattlegroundsMapValidator {
   /**
    * Check basic map structure
    */
-  checkBasicStructure(worldData, mapSize, startingZ) {
+  checkBasicStructure(worldData, mapSize, startingZ, mapType) {
     // Check if we have the required layers
     if (!worldData || !worldData[0]) {
       return { valid: false, reason: 'missing_overworld_layer' };
     }
 
     // Check if starting z-level exists
-    const layerIndex = startingZ === 0 ? 0 : (startingZ === -1 ? 1 : 0);
+    // For dungeon maps, z=-2 maps to worldData[9]
+    let layerIndex;
+    if (mapType === 'dungeons' && startingZ === -2) {
+      layerIndex = 9; // Cellar layer for dungeons
+    } else {
+      layerIndex = startingZ === 0 ? 0 : (startingZ === -1 ? 1 : 0);
+    }
+    
     if (!worldData[layerIndex]) {
       return { valid: false, reason: 'missing_starting_layer' };
     }
@@ -70,7 +77,13 @@ class BattlegroundsMapValidator {
    * Validate map for Deathmatch mode
    */
   validateDeathmatch(worldData, mapSize, startingZ, mapType) {
-    const layerIndex = startingZ === 0 ? 0 : 1;
+    // For dungeon maps, z=-2 maps to worldData[9]
+    let layerIndex;
+    if (mapType === 'dungeons' && startingZ === -2) {
+      layerIndex = 9; // Cellar layer for dungeons
+    } else {
+      layerIndex = startingZ === 0 ? 0 : 1;
+    }
     const layer = worldData[layerIndex];
     
     if (!layer) {
@@ -92,8 +105,8 @@ class BattlegroundsMapValidator {
           } else if (tile !== this.TERRAIN.MOUNTAIN && tile < 5) {
             walkableCount++;
           }
-        } else if (startingZ === -1) {
-          // Caves: check if floor (0) or exit (2)
+        } else if (startingZ === -1 || startingZ === -2) {
+          // Caves (z=-1) or Dungeons (z=-2): check if floor (0) or exit (2)
           if (tile === 0 || tile === 2) {
             walkableCount++;
           }
@@ -191,7 +204,7 @@ class BattlegroundsMapValidator {
     }
 
     // For dungeon maps, need accessible dungeon areas for capture point
-    if (mapType === 'dungeons' && startingZ === -1) {
+    if (mapType === 'dungeons' && startingZ === -2) {
       const dungeonWalkable = this.countWalkableTiles(layer, mapSize, startingZ);
       if (dungeonWalkable < mapSize * mapSize * 0.15) {
         return { valid: false, reason: 'insufficient_dungeon_area' };
@@ -232,8 +245,8 @@ class BattlegroundsMapValidator {
     if (startingZ === 0) {
       // Overworld: not water, not mountain
       return tile !== this.TERRAIN.WATER && tile !== this.TERRAIN.MOUNTAIN && tile < 6;
-    } else if (startingZ === -1) {
-      // Caves: floor (0) or exit (2)
+    } else if (startingZ === -1 || startingZ === -2) {
+      // Caves (z=-1) or Dungeons (z=-2): floor (0) or exit (2)
       return tile === 0 || tile === 2;
     }
     return false;

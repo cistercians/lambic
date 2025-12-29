@@ -379,8 +379,13 @@ class InputHandler {
         if (worldmapPopup && worldmapPopup.style.display === 'block') {
           worldmapPopup.style.display = 'none';
         } else {
-          // Request worldmap data from server (only show popup if player has worldmap)
-          socket.send(JSON.stringify({ msg: 'requestWorldMap' }));
+          // Check if player is in battleground - request battleground map instead
+          if (typeof window !== 'undefined' && window.inBattleground) {
+            socket.send(JSON.stringify({ msg: 'requestBattlegroundMap' }));
+          } else {
+            // Request worldmap data from server (only show popup if player has worldmap)
+            socket.send(JSON.stringify({ msg: 'requestWorldMap' }));
+          }
         }
       } else if (event.keyCode === 86) { // v
         // If cavemap is open, close it. Otherwise request data from server

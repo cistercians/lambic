@@ -1532,7 +1532,7 @@ Dock = function(param){
       }
       
       // Fallback: if no land tile found with zone, try center location
-      var loc = getLoc(self.x, self.y);
+      var loc = getLoc(self.x, self.y, self.id);
       var zone = global.zoneManager.getZoneAt(loc);
       if(zone && zone.type === 'geographic') {
         self.zoneName = zone.name;
@@ -3128,8 +3128,10 @@ Character = function(param){
     return angle;
   }
 
-  self.zoneCheck = function(){
-    var loc = getLoc(self.x,self.y);
+  self.zoneCheck = function(entityId){
+    // Use entityId parameter or fall back to self.id
+    const contextEntityId = entityId || self.id;
+    var loc = getLoc(self.x,self.y,contextEntityId);
     var zn = self.zone;
     var zc = Math.floor(loc[0]/8);
     var zr = Math.floor(loc[1]/8);
@@ -3172,8 +3174,8 @@ Character = function(param){
     if(p.stealthed){
       var dist = self.getDistance({x:p.x, y:p.y});
       if(dist <= tileSize * 2){ // Within 2 tiles
-        var loc = getLoc(self.x, self.y);
-        var pLoc = getLoc(p.x, p.y);
+        var loc = getLoc(self.x, self.y, self.id);
+        var pLoc = getLoc(p.x, p.y, p.id);
         
         // Check if facing the stealthed character
         if(self.facing == 'up' && pLoc[1] < loc[1]){
@@ -3650,7 +3652,7 @@ Character = function(param){
             if(!b || !Building.list[b] || !Building.list[b].ustairs){
               // Cannot find building - force to first floor as emergency fallback
               if(!b){
-                var loc = getLoc(self.x, self.y);
+                var loc = getLoc(self.x, self.y, self.id);
                 self.z = 1;
                 self.path = null;
                 self.pathCount = 0;
@@ -3668,7 +3670,7 @@ Character = function(param){
               if(!b || !Building.list[b] || !Building.list[b].ustairs){
                 // Cannot find building - force to first floor as emergency fallback
                 if(!b){
-                  var loc = getLoc(self.x, self.y);
+                  var loc = getLoc(self.x, self.y, self.id);
                   self.z = 1;
                   self.path = null;
                   self.pathCount = 0;
@@ -5882,7 +5884,7 @@ Character = function(param){
   };
 
   self.exitCave = function() {
-    var loc = getLoc(self.x, self.y);
+    var loc = getLoc(self.x, self.y, self.id);
     var preservedEntrance = self.caveEntrance; // Preserve for logging and potential future use
     if(self.type === 'npc' && (self.class === 'Serf' || self.class === 'SerfM' || self.class === 'SerfF')){
       var serfLogger = global.serfLogger;
@@ -6039,7 +6041,7 @@ Character = function(param){
   self.isAtPathDestination = function() {
     if (!self.path || self.path.length === 0) return true;
     
-    var loc = getLoc(self.x, self.y);
+    var loc = getLoc(self.x, self.y, self.id);
     var finalDest = self.path[self.path.length - 1];
     
     return loc[0] === finalDest[0] && loc[1] === finalDest[1];
@@ -6096,7 +6098,7 @@ Character = function(param){
       var currentWaypoint = self.multiZWaypoints[self.currentWaypoint];
       
       // Check if we've reached the current waypoint
-      var loc = getLoc(self.x, self.y);
+      var loc = getLoc(self.x, self.y, self.id);
       if(self.z == currentWaypoint.z && loc.toString() == currentWaypoint.loc.toString()){
         
         // Execute waypoint action
@@ -6792,7 +6794,7 @@ Character.prototype.checkDockContact = function() {
   // Only for ships
   if(self.type !== 'ship') return false;
   
-  var loc = getLoc(self.x, self.y);
+  var loc = getLoc(self.x, self.y, self.id);
   var buildingId = getBuilding(self.x, self.y);
   console.log('[checkDockContact] Ship', self.id, 'at location', loc, 'buildingId:', buildingId);
   
@@ -7442,7 +7444,7 @@ FishingShip = function(param){
       self.mode = 'returning';
     }
     
-    var loc = getLoc(self.x, self.y);
+    var loc = getLoc(self.x, self.y, self.id);
     var tile = getTile(0, loc[0], loc[1]);
     
     // Check if at dock
@@ -10871,7 +10873,7 @@ Arrow = function(param){
     // Parent is not a player (e.g., building like guardtower)
     self.innaWoods = false;
     // Calculate zGrid based on arrow's position
-    var loc = getLoc(self.x, self.y);
+    var loc = getLoc(self.x, self.y, self.id);
     var zc = Math.floor(loc[0]/8);
     var zr = Math.floor(loc[1]/8);
     self.zGrid = [
@@ -12778,7 +12780,7 @@ Goods1 = function(param){
   initPack.item.push(self.getInitPack());
   self.blocker(self.type);
   // Mark tile as interactable (same tile that was made unwalkable by blocker)
-  var loc = getLoc(self.x, self.y);
+  var loc = getLoc(self.x, self.y, self.id);
   if(typeof global.setTileInteractable === 'function'){
     global.setTileInteractable(self.z, loc[0], loc[1], self.id);
   }
@@ -12796,7 +12798,7 @@ Goods2 = function(param){
   initPack.item.push(self.getInitPack());
   self.blocker(self.type);
   // Mark tile as interactable (same tile that was made unwalkable by blocker)
-  var loc = getLoc(self.x, self.y);
+  var loc = getLoc(self.x, self.y, self.id);
   if(typeof global.setTileInteractable === 'function'){
     global.setTileInteractable(self.z, loc[0], loc[1], self.id);
   }
@@ -12814,7 +12816,7 @@ Goods3 = function(param){
   initPack.item.push(self.getInitPack());
   self.blocker(self.type);
   // Mark tile as interactable (same tile that was made unwalkable by blocker)
-  var loc = getLoc(self.x, self.y);
+  var loc = getLoc(self.x, self.y, self.id);
   if(typeof global.setTileInteractable === 'function'){
     global.setTileInteractable(self.z, loc[0], loc[1], self.id);
   }
@@ -12832,7 +12834,7 @@ Goods4 = function(param){
   initPack.item.push(self.getInitPack());
   self.blocker(self.type);
   // Mark tile as interactable (same tile that was made unwalkable by blocker)
-  var loc = getLoc(self.x, self.y);
+  var loc = getLoc(self.x, self.y, self.id);
   if(typeof global.setTileInteractable === 'function'){
     global.setTileInteractable(self.z, loc[0], loc[1], self.id);
   }
@@ -12876,7 +12878,7 @@ Desk = function(param){
   initPack.item.push(self.getInitPack());
   self.blocker(self.type);
   // Mark tile as interactable (same tile that was made unwalkable by blocker)
-  var loc = getLoc(self.x, self.y);
+  var loc = getLoc(self.x, self.y, self.id);
   if(typeof global.setTileInteractable === 'function'){
     global.setTileInteractable(self.z, loc[0], loc[1], self.id);
   }

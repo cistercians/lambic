@@ -186,24 +186,41 @@ class BattlegroundsMatchManager {
         this.currentMatch.eliteNPCs = eliteNPCs;
         
         // Add NPCs to participants list with class/sex for portraits
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:188',message:'Adding NPCs to participants',data:{eliteNPCsCount:eliteNPCs.length,eliteNPCsIds:eliteNPCs.map(n=>n?.id),currentParticipantsCount:this.currentMatch.participants.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+        // #endregion
+        
         eliteNPCs.forEach(npcInfo => {
           if (npcInfo && npcInfo.id) {
             // Get the actual NPC entity to get class/sex/name
             const npcEntity = global.Player.list[npcInfo.id];
             const npcParticipant = {
               id: npcInfo.id,
-              name: npcEntity ? (npcEntity.name || npcEntity.class || npcInfo.type) : (npcInfo.type || 'NPC'),
+              name: npcInfo.name || (npcEntity ? (npcEntity.name || npcEntity.class || npcInfo.type) : (npcInfo.type || 'NPC')),
               team: npcInfo.team || null,
               isNPC: true,
               kills: 0,
               deaths: 0,
               alive: true,
-              class: npcEntity ? (npcEntity.class || npcInfo.class) : (npcInfo.class || 'SerfM'),
-              sex: npcEntity ? (npcEntity.sex || 'm') : 'm'
+              class: npcInfo.class || (npcEntity ? (npcEntity.class || 'SerfM') : 'SerfM'),
+              sex: npcInfo.sex || (npcEntity ? (npcEntity.sex || 'm') : 'm')
             };
             this.currentMatch.participants.push(npcParticipant);
           }
         });
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:207',message:'NPCs added to participants',data:{newParticipantsCount:this.currentMatch.participants.length,npcParticipants:this.currentMatch.participants.filter(p=>p.isNPC).map(p=>({id:p.id,name:p.name}))},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+        // #endregion
+      }
+      
+      // Notify lobby that NPCs have been added
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:211',message:'Calling broadcastLobbyUpdate',data:{hasLobbyManager:!!global.battlegroundsLobbyManager,participantsCount:this.currentMatch.participants.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
+      
+      if (global.battlegroundsLobbyManager) {
+        global.battlegroundsLobbyManager.broadcastLobbyUpdate();
       }
       
       // Start map preview phase (NPCs are now in participants list)
@@ -491,11 +508,19 @@ class BattlegroundsMatchManager {
         previousZ: player.z
       });
       
+      // #region agent log
+      try{const fs=require('fs');fs.appendFileSync('/Users/johan/Documents/GitHub/lambic/.cursor/debug.log',JSON.stringify({location:'BattlegroundsMatchManager.js:494',message:'BEFORE setting player position',data:{playerId:participant.id,oldX:player.x,oldY:player.y,oldZ:player.z,oldInBG:player.inBattleground,oldMatchId:player.battlegroundMatchId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})+'\n');}catch(e){}
+      // #endregion
+      
       player.x = spawnPoint.x;
       player.y = spawnPoint.y;
       player.z = validZ;
       player.inBattleground = true;
       player.battlegroundMatchId = this.currentMatch.matchId;
+      
+      // #region agent log
+      try{const fs=require('fs');fs.appendFileSync('/Users/johan/Documents/GitHub/lambic/.cursor/debug.log',JSON.stringify({location:'BattlegroundsMatchManager.js:500',message:'AFTER setting player position',data:{playerId:participant.id,newX:player.x,newY:player.y,newZ:player.z,newInBG:player.inBattleground,newMatchId:player.battlegroundMatchId,spawnX:spawnPoint.x,spawnY:spawnPoint.y,spawnZ:spawnPoint.z},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})+'\n');}catch(e){}
+      // #endregion
       
       console.log(`[BattlegroundsMatchManager] Player ${participant.id} position after setting: x=${player.x}, y=${player.y}, z=${player.z}, inBattleground=${player.inBattleground}, battlegroundMatchId=${player.battlegroundMatchId}`);
       
@@ -999,11 +1024,67 @@ class BattlegroundsMatchManager {
           battlegroundMatchId: null
         }));
         
+        // Collect visible entities around restored position to refresh client view
+        // Include entities from all z levels the player might access (z-1 to z+1)
+        const viewDistance = 2000; // Same as normal view distance
+        const visibleItems = [];
+        const visibleBuildings = [];
+        const visibleLights = [];
+        
+        // Collect items from multiple z levels (original z, z-1, z+1)
+        const zLevelsToCheck = [originalState.z];
+        if (originalState.z > -3) zLevelsToCheck.push(originalState.z - 1);
+        if (originalState.z < 3) zLevelsToCheck.push(originalState.z + 1);
+        
+        if (global.Item && global.Item.list) {
+          for (const itemId in global.Item.list) {
+            const item = global.Item.list[itemId];
+            if (item && !item.toRemove && zLevelsToCheck.includes(item.z)) {
+              const distance = Math.sqrt(
+                Math.pow(item.x - originalState.x, 2) + 
+                Math.pow(item.y - originalState.y, 2)
+              );
+              if (distance <= viewDistance && item.getInitPack) {
+                visibleItems.push(item.getInitPack());
+              }
+            }
+          }
+        }
+        
+        // Collect buildings from multiple z levels
+        if (global.Building && global.Building.list) {
+          for (const buildingId in global.Building.list) {
+            const building = global.Building.list[buildingId];
+            if (building && !building.toRemove && zLevelsToCheck.includes(building.z)) {
+              const distance = Math.sqrt(
+                Math.pow(building.x - originalState.x, 2) + 
+                Math.pow(building.y - originalState.y, 2)
+              );
+              if (distance <= viewDistance && building.getInitPack) {
+                visibleBuildings.push(building.getInitPack());
+              }
+            }
+          }
+        }
+        
+        // Collect lights from multiple z levels
+        if (global.Light && global.Light.list) {
+          for (const lightId in global.Light.list) {
+            const light = global.Light.list[lightId];
+            if (light && !light.toRemove && zLevelsToCheck.includes(light.z)) {
+              const distance = Math.sqrt(
+                Math.pow(light.x - originalState.x, 2) + 
+                Math.pow(light.y - originalState.y, 2)
+              );
+              if (distance <= viewDistance && light.getInitPack) {
+                visibleLights.push(light.getInitPack());
+              }
+            }
+          }
+        }
+        
         // Then send init message to switch back to main world context
-        // Include main world data so client can switch back
-        // Note: We don't send a full pack here - the client should already have the world state
-        // Sending a full pack would require collecting all visible entities which is expensive
-        // Instead, rely on the client's existing entity list and just switch world context
+        // Include main world data and visible entities so client can refresh view
         socket.write(JSON.stringify({
           msg: 'init',
           id: playerId,
@@ -1032,9 +1113,9 @@ class BattlegroundsMatchManager {
               battlegroundMatchId: null
             }],
             arrow: [],
-            item: [],
-            light: [],
-            building: []
+            item: visibleItems,
+            light: visibleLights,
+            building: visibleBuildings
           }
         }));
       } else {

@@ -32,9 +32,9 @@ class BattlegroundsLobbyUI {
     this.container.style.top = '50%';
     this.container.style.left = '50%';
     this.container.style.transform = 'translate(-50%, -50%)';
-    this.container.style.width = '1000px';
-    this.container.style.maxWidth = '80vw';
-    this.container.style.maxHeight = '75vh';
+    this.container.style.width = '750px';
+    this.container.style.maxWidth = '60vw';
+    this.container.style.maxHeight = '56vh';
     this.container.style.backgroundColor = 'rgba(0, 0, 0, 0.95)';
     this.container.style.border = '2px solid rgba(255, 255, 255, 0.3)';
     this.container.style.borderRadius = '10px';
@@ -314,8 +314,9 @@ class BattlegroundsLobbyUI {
     centerColumn.style.flexDirection = 'column';
     centerColumn.style.alignItems = 'center';
     centerColumn.style.justifyContent = 'center';
-    centerColumn.style.minHeight = '500px';
-    centerColumn.style.height = '100%';
+    centerColumn.style.aspectRatio = '1 / 1'; // Make it square
+    centerColumn.style.width = '100%';
+    centerColumn.style.maxHeight = '100%';
     centerColumn.style.backgroundColor = 'rgba(0, 0, 0, 0.3)';
     centerColumn.style.border = '1px dashed rgba(255, 255, 255, 0.2)';
     centerColumn.style.borderRadius = '5px';

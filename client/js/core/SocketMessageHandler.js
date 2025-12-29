@@ -39,6 +39,8 @@ var SocketMessageHandler = {
       this.handleSpectatorEvent(data);
     } else if(data.msg == 'worldMapData'){
       this.handleWorldMapData(data);
+    } else if(data.msg == 'battlegroundMapData'){
+      this.handleBattlegroundMapData(data);
     } else if(data.msg == 'caveMapData'){
       this.handleCaveMapData(data);
     } else if(data.msg == 'buildMenuData'){
@@ -453,6 +455,32 @@ var SocketMessageHandler = {
     }
     if(typeof renderWorldMap !== 'undefined') {
       renderWorldMap(data.terrain, data.mapSize, data.playerX, data.playerY, data.tileSize, data.features);
+    }
+  },
+
+  handleBattlegroundMapData: function(data) {
+    // Show worldmap popup and render the battleground map
+    if(typeof worldmapPopup !== 'undefined' && worldmapPopup){
+      worldmapPopup.style.display = 'block';
+    }
+    
+    // Use appropriate renderer based on map type
+    if (data.mapType === 'caves') {
+      // Use cave map renderer
+      if(typeof renderCaveMap !== 'undefined') {
+        renderCaveMap(data.terrain, data.mapSize, data.playerX, data.playerY, data.tileSize, null);
+      }
+    } else if (data.mapType === 'dungeons') {
+      // Use dungeon renderer (similar to caves but warmer colors)
+      // For now, use cave renderer - could be enhanced later
+      if(typeof renderCaveMap !== 'undefined') {
+        renderCaveMap(data.terrain, data.mapSize, data.playerX, data.playerY, data.tileSize, null);
+      }
+    } else {
+      // Use world map renderer for regular maps
+      if(typeof renderWorldMap !== 'undefined') {
+        renderWorldMap(data.terrain, data.mapSize, data.playerX, data.playerY, data.tileSize, null);
+      }
     }
   },
 
@@ -1823,15 +1851,20 @@ var SocketMessageHandler = {
       if(data.match) {
         const matchStatus = data.match.status;
         
-        // Only hide lobby UI when match is in_progress (player should be spawned by then)
-        // Keep lobby visible during map_preview and starting statuses
-        if(matchStatus === 'in_progress' && window.battlegroundsLobbyUI && window.battlegroundsLobbyUI.isActive) {
+        // Hide lobby UI when players are spawned (after map preview, when status becomes 'starting')
+        // Keep lobby visible during map_preview, but hide it when spawning begins
+        if((matchStatus === 'starting' || matchStatus === 'in_progress') && window.battlegroundsLobbyUI && window.battlegroundsLobbyUI.isActive) {
           window.battlegroundsLobbyUI.hide();
         }
         
-        // Update lobby UI with match data if it's still visible (map_preview or starting status)
-        // Keep lobby visible during map_preview and starting phases
-        if((matchStatus === 'map_preview' || matchStatus === 'starting') && window.battlegroundsLobbyUI) {
+        // Show match UI when match starts (starting or in_progress status)
+        if((matchStatus === 'starting' || matchStatus === 'in_progress') && window.battlegroundsMatchUI) {
+          window.battlegroundsMatchUI.show(data.match);
+        }
+        
+        // Update lobby UI with match data if it's still visible (map_preview only)
+        // Keep lobby visible during map_preview, but hide when spawning begins
+        if(matchStatus === 'map_preview' && window.battlegroundsLobbyUI) {
           // Update lobby with match participants (including NPCs)
           if(data.match.participants && data.match.participants.length > 0) {
             const participants = data.match.participants.map(p => {

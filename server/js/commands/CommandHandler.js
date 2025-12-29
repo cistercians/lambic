@@ -195,8 +195,12 @@ class FireCommand extends BaseCommand {
   }
 
   execute(player, args, socket) {
-    if (player.inventory.torch > 0) {
-      player.inventory.torch--;
+    // Allow torch lighting in battlegrounds even without inventory torches
+    if (player.inventory.torch > 0 || (player.inBattleground && player.battlegroundMatchId)) {
+      // Don't consume torch if player is in battleground (unlimited torches)
+      if (!(player.inBattleground && player.battlegroundMatchId)) {
+        player.inventory.torch--;
+      }
       player.hasTorch = true;
       this.sendMessage(socket, '<i>You light a torch</i>');
     } else {

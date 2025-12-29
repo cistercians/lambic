@@ -211,35 +211,27 @@ class BattlegroundsMapPreviewUI {
     targetContainer.innerHTML = '';
     
     // Get container dimensions to fill it better
-    // Use a larger base size that better fills the center column
-    const baseWidth = 700;
-    const baseHeight = 550;
+    // Container is now square (1:1 aspect ratio), so calculate based on width
+    const baseSize = 500; // Base square size
     
     // Try to get actual container size, but use defaults if not available
-    let canvasWidth = baseWidth;
-    let canvasHeight = baseHeight;
+    let canvasSize = baseSize;
     
     try {
       const containerRect = targetContainer.getBoundingClientRect();
-      if (containerRect.width > 0 && containerRect.height > 0) {
+      if (containerRect.width > 0) {
         // Account for padding (10px on each side = 20px total)
-        const availableWidth = containerRect.width - 20;
-        const availableHeight = containerRect.height - 20;
-        
-        // Use all available space, maintaining aspect ratio (assuming square maps)
-        const aspectRatio = 1; // Square maps (1:1)
-        if (availableWidth / availableHeight > aspectRatio) {
-          canvasHeight = availableHeight;
-          canvasWidth = canvasHeight * aspectRatio;
-        } else {
-          canvasWidth = availableWidth;
-          canvasHeight = canvasWidth / aspectRatio;
-        }
+        const availableSize = Math.min(containerRect.width - 20, containerRect.height - 20);
+        canvasSize = Math.max(300, availableSize); // Minimum 300px, use available space
       }
     } catch (e) {
       // Fallback to base dimensions if getBoundingClientRect fails
       console.warn('Could not get container dimensions, using defaults:', e);
     }
+    
+    // Use square dimensions
+    const canvasWidth = canvasSize;
+    const canvasHeight = canvasSize;
     
     // Create canvas in target container
     const canvas = document.createElement('canvas');

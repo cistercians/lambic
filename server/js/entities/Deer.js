@@ -79,7 +79,7 @@ module.exports = function(Character, globals) {
             if(checkCol < 0 || checkCol >= mapSize || checkRow < 0 || checkRow >= mapSize) continue;
             
             // Check if this tile is heavy forest
-            if(getTile(0, checkCol, checkRow) >= 1 && getTile(0, checkCol, checkRow) < 2){
+            if(getTile(0, checkCol, checkRow,self.id) >= 1 && getTile(0, checkCol, checkRow,self.id) < 2){
               var dist = Math.sqrt(dx*dx + dy*dy);
               if(dist < bestDistance){
                 bestDistance = dist;
@@ -132,28 +132,28 @@ module.exports = function(Character, globals) {
       }
 
       // Terrain state tracking (speed is handled by updateSpeed())
-      if(getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 2){
+      if(getTile(0,loc[0],loc[1],self.id) >= 1 && getTile(0,loc[0],loc[1],self.id) < 2){
         self.innaWoods = true;
         self.onMtn = false;
-      } else if(getTile(0,loc[0],loc[1]) >= 2 && getTile(0,loc[0],loc[1]) < 4){
+      } else if(getTile(0,loc[0],loc[1],self.id) >= 2 && getTile(0,loc[0],loc[1],self.id) < 4){
         self.innaWoods = false;
         self.onMtn = false;
-      } else if(getTile(0,loc[0],loc[1]) >= 4 && getTile(0,loc[0],loc[1]) < 5){
+      } else if(getTile(0,loc[0],loc[1],self.id) >= 4 && getTile(0,loc[0],loc[1],self.id) < 5){
         self.innaWoods = false;
         self.onMtn = false;
-      } else if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6 && !self.onMtn){
+      } else if(getTile(0,loc[0],loc[1],self.id) >= 5 && getTile(0,loc[0],loc[1],self.id) < 6 && !self.onMtn){
         self.innaWoods = false;
         setTimeout(function(){
-          if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6){
+          if(getTile(0,loc[0],loc[1],self.id) >= 5 && getTile(0,loc[0],loc[1],self.id) < 6){
             self.onMtn = true;
           }
         },2000);
-      } else if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6 && self.onMtn){
+      } else if(getTile(0,loc[0],loc[1],self.id) >= 5 && getTile(0,loc[0],loc[1],self.id) < 6 && self.onMtn){
         // Mountain terrain - no speed change needed (handled by updateSpeed)
-      } else if(getTile(0,loc[0],loc[1]) == 18){
+      } else if(getTile(0,loc[0],loc[1],self.id) == 18){
         self.innaWoods = false;
         self.onMtn = false;
-      } else if(getTile(0,loc[0],loc[1]) == 0){
+      } else if(getTile(0,loc[0],loc[1],self.id) == 0){
         // Deer should not enter water - stay on overworld
         self.innaWoods = false;
         self.onMtn = false;

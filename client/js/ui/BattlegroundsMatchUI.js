@@ -151,16 +151,22 @@ class BattlegroundsMatchUI {
         const minutes = Math.floor(remaining / 60000);
         const seconds = Math.floor((remaining % 60000) / 1000);
         this.timerElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-        this.timerElement.style.color = remaining < 60000 ? '#ff0000' : '#ffffff';
-      } else if (status === 'preview') {
+        this.timerElement.style.color = remaining < 60000 ? '#ff0000' : remaining < 120000 ? '#ffaa00' : '#ffffff';
+        this.timerElement.style.fontSize = '24px'; // Reset to normal size for match timer
+      } else if (status === 'preview' || status === 'map_preview') {
         this.timerElement.textContent = 'Preview';
         this.timerElement.style.color = '#ffff00';
+        this.timerElement.style.fontSize = '24px';
       } else if (status === 'starting') {
-        this.timerElement.textContent = 'Starting...';
+        // Show countdown timer value
+        const countdown = this.matchData.countdownTimer || 0;
+        this.timerElement.textContent = countdown > 0 ? countdown.toString() : 'Starting...';
         this.timerElement.style.color = '#00ffff';
+        this.timerElement.style.fontSize = '32px'; // Make countdown more prominent
       } else {
         this.timerElement.textContent = '--:--';
         this.timerElement.style.color = '#888888';
+        this.timerElement.style.fontSize = '24px';
       }
     }
 

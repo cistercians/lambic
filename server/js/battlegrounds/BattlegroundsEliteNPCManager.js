@@ -20,6 +20,10 @@ class BattlegroundsEliteNPCManager {
    * @returns {Array} Array of spawned NPC IDs
    */
   spawnEliteNPCs(match) {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCManager.js:22',message:'spawnEliteNPCs called',data:{matchId:match?.matchId,gameMode:match?.gameMode,participantCount:match?.participants?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    
     if (!match) return [];
     
     const { gameMode, participants, teams } = match;
@@ -82,6 +86,10 @@ class BattlegroundsEliteNPCManager {
       }
     }
     
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCManager.js:86',message:'spawnEliteNPCs returning',data:{spawnedCount:spawnedNPCs.length,spawnedIds:spawnedNPCs.map(n=>n?.id),npcCount},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+    
     this.spawnedNPCs.push(...spawnedNPCs);
     return spawnedNPCs;
   }
@@ -105,6 +113,10 @@ class BattlegroundsEliteNPCManager {
    * Spawn a single elite NPC
    */
   spawnEliteNPC(match, team, index) {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCManager.js:115',message:'spawnEliteNPC called',data:{matchId:match?.matchId,team,index},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+    
     // Select NPC type (only one of each type per match)
     const usedTypes = this.spawnedNPCs.map(npc => npc.type || npc.class);
     const availableTypes = this.eliteNPCTypes.filter(type => !usedTypes.includes(type));
@@ -120,12 +132,23 @@ class BattlegroundsEliteNPCManager {
     // Get spawn position
     const spawnPoint = this.getNPCSpawnPoint(match, team, index);
     
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCManager.js:129',message:'Got spawn point',data:{spawnPoint,hasSpawnPoint:!!spawnPoint},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+    
     // Map elite NPC type names to actual NPC class names
     const npcClass = this.mapNPCTypeToClass(npcType);
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCManager.js:132',message:'Mapped NPC type to class',data:{npcType,npcClass,hasNPCClass:!!global[npcClass],isFunction:typeof global[npcClass] === 'function'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
     
     // Validate NPC class exists before creating
     if (!global[npcClass] || typeof global[npcClass] !== 'function') {
       console.error(`NPC class '${npcClass}' (mapped from '${npcType}') not found. Skipping NPC spawn.`);
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCManager.js:137',message:'NPC class not found - returning null',data:{npcClass},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
       return null;
     }
     
@@ -234,22 +257,49 @@ class BattlegroundsEliteNPCManager {
         },
         wanderRange: tileSize * 10
       });
+      
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCManager.js:244',message:'NPC created successfully',data:{npcId,npcClass,hasNPC:!!npc},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
     } catch (e) {
       console.error(`Error creating elite NPC ${npcClass}:`, e);
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCManager.js:247',message:'Error creating NPC - exception',data:{error:e.message,stack:e.stack,npcClass},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
       return null;
     }
     
     if (!npc) {
       console.warn(`Failed to create elite NPC of type ${npcType} (class: ${npcClass})`);
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCManager.js:251',message:'NPC is null after creation',data:{npcClass},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
       return null;
     }
     
     // Store NPC info for tracking (include name, class, sex from actual entity)
+    // Format name properly: use entity name if available, otherwise format class name
+    let displayName = npcType;
+    if (npc) {
+      if (npc.name && npc.name !== npcType) {
+        displayName = npc.name;
+      } else if (npc.class) {
+        // Format class name: "Oathkeeper" instead of "OATHKEEPER"
+        displayName = npc.class.charAt(0).toUpperCase() + npc.class.slice(1).toLowerCase();
+      } else {
+        // Format npcType: "Oathkeeper" instead of "OATHKEEPER"
+        displayName = npcType.charAt(0).toUpperCase() + npcType.slice(1).toLowerCase().replace(/_/g, ' ');
+      }
+    } else {
+      // Format npcType as fallback
+      displayName = npcType.charAt(0).toUpperCase() + npcType.slice(1).toLowerCase().replace(/_/g, ' ');
+    }
+    
     const npcInfo = {
       id: npcId,
       type: npcType,
       class: npc ? (npc.class || npcClass) : npcClass,
-      name: npc ? (npc.name || npcType) : npcType,
+      name: displayName,
       sex: npc ? (npc.sex || 'm') : 'm',
       team: team,
       house: houseId,

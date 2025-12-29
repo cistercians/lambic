@@ -33,28 +33,33 @@ class BattlegroundsMapPostProcessor {
 
     // Make a deep copy of worldData to avoid modifying the original
     const processedWorldData = this.deepCopyWorldData(mapData.worldData);
+    const processedMapData = { ...mapData, worldData: processedWorldData };
+
+    // For dungeon maps, post-process buildings and tunnels first
+    if (mapData.mapType === 'dungeons') {
+      this.postProcessDungeon(processedWorldData, processedMapData, match);
+    }
 
     // Calculate spawn points for all game modes (including deathmatch)
     let spawnPoints = [];
     if (gameMode === 'deathmatch') {
       const participantCount = match && match.participants ? match.participants.length : 4;
-      spawnPoints = this.calculateDeathmatchSpawnPoints(processedWorldData, mapData, participantCount);
+      spawnPoints = this.calculateDeathmatchSpawnPoints(processedWorldData, processedMapData, participantCount);
     } else if (gameMode === 'skirmish') {
-      spawnPoints = this.calculateSkirmishSpawnPoints(processedWorldData, mapData);
-      const processed = this.postProcessSkirmish(processedWorldData, mapData, match);
+      spawnPoints = this.calculateSkirmishSpawnPoints(processedWorldData, processedMapData);
+      const processed = this.postProcessSkirmish(processedWorldData, processedMapData, match);
       processed.spawnPoints = spawnPoints;
       return processed;
     } else if (gameMode === 'assault') {
-      spawnPoints = this.calculateAssaultSpawnPoints(processedWorldData, mapData);
-      const processed = this.postProcessAssault(processedWorldData, mapData, match);
+      spawnPoints = this.calculateAssaultSpawnPoints(processedWorldData, processedMapData);
+      const processed = this.postProcessAssault(processedWorldData, processedMapData, match);
       processed.spawnPoints = spawnPoints;
       return processed;
     }
 
     // For deathmatch, return map with spawn points
     return {
-      ...mapData,
-      worldData: processedWorldData,
+      ...processedMapData,
       spawnPoints: spawnPoints,
       postProcessed: true
     };
@@ -65,7 +70,8 @@ class BattlegroundsMapPostProcessor {
    */
   postProcessSkirmish(worldData, mapData, match) {
     const { mapType, mapSize, startingZ } = mapData;
-    const layerIndex = startingZ === 0 ? 0 : 1;
+    // For dungeon maps, z=-2 maps to worldData[9]
+    const layerIndex = this.getLayerIndex(startingZ, mapType);
     const layer = worldData[layerIndex];
 
     if (!layer) {
@@ -75,13 +81,13 @@ class BattlegroundsMapPostProcessor {
 
     if (mapType === 'continental' || mapType === 'mainland' || mapType === 'wild') {
       // Overworld maps: add visual clutter and fort enclosures at starting points
-      this.addTeamStartingAreas(worldData, mapSize, startingZ, 'skirmish');
+      this.addTeamStartingAreas(worldData, mapSize, startingZ, 'skirmish', mapType);
     } else if (mapType === 'caves') {
       // Cave maps: teams start at cave entrances, remove other entrances
       this.processCaveStartingAreas(worldData, mapSize, mapData.entrances || []);
     } else if (mapType === 'dungeons') {
       // Dungeon maps: create two strongholds with dungeon floors as starting points
-      this.processDungeonStartingAreas(worldData, mapSize);
+      this.processDungeonStartingAreas(worldData, mapSize, mapType);
     }
 
     return {
@@ -96,7 +102,8 @@ class BattlegroundsMapPostProcessor {
    */
   postProcessAssault(worldData, mapData, match) {
     const { mapType, mapSize, startingZ } = mapData;
-    const layerIndex = startingZ === 0 ? 0 : 1;
+    // For dungeon maps, z=-2 maps to worldData[9]
+    const layerIndex = this.getLayerIndex(startingZ, mapType);
     const layer = worldData[layerIndex];
 
     if (!layer) {
@@ -106,10 +113,10 @@ class BattlegroundsMapPostProcessor {
 
     if (mapType === 'continental' || mapType === 'mainland' || mapType === 'islands') {
       // Overworld maps: attackers on left, defenders on right with fortification
-      this.addAssaultStartingAreas(worldData, mapSize, startingZ);
+      this.addAssaultStartingAreas(worldData, mapSize, startingZ, mapType);
     } else if (mapType === 'dungeons') {
       // Dungeon maps: create strongholds for attackers and defenders
-      this.processDungeonStartingAreas(worldData, mapSize);
+      this.processDungeonStartingAreas(worldData, mapSize, mapType);
       // Note: Capture point placement will be handled by AssaultMode game logic
     }
 
@@ -123,8 +130,8 @@ class BattlegroundsMapPostProcessor {
   /**
    * Add team starting areas for Skirmish (overworld maps)
    */
-  addTeamStartingAreas(worldData, mapSize, startingZ, gameMode) {
-    const layerIndex = startingZ === 0 ? 0 : 1;
+  addTeamStartingAreas(worldData, mapSize, startingZ, gameMode, mapType) {
+    const layerIndex = this.getLayerIndex(startingZ, mapType);
     const layer = worldData[layerIndex];
     if (!layer) return;
 
@@ -213,39 +220,287 @@ class BattlegroundsMapPostProcessor {
   }
 
   /**
-   * Process dungeon starting areas
+   * Post-process dungeon map: place buildings, generate tunnels from auto-created cellars
    */
-  processDungeonStartingAreas(worldData, mapSize) {
-    // Create two strongholds on opposite sides
-    // This is a simplified version - full implementation would:
-    // 1. Create dungeon floors at starting points
-    // 2. Carve tunnels through z=-2 level
-    // 3. Add wall tiles on non-walkable tiles north of floor tiles
-    // 4. Add lights (fire pits, wall torches)
-    // 5. Optionally add Tavern connected to dungeon system
+  postProcessDungeon(worldData, mapData, match) {
+    const { mapSize, startingZ } = mapData;
+    const cellarLayer = worldData[9];
+    if (!cellarLayer) return mapData;
+    
+    // 1. Place buildings (they automatically create their cellars at z=-2)
+    const BattlegroundsDungeonBuildingPlacer = require('./BattlegroundsDungeonBuildingPlacer');
+    const buildingPlacer = new BattlegroundsDungeonBuildingPlacer();
+    const buildings = buildingPlacer.placeDungeonBuildings(
+      worldData, 
+      mapSize, 
+      match.gameMode
+    );
+    
+    // 2. Get cellar plot coordinates from building objects
+    const buildingCellarPlots = buildings.map(building => building.cellarPlot);
+    
+    // 3. Generate tunnels from building cellars
+    this.generateDungeonTunnels(cellarLayer, mapSize, buildingCellarPlots, buildings);
+    
+    // 4. Store building info for spawn point calculation
+    mapData.dungeonBuildings = buildings;
+    
+    return mapData;
+  }
 
-    const caveLayer = worldData[1]; // Underworld layer
-    if (!caveLayer) return;
+  /**
+   * Process dungeon starting areas (legacy method - now calls postProcessDungeon)
+   */
+  processDungeonStartingAreas(worldData, mapSize, mapType) {
+    // This method is called from postProcessSkirmish/postProcessAssault
+    // For now, we'll handle dungeon processing in postProcessMap instead
+    // This is kept for backward compatibility
+  }
 
-    // Team 1 stronghold: Left side
-    const team1X = Math.floor(mapSize * 0.25);
-    const team1Y = Math.floor(mapSize * 0.5);
-    this.createStronghold(worldData, mapSize, team1X, team1Y);
+  /**
+   * Generate tunnels in dungeon starting from building cellar plots
+   * IMPORTANT: Only converts wall tiles (1) to floor tiles (0)
+   * Never modifies existing floor tiles (0) or other values
+   * Cannot modify tiles adjacent to stairs tiles
+   * @param {Array} cellarLayer - z=-2 layer (worldData[9])
+   * @param {number} mapSize - Map size
+   * @param {Array} buildingCellarPlots - Array of cellar plot coordinates [[[x,y], ...], ...]
+   * @param {Array} buildings - Array of building objects with dstairs property
+   */
+  generateDungeonTunnels(cellarLayer, mapSize, buildingCellarPlots, buildings) {
+    if (!cellarLayer) return;
 
-    // Team 2 stronghold: Right side
-    const team2X = Math.floor(mapSize * 0.75);
-    const team2Y = Math.floor(mapSize * 0.5);
-    this.createStronghold(worldData, mapSize, team2X, team2Y);
+    // 1. Identify stair tiles and mark protected tiles (adjacent to stairs)
+    const protectedTiles = new Set();
+    for (const building of buildings) {
+      if (building.dstairs) {
+        const [stairsX, stairsY] = building.dstairs;
+        // Mark all 4 adjacent tiles as protected
+        const adjacent = [
+          [stairsX, stairsY - 1], // North
+          [stairsX, stairsY + 1], // South
+          [stairsX - 1, stairsY], // West
+          [stairsX + 1, stairsY]  // East
+        ];
+        for (const [x, y] of adjacent) {
+          if (x >= 0 && x < mapSize && y >= 0 && y < mapSize) {
+            protectedTiles.add(`${x},${y}`);
+          }
+        }
+      }
+    }
 
-    // TODO: Carve tunnels at z=-2 connecting areas
-    // TODO: Add wall tiles and lighting
+    // 2. For each building's cellar plot, find starting points for tunnels
+    const startingPoints = [];
+    for (let i = 0; i < buildingCellarPlots.length; i++) {
+      const cellarPlot = buildingCellarPlots[i];
+      const building = buildings[i];
+      
+      // Find all walkable plot tiles in cellar (value 0)
+      const walkablePlotTiles = [];
+      for (const [x, y] of cellarPlot) {
+        if (x >= 0 && x < mapSize && y >= 0 && y < mapSize) {
+          if (cellarLayer[y] && cellarLayer[y][x] === 0) {
+            walkablePlotTiles.push([x, y]);
+          }
+        }
+      }
+
+      // Find adjacent wall tiles (value 1) to walkable plot tiles
+      const adjacentWalls = [];
+      for (const [x, y] of walkablePlotTiles) {
+        const adjacent = [
+          [x, y - 1], // North
+          [x, y + 1], // South
+          [x - 1, y], // West
+          [x + 1, y]  // East
+        ];
+        for (const [adjX, adjY] of adjacent) {
+          if (adjX >= 0 && adjX < mapSize && adjY >= 0 && adjY < mapSize) {
+            const key = `${adjX},${adjY}`;
+            // Check if it's a wall, not protected, and not already in list
+            if (!protectedTiles.has(key) && 
+                cellarLayer[adjY] && 
+                cellarLayer[adjY][adjX] === 1) {
+              adjacentWalls.push([adjX, adjY]);
+            }
+          }
+        }
+      }
+
+      // Randomly select one adjacent wall tile as starting point per building
+      if (adjacentWalls.length > 0) {
+        const randomIndex = Math.floor(Math.random() * adjacentWalls.length);
+        startingPoints.push(adjacentWalls[randomIndex]);
+      }
+    }
+
+    // 3. Run modified geoform algorithm from each starting point
+    for (const [startX, startY] of startingPoints) {
+      this.generateTunnelFromPoint(cellarLayer, mapSize, startX, startY, protectedTiles);
+    }
+  }
+
+  /**
+   * Generate a tunnel from a starting point using modified geoform algorithm
+   * Only converts walls (1) to floors (0), skips protected tiles
+   * @param {Array} cellarLayer - z=-2 layer
+   * @param {number} mapSize - Map size
+   * @param {number} startX - Starting X coordinate
+   * @param {number} startY - Starting Y coordinate
+   * @param {Set} protectedTiles - Set of protected tile keys (format: "x,y")
+   */
+  generateTunnelFromPoint(cellarLayer, mapSize, startX, startY, protectedTiles) {
+    const maxTunnels = 200;
+    const maxLength = 10;
+    const minLength = 1;
+    const roomChance = 0.15;
+    const roomSize = 3;
+    const continueDirectionChance = 0.4;
+    const branchChance = 0.3;
+    const randomWalkChance = 0.3;
+
+    let currentRow = startY;
+    let currentColumn = startX;
+    let maxTunnelsRemaining = maxTunnels;
+    const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]]; // left, right, up, down
+    let lastDirection = [];
+
+    // Helper to check if tile is protected
+    const isProtected = (x, y) => {
+      return protectedTiles.has(`${x},${y}`);
+    };
+
+    // Helper to safely set tile (only if it's a wall and not protected)
+    const setTile = (row, col) => {
+      if (row < 0 || row >= mapSize || col < 0 || col >= mapSize) return false;
+      if (!cellarLayer[row] || cellarLayer[row][col] === undefined) return false;
+      if (isProtected(col, row)) return false;
+      // Only convert walls (1) to floors (0)
+      if (cellarLayer[row][col] === 1) {
+        cellarLayer[row][col] = 0;
+        return true;
+      }
+      return false;
+    };
+
+    // Helper to create a room
+    const createRoom = (row, col, size) => {
+      const roomSize = Math.floor(Math.random() * (size - 1)) + size;
+      const startRow = Math.max(1, row - Math.floor(roomSize / 2));
+      const startCol = Math.max(1, col - Math.floor(roomSize / 2));
+      const endRow = Math.min(mapSize - 2, row + Math.floor(roomSize / 2));
+      const endCol = Math.min(mapSize - 2, col + Math.floor(roomSize / 2));
+      
+      for (let r = startRow; r <= endRow; r++) {
+        for (let c = startCol; c <= endCol; c++) {
+          setTile(r, c);
+        }
+      }
+    };
+
+    // Initialize starting point
+    setTile(currentRow, currentColumn);
+
+    while (maxTunnelsRemaining > 0) {
+      // Decide: continue tunnel or create room?
+      if (lastDirection.length > 0 && Math.random() < roomChance) {
+        createRoom(currentRow, currentColumn, roomSize);
+        maxTunnelsRemaining--;
+        continue;
+      }
+
+      // Choose direction
+      let randomDirection;
+      if (lastDirection.length > 0 && Math.random() < randomWalkChance) {
+        randomDirection = directions[Math.floor(Math.random() * directions.length)];
+      } else if (lastDirection.length > 0 && Math.random() < continueDirectionChance) {
+        randomDirection = lastDirection;
+      } else {
+        do {
+          randomDirection = directions[Math.floor(Math.random() * directions.length)];
+        } while (lastDirection.length > 0 && 
+                 randomDirection[0] === -lastDirection[0] && 
+                 randomDirection[1] === -lastDirection[1]);
+      }
+
+      // Create tunnel with random length
+      const randomLength = Math.floor(Math.random() * (maxLength - minLength + 1)) + minLength;
+      let tunnelLength = 0;
+
+      while (tunnelLength < randomLength) {
+        // Check bounds
+        if (((currentRow <= 1) && (randomDirection[0] === -1)) ||
+            ((currentColumn <= 1) && (randomDirection[1] === -1)) ||
+            ((currentRow >= mapSize - 2) && (randomDirection[0] === 1)) ||
+            ((currentColumn >= mapSize - 2) && (randomDirection[1] === 1))) {
+          break;
+        }
+
+        // Clear the tile (only if it's a wall and not protected)
+        if (setTile(currentRow, currentColumn)) {
+          // Create branches occasionally
+          if (tunnelLength > 0 && Math.random() < branchChance && maxTunnelsRemaining > 5) {
+            let branchDirection = directions[Math.floor(Math.random() * directions.length)];
+            if (!(branchDirection[0] === -randomDirection[0] && branchDirection[1] === -randomDirection[1]) &&
+                !(branchDirection[0] === randomDirection[0] && branchDirection[1] === randomDirection[1])) {
+              let branchRow = currentRow;
+              let branchCol = currentColumn;
+              let branchLength = Math.floor(Math.random() * 8) + 1;
+              
+              for (let b = 0; b < branchLength; b++) {
+                if (((branchRow <= 1) && (branchDirection[0] === -1)) ||
+                    ((branchCol <= 1) && (branchDirection[1] === -1)) ||
+                    ((branchRow >= mapSize - 2) && (branchDirection[0] === 1)) ||
+                    ((branchCol >= mapSize - 2) && (branchDirection[1] === 1))) {
+                  break;
+                }
+                setTile(branchRow, branchCol);
+                branchRow += branchDirection[0];
+                branchCol += branchDirection[1];
+              }
+              maxTunnelsRemaining--;
+            }
+          }
+        }
+
+        // Move forward
+        currentRow += randomDirection[0];
+        currentColumn += randomDirection[1];
+        tunnelLength++;
+      }
+
+      if (tunnelLength > 0) {
+        lastDirection = randomDirection;
+        maxTunnelsRemaining--;
+      } else {
+        // If we can't move, try a different direction
+        let attempts = 0;
+        while (attempts < 4) {
+          randomDirection = directions[Math.floor(Math.random() * directions.length)];
+          if (!((currentRow <= 1 && randomDirection[0] === -1) ||
+                (currentColumn <= 1 && randomDirection[1] === -1) ||
+                (currentRow >= mapSize - 2 && randomDirection[0] === 1) ||
+                (currentColumn >= mapSize - 2 && randomDirection[1] === 1))) {
+            lastDirection = randomDirection;
+            break;
+          }
+          attempts++;
+        }
+        if (attempts >= 4) {
+          break; // Stuck, stop generating
+        }
+      }
+    }
   }
 
   /**
    * Create a stronghold at specified location
    */
-  createStronghold(worldData, mapSize, centerX, centerY) {
-    const caveLayer = worldData[1];
+  createStronghold(worldData, mapSize, centerX, centerY, mapType) {
+    // For dungeon maps, z=-2 maps to worldData[9]
+    const layerIndex = mapType === 'dungeons' ? 9 : 1;
+    const caveLayer = worldData[layerIndex];
     if (!caveLayer) return;
 
     // Create a small room (5x5) as starting area
@@ -285,12 +540,28 @@ class BattlegroundsMapPostProcessor {
   /**
    * Add assault starting areas (attackers left, defenders right with fortification)
    */
-  addAssaultStartingAreas(worldData, mapSize, startingZ) {
+  addAssaultStartingAreas(worldData, mapSize, startingZ, mapType) {
     // Similar to skirmish but with different fortification for defenders
-    this.addTeamStartingAreas(worldData, mapSize, startingZ, 'assault');
+    this.addTeamStartingAreas(worldData, mapSize, startingZ, 'assault', mapType);
     
     // Defenders get a more fortified area (will be enhanced in future)
     // For now, same as skirmish team 2 area
+  }
+
+  /**
+   * Map z-level to worldData array index for battlegrounds
+   * For dungeon maps, z=-2 maps to worldData[9] (cellar layer)
+   * @param {number} startingZ - Z-level
+   * @param {string} mapType - Map type
+   * @returns {number} Array index in worldData
+   */
+  getLayerIndex(startingZ, mapType) {
+    if (mapType === 'dungeons' && startingZ === -2) {
+      // For dungeon maps, z=-2 (cellar) is stored at index 9
+      return 9;
+    }
+    // Standard mapping: z=0 -> 0, z=-1 -> 1
+    return startingZ === 0 ? 0 : 1;
   }
 
   /**
@@ -321,10 +592,82 @@ class BattlegroundsMapPostProcessor {
   isWalkable(tile, startingZ) {
     if (startingZ === 0) {
       return tile !== this.TERRAIN.WATER && tile !== this.TERRAIN.MOUNTAIN && tile < 6;
-    } else if (startingZ === -1) {
+    } else if (startingZ === -1 || startingZ === -2) {
+      // Caves (z=-1) and dungeons (z=-2) both use 0 for floor, 2 for exit
       return tile === 0 || tile === 2;
     }
     return false;
+  }
+
+  /**
+   * Get spawn points from dungeon building cellars
+   * @param {Array} buildings - Array of building objects
+   * @param {string} gameMode - 'deathmatch' or 'skirmish'
+   * @param {Array} participants - Array of participant objects
+   * @returns {Array} Spawn points with z=-2
+   */
+  getDungeonSpawnPoints(buildings, gameMode, participants) {
+    const tileSize = global.tileSize || 64;
+    const spawnPoints = [];
+
+    if (gameMode === 'deathmatch') {
+      // Deathmatch: Distribute players across all building cellars
+      const allCellarTiles = [];
+      for (const building of buildings) {
+        if (building.cellarPlot) {
+          allCellarTiles.push(...building.cellarPlot);
+        }
+      }
+
+      // Shuffle and assign to participants
+      const shuffled = [...allCellarTiles].sort(() => Math.random() - 0.5);
+      for (let i = 0; i < participants.length && i < shuffled.length; i++) {
+        const [x, y] = shuffled[i];
+        spawnPoints.push({
+          x: x * tileSize + tileSize / 2,
+          y: y * tileSize + tileSize / 2,
+          z: -2
+        });
+      }
+    } else if (gameMode === 'skirmish') {
+      // Skirmish: Team 1 on first stronghold, Team 2 on second stronghold
+      const strongholds = buildings.filter(b => b.type === 'stronghold');
+      if (strongholds.length >= 2) {
+        // Team 1 spawns on first stronghold cellar
+        const team1Stronghold = strongholds[0];
+        if (team1Stronghold.cellarPlot && team1Stronghold.cellarPlot.length > 0) {
+          const team1Tiles = [...team1Stronghold.cellarPlot].sort(() => Math.random() - 0.5);
+          const team1Participants = participants.filter(p => p.team === 'team1' || !p.team);
+          for (let i = 0; i < team1Participants.length && i < team1Tiles.length; i++) {
+            const [x, y] = team1Tiles[i];
+            spawnPoints.push({
+              x: x * tileSize + tileSize / 2,
+              y: y * tileSize + tileSize / 2,
+              z: -2,
+              team: 'team1'
+            });
+          }
+        }
+
+        // Team 2 spawns on second stronghold cellar
+        const team2Stronghold = strongholds[1];
+        if (team2Stronghold.cellarPlot && team2Stronghold.cellarPlot.length > 0) {
+          const team2Tiles = [...team2Stronghold.cellarPlot].sort(() => Math.random() - 0.5);
+          const team2Participants = participants.filter(p => p.team === 'team2');
+          for (let i = 0; i < team2Participants.length && i < team2Tiles.length; i++) {
+            const [x, y] = team2Tiles[i];
+            spawnPoints.push({
+              x: x * tileSize + tileSize / 2,
+              y: y * tileSize + tileSize / 2,
+              z: -2,
+              team: 'team2'
+            });
+          }
+        }
+      }
+    }
+
+    return spawnPoints;
   }
 
   /**
@@ -332,8 +675,16 @@ class BattlegroundsMapPostProcessor {
    * Divides map into sections based on participant count, finds one walkable tile per section
    */
   calculateDeathmatchSpawnPoints(worldData, mapData, participantCount) {
-    const { mapSize, startingZ } = mapData;
-    const layerIndex = startingZ === 0 ? 0 : 1;
+    const { mapSize, startingZ, mapType } = mapData;
+    
+    // For dungeon maps, use building cellars if available
+    if (mapType === 'dungeons' && mapData.dungeonBuildings) {
+      // This will be called with match object in postProcessMap, but we don't have participants here
+      // So we'll fall back to regular calculation for now
+      // In practice, spawn points should be calculated after buildings are placed
+    }
+    
+    const layerIndex = this.getLayerIndex(startingZ, mapType);
     const layer = worldData[layerIndex];
     if (!layer) return [];
 
@@ -409,10 +760,56 @@ class BattlegroundsMapPostProcessor {
   /**
    * Calculate spawn points for Skirmish mode
    * Two starting areas on diagonal quadrants, each area must be mostly walkable
+   * For dungeon maps, uses building stronghold cellars
    */
   calculateSkirmishSpawnPoints(worldData, mapData) {
-    const { mapSize, startingZ } = mapData;
-    const layerIndex = startingZ === 0 ? 0 : 1;
+    const { mapSize, startingZ, mapType } = mapData;
+    
+    // For dungeon maps, use building stronghold cellars if available
+    if (mapType === 'dungeons' && mapData.dungeonBuildings) {
+      const strongholds = mapData.dungeonBuildings.filter(b => b.type === 'stronghold');
+      if (strongholds.length >= 2) {
+        const tileSize = global.tileSize || 64;
+        const spawnPoints = [];
+        
+        // Team 1 on first stronghold cellar
+        const team1Stronghold = strongholds[0];
+        if (team1Stronghold.cellarPlot && team1Stronghold.cellarPlot.length > 0) {
+          const team1Tiles = [...team1Stronghold.cellarPlot].sort(() => Math.random() - 0.5);
+          // Generate multiple spawn points from cellar plot
+          const numSpawns = Math.min(5, team1Tiles.length);
+          for (let i = 0; i < numSpawns; i++) {
+            const [x, y] = team1Tiles[i];
+            spawnPoints.push({
+              team: 'team1',
+              x: x * tileSize + tileSize / 2,
+              y: y * tileSize + tileSize / 2,
+              z: -2
+            });
+          }
+        }
+        
+        // Team 2 on second stronghold cellar
+        const team2Stronghold = strongholds[1];
+        if (team2Stronghold.cellarPlot && team2Stronghold.cellarPlot.length > 0) {
+          const team2Tiles = [...team2Stronghold.cellarPlot].sort(() => Math.random() - 0.5);
+          const numSpawns = Math.min(5, team2Tiles.length);
+          for (let i = 0; i < numSpawns; i++) {
+            const [x, y] = team2Tiles[i];
+            spawnPoints.push({
+              team: 'team2',
+              x: x * tileSize + tileSize / 2,
+              y: y * tileSize + tileSize / 2,
+              z: -2
+            });
+          }
+        }
+        
+        return spawnPoints;
+      }
+    }
+    
+    const layerIndex = this.getLayerIndex(startingZ, mapType);
     const layer = worldData[layerIndex];
     if (!layer) return [];
 
@@ -467,8 +864,8 @@ class BattlegroundsMapPostProcessor {
    * Defender: stronghold placement (prefer mountain tiles), Attacker: opposite quadrant
    */
   calculateAssaultSpawnPoints(worldData, mapData) {
-    const { mapSize, startingZ } = mapData;
-    const layerIndex = startingZ === 0 ? 0 : 1;
+    const { mapSize, startingZ, mapType } = mapData;
+    const layerIndex = this.getLayerIndex(startingZ, mapType);
     const layer = worldData[layerIndex];
     if (!layer) return [];
 

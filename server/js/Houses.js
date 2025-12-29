@@ -24,6 +24,73 @@ function canHouseSpawn(house) {
   return true;
 }
 
+// Helper function to check if a house should be allowed to initialize (battlegrounds check)
+// This prevents non-allowed factions from spawning entities during genesis post-processing
+function canHouseInit(house) {
+  if (!house) return false;
+  
+  // #region agent log
+  const fsSync = require('fs');
+  const logData = {
+    location: 'Houses.js:29',
+    message: 'canHouseInit called',
+    data: {
+      houseName: house?.name || 'unknown',
+      hasMatchManager: !!global.battlegroundsMatchManager,
+      hasCurrentMatch: !!(global.battlegroundsMatchManager && global.battlegroundsMatchManager.currentMatch),
+      matchStatus: global.battlegroundsMatchManager?.currentMatch?.status || 'none',
+      matchId: global.battlegroundsMatchManager?.currentMatch?.matchId || null
+    },
+    timestamp: Date.now(),
+    sessionId: 'debug-session',
+    runId: 'run1',
+    hypothesisId: 'H'
+  };
+  try {
+    fsSync.appendFileSync('/Users/johan/Documents/GitHub/lambic/.cursor/debug.log', JSON.stringify(logData) + '\n');
+  } catch (e) {}
+  // #endregion
+  
+  // Only allow Outlaws and Mercenaries factions to initialize when a battleground match is active
+  // This prevents other factions (like Brotherhood) from spawning entities during genesis post-processing
+  if (global.battlegroundsMatchManager && global.battlegroundsMatchManager.currentMatch) {
+    const match = global.battlegroundsMatchManager.currentMatch;
+    if (match.status === 'in_progress' || match.status === 'starting' || match.status === 'preview') {
+      // Check if house is allowed in battlegrounds (only Outlaws and Mercenaries)
+      const allowedFactions = ['Outlaws', 'Mercenaries'];
+      const houseName = house.name || '';
+      
+      // #region agent log
+      const logData2 = {
+        location: 'Houses.js:50',
+        message: 'canHouseInit checking faction',
+        data: {
+          houseName,
+          allowedFactions,
+          isAllowed: allowedFactions.includes(houseName),
+          willReturn: allowedFactions.includes(houseName)
+        },
+        timestamp: Date.now(),
+        sessionId: 'debug-session',
+        runId: 'run1',
+        hypothesisId: 'H'
+      };
+      try {
+        fsSync.appendFileSync('/Users/johan/Documents/GitHub/lambic/.cursor/debug.log', JSON.stringify(logData2) + '\n');
+      } catch (e) {}
+      // #endregion
+      
+      if (!allowedFactions.includes(houseName)) {
+        // Prevent non-allowed factions from initializing when a match is active
+        // This ensures only Outlaws and Mercenaries can spawn entities during battleground matches
+        return false;
+      }
+    }
+  }
+  
+  return true;
+}
+
 House = function(param){
   var self = Entity(param);
   self.type = param.type;
@@ -365,7 +432,11 @@ Brotherhood = function(param){
     super_update();
     // check for next chapter conditions
   }
-  self.init();
+  
+  // Only initialize if allowed (prevents Brotherhood from spawning in battlegrounds)
+  if (canHouseInit(self)) {
+    self.init();
+  }
   
   // Initialize AI controller for Brotherhood (underground - no building goals)
   const FactionAI = require('./ai/FactionAI');
@@ -1071,7 +1142,11 @@ Goths = function(param){
       }
     }
   }
-  self.init();
+  
+  // Only initialize if allowed (prevents non-allowed factions from spawning in battlegrounds)
+  if (canHouseInit(self)) {
+    self.init();
+  }
   
   // Initialize AI controller for Goths
   const FactionAI = require('./ai/FactionAI');
@@ -1775,7 +1850,11 @@ Franks = function(param){
   self.update = function(){
     super_update();
   }
-  self.init();
+  
+  // Only initialize if allowed (prevents non-allowed factions from spawning in battlegrounds)
+  if (canHouseInit(self)) {
+    self.init();
+  }
   
   // Initialize AI controller for Franks
   const FactionAI = require('./ai/FactionAI');
@@ -2242,7 +2321,11 @@ Celts = function(param){
   self.update = function(){
     super_update();
   }
-  self.init();
+  
+  // Only initialize if allowed (prevents non-allowed factions from spawning in battlegrounds)
+  if (canHouseInit(self)) {
+    self.init();
+  }
   
   // Initialize AI controller for Celts
   const FactionAI = require('./ai/FactionAI');
@@ -2745,7 +2828,11 @@ Teutons = function(param){
   self.update = function(){
     super_update();
   }
-  self.init();
+  
+  // Only initialize if allowed (prevents non-allowed factions from spawning in battlegrounds)
+  if (canHouseInit(self)) {
+    self.init();
+  }
   
   // Initialize AI controller for Teutons
   const FactionAI = require('./ai/FactionAI');

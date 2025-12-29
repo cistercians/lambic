@@ -25,7 +25,7 @@ class BaseItem {
   
   checkInnaWoods() {
     if (this.z === 0 && global.getLocTile) {
-      const tile = global.getLocTile(0, this.x, this.y);
+      const tile = global.getLocTile(0, this.x, this.y, this.id);
       return tile >= 1 && tile < 2;
     }
     return false;

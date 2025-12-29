@@ -44,10 +44,21 @@ class BattlegroundsMapGenerator {
       const worldData = result.worldMaps || result;
       const entrances = result.entrances || [];
       
+      // For dungeon maps, initialize z=-2 (cellar layer) as all walls instead of using cave generation
+      // Buildings will be placed first, then tunnels will be generated from building cellars
+      if (mapType === 'dungeons') {
+        // Initialize cellar layer as all walls (value 1)
+        // We'll store it at index 9 in the worldData array
+        const cellarLayer = this.initializeDungeonCellarLayer(mapSize);
+        worldData[9] = cellarLayer;
+      }
+      
       // Determine starting z-level based on map type
       let startingZ = 0;
-      if (mapType === 'caves' || mapType === 'dungeons') {
+      if (mapType === 'caves') {
         startingZ = -1; // Start in caves/underworld
+      } else if (mapType === 'dungeons') {
+        startingZ = -2; // Start in dungeons/cellar
       }
       
       const mapData = {
@@ -77,9 +88,18 @@ class BattlegroundsMapGenerator {
     const result = genesis.generate(config);
     const worldData = result.worldMaps || result;
     const entrances = result.entrances || [];
+    
+    // For dungeon maps, initialize z=-2 (cellar layer) as all walls
+    if (mapType === 'dungeons') {
+      const cellarLayer = this.initializeDungeonCellarLayer(mapSize);
+      worldData[9] = cellarLayer;
+    }
+    
     let startingZ = 0;
-    if (mapType === 'caves' || mapType === 'dungeons') {
-      startingZ = -1;
+    if (mapType === 'caves') {
+      startingZ = -1; // Start in caves/underworld
+    } else if (mapType === 'dungeons') {
+      startingZ = -2; // Start in dungeons/cellar
     }
     
     return {
@@ -90,6 +110,42 @@ class BattlegroundsMapGenerator {
       startingZ: startingZ,
       raw: true
     };
+  }
+
+  /**
+   * Initialize dungeon cellar layer as all walls (value 1)
+   * @param {number} mapSize - Map size
+   * @returns {Array} Cellar layer initialized to all walls
+   */
+  initializeDungeonCellarLayer(mapSize) {
+    const cellarLayer = [];
+    for (let y = 0; y < mapSize; y++) {
+      cellarLayer[y] = [];
+      for (let x = 0; x < mapSize; x++) {
+        cellarLayer[y][x] = 1; // All walls initially
+      }
+    }
+    return cellarLayer;
+  }
+
+  /**
+   * Map z-level to worldData array index for battlegrounds
+   * For dungeon maps, z=-2 maps to worldData[9] (cellar layer)
+   * @param {number} z - Z-level
+   * @param {string} mapType - Map type
+   * @returns {number} Array index in worldData
+   */
+  static getWorldDataIndex(z, mapType) {
+    if (mapType === 'dungeons' && z === -2) {
+      // For dungeon maps, z=-2 (cellar) is stored at index 9
+      return 9;
+    }
+    // Standard mapping: z=0 -> 0, z=-1 -> 1, z=-3 -> 2
+    if (z === 0) return 0;
+    if (z === -1) return 1;
+    if (z === -3) return 2;
+    // Default to overworld for other z-levels
+    return 0;
   }
 
   /**

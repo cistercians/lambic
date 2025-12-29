@@ -861,7 +861,13 @@ function createArray(length) {
   return arr;
 }
 
-function getLoc(x, y) {
+function getLoc(x, y, entityId) {
+  // Use MapContextManager for context-aware location calculation
+  if (entityId && global.mapContextManager) {
+    return global.mapContextManager.getLoc(x, y, entityId);
+  }
+  
+  // Fallback for non-entity calls (world generation, etc.)
   return [Math.floor(x / tileSize), Math.floor(y / tileSize)];
 }
 
@@ -890,13 +896,36 @@ function getTile(l, c, r, entityId) {
   return undefined;
 }
 
+// Context-aware pathfinding wrapper
+function findPathContextAware(startLoc, endLoc, layer, options, entityId) {
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:900',message:'findPathContextAware called',data:{startLoc,endLoc,layer,hasEntityId:!!entityId,entityId,hasMapContextManager:!!global.mapContextManager},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+  // #endregion
+  
+  // Use MapContextManager if entityId is provided
+  if (entityId && global.mapContextManager) {
+    const result = global.mapContextManager.findPath(startLoc, endLoc, layer, options, entityId);
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:903',message:'findPathContextAware result from MapContextManager',data:{hasResult:result!==null,resultLength:result?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    return result;
+  }
+  
+  // Fallback to tilemapSystem for non-entity calls (initialization, world generation)
+  if (global.tilemapSystem && typeof global.tilemapSystem.findPath === 'function') {
+    return global.tilemapSystem.findPath(startLoc, endLoc, layer, options);
+  }
+  
+  return null;
+}
+
 function getLocTile(l, x, y, entityId) {
   // If entityId is provided, use context-aware tile access
   if (entityId && global.mapContextManager) {
     const contextMapSize = global.mapContextManager.getMapSize(entityId);
     const contextMapPx = contextMapSize * (global.tileSize || 64);
     if (x >= 0 && x <= contextMapPx && y >= 0 && y <= contextMapPx) {
-      const loc = getLoc(x, y);
+      const loc = getLoc(x, y, entityId);
       return global.mapContextManager.getTile(l, loc[0], loc[1], entityId);
     }
     return undefined;
@@ -1227,11 +1256,17 @@ function setTileInteractable(layer, c, r, buildingId) {
 }
 
 // Check if a tile is interactable and return building/object ID
-function isTileInteractable(layer, c, r) {
+function isTileInteractable(layer, c, r, entityId) {
   if (typeof layer !== 'number' || typeof c !== 'number' || typeof r !== 'number') {
     return undefined;
   }
-  if (c < 0 || c >= mapSize || r < 0 || r >= mapSize) {
+  
+  // Get context-aware map size
+  const contextMapSize = entityId && global.mapContextManager 
+    ? global.mapContextManager.getMapSize(entityId)
+    : mapSize;
+  
+  if (c < 0 || c >= contextMapSize || r < 0 || r >= contextMapSize) {
     return undefined;
   }
   const key = `${layer}:${c},${r}`;
@@ -1277,7 +1312,7 @@ global.clearBuildingInteractableTiles = clearBuildingInteractableTiles;
 global.getInteractableBuilding = getInteractableBuilding;
 
 // Check if a tile is occupied by another character
-function isTileOccupied(tileX, tileY, z, excludeEntityId = null) {
+function isTileOccupied(tileX, tileY, z, excludeEntityId = null, contextEntityId = null) {
   if (!global.Player || !global.Player.list) return false;
   
   for (const id in global.Player.list) {
@@ -1286,7 +1321,8 @@ function isTileOccupied(tileX, tileY, z, excludeEntityId = null) {
     if (entity.z !== z) continue;
     if (entity.toRemove) continue; // Don't count entities being removed
     
-    const entityLoc = getLoc(entity.x, entity.y);
+    // Use entity's own ID for context when getting location
+    const entityLoc = getLoc(entity.x, entity.y, entity.id);
     if (entityLoc[0] === tileX && entityLoc[1] === tileY) {
       return true;
     }
@@ -1294,7 +1330,7 @@ function isTileOccupied(tileX, tileY, z, excludeEntityId = null) {
   return false;
 }
 
-function cloneGrid(g, options = {}) {
+function cloneGrid(g, options = {}, entityId = null) {
   // Use the new consolidated pathfinding system
   const grid = global.tilemapSystem.pathfindingSystem.tilemapSystem.generatePathfindingGrid(g, options);
   const pfGrid = new PF.Grid(grid);
@@ -1304,7 +1340,10 @@ function cloneGrid(g, options = {}) {
   if (options && options.excludeEntityId !== undefined && options.z !== undefined) {
     const z = options.z;
     const excludeEntityId = options.excludeEntityId;
-    const mapSize = global.mapSize || 200;
+    // Use context-aware map size
+    const mapSize = (entityId && global.mapContextManager) 
+      ? global.mapContextManager.getMapSize(entityId) 
+      : (global.mapSize || 200);
     
     // If start/end points are provided, only check tiles in that area
     let checkArea = null;
@@ -1373,12 +1412,17 @@ function smoothPath(path, z = 0) {
 }
 
 // Check if we can move directly between two points without hitting obstacles
-function canMoveDirectly(start, end, z = 0) {
+function canMoveDirectly(start, end, z = 0, entityId) {
   const dx = end[0] - start[0];
   const dy = end[1] - start[1];
   const steps = Math.max(Math.abs(dx), Math.abs(dy));
   
   if (steps === 0) return true;
+  
+  // Get context-aware map size
+  const contextMapSize = entityId && global.mapContextManager 
+    ? global.mapContextManager.getMapSize(entityId)
+    : mapSize;
   
   const stepX = dx / steps;
   const stepY = dy / steps;
@@ -1387,9 +1431,9 @@ function canMoveDirectly(start, end, z = 0) {
     const x = Math.round(start[0] + stepX * i);
     const y = Math.round(start[1] + stepY * i);
     
-    // Check if this point is walkable
-    if (x < 0 || x >= mapSize || y < 0 || y >= mapSize) return false;
-    if (!isWalkable(z, x, y)) return false;
+    // Check if this point is walkable using context-aware bounds
+    if (x < 0 || x >= contextMapSize || y < 0 || y >= contextMapSize) return false;
+    if (!isWalkable(z, x, y, entityId)) return false;
     
     // OPTIMIZED: Skip entity collision checks during pathfinding
     // Entities can pathfind through each other - actual collision handled during movement
@@ -1698,7 +1742,7 @@ function matrixChange(l, c, r, n) {
 // Find the closest adjacent walkable tile to an entity (building or object)
 // Returns [tileX, tileY] or null if no walkable adjacent tile found
 // Helper function to check if player is already at an adjacent tile to an entity
-function isPlayerAdjacentToEntity(entity, entityType, playerLoc) {
+function isPlayerAdjacentToEntity(entity, entityType, playerLoc, playerEntityId) {
   if (!entity || !playerLoc) return false;
   
   var entityTiles = [];
@@ -1716,7 +1760,7 @@ function isPlayerAdjacentToEntity(entity, entityType, playerLoc) {
       }
     } else {
       // Fallback: use building's center tile
-      var buildingLoc = getLoc(entity.x, entity.y);
+      var buildingLoc = getLoc(entity.x, entity.y, playerEntityId);
       entityTiles = [buildingLoc];
     }
   } else if (entityType === 'item') {
@@ -1726,7 +1770,7 @@ function isPlayerAdjacentToEntity(entity, entityType, playerLoc) {
     entityTiles = [[tileX, tileY]];
   } else if (entityType === 'ship') {
     // Ships occupy a single tile at their position
-    var shipLoc = getLoc(entity.x, entity.y);
+    var shipLoc = getLoc(entity.x, entity.y, playerEntityId);
     entityTiles = [shipLoc];
   } else {
     return false;
@@ -1782,7 +1826,7 @@ function calculateFacingDirection(playerLoc, targetLoc) {
   }
 }
 
-function findClosestAdjacentWalkableTile(entity, entityType, playerZ, playerLoc) {
+function findClosestAdjacentWalkableTile(entity, entityType, playerZ, playerLoc, playerEntityId) {
   if (!entity || !playerLoc) return null;
   
   var adjacentTiles = [];
@@ -1801,7 +1845,7 @@ function findClosestAdjacentWalkableTile(entity, entityType, playerZ, playerLoc)
       }
     } else {
       // Fallback: use building's center tile
-      var buildingLoc = getLoc(entity.x, entity.y);
+      var buildingLoc = getLoc(entity.x, entity.y, playerEntityId);
       entityTiles = [buildingLoc];
     }
   } else if (entityType === 'item') {
@@ -1811,11 +1855,16 @@ function findClosestAdjacentWalkableTile(entity, entityType, playerZ, playerLoc)
     entityTiles = [[tileX, tileY]];
   } else if (entityType === 'ship') {
     // Ships occupy a single tile at their position
-    var shipLoc = getLoc(entity.x, entity.y);
+    var shipLoc = getLoc(entity.x, entity.y, playerEntityId);
     entityTiles = [shipLoc];
   } else {
     return null;
   }
+  
+  // Get context-aware map size
+  const contextMapSize = playerEntityId && global.mapContextManager 
+    ? global.mapContextManager.getMapSize(playerEntityId)
+    : mapSize;
   
   // For each entity tile, check all 8 adjacent directions
   var directions = [
@@ -1834,11 +1883,11 @@ function findClosestAdjacentWalkableTile(entity, entityType, playerZ, playerLoc)
       var adjX = tileX + dir[0];
       var adjY = tileY + dir[1];
       
-      // Check bounds
-      if (adjX < 0 || adjX >= mapSize || adjY < 0 || adjY >= mapSize) continue;
+      // Check bounds using context-aware map size
+      if (adjX < 0 || adjX >= contextMapSize || adjY < 0 || adjY >= contextMapSize) continue;
       
       // Check if tile is walkable
-      if (isWalkable(playerZ, adjX, adjY)) {
+      if (isWalkable(playerZ, adjX, adjY, playerEntityId)) {
         // Verify we can pathfind to this tile
         var options = {
           avoidDoors: true,
@@ -1848,7 +1897,10 @@ function findClosestAdjacentWalkableTile(entity, entityType, playerZ, playerLoc)
         // Determine layer based on z-level
         var layer = playerZ === 0 ? 0 : (playerZ === -1 ? 1 : (playerZ === -2 ? 8 : (playerZ === 1 ? 3 : 5)));
         
-        var testPath = global.tilemapSystem.findPath(playerLoc, [adjX, adjY], layer, options);
+        // Use context-aware pathfinding
+        var testPath = global.mapContextManager && playerEntityId 
+          ? global.mapContextManager.findPath(playerLoc, [adjX, adjY], layer, options, playerEntityId)
+          : global.tilemapSystem.findPath(playerLoc, [adjX, adjY], layer, options);
         if (testPath && testPath.length > 0) {
           adjacentTiles.push([adjX, adjY]);
         }
@@ -1877,7 +1929,13 @@ function findClosestAdjacentWalkableTile(entity, entityType, playerZ, playerLoc)
   return closestTile;
 }
 
-function isWalkable(z, c, r) {
+function isWalkable(z, c, r, entityId) {
+  // Use MapContextManager for context-aware walkability
+  if (global.mapContextManager) {
+    return global.mapContextManager.isWalkable(z, c, r, entityId);
+  }
+  
+  // Fallback for initialization phase (before MapContextManager is ready)
   if (c < 0 || c > mapSize - 1 || r < 0 || r > mapSize - 1) {
     return false;
   }
@@ -3147,7 +3205,8 @@ const Player = function(param) {
     if (self.hasTorch) {
       Item.list[self.hasTorch].toRemove = true;
       self.hasTorch = false;
-    } else if (self.inventory.torch > 0) {
+    } else if (self.inventory.torch > 0 || (self.inBattleground && self.battlegroundMatchId)) {
+      // Allow torch lighting in battlegrounds even without inventory torches
       if (self.z !== Z_LEVELS.UNDERWATER) {
         LitTorch({
           id: torchId,
@@ -3158,7 +3217,10 @@ const Player = function(param) {
           qty: 1,
           innaWoods: self.innaWoods
         });
+        // Don't consume torch if player is in battleground (unlimited torches)
+        if (!(self.inBattleground && self.battlegroundMatchId)) {
         self.inventory.torch--;
+        }
         self.hasTorch = torchId;
       } else {
         // Torch message handled via event system
@@ -3194,7 +3256,19 @@ const Player = function(param) {
 
   self.updateSpd = function() {
     let loc = getLoc(self.x, self.y);
-    const currentTile = getTile(0, loc[0], loc[1]);
+    // #region agent log - only log once per player when in battleground
+    if (self.inBattleground && !self._terrainCheckLogged) {
+      self._terrainCheckLogged = true;
+      try{fsSync.appendFileSync('/Users/johan/Documents/GitHub/lambic/.cursor/debug.log',JSON.stringify({location:'lambic.js:3201',message:'Terrain check in player update - FIRST CALL',data:{playerId:self.id,x:self.x,y:self.y,z:self.z,locX:loc[0],locY:loc[1],inBattleground:self.inBattleground,matchId:self.battlegroundMatchId,passingEntityId:false},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})+'\n');}catch(e){}
+    }
+    // #endregion
+    const currentTile = getTile(0, loc[0], loc[1], self.id); // FIX: Pass entityId!
+    // #region agent log - only log once
+    if (self.inBattleground && !self._terrainResultLogged) {
+      self._terrainResultLogged = true;
+      try{fsSync.appendFileSync('/Users/johan/Documents/GitHub/lambic/.cursor/debug.log',JSON.stringify({location:'lambic.js:3202',message:'Terrain check result - FIRST CALL',data:{playerId:self.id,tileValue:currentTile,locX:loc[0],locY:loc[1],passedEntityId:true},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})+'\n');}catch(e){}
+    }
+    // #endregion
     
     // Apply terrain modifiers BEFORE movement
     const socket = SOCKET_LIST[self.id];
@@ -3242,7 +3316,7 @@ const Player = function(param) {
           setTimeout(() => {
             // Check CURRENT location, not stale loc from 2 seconds ago
             const currentLoc = getLoc(self.x, self.y);
-            const checkTile = getTile(0, currentLoc[0], currentLoc[1]);
+            const checkTile = getTile(0, currentLoc[0], currentLoc[1], self.id); // FIX: Pass entityId!
             if (checkTile >= TERRAIN.MOUNTAIN && checkTile < TERRAIN.CAVE_ENTRANCE) {
               self.onMtn = true;
             }
@@ -3309,25 +3383,25 @@ const Player = function(param) {
       if (self.z === Z_LEVELS.OVERWORLD) {
         for (const dir in checkLocs) {
           const [c, r] = checkLocs[dir];
-          const tile = getTile(0, c, r);
+          const tile = getTile(0, c, r, self.id);
           const doorLocked = tile === TERRAIN.DOOR_LOCKED && !keyCheck(self.x + offsets[dir][0], self.y + offsets[dir][1], self.id);
           // Allow stepping onto cave entrance tile (6) to trigger descent
-          const isBlocked = (!isWalkable(0, c, r) && tile !== TERRAIN.WATER && tile !== 6);
+          const isBlocked = (!isWalkable(0, c, r, self.id) && tile !== TERRAIN.WATER && tile !== 6);
           const gateBlocked = getTile(5, c, r) === 'gatec' && !gateCheck(self.x + offsets[dir][0], self.y + offsets[dir][1], self.house, self.kingdom);
           const outOfBounds = (dir === 'right' && self.x + 10 > mapPx - tileSize) ||
                              (dir === 'left' && self.x - 10 < 0) ||
                              (dir === 'up' && self.y - 10 < 0) ||
                              (dir === 'down' && self.y + 10 > mapPx - tileSize);
 
-          if ((doorLocked || isBlocked || gateBlocked || outOfBounds) && isWalkable(0, loc[0], loc[1])) {
+          if ((doorLocked || isBlocked || gateBlocked || outOfBounds) && isWalkable(0, loc[0], loc[1], self.id)) {
             blocked[dir] = true;
           }
         }
       } else if (self.z === Z_LEVELS.UNDERWORLD) {
         for (const dir in checkLocs) {
           const [c, r] = checkLocs[dir];
-          const tile = getTile(1, c, r);
-          const walkable = isWalkable(-1, c, r);
+          const tile = getTile(1, c, r, self.id);
+          const walkable = isWalkable(-1, c, r, self.id);
           // Cave: Floor (0), Exit (2), and Ore (3.x) are walkable; Walls (1) are not
           const isBlocked = (tile === 1); // Simple: only walls block movement
           const outOfBounds = (dir === 'right' && self.x + 10 > mapPx - tileSize) ||
@@ -3342,8 +3416,8 @@ const Player = function(param) {
       } else if (self.z === Z_LEVELS.BUILDING_1) {
         for (const dir in checkLocs) {
           const [c, r] = checkLocs[dir];
-          const isBlocked = !isWalkable(1, c, r);
-          const stairsBlocked = dir === 'up' && getTile(4, c, r) === 7 && !self.rank &&
+          const isBlocked = !isWalkable(1, c, r, self.id);
+          const stairsBlocked = dir === 'up' && getTile(4, c, r, self.id) === 7 && !self.rank &&
                                (Building.list[b]?.house === self.house || Building.list[b]?.kingdom === self.kingdom);
 
           if (isBlocked || stairsBlocked) {
@@ -3353,14 +3427,14 @@ const Player = function(param) {
       } else if (self.z === Z_LEVELS.BUILDING_2) {
         for (const dir in checkLocs) {
           const [c, r] = checkLocs[dir];
-          if (!isWalkable(2, c, r)) {
+          if (!isWalkable(2, c, r, self.id)) {
             blocked[dir] = true;
           }
         }
       } else if (self.z === Z_LEVELS.CELLAR) {
         for (const dir in checkLocs) {
           const [c, r] = checkLocs[dir];
-          if (!isWalkable(-2, c, r)) {
+          if (!isWalkable(-2, c, r, self.id)) {
             blocked[dir] = true;
           }
         }
@@ -3446,7 +3520,7 @@ const Player = function(param) {
           }
           
           // Only trigger if player is adjacent (safety check)
-          if(entity && isPlayerAdjacentToEntity(entity, self.pendingInteraction.type, playerLoc)){
+          if(entity && isPlayerAdjacentToEntity(entity, self.pendingInteraction.type, playerLoc, self.id)){
             // Use the building/item location from pendingInteraction, not player's current location
             var interactionLoc = null;
             if(self.pendingInteraction.type === 'building'){
@@ -3584,12 +3658,12 @@ const Player = function(param) {
     // Terrain effects and Z-level transitions
     // Recalculate loc after movement (path-following may have updated position)
     loc = getLoc(self.x, self.y);
-    const tile = getTile(0, loc[0], loc[1]);
+    const tile = getTile(0, loc[0], loc[1], self.id);
 
     if (self.z === Z_LEVELS.OVERWORLD) {
       self.handleOverworldTerrain(tile, loc, b, exit, socket);
     } else if (self.z === Z_LEVELS.UNDERWORLD) {
-      if (getTile(1, loc[0], loc[1]) === 2) {
+      if (getTile(1, loc[0], loc[1], self.id) === 2) {
         self.z = Z_LEVELS.OVERWORLD;
         self.innaWoods = false;
         self.onMtn = false;
@@ -3601,14 +3675,14 @@ const Player = function(param) {
     } else if (self.z === Z_LEVELS.CELLAR) {
       // Only transition if player doesn't already have a path (prevents re-triggering)
       if (!self.path || self.path.length === 0) {
-        if (getTile(8, loc[0], loc[1]) === 5) {
+        if (getTile(8, loc[0], loc[1], self.id) === 5) {
           // Going upstairs from cellar to z=1
           self.z = Z_LEVELS.BUILDING_1;
           socket.write(JSON.stringify({ msg: 'bgm', x: self.x, y: self.y, z: self.z, b: b2 }));
           
           // Path to tile below stairs instead of teleporting
           var targetTile = [loc[0], loc[1] + 1];
-          var path = global.tilemapSystem.findPath(loc, targetTile, 3); // Layer 3 for z=1
+          var path = findPathContextAware(loc, targetTile, 3, {}, self.id); // Layer 3 for z=1
           self.path = path;
           self.pathCount = 0;
         }
@@ -3620,14 +3694,14 @@ const Player = function(param) {
     } else if (self.z === Z_LEVELS.BUILDING_2) {
       // Only transition if player doesn't already have a path (prevents re-triggering)
       if (!self.path || self.path.length === 0) {
-        if (getTile(4, loc[0], loc[1]) === 3 || getTile(4, loc[0], loc[1]) === 4) {
+        if (getTile(4, loc[0], loc[1], self.id) === 3 || getTile(4, loc[0], loc[1], self.id) === 4) {
           // Going downstairs to z=1
           self.z = Z_LEVELS.BUILDING_1;
           socket.write(JSON.stringify({ msg: 'bgm', x: self.x, y: self.y, z: self.z, b: b2 }));
           
           // Path to tile below stairs instead of teleporting
           var targetTile = [loc[0], loc[1] + 1];
-          var path = global.tilemapSystem.findPath(loc, targetTile, 3); // Layer 3 for z=1
+          var path = findPathContextAware(loc, targetTile, 3, {}, self.id); // Layer 3 for z=1
           self.path = path;
           self.pathCount = 0;
         }
@@ -3689,7 +3763,7 @@ const Player = function(param) {
 
       if (!self.onMtn) {
         setTimeout(() => {
-          const currentTile = getTile(0, loc[0], loc[1]);
+          const currentTile = getTile(0, loc[0], loc[1], self.id);
           if (currentTile >= TERRAIN.MOUNTAIN && currentTile < TERRAIN.CAVE_ENTRANCE) {
             self.onMtn = true;
           }
@@ -3774,7 +3848,7 @@ const Player = function(param) {
     }
 
     const loc = getLoc(self.x, self.y);
-    if (getTile(0, loc[0], loc[1]) !== TERRAIN.WATER) {
+    if (getTile(0, loc[0], loc[1], self.id) !== TERRAIN.WATER) {
       // Surfaced from water
       self.z = Z_LEVELS.OVERWORLD;
       self.breath = self.breathMax;
@@ -3785,7 +3859,7 @@ const Player = function(param) {
   };
 
   self.handleBuilding1 = function(loc, exit, b2, socket) {
-    const exitTile = getTile(0, loc[0], loc[1] - 1);
+    const exitTile = getTile(0, loc[0], loc[1] - 1, self.id);
     if (exitTile === TERRAIN.DOOR_OPEN || exitTile === TERRAIN.DOOR_OPEN_ALT || exitTile === TERRAIN.DOOR_LOCKED) {
       // Safety check: only decrement occupancy if building exists
       if(exit && Building.list[exit]){
@@ -3795,7 +3869,7 @@ const Player = function(param) {
       socket.write(JSON.stringify({ msg: 'bgm', x: self.x, y: self.y, z: self.z }));
     } else if (!self.path || self.path.length === 0) {
       // Only transition if player doesn't already have a path (prevents re-triggering)
-      const stairs = getTile(4, loc[0], loc[1]);
+      const stairs = getTile(4, loc[0], loc[1], self.id);
       if (stairs === 3 || stairs === 4 || stairs === 7) {
         // Going upstairs to z=2
         self.z = Z_LEVELS.BUILDING_2;
@@ -3803,7 +3877,7 @@ const Player = function(param) {
         
         // Path to tile below stairs instead of teleporting
         var targetTile = [loc[0], loc[1] + 1];
-        var path = global.tilemapSystem.findPath(loc, targetTile, 5); // Layer 5 for z=2
+        var path = findPathContextAware(loc, targetTile, 5, {}, self.id); // Layer 5 for z=2
         self.path = path;
         self.pathCount = 0;
       } else if (stairs === 5 || stairs === 6) {
@@ -3813,7 +3887,7 @@ const Player = function(param) {
         
         // Path to tile below stairs instead of teleporting
         var targetTile = [loc[0], loc[1] + 1];
-        var path = global.tilemapSystem.findPath(loc, targetTile, 8); // Layer 8 for z=-2
+        var path = findPathContextAware(loc, targetTile, 8, {}, self.id); // Layer 8 for z=-2
         self.path = path;
         self.pathCount = 0;
       }
@@ -4125,7 +4199,7 @@ const Player = function(param) {
       targetTile = workTile;
     } else {
       targetLoc = loc;
-      workTile = getTile(0, loc[0], loc[1]);
+      workTile = getTile(0, loc[0], loc[1], self.id);
       targetTile = workTile;
     }
     
@@ -4610,8 +4684,8 @@ const Player = function(param) {
                 var unfinishedTiles = [];
                 for(var i = 0; i < b.plot.length; i++){
                   var plotTile = b.plot[i];
-                  var plotTileProgress = getTile(6, plotTile[0], plotTile[1]);
-                  var plotTileType = getTile(0, plotTile[0], plotTile[1]);
+                  var plotTileProgress = getTile(6, plotTile[0], plotTile[1], self.id);
+                  var plotTileType = getTile(0, plotTile[0], plotTile[1], self.id);
                   
                   // Check if tile is unfinished and still a construction tile
                   if(plotTileProgress < b.req && 
@@ -4624,7 +4698,7 @@ const Player = function(param) {
                 
                 if(unfinishedTiles.length > 0){
                   // Find closest unfinished tile
-                  var playerLoc = getLoc(self.x, self.y);
+                  var playerLoc = getLoc(self.x, self.y, self.id);
                   var closestTile = null;
                   var closestDistance = Infinity;
                   
@@ -4644,7 +4718,7 @@ const Player = function(param) {
                   
                   if(closestTile){
                     // Path to closest unfinished tile
-                    var startLoc = getLoc(self.x, self.y);
+                    var startLoc = getLoc(self.x, self.y, self.id);
                     var layer = self.z === 0 ? 0 : (self.z === -1 ? 1 : (self.z === -2 ? 8 : (self.z === 1 ? 3 : 5)));
                     var options = {
                       avoidDoors: true,
@@ -4653,7 +4727,7 @@ const Player = function(param) {
                       targetDoor: [closestTile[0], closestTile[1]]
                     };
                     
-                    var path = global.tilemapSystem.findPath(startLoc, [closestTile[0], closestTile[1]], layer, options);
+                    var path = findPathContextAware(startLoc, [closestTile[0], closestTile[1]], layer, options, self.id);
                     if(path && path.length > 0){
                       if(self.z !== -1 && typeof smoothPath === 'function'){
                         path = smoothPath(path, self.z);
@@ -4752,8 +4826,8 @@ const Player = function(param) {
         
         // Auto-work: Check if farm tile still needs seeding
         if(self.workTargetTile && self.workTargetTile.workType === 'farming'){
-          var checkTile = getTile(0, loc[0], loc[1]);
-          if(checkTile === TERRAIN.FARM_SEED && getTile(6, loc[0], loc[1]) < 25){
+          var checkTile = getTile(0, loc[0], loc[1], self.id);
+          if(checkTile === TERRAIN.FARM_SEED && getTile(6, loc[0], loc[1], self.id) < 25){
             // Still needs seeding - continue farming
             setTimeout(() => {
               if(Player.list[self.id] && self.workTargetTile && !self.working){
@@ -4827,8 +4901,8 @@ const Player = function(param) {
       
       // Auto-work: Check if farm tile still needs growing
       if(self.workTargetTile && self.workTargetTile.workType === 'farming'){
-        var checkTile = getTile(0, loc[0], loc[1]);
-        var checkRes = getTile(6, loc[0], loc[1]);
+        var checkTile = getTile(0, loc[0], loc[1], self.id);
+        var checkRes = getTile(6, loc[0], loc[1], self.id);
         if(checkTile === TERRAIN.FARM_GROWING && checkRes < 50){
           // Still needs growing - continue farming
           setTimeout(() => {
@@ -4883,8 +4957,8 @@ const Player = function(param) {
       
       // Auto-work: Check if farm tile still needs harvesting
       if(self.workTargetTile && self.workTargetTile.workType === 'farming'){
-        var checkTile = getTile(0, loc[0], loc[1]);
-        var checkRes = getTile(6, loc[0], loc[1]);
+        var checkTile = getTile(0, loc[0], loc[1], self.id);
+        var checkRes = getTile(6, loc[0], loc[1], self.id);
         if(checkTile === TERRAIN.FARM_READY && checkRes > 0){
           // Still has grain - continue harvesting
           setTimeout(() => {
@@ -5628,13 +5702,13 @@ Player.update = function() {
     if(player.attackMoveTarget && !player.path && !player.combat.target && player.action !== 'combat'){
       // Resume pathing to attack-move destination
       var dest = player.attackMoveTarget;
-      var startLoc = getLoc(player.x, player.y);
+      var startLoc = getLoc(player.x, player.y, player.id);
       var layer = dest.z === 0 ? 0 : (dest.z === -1 ? 1 : (dest.z === -2 ? 8 : (dest.z === 1 ? 3 : 5)));
       var options = {
         avoidDoors: true,
         avoidCaveExits: false
       };
-      var path = global.tilemapSystem.findPath(startLoc, [dest.col, dest.row], layer, options);
+      var path = findPathContextAware(startLoc, [dest.col, dest.row], layer, options, player.id);
       if(path && path.length > 0){
         if(dest.z !== -1 && typeof smoothPath === 'function'){
           path = smoothPath(path, dest.z);
@@ -7201,10 +7275,44 @@ io.on('connection', function(socket) {
             var tileY = data.tileY;
             var z = data.z;
             
+            // #region agent log
+            const fsSync = require('fs');
+            const logData = {
+              location: 'lambic.js:7276',
+              message: 'Click navigation received',
+              data: {
+                clientZ: data.z,
+                playerZ: player.z,
+                tileX,
+                tileY,
+                playerId: player.id
+              },
+              timestamp: Date.now(),
+              sessionId: 'debug-session',
+              runId: 'run2',
+              hypothesisId: 'J'
+            };
+            try {
+              fsSync.appendFileSync('/Users/johan/Documents/GitHub/lambic/.cursor/debug.log', JSON.stringify(logData) + '\n');
+            } catch (e) {}
+            // #endregion
+            
             // For indoor navigation (z=1 or z=2), ensure player's current z-level matches
             // Use player's current z-level if they're indoors to ensure consistency
             if((z === 1 || z === 2) && player.z !== z){
               z = player.z; // Use player's current z-level for indoor navigation
+            }
+            
+            // For cave navigation (z=-1), ensure player's current z-level matches
+            // Use player's current z-level if they're in caves to ensure consistency
+            if((z === -1 || player.z === -1) && player.z !== z){
+              z = player.z; // Use player's current z-level for cave navigation
+            }
+            
+            // For dungeon/cellar navigation (z=-2), ensure player's current z-level matches
+            // Use player's current z-level if they're in dungeons to ensure consistency
+            if((z === -2 || player.z === -2) && player.z !== z){
+              z = player.z; // Use player's current z-level for dungeon navigation
             }
             
             // Get the tile type at the clicked location
@@ -7271,7 +7379,30 @@ io.on('connection', function(socket) {
               }
             } else if(z === -1 || z === -2){
               // Caves - use isWalkable function to check pathfinding matrix (same as buildings)
-              isWalkableTile = isWalkable(z, tileX, tileY);
+              // #region agent log
+              const fsSync = require('fs');
+              const walkableResult = isWalkable(z, tileX, tileY, player.id);
+              const logData = {
+                location: 'lambic.js:7374',
+                message: 'isWalkable check for z=-1 or z=-2',
+                data: {
+                  z,
+                  tileX,
+                  tileY,
+                  playerId: player.id,
+                  isWalkableResult: walkableResult,
+                  playerZ: player.z
+                },
+                timestamp: Date.now(),
+                sessionId: 'debug-session',
+                runId: 'run2',
+                hypothesisId: 'K'
+              };
+              try {
+                fsSync.appendFileSync('/Users/johan/Documents/GitHub/lambic/.cursor/debug.log', JSON.stringify(logData) + '\n');
+              } catch (e) {}
+              // #endregion
+              isWalkableTile = walkableResult;
             } else if(z === 1 || z === 2){
               // Inside buildings - skip manual walkability check and let pathfinding handle it
               // The tilemap system's pathfinding will determine if the tile is reachable
@@ -7301,7 +7432,7 @@ io.on('connection', function(socket) {
               
               // Navigate to the tile using pathfinding
               // Always use direct pathfinding for players to ensure full path is returned
-              var startLoc = getLoc(player.x, player.y);
+              var startLoc = getLoc(player.x, player.y, player.id);
               
               // Determine the correct layer for pathfinding based on z-level
               var layer = 0;
@@ -7311,7 +7442,7 @@ io.on('connection', function(socket) {
               if(player.ghost){
                 options.ghost = true;
                 // If ghost is on water, allow the start tile
-                var isOnWater = getLocTile(0, player.x, player.y) == 0;
+                var isOnWater = getLocTile(0, player.x, player.y, player.id) == 0;
                 if(isOnWater){
                   options.allowStartTile = startLoc;
                 }
@@ -7360,6 +7491,30 @@ io.on('connection', function(socket) {
               } else if(z === -1){
                 layer = 1; // Cave (underworld)
                 
+                // #region agent log
+                const fsSync = require('fs');
+                const logData = {
+                  location: 'lambic.js:7434',
+                  message: 'Player at z=-1, setting layer=1 for pathfinding',
+                  data: {
+                    playerZ: z,
+                    layer,
+                    startLoc,
+                    targetLoc: [tileX, tileY],
+                    playerId: player.id,
+                    hasPath: !!player.path,
+                    pathLength: player.path?.length || 0
+                  },
+                  timestamp: Date.now(),
+                  sessionId: 'debug-session',
+                  runId: 'run2',
+                  hypothesisId: 'I'
+                };
+                try {
+                  fsSync.appendFileSync('/Users/johan/Documents/GitHub/lambic/.cursor/debug.log', JSON.stringify(logData) + '\n');
+                } catch (e) {}
+                // #endregion
+                
                 // Check if target is a cave exit
                 var isTargetCaveExit = false;
                 var isStartCaveExit = false;
@@ -7390,6 +7545,30 @@ io.on('connection', function(socket) {
                 }
               } else if(z === -2){
                 layer = 8; // Cellar
+                
+                // #region agent log
+                const fsSync = require('fs');
+                const logData = {
+                  location: 'lambic.js:7540',
+                  message: 'Player at z=-2, setting layer=8 for pathfinding',
+                  data: {
+                    playerZ: z,
+                    layer,
+                    startLoc,
+                    targetLoc: [tileX, tileY],
+                    playerId: player.id,
+                    hasPath: !!player.path,
+                    pathLength: player.path?.length || 0
+                  },
+                  timestamp: Date.now(),
+                  sessionId: 'debug-session',
+                  runId: 'run2',
+                  hypothesisId: 'L'
+                };
+                try {
+                  fsSync.appendFileSync('/Users/johan/Documents/GitHub/lambic/.cursor/debug.log', JSON.stringify(logData) + '\n');
+                } catch (e) {}
+                // #endregion
               } else if(z === -3){
                 layer = 2; // Underwater
                 // Underwater pathfinding - no need to avoid water (player is already underwater)
@@ -7400,7 +7579,56 @@ io.on('connection', function(socket) {
                 layer = 5; // Building floor 2
               }
               
-              var path = global.tilemapSystem.findPath(startLoc, [tileX, tileY], layer, options);
+              // #region agent log
+              if(z === -1 || z === -2) {
+                const fsSync = require('fs');
+                const logData = {
+                  location: 'lambic.js:7552',
+                  message: 'About to call findPathContextAware for z=-1 or z=-2',
+                  data: {
+                    playerZ: z,
+                    layer,
+                    startLoc,
+                    targetLoc: [tileX, tileY],
+                    playerId: player.id,
+                    options
+                  },
+                  timestamp: Date.now(),
+                  sessionId: 'debug-session',
+                  runId: 'run2',
+                  hypothesisId: z === -1 ? 'I' : 'L'
+                };
+                try {
+                  fsSync.appendFileSync('/Users/johan/Documents/GitHub/lambic/.cursor/debug.log', JSON.stringify(logData) + '\n');
+                } catch (e) {}
+              }
+              // #endregion
+              
+              var path = findPathContextAware(startLoc, [tileX, tileY], layer, options, player.id);
+              
+              // #region agent log
+              if(z === -1 || z === -2) {
+                const fsSync = require('fs');
+                const logData = {
+                  location: 'lambic.js:7579',
+                  message: 'findPathContextAware returned for z=-1 or z=-2',
+                  data: {
+                    playerZ: z,
+                    layer,
+                    hasPath: path !== null,
+                    pathLength: path?.length || 0,
+                    pathFirstWaypoint: path?.[0] || null
+                  },
+                  timestamp: Date.now(),
+                  sessionId: 'debug-session',
+                  runId: 'run2',
+                  hypothesisId: z === -1 ? 'I' : 'L'
+                };
+                try {
+                  fsSync.appendFileSync('/Users/johan/Documents/GitHub/lambic/.cursor/debug.log', JSON.stringify(logData) + '\n');
+                } catch (e) {}
+              }
+              // #endregion
               
               if(path && path.length > 0){
                 // Apply smoothing for non-cave paths
@@ -7498,12 +7726,12 @@ io.on('connection', function(socket) {
                 
                 var closestLandTile = null;
                 var closestDistance = Infinity;
-                var startLoc = getLoc(player.x, player.y);
+                var startLoc = getLoc(player.x, player.y, player.id);
                 
                 // Find closest land tile adjacent to water
                 for(var i = 0; i < adjacentTiles.length; i++){
                   var adjTile = adjacentTiles[i];
-                  var adjTileType = getTile(0, adjTile[0], adjTile[1]);
+                  var adjTileType = getTile(0, adjTile[0], adjTile[1], player.id);
                   
                   // Check if this is a land tile (not water, not heavy forest, not mountain)
                   if(adjTileType !== TERRAIN.WATER && 
@@ -7515,7 +7743,7 @@ io.on('connection', function(socket) {
                       avoidDoors: true,
                       avoidCaveExits: false
                     };
-                    var testPath = global.tilemapSystem.findPath(startLoc, adjTile, 0, options);
+                    var testPath = findPathContextAware(startLoc, adjTile, 0, options, player.id);
                     
                     if(testPath && testPath.length > 0){
                       var dist = Math.abs(adjTile[0] - startLoc[0]) + Math.abs(adjTile[1] - startLoc[1]);
@@ -7535,7 +7763,7 @@ io.on('connection', function(socket) {
                     avoidWater: true,
                     avoidCaveExits: false
                   };
-                  var path = global.tilemapSystem.findPath(startLoc, closestLandTile, 0, options);
+                  var path = findPathContextAware(startLoc, closestLandTile, 0, options, player.id);
                   if(path && path.length > 0){
                     if(typeof smoothPath === 'function'){
                       path = smoothPath(path, z);
@@ -7576,7 +7804,7 @@ io.on('connection', function(socket) {
                       options.targetDoor = [tileX, tileY];
                     }
                     
-                    var path = global.tilemapSystem.findPath(startLoc, [tileX, tileY], layer, options);
+                    var path = findPathContextAware(startLoc, [tileX, tileY], layer, options, player.id);
                   if(path && path.length > 0){
                     if(z !== -1 && typeof smoothPath === 'function'){
                       path = smoothPath(path, z);
@@ -7694,10 +7922,10 @@ io.on('connection', function(socket) {
             }
             
             if(entity && isInteractable){
-              var playerLoc = getLoc(player.x, player.y);
+            var playerLoc = getLoc(player.x, player.y, player.id);
               
               // Check if player is already adjacent to the entity
-              if(isPlayerAdjacentToEntity(entity, data.entityType, playerLoc)){
+            if(isPlayerAdjacentToEntity(entity, data.entityType, playerLoc, player.id)){
                 // Player is already adjacent - trigger interaction directly
                 var interactionLoc = null;
                 if(data.entityType === 'building'){
@@ -7757,7 +7985,7 @@ io.on('connection', function(socket) {
                 Interact(socket.id, interactionLoc);
               } else {
                 // Player is not adjacent - find closest adjacent walkable tile and pathfind
-                var adjacentTile = findClosestAdjacentWalkableTile(entity, data.entityType, player.z, playerLoc);
+                var adjacentTile = findClosestAdjacentWalkableTile(entity, data.entityType, player.z, playerLoc, player.id);
                 
                 if(adjacentTile){
                   // Store interaction target for when player reaches destination
@@ -7791,7 +8019,7 @@ io.on('connection', function(socket) {
                     layer = 5; // Building floor 2
                   }
                   
-                  var path = global.tilemapSystem.findPath(playerLoc, [tileX, tileY], layer, options);
+                  var path = findPathContextAware(playerLoc, [tileX, tileY], layer, options, player.id);
                   
                   if(path && path.length > 0){
                     // Apply smoothing for non-cave paths
@@ -7868,8 +8096,8 @@ io.on('connection', function(socket) {
               layer = 5; // Building floor 2
             }
             
-            var startLoc = getLoc(player.x, player.y);
-            var path = global.tilemapSystem.findPath(startLoc, [tileX, tileY], layer, options);
+            var startLoc = getLoc(player.x, player.y, player.id);
+            var path = findPathContextAware(startLoc, [tileX, tileY], layer, options, player.id);
             
             if(path && path.length > 0){
               // Apply smoothing for non-cave paths
@@ -8440,6 +8668,64 @@ io.on('connection', function(socket) {
                 message: '<span style="color:#ff6666;">You need a WorldMap item to use this feature.</span>'
               }));
             }
+          }
+        } else if (data.msg === 'requestBattlegroundMap') {
+          if (player && player.inBattleground && player.battlegroundMatchId) {
+            // Get battleground match data
+            const matchManager = global.battlegroundsMatchManager;
+            if (matchManager && matchManager.currentMatch && matchManager.currentMatch.matchId === player.battlegroundMatchId) {
+              const match = matchManager.currentMatch;
+              const mapData = match.mapData;
+              
+              if (mapData && mapData.worldData) {
+                // Determine which layer to use based on map type
+                let terrainData = null;
+                let startingZ = mapData.startingZ || 0;
+                
+                if (match.mapType === 'caves' || match.mapType === 'dungeons') {
+                  // Use layer 1 (z=-1) for caves/dungeons
+                  terrainData = mapData.worldData[1] || [];
+                  startingZ = -1;
+                } else {
+                  // Use layer 0 (z=0) for regular maps
+                  terrainData = mapData.worldData[0] || [];
+                  startingZ = 0;
+                }
+                
+                // Get player position in battleground
+                const playerX = player.x || (match.mapSize * 64 / 2);
+                const playerY = player.y || (match.mapSize * 64 / 2);
+                const playerZ = player.z || startingZ;
+                
+                // Send battleground map data
+                socket.write(JSON.stringify({
+                  msg: 'battlegroundMapData',
+                  terrain: terrainData,
+                  mapSize: match.mapSize,
+                  mapType: match.mapType,
+                  playerX: playerX,
+                  playerY: playerY,
+                  playerZ: playerZ,
+                  tileSize: 64,
+                  startingZ: startingZ
+                }));
+              } else {
+                socket.write(JSON.stringify({
+                  msg: 'addToChat',
+                  message: '<span style="color:#ff6666;">Battleground map data not available.</span>'
+                }));
+              }
+            } else {
+              socket.write(JSON.stringify({
+                msg: 'addToChat',
+                message: '<span style="color:#ff6666;">You are not in an active battleground match.</span>'
+              }));
+            }
+          } else {
+            socket.write(JSON.stringify({
+              msg: 'addToChat',
+              message: '<span style="color:#ff6666;">You are not in a battleground.</span>'
+            }));
           }
         } else if (data.msg === 'requestCaveMap') {
           if (player) {
