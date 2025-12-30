@@ -29,28 +29,6 @@ function canHouseSpawn(house) {
 function canHouseInit(house) {
   if (!house) return false;
   
-  // #region agent log
-  const fsSync = require('fs');
-  const logData = {
-    location: 'Houses.js:29',
-    message: 'canHouseInit called',
-    data: {
-      houseName: house?.name || 'unknown',
-      hasMatchManager: !!global.battlegroundsMatchManager,
-      hasCurrentMatch: !!(global.battlegroundsMatchManager && global.battlegroundsMatchManager.currentMatch),
-      matchStatus: global.battlegroundsMatchManager?.currentMatch?.status || 'none',
-      matchId: global.battlegroundsMatchManager?.currentMatch?.matchId || null
-    },
-    timestamp: Date.now(),
-    sessionId: 'debug-session',
-    runId: 'run1',
-    hypothesisId: 'H'
-  };
-  try {
-    fsSync.appendFileSync('/Users/johan/Documents/GitHub/lambic/.cursor/debug.log', JSON.stringify(logData) + '\n');
-  } catch (e) {}
-  // #endregion
-  
   // Only allow Outlaws and Mercenaries factions to initialize when a battleground match is active
   // This prevents other factions (like Brotherhood) from spawning entities during genesis post-processing
   if (global.battlegroundsMatchManager && global.battlegroundsMatchManager.currentMatch) {
@@ -59,26 +37,6 @@ function canHouseInit(house) {
       // Check if house is allowed in battlegrounds (only Outlaws and Mercenaries)
       const allowedFactions = ['Outlaws', 'Mercenaries'];
       const houseName = house.name || '';
-      
-      // #region agent log
-      const logData2 = {
-        location: 'Houses.js:50',
-        message: 'canHouseInit checking faction',
-        data: {
-          houseName,
-          allowedFactions,
-          isAllowed: allowedFactions.includes(houseName),
-          willReturn: allowedFactions.includes(houseName)
-        },
-        timestamp: Date.now(),
-        sessionId: 'debug-session',
-        runId: 'run1',
-        hypothesisId: 'H'
-      };
-      try {
-        fsSync.appendFileSync('/Users/johan/Documents/GitHub/lambic/.cursor/debug.log', JSON.stringify(logData2) + '\n');
-      } catch (e) {}
-      // #endregion
       
       if (!allowedFactions.includes(houseName)) {
         // Prevent non-allowed factions from initializing when a match is active

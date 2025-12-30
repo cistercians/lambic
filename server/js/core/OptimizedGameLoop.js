@@ -1,6 +1,7 @@
 // Optimized Game Loop
 const PerformanceOptimizer = require('./PerformanceOptimizer.js');
 const OptimizedEntityManager = require('./OptimizedEntityManager.js');
+const mapContextHelpers = require('./MapContextHelpers.js');
 
 class OptimizedGameLoop {
   constructor() {
@@ -211,6 +212,7 @@ class OptimizedGameLoop {
     const lightPack = Light.update();
     const lightTime = Date.now() - t4;
     
+    
     const t5 = Date.now();
     const buildingPack = Building.update();
     const buildingTime = Date.now() - t5;
@@ -261,16 +263,6 @@ class OptimizedGameLoop {
     // Combine critical and non-critical (non-critical may be empty if not time to send)
     const combinedPlayerPack = [...criticalPlayerPack, ...nonCriticalPlayerPack];
     
-    // #region agent log
-    // Hypothesis C: Check if battleground NPCs are in final pack sent to clients
-    const bgNPCsInFinal = combinedPlayerPack.filter(e => {
-      const p = Player.list[e.id];
-      return p && p.type === 'npc' && p.inBattleground && p.battlegroundMatchId;
-    });
-    if(bgNPCsInFinal.length > 0) {
-      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'OptimizedGameLoop.js:249',message:'Battleground NPCs in final pack',data:{npcCount:bgNPCsInFinal.length,npcIds:bgNPCsInFinal.map(e => e.id),totalPackSize:combinedPlayerPack.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-    }
-    // #endregion
     
     // Apply delta compression to reduce packet size
     let compressedPlayerPack = combinedPlayerPack;
@@ -307,6 +299,7 @@ class OptimizedGameLoop {
     if(this.spatialFilteringEnabled && weatherPack) {
       filteredWeatherPack = this.spatialFilterWeather(weatherPack);
     }
+    
     
     const pack = {
       player: compressedPlayerPack,
@@ -427,6 +420,20 @@ class OptimizedGameLoop {
     }
     
     // Performance logging now happens once per tempus hour (see lambic.js dayNight function)
+    
+    // CRITICAL: Validate context isolation before sending packets
+    // Check each player's context and validate their update pack
+    for(const id in Player.list) {
+      const player = Player.list[id];
+      if(player && player.type === 'player') {
+        const playerMatchId = player.battlegroundMatchId || null;
+        const validation = mapContextHelpers.validateContextIsolation(finalPack, playerMatchId);
+        if(!validation.valid && validation.issues.length > 0) {
+          // Log context isolation violations
+          console.warn(`[OptimizedGameLoop] Context isolation violation for player ${id}:`, validation.issues);
+        }
+      }
+    }
     
     // Send main packet
     this.emit({ msg: 'update', pack: finalPack });
@@ -702,6 +709,8 @@ class OptimizedGameLoop {
     // Get all player positions with map context information
     const playerPositions = [];
     let playersWithStaleContext = [];
+    let battlegroundPlayers = [];
+    let mainWorldPlayers = [];
     for(const id in Player.list) {
       const player = Player.list[id];
       if(player && player.type === 'player' && typeof player.x === 'number' && typeof player.y === 'number') {
@@ -713,6 +722,9 @@ class OptimizedGameLoop {
           if(!hasActiveMatch) {
             playersWithStaleContext.push({id, matchId: player.battlegroundMatchId});
           }
+          battlegroundPlayers.push(id);
+        } else {
+          mainWorldPlayers.push(id);
         }
         
         playerPositions.push({ 
@@ -728,9 +740,7 @@ class OptimizedGameLoop {
     
     // Log players with stale context (context set but no active match)
     if(playersWithStaleContext.length > 0) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'OptimizedGameLoop.js:702',message:'Players with stale battleground context detected',data:{staleCount:playersWithStaleContext.length,players:playersWithStaleContext,hasMatchManager:!!global.battlegroundsMatchManager,hasCurrentMatch:!!(global.battlegroundsMatchManager && global.battlegroundsMatchManager.currentMatch),currentMatchId:global.battlegroundsMatchManager?.currentMatch?.matchId || null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
-      // #endregion
+      console.warn(`[OptimizedGameLoop] Players with stale battleground context detected:`, playersWithStaleContext);
     }
     
     // If no players, send all entities (for initial connection)
@@ -792,13 +802,6 @@ class OptimizedGameLoop {
       
       // Check if this is an NPC in battleground
       const isBattlegroundNPC = entityPlayer && entityPlayer.type === 'npc' && entityInBattleground;
-      
-      // #region agent log
-      // Hypothesis D: Check if battleground NPCs pass spatial filtering
-      if(isBattlegroundNPC && entityPlayer) {
-        fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'OptimizedGameLoop.js:718',message:'Spatial filter check for NPC',data:{npcId:entity.id,isNearPlayer,entityMatchId,playerPositionsCount:playerPositions.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-      }
-      // #endregion
       
       // Always include player's own entity (required for movement updates)
       const isOwnEntity = entity.id && Player.list[entity.id] && Player.list[entity.id].type === 'player';
@@ -901,22 +904,17 @@ class OptimizedGameLoop {
       
       // Get building's map context from Building.list if available
       const buildingEntity = building.id && global.Building && global.Building.list ? global.Building.list[building.id] : null;
-      const buildingInBattleground = !!(buildingEntity && buildingEntity.inBattleground);
-      const buildingMatchId = buildingEntity ? (buildingEntity.battlegroundMatchId || null) : null;
-      
-      // CRITICAL: If building doesn't have map context properties and there are battleground players, exclude it
-      // (buildings without inBattleground are assumed to be main world buildings)
-      const hasBattlegroundPlayers = playerPositions.some(p => p.inBattleground);
-      if(hasBattlegroundPlayers && !buildingInBattleground) {
-        continue; // Skip main world buildings for battleground players
+      if (!buildingEntity) {
+        // Building not in Building.list - skip it
+        continue;
       }
       
-      // CRITICAL: First check map context - buildings from different map contexts should NEVER be included
+      // CRITICAL: Use MapContextHelpers to check if building is in same context as any player
+      // This prevents main world buildings from appearing in battlegrounds and vice versa
       let hasMatchingMapContext = false;
       for(const playerPos of playerPositions) {
-        const sameMapContext = (playerPos.inBattleground && buildingInBattleground && playerPos.battlegroundMatchId === buildingMatchId) ||
-                               (!playerPos.inBattleground && !buildingInBattleground);
-        if(sameMapContext) {
+        const playerEntity = Player.list[playerPos.playerId];
+        if (playerEntity && mapContextHelpers.areInSameContext(buildingEntity, playerEntity)) {
           hasMatchingMapContext = true;
           break;
         }
@@ -1010,15 +1008,16 @@ class OptimizedGameLoop {
       
       // Get item's map context from Item.list if available
       const itemEntity = item.id && global.Item && global.Item.list ? global.Item.list[item.id] : null;
-      const itemInBattleground = !!(itemEntity && itemEntity.inBattleground);
-      const itemMatchId = itemEntity ? (itemEntity.battlegroundMatchId || null) : null;
+      if (!itemEntity) {
+        // Item not in Item.list - skip it
+        continue;
+      }
       
-      // CRITICAL: First check map context - items from different map contexts should NEVER be included
+      // CRITICAL: Use MapContextHelpers to check if item is in same context as any player
       let hasMatchingMapContext = false;
       for(const playerPos of playerPositions) {
-        const sameMapContext = (playerPos.inBattleground && itemInBattleground && playerPos.battlegroundMatchId === itemMatchId) ||
-                               (!playerPos.inBattleground && !itemInBattleground);
-        if(sameMapContext) {
+        const playerEntity = Player.list[playerPos.playerId];
+        if (playerEntity && mapContextHelpers.areInSameContext(itemEntity, playerEntity)) {
           hasMatchingMapContext = true;
           break;
         }
@@ -1032,11 +1031,9 @@ class OptimizedGameLoop {
       // Check if item is near any player AND in same map context
       let isNearPlayer = false;
       for(const playerPos of playerPositions) {
+        const playerEntity = Player.list[playerPos.playerId];
         // CRITICAL: Only check distance if on same z-level AND same map context
-        const sameMapContext = (playerPos.inBattleground && itemInBattleground && playerPos.battlegroundMatchId === itemMatchId) ||
-                               (!playerPos.inBattleground && !itemInBattleground);
-        
-        if(item.z === playerPos.z && sameMapContext) {
+        if (playerEntity && mapContextHelpers.areInSameContext(itemEntity, playerEntity) && item.z === playerPos.z) {
           const dx = item.x - playerPos.x;
           const dy = item.y - playerPos.y;
           const distanceSquared = dx * dx + dy * dy;
@@ -1112,46 +1109,25 @@ class OptimizedGameLoop {
         continue;
       }
       
-      // Get arrow's map context from parent entity or Arrow.list
-      let arrowInBattleground = false;
-      let arrowMatchId = null;
-      
-      // First check if arrow has direct context properties
-      if(arrow.inBattleground && arrow.battlegroundMatchId) {
-        arrowInBattleground = true;
-        arrowMatchId = arrow.battlegroundMatchId;
-      } else if(arrow.parent) {
-        // Check parent entity for context
-        const parentEntity = global.Player && global.Player.list ? global.Player.list[arrow.parent] : null;
-        if(parentEntity) {
-          arrowInBattleground = !!(parentEntity.inBattleground && parentEntity.battlegroundMatchId);
-          arrowMatchId = parentEntity.battlegroundMatchId || null;
-        } else if(global.Arrow && global.Arrow.list && global.Arrow.list[arrow.id]) {
-          // Check Arrow.list for context
-          const arrowEntity = global.Arrow.list[arrow.id];
-          arrowInBattleground = !!(arrowEntity.inBattleground && arrowEntity.battlegroundMatchId);
-          arrowMatchId = arrowEntity.battlegroundMatchId || null;
-        }
-      } else if(global.Arrow && global.Arrow.list && global.Arrow.list[arrow.id]) {
-        // Check Arrow.list for context
-        const arrowEntity = global.Arrow.list[arrow.id];
-        arrowInBattleground = !!(arrowEntity.inBattleground && arrowEntity.battlegroundMatchId);
-        arrowMatchId = arrowEntity.battlegroundMatchId || null;
+      // Get arrow's map context from Arrow.list or parent entity
+      let arrowEntity = null;
+      if(global.Arrow && global.Arrow.list && global.Arrow.list[arrow.id]) {
+        arrowEntity = global.Arrow.list[arrow.id];
+      } else if(arrow.parent && global.Player && global.Player.list) {
+        // Arrows inherit context from parent
+        arrowEntity = global.Player.list[arrow.parent];
       }
       
-      // CRITICAL: If arrow doesn't have map context properties and there are battleground players, exclude it
-      // (arrows without inBattleground are assumed to be main world arrows)
-      const hasBattlegroundPlayers = playerPositions.some(p => p.inBattleground);
-      if(hasBattlegroundPlayers && !arrowInBattleground) {
-        continue; // Skip main world arrows for battleground players
+      if (!arrowEntity) {
+        // Arrow not found - skip it
+        continue;
       }
       
-      // CRITICAL: First check map context - arrows from different map contexts should NEVER be included
+      // CRITICAL: Use MapContextHelpers to check if arrow is in same context as any player
       let hasMatchingMapContext = false;
       for(const playerPos of playerPositions) {
-        const sameMapContext = (playerPos.inBattleground && arrowInBattleground && playerPos.battlegroundMatchId === arrowMatchId) ||
-                               (!playerPos.inBattleground && !arrowInBattleground);
-        if(sameMapContext) {
+        const playerEntity = Player.list[playerPos.playerId];
+        if (playerEntity && mapContextHelpers.areInSameContext(arrowEntity, playerEntity)) {
           hasMatchingMapContext = true;
           break;
         }
@@ -1165,10 +1141,9 @@ class OptimizedGameLoop {
       // Check if arrow is near any player AND in same map context
       let isNearPlayer = false;
       for(const playerPos of playerPositions) {
-        const sameMapContext = (playerPos.inBattleground && arrowInBattleground && playerPos.battlegroundMatchId === arrowMatchId) ||
-                               (!playerPos.inBattleground && !arrowInBattleground);
-        
-        if(arrow.z === playerPos.z && sameMapContext) {
+        const playerEntity = Player.list[playerPos.playerId];
+        // CRITICAL: Only check distance if on same z-level AND same map context
+        if (playerEntity && mapContextHelpers.areInSameContext(arrowEntity, playerEntity) && arrow.z === playerPos.z) {
           const dx = arrow.x - playerPos.x;
           const dy = arrow.y - playerPos.y;
           const distanceSquared = dx * dx + dy * dy;
@@ -1244,22 +1219,16 @@ class OptimizedGameLoop {
       
       // Get light's map context from Light.list if available
       const lightEntity = light.id && global.Light && global.Light.list ? global.Light.list[light.id] : null;
-      const lightInBattleground = !!(lightEntity && lightEntity.inBattleground);
-      const lightMatchId = lightEntity ? (lightEntity.battlegroundMatchId || null) : null;
-      
-      // CRITICAL: If light doesn't have map context properties and there are battleground players, exclude it
-      // (lights without inBattleground are assumed to be main world lights)
-      const hasBattlegroundPlayers = playerPositions.some(p => p.inBattleground);
-      if(hasBattlegroundPlayers && !lightInBattleground) {
-        continue; // Skip main world lights for battleground players
+      if (!lightEntity) {
+        // Light not in Light.list - skip it
+        continue;
       }
       
-      // CRITICAL: First check map context - lights from different map contexts should NEVER be included
+      // CRITICAL: Use MapContextHelpers to check if light is in same context as any player
       let hasMatchingMapContext = false;
       for(const playerPos of playerPositions) {
-        const sameMapContext = (playerPos.inBattleground && lightInBattleground && playerPos.battlegroundMatchId === lightMatchId) ||
-                               (!playerPos.inBattleground && !lightInBattleground);
-        if(sameMapContext) {
+        const playerEntity = Player.list[playerPos.playerId];
+        if (playerEntity && mapContextHelpers.areInSameContext(lightEntity, playerEntity)) {
           hasMatchingMapContext = true;
           break;
         }
@@ -1273,10 +1242,9 @@ class OptimizedGameLoop {
       // Check if light is near any player AND in same map context
       let isNearPlayer = false;
       for(const playerPos of playerPositions) {
-        const sameMapContext = (playerPos.inBattleground && lightInBattleground && playerPos.battlegroundMatchId === lightMatchId) ||
-                               (!playerPos.inBattleground && !lightInBattleground);
-        
-        if(light.z === playerPos.z && sameMapContext) {
+        const playerEntity = Player.list[playerPos.playerId];
+        // CRITICAL: Only check distance if on same z-level AND same map context
+        if (playerEntity && mapContextHelpers.areInSameContext(lightEntity, playerEntity) && light.z === playerPos.z) {
           const dx = light.x - playerPos.x;
           const dy = light.y - playerPos.y;
           const distanceSquared = dx * dx + dy * dy;

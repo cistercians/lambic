@@ -50,17 +50,39 @@ class BattlegroundsEliteNPCBehavior {
       return global.Player.list[npcId];
     }).filter(npc => npc && !npc.toRemove);
 
-    // #region agent log
-    // Hypothesis B: Check if behavior system is running and finding NPCs
-    fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCBehavior.js:51',message:'Behavior update running',data:{eliteNPCsCount:eliteNPCs.length,npcsFound:npcs.length,npcIds:npcs.map(n => n.id)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
-
     npcs.forEach(npc => {
       if (!npc || !npc.alive || npc.toRemove) return;
 
       // Get NPC's participant info
       const participant = participants.find(p => p.id === npc.id);
-      if (!participant) return;
+      if (!participant) {
+        return;
+      }
+
+      // CRITICAL: Set mode and action so normal Character.update() handles movement/combat
+      // The normal system expects these properties to be set
+      const previousMode = npc.mode;
+      const previousAction = npc.action;
+      
+      if (!npc.mode || npc.mode === 'idle') {
+        // Set mode based on game mode - this tells Character.update() what to do
+        npc.mode = 'raid'; // Use 'raid' mode for battlegrounds - NPCs will attack enemies
+        
+        // For 'raid' mode, the normal system expects self.raid.target to be set
+        // This should be a tile location [col, row] that the NPC will move towards
+        // We'll set this in the game-mode-specific behavior methods
+        if (!npc.raid) {
+          npc.raid = {};
+        }
+      }
+      
+      // If NPC has a combat target, set action to 'combat' so normal system handles it
+      if (npc.combat && npc.combat.target) {
+        npc.action = 'combat';
+      } else if (!npc.action || npc.action === 'idle') {
+        // No combat target - clear action so normal system can set it
+        npc.action = null;
+      }
 
       try {
         if (gameMode === 'deathmatch') {
@@ -106,7 +128,24 @@ class BattlegroundsEliteNPCBehavior {
         timestamp: Date.now()
       };
 
+      // Set raid target for normal system (tile coordinates [col, row])
+      // CRITICAL: raid.target must be set for Character.update() raid mode to work
+      const getLoc = global.getLoc || ((x, y) => {
+        const tileSize = global.tileSize || 64;
+        return [Math.floor(x / tileSize), Math.floor(y / tileSize)];
+      });
+      const targetLoc = getLoc(targetX, targetY);
+      if (targetLoc && targetLoc.length >= 2) {
+        // Ensure raid object exists
+        if (!npc.raid) {
+          npc.raid = {};
+        }
+        npc.raid.target = targetLoc; // Normal system expects this for 'raid' mode
+      }
+
       // Issue attack-move command (move to target, attacking enemies along the way)
+      // The normal system will handle movement via mode='raid' and raid.target
+      // But we can also call moveTo() directly as a fallback
       this.issueAttackMoveCommand(npc, targetX, targetY, npc.z || match.mapData.startingZ || 0);
     }
   }
@@ -137,6 +176,16 @@ class BattlegroundsEliteNPCBehavior {
         z: npc.z || match.mapData.startingZ || 0,
         timestamp: Date.now()
       };
+
+      // Set raid target for normal system (tile coordinates [col, row])
+      const getLoc = global.getLoc || ((x, y) => {
+        const tileSize = global.tileSize || 64;
+        return [Math.floor(x / tileSize), Math.floor(y / tileSize)];
+      });
+      const targetLoc = getLoc(targetX, targetY);
+      if (targetLoc && targetLoc.length >= 2) {
+        npc.raid.target = targetLoc; // Normal system expects this for 'raid' mode
+      }
 
       this.issueAttackMoveCommand(npc, targetX, targetY, npc.z || match.mapData.startingZ || 0);
     }
@@ -258,24 +307,61 @@ class BattlegroundsEliteNPCBehavior {
       fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCBehavior.js:250',message:'Issuing movement command',data:{npcId:npc.id,hasMoveTo,targetX,targetY,targetZ,currentX:npc.x,currentY:npc.y},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
       // #endregion
       if (typeof npc.moveTo === 'function') {
-        npc.moveTo(targetZ, targetX, targetY);
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCBehavior.js:252',message:'moveTo() called',data:{npcId:npc.id,hasPathAfter:!!(npc.path && npc.path.length > 0)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-        // #endregion
-      } else {
-        // Fallback: set path directly
+        // moveTo expects (z, col, row) - convert pixel coordinates to tile coordinates
         const getLoc = global.getLoc || ((x, y) => {
           const tileSize = global.tileSize || 64;
           return [Math.floor(x / tileSize), Math.floor(y / tileSize)];
         });
-
+        const targetLoc = getLoc(targetX, targetY);
+        if (targetLoc && targetLoc.length >= 2) {
+          npc.moveTo(targetZ, targetLoc[0], targetLoc[1]);
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCBehavior.js:273',message:'moveTo() called',data:{npcId:npc.id,targetZ,targetCol:targetLoc[0],targetRow:targetLoc[1],hasPathAfter:!!(npc.path && npc.path.length > 0),pathLength:npc.path ? npc.path.length : 0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'P'})}).catch(()=>{});
+          // #endregion
+        } else {
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCBehavior.js:278',message:'moveTo() failed - invalid targetLoc',data:{npcId:npc.id,targetX,targetY,targetLoc},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'P'})}).catch(()=>{});
+          // #endregion
+        }
+      } else {
+        // Fallback: use pathfinding directly to create a path
+        const getLoc = global.getLoc || ((x, y) => {
+          const tileSize = global.tileSize || 64;
+          return [Math.floor(x / tileSize), Math.floor(y / tileSize)];
+        });
+        const findPathContextAware = global.findPathContextAware || global.findPath;
+        
+        if (findPathContextAware) {
+          const startLoc = getLoc(npc.x, npc.y);
+          const targetLoc = getLoc(targetX, targetY);
+          const layer = targetZ === 0 ? 0 : (targetZ === -1 ? 1 : (targetZ === -2 ? 8 : (targetZ === 1 ? 3 : 5)));
+          const options = {
+            avoidDoors: true,
+            avoidCaveExits: false
+          };
+          
+          const path = findPathContextAware(startLoc, targetLoc, layer, options, npc.id);
+          if (path && path.length > 0) {
+            npc.path = path;
+            npc.pathCount = 0;
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCBehavior.js:278',message:'Fallback pathfinding created path',data:{npcId:npc.id,pathLength:path.length,startLoc,targetLoc},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'P'})}).catch(()=>{});
+            // #endregion
+          } else {
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCBehavior.js:285',message:'Fallback pathfinding failed - no path found',data:{npcId:npc.id,startLoc,targetLoc,layer},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'P'})}).catch(()=>{});
+            // #endregion
+          }
+        } else {
+          // Last resort: set targetLoc
         const targetLoc = getLoc(targetX, targetY);
         if (targetLoc) {
           npc.path = null; // Clear existing path
           npc.targetLoc = { loc: targetLoc, z: targetZ };
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCBehavior.js:262',message:'Fallback targetLoc set',data:{npcId:npc.id,targetLoc},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-          // #endregion
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCBehavior.js:291',message:'Fallback targetLoc set (no pathfinding available)',data:{npcId:npc.id,targetLoc},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'P'})}).catch(()=>{});
+            // #endregion
+          }
         }
       }
     }
@@ -290,6 +376,10 @@ class BattlegroundsEliteNPCBehavior {
 
     // Check if NPC is within guard radius
     const distance = this.getDistance(npc, guardTarget);
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCBehavior.js:300',message:'Issuing guard command',data:{npcId:npc.id,hasMoveTo:typeof npc.moveTo === 'function',guardTargetX:guardTarget.x,guardTargetY:guardTarget.y},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'P'})}).catch(()=>{});
+    // #endregion
     const guardRadius = guardTarget.radius || (global.tileSize * 5);
 
     // Check for enemies nearby

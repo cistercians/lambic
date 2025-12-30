@@ -40,10 +40,51 @@ var checkInterval = setInterval(function() {
 }, 50);
 
 var SocketManager = {
+  // Connection retry state
+  retryCount: 0,
+  maxRetries: 5,
+  retryDelay: 1000, // Start with 1 second
+  retryTimeout: null,
+  isConnecting: false,
+  
+  /**
+   * Get the server URL, auto-detecting from current page location
+   * Falls back to localhost:2000 if not accessible
+   */
+  getServerUrl: function() {
+    // Check if a custom server URL is configured
+    if (typeof window !== 'undefined' && window.SERVER_URL) {
+      return window.SERVER_URL;
+    }
+    
+    // Auto-detect from current page location
+    if (typeof window !== 'undefined' && window.location) {
+      var protocol = window.location.protocol; // "http:" or "https:"
+      var hostname = window.location.hostname;
+      var currentPort = window.location.port;
+      
+      // Use the same hostname as the current page
+      // Server always runs on port 2000, regardless of client port
+      var serverPort = '2000';
+      
+      // Build URL: protocol + "//" + hostname + ":" + port
+      return protocol + '//' + hostname + ':' + serverPort;
+    }
+    
+    // Default fallback
+    return 'http://localhost:2000';
+  },
+
   /**
    * Clean up existing socket connection
    */
   cleanup: function() {
+    // Clear any pending retry
+    if (this.retryTimeout) {
+      clearTimeout(this.retryTimeout);
+      this.retryTimeout = null;
+    }
+    
     // Access global socket variable (declared in client.js)
     if (typeof window !== 'undefined' && window.socket) {
       var socket = window.socket;
@@ -61,16 +102,35 @@ var SocketManager = {
       if (socket.close) socket.close();
       socket = null;
     }
+    
+    this.isConnecting = false;
   },
 
   /**
-   * Initialize WebSocket connection
+   * Initialize WebSocket connection with retry logic
+   * @param {boolean} isRetry - Whether this is a retry attempt
    * @returns {Object} The socket instance
    */
-  init: function() {
-    this.cleanup(); // Clean up any existing socket
+  init: function(isRetry) {
+    if (this.isConnecting && !isRetry) {
+      console.warn('Socket connection already in progress');
+      return window.socket || socket;
+    }
     
-    var newSocket = SockJS('http://localhost:2000/io');
+    this.cleanup(); // Clean up any existing socket
+    this.isConnecting = true;
+    
+    var serverUrl = this.getServerUrl();
+    var socketUrl = serverUrl + '/io';
+    
+    if (!isRetry) {
+      this.retryCount = 0;
+      console.log('Connecting to server at:', socketUrl);
+    } else {
+      console.log('Retrying connection to server (attempt ' + this.retryCount + '/' + this.maxRetries + ')...');
+    }
+    
+    var newSocket = SockJS(socketUrl);
     
     // Store socket in global scope (window.socket) so it's accessible from client.js
     if (typeof window !== 'undefined') {
@@ -82,7 +142,13 @@ var SocketManager = {
     }
     
     // Track socket listeners
+    var self = this;
     newSocket.onopen = function(){
+      // Connection successful - reset retry state
+      self.retryCount = 0;
+      self.isConnecting = false;
+      console.log('Socket connected successfully to:', socketUrl);
+      
       // Request initial world data for login screen preview
       newSocket.send(JSON.stringify({msg:'requestPreviewData'}));
     };
@@ -122,9 +188,36 @@ var SocketManager = {
     };
     
     newSocket.onclose = function(event){
+      self.isConnecting = false;
+      
       // Check if this was an abnormal closure (not a clean disconnect)
       if (event.code !== 1000 && event.code !== 1001) {
-        console.warn('Socket connection closed abnormally. Code:', event.code, 'Reason:', event.reason || 'Unknown');
+        var reason = event.reason || 'Unknown';
+        console.warn('Socket connection closed abnormally. Code:', event.code, 'Reason:', reason);
+        
+        // Retry connection if it failed due to blocking or connection issues
+        // Code 1002 = abnormal closure, 1006 = abnormal closure (no close frame)
+        if ((event.code === 1002 || event.code === 1006) && 
+            (reason.indexOf('Cannot connect') !== -1 || reason.indexOf('blocked') !== -1)) {
+          
+          if (self.retryCount < self.maxRetries) {
+            self.retryCount++;
+            // Exponential backoff: 1s, 2s, 4s, 8s, 16s
+            var delay = self.retryDelay * Math.pow(2, self.retryCount - 1);
+            console.log('Will retry connection in', delay / 1000, 'seconds...');
+            
+            self.retryTimeout = setTimeout(function() {
+              self.init(true); // Retry
+            }, delay);
+          } else {
+            console.error('Failed to connect after', self.maxRetries, 'attempts.');
+            console.error('Possible causes:');
+            console.error('1. Browser extension is blocking the connection (try disabling ad blockers)');
+            console.error('2. Server is not running on', serverUrl);
+            console.error('3. Firewall or network issues');
+            console.error('You can manually retry by calling SocketManager.init()');
+          }
+        }
       } else {
         console.log('Socket connection closed normally');
       }

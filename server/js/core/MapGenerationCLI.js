@@ -275,17 +275,22 @@ class MapGenerationCLI {
     console.log('Choose setup mode:');
     console.log('  1. Use defaults (Continental, Small 192×192)');
     console.log('  2. Customize settings');
+    console.log('  3. Test Map (Continental, 64×64, no preview)');
     console.log('');
 
     while (true) {
-      const answer = await this.question('Enter your choice (1-2): ');
+      const answer = await this.question('Enter your choice (1-3): ');
       const choice = parseInt(answer.trim());
       
-      if (choice === 1 || choice === 2) {
-        return choice === 1;
+      if (choice === 1) {
+        return 'defaults';
+      } else if (choice === 2) {
+        return 'customize';
+      } else if (choice === 3) {
+        return 'test';
       }
       
-      console.log('Invalid choice. Please enter 1 or 2.');
+      console.log('Invalid choice. Please enter 1, 2, or 3.');
     }
   }
 
@@ -315,10 +320,65 @@ class MapGenerationCLI {
       let worldMaps = null;
       let entrances = null;
 
-      // Ask if user wants to use defaults
-      const useDefaults = await this.promptUseDefaults();
+      // Ask if user wants to use defaults, customize, or test map
+      const setupMode = await this.promptUseDefaults();
 
-      if (useDefaults) {
+      // Handle test map option - generate map, show preview, then return without asking for acceptance
+      if (setupMode === 'test') {
+        console.log('');
+        console.log('Generating test map (Continental, 64×64)...');
+        const startTime = Date.now();
+        
+        // Get continental preset
+        const preset = genesis.presets.continental;
+        if (!preset) {
+          throw new Error('Continental preset not found');
+        }
+        
+        // Calculate scale factor for reverse-scaling frequencies
+        // This ensures 64×64 maps use the same frequencies as 128×128 maps
+        const BASE_MAP_SIZE = 128;
+        const testMapSize = 64;
+        const scaleFactor = testMapSize / BASE_MAP_SIZE;
+        
+        // Create config with reverse-scaled frequencies (same approach as Battlegrounds)
+        const config = {
+          ...preset,
+          mapSize: testMapSize,
+          // Reverse-scale frequencies so they match base 128×128 values after genesis applies its scaling
+          redFrequencyX: preset.redFrequencyX / scaleFactor,
+          redFrequencyY: preset.redFrequencyY / scaleFactor,
+          greenFrequencyX: preset.greenFrequencyX / scaleFactor,
+          greenFrequencyY: preset.greenFrequencyY / scaleFactor,
+          blueFrequencyX: preset.blueFrequencyX / scaleFactor,
+          blueFrequencyY: preset.blueFrequencyY / scaleFactor
+          // Note: Amplitudes and offsets are NOT scaled by genesis, so we keep them as-is
+        };
+        
+        const result = genesis.generate(config);
+        const endTime = Date.now();
+        console.log(`Test map generated in ${((endTime - startTime) / 1000).toFixed(2)} seconds`);
+        console.log('');
+        
+        // Display preview
+        try {
+          this.displayMapPreview(result.worldMaps);
+        } catch (error) {
+          console.error('Error displaying preview:', error.message);
+          // Continue anyway - preview is not critical
+        }
+        
+        this.closeReadline();
+        
+        return {
+          biome: 'continental',
+          mapSize: testMapSize,
+          worldMaps: result.worldMaps,
+          entrances: result.entrances
+        };
+      }
+
+      if (setupMode === 'defaults') {
         // Use default values: Continental biome, Small (192×192) size
         biome = 'continental';
         mapSize = 192;

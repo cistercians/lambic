@@ -397,12 +397,6 @@ class BattlegroundsEliteNPCManager {
       // Use planned NPC name if available, otherwise use npcType
       const npcName = plannedNPC ? plannedNPC.name : npcType;
       
-      // #region agent log
-      const npcClassExists = !!(global[npcClass]);
-      const npcClassType = typeof global[npcClass];
-      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCManager.js:400',message:'Creating NPC entity',data:{npcId,npcClass,spawnX:spawnPoint.x,spawnY:spawnPoint.y,spawnZ:spawnPoint.z,npcClassExists,npcClassType},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
-      // #endregion
-      
       const npcParams = {
         id: npcId,
         name: npcName,
@@ -422,21 +416,15 @@ class BattlegroundsEliteNPCManager {
         wanderRange: tileSize * 10
       };
       
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCManager.js:403',message:'About to call NPC constructor',data:{npcClass,npcId,hasParams:!!npcParams},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
-      // #endregion
-      
       npc = global[npcClass](npcParams);
       
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCManager.js:420',message:'NPC constructor returned',data:{npcClass,npcId,hasNPC:!!npc,npcType:typeof npc,npcValue:npc,hasPlayerList:!!(global.Player && global.Player.list),npcInPlayerList:!!(global.Player && global.Player.list && global.Player.list[npcId])},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
-      // #endregion
-      
-      // Ensure class and sex are set on the entity (in case constructor doesn't set them)
+      // CRITICAL: Force-set class, sex, and name on the entity (constructors may override)
       if (npc) {
-        if (!npc.class) npc.class = npcClass;
-        if (!npc.sex) npc.sex = sex;
-        if (!npc.name || npc.name === npcType) npc.name = displayName;
+        // Force set these properties - don't check if they exist, just overwrite
+        // Do this AFTER constructor to ensure it's not overridden
+        npc.class = npcClass;
+        npc.sex = sex;
+        npc.name = displayName;
         
         // CRITICAL: Ensure map context is set on NPC
         if (global.mapContextHelpers) {
@@ -446,24 +434,32 @@ class BattlegroundsEliteNPCManager {
           npc.inBattleground = true;
           npc.battlegroundMatchId = match.matchId;
         }
+        
+        // CRITICAL: Ensure NPC is marked for updates (needed for movement/combat)
+        // Battleground NPCs should always update every frame
+        npc.shouldUpdate = true;
       }
       
-      // #region agent log
       // Check if NPC was created even if constructor didn't return it
       const npcFromPlayerList = global.Player && global.Player.list ? global.Player.list[npcId] : null;
-      const inPlayerListAfter = !!npcFromPlayerList;
-      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCManager.js:244',message:'NPC created successfully',data:{npcId,npcClass,hasNPC:!!npc,inPlayerListAfter,hasNpcFromList:!!npcFromPlayerList,npcType:npc?.type || npcFromPlayerList?.type,npcClassFromList:npcFromPlayerList?.class},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
       
       // If constructor didn't return NPC but it's in Player.list, use that
       if (!npc && npcFromPlayerList) {
         npc = npcFromPlayerList;
+        // CRITICAL: Force-set properties on NPC from Player.list too
+        npc.class = npcClass;
+        npc.sex = sex;
+        npc.name = displayName;
+      }
+      
+      // CRITICAL: Also update the NPC in Player.list if it exists there (defensive check)
+      if (npcFromPlayerList && npcFromPlayerList !== npc) {
+        npcFromPlayerList.class = npcClass;
+        npcFromPlayerList.sex = sex;
+        npcFromPlayerList.name = displayName;
       }
     } catch (e) {
       console.error(`Error creating elite NPC ${npcClass}:`, e);
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCManager.js:247',message:'Error creating NPC - exception',data:{error:e.message,stack:e.stack,npcClass},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
       return null;
     }
     
@@ -482,21 +478,34 @@ class BattlegroundsEliteNPCManager {
     let finalSex = sex;
     
     if (npc) {
-      // Update from actual entity if available
-      if (npc.name && npc.name !== npcType) {
-        finalDisplayName = npc.name;
-      }
-      if (npc.class) {
-        finalClass = npc.class;
-      }
-      if (npc.sex) {
-        finalSex = npc.sex;
-      }
+      // CRITICAL: Force-set properties again (in case they were overridden by constructor or update)
+      // Don't check if they exist - just force set them to ensure they're correct
+      npc.class = npcClass;
+      npc.sex = sex;
+      npc.name = displayName;
+      
+      // Update final values from what we just set (not from entity)
+      finalDisplayName = displayName;
+      finalClass = npcClass;
+      finalSex = sex;
+      
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCManager.js:495',message:'Final property check before returning',data:{npcId,npcClass,npcSex:sex,npcName:displayName,actualClass:npc.class,actualSex:npc.sex,actualName:npc.name},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'P'})}).catch(()=>{});
+      // #endregion
       
       // #region agent log
       // Hypothesis F: Check if NPC is in Player.list after creation
       const inPlayerList = !!(global.Player && global.Player.list && global.Player.list[npcId]);
-      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCManager.js:454',message:'NPC after creation check',data:{npcId,inPlayerList,hasNpc:!!npc,npcType:npc.type,npcClass:npc.class,inBattleground:npc.inBattleground,matchId:npc.battlegroundMatchId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
+      const npcFromList = global.Player && global.Player.list ? global.Player.list[npcId] : null;
+      
+      // CRITICAL: If NPC is in Player.list, ensure properties are set there too
+      if (npcFromList && npcFromList !== npc) {
+        npcFromList.class = npcClass;
+        npcFromList.sex = sex;
+        npcFromList.name = displayName;
+      }
+      
+      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCManager.js:507',message:'NPC after creation check',data:{npcId,inPlayerList,hasNpc:!!npc,hasNpcFromList:!!npcFromList,npcType:npc?.type || npcFromList?.type,npcClass:npc?.class || npcFromList?.class,npcName:npc?.name || npcFromList?.name,npcSex:npc?.sex || npcFromList?.sex,inBattleground:npc?.inBattleground || npcFromList?.inBattleground,matchId:npc?.battlegroundMatchId || npcFromList?.battlegroundMatchId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'P'})}).catch(()=>{});
       // #endregion
     }
     

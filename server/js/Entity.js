@@ -2248,12 +2248,12 @@ Character = function(param){
   self.zone = null;
   self.zGrid = null;
   self.type = 'npc';
-  self.name = null;
+  self.name = param.name || null; // Use param.name if provided, otherwise null
   self.sex = param.sex; // 'm' or 'f'
   self.house = param.house;
   self.kingdom = param.kingdom;
   self.home = param.home; // {z,loc}
-  self.class = null;
+  self.class = param.class || null; // Use param.class if provided, otherwise null
   self.rank = null;
   self.gear = {
     head:null,
@@ -5403,6 +5403,10 @@ Character = function(param){
       }
       // RAID
     } else if(self.mode == 'raid'){
+      if (!self.raid || !self.raid.target) {
+        return; // Can't raid without a target
+      }
+      
       var dest = self.raid.target;
       var dCoords = getCoords(dest[0],dest[1]);
       var dDist = self.getDistance(dCoords[0],dCoords[1]);
@@ -10969,9 +10973,6 @@ Arrow = function(param){
           }
           if(p){
             if(self.getDistance(p) < 32 && self.z == p.z && self.parent != p.id){
-              // #region agent log
-              fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Entity.js:10588',message:'Arrow hit target',data:{arrowId:self.id,targetId:entityId,targetType:p.type || 'unknown',distance:self.getDistance(p)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'J'})}).catch(()=>{});
-              // #endregion
               // Get parent entity (attacker) - could be player, NPC, or building
               var attacker = Player.list[self.parent];
               var isBuildingArrow = !attacker;
@@ -12536,14 +12537,23 @@ LitTorch = function(param){
   self.rank = 0;
   self.canPickup = false;
   self.timer = 0;
-  self.toUpdate = true;
+  self.toUpdate = true; // CRITICAL: Must be true so Item.update() includes it
   var super_update = self.update;
   self.update = function(){
     if(Player.list[self.parent]){
-      self.x = Player.list[self.parent].x - (tileSize * 0.75);
-      self.y = Player.list[self.parent].y - (tileSize * 0.75);
-      self.z = Player.list[self.parent].z;
-      self.innaWoods = Player.list[self.parent].innaWoods;
+      const parentPlayer = Player.list[self.parent];
+      self.x = parentPlayer.x - (tileSize * 0.75);
+      self.y = parentPlayer.y - (tileSize * 0.75);
+      self.z = parentPlayer.z;
+      self.innaWoods = parentPlayer.innaWoods;
+      
+      // CRITICAL: Inherit map context from parent player
+      if(global.mapContextHelpers) {
+        global.mapContextHelpers.setEntityContext(self, parentPlayer.battlegroundMatchId || null);
+      } else {
+        self.inBattleground = !!(parentPlayer.inBattleground && parentPlayer.battlegroundMatchId);
+        self.battlegroundMatchId = parentPlayer.battlegroundMatchId || null;
+      }
     } else {
       self.toRemove = true;
     }
@@ -13706,9 +13716,21 @@ Light = function(param){
     self.toUpdate = true;
     self.update = function(){
       if(Item.list[self.parent]){
-        self.x = Item.list[self.parent].x + (tileSize * 0.25);
-        self.y = Item.list[self.parent].y;
-        self.z = Item.list[self.parent].z;
+        const torchItem = Item.list[self.parent];
+        self.x = torchItem.x + (tileSize * 0.25);
+        self.y = torchItem.y;
+        self.z = torchItem.z;
+        
+        // CRITICAL: Inherit map context from torch's parent player
+        if(torchItem.parent && Player.list[torchItem.parent]){
+          const torchParent = Player.list[torchItem.parent];
+          if(global.mapContextHelpers) {
+            global.mapContextHelpers.setEntityContext(self, torchParent.battlegroundMatchId || null);
+          } else {
+            self.inBattleground = !!(torchParent.inBattleground && torchParent.battlegroundMatchId);
+            self.battlegroundMatchId = torchParent.battlegroundMatchId || null;
+          }
+        }
       } else {
         self.toRemove = true;
       }

@@ -214,8 +214,15 @@ class BattlegroundsMatchManager {
       
       // Spawn elite NPCs using pre-planned NPCs (they're already in participants list)
       if (this.eliteNPCManager && this.currentMatch.plannedNPCs) {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:216',message:'About to spawn elite NPCs',data:{matchId:this.currentMatch.matchId,hasEliteNPCManager:!!this.eliteNPCManager,hasPlannedNPCs:!!this.currentMatch.plannedNPCs,plannedCount:this.currentMatch.plannedNPCs?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'O'})}).catch(()=>{});
+        // #endregion
         const eliteNPCs = this.eliteNPCManager.spawnEliteNPCs(this.currentMatch, this.currentMatch.plannedNPCs);
         this.currentMatch.eliteNPCs = eliteNPCs;
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:220',message:'Elite NPCs spawned',data:{matchId:this.currentMatch.matchId,eliteNPCsCount:eliteNPCs?.length || 0,eliteNPCIds:eliteNPCs?.map(n => n?.id || n) || []},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'O'})}).catch(()=>{});
+        // #endregion
         
         // Update participant entries with actual NPC entity data (class/sex from spawned entity)
         eliteNPCs.forEach(npcInfo => {
@@ -444,7 +451,7 @@ class BattlegroundsMatchManager {
   /**
    * Start match countdown (5 seconds) - only after all players are spawned
    */
-  startMatchCountdown() {
+  async startMatchCountdown() {
     if (!this.currentMatch) return;
     
     // Check if any human players remain before starting countdown
@@ -461,7 +468,7 @@ class BattlegroundsMatchManager {
     }
     
     // First, spawn all players and NPCs
-    this.spawnParticipants();
+    await this.spawnParticipants();
     
     // Wait a moment for spawn messages to be sent and clients to load, then start countdown
     setTimeout(() => {
@@ -493,7 +500,7 @@ class BattlegroundsMatchManager {
   /**
    * Spawn all participants (players and NPCs)
    */
-  spawnParticipants() {
+  async spawnParticipants() {
     if (!this.currentMatch) return;
     
     const { gameMode, mapData, participants, teams } = this.currentMatch;
@@ -522,22 +529,22 @@ class BattlegroundsMatchManager {
     const spawnedPlayerIds = [];
     
     // Spawn players and NPCs
-    participants.forEach((participant, index) => {
+    for (const participant of participants) {
       // Skip NPCs - they are spawned separately by their respective managers
       if (participant.isNPC) {
-        return;
+        continue;
       }
       
       const player = global.Player.list[participant.id];
       if (!player) {
         console.warn(`[BattlegroundsMatchManager] Player ${participant.id} not found in Player.list`);
-        return;
+        continue;
       }
       
       const spawnPoint = spawnPoints[participant.id];
       if (!spawnPoint) {
         console.warn(`[BattlegroundsMatchManager] No spawn point found for participant ${participant.id}`);
-        return;
+        continue;
       }
       
       // Set player position and battleground flags
@@ -555,25 +562,25 @@ class BattlegroundsMatchManager {
         previousZ: player.z
       });
       
-      // #region agent log
-      try{const fs=require('fs');fs.appendFileSync('/Users/johan/Documents/GitHub/lambic/.cursor/debug.log',JSON.stringify({location:'BattlegroundsMatchManager.js:494',message:'BEFORE setting player position',data:{playerId:participant.id,oldX:player.x,oldY:player.y,oldZ:player.z,oldInBG:player.inBattleground,oldMatchId:player.battlegroundMatchId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})+'\n');}catch(e){}
-      // #endregion
-      
+      // CRITICAL: Use unified context transition system
+      if (global.contextTransitionManager) {
+        await global.contextTransitionManager.transitionPlayer(participant.id, {
+          matchId: this.currentMatch.matchId,
+          position: { x: spawnPoint.x, y: spawnPoint.y, z: validZ },
+          worldData: mapData.worldData
+        });
+      } else {
+        // Fallback if transition manager not available
       player.x = spawnPoint.x;
       player.y = spawnPoint.y;
       player.z = validZ;
-      
-      // CRITICAL: Set map context using helper for consistency
-      if (global.mapContextHelpers) {
-        global.mapContextHelpers.setEntityContext(player, this.currentMatch.matchId);
-      } else {
+        if (global.mapContextHelpers) {
+          global.mapContextHelpers.setEntityContext(player, this.currentMatch.matchId);
+        } else {
       player.inBattleground = true;
       player.battlegroundMatchId = this.currentMatch.matchId;
+        }
       }
-      
-      // #region agent log
-      try{const fs=require('fs');fs.appendFileSync('/Users/johan/Documents/GitHub/lambic/.cursor/debug.log',JSON.stringify({location:'BattlegroundsMatchManager.js:500',message:'AFTER setting player position',data:{playerId:participant.id,newX:player.x,newY:player.y,newZ:player.z,newInBG:player.inBattleground,newMatchId:player.battlegroundMatchId,spawnX:spawnPoint.x,spawnY:spawnPoint.y,spawnZ:spawnPoint.z},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})+'\n');}catch(e){}
-      // #endregion
       
       console.log(`[BattlegroundsMatchManager] Player ${participant.id} position after setting: x=${player.x}, y=${player.y}, z=${player.z}, inBattleground=${player.inBattleground}, battlegroundMatchId=${player.battlegroundMatchId}`);
       
@@ -621,23 +628,31 @@ class BattlegroundsMatchManager {
           
           // Collect NPC entities for init pack
           const npcPlayers = [];
+          let npcsChecked = 0;
+          let npcsInContext = 0;
+          let npcsOutOfContext = 0;
           this.currentMatch.participants.forEach(p => {
             if (p.isNPC) {
+              npcsChecked++;
               const npc = global.Player.list[p.id];
               if (npc) {
-                npcPlayers.push({
-                  id: p.id,
-                  x: npc.x,
-                  y: npc.y,
-                  z: npc.z,
-                  class: npc.class || p.class || 'SerfM',
-                  sex: npc.sex || p.sex || 'm',
-                  name: npc.name || p.name || 'NPC',
-                  hp: npc.hp || npc.hpMax || 100,
-                  hpMax: npc.hpMax || 100,
-                  inBattleground: true,
-                  battlegroundMatchId: this.currentMatch.matchId
-                });
+                // CRITICAL: Verify NPC is in same context as match
+                const npcInBG = !!(npc.inBattleground && npc.battlegroundMatchId);
+                const matchId = this.currentMatch.matchId;
+                const sameContext = npcInBG && npc.battlegroundMatchId === matchId;
+                
+                if (!sameContext) {
+                  npcsOutOfContext++;
+                  return; // Skip NPCs from different context
+                }
+                npcsInContext++;
+                
+                // Use getInitPack() to ensure all properties are correctly serialized
+                const npcInitPack = npc.getInitPack();
+                // Ensure context properties are set (getInitPack might not include these)
+                npcInitPack.inBattleground = true;
+                npcInitPack.battlegroundMatchId = this.currentMatch.matchId;
+                npcPlayers.push(npcInitPack);
               }
             }
           });
@@ -695,6 +710,10 @@ class BattlegroundsMatchManager {
             worldIsArray: Array.isArray(initMsg.world)
           });
           
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:698',message:'spawnParticipants - Sending init pack',data:{playerId:participant.id,matchId:this.currentMatch.matchId,packInBattleground:true,playerCount:initMsg.pack.player.length,itemsCount:initMsg.pack.item.length,buildingsCount:initMsg.pack.building.length,lightsCount:initMsg.pack.light.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H'})}).catch(()=>{});
+          // #endregion
+          
           socket.write(JSON.stringify(initMsg));
           
           // Also send playerUpdate for position sync
@@ -720,7 +739,7 @@ class BattlegroundsMatchManager {
       } else {
         console.error(`[BattlegroundsMatchManager] No socket found for player ${participant.id}`);
       }
-    });
+    }
     
     // Verify player positions after a short delay (to catch any position changes)
     setTimeout(() => {
@@ -1014,6 +1033,21 @@ class BattlegroundsMatchManager {
             
             // #region agent log
             fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:1001',message:'exitMatch - FINAL context state',data:{playerId,inBattleground:player.inBattleground,battlegroundMatchId:player.battlegroundMatchId,contextCleared:!(player.inBattleground || player.battlegroundMatchId)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
+            // #endregion
+            
+            // CRITICAL: Clear pathfinding state to prevent navigation issues
+            if (player.path) {
+              player.path = [];
+            }
+            if (player.targetLoc) {
+              player.targetLoc = null;
+            }
+            if (player.target) {
+              player.target = null;
+            }
+            
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:1085',message:'exitMatch - Pathfinding state cleared',data:{playerId,hadPath:!!player.path,hadTargetLoc:!!player.targetLoc,hadTarget:!!player.target,pathLength:player.path ? player.path.length : 0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'L'})}).catch(()=>{});
             // #endregion
             
             // Restore inventory if it was stored
@@ -1388,6 +1422,21 @@ class BattlegroundsMatchManager {
       fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:1376',message:'restorePlayerStates - FINAL context state',data:{playerId,inBattleground:player.inBattleground,battlegroundMatchId:player.battlegroundMatchId,contextCleared:!(player.inBattleground || player.battlegroundMatchId)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
       // #endregion
       
+      // CRITICAL: Clear pathfinding state to prevent navigation issues
+      if (player.path) {
+        player.path = [];
+      }
+      if (player.targetLoc) {
+        player.targetLoc = null;
+      }
+      if (player.target) {
+        player.target = null;
+      }
+      
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:1413',message:'restorePlayerStates - Pathfinding state cleared',data:{playerId,hadPath:!!player.path,hadTargetLoc:!!player.targetLoc,hadTarget:!!player.target,pathLength:player.path ? player.path.length : 0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'L'})}).catch(()=>{});
+      // #endregion
+      
       // Restore inventory if it was stored
       if (originalState.inventory) {
         player.inventory = JSON.parse(JSON.stringify(originalState.inventory));
@@ -1430,9 +1479,25 @@ class BattlegroundsMatchManager {
         if (originalState.z < 3) zLevelsToCheck.push(originalState.z + 1);
         
         if (global.Item && global.Item.list) {
+          let itemsChecked = 0;
+          let itemsInContext = 0;
+          let itemsOutOfContext = 0;
           for (const itemId in global.Item.list) {
             const item = global.Item.list[itemId];
             if (item && !item.toRemove && zLevelsToCheck.includes(item.z)) {
+              itemsChecked++;
+              // CRITICAL: Check map context - only include items in same context as player
+              const itemInBG = !!(item.inBattleground && item.battlegroundMatchId);
+              const playerInBG = !!(player.inBattleground && player.battlegroundMatchId);
+              const sameContext = (itemInBG && playerInBG && item.battlegroundMatchId === player.battlegroundMatchId) ||
+                                  (!itemInBG && !playerInBG);
+              
+              if (!sameContext) {
+                itemsOutOfContext++;
+                continue; // Skip items from different map context
+              }
+              itemsInContext++;
+              
               const distance = Math.sqrt(
                 Math.pow(item.x - originalState.x, 2) + 
                 Math.pow(item.y - originalState.y, 2)
@@ -1442,13 +1507,32 @@ class BattlegroundsMatchManager {
               }
             }
           }
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:1432',message:'restorePlayerStates - Item collection',data:{playerId,playerInBG:!!(player.inBattleground && player.battlegroundMatchId),itemsChecked,itemsInContext,itemsOutOfContext,visibleItemsCount:visibleItems.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H'})}).catch(()=>{});
+          // #endregion
         }
         
         // Collect buildings from multiple z levels
         if (global.Building && global.Building.list) {
+          let buildingsChecked = 0;
+          let buildingsInContext = 0;
+          let buildingsOutOfContext = 0;
           for (const buildingId in global.Building.list) {
             const building = global.Building.list[buildingId];
             if (building && !building.toRemove && zLevelsToCheck.includes(building.z)) {
+              buildingsChecked++;
+              // CRITICAL: Check map context - only include buildings in same context as player
+              const buildingInBG = !!(building.inBattleground && building.battlegroundMatchId);
+              const playerInBG = !!(player.inBattleground && player.battlegroundMatchId);
+              const sameContext = (buildingInBG && playerInBG && building.battlegroundMatchId === player.battlegroundMatchId) ||
+                                  (!buildingInBG && !playerInBG);
+              
+              if (!sameContext) {
+                buildingsOutOfContext++;
+                continue; // Skip buildings from different map context
+              }
+              buildingsInContext++;
+              
               const distance = Math.sqrt(
                 Math.pow(building.x - originalState.x, 2) + 
                 Math.pow(building.y - originalState.y, 2)
@@ -1458,13 +1542,32 @@ class BattlegroundsMatchManager {
               }
             }
           }
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:1448',message:'restorePlayerStates - Building collection',data:{playerId,playerInBG:!!(player.inBattleground && player.battlegroundMatchId),buildingsChecked,buildingsInContext,buildingsOutOfContext,visibleBuildingsCount:visibleBuildings.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H'})}).catch(()=>{});
+          // #endregion
         }
         
         // Collect lights from multiple z levels
         if (global.Light && global.Light.list) {
+          let lightsChecked = 0;
+          let lightsInContext = 0;
+          let lightsOutOfContext = 0;
           for (const lightId in global.Light.list) {
             const light = global.Light.list[lightId];
             if (light && !light.toRemove && zLevelsToCheck.includes(light.z)) {
+              lightsChecked++;
+              // CRITICAL: Check map context - only include lights in same context as player
+              const lightInBG = !!(light.inBattleground && light.battlegroundMatchId);
+              const playerInBG = !!(player.inBattleground && player.battlegroundMatchId);
+              const sameContext = (lightInBG && playerInBG && light.battlegroundMatchId === player.battlegroundMatchId) ||
+                                  (!lightInBG && !playerInBG);
+              
+              if (!sameContext) {
+                lightsOutOfContext++;
+                continue; // Skip lights from different map context
+              }
+              lightsInContext++;
+              
               const distance = Math.sqrt(
                 Math.pow(light.x - originalState.x, 2) + 
                 Math.pow(light.y - originalState.y, 2)
@@ -1474,7 +1577,31 @@ class BattlegroundsMatchManager {
               }
             }
           }
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:1464',message:'restorePlayerStates - Light collection',data:{playerId,playerInBG:!!(player.inBattleground && player.battlegroundMatchId),lightsChecked,lightsInContext,lightsOutOfContext,visibleLightsCount:visibleLights.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H'})}).catch(()=>{});
+          // #endregion
         }
+        
+        // CRITICAL: Mark items for update so they're included in subsequent update packets
+        // Items without toUpdate=true won't be included in Item.update() packets
+        let itemsMarked = 0;
+        visibleItems.forEach(itemPack => {
+          if (itemPack && itemPack.id && global.Item && global.Item.list) {
+            const item = global.Item.list[itemPack.id];
+            if (item) {
+              item.toUpdate = true;
+              itemsMarked++;
+            }
+          }
+        });
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:1629',message:'restorePlayerStates - Marking items for update',data:{playerId,itemsMarked,visibleItemsCount:visibleItems.length,itemsOnZ2:visibleItems.filter(i => i.z === 2).length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'N'})}).catch(()=>{});
+        // #endregion
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:1479',message:'restorePlayerStates - Sending init pack',data:{playerId,playerInBG:!!(player.inBattleground && player.battlegroundMatchId),itemsCount:visibleItems.length,buildingsCount:visibleBuildings.length,lightsCount:visibleLights.length,packInBattleground:false,playerZ:originalState.z,itemsOnZ2:visibleItems.filter(i => i.z === 2).length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'N'})}).catch(()=>{});
+        // #endregion
         
         // Then send init message to switch back to main world context
         // Include main world data and visible entities so client can refresh view
@@ -1505,8 +1632,8 @@ class BattlegroundsMatchManager {
               inBattleground: false,
               battlegroundMatchId: null
             }],
+            item: visibleItems, // CRITICAL: Include visible items in init pack
             arrow: [],
-            item: visibleItems,
             light: visibleLights,
             building: visibleBuildings
           }

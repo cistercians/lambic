@@ -151,6 +151,8 @@ const { TilemapIntegration } = require('./server/js/core/TilemapIntegration.js')
 const BuildingConstruction = require('./server/js/core/BuildingConstruction.js');
 const { mapContextManager } = require('./server/js/core/MapContextManager.js');
 const mapContextHelpers = require('./server/js/core/MapContextHelpers.js');
+const contextTransitionManager = require('./server/js/core/ContextTransitionManager.js');
+const contextAwareIterators = require('./server/js/core/ContextAwareIterators.js');
 
 // Import new registry systems (Phase 1: Foundation)
 const systemRegistry = require('./server/js/core/SystemRegistry.js');
@@ -206,6 +208,7 @@ function continueServerInitialization() {
   mapContextManager.init(global.tilemapSystem);
   global.mapContextManager = mapContextManager;
   global.mapContextHelpers = mapContextHelpers;
+  global.contextTransitionManager = contextTransitionManager;
 
   // Register tilemap system in registry
   systemRegistry.register('tilemap', tilemapIntegration, { 
@@ -5043,7 +5046,7 @@ const Player = function(param) {
   };
 
   self.getInitPack = function() {
-    return {
+    const initPack = {
       type: self.type,
       name: self.name,
       id: self.id,
@@ -5075,10 +5078,18 @@ const Player = function(param) {
       skulls: self.skulls,
       spriteScale: self.spriteScale
     };
+    
+    // CRITICAL: Include sex for NPCs (needed for proper rendering)
+    // This was missing from getInitPack, causing NPCs to render as default (male serf)
+    if (self.sex !== undefined) {
+      initPack.sex = self.sex;
+    }
+    
+    return initPack;
   };
 
   self.getUpdatePack = function() {
-    return {
+    const updatePack = {
       id: self.id,
       house: self.house,
       kingdom: self.kingdom,
@@ -5124,6 +5135,17 @@ const Player = function(param) {
       fleeing: self.fleeing ? true : false, // For spectate camera priority
       pokerTurn: self.pokerTurn ? true : false // Indicates it's this player's turn in poker
     };
+    
+    // CRITICAL: Include sex and name for NPCs (needed for proper rendering)
+    // These are in getInitPack but were missing from getUpdatePack
+    if (self.sex !== undefined) {
+      updatePack.sex = self.sex;
+    }
+    if (self.name !== undefined) {
+      updatePack.name = self.name;
+    }
+    
+    return updatePack;
   };
 
   // ALPHA HAX - Testing defaults
@@ -5339,16 +5361,40 @@ Player.onConnect = function(socket, name, playerType) {
     kingdomList: Kingdom.list
   }));
 
-  socket.write(JSON.stringify({
-    msg: 'init',
-    selfId: player.id,
-    pack: {
+  // Get init pack - filter by player's context if in battleground
+  const playerInBG = !!(player.inBattleground && player.battlegroundMatchId);
+  let initPack = {
       player: Player.getAllInitPack(),
       arrow: Arrow.getAllInitPack(),
       item: Item.getAllInitPack(),
       light: Light.getAllInitPack(),
       building: Building.getAllInitPack()
-    }
+  };
+  
+  // If player is in battleground, filter init pack to only include battleground entities
+  if (playerInBG && global.mapContextHelpers) {
+    const matchId = player.battlegroundMatchId;
+    const originalPack = { ...initPack };
+    
+    initPack.player = initPack.player.filter(p => {
+      const entityInBG = !!(p.inBattleground && p.battlegroundMatchId);
+      return entityInBG && p.battlegroundMatchId === matchId;
+    });
+    
+    // Items, buildings, lights, arrows should be filtered by context too
+    // But for now, we'll log if any are present
+    const mainWorldItems = initPack.item.filter(item => {
+      const itemEntity = global.Item && global.Item.list ? global.Item.list[item.id] : null;
+      if (!itemEntity) return false;
+      const itemInBG = !!(itemEntity.inBattleground && itemEntity.battlegroundMatchId);
+      return !itemInBG || itemEntity.battlegroundMatchId !== matchId;
+    });
+  }
+  
+  socket.write(JSON.stringify({
+    msg: 'init',
+    selfId: player.id,
+    pack: initPack
   }));
 
   // Send welcome message
@@ -5586,6 +5632,13 @@ Player.update = function() {
     else if(player.type === 'npc') entityCounts.npc++;
     else if(player.type === 'ship') entityCounts.ship++;
     
+    // #region agent log
+    // Track if battleground NPCs are being updated
+    if(player.type === 'npc' && player.inBattleground && player.battlegroundMatchId) {
+      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:5622',message:'Battleground NPC being updated',data:{npcId:player.id,npcClass:player.class,npcSex:player.sex,npcName:player.name,hasPath:!!player.path,action:player.action,hasCombat:!!player.combat?.target},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'P'})}).catch(()=>{});
+    }
+    // #endregion
+    
     // Track entity class breakdown
     const entityClass = player.class || 'Unknown';
     if(!entityTypeBreakdown[entityClass]) {
@@ -5790,7 +5843,7 @@ Player.update = function() {
       // #region agent log
       // Hypothesis A: Check if battleground NPCs are in pack
       if(player.type === 'npc' && player.inBattleground && player.battlegroundMatchId) {
-        fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:5770',message:'NPC added to pack',data:{npcId:player.id,x:updatePack.x,y:updatePack.y,z:updatePack.z,hasPath:!!player.path},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:5844',message:'NPC added to pack',data:{npcId:player.id,x:updatePack.x,y:updatePack.y,z:updatePack.z,hasPath:!!player.path,class:updatePack.class,sex:updatePack.sex,name:updatePack.name,hasSex:updatePack.sex !== undefined,hasName:updatePack.name !== undefined,action:player.action,hasCombat:!!player.combat,actualClass:player.class,actualSex:player.sex,actualName:player.name,updatePackClass:updatePack.class,updatePackSex:updatePack.sex,updatePackName:updatePack.name},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'P'})}).catch(()=>{});
       }
       // #endregion
     }
@@ -6685,6 +6738,17 @@ function dayNight() {
 const app = express();
 const serv = require('http').Server(app);
 
+// Add CORS headers to allow connections from any origin
+app.use(function(req, res, next) {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 app.get('/', function(req, res) {
   res.sendFile(__dirname + '/client/index.html');
 });
@@ -6722,9 +6786,13 @@ global.serverName = serverName;
 if (!io) {
   io = sockjs.createServer();
   io.installHandlers(serv, { prefix: '/io' });
-  serv.listen(2000);
+  
+  serv.listen(2000, '0.0.0.0', function() {
+    const addr = serv.address();
+    console.log('SockJS v0.3.24 bound to "/io" on ' + addr.address + ':' + addr.port);
+  });
+  
   // Print SockJS message explicitly before CLI starts (library may print it asynchronously)
-  console.log('SockJS v0.3.24 bound to "/io"');
   
   // Suppress any duplicate messages from the library
   const originalLog = console.log;

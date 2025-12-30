@@ -239,6 +239,141 @@ function validateContextIsolation(updatePack, matchId) {
   };
 }
 
+/**
+ * Get all buildings in the same context as the given entity
+ * @param {Object} entity - Entity to match context for
+ * @returns {Array} Array of building entities in same context
+ */
+function getBuildingsInSameContext(entity) {
+  if (!entity || !global.Building || !global.Building.list) return [];
+  
+  const entityInBG = !!(entity.inBattleground && entity.battlegroundMatchId);
+  const entityMatchId = entity.battlegroundMatchId || null;
+  
+  const results = [];
+  
+  for (const id in global.Building.list) {
+    const building = global.Building.list[id];
+    if (!building) continue;
+    
+    const buildingInBG = !!(building.inBattleground && building.battlegroundMatchId);
+    const buildingMatchId = building.battlegroundMatchId || null;
+    
+    // Must be in same context
+    if (entityInBG !== buildingInBG) continue;
+    if (entityInBG && buildingInBG && entityMatchId !== buildingMatchId) continue;
+    
+    results.push(building);
+  }
+  
+  return results;
+}
+
+/**
+ * Get all items in the same context as the given entity
+ * @param {Object} entity - Entity to match context for
+ * @returns {Array} Array of item entities in same context
+ */
+function getItemsInSameContext(entity) {
+  if (!entity || !global.Item || !global.Item.list) return [];
+  
+  const entityInBG = !!(entity.inBattleground && entity.battlegroundMatchId);
+  const entityMatchId = entity.battlegroundMatchId || null;
+  
+  const results = [];
+  
+  for (const id in global.Item.list) {
+    const item = global.Item.list[id];
+    if (!item) continue;
+    
+    const itemInBG = !!(item.inBattleground && item.battlegroundMatchId);
+    const itemMatchId = item.battlegroundMatchId || null;
+    
+    // Must be in same context
+    if (entityInBG !== itemInBG) continue;
+    if (entityInBG && itemInBG && entityMatchId !== itemMatchId) continue;
+    
+    results.push(item);
+  }
+  
+  return results;
+}
+
+/**
+ * Get all arrows in the same context as the given entity
+ * @param {Object} entity - Entity to match context for
+ * @returns {Array} Array of arrow entities in same context
+ */
+function getArrowsInSameContext(entity) {
+  if (!entity || !global.Arrow || !global.Arrow.list) return [];
+  
+  const entityInBG = !!(entity.inBattleground && entity.battlegroundMatchId);
+  const entityMatchId = entity.battlegroundMatchId || null;
+  
+  const results = [];
+  
+  for (const id in global.Arrow.list) {
+    const arrow = global.Arrow.list[id];
+    if (!arrow) continue;
+    
+    const arrowInBG = !!(arrow.inBattleground && arrow.battlegroundMatchId);
+    const arrowMatchId = arrow.battlegroundMatchId || null;
+    
+    // Must be in same context
+    if (entityInBG !== arrowInBG) continue;
+    if (entityInBG && arrowInBG && entityMatchId !== arrowMatchId) continue;
+    
+    results.push(arrow);
+  }
+  
+  return results;
+}
+
+/**
+ * Get all lights in the same context as the given entity
+ * @param {Object} entity - Entity to match context for
+ * @returns {Array} Array of light entities in same context
+ */
+function getLightsInSameContext(entity) {
+  if (!entity || !global.Light || !global.Light.list) return [];
+  
+  const entityInBG = !!(entity.inBattleground && entity.battlegroundMatchId);
+  const entityMatchId = entity.battlegroundMatchId || null;
+  
+  const results = [];
+  
+  for (const id in global.Light.list) {
+    const light = global.Light.list[id];
+    if (!light) continue;
+    
+    const lightInBG = !!(light.inBattleground && light.battlegroundMatchId);
+    const lightMatchId = light.battlegroundMatchId || null;
+    
+    // Must be in same context
+    if (entityInBG !== lightInBG) continue;
+    if (entityInBG && lightInBG && entityMatchId !== lightMatchId) continue;
+    
+    results.push(light);
+  }
+  
+  return results;
+}
+
+/**
+ * Generic iterator for any entity list with context filtering
+ * @param {Array|Object} entityList - Array of entities or object with entity list
+ * @param {Object} contextEntity - Reference entity for context matching
+ * @param {Function} callback - Callback function: (entity) => void
+ */
+function forEachEntityInContext(entityList, contextEntity, callback) {
+  if (!entityList || !contextEntity || !callback) return;
+  
+  // Handle both array and object (like Building.list, Item.list)
+  const entities = Array.isArray(entityList) ? entityList : Object.values(entityList);
+  const filtered = filterEntitiesByContext(entities, contextEntity);
+  filtered.forEach(callback);
+}
+
 module.exports = {
   areInSameContext,
   getEntitiesInSameContext,
@@ -247,6 +382,11 @@ module.exports = {
   getContextForEntity,
   isInBattleground,
   areInSameMatch,
-  validateContextIsolation
+  validateContextIsolation,
+  getBuildingsInSameContext,
+  getItemsInSameContext,
+  getArrowsInSameContext,
+  getLightsInSameContext,
+  forEachEntityInContext
 };
 
