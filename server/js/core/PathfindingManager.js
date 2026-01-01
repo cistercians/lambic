@@ -1,15 +1,17 @@
 /**
  * PathfindingManager - Unified pathfinding interface
- * 
+ *
  * This is the ONLY way to request paths in the game.
  * All pathfinding requests should go through PathfindingManager.requestPath()
- * 
+ *
  * Benefits:
  * - Single entry point for all pathfinding
  * - Consistent caching and validation
  * - Easy debugging and logging
  * - Clear API contract
  */
+
+const TelemetryLogger = require('./TelemetryLogger');
 
 class PathfindingManager {
   constructor() {
@@ -96,11 +98,17 @@ class PathfindingManager {
         this.stats.cacheHits++;
         const elapsed = Date.now() - startTime;
         this._updateAvgTime(elapsed);
+
+        // Telemetry: Cache hit
+        TelemetryLogger.counter('Pathfinding.Cache.Hits');
+        TelemetryLogger.histogram('Pathfinding.CacheHitTime', elapsed);
+
         if (this.debug) console.log('[PathfindingManager] Cache hit! Time:', elapsed, 'ms');
         return cachedPath;
       }
 
       this.stats.cacheMisses++;
+      TelemetryLogger.counter('Pathfinding.Cache.Misses');
 
       // Resolve layer from z-level
       const layer = this._resolveLayer(entity.z, options);
@@ -117,15 +125,44 @@ class PathfindingManager {
       // Smooth path (reduce waypoints)
       if (path && path.length > 0) {
         path = this._smoothPath(path, entity.z);
-        
+
         // Cache the result
         this._cacheResult(startLoc, [targetCol, targetRow], entity.z, path);
+
+        const elapsed = Date.now() - startTime;
+        this._updateAvgTime(elapsed);
+
+        // Telemetry: Successful pathfinding
+        TelemetryLogger.counter('Pathfinding.Requests');
+        TelemetryLogger.histogram('Pathfinding.CalculationTime', elapsed);
+        TelemetryLogger.event('Pathfinding', 'Request', {
+          entityType: entity.class || 'unknown',
+          start: startLoc,
+          end: [targetCol, targetRow],
+          distance: Math.sqrt(Math.pow(targetCol - startLoc[0], 2) + Math.pow(targetRow - startLoc[1], 2)),
+          success: true,
+          duration: elapsed,
+          pathLength: path.length,
+          algorithm: 'astar',
+          layer: layer
+        });
       } else {
         this.stats.failures++;
-      }
+        const elapsed = Date.now() - startTime;
+        this._updateAvgTime(elapsed);
 
-      const elapsed = Date.now() - startTime;
-      this._updateAvgTime(elapsed);
+        // Telemetry: Pathfinding failure
+        TelemetryLogger.counter('Pathfinding.Failures');
+        TelemetryLogger.event('Pathfinding', 'Failure', {
+          entityType: entity.class || 'unknown',
+          start: startLoc,
+          end: [targetCol, targetRow],
+          distance: Math.sqrt(Math.pow(targetCol - startLoc[0], 2) + Math.pow(targetRow - startLoc[1], 2)),
+          failureType: 'no_path',
+          duration: elapsed,
+          layer: layer
+        });
+      }
 
       if (this.debug) {
         console.log('[PathfindingManager] Path computed:', {
@@ -143,6 +180,15 @@ class PathfindingManager {
     } catch (error) {
       console.error('[PathfindingManager] Error in requestPath:', error);
       this.stats.failures++;
+
+      // Telemetry: Pathfinding error
+      TelemetryLogger.counter('Pathfinding.Errors');
+      TelemetryLogger.event('Pathfinding', 'Error', {
+        entityType: entity ? (entity.class || 'unknown') : 'unknown',
+        error: error.message,
+        stack: error.stack
+      });
+
       return null;
     }
   }

@@ -1,0 +1,10 @@
+[14:32:15] [ERROR] [combat] Target validation failed for entity 123
+[14:32:16] [WARN] [memory] Heap usage at 85%
+[14:32:17] [INFO] [network] Player connected: player123
+[14:32:18] [ERROR] [entity] Undefined entity reference in combat system
+[14:32:19] [DEBUG] [pathfinding] Path calculation completed for entity 456
+[14:32:20] [WARN] [combat] Combat state inconsistency detected
+[14:32:21] [ERROR] [database] MongoDB connection timeout
+[14:32:22] [INFO] [entity] Entity cleanup completed, 15 entities removed
+[14:32:23] [WARN] [memory] Memory pressure detected, consider optimization
+[14:32:24] [ERROR] [network] WebSocket connection lost for player789
