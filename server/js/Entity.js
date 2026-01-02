@@ -410,7 +410,6 @@ Building = function(param){
         ? (global.House.list[self.owner]?.name || 'Unknown')
         : 'Unknown';
       
-      console.log(`[FARM RESOURCES] ${ownerName}: ${buildingName} tile state changed - tile8: ${tileStateCounts.tile8}, tile9: ${tileStateCounts.tile9}, tile10: ${tileStateCounts.tile10}, other: ${tileStateCounts.other}, resources (below50: ${resourceCounts.below50}, above50: ${resourceCounts.above50})`);
       
       self._farmTileState.tile8 = tileStateCounts.tile8;
       self._farmTileState.tile9 = tileStateCounts.tile9;
@@ -440,7 +439,6 @@ Building = function(param){
         : 'Unknown';
       
       // Log state change
-      console.log(`[FARM RESOURCES] ${ownerName}: ${buildingName} resource counts changed - wheat: ${wheat.length} (was ${self._farmResourceState.wheat}), barren: ${barren.length} (was ${self._farmResourceState.barren}), growing: ${growing.length} (was ${self._farmResourceState.growing})`);
       
       // Update state tracking
       self._farmResourceState.wheat = wheat.length;
@@ -461,7 +459,6 @@ Building = function(param){
         const ownerName = self.owner && global.House && global.House.list 
           ? (global.House.list[self.owner]?.name || 'Unknown')
           : 'Unknown';
-        console.log(`[FARM RESOURCES] ${ownerName}: ${buildingName} prioritizing ${wheat.length} grain tiles`);
       }
     } else if(growing.length > 0){
       // Growing mode - assign growing tiles (type 9)
@@ -473,7 +470,6 @@ Building = function(param){
         const ownerName = self.owner && global.House && global.House.list 
           ? (global.House.list[self.owner]?.name || 'Unknown')
           : 'Unknown';
-        console.log(`[FARM RESOURCES] ${ownerName}: ${buildingName} assigning ${growing.length} growing tiles`);
       }
     } else {
       // Barren mode - assign barren tiles (type 8)
@@ -485,7 +481,6 @@ Building = function(param){
         const ownerName = self.owner && global.House && global.House.list 
           ? (global.House.list[self.owner]?.name || 'Unknown')
           : 'Unknown';
-        console.log(`[FARM RESOURCES] ${ownerName}: ${buildingName} no grain available, using ${barren.length} barren tiles`);
       }
     }
   };
@@ -848,7 +843,6 @@ Mine = function(param){
           const ownerName = self.owner && global.House && global.House.list 
             ? (global.House.list[self.owner]?.name || 'Unknown')
             : 'Unknown';
-          console.log(`[MINE CLASSIFICATION] ${ownerName}: Mine at [${Math.floor(self.x)}, ${Math.floor(self.y)}] classified as CAVE MINE (distance to cave: ${Math.floor(dist)}, threshold: 384)`);
           self._classificationLogged = true;
         }
         break; // Found a cave entrance, no need to check others
@@ -860,7 +854,6 @@ Mine = function(param){
       const ownerName = self.owner && global.House && global.House.list 
         ? (global.House.list[self.owner]?.name || 'Unknown')
         : 'Unknown';
-      console.log(`[MINE CLASSIFICATION] ${ownerName}: Mine at [${Math.floor(self.x)}, ${Math.floor(self.y)}] classified as STONE MINE (no cave entrance within 384 pixels)`);
       self._classificationLogged = true;
     }
     if(self.cave){
@@ -9223,7 +9216,6 @@ Serf = function(param){
         : 'Unknown';
       
       if(isMineSerf){
-        console.log(`[SERF DAWN] ${factionName}: Mining serf ${self.id} at dawn - work.hq: ${self.work?.hq || 'none'}, building type: ${buildingType}, hut: ${self.hut || 'none'}, mode: ${self.mode}, scheduled transition in ${rand}ms`);
       }
       
       if(!global.SERF_DEBUG_MODE) {
@@ -9236,7 +9228,6 @@ Serf = function(param){
         if(self.mode != 'work'){ // Double-check mode hasn't changed
           // DIAGNOSTIC LOGGING: Verify transition completed
           if(isMineSerf){
-            console.log(`[SERF DAWN] ${factionName}: Mining serf ${self.id} transitioning to work mode - work.hq: ${self.work?.hq || 'none'}, building exists: ${(self.work?.hq && global.Building && global.Building.list && global.Building.list[self.work.hq]) ? 'yes' : 'no'}`);
           }
           
         self.mode = 'work';

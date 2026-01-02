@@ -214,10 +214,8 @@ class SimpleSerfBehavior {
     if (hasStoneOrIronore && shouldLog) {
       if (stateChanged && isAtDropoff) {
         // Log when reaching dropoff (state change)
-        console.log(`[SERF DEPOSIT DEBUG] ${houseName}: Reached dropoff for ${building.type} - serf loc=[${loc[0]}, ${loc[1]}], dropoff=[${dropoff[0]}, ${dropoff[1]}], serf.z=${serf.z}, building.z=${building.z || 0}`);
       } else if (!isAtDropoff) {
         // Throttled log when not at dropoff
-        console.log(`[SERF DEPOSIT DEBUG] ${houseName}: Pathfinding to dropoff [${dropoff[0]}, ${dropoff[1]}] for ${building.type} (serf.z=${serf.z}, building.z=${building.z || 0})`);
       }
       this.logThrottle[throttleKey] = { lastLogTime: now, isAtDropoff };
     }
@@ -231,7 +229,6 @@ class SimpleSerfBehavior {
         if (!lastAttemptLog || (now - lastAttemptLog) > this.LOG_THROTTLE_MS * 3) {
           const inventoryBefore = Object.keys(serf.inventory || {}).filter(r => (serf.inventory[r] || 0) > 0)
             .map(r => `${r}:${serf.inventory[r]}`).join(', ');
-          console.log(`[SERF DEPOSIT DEBUG] ${houseName}: At dropoff, attempting deposit - serf inventory: ${inventoryBefore || 'empty'}, serf.z=${serf.z}, building.z=${building.z || 0}`);
           this.logThrottle[throttleKeyAttempt] = now;
         }
       }
@@ -252,7 +249,6 @@ class SimpleSerfBehavior {
         const lastSuccessLog = this.logThrottle[throttleKeySuccess];
         if (!lastSuccessLog || (now - lastSuccessLog) > this.LOG_THROTTLE_MS * 2) {
           const depositedAmounts = resourceTypes.map(r => `${r}:${serf.inventory[r] || 0}`).join(', ');
-          console.log(`[SERF DEPOSIT DEBUG] ${houseName}: Successfully deposited stone/ironore to ${building.type} - serf had: ${depositedAmounts}`);
           this.logThrottle[throttleKeySuccess] = now;
         }
       }
@@ -270,7 +266,6 @@ class SimpleSerfBehavior {
           const throttleKey = `caveMinePathfind-${serf.id}`;
           const lastLog = this.logThrottle[throttleKey];
           if (!lastLog || (now - lastLog) > this.LOG_THROTTLE_MS * 2) {
-            console.log(`[SERF DEPOSIT DEBUG] ${houseName}: Cave mine serf pathfinding from z=${serf.z} to z=${dropoffZ} for dropoff [${dropoff[0]}, ${dropoff[1]}]`);
             this.logThrottle[throttleKey] = now;
           }
         }
@@ -1398,7 +1393,6 @@ class SimpleSerfBehavior {
             const throttleKey = `depositSuccess-${building.id}-${resourceType}`;
             const lastLog = this.logThrottle[throttleKey];
             if (!lastLog || (now - lastLog) > this.LOG_THROTTLE_MS) {
-              console.log(`[SERF DEPOSIT DEBUG] ${houseName}: Deposited ${buildingShare} ${resourceType} to house stores (${beforeAmount} -> ${house.stores[resourceType]})`);
               this.logThrottle[throttleKey] = now;
             }
           }
@@ -1521,7 +1515,6 @@ class SimpleSerfBehavior {
         const throttleKey = `isAtDropoffZ-${serf.id}`;
         const lastLog = this.logThrottle[throttleKey];
         if (!lastLog || (now - lastLog) > this.LOG_THROTTLE_MS * 2) {
-          console.log(`[SERF DEPOSIT DEBUG] ${houseName}: Cave mine serf not at dropoff z-level - serf.z=${serf.z}, building.z=${buildingZ}, atXY=${atCorrectXY}`);
           this.logThrottle[throttleKey] = now;
         }
       }

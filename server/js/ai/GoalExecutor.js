@@ -60,6 +60,28 @@ class GoalExecutor {
     if (!house.ai || !house.ai.buildingService) {
       return false; // Can't verify without building service
     }
+
+    // Special handling for guardtowers - they create faction-specific tower types
+    if (buildingType === 'guardtower') {
+      // Get the actual tower type for this faction
+      const constructor = house.buildingConstructor;
+      if (constructor) {
+        const towerType = constructor.getFactionTowerType();
+        if (towerType) {
+          // Check for the faction-specific tower type instead of generic "guardtower"
+          if (typeof Building !== 'undefined' && Building.list) {
+            for (const id in Building.list) {
+              const building = Building.list[id];
+              if (building.owner === house.id && building.type === towerType && building.built) {
+                return true; // Found the faction-specific tower
+              }
+            }
+          }
+          return false; // Tower not found
+        }
+      }
+      return false; // Can't determine tower type
+    }
     
     // Check if building exists in Building.list
     // For farms, we need to check differently since Farm constructor doesn't return ID

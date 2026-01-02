@@ -613,6 +613,38 @@ class TilemapSystem {
         clearanceRadius: 1,
         excludeBuildings: true,
         hasUpperFloor: true
+      },
+      gothtower: {
+        plotSize: [2, 2],
+        wallTiles: 0,
+        validTerrain: [TERRAIN.HEAVY_FOREST, TERRAIN.LIGHT_FOREST, TERRAIN.BRUSH, TERRAIN.ROCKS, TERRAIN.MOUNTAIN, TERRAIN.CAVE_ENTRANCE, TERRAIN.GRASS, TERRAIN.FARM_SEED, TERRAIN.FARM_PLANTED, TERRAIN.FARM_GROW, TERRAIN.ROAD], // All except WATER
+        clearanceRadius: 1,
+        excludeBuildings: true,
+        hasUpperFloor: true
+      },
+      teutower: {
+        plotSize: [2, 2],
+        wallTiles: 0,
+        validTerrain: [TERRAIN.HEAVY_FOREST, TERRAIN.LIGHT_FOREST, TERRAIN.BRUSH, TERRAIN.ROCKS, TERRAIN.MOUNTAIN, TERRAIN.CAVE_ENTRANCE, TERRAIN.GRASS, TERRAIN.FARM_SEED, TERRAIN.FARM_PLANTED, TERRAIN.FARM_GROW, TERRAIN.ROAD], // All except WATER
+        clearanceRadius: 1,
+        excludeBuildings: true,
+        hasUpperFloor: true
+      },
+      franktower: {
+        plotSize: [2, 2],
+        wallTiles: 0,
+        validTerrain: [TERRAIN.HEAVY_FOREST, TERRAIN.LIGHT_FOREST, TERRAIN.BRUSH, TERRAIN.ROCKS, TERRAIN.MOUNTAIN, TERRAIN.CAVE_ENTRANCE, TERRAIN.GRASS, TERRAIN.FARM_SEED, TERRAIN.FARM_PLANTED, TERRAIN.FARM_GROW, TERRAIN.ROAD], // All except WATER
+        clearanceRadius: 1,
+        excludeBuildings: true,
+        hasUpperFloor: true
+      },
+      celttower: {
+        plotSize: [2, 2],
+        wallTiles: 0,
+        validTerrain: [TERRAIN.HEAVY_FOREST, TERRAIN.LIGHT_FOREST, TERRAIN.BRUSH, TERRAIN.ROCKS, TERRAIN.MOUNTAIN, TERRAIN.CAVE_ENTRANCE, TERRAIN.GRASS, TERRAIN.FARM_SEED, TERRAIN.FARM_PLANTED, TERRAIN.FARM_GROW, TERRAIN.ROAD], // All except WATER
+        clearanceRadius: 1,
+        excludeBuildings: true,
+        hasUpperFloor: true
       }
     };
   }
