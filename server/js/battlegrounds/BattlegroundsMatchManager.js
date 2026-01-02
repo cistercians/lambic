@@ -2,7 +2,6 @@
  * BattlegroundsMatchManager - Handles match lifecycle, game modes, and match state
  */
 
-const TelemetryLogger = require('../core/TelemetryLogger');
 const DeathmatchMode = require('./game_modes/DeathmatchMode');
 const SkirmishMode = require('./game_modes/SkirmishMode');
 const AssaultMode = require('./game_modes/AssaultMode');
@@ -68,27 +67,10 @@ class BattlegroundsMatchManager {
   async startMatch(matchConfig) {
     if (this.currentMatch) {
       console.warn('Match already in progress, cannot start new match');
-      TelemetryLogger.event('Battlegrounds', 'MatchStartFailed', {
-        reason: 'match_already_in_progress',
-        currentMatchId: this.currentMatch.matchId
-      });
       return;
     }
 
     const { players, gameMode, originalPlayerPositions } = matchConfig;
-    const matchId = 'match_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-
-    // Telemetry: Match creation
-    TelemetryLogger.event('Battlegrounds', 'MatchLifecycle', {
-      matchId,
-      stage: 'created',
-      gameMode,
-      participantCount: players.length,
-      humanPlayers: players.filter(p => !p.isNPC).length,
-      npcPlayers: players.filter(p => p.isNPC).length
-    });
-    TelemetryLogger.gauge('Battlegrounds.ActiveMatches', 1);
-    TelemetryLogger.counter('Battlegrounds.MatchStarts');
     
     // Determine map size based on participant count
     const participantCount = players.length;
@@ -122,7 +104,7 @@ class BattlegroundsMatchManager {
 
     // Initialize match state with player class/sex for portraits
     this.currentMatch = {
-      matchId: matchId,
+      matchId: 'match_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
       gameMode: gameMode,
       mapType: null, // Will be set after map generation
       mapSize: mapSize,
@@ -180,25 +162,9 @@ class BattlegroundsMatchManager {
 
     // Generate map
     try {
-      const mapGenStartTime = Date.now();
       const mapData = await this.generateMap(gameMode, mapSize);
-      const mapGenDuration = Date.now() - mapGenStartTime;
-
       this.currentMatch.mapData = mapData;
       this.currentMatch.mapType = mapData.mapType;
-
-      // Telemetry: Map generation success
-      TelemetryLogger.event('Battlegrounds', 'MatchLifecycle', {
-        matchId: this.currentMatch.matchId,
-        stage: 'map_generated',
-        gameMode,
-        mapType: mapData.mapType,
-        mapSize,
-        duration: mapGenDuration,
-        isClassicMap: !!mapData.classicMapId,
-        classicMapId: mapData.classicMapId
-      });
-      TelemetryLogger.histogram('Battlegrounds.MapGenTime', mapGenDuration);
       
       // Register battleground map in map context manager (initial registration, will be updated after post-processing)
       if (global.mapContextManager && mapData.worldData) {
@@ -292,26 +258,8 @@ class BattlegroundsMatchManager {
       
       // Start map preview phase (NPCs are now in participants list)
       this.startMapPreview();
-
-      // Telemetry: Match generation completed
-      TelemetryLogger.event('Battlegrounds', 'MatchLifecycle', {
-        matchId: this.currentMatch.matchId,
-        stage: 'generation_completed',
-        totalParticipants: this.currentMatch.participants.length,
-        humanParticipants: this.currentMatch.participants.filter(p => !p.isNPC).length,
-        npcParticipants: this.currentMatch.participants.filter(p => p.isNPC).length,
-        eliteNPCsCount: this.currentMatch.eliteNPCs.length
-      });
     } catch (error) {
       console.error('Error generating map:', error);
-      TelemetryLogger.event('Battlegrounds', 'MatchLifecycle', {
-        matchId: this.currentMatch.matchId,
-        stage: 'generation_failed',
-        error: error.message,
-        gameMode,
-        participantCount: players.length
-      });
-      TelemetryLogger.counter('Battlegrounds.MapGenFailures');
       this.endMatch({ reason: 'map_generation_failed' });
     }
   }
@@ -377,29 +325,15 @@ class BattlegroundsMatchManager {
    */
   async generateMap(gameMode, mapSize) {
     if (!this.mapGenerator) {
-      TelemetryLogger.event('Battlegrounds', 'MapGenerationError', {
-        error: 'Map generator not initialized',
-        gameMode,
-        mapSize
-      });
       throw new Error('Map generator not initialized');
     }
-
-    const startTime = Date.now();
-
-    // Telemetry: Map generation started
-    TelemetryLogger.event('Battlegrounds', 'MapGenerationStart', {
-      gameMode,
-      mapSize,
-      hasMapLibrary: !!this.mapLibrary
-    });
-
+    
     // Step 1: Check if there are Classic Maps available for this game mode and map size
     let matchingClassicMaps = [];
     if (this.mapLibrary) {
       matchingClassicMaps = this.mapLibrary.getAllClassicMaps(gameMode, mapSize);
     }
-
+    
     // Step 2: If matches found, decide whether to use a Classic Map (15% chance)
     if (matchingClassicMaps.length > 0 && Math.random() < 0.15) {
       // Step 3: Use weighted selection to choose one from the list of matching maps
@@ -417,22 +351,7 @@ class BattlegroundsMatchManager {
       
       // Increment play count
       this.mapLibrary.incrementPlayCount(classicMap.mapId);
-
-      const duration = Date.now() - startTime;
-
-      // Telemetry: Classic map selected
-      TelemetryLogger.event('Battlegrounds', 'MapGenerationResult', {
-        gameMode,
-        mapSize,
-        success: true,
-        duration,
-        source: 'classic',
-        classicMapId: classicMap.mapId,
-        availableClassicMaps: matchingClassicMaps.length
-      });
-      TelemetryLogger.histogram('Battlegrounds.MapGenTime', duration);
-      TelemetryLogger.counter('Battlegrounds.ClassicMapsUsed');
-
+      
       // Return the classic map
       // Note: Classic maps are saved with post-processing already applied, so raw = false
       return {
@@ -449,28 +368,7 @@ class BattlegroundsMatchManager {
     
     // Step 4: No Classic Map selected (either none available or 85% chance to generate new) - create a new map
     console.log(`Generating new map for ${gameMode} (${mapSize}x${mapSize})${matchingClassicMaps.length > 0 ? ' (Classic Map available but not selected)' : ''}`);
-
-    const procGenStartTime = Date.now();
-    const generatedMap = await this.mapGenerator.generateBattlegroundMap(gameMode, mapSize);
-    const procGenDuration = Date.now() - procGenStartTime;
-    const totalDuration = Date.now() - startTime;
-
-    // Telemetry: Procedural map generation
-    TelemetryLogger.event('Battlegrounds', 'MapGenerationResult', {
-      gameMode,
-      mapSize,
-      success: true,
-      duration: totalDuration,
-      proceduralGenTime: procGenDuration,
-      source: 'procedural',
-      availableClassicMaps: matchingClassicMaps.length,
-      mapType: generatedMap.mapType
-    });
-    TelemetryLogger.histogram('Battlegrounds.MapGenTime', totalDuration);
-    TelemetryLogger.histogram('Battlegrounds.ProceduralGenTime', procGenDuration);
-    TelemetryLogger.counter('Battlegrounds.ProceduralMapsGenerated');
-
-    return generatedMap;
+    return await this.mapGenerator.generateBattlegroundMap(gameMode, mapSize);
   }
 
   /**
@@ -604,9 +502,9 @@ class BattlegroundsMatchManager {
    */
   async spawnParticipants() {
     if (!this.currentMatch) return;
-
+    
     const { gameMode, mapData, participants, teams } = this.currentMatch;
-
+    
     console.log(`[BattlegroundsMatchManager] spawnParticipants called for match ${this.currentMatch.matchId}`);
     console.log(`[BattlegroundsMatchManager] Map data: mapSize=${this.currentMatch.mapSize}, mapType=${this.currentMatch.mapType}, startingZ=${mapData.startingZ || 0}`);
     console.log(`[BattlegroundsMatchManager] World data structure:`, {
@@ -615,13 +513,6 @@ class BattlegroundsMatchManager {
       isArray: Array.isArray(mapData.worldData),
       arrayLength: Array.isArray(mapData.worldData) ? mapData.worldData.length : 'N/A',
       layer0Length: (Array.isArray(mapData.worldData) && mapData.worldData[0]) ? (Array.isArray(mapData.worldData[0]) ? mapData.worldData[0].length : 'not array') : 'N/A'
-    });
-
-    // Telemetry: Spawn start
-    TelemetryLogger.event('Battlegrounds', 'MatchLifecycle', {
-      matchId: this.currentMatch.matchId,
-      stage: 'spawning_started',
-      participantsToSpawn: participants.filter(p => !p.isNPC).length
     });
     
     // Get spawn points based on game mode
@@ -901,15 +792,6 @@ class BattlegroundsMatchManager {
     
     // Send spawn updates to clients
     this.broadcastSpawnUpdate();
-
-    // Telemetry: Spawn completed
-    TelemetryLogger.event('Battlegrounds', 'MatchLifecycle', {
-      matchId: this.currentMatch.matchId,
-      stage: 'spawning_completed',
-      playersSpawned: spawnedPlayerIds.length,
-      totalParticipants: this.currentMatch.participants.length
-    });
-    TelemetryLogger.counter('Battlegrounds.PlayersSpawned', spawnedPlayerIds.length);
   }
 
   /**
@@ -1008,23 +890,10 @@ class BattlegroundsMatchManager {
    */
   beginMatch() {
     if (!this.currentMatch) return;
-
+    
     this.currentMatch.status = 'in_progress';
     this.currentMatch.startTime = Date.now();
     this.broadcastMatchUpdate();
-
-    // Telemetry: Match started
-    TelemetryLogger.event('Battlegrounds', 'MatchLifecycle', {
-      matchId: this.currentMatch.matchId,
-      stage: 'started',
-      gameMode: this.currentMatch.gameMode,
-      participantCount: this.currentMatch.participants.length,
-      humanParticipants: this.currentMatch.participants.filter(p => !p.isNPC).length,
-      npcParticipants: this.currentMatch.participants.filter(p => p.isNPC).length,
-      mapType: this.currentMatch.mapType,
-      mapSize: this.currentMatch.mapSize
-    });
-    TelemetryLogger.histogram('Battlegrounds.MatchDuration', this.matchDuration);
     
     // Start match timer
     this.matchTimer = setTimeout(() => {
@@ -1108,52 +977,22 @@ class BattlegroundsMatchManager {
    */
   exitMatch(playerId) {
     if (!this.currentMatch) {
-      TelemetryLogger.event('Battlegrounds', 'PlayerExitFailed', {
-        playerId,
-        reason: 'no_active_match'
-      });
       return { success: false, message: 'No active match' };
     }
-
+    
     // Find participant
     const participant = this.currentMatch.participants.find(p => p.id === playerId);
     if (!participant) {
-      TelemetryLogger.event('Battlegrounds', 'PlayerExitFailed', {
-        playerId,
-        matchId: this.currentMatch.matchId,
-        reason: 'player_not_in_match'
-      });
       return { success: false, message: 'Player not in match' };
     }
-
+    
     // Skip if NPC
     if (participant.isNPC) {
-      TelemetryLogger.event('Battlegrounds', 'PlayerExitFailed', {
-        playerId,
-        matchId: this.currentMatch.matchId,
-        reason: 'npc_exit_attempt'
-      });
       return { success: false, message: 'Cannot exit NPC' };
     }
     
     // Mark participant as dead/alive=false (they're leaving)
     participant.alive = false;
-
-    // Telemetry: Player exit
-    const matchDuration = this.currentMatch.startTime ? Date.now() - this.currentMatch.startTime : 0;
-    TelemetryLogger.event('Battlegrounds', 'PlayerExit', {
-      playerId,
-      matchId: this.currentMatch.matchId,
-      gameMode: this.currentMatch.gameMode,
-      matchDuration,
-      playerStats: {
-        kills: participant.kills,
-        deaths: participant.deaths,
-        alive: participant.alive
-      },
-      reason: 'manual_exit'
-    });
-    TelemetryLogger.counter('Battlegrounds.PlayerExits');
     
         // Restore player to original position
         if (this.currentMatch.originalPlayerState && this.currentMatch.originalPlayerState[playerId]) {
@@ -1350,33 +1189,18 @@ class BattlegroundsMatchManager {
    */
   endMatch(endReason) {
     if (!this.currentMatch) return;
-
-    const matchDuration = this.currentMatch.startTime ? Date.now() - this.currentMatch.startTime : 0;
-
+    
     if (this.matchTimer) {
       clearTimeout(this.matchTimer);
       this.matchTimer = null;
     }
-
+    
     this.stopUpdateInterval();
-
+    
     this.currentMatch.status = 'ending';
     this.currentMatch.endTime = Date.now();
     this.currentMatch.endReason = endReason.reason || endReason;
     this.currentMatch.winner = endReason.winner || null;
-
-    // Telemetry: Match ending
-    TelemetryLogger.event('Battlegrounds', 'MatchLifecycle', {
-      matchId: this.currentMatch.matchId,
-      stage: 'ended',
-      reason: endReason.reason || endReason,
-      winner: endReason.winner || null,
-      duration: matchDuration,
-      participantCount: this.currentMatch.participants.length,
-      finalScores: this.currentMatch.scores
-    });
-    TelemetryLogger.histogram('Battlegrounds.MatchActualDuration', matchDuration);
-    TelemetryLogger.gauge('Battlegrounds.ActiveMatches', 0);
     
     // Calculate final scores
     if (this.scoreManager) {

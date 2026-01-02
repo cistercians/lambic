@@ -1,6 +1,0 @@
-Event: Combat.AggroDecision {
-Event: Entity.Lifecycle {
-Event: GameLoop.PerformanceDrop {
-Event: MapContext.SpatialFilterStats {
-Event: player.activity {
-Event: MapContext.FilterStats {

@@ -1,2 +1,0 @@
-Event: Combat.AggroDecision {
-Event: Entity.Lifecycle {

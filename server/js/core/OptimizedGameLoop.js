@@ -1,9 +1,4 @@
 // Optimized Game Loop
-const TelemetryLogger = require('./TelemetryLogger');
-
-// Rate limiting for telemetry logging (only log every 5 seconds to prevent spam)
-let lastSpatialFilterStatsLog = 0;
-const SPATIAL_FILTER_STATS_LOG_INTERVAL = 5000; // 5 seconds
 const PerformanceOptimizer = require('./PerformanceOptimizer.js');
 const OptimizedEntityManager = require('./OptimizedEntityManager.js');
 const mapContextHelpers = require('./MapContextHelpers.js');
@@ -85,15 +80,10 @@ class OptimizedGameLoop {
   // Main game loop with fixed timestep
   gameLoop() {
     if (!this.isRunning) return;
-    const frameStartTime = Date.now();
-    const currentTime = frameStartTime;
+    const currentTime = Date.now();
     const deltaTime = currentTime - this.lastFrameTime;
     this.lastFrameTime = currentTime;
-
-    // Telemetry: Frame timing
-    TelemetryLogger.histogram('GameLoop.FrameTime', deltaTime);
-    TelemetryLogger.counter('GameLoop.Frames');
-
+    
     // Cap delta time to prevent spiral of death
     const cappedDeltaTime = Math.min(deltaTime, this.targetFrameTime * 2);
     this.accumulator += cappedDeltaTime;
@@ -133,8 +123,6 @@ class OptimizedGameLoop {
       const pathfindingStart = Date.now();
       global.tilemapSystem.pathfindingSystem.processPathfindingQueue();
       const pathfindingTime = Date.now() - pathfindingStart;
-
-      TelemetryLogger.timer('GameLoop.Pathfinding', pathfindingStart);
       
       // If pathfinding took too long, skip non-critical updates
       if (pathfindingTime > frameBudget * 0.3) {
@@ -198,9 +186,6 @@ class OptimizedGameLoop {
     const t1 = Date.now();
     const playerPack = Player.update();
     const playerTime = Date.now() - t1;
-
-    // Telemetry: System load distribution
-    TelemetryLogger.timer('GameLoop.EntityUpdates.Player', t1);
     
     // #region agent log
     // Hypothesis C: Check if battleground NPCs are in playerPack
@@ -218,14 +203,10 @@ class OptimizedGameLoop {
     const t2 = Date.now();
     const arrowPack = Arrow.update();
     const arrowTime = Date.now() - t2;
-
-    TelemetryLogger.timer('GameLoop.EntityUpdates.Arrow', t2);
     
     const t3 = Date.now();
     const itemPack = Item.update();
     const itemTime = Date.now() - t3;
-
-    TelemetryLogger.timer('GameLoop.EntityUpdates.Item', t3);
     
     const t4 = Date.now();
     const lightPack = Light.update();
@@ -235,14 +216,10 @@ class OptimizedGameLoop {
     const t5 = Date.now();
     const buildingPack = Building.update();
     const buildingTime = Date.now() - t5;
-
-    TelemetryLogger.timer('GameLoop.EntityUpdates.Building', t5);
     
     const t6 = Date.now();
     const weatherPack = Weather.getAllUpdatePack();
     const weatherTime = Date.now() - t6;
-
-    TelemetryLogger.timer('GameLoop.EntityUpdates.Weather', t6);
     
     const totalTime = Date.now() - startTotal;
     
@@ -435,12 +412,6 @@ class OptimizedGameLoop {
         external: memUsage.external
       });
       this.lastMemoryCheck = now;
-
-      // Telemetry: Memory usage
-      TelemetryLogger.gauge('GameLoop.Memory.HeapUsed', memUsage.heapUsed);
-      TelemetryLogger.gauge('GameLoop.Memory.HeapTotal', memUsage.heapTotal);
-      TelemetryLogger.gauge('GameLoop.Memory.External', memUsage.external);
-      TelemetryLogger.gauge('GameLoop.Memory.RSS', memUsage.rss);
       
       // Keep last N memory samples
       if(this.memoryHistory.length > this.maxMemoryHistorySize) {
@@ -465,12 +436,12 @@ class OptimizedGameLoop {
     }
     
     // Send main packet
-    this.emitWithTelemetry({ msg: 'update', pack: finalPack });
-
+    this.emit({ msg: 'update', pack: finalPack });
+    
     // Send queued split packets if any (one per frame to avoid overwhelming)
     if(this.packetSplitQueue.length > 0) {
       const nextChunk = this.packetSplitQueue.shift();
-      this.emitWithTelemetry({ msg: 'update', pack: nextChunk });
+      this.emit({ msg: 'update', pack: nextChunk });
     }
   }
   
@@ -481,53 +452,8 @@ class OptimizedGameLoop {
       fps: this.performanceOptimizer.fps,
       stats: this.getPerformanceStats()
     };
-
-    this.emitWithTelemetry({ msg: 'renderUpdate', pack: renderPack });
-  }
-
-  // Emit with telemetry tracking
-  emitWithTelemetry(message) {
-    try {
-      // Track message size
-      const messageString = JSON.stringify(message);
-      const byteSize = Buffer.byteLength(messageString, 'utf8');
-
-      // Send the message
-      this.emit(message);
-
-      // Telemetry: Network message sent
-      TelemetryLogger.counter('Network.MessagesSent');
-      TelemetryLogger.histogram('Network.MessageSizeSent', byteSize);
-      TelemetryLogger.counter(`Network.MessagesSent.${message.msg}`);
-
-      // Sample detailed logging to avoid spam
-      if (Math.random() < 0.001) { // 0.1% sampling for detailed logs
-        TelemetryLogger.event('Network', 'MessageSent', {
-          messageType: message.msg,
-          sizeBytes: byteSize,
-          recipientCount: 'broadcast' // Could be enhanced to count actual recipients
-        });
-      }
-    } catch (error) {
-      TelemetryLogger.event('Network', 'MessageSendError', {
-        messageType: message.msg,
-        error: error.message
-      });
-
-      // Record error in system health monitor
-      if (TelemetryLogger.systemHealthMonitor) {
-        TelemetryLogger.systemHealthMonitor.recordError('Network', error, {
-          messageType: message.msg,
-          context: 'message_send'
-        });
-      }
-      // Still try to send the message
-      try {
-        this.emit(message);
-      } catch (emitError) {
-        console.error('[OptimizedGameLoop] Failed to emit message:', emitError);
-      }
-    }
+    
+    this.emit({ msg: 'renderUpdate', pack: renderPack });
   }
   
   // Update viewport bounds
@@ -546,16 +472,6 @@ class OptimizedGameLoop {
     this.frameTimeHistory.push(deltaTime);
     if (this.frameTimeHistory.length > this.maxHistorySize) {
       this.frameTimeHistory.shift();
-    }
-
-    // Telemetry: Performance drops
-    if (deltaTime > 50) { // Frame time > 50ms
-      TelemetryLogger.event('GameLoop', 'PerformanceDrop', {
-        frameTime: deltaTime,
-        threshold: 50,
-        activeEntities: global.Player ? Object.keys(global.Player.list).length : 0,
-        activePlayers: global.Player ? Object.keys(global.Player.list).filter(id => global.Player.list[id] && global.Player.list[id].type === 'player').length : 0
-      });
     }
   }
   
@@ -775,7 +691,6 @@ class OptimizedGameLoop {
   
   // Filter entities based on distance from any player
   spatialFilterEntities(entityPack) {
-    const startTime = Date.now();
     if(!Array.isArray(entityPack) || entityPack.length === 0) return entityPack;
     
     // Check if any player is in godmode - if so, send all entities (spectator mode should see everything)
@@ -929,29 +844,10 @@ class OptimizedGameLoop {
         filtered.push(entity);
       }
     }
-
-    const duration = Date.now() - startTime;
-
-    // Telemetry: Spatial filtering performance (rate limited to prevent spam)
-    const now = Date.now();
-    if (now - lastSpatialFilterStatsLog >= SPATIAL_FILTER_STATS_LOG_INTERVAL) {
-      lastSpatialFilterStatsLog = now;
-      TelemetryLogger.histogram('MapContext.FilterTime', duration);
-      TelemetryLogger.gauge('MapContext.FilteredEntities', filtered.length);
-      TelemetryLogger.event('MapContext', 'SpatialFilterStats', {
-        originalCount: entityPack.length,
-        filteredCount: filtered.length,
-        filterTime: duration,
-        activePlayers: playerPositions.length,
-        battlegroundPlayers: battlegroundPlayers.length,
-        mainWorldPlayers: mainWorldPlayers.length,
-        efficiency: filtered.length / entityPack.length
-      });
-    }
-
+    
     return filtered;
   }
-
+  
   /**
    * Filter buildings by map context (prevent main world buildings from appearing in battlegrounds)
    * Buildings from main world should not be sent to battleground clients

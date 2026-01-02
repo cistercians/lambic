@@ -3,12 +3,6 @@
  * Centralizes context-aware operations to reduce duplication and ensure consistency
  */
 
-const TelemetryLogger = require('./TelemetryLogger');
-
-// Rate limiting for telemetry logging (only log every 5 seconds to prevent spam)
-let lastFilterStatsLog = 0;
-const FILTER_STATS_LOG_INTERVAL = 5000; // 5 seconds
-
 /**
  * Check if two entities are in the same map context
  * @param {Object} entity1 - First entity
@@ -42,12 +36,11 @@ function areInSameContext(entity1, entity2) {
  * @returns {Array} Array of entities in same context
  */
 function getEntitiesInSameContext(entity, options = {}) {
-  const startTime = Date.now();
   if (!entity || !global.Player || !global.Player.list) return [];
-
+  
   const entityInBG = !!(entity.inBattleground && entity.battlegroundMatchId);
   const entityMatchId = entity.battlegroundMatchId || null;
-
+  
   const results = [];
   
   for (const id in global.Player.list) {
@@ -74,26 +67,7 @@ function getEntitiesInSameContext(entity, options = {}) {
     
     results.push(other);
   }
-
-  const duration = Date.now() - startTime;
-  const totalEntities = Object.keys(global.Player.list).length;
-
-  // Telemetry: Context filtering efficiency (rate limited to prevent spam)
-  const now = Date.now();
-  if (now - lastFilterStatsLog >= FILTER_STATS_LOG_INTERVAL) {
-    lastFilterStatsLog = now;
-    TelemetryLogger.histogram('MapContext.FilterTime', duration);
-    TelemetryLogger.gauge('MapContext.FilteredEntities', results.length);
-    TelemetryLogger.event('MapContext', 'FilterStats', {
-      totalEntities,
-      filteredEntities: results.length,
-      contextType: entityInBG ? 'battleground' : 'main_world',
-      filterTime: duration,
-      efficiency: results.length / totalEntities,
-      matchId: entityMatchId
-    });
-  }
-
+  
   return results;
 }
 
@@ -104,28 +78,13 @@ function getEntitiesInSameContext(entity, options = {}) {
  */
 function setEntityContext(entity, matchId) {
   if (!entity) return;
-
-  const oldContext = entity.inBattleground ? 'battleground' : 'main_world';
-  const newContext = matchId ? 'battleground' : 'main_world';
-
+  
   if (matchId) {
     entity.inBattleground = true;
     entity.battlegroundMatchId = matchId;
   } else {
     entity.inBattleground = false;
     entity.battlegroundMatchId = null;
-  }
-
-  // Telemetry: Context switching
-  if (oldContext !== newContext) {
-    TelemetryLogger.event('MapContext', 'Switch', {
-      entityType: entity.type || 'unknown',
-      entityId: entity.id,
-      fromContext: oldContext,
-      toContext: newContext,
-      matchId: matchId,
-      reason: 'context_change'
-    });
   }
 }
 

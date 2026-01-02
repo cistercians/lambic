@@ -1,3 +1,0 @@
-[14:32:15] [ERROR] [combat] Target validation failed
-[14:32:16] [INFO] [network] Player connected
-[14:32:17] [WARN] [memory] Heap usage at 85%

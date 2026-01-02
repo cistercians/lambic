@@ -1,8 +1,6 @@
 // SimpleCombat.js - Standardized combat system
 // All combat logic centralized here for easy debugging and maintenance
 
-const TelemetryLogger = require('./TelemetryLogger');
-
 class SimpleCombat {
   constructor() {
     // Combat constants
@@ -498,21 +496,7 @@ class SimpleCombat {
     // Calculate damage
     const damageInfo = this.calculateDamage(attacker, target);
     const netDamage = damageInfo.netDamage;
-
-    // Telemetry: Damage event
-    TelemetryLogger.histogram('Combat.DamageDealt', netDamage);
-    TelemetryLogger.event('Combat', 'DamageEvent', {
-      attackerClass: attacker.class,
-      defenderClass: target.class,
-      damageType,
-      damage: netDamage,
-      weaponDamage: damageInfo.weaponDamage,
-      armorDefense: damageInfo.armorDefense,
-      distance: this.getDistance(attacker, target),
-      isCritical: false, // Could be expanded
-      location: {x: target.x, y: target.y, z: target.z}
-    });
-
+    
     // Apply damage
     if (target.hp !== null) {
       target.hp -= netDamage;
@@ -547,19 +531,9 @@ class SimpleCombat {
 
   // Handle target death
   handleTargetDeath(attacker, target, damageType) {
-    // Telemetry: Death event
-    TelemetryLogger.counter('Combat.Deaths');
-    TelemetryLogger.event('Combat', 'DeathEvent', {
-      victimClass: target.class,
-      killerClass: attacker.class,
-      damageType,
-      location: {x: target.x, y: target.y, z: target.z},
-      finalHP: target.hp
-    });
-
     // Death messages are handled by EventManager.death() in Entity.die()
     // No need to send messages here - they would be duplicates
-
+    
     if (target.die) {
       target.die({ id: attacker.id, cause: damageType });
     }
@@ -571,23 +545,11 @@ class SimpleCombat {
 
   // Check if a stealthed unit can be detected by another unit
   checkStealthDetection(stealthedEntity, detector) {
-    TelemetryLogger.counter('Combat.StealthChecks');
-
     if (!stealthedEntity.stealthed) return false;
     if (stealthedEntity.revealed) return true; // Already revealed
-
+    
     const distance = this.getDistance(stealthedEntity, detector);
-    const detected = distance <= this.DETECTION_RANGE;
-
-    TelemetryLogger.event('Combat', 'StealthDetection', {
-      stealthedClass: stealthedEntity.class,
-      detectorClass: detector.class,
-      distance,
-      detectionRange: this.DETECTION_RANGE,
-      success: detected
-    });
-
-    return detected;
+    return distance <= this.DETECTION_RANGE;
   }
 
   // Handle stealth attack initiation
@@ -732,11 +694,7 @@ class SimpleCombat {
   // Main combat update - called every frame for entities with action='combat' or attack intent (pendingTarget)
   update(entity) {
     try {
-      // Track active combats
-      if (entity.combatState && entity.combatState.target) {
-        TelemetryLogger.gauge('Combat.ActiveCombats', 1, { entityClass: entity.class });
-      }
-
+      
       // Handle attack intent (works for all entities - players and NPCs, stealth and regular)
       if (this.handlePendingStealthAttack(entity)) {
         return; // Still handling attack intent approach
@@ -1173,9 +1131,6 @@ class SimpleCombat {
 
   // Handle chase logic
   handleChase(entity, target) {
-    TelemetryLogger.counter('Combat.PathfindingRequests');
-    TelemetryLogger.histogram('Combat.ChaseDistance', this.getDistance(entity, target));
-
     if (!entity.path && entity.moveTo) {
       // Initialize combat state and pathfinding failure counter if needed
       const state = this.ensureCombatState(entity);
@@ -1224,13 +1179,6 @@ class SimpleCombat {
             
             // If we've failed multiple times, drop combat
             if (state.pathfindingFailures >= 3) {
-              TelemetryLogger.event('Combat', 'MovementFailure', {
-                entityClass: entity.class,
-                targetClass: target.class,
-                failureType: 'max_attempts',
-                attempts: state.pathfindingFailures,
-                finalDistance: this.getDistance(entity, target)
-              });
               this.endCombat(entity, target);
               state.pathfindingFailures = 0;
             }
@@ -1412,25 +1360,15 @@ class SimpleCombat {
    */
   findAggroTargets(entity, aggroRange, isPeaceful) {
     // Use context-aware entity filtering to only check entities in same context
-    const candidates = global.mapContextHelpers
+    const candidates = global.mapContextHelpers 
       ? global.mapContextHelpers.getEntitiesInSameContext(entity, { excludeId: entity.id })
       : Object.values(global.Player.list).filter(p => p && p.id !== entity.id);
-
-    TelemetryLogger.histogram('Combat.AggroRange', aggroRange);
-
+    
     for (const target of candidates) {
       if (!target) continue;
-
+      
       if (this.canAggroTarget(entity, target, aggroRange, isPeaceful)) {
         // AGGRO!
-        TelemetryLogger.event('Combat', 'AggroDecision', {
-          entityClass: entity.class,
-          targetClass: target.class,
-          distance: this.getDistance(entity, target),
-          aggroRange,
-          decision: 'engaged',
-          reason: 'proximity'
-        });
         this.startCombat(entity, target);
         return true; // Found target
       }
@@ -1440,8 +1378,6 @@ class SimpleCombat {
 
   // Check for enemies to aggro
   checkAggro(entity) {
-    TelemetryLogger.counter('Combat.AggroChecks');
-
     // Early exit checks
     if (this.shouldSkipAggroCheck(entity)) return;
     
@@ -1508,12 +1444,6 @@ class SimpleCombat {
     try {
       // CRITICAL: Check if entities are allies - never start combat between allies
       if (global.isAlly && global.isAlly(entity.id, target.id)) {
-        TelemetryLogger.event('Combat', 'AggroDecision', {
-          entityClass: entity.class,
-          targetClass: target.class,
-          decision: 'ignored',
-          reason: 'alliance'
-        });
         return; // Don't start combat - they are allies
       }
     
@@ -1528,13 +1458,6 @@ class SimpleCombat {
       if (this.checkStealthDetection(entity, target)) {
         // Target detected the stealthed attacker - reveal and start combat
         this.removeStealth(entity);
-        TelemetryLogger.event('Combat', 'StealthEvent', {
-          action: 'detected_while_starting',
-          detectorClass: target.class,
-          stealthedClass: entity.class,
-          distance: this.getDistance(entity, target),
-          success: true
-        });
         // Continue to start combat normally
       } else {
         // Attacker is still stealthed and not detected - don't start combat yet
@@ -1543,38 +1466,18 @@ class SimpleCombat {
           state.pendingTarget = target.id;
           state.pendingStartTime = Date.now();
         }
-        TelemetryLogger.event('Combat', 'StealthEvent', {
-          action: 'pending_attack_started',
-          stealthedClass: entity.class,
-          targetClass: target.class,
-          distance: this.getDistance(entity, target)
-        });
         return; // Don't start combat yet
       }
     }
-
+    
     // If target is stealthed, check if entity can detect them
     if (target.stealthed && !target.revealed) {
       if (this.checkStealthDetection(target, entity)) {
         // Entity detected the stealthed target - reveal target
         this.removeStealth(target);
-        TelemetryLogger.event('Combat', 'StealthEvent', {
-          action: 'target_detected',
-          detectorClass: entity.class,
-          stealthedClass: target.class,
-          distance: this.getDistance(entity, target),
-          success: true
-        });
         // Continue to start combat normally
       } else {
         // Target is still stealthed and not detected - can't start combat
-        TelemetryLogger.event('Combat', 'StealthEvent', {
-          action: 'target_undetected',
-          detectorClass: entity.class,
-          stealthedClass: target.class,
-          distance: this.getDistance(entity, target),
-          success: false
-        });
         return; // Don't start combat - target is invisible
       }
     }
@@ -1584,20 +1487,8 @@ class SimpleCombat {
     if (peaceful.includes(entity.class)) {
       // Serfs should not flee from prey animals (deer)
       if (target.isPrey && entity.class === 'Serf') {
-        TelemetryLogger.event('Combat', 'AggroDecision', {
-          entityClass: entity.class,
-          targetClass: target.class,
-          decision: 'ignored',
-          reason: 'peaceful_prey'
-        });
         return; // Don't start combat or flee
       }
-      TelemetryLogger.event('Combat', 'AggroDecision', {
-        entityClass: entity.class,
-        targetClass: target.class,
-        decision: 'flee',
-        reason: 'peaceful'
-      });
       entity.action = 'flee';
       const state = this.ensureCombatState(entity);
       state.target = target.id;

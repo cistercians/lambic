@@ -1,11 +1,11 @@
 /**
  * Entity.js - Core entity definitions for the game
- *
+ * 
  * This file contains all entity constructors. For new code, prefer importing
  * specific constructors via module.exports rather than using globals:
- *
+ * 
  *   const { Character, Building, Item } = require('./Entity');
- *
+ * 
  * File Structure:
  * - Entity (base class) - Line ~13
  * - Building - Line ~94
@@ -15,12 +15,10 @@
  * - Item - Line ~12326
  * - Light - Line ~14870
  * - Weather - Line ~15076
- *
+ * 
  * TODO: This file should be split into separate modules over time.
  * See server/js/entities/ for the modular entity structure.
  */
-
-const TelemetryLogger = require('./core/TelemetryLogger');
 
 // Stub for stuck entity analytics - disabled by default to save memory
 // Enable with: global.stuckEntityAnalytics.enabled = true
@@ -110,16 +108,7 @@ Entity = function(param){
     
     return null; // No walkable tile found nearby
   }
-
-  // Telemetry: Entity creation
-  TelemetryLogger.counter('Entity.Created');
-  TelemetryLogger.event('Entity', 'Lifecycle', {
-    type: 'Entity',
-    action: 'created',
-    id: self.id,
-    location: {x: self.x, y: self.y, z: self.z}
-  });
-
+  
   return self;
 };
 
@@ -504,18 +493,6 @@ Building = function(param){
   Building.list[self.id] = self;
 
   initPack.building.push(self.getInitPack());
-
-  // Telemetry: Building creation
-  TelemetryLogger.counter(`Entity.Created.Building.${self.type}`);
-  TelemetryLogger.event('Entity', 'Lifecycle', {
-    type: 'Building',
-    subtype: self.type,
-    action: 'created',
-    id: self.id,
-    owner: self.owner,
-    house: self.house,
-    location: {x: self.x, y: self.y, z: self.z}
-  });
 
   return self;
 }
@@ -2132,10 +2109,7 @@ Stronghold = function(param){
 Building.list = {};
 
 Building.update = function(){
-  const startTime = Date.now();
-  const buildingCount = Object.keys(Building.list).length;
   var pack = [];
-
   for(var i in Building.list){
     var building = Building.list[i];
     if(building.update){
@@ -2143,14 +2117,6 @@ Building.update = function(){
     }
     pack.push(building.getUpdatePack());
   }
-
-  const duration = Date.now() - startTime;
-
-  // Telemetry: Building update performance
-  TelemetryLogger.histogram('Entity.UpdateDuration.Building', duration);
-  TelemetryLogger.gauge('Entity.UpdateCount.Building', buildingCount);
-  TelemetryLogger.gauge('Entity.UpdateRate.Building', buildingCount / (duration / 1000));
-
   return pack;
 }
 
@@ -11249,8 +11215,6 @@ Item.list = {};
 global.Item = Item;
 
 Item.update = function(){
-  const startTime = Date.now();
-  const itemCount = Object.keys(Item.list).length;
   var pack = [];
   const now = Date.now();
   
@@ -11321,14 +11285,6 @@ Item.update = function(){
       }
     }
   }
-
-  const duration = Date.now() - startTime;
-
-  // Telemetry: Item update performance
-  TelemetryLogger.histogram('Entity.UpdateDuration.Item', duration);
-  TelemetryLogger.gauge('Entity.UpdateCount.Item', itemCount);
-  TelemetryLogger.gauge('Entity.UpdateRate.Item', itemCount / (duration / 1000));
-
   return pack;
 }
 
@@ -11364,18 +11320,6 @@ Wood = function(param){
   }
   Item.list[self.id] = self;
   initPack.item.push(self.getInitPack());
-
-  // Telemetry: Item creation
-  TelemetryLogger.counter('Entity.Created.Item');
-  TelemetryLogger.event('Entity', 'Lifecycle', {
-    type: 'Item',
-    subtype: self.type,
-    action: 'created',
-    id: self.id,
-    location: {x: self.x, y: self.y, z: self.z},
-    quantity: self.qty
-  });
-
   return self;
 }
 
