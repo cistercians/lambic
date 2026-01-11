@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This performance audit identified 12 critical performance issues across the Lambic codebase, including memory leaks, algorithmic bottlenecks, and scalability concerns. The audit revealed that while the game has solid architectural foundations, several performance-critical issues could impact server stability and player experience at scale.
+This performance audit identified 17 critical performance issues across the Lambic codebase, including memory leaks, algorithmic bottlenecks, scalability concerns, and additional systemic issues. The extended audit revealed that while the game has solid architectural foundations, several performance-critical issues could impact server stability and player experience at scale, with additional concerns around global state management and complex AI systems.
 
 ### Key Findings:
 - **Memory Leaks**: Multiple timer and event listener leaks that could cause gradual memory growth
@@ -877,6 +877,141 @@ class OptimizedRenderer {
 }
 ```
 
+## Additional Performance Issues Identified
+
+### 12. **Inconsistent Timer Usage Throughout Codebase**
+**Location**: Multiple files with raw setTimeout/setInterval usage (22 instances across 5 files)
+**Severity**: MEDIUM
+**Issue**: Despite TimerManager implementation, many files still use raw timer functions without centralized management
+**Evidence**:
+- `server/js/Houses.js`: 1 instance of raw setTimeout
+- `server/js/Entity.js`: 16 instances of raw timers
+- `server/js/entities/Deer.js`: 2 instances
+- `server/js/entities/Wolf.js`: 2 instances
+- `server/js/Build.js`: 1 instance
+**Risk**: Memory leaks from unmanaged timers, debugging difficulties, inconsistent cleanup patterns
+**Impact**: Undermines TimerManager benefits, potential for orphaned timers
+**Recommended Fix**: Audit all timer usage and migrate to TimerManager
+```javascript
+// Find all raw timer usage:
+grep -r "setTimeout\|setInterval" server/js/ --include="*.js" | grep -v TimerManager
+
+// Replace with TimerManager calls:
+const timerId = timerManager.setTimeout('unique-name', callback, delay);
+```
+
+### 13. **Potential Global State Accumulation**
+**Location**: Throughout codebase (416+ Map/Set instances across 100+ files)
+**Severity**: HIGH
+**Issue**: Extensive use of global Map() and Set() objects that may accumulate data indefinitely
+**Evidence**:
+- EventManager subscribers: `this.subscribers = new Map()`
+- Faction AI histories: `this.goalFailureHistory = new Map()`
+- Various global collections without size limits
+**Risk**: Memory usage growth over time in long-running servers
+**Impact**: Gradual memory bloat, especially with many concurrent players/factions
+**Recommended Fix**: Implement size limits and cleanup for global collections
+```javascript
+class BoundedMap extends Map {
+  constructor(maxSize = 1000) {
+    super();
+    this.maxSize = maxSize;
+  }
+
+  set(key, value) {
+    if (this.size >= this.maxSize) {
+      // Remove oldest entry (simple FIFO)
+      const firstKey = this.keys().next().value;
+      this.delete(firstKey);
+    }
+    return super.set(key, value);
+  }
+}
+
+// Usage:
+this.goalFailureHistory = new BoundedMap(500); // Limit to 500 entries
+```
+
+### 14. **Large Array Pre-allocation Issues**
+**Location**: `server/js/genesis.js`, `server/js/battlegrounds/BattlegroundsPathfindingManager.js`
+**Severity**: LOW
+**Issue**: Large arrays created with `new Array(length)` then immediately filled
+**Evidence**:
+```javascript
+// BattlegroundsPathfindingManager.js
+grid[i] = new Array(mapSize).fill(0); // mapSize could be very large
+
+// genesis.js
+var arr = new Array(length || 0),
+```
+**Risk**: Brief memory spikes during initialization
+**Impact**: Potential for very large allocations during world generation
+**Recommended Fix**: Use more memory-efficient initialization
+```javascript
+// Instead of:
+grid[i] = new Array(mapSize).fill(0);
+
+// Use:
+grid[i] = new Uint8Array(mapSize); // Typed array for better memory usage
+// or if dynamic filling needed:
+grid[i] = [];
+for (let j = 0; j < mapSize; j++) {
+  grid[i][j] = 0;
+}
+```
+
+### 15. **Faction AI System Complexity**
+**Location**: `server/js/ai/` directory (entire faction AI system, ~2900 lines)
+**Severity**: MEDIUM
+**Issue**: Extremely complex system with multiple caching layers and heavy computation during daily evaluations
+**Evidence**:
+- 13 interconnected services per faction
+- Multiple Map/Set objects per faction instance
+- Complex goal dependency resolution
+- Daily evaluation cycles with potential O(n²) operations
+**Risk**: Performance degradation as faction count increases
+**Impact**: CPU spikes during faction AI evaluations, especially with many concurrent factions
+**Recommended Fix**: Profile faction AI performance and optimize critical paths
+```javascript
+// Add performance monitoring to FactionAI.evaluateGoals():
+const startTime = Date.now();
+// ... evaluation logic ...
+const duration = Date.now() - startTime;
+if (duration > 100) { // Log slow evaluations
+  console.warn(`[FactionAI] Slow evaluation for ${this.house.name}: ${duration}ms`);
+}
+```
+
+### 16. **EventManager Ring Buffer Management**
+**Location**: `server/js/core/EventManager.js`
+**Severity**: LOW
+**Issue**: Ring buffer for event history with potential metadata accumulation
+**Evidence**: Ring buffer size limit of 1000 events, but metadata objects may contain large data
+**Risk**: Memory accumulation from event metadata
+**Impact**: Gradual memory growth from stored event data
+**Assessment**: Currently well-managed with 5-minute cleanup, but could be optimized
+**Recommended Fix**: Compress or limit event metadata size
+```javascript
+// In EventManager.createEvent(), limit metadata size:
+event.metadata = this.compressMetadata(eventData.metadata);
+
+// Add compression method:
+compressMetadata(metadata) {
+  // Remove large objects, limit string lengths, etc.
+  const compressed = {};
+  for (const [key, value] of Object.entries(metadata)) {
+    if (typeof value === 'string' && value.length > 200) {
+      compressed[key] = value.substring(0, 200) + '...';
+    } else if (value && typeof value === 'object' && Object.keys(value).length > 10) {
+      compressed[key] = { _truncated: true, size: Object.keys(value).length };
+    } else {
+      compressed[key] = value;
+    }
+  }
+  return compressed;
+}
+```
+
 ## Detailed Recommendations
 
 ### **Immediate Critical Fixes (Priority 1)**
@@ -973,10 +1108,12 @@ class OptimizedRenderer {
 - ✅ WebSocket backpressure handling
 - **Milestone**: Smooth 60 FPS with large battlegrounds
 
-### **Phase 5: Monitoring & Polish (Week 9-10)**
+### **Phase 5: Monitoring & Polish (Week 9-12)**
 - ✅ Performance monitoring system
 - ✅ Memory usage tracking
 - ✅ Automated alerts
+- ✅ Global state cleanup implementation
+- ✅ Faction AI performance profiling
 - **Milestone**: Production-ready monitoring and alerting
 
 ## Performance Impact Assessment
@@ -1070,24 +1207,29 @@ const clientMonitor = {
 - Hard-coded entity limits breaking gameplay
 - Direct entity iterations bypassing context isolation
 - Inconsistent timer management
+- Global state accumulation in Maps/Sets
 
 ### **Medium Risk (Plan to Address)**
 - Client-side synchronous processing
 - Canvas rendering inefficiencies
 - Blockchain memory growth
+- Inconsistent timer usage throughout codebase
+- Faction AI system complexity
 
 ### **Low Risk (Monitor and Maintain)**
 - Pathfinding cache inefficiencies
 - TimerManager inconsistent usage
 - Missing performance monitoring
+- Large array pre-allocation issues
+- EventManager ring buffer management
 
 ---
 
-**Audit Completion Date**: January 8, 2026
-**Audited By**: AI Code Assistant
-**Total Issues Identified**: 12 performance issues
-**Files Audited**: Core game loop, entity system, client rendering, server cleanup systems
-**Estimated Implementation Effort**: 8-10 weeks for complete optimization
-**Priority Classification**: 3 Critical, 4 High, 3 Medium, 2 Low
+**Audit Completion Date**: January 11, 2026
+**Audited By**: AI Code Assistant (Extended Audit)
+**Total Issues Identified**: 17 performance issues
+**Files Audited**: Core game loop, entity system, client rendering, server cleanup systems, faction AI, global state management
+**Estimated Implementation Effort**: 10-12 weeks for complete optimization
+**Priority Classification**: 3 Critical, 5 High, 5 Medium, 4 Low
 
-This performance audit reveals that while the Lambic codebase has solid architectural foundations, critical memory leaks and algorithmic bottlenecks could severely impact server stability and player experience. The most critical issues should be addressed immediately to ensure production readiness.
+This extended performance audit reveals that while the Lambic codebase has solid architectural foundations, critical memory leaks, algorithmic bottlenecks, and systemic issues around global state management could severely impact server stability and player experience. The most critical issues should be addressed immediately to ensure production readiness, with additional attention needed for long-term maintenance of complex AI systems and global state.
