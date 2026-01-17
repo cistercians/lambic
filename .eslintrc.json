@@ -1,0 +1,33 @@
+{
+  "env": {
+    "node": true,
+    "es2021": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 2021,
+    "sourceType": "script"
+  },
+  "overrides": [
+    {
+      "files": [
+        "server/js/bootstrap/**/*.js",
+        "server/js/entities/**/*.js",
+        "tests/**/*.js"
+      ],
+      "rules": {
+        "curly": "warn",
+        "eqeqeq": "warn",
+        "no-var": "warn",
+        "prefer-const": "warn",
+        "no-unused-vars": [
+          "warn",
+          {
+            "args": "none",
+            "ignoreRestSiblings": true
+          }
+        ],
+        "consistent-return": "warn"
+      }
+    }
+  ]
+}

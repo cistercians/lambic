@@ -14,6 +14,7 @@
 
 // Import from the main Entity.js file
 const EntityModule = require('../Entity');
+const PlayerModule = require('./Player');
 
 // Re-export with cleaner structure
 module.exports = {
@@ -26,6 +27,9 @@ module.exports = {
   Serf: EntityModule.Serf,
   SerfM: EntityModule.SerfM,
   SerfF: EntityModule.SerfF,
+
+  // Player constructor (lives in lambic.js but exposed via global)
+  get Player() { return PlayerModule.Player; },
   
   // Other entities
   Arrow: EntityModule.Arrow,

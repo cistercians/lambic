@@ -2,6 +2,8 @@
 const PerformanceOptimizer = require('./PerformanceOptimizer.js');
 const OptimizedEntityManager = require('./OptimizedEntityManager.js');
 const mapContextHelpers = require('./MapContextHelpers.js');
+const dependencyInjector = require('./DependencyInjector');
+const metrics = require('./MetricsRegistry');
 
 class OptimizedGameLoop {
   constructor() {
@@ -42,6 +44,12 @@ class OptimizedGameLoop {
     this.lastContextStatsLog = 0;
     this.staleContextCleanupIntervalMs = 10000; // 10 seconds
     this.lastStaleContextCleanup = 0;
+
+    // Error tracking and throttled logging
+    this._errorStats = {
+      byContext: {},
+      logIntervalMs: 5000
+    };
     
     // Delta compression: Track previous entity states
     this.previousEntityStates = new Map(); // entityId -> previous update pack
@@ -128,9 +136,12 @@ class OptimizedGameLoop {
     // const updateResult = this.entityManager.updateEntities(this.targetFrameTime);
     
     // Process pathfinding queue to spread work across frames
-    if (global.tilemapSystem && global.tilemapSystem.pathfindingSystem) {
+    const tilemapSystem = this.resolveOptional('tilemapSystem');
+    if (tilemapSystem && tilemapSystem.pathfindingSystem) {
       const pathfindingStart = Date.now();
-      global.tilemapSystem.pathfindingSystem.processPathfindingQueue();
+      this.safeCall('pathfinding.processQueue', () => {
+        tilemapSystem.pathfindingSystem.processPathfindingQueue();
+      });
       const pathfindingTime = Date.now() - pathfindingStart;
       
       // If pathfinding took too long, skip non-critical updates
@@ -141,7 +152,7 @@ class OptimizedGameLoop {
     
     // Update game state
     if (this.gameState) {
-      this.gameState.updateTime();
+      this.safeCall('gameState.updateTime', () => this.gameState.updateTime());
     }
     
     // Check frame budget before continuing
@@ -151,12 +162,13 @@ class OptimizedGameLoop {
     
     // Update social system (check for spontaneous NPC conversations)
     // Only if we have budget remaining (social updates are lower priority)
-    if (global.socialSystem && remainingBudget > frameBudget * 0.2) {
-      global.socialSystem.update();
+    const socialSystem = this.resolveOptional('socialSystem');
+    if (socialSystem && remainingBudget > frameBudget * 0.2) {
+      this.safeCall('socialSystem.update', () => socialSystem.update());
     }
     
     // Send updates to clients (always do this, but may be reduced if over budget)
-    this.sendUpdates();
+    this.safeCall('sendUpdates', () => this.sendUpdates());
     
     // Clear dirty flags
     this.performanceOptimizer.clearDirty();
@@ -166,15 +178,55 @@ class OptimizedGameLoop {
   // Variable timestep update (rendering)
   renderUpdate(deltaTime) {
     // Update viewport based on player position
-    this.updateViewport();
+    this.safeCall('updateViewport', () => this.updateViewport());
     
     // Send render updates to clients
-    this.sendRenderUpdates(deltaTime);
+    this.safeCall('sendRenderUpdates', () => this.sendRenderUpdates(deltaTime));
+  }
+
+  // Throttled error logging per context to keep the loop resilient
+  logError(context, error) {
+    const now = Date.now();
+    const safeContext = String(context).replace(/[^a-zA-Z0-9_.-]/g, '_');
+    metrics.increment('gameLoop.errors');
+    metrics.increment(`gameLoop.errors.${safeContext}`);
+    metrics.setGauge('gameLoop.lastErrorAt', now);
+
+    if (!this._errorStats.byContext[context]) {
+      this._errorStats.byContext[context] = { count: 0, lastLog: 0 };
+    }
+
+    const stats = this._errorStats.byContext[context];
+    stats.count += 1;
+
+    if (now - stats.lastLog >= this._errorStats.logIntervalMs) {
+      stats.lastLog = now;
+      const message = error && error.stack ? error.stack : String(error);
+      console.error(`[OptimizedGameLoop] ${context} error (count=${stats.count}):`, message);
+    }
+  }
+
+  // Execute a function safely and return a fallback on failure
+  safeCall(context, fn, fallback) {
+    try {
+      return fn();
+    } catch (error) {
+      this.logError(context, error);
+      return fallback;
+    }
+  }
+
+  resolveOptional(name) {
+    try {
+      return dependencyInjector.resolve(name);
+    } catch (error) {
+      return null;
+    }
   }
   
   // Send game updates to clients
   sendUpdates() {
-    this.cleanupStaleContextEntities();
+    this.safeCall('cleanupStaleContextEntities', () => this.cleanupStaleContextEntities());
     // Track update frame for frequency optimization
     if(this.updateFrequencyOptimization) {
       this.criticalUpdateFrame++;
@@ -194,7 +246,7 @@ class OptimizedGameLoop {
     const startTotal = Date.now();
     
     const t1 = Date.now();
-    const playerPack = Player.update();
+    const playerPack = this.safeCall('Player.update', () => Player.update(), []);
     const playerTime = Date.now() - t1;
     
     // #region agent log
@@ -210,11 +262,11 @@ class OptimizedGameLoop {
     // #endregion
     
     const t2 = Date.now();
-    const arrowPack = Arrow.update();
+    const arrowPack = this.safeCall('Arrow.update', () => Arrow.update(), []);
     const arrowTime = Date.now() - t2;
     
     const t3 = Date.now();
-    const itemPack = Item.update();
+    const itemPack = this.safeCall('Item.update', () => Item.update(), []);
     const itemTime = Date.now() - t3;
     const debugNow = Date.now();
     if (!global._debugTorchLogTimes) global._debugTorchLogTimes = {};
@@ -225,7 +277,7 @@ class OptimizedGameLoop {
     }
     
     const t4 = Date.now();
-    const lightPack = Light.update();
+    const lightPack = this.safeCall('Light.update', () => Light.update(), []);
     const lightTime = Date.now() - t4;
     if (!global._debugTorchLogTimes) global._debugTorchLogTimes = {};
     if (!global._debugTorchLogTimes.lightPack || debugNow - global._debugTorchLogTimes.lightPack > 2000) {
@@ -245,18 +297,19 @@ class OptimizedGameLoop {
     
     
     const t5 = Date.now();
-    const buildingPack = Building.update();
+    const buildingPack = this.safeCall('Building.update', () => Building.update(), []);
     const buildingTime = Date.now() - t5;
     
     const t6 = Date.now();
-    const cameraPack = Camera.update();
+    const cameraPack = this.safeCall('Camera.update', () => Camera.update(), []);
     const cameraTime = Date.now() - t6;
 
     const t7 = Date.now();
-    const weatherPack = Weather.getAllUpdatePack();
+    const weatherPack = this.safeCall('Weather.getAllUpdatePack', () => Weather.getAllUpdatePack(), []);
     const weatherTime = Date.now() - t7;
     
     const totalTime = Date.now() - startTotal;
+    metrics.recordTiming('gameLoop.updateFrameMs', totalTime);
     
     // Apply spatial filtering: only send entities near players
     let filteredPlayerPack = playerPack;
@@ -438,8 +491,9 @@ class OptimizedGameLoop {
     
     // Check packet size and split if needed
     let finalPack = pack;
-    const packetString = JSON.stringify({ msg: 'update', pack });
-    let packetSize = Buffer.byteLength(packetString, 'utf8');
+    const packetString = this.safeCall('packet.stringify', () => JSON.stringify({ msg: 'update', pack }), '');
+    let packetSize = packetString ? Buffer.byteLength(packetString, 'utf8') : 0;
+    metrics.setGauge('gameLoop.lastPacketBytes', packetSize);
     
     // If packet is too large, split it across frames
     if(packetSize > this.maxPacketSize && pack.player && Array.isArray(pack.player)) {

@@ -7,9 +7,13 @@
   "scripts": {
     "start": "node lambic.js",
     "dev": "NODE_ENV=development node lambic.js",
-    "test": "node tests/mapContextIsolation.test.js"
+    "test": "node tests/run.js",
+    "lint": "eslint \"server/js/bootstrap/**/*.js\" \"server/js/entities/**/*.js\" \"tests/**/*.js\""
   },
   "description": "",
+  "devDependencies": {
+    "eslint": "^8.57.0"
+  },
   "dependencies": {
     "canvas": "^3.2.0",
     "crypto-js": "^4.2.0",

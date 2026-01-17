@@ -1,3 +1,5 @@
+const metrics = require('../core/MetricsRegistry');
+
 // Base Command Class
 class BaseCommand {
   constructor(name) {
@@ -469,10 +471,16 @@ class CommandHandler {
   }
   
   execute(cmd, player, socket) {
+    if (!cmd || typeof cmd !== 'string' || cmd.length > 256) {
+      metrics.increment('commands.invalidInput');
+      this.sendError(socket, 'Invalid command');
+      return;
+    }
     const [commandName, ...args] = cmd.split(' ');
     const command = this.commands.get(commandName);
     
     if (!command) {
+      metrics.increment('commands.unknown');
       this.sendError(socket, `Unknown command: ${commandName}`);
       return;
     }
@@ -480,6 +488,7 @@ class CommandHandler {
     try {
       command.execute(player, args, socket);
     } catch (error) {
+      metrics.increment('commands.errors');
       this.sendError(socket, 'Command execution failed');
     }
   }

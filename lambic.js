@@ -14,19 +14,21 @@ const PF = require('pathfinding');
 const express = require('express');
 const sockjs = require('sockjs');
 
-// Helper function to check if a destination is a doorway (must be defined before Entity.js)
-function isDoorwayDestination(x, y, z) {
-  if (z !== 0) return false;
-  // Use a simple check that doesn't depend on other functions
-  if (typeof global.tilemapSystem !== 'undefined') {
-    const tile = global.tilemapSystem.getTile(0, x, y);
-    return tile === 55 || tile === 56; // TERRAIN.DOOR_OPEN and TERRAIN.DOOR_OPEN_ALT values
-  }
-  return false;
-}
-
-// Make isDoorwayDestination available globally
-global.isDoorwayDestination = isDoorwayDestination;
+const {
+  TERRAIN,
+  Z_LEVELS,
+  TILE_SIZE,
+  FACTION_IDS,
+  INTERACTABLE_BUILDING_TYPES,
+  INTERACTABLE_OBJECT_TYPES,
+  isInteractableBuilding,
+  isInteractableObject
+} = require('./server/js/bootstrap/constants');
+const { initializeWorld } = require('./server/js/bootstrap/worldInit');
+const { initializeNetworking } = require('./server/js/bootstrap/networking');
+const { exposeRegistries, performSystemAudit, validateCriticalSystems } = require('./server/js/bootstrap/registries');
+const { setupGameLoop } = require('./server/js/bootstrap/gameLoop');
+const metrics = require('./server/js/core/MetricsRegistry');
 
 // Import modules
 require('./server/js/Database');
@@ -53,97 +55,6 @@ const NetworkConfig = require('./server/js/blockchain/NetworkConfig');
 
 // Modular entity loading happens later after all globals are defined
 // See line ~1450 for initModularEntities() call
-
-// ============================================================================
-// CONSTANTS
-// ============================================================================
-
-const TERRAIN = {
-  WATER: 0,
-  HEAVY_FOREST: 1,
-  LIGHT_FOREST: 2,
-  BRUSH: 3,
-  ROCKS: 4,
-  MOUNTAIN: 5,
-  CAVE_ENTRANCE: 6,
-  EMPTY: 7,
-  FARM_SEED: 8,
-  FARM_GROWING: 9,
-  FARM_READY: 10,
-  BUILD_MARKER: 11,
-  BUILD_MARKER_ALT: 11.5,
-  DOOR_OPEN: 14,
-  DOOR_OPEN_ALT: 16,
-  ROAD: 18,
-  DOOR_LOCKED: 19
-};
-
-const Z_LEVELS = {
-  UNDERWATER: -3,
-  CELLAR: -2,
-  UNDERWORLD: -1,
-  OVERWORLD: 0,
-  BUILDING_1: 1,
-  BUILDING_2: 2,
-  SHIP: 3
-};
-
-// Expose constants globally immediately so they're available to modules
-global.TERRAIN = TERRAIN;
-global.Z_LEVELS = Z_LEVELS;
-
-// Map context validation configuration (default: enabled + enforce)
-const CONTEXT_VALIDATION_ENABLED = process.env.CONTEXT_VALIDATION_ENABLED !== 'false';
-const CONTEXT_VALIDATION_ENFORCE = process.env.CONTEXT_VALIDATION_ENFORCE !== 'false';
-global.contextValidationConfig = {
-  enabled: CONTEXT_VALIDATION_ENABLED,
-  enforce: CONTEXT_VALIDATION_ENFORCE
-};
-
-// Helper function to check if terrain is a large rock (resource-carrying)
-// Large rocks have values > TERRAIN.ROCKS (4) && < TERRAIN.MOUNTAIN (5)
-function isLargeRock(terrain) {
-  return terrain > TERRAIN.ROCKS && terrain < TERRAIN.MOUNTAIN;
-}
-global.isLargeRock = isLargeRock;
-
-const TILE_SIZE = 64;
-const FACTION_IDS = {
-  BROTHERHOOD: 1,
-  GOTHS: 2,
-  NORSEMEN: 3,
-  FRANKS: 4,
-  CELTS: 5,
-  TEUTONS: 6,
-  OUTLAWS: 7,
-  MERCENARIES: 8
-};
-
-// ============================================================================
-// INTERACTABLE SYSTEM CONFIGURATION
-// ============================================================================
-
-// Centralized lists of interactable building and object types
-// To add new interactables, simply add to these arrays
-const INTERACTABLE_BUILDING_TYPES = ['dock', 'mill', 'mine', 'lumbermill', 'stable', 'tavern', 'market', 'monastery'];
-const INTERACTABLE_OBJECT_TYPES = ['Goods1', 'Goods2', 'Goods3', 'Goods4', 'Desk', 'Chest', 'LockedChest'];
-
-// Helper functions to check if an entity is interactable
-function isInteractableBuilding(building) {
-  if (!building) return false;
-  // Check for dynamic interactable property first
-  if (building.interactable === true) return true;
-  // Check if building type is in the interactable list
-  return INTERACTABLE_BUILDING_TYPES.indexOf(building.type) !== -1;
-}
-
-function isInteractableObject(item) {
-  if (!item) return false;
-  // Check for dynamic interactable property first
-  if (item.interactable === true) return true;
-  // Check if item type is in the interactable list
-  return INTERACTABLE_OBJECT_TYPES.indexOf(item.type) !== -1;
-}
 
 // ============================================================================
 // INITIALIZE GAME
@@ -181,23 +92,6 @@ let caveEntrances = [];
 // Declare io early so it can be checked before initialization
 let io = null;
 
-async function initializeWorld() {
-  try {
-    // Run CLI to get user selections and generate map
-    const result = await MapGenerationCLI.run();
-    
-    world = result.worldMaps;
-    caveEntrances = result.entrances || [];
-    global.caveEntrances = caveEntrances;
-    gameState.initializeWorld(world);
-  } catch (error) {
-    console.error('Error initializing world:', error);
-    process.exit(1);
-  }
-}
-
-// initializeWorld() call moved to after SockJS setup (see line ~6246)
-
 function continueServerInitialization() {
   // Load and register all commands from individual files (after user input is collected)
   loadCommands();
@@ -222,11 +116,20 @@ function continueServerInitialization() {
   global.mapContextHelpers = mapContextHelpers;
   global.contextTransitionManager = contextTransitionManager;
 
+  systemRegistry.register('mapContextManager', mapContextManager, {
+    dependsOn: ['tilemap'],
+    priority: 3
+  });
+  systemRegistry.register('mapContextHelpers', mapContextHelpers, { priority: 3 });
+  dependencyInjector.provide('mapContextManager', () => systemRegistry.get('mapContextManager'));
+  dependencyInjector.provide('mapContextHelpers', () => systemRegistry.get('mapContextHelpers'));
+
   // Register tilemap system in registry
   systemRegistry.register('tilemap', tilemapIntegration, { 
     dependsOn: ['gameState'], 
     priority: 2 
   });
+  dependencyInjector.provide('tilemapSystem', () => systemRegistry.get('tilemap'));
 
   // Initialize map analyzer for AI faction placement
   const MapAnalyzer = require('./server/js/ai/MapAnalyzer');
@@ -536,7 +439,7 @@ function continueServerInitialization() {
   dailyTally();
 
   // Perform system audit after all systems are initialized
-  const auditResults = performSystemAudit();
+  const auditResults = performSystemAudit({ systemRegistry, entityRegistry });
 
   // Exit if critical issues found
   if (!auditResults.allValid) {
@@ -545,7 +448,7 @@ function continueServerInitialization() {
   }
 
   // Additional startup validation
-  const criticalValidation = validateCriticalSystems();
+  const criticalValidation = validateCriticalSystems({ systemRegistry, entityRegistry });
   if (!criticalValidation) {
     console.error('\n❌ CRITICAL: Critical system validation failed!');
     console.error('Server may not function correctly.\n');
@@ -578,6 +481,7 @@ systemRegistry.register('combat', simpleCombat, {
   dependsOn: ['gameState'], 
   priority: 5 
 });
+dependencyInjector.provide('simpleCombat', () => systemRegistry.get('combat'));
 
 // Register BuildingConstruction
 global.BuildingConstruction = BuildingConstruction;
@@ -611,6 +515,7 @@ systemRegistry.register('social', socialSystem, {
   dependsOn: ['gameState'], 
   priority: 9 
 });
+dependencyInjector.provide('socialSystem', () => systemRegistry.get('social'));
 
 // Register itemFactory
 systemRegistry.register('itemFactory', itemFactory, { 
@@ -738,25 +643,11 @@ systemRegistry.register('commands', commandHandler, {
   priority: 14 
 });
 
-// Create optimized game loop
-const optimizedGameLoop = new OptimizedGameLoop();
-global.optimizedGameLoop = optimizedGameLoop;
-global.runContextIsolationCheck = function(matchId = null) {
-  if (!global.optimizedGameLoop || typeof global.optimizedGameLoop.getContextIsolationReport !== 'function') {
-    return { valid: true, issues: [], hasPack: false };
-  }
-  return global.optimizedGameLoop.getContextIsolationReport(matchId);
-};
-systemRegistry.register('gameLoop', optimizedGameLoop, { 
-  dependsOn: ['gameState'], 
-  priority: 15 
+const { optimizedGameLoop } = setupGameLoop({
+  OptimizedGameLoop,
+  systemRegistry,
+  gameState
 });
-
-// Initialize performance monitor
-const PerformanceMonitor = require('./server/js/core/PerformanceMonitor');
-const performanceMonitor = new PerformanceMonitor();
-global.performanceMonitor = performanceMonitor;
-systemRegistry.register('performance', performanceMonitor, { priority: 16 });
 
 const SOCKET_LIST = {};
 global.SOCKET_LIST = SOCKET_LIST;
@@ -6836,87 +6727,20 @@ function dayNight() {
 // NETWORKING
 // ============================================================================
 
-const app = express();
-const serv = require('http').Server(app);
-
-// Add CORS headers to allow connections from any origin
-app.use(function(req, res, next) {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
-  }
-  next();
+const { app, serv, io: initializedIo, serverName } = initializeNetworking({
+  express,
+  sockjs,
+  fsSync,
+  rootDir: __dirname,
+  gameState,
+  existingIo: io
 });
-
-app.get('/', function(req, res) {
-  res.sendFile(__dirname + '/client/index.html');
-});
-
-// Serve static files
-app.use('/client', express.static(__dirname + '/client'));
-
-// Generate and store server name
-function generateServerName() {
-  try {
-    const surnames = fsSync.readFileSync('./surnames.txt', 'utf-8').split('\n').filter(name => name.trim());
-    // Filter names between 4-5 letters
-    const validNames = surnames.filter(name => {
-      const trimmed = name.trim();
-      return trimmed.length >= 4 && trimmed.length <= 5;
-    });
-    
-    if (validNames.length > 0) {
-      const randomName = validNames[Math.floor(Math.random() * validNames.length)].trim();
-      return randomName;
-    }
-    return 'Lambic'; // Fallback name
-  } catch (error) {
-    return 'Lambic';
-  }
-}
-
-// Initialize server name (generates fresh on each startup)
-let serverName = generateServerName();
-gameState.serverName = serverName;
-global.serverName = serverName;
-
-// Initialize SockJS server BEFORE CLI runs (so message appears before user input)
-// This must happen before initializeWorld() to ensure message prints before CLI prompt
-if (!io) {
-  io = sockjs.createServer();
-  io.installHandlers(serv, { prefix: '/io' });
-  
-  serv.listen(2000, '0.0.0.0', function() {
-    const addr = serv.address();
-    console.log('SockJS v0.3.24 bound to "/io" on ' + addr.address + ':' + addr.port);
-  });
-  
-  // Print SockJS message explicitly before CLI starts (library may print it asynchronously)
-  
-  // Suppress any duplicate messages from the library
-  const originalLog = console.log;
-  let sockjsMessageSuppressed = false;
-  console.log = function(...args) {
-    const msg = args[0];
-    if (typeof msg === 'string' && msg.includes('SockJS') && msg.includes('bound to')) {
-      if (!sockjsMessageSuppressed) {
-        sockjsMessageSuppressed = true;
-        return; // Suppress - we already printed it
-      }
-    }
-    originalLog.apply(console, args);
-  };
-  
-  // Restore after a brief moment to catch any async library messages
-  setTimeout(() => {
-    console.log = originalLog;
-  }, 50);
-}
+io = initializedIo;
 
 // Now start world initialization (SockJS message already printed)
-initializeWorld().then(() => {
+initializeWorld({ MapGenerationCLI, gameState }).then(({ world: generatedWorld, caveEntrances: generatedEntrances }) => {
+  world = generatedWorld;
+  caveEntrances = generatedEntrances;
   continueServerInitialization();
 }).catch((error) => {
   console.error('Fatal error during world initialization:', error);
@@ -6987,121 +6811,15 @@ BlockchainStorage.startAutosave();
 // EXPOSE REGISTRIES GLOBALLY (Phase 1: Foundation - Backward Compatibility)
 // ============================================================================
 
-// Expose registries globally for backward compatibility during transition
-// New code should use dependency injection, but existing code can still access via globals
-global.systemRegistry = systemRegistry;
-global.entityRegistry = entityRegistry;
-global.dependencyInjector = dependencyInjector;
-
-  // Perform comprehensive system audit - logs only in DEBUG mode
-  function performSystemAudit() {
-  const DEBUG = process.env.DEBUG;
-  const stats = systemRegistry.getStats();
-  const dependencyCheck = systemRegistry.verifyAllDependencies();
-  
-  // Check for systems that might not be initialized
-  const systemsNeedingInit = [];
-  const systemNames = systemRegistry.getSystemNames();
-  
-  for (const name of systemNames) {
-    const system = systemRegistry.get(name);
-    if (system && typeof system.initialize === 'function') {
-      systemsNeedingInit.push(name);
-    }
-  }
-  
-  // Log only in DEBUG mode
-  if (DEBUG) {
-    console.log('\n========================================');
-    console.log('System Registry Audit');
-    console.log('========================================');
-    console.log('Registered systems:', stats.totalSystems);
-    console.log('Systems:', stats.systems.join(', '));
-    console.log('Initialization order:', stats.initializationOrder.join(' -> '));
-    
-    if (!dependencyCheck.allValid) {
-      console.error('Dependency issues found:');
-      dependencyCheck.issues.forEach(issue => {
-        console.error(`  - ${issue.system} is missing dependencies: ${issue.missing.join(', ')}`);
-      });
-    } else {
-      console.log('All system dependencies satisfied');
-    }
-    
-    if (systemsNeedingInit.length > 0) {
-      console.log('Systems with initialize() methods:', systemsNeedingInit.join(', '));
-    }
-    
-    if (entityRegistry) {
-      console.log('EntityRegistry Stats:', JSON.stringify(entityRegistry.getStats(), null, 2));
-    }
-    console.log('========================================\n');
-  }
-  
-  // Always log critical errors regardless of DEBUG
-  if (!dependencyCheck.allValid) {
-    console.error('[SystemAudit] Dependency issues:', dependencyCheck.issues.map(i => i.system).join(', '));
-  }
-  
-  // Return audit results for programmatic checks
-  return {
-    allValid: dependencyCheck.allValid,
-    dependencyIssues: dependencyCheck.issues,
-    systemsNeedingInit,
-    totalSystems: stats.totalSystems
-  };
-}
-
-// System audit will be performed in continueServerInitialization() after all systems are set up
-// Additional startup validation
-  function validateCriticalSystems() {
-  const criticalSystems = [
-    'gameState',
-    'tilemap',
-    'entities',
-    'gameLoop'
-  ];
-  
-  const missingSystems = [];
-  const uninitializedSystems = [];
-  
-  for (const systemName of criticalSystems) {
-    const system = systemRegistry.get(systemName);
-    if (!system) {
-      missingSystems.push(systemName);
-    } else if (typeof system.initialize === 'function') {
-      // Check if system needs initialization
-      // Note: Some systems initialize lazily, which is fine
-    }
-  }
-  
-  if (missingSystems.length > 0) {
-    console.error(`❌ CRITICAL: Missing required systems: ${missingSystems.join(', ')}`);
-    return false;
-  }
-  
-  // Verify entity collections are registered
-  if (entityRegistry) {
-    const entityStats = entityRegistry.getStats();
-    const requiredCollections = ['players', 'buildings', 'items'];
-    const missingCollections = requiredCollections.filter(
-      col => !entityStats.collections || !entityStats.collections.includes(col)
-    );
-    
-    if (missingCollections.length > 0) {
-      console.warn(`⚠️  Warning: Missing entity collections: ${missingCollections.join(', ')}`);
-    }
-  }
-  
-  return true;
-}
-
-// Critical systems validation moved to continueServerInitialization() 
-// after systems are initialized
+exposeRegistries({ systemRegistry, entityRegistry, dependencyInjector });
 
 // ============================================================================
 
 // serv.listen() moved to before initializeWorld() to ensure SockJS message prints before CLI
+
+const MAX_MESSAGE_BYTES = 64 * 1024;
+const MAX_NAME_LENGTH = 24;
+const MAX_PASS_LENGTH = 64;
 
 io.on('connection', function(socket) {
   socket.id = Math.random();
@@ -7119,7 +6837,20 @@ io.on('connection', function(socket) {
 
   socket.on('data', function(string) {
     try {
+      if (typeof string !== 'string') {
+        metrics.increment('network.invalidMessageType');
+        return;
+      }
+      if (string.length > MAX_MESSAGE_BYTES) {
+        metrics.increment('network.messageTooLarge');
+        return;
+      }
+
       const data = JSON.parse(string);
+      if (!data || typeof data.msg !== 'string') {
+        metrics.increment('network.missingMsgType');
+        return;
+      }
 
       if (data.msg === 'requestPreviewData') {
         // Send world data for login screen preview (no authentication required)
@@ -7212,6 +6943,16 @@ io.on('connection', function(socket) {
           pack: previewPack
         }));
       } else if (data.msg === 'signIn') {
+        if (!data.name || typeof data.name !== 'string' || data.name.length > MAX_NAME_LENGTH) {
+          metrics.increment('auth.invalidSignIn');
+          socket.write(JSON.stringify({ msg: 'signInResponse', success: false }));
+          return;
+        }
+        if (!data.pass || typeof data.pass !== 'string' || data.pass.length > MAX_PASS_LENGTH) {
+          metrics.increment('auth.invalidSignIn');
+          socket.write(JSON.stringify({ msg: 'signInResponse', success: false }));
+          return;
+        }
         isValidPassword(data, function(res) {
           if (res) {
             Player.onConnect(socket, data.name);
@@ -7233,6 +6974,16 @@ io.on('connection', function(socket) {
           }
         });
       } else if (data.msg === 'signUp') {
+        if (!data.name || typeof data.name !== 'string' || data.name.length > MAX_NAME_LENGTH) {
+          metrics.increment('auth.invalidSignUp');
+          socket.write(JSON.stringify({ msg: 'signUpResponse', success: false }));
+          return;
+        }
+        if (!data.pass || typeof data.pass !== 'string' || data.pass.length > MAX_PASS_LENGTH) {
+          metrics.increment('auth.invalidSignUp');
+          socket.write(JSON.stringify({ msg: 'signUpResponse', success: false }));
+          return;
+        }
         if (data.name.length > 0) {
           isUsernameTaken(data.name, function(res) {
             if (res) {
@@ -7317,7 +7068,14 @@ io.on('connection', function(socket) {
         };
         
         // Check if credentials are provided (non-empty strings after trimming)
-        const hasCredentials = data.name && data.name.trim() && data.pass && data.pass.trim();
+        const nameValue = typeof data.name === 'string' ? data.name : '';
+        const passValue = typeof data.pass === 'string' ? data.pass : '';
+        if (nameValue.length > MAX_NAME_LENGTH || passValue.length > MAX_PASS_LENGTH) {
+          metrics.increment('spectate.invalidCredentials');
+          socket.write(JSON.stringify({ msg: 'spectateResponse', success: false }));
+          return;
+        }
+        const hasCredentials = nameValue.trim() && passValue.trim();
         
         if (hasCredentials) {
           // Try authentication
@@ -9708,6 +9466,10 @@ io.on('connection', function(socket) {
         }
       }
     } catch (e) {
+      metrics.increment('network.messageErrors');
+      if (process.env.DEBUG) {
+        console.warn('[Socket] Failed to process message:', e && e.message ? e.message : e);
+      }
     }
   });
 

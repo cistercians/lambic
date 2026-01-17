@@ -20,6 +20,16 @@
  * See server/js/entities/ for the modular entity structure.
  */
 
+const dependencyInjector = require('./core/DependencyInjector');
+
+function getSocialSystem() {
+  try {
+    return dependencyInjector.resolve('socialSystem');
+  } catch (error) {
+    return global.socialSystem;
+  }
+}
+
 // Stub for stuck entity analytics - disabled by default to save memory
 // Enable with: global.stuckEntityAnalytics.enabled = true
 if (!global.stuckEntityAnalytics) {
@@ -2417,8 +2427,9 @@ Character = function(param){
   
   // Social System Integration - Initialize social profile for humanoid NPCs
   self.socialProfile = null;
-  if (global.socialSystem) {
-    self.socialProfile = global.socialSystem.initializeNPC(self);
+  const socialSystem = getSocialSystem();
+  if (socialSystem) {
+    self.socialProfile = socialSystem.initializeNPC(self);
   }
   
   self.die = function(report){ // report {id,cause}
@@ -2426,9 +2437,10 @@ Character = function(param){
     var deathZ = self.z;
     
     // Notify social system of death for witness recording
-    if (global.socialSystem) {
-      global.socialSystem.recordDeathWitnessed(self.id, deathLocation, 1280);
-      global.socialSystem.removeNPC(self.id);
+    const socialSystem = getSocialSystem();
+    if (socialSystem) {
+      socialSystem.recordDeathWitnessed(self.id, deathLocation, 1280);
+      socialSystem.removeNPC(self.id);
     }
     
     // Phase 5: Kill Tracking for NPCs
@@ -14404,6 +14416,7 @@ global.initModularEntities = function() {
 // This allows gradual migration away from globals
 module.exports = {
   Entity,
+  get Player() { return global.Player; },
   Building,
   Character,
   Serf,
