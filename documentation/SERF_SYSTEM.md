@@ -21,9 +21,9 @@ The serf system is a complex economic unit management system that handles worker
 
 ### Key Characteristics
 
-- **Action-based behavior**: Serfs operate on discrete actions (`null`, `'deposit'`, `'build'`, `'clockout'`)
+- **Action-based behavior**: Serfs operate on discrete actions (`null`, `'deposit'`, `'build'`, `'clockout'`, `'flee'`)
 - **Pre-assigned work**: Work buildings are assigned at spawn time, no dynamic reassignment
-- **Gender-based restrictions**: Female serfs can only work mills/farms; males can work all building types
+- **Gender-based restrictions**: Female serfs can only work mills/farms; males can work all economic building types (building construction is not sex-restricted)
 - **Wage system**: Serfs keep 15% of common resources as personal wage
 - **Spot management**: Buildings track which serfs are assigned to which work spots to prevent conflicts
 
@@ -49,10 +49,12 @@ Serf = function(param) {
 - `self.inventory = {}` - Resources being carried
 - `self.stores = {}` - Personal wage storage
 - `self.mode = 'idle'` or `'work'` - Current behavior mode
-- `self.action = null` - Current action (`'deposit'`, `'build'`, `'clockout'`, or `null`)
+- `self.action = null` - Current action (`'deposit'`, `'build'`, `'clockout'`, `'flee'`, or `null`)
 - `self.hut` - Reference to hut building (if assigned)
 - `self.home = {z, loc}` - Home location [col, row]
 - `self.torchBearer = false` - For miners in caves
+- `self.preferredCaveEntrance = null` - Preferred cave entrance for cave-mine pathing
+- `self.mineExitCooldown = 0` - Prevent immediate re-entry after exiting caves
 - `self.sex = 'm'` or `'f'` - Gender
 - `self.class = 'SerfM'` or `'SerfF'` - Visual distinction
 
@@ -72,25 +74,28 @@ SerfF = function(param) {
 
 #### Work Assignment Methods
 
-**`assignWorkHQ()`** (lines 8168-8228)
+**`assignWorkHQ()`**
 - Finds nearest valid work building based on gender
 - **Female serfs**: Only `mill` and `farm`
 - **Male serfs**: `mill`, `farm`, `lumbermill`, `mine`, `dock`
 - Can search allied houses if no work in own house
 - Sets `torchBearer = true` for miners in caves
+- Sets `preferredCaveEntrance` when assigned to a cave mine
 
-**`assignDailyWorkSpot()`** (lines 8285-8341)
+**`assignDailyWorkSpot()`** (legacy helper in `Entity.js`)
 - Assigns a specific work spot from building's resource list
 - Reuses existing spot if still valid
 - Updates building resources before assigning
 - Filters available spots using `building.isSpotAvailable()`
+- Note: `SimpleSerfBehavior` uses its own `assignWorkSpot()` flow; `assignDailyWorkSpot()` is not used in that path
 
 **`findTavern()`** (lines 8261-8282)
 - Locates nearest tavern within 1280 units
 - Sets `self.tavern` property
 
-**`initializeSerf()`** (lines 8231-8258)
-- Sets up work assignment, torch bearer status, and mode
+**`initializeSerf()`**
+- Uses `global.serfBehaviorSystem.initializeSerf()` if available (optional integration)
+- Otherwise sets up work assignment, torch bearer status, tavern assignment, and mode
 - Calls `assignWorkHQ()` if no work assigned
 - Sets initial `mode = 'idle'` or `'work'`
 
@@ -116,6 +121,10 @@ update(serf) {
     this.handleBuild(serf);
   } else if (serf.action === 'clockout') {
     this.handleClockout(serf);
+  } else if (serf.action === 'flee') {
+    if (global.simpleFlee) {
+      global.simpleFlee.update(serf);
+    }
   } else if (serf.mode !== 'work') {
     this.handleWandering(serf);
   }
@@ -250,20 +259,21 @@ assignWorkSpot(serf, building) {
 **Location:** `SimpleSerfBehavior.js` lines 444-484
 
 **Process:**
-1. `executeWork(serf, building, spot)` checks if serf is at work spot
-2. If not at spot, calls `serf.moveTo(targetZ, spot[0], spot[1])`
+1. `executeWork(serf, building, spot)` checks if serf is at work spot **and** correct z-level
+2. If not at spot or wrong z-level, calls `serf.moveTo(targetZ, spot[0], spot[1])`
    - For mines with caves: `targetZ = -1` (underground)
    - For surface work: `targetZ = 0`
-3. Pathfinding handled by Entity's `moveTo()` method
-4. Serf continues pathfinding until at spot
+3. Pathfinding handled by Entity's `moveTo()` method and transition intent system
+4. Serf continues pathfinding until at spot on the correct z-level
 
 **Code:**
 ```javascript
 executeWork(serf, building, spot) {
   const loc = global.getLoc(serf.x, serf.y);
   
+  const expectedZ = (building.type === 'mine' && building.cave) ? -1 : 0;
   // Check if at work spot
-  if (spot && loc.toString() === spot.toString()) {
+  if (spot && loc.toString() === spot.toString() && serf.z === expectedZ) {
     // At spot - start work based on building type
     switch (building.type) {
       case 'mill':
@@ -438,7 +448,8 @@ startMiningWork(serf, building, spot) {
 
 1. `handleDeposit()` sets `serf.action = 'deposit'`
 2. Gets dropoff location via `getDropoffLocation(building)` - typically `[plot[0][0], plot[0][1] + 1]`
-3. Pathfinds to dropoff using `serf.moveTo(0, dropoff[0], dropoff[1])`
+3. Pathfinds to dropoff using `serf.moveTo(dropoffZ, dropoff[0], dropoff[1])`
+   - `dropoffZ` uses `building.z` when available
 4. When at dropoff (`isAtDropoff()`), calls `depositAllResources()`
 
 **Code:**
@@ -460,7 +471,8 @@ handleDeposit(serf) {
     serf.action = null; // Resume work
   } else if (!serf.path || serf.path.length === 0) {
     // Path to dropoff
-    serf.moveTo(0, dropoff[0], dropoff[1]);
+    const dropoffZ = (building && typeof building.z === 'number') ? building.z : 0;
+    serf.moveTo(dropoffZ, dropoff[0], dropoff[1]);
   }
 }
 ```
@@ -541,7 +553,7 @@ depositResource(serf, resourceType, building, amount = null) {
 }
 ```
 
-### Phase 6: Building Construction (Male Serfs Only)
+### Phase 6: Building Construction
 
 **Location:** `SimpleSerfBehavior.js` lines 144-206
 
@@ -859,6 +871,8 @@ building.resources = [
   - Pathfind to home
   - Set mode='idle', clear action
 
+- **`action = 'flee'`** → Delegate to `global.simpleFlee` when available
+
 ### Mode States
 
 - **`mode = 'work'`** → Serf is actively working
@@ -981,6 +995,12 @@ serf.home = {
   z: 0,           // Z-level (0 = surface, -1 = underground)
   loc: [col, row]  // Tile coordinates
 }
+```
+
+### Preferred Cave Entrance
+
+```javascript
+serf.preferredCaveEntrance = [col, row] // Cave entrance for cave-mine routing
 ```
 
 ### Hut Reference
@@ -1306,7 +1326,7 @@ if (resourceType === 'grain' && building.type === 'mill' && serf.inventory) {
 
 3. **Pathfinding:**
    - Pathfinding only triggered when no active path exists
-   - Paths preserved through z-level transitions
+   - Transitions use intent checks and may clear or resume paths depending on z-change
    - Cooldown prevents rapid z-level transitions
 
 4. **Error Handling:**
@@ -1353,3 +1373,6 @@ The serf system is a comprehensive economic unit management system that handles:
 
 The system is designed for performance, with centralized behavior handling, efficient spot management, and graceful error handling. Gender restrictions and special features (torch bearers, z-level transitions) add depth to the economic simulation.
 
+## Validation Notes- Spawn a cave mine and verify cave-mine serfs path to the correct cave entrance, enter the cave, and begin mining without stalling.
+- Observe a cave-mine serf with ore inventory return to the overworld and deposit at the mine dropoff (`building.z`) before resuming work.
+- Confirm that hut building clears stale work spots and serfs reassign valid resource spots afterward.

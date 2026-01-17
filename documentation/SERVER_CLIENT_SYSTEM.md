@@ -570,6 +570,29 @@ Dock and ship interaction messages are handled through the dock UI system:
 - **Format**: Various messages sent via `socket.send()` with dock-specific data
 - **Server Handler**: Handled via `evalCmd` system and ship-specific handlers
 
+### Camera Updates
+
+**`cameraUpdate`**
+- **Purpose**: Send camera/viewer position updates for spatial filtering
+- **Source**: [`client/js/utils/CameraHelper.js`](client/js/utils/CameraHelper.js), various camera systems
+- **Format**:
+  ```javascript
+  {
+    msg: 'cameraUpdate',
+    cameraId: string,        // Camera identifier ('godmode', 'spectate', 'login', or player ID)
+    x: number,               // Camera X position
+    y: number,               // Camera Y position
+    z: number,               // Camera Z-level
+    mode: string,            // Camera mode ('player', 'godmode', 'spectate', 'login')
+    locked: boolean,         // Whether camera is locked to a target
+    lockedToEntityId: string,// Entity ID camera is locked to (optional)
+    ownerPlayerId: string,   // Associated player ID (null for spectators)
+    context: object          // Additional context (battleground info, etc.)
+  }
+  ```
+- **Server Handler**: Line ~7331 in `lambic.js`
+- **Note**: Updates Camera entity registry for spatial filtering, replaces player position-based filtering
+
 ### Command Execution
 
 **`evalCmd`**

@@ -67,7 +67,7 @@ class PathfindingManager {
       }
 
       // Get current location
-      const startLoc = global.getLoc ? global.getLoc(entity.x, entity.y) : [
+      const startLoc = global.getLoc ? global.getLoc(entity.x, entity.y, entity) : [
         Math.floor(entity.x / 64),
         Math.floor(entity.y / 64)
       ];
@@ -91,7 +91,7 @@ class PathfindingManager {
       }
 
       // Check path cache first
-      const cachedPath = this._checkCache(startLoc, [targetCol, targetRow], entity.z);
+      const cachedPath = this._checkCache(startLoc, [targetCol, targetRow], entity.z, entity);
       if (cachedPath) {
         this.stats.cacheHits++;
         const elapsed = Date.now() - startTime;
@@ -110,7 +110,9 @@ class PathfindingManager {
 
       // Request path from tilemapSystem
       let path = null;
-      if (global.tilemapSystem && global.tilemapSystem.findPath) {
+      if (global.findPathContextAware) {
+        path = global.findPathContextAware(startLoc, [targetCol, targetRow], layer, pathOptions, entity);
+      } else if (global.tilemapSystem && global.tilemapSystem.findPath) {
         path = global.tilemapSystem.findPath(startLoc, [targetCol, targetRow], layer, pathOptions);
       }
 
@@ -119,7 +121,7 @@ class PathfindingManager {
         path = this._smoothPath(path, entity.z);
         
         // Cache the result
-        this._cacheResult(startLoc, [targetCol, targetRow], entity.z, path);
+        this._cacheResult(startLoc, [targetCol, targetRow], entity.z, path, entity);
       } else {
         this.stats.failures++;
       }
@@ -171,9 +173,9 @@ class PathfindingManager {
   /**
    * Check path cache
    */
-  _checkCache(start, end, z) {
+  _checkCache(start, end, z, entity) {
     if (typeof global.getCachedPath === 'function') {
-      return global.getCachedPath(start, end, z);
+      return global.getCachedPath(start, end, z, entity);
     }
     return null;
   }
@@ -181,9 +183,9 @@ class PathfindingManager {
   /**
    * Cache computed path
    */
-  _cacheResult(start, end, z, path) {
+  _cacheResult(start, end, z, path, entity) {
     if (typeof global.cachePath === 'function') {
-      global.cachePath(start, end, z, path);
+      global.cachePath(start, end, z, path, entity);
     }
   }
 
@@ -213,9 +215,12 @@ class PathfindingManager {
    */
   _buildPathOptions(entity, targetZ, targetCol, targetRow, userOptions) {
     const options = { ...userOptions };
+    const inBattleground = global.mapContextHelpers
+      ? global.mapContextHelpers.isInBattleground(entity)
+      : !!(entity && entity.inBattleground && entity.battlegroundMatchId);
 
     // Check if destination is a special tile (door, cave entrance, stairs)
-    if (targetZ === 0 && global.isDoorwayDestination) {
+    if (!inBattleground && targetZ === 0 && global.isDoorwayDestination) {
       const isDoorway = global.isDoorwayDestination(targetCol, targetRow, targetZ);
       if (isDoorway) {
         options.allowSpecificDoor = true;
@@ -224,7 +229,7 @@ class PathfindingManager {
     }
 
     // Check if destination is a cave exit (in caves)
-    if (targetZ === -1 && global.caveEntrances) {
+    if (!inBattleground && targetZ === -1 && global.caveEntrances) {
       for (let i = 0; i < global.caveEntrances.length; i++) {
         const entrance = global.caveEntrances[i];
         if (entrance[0] === targetCol && entrance[1] + 1 === targetRow) {
@@ -236,8 +241,8 @@ class PathfindingManager {
     }
 
     // Check if starting from a cave exit (allow as starting tile)
-    if (entity.z === -1 && global.caveEntrances) {
-      const startLoc = global.getLoc ? global.getLoc(entity.x, entity.y) : [
+    if (!inBattleground && entity.z === -1 && global.caveEntrances) {
+      const startLoc = global.getLoc ? global.getLoc(entity.x, entity.y, entity) : [
         Math.floor(entity.x / 64),
         Math.floor(entity.y / 64)
       ];

@@ -5,22 +5,26 @@ class BuildingConstruction {
   
   // Construct a forge building (tiles, matrix, items)
   static constructForge(buildingId, plot, walls) {
+    const contextEntity = global.Building && global.Building.list ? global.Building.list[buildingId] : null;
+    const tileChange = (l, c, r, n, incr = false) => global.tileChange(l, c, r, n, incr, contextEntity);
+    const matrixChange = (l, c, r, n) => global.matrixChange(l, c, r, n, contextEntity);
+    const getTile = (l, c, r) => global.getTile(l, c, r, contextEntity);
     if (!walls || !Array.isArray(walls) || walls.length === 0) {
       console.error('[BuildingConstruction] ERROR: walls is null/empty! Cannot create wall items.');
     }
     
     // Update terrain - forge is a 3x2 building with walls
     for (let i = 0; i < plot.length; i++) {
-      global.tileChange(3, plot[i][0], plot[i][1], String('forge' + i));
-      if (global.getTile(3, plot[i][0], plot[i][1]) == 'forge1') {
-        global.matrixChange(1, plot[i][0], plot[i][1], 0);
-        global.matrixChange(1, plot[i][0], plot[i][1] + 1, 0);
-        global.tileChange(0, plot[i][0], plot[i][1], 14);
+      tileChange(3, plot[i][0], plot[i][1], String('forge' + i));
+      if (getTile(3, plot[i][0], plot[i][1]) == 'forge1') {
+        matrixChange(1, plot[i][0], plot[i][1], 0);
+        matrixChange(1, plot[i][0], plot[i][1] + 1, 0);
+        tileChange(0, plot[i][0], plot[i][1], 14);
         global.Building.list[buildingId].entrance = [plot[i][0], plot[i][1]];
       } else {
-        global.matrixChange(0, plot[i][0], plot[i][1], 1);
-        global.matrixChange(1, plot[i][0], plot[i][1], 0);
-        global.tileChange(0, plot[i][0], plot[i][1], 13);
+        matrixChange(0, plot[i][0], plot[i][1], 1);
+        matrixChange(1, plot[i][0], plot[i][1], 0);
+        tileChange(0, plot[i][0], plot[i][1], 13);
       }
     }
     
@@ -29,12 +33,12 @@ class BuildingConstruction {
     try {
       if (walls && Array.isArray(walls)) {
         for (const n of walls) {
-          global.tileChange(5, n[0], n[1], String('forge' + ii));
-          if (global.getTile(5, n[0], n[1]) == 'forge5') {
-            global.tileChange(5, n[0], n[1], 0);
-            global.tileChange(4, n[0], n[1], 1);
+          tileChange(5, n[0], n[1], String('forge' + ii));
+          if (getTile(5, n[0], n[1]) == 'forge5') {
+            tileChange(5, n[0], n[1], 0);
+            tileChange(4, n[0], n[1], 1);
           } else {
-            global.tileChange(4, n[0], n[1], 1);
+            tileChange(4, n[0], n[1], 1);
           }
           ii++;
         }
@@ -68,45 +72,49 @@ class BuildingConstruction {
   
   // Construct a garrison building (tiles, matrix, items)
   static constructGarrison(buildingId, plot, topPlot, walls) {
+    const contextEntity = global.Building && global.Building.list ? global.Building.list[buildingId] : null;
+    const tileChange = (l, c, r, n, incr = false) => global.tileChange(l, c, r, n, incr, contextEntity);
+    const matrixChange = (l, c, r, n) => global.matrixChange(l, c, r, n, contextEntity);
+    const getTile = (l, c, r) => global.getTile(l, c, r, contextEntity);
     // Update terrain - garrison is a 4x3 building with walls and upper floor
     for (let i = 0; i < plot.length; i++) {
-      global.tileChange(3, plot[i][0], plot[i][1], String('garrison' + i));
-      if (global.getTile(3, plot[i][0], plot[i][1]) == 'garrison0') {
-        global.matrixChange(1, plot[i][0], plot[i][1], 0);
-        global.matrixChange(1, plot[i][0], plot[i][1] + 1, 0);
-        global.tileChange(0, plot[i][0], plot[i][1], 16);
+      tileChange(3, plot[i][0], plot[i][1], String('garrison' + i));
+      if (getTile(3, plot[i][0], plot[i][1]) == 'garrison0') {
+        matrixChange(1, plot[i][0], plot[i][1], 0);
+        matrixChange(1, plot[i][0], plot[i][1] + 1, 0);
+        tileChange(0, plot[i][0], plot[i][1], 16);
         global.Building.list[buildingId].entrance = [plot[i][0], plot[i][1]];
-      } else if (global.getTile(3, plot[i][0], plot[i][1]) == 'garrison1' ||
-                 global.getTile(3, plot[i][0], plot[i][1]) == 'garrison2' ||
-                 global.getTile(3, plot[i][0], plot[i][1]) == 'garrison3') {
-        global.matrixChange(0, plot[i][0], plot[i][1], 1);
-        global.matrixChange(1, plot[i][0], plot[i][1], 0);
-        global.tileChange(0, plot[i][0], plot[i][1], 15);
+      } else if (getTile(3, plot[i][0], plot[i][1]) == 'garrison1' ||
+                 getTile(3, plot[i][0], plot[i][1]) == 'garrison2' ||
+                 getTile(3, plot[i][0], plot[i][1]) == 'garrison3') {
+        matrixChange(0, plot[i][0], plot[i][1], 1);
+        matrixChange(1, plot[i][0], plot[i][1], 0);
+        tileChange(0, plot[i][0], plot[i][1], 15);
       } else {
-        global.matrixChange(0, plot[i][0], plot[i][1], 1);
-        global.matrixChange(1, plot[i][0], plot[i][1], 0);
-        global.matrixChange(2, plot[i][0], plot[i][1], 0);
-        global.tileChange(0, plot[i][0], plot[i][1], 15);
-        global.tileChange(5, plot[i][0], plot[i][1], 15);
+        matrixChange(0, plot[i][0], plot[i][1], 1);
+        matrixChange(1, plot[i][0], plot[i][1], 0);
+        matrixChange(2, plot[i][0], plot[i][1], 0);
+        tileChange(0, plot[i][0], plot[i][1], 15);
+        tileChange(5, plot[i][0], plot[i][1], 15);
       }
     }
     
     // Top plot tiles
     let ii = 12;
     for (const n of topPlot) {
-      global.tileChange(5, n[0], n[1], String('garrison' + ii));
+      tileChange(5, n[0], n[1], String('garrison' + ii));
       ii++;
     }
     
     // Wall tiles
     for (const n of walls) {
-      if (global.getTile(5, n[0], n[1]) == 'garrison12') {
-        global.tileChange(4, n[0], n[1], 4);
-        global.matrixChange(1, n[0], n[1], 0);
-        global.matrixChange(2, n[0], n[1], 0);
+      if (getTile(5, n[0], n[1]) == 'garrison12') {
+        tileChange(4, n[0], n[1], 4);
+        matrixChange(1, n[0], n[1], 0);
+        matrixChange(2, n[0], n[1], 0);
         global.Building.list[buildingId].ustairs = [n[0], n[1]];
       } else {
-        global.tileChange(4, n[0], n[1], 2);
+        tileChange(4, n[0], n[1], 2);
       }
     }
     

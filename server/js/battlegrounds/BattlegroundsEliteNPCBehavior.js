@@ -304,7 +304,6 @@ class BattlegroundsEliteNPCBehavior {
       // #region agent log
       // Hypothesis E: Check if moveTo() exists and is being called
       const hasMoveTo = typeof npc.moveTo === 'function';
-      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCBehavior.js:250',message:'Issuing movement command',data:{npcId:npc.id,hasMoveTo,targetX,targetY,targetZ,currentX:npc.x,currentY:npc.y},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
       // #endregion
       if (typeof npc.moveTo === 'function') {
         // moveTo expects (z, col, row) - convert pixel coordinates to tile coordinates
@@ -316,11 +315,9 @@ class BattlegroundsEliteNPCBehavior {
         if (targetLoc && targetLoc.length >= 2) {
           npc.moveTo(targetZ, targetLoc[0], targetLoc[1]);
           // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCBehavior.js:273',message:'moveTo() called',data:{npcId:npc.id,targetZ,targetCol:targetLoc[0],targetRow:targetLoc[1],hasPathAfter:!!(npc.path && npc.path.length > 0),pathLength:npc.path ? npc.path.length : 0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'P'})}).catch(()=>{});
           // #endregion
         } else {
           // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCBehavior.js:278',message:'moveTo() failed - invalid targetLoc',data:{npcId:npc.id,targetX,targetY,targetLoc},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'P'})}).catch(()=>{});
           // #endregion
         }
       } else {
@@ -345,11 +342,9 @@ class BattlegroundsEliteNPCBehavior {
             npc.path = path;
             npc.pathCount = 0;
             // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCBehavior.js:278',message:'Fallback pathfinding created path',data:{npcId:npc.id,pathLength:path.length,startLoc,targetLoc},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'P'})}).catch(()=>{});
             // #endregion
           } else {
             // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCBehavior.js:285',message:'Fallback pathfinding failed - no path found',data:{npcId:npc.id,startLoc,targetLoc,layer},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'P'})}).catch(()=>{});
             // #endregion
           }
         } else {
@@ -359,7 +354,6 @@ class BattlegroundsEliteNPCBehavior {
           npc.path = null; // Clear existing path
           npc.targetLoc = { loc: targetLoc, z: targetZ };
             // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCBehavior.js:291',message:'Fallback targetLoc set (no pathfinding available)',data:{npcId:npc.id,targetLoc},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'P'})}).catch(()=>{});
             // #endregion
           }
         }
@@ -378,7 +372,6 @@ class BattlegroundsEliteNPCBehavior {
     const distance = this.getDistance(npc, guardTarget);
     
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCBehavior.js:300',message:'Issuing guard command',data:{npcId:npc.id,hasMoveTo:typeof npc.moveTo === 'function',guardTargetX:guardTarget.x,guardTargetY:guardTarget.y},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'P'})}).catch(()=>{});
     // #endregion
     const guardRadius = guardTarget.radius || (global.tileSize * 5);
 

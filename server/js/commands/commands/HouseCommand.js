@@ -72,7 +72,7 @@ class HouseCommand {
     }
 
     const getLoc = global.getLoc || ((x, y) => [Math.floor(x / 64), Math.floor(y / 64)]);
-    const loc = getLoc(player.x, player.y);
+    const loc = getLoc(player.x, player.y, player);
 
     // Get building player is in
     const building = this.getBuildingAtPosition(player.x, player.y);
@@ -93,7 +93,7 @@ class HouseCommand {
 
     // Check if at desk
     const getItem = global.getItem || ((z, c, r) => null);
-    const item = getItem(player.z, loc[0], loc[1] - 1);
+    const item = getItem(player.z, loc[0], loc[1] - 1, player);
     if (item !== 'Desk') {
       this.sendError(socket, 'Must be at the desk.');
       return false;

@@ -68,8 +68,12 @@ Entity = function(param){
   
   // Find nearest walkable tile near target (spiral search) - OPTIMIZED
   self.findNearestWalkableTile = function(targetX, targetY, targetZ, maxRadius = 5){
+    const contextMapSize = global.mapContextManager
+      ? global.mapContextManager.getMapSize(self)
+      : mapSize;
+    
     // Try the target first
-    if(isWalkable(targetZ, targetX, targetY)){
+    if(isWalkable(targetZ, targetX, targetY, self)){
       return [targetX, targetY];
     }
     
@@ -80,8 +84,8 @@ Entity = function(param){
       for(var c = 0; c < cardinals.length; c++){
         var checkX = targetX + cardinals[c][0];
         var checkY = targetY + cardinals[c][1];
-        if(checkX >= 0 && checkX < mapSize && checkY >= 0 && checkY < mapSize){
-          if(isWalkable(targetZ, checkX, checkY)){
+        if(checkX >= 0 && checkX < contextMapSize && checkY >= 0 && checkY < contextMapSize){
+          if(isWalkable(targetZ, checkX, checkY, self)){
             return [checkX, checkY];
           }
         }
@@ -96,8 +100,8 @@ Entity = function(param){
             var checkX2 = targetX + dx;
             var checkY2 = targetY + dy;
             
-            if(checkX2 >= 0 && checkX2 < mapSize && checkY2 >= 0 && checkY2 < mapSize){
-              if(isWalkable(targetZ, checkX2, checkY2)){
+            if(checkX2 >= 0 && checkX2 < contextMapSize && checkY2 >= 0 && checkY2 < contextMapSize){
+              if(isWalkable(targetZ, checkX2, checkY2, self)){
                 return [checkX2, checkY2];
               }
             }
@@ -134,6 +138,25 @@ Building = function(param){
   // Spot tracking for work assignments
   self.assignedSpots = {}; // {serfId: [col,row]}
   self.availableResources = []; // Copy of resources for tracking
+
+  // Ensure building context is set consistently (inherit from owner or explicit matchId)
+  const ownerEntity = self.owner && Player.list ? Player.list[self.owner] : null;
+  if (global.mapContextHelpers) {
+    let matchId = null;
+    if (param.battlegroundMatchId) {
+      matchId = param.battlegroundMatchId;
+    } else if (param.matchId) {
+      matchId = param.matchId;
+    } else if (param.inBattleground && param.battlegroundMatchId) {
+      matchId = param.battlegroundMatchId;
+    } else if (ownerEntity && ownerEntity.inBattleground && ownerEntity.battlegroundMatchId) {
+      matchId = ownerEntity.battlegroundMatchId;
+    }
+    global.mapContextHelpers.setEntityContext(self, matchId);
+  } else if (ownerEntity) {
+    self.inBattleground = !!(ownerEntity.inBattleground && ownerEntity.battlegroundMatchId);
+    self.battlegroundMatchId = ownerEntity.battlegroundMatchId || null;
+  }
   
   // Dock-specific properties
   if(self.type === 'dock'){
@@ -189,8 +212,11 @@ Building = function(param){
         
         for(var j in adjacent){
           var at = adjacent[j];
-          if(at[0] >= 0 && at[0] < global.mapSize && at[1] >= 0 && at[1] < global.mapSize){
-            var tileValue = getTile(0, at[0], at[1]);
+          const contextMapSize = global.mapContextManager
+            ? global.mapContextManager.getMapSize(self)
+            : global.mapSize;
+          if(at[0] >= 0 && at[0] < contextMapSize && at[1] >= 0 && at[1] < contextMapSize){
+            var tileValue = getTile(0, at[0], at[1], self);
             if(tileValue == 0){ // Water
               waterTile = at;
               break;
@@ -250,14 +276,18 @@ Building = function(param){
       plot:self.plot,
       walls:self.walls,
       topPlot:self.topPlot,
-      baseTerrain:self.baseTerrain || []
+      baseTerrain:self.baseTerrain || [],
+      inBattleground: !!(self.inBattleground && self.battlegroundMatchId),
+      battlegroundMatchId: self.battlegroundMatchId || null
     }
   }
 
   self.getUpdatePack = function(){
     return {
       id:self.id,
-      occ:self.occ
+      occ:self.occ,
+      inBattleground: !!(self.inBattleground && self.battlegroundMatchId),
+      battlegroundMatchId: self.battlegroundMatchId || null
     }
   }
 
@@ -1573,7 +1603,7 @@ Dock = function(param){
       }
       
       // Fallback: if no land tile found with zone, try center location
-      var loc = getLoc(self.x, self.y, self.id);
+      var loc = getLoc(self.x, self.y, self);
       var zone = global.zoneManager.getZoneAt(loc);
       if(zone && zone.type === 'geographic') {
         self.zoneName = zone.name;
@@ -2238,6 +2268,9 @@ function getSpriteSizeForClass(entityClass) {
 
 Character = function(param){
   var self = Entity(param);
+  const getLoc = (x, y, entity = self) => global.getLoc ? global.getLoc(x, y, entity) : [Math.floor(x / 64), Math.floor(y / 64)];
+  const getTile = (l, c, r, entity = self) => global.getTile ? global.getTile(l, c, r, entity) : undefined;
+  const isWalkable = (z, c, r, entity = self) => global.isWalkable ? global.isWalkable(z, c, r, entity) : false;
   self.zone = null;
   self.zGrid = null;
   self.type = 'npc';
@@ -2291,8 +2324,8 @@ Character = function(param){
   // Initialize terrain-based properties based on spawn location
   // This ensures properties like innaWoods are set correctly on spawn
   if(self.z === 0 && typeof getLoc === 'function' && typeof getTile === 'function'){
-    const loc = getLoc(self.x, self.y);
-    const tile = getTile(0, loc[0], loc[1]);
+    const loc = getLoc(self.x, self.y, self);
+    const tile = getTile(0, loc[0], loc[1], self);
     // Heavy forest tiles (1.x range)
     if(tile >= 1 && tile < 2){
       if(self.class !== 'Falcon'){
@@ -2325,14 +2358,14 @@ Character = function(param){
     }
     
     // Step 2: Apply terrain modifiers for final speed
-    const loc = getLoc(self.x, self.y);
-    if (getTile(0, loc[0], loc[1]) >= 5 && getTile(0, loc[0], loc[1]) < 6) {
+    const loc = getLoc(self.x, self.y, self);
+    if (getTile(0, loc[0], loc[1], self) >= 5 && getTile(0, loc[0], loc[1], self) < 6) {
       // Mountain terrain - 20% speed
       self.currentSpeed = targetSpeed * 0.2;
-    } else if (getTile(0, loc[0], loc[1]) == 18) {
+    } else if (getTile(0, loc[0], loc[1], self) == 18) {
       // Road terrain - 110% speed
       self.currentSpeed = targetSpeed * 1.1;
-    } else if (getTile(0, loc[0], loc[1]) == 0) {
+    } else if (getTile(0, loc[0], loc[1], self) == 0) {
       // Water terrain - 10% speed
       self.currentSpeed = targetSpeed * 0.1;
     } else {
@@ -2345,6 +2378,19 @@ Character = function(param){
   self.currentSpeed = 2; // Current movement speed (updated by updateSpeed)
   self.drag = 1;
   self.idleRange = 1000;
+
+  // Ensure character context is set consistently (use explicit matchId if provided)
+  if (global.mapContextHelpers) {
+    let matchId = null;
+    if (param.battlegroundMatchId) {
+      matchId = param.battlegroundMatchId;
+    } else if (param.matchId) {
+      matchId = param.matchId;
+    } else if (param.inBattleground && param.battlegroundMatchId) {
+      matchId = param.battlegroundMatchId;
+    }
+    global.mapContextHelpers.setEntityContext(self, matchId);
+  }
   self.idleTime = 0; // Initialize idle timer
   self.wanderRange = 2048; // Increased 8x from 256 (32 tiles leash range)
   self.aggroRange = 256; // Half viewport (768px / 2 = 384px, ~6 tiles)
@@ -2376,7 +2422,7 @@ Character = function(param){
   }
   
   self.die = function(report){ // report {id,cause}
-    var deathLocation = getLoc(self.x, self.y);
+    var deathLocation = getLoc(self.x, self.y, self);
     var deathZ = self.z;
     
     // Notify social system of death for witness recording
@@ -2692,7 +2738,7 @@ Character = function(param){
     self.mining = false;
     
     // Snap to current tile center before creating path (prevents drift)
-    var currentLoc = getLoc(self.x, self.y);
+    var currentLoc = getLoc(self.x, self.y, self);
     var currentCenter = getCenter(currentLoc[0], currentLoc[1]);
     self.x = currentCenter[0];
     self.y = currentCenter[1];
@@ -3215,7 +3261,7 @@ Character = function(param){
     if(p.stealthed){
       var dist = self.getDistance({x:p.x, y:p.y});
       if(dist <= tileSize * 2){ // Within 2 tiles
-        var loc = getLoc(self.x, self.y, self.id);
+        var loc = getLoc(self.x, self.y, self);
         var pLoc = getLoc(p.x, p.y, p.id);
         
         // Check if facing the stealthed character
@@ -3518,6 +3564,14 @@ Character = function(param){
               return;
             }
             tLoc = Building.list[tb].entrance;
+
+            // Use pathfinding to reach the entrance instead of greedy movement
+            if (self.shouldRequestPath(self.z, tLoc[0], tLoc[1])) {
+              self.getPath(self.z, tLoc[0], tLoc[1]);
+              if (self.path) {
+                return;
+              }
+            }
           } else if(tz == -1){
             // Set intent to enter cave
             // CRITICAL: Prevent re-entry if serf just exited (within last 2 seconds) and is depositing
@@ -3535,6 +3589,8 @@ Character = function(param){
             
             self.transitionIntent = 'enter_cave';
             self.targetZLevel = -1;
+            // #region agent log
+            // #endregion
             
             // Store final destination for continuation after cave entry
             self.targetLoc = [tc, tr];
@@ -3559,6 +3615,14 @@ Character = function(param){
                 // Don't clear intent, just delay pathfinding
                 // Note: targetLoc is preserved for retry after cooldown
                 return;
+              }
+
+              // Use pathfinding to reach the entrance instead of greedy movement
+              if (self.shouldRequestPath(self.z, tLoc[0], tLoc[1])) {
+                self.getPath(self.z, tLoc[0], tLoc[1]);
+                if (self.path) {
+                  return;
+                }
               }
             } else {
               // No cave entrance found - cannot path to cave
@@ -3693,7 +3757,7 @@ Character = function(param){
             if(!b || !Building.list[b] || !Building.list[b].ustairs){
               // Cannot find building - force to first floor as emergency fallback
               if(!b){
-                var loc = getLoc(self.x, self.y, self.id);
+                var loc = getLoc(self.x, self.y, self);
                 self.z = 1;
                 self.path = null;
                 self.pathCount = 0;
@@ -3711,7 +3775,7 @@ Character = function(param){
               if(!b || !Building.list[b] || !Building.list[b].ustairs){
                 // Cannot find building - force to first floor as emergency fallback
                 if(!b){
-                  var loc = getLoc(self.x, self.y, self.id);
+                  var loc = getLoc(self.x, self.y, self);
                   self.z = 1;
                   self.path = null;
                   self.pathCount = 0;
@@ -4151,6 +4215,7 @@ Character = function(param){
     for(const itemId in Item.list) {
       const item = Item.list[itemId];
       if(!item || item.z !== self.z) continue;
+      if(global.mapContextHelpers && !global.mapContextHelpers.areInSameContext(self, item)) continue;
       
       const dist = getDistance({x: self.x, y: self.y}, {x: item.x, y: item.y});
       if(dist < lootRadius) {
@@ -4316,7 +4381,7 @@ Character = function(param){
     // and the path following code thinks it still needs to reach the destination, causing an infinite loop.
     // By checking path completion HERE, the path is marked complete BEFORE any position changes happen.
     if(self.type === 'player' && self.path && self.path.length > 0){
-      var pathLoc = getLoc(self.x, self.y);
+      var pathLoc = getLoc(self.x, self.y, self);
       var finalDest = self.path[self.path.length - 1];
       if(pathLoc[0] === finalDest[0] && pathLoc[1] === finalDest[1]){
         // Player has reached path destination - clear path immediately
@@ -4434,27 +4499,27 @@ Character = function(param){
         if(self.class != 'Deer' && self.class != 'Boar' && self.class != 'Wolf'){
           self.maxSpd = (self.baseSpd * 0.5) * self.drag;
         }
-      } else if(getTile(0,loc[0],loc[1]) >= 4 && getTile(0,loc[0],loc[1]) < 5){
+      } else if(getTile(0,loc[0],loc[1], self) >= 4 && getTile(0,loc[0],loc[1], self) < 5){
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = (self.baseSpd * 0.6) * self.drag;
-      } else if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6 && !self.onMtn){
+      } else if(getTile(0,loc[0],loc[1], self) >= 5 && getTile(0,loc[0],loc[1], self) < 6 && !self.onMtn){
         self.innaWoods = false;
         self.maxSpd = (self.baseSpd * 0.2) * self.drag;
         setTimeout(function(){
           // Check CURRENT location, not stale loc from 2 seconds ago
-          var currentLoc = getLoc(self.x, self.y);
-          if(getTile(0,currentLoc[0],currentLoc[1]) >= 5 && getTile(0,currentLoc[0],currentLoc[1]) < 6){
+          var currentLoc = getLoc(self.x, self.y, self);
+          if(getTile(0,currentLoc[0],currentLoc[1], self) >= 5 && getTile(0,currentLoc[0],currentLoc[1], self) < 6){
             self.onMtn = true;
           }
         },2000);
-      } else if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6 && self.onMtn){
+      } else if(getTile(0,loc[0],loc[1], self) >= 5 && getTile(0,loc[0],loc[1], self) < 6 && self.onMtn){
         self.maxSpd = (self.baseSpd * 0.5) * self.drag;
-      } else if(getTile(0,loc[0],loc[1]) == 18){
+      } else if(getTile(0,loc[0],loc[1], self) == 18){
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = (self.baseSpd * 1.1) * self.drag;
-      } else if(getTile(0,loc[0],loc[1]) == 14 || getTile(0,loc[0],loc[1]) == 16 || getTile(0,loc[0],loc[1]) == 19){
+      } else if(getTile(0,loc[0],loc[1], self) == 14 || getTile(0,loc[0],loc[1], self) == 16 || getTile(0,loc[0],loc[1], self) == 19){
         // At building door - set state
         self.transitionState = 'at_entrance';
         
@@ -5492,7 +5557,8 @@ Character = function(param){
     
     self.pathEnd = {z:z,loc:[c,r]};
     self.pathLocked = false; // Clear path lock when starting new pathfinding
-    var start = getLoc(self.x,self.y);
+    const isBattleground = !!(self.inBattleground && self.battlegroundMatchId);
+    var start = getLoc(self.x,self.y,self);
     var cst = getCenter(start[0],start[1]);
     var b = getBuilding(cst[0],cst[1]);
     var cd = getCenter(c,r);
@@ -5516,7 +5582,7 @@ Character = function(param){
     }
     
     // Try to get cached path first
-    var cachedPath = getCachedPath(start, [c,r], z);
+    var cachedPath = getCachedPath(start, [c,r], z, self);
     if(cachedPath){
       self.path = cachedPath;
       self.pathCount = 0; // Initialize path counter
@@ -5525,14 +5591,26 @@ Character = function(param){
     
     if(z == self.z){
       if(self.z == 0){
-        var isOnWater = getLocTile(0, self.x, self.y) == 0;
+        var isOnWater = getLocTile(0, self.x, self.y, self) == 0;
         var options = {};
         
         // Check if destination is a doorway
-        var isTargetDoorway = global.isDoorwayDestination(c, r, z);
+        var isTargetDoorway = !isBattleground && global.isDoorwayDestination(c, r, z);
         if (isTargetDoorway) {
           options.allowSpecificDoor = true;
           options.targetDoor = [c, r];
+        }
+
+        // Check if destination is a cave entrance (must be explicitly targeted)
+        if (!isBattleground && global.caveEntrances && Array.isArray(global.caveEntrances)) {
+          for (var i = 0; i < global.caveEntrances.length; i++) {
+            var cave = global.caveEntrances[i];
+            if (Array.isArray(cave) && cave[0] === c && cave[1] === r) {
+              options.targetCaveEntrance = [c, r];
+              options.avoidCaveEntrances = true;
+              break;
+            }
+          }
         }
         
         // GHOST MODE: Allow ghosts to pathfind through water tiles
@@ -5547,10 +5625,10 @@ Character = function(param){
         // Ghosts on water use overworld pathfinding (layer 0) with ghost options
         // Non-ghosts on water use underwater pathfinding (layer 3)
         var pathLayer = (self.ghost && isOnWater) ? 0 : (isOnWater ? 3 : 0);
-        var path = global.tilemapSystem.findPath(start, [c,r], pathLayer, options);
+        var path = findPathContextAware(start, [c,r], pathLayer, options, self);
         if(path && path.length > 0){
           path = smoothPath(path, z);
-          cachePath(start, [c,r], z, path);
+          cachePath(start, [c,r], z, path, self);
         }
         self.path = path;
         self.pathCount = 0; // Initialize path counter
@@ -5560,13 +5638,15 @@ Character = function(param){
         var isTargetCaveExit = false;
         var isStartCaveExit = false;
         
-        for(var i in caveEntrances){
-          var ce = caveEntrances[i];
-          if(ce[0] == c && ce[1] + 1 == r){
-            isTargetCaveExit = true;
-          }
-          if(ce[0] == start[0] && ce[1] + 1 == start[1]){
-            isStartCaveExit = true;
+        if(!isBattleground && caveEntrances && caveEntrances.length > 0){
+          for(var i in caveEntrances){
+            var ce = caveEntrances[i];
+            if(ce[0] == c && ce[1] + 1 == r){
+              isTargetCaveExit = true;
+            }
+            if(ce[0] == start[0] && ce[1] + 1 == start[1]){
+              isStartCaveExit = true;
+            }
           }
         }
         
@@ -5586,19 +5666,19 @@ Character = function(param){
         }
         
         // Use layer 1 for cave (worldMaps[1] = Underworld)
-        var path = global.tilemapSystem.findPath(start, [c,r], 1, options);
+        var path = findPathContextAware(start, [c,r], 1, options, self);
         if(path && path.length > 0){
           // DON'T smooth cave paths - caves have narrow tunnels and smoothing causes wall-walking
-          cachePath(start, [c,r], z, path);
+          cachePath(start, [c,r], z, path, self);
         }
         self.path = path;
         self.pathCount = 0; // Initialize path counter
       } else if(self.z == -2){
         if(b == db){
-          var path = global.tilemapSystem.findPath(start, [c,r], -2);
+          var path = findPathContextAware(start, [c,r], -2, {}, self);
           if(path && path.length > 0){
             path = smoothPath(path, z);
-            cachePath(start, [c,r], z, path);
+            cachePath(start, [c,r], z, path, self);
           }
           self.path = path;
           self.pathCount = 0; // Initialize path counter
@@ -5619,17 +5699,17 @@ Character = function(param){
         if(b == db){
           // Use tilemap system for pathfinding on building floor 1 (layer 3)
           // Check if destination is stairs - if so, allow only that stairs tile
-          var targetTile = global.getTile(4, c, r);
+          var targetTile = global.getTile(4, c, r, self);
           var options = {};
           if(targetTile === 3 || targetTile === 4 || targetTile === 5 || targetTile === 6 || targetTile === 7){
             // Destination is stairs or upstairs/downstairs transition - allow only this tile
             options.targetStairs = [c, r];
             options.avoidStairs = true;
           }
-          var path = global.tilemapSystem.findPath(start, [c,r], 3, options);
+          var path = findPathContextAware(start, [c,r], 3, options, self);
           if(path && path.length > 0){
             path = smoothPath(path, z);
-            cachePath(start, [c,r], z, path);
+            cachePath(start, [c,r], z, path, self);
           }
           self.path = path;
           self.pathCount = 0; // Initialize path counter
@@ -5643,10 +5723,10 @@ Character = function(param){
           }
           var exit = Building.list[b].entrance;
           // Use tilemap system for pathfinding on building floor 1 (layer 3)
-          var path = global.tilemapSystem.findPath(start, [exit[0],exit[1]+1], 3);
+          var path = findPathContextAware(start, [exit[0],exit[1]+1], 3, {}, self);
           if(path && path.length > 0){
             path = smoothPath(path, z);
-            cachePath(start, [exit[0],exit[1]+1], z, path);
+            cachePath(start, [exit[0],exit[1]+1], z, path, self);
           }
           self.path = path;
           self.pathCount = 0; // Initialize path counter
@@ -5655,17 +5735,17 @@ Character = function(param){
         if(b == db){
           // Use tilemap system for pathfinding on building floor 2 (layer 5)
           // Check if destination is stairs - if so, allow only that stairs tile
-          var targetTile = global.getTile(4, c, r);
+          var targetTile = global.getTile(4, c, r, self);
           var options = {};
           if(targetTile === 3 || targetTile === 4){
             // Destination is upstairs stairs - allow only this tile
             options.targetStairs = [c, r];
             options.avoidStairs = true;
           }
-          var path = global.tilemapSystem.findPath(start, [c,r], 5, options);
+          var path = findPathContextAware(start, [c,r], 5, options, self);
           if(path && path.length > 0){
             path = smoothPath(path, z);
-            cachePath(start, [c,r], z, path);
+            cachePath(start, [c,r], z, path, self);
           }
           self.path = path;
           self.pathCount = 0; // Initialize path counter
@@ -5684,10 +5764,10 @@ Character = function(param){
             targetStairs: stairs,
             avoidStairs: true
           };
-          var path = global.tilemapSystem.findPath(start, stairs, 5, options);
+          var path = findPathContextAware(start, stairs, 5, options, self);
           if(path && path.length > 0){
             path = smoothPath(path, z);
-            cachePath(start, stairs, z, path);
+            cachePath(start, stairs, z, path, self);
           }
           self.path = path;
           self.pathCount = 0; // Initialize path counter
@@ -5708,7 +5788,7 @@ Character = function(param){
               targetCaveEntrance: [cave[0], cave[1]],
               avoidCaveEntrances: true
             };
-            var path = global.tilemapSystem.findPath(start, [cave[0], cave[1]], 0, options);
+            var path = findPathContextAware(start, [cave[0], cave[1]], 0, options, self);
             self.path = path;
           }
         } else { // to building
@@ -5718,7 +5798,7 @@ Character = function(param){
             allowSpecificDoor: true,
             targetDoor: [ent[0], ent[1]]
           };
-          var path = global.tilemapSystem.findPath(start, [ent[0], ent[1]], 0, options);
+          var path = findPathContextAware(start, [ent[0], ent[1]], 0, options, self);
           self.path = path;
         }
       } else if(self.z == -1){ // cave
@@ -5750,7 +5830,7 @@ Character = function(param){
             targetDoor: [cave[0], cave[1] + 1]
           };
           // Use layer 1 for cave (worldMaps[1] = Underworld)
-          var path = global.tilemapSystem.findPath(start, [cave[0], cave[1] + 1], 1, options);
+          var path = findPathContextAware(start, [cave[0], cave[1] + 1], 1, options, self);
           self.path = path;
         }
       } else if(self.z == 1){ // indoors
@@ -5834,10 +5914,10 @@ Character = function(param){
         self.moveTo(stairs);
       } else if(self.z == -3){ // underwater
         // Use proper pathfinding for underwater (layer 2)
-        var path = global.tilemapSystem.findPath(start, [c,r], 2, {});
+        var path = findPathContextAware(start, [c,r], 2, {}, self);
         if(path && path.length > 0){
           path = smoothPath(path, z);
-          cachePath(start, [c,r], z, path);
+          cachePath(start, [c,r], z, path, self);
         }
         self.path = path;
         self.pathCount = 0; // Initialize path counter
@@ -5929,7 +6009,7 @@ Character = function(param){
   };
 
   self.exitCave = function() {
-    var loc = getLoc(self.x, self.y, self.id);
+    var loc = getLoc(self.x, self.y, self);
     var preservedEntrance = self.caveEntrance; // Preserve for logging and potential future use
     if(self.type === 'npc' && (self.class === 'Serf' || self.class === 'SerfM' || self.class === 'SerfF')){
       var serfLogger = global.serfLogger;
@@ -6086,7 +6166,7 @@ Character = function(param){
   self.isAtPathDestination = function() {
     if (!self.path || self.path.length === 0) return true;
     
-    var loc = getLoc(self.x, self.y, self.id);
+    var loc = getLoc(self.x, self.y, self);
     var finalDest = self.path[self.path.length - 1];
     
     return loc[0] === finalDest[0] && loc[1] === finalDest[1];
@@ -6143,7 +6223,7 @@ Character = function(param){
       var currentWaypoint = self.multiZWaypoints[self.currentWaypoint];
       
       // Check if we've reached the current waypoint
-      var loc = getLoc(self.x, self.y, self.id);
+      var loc = getLoc(self.x, self.y, self);
       if(self.z == currentWaypoint.z && loc.toString() == currentWaypoint.loc.toString()){
         
         // Execute waypoint action
@@ -6208,8 +6288,8 @@ Character = function(param){
         var next = self.path[self.pathCount];
         
         // Check if next waypoint is still walkable (prevent getting stuck in loops)
-        var currentLoc = getLoc(self.x, self.y);
-        var isNextBlocked = !isWalkable(self.z, next[0], next[1]);
+        var currentLoc = getLoc(self.x, self.y, self);
+        var isNextBlocked = !isWalkable(self.z, next[0], next[1], self);
         var isNotAtNext = currentLoc.toString() != next.toString();
         
         // Track waypoint history to detect oscillation (back-and-forth loops)
@@ -6598,7 +6678,9 @@ Character = function(param){
       skulls:self.skulls,
       spriteScale:self.spriteScale,
       isBoarded:self.isBoarded,
-      boardedShip:self.boardedShip
+      boardedShip:self.boardedShip,
+      inBattleground: !!(self.inBattleground && self.battlegroundMatchId),
+      battlegroundMatchId: self.battlegroundMatchId || null
     };
     // Add ship-specific properties if this is a ship OR if player is boarded on a ship
     if(self.shipType){
@@ -6662,7 +6744,9 @@ Character = function(param){
       spriteScale:self.spriteScale,
       isBoarded:self.isBoarded,
       boardedShip:self.boardedShip,
-      target:self.target
+      target:self.target,
+      inBattleground: !!(self.inBattleground && self.battlegroundMatchId),
+      battlegroundMatchId: self.battlegroundMatchId || null
     };
     // Add ship-specific properties if this is a ship OR if player is boarded on a ship
     if(self.shipType){
@@ -6775,7 +6859,7 @@ Building.prototype.retrieveShip = function(playerId, shipIndex) {
   
   // Fallback to dock position if no water found
   if(!spawnCoords){
-    var spawnLoc = self.plot[0] || getLoc(self.x, self.y);
+    var spawnLoc = self.plot[0] || getLoc(self.x, self.y, self);
     spawnCoords = getCenter(spawnLoc[0], spawnLoc[1]);
   }
   
@@ -6839,7 +6923,7 @@ Character.prototype.checkDockContact = function() {
   // Only for ships
   if(self.type !== 'ship') return false;
   
-  var loc = getLoc(self.x, self.y, self.id);
+  var loc = getLoc(self.x, self.y, self);
   var buildingId = getBuilding(self.x, self.y);
   console.log('[checkDockContact] Ship', self.id, 'at location', loc, 'buildingId:', buildingId);
   
@@ -7351,6 +7435,12 @@ FishingShip = function(param){
   self.spawned = param.spawned !== undefined ? param.spawned : true; // False for player ships until boarded
   self.dockedTimer = 0; // Timer for how long ship has been docked (1 hour before despawn)
   self.sailingGracePeriod = 0; // 3-second grace period after starting to sail (prevents immediate disembark)
+
+  // Inherit map context from dock if available
+  const dockEntity = self.dock && Building.list ? Building.list[self.dock] : null;
+  if (dockEntity && global.mapContextHelpers) {
+    global.mapContextHelpers.setEntityContext(self, dockEntity.battlegroundMatchId || null);
+  }
   
   // Ship physics for smooth movement
   self.velocity = {x: 0, y: 0}; // Current velocity
@@ -7489,7 +7579,7 @@ FishingShip = function(param){
       self.mode = 'returning';
     }
     
-    var loc = getLoc(self.x, self.y, self.id);
+    var loc = getLoc(self.x, self.y, self);
     var tile = getTile(0, loc[0], loc[1]);
     
     // Check if at dock
@@ -7663,8 +7753,8 @@ FishingShip = function(param){
   self.updateShipPhysics = function(){
     // Debug: Log ship position and tile on first physics tick
     if(self.sailingGracePeriod === 0 && (self.velocity.x === 0 && self.velocity.y === 0)){
-      var currentLoc = getLoc(self.x, self.y);
-      var currentTile = getTile(0, currentLoc[0], currentLoc[1]);
+      var currentLoc = getLoc(self.x, self.y, self);
+      var currentTile = getTile(0, currentLoc[0], currentLoc[1], self);
     }
     
     // Calculate target direction based on sail points
@@ -7914,7 +8004,10 @@ FishingShip = function(param){
     // Place player on land - at least 1 tile away from ship to prevent auto re-boarding
     // Find a land tile that's at least 1 tile from the ship
     var disembarkLoc = landLoc;
-    var shipLoc = getLoc(self.x, self.y);
+    var shipLoc = getLoc(self.x, self.y, self);
+    const contextMapSize = global.mapContextManager
+      ? global.mapContextManager.getMapSize(self)
+      : global.mapSize;
     var dist = Math.sqrt(Math.pow(landLoc[0] - shipLoc[0], 2) + Math.pow(landLoc[1] - shipLoc[1], 2));
     
     // If too close, try to find a further land tile
@@ -7923,8 +8016,8 @@ FishingShip = function(param){
       for(var dx = -searchRadius; dx <= searchRadius; dx++){
         for(var dy = -searchRadius; dy <= searchRadius; dy++){
           var checkLoc = [landLoc[0] + dx, landLoc[1] + dy];
-          if(checkLoc[0] >= 0 && checkLoc[0] < global.mapSize && checkLoc[1] >= 0 && checkLoc[1] < global.mapSize){
-            var checkTile = getTile(0, checkLoc[0], checkLoc[1]);
+          if(checkLoc[0] >= 0 && checkLoc[0] < contextMapSize && checkLoc[1] >= 0 && checkLoc[1] < contextMapSize){
+            var checkTile = getTile(0, checkLoc[0], checkLoc[1], self);
             if(checkTile !== 0){ // Not water
               var checkDist = Math.sqrt(Math.pow(checkLoc[0] - shipLoc[0], 2) + Math.pow(checkLoc[1] - shipLoc[1], 2));
               if(checkDist >= 1){
@@ -8001,7 +8094,7 @@ FishingShip = function(param){
         // First, check if lastDock is a valid dock we're near
         if(self.lastDock && Building.list[self.lastDock] && Building.list[self.lastDock].type === 'dock'){
           var dock = Building.list[self.lastDock];
-          var shipLoc = getLoc(self.x, self.y);
+          var shipLoc = getLoc(self.x, self.y, self);
           
           // Check if ship is within 3 tiles of any dock plot tile
           for(var p = 0; p < dock.plot.length; p++){
@@ -8018,7 +8111,7 @@ FishingShip = function(param){
         
         // If not near lastDock, check adjacent tiles for any dock
         if(!atDock){
-          var shipLoc = getLoc(self.x, self.y);
+          var shipLoc = getLoc(self.x, self.y, self);
           var adjacentTiles = [
             [shipLoc[0], shipLoc[1]],
             [shipLoc[0] + 1, shipLoc[1]],
@@ -8215,7 +8308,7 @@ FishingShip = function(param){
   
   // Override die function to handle ship destruction
   self.die = function(report){
-    var deathLocation = getLoc(self.x, self.y);
+    var deathLocation = getLoc(self.x, self.y, self);
     var deathCoords = getCenter(deathLocation[0], deathLocation[1]);
     
     
@@ -8330,6 +8423,12 @@ CargoShip = function(param){
   self.isPlayerControlled = false; // Always false
   self.waitTimer = 0; // Countdown timer at dock (3600 = 1 minute)
   self.mode = param.mode || 'waiting'; // 'waiting' | 'sailing' | 'docked'
+
+  // Inherit map context from home dock if available
+  const homeDockEntity = self.homeDock && Building.list ? Building.list[self.homeDock] : null;
+  if (homeDockEntity && global.mapContextHelpers) {
+    global.mapContextHelpers.setEntityContext(self, homeDockEntity.battlegroundMatchId || null);
+  }
   
   // Ship physics for smooth movement
   self.velocity = {x: 0, y: 0};
@@ -8418,7 +8517,10 @@ CargoShip = function(param){
     }
     
     var targetDock = Building.list[self.targetDock];
-    var currentLoc = getLoc(self.x, self.y);
+    var currentLoc = getLoc(self.x, self.y, self);
+    const contextMapSize = global.mapContextManager
+      ? global.mapContextManager.getMapSize(self)
+      : mapSize;
     
     // Generate path if we don't have one
     if(!self.path || self.path.length === 0){
@@ -8438,8 +8540,8 @@ CargoShip = function(param){
           
           for(var j in adjacent){
             var at = adjacent[j];
-            if(at[0] >= 0 && at[0] < mapSize && at[1] >= 0 && at[1] < mapSize){
-              if(getTile(0, at[0], at[1]) == 0){ // Water
+            if(at[0] >= 0 && at[0] < contextMapSize && at[1] >= 0 && at[1] < contextMapSize){
+              if(getTile(0, at[0], at[1], self) == 0){ // Water
                 var dist = Math.sqrt(Math.pow(at[0] - currentLoc[0], 2) + Math.pow(at[1] - currentLoc[1], 2));
                 if(dist < closestDist){
                   closestDist = dist;
@@ -8453,7 +8555,7 @@ CargoShip = function(param){
       
       if(closestWaterTile){
         // Use layer 0 (overworld) with waterOnly option for ship navigation
-        var path = global.tilemapSystem.findPath(currentLoc, closestWaterTile, 0, {waterOnly: true});
+        var path = findPathContextAware(currentLoc, closestWaterTile, 0, {waterOnly: true}, self);
         if(path && path.length > 0){
           self.path = path;
         } else {
@@ -8760,12 +8862,19 @@ Serf = function(param){
   self.tether = null; // {z,loc}
   self.tavern = param.tavern;
   self.hut = param.hut;
-  self.work = param.work || {hq:null, spot:null, assignedSpot:null};
+  self.work = param.work || {hq:null, spot:null, assignedSpot:null, workTile:null, workTileFor:null};
+  if (!self.work.workTile) {
+    self.work.workTile = null;
+  }
+  if (!self.work.workTileFor) {
+    self.work.workTileFor = null;
+  }
   self.dayTimer = false;
   self.workTimer = false;
   self.idleCounter = 0; // Track how long serf has been without action
   self.lastPos = {x: param.x, y: param.y}; // Track position for stuck detection
   self.stuckCounter = 0; // Count frames stuck in same position
+  self.serfState = param.serfState || 'idle';
   self.torchBearer = false; // Set during assignWorkHQ
   self.isNonCombatant = true; // Civilian - doesn't trigger outposts
   self.mineExitCooldown = 0; // Prevent immediate re-entry after exiting cave (~2 seconds)
@@ -8825,8 +8934,10 @@ Serf = function(param){
       if(buildingType === 'mine' && Building.list[bestHQ].cave){
         self.torchBearer = true;
         self.inventory.torch = 3; // Torchbearers get 3 torches (free light, don't consume)
+        self.preferredCaveEntrance = Building.list[bestHQ].cave;
       } else {
         self.torchBearer = false;
+        self.preferredCaveEntrance = null;
       }
     } else {
       self.work.hq = null;
@@ -8848,8 +8959,10 @@ Serf = function(param){
           if(buildingType === 'mine' && Building.list[self.work.hq].cave){
             self.torchBearer = true;
             self.inventory.torch = 3; // Torchbearers get 3 torches (free light, don't consume)
+            self.preferredCaveEntrance = Building.list[self.work.hq].cave;
           } else {
             self.torchBearer = false;
+            self.preferredCaveEntrance = null;
         }
       }
       
@@ -9002,25 +9115,25 @@ Serf = function(param){
         }
         self.onMtn = false;
         self.maxSpd = (self.baseSpd * 0.3) * self.drag;
-      } else if(getTile(0,loc[0],loc[1]) >= 2 && getTile(0,loc[0],loc[1]) < 4){
+      } else if(getTile(0,loc[0],loc[1], self) >= 2 && getTile(0,loc[0],loc[1], self) < 4){
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = (self.baseSpd * 0.5) * self.drag;
-      } else if(getTile(0,loc[0],loc[1]) >= 4 && getTile(0,loc[0],loc[1]) < 5){
+      } else if(getTile(0,loc[0],loc[1], self) >= 4 && getTile(0,loc[0],loc[1], self) < 5){
         self.innaWoods = false;
         self.onMtn = false;
         self.maxSpd = (self.baseSpd * 0.6) * self.drag;
-      } else if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6 && !self.onMtn){
+      } else if(getTile(0,loc[0],loc[1], self) >= 5 && getTile(0,loc[0],loc[1], self) < 6 && !self.onMtn){
         self.innaWoods = false;
         self.maxSpd = (self.baseSpd * 0.2) * self.drag;
         setTimeout(function(){
           // Check CURRENT location, not stale loc from 2 seconds ago
-          var currentLoc = getLoc(self.x, self.y);
-          if(getTile(0,currentLoc[0],currentLoc[1]) >= 5 && getTile(0,currentLoc[0],currentLoc[1]) < 6){
+          var currentLoc = getLoc(self.x, self.y, self);
+          if(getTile(0,currentLoc[0],currentLoc[1], self) >= 5 && getTile(0,currentLoc[0],currentLoc[1], self) < 6){
             self.onMtn = true;
           }
         },2000);
-      } else if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6 && self.onMtn){
+      } else if(getTile(0,loc[0],loc[1], self) >= 5 && getTile(0,loc[0],loc[1], self) < 6 && self.onMtn){
         self.maxSpd = (self.baseSpd * 0.5) * self.drag;
       } else if(getTile(0,loc[0],loc[1]) == 18){
         self.innaWoods = false;
@@ -9363,8 +9476,10 @@ Innkeeper = function(param){
           if(buildingType === 'mine' && Building.list[self.work.hq].cave){
             self.torchBearer = true;
             self.inventory.torch = 3; // Torchbearers get 3 torches (free light, don't consume)
+            self.preferredCaveEntrance = Building.list[self.work.hq].cave;
           } else {
             self.torchBearer = false;
+            self.preferredCaveEntrance = null;
         }
       }
       
@@ -9506,7 +9621,7 @@ Innkeeper = function(param){
         self.maxSpd = (self.baseSpd * 0.2) * self.drag;
         setTimeout(function(){
           // Check CURRENT location, not stale loc from 2 seconds ago
-          var currentLoc = getLoc(self.x, self.y);
+          var currentLoc = getLoc(self.x, self.y, self);
           if(getTile(0,currentLoc[0],currentLoc[1]) >= 5 && getTile(0,currentLoc[0],currentLoc[1]) < 6){
             self.onMtn = true;
           }
@@ -9828,7 +9943,7 @@ Blacksmith = function(param){
         self.maxSpd = (self.baseSpd * 0.2) * self.drag;
         setTimeout(function(){
           // Check CURRENT location, not stale loc from 2 seconds ago
-          var currentLoc = getLoc(self.x, self.y);
+          var currentLoc = getLoc(self.x, self.y, self);
           if(getTile(0,currentLoc[0],currentLoc[1]) >= 5 && getTile(0,currentLoc[0],currentLoc[1]) < 6){
             self.onMtn = true;
           }
@@ -10924,7 +11039,7 @@ Arrow = function(param){
     // Parent is not a player (e.g., building like guardtower)
     self.innaWoods = false;
     // Calculate zGrid based on arrow's position
-    var loc = getLoc(self.x, self.y, self.id);
+    var loc = getLoc(self.x, self.y, self);
     var zc = Math.floor(loc[0]/8);
     var zr = Math.floor(loc[1]/8);
     self.zGrid = [
@@ -10942,7 +11057,7 @@ Arrow = function(param){
   var super_update = self.update;
   self.update = function(){
     super_update();
-    if(self.z == 0 && getLocTile(0,self.x,self.y) >= 1 && getLocTile(0,self.x,self.y) < 2){
+    if(self.z == 0 && getLocTile(0,self.x,self.y,self) >= 1 && getLocTile(0,self.x,self.y,self) < 2){
       self.innaWoods = true;
     } else {
       self.innaWoods = false;
@@ -11051,31 +11166,35 @@ Arrow = function(param){
         }
       }
     }
-    if(self.x == 0 || self.x == mapPx || self.y == 0 || self.y == mapPx){
+    const contextMapSize = global.mapContextManager
+      ? global.mapContextManager.getMapSize(self)
+      : mapSize;
+    const contextMapPx = contextMapSize * (global.tileSize || tileSize || 64);
+    if(self.x == 0 || self.x == contextMapPx || self.y == 0 || self.y == contextMapPx){
       self.toRemove = true;
-    } else if(self.z == 0 && getLocTile(0,self.x,self.y) == 5 &&
-    getLocTile(0,self.parentX,self.parentY) != 5){
+    } else if(self.z == 0 && getLocTile(0,self.x,self.y,self) == 5 &&
+    getLocTile(0,self.parentX,self.parentY,self) != 5){
       self.toRemove = true;
-    } else if(self.z == 0 && getLocTile(0,self.x,self.y) == 1 &&
-    getLocTile(0,self.parentX,self.parentY) != 1){
+    } else if(self.z == 0 && getLocTile(0,self.x,self.y,self) == 1 &&
+    getLocTile(0,self.parentX,self.parentY,self) != 1){
       self.toRemove = true;
-    } else if(self.z == 0 && (getLocTile(0,self.x,self.y) == 13 ||
-    getLocTile(0,self.x,self.y) == 14 || getLocTile(0,self.x,self.y) == 15 ||
-    getLocTile(0,self.x,self.y) == 16 || getLocTile(0,self.x,self.y) == 19)){
+    } else if(self.z == 0 && (getLocTile(0,self.x,self.y,self) == 13 ||
+    getLocTile(0,self.x,self.y,self) == 14 || getLocTile(0,self.x,self.y,self) == 15 ||
+    getLocTile(0,self.x,self.y,self) == 16 || getLocTile(0,self.x,self.y,self) == 19)){
       // Only remove if arrow has moved away from spawn point (prevents immediate removal from guardtowers on building tiles)
       var hasMoved = Math.abs(self.x - self.parentX) > 10 || Math.abs(self.y - self.parentY) > 10;
       if(hasMoved){
       self.toRemove = true;
       }
-    } else if(self.z == -1 && getLocTile(1,self.x,self.y) == 1){
+    } else if(self.z == -1 && getLocTile(1,self.x,self.y,self) == 1){
       self.toRemove = true;
-    } else if(self.z == -2 && getLocTile(8,self.x,self.y) == 0){
+    } else if(self.z == -2 && getLocTile(8,self.x,self.y,self) == 0){
       self.toRemove = true;
     } else if(self.z == 1 &&
-      (getLocTile(3,self.x,self.y) == 0 || getLocTile(4,self.x,self.y) != 0)){
+      (getLocTile(3,self.x,self.y,self) == 0 || getLocTile(4,self.x,self.y,self) != 0)){
       self.toRemove = true;
     } else if(self.z == 2 &&
-      (getLocTile(5,self.x,self.y) == 0 || getLocTile(4,self.x,self.y) != 0)){
+      (getLocTile(5,self.x,self.y,self) == 0 || getLocTile(4,self.x,self.y,self) != 0)){
       self.toRemove = true;
     }
   }
@@ -11087,7 +11206,9 @@ Arrow = function(param){
       x:self.x,
       y:self.y,
       z:self.z,
-      innaWoods:self.innaWoods
+      innaWoods:self.innaWoods,
+      inBattleground: !!(self.inBattleground && self.battlegroundMatchId),
+      battlegroundMatchId: self.battlegroundMatchId || null
     };
   };
 
@@ -11098,7 +11219,9 @@ Arrow = function(param){
       x:self.x,
       y:self.y,
       z:self.z,
-      innaWoods:self.innaWoods
+      innaWoods:self.innaWoods,
+      inBattleground: !!(self.inBattleground && self.battlegroundMatchId),
+      battlegroundMatchId: self.battlegroundMatchId || null
     };
   };
 
@@ -11146,10 +11269,33 @@ Item = function(param){
   self.canPickup = true;
   self.toUpdate = false;
   self.toRemove = false;
-  if(self.z == 0 && getLocTile(0,self.x,self.y) >= 1 && getLocTile(0,self.x,self.y) < 2){
+  if(self.z == 0 && getLocTile(0,self.x,self.y,self) >= 1 && getLocTile(0,self.x,self.y,self) < 2){
     self.innaWoods = true;
   } else {
     self.innaWoods = false;
+  }
+
+  // Ensure item context is set consistently (inherit from parent or explicit matchId)
+  const parentEntity = self.parent && Player.list ? Player.list[self.parent] : null;
+  const parentBuilding = self.parent && Building.list ? Building.list[self.parent] : null;
+  if (global.mapContextHelpers) {
+    let matchId = null;
+    if (param.battlegroundMatchId) {
+      matchId = param.battlegroundMatchId;
+    } else if (param.matchId) {
+      matchId = param.matchId;
+    } else if (param.inBattleground && param.battlegroundMatchId) {
+      matchId = param.battlegroundMatchId;
+    } else if (parentEntity && parentEntity.inBattleground && parentEntity.battlegroundMatchId) {
+      matchId = parentEntity.battlegroundMatchId;
+    } else if (parentBuilding && parentBuilding.inBattleground && parentBuilding.battlegroundMatchId) {
+      matchId = parentBuilding.battlegroundMatchId;
+    }
+    global.mapContextHelpers.setEntityContext(self, matchId);
+  } else if (parentEntity || parentBuilding) {
+    const contextSource = parentEntity || parentBuilding;
+    self.inBattleground = !!(contextSource.inBattleground && contextSource.battlegroundMatchId);
+    self.battlegroundMatchId = contextSource.battlegroundMatchId || null;
   }
   
   // Item lifecycle properties
@@ -11161,19 +11307,19 @@ Item = function(param){
   self.sunk = false; // Has item sunk into terrain?
 
   self.blocker = function(n){
-    var loc = getLoc(self.x,self.y);
+    var loc = getLoc(self.x,self.y,self);
     if(self.z == 0){
-      matrixChange(0,loc[0],loc[1],n);
+      matrixChange(0,loc[0],loc[1],n,self);
     } else if(self.z == 1){
-      matrixChange(1,loc[0],loc[1],n);
+      matrixChange(1,loc[0],loc[1],n,self);
     } else if(self.z == 2){
-      matrixChange(2,loc[0],loc[1],n);
+      matrixChange(2,loc[0],loc[1],n,self);
     } else if(self.z == -1){
-      matrixChange(-1,loc[0],loc[1],n);
+      matrixChange(-1,loc[0],loc[1],n,self);
     } else if(self.z == -2){
-      matrixChange(-2,loc[0],loc[1],n);
+      matrixChange(-2,loc[0],loc[1],n,self);
     } else if(self.z == -3){
-      matrixChange(-3,loc[0],loc[1],n);
+      matrixChange(-3,loc[0],loc[1],n,self);
     }
   }
 
@@ -11186,7 +11332,9 @@ Item = function(param){
       y:self.y,
       z:self.z,
       qty:self.qty,
-      innaWoods:self.innaWoods
+      innaWoods:self.innaWoods,
+      inBattleground: !!(self.inBattleground && self.battlegroundMatchId),
+      battlegroundMatchId: self.battlegroundMatchId || null
     };
   }
 
@@ -11196,7 +11344,9 @@ Item = function(param){
       x:self.x,
       y:self.y,
       z:self.z,
-      innaWoods:self.innaWoods
+      innaWoods:self.innaWoods,
+      inBattleground: !!(self.inBattleground && self.battlegroundMatchId),
+      battlegroundMatchId: self.battlegroundMatchId || null
     }
   }
   return self;
@@ -11222,8 +11372,8 @@ Item.update = function(){
     
     // TERRAIN SINKING: Items at z=0 sink into terrain after time
     if(item.z === 0 && !item.sunk && item.spawnTime) {
-      const loc = getLoc(item.x, item.y);
-      const terrain = getTile(0, loc[0], loc[1]);
+      const loc = getLoc(item.x, item.y, item);
+      const terrain = getTile(0, loc[0], loc[1], item);
       
       // Water items sink after 10 seconds (real-time) to z=-3
       if(terrain === 0) {
@@ -11265,8 +11415,8 @@ Item.update = function(){
         if(typeof global.clearTileInteractable === 'function'){
           var interactableTypes = ['Goods1', 'Goods2', 'Goods3', 'Goods4', 'Desk'];
           if(interactableTypes.indexOf(item.type) !== -1){
-            var loc = getLoc(item.x, item.y);
-            global.clearTileInteractable(item.z, loc[0], loc[1]);
+            var loc = getLoc(item.x, item.y, item);
+            global.clearTileInteractable(item.z, loc[0], loc[1], item);
           }
         }
         delete Item.list[i];
@@ -12837,9 +12987,9 @@ Goods1 = function(param){
   initPack.item.push(self.getInitPack());
   self.blocker(self.type);
   // Mark tile as interactable (same tile that was made unwalkable by blocker)
-  var loc = getLoc(self.x, self.y, self.id);
+  var loc = getLoc(self.x, self.y, self);
   if(typeof global.setTileInteractable === 'function'){
-    global.setTileInteractable(self.z, loc[0], loc[1], self.id);
+    global.setTileInteractable(self.z, loc[0], loc[1], self.id, self);
   }
   return self;
 }
@@ -12855,9 +13005,9 @@ Goods2 = function(param){
   initPack.item.push(self.getInitPack());
   self.blocker(self.type);
   // Mark tile as interactable (same tile that was made unwalkable by blocker)
-  var loc = getLoc(self.x, self.y, self.id);
+  var loc = getLoc(self.x, self.y, self);
   if(typeof global.setTileInteractable === 'function'){
-    global.setTileInteractable(self.z, loc[0], loc[1], self.id);
+    global.setTileInteractable(self.z, loc[0], loc[1], self.id, self);
   }
   return self;
 }
@@ -12873,9 +13023,9 @@ Goods3 = function(param){
   initPack.item.push(self.getInitPack());
   self.blocker(self.type);
   // Mark tile as interactable (same tile that was made unwalkable by blocker)
-  var loc = getLoc(self.x, self.y, self.id);
+  var loc = getLoc(self.x, self.y, self);
   if(typeof global.setTileInteractable === 'function'){
-    global.setTileInteractable(self.z, loc[0], loc[1], self.id);
+    global.setTileInteractable(self.z, loc[0], loc[1], self.id, self);
   }
   return self;
 }
@@ -12891,9 +13041,9 @@ Goods4 = function(param){
   initPack.item.push(self.getInitPack());
   self.blocker(self.type);
   // Mark tile as interactable (same tile that was made unwalkable by blocker)
-  var loc = getLoc(self.x, self.y, self.id);
+  var loc = getLoc(self.x, self.y, self);
   if(typeof global.setTileInteractable === 'function'){
-    global.setTileInteractable(self.z, loc[0], loc[1], self.id);
+    global.setTileInteractable(self.z, loc[0], loc[1], self.id, self);
   }
   return self;
 }
@@ -12935,9 +13085,9 @@ Desk = function(param){
   initPack.item.push(self.getInitPack());
   self.blocker(self.type);
   // Mark tile as interactable (same tile that was made unwalkable by blocker)
-  var loc = getLoc(self.x, self.y, self.id);
+  var loc = getLoc(self.x, self.y, self);
   if(typeof global.setTileInteractable === 'function'){
-    global.setTileInteractable(self.z, loc[0], loc[1], self.id);
+    global.setTileInteractable(self.z, loc[0], loc[1], self.id, self);
   }
   return self;
 }
@@ -13693,6 +13843,7 @@ Light = function(param){
   self.toRemove = false;
   self.toUpdate = false;
   var super_update = self.update;
+  const parentItem = Item.list[self.parent];
   
   // Safety check: ensure parent item exists before accessing its properties
   if(!Item.list || !Item.list[self.parent]){
@@ -13701,6 +13852,24 @@ Light = function(param){
     Light.list[self.id] = self;
     initPack.light.push(self.getInitPack());
     return self;
+  }
+
+  // Inherit map context from parent item or its parent entity (player/building)
+  if (parentItem && global.mapContextHelpers) {
+    let matchId = null;
+    if (parentItem.battlegroundMatchId) {
+      matchId = parentItem.battlegroundMatchId;
+    } else if (parentItem.inBattleground && parentItem.battlegroundMatchId) {
+      matchId = parentItem.battlegroundMatchId;
+    } else if (parentItem.parent && Player.list && Player.list[parentItem.parent]) {
+      matchId = Player.list[parentItem.parent].battlegroundMatchId || null;
+    } else if (parentItem.parent && Building.list && Building.list[parentItem.parent]) {
+      matchId = Building.list[parentItem.parent].battlegroundMatchId || null;
+    }
+    global.mapContextHelpers.setEntityContext(self, matchId);
+  } else if (parentItem) {
+    self.inBattleground = !!(parentItem.inBattleground && parentItem.battlegroundMatchId);
+    self.battlegroundMatchId = parentItem.battlegroundMatchId || null;
   }
   
   if(Item.list[self.parent].type == 'LitTorch'){
@@ -13747,7 +13916,9 @@ Light = function(param){
       y:self.y,
       z:self.z,
       radius:self.radius,
-      parent:self.parent // Include parent to identify light sources (firepit, torch, etc.)
+      parent:self.parent, // Include parent to identify light sources (firepit, torch, etc.)
+      inBattleground: !!(self.inBattleground && self.battlegroundMatchId),
+      battlegroundMatchId: self.battlegroundMatchId || null
     };
   }
 
@@ -13758,7 +13929,9 @@ Light = function(param){
       y:self.y,
       z:self.z,
       // Ensure radius is always defined (handle legacy lights)
-      radius:self.radius !== undefined ? self.radius : 1
+      radius:self.radius !== undefined ? self.radius : 1,
+      inBattleground: !!(self.inBattleground && self.battlegroundMatchId),
+      battlegroundMatchId: self.battlegroundMatchId || null
     }
   }
 
@@ -13917,6 +14090,106 @@ DroppedItem = function(param){
   return self;
 }
 
+// CAMERA/VIEWER ENTITY
+// Camera entities represent viewer/camera positions for spatial filtering
+// They replace the need to use player positions directly for determining what entities to send to clients
+Camera = function(param){
+  var self = Entity(param);
+
+  // Camera properties
+  self.id = param.id || Math.random();
+  self.x = param.x || 0;
+  self.y = param.y || 0;
+  self.z = param.z || 0;
+  self.mode = param.mode || 'player'; // 'player', 'godmode', 'spectate', 'login'
+  self.locked = param.locked || false; // Whether camera is locked to a target
+  self.lockedToEntityId = param.lockedToEntityId || null; // Entity ID camera is locked to
+  self.ownerPlayerId = param.ownerPlayerId || null; // Associated player ID (null for spectators)
+  self.context = param.context || null; // Additional context (battleground info, etc.)
+
+  // Camera doesn't need updates - it's a static position marker for filtering
+  self.update = function(){
+    // Cameras don't move on their own - they're updated externally
+  };
+
+  self.getInitPack = function(){
+    return {
+      id: self.id,
+      x: self.x,
+      y: self.y,
+      z: self.z,
+      mode: self.mode,
+      locked: self.locked,
+      lockedToEntityId: self.lockedToEntityId,
+      ownerPlayerId: self.ownerPlayerId,
+      context: self.context
+    };
+  };
+
+  self.getUpdatePack = function(){
+    return {
+      id: self.id,
+      x: self.x,
+      y: self.y,
+      z: self.z,
+      mode: self.mode,
+      locked: self.locked,
+      lockedToEntityId: self.lockedToEntityId,
+      ownerPlayerId: self.ownerPlayerId,
+      context: self.context
+    };
+  };
+
+  // Camera registry
+  Camera.list[self.id] = self;
+  return self;
+};
+
+Camera.list = {};
+
+// Get all cameras for initialization
+Camera.getAllInitPack = function(){
+  var pack = [];
+  for(var i in Camera.list){
+    pack.push(Camera.list[i].getInitPack());
+  }
+  return pack;
+};
+
+// Update all cameras (though cameras typically don't change frequently)
+Camera.update = function(){
+  var pack = [];
+  for(var i in Camera.list){
+    var camera = Camera.list[i];
+    camera.update();
+    pack.push(camera.getUpdatePack());
+  }
+  return pack;
+};
+
+// Helper to get viewer anchors for spatial filtering
+Camera.getViewerAnchors = function(){
+  var anchors = [];
+  for(var i in Camera.list){
+    var camera = Camera.list[i];
+    anchors.push({
+      x: camera.x,
+      y: camera.y,
+      z: camera.z,
+      cameraId: camera.id,
+      mode: camera.mode,
+      ownerPlayerId: camera.ownerPlayerId,
+      context: camera.context,
+      inBattleground: camera.context && camera.context.inBattleground,
+      battlegroundMatchId: camera.context ? camera.context.battlegroundMatchId : null
+    });
+  }
+  return anchors;
+};
+
+// Export Camera globally
+global.Camera = Camera;
+
 // WEATHER SYSTEM
 Weather = function(param){
   var self = Entity({
@@ -13936,6 +14209,25 @@ Weather = function(param){
   self.toRemove = false;
   
   self.type = 'weather';
+
+  // Ensure weather context is set consistently (inherit from creator or explicit matchId)
+  const creatorEntity = param.creatorId && Player.list ? Player.list[param.creatorId] : null;
+  if (global.mapContextHelpers) {
+    let matchId = null;
+    if (param.battlegroundMatchId) {
+      matchId = param.battlegroundMatchId;
+    } else if (param.matchId) {
+      matchId = param.matchId;
+    } else if (param.inBattleground && param.battlegroundMatchId) {
+      matchId = param.battlegroundMatchId;
+    } else if (creatorEntity && creatorEntity.inBattleground && creatorEntity.battlegroundMatchId) {
+      matchId = creatorEntity.battlegroundMatchId;
+    }
+    global.mapContextHelpers.setEntityContext(self, matchId);
+  } else if (creatorEntity) {
+    self.inBattleground = !!(creatorEntity.inBattleground && creatorEntity.battlegroundMatchId);
+    self.battlegroundMatchId = creatorEntity.battlegroundMatchId || null;
+  }
   
   self.update = function(){
     // FOG: Auto-despawn based on time of day (disappear by noon)
@@ -13978,7 +14270,10 @@ Weather = function(param){
     self.y += Math.sin(self.moveDirection) * self.moveSpeed;
     
     // Keep within map bounds
-    var mapBounds = mapSize * tileSize;
+    const contextMapSize = global.mapContextManager
+      ? global.mapContextManager.getMapSize(self)
+      : mapSize;
+    var mapBounds = contextMapSize * tileSize;
     if(self.x < 0) self.x = 0;
     if(self.y < 0) self.y = 0;
     if(self.x > mapBounds) self.x = mapBounds;
@@ -13991,7 +14286,9 @@ Weather = function(param){
       x: self.x,
       y: self.y,
       weatherType: self.weatherType,
-      intensity: self.intensity
+      intensity: self.intensity,
+      inBattleground: !!(self.inBattleground && self.battlegroundMatchId),
+      battlegroundMatchId: self.battlegroundMatchId || null
     };
   };
   
@@ -14001,7 +14298,9 @@ Weather = function(param){
       x: self.x,
       y: self.y,
       weatherType: self.weatherType,
-      intensity: self.intensity
+      intensity: self.intensity,
+      inBattleground: !!(self.inBattleground && self.battlegroundMatchId),
+      battlegroundMatchId: self.battlegroundMatchId || null
     };
   };
   

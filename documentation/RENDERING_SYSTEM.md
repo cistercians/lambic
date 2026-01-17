@@ -1505,6 +1505,23 @@ getCameraPosition() {
 
 This allows `GameRenderer` to work with any camera system.
 
+### CameraHelper Utility
+
+The [`CameraHelper`](client/js/utils/CameraHelper.js) provides unified camera management:
+
+- **Position Resolution**: Determines camera position across all modes (normal, spectate, login, god mode)
+- **Z-Level Management**: Manages current rendering Z-level based on camera mode
+- **Zoom Calculation**: Calculates appropriate zoom level for different contexts
+- **Update Transmission**: Sends `cameraUpdate` messages to server for spatial filtering
+
+```javascript
+const cameraHelper = new CameraHelper();
+const cameraPos = cameraHelper.getCameraPosition(config);
+const currentZ = cameraHelper.getCurrentZ(config);
+const zoom = cameraHelper.getTargetZoom(config);
+cameraHelper.sendCameraUpdate({ cameraData: {...}, selfId });
+```
+
 ---
 
 ## Client-Server Data Synchronization
@@ -1754,7 +1771,7 @@ The rendering system depends on:
 - **Entity Systems**: `Player`, `Item`, `Arrow`, `Building`, `Light` entities
 - **World Data**: `world` array (tile data), `mapSize`, `tileSize`
 - **Image Assets**: `Img` object (loaded sprites and textures)
-- **Camera Systems**: `loginCameraSystem`, `spectateCameraSystem`, `godModeCamera`
+- **Camera Systems**: `loginCameraSystem`, `spectateCameraSystem`, `godModeCamera`, `CameraHelper`
 - **Helper Systems**: `shipWakes`, `tileHighlights`, `spriteHelper`
 
 ### Module Relationships
@@ -1764,7 +1781,9 @@ graph TD
     A[GameLoopManager] --> B[GameRenderer]
     A --> C[MapRenderer]
     A --> D[AnimationManager]
+    A --> F[CameraHelper]
     B --> E[PlayerRenderer]
+    F --> B
     B --> F[ItemRenderer]
     B --> G[ArrowRenderer]
     B --> H[LightingRenderer]

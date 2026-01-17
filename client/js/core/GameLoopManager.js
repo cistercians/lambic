@@ -393,6 +393,9 @@ class GameLoopManager {
           if (config.viewport && config.viewport.update) {
             config.viewport.update(player.x, player.y, config.currentZoom, tileSize, mapSize);
           }
+
+          // Send camera update for normal player mode (throttled to avoid spam)
+          this.sendPlayerCameraUpdate(player, selfId);
         } else {
           // Fallback to center if player position is invalid
           const centerX = (mapSize && tileSize) ? (mapSize * tileSize) / 2 : 6144;
@@ -499,6 +502,43 @@ class GameLoopManager {
    */
   start(config) {
     requestAnimationFrame((time) => this.gameLoop(time, config));
+  }
+
+  /**
+   * Send camera update for player-following camera (throttled)
+   * @param {object} player - Player entity
+   * @param {string} selfId - Player ID
+   */
+  sendPlayerCameraUpdate(player, selfId) {
+    // Throttle camera updates to avoid spam (every 2 seconds)
+    const now = Date.now();
+    if (!this._lastCameraUpdate) {
+      this._lastCameraUpdate = 0;
+    }
+
+    if (now - this._lastCameraUpdate >= 2000) { // 2 second interval
+      this._lastCameraUpdate = now;
+
+      if (typeof window !== 'undefined' && window.CameraHelper) {
+        const cameraHelper = new window.CameraHelper();
+        const cameraContext = cameraHelper.getCameraContext({ selfId, PlayerList: Player.list });
+
+        cameraHelper.sendCameraUpdate({
+          cameraData: {
+            cameraId: selfId, // Use player ID as camera ID
+            x: player.x,
+            y: player.y,
+            z: player.z || 0,
+            mode: 'player',
+            locked: false, // Player camera follows player naturally
+            lockedToEntityId: selfId, // Locked to self
+            ownerPlayerId: selfId,
+            context: cameraContext
+          },
+          selfId
+        });
+      }
+    }
   }
 }
 

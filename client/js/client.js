@@ -25,6 +25,8 @@ var Building = function() {}; // Placeholder
 Building.list = {};
 var Weather = function() {}; // Placeholder
 Weather.list = {};
+var Camera = function() {}; // Placeholder
+Camera.list = {};
 
 // Sprite lookup table for O(1) performance (instead of 125+ if-else comparisons)
 var spriteMap = null;

@@ -9,7 +9,17 @@ class SimpleFlee {
   restoreSpeed(entity) {
     if (entity._originalBaseSpd !== undefined) {
       entity.baseSpd = entity._originalBaseSpd;
+      entity.maxSpd = entity._originalBaseSpd;
       delete entity._originalBaseSpd; // Clean up
+    }
+  }
+
+  markFleeEnd(entity, reason = '') {
+    if (!entity) return;
+    const isSerf = entity.class === 'Serf' || entity.class === 'SerfM' || entity.class === 'SerfF';
+    if (isSerf) {
+      entity._pendingFleeRecovery = true;
+      entity._fleeEndReason = reason;
     }
   }
 
@@ -89,6 +99,7 @@ class SimpleFlee {
       // Clear both combat state objects
       if (entity.combatState) entity.combatState.target = null;
       if (entity.combat) entity.combat.target = null;
+      this.markFleeEnd(entity, 'noTarget');
       // Clear flee target tracking
       entity._fleeTarget = null;
       entity._fleeTargetCheckTimer = 0;
@@ -103,6 +114,7 @@ class SimpleFlee {
       // Clear both combat state objects
       if (entity.combatState) entity.combatState.target = null;
       if (entity.combat) entity.combat.target = null;
+      this.markFleeEnd(entity, 'targetGone');
       // Clear flee target tracking
       entity._fleeTarget = null;
       entity._fleeTargetCheckTimer = 0;
@@ -127,6 +139,7 @@ class SimpleFlee {
       entity._originalBaseSpd = entity.baseSpd;
     }
     entity.baseSpd = entity.runSpd || 6;
+    entity.maxSpd = entity.runSpd || 6;
     
     // Update speed will be called by the entity's update function
 
@@ -141,6 +154,7 @@ class SimpleFlee {
       // Clear both combat state objects
       if (entity.combatState) entity.combatState.target = null;
       if (entity.combat) entity.combat.target = null;
+      this.markFleeEnd(entity, 'safeDistance');
       // Clear flee target tracking
       entity._fleeTarget = null;
       entity._fleeTargetCheckTimer = 0;

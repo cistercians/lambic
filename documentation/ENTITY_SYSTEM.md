@@ -543,6 +543,29 @@ Some entities (Deer, Boar, Wolf, Falcon, Sheep) are defined in modular files und
 | `moveDirection` | Number | Movement direction in radians |
 | `moveTimer` | Number | Timer for direction changes |
 
+### Camera Properties
+
+**Location:** [`server/js/Entity.js`](server/js/Entity.js) lines 14094-14233
+
+**Purpose**: Represents viewer/camera positions for spatial filtering, replacing direct player position usage
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `id` | String | Camera identifier (player ID, 'godmode', 'spectate', 'login') |
+| `x` | Number | Camera X position |
+| `y` | Number | Camera Y position |
+| `z` | Number | Camera Z-level |
+| `mode` | String | Camera mode ('player', 'godmode', 'spectate', 'login') |
+| `locked` | Boolean | Whether camera is locked to a target |
+| `lockedToEntityId` | String | Entity ID camera is locked to |
+| `ownerPlayerId` | String | Associated player ID (null for spectators) |
+| `context` | Object | Additional context (battleground info, etc.) |
+
+**Methods**:
+- `getViewerAnchors()`: Returns array of viewer anchor objects for spatial filtering
+- `getAllInitPack()`: Returns initialization data for all cameras
+- `update()`: Updates all camera entities (typically no-op as cameras are updated externally)
+
 ---
 
 ## Lifecycle Management

@@ -101,6 +101,10 @@ class LoginCameraSystem {
    * @returns {object} Camera position {x, y}
    */
   getCameraPosition(PlayerList) {
+    // Store previous position to detect changes
+    const prevX = this.cameraX;
+    const prevY = this.cameraY;
+
     // If active and locked, follow the falcon
     if (this.isActive && this.isLocked && this.currentFalconId && PlayerList && PlayerList[this.currentFalconId]) {
       const falcon = PlayerList[this.currentFalconId];
@@ -115,6 +119,11 @@ class LoginCameraSystem {
         x: this.cameraX,
         y: this.cameraY
       };
+    }
+
+    // Send camera update if position changed
+    if (this.cameraX !== prevX || this.cameraY !== prevY) {
+      this.sendCameraUpdate();
     }
     
     // Return position (may be 0,0 if never set - fallback will handle this)
@@ -156,6 +165,29 @@ class LoginCameraSystem {
       this.switchTimer = null;
     }
     // Note: cameraX and cameraY are preserved for fallback rendering
+  }
+
+  /**
+   * Send camera position update to server
+   */
+  sendCameraUpdate() {
+    if (typeof window !== 'undefined' && window.CameraHelper) {
+      const cameraHelper = new window.CameraHelper();
+      cameraHelper.sendCameraUpdate({
+        cameraData: {
+          cameraId: 'login', // Use a fixed ID for login mode
+          x: this.cameraX,
+          y: this.cameraY,
+          z: 0, // Login camera is always at z=0
+          mode: 'login',
+          locked: this.isLocked,
+          lockedToEntityId: this.isLocked ? this.currentFalconId : null,
+          ownerPlayerId: null, // No associated player for login
+          context: null
+        },
+        selfId: null
+      });
+    }
   }
 }
 

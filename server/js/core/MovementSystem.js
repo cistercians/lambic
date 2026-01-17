@@ -109,6 +109,10 @@ class MovementSystem {
     // All pathfinding goes through PathfindingManager or TilemapSystem
     // This fallback is here for compatibility but shouldn't be used
 
+    if (global.findPathContextAware && options.entity) {
+      return global.findPathContextAware(start, destination, layer, options, options.entity);
+    }
+
     if (global.tilemapSystem && typeof global.tilemapSystem.findPath === 'function') {
       if (global.debugPathfinding) {
         console.log('[MovementSystem] findPath (TilemapSystem fallback) start=%j dest=%j layer=%s', start, destination, layer);

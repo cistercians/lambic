@@ -10,6 +10,8 @@ function ItemEntity(initPack){
   self.qty = initPack.qty;
   self.innaWoods = initPack.innaWoods;
   self.sunk = initPack.sunk || false;
+  self.inBattleground = initPack.inBattleground;
+  self.battlegroundMatchId = initPack.battlegroundMatchId || null;
 
   // Item rendering extracted to ItemRenderer.js
   // Use ItemRenderer.render() instead

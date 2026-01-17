@@ -502,6 +502,9 @@ class PathfindingSystem {
   // Smooth path to reduce zigzag movement (OPTIMIZED to reduce allocations)
   smoothPath(path, layer) {
     if (!path || path.length <= 2) return path;
+
+    // Don't smooth cave paths (narrow tunnels)
+    if (layer === 1) return path;
     
     // Reuse array if possible
     const smoothed = this.objectPool.getPath();

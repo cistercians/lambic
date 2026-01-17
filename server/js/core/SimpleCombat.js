@@ -53,15 +53,17 @@ class SimpleCombat {
     if (global.Player.list && !global.Player.list[target.id]) return false;
     
     // CRITICAL: Check map context - entities from different map contexts cannot interact
-    const entityInBG = entity.inBattleground && entity.battlegroundMatchId;
-    const targetInBG = target.inBattleground && target.battlegroundMatchId;
-    
-    // If one is in battleground and other isn't, they're in different map contexts
-    if (entityInBG !== targetInBG) return false;
-    
-    // If both are in battlegrounds but different matches, they're in different contexts
-    if (entityInBG && targetInBG && entity.battlegroundMatchId !== target.battlegroundMatchId) {
-      return false;
+    if (global.mapContextHelpers) {
+      if (!global.mapContextHelpers.areInSameContext(entity, target)) {
+        return false;
+      }
+    } else {
+      const entityInBG = entity.inBattleground && entity.battlegroundMatchId;
+      const targetInBG = target.inBattleground && target.battlegroundMatchId;
+      if (entityInBG !== targetInBG) return false;
+      if (entityInBG && targetInBG && entity.battlegroundMatchId !== target.battlegroundMatchId) {
+        return false;
+      }
     }
     
     // Skip boarded players - they are not targetable (only the ship should be targetable)
@@ -168,11 +170,13 @@ class SimpleCombat {
       return false;
     }
 
-    const startLoc = global.getLoc(entity.x, entity.y);
+    const startLoc = global.getLoc(entity.x, entity.y, entity);
     const layer = this.getPathfindingLayer(z);
     const options = this.getPathfindingOptions(z, entity);
 
-    const path = global.tilemapSystem.findPath(startLoc, [targetLoc[0], targetLoc[1]], layer, options);
+    const path = global.findPathContextAware
+      ? global.findPathContextAware(startLoc, [targetLoc[0], targetLoc[1]], layer, options, entity)
+      : global.tilemapSystem.findPath(startLoc, [targetLoc[0], targetLoc[1]], layer, options);
     if (path && path.length > 0) {
       // Smooth path if not in cave
       if (z !== -1 && typeof global.smoothPath === 'function') {
@@ -195,8 +199,8 @@ class SimpleCombat {
 
   // Find best adjacent tile to target (for melee positioning)
   findAdjacentTile(entity, target) {
-    const targetLoc = global.getLoc(target.x, target.y);
-    const entityLoc = global.getLoc(entity.x, entity.y);
+    const targetLoc = global.getLoc(target.x, target.y, target);
+    const entityLoc = global.getLoc(entity.x, entity.y, entity);
     
     const adjacentTiles = [
       [targetLoc[0] + 1, targetLoc[1]], // Right
@@ -209,7 +213,7 @@ class SimpleCombat {
     let bestDist = Infinity;
     
     for (const tile of adjacentTiles) {
-      if (global.isWalkable && global.isWalkable(entity.z, tile[0], tile[1])) {
+      if (global.isWalkable && global.isWalkable(entity.z, tile[0], tile[1], entity)) {
         const dist = Math.sqrt(
           Math.pow(tile[0] - entityLoc[0], 2) + 
           Math.pow(tile[1] - entityLoc[1], 2)
@@ -1488,6 +1492,19 @@ class SimpleCombat {
       // Serfs should not flee from prey animals (deer)
       if (target.isPrey && entity.class === 'Serf') {
         return; // Don't start combat or flee
+      }
+      // Capture pre-flee state for serfs to resume work after fleeing
+      if (entity.class === 'Serf' || entity.class === 'SerfM' || entity.class === 'SerfF') {
+        if (!entity._preFleeState || entity.action !== 'flee') {
+          entity._preFleeState = {
+            mode: entity.mode,
+            action: entity.action,
+            workSpot: entity.work ? entity.work.spot : null,
+            assignedSpot: entity.work ? entity.work.assignedSpot : null,
+            serfState: entity.serfState || null
+          };
+        }
+        entity._fleeInitialized = false;
       }
       entity.action = 'flee';
       const state = this.ensureCombatState(entity);

@@ -159,7 +159,7 @@ class TestItemCommand extends BaseCommand {
       return;
     }
 
-    const loc = global.getLoc(player.x, player.y);
+    const loc = global.getLoc(player.x, player.y, player);
     const coords = global.getCoords(loc[0], loc[1]);
 
     // Spawn test items around player
@@ -196,9 +196,10 @@ class FireCommand extends BaseCommand {
 
   execute(player, args, socket) {
     // Allow torch lighting in battlegrounds even without inventory torches
-    if (player.inventory.torch > 0 || (player.inBattleground && player.battlegroundMatchId)) {
+    const inBattleground = global.mapContextHelpers ? global.mapContextHelpers.isInBattleground(player) : !!(player.inBattleground && player.battlegroundMatchId);
+    if (player.inventory.torch > 0 || inBattleground) {
       // Don't consume torch if player is in battleground (unlimited torches)
-      if (!(player.inBattleground && player.battlegroundMatchId)) {
+      if (!inBattleground) {
         player.inventory.torch--;
       }
       player.hasTorch = true;
@@ -308,7 +309,7 @@ class TakeCommand extends BaseCommand {
     }
 
     const item = args[0].toLowerCase();
-    const loc = global.getLoc(player.x, player.y);
+    const loc = global.getLoc(player.x, player.y, player);
     
     // Find nearby chests/containers
     for (const i in global.Item.list) {
@@ -344,7 +345,7 @@ class TrainCommand extends BaseCommand {
     }
 
     const unitType = args[0].toLowerCase();
-    const loc = global.getLoc(player.x, player.y);
+    const loc = global.getLoc(player.x, player.y, player);
     const building = global.getBuilding(player.x, player.y);
     
     if (!building || !global.Building.list[building]) {

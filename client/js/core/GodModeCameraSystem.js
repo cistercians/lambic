@@ -62,6 +62,11 @@ class GodModeCameraSystem {
   update(mapSize, tileSize) {
     if (!this.isActive) return;
 
+    // Store previous position to detect changes
+    const prevX = this.cameraX;
+    const prevY = this.cameraY;
+    const prevZ = this.cameraZ;
+
     // Smooth camera movement based on pressed keys
     if (this.pressingUp) {
       this.cameraY -= this.speed;
@@ -80,6 +85,34 @@ class GodModeCameraSystem {
     const maxPos = mapSize * tileSize;
     this.cameraX = Math.max(0, Math.min(maxPos, this.cameraX));
     this.cameraY = Math.max(0, Math.min(maxPos, this.cameraY));
+
+    // Send camera update if position changed
+    if (this.cameraX !== prevX || this.cameraY !== prevY || this.cameraZ !== prevZ) {
+      this.sendCameraUpdate();
+    }
+  }
+
+  /**
+   * Send camera position update to server
+   */
+  sendCameraUpdate() {
+    if (typeof window !== 'undefined' && window.CameraHelper) {
+      const cameraHelper = new window.CameraHelper();
+      cameraHelper.sendCameraUpdate({
+        cameraData: {
+          cameraId: 'godmode', // Use a fixed ID for god mode
+          x: this.cameraX,
+          y: this.cameraY,
+          z: this.cameraZ,
+          mode: 'godmode',
+          locked: false,
+          lockedToEntityId: null,
+          ownerPlayerId: null, // No associated player for god mode
+          context: null
+        },
+        selfId: null
+      });
+    }
   }
 
   /**

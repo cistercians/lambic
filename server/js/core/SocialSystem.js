@@ -707,6 +707,7 @@ class SocialSystem {
     for (const playerId in global.Player.list) {
       const player = global.Player.list[playerId];
       if (player.type !== 'player') continue;
+      if (global.mapContextHelpers && !global.mapContextHelpers.areInSameContext(npc, player)) continue;
       if (player.z !== npc.z) continue;
       
       const distance = Math.sqrt(
@@ -741,6 +742,7 @@ class SocialSystem {
     for (const id in global.Player.list) {
       const char = global.Player.list[id];
       if (char.id === origin.id) continue; // Skip self
+      if (global.mapContextHelpers && !global.mapContextHelpers.areInSameContext(origin, char)) continue;
       if (char.z !== origin.z) continue; // Different z-level
       
       if (npcsOnly && char.type !== 'npc') continue;

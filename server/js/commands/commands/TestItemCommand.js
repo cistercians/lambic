@@ -26,7 +26,7 @@ class TestItemCommand {
     const getLoc = global.getLoc || ((x, y) => [Math.floor(x / 64), Math.floor(y / 64)]);
     const getCoords = global.getCoords || ((c, r) => [c * 64, r * 64]);
     
-    const loc = getLoc(player.x, player.y);
+    const loc = getLoc(player.x, player.y, player);
     const coords = getCoords(loc[0], loc[1]);
 
     // Spawn wood item

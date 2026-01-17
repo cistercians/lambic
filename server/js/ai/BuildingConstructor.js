@@ -5,6 +5,32 @@ class BuildingConstructor {
   constructor(house) {
     this.house = house;
   }
+
+  getContextEntity() {
+    if (this.house && this.house.leader && global.Player && global.Player.list) {
+      return global.Player.list[this.house.leader] || null;
+    }
+    return null;
+  }
+
+  getTile(layer, c, r) {
+    const contextEntity = this.getContextEntity();
+    return global.getTile ? global.getTile(layer, c, r, contextEntity) : 0;
+  }
+
+  tileChange(layer, c, r, value, incr = false) {
+    const contextEntity = this.getContextEntity();
+    if (typeof global.tileChange === 'function') {
+      global.tileChange(layer, c, r, value, incr, contextEntity);
+    }
+  }
+
+  matrixChange(layer, c, r, value) {
+    const contextEntity = this.getContextEntity();
+    if (typeof global.matrixChange === 'function') {
+      global.matrixChange(layer, c, r, value, contextEntity);
+    }
+  }
   
   // Check if house/faction is Celts
   isCelts() {
@@ -20,12 +46,11 @@ class BuildingConstructor {
     }
     
     const TERRAIN = global.TERRAIN || {};
-    const getTile = global.getTile || (() => 0);
     
     // Check all tiles in the plot
     for (const tile of spot.plot) {
       if (!Array.isArray(tile) || tile.length < 2) continue;
-      const terrain = getTile(0, tile[0], tile[1]);
+      const terrain = this.getTile(0, tile[0], tile[1]);
       // Check if terrain is HEAVY_FOREST (1) or LIGHT_FOREST (2)
       if (terrain !== TERRAIN.HEAVY_FOREST && terrain !== TERRAIN.LIGHT_FOREST) {
         return false; // At least one tile is not forest
@@ -39,10 +64,12 @@ class BuildingConstructor {
   // Searches for spots where all plot tiles are on HEAVY_FOREST or LIGHT_FOREST
   findBuildingSpotOnForest(buildingType, searchCenter, maxRadius, options = {}) {
     const TERRAIN = global.TERRAIN || {};
-    const getTile = global.getTile || (() => 0);
     const getBuilding = global.getBuilding || (() => null);
     const excludeTilesArray = options.excludeTiles || [];
-    const mapSize = global.mapSize || 192;
+    const contextEntity = this.getContextEntity();
+    const mapSize = global.mapContextManager
+      ? global.mapContextManager.getMapSize(contextEntity)
+      : (global.mapSize || 192);
     
     // Diagnostic logging - get faction name for context
     const factionName = this.house?.name || 'Unknown';
@@ -137,7 +164,7 @@ class BuildingConstructor {
         totalSamplePointsChecked++;
         
         // Check if center tile is on forest
-        const centerTerrain = getTile(0, centerCol, centerRow);
+        const centerTerrain = this.getTile(0, centerCol, centerRow);
         if (centerTerrain !== TERRAIN.HEAVY_FOREST && centerTerrain !== TERRAIN.LIGHT_FOREST) {
           rejectedNotForest++;
           continue; // Center not on forest, skip
@@ -165,7 +192,7 @@ class BuildingConstructor {
           totalForestTilesChecked++;
           
           // Check if tile is on forest
-          const terrain = getTile(0, absCol, absRow);
+          const terrain = this.getTile(0, absCol, absRow);
           if (terrain !== TERRAIN.HEAVY_FOREST && terrain !== TERRAIN.LIGHT_FOREST) {
             allOnForest = false;
             rejectedNotForest++;
@@ -354,17 +381,17 @@ class BuildingConstructor {
     // Store original terrain before changing tiles
     const baseTerrain = [];
     for (const tile of plot) {
-      baseTerrain.push(global.getTile(0, tile[0], tile[1]));
+      baseTerrain.push(this.getTile(0, tile[0], tile[1]));
     }
     
     // Update terrain tiles
     for (const tile of plot) {
-      global.tileChange(0, tile[0], tile[1], 13); // BUILD marker
-      global.tileChange(3, tile[0], tile[1], `mill${plot.indexOf(tile)}`);
-      global.matrixChange(0, tile[0], tile[1], 1); // Block pathfinding
+      this.tileChange(0, tile[0], tile[1], 13); // BUILD marker
+      this.tileChange(3, tile[0], tile[1], `mill${plot.indexOf(tile)}`);
+      this.matrixChange(0, tile[0], tile[1], 1); // Block pathfinding
     }
-    global.tileChange(5, topPlot[0][0], topPlot[0][1], 'mill4');
-    global.tileChange(5, topPlot[1][0], topPlot[1][1], 'mill5');
+    this.tileChange(5, topPlot[0][0], topPlot[0][1], 'mill4');
+    this.tileChange(5, topPlot[1][0], topPlot[1][1], 'mill5');
     
     // Create mill building
     const millId = Math.random();
@@ -423,8 +450,8 @@ class BuildingConstructor {
           
           // Update terrain
           for (const tile of plot) {
-            global.tileChange(0, tile[0], tile[1], 8); // FARM_SEED
-            global.tileChange(6, tile[0], tile[1], 0);
+            this.tileChange(0, tile[0], tile[1], 8); // FARM_SEED
+            this.tileChange(6, tile[0], tile[1], 0);
           }
           
           // Create farm
@@ -464,8 +491,8 @@ class BuildingConstructor {
           
           // Update terrain
           for (const tile of plot) {
-            global.tileChange(0, tile[0], tile[1], 8); // FARM_SEED
-            global.tileChange(6, tile[0], tile[1], 0);
+            this.tileChange(0, tile[0], tile[1], 8); // FARM_SEED
+            this.tileChange(6, tile[0], tile[1], 0);
           }
           
           // Create farm
@@ -505,8 +532,8 @@ class BuildingConstructor {
             
             // Update terrain
             for (const tile of plot) {
-              global.tileChange(0, tile[0], tile[1], 8); // FARM_SEED
-              global.tileChange(6, tile[0], tile[1], 0);
+              this.tileChange(0, tile[0], tile[1], 8); // FARM_SEED
+              this.tileChange(6, tile[0], tile[1], 0);
             }
             
             // Create farm
@@ -869,7 +896,7 @@ class BuildingConstructor {
     for (let dr = -searchRadius; dr <= searchRadius; dr++) {
       for (let dc = -searchRadius; dc <= searchRadius; dc++) {
         const checkTile = [location[0] + dc, location[1] + dr];
-        const terrain = global.getTile ? global.getTile(0, checkTile[0], checkTile[1]) : null;
+        const terrain = this.getTile(0, checkTile[0], checkTile[1]);
         
         if (terrain === CAVE_ENTRANCE) {
           // Found cave entrance nearby
@@ -997,7 +1024,7 @@ class BuildingConstructor {
         for (let r = -5; r <= 5; r++) {
           for (let c = -5; c <= 5; c++) {
             const checkLoc = [searchCenter[0] + c, searchCenter[1] + r];
-            const terrain = global.getTile ? global.getTile(0, checkLoc[0], checkLoc[1]) : null;
+            const terrain = this.getTile(0, checkLoc[0], checkLoc[1]);
             if (terrain !== null && !checkedTerrains.includes(terrain)) {
               checkedTerrains.push(terrain);
             }
@@ -1034,14 +1061,14 @@ class BuildingConstructor {
     // Store original terrain before changing tiles
     const baseTerrain = [];
     for (let i = 0; i < plot.length; i++) {
-      baseTerrain.push(global.getTile(0, plot[i][0], plot[i][1]));
+      baseTerrain.push(this.getTile(0, plot[i][0], plot[i][1]));
     }
     
     // Update terrain (mines are just a base plot, no topPlot)
     for (let i = 0; i < plot.length; i++) {
-      global.tileChange(0, plot[i][0], plot[i][1], 13);
-      global.tileChange(3, plot[i][0], plot[i][1], `mine${i}`);
-      global.matrixChange(0, plot[i][0], plot[i][1], 1);
+      this.tileChange(0, plot[i][0], plot[i][1], 13);
+      this.tileChange(3, plot[i][0], plot[i][1], `mine${i}`);
+      this.matrixChange(0, plot[i][0], plot[i][1], 1);
     }
     
     // Create mine (no topPlot property needed)
@@ -1121,17 +1148,17 @@ class BuildingConstructor {
     // Store original terrain before changing tiles
     const baseTerrain = [];
     for (let i = 0; i < plot.length; i++) {
-      baseTerrain.push(global.getTile(0, plot[i][0], plot[i][1]));
+      baseTerrain.push(this.getTile(0, plot[i][0], plot[i][1]));
     }
     
     // Update terrain
     for (let i = 0; i < plot.length; i++) {
-      global.tileChange(0, plot[i][0], plot[i][1], 13);
-      global.tileChange(3, plot[i][0], plot[i][1], `lumbermill${i}`);
-      global.matrixChange(0, plot[i][0], plot[i][1], 1);
+      this.tileChange(0, plot[i][0], plot[i][1], 13);
+      this.tileChange(3, plot[i][0], plot[i][1], `lumbermill${i}`);
+      this.matrixChange(0, plot[i][0], plot[i][1], 1);
     }
-    global.tileChange(5, topPlot[0][0], topPlot[0][1], 'lumbermill2');
-    global.tileChange(5, topPlot[1][0], topPlot[1][1], 'lumbermill3');
+    this.tileChange(5, topPlot[0][0], topPlot[0][1], 'lumbermill2');
+    this.tileChange(5, topPlot[1][0], topPlot[1][1], 'lumbermill3');
     
     // Create lumbermill
     const lumbermillId = Math.random();
@@ -1198,7 +1225,7 @@ class BuildingConstructor {
     // Store original terrain before changing tiles (constructForge will change them)
     const baseTerrain = [];
     for (const tile of plot) {
-      baseTerrain.push(global.getTile(0, tile[0], tile[1]));
+      baseTerrain.push(this.getTile(0, tile[0], tile[1]));
     }
     
     // Create forge building
@@ -1266,7 +1293,7 @@ class BuildingConstructor {
     // Store original terrain before changing tiles (constructGarrison will change them)
     const baseTerrain = [];
     for (const tile of plot) {
-      baseTerrain.push(global.getTile(0, tile[0], tile[1]));
+      baseTerrain.push(this.getTile(0, tile[0], tile[1]));
     }
     
     // Create garrison
@@ -1346,7 +1373,7 @@ class BuildingConstructor {
     // Store original terrain before changing tiles
     const baseTerrain = [];
     for (const tile of plot) {
-      baseTerrain.push(global.getTile(0, tile[0], tile[1]));
+      baseTerrain.push(this.getTile(0, tile[0], tile[1]));
     }
     
     // Create guardtower

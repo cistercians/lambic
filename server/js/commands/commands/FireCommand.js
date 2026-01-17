@@ -22,7 +22,7 @@ class FireCommand extends BaseCommand {
       return false;
     }
 
-    const loc = this.getLoc(player.x, player.y);
+    const loc = this.getLoc(player.x, player.y, player);
     const [c, r] = loc;
     let f = null;
 
@@ -36,7 +36,7 @@ class FireCommand extends BaseCommand {
     if (!f) return false;
 
     // Check if position is valid (for buildings, check layer 4)
-    if ((player.z === 1 || player.z === 2) && this.getTile(4, f[0], f[1]) !== 0) {
+    if ((player.z === 1 || player.z === 2) && this.getTile(4, f[0], f[1], player) !== 0) {
       this.sendError(socket, 'You cannot place that there.');
       return false;
     }

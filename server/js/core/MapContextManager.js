@@ -8,6 +8,7 @@ class MapContextManager {
   constructor() {
     this.mainWorld = null; // Reference to main world tilemap system
     this.battlegroundMaps = {}; // {matchId: worldData}
+    this._loggedLegacyMatches = new Set();
   }
 
   /**
@@ -45,8 +46,36 @@ class MapContextManager {
   }
 
   /**
+   * Resolve entity instance from id or object reference.
+   * @param {string|number|Object} entityId - Entity ID or entity object
+   * @returns {Object|null} Resolved entity or null
+   */
+  resolveEntity(entityId) {
+    if (!entityId) return null;
+    if (typeof entityId === 'object') return entityId;
+
+    if (global.Player && global.Player.list && global.Player.list[entityId]) {
+      return global.Player.list[entityId];
+    }
+    if (global.Item && global.Item.list && global.Item.list[entityId]) {
+      return global.Item.list[entityId];
+    }
+    if (global.Building && global.Building.list && global.Building.list[entityId]) {
+      return global.Building.list[entityId];
+    }
+    if (global.Arrow && global.Arrow.list && global.Arrow.list[entityId]) {
+      return global.Arrow.list[entityId];
+    }
+    if (global.Light && global.Light.list && global.Light.list[entityId]) {
+      return global.Light.list[entityId];
+    }
+
+    return null;
+  }
+
+  /**
    * Get the appropriate map context for an entity
-   * @param {string} entityId - Player/NPC ID
+   * @param {string|number|Object} entityId - Entity ID or entity object
    * @returns {object|null} Map context object with {type: 'main'|'battleground', data: worldData, matchId: string}
    */
   getMapContext(entityId) {
@@ -61,9 +90,7 @@ class MapContextManager {
       };
     }
 
-    if (!global.Player) return null;
-
-    const entity = global.Player.list[entityId];
+    const entity = this.resolveEntity(entityId);
     if (!entity) return null;
 
     // Check if entity is in a battleground
@@ -83,6 +110,10 @@ class MapContextManager {
           };
         } else if (Array.isArray(mapData)) {
           // Legacy format: infer mapSize from array
+          if (!this._loggedLegacyMatches.has(matchId)) {
+            this._loggedLegacyMatches.add(matchId);
+            console.warn(`[MapContextManager] Legacy battleground map format detected for match ${matchId}. Please migrate to {data,mapSize}.`);
+          }
           let mapSize = 0;
           if (mapData[0] && mapData[0].length) {
             mapSize = mapData[0].length;
@@ -184,6 +215,14 @@ class MapContextManager {
     
     const match = global.battlegroundsMatchManager.currentMatch;
     if (!match || match.matchId !== matchId) return;
+
+    const mapData = this.battlegroundMaps[matchId];
+    const mapSize = mapData && mapData.mapSize
+      ? mapData.mapSize
+      : (mapData && mapData.data && mapData.data[0] ? mapData.data[0].length : 0);
+    if (mapSize <= 0 || x < 0 || y < 0 || x >= mapSize || y >= mapSize) {
+      return;
+    }
     
     const participants = match.participants || [];
     participants.forEach(participant => {

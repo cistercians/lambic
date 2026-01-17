@@ -200,7 +200,6 @@ class BattlegroundsEliteNPCManager {
    */
   spawnEliteNPCs(match, plannedNPCs = null) {
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCManager.js:22',message:'spawnEliteNPCs called',data:{matchId:match?.matchId,gameMode:match?.gameMode,participantCount:match?.participants?.length,hasPlannedNPCs:!!plannedNPCs,plannedCount:plannedNPCs?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
     // #endregion
     
     if (!match) return [];
@@ -219,7 +218,6 @@ class BattlegroundsEliteNPCManager {
     }
     
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCManager.js:86',message:'spawnEliteNPCs returning',data:{spawnedCount:spawnedNPCs.length,spawnedIds:spawnedNPCs.map(n=>n?.id)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
     // #endregion
     
     this.spawnedNPCs.push(...spawnedNPCs);
@@ -252,7 +250,6 @@ class BattlegroundsEliteNPCManager {
    */
   spawnEliteNPC(match, team, index, plannedNPC = null) {
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCManager.js:115',message:'spawnEliteNPC called',data:{matchId:match?.matchId,team,index,hasPlannedNPC:!!plannedNPC},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
     // #endregion
     
     // Use planned NPC info if provided (draft system), otherwise select randomly
@@ -288,18 +285,15 @@ class BattlegroundsEliteNPCManager {
     const spawnPoint = this.getNPCSpawnPoint(match, team, index);
     
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCManager.js:129',message:'Got spawn point',data:{spawnPoint,hasSpawnPoint:!!spawnPoint},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
     // #endregion
     
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCManager.js:132',message:'Mapped NPC type to class',data:{npcType,npcClass,hasNPCClass:!!global[npcClass],isFunction:typeof global[npcClass] === 'function'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
     // #endregion
     
     // Validate NPC class exists before creating
     if (!global[npcClass] || typeof global[npcClass] !== 'function') {
       console.error(`NPC class '${npcClass}' (mapped from '${npcType}') not found. Skipping NPC spawn.`);
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCManager.js:137',message:'NPC class not found - returning null',data:{npcClass},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
       // #endregion
       return null;
     }
@@ -466,7 +460,6 @@ class BattlegroundsEliteNPCManager {
     if (!npc) {
       console.warn(`Failed to create elite NPC of type ${npcType} (class: ${npcClass})`);
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCManager.js:251',message:'NPC is null after creation',data:{npcClass},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
       // #endregion
       return null;
     }
@@ -490,7 +483,6 @@ class BattlegroundsEliteNPCManager {
       finalSex = sex;
       
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCManager.js:495',message:'Final property check before returning',data:{npcId,npcClass,npcSex:sex,npcName:displayName,actualClass:npc.class,actualSex:npc.sex,actualName:npc.name},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'P'})}).catch(()=>{});
       // #endregion
       
       // #region agent log
@@ -505,7 +497,6 @@ class BattlegroundsEliteNPCManager {
         npcFromList.name = displayName;
       }
       
-      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsEliteNPCManager.js:507',message:'NPC after creation check',data:{npcId,inPlayerList,hasNpc:!!npc,hasNpcFromList:!!npcFromList,npcType:npc?.type || npcFromList?.type,npcClass:npc?.class || npcFromList?.class,npcName:npc?.name || npcFromList?.name,npcSex:npc?.sex || npcFromList?.sex,inBattleground:npc?.inBattleground || npcFromList?.inBattleground,matchId:npc?.battlegroundMatchId || npcFromList?.battlegroundMatchId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'P'})}).catch(()=>{});
       // #endregion
     }
     

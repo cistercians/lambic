@@ -30,7 +30,7 @@ class TestZonesCommand {
 
     const getLoc = global.getLoc || ((x, y) => [Math.floor(x / 64), Math.floor(y / 64)]);
     const stats = global.zoneManager.getStats();
-    const currentTile = getLoc(player.x, player.y);
+    const currentTile = getLoc(player.x, player.y, player);
     const currentZone = global.zoneManager.getZoneAt(currentTile);
 
     let message = `<span style="color:#66ff66;">🗺️ Zone System Stats:<br/>`;

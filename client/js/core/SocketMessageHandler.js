@@ -4,6 +4,93 @@
  * Extracted from client.js to reduce complexity
  */
 
+var _missingEntityUpdateStats = {
+  lastWarn: 0,
+  counts: {
+    player: 0,
+    item: 0,
+    arrow: 0,
+    light: 0,
+    building: 0
+  }
+};
+
+function warnMissingEntityUpdate(type, id) {
+  if (!_missingEntityUpdateStats.counts[type]) {
+    _missingEntityUpdateStats.counts[type] = 0;
+  }
+  _missingEntityUpdateStats.counts[type] += 1;
+  const now = Date.now();
+  if (now - _missingEntityUpdateStats.lastWarn > 2000) {
+    _missingEntityUpdateStats.lastWarn = now;
+    console.warn('[SocketMessageHandler] Update pack missing entity', {
+      type,
+      id,
+      counts: _missingEntityUpdateStats.counts
+    });
+  }
+}
+
+function createPlayerFromUpdatePack(pack) {
+  const faunaClasses = ['Deer', 'Boar', 'Wolf', 'Falcon', 'Sheep'];
+  const isFaunaUpdate = pack.type === 'fauna' || faunaClasses.includes(pack.class);
+  if (!pack || !pack.id || !pack.class) return null;
+  const type = pack.type || (isFaunaUpdate ? 'fauna' : undefined);
+  if (!type) return null;
+  try {
+    return new Player({
+      id: pack.id,
+      type: type,
+      class: pack.class,
+      name: pack.name,
+      x: pack.x,
+      y: pack.y,
+      z: pack.z,
+      hp: pack.hp,
+      hpMax: pack.hpMax,
+      spriteSize: pack.spriteSize,
+      inBattleground: pack.inBattleground,
+      battlegroundMatchId: pack.battlegroundMatchId,
+      house: pack.house,
+      kingdom: pack.kingdom,
+      rank: pack.rank,
+      gear: pack.gear,
+      friends: pack.friends,
+      enemies: pack.enemies,
+      innaWoods: pack.innaWoods,
+      onMtn: pack.onMtn,
+      facing: pack.facing,
+      stealthed: pack.stealthed,
+      revealed: pack.revealed,
+      spirit: pack.spirit,
+      spiritMax: pack.spiritMax,
+      action: pack.action,
+      ghost: pack.ghost,
+      kills: pack.kills,
+      skulls: pack.skulls,
+      spriteScale: pack.spriteScale
+    });
+  } catch (e) {
+    console.error('Failed to create player from update pack:', e, pack);
+    return null;
+  }
+}
+
+function getOrCreateEntity(list, pack, ctor, type) {
+  if (!pack || !pack.id) return null;
+  let entity = list ? list[pack.id] : null;
+  if (!entity) {
+    try {
+      entity = new ctor(pack);
+      warnMissingEntityUpdate(type, pack.id);
+    } catch (e) {
+      console.error(`Failed to create ${type} from update pack:`, e, pack);
+      return null;
+    }
+  }
+  return entity;
+}
+
 var SocketMessageHandler = {
   /**
    * Handle incoming socket message
@@ -845,8 +932,18 @@ var SocketMessageHandler = {
   },
 
   handleTileEdit: function(data) {
-    if(world[data.l] && world[data.l][data.r]) {
-      world[data.l][data.r][data.c] = data.tile;
+    const targetWorld = window.inBattleground ? window.battlegroundWorld : world;
+    if(targetWorld && targetWorld[data.l] && targetWorld[data.l][data.r]) {
+      targetWorld[data.l][data.r][data.c] = data.tile;
+    }
+    if (typeof window !== 'undefined' && window.debugTileEdits && data.ts) {
+      const latencyMs = Date.now() - data.ts;
+      console.log('[TileEdit] latency', latencyMs, 'ms', {
+        l: data.l,
+        c: data.c,
+        r: data.r,
+        inBattleground: !!window.inBattleground
+      });
     }
   },
 
@@ -1079,6 +1176,9 @@ var SocketMessageHandler = {
     for(i in data.pack.building){
       new Building(data.pack.building[i]);
     }
+    for(i in data.pack.camera){
+      new Camera(data.pack.camera[i]);
+    }
     
     // If spectate mode is active, start camera after entities are loaded
     if(typeof spectateCameraSystem !== 'undefined' && spectateCameraSystem && spectateCameraSystem.isActive) {
@@ -1131,63 +1231,11 @@ var SocketMessageHandler = {
       if(!pack || !pack.id) continue; // Skip invalid entries
       
       var p = Player.list[pack.id];
-      
-      // Log if update pack contains fauna data but entity doesn't exist
-      const faunaClasses = ['Deer', 'Boar', 'Wolf', 'Falcon', 'Sheep'];
-      const isFaunaUpdate = pack.type === 'fauna' || faunaClasses.includes(pack.class);
-      if (isFaunaUpdate && !p) {
-        // CRITICAL: Create entity from update pack if it doesn't exist
-        // This handles cases where init pack was missed or entity was created after client connected
-        // Convert update pack to init pack format
-        if (pack.class && (pack.type === 'fauna' || faunaClasses.includes(pack.class))) {
-          // Ensure type is set correctly
-          if (!pack.type && faunaClasses.includes(pack.class)) {
-            pack.type = 'fauna';
-          }
-          
-          // CRITICAL: Fauna entities MUST have class - don't create if missing
-          if (!pack.class) {
-            // Skip creation if class is missing
-          } else {
-            // Create entity from update pack data
-            try {
-              new Player({
-                id: pack.id,
-                type: pack.type || 'fauna',
-                class: pack.class,
-                name: pack.name,
-                x: pack.x,
-                y: pack.y,
-                z: pack.z,
-                hp: pack.hp,
-                hpMax: pack.hpMax,
-                spriteSize: pack.spriteSize,
-                // Include other properties that might be in update pack
-                house: pack.house,
-                kingdom: pack.kingdom,
-                rank: pack.rank,
-                gear: pack.gear,
-                friends: pack.friends,
-                enemies: pack.enemies,
-                innaWoods: pack.innaWoods,
-                onMtn: pack.onMtn,
-                facing: pack.facing,
-                stealthed: pack.stealthed,
-                revealed: pack.revealed,
-                spirit: pack.spirit,
-                spiritMax: pack.spiritMax,
-                action: pack.action,
-                ghost: pack.ghost,
-                kills: pack.kills,
-                skulls: pack.skulls,
-                spriteScale: pack.spriteScale
-              });
-              
-              p = Player.list[pack.id];
-            } catch (e) {
-              console.error('Failed to create fauna entity from update pack:', e, pack);
-            }
-          }
+      if (!p) {
+        const created = createPlayerFromUpdatePack(pack);
+        if (created) {
+          p = Player.list[pack.id];
+          warnMissingEntityUpdate('player', pack.id);
         }
       }
       
@@ -1214,6 +1262,8 @@ var SocketMessageHandler = {
           p.z = pack.z; 
           posChanged = true; 
         }
+        if(pack.inBattleground != undefined) p.inBattleground = pack.inBattleground;
+        if(pack.battlegroundMatchId != undefined) p.battlegroundMatchId = pack.battlegroundMatchId;
         if(pack.facing != undefined) p.facing = pack.facing;
         if(pack.angle != undefined) p.angle = pack.angle;
         
@@ -1405,7 +1455,7 @@ var SocketMessageHandler = {
     if(!Arrow.list) Arrow.list = {};
     for(var i = 0 ; i < data.pack.arrow.length; i++){
       var pack = data.pack.arrow[i];
-      var b = Arrow.list[data.pack.arrow[i].id];
+      var b = getOrCreateEntity(Arrow.list, pack, Arrow, 'arrow');
       if(b){
         // Store previous position for interpolation before updating
         if(pack.x !== undefined || pack.y !== undefined) {
@@ -1432,16 +1482,21 @@ var SocketMessageHandler = {
           b.z = pack.z;
         if(pack.innaWoods != undefined)
           b.innaWoods = pack.innaWoods;
-      } else {
-        // Arrow doesn't exist yet - create it from update pack
-        new Arrow(pack);
+        if(pack.inBattleground != undefined)
+          b.inBattleground = pack.inBattleground;
+        if(pack.battlegroundMatchId != undefined)
+          b.battlegroundMatchId = pack.battlegroundMatchId;
+        if(pack.inBattleground != undefined)
+          b.inBattleground = pack.inBattleground;
+        if(pack.battlegroundMatchId != undefined)
+          b.battlegroundMatchId = pack.battlegroundMatchId;
       }
     }
     // Ensure Item.list exists before accessing it
     if(!Item.list) Item.list = {};
     for(var i = 0 ; i < data.pack.item.length; i++){
       var pack = data.pack.item[i];
-      var itm = Item.list[data.pack.item[i].id];
+      var itm = getOrCreateEntity(Item.list, pack, Item, 'item');
       if(itm){
         if(pack.x != undefined)
           itm.x = pack.x;
@@ -1453,13 +1508,23 @@ var SocketMessageHandler = {
           itm.innaWoods = pack.innaWoods;
         if(pack.sunk != undefined)
           itm.sunk = pack.sunk;
+        if(pack.inBattleground != undefined)
+          itm.inBattleground = pack.inBattleground;
+        if(pack.battlegroundMatchId != undefined)
+          itm.battlegroundMatchId = pack.battlegroundMatchId;
       }
     }
     // Ensure Light.list exists before accessing it
     if(!Light.list) Light.list = {};
+    let lightUpdateCount = 0;
+    let lightUpdateZNeg = 0;
     for(var i = 0 ; i < data.pack.light.length; i++){
       var pack = data.pack.light[i];
-      var l = Light.list[data.pack.light[i].id];
+      if (pack && typeof pack.z === 'number') {
+        lightUpdateCount++;
+        if (pack.z === -1) lightUpdateZNeg++;
+      }
+      var l = getOrCreateEntity(Light.list, pack, Light, 'light');
       if(l){
         if(pack.x != undefined)
           l.x = pack.x;
@@ -1469,25 +1534,56 @@ var SocketMessageHandler = {
           l.z = pack.z;
         if(pack.radius != undefined)
           l.radius = pack.radius;
-      } else {
-        // Create new light if it doesn't exist (handles lights that come in update packs)
-        // This is important for login camera mode where lights might be sent after initial init
-        new Light(pack);
+        if(pack.inBattleground != undefined)
+          l.inBattleground = pack.inBattleground;
+        if(pack.battlegroundMatchId != undefined)
+          l.battlegroundMatchId = pack.battlegroundMatchId;
       }
     }
+    if (lightUpdateCount > 0 && lightUpdateZNeg > 0 && typeof console !== 'undefined') {
+      // Keep a minimal warning for unexpected underground light updates during login
+      if (!selfId) {
+        console.warn('[SocketMessageHandler] Light updates include underground lights before selfId is set.');
+      }
+    }
+    // Ensure Item.list exists before accessing it
+    if(!Item.list) Item.list = {};
     // Ensure Building.list exists before accessing it
     if(!Building.list) Building.list = {};
     for(var i = 0; i < data.pack.building.length; i++){
       var pack = data.pack.building[i];
-      var b = Building.list[data.pack.building[i].id];
+      var b = getOrCreateEntity(Building.list, pack, Building, 'building');
       if(b){
         if(pack.hp != undefined)
           b.hp = pack.hp;
         if(pack.occ != undefined)
           b.occ = pack.occ;
+        if(pack.inBattleground != undefined)
+          b.inBattleground = pack.inBattleground;
+        if(pack.battlegroundMatchId != undefined)
+          b.battlegroundMatchId = pack.battlegroundMatchId;
       }
     }
-    
+
+    // Camera updates
+    if(data.pack.camera){
+      if(!Camera.list) Camera.list = {};
+      for(var i = 0; i < data.pack.camera.length; i++){
+        var pack = data.pack.camera[i];
+        var c = getOrCreateEntity(Camera.list, pack, Camera, 'camera');
+        if(c){
+          if(pack.x != undefined) c.x = pack.x;
+          if(pack.y != undefined) c.y = pack.y;
+          if(pack.z != undefined) c.z = pack.z;
+          if(pack.mode != undefined) c.mode = pack.mode;
+          if(pack.locked != undefined) c.locked = pack.locked;
+          if(pack.lockedToEntityId != undefined) c.lockedToEntityId = pack.lockedToEntityId;
+          if(pack.ownerPlayerId != undefined) c.ownerPlayerId = pack.ownerPlayerId;
+          if(pack.context != undefined) c.context = pack.context;
+        }
+      }
+    }
+
     // Check if we need to update music after exiting god mode
     if(typeof godModeCamera !== 'undefined' && godModeCamera.needsMusicUpdate && typeof selfId !== 'undefined' && Player.list[selfId]){
       godModeCamera.needsMusicUpdate = false;
@@ -1512,7 +1608,9 @@ var SocketMessageHandler = {
               x: pack.x,
               y: pack.y,
               weatherType: pack.weatherType,
-              intensity: pack.intensity
+              intensity: pack.intensity,
+              inBattleground: pack.inBattleground,
+              battlegroundMatchId: pack.battlegroundMatchId || null
             };
           } else {
             var weather = Weather.list[pack.id];
@@ -1520,6 +1618,10 @@ var SocketMessageHandler = {
             weather.y = pack.y;
             weather.weatherType = pack.weatherType;
             weather.intensity = pack.intensity;
+            if(pack.inBattleground != undefined)
+              weather.inBattleground = pack.inBattleground;
+            if(pack.battlegroundMatchId != undefined)
+              weather.battlegroundMatchId = pack.battlegroundMatchId;
           }
         }
       }
@@ -2096,18 +2198,15 @@ var SocketMessageHandler = {
           startingZ: data.startingZ || 0
         };
         
-        // CRITICAL: Set battleground context variables
-        // These will be used by GameLoopManager for rendering
-        window.battlegroundWorld = data.world;
-        window.battlegroundTileSize = data.tileSize || 64;
-        window.battlegroundMapSize = data.mapSize;
-        window.currentBattlegroundMatchId = data.matchId;
-        window.inBattleground = true;
-        
-        console.log('[CLIENT] Stored battleground world for match:', data.matchId);
-        console.log('[CLIENT] Set window.inBattleground =', window.inBattleground);
-        console.log('[CLIENT] Set window.battlegroundWorld:', Array.isArray(window.battlegroundWorld) ? `${window.battlegroundWorld.length} layers` : typeof window.battlegroundWorld);
-        console.log('[CLIENT] Set window.battlegroundMapSize =', window.battlegroundMapSize);
+        // Only switch context during init to avoid trusting out-of-order messages
+        if (window.currentBattlegroundMatchId === data.matchId && window.inBattleground) {
+          window.battlegroundWorld = data.world;
+          window.battlegroundTileSize = data.tileSize || 64;
+          window.battlegroundMapSize = data.mapSize;
+          console.log('[CLIENT] Refreshed battleground world for match:', data.matchId);
+        } else {
+          console.log('[CLIENT] Stored battleground world for match:', data.matchId);
+        }
       }
     } else {
       console.error('[CLIENT] handleBattlegroundWorld: Missing world or matchId', { hasWorld: !!data.world, matchId: data.matchId });

@@ -92,8 +92,12 @@ class SpawnCargoCommand {
    * @returns {Array|null} Water tile coordinates [c, r] or null
    */
   findWaterTile(dock) {
-    const getTile = global.getTile || ((layer, c, r) => null);
-    const mapSize = global.mapSize || 1000;
+    const getTile = global.getTile
+      ? (layer, c, r) => global.getTile(layer, c, r, dock)
+      : ((layer, c, r) => null);
+    const mapSize = global.mapContextManager
+      ? global.mapContextManager.getMapSize(dock)
+      : (global.mapSize || 1000);
     
     for (const dockLoc of dock.plot || []) {
       const adjacent = [

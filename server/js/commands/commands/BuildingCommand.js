@@ -86,7 +86,7 @@ class BuildingCommand {
 
     // Get location
     const getLoc = global.getLoc || ((x, y) => [Math.floor(x / 64), Math.floor(y / 64)]);
-    const loc = getLoc(player.x, player.y);
+    const loc = getLoc(player.x, player.y, player);
     const c = data.overrideC !== undefined ? data.overrideC : loc[0];
     const r = data.overrideR !== undefined ? data.overrideR : loc[1];
 
@@ -197,7 +197,7 @@ class BuildingCommand {
     }
     
     // Store original terrain before changing tiles
-    const baseTerrain = this.updateTilesForBuilding(buildingType, plot, validation);
+    const baseTerrain = this.updateTilesForBuilding(buildingType, plot, validation, player);
     
     // Create building entity with built: false
     // Pass validation.walls and validation.topPlot which are already calculated correctly
@@ -239,8 +239,8 @@ class BuildingCommand {
         // Update tiles
         for (const tile of plot) {
           if (typeof global.tileChange === 'function') {
-            global.tileChange(0, tile[0], tile[1], 8); // Farm tile
-            global.tileChange(6, tile[0], tile[1], 0); // Clear layer 6
+            global.tileChange(0, tile[0], tile[1], 8, false, player); // Farm tile
+            global.tileChange(6, tile[0], tile[1], 0, false, player); // Clear layer 6
           }
         }
         
@@ -420,7 +420,7 @@ class BuildingCommand {
    * @param {object} validation - Validation result
    * @returns {Array} Array of original terrain values (one per plot tile)
    */
-  updateTilesForBuilding(buildingType, plot, validation) {
+  updateTilesForBuilding(buildingType, plot, validation, contextEntity) {
     // Match NPC code pattern exactly - use for...in loop like Houses.js
     if (!plot || !Array.isArray(plot)) {
       return [];
@@ -433,8 +433,11 @@ class BuildingCommand {
     }
     
     // Get getTile function
-    const getTile = global.getTile || (typeof global.tilemapSystem !== 'undefined' ? 
-      (z, c, r) => global.tilemapSystem.getTile(z, c, r) : null);
+    const getTile = global.getTile
+      ? (z, c, r) => global.getTile(z, c, r, contextEntity)
+      : (typeof global.tilemapSystem !== 'undefined'
+        ? (z, c, r) => global.tilemapSystem.getTile(z, c, r)
+        : null);
     
     if (!getTile) {
       return [];
@@ -459,14 +462,14 @@ class BuildingCommand {
       
       // Use 11.5 for water tiles, 11 for land tiles
       const foundationTile = isWater ? 11.5 : 11;
-      global.tileChange(0, n[0], n[1], foundationTile);
-      global.tileChange(6, n[0], n[1], 0); // Clear layer 6
+      global.tileChange(0, n[0], n[1], foundationTile, false, contextEntity);
+      global.tileChange(6, n[0], n[1], 0, false, contextEntity); // Clear layer 6
       
       // Update pathfinding matrix to mark foundation tiles as walkable (0)
       // This is critical for water foundation tiles which previously had matrix value 2 (transition)
       // Without this, pathfinding would treat them as blocked transition tiles
       if (typeof global.matrixChange === 'function') {
-        global.matrixChange(0, n[0], n[1], 0); // Mark as walkable in pathfinding matrix
+        global.matrixChange(0, n[0], n[1], 0, contextEntity); // Mark as walkable in pathfinding matrix
       }
     }
     

@@ -39,7 +39,7 @@ class PreviewCommand {
     
     // Get location (with override support for GUI building placement)
     const getLoc = global.getLoc || ((x, y) => [Math.floor(x / 64), Math.floor(y / 64)]);
-    const loc = getLoc(player.x, player.y);
+    const loc = getLoc(player.x, player.y, player);
     const c = data.overrideC !== undefined ? data.overrideC : loc[0];
     const r = data.overrideR !== undefined ? data.overrideR : loc[1];
 

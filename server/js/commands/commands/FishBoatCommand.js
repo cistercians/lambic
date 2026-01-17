@@ -24,7 +24,7 @@ class FishBoatCommand {
     if (!socket) return false;
 
     const getLoc = global.getLoc || ((x, y) => [Math.floor(x / 64), Math.floor(y / 64)]);
-    const loc = getLoc(player.x, player.y);
+    const loc = getLoc(player.x, player.y, player);
 
     // Get the tile player is facing
     const dirOffsets = {
@@ -89,8 +89,12 @@ class FishBoatCommand {
     }
 
     // Find water tile adjacent to dock
-    const getTile = global.getTile || ((layer, c, r) => null);
-    const mapSize = global.mapSize || 1000;
+    const getTile = global.getTile
+      ? (layer, c, r) => global.getTile(layer, c, r, dock)
+      : ((layer, c, r) => null);
+    const mapSize = global.mapContextManager
+      ? global.mapContextManager.getMapSize(dock)
+      : (global.mapSize || 1000);
     let waterTile = null;
 
     for (const dockLoc of dock.plot || []) {

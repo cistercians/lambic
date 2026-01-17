@@ -35,40 +35,53 @@ function areInSameContext(entity1, entity2) {
  * @param {number} options.z - Filter by z-level
  * @returns {Array} Array of entities in same context
  */
+const contextQueryCache = {
+  tick: null,
+  results: new Map()
+};
+
+function getCacheTick() {
+  if (typeof global.tick === 'number') {
+    return global.tick;
+  }
+  return Math.floor(Date.now() / 100);
+}
+
 function getEntitiesInSameContext(entity, options = {}) {
   if (!entity || !global.Player || !global.Player.list) return [];
   
   const entityInBG = !!(entity.inBattleground && entity.battlegroundMatchId);
   const entityMatchId = entity.battlegroundMatchId || null;
-  
-  const results = [];
-  
-  for (const id in global.Player.list) {
-    const other = global.Player.list[id];
-    if (!other) continue;
-    
-    // Exclude self if specified
-    if (options.excludeId && other.id === options.excludeId) continue;
-    if (!options.excludeId && other.id === entity.id) continue;
-    
-    // Filter by type if specified
-    if (options.type && other.type !== options.type) continue;
-    
-    // Filter by z-level if specified
-    if (options.z !== undefined && other.z !== options.z) continue;
-    
-    // Check map context
-    const otherInBG = !!(other.inBattleground && other.battlegroundMatchId);
-    const otherMatchId = other.battlegroundMatchId || null;
-    
-    // Must be in same context
-    if (entityInBG !== otherInBG) continue;
-    if (entityInBG && otherInBG && entityMatchId !== otherMatchId) continue;
-    
-    results.push(other);
+
+  const cacheTick = getCacheTick();
+  if (contextQueryCache.tick !== cacheTick) {
+    contextQueryCache.tick = cacheTick;
+    contextQueryCache.results.clear();
+  }
+  const cacheKey = `${entityInBG ? 'bg' : 'main'}:${entityMatchId || 'none'}:${options.type || 'any'}:${options.z !== undefined ? options.z : 'any'}`;
+  let baseResults = contextQueryCache.results.get(cacheKey);
+  if (!baseResults) {
+    baseResults = [];
+    for (const id in global.Player.list) {
+      const other = global.Player.list[id];
+      if (!other) continue;
+      if (options.type && other.type !== options.type) continue;
+      if (options.z !== undefined && other.z !== options.z) continue;
+
+      const otherInBG = !!(other.inBattleground && other.battlegroundMatchId);
+      const otherMatchId = other.battlegroundMatchId || null;
+      if (entityInBG !== otherInBG) continue;
+      if (entityInBG && otherInBG && entityMatchId !== otherMatchId) continue;
+      baseResults.push(other);
+    }
+    contextQueryCache.results.set(cacheKey, baseResults);
   }
   
-  return results;
+  return baseResults.filter(other => {
+    if (options.excludeId && other.id === options.excludeId) return false;
+    if (!options.excludeId && other.id === entity.id) return false;
+    return true;
+  });
 }
 
 /**
@@ -227,6 +240,72 @@ function validateContextIsolation(updatePack, matchId) {
         } else {
           if (buildingInBG) {
             issues.push(`Building ${building.id} in main world pack but has inBattleground=true`);
+          }
+        }
+      }
+    });
+  }
+
+  // Check arrow pack
+  if (updatePack.arrow && Array.isArray(updatePack.arrow)) {
+    updatePack.arrow.forEach(arrow => {
+      if (!arrow || !arrow.id) return;
+      const arrowEntity = global.Arrow && global.Arrow.list ? global.Arrow.list[arrow.id] : null;
+      if (arrowEntity) {
+        const arrowInBG = !!(arrowEntity.inBattleground && arrowEntity.battlegroundMatchId);
+        const arrowMatchId = arrowEntity.battlegroundMatchId || null;
+
+        if (matchId) {
+          if (!arrowInBG || arrowMatchId !== matchId) {
+            issues.push(`Arrow ${arrow.id} in battleground pack but not in match ${matchId}`);
+          }
+        } else {
+          if (arrowInBG) {
+            issues.push(`Arrow ${arrow.id} in main world pack but has inBattleground=true`);
+          }
+        }
+      }
+    });
+  }
+
+  // Check light pack
+  if (updatePack.light && Array.isArray(updatePack.light)) {
+    updatePack.light.forEach(light => {
+      if (!light || !light.id) return;
+      const lightEntity = global.Light && global.Light.list ? global.Light.list[light.id] : null;
+      if (lightEntity) {
+        const lightInBG = !!(lightEntity.inBattleground && lightEntity.battlegroundMatchId);
+        const lightMatchId = lightEntity.battlegroundMatchId || null;
+
+        if (matchId) {
+          if (!lightInBG || lightMatchId !== matchId) {
+            issues.push(`Light ${light.id} in battleground pack but not in match ${matchId}`);
+          }
+        } else {
+          if (lightInBG) {
+            issues.push(`Light ${light.id} in main world pack but has inBattleground=true`);
+          }
+        }
+      }
+    });
+  }
+
+  // Check weather pack
+  if (updatePack.weather && Array.isArray(updatePack.weather)) {
+    updatePack.weather.forEach(weather => {
+      if (!weather || !weather.id) return;
+      const weatherEntity = global.Weather && global.Weather.list ? global.Weather.list[weather.id] : null;
+      if (weatherEntity) {
+        const weatherInBG = !!(weatherEntity.inBattleground && weatherEntity.battlegroundMatchId);
+        const weatherMatchId = weatherEntity.battlegroundMatchId || null;
+
+        if (matchId) {
+          if (!weatherInBG || weatherMatchId !== matchId) {
+            issues.push(`Weather ${weather.id} in battleground pack but not in match ${matchId}`);
+          }
+        } else {
+          if (weatherInBG) {
+            issues.push(`Weather ${weather.id} in main world pack but has inBattleground=true`);
           }
         }
       }

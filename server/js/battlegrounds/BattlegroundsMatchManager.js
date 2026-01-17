@@ -214,15 +214,8 @@ class BattlegroundsMatchManager {
       
       // Spawn elite NPCs using pre-planned NPCs (they're already in participants list)
       if (this.eliteNPCManager && this.currentMatch.plannedNPCs) {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:216',message:'About to spawn elite NPCs',data:{matchId:this.currentMatch.matchId,hasEliteNPCManager:!!this.eliteNPCManager,hasPlannedNPCs:!!this.currentMatch.plannedNPCs,plannedCount:this.currentMatch.plannedNPCs?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'O'})}).catch(()=>{});
-        // #endregion
         const eliteNPCs = this.eliteNPCManager.spawnEliteNPCs(this.currentMatch, this.currentMatch.plannedNPCs);
         this.currentMatch.eliteNPCs = eliteNPCs;
-        
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:220',message:'Elite NPCs spawned',data:{matchId:this.currentMatch.matchId,eliteNPCsCount:eliteNPCs?.length || 0,eliteNPCIds:eliteNPCs?.map(n => n?.id || n) || []},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'O'})}).catch(()=>{});
-        // #endregion
         
         // Update participant entries with actual NPC entity data (class/sex from spawned entity)
         eliteNPCs.forEach(npcInfo => {
@@ -710,9 +703,6 @@ class BattlegroundsMatchManager {
             worldIsArray: Array.isArray(initMsg.world)
           });
           
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:698',message:'spawnParticipants - Sending init pack',data:{playerId:participant.id,matchId:this.currentMatch.matchId,packInBattleground:true,playerCount:initMsg.pack.player.length,itemsCount:initMsg.pack.item.length,buildingsCount:initMsg.pack.building.length,lightsCount:initMsg.pack.light.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H'})}).catch(()=>{});
-          // #endregion
           
           socket.write(JSON.stringify(initMsg));
           
@@ -1000,9 +990,6 @@ class BattlegroundsMatchManager {
           if (player) {
             const originalState = this.currentMatch.originalPlayerState[playerId];
             
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:959',message:'exitMatch called - BEFORE context clear',data:{playerId,hasPlayer:!!player,currentInBG:player.inBattleground,currentMatchId:player.battlegroundMatchId,matchId:this.currentMatch.matchId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
-            // #endregion
             
             player.x = originalState.x;
             player.y = originalState.y;
@@ -1017,23 +1004,14 @@ class BattlegroundsMatchManager {
               player.battlegroundMatchId = null;
             }
             
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:990',message:'exitMatch - AFTER helper clear',data:{playerId,hasHelper:!!global.mapContextHelpers,inBattleground:player.inBattleground,battlegroundMatchId:player.battlegroundMatchId,stillHasContext:!!(player.inBattleground || player.battlegroundMatchId)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
-            // #endregion
             
             // Defensive check: ensure context is definitely cleared
             if (player.inBattleground || player.battlegroundMatchId) {
               console.warn(`[BattlegroundsMatchManager] Context not cleared for player ${playerId} on exit, forcing clear`);
-              // #region agent log
-              fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:997',message:'exitMatch - Context still set, forcing clear',data:{playerId,inBattleground:player.inBattleground,battlegroundMatchId:player.battlegroundMatchId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
-              // #endregion
               player.inBattleground = false;
               player.battlegroundMatchId = null;
             }
             
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:1001',message:'exitMatch - FINAL context state',data:{playerId,inBattleground:player.inBattleground,battlegroundMatchId:player.battlegroundMatchId,contextCleared:!(player.inBattleground || player.battlegroundMatchId)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
-            // #endregion
             
             // CRITICAL: Clear pathfinding state to prevent navigation issues
             if (player.path) {
@@ -1046,9 +1024,6 @@ class BattlegroundsMatchManager {
               player.target = null;
             }
             
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:1085',message:'exitMatch - Pathfinding state cleared',data:{playerId,hadPath:!!player.path,hadTargetLoc:!!player.targetLoc,hadTarget:!!player.target,pathLength:player.path ? player.path.length : 0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'L'})}).catch(()=>{});
-            // #endregion
             
             // Restore inventory if it was stored
             if (originalState.inventory) {
@@ -1274,7 +1249,6 @@ class BattlegroundsMatchManager {
     // This catches any players that might have been missed during restoration
     if (this.currentMatch && this.currentMatch.participants) {
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:1226',message:'endMatch - Starting final defensive check',data:{matchId:this.currentMatch.matchId,participantsCount:this.currentMatch.participants.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
       // #endregion
       
       this.currentMatch.participants.forEach(participant => {
@@ -1283,13 +1257,11 @@ class BattlegroundsMatchManager {
         const player = global.Player.list[participant.id];
         if (player) {
           // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:1230',message:'endMatch - Checking player context',data:{playerId:participant.id,hasPlayer:!!player,inBattleground:player.inBattleground,battlegroundMatchId:player.battlegroundMatchId,hasContext:!!(player.inBattleground || player.battlegroundMatchId)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
           // #endregion
           
           if (player.inBattleground || player.battlegroundMatchId) {
             console.warn(`[BattlegroundsMatchManager] Player ${participant.id} still has battleground context after match end, forcing clear`);
             // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:1231',message:'endMatch - Player still has context, clearing',data:{playerId:participant.id,inBattleground:player.inBattleground,battlegroundMatchId:player.battlegroundMatchId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
             // #endregion
             
             if (global.mapContextHelpers) {
@@ -1300,7 +1272,6 @@ class BattlegroundsMatchManager {
             }
             
             // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:1238',message:'endMatch - After clearing context',data:{playerId:participant.id,inBattleground:player.inBattleground,battlegroundMatchId:player.battlegroundMatchId,contextCleared:!(player.inBattleground || player.battlegroundMatchId)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
             // #endregion
             
             // Send update to client to ensure they're notified
@@ -1387,7 +1358,6 @@ class BattlegroundsMatchManager {
       console.log(`Restoring player ${playerId} to original position: x=${originalState.x}, y=${originalState.y}, z=${originalState.z}, house=${originalState.house}`);
       
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:1353',message:'restorePlayerStates - BEFORE context clear',data:{playerId,hasPlayer:!!player,currentInBG:player.inBattleground,currentMatchId:player.battlegroundMatchId,matchId:this.currentMatch.matchId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
       // #endregion
       
       player.x = originalState.x;
@@ -1405,21 +1375,18 @@ class BattlegroundsMatchManager {
       }
       
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:1364',message:'restorePlayerStates - AFTER helper clear',data:{playerId,hasHelper:!!global.mapContextHelpers,inBattleground:player.inBattleground,battlegroundMatchId:player.battlegroundMatchId,stillHasContext:!!(player.inBattleground || player.battlegroundMatchId)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
       // #endregion
       
       // Defensive check: ensure context is definitely cleared
       if (player.inBattleground || player.battlegroundMatchId) {
         console.warn(`[BattlegroundsMatchManager] Context not cleared for player ${playerId}, forcing clear`);
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:1371',message:'restorePlayerStates - Context still set, forcing clear',data:{playerId,inBattleground:player.inBattleground,battlegroundMatchId:player.battlegroundMatchId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
         // #endregion
         player.inBattleground = false;
         player.battlegroundMatchId = null;
       }
       
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:1376',message:'restorePlayerStates - FINAL context state',data:{playerId,inBattleground:player.inBattleground,battlegroundMatchId:player.battlegroundMatchId,contextCleared:!(player.inBattleground || player.battlegroundMatchId)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
       // #endregion
       
       // CRITICAL: Clear pathfinding state to prevent navigation issues
@@ -1434,7 +1401,6 @@ class BattlegroundsMatchManager {
       }
       
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:1413',message:'restorePlayerStates - Pathfinding state cleared',data:{playerId,hadPath:!!player.path,hadTargetLoc:!!player.targetLoc,hadTarget:!!player.target,pathLength:player.path ? player.path.length : 0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'L'})}).catch(()=>{});
       // #endregion
       
       // Restore inventory if it was stored
@@ -1508,7 +1474,6 @@ class BattlegroundsMatchManager {
             }
           }
           // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:1432',message:'restorePlayerStates - Item collection',data:{playerId,playerInBG:!!(player.inBattleground && player.battlegroundMatchId),itemsChecked,itemsInContext,itemsOutOfContext,visibleItemsCount:visibleItems.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H'})}).catch(()=>{});
           // #endregion
         }
         
@@ -1543,7 +1508,6 @@ class BattlegroundsMatchManager {
             }
           }
           // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:1448',message:'restorePlayerStates - Building collection',data:{playerId,playerInBG:!!(player.inBattleground && player.battlegroundMatchId),buildingsChecked,buildingsInContext,buildingsOutOfContext,visibleBuildingsCount:visibleBuildings.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H'})}).catch(()=>{});
           // #endregion
         }
         
@@ -1578,7 +1542,6 @@ class BattlegroundsMatchManager {
             }
           }
           // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:1464',message:'restorePlayerStates - Light collection',data:{playerId,playerInBG:!!(player.inBattleground && player.battlegroundMatchId),lightsChecked,lightsInContext,lightsOutOfContext,visibleLightsCount:visibleLights.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H'})}).catch(()=>{});
           // #endregion
         }
         
@@ -1596,11 +1559,9 @@ class BattlegroundsMatchManager {
         });
         
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:1629',message:'restorePlayerStates - Marking items for update',data:{playerId,itemsMarked,visibleItemsCount:visibleItems.length,itemsOnZ2:visibleItems.filter(i => i.z === 2).length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'N'})}).catch(()=>{});
         // #endregion
         
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsMatchManager.js:1479',message:'restorePlayerStates - Sending init pack',data:{playerId,playerInBG:!!(player.inBattleground && player.battlegroundMatchId),itemsCount:visibleItems.length,buildingsCount:visibleBuildings.length,lightsCount:visibleLights.length,packInBattleground:false,playerZ:originalState.z,itemsOnZ2:visibleItems.filter(i => i.z === 2).length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'N'})}).catch(()=>{});
         // #endregion
         
         // Then send init message to switch back to main world context

@@ -78,7 +78,7 @@ The system uses a **server-authoritative** approach:
 2. **Variable Timestep (Client)**: Allows rendering to match display refresh rate
 3. **Accumulator Pattern**: Server catches up on missed frames when lag occurs
 4. **Delta Compression**: Only changed entity properties are sent over network
-5. **Spatial Filtering**: Only entities near players are synchronized
+5. **Spatial Filtering**: Only entities near viewer/camera positions are synchronized
 
 ---
 
@@ -274,7 +274,7 @@ This method (lines 166-383) is the heart of server-to-client synchronization:
 ```mermaid
 flowchart TD
     Start[sendUpdates] --> Collect[Collect Entity Packs]
-    Collect --> Filter[Spatial Filtering<br/>1500px radius]
+    Collect --> Filter[Spatial Filtering<br/>1500px from viewers]
     Filter --> Frequency{Update Frequency<br/>Optimization}
     Frequency -->|Critical| Critical[Every Frame]
     Frequency -->|Non-Critical| NonCritical[Every 2nd Frame]
@@ -306,7 +306,7 @@ const weatherPack = Weather.getAllUpdatePack();
 
 #### Step 2: Spatial Filtering
 
-Only entities within 1500 pixels of any player are included (unless god mode is active):
+Only entities within 1500 pixels of any viewer/camera position are included:
 
 ```javascript
 if(this.spatialFilteringEnabled && playerPack) {
@@ -314,11 +314,11 @@ if(this.spatialFilteringEnabled && playerPack) {
 }
 ```
 
-**Spatial Filtering Logic** (`spatialFilterEntities()`, lines 630-695):
-- Calculates distance from each entity to all player positions
+**Spatial Filtering Logic** (`spatialFilterEntities()`, lines 827-937):
+- Calculates distance from each entity to all viewer/camera positions
 - Includes entity if within `spatialFilterRadius` (1500px) on same Z-level
 - Always includes: player's own entity, entities on different Z-levels, falcons
-- Bypassed if any player is in god mode (spectator sees everything)
+- Viewer positions come from Camera entities representing different viewing modes (player, godmode, spectate, login)
 
 #### Step 3: Update Frequency Optimization
 
@@ -405,14 +405,14 @@ Uses the injected `emit` function to broadcast to all connected clients via Sock
 **Purpose**: Reduce network traffic by only sending entities visible to players
 
 **Algorithm**:
-1. Collect all player positions (x, y, z)
-2. For each entity, check distance to nearest player on same Z-level
+1. Collect all viewer/camera positions from Camera.getViewerAnchors()
+2. For each entity, check distance to nearest viewer on same Z-level
 3. Include if distance ≤ 1500px or special case (falcons, different Z-levels)
 
 **Special Cases**:
-- God mode players receive all entities (spectator mode)
 - Falcons always included (they move quickly and should be visible)
 - Entities on different Z-levels always included (building interiors)
+- Viewer positions represent different camera modes (player, godmode, spectate, login)
 
 #### Delta Compression (`compressEntityPack()`)
 
@@ -1463,7 +1463,7 @@ sequenceDiagram
     EU-->>GL: Return entity packs
     
     GL->>SF: Apply spatial filtering
-    SF->>SF: Filter by 1500px radius
+    SF->>SF: Filter by 1500px from viewer positions
     SF-->>GL: Filtered packs
     
     GL->>DC: Apply delta compression
@@ -1811,11 +1811,11 @@ The game loop system employs multiple optimization strategies to maintain 60 FPS
 
 #### Spatial Filtering
 
-**Purpose**: Reduce network traffic by only sending entities visible to players
+**Purpose**: Reduce network traffic by only sending entities visible to viewers/cameras
 
-**Implementation**: `spatialFilterEntities()` in [`OptimizedGameLoop.js`](server/js/core/OptimizedGameLoop.js) (lines 630-695)
+**Implementation**: `spatialFilterEntities()` in [`OptimizedGameLoop.js`](server/js/core/OptimizedGameLoop.js) (lines 827-937)
 
-**Effect**: Typically reduces player pack size by 50-80% depending on player distribution
+**Effect**: Typically reduces entity pack size by 50-80% depending on viewer distribution
 
 #### Delta Compression
 
@@ -2032,7 +2032,7 @@ The game loop system in Lambic is a sophisticated dual-loop architecture that se
 For developers working on the game loop system, key areas to understand are:
 1. The fixed timestep accumulator pattern on the server
 2. The variable timestep rendering loop on the client
-3. The update packet optimization pipeline
+3. The update packet optimization pipeline with camera-viewer spatial filtering
 4. The entity update throttling system
 5. The time system hierarchy (tick → tempus → day)
 

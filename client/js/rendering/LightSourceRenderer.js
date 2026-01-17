@@ -252,6 +252,8 @@ class LightSourceRenderer {
         continue;
       }
 
+      const isTorchLight = light.parent && Item && Item.list && Item.list[light.parent] && Item.list[light.parent].type === 'LitTorch';
+      
       if (light.z === playerZ || light.z === 99) {
         // Determine if we need to draw cutout
         // For z=0, z=-1, z=-2, and z=99 lights, always draw cutout (torches, firepits, cave lights, etc.)

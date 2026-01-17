@@ -14,6 +14,8 @@ function LightEntity(initPack) {
   self.z = initPack.z;
   self.radius = initPack.radius;
   self.parent = initPack.parent; // Store parent ID to identify light source type
+  self.inBattleground = initPack.inBattleground;
+  self.battlegroundMatchId = initPack.battlegroundMatchId || null;
 
   Light.list[self.id] = self;
   return self;

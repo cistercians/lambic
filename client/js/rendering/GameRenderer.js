@@ -289,7 +289,9 @@ class GameRenderer {
       
       stats.entitiesIterated.items++;
       
-      if (visibilityCheck(item)) {
+      const isVisible = visibilityCheck(item);
+      
+      if (isVisible) {
         stats.entitiesRendered.items++;
         // Special handling for buildings (z=1, z=2) in normal mode
         if (normalIndoor) {
@@ -305,6 +307,7 @@ class GameRenderer {
         }
       }
     }
+    
   }
   
   /**
@@ -327,7 +330,7 @@ class GameRenderer {
       if (isFalcon !== falconsOnly) continue;
       
       stats.entitiesIterated.players++;
-      
+
       if (visibilityCheck(player)) {
         stats.entitiesRendered.players++;
         // Additional building check for normal mode (skip for falcons)

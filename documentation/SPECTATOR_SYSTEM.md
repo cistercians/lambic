@@ -29,7 +29,7 @@ Spectator mode is a special viewing mode that allows authenticated users to obse
 
 ### Key Characteristics
 
-- **No Player Entity**: Spectators are NOT Player entities - they exist only as camera viewers tracked separately in `global.spectators`
+- **No Player Entity**: Spectators are NOT Player entities - they exist only as Camera entities tracked separately in `Camera.list`
 - **Read-Only Access**: Spectators cannot interact with the game world (no building, combat, or item manipulation)
 - **Intelligent Camera**: Automatic camera system that prioritizes interesting events (combat, deaths, building completions)
 - **Event-Driven**: Receives structured game events for intelligent camera control
@@ -137,7 +137,9 @@ Upon successful authentication:
 
 ### Spectator Tracking
 
-Spectators are tracked in `global.spectators` object, keyed by socket ID:
+Spectators are tracked in two places:
+1. `global.spectators` object for authentication and chat (keyed by socket ID)
+2. `Camera.list` for spatial filtering (keyed by camera ID)
 
 ```javascript
 global.spectators[socket.id] = {
@@ -147,11 +149,11 @@ global.spectators[socket.id] = {
 }
 ```
 
-**Key Design Decision**: Spectators are NOT Player entities. This separation allows:
+**Key Design Decision**: Spectators are NOT Player entities but use Camera entities for spatial filtering. This separation allows:
 - No collision with game logic
-- Simplified tracking
-- No need for player-specific updates
-- Cleaner code organization
+- Simplified tracking via Camera entities
+- Spatial filtering works consistently across all camera modes
+- Cleaner code organization with unified viewer system
 
 ### Event Broadcasting
 

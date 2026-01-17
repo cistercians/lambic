@@ -6,7 +6,7 @@ Interact = function(id,loc){
     var b = getBuilding(c[0],c[1]);
     // If building not found via getBuilding, try interactability map
     if(!b && typeof global.getInteractableBuilding === 'function'){
-      b = global.getInteractableBuilding(0, c[0], c[1]);
+      b = global.getInteractableBuilding(0, c[0], c[1], player);
     }
     if(b){ // building
       var building = Building.list[b];
@@ -155,7 +155,7 @@ Interact = function(id,loc){
               
               // Second check: ship is within 3 tiles of any dock plot tile
               if(!isAtThisDock && building.plot){
-                var shipLoc = getLoc(ship.x, ship.y);
+                var shipLoc = getLoc(ship.x, ship.y, ship);
                 for(var p = 0; p < building.plot.length; p++){
                   var plotTile = building.plot[p];
                   var distX = Math.abs(shipLoc[0] - plotTile[0]);
@@ -222,13 +222,16 @@ Interact = function(id,loc){
       // Check for chests on overworld
       var chest = null;
       var c = getCenter(loc[0],loc[1]);
-      var chestLoc = getLoc(c[0], c[1]);
+      var chestLoc = getLoc(c[0], c[1], player);
       
       // Find chest at this location
       for(var itemId in Item.list){
         var item = Item.list[itemId];
+        if(global.mapContextHelpers && !global.mapContextHelpers.areInSameContext(player, item)) {
+          continue;
+        }
         if(item && item.z === player.z && (item.type === 'Chest' || item.type === 'LockedChest')){
-          var itemLoc = getLoc(item.x, item.y);
+          var itemLoc = getLoc(item.x, item.y, item);
           if(itemLoc[0] === chestLoc[0] && itemLoc[1] === chestLoc[1]){
             chest = item;
             break;
@@ -270,7 +273,7 @@ Interact = function(id,loc){
       }
     }
   } else { // item inside, in cave, in dungeon or underwater
-    var item = getItem(player.z,loc[0],loc[1]);
+    var item = getItem(player.z,loc[0],loc[1], player);
     if(item == 'Anvil'){
 
     } else if(item == 'Goods1' || item == 'Goods2' || item == 'Goods3' || item == 'Goods4'){
@@ -397,7 +400,8 @@ Interact = function(id,loc){
         socket.write(JSON.stringify({msg:'addToChat',message:'<i>Market account management - coming soon</i>'}));
       } else if(build.type == 'garrison'){
         // Check if player is in battlegrounds - if so, don't allow desk interaction
-        if(player.inBattleground === true){
+        const inBattleground = global.mapContextHelpers ? global.mapContextHelpers.isInBattleground(player) : player.inBattleground === true;
+        if(inBattleground){
           socket.write(JSON.stringify({msg:'addToChat',message:'<i>Cannot access desk while in Battlegrounds.</i>'}));
           return;
         }
@@ -501,8 +505,11 @@ Interact = function(id,loc){
     // Find chest at this location
     for(var itemId in Item.list){
       var item = Item.list[itemId];
+      if(global.mapContextHelpers && !global.mapContextHelpers.areInSameContext(player, item)) {
+        continue;
+      }
       if(item && item.z === player.z && (item.type === 'Chest' || item.type === 'LockedChest')){
-        var itemLoc = getLoc(item.x, item.y);
+        var itemLoc = getLoc(item.x, item.y, item);
         if(itemLoc[0] === chestLoc[0] && itemLoc[1] === chestLoc[1]){
           chest = item;
           break;

@@ -170,9 +170,9 @@ class BaseCommand {
    * @param {number} y - Pixel Y
    * @returns {number[]} [col, row]
    */
-  getLoc(x, y) {
+  getLoc(x, y, entity) {
     const getLoc = this.getGlobal('getLoc', (x, y) => [Math.floor(x / 64), Math.floor(y / 64)]);
-    return getLoc(x, y);
+    return getLoc(x, y, entity);
   }
 
   /**
@@ -193,9 +193,9 @@ class BaseCommand {
    * @param {number} row - Row
    * @returns {number} Tile value
    */
-  getTile(z, col, row) {
+  getTile(z, col, row, entity) {
     const getTile = this.getGlobal('getTile', () => 0);
-    return getTile(z, col, row);
+    return getTile(z, col, row, entity);
   }
 
   /**

@@ -1,5 +1,23 @@
 Build = function(id){
   var p = Player.list[id];
+  let contextEntity = p;
+  const getLoc = (x, y) => global.getLoc ? global.getLoc(x, y, contextEntity) : [Math.floor(x / 64), Math.floor(y / 64)];
+  const getTile = (l, c, r) => global.getTile ? global.getTile(l, c, r, contextEntity) : undefined;
+  const tileChange = (l, c, r, n, incr = false) => {
+    if (typeof global.tileChange === 'function') {
+      global.tileChange(l, c, r, n, incr, contextEntity);
+    }
+  };
+  const matrixChange = (l, c, r, n) => {
+    if (typeof global.matrixChange === 'function') {
+      global.matrixChange(l, c, r, n, contextEntity);
+    }
+  };
+  const setTileInteractable = (layer, c, r, buildingId) => {
+    if (typeof global.setTileInteractable === 'function') {
+      global.setTileInteractable(layer, c, r, buildingId, contextEntity);
+    }
+  };
   if(p.type == 'npc' && !p.workTimer){
     Player.list[id].workTimer = true;
   }
@@ -9,6 +27,7 @@ Build = function(id){
   Player.list[id].actionCooldown = 10;
   var b = getBuilding(p.x,p.y);
   var building = Building.list[b];
+  contextEntity = building || contextEntity;
   setTimeout(function(){
     var p = Player.list[id];
     if(p){
@@ -162,7 +181,7 @@ Build = function(id){
             tileChange(3,plot[i][0],plot[i][1],String('mill' + i));
             matrixChange(0,plot[i][0],plot[i][1],1);
             // Mark all plot tiles as interactable (all are non-walkable)
-            global.setTileInteractable(0, plot[i][0], plot[i][1], b);
+            setTileInteractable(0, plot[i][0], plot[i][1], b);
           }
           tileChange(5,top[0][0],top[0][1],'mill4');
           tileChange(5,top[1][0],top[1][1],'mill5');
@@ -172,7 +191,7 @@ Build = function(id){
             tileChange(3,plot[i][0],plot[i][1],String('lumbermill' + i));
             matrixChange(0,plot[i][0],plot[i][1],1);
             // Mark all plot tiles as interactable (all are non-walkable)
-            global.setTileInteractable(0, plot[i][0], plot[i][1], b);
+            setTileInteractable(0, plot[i][0], plot[i][1], b);
           }
           tileChange(5,top[0][0],top[0][1],'lumbermill2');
           tileChange(5,top[1][0],top[1][1],'lumbermill3');
@@ -182,7 +201,7 @@ Build = function(id){
             tileChange(3,plot[i][0],plot[i][1],String('mine' + i));
             matrixChange(0,plot[i][0],plot[i][1],1);
             // Mark all plot tiles as interactable (all are non-walkable)
-            global.setTileInteractable(0, plot[i][0], plot[i][1], b);
+            setTileInteractable(0, plot[i][0], plot[i][1], b);
           }
         }  else if(building.type == 'cottage'){
           for(var i in plot){
@@ -1059,7 +1078,7 @@ Build = function(id){
               matrixChange(-3,plot[i][0],plot[i][1],1);
               matrixChange(3,plot[i][0],plot[i][1],1);
               // Mark only the non-walkable tile (dock4, which is plot[4] - center of top row) as interactable
-              global.setTileInteractable(0, plot[i][0], plot[i][1], b);
+              setTileInteractable(0, plot[i][0], plot[i][1], b);
             } else {
               if(getTile(0,plot[i][0],plot[i][1]) == 12.5){
                 tileChange(0,plot[i][0],plot[i][1],20.5);

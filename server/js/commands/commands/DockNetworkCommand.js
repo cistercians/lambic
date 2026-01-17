@@ -141,9 +141,13 @@ class DockNetworkCommand {
   spawnCargoShip(dock, facingBuilding, socket) {
     this.sendMessage(socket, '🚢 Spawning cargo ship for your dock network...');
 
-    const getTile = global.getTile || ((layer, c, r) => null);
+    const getTile = global.getTile
+      ? (layer, c, r) => global.getTile(layer, c, r, dock)
+      : ((layer, c, r) => null);
     const getCenter = global.getCenter || ((c, r) => [c * 64, r * 64]);
-    const mapSize = global.mapSize || 1000;
+    const mapSize = global.mapContextManager
+      ? global.mapContextManager.getMapSize(dock)
+      : (global.mapSize || 1000);
     let waterTile = null;
 
     for (const dockLoc of dock.plot || []) {

@@ -15,6 +15,8 @@ function ArrowEntity(initPack) {
   self.y = initPack.y;
   self.z = initPack.z;
   self.innaWoods = initPack.innaWoods;
+  self.inBattleground = initPack.inBattleground;
+  self.battlegroundMatchId = initPack.battlegroundMatchId || null;
   
   // Client-side interpolation for smooth movement
   self.renderX = initPack.x; // Interpolated position for rendering

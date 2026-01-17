@@ -19,12 +19,13 @@
 
 ## System Overview
 
-The pathfinding system is a multi-layered architecture built on the `pathfinding` npm package (v0.4.18) using the A* algorithm. It handles navigation for both players and NPCs across multiple z-levels (overworld, caves, buildings, underwater) with sophisticated caching, throttling, and optimization mechanisms.
+The pathfinding system is a multi-layered architecture built on the `pathfinding` npm package (v0.4.18) using the A* algorithm. It handles navigation for both players and NPCs across multiple z-levels (overworld, caves, buildings, underwater) with caching, throttling, and optimization mechanisms.
 
 ### Key Characteristics
 
 - **Algorithm**: A* with diagonal movement, corner avoidance, Euclidean heuristic
-- **Caching**: Two-tier system (path cache + grid cache) with LRU eviction
+- **Caching**: Multiple layers (Entity path cache in `lambic.js`, PathfindingSystem path cache, and grid cache) with LRU/TTL and versioning
+- **Entry points**: `Entity.getPath()`/`Entity.moveTo()` and `findPathContextAware()` are the common entry points; PathfindingManager is available but not exclusive
 - **Throttling**: Frame-based request limiting (10 concurrent operations per frame)
 - **Multi-Z Support**: Handles complex journeys across different z-levels
 - **Entity-Specific**: Different behaviors for players vs NPCs
@@ -186,7 +187,7 @@ Version included to invalidate cache when tiles change.
 
 **File**: `server/js/core/PathfindingManager.js`
 
-Unified high-level API for all pathfinding requests. Single entry point ensures consistent behavior.
+Unified high-level API for pathfinding requests. Available as a wrapper, but the codebase still uses `Entity.getPath()` and `findPathContextAware()` directly in many places.
 
 **Singleton Pattern**: PathfindingManager is exported as a singleton instance. Import using:
 ```javascript
@@ -195,7 +196,7 @@ const pathfindingManager = require('./core/PathfindingManager');
 pathfindingManager.requestPath(entity, destination, options);
 ```
 
-**Note**: While PathfindingManager provides a unified API, many parts of the codebase still call `TilemapSystem.findPath()` or `Entity.getPath()` directly. PathfindingManager is available but not universally adopted.
+**Note**: Many parts of the codebase still call `TilemapSystem.findPath()` or `Entity.getPath()` directly. PathfindingManager is available for new code or refactoring efforts, but it is not the sole entry point in practice.
 
 #### Main Method
 
@@ -658,7 +659,7 @@ NPCs preserve paths across transitions for multi-floor navigation:
 }
 ```
 
-**Note**: Direct movement between -2 (cellar) and -1 (cave) is not possible. Routes like `-2->-1` or `-1->-2` that appear in code are invalid and should not be used. Movement between these z-levels must go through intermediate z-levels (e.g., via overworld and building).
+**Note**: `findOptimalZRoute()` currently includes a direct `-2->-1` route in code. This reflects current behavior, even though it is a complex transition; if you want to forbid that route, it should be removed from `findOptimalZRoute()` and handled via intermediate z-levels instead.
 
 **Fallback Logic**:
 - If `|startZ - targetZ| <= 1`: Direct transition `[startZ, targetZ]`
@@ -762,6 +763,11 @@ return {
 ## Caching System
 
 ### Path Cache
+
+**Location (Entity cache)**: `lambic.js` `pathCache` (used by `Entity.getPath()`/`getCachedPath()`/`cachePath()`)
+- Key format: `${contextKey}|${startX},${startY},${endX},${endY},${z}`
+- Context key includes battleground match ID when applicable
+- Stored as a simple `Map` without TTL/eviction
 
 **Location**: `PathfindingSystem.pathCache`
 
@@ -988,11 +994,16 @@ const issues = diagnostics.getTopIssues(5);
 
 ### Tilemap Integration
 
+**findPathContextAware (lambic.js)**:
+- Primary wrapper used by Entity/NPC code
+- Routes through `MapContextManager` when available (battlegrounds)
+- Falls back to `TilemapSystem.findPath()` for main world
+
 **TilemapSystem.findPath()**:
 - Delegates to PathfindingSystem
 - Handles layer resolution
 - Applies grid caching
-- Returns smoothed path
+- Returns smoothed path (cave smoothing is disabled at the PathfindingSystem level)
 
 ### Entity System
 
@@ -1428,7 +1439,7 @@ Move entity to destination (triggers pathfinding).
 3. **Path Smoothing**: Reduces waypoints, improving movement performance
 4. **Object Pooling**: Reduces memory allocations
 5. **Version-Based Invalidation**: No manual cache clearing needed
-6. **Priority Queue**: Players get priority over NPCs
+6. **Queueing**: Built-in FIFO queue throttles requests; no explicit priority tiers
 
 ### Bottlenecks
 
@@ -1486,6 +1497,12 @@ This enables detailed logging in:
 - Verify transition points are found correctly
 - Check if waypoints are being executed in order
 - Verify path is preserved across transitions
+
+## Validation Notes
+
+- In overworld, pathfind to a cave entrance and confirm the path terminates on the entrance tile without routing through other transitions.
+- In caves, verify paths are not smoothed (movement should follow tunnels without wall-walking).
+- For multi-z movement (e.g., cave to overworld to building), confirm waypoint transitions occur in order and path continues after each z-change.
 
 ---
 

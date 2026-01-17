@@ -12,6 +12,152 @@ class SimpleSerfBehavior {
     this.LOG_THROTTLE_MS = 5000; // Only log same message every 5 seconds per serf
   }
 
+  getSerfLogger() {
+    return global.serfLogger || null;
+  }
+
+  setSerfState(serf, nextState, reason = '') {
+    if (!serf) return;
+    const prevState = serf.serfState || null;
+    if (prevState === nextState) return;
+    serf.serfState = nextState;
+    const logger = this.getSerfLogger();
+    if (logger && typeof logger.stateTransition === 'function') {
+      logger.stateTransition(serf, prevState || 'none', nextState, reason);
+    }
+  }
+
+  enterFleeState(serf) {
+    if (!serf || serf._fleeInitialized) return;
+    this.clearWorkTimers(serf);
+    serf.path = null;
+    serf.pathCount = 0;
+    serf.working = false;
+    serf.farming = false;
+    serf.chopping = false;
+    serf.mining = false;
+    serf._fleeInitialized = true;
+    this.setSerfState(serf, 'fleeing', 'enterFlee');
+  }
+
+  recoverFromFlee(serf) {
+    if (!serf) return;
+    const preFlee = serf._preFleeState || {};
+    if (typeof preFlee.mode === 'string') {
+      serf.mode = preFlee.mode;
+    }
+    serf.action = null;
+    serf.path = null;
+    serf.pathCount = 0;
+    serf._fleeInitialized = false;
+    serf._pendingFleeRecovery = false;
+    serf._preFleeState = null;
+    const logger = this.getSerfLogger();
+    if (logger && typeof logger.info === 'function') {
+      logger.info('Recovered from flee', serf, { reason: serf._fleeEndReason || null });
+    }
+    serf._fleeEndReason = null;
+    const nextState = (serf.mode === 'work') ? 'working' : 'idle';
+    this.setSerfState(serf, nextState, 'recoverFromFlee');
+  }
+
+  findAdjacentWalkableTile(z, spot, serf = null) {
+    if (!spot || !Array.isArray(spot) || spot.length !== 2) return null;
+    const candidates = [
+      [spot[0] + 1, spot[1]],
+      [spot[0] - 1, spot[1]],
+      [spot[0], spot[1] + 1],
+      [spot[0], spot[1] - 1]
+    ];
+    const walkable = [];
+    for (const tile of candidates) {
+      if (global.isWalkable && global.isWalkable(z, tile[0], tile[1], serf)) {
+        walkable.push(tile);
+      }
+    }
+    if (walkable.length === 0) return null;
+    if (!serf) return walkable[0];
+    const loc = this.getLoc(serf);
+    let best = walkable[0];
+    let bestDist = Infinity;
+    for (const tile of walkable) {
+      const dist = Math.abs(tile[0] - loc[0]) + Math.abs(tile[1] - loc[1]);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = tile;
+      }
+    }
+    return best;
+  }
+
+  getWorkTileForSpot(serf, spot, z) {
+    if (!serf || !spot || typeof z !== 'number') return null;
+    if (global.isWalkable && global.isWalkable(z, spot[0], spot[1], serf)) {
+      return spot;
+    }
+    const spotKey = Array.isArray(spot) ? `${z}:${spot.toString()}` : '';
+    if (serf.work && serf.work.workTile && serf.work.workTileFor === spotKey) {
+      const workTile = serf.work.workTile;
+      if (global.isWalkable && global.isWalkable(z, workTile[0], workTile[1], serf)) {
+        return workTile;
+      }
+    }
+    const workTile = this.findAdjacentWalkableTile(z, spot, serf);
+    if (serf.work) {
+      serf.work.workTile = workTile;
+      serf.work.workTileFor = workTile ? spotKey : null;
+    }
+    return workTile;
+  }
+
+  tryReassignWork(serf) {
+    if (!serf || typeof serf.assignWorkHQ !== 'function') return false;
+    const now = Date.now();
+    if (serf._nextWorkAssignTime && now < serf._nextWorkAssignTime) {
+      return false;
+    }
+    serf._nextWorkAssignTime = now + 10000;
+    try {
+      serf.assignWorkHQ();
+      if (serf.work && serf.work.hq) {
+        serf.mode = 'work';
+        return true;
+      }
+    } catch (error) {
+      // Ignore assignment errors
+    }
+    return false;
+  }
+
+  getWorkZ(building) {
+    if (!building || !building.type) return 0;
+    return (building.type === 'mine' && building.cave) ? -1 : 0;
+  }
+
+  getLoc(entity) {
+    if (!entity) return [0, 0];
+    return global.getLoc ? global.getLoc(entity.x, entity.y, entity) : [
+      Math.floor(entity.x / 64),
+      Math.floor(entity.y / 64)
+    ];
+  }
+
+  getTile(entity, layer, c, r) {
+    return global.getTile ? global.getTile(layer, c, r, entity) : 0;
+  }
+
+  tileChange(entity, layer, c, r, value, incr = false) {
+    if (typeof global.tileChange === 'function') {
+      global.tileChange(layer, c, r, value, incr, entity);
+    }
+  }
+
+  matrixChange(entity, layer, c, r, value) {
+    if (typeof global.matrixChange === 'function') {
+      global.matrixChange(layer, c, r, value, entity);
+    }
+  }
+
   /**
    * Main update method - called from Entity.js
    * Simple action-based system like military units
@@ -22,13 +168,17 @@ class SimpleSerfBehavior {
 
       // Ensure required properties exist
       if (!serf.work) {
-        serf.work = { hq: null, spot: null, assignedSpot: null };
+        serf.work = { hq: null, spot: null, assignedSpot: null, workTile: null, workTileFor: null };
       }
       if (!serf.inventory) {
         serf.inventory = {};
       }
       if (!serf.stores) {
         serf.stores = {};
+      }
+
+      if (serf._pendingFleeRecovery && serf.action !== 'flee') {
+        this.recoverFromFlee(serf);
       }
 
       // Handle actions (like military units)
@@ -42,6 +192,7 @@ class SimpleSerfBehavior {
         this.handleClockout(serf);
       } else if (serf.action === 'flee') {
         // Use SimpleFlee system for fleeing
+        this.enterFleeState(serf);
         if (global.simpleFlee) {
           global.simpleFlee.update(serf);
         }
@@ -81,9 +232,12 @@ class SimpleSerfBehavior {
           }
         }
       }
+      this.setSerfState(serf, 'idle', 'notInWorkMode');
       this.handleWandering(serf);
       return;
     }
+
+    this.setSerfState(serf, 'working', 'defaultWork');
 
     // PRIORITY: Check if hut needs building first
     if (serf.hut && global.Building && global.Building.list) {
@@ -106,9 +260,15 @@ class SimpleSerfBehavior {
       const buildingExists = hasWorkHq && global.Building && global.Building.list && global.Building.list[buildingId];
       const buildingBuilt = buildingExists ? global.Building.list[buildingId].built : false;
       console.warn(`[SERF WORK] ${factionName}: Work building invalid for serf - work.hq: ${buildingId}, building exists: ${buildingExists}, built: ${buildingBuilt}, serf.mode: ${serf.mode}, serf.hut: ${serf.hut || 'none'}`);
-      serf.mode = 'idle';
-      serf.work.hq = null;
-      serf.work.spot = null;
+      const reassigned = this.tryReassignWork(serf);
+      if (!reassigned) {
+        serf.mode = 'idle';
+        serf.work.hq = null;
+        serf.work.spot = null;
+        serf.work.assignedSpot = null;
+        serf.work.workTile = null;
+        serf.work.workTileFor = null;
+      }
       return;
     }
 
@@ -154,6 +314,8 @@ class SimpleSerfBehavior {
         // Work spot is invalid (e.g., was set to hut plot tile) - clear it and reassign
         serf.work.spot = null;
         serf.work.assignedSpot = null;
+        serf.work.workTile = null;
+        serf.work.workTileFor = null;
         serf.path = null;
         serf.pathCount = 0;
         const spot = this.assignWorkSpot(serf, building);
@@ -172,6 +334,7 @@ class SimpleSerfBehavior {
    * Handle deposit action - path to building and deposit resources
    */
   handleDeposit(serf) {
+    this.setSerfState(serf, 'depositing', 'handleDeposit');
     const building = this.getWorkBuilding(serf);
     if (!building || !building.built) {
       serf.action = null;
@@ -197,10 +360,7 @@ class SimpleSerfBehavior {
       return;
     }
 
-    const loc = global.getLoc ? global.getLoc(serf.x, serf.y) : [
-      Math.floor(serf.x / 64),
-      Math.floor(serf.y / 64)
-    ];
+    const loc = this.getLoc(serf);
 
     const isAtDropoff = this.isAtDropoff(serf, building);
     
@@ -253,6 +413,9 @@ class SimpleSerfBehavior {
         }
       }
       serf.action = null; // Resume work
+      if (serf.mode === 'work') {
+        this.setSerfState(serf, 'working', 'depositComplete');
+      }
     } else if (!serf.path || serf.path.length === 0) {
       // Path to dropoff
       if (typeof serf.moveTo === 'function') {
@@ -279,9 +442,14 @@ class SimpleSerfBehavior {
    * Handle build action - build hut (male serfs only)
    */
   handleBuild(serf) {
+    this.setSerfState(serf, 'building', 'handleBuild');
     if (!serf.hut || !global.Building || !global.Building.list) {
       serf.action = null;
-      serf.mode = 'idle';
+      if (serf.work && serf.work.hq) {
+        serf.mode = 'work';
+      } else {
+        serf.mode = 'idle';
+      }
       return;
     }
 
@@ -298,6 +466,9 @@ class SimpleSerfBehavior {
       if (!serf.work.hq) {
         serf.mode = 'idle';
       }
+      if (serf.mode === 'work') {
+        this.setSerfState(serf, 'working', 'buildComplete');
+      }
       return;
     }
 
@@ -308,7 +479,7 @@ class SimpleSerfBehavior {
         for (const i in hut.plot) {
           const p = hut.plot[i];
           if (Array.isArray(p) && p.length === 2) {
-            const t = global.getTile ? global.getTile(0, p[0], p[1]) : 0;
+            const t = this.getTile(serf, 0, p[0], p[1]);
             if (t === 11) { // Foundation tile
               buildableTiles.push(p);
             }
@@ -325,14 +496,11 @@ class SimpleSerfBehavior {
       }
     }
 
-    const loc = global.getLoc ? global.getLoc(serf.x, serf.y) : [
-      Math.floor(serf.x / 64),
-      Math.floor(serf.y / 64)
-    ];
+    const loc = this.getLoc(serf);
 
     if (loc && Array.isArray(loc) && loc.length === 2 && loc.toString() === serf.work.spot.toString()) {
       // At building spot
-      const gt = global.getTile ? global.getTile(0, serf.work.spot[0], serf.work.spot[1]) : 0;
+      const gt = this.getTile(serf, 0, serf.work.spot[0], serf.work.spot[1]);
       if (gt === 11) {
         if (!serf.building && typeof global.Build === 'function') {
           global.Build(serf.id);
@@ -353,16 +521,14 @@ class SimpleSerfBehavior {
    * Handle clockout action - deposit resources then go home
    */
   handleClockout(serf) {
+    this.setSerfState(serf, 'clocking_out', 'handleClockout');
     // First deposit resources if any
     if (this.hasResourcesToDeposit(serf)) {
       const building = this.getWorkBuilding(serf);
       if (building && building.built) {
         const dropoff = this.getDropoffLocation(building);
         if (dropoff) {
-          const loc = global.getLoc ? global.getLoc(serf.x, serf.y) : [
-            Math.floor(serf.x / 64),
-            Math.floor(serf.y / 64)
-          ];
+          const loc = this.getLoc(serf);
 
           if (this.isAtDropoff(serf, building)) {
             serf.facing = 'up';
@@ -401,12 +567,14 @@ class SimpleSerfBehavior {
           // Arrived home
           serf.action = null;
           serf.mode = 'idle';
+          this.setSerfState(serf, 'idle', 'clockoutComplete');
         }
       }
     } else {
       // No home - just become idle
       serf.action = null;
       serf.mode = 'idle';
+      this.setSerfState(serf, 'idle', 'clockoutNoHome');
     }
   }
 
@@ -435,12 +603,14 @@ class SimpleSerfBehavior {
     ];
 
     const target = directions[Math.floor(Math.random() * directions.length)];
-    const mapSize = global.mapSize || 1000;
+    const mapSize = global.mapContextManager
+      ? global.mapContextManager.getMapSize(serf)
+      : (global.mapSize || 1000);
 
     if (target[0] >= 0 && target[0] < mapSize &&
         target[1] >= 0 && target[1] < mapSize) {
-      const isWalkable = global.isWalkable ? global.isWalkable(0, target[0], target[1]) : true;
-      const targetTile = global.getTile ? global.getTile(0, target[0], target[1]) : 0;
+      const isWalkable = global.isWalkable ? global.isWalkable(0, target[0], target[1], serf) : true;
+      const targetTile = this.getTile(serf, 0, target[0], target[1]);
       const isWater = (targetTile === 0);
       const isTransitionTile = (targetTile === 6 || targetTile === 14 || targetTile === 16 || targetTile === 19);
 
@@ -527,6 +697,7 @@ class SimpleSerfBehavior {
       // Removed routine "Processing cave mine resources" log to reduce spam
       // Only log when there are issues (no resources, etc.) - handled below
       
+      const targetZ = this.getWorkZ(building);
       for (const i in building.resources) {
         try {
           const res = building.resources[i];
@@ -534,7 +705,9 @@ class SimpleSerfBehavior {
             if (building.isSpotAvailable && typeof building.isSpotAvailable === 'function') {
               const isAvailable = building.isSpotAvailable(res);
               if (isAvailable) {
-                availableSpots.push(res);
+                if (this.getWorkTileForSpot(serf, res, targetZ)) {
+                  availableSpots.push(res);
+                }
               } else {
                 // Log when spot is filtered out by isSpotAvailable (throttled, building-specific)
                 const now = Date.now();
@@ -558,10 +731,8 @@ class SimpleSerfBehavior {
                   
                   // For lumbermills, provide additional context
                   if (building.type === 'lumbermill') {
-                    const TERRAIN = global.TERRAIN || {};
-                    const getTile = global.getTile || (() => 0);
-                    const terrain = getTile(6, res[0], res[1]); // Check resource layer (tree layer)
-                    const baseTerrain = getTile(0, res[0], res[1]); // Check base terrain
+                    const terrain = this.getTile(building, 6, res[0], res[1]); // Check resource layer (tree layer)
+                    const baseTerrain = this.getTile(building, 0, res[0], res[1]); // Check base terrain
                     console.log(`[SERF WORK] ${houseName}: Lumbermill spot [${res[0]}, ${res[1]}] - resource terrain: ${terrain}, base terrain: ${baseTerrain}`);
                   }
                   
@@ -654,6 +825,14 @@ class SimpleSerfBehavior {
       if (Array.isArray(selected) && selected.length === 2) {
         serf.work.assignedSpot = selected;
         serf.work.spot = selected;
+        serf.work.workTile = null;
+        serf.work.workTileFor = null;
+        const workTile = this.getWorkTileForSpot(serf, selected, targetZ);
+        if (!workTile) {
+          serf.work.assignedSpot = null;
+          serf.work.spot = null;
+          return null;
+        }
 
         if (building.assignSpot && typeof building.assignSpot === 'function') {
           building.assignSpot(serf.id, selected);
@@ -691,10 +870,14 @@ class SimpleSerfBehavior {
 
       serf.work.assignedSpot = null;
       serf.work.spot = null;
+      serf.work.workTile = null;
+      serf.work.workTileFor = null;
     } catch (error) {
       if (serf && serf.work) {
         serf.work.assignedSpot = null;
         serf.work.spot = null;
+        serf.work.workTile = null;
+        serf.work.workTileFor = null;
       }
     }
   }
@@ -735,9 +918,22 @@ class SimpleSerfBehavior {
       if (!loc || !Array.isArray(loc) || loc.length !== 2) return;
 
       // Determine expected z-level for work spot
-      const expectedZ = (building.type === 'mine' && building.cave) ? -1 : 0;
+      const expectedZ = this.getWorkZ(building);
       const atCorrectZ = serf.z === expectedZ;
-      const atCorrectXY = spot && Array.isArray(spot) && spot.length === 2 && loc.toString() === spot.toString();
+      let workLoc = spot;
+      workLoc = this.getWorkTileForSpot(serf, spot, expectedZ);
+      if (!workLoc) {
+        const logger = this.getSerfLogger();
+        if (logger && typeof logger.warn === 'function') {
+          logger.warn('No walkable tile available for work spot', serf, { spot, z: expectedZ });
+        }
+        serf.work.spot = null;
+        serf.work.assignedSpot = null;
+        serf.work.workTile = null;
+        serf.work.workTileFor = null;
+        return;
+      }
+      const atCorrectXY = workLoc && Array.isArray(workLoc) && workLoc.length === 2 && loc.toString() === workLoc.toString();
 
       // Check if at work spot (both x,y AND z-level must match)
       if (atCorrectXY && atCorrectZ) {
@@ -774,8 +970,7 @@ class SimpleSerfBehavior {
           }
         }
         if (typeof serf.moveTo === 'function') {
-          const targetZ = (building.type === 'mine' && building.cave) ? -1 : 0;
-          serf.moveTo(targetZ, spot[0], spot[1]);
+          serf.moveTo(expectedZ, workLoc[0], workLoc[1]);
         }
       }
     } catch (error) {
@@ -826,7 +1021,7 @@ class SimpleSerfBehavior {
       serf.farming = true;
       serf.workTimer = true;
 
-      const tile = global.getTile ? global.getTile(0, spot[0], spot[1]) : 0;
+    const tile = this.getTile(serf, 0, spot[0], spot[1]);
       const hq = building;
 
       const workCallback = () => {
@@ -846,13 +1041,13 @@ class SimpleSerfBehavior {
 
           if (tile === 8) {
             // Seed tile - progress to growing
-            global.tileChange(6, spot[0], spot[1], 1, true);
+            this.tileChange(serf, 6, spot[0], spot[1], 1, true);
             let count = 0;
             const next = [];
 
             for (const i in f.plot) {
               const p = f.plot[i];
-              if (global.getTile(6, p[0], p[1]) >= 5) {
+              if (this.getTile(serf, 6, p[0], p[1]) >= 5) {
                 count++;
               } else {
                 next.push(p);
@@ -863,14 +1058,14 @@ class SimpleSerfBehavior {
               // All tiles ready - transition from barren (8) to growing (9)
               for (const i in f.plot) {
                 const p = f.plot[i];
-                global.tileChange(0, p[0], p[1], 9);
+                this.tileChange(serf, 0, p[0], p[1], 9);
               }
               // Re-add all tiles to work spots (now all are type 9)
               if (hq.updateFarmResources) {
                 hq.updateFarmResources();
               }
             } else {
-              const res = global.getTile(6, spot[0], spot[1]);
+              const res = this.getTile(serf, 6, spot[0], spot[1]);
               if (res >= 5) {
                 for (let n = hq.resources.length - 1; n >= 0; n--) {
                   const r = hq.resources[n];
@@ -887,12 +1082,12 @@ class SimpleSerfBehavior {
             }
           } else if (tile === 9) {
             // Growing tile - progress to ready
-            global.tileChange(6, spot[0], spot[1], 1, true);
+            this.tileChange(serf, 6, spot[0], spot[1], 1, true);
             let count = 0;
 
             for (const i in f.plot) {
               const p = f.plot[i];
-              if (global.getTile(6, p[0], p[1]) >= 10) {
+              if (this.getTile(serf, 6, p[0], p[1]) >= 10) {
                 count++;
               }
             }
@@ -901,15 +1096,15 @@ class SimpleSerfBehavior {
               // All tiles ready - transition from growing (9) to grain (10)
               for (const i in f.plot) {
                 const p = f.plot[i];
-                global.tileChange(0, p[0], p[1], 10);
-                global.tileChange(6, p[0], p[1], 10);
+                this.tileChange(serf, 0, p[0], p[1], 10);
+                this.tileChange(serf, 6, p[0], p[1], 10);
               }
               // Re-add all tiles to work spots (now all are type 10)
               if (hq.updateFarmResources) {
                 hq.updateFarmResources();
               }
             } else {
-              const res = global.getTile(6, spot[0], spot[1]);
+              const res = this.getTile(serf, 6, spot[0], spot[1]);
               if (res >= 10) {
                 for (let n = hq.resources.length - 1; n >= 0; n--) {
                   const r = hq.resources[n];
@@ -921,18 +1116,18 @@ class SimpleSerfBehavior {
             }
           } else {
             // Ready tile - harvest grain
-            global.tileChange(6, spot[0], spot[1], -1, true);
+            this.tileChange(serf, 6, spot[0], spot[1], -1, true);
             serf.inventory.grain = (serf.inventory.grain || 0) + 10;
 
-            if (global.getTile(6, spot[0], spot[1]) === 0) {
-              global.tileChange(0, spot[0], spot[1], 8);
+            if (this.getTile(serf, 6, spot[0], spot[1]) === 0) {
+              this.tileChange(serf, 0, spot[0], spot[1], 8);
 
               let count = 0;
               const next = [];
 
               for (const i in f.plot) {
                 const p = f.plot[i];
-                const t = global.getTile(0, p[0], p[1]);
+                const t = this.getTile(serf, 0, p[0], p[1]);
                 if (t === 8) {
                   count++;
                 } else {
@@ -1014,17 +1209,13 @@ class SimpleSerfBehavior {
           }
 
           // Chop wood
-          if (typeof global.tileChange === 'function') {
-            global.tileChange(6, spot[0], spot[1], -1, true);
-          }
+          this.tileChange(serf, 6, spot[0], spot[1], -1, true);
           serf.inventory.wood = (serf.inventory.wood || 0) + 10;
 
-          const res = global.getTile ? global.getTile(6, spot[0], spot[1]) : 0;
+          const res = this.getTile(serf, 6, spot[0], spot[1]);
           if (res <= 0) {
             // Tree depleted
-            if (typeof global.tileChange === 'function') {
-              global.tileChange(0, spot[0], spot[1], 1, true);
-            }
+            this.tileChange(serf, 0, spot[0], spot[1], 1, true);
 
             if (building.resources && Array.isArray(building.resources)) {
               for (let i = building.resources.length - 1; i >= 0; i--) {
@@ -1035,10 +1226,12 @@ class SimpleSerfBehavior {
               }
             }
             serf.work.spot = null;
+            serf.work.workTile = null;
+            serf.work.workTileFor = null;
           } else if (res < 101) {
-            const gt = global.getTile ? global.getTile(0, spot[0], spot[1]) : 0;
-            if (gt >= 1 && gt < 2 && typeof global.tileChange === 'function') {
-              global.tileChange(0, spot[0], spot[1], 1, true);
+            const gt = this.getTile(serf, 0, spot[0], spot[1]);
+            if (gt >= 1 && gt < 2) {
+              this.tileChange(serf, 0, spot[0], spot[1], 1, true);
             }
           }
 
@@ -1098,16 +1291,12 @@ class SimpleSerfBehavior {
           }
 
           // Deplete resource
-          if (typeof global.tileChange === 'function') {
-            global.tileChange(7, spot[0], spot[1], -1, true);
-          }
-          const res = global.getTile ? global.getTile(7, spot[0], spot[1]) : 0;
+          this.tileChange(serf, 7, spot[0], spot[1], -1, true);
+          const res = this.getTile(serf, 7, spot[0], spot[1]);
 
           if (res <= 0) {
             // Rock depleted
-            if (typeof global.tileChange === 'function') {
-              global.tileChange(1, spot[0], spot[1], 1);
-            }
+            this.tileChange(serf, 1, spot[0], spot[1], 1);
 
             if (building.resources && Array.isArray(building.resources)) {
               for (let i = building.resources.length - 1; i >= 0; i--) {
@@ -1121,6 +1310,8 @@ class SimpleSerfBehavior {
             // Discover adjacent rocks
             this.discoverAdjacentRocks(spot, building);
             serf.work.spot = null;
+            serf.work.workTile = null;
+            serf.work.workTileFor = null;
           }
 
           this.clearWorkTimers(serf);
@@ -1167,17 +1358,13 @@ class SimpleSerfBehavior {
           }
 
           // Mine stone
-          if (typeof global.tileChange === 'function') {
-            global.tileChange(6, spot[0], spot[1], -1, true);
-          }
+          this.tileChange(serf, 6, spot[0], spot[1], -1, true);
           serf.inventory.stone = (serf.inventory.stone || 0) + 10;
 
-          const res = global.getTile ? global.getTile(6, spot[0], spot[1]) : 0;
+          const res = this.getTile(serf, 6, spot[0], spot[1]);
           if (res <= 0) {
             // Stone depleted
-            if (typeof global.tileChange === 'function') {
-              global.tileChange(0, spot[0], spot[1], 7);
-            }
+            this.tileChange(serf, 0, spot[0], spot[1], 7);
 
             if (building.resources && Array.isArray(building.resources)) {
               for (let i = building.resources.length - 1; i >= 0; i--) {
@@ -1187,10 +1374,13 @@ class SimpleSerfBehavior {
                 }
               }
             }
+            serf.work.spot = null;
+            serf.work.workTile = null;
+            serf.work.workTileFor = null;
           } else {
-            const tile0 = global.getTile ? global.getTile(0, spot[0], spot[1]) : 0;
-            if (tile0 >= 5 && tile0 < 6 && res <= 50 && typeof global.tileChange === 'function') {
-              global.tileChange(0, spot[0], spot[1], -1, true);
+            const tile0 = this.getTile(serf, 0, spot[0], spot[1]);
+            if (tile0 >= 5 && tile0 < 6 && res <= 50) {
+              this.tileChange(serf, 0, spot[0], spot[1], -1, true);
             }
           }
 
@@ -1230,19 +1420,19 @@ class SimpleSerfBehavior {
 
       for (const t of adj) {
         if (Array.isArray(t) && t.length === 2) {
-          const gt = global.getTile ? global.getTile(1, t[0], t[1]) : 0;
+          const gt = this.getTile(building, 1, t[0], t[1]);
           if (gt === 1) {
             newRocks.push(t);
           }
         }
       }
 
-      if (newRocks.length > 0 && typeof global.tileChange === 'function' && typeof global.matrixChange === 'function') {
+      if (newRocks.length > 0) {
         for (const r of newRocks) {
           if (Array.isArray(r) && r.length === 2) {
             const num = 3 + Number((Math.random() * 0.9).toFixed(2));
-            global.tileChange(1, r[0], r[1], num);
-            global.matrixChange(1, r[0], r[1], 0);
+            this.tileChange(building, 1, r[0], r[1], num);
+            this.matrixChange(building, 1, r[0], r[1], 0);
             if (building.resources && Array.isArray(building.resources)) {
               building.resources.push(r);
             }

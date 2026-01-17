@@ -30,7 +30,7 @@ class TestScoutingCommand {
 
     const ai = player.house.ai;
     const getLoc = global.getLoc || ((x, y) => [Math.floor(x / 64), Math.floor(y / 64)]);
-    const currentTile = getLoc(player.x, player.y);
+    const currentTile = getLoc(player.x, player.y, player);
     const currentZone = global.zoneManager ? global.zoneManager.getZoneAt(currentTile) : null;
 
     let message = `<span style="color:#66ff66;">🚩 Scouting System Test:<br/>`;

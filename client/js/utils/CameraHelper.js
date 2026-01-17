@@ -129,6 +129,76 @@ class CameraHelper {
     // Normal zoom for overworld (z=0)
     return 1.0;
   }
+
+  /**
+   * Send camera update to server for spatial filtering
+   * @param {object} config - Configuration
+   * @param {object} config.cameraData - Camera data to send
+   * @param {string} config.selfId - Player ID
+   */
+  sendCameraUpdate(config) {
+    const { cameraData, selfId } = config;
+
+    // Only send if we have a socket connection
+    if (typeof window !== 'undefined' && window.socket && typeof window.socket.send === 'function') {
+      const updateData = {
+        msg: 'cameraUpdate',
+        cameraId: cameraData.cameraId || selfId, // Use player ID as camera ID for players
+        x: cameraData.x,
+        y: cameraData.y,
+        z: cameraData.z,
+        mode: cameraData.mode || 'player',
+        locked: cameraData.locked || false,
+        lockedToEntityId: cameraData.lockedToEntityId || null,
+        ownerPlayerId: cameraData.ownerPlayerId || selfId,
+        context: cameraData.context || null
+      };
+
+      window.socket.send(JSON.stringify(updateData));
+    }
+  }
+
+  /**
+   * Get camera mode based on current state
+   * @param {object} config - Configuration
+   * @returns {string} Camera mode
+   */
+  getCameraMode(config) {
+    const { spectateCameraSystem, godModeCamera, loginCameraSystem, selfId } = config;
+
+    if (spectateCameraSystem && spectateCameraSystem.isActive) {
+      return 'spectate';
+    }
+
+    if (godModeCamera && godModeCamera.isActive) {
+      return 'godmode';
+    }
+
+    if (loginCameraSystem && loginCameraSystem.isActive && !selfId) {
+      return 'login';
+    }
+
+    return 'player';
+  }
+
+  /**
+   * Get camera context for battleground/main world filtering
+   * @param {object} config - Configuration
+   * @returns {object|null} Context object
+   */
+  getCameraContext(config) {
+    const { selfId, PlayerList } = config;
+    const player = PlayerList[selfId];
+
+    if (player && (player.inBattleground || player.battlegroundMatchId)) {
+      return {
+        inBattleground: true,
+        battlegroundMatchId: player.battlegroundMatchId
+      };
+    }
+
+    return null;
+  }
 }
 
 if (typeof window !== 'undefined') {

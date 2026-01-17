@@ -39,6 +39,13 @@ Every entity that can exist in different contexts has these properties:
 
 **Important**: Both properties must be checked together. An entity is only considered "in a battleground" if both `inBattleground === true` AND `battlegroundMatchId !== null`.
 
+### Network Pack Fields
+
+Context fields are included in init/update packs for all context-sensitive entities so the client can preserve context state:
+
+- Players, NPCs, Items, Buildings, Arrows, Lights, Weather
+- Fields: `inBattleground`, `battlegroundMatchId`
+
 ### Context Isolation Rules
 
 1. **Entities in different contexts cannot interact**: They cannot see each other, attack each other, or interact in any way.
@@ -65,6 +72,10 @@ The Map Context System consists of four main components:
 - Provides context-aware tile access (`getTile`, `setTile`)
 - Provides context-aware pathfinding (`findPath`, `isWalkable`)
 - Maps entity IDs to their appropriate map context
+
+**Legacy Map Format**:
+- Battleground maps should be provided as `{ data, mapSize }`.
+- Legacy array-only maps still work but emit a warning when detected.
 
 **Key Methods**:
 - `registerBattlegroundMap(matchId, worldData, mapSize)`: Register a new battleground map
@@ -121,6 +132,13 @@ const walkable = global.mapContextManager.isWalkable(0, 10, 20, playerId);
 
 #### Validation
 - `validateContextIsolation(updatePack, matchId)`: Validate that an update pack only contains entities from the specified context
+
+#### Enforcement Flags
+
+Server-side validation can be toggled at startup:
+
+- `CONTEXT_VALIDATION_ENABLED` (default: `true`): enable context validation
+- `CONTEXT_VALIDATION_ENFORCE` (default: `true`): disconnect/kick on violations
 
 **Example**:
 ```javascript

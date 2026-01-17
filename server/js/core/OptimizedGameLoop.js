@@ -28,12 +28,20 @@ class OptimizedGameLoop {
     this.maxPacketHistorySize = 300; // Keep 5 seconds of history at 60 FPS
     this.totalBytesSent = 0;
     this.packetCount = 0;
+    this.lastUpdatePack = null;
+    this.lastUpdatePackTime = 0;
     
     // Memory monitoring
     this.memoryHistory = [];
     this.maxMemoryHistorySize = 60; // Keep 1 minute of history (1 sample per second)
     this.lastMemoryCheck = Date.now();
     this.memoryCheckInterval = 1000; // Check memory every second
+
+    // Context observability
+    this.contextStatsIntervalMs = 30000; // 30 seconds
+    this.lastContextStatsLog = 0;
+    this.staleContextCleanupIntervalMs = 10000; // 10 seconds
+    this.lastStaleContextCleanup = 0;
     
     // Delta compression: Track previous entity states
     this.previousEntityStates = new Map(); // entityId -> previous update pack
@@ -42,6 +50,7 @@ class OptimizedGameLoop {
     // Spatial filtering: Filter entities based on distance from players
     this.spatialFilteringEnabled = true;
     this.spatialFilterRadius = 1500; // Send entities within 1500 pixels of any player (viewport is ~1000 pixels)
+    this.spatialPartitionSize = 512; // Spatial bucket size for proximity queries
     
     // Update frequency optimization: Send non-critical updates less frequently
     this.updateFrequencyOptimization = true;
@@ -165,6 +174,7 @@ class OptimizedGameLoop {
   
   // Send game updates to clients
   sendUpdates() {
+    this.cleanupStaleContextEntities();
     // Track update frame for frequency optimization
     if(this.updateFrequencyOptimization) {
       this.criticalUpdateFrame++;
@@ -195,7 +205,6 @@ class OptimizedGameLoop {
         return p && p.type === 'npc' && p.inBattleground && p.battlegroundMatchId;
       });
       if(bgNPCs.length > 0) {
-        fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'OptimizedGameLoop.js:187',message:'Battleground NPCs in playerPack',data:{totalNPCs:bgNPCs.length,npcIds:bgNPCs.map(e => e.id),totalPackSize:playerPack.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
       }
     }
     // #endregion
@@ -207,10 +216,32 @@ class OptimizedGameLoop {
     const t3 = Date.now();
     const itemPack = Item.update();
     const itemTime = Date.now() - t3;
+    const debugNow = Date.now();
+    if (!global._debugTorchLogTimes) global._debugTorchLogTimes = {};
+    if (!global._debugTorchLogTimes.itemPack || debugNow - global._debugTorchLogTimes.itemPack > 2000) {
+      global._debugTorchLogTimes.itemPack = debugNow;
+      // #region agent log
+      // #endregion
+    }
     
     const t4 = Date.now();
     const lightPack = Light.update();
     const lightTime = Date.now() - t4;
+    if (!global._debugTorchLogTimes) global._debugTorchLogTimes = {};
+    if (!global._debugTorchLogTimes.lightPack || debugNow - global._debugTorchLogTimes.lightPack > 2000) {
+      global._debugTorchLogTimes.lightPack = debugNow;
+      const lightZCounts = { '-1': 0, '0': 0, other: 0 };
+      if (Array.isArray(lightPack)) {
+        for (const light of lightPack) {
+          if (!light || typeof light.z !== 'number') continue;
+          if (light.z === -1) lightZCounts['-1']++;
+          else if (light.z === 0) lightZCounts['0']++;
+          else lightZCounts.other++;
+        }
+      }
+      // #region agent log
+      // #endregion
+    }
     
     
     const t5 = Date.now();
@@ -218,8 +249,12 @@ class OptimizedGameLoop {
     const buildingTime = Date.now() - t5;
     
     const t6 = Date.now();
+    const cameraPack = Camera.update();
+    const cameraTime = Date.now() - t6;
+
+    const t7 = Date.now();
     const weatherPack = Weather.getAllUpdatePack();
-    const weatherTime = Date.now() - t6;
+    const weatherTime = Date.now() - t7;
     
     const totalTime = Date.now() - startTotal;
     
@@ -275,6 +310,12 @@ class OptimizedGameLoop {
     if(this.spatialFilteringEnabled && itemPack && Array.isArray(itemPack)) {
       filteredItemPack = this.spatialFilterItems(itemPack);
     }
+    if (!global._debugTorchLogTimes) global._debugTorchLogTimes = {};
+    if (!global._debugTorchLogTimes.itemPackFiltered || debugNow - global._debugTorchLogTimes.itemPackFiltered > 2000) {
+      global._debugTorchLogTimes.itemPackFiltered = debugNow;
+      // #region agent log
+      // #endregion
+    }
     
     // Filter buildings by map context (prevent main world buildings from appearing in battlegrounds)
     let filteredBuildingPack = buildingPack;
@@ -293,6 +334,12 @@ class OptimizedGameLoop {
     if(this.spatialFilteringEnabled && lightPack && Array.isArray(lightPack)) {
       filteredLightPack = this.spatialFilterLights(lightPack);
     }
+    if (!global._debugTorchLogTimes) global._debugTorchLogTimes = {};
+    if (!global._debugTorchLogTimes.lightPackFiltered || debugNow - global._debugTorchLogTimes.lightPackFiltered > 2000) {
+      global._debugTorchLogTimes.lightPackFiltered = debugNow;
+      // #region agent log
+      // #endregion
+    }
     
     // Filter weather by map context (weather is typically global, but filter if per-match)
     let filteredWeatherPack = weatherPack;
@@ -307,7 +354,8 @@ class OptimizedGameLoop {
       item: filteredItemPack,
       light: filteredLightPack,
       building: filteredBuildingPack,
-      weather: filteredWeatherPack
+      weather: filteredWeatherPack,
+      camera: cameraPack
     };
     
     // Track timing data
@@ -335,6 +383,16 @@ class OptimizedGameLoop {
         lastAnalysis: Date.now()
       };
     }
+
+    // Track viewer/filter stats for observability
+    if(!this._viewerStats) {
+      this._viewerStats = {
+        viewerCounts: [],
+        filteredEntityCounts: [],
+        lastLog: Date.now(),
+        logInterval: 30000 // 30 seconds
+      };
+    }
     
     // Track entity counts per update
     const entityCounts = {
@@ -351,6 +409,31 @@ class OptimizedGameLoop {
     this._packetAnalysis.entityCounts.push(entityCounts);
     if(this._packetAnalysis.entityCounts.length > 300) {
       this._packetAnalysis.entityCounts.shift();
+    }
+
+    // Track viewer and filtered entity stats
+    const viewerCount = Camera ? Object.keys(Camera.list).length : 0;
+    const filteredEntityCounts = {
+      players: compressedPlayerPack ? compressedPlayerPack.length : 0,
+      arrows: filteredArrowPack ? filteredArrowPack.length : 0,
+      items: filteredItemPack ? filteredItemPack.length : 0,
+      lights: filteredLightPack ? filteredLightPack.length : 0,
+      buildings: filteredBuildingPack ? filteredBuildingPack.length : 0,
+      weather: filteredWeatherPack ? filteredWeatherPack.length : 0,
+      total: 0
+    };
+    filteredEntityCounts.total = filteredEntityCounts.players + filteredEntityCounts.arrows +
+                                 filteredEntityCounts.items + filteredEntityCounts.lights +
+                                 filteredEntityCounts.buildings + filteredEntityCounts.weather;
+
+    this._viewerStats.viewerCounts.push(viewerCount);
+    this._viewerStats.filteredEntityCounts.push(filteredEntityCounts);
+
+    // Keep last 60 samples (1 minute at 60 FPS)
+    const maxViewerSamples = 60;
+    if(this._viewerStats.viewerCounts.length > maxViewerSamples) {
+      this._viewerStats.viewerCounts.shift();
+      this._viewerStats.filteredEntityCounts.shift();
     }
     
     // Check packet size and split if needed
@@ -394,6 +477,8 @@ class OptimizedGameLoop {
     
     // Get current time once for all periodic checks
     const now = Date.now();
+    this.lastUpdatePack = finalPack;
+    this.lastUpdatePackTime = now;
     
     // Packet analysis logging now happens once per tempus hour (see lambic.js dayNight function)
     
@@ -423,18 +508,115 @@ class OptimizedGameLoop {
     
     // CRITICAL: Validate context isolation before sending packets
     // Check each player's context and validate their update pack
-    for(const id in Player.list) {
-      const player = Player.list[id];
-      if(player && player.type === 'player') {
-        const playerMatchId = player.battlegroundMatchId || null;
-        const validation = mapContextHelpers.validateContextIsolation(finalPack, playerMatchId);
-        if(!validation.valid && validation.issues.length > 0) {
-          // Log context isolation violations
-          console.warn(`[OptimizedGameLoop] Context isolation violation for player ${id}:`, validation.issues);
+    const validationConfig = global.contextValidationConfig || { enabled: true, enforce: false };
+    if (mapContextHelpers && validationConfig.enabled) {
+      for(const id in Player.list) {
+        const player = Player.list[id];
+        if(player && player.type === 'player') {
+          const playerMatchId = player.battlegroundMatchId || null;
+          const validation = mapContextHelpers.validateContextIsolation(finalPack, playerMatchId);
+          if(!validation.valid && validation.issues.length > 0) {
+            // Log context isolation violations
+            console.warn(`[OptimizedGameLoop] Context isolation violation`, {
+              playerId: id,
+              matchId: playerMatchId,
+              issueCount: validation.issues.length,
+              issues: validation.issues
+            });
+
+            if (validationConfig.enforce) {
+              const socket = global.SOCKET_LIST ? global.SOCKET_LIST[id] : null;
+              if (socket && typeof socket.write === 'function') {
+                socket.write(JSON.stringify({
+                  msg: 'addToChat',
+                  message: '<i>Context isolation violation detected. Disconnecting.</i>'
+                }));
+              }
+              if (socket && typeof socket.close === 'function') {
+                try { socket.close(); } catch (e) {}
+              } else if (socket && typeof socket.end === 'function') {
+                try { socket.end(); } catch (e) {}
+              }
+            }
+          }
         }
       }
     }
-    
+
+    // Periodic context stats for observability
+    const statsNow = Date.now();
+    if (statsNow - this.lastContextStatsLog >= this.contextStatsIntervalMs) {
+      this.lastContextStatsLog = statsNow;
+      const stats = {
+        playersMain: 0,
+        playersBattleground: 0,
+        itemsMain: 0,
+        itemsBattleground: 0,
+        buildingsMain: 0,
+        buildingsBattleground: 0
+      };
+
+      for (const id in Player.list) {
+        const player = Player.list[id];
+        if (player && player.type === 'player') {
+          const isBG = mapContextHelpers ? mapContextHelpers.isInBattleground(player) : !!(player.inBattleground && player.battlegroundMatchId);
+          if (isBG) {
+            stats.playersBattleground += 1;
+          } else {
+            stats.playersMain += 1;
+          }
+        }
+      }
+
+      if (global.Item && global.Item.list) {
+        for (const id in global.Item.list) {
+          const item = global.Item.list[id];
+          if (!item) continue;
+          const isBG = mapContextHelpers ? mapContextHelpers.isInBattleground(item) : !!(item.inBattleground && item.battlegroundMatchId);
+          if (isBG) {
+            stats.itemsBattleground += 1;
+          } else {
+            stats.itemsMain += 1;
+          }
+        }
+      }
+
+      if (global.Building && global.Building.list) {
+        for (const id in global.Building.list) {
+          const building = global.Building.list[id];
+          if (!building) continue;
+          const isBG = mapContextHelpers ? mapContextHelpers.isInBattleground(building) : !!(building.inBattleground && building.battlegroundMatchId);
+          if (isBG) {
+            stats.buildingsBattleground += 1;
+          } else {
+            stats.buildingsMain += 1;
+          }
+        }
+      }
+
+      console.info('[OptimizedGameLoop] Context stats', stats);
+    }
+
+    // Log viewer/filter stats at low frequency when debugging is enabled
+    if (now - this._viewerStats.lastLog >= this._viewerStats.logInterval) {
+      this._viewerStats.lastLog = now;
+
+      // Only log if we have viewer data
+      if (this._viewerStats.viewerCounts.length > 0) {
+        const avgViewers = this._viewerStats.viewerCounts.reduce((sum, count) => sum + count, 0) / this._viewerStats.viewerCounts.length;
+        const latestFiltered = this._viewerStats.filteredEntityCounts[this._viewerStats.filteredEntityCounts.length - 1];
+
+        console.info('[OptimizedGameLoop] Viewer/Filter Stats:', {
+          activeViewers: Math.round(avgViewers),
+          filteredEntities: latestFiltered,
+          viewerModes: Camera ? Object.values(Camera.list).reduce((modes, camera) => {
+            modes[camera.mode] = (modes[camera.mode] || 0) + 1;
+            return modes;
+          }, {}) : {}
+        });
+      }
+    }
+
     // Send main packet
     this.emit({ msg: 'update', pack: finalPack });
     
@@ -473,6 +655,13 @@ class OptimizedGameLoop {
     if (this.frameTimeHistory.length > this.maxHistorySize) {
       this.frameTimeHistory.shift();
     }
+  }
+
+  getContextIsolationReport(matchId = null) {
+    if (!this.lastUpdatePack || !mapContextHelpers) {
+      return { valid: true, issues: [], hasPack: !!this.lastUpdatePack };
+    }
+    return mapContextHelpers.validateContextIsolation(this.lastUpdatePack, matchId);
   }
   
   // Get performance statistics
@@ -689,163 +878,215 @@ class OptimizedGameLoop {
     return compressed;
   }
   
-  // Filter entities based on distance from any player
+  // Filter entities based on distance from any viewer/camera
   spatialFilterEntities(entityPack) {
     if(!Array.isArray(entityPack) || entityPack.length === 0) return entityPack;
-    
-    // Check if any player is in godmode - if so, send all entities (spectator mode should see everything)
-    let hasGodModePlayer = false;
-    for(const id in Player.list) {
-      const player = Player.list[id];
-      if(player && player.type === 'player' && player.godMode) {
-        hasGodModePlayer = true;
-        break;
-      }
-    }
-    
-    // If any player is in godmode, skip spatial filtering and send all entities
-    if(hasGodModePlayer) return entityPack;
-    
-    // Get all player positions with map context information
-    const playerPositions = [];
-    let playersWithStaleContext = [];
-    let battlegroundPlayers = [];
-    let mainWorldPlayers = [];
-    for(const id in Player.list) {
-      const player = Player.list[id];
-      if(player && player.type === 'player' && typeof player.x === 'number' && typeof player.y === 'number') {
-        // Check for stale context (player has battleground context but no active match)
-        if(player.inBattleground && player.battlegroundMatchId) {
-          const hasActiveMatch = global.battlegroundsMatchManager && 
-                                 global.battlegroundsMatchManager.currentMatch &&
-                                 global.battlegroundsMatchManager.currentMatch.matchId === player.battlegroundMatchId;
-          if(!hasActiveMatch) {
-            playersWithStaleContext.push({id, matchId: player.battlegroundMatchId});
-          }
-          battlegroundPlayers.push(id);
-        } else {
-          mainWorldPlayers.push(id);
-        }
-        
-        playerPositions.push({ 
-          x: player.x, 
-          y: player.y, 
-          z: player.z,
-          playerId: id,
-          inBattleground: !!(player.inBattleground && player.battlegroundMatchId),
-          battlegroundMatchId: player.battlegroundMatchId || null
-        });
-      }
-    }
-    
-    // Log players with stale context (context set but no active match)
-    if(playersWithStaleContext.length > 0) {
-      console.warn(`[OptimizedGameLoop] Players with stale battleground context detected:`, playersWithStaleContext);
-    }
-    
-    // If no players, send all entities (for initial connection)
-    if(playerPositions.length === 0) return entityPack;
+
+    // Get all viewer anchors from the camera registry
+    const viewerAnchors = Camera.getViewerAnchors();
+
+    // If no viewers, send all entities (for initial connection)
+    if(viewerAnchors.length === 0) return entityPack;
     
     const filtered = [];
     const radiusSquared = this.spatialFilterRadius * this.spatialFilterRadius;
-    
-    for(const entity of entityPack) {
-      if(!entity || typeof entity.x !== 'number' || typeof entity.y !== 'number') {
-        // Include entities without valid positions (shouldn't happen, but be safe)
-        filtered.push(entity);
+    const partitionSize = this.spatialPartitionSize || 512;
+    const buckets = new Map();
+    const unpositioned = [];
+    for (const entity of entityPack) {
+      if (!entity || typeof entity.x !== 'number' || typeof entity.y !== 'number') {
+        unpositioned.push(entity);
         continue;
       }
-      
-      // Get entity's map context
-      const entityPlayer = entity.id ? Player.list[entity.id] : null;
-      const entityInBattleground = !!(entityPlayer && entityPlayer.inBattleground && entityPlayer.battlegroundMatchId);
-      const entityMatchId = entityPlayer ? (entityPlayer.battlegroundMatchId || null) : null;
-      
-      // CRITICAL: First check map context - entities from different map contexts should NEVER be included
-      // This prevents main world entities from appearing in battlegrounds and vice versa
-      let hasMatchingMapContext = false;
-      for(const playerPos of playerPositions) {
-        const sameMapContext = (playerPos.inBattleground && entityInBattleground && playerPos.battlegroundMatchId === entityMatchId) ||
-                               (!playerPos.inBattleground && !entityInBattleground);
-        if(sameMapContext) {
-          hasMatchingMapContext = true;
-          break;
-        }
+      const key = `${Math.floor(entity.x / partitionSize)},${Math.floor(entity.y / partitionSize)},${entity.z}`;
+      if (!buckets.has(key)) {
+        buckets.set(key, []);
       }
-      
-      // If entity is from a different map context, exclude it immediately (no distance check needed)
-      if(!hasMatchingMapContext) {
-        continue; // Skip this entity - it's from a different map context
-      }
-      
-      // Check if entity is near any player (only if in same map context)
-      let isNearPlayer = false;
-      for(const playerPos of playerPositions) {
-        // CRITICAL: Only check distance if on same z-level AND same map context (both in battleground with same matchId, or both in main world)
-        const sameMapContext = (playerPos.inBattleground && entityInBattleground && playerPos.battlegroundMatchId === entityMatchId) ||
-                               (!playerPos.inBattleground && !entityInBattleground);
-        
-        if(entity.z === playerPos.z && sameMapContext) {
-          const dx = entity.x - playerPos.x;
-          const dy = entity.y - playerPos.y;
-          const distanceSquared = dx * dx + dy * dy;
-          
-          if(distanceSquared <= radiusSquared) {
-            isNearPlayer = true;
-            break;
-          }
-        }
-      }
-      
-      // Check if this is a falcon (always include falcons regardless of distance - they're flying and should be visible)
-      const isFalcon = entityPlayer && entityPlayer.class === 'Falcon';
-      
-      // Check if this is an NPC in battleground
-      const isBattlegroundNPC = entityPlayer && entityPlayer.type === 'npc' && entityInBattleground;
-      
-      // Always include player's own entity (required for movement updates)
-      const isOwnEntity = entity.id && Player.list[entity.id] && Player.list[entity.id].type === 'player';
-      if(isOwnEntity) {
-        // Always include player's own entity regardless of map context (needed for movement)
-        filtered.push(entity);
-      } else if(isBattlegroundNPC) {
-        // For battleground NPCs, check if any player in the same match can see them
-        let hasMatchingContext = false;
-        for(const playerPos of playerPositions) {
-          const sameMapContext = (playerPos.inBattleground && entityInBattleground && playerPos.battlegroundMatchId === entityMatchId);
-          if(sameMapContext && entity.z === playerPos.z) {
-            const dx = entity.x - playerPos.x;
-            const dy = entity.y - playerPos.y;
+      buckets.get(key).push(entity);
+    }
+
+    const includedIds = new Set();
+    filtered.push(...unpositioned);
+
+    for (const viewer of viewerAnchors) {
+      const minX = Math.floor((viewer.x - this.spatialFilterRadius) / partitionSize);
+      const maxX = Math.floor((viewer.x + this.spatialFilterRadius) / partitionSize);
+      const minY = Math.floor((viewer.y - this.spatialFilterRadius) / partitionSize);
+      const maxY = Math.floor((viewer.y + this.spatialFilterRadius) / partitionSize);
+
+      for (let cx = minX; cx <= maxX; cx++) {
+        for (let cy = minY; cy <= maxY; cy++) {
+          const key = `${cx},${cy},${viewer.z}`;
+          const bucket = buckets.get(key);
+          if (!bucket) continue;
+
+          for (const entity of bucket) {
+            const entityId = entity && entity.id !== undefined ? entity.id : null;
+            if (!entity || (entityId !== null && includedIds.has(entityId))) continue;
+            const entityPlayer = entity.id ? Player.list[entity.id] : null;
+            const entityInBattleground = entityPlayer
+              ? (mapContextHelpers ? mapContextHelpers.isInBattleground(entityPlayer) : !!(entityPlayer.inBattleground && entityPlayer.battlegroundMatchId))
+              : false;
+            const entityMatchId = entityPlayer ? (entityPlayer.battlegroundMatchId || null) : null;
+
+            // Always include player's own entity if this viewer belongs to a player
+            if (entityPlayer && viewer.ownerPlayerId && entityPlayer.id === viewer.ownerPlayerId) {
+              includedIds.add(entity.id);
+              filtered.push(entity);
+              continue;
+            }
+
+            // Check if entity and viewer are in the same map context
+            const sameMapContext = viewer.context && entityPlayer
+              ? mapContextHelpers
+                ? mapContextHelpers.areInSameContext(entityPlayer, { inBattleground: viewer.inBattleground, battlegroundMatchId: viewer.battlegroundMatchId })
+                : ((viewer.inBattleground && entityInBattleground && viewer.battlegroundMatchId === entityMatchId) ||
+                   (!viewer.inBattleground && !entityInBattleground))
+              : !viewer.inBattleground && !entityInBattleground; // Default to main world if no context
+
+            if (!sameMapContext || entity.z !== viewer.z) continue;
+
+            const dx = entity.x - viewer.x;
+            const dy = entity.y - viewer.y;
             const distanceSquared = dx * dx + dy * dy;
-            if(distanceSquared <= radiusSquared) {
-              hasMatchingContext = true;
-              break;
+            if (distanceSquared <= radiusSquared) {
+              if (entityId !== null) {
+                includedIds.add(entityId);
+              }
+              filtered.push(entity);
             }
           }
         }
-        if(hasMatchingContext) {
-          filtered.push(entity);
+      }
+    }
+
+    // Ensure falcons are included for any matching context
+    for (const entity of entityPack) {
+      const entityId = entity && entity.id !== undefined ? entity.id : null;
+      if (!entity || (entityId !== null && includedIds.has(entityId))) continue;
+      const entityPlayer = entity.id ? Player.list[entity.id] : null;
+      if (!entityPlayer || entityPlayer.class !== 'Falcon') continue;
+
+      let hasMatchingContext = false;
+      for (const viewer of viewerAnchors) {
+        // Check if falcon and viewer are in the same context
+        const sameMapContext = viewer.context && entityPlayer
+          ? mapContextHelpers
+            ? mapContextHelpers.areInSameContext(entityPlayer, { inBattleground: viewer.inBattleground, battlegroundMatchId: viewer.battlegroundMatchId })
+            : ((viewer.inBattleground && entityPlayer.inBattleground && viewer.battlegroundMatchId === entityPlayer.battlegroundMatchId) ||
+               (!viewer.inBattleground && !(entityPlayer.inBattleground && entityPlayer.battlegroundMatchId)))
+          : !viewer.inBattleground && !(entityPlayer.inBattleground && entityPlayer.battlegroundMatchId); // Default to main world
+
+        if (sameMapContext && entity.z === viewer.z) {
+          hasMatchingContext = true;
+          break;
         }
-      } else if(isFalcon) {
-        // For falcons, check if any player in same map context
-        let hasMatchingContext = false;
-        for(const playerPos of playerPositions) {
-          const sameMapContext = (playerPos.inBattleground && entityInBattleground && playerPos.battlegroundMatchId === entityMatchId) ||
-                                 (!playerPos.inBattleground && !entityInBattleground);
-          if(sameMapContext && entity.z === playerPos.z) {
-            hasMatchingContext = true;
-            break;
-          }
+      }
+
+      if (hasMatchingContext) {
+        if (entityId !== null) {
+          includedIds.add(entityId);
         }
-        if(hasMatchingContext) {
-          filtered.push(entity);
-        }
-      } else if(isNearPlayer) {
         filtered.push(entity);
       }
     }
-    
+
     return filtered;
+  }
+
+  buildSpatialBuckets(entityPack, partitionSize) {
+    const buckets = new Map();
+    const unpositioned = [];
+
+    for (const entity of entityPack) {
+      if (!entity || typeof entity.x !== 'number' || typeof entity.y !== 'number') {
+        unpositioned.push(entity);
+        continue;
+      }
+      const key = `${Math.floor(entity.x / partitionSize)},${Math.floor(entity.y / partitionSize)},${entity.z}`;
+      if (!buckets.has(key)) {
+        buckets.set(key, []);
+      }
+      buckets.get(key).push(entity);
+    }
+
+    return { buckets, unpositioned };
+  }
+
+  cleanupStaleContextEntities() {
+    const now = Date.now();
+    if (now - this.lastStaleContextCleanup < this.staleContextCleanupIntervalMs) {
+      return;
+    }
+    this.lastStaleContextCleanup = now;
+
+    const matchManager = global.battlegroundsMatchManager;
+    if (!matchManager) return;
+
+    const activeMatchIds = new Set();
+    if (matchManager.currentMatch && matchManager.currentMatch.matchId) {
+      activeMatchIds.add(matchManager.currentMatch.matchId);
+    }
+    if (matchManager.matches && typeof matchManager.matches === 'object') {
+      for (const matchId in matchManager.matches) {
+        activeMatchIds.add(matchId);
+      }
+    }
+
+    const shouldRemove = (entity) => {
+      if (!entity) return false;
+      const inBattleground = !!(entity.inBattleground && entity.battlegroundMatchId);
+      if (!inBattleground) return false;
+      return !activeMatchIds.has(entity.battlegroundMatchId);
+    };
+
+    if (global.Item && global.Item.list) {
+      for (const id in global.Item.list) {
+        const item = global.Item.list[id];
+        if (shouldRemove(item)) {
+          item.toRemove = true;
+        }
+      }
+    }
+
+    if (global.Light && global.Light.list) {
+      for (const id in global.Light.list) {
+        const light = global.Light.list[id];
+        if (shouldRemove(light)) {
+          light.toRemove = true;
+        }
+      }
+    }
+
+    if (global.Arrow && global.Arrow.list) {
+      for (const id in global.Arrow.list) {
+        const arrow = global.Arrow.list[id];
+        if (shouldRemove(arrow)) {
+          arrow.toRemove = true;
+        }
+      }
+    }
+
+    if (global.Weather && global.Weather.list) {
+      for (const id in global.Weather.list) {
+        const weather = global.Weather.list[id];
+        if (shouldRemove(weather)) {
+          weather.toRemove = true;
+        }
+      }
+    }
+
+    if (global.Building && global.Building.list) {
+      for (const id in global.Building.list) {
+        const building = global.Building.list[id];
+        if (shouldRemove(building)) {
+          delete global.Building.list[id];
+          if (global.removePack && global.removePack.building) {
+            global.removePack.building.push(id);
+          }
+        }
+      }
+    }
   }
   
   /**
@@ -854,101 +1095,66 @@ class OptimizedGameLoop {
    */
   spatialFilterBuildings(buildingPack) {
     if(!Array.isArray(buildingPack) || buildingPack.length === 0) return buildingPack;
-    
-    // Get all player positions with map context information
-    const playerPositions = [];
-    let playersWithStaleContext = [];
-    for(const id in Player.list) {
-      const player = Player.list[id];
-      if(player && player.type === 'player' && typeof player.x === 'number' && typeof player.y === 'number') {
-        // Check for stale context (player has battleground context but no active match)
-        if(player.inBattleground && player.battlegroundMatchId) {
-          const hasActiveMatch = global.battlegroundsMatchManager && 
-                                 global.battlegroundsMatchManager.currentMatch &&
-                                 global.battlegroundsMatchManager.currentMatch.matchId === player.battlegroundMatchId;
-          if(!hasActiveMatch) {
-            playersWithStaleContext.push({id, matchId: player.battlegroundMatchId});
-          }
-        }
-        
-        playerPositions.push({ 
-          x: player.x, 
-          y: player.y, 
-          z: player.z,
-          playerId: id,
-          inBattleground: !!(player.inBattleground && player.battlegroundMatchId),
-          battlegroundMatchId: player.battlegroundMatchId || null
-        });
-      }
-    }
-    
-    // Log players with stale context (context set but no active match)
-    if(playersWithStaleContext.length > 0) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'OptimizedGameLoop.js:702',message:'Players with stale battleground context detected',data:{staleCount:playersWithStaleContext.length,players:playersWithStaleContext,hasMatchManager:!!global.battlegroundsMatchManager,hasCurrentMatch:!!(global.battlegroundsMatchManager && global.battlegroundsMatchManager.currentMatch),currentMatchId:global.battlegroundsMatchManager?.currentMatch?.matchId || null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
-      // #endregion
-    }
-    
-    // If no players, send all buildings (for initial connection)
-    if(playerPositions.length === 0) return buildingPack;
+
+    // Get all viewer anchors from the camera registry
+    const viewerAnchors = Camera.getViewerAnchors();
+
+    // If no viewers, send all buildings (for initial connection)
+    if(viewerAnchors.length === 0) return buildingPack;
     
     const filtered = [];
     const radiusSquared = this.spatialFilterRadius * this.spatialFilterRadius;
-    
-    for(const building of buildingPack) {
-      if(!building || typeof building.x !== 'number' || typeof building.y !== 'number') {
-        // Include buildings without valid positions
-        filtered.push(building);
-        continue;
-      }
-      
-      // Get building's map context from Building.list if available
-      const buildingEntity = building.id && global.Building && global.Building.list ? global.Building.list[building.id] : null;
-      if (!buildingEntity) {
-        // Building not in Building.list - skip it
-        continue;
-      }
-      
-      // CRITICAL: Use MapContextHelpers to check if building is in same context as any player
-      // This prevents main world buildings from appearing in battlegrounds and vice versa
-      let hasMatchingMapContext = false;
-      for(const playerPos of playerPositions) {
-        const playerEntity = Player.list[playerPos.playerId];
-        if (playerEntity && mapContextHelpers.areInSameContext(buildingEntity, playerEntity)) {
-          hasMatchingMapContext = true;
-          break;
-        }
-      }
-      
-      // If building is from a different map context, exclude it immediately
-      if(!hasMatchingMapContext) {
-        continue; // Skip this building - it's from a different map context
-      }
-      
-      // Check if building is near any player AND in same map context
-      let isNearPlayer = false;
-      for(const playerPos of playerPositions) {
-        const sameMapContext = (playerPos.inBattleground && buildingInBattleground && playerPos.battlegroundMatchId === buildingMatchId) ||
-                               (!playerPos.inBattleground && !buildingInBattleground);
-        
-        if(building.z === playerPos.z && sameMapContext) {
-          const dx = building.x - playerPos.x;
-          const dy = building.y - playerPos.y;
-          const distanceSquared = dx * dx + dy * dy;
-          
-          if(distanceSquared <= radiusSquared) {
-            isNearPlayer = true;
-            break;
+    const partitionSize = this.spatialPartitionSize || 512;
+    const { buckets, unpositioned } = this.buildSpatialBuckets(buildingPack, partitionSize);
+    const includedIds = new Set();
+
+    filtered.push(...unpositioned);
+
+    for (const viewer of viewerAnchors) {
+      const minX = Math.floor((viewer.x - this.spatialFilterRadius) / partitionSize);
+      const maxX = Math.floor((viewer.x + this.spatialFilterRadius) / partitionSize);
+      const minY = Math.floor((viewer.y - this.spatialFilterRadius) / partitionSize);
+      const maxY = Math.floor((viewer.y + this.spatialFilterRadius) / partitionSize);
+
+      for (let cx = minX; cx <= maxX; cx++) {
+        for (let cy = minY; cy <= maxY; cy++) {
+          const key = `${cx},${cy},${viewer.z}`;
+          const bucket = buckets.get(key);
+          if (!bucket) continue;
+
+          for (const building of bucket) {
+            const buildingId = building && building.id !== undefined ? building.id : null;
+            if (!building || (buildingId !== null && includedIds.has(buildingId))) continue;
+
+            const buildingEntity = building.id && global.Building && global.Building.list
+              ? global.Building.list[building.id]
+              : null;
+            if (!buildingEntity) continue;
+
+            // Check if building and viewer are in the same map context
+            const sameMapContext = viewer.context && buildingEntity
+              ? mapContextHelpers
+                ? mapContextHelpers.areInSameContext(buildingEntity, { inBattleground: viewer.inBattleground, battlegroundMatchId: viewer.battlegroundMatchId })
+                : ((viewer.inBattleground && buildingEntity.inBattleground && viewer.battlegroundMatchId === buildingEntity.battlegroundMatchId) ||
+                   (!viewer.inBattleground && !(buildingEntity.inBattleground && buildingEntity.battlegroundMatchId)))
+              : !viewer.inBattleground && !(buildingEntity.inBattleground && buildingEntity.battlegroundMatchId); // Default to main world
+
+            if (!sameMapContext || building.z !== viewer.z) continue;
+
+            const dx = building.x - viewer.x;
+            const dy = building.y - viewer.y;
+            const distanceSquared = dx * dx + dy * dy;
+            if (distanceSquared <= radiusSquared) {
+              if (buildingId !== null) {
+                includedIds.add(buildingId);
+              }
+              filtered.push(building);
+            }
           }
         }
       }
-      
-      // Only include buildings that are near a player in the same map context
-      if(isNearPlayer) {
-        filtered.push(building);
-      }
     }
-    
+
     return filtered;
   }
   
@@ -958,100 +1164,140 @@ class OptimizedGameLoop {
    */
   spatialFilterItems(itemPack) {
     if(!Array.isArray(itemPack) || itemPack.length === 0) return itemPack;
-    
-    // Get all player positions with map context information
-    const playerPositions = [];
-    let playersWithStaleContext = [];
-    for(const id in Player.list) {
-      const player = Player.list[id];
-      if(player && player.type === 'player' && typeof player.x === 'number' && typeof player.y === 'number') {
-        // Check for stale context (player has battleground context but no active match)
-        if(player.inBattleground && player.battlegroundMatchId) {
-          const hasActiveMatch = global.battlegroundsMatchManager && 
-                                 global.battlegroundsMatchManager.currentMatch &&
-                                 global.battlegroundsMatchManager.currentMatch.matchId === player.battlegroundMatchId;
-          if(!hasActiveMatch) {
-            playersWithStaleContext.push({id, matchId: player.battlegroundMatchId});
-          }
+
+    // Get all viewer anchors from the camera registry
+    const viewerAnchors = Camera.getViewerAnchors();
+
+    // If no viewers, send all items (for initial connection)
+    if(viewerAnchors.length === 0) return itemPack;
+    const now = Date.now();
+    if (!global._debugTorchLogTimes) global._debugTorchLogTimes = {};
+    const logTorchFilter = !global._debugTorchLogTimes.torchItemFilter || now - global._debugTorchLogTimes.torchItemFilter > 2000;
+    const torchStats = logTorchFilter ? {
+      total: 0,
+      included: 0,
+      contextMismatch: 0,
+      zMismatch: 0,
+      distanceFail: 0,
+      missingEntity: 0
+    } : null;
+    const includedTorchIds = logTorchFilter ? [] : null;
+    if (logTorchFilter) {
+      for (const item of itemPack) {
+        const itemEntity = item && item.id !== undefined && global.Item && global.Item.list ? global.Item.list[item.id] : null;
+        if (itemEntity && itemEntity.type === 'LitTorch') {
+          torchStats.total++;
         }
-        
-        playerPositions.push({ 
-          x: player.x, 
-          y: player.y, 
-          z: player.z,
-          playerId: id,
-          inBattleground: !!(player.inBattleground && player.battlegroundMatchId),
-          battlegroundMatchId: player.battlegroundMatchId || null
-        });
       }
     }
-    
-    // Log players with stale context (context set but no active match)
-    if(playersWithStaleContext.length > 0) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'OptimizedGameLoop.js:702',message:'Players with stale battleground context detected',data:{staleCount:playersWithStaleContext.length,players:playersWithStaleContext,hasMatchManager:!!global.battlegroundsMatchManager,hasCurrentMatch:!!(global.battlegroundsMatchManager && global.battlegroundsMatchManager.currentMatch),currentMatchId:global.battlegroundsMatchManager?.currentMatch?.matchId || null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
-      // #endregion
-    }
-    
-    // If no players, send all items (for initial connection)
-    if(playerPositions.length === 0) return itemPack;
     
     const filtered = [];
     const radiusSquared = this.spatialFilterRadius * this.spatialFilterRadius;
-    
-    for(const item of itemPack) {
-      if(!item || typeof item.x !== 'number' || typeof item.y !== 'number') {
-        // Include items without valid positions
-        filtered.push(item);
-        continue;
-      }
-      
-      // Get item's map context from Item.list if available
-      const itemEntity = item.id && global.Item && global.Item.list ? global.Item.list[item.id] : null;
-      if (!itemEntity) {
-        // Item not in Item.list - skip it
-        continue;
-      }
-      
-      // CRITICAL: Use MapContextHelpers to check if item is in same context as any player
-      let hasMatchingMapContext = false;
-      for(const playerPos of playerPositions) {
-        const playerEntity = Player.list[playerPos.playerId];
-        if (playerEntity && mapContextHelpers.areInSameContext(itemEntity, playerEntity)) {
-          hasMatchingMapContext = true;
-          break;
-        }
-      }
-      
-      // If item is from a different map context, exclude it immediately
-      if(!hasMatchingMapContext) {
-        continue; // Skip this item - it's from a different map context
-      }
-      
-      // Check if item is near any player AND in same map context
-      let isNearPlayer = false;
-      for(const playerPos of playerPositions) {
-        const playerEntity = Player.list[playerPos.playerId];
-        // CRITICAL: Only check distance if on same z-level AND same map context
-        if (playerEntity && mapContextHelpers.areInSameContext(itemEntity, playerEntity) && item.z === playerPos.z) {
-          const dx = item.x - playerPos.x;
-          const dy = item.y - playerPos.y;
-          const distanceSquared = dx * dx + dy * dy;
-          
-          if(distanceSquared <= radiusSquared) {
-            isNearPlayer = true;
-            break;
+    const partitionSize = this.spatialPartitionSize || 512;
+    const { buckets, unpositioned } = this.buildSpatialBuckets(itemPack, partitionSize);
+    const includedIds = new Set();
+
+    filtered.push(...unpositioned);
+
+    for (const viewer of viewerAnchors) {
+      const minX = Math.floor((viewer.x - this.spatialFilterRadius) / partitionSize);
+      const maxX = Math.floor((viewer.x + this.spatialFilterRadius) / partitionSize);
+      const minY = Math.floor((viewer.y - this.spatialFilterRadius) / partitionSize);
+      const maxY = Math.floor((viewer.y + this.spatialFilterRadius) / partitionSize);
+
+      for (let cx = minX; cx <= maxX; cx++) {
+        for (let cy = minY; cy <= maxY; cy++) {
+          const key = `${cx},${cy},${viewer.z}`;
+          const bucket = buckets.get(key);
+          if (!bucket) continue;
+
+          for (const item of bucket) {
+            const itemId = item && item.id !== undefined ? item.id : null;
+            if (!item || (itemId !== null && includedIds.has(itemId))) continue;
+            const itemEntity = item.id && global.Item && global.Item.list ? global.Item.list[item.id] : null;
+            if (!itemEntity) {
+              if (torchStats && itemId !== null) {
+                torchStats.missingEntity++;
+              }
+              continue;
+            }
+
+            // Check if item and viewer are in the same map context
+            const sameMapContext = viewer.context && itemEntity
+              ? mapContextHelpers
+                ? mapContextHelpers.areInSameContext(itemEntity, { inBattleground: viewer.inBattleground, battlegroundMatchId: viewer.battlegroundMatchId })
+                : ((viewer.inBattleground && itemEntity.inBattleground && viewer.battlegroundMatchId === itemEntity.battlegroundMatchId) ||
+                   (!viewer.inBattleground && !(itemEntity.inBattleground && itemEntity.battlegroundMatchId)))
+              : !viewer.inBattleground && !(itemEntity.inBattleground && itemEntity.battlegroundMatchId); // Default to main world
+
+            if (!sameMapContext || item.z !== viewer.z) {
+              if (torchStats && itemEntity.type === 'LitTorch') {
+                if (!sameMapContext) torchStats.contextMismatch++;
+                else torchStats.zMismatch++;
+              }
+              continue;
+            }
+
+            const dx = item.x - viewer.x;
+            const dy = item.y - viewer.y;
+            const distanceSquared = dx * dx + dy * dy;
+            if (distanceSquared <= radiusSquared) {
+              if (itemId !== null) {
+                includedIds.add(itemId);
+              }
+              if (torchStats && itemEntity.type === 'LitTorch') {
+                torchStats.included++;
+                if (includedTorchIds && includedTorchIds.length < 3) {
+                  includedTorchIds.push(itemEntity.id);
+                }
+              }
+              filtered.push(item);
+            } else if (torchStats && itemEntity.type === 'LitTorch') {
+              torchStats.distanceFail++;
+            }
           }
         }
       }
-      
-      // Only include items that are near a player in the same map context
-      // This prevents main world items (with innaWoods=true) from appearing in battlegrounds
-      if(isNearPlayer) {
-        filtered.push(item);
-      }
     }
-    
+    if (logTorchFilter) {
+      global._debugTorchLogTimes.torchItemFilter = now;
+      const viewerZCounts = {};
+      for (const viewer of viewerAnchors) {
+        const key = String(viewer.z);
+        viewerZCounts[key] = (viewerZCounts[key] || 0) + 1;
+      }
+      let closestTorch = null;
+      if (viewerAnchors.length > 0) {
+        const primaryViewer = viewerAnchors[0];
+        // For logging, we can use a mock entity with the viewer's context
+        const mockEntity = {
+          inBattleground: primaryViewer.inBattleground,
+          battlegroundMatchId: primaryViewer.battlegroundMatchId
+        };
+        let closestDist = Infinity;
+        for (const item of itemPack) {
+          const itemEntity = item && item.id !== undefined && global.Item && global.Item.list ? global.Item.list[item.id] : null;
+          if (!itemEntity || itemEntity.type !== 'LitTorch') continue;
+          const sameMapContext = primaryViewer.context && itemEntity
+            ? mapContextHelpers
+              ? mapContextHelpers.areInSameContext(itemEntity, mockEntity)
+              : ((primaryViewer.inBattleground && itemEntity.inBattleground && primaryViewer.battlegroundMatchId === itemEntity.battlegroundMatchId) ||
+                 (!primaryViewer.inBattleground && !(itemEntity.inBattleground && itemEntity.battlegroundMatchId)))
+            : !primaryViewer.inBattleground && !(itemEntity.inBattleground && itemEntity.battlegroundMatchId);
+          if (!sameMapContext || itemEntity.z !== primaryViewer.z) continue;
+          const dx = itemEntity.x - primaryViewer.x;
+          const dy = itemEntity.y - primaryViewer.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < closestDist) {
+            closestDist = dist;
+            closestTorch = { id: itemEntity.id, z: itemEntity.z, distance: Math.round(dist) };
+          }
+        }
+      }
+      // #region agent log
+      // #endregion
+    }
+
     return filtered;
   }
   
@@ -1061,106 +1307,69 @@ class OptimizedGameLoop {
    */
   spatialFilterArrows(arrowPack) {
     if(!Array.isArray(arrowPack) || arrowPack.length === 0) return arrowPack;
-    
-    // Get all player positions with map context information
-    const playerPositions = [];
-    let playersWithStaleContext = [];
-    for(const id in Player.list) {
-      const player = Player.list[id];
-      if(player && player.type === 'player' && typeof player.x === 'number' && typeof player.y === 'number') {
-        // Check for stale context (player has battleground context but no active match)
-        if(player.inBattleground && player.battlegroundMatchId) {
-          const hasActiveMatch = global.battlegroundsMatchManager && 
-                                 global.battlegroundsMatchManager.currentMatch &&
-                                 global.battlegroundsMatchManager.currentMatch.matchId === player.battlegroundMatchId;
-          if(!hasActiveMatch) {
-            playersWithStaleContext.push({id, matchId: player.battlegroundMatchId});
-          }
-        }
-        
-        playerPositions.push({ 
-          x: player.x, 
-          y: player.y, 
-          z: player.z,
-          playerId: id,
-          inBattleground: !!(player.inBattleground && player.battlegroundMatchId),
-          battlegroundMatchId: player.battlegroundMatchId || null
-        });
-      }
-    }
-    
-    // Log players with stale context (context set but no active match)
-    if(playersWithStaleContext.length > 0) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'OptimizedGameLoop.js:702',message:'Players with stale battleground context detected',data:{staleCount:playersWithStaleContext.length,players:playersWithStaleContext,hasMatchManager:!!global.battlegroundsMatchManager,hasCurrentMatch:!!(global.battlegroundsMatchManager && global.battlegroundsMatchManager.currentMatch),currentMatchId:global.battlegroundsMatchManager?.currentMatch?.matchId || null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
-      // #endregion
-    }
-    
-    // If no players, send all arrows (for initial connection)
-    if(playerPositions.length === 0) return arrowPack;
+
+    // Get all viewer anchors from the camera registry
+    const viewerAnchors = Camera.getViewerAnchors();
+
+    // If no viewers, send all arrows (for initial connection)
+    if(viewerAnchors.length === 0) return arrowPack;
     
     const filtered = [];
     const radiusSquared = this.spatialFilterRadius * this.spatialFilterRadius;
-    
-    for(const arrow of arrowPack) {
-      if(!arrow || typeof arrow.x !== 'number' || typeof arrow.y !== 'number') {
-        // Include arrows without valid positions
-        filtered.push(arrow);
-        continue;
-      }
-      
-      // Get arrow's map context from Arrow.list or parent entity
-      let arrowEntity = null;
-      if(global.Arrow && global.Arrow.list && global.Arrow.list[arrow.id]) {
-        arrowEntity = global.Arrow.list[arrow.id];
-      } else if(arrow.parent && global.Player && global.Player.list) {
-        // Arrows inherit context from parent
-        arrowEntity = global.Player.list[arrow.parent];
-      }
-      
-      if (!arrowEntity) {
-        // Arrow not found - skip it
-        continue;
-      }
-      
-      // CRITICAL: Use MapContextHelpers to check if arrow is in same context as any player
-      let hasMatchingMapContext = false;
-      for(const playerPos of playerPositions) {
-        const playerEntity = Player.list[playerPos.playerId];
-        if (playerEntity && mapContextHelpers.areInSameContext(arrowEntity, playerEntity)) {
-          hasMatchingMapContext = true;
-          break;
-        }
-      }
-      
-      // If arrow is from a different map context, exclude it immediately
-      if(!hasMatchingMapContext) {
-        continue; // Skip this arrow - it's from a different map context
-      }
-      
-      // Check if arrow is near any player AND in same map context
-      let isNearPlayer = false;
-      for(const playerPos of playerPositions) {
-        const playerEntity = Player.list[playerPos.playerId];
-        // CRITICAL: Only check distance if on same z-level AND same map context
-        if (playerEntity && mapContextHelpers.areInSameContext(arrowEntity, playerEntity) && arrow.z === playerPos.z) {
-          const dx = arrow.x - playerPos.x;
-          const dy = arrow.y - playerPos.y;
-          const distanceSquared = dx * dx + dy * dy;
-          
-          if(distanceSquared <= radiusSquared) {
-            isNearPlayer = true;
-            break;
+    const partitionSize = this.spatialPartitionSize || 512;
+    const { buckets, unpositioned } = this.buildSpatialBuckets(arrowPack, partitionSize);
+    const includedIds = new Set();
+
+    filtered.push(...unpositioned);
+
+    for (const viewer of viewerAnchors) {
+      const minX = Math.floor((viewer.x - this.spatialFilterRadius) / partitionSize);
+      const maxX = Math.floor((viewer.x + this.spatialFilterRadius) / partitionSize);
+      const minY = Math.floor((viewer.y - this.spatialFilterRadius) / partitionSize);
+      const maxY = Math.floor((viewer.y + this.spatialFilterRadius) / partitionSize);
+
+      for (let cx = minX; cx <= maxX; cx++) {
+        for (let cy = minY; cy <= maxY; cy++) {
+          const key = `${cx},${cy},${viewer.z}`;
+          const bucket = buckets.get(key);
+          if (!bucket) continue;
+
+          for (const arrow of bucket) {
+            const arrowId = arrow && arrow.id !== undefined ? arrow.id : null;
+            if (!arrow || (arrowId !== null && includedIds.has(arrowId))) continue;
+
+            let arrowEntity = null;
+            if (global.Arrow && global.Arrow.list && global.Arrow.list[arrow.id]) {
+              arrowEntity = global.Arrow.list[arrow.id];
+            } else if (arrow.parent && global.Player && global.Player.list) {
+              arrowEntity = global.Player.list[arrow.parent];
+            }
+            if (!arrowEntity) continue;
+
+            // Check if arrow and viewer are in the same map context
+            const sameMapContext = viewer.context && arrowEntity
+              ? mapContextHelpers
+                ? mapContextHelpers.areInSameContext(arrowEntity, { inBattleground: viewer.inBattleground, battlegroundMatchId: viewer.battlegroundMatchId })
+                : ((viewer.inBattleground && arrowEntity.inBattleground && viewer.battlegroundMatchId === arrowEntity.battlegroundMatchId) ||
+                   (!viewer.inBattleground && !(arrowEntity.inBattleground && arrowEntity.battlegroundMatchId)))
+              : !viewer.inBattleground && !(arrowEntity.inBattleground && arrowEntity.battlegroundMatchId); // Default to main world
+
+            if (!sameMapContext || arrow.z !== viewer.z) continue;
+
+            const dx = arrow.x - viewer.x;
+            const dy = arrow.y - viewer.y;
+            const distanceSquared = dx * dx + dy * dy;
+            if (distanceSquared <= radiusSquared) {
+              if (arrowId !== null) {
+                includedIds.add(arrowId);
+              }
+              filtered.push(arrow);
+            }
           }
         }
       }
-      
-      // Only include arrows that are near a player in the same map context
-      if(isNearPlayer) {
-        filtered.push(arrow);
-      }
     }
-    
+
     return filtered;
   }
   
@@ -1169,99 +1378,76 @@ class OptimizedGameLoop {
    */
   spatialFilterLights(lightPack) {
     if(!Array.isArray(lightPack) || lightPack.length === 0) return lightPack;
-    
-    // Get all player positions with map context information
-    const playerPositions = [];
-    let playersWithStaleContext = [];
-    for(const id in Player.list) {
-      const player = Player.list[id];
-      if(player && player.type === 'player' && typeof player.x === 'number' && typeof player.y === 'number') {
-        // Check for stale context (player has battleground context but no active match)
-        if(player.inBattleground && player.battlegroundMatchId) {
-          const hasActiveMatch = global.battlegroundsMatchManager && 
-                                 global.battlegroundsMatchManager.currentMatch &&
-                                 global.battlegroundsMatchManager.currentMatch.matchId === player.battlegroundMatchId;
-          if(!hasActiveMatch) {
-            playersWithStaleContext.push({id, matchId: player.battlegroundMatchId});
-          }
-        }
-        
-        playerPositions.push({ 
-          x: player.x, 
-          y: player.y, 
-          z: player.z,
-          playerId: id,
-          inBattleground: !!(player.inBattleground && player.battlegroundMatchId),
-          battlegroundMatchId: player.battlegroundMatchId || null
-        });
-      }
+    const now = Date.now();
+    if (!global._debugTorchLogTimes) global._debugTorchLogTimes = {};
+    if (!global._debugTorchLogTimes.spatialLights || now - global._debugTorchLogTimes.spatialLights > 2000) {
+      global._debugTorchLogTimes.spatialLights = now;
+    // #region agent log
+    // #endregion
     }
     
-    // Log players with stale context (context set but no active match)
-    if(playersWithStaleContext.length > 0) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'OptimizedGameLoop.js:702',message:'Players with stale battleground context detected',data:{staleCount:playersWithStaleContext.length,players:playersWithStaleContext,hasMatchManager:!!global.battlegroundsMatchManager,hasCurrentMatch:!!(global.battlegroundsMatchManager && global.battlegroundsMatchManager.currentMatch),currentMatchId:global.battlegroundsMatchManager?.currentMatch?.matchId || null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
-      // #endregion
-    }
-    
-    // If no players, send all lights (for initial connection)
-    if(playerPositions.length === 0) return lightPack;
+    // Get all viewer anchors from the camera registry
+    const viewerAnchors = Camera.getViewerAnchors();
+
+    // If no viewers, send all lights (for initial connection)
+    if(viewerAnchors.length === 0) return lightPack;
     
     const filtered = [];
     const radiusSquared = this.spatialFilterRadius * this.spatialFilterRadius;
-    
-    for(const light of lightPack) {
-      if(!light || typeof light.x !== 'number' || typeof light.y !== 'number') {
-        // Include lights without valid positions
-        filtered.push(light);
-        continue;
-      }
-      
-      // Get light's map context from Light.list if available
-      const lightEntity = light.id && global.Light && global.Light.list ? global.Light.list[light.id] : null;
-      if (!lightEntity) {
-        // Light not in Light.list - skip it
-        continue;
-      }
-      
-      // CRITICAL: Use MapContextHelpers to check if light is in same context as any player
-      let hasMatchingMapContext = false;
-      for(const playerPos of playerPositions) {
-        const playerEntity = Player.list[playerPos.playerId];
-        if (playerEntity && mapContextHelpers.areInSameContext(lightEntity, playerEntity)) {
-          hasMatchingMapContext = true;
-          break;
-        }
-      }
-      
-      // If light is from a different map context, exclude it immediately
-      if(!hasMatchingMapContext) {
-        continue; // Skip this light - it's from a different map context
-      }
-      
-      // Check if light is near any player AND in same map context
-      let isNearPlayer = false;
-      for(const playerPos of playerPositions) {
-        const playerEntity = Player.list[playerPos.playerId];
-        // CRITICAL: Only check distance if on same z-level AND same map context
-        if (playerEntity && mapContextHelpers.areInSameContext(lightEntity, playerEntity) && light.z === playerPos.z) {
-          const dx = light.x - playerPos.x;
-          const dy = light.y - playerPos.y;
-          const distanceSquared = dx * dx + dy * dy;
-          
-          if(distanceSquared <= radiusSquared) {
-            isNearPlayer = true;
-            break;
+    const partitionSize = this.spatialPartitionSize || 512;
+    const { buckets, unpositioned } = this.buildSpatialBuckets(lightPack, partitionSize);
+    const includedIds = new Set();
+
+    filtered.push(...unpositioned);
+
+    for (const viewer of viewerAnchors) {
+      const minX = Math.floor((viewer.x - this.spatialFilterRadius) / partitionSize);
+      const maxX = Math.floor((viewer.x + this.spatialFilterRadius) / partitionSize);
+      const minY = Math.floor((viewer.y - this.spatialFilterRadius) / partitionSize);
+      const maxY = Math.floor((viewer.y + this.spatialFilterRadius) / partitionSize);
+
+      for (let cx = minX; cx <= maxX; cx++) {
+        for (let cy = minY; cy <= maxY; cy++) {
+          const key = `${cx},${cy},${viewer.z}`;
+          const bucket = buckets.get(key);
+          if (!bucket) continue;
+
+          for (const light of bucket) {
+            const lightId = light && light.id !== undefined ? light.id : null;
+            if (!light || (lightId !== null && includedIds.has(lightId))) continue;
+            const lightEntity = light.id && global.Light && global.Light.list ? global.Light.list[light.id] : null;
+            if (!lightEntity) continue;
+
+            // Check if light and viewer are in the same map context
+            const sameMapContext = viewer.context && lightEntity
+              ? mapContextHelpers
+                ? mapContextHelpers.areInSameContext(lightEntity, { inBattleground: viewer.inBattleground, battlegroundMatchId: viewer.battlegroundMatchId })
+                : ((viewer.inBattleground && lightEntity.inBattleground && viewer.battlegroundMatchId === lightEntity.battlegroundMatchId) ||
+                   (!viewer.inBattleground && !(lightEntity.inBattleground && lightEntity.battlegroundMatchId)))
+              : !viewer.inBattleground && !(lightEntity.inBattleground && lightEntity.battlegroundMatchId); // Default to main world
+
+            if (!sameMapContext || light.z !== viewer.z) continue;
+
+            const dx = light.x - viewer.x;
+            const dy = light.y - viewer.y;
+            const distanceSquared = dx * dx + dy * dy;
+            if (distanceSquared <= radiusSquared) {
+              if (lightId !== null) {
+                includedIds.add(lightId);
+              }
+              filtered.push(light);
+            }
           }
         }
       }
-      
-      // Only include lights that are near a player in the same map context
-      if(isNearPlayer) {
-        filtered.push(light);
-      }
     }
-    
+
+    if (!global._debugTorchLogTimes) global._debugTorchLogTimes = {};
+    if (!global._debugTorchLogTimes.spatialLightsResult || now - global._debugTorchLogTimes.spatialLightsResult > 2000) {
+      global._debugTorchLogTimes.spatialLightsResult = now;
+      // #region agent log
+      // #endregion
+    }
     return filtered;
   }
   
@@ -1270,10 +1456,37 @@ class OptimizedGameLoop {
    * For now, weather is usually global, so we just return it as-is unless it has match-specific data
    */
   spatialFilterWeather(weatherPack) {
-    // Weather is typically global, not per-match
-    // If weather becomes match-specific in the future, add filtering here
-    // For now, just return as-is
-    return weatherPack;
+    if (!Array.isArray(weatherPack) || weatherPack.length === 0) return weatherPack;
+    if (!mapContextHelpers || !global.Weather || !global.Weather.list) return weatherPack;
+
+    // Get all viewer anchors from the camera registry
+    const viewerAnchors = Camera.getViewerAnchors();
+    if (viewerAnchors.length === 0) return weatherPack;
+
+    const filtered = [];
+    for (const weather of weatherPack) {
+      const weatherEntity = weather && weather.id !== undefined ? global.Weather.list[weather.id] : null;
+      if (!weatherEntity) {
+        filtered.push(weather);
+        continue;
+      }
+      let hasMatchingContext = false;
+      for (const viewer of viewerAnchors) {
+        // Check if weather and viewer are in the same context
+        const mockViewerEntity = {
+          inBattleground: viewer.inBattleground,
+          battlegroundMatchId: viewer.battlegroundMatchId
+        };
+        if (mapContextHelpers.areInSameContext(weatherEntity, mockViewerEntity)) {
+          hasMatchingContext = true;
+          break;
+        }
+      }
+      if (hasMatchingContext) {
+        filtered.push(weather);
+      }
+    }
+    return filtered;
   }
 }
 

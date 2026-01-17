@@ -61,6 +61,10 @@ class ContextTransitionManager {
       return { success: false, error: 'Player not found' };
     }
 
+    if (this.transitionsInProgress.has(playerId)) {
+      return { success: false, error: 'Transition already in progress' };
+    }
+
     // Get current context
     const fromContext = {
       inBattleground: !!(player.inBattleground && player.battlegroundMatchId),

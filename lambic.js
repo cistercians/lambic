@@ -92,6 +92,14 @@ const Z_LEVELS = {
 global.TERRAIN = TERRAIN;
 global.Z_LEVELS = Z_LEVELS;
 
+// Map context validation configuration (default: enabled + enforce)
+const CONTEXT_VALIDATION_ENABLED = process.env.CONTEXT_VALIDATION_ENABLED !== 'false';
+const CONTEXT_VALIDATION_ENFORCE = process.env.CONTEXT_VALIDATION_ENFORCE !== 'false';
+global.contextValidationConfig = {
+  enabled: CONTEXT_VALIDATION_ENABLED,
+  enforce: CONTEXT_VALIDATION_ENFORCE
+};
+
 // Helper function to check if terrain is a large rock (resource-carrying)
 // Large rocks have values > TERRAIN.ROCKS (4) && < TERRAIN.MOUNTAIN (5)
 function isLargeRock(terrain) {
@@ -205,7 +213,11 @@ function continueServerInitialization() {
   global.tilemapSystem = tilemapIntegration;
 
   // Initialize map context manager for multiple map instances (battlegrounds)
-  mapContextManager.init(global.tilemapSystem);
+  if (global.tilemapSystem && typeof global.tilemapSystem.getTile === 'function') {
+    mapContextManager.init(global.tilemapSystem);
+  } else {
+    console.error('[INIT] tilemapSystem not ready for MapContextManager initialization');
+  }
   global.mapContextManager = mapContextManager;
   global.mapContextHelpers = mapContextHelpers;
   global.contextTransitionManager = contextTransitionManager;
@@ -728,6 +740,13 @@ systemRegistry.register('commands', commandHandler, {
 
 // Create optimized game loop
 const optimizedGameLoop = new OptimizedGameLoop();
+global.optimizedGameLoop = optimizedGameLoop;
+global.runContextIsolationCheck = function(matchId = null) {
+  if (!global.optimizedGameLoop || typeof global.optimizedGameLoop.getContextIsolationReport !== 'function') {
+    return { valid: true, issues: [], hasPack: false };
+  }
+  return global.optimizedGameLoop.getContextIsolationReport(matchId);
+};
 systemRegistry.register('gameLoop', optimizedGameLoop, { 
   dependsOn: ['gameState'], 
   priority: 15 
@@ -946,50 +965,59 @@ function tileChange(l, c, r, n, incr = false, entityId) {
   if (typeof l !== 'number' || typeof c !== 'number' || typeof r !== 'number') {
     return;
   }
-  
-  // If entityId is provided, use context-aware tile change
-  if (entityId && global.mapContextManager) {
-    const contextMapSize = global.mapContextManager.getMapSize(entityId);
+
+  // Determine context when entityId is provided
+  const context = (entityId && global.mapContextManager)
+    ? global.mapContextManager.getMapContext(entityId)
+    : null;
+
+  // Battleground context uses context-aware tile changes
+  if (context && context.type === 'battleground') {
+    const contextMapSize = context.mapSize || 0;
     if (contextMapSize > 0 && c >= 0 && c < contextMapSize && r >= 0 && r < contextMapSize) {
       // Get current tile value first
       const currentTile = global.mapContextManager.getTile(l, c, r, entityId);
       if (currentTile === undefined) return;
-      
+
       // Calculate new tile value
       let newTileValue = n;
       if (incr) {
         newTileValue = currentTile + n;
       }
-      
+
       // Update tile via context manager
       global.mapContextManager.setTile(l, c, r, newTileValue, entityId);
-      return;
     }
     return;
   }
-  
+
   // Default: main world (backward compatibility)
-  if (c < 0 || c >= mapSize || r < 0 || r >= mapSize) {
+  const currentMapSize = (context && context.mapSize) ? context.mapSize : mapSize;
+  if (c < 0 || c >= currentMapSize || r < 0 || r >= currentMapSize) {
     return;
   }
-  
+
   try {
-  global.tilemapSystem.updateTile(l, c, r, n, incr);
-  
-  // Update the local world array to keep it in sync
-  const newTileValue = global.tilemapSystem.getTile(l, c, r);
-  
-  // Ensure the world array structure exists
-  if (!world[l]) {
-    world[l] = [];
-  }
-  if (!world[l][r]) {
-    world[l][r] = [];
-  }
-  world[l][r][c] = newTileValue;
-  
-  // Automatically emit tile update to all clients
-  emit({ msg: 'tileEdit', l, c, r, tile: newTileValue });
+    global.tilemapSystem.updateTile(l, c, r, n, incr);
+
+    // Update the local world array to keep it in sync
+    const newTileValue = global.tilemapSystem.getTile(l, c, r);
+
+    // Ensure the world array structure exists
+    if (!world[l]) {
+      world[l] = [];
+    }
+    if (!world[l][r]) {
+      world[l][r] = [];
+    }
+    world[l][r][c] = newTileValue;
+
+    // Automatically emit tile update to all clients
+    const tileEditPayload = { msg: 'tileEdit', l, c, r, tile: newTileValue };
+    if (global.debugTileEdits) {
+      tileEditPayload.ts = Date.now();
+    }
+    emit(tileEditPayload);
   } catch (error) {
   }
 }
@@ -1238,18 +1266,32 @@ let gridO, gridU, gridB1, gridB2, gridB3, gridW, gridS;
 // INTERACTABILITY SYSTEM
 // ============================================================================
 
-// Map to store interactable tiles: key = "layer:c,r", value = building/object ID
+// Map to store interactable tiles: key = "context:layer:c,r", value = building/object ID
 const interactableTiles = new Map();
 
+function getInteractableContextKey(entityId) {
+  if (entityId && global.mapContextManager) {
+    const context = global.mapContextManager.getMapContext(entityId);
+    if (context && context.type === 'battleground' && context.matchId) {
+      return `bg:${context.matchId}`;
+    }
+  }
+  return 'main';
+}
+
 // Set a tile as interactable
-function setTileInteractable(layer, c, r, buildingId) {
+function setTileInteractable(layer, c, r, buildingId, entityId) {
   if (typeof layer !== 'number' || typeof c !== 'number' || typeof r !== 'number') {
     return;
   }
-  if (c < 0 || c >= mapSize || r < 0 || r >= mapSize) {
+  const contextMapSize = entityId && global.mapContextManager
+    ? global.mapContextManager.getMapSize(entityId)
+    : mapSize;
+  if (c < 0 || c >= contextMapSize || r < 0 || r >= contextMapSize) {
     return;
   }
-  const key = `${layer}:${c},${r}`;
+  const contextKey = getInteractableContextKey(entityId);
+  const key = `${contextKey}:${layer}:${c},${r}`;
   interactableTiles.set(key, buildingId);
 }
 
@@ -1267,19 +1309,24 @@ function isTileInteractable(layer, c, r, entityId) {
   if (c < 0 || c >= contextMapSize || r < 0 || r >= contextMapSize) {
     return undefined;
   }
-  const key = `${layer}:${c},${r}`;
+  const contextKey = getInteractableContextKey(entityId);
+  const key = `${contextKey}:${layer}:${c},${r}`;
   return interactableTiles.get(key);
 }
 
 // Clear interactability for a specific tile
-function clearTileInteractable(layer, c, r) {
+function clearTileInteractable(layer, c, r, entityId) {
   if (typeof layer !== 'number' || typeof c !== 'number' || typeof r !== 'number') {
     return;
   }
-  if (c < 0 || c >= mapSize || r < 0 || r >= mapSize) {
+  const contextMapSize = entityId && global.mapContextManager
+    ? global.mapContextManager.getMapSize(entityId)
+    : mapSize;
+  if (c < 0 || c >= contextMapSize || r < 0 || r >= contextMapSize) {
     return;
   }
-  const key = `${layer}:${c},${r}`;
+  const contextKey = getInteractableContextKey(entityId);
+  const key = `${contextKey}:${layer}:${c},${r}`;
   interactableTiles.delete(key);
 }
 
@@ -1298,8 +1345,8 @@ function clearBuildingInteractableTiles(buildingId) {
 }
 
 // Get interactable building at a location (helper for server-side)
-function getInteractableBuilding(layer, c, r) {
-  return isTileInteractable(layer, c, r);
+function getInteractableBuilding(layer, c, r, entityId) {
+  return isTileInteractable(layer, c, r, entityId);
 }
 
 // Export interactability functions globally
@@ -1447,15 +1494,26 @@ function canMoveDirectly(start, end, z = 0, entityId) {
   return true;
 }
 
+function getPathCacheKey(start, end, z, entityId) {
+  let contextKey = 'main';
+  if (entityId && global.mapContextManager) {
+    const context = global.mapContextManager.getMapContext(entityId);
+    if (context && context.type === 'battleground') {
+      contextKey = `bg:${context.matchId}`;
+    }
+  }
+  return `${contextKey}|${start[0]},${start[1]},${end[0]},${end[1]},${z}`;
+}
+
 // Get cached path or compute new one
-function getCachedPath(start, end, z) {
-  const key = `${start[0]},${start[1]},${end[0]},${end[1]},${z}`;
+function getCachedPath(start, end, z, entityId) {
+  const key = getPathCacheKey(start, end, z, entityId);
   return pathCache.get(key);
 }
 
 // Cache a computed path
-function cachePath(start, end, z, path) {
-  const key = `${start[0]},${start[1]},${end[0]},${end[1]},${z}`;
+function cachePath(start, end, z, path, entityId) {
+  const key = getPathCacheKey(start, end, z, entityId);
   pathCache.set(key, path);
 }
 
@@ -1712,7 +1770,46 @@ function findZTransition(fromZ, toZ, fromLoc, targetLoc, entity) {
   return null;
 }
 
-function matrixChange(l, c, r, n) {
+function matrixChange(l, c, r, n, entityId) {
+  // Context-aware matrix updates for battlegrounds
+  if (entityId && global.mapContextManager) {
+    const context = global.mapContextManager.getMapContext(entityId);
+    if (context && context.type === 'battleground') {
+      const match = global.battlegroundsMatchManager && global.battlegroundsMatchManager.currentMatch
+        ? global.battlegroundsMatchManager.currentMatch
+        : null;
+      if (!match || match.matchId !== context.matchId || !match.pathfinding) {
+        return;
+      }
+
+      const mapSize = context.mapSize || 0;
+      if (c < 0 || c >= mapSize || r < 0 || r >= mapSize) {
+        return;
+      }
+
+      const layerToZMap = {
+        0: 0,
+        1: -1,
+        2: -3,
+        3: 1,
+        5: 2,
+        8: -2
+      };
+      const matrixKey = (typeof l === 'number' && (l < 0 || l > 5)) ? l : (layerToZMap.hasOwnProperty(l) ? layerToZMap[l] : l);
+      const matrix = match.pathfinding.matrices ? match.pathfinding.matrices[matrixKey] : null;
+      if (!matrix || !matrix[r]) {
+        return;
+      }
+
+      matrix[r][c] = n;
+      const grid = match.pathfinding.grids ? match.pathfinding.grids[matrixKey] : null;
+      if (grid && typeof grid.setWalkableAt === 'function') {
+        grid.setWalkableAt(c, r, n === 0 || n === 2);
+      }
+      return;
+    }
+  }
+
   const matrices = {
     0: { matrix: matrixO, grid: gridO },
     '-1': { matrix: matrixU, grid: gridU },
@@ -1974,7 +2071,21 @@ function isWalkable(z, c, r, entityId) {
   return matrixValue === 0 || matrixValue === 2;
 }
 
-function getItem(z, c, r) {
+function getItem(z, c, r, entityId) {
+  if (entityId && global.mapContextManager) {
+    const context = global.mapContextManager.getMapContext(entityId);
+    if (context && context.type === 'battleground') {
+      const matchManager = global.battlegroundsMatchManager;
+      const match = matchManager
+        ? (typeof matchManager.getMatch === 'function' ? matchManager.getMatch(context.matchId) : matchManager.currentMatch)
+        : null;
+      if (match && match.matchId === context.matchId && match.pathfinding && match.pathfinding.matrices) {
+        const matrix = match.pathfinding.matrices[z];
+        return matrix?.[r]?.[c];
+      }
+      return undefined;
+    }
+  }
   const matrices = {
     0: matrixO,
     '-1': matrixU,
@@ -1996,6 +2107,7 @@ global.cachePath = cachePath;
 global.createMultiZPath = createMultiZPath;
 global.findOptimalZRoute = findOptimalZRoute;
 global.findZTransition = findZTransition;
+global.findPathContextAware = findPathContextAware;
 
 // ============================================================================
 // BUILDING HELPERS
@@ -3957,6 +4069,9 @@ const Player = function(param) {
 
       for (const i in Item.list) {
         const item = Item.list[i];
+        if (global.mapContextHelpers && !global.mapContextHelpers.areInSameContext(self, item)) {
+          continue;
+        }
         const dist = item.getDistance({ x: self.x, y: self.y });
 
         if (dist < tileSize && item.canPickup) {
@@ -5337,7 +5452,23 @@ Player.onConnect = function(socket, name, playerType) {
     player.class = 'SerfM'; // Default to male serf (can be changed via gear/equipment)
   }
 
-  
+  // Create initial camera entity for the player
+  // This ensures spatial filtering works immediately when the player connects
+  const playerCamera = Camera({
+    id: socket.id, // Use socket ID as camera ID for players
+    x: player.x,
+    y: player.y,
+    z: player.z,
+    mode: 'player',
+    locked: false,
+    lockedToEntityId: socket.id, // Camera is locked to the player
+    ownerPlayerId: socket.id,
+    context: player.inBattleground ? {
+      inBattleground: true,
+      battlegroundMatchId: player.battlegroundMatchId
+    } : null
+  });
+
   // ALPHA Testing: Give player starting items
   player.inventory.worldmap = 1;
   player.inventory.cavemap = 1;
@@ -5368,7 +5499,8 @@ Player.onConnect = function(socket, name, playerType) {
       arrow: Arrow.getAllInitPack(),
       item: Item.getAllInitPack(),
       light: Light.getAllInitPack(),
-      building: Building.getAllInitPack()
+      building: Building.getAllInitPack(),
+      camera: Camera.getAllInitPack()
   };
   
   // If player is in battleground, filter init pack to only include battleground entities
@@ -5470,6 +5602,15 @@ Player.onDisconnect = function(socket) {
     global.zoneManager.clearPlayerZone(socket.id);
   }
 
+  // Clean up any camera entities associated with this player
+  if (Camera && Camera.list) {
+    for (const [id, camera] of Object.entries(Camera.list)) {
+      if (camera.ownerPlayerId === socket.id) {
+        delete Camera.list[id];
+      }
+    }
+  }
+
   delete Player.list[socket.id];
   removePack.player.push(socket.id);
 };
@@ -5522,19 +5663,6 @@ Player.update = function() {
 
   // ===== ENTITY UPDATE LOOP (lines 3673-3790) =====
   // Iterate through all entities and call their individual update functions
-  // #region agent log
-  // Hypothesis A: Count battleground NPCs in Player.list
-  let bgNPCsInList = 0;
-  for (const id in Player.list) {
-    const p = Player.list[id];
-    if (p && p.type === 'npc' && p.inBattleground && p.battlegroundMatchId) {
-      bgNPCsInList++;
-    }
-  }
-  if (bgNPCsInList > 0) {
-    fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:5466',message:'Battleground NPCs in Player.list',data:{bgNPCsCount:bgNPCsInList,totalEntities:Object.keys(Player.list).length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-  }
-  // #endregion
   for (const i in Player.list) {
     const player = Player.list[i];
     
@@ -5632,12 +5760,6 @@ Player.update = function() {
     else if(player.type === 'npc') entityCounts.npc++;
     else if(player.type === 'ship') entityCounts.ship++;
     
-    // #region agent log
-    // Track if battleground NPCs are being updated
-    if(player.type === 'npc' && player.inBattleground && player.battlegroundMatchId) {
-      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:5622',message:'Battleground NPC being updated',data:{npcId:player.id,npcClass:player.class,npcSex:player.sex,npcName:player.name,hasPath:!!player.path,action:player.action,hasCombat:!!player.combat?.target},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'P'})}).catch(()=>{});
-    }
-    // #endregion
     
     // Track entity class breakdown
     const entityClass = player.class || 'Unknown';
@@ -5653,31 +5775,11 @@ Player.update = function() {
       }
     }
     
-    // #region agent log
-    // Hypothesis A: Check if battleground NPCs are in Player.list and getting updated
-    if(player.type === 'npc' && player.inBattleground && player.battlegroundMatchId) {
-      const oldX = player.x;
-      const oldY = player.y;
-      const hasPath = !!(player.path && player.path.length > 0);
-      const hasTargetLoc = !!player.targetLoc;
-      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:5573',message:'NPC update entry',data:{npcId:player.id,type:player.type,class:player.class,inBattleground:player.inBattleground,matchId:player.battlegroundMatchId,x:oldX,y:oldY,hasPath,hasTargetLoc,alive:player.alive},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    }
-    // #endregion
-    
     // Track per-entity update time (only for slow entities to avoid overhead)
     const entityUpdateStart = Date.now();
     player.update();
     const entityUpdateTime = Date.now() - entityUpdateStart;
     
-    // #region agent log
-    // Hypothesis A: Check if NPC position changed after update
-    if(player.type === 'npc' && player.inBattleground && player.battlegroundMatchId) {
-      const newX = player.x;
-      const newY = player.y;
-      const positionChanged = (newX !== oldX || newY !== oldY);
-      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:5577',message:'NPC update exit',data:{npcId:player.id,x:newX,y:newY,positionChanged,hasPath:!!(player.path && player.path.length > 0)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    }
-    // #endregion
     
     // Track slow entity updates (>1ms) by type
     if(entityUpdateTime > 1 && !Player._perfData.entityUpdateTimes[entityClass]) {
@@ -5843,7 +5945,6 @@ Player.update = function() {
       // #region agent log
       // Hypothesis A: Check if battleground NPCs are in pack
       if(player.type === 'npc' && player.inBattleground && player.battlegroundMatchId) {
-        fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lambic.js:5844',message:'NPC added to pack',data:{npcId:player.id,x:updatePack.x,y:updatePack.y,z:updatePack.z,hasPath:!!player.path,class:updatePack.class,sex:updatePack.sex,name:updatePack.name,hasSex:updatePack.sex !== undefined,hasName:updatePack.name !== undefined,action:player.action,hasCombat:!!player.combat,actualClass:player.class,actualSex:player.sex,actualName:player.name,updatePackClass:updatePack.class,updatePackSex:updatePack.sex,updatePackName:updatePack.name},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'P'})}).catch(()=>{});
       }
       // #endregion
     }
@@ -7036,7 +7137,10 @@ io.on('connection', function(socket) {
         // Add all players/NPCs (especially falcons) to preview
         for (const i in Player.list) {
           const p = Player.list[i];
-          if (p.type === 'npc' || p.class === 'Falcon') {
+          const inBattleground = global.mapContextHelpers
+            ? global.mapContextHelpers.isInBattleground(p)
+            : !!(p.inBattleground && p.battlegroundMatchId);
+          if ((p.type === 'npc' || p.class === 'Falcon') && !inBattleground) {
             previewPack.player.push({
               id: p.id,
               type: p.type,
@@ -7071,21 +7175,31 @@ io.on('connection', function(socket) {
         // Add items to preview
         for (const i in Item.list) {
           const item = Item.list[i];
-          previewPack.item.push({
-            id: item.id,
-            type: item.type,
-            x: item.x,
-            y: item.y,
-            z: item.z,
-            qty: item.qty,
-            innaWoods: item.innaWoods
-          });
+          const inBattleground = global.mapContextHelpers
+            ? global.mapContextHelpers.isInBattleground(item)
+            : !!(item.inBattleground && item.battlegroundMatchId);
+          if (!inBattleground) {
+            previewPack.item.push({
+              id: item.id,
+              type: item.type,
+              x: item.x,
+              y: item.y,
+              z: item.z,
+              qty: item.qty,
+              innaWoods: item.innaWoods
+            });
+          }
         }
         
         // Add buildings to preview - use getInitPack() to ensure all properties including baseTerrain are included
         for (const i in Building.list) {
           const b = Building.list[i];
-          previewPack.building.push(b.getInitPack());
+          const inBattleground = global.mapContextHelpers
+            ? global.mapContextHelpers.isInBattleground(b)
+            : !!(b.inBattleground && b.battlegroundMatchId);
+          if (!inBattleground) {
+            previewPack.building.push(b.getInitPack());
+          }
         }
         
         socket.write(JSON.stringify({
@@ -7179,7 +7293,8 @@ io.on('connection', function(socket) {
               arrow: Arrow.getAllInitPack(),
               item: Item.getAllInitPack(),
               light: Light.getAllInitPack(),
-              building: Building.getAllInitPack()
+              building: Building.getAllInitPack(),
+              camera: Camera.getAllInitPack()
             }
           }));
           
@@ -7236,6 +7351,56 @@ io.on('connection', function(socket) {
                 message: spectatorMessage
               }));
             }
+          }
+        }
+      } else if (data.msg === 'cameraUpdate') {
+        // Handle camera position updates from client
+        // This updates the camera/viewer entity for spatial filtering
+        const cameraId = data.cameraId || socket.id; // Use socket ID as camera ID for players/spectators
+
+        // Clean up old camera entities for this socket when mode changes
+        if (data.ownerPlayerId && data.ownerPlayerId === socket.id) {
+          // This is a player camera update - clean up any non-player cameras for this player
+          for (const [id, camera] of Object.entries(Camera.list)) {
+            if (camera.ownerPlayerId === socket.id && camera.id !== cameraId && camera.mode !== 'player') {
+              delete Camera.list[id];
+            }
+          }
+        } else if (!data.ownerPlayerId) {
+          // This is a spectator/godmode camera - clean up any conflicting cameras
+          for (const [id, camera] of Object.entries(Camera.list)) {
+            if (camera.id !== cameraId && !camera.ownerPlayerId && camera.mode !== data.mode) {
+              delete Camera.list[id];
+            }
+          }
+        }
+
+        if (!Camera.list[cameraId]) {
+          // Create new camera entity if it doesn't exist
+          const cameraData = {
+            id: cameraId,
+            x: data.x || 0,
+            y: data.y || 0,
+            z: data.z || 0,
+            mode: data.mode || 'player',
+            locked: data.locked || false,
+            lockedToEntityId: data.lockedToEntityId || null,
+            ownerPlayerId: data.ownerPlayerId || (Player.list[socket.id] ? socket.id : null),
+            context: data.context || null
+          };
+          new Camera(cameraData);
+        } else {
+          // Update existing camera entity
+          const camera = Camera.list[cameraId];
+          if (camera) {
+            camera.x = data.x || camera.x;
+            camera.y = data.y || camera.y;
+            camera.z = data.z || camera.z;
+            camera.mode = data.mode || camera.mode;
+            camera.locked = data.locked || camera.locked;
+            camera.lockedToEntityId = data.lockedToEntityId || camera.lockedToEntityId;
+            camera.ownerPlayerId = data.ownerPlayerId || camera.ownerPlayerId;
+            camera.context = data.context || camera.context;
           }
         }
       } else if (data.msg === 'evalCmd') {
@@ -9556,6 +9721,16 @@ io.on('connection', function(socket) {
     if(global.spectators && global.spectators[socket.id]){
       delete global.spectators[socket.id];
     }
+
+    // Clean up spectator camera entities
+    if (Camera && Camera.list) {
+      // Clean up any cameras without ownerPlayerId (spectator/godmode cameras)
+      for (const [id, camera] of Object.entries(Camera.list)) {
+        if (!camera.ownerPlayerId && (camera.mode === 'spectate' || camera.mode === 'godmode' || camera.mode === 'login')) {
+          delete Camera.list[id];
+        }
+      }
+    }
     
     // Clean up battlegrounds lobby
     if(global.battlegroundsLobbyManager){
@@ -9574,6 +9749,16 @@ io.on('connection', function(socket) {
     // Clean up spectators
     if(global.spectators && global.spectators[socket.id]){
       delete global.spectators[socket.id];
+    }
+
+    // Clean up spectator camera entities
+    if (Camera && Camera.list) {
+      // Clean up any cameras without ownerPlayerId (spectator/godmode cameras)
+      for (const [id, camera] of Object.entries(Camera.list)) {
+        if (!camera.ownerPlayerId && (camera.mode === 'spectate' || camera.mode === 'godmode' || camera.mode === 'login')) {
+          delete Camera.list[id];
+        }
+      }
     }
     
     // Clean up battlegrounds lobby
@@ -9597,6 +9782,8 @@ global.removePack = removePack;
 // Note: global.Item will be set by Entity.js when Item constructor is defined
 
 // Initialize Simple Serf Behavior system
+const serfLogger = require('./server/js/core/SerfLogger.js');
+global.serfLogger = serfLogger;
 const SimpleSerfBehavior = require('./server/js/core/SimpleSerfBehavior.js');
 global.simpleSerfBehavior = new SimpleSerfBehavior();
 

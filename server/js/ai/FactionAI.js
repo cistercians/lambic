@@ -1100,6 +1100,10 @@ class FactionAI {
     
     for (const [id, player] of Object.entries(Player.list)) {
       if (player.toRemove || !player.house || player.house !== this.house.id) continue;
+      const isInBattleground = global.mapContextHelpers
+        ? global.mapContextHelpers.isInBattleground(player)
+        : !!(player.inBattleground && player.battlegroundMatchId);
+      if (isInBattleground) continue;
       
       // Check if unit is military using the military property
       if (player.military === true) {

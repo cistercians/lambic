@@ -402,7 +402,6 @@ class BattlegroundsLobbyManager {
     let allPlayers = [...this.lobbyState.players];
     
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsLobbyManager.js:377',message:'broadcastLobbyUpdate checking match',data:{hasMatchManager:!!this.matchManager,hasCurrentMatch:!!this.matchManager?.currentMatch,hasParticipants:!!this.matchManager?.currentMatch?.participants,participantsCount:this.matchManager?.currentMatch?.participants?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
     // #endregion
     
     if (this.matchManager && this.matchManager.currentMatch && this.matchManager.currentMatch.participants) {
@@ -418,7 +417,6 @@ class BattlegroundsLobbyManager {
         }));
       
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsLobbyManager.js:389',message:'Found NPCs in match participants',data:{matchNPCsCount:matchNPCs.length,matchNPCsIds:matchNPCs.map(n=>n.id),allPlayersCountBefore:allPlayers.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
       // #endregion
       
       // Add NPCs that aren't already in the players list
@@ -429,7 +427,6 @@ class BattlegroundsLobbyManager {
       }
       
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BattlegroundsLobbyManager.js:397',message:'NPCs merged into allPlayers',data:{allPlayersCountAfter:allPlayers.length,npcPlayers:allPlayers.filter(p=>p.isNPC).map(p=>({id:p.id,name:p.name}))},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
       // #endregion
     }
 

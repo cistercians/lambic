@@ -67,7 +67,7 @@ class TakeCommand {
     // Get player position
     const z = player.z;
     const getLoc = global.getLoc || ((x, y) => [Math.floor(x / 64), Math.floor(y / 64)]);
-    const loc = getLoc(player.x, player.y);
+    const loc = getLoc(player.x, player.y, player);
     const c = loc[0];
     const r = loc[1];
 
@@ -125,8 +125,14 @@ class TakeCommand {
     // Find matching item at position
     let targetItem = null;
     for (const item of items) {
+      const sameContext = global.mapContextHelpers
+        ? global.mapContextHelpers.areInSameContext(player, item)
+        : ((player.inBattleground && item.inBattleground && player.battlegroundMatchId === item.battlegroundMatchId) ||
+           (!player.inBattleground && !(item.inBattleground && item.battlegroundMatchId)));
+      if (!sameContext) continue;
+
       if (item.type && item.type.toLowerCase() === itemType && item.z === z) {
-        const itemLoc = getLoc(item.x, item.y);
+        const itemLoc = getLoc(item.x, item.y, item);
         if (itemLoc[0] === c && itemLoc[1] === r) {
           if (!targetItem || (item.qty && item.qty >= quantity)) {
             targetItem = item;

@@ -125,7 +125,7 @@ class DropCommand {
     const key = player.inventory.keyRing[num];
     const z = player.z;
     const getLoc = global.getLoc || ((x, y) => [Math.floor(x / 64), Math.floor(y / 64)]);
-    const loc = getLoc(player.x, player.y);
+    const loc = getLoc(player.x, player.y, player);
     const c = loc[0];
     const r = loc[1];
 
@@ -141,9 +141,14 @@ class DropCommand {
                  (global.Item && global.Item.list ? Object.values(global.Item.list) : []);
     
     for (const item of items) {
+      const sameContext = global.mapContextHelpers
+        ? global.mapContextHelpers.areInSameContext(player, item)
+        : ((player.inBattleground && item.inBattleground && player.battlegroundMatchId === item.battlegroundMatchId) ||
+           (!player.inBattleground && !(item.inBattleground && item.battlegroundMatchId)));
+      if (!sameContext) continue;
       if (item.z === z && item.x !== undefined && item.y !== undefined && 
           (item.type === 'Chest' || item.type === 'LockedChest')) {
-        const itemLoc = global.getLoc ? global.getLoc(item.x, item.y) : 
+        const itemLoc = global.getLoc ? global.getLoc(item.x, item.y, item) : 
                        [Math.floor(item.x / 64), Math.floor(item.y / 64)];
         if (itemLoc[0] === pos[0] && itemLoc[1] === pos[1]) {
           if (item.id === key.id) {
@@ -166,7 +171,7 @@ class DropCommand {
     }
 
     // Drop key on ground or underwater
-    const dropZ = this.getDropZ(z, pos[0], pos[1]);
+    const dropZ = this.getDropZ(z, pos[0], pos[1], player);
     if (dropZ === null) {
       this.sendError(socket, 'You cannot drop that there.');
       return false;
@@ -205,7 +210,7 @@ class DropCommand {
   dropItem(player, itemType, quantity, data, socket) {
     const z = player.z;
     const getLoc = global.getLoc || ((x, y) => [Math.floor(x / 64), Math.floor(y / 64)]);
-    const loc = getLoc(player.x, player.y);
+    const loc = getLoc(player.x, player.y, player);
     const c = loc[0];
     const r = loc[1];
 
@@ -217,7 +222,7 @@ class DropCommand {
     }
 
     // Drop item on ground or underwater
-    const dropZ = this.getDropZ(z, pos[0], pos[1]);
+    const dropZ = this.getDropZ(z, pos[0], pos[1], player);
     if (dropZ === null) {
       this.sendError(socket, 'You cannot drop that there.');
       return false;
@@ -301,7 +306,7 @@ class DropCommand {
    * @param {number} r - Row
    * @returns {number|null} Drop Z level or null if invalid
    */
-  getDropZ(z, c, r) {
+  getDropZ(z, c, r, contextEntity) {
     const isWalkable = global.isWalkable || ((z, c, r) => {
       const getTile = global.getTile || ((layer, c, r) => {
         const tilemap = systemRegistry.get('tilemap') || global.tilemapSystem;
@@ -314,13 +319,15 @@ class DropCommand {
       return matrix === 0 && tile !== 0 && tile !== 1;
     });
 
-    const getTile = global.getTile || ((layer, c, r) => {
-      const tilemap = systemRegistry.get('tilemap') || global.tilemapSystem;
-      return tilemap ? tilemap.getTile(layer, c, r) : null;
-    });
+    const getTile = global.getTile
+      ? (layer, c, r) => global.getTile(layer, c, r, contextEntity)
+      : ((layer, c, r) => {
+        const tilemap = systemRegistry.get('tilemap') || global.tilemapSystem;
+        return tilemap ? tilemap.getTile(layer, c, r) : null;
+      });
 
     // Check if walkable
-    if (isWalkable(z, c, r)) {
+    if (isWalkable(z, c, r, contextEntity)) {
       return z;
     }
 

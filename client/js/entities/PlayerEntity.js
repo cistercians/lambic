@@ -17,6 +17,8 @@ function PlayerEntity(initPack) {
   self.y = initPack.y;
   self.z = initPack.z;
   self.class = initPack.class;
+  self.inBattleground = initPack.inBattleground;
+  self.battlegroundMatchId = initPack.battlegroundMatchId || null;
   
   // CRITICAL: Fallback check - if type is missing but class indicates fauna, set type to 'fauna'
   const faunaClasses = ['Deer', 'Boar', 'Wolf', 'Falcon', 'Sheep'];

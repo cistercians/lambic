@@ -139,6 +139,25 @@ class ItemFactory {
       ...param,
       qty: param.qty || 1
     });
+
+    // Ensure item inherits correct map context
+    if (global.mapContextHelpers) {
+      const parentEntity = param.parent && global.Player && global.Player.list ? global.Player.list[param.parent] : null;
+      const parentBuilding = param.parent && global.Building && global.Building.list ? global.Building.list[param.parent] : null;
+      let matchId = null;
+      if (param.battlegroundMatchId) {
+        matchId = param.battlegroundMatchId;
+      } else if (param.matchId) {
+        matchId = param.matchId;
+      } else if (param.inBattleground && param.battlegroundMatchId) {
+        matchId = param.battlegroundMatchId;
+      } else if (parentEntity && parentEntity.inBattleground && parentEntity.battlegroundMatchId) {
+        matchId = parentEntity.battlegroundMatchId;
+      } else if (parentBuilding && parentBuilding.inBattleground && parentBuilding.battlegroundMatchId) {
+        matchId = parentBuilding.battlegroundMatchId;
+      }
+      global.mapContextHelpers.setEntityContext(item, matchId);
+    }
     
     // Set additional properties from config
     item.type = capitalizedType; // Client expects capitalized types
@@ -152,6 +171,10 @@ class ItemFactory {
       const socket = global.SOCKET_LIST[playerId];
       
       if (!player || !socket) return;
+
+      if (global.mapContextHelpers && !global.mapContextHelpers.areInSameContext(player, item)) {
+        return;
+      }
       
       const currentAmount = player.inventory[type] || 0;
       const maxStack = config.maxStack;

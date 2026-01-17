@@ -18,6 +18,23 @@ class BaseItem {
     this.toUpdate = false;
     this.toRemove = false;
     this.innaWoods = this.checkInnaWoods();
+
+    // Ensure map context is set consistently
+    if (global.mapContextHelpers) {
+      let matchId = null;
+      if (param.battlegroundMatchId) {
+        matchId = param.battlegroundMatchId;
+      } else if (param.matchId) {
+        matchId = param.matchId;
+      } else if (param.inBattleground && param.battlegroundMatchId) {
+        matchId = param.battlegroundMatchId;
+      } else if (param.parent && global.Player && global.Player.list && global.Player.list[param.parent]) {
+        matchId = global.Player.list[param.parent].battlegroundMatchId || null;
+      } else if (param.parent && global.Building && global.Building.list && global.Building.list[param.parent]) {
+        matchId = global.Building.list[param.parent].battlegroundMatchId || null;
+      }
+      global.mapContextHelpers.setEntityContext(this, matchId);
+    }
     
     // Register with global systems
     this.register();
@@ -25,7 +42,7 @@ class BaseItem {
   
   checkInnaWoods() {
     if (this.z === 0 && global.getLocTile) {
-      const tile = global.getLocTile(0, this.x, this.y, this.id);
+      const tile = global.getLocTile(0, this.x, this.y, this);
       return tile >= 1 && tile < 2;
     }
     return false;
@@ -163,8 +180,8 @@ class BaseItem {
   
   blocker(n) {
     if (global.getLoc && global.matrixChange) {
-      const loc = global.getLoc(this.x, this.y);
-      global.matrixChange(this.z, loc[0], loc[1], n);
+      const loc = global.getLoc(this.x, this.y, this);
+      global.matrixChange(this.z, loc[0], loc[1], n, this);
     }
   }
 }

@@ -243,6 +243,32 @@ class SpectateCameraSystem {
 
     // Update camera position
     this.updateCamera(PlayerList);
+
+    // Send camera update to server
+    this.sendCameraUpdate();
+  }
+
+  /**
+   * Send camera position update to server
+   */
+  sendCameraUpdate() {
+    if (typeof window !== 'undefined' && window.CameraHelper) {
+      const cameraHelper = new window.CameraHelper();
+      cameraHelper.sendCameraUpdate({
+        cameraData: {
+          cameraId: 'spectate', // Use a fixed ID for spectate mode
+          x: this.cameraX,
+          y: this.cameraY,
+          z: this.cameraZ,
+          mode: 'spectate',
+          locked: !!this.currentTargetId,
+          lockedToEntityId: this.currentTargetId,
+          ownerPlayerId: null, // No associated player for spectate
+          context: null
+        },
+        selfId: null
+      });
+    }
   }
 
   /**
