@@ -7156,14 +7156,14 @@ io.on('connection', function(socket) {
           // Update existing camera entity
           const camera = Camera.list[cameraId];
           if (camera) {
-            camera.x = data.x || camera.x;
-            camera.y = data.y || camera.y;
-            camera.z = data.z || camera.z;
-            camera.mode = data.mode || camera.mode;
-            camera.locked = data.locked || camera.locked;
-            camera.lockedToEntityId = data.lockedToEntityId || camera.lockedToEntityId;
-            camera.ownerPlayerId = data.ownerPlayerId || camera.ownerPlayerId;
-            camera.context = data.context || camera.context;
+            if (data.x !== undefined) camera.x = data.x;
+            if (data.y !== undefined) camera.y = data.y;
+            if (data.z !== undefined) camera.z = data.z;
+            if (data.mode !== undefined) camera.mode = data.mode;
+            if (data.locked !== undefined) camera.locked = data.locked;
+            if (data.lockedToEntityId !== undefined) camera.lockedToEntityId = data.lockedToEntityId;
+            if (data.ownerPlayerId !== undefined) camera.ownerPlayerId = data.ownerPlayerId;
+            if (data.context !== undefined) camera.context = data.context;
           }
         }
       } else if (data.msg === 'evalCmd') {
