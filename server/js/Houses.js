@@ -440,6 +440,8 @@ Goths = function(param){
         var p = plot[i];
         baseTerrain.push(getTile(0, p[0], p[1]));
         tileChange(0,p[0],p[1],11);
+        // Foundation tiles must remain walkable during construction
+        matrixChange(0,p[0],p[1],0);
         tileChange(6,p[0],p[1],0);
       }
       mapEdit();
@@ -1002,6 +1004,8 @@ Goths = function(param){
       for(var i in plot){
         baseTerrain.push(getTile(0, plot[i][0], plot[i][1]));
         tileChange(0,plot[i][0],plot[i][1],11);
+        // Foundation tiles must remain walkable during construction
+        matrixChange(0,plot[i][0],plot[i][1],0);
         tileChange(6,plot[i][0],plot[i][1],0);
       }
       var coords = getCoords(twr[0],twr[1]);
@@ -1069,6 +1073,8 @@ Goths = function(param){
             var p = plot[i];
             baseTerrain.push(getTile(0, p[0], p[1]));
             tileChange(0,p[0],p[1],11);
+            // Foundation tiles must remain walkable during construction
+            matrixChange(0,p[0],p[1],0);
             tileChange(6,p[0],p[1],0);
           }
           mapEdit();
@@ -1181,6 +1187,8 @@ Franks = function(param){
         var p = plot[i];
         baseTerrain.push(getTile(0, p[0], p[1]));
         tileChange(0,p[0],p[1],11);
+        // Foundation tiles must remain walkable during construction
+        matrixChange(0,p[0],p[1],0);
         tileChange(6,p[0],p[1],0);
       }
       mapEdit();
@@ -1786,6 +1794,8 @@ Franks = function(param){
     for(var i in plot){
       baseTerrain.push(getTile(0, plot[i][0], plot[i][1]));
       tileChange(0,plot[i][0],plot[i][1],11);
+      // Foundation tiles must remain walkable during construction
+      matrixChange(0,plot[i][0],plot[i][1],0);
       tileChange(6,plot[i][0],plot[i][1],0);
     }
     var coords = getCoords(twr[0],twr[1]);
@@ -1862,6 +1872,8 @@ Celts = function(param){
         var p = plot[i];
         baseTerrain.push(getTile(0, p[0], p[1]));
         tileChange(0,p[0],p[1],11);
+        // Foundation tiles must remain walkable during construction
+        matrixChange(0,p[0],p[1],0);
         tileChange(6,p[0],p[1],0);
       }
       mapEdit();
@@ -2257,6 +2269,8 @@ Celts = function(param){
     for(var i in plot){
       baseTerrain.push(getTile(0, plot[i][0], plot[i][1]));
       tileChange(0,plot[i][0],plot[i][1],11);
+      // Foundation tiles must remain walkable during construction
+      matrixChange(0,plot[i][0],plot[i][1],0);
       tileChange(6,plot[i][0],plot[i][1],0);
     }
     var coords = getCoords(twr[0],twr[1]);
@@ -2333,6 +2347,8 @@ Teutons = function(param){
         var p = plot[i];
         baseTerrain.push(getTile(0, p[0], p[1]));
         tileChange(0,p[0],p[1],11);
+        // Foundation tiles must remain walkable during construction
+        matrixChange(0,p[0],p[1],0);
         tileChange(6,p[0],p[1],0);
       }
       mapEdit();

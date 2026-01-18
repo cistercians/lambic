@@ -52,7 +52,15 @@ class BaseCommand {
    */
   getPlayer(data) {
     if (!data || !data.id) return null;
-    return entityRegistry.getEntity('players', data.id);
+    try {
+      return entityRegistry.getEntity('players', data.id);
+    } catch (e) {
+      // Fall back to legacy Player list if registry isn't ready
+      if (global.Player && global.Player.list) {
+        return global.Player.list[data.id] || null;
+      }
+      return null;
+    }
   }
 
   /**

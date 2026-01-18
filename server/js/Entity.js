@@ -1217,6 +1217,8 @@ Tavern = function(param){
         var p = plot[i];
         baseTerrain.push(getTile(0, p[0], p[1]));
         tileChange(0,p[0],p[1],11);
+        // Foundation tiles must remain walkable during construction
+        matrixChange(0,p[0],p[1],0);
         tileChange(6,p[0],p[1],0);
       }
                           // Tile update automatically handled by tileChange function
@@ -1286,7 +1288,9 @@ Tavern = function(param){
           home:{z:2,loc:sp1},
           work:{hq:b,spot:null},
           hut:id,
-          tavern:self.id
+          tavern:self.id,
+          mode:'idle',
+          action:null
         });
         logTavernSpawn(serf1, 'primary');
       } else {
@@ -1303,7 +1307,9 @@ Tavern = function(param){
           home:{z:2,loc:sp1},
           work:{hq:b,spot:null},
           hut:id,
-          tavern:self.id
+          tavern:self.id,
+          mode:'idle',
+          action:null
         });
         logTavernSpawn(serf1, 'primary');
       } else {
@@ -1317,7 +1323,9 @@ Tavern = function(param){
           kingdom:Player.list[self.owner].kingdom,
           home:{z:2,loc:sp1},
           hut:id,
-          tavern:self.id
+          tavern:self.id,
+          mode:'idle',
+          action:null
         });
         logTavernSpawn(serf1, 'primary');
       }
@@ -1336,7 +1344,9 @@ Tavern = function(param){
           home:{z:2,loc:sp2},
           work:{hq:b,spot:null},
           hut:id,
-          tavern:self.id
+          tavern:self.id,
+          mode:'idle',
+          action:null
         });
         logTavernSpawn(serf2, 'secondary');
       } else {
@@ -1350,7 +1360,9 @@ Tavern = function(param){
           kingdom:Player.list[self.owner].kingdom,
           home:{z:2,loc:sp2},
           hut:id,
-          tavern:self.id
+          tavern:self.id,
+          mode:'idle',
+          action:null
         });
         logTavernSpawn(serf2, 'secondary');
       }
@@ -9493,7 +9505,6 @@ Serf = function(param){
           // DIAGNOSTIC LOGGING: Verify transition completed
           if(isMineSerf){
           }
-          
         self.mode = 'work';
         self.action = null;
           self.work.spot = null; // Clear previous work spot

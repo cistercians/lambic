@@ -15,7 +15,8 @@ class GodModeCommand extends BaseCommand {
   }
 
   execute(data) {
-    const { player, socket } = this.getContext(data);
+    const { player: registryPlayer, socket } = this.getContext(data);
+    const player = registryPlayer || (global.Player && global.Player.list ? global.Player.list[data.id] : null);
     if (!player || !socket) return false;
 
     if (player.godMode) {

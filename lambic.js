@@ -95,6 +95,17 @@ let io = null;
 function continueServerInitialization() {
   // Load and register all commands from individual files (after user input is collected)
   loadCommands();
+  if (global.commandRegistry && typeof global.commandRegistry.getStats === 'function') {
+    const stats = global.commandRegistry.getStats();
+    if (stats && stats.totalCommands === 0) {
+      console.warn('[INIT] Command registry empty after loadCommands(). Retrying...');
+      try {
+        loadCommands();
+      } catch (error) {
+        console.error('[INIT] Failed to load commands:', error);
+      }
+    }
+  }
   
   // Register legacy EvalCmd handler for backward compatibility (if available)
   if (typeof EvalCmd === 'function') {
@@ -7218,6 +7229,30 @@ io.on('connection', function(socket) {
         }
       } else if (data.msg === 'evalCmd') {
         // Use original command system
+        if (!data.id) {
+          data.id = socket.id;
+        }
+        data.socket = socket;
+        if (process.env.DEBUG) {
+          if (!global.__evalCmdLogged) {
+            global.__evalCmdLogged = true;
+            console.log('[evalCmd] First command received. Registry stats:', global.commandRegistry && typeof global.commandRegistry.getStats === 'function'
+              ? global.commandRegistry.getStats()
+              : 'no-registry');
+          }
+          console.log('[evalCmd] cmd:', data.cmd);
+        }
+        // Safety net: ensure commands are loaded before executing
+        if (global.commandRegistry && typeof global.commandRegistry.getStats === 'function') {
+          const stats = global.commandRegistry.getStats();
+          if (stats && stats.totalCommands === 0 && typeof loadCommands === 'function') {
+            try {
+              loadCommands();
+            } catch (error) {
+              console.error('[evalCmd] Failed to auto-load commands:', error);
+            }
+          }
+        }
         EvalCmd(data);
       } else {
         // Handle all game messages (requires player to be logged in)
@@ -8025,6 +8060,19 @@ io.on('connection', function(socket) {
             data: resources
           }));
         } else if (data.msg === 'msgToServer') {
+          // Fallback: route slash commands from chat to command system
+          if (data && typeof data.message === 'string') {
+            const trimmedMessage = data.message.trim();
+            if (trimmedMessage.startsWith('/') && !trimmedMessage.startsWith('/lobby ')) {
+              EvalCmd({
+                id: socket.id,
+                cmd: trimmedMessage.slice(1),
+                world: world,
+                socket: socket
+              });
+              return;
+            }
+          }
           // Check for lobby chat command
           if (player && data.message && data.message.trim().startsWith('/lobby ')) {
             const lobbyMessage = data.message.trim().substring(7).trim(); // Remove '/lobby ' prefix

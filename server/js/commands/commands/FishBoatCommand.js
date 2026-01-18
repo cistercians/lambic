@@ -17,35 +17,59 @@ class FishBoatCommand {
    * @returns {boolean} Success
    */
   execute(data) {
-    const player = entityRegistry.getEntity('players', data.id);
+    let player = null;
+    try {
+      player = entityRegistry.getEntity('players', data.id);
+    } catch (e) {
+      // Fall back to legacy player list
+    }
+    if (!player && global.Player && global.Player.list) {
+      player = global.Player.list[data.id];
+    }
     if (!player) return false;
 
     const socket = data.socket || (global.SOCKET_LIST && global.SOCKET_LIST[data.id]);
     if (!socket) return false;
 
-    const getLoc = global.getLoc || ((x, y) => [Math.floor(x / 64), Math.floor(y / 64)]);
-    const loc = getLoc(player.x, player.y, player);
+    // Optional dock id: /fishboat <dockId>
+    const cmdParts = (data.cmd || '').trim().split(/\s+/);
+    const dockIdFromCmd = cmdParts.length >= 2 ? cmdParts[1] : null;
 
-    // Get the tile player is facing
-    const dirOffsets = {
-      down: [0, 1],
-      up: [0, -1],
-      left: [-1, 0],
-      right: [1, 0]
-    };
-    const offset = dirOffsets[player.facing];
-    const facingLoc = [loc[0] + offset[0], loc[1] + offset[1]];
-    const getCenter = global.getCenter || ((c, r) => [c * 64, r * 64]);
-    const facingCoords = getCenter(facingLoc[0], facingLoc[1]);
-    const getBuilding = global.getBuilding || ((x, y) => null);
-    const facingBuilding = getBuilding(facingCoords[0], facingCoords[1]);
+    let dockId = null;
+    let dock = null;
 
-    if (!facingBuilding || !global.Building || !global.Building.list || !global.Building.list[facingBuilding]) {
-      this.sendError(socket, 'You must face a Dock to build a fishing boat.');
-      return false;
+    if (dockIdFromCmd && global.Building && global.Building.list && global.Building.list[dockIdFromCmd]) {
+      dockId = dockIdFromCmd;
+      dock = global.Building.list[dockIdFromCmd];
     }
 
-    const dock = global.Building.list[facingBuilding];
+    if (!dock) {
+      const getLoc = global.getLoc || ((x, y) => [Math.floor(x / 64), Math.floor(y / 64)]);
+      const loc = getLoc(player.x, player.y, player);
+
+      // Get the tile player is facing
+      const dirOffsets = {
+        down: [0, 1],
+        up: [0, -1],
+        left: [-1, 0],
+        right: [1, 0]
+      };
+      const offset = dirOffsets[player.facing];
+      const facingLoc = [loc[0] + offset[0], loc[1] + offset[1]];
+      const getCenter = global.getCenter || ((c, r) => [c * 64, r * 64]);
+      const facingCoords = getCenter(facingLoc[0], facingLoc[1]);
+      const getBuilding = global.getBuilding || ((x, y) => null);
+      const facingBuilding = getBuilding(facingCoords[0], facingCoords[1]);
+
+      if (!facingBuilding || !global.Building || !global.Building.list || !global.Building.list[facingBuilding]) {
+        this.sendError(socket, 'You must face a Dock to build a fishing boat.');
+        return false;
+      }
+
+      dockId = facingBuilding;
+      dock = global.Building.list[facingBuilding];
+    }
+
     if (dock.type !== 'dock') {
       this.sendError(socket, 'You must face a Dock to build a fishing boat.');
       return false;
@@ -139,7 +163,7 @@ class FishBoatCommand {
         x: waterCoords[0],
         y: waterCoords[1],
         z: 0,
-        dock: facingBuilding,
+        dock: dockId,
         house: dock.house,
         kingdom: dock.kingdom,
         owner: player.id,

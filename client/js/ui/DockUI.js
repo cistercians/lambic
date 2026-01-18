@@ -21,6 +21,7 @@ class DockUI {
     const cargoShips = dockData.cargoShips || [];
     const playerResources = dockData.playerResources || {};
     const dockName = dockData.dockName || 'Dock';
+    const dockId = dockData.dockId;
 
     // Update dock title with dock's zone name
     const dockHeader = document.getElementById('dock-header');
@@ -47,7 +48,7 @@ class DockUI {
     this.renderCargoShips(cargoShips, dockCargoShipsList);
 
     // Display available ships to build
-    this.renderAvailableShips(availableShips, playerResources, dockShipList);
+    this.renderAvailableShips(availableShips, playerResources, dockShipList, dockId);
 
     // Display owned ships
     this.renderOwnedShips(ownedShips, dockOwnedShipsList);
@@ -124,7 +125,7 @@ class DockUI {
    * @param {object} playerResources - Player resources
    * @param {HTMLElement} container - Container element
    */
-  renderAvailableShips(availableShips, playerResources, container) {
+  renderAvailableShips(availableShips, playerResources, container, dockId) {
     for (const ship of availableShips) {
       const shipDiv = document.createElement('div');
       shipDiv.className = 'dock-ship-item';
@@ -151,14 +152,13 @@ class DockUI {
         statusDiv.textContent = '✓ Click to build';
         shipDiv.style.cursor = 'pointer';
         shipDiv.onclick = (() => {
-          const shipType = ship.type;
+          const command = dockId ? `/fishboat ${dockId}` : '/fishboat';
           return () => {
-            if (typeof socket !== 'undefined' && typeof selfId !== 'undefined' && typeof world !== 'undefined') {
+            if (typeof socket !== 'undefined') {
               socket.send(JSON.stringify({
-                msg: 'evalCmd',
-                id: selfId,
-                cmd: 'fishboat',
-                world: world
+                msg: 'msgToServer',
+                name: 'system',
+                message: command
               }));
             }
             const dockPopup = document.getElementById('dock-popup');

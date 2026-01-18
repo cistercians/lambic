@@ -1,4 +1,4 @@
-Build = function(id){
+Build = function(id, targetLoc){
   var p = Player.list[id];
   let contextEntity = p;
   const getLoc = (x, y) => global.getLoc ? global.getLoc(x, y, contextEntity) : [Math.floor(x / 64), Math.floor(y / 64)];
@@ -21,17 +21,23 @@ Build = function(id){
   if(p.type == 'npc' && !p.workTimer){
     Player.list[id].workTimer = true;
   }
-  var loc = getLoc(p.x,p.y);
+  var loc = (Array.isArray(targetLoc) && targetLoc.length === 2) ? targetLoc : getLoc(p.x,p.y);
   Player.list[id].working = true;
   Player.list[id].building = true;
   Player.list[id].actionCooldown = 10;
-  var b = getBuilding(p.x,p.y);
+  var b = null;
+  if (Array.isArray(targetLoc) && targetLoc.length === 2) {
+    const coords = getCoords(targetLoc[0], targetLoc[1]);
+    b = getBuilding(coords[0], coords[1]);
+  } else {
+    b = getBuilding(p.x, p.y);
+  }
   var building = Building.list[b];
   contextEntity = building || contextEntity;
   setTimeout(function(){
     var p = Player.list[id];
     if(p){
-      var loc = getLoc(p.x,p.y);
+      var loc = (Array.isArray(targetLoc) && targetLoc.length === 2) ? targetLoc : getLoc(p.x,p.y);
       tileChange(6,loc[0],loc[1],10,true); // ALPHA, default:1
       Player.list[id].working = false;
       Player.list[id].building = false;

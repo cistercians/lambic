@@ -144,26 +144,30 @@ class UIEventHandlers {
     }
     
     const messageValue = input.value;
+    const trimmedMessage = messageValue.trimStart();
+    console.log('[ChatSubmit] messageValue:', messageValue);
+    console.log('[ChatSubmit] trimmedMessage:', trimmedMessage);
     
     // Clear input immediately to prevent double submission
     input.value = '';
     
     // If in spectate mode, redirect all messages to spectator chat
     if (spectateCameraSystem && spectateCameraSystem.isActive) {
+      console.log('[ChatSubmit] spectateCameraSystem active -> spectatorChat');
       activeSocket.send(JSON.stringify({
         msg: 'spectatorChat',
         message: messageValue
       }));
-    } else if (messageValue[0] === '/') { // command
-      // Commands can work even without a valid player (server will handle it)
+    } else if (trimmedMessage[0] === '/') { // command
+      console.log('[ChatSubmit] command -> msgToServer (server routes to EvalCmd)');
       activeSocket.send(JSON.stringify({
-        msg: 'evalCmd',
-        id: selfId || null,
-        cmd: messageValue.slice(1),
-        world: world || null
+        msg: 'msgToServer',
+        name: 'system',
+        message: trimmedMessage
       }));
-    } else if (messageValue[0] === '@') { // private message
-      const spaceIndex = messageValue.indexOf(' ');
+    } else if (trimmedMessage[0] === '@') { // private message
+      console.log('[ChatSubmit] private message -> pmToServer');
+      const spaceIndex = trimmedMessage.indexOf(' ');
       if (spaceIndex === -1) {
         console.error('Invalid private message format. Use: @username message');
         input.blur();
@@ -171,10 +175,11 @@ class UIEventHandlers {
       }
       activeSocket.send(JSON.stringify({
         msg: 'pmToServer',
-        recip: messageValue.slice(1, spaceIndex),
-        message: messageValue.slice(spaceIndex + 1)
+        recip: trimmedMessage.slice(1, spaceIndex),
+        message: trimmedMessage.slice(spaceIndex + 1)
       }));
     } else { // chat
+      console.log('[ChatSubmit] normal chat -> msgToServer');
       // Use player character for chat, even if controlling ship
       let playerId = null;
       let playerName = null;

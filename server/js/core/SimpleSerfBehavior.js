@@ -640,12 +640,20 @@ class SimpleSerfBehavior {
         const gt = this.getTile(serf, 0, serf.work.spot[0], serf.work.spot[1]);
         if (gt === 11) {
           if (!serf.building && typeof global.Build === 'function') {
-            global.Build(serf.id);
+            global.Build(serf.id, serf.work.spot);
+          }
+          return;
+        }
+        if (gt === 11) {
+          if (!serf.building && typeof global.Build === 'function') {
+            global.Build(serf.id, serf.work.spot);
           }
           return;
         }
       }
-    } else if (!serf.path || serf.path.length === 0) {
+    }
+
+    if (!serf.path || serf.path.length === 0) {
       // Path to building spot (use walkable adjacent tile, not the foundation tile itself)
       if (typeof serf.moveTo === 'function') {
         const buildLoc = this.getWorkTileForSpot(serf, serf.work.spot, 0);

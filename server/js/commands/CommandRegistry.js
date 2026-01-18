@@ -100,13 +100,14 @@ class CommandRegistry {
     }
 
     try {
+      const resolvedId = this._resolvePlayerId(context.id || (context.player ? context.player.id : null));
       // Execute command (supports class-based handlers with execute method)
       if (typeof handler.execute === 'function') {
         // Class-based handler: handler.execute(data) where data matches EvalCmd format
         // Pass full context as data object to match EvalCmd signature
         const data = {
           cmd: context.cmd || commandString,
-          id: context.id || (context.player ? context.player.id : null),
+          id: resolvedId,
           socket: context.socket,
           world: context.world,
           overrideC: context.overrideC,
@@ -119,7 +120,7 @@ class CommandRegistry {
         // Legacy function handler: handler(data) where data contains cmd, id, etc.
         const data = {
           cmd: context.cmd || commandString,
-          id: context.id || (context.player ? context.player.id : null),
+          id: resolvedId,
           socket: context.socket,
           world: context.world,
           overrideC: context.overrideC,
@@ -292,6 +293,30 @@ class CommandRegistry {
         message: `<i>Error: ${message}</i>` 
       }));
     }
+  }
+
+  /**
+   * Resolve actual player id when commands are sent from a ship entity.
+   * @param {string|number|null} id - Entity id from command context
+   * @returns {string|number|null} Resolved player id
+   */
+  _resolvePlayerId(id) {
+    if (!id || !global.Player || !global.Player.list) {
+      return id;
+    }
+    const entity = global.Player.list[id];
+    if (!entity) {
+      return id;
+    }
+    const isShip = entity.type === 'ship' || !!entity.shipType;
+    if (!isShip) {
+      return id;
+    }
+    const controllerId = entity.controller || (entity.storedPlayer && entity.storedPlayer.id) || entity.owner;
+    if (controllerId && global.Player.list[controllerId]) {
+      return controllerId;
+    }
+    return id;
   }
 }
 
