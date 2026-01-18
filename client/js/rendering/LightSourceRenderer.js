@@ -202,6 +202,10 @@ class LightSourceRenderer {
     // Get current z-layer
     const playerZ = getCurrentZ();
     const isCaveOrCellar = (playerZ === -1 || playerZ === -2);
+    const contextHelper = (typeof window !== 'undefined' && window.contextHelper) ? window.contextHelper : null;
+    const currentContext = contextHelper
+      ? contextHelper.getCurrentContext({ selfId, PlayerList })
+      : null;
 
     // Get dark layer from config parameter OR from LightingRenderer reference
     // Priority: config parameter > lightingRenderer reference (for flexibility)
@@ -226,6 +230,9 @@ class LightSourceRenderer {
     for (let i = 0, len = lights.length; i < len; i++) {
       const light = lights[i];
       if (!light) continue; // Skip deleted lights
+      if (contextHelper && !contextHelper.isEntityInContext(light, currentContext)) {
+        continue;
+      }
 
       // Validate light source data
       if (!Number.isFinite(light.x) || !Number.isFinite(light.y) || 

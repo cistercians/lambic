@@ -1282,11 +1282,18 @@ var SocketMessageHandler = {
           p.target = pack.target;
           // Set selectedTarget when player.target is set (for attack intent or combat)
           if(pack.target) {
-            if(typeof selectedTarget !== 'undefined') {
-              selectedTarget = pack.target;
-              // Sync to window for other modules
-              if(typeof window !== 'undefined') {
-                window.selectedTarget = pack.target;
+            const targetEntity = Player.list ? Player.list[pack.target] : null;
+            const contextHelper = (typeof window !== 'undefined' && window.contextHelper) ? window.contextHelper : null;
+            const currentContext = contextHelper
+              ? contextHelper.getCurrentContext({ selfId, PlayerList: Player.list })
+              : null;
+            if (!contextHelper || !targetEntity || contextHelper.isEntityInContext(targetEntity, currentContext)) {
+              if(typeof selectedTarget !== 'undefined') {
+                selectedTarget = pack.target;
+                // Sync to window for other modules
+                if(typeof window !== 'undefined') {
+                  window.selectedTarget = pack.target;
+                }
               }
             }
           } else {

@@ -250,10 +250,19 @@ class GameRenderer {
       const playerInnaWoods = typeof selfId !== 'undefined' && Player.list && Player.list[selfId] 
         ? Player.list[selfId].innaWoods 
         : false;
+      const inBattleground = typeof window !== 'undefined' && window.inBattleground;
+      const battlegroundMatchId = (typeof window !== 'undefined' && window.currentBattlegroundMatchId) ||
+        (typeof selfId !== 'undefined' && Player.list && Player.list[selfId] ? Player.list[selfId].battlegroundMatchId : null);
       const isIndoor = (currentZ === 1 || currentZ === 2);
       const checkBuilding = isIndoor && playerBuilding !== null;
       
       return (entity) => {
+        // Context check (hide entities from other contexts)
+        if (inBattleground) {
+          if (!entity.inBattleground || entity.battlegroundMatchId !== battlegroundMatchId) return false;
+        } else if (entity.inBattleground) {
+          return false;
+        }
         // Z-level check
         if (entity.z !== currentZ) return false;
         // Bounds check using cached bounds

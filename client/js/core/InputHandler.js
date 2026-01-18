@@ -638,6 +638,14 @@ class InputHandler {
                              Math.abs(mouseX - lastMouseX) > 0.5 || 
                              Math.abs(mouseY - lastMouseY) > 0.5);
           
+          const contextHelper = (typeof window !== 'undefined' && window.contextHelper) ? window.contextHelper : null;
+          const contextSelfId = (typeof window !== 'undefined' && window.selfId !== undefined && window.selfId !== null)
+            ? window.selfId
+            : selfId;
+          const currentContext = contextHelper
+            ? contextHelper.getCurrentContext({ selfId: contextSelfId, PlayerList: Player.list })
+            : null;
+
           if (mouseMoved) {
             // Store current mouse position
             this._lastHoverMouseX = mouseX;
@@ -667,12 +675,14 @@ class InputHandler {
             const playerInnaWoods = (actualSelfId && Player.list[actualSelfId]) 
               ? (Player.list[actualSelfId].innaWoods || false)
               : false;
-            
             let foundHover = false;
             
             for (const id in Player.list) {
               const entity = Player.list[id];
               if (entity && entity.z === currentZ) {
+                if (contextHelper && !contextHelper.isEntityInContext(entity, currentContext)) {
+                  continue;
+                }
                 // Skip Falcons - their sprites are massive (include shadows) and shouldn't be hoverable
                 if (entity.class === 'Falcon') continue;
                 
@@ -830,6 +840,10 @@ class InputHandler {
             // Only check for buildings when on overworld (z=0)
             // First try the exact tile location
             let buildingId = getBuilding(worldX, worldY);
+            if (buildingId && Building.list[buildingId] && contextHelper &&
+                !contextHelper.isEntityInContext(Building.list[buildingId], currentContext)) {
+              buildingId = null;
+            }
             
             // Debug: Log building detection attempts (more frequently for testing)
             if (Math.random() < 0.05) {
@@ -838,6 +852,9 @@ class InputHandler {
               for (const bid in Building.list) {
                 totalBuildings++;
                 const b = Building.list[bid];
+                if (b && contextHelper && !contextHelper.isEntityInContext(b, currentContext)) {
+                  continue;
+                }
                 // Check if building is interactable (don't require built property on client)
                 if (b && isInteractableBuilding(b)) interactableBuildings++;
               }
@@ -852,6 +869,9 @@ class InputHandler {
                 const nearbyBuildings = [];
                 for (const bid in Building.list) {
                   const b = Building.list[bid];
+                  if (b && contextHelper && !contextHelper.isEntityInContext(b, currentContext)) {
+                    continue;
+                  }
                   if (b && b.x !== undefined && b.y !== undefined) {
                     const dx = b.x - worldX;
                     const dy = b.y - worldY;
@@ -872,6 +892,9 @@ class InputHandler {
               // Check all buildings to see if mouse is near their center or within their bounds
               for (const bid in Building.list) {
                 const b = Building.list[bid];
+                if (b && contextHelper && !contextHelper.isEntityInContext(b, currentContext)) {
+                  continue;
+                }
                 // On client side, building.built might be undefined - assume building exists means it's built
                 if (!b || (b.built === false) || !isInteractableBuilding(b)) continue;
                 
@@ -919,6 +942,13 @@ class InputHandler {
                   }
                   if (buildingId) break;
                 }
+              }
+            }
+            
+            if (buildingId && Building.list[buildingId]) {
+              const building = Building.list[buildingId];
+              if (contextHelper && !contextHelper.isEntityInContext(building, currentContext)) {
+                buildingId = null;
               }
             }
             
@@ -1001,6 +1031,9 @@ class InputHandler {
             const hoveredTile = getLoc(worldX, worldY);
             for (const itemId in Item.list) {
               const item = Item.list[itemId];
+              if (item && contextHelper && !contextHelper.isEntityInContext(item, currentContext)) {
+                continue;
+              }
               if (item && item.z === player.z && isInteractableObject(item)) {
                 // Check if item is at the hovered tile location
                 const itemLoc = getLoc(item.x, item.y);
@@ -1021,6 +1054,9 @@ class InputHandler {
             const hoveredTile = getLoc(worldX, worldY);
             for (const itemId in Item.list) {
               const item = Item.list[itemId];
+              if (item && contextHelper && !contextHelper.isEntityInContext(item, currentContext)) {
+                continue;
+              }
               if (item && item.z === player.z && (item.type === 'Chest' || item.type === 'LockedChest')) {
                 // Check if item is at the hovered tile location
                 const itemLoc = getLoc(item.x, item.y);
@@ -1040,7 +1076,7 @@ class InputHandler {
           // Show interact cursor for all ships - server will validate ownership/dock status
           if (!this.config.hoveredInteractable && player.z === 0 && this.config.hoveredTarget) {
             const hoveredEntity = Player.list[this.config.hoveredTarget];
-            if (hoveredEntity && hoveredEntity.shipType) {
+            if (hoveredEntity && (!contextHelper || contextHelper.isEntityInContext(hoveredEntity, currentContext)) && hoveredEntity.shipType) {
               // Show interact cursor for all ships - server validates ownership
               // This is just for UX, not for blocking interaction
               this.config.hoveredInteractable = this.config.hoveredTarget;
@@ -1205,6 +1241,10 @@ class InputHandler {
     const playerInnaWoods = (actualSelfId && Player.list[actualSelfId]) 
       ? (Player.list[actualSelfId].innaWoods || false)
       : false;
+    const contextHelper = (typeof window !== 'undefined' && window.contextHelper) ? window.contextHelper : null;
+    const currentContext = contextHelper
+      ? contextHelper.getCurrentContext({ selfId: actualSelfId, PlayerList: Player.list })
+      : null;
     
     let clickedEntity = null;
     let closestEntity = null;
@@ -1212,6 +1252,9 @@ class InputHandler {
     for (const id in Player.list) {
       const entity = Player.list[id];
       if (entity && entity.z === currentZ) {
+        if (contextHelper && !contextHelper.isEntityInContext(entity, currentContext)) {
+          continue;
+        }
         // Skip Falcons - their sprites are massive (include shadows) and shouldn't be clickable
         if (entity.class === 'Falcon') continue;
         
@@ -1497,12 +1540,19 @@ class InputHandler {
     // Check if clicking on an entity
     // Use getCurrentZ() to get the current z level (handles caves)
     const currentZ = this.config.getCurrentZ ? this.config.getCurrentZ() : player.z;
+    const contextHelper = (typeof window !== 'undefined' && window.contextHelper) ? window.contextHelper : null;
+    const currentContext = contextHelper
+      ? contextHelper.getCurrentContext({ selfId: actualSelfId, PlayerList: Player.list })
+      : null;
     let clickedEntity = null;
     let closestEntity = null;
     let closestDistance = Infinity;
     for (const id in Player.list) {
       const entity = Player.list[id];
       if (entity && entity.z === currentZ) {
+        if (contextHelper && !contextHelper.isEntityInContext(entity, currentContext)) {
+          continue;
+        }
         // Skip Falcons - their sprites are massive (include shadows) and shouldn't be clickable
         if (entity.class === 'Falcon') continue;
         
@@ -1581,6 +1631,9 @@ class InputHandler {
         const clickedBuildingForNav = getBuilding(worldX, worldY);
         if (clickedBuildingForNav && Building.list[clickedBuildingForNav]) {
           const buildingForNav = Building.list[clickedBuildingForNav];
+          if (contextHelper && !contextHelper.isEntityInContext(buildingForNav, currentContext)) {
+            return;
+          }
           
           // Skip entrance redirection for interactable buildings (mills, docks, etc.) 
           // as they have their own interaction logic

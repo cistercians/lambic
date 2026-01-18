@@ -120,12 +120,20 @@ var AudioSystem = {
     // Building lookup logic - b might be a building ID or null
     var buildingId = b;
     var building = null;
+    var contextHelper = (typeof window !== 'undefined' && window.contextHelper) ? window.contextHelper : null;
+    var currentContext = contextHelper
+      ? contextHelper.getCurrentContext({ selfId: selfId, PlayerList: Player.list })
+      : null;
     
     // If indoors, always try to find the building
     if (isIndoor && typeof getBuilding !== 'undefined') {
       // First, try to get building from the provided ID (if any)
       if (buildingId) {
         building = Building.list[buildingId];
+        if (building && contextHelper && !contextHelper.isEntityInContext(building, currentContext)) {
+          building = null;
+          buildingId = null;
+        }
       }
       
       // If building not found, or no ID provided, look it up by position
@@ -135,6 +143,10 @@ var AudioSystem = {
         if (lookupId) {
           buildingId = lookupId;
           building = Building.list[lookupId];
+          if (building && contextHelper && !contextHelper.isEntityInContext(building, currentContext)) {
+            building = null;
+            buildingId = null;
+          }
         }
       }
       
@@ -152,6 +164,11 @@ var AudioSystem = {
           if (retryId && Building.list[retryId]) {
             buildingId = retryId;
             building = Building.list[retryId];
+            if (building && contextHelper && !contextHelper.isEntityInContext(building, currentContext)) {
+              building = null;
+              buildingId = null;
+              continue;
+            }
             break;
           }
         }

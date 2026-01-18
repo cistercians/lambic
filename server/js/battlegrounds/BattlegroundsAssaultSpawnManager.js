@@ -292,6 +292,13 @@ class BattlegroundsAssaultSpawnManager {
         wanderRange: tileSize * 10 // Allow NPCs to wander 10 tiles from spawn point
       });
 
+      if (npc && global.mapContextHelpers) {
+        global.mapContextHelpers.setEntityContext(npc, match.matchId);
+      } else if (npc) {
+        npc.inBattleground = true;
+        npc.battlegroundMatchId = match.matchId;
+      }
+
       return npc;
     } catch (e) {
       console.error(`Error spawning Assault NPC of type ${npcType}:`, e);

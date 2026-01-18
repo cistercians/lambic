@@ -185,8 +185,15 @@ function validateContextIsolation(updatePack, matchId) {
   if (updatePack.player && Array.isArray(updatePack.player)) {
     updatePack.player.forEach(entity => {
       if (!entity) return;
-      const entityInBG = !!(entity.inBattleground && entity.battlegroundMatchId);
-      const entityMatchId = entity.battlegroundMatchId || null;
+      const playerEntity = (entity.id !== undefined && global.Player && global.Player.list)
+        ? global.Player.list[entity.id]
+        : null;
+      const entityMatchId = entity.battlegroundMatchId !== undefined && entity.battlegroundMatchId !== null
+        ? entity.battlegroundMatchId
+        : (playerEntity ? (playerEntity.battlegroundMatchId || null) : null);
+      const entityInBG = entity.inBattleground !== undefined
+        ? !!(entity.inBattleground && entityMatchId)
+        : !!(playerEntity && playerEntity.inBattleground && entityMatchId);
       
       if (matchId) {
         // Should be in battleground

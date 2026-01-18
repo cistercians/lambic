@@ -33,6 +33,7 @@ class BattlegroundsMapPostProcessor {
 
     // Make a deep copy of worldData to avoid modifying the original
     const processedWorldData = this.deepCopyWorldData(mapData.worldData);
+    this.clearBuildingLayers(processedWorldData);
     const processedMapData = { ...mapData, worldData: processedWorldData };
 
     // For dungeon maps, post-process buildings and tunnels first
@@ -63,6 +64,25 @@ class BattlegroundsMapPostProcessor {
       spawnPoints: spawnPoints,
       postProcessed: true
     };
+  }
+
+  /**
+   * Clear building-related layers for battleground maps to prevent main-world
+   * structure tiles from bleeding into battlegrounds.
+   */
+  clearBuildingLayers(worldData) {
+    if (!Array.isArray(worldData)) return;
+    const layersToClear = [3, 4, 5, 6, 7, 8];
+    for (const layerIndex of layersToClear) {
+      const layer = worldData[layerIndex];
+      if (!Array.isArray(layer)) continue;
+      for (let y = 0; y < layer.length; y++) {
+        if (!Array.isArray(layer[y])) continue;
+        for (let x = 0; x < layer[y].length; x++) {
+          layer[y][x] = 0;
+        }
+      }
+    }
   }
 
   /**

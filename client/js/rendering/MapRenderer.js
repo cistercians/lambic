@@ -3013,6 +3013,10 @@ var drawEntityBorders = function(renderCtx){
   var player = Player.list[currentSelfId];
   var currentZ = getCurrentZ();
   var cameraPos = getCameraPosition();
+  var contextHelper = (typeof window !== 'undefined' && window.contextHelper) ? window.contextHelper : null;
+  var currentContext = contextHelper
+    ? contextHelper.getCurrentContext({ selfId: currentSelfId, PlayerList: Player.list })
+    : null;
   
   // Get allyCheck function from window or global scope
   var allyCheckFn = null;
@@ -3061,6 +3065,7 @@ var drawEntityBorders = function(renderCtx){
     var targetData = targetsToDraw[i];
     var entity = Player.list[targetData.id];
     if(!entity || entity.z !== z) continue;
+    if (contextHelper && !contextHelper.isEntityInContext(entity, currentContext)) continue;
     
     // Skip Falcons - their sprites are massive (include shadows) and shouldn't have borders
     if(entity.class === 'Falcon') continue;

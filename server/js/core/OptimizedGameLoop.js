@@ -68,6 +68,7 @@ class OptimizedGameLoop {
     // Packet size limits
     this.maxPacketSize = 20 * 1024; // 20KB max packet size
     this.packetSplitQueue = []; // Queue for split packets
+    this.lastUpdatePackByContext = new Map();
   }
   
   // Initialize the game loop
@@ -311,10 +312,56 @@ class OptimizedGameLoop {
     const totalTime = Date.now() - startTotal;
     metrics.recordTiming('gameLoop.updateFrameMs', totalTime);
     
+    const socketList = global.SOCKET_LIST || {};
+    const socketsByContext = new Map();
+    for (const socketId in socketList) {
+      const socket = socketList[socketId];
+      if (!socket || typeof socket.write !== 'function') continue;
+      const player = Player.list ? Player.list[socketId] : null;
+      const contextKey = player && player.inBattleground && player.battlegroundMatchId
+        ? String(player.battlegroundMatchId)
+        : 'main';
+      if (!socketsByContext.has(contextKey)) {
+        socketsByContext.set(contextKey, []);
+      }
+      socketsByContext.get(contextKey).push(socket);
+    }
+
+    const viewerAnchors = Camera.getViewerAnchors();
+    const viewerGroups = this.groupViewerAnchorsByContext(viewerAnchors);
+    for (const [contextKey] of socketsByContext) {
+      if (!viewerGroups.has(contextKey)) {
+        viewerGroups.set(contextKey, {
+          key: contextKey,
+          inBattleground: contextKey !== 'main',
+          matchId: contextKey !== 'main' ? contextKey : null,
+          viewers: []
+        });
+      }
+    }
+    const contextPacks = new Map();
+    const contextPacketStrings = new Map();
+    const contextPacketSizes = new Map();
+    const contextSplitQueue = [];
+    const filteredEntityCounts = {
+      players: 0,
+      arrows: 0,
+      items: 0,
+      lights: 0,
+      buildings: 0,
+      weather: 0,
+      total: 0
+    };
+    
+    for (const [contextKey, group] of viewerGroups) {
+      const viewers = group.viewers;
+      const hasViewers = viewers && viewers.length > 0;
     // Apply spatial filtering: only send entities near players
     let filteredPlayerPack = playerPack;
-    if(this.spatialFilteringEnabled && playerPack) {
-      filteredPlayerPack = this.spatialFilterEntities(playerPack);
+      if(this.spatialFilteringEnabled && playerPack && hasViewers) {
+        filteredPlayerPack = this.spatialFilterEntities(playerPack, viewers);
+      } else if (playerPack) {
+        filteredPlayerPack = this.filterPlayerPackByContext(playerPack, group);
     }
     
     // Separate critical and non-critical updates for frequency optimization
@@ -351,55 +398,53 @@ class OptimizedGameLoop {
     // Combine critical and non-critical (non-critical may be empty if not time to send)
     const combinedPlayerPack = [...criticalPlayerPack, ...nonCriticalPlayerPack];
     
-    
     // Apply delta compression to reduce packet size
     let compressedPlayerPack = combinedPlayerPack;
     if(this.deltaCompressionEnabled && combinedPlayerPack) {
-      compressedPlayerPack = this.compressEntityPack(combinedPlayerPack, 'player');
+        compressedPlayerPack = this.compressEntityPack(combinedPlayerPack, 'player', { skipCleanup: true });
     }
     
     // Filter items by map context (fix innaWoods issue - items from main world shouldn't appear in battlegrounds)
     let filteredItemPack = itemPack;
-    if(this.spatialFilteringEnabled && itemPack && Array.isArray(itemPack)) {
-      filteredItemPack = this.spatialFilterItems(itemPack);
-    }
-    if (!global._debugTorchLogTimes) global._debugTorchLogTimes = {};
-    if (!global._debugTorchLogTimes.itemPackFiltered || debugNow - global._debugTorchLogTimes.itemPackFiltered > 2000) {
-      global._debugTorchLogTimes.itemPackFiltered = debugNow;
-      // #region agent log
-      // #endregion
+      if(this.spatialFilteringEnabled && itemPack && Array.isArray(itemPack) && hasViewers) {
+        filteredItemPack = this.spatialFilterItems(itemPack, viewers, group);
+      } else if (itemPack && Array.isArray(itemPack)) {
+        filteredItemPack = this.spatialFilterItems(itemPack, null, group);
     }
     
     // Filter buildings by map context (prevent main world buildings from appearing in battlegrounds)
     let filteredBuildingPack = buildingPack;
-    if(this.spatialFilteringEnabled && buildingPack && Array.isArray(buildingPack)) {
-      filteredBuildingPack = this.spatialFilterBuildings(buildingPack);
+      if(this.spatialFilteringEnabled && buildingPack && Array.isArray(buildingPack) && hasViewers) {
+        filteredBuildingPack = this.spatialFilterBuildings(buildingPack, viewers, group);
+      } else if (buildingPack && Array.isArray(buildingPack)) {
+        filteredBuildingPack = this.spatialFilterBuildings(buildingPack, null, group);
     }
     
     // Filter arrows by map context (prevent main world arrows from appearing in battlegrounds)
     let filteredArrowPack = arrowPack;
-    if(this.spatialFilteringEnabled && arrowPack && Array.isArray(arrowPack)) {
-      filteredArrowPack = this.spatialFilterArrows(arrowPack);
+      if(this.spatialFilteringEnabled && arrowPack && Array.isArray(arrowPack) && hasViewers) {
+        filteredArrowPack = this.spatialFilterArrows(arrowPack, viewers, group);
+      } else if (arrowPack && Array.isArray(arrowPack)) {
+        filteredArrowPack = this.spatialFilterArrows(arrowPack, null, group);
     }
     
     // Filter lights by map context (prevent main world lights from appearing in battlegrounds)
     let filteredLightPack = lightPack;
-    if(this.spatialFilteringEnabled && lightPack && Array.isArray(lightPack)) {
-      filteredLightPack = this.spatialFilterLights(lightPack);
-    }
-    if (!global._debugTorchLogTimes) global._debugTorchLogTimes = {};
-    if (!global._debugTorchLogTimes.lightPackFiltered || debugNow - global._debugTorchLogTimes.lightPackFiltered > 2000) {
-      global._debugTorchLogTimes.lightPackFiltered = debugNow;
-      // #region agent log
-      // #endregion
+      if(this.spatialFilteringEnabled && lightPack && Array.isArray(lightPack) && hasViewers) {
+        filteredLightPack = this.spatialFilterLights(lightPack, viewers, group);
+      } else if (lightPack && Array.isArray(lightPack)) {
+        filteredLightPack = this.spatialFilterLights(lightPack, null, group);
     }
     
     // Filter weather by map context (weather is typically global, but filter if per-match)
     let filteredWeatherPack = weatherPack;
-    if(this.spatialFilteringEnabled && weatherPack) {
-      filteredWeatherPack = this.spatialFilterWeather(weatherPack);
-    }
+      if(this.spatialFilteringEnabled && weatherPack && hasViewers) {
+        filteredWeatherPack = this.spatialFilterWeather(weatherPack, viewers);
+      } else if (weatherPack) {
+        filteredWeatherPack = this.spatialFilterWeather(weatherPack, null);
+      }
     
+      const filteredCameraPack = this.filterCameraPackByContext(cameraPack, group);
     
     const pack = {
       player: compressedPlayerPack,
@@ -408,8 +453,75 @@ class OptimizedGameLoop {
       light: filteredLightPack,
       building: filteredBuildingPack,
       weather: filteredWeatherPack,
-      camera: cameraPack
-    };
+        camera: filteredCameraPack
+      };
+      
+      let finalPack = pack;
+      let packetString = this.safeCall('packet.stringify', () => JSON.stringify({ msg: 'update', pack }), '');
+      let packetSize = packetString ? Buffer.byteLength(packetString, 'utf8') : 0;
+      
+      // If packet is too large, split it across frames
+      if(packetSize > this.maxPacketSize && pack.player && Array.isArray(pack.player)) {
+        const chunkSize = Math.ceil(pack.player.length / Math.ceil(packetSize / this.maxPacketSize));
+        const chunks = [];
+        for(let i = 0; i < pack.player.length; i += chunkSize) {
+          chunks.push(pack.player.slice(i, i + chunkSize));
+        }
+        
+        if(chunks.length > 0) {
+          finalPack = {
+            ...pack,
+            player: chunks[0],
+            _split: chunks.length > 1 ? { total: chunks.length, current: 1 } : undefined
+          };
+          if (chunks.length > 1) {
+            for (let i = 1; i < chunks.length; i++) {
+              contextSplitQueue.push({
+                contextKey,
+                pack: {
+                  ...pack,
+                  player: chunks[i],
+                  _split: { total: chunks.length, current: i + 1 }
+                }
+              });
+            }
+          }
+          packetString = this.safeCall('packet.stringify', () => JSON.stringify({ msg: 'update', pack: finalPack }), '');
+          packetSize = packetString ? Buffer.byteLength(packetString, 'utf8') : 0;
+        }
+      }
+      
+      contextPacks.set(contextKey, finalPack);
+      contextPacketStrings.set(contextKey, packetString);
+      contextPacketSizes.set(contextKey, packetSize);
+      
+      filteredEntityCounts.players += finalPack.player ? finalPack.player.length : 0;
+      filteredEntityCounts.arrows += finalPack.arrow ? finalPack.arrow.length : 0;
+      filteredEntityCounts.items += finalPack.item ? finalPack.item.length : 0;
+      filteredEntityCounts.lights += finalPack.light ? finalPack.light.length : 0;
+      filteredEntityCounts.buildings += finalPack.building ? finalPack.building.length : 0;
+      filteredEntityCounts.weather += finalPack.weather ? finalPack.weather.length : 0;
+    }
+    
+    filteredEntityCounts.total = filteredEntityCounts.players + filteredEntityCounts.arrows +
+                                 filteredEntityCounts.items + filteredEntityCounts.lights +
+                                 filteredEntityCounts.buildings + filteredEntityCounts.weather;
+    
+    if (this.deltaCompressionEnabled && playerPack) {
+      this.cleanupCompressionState(playerPack);
+    }
+    
+    if (!global._debugTorchLogTimes) global._debugTorchLogTimes = {};
+    if (!global._debugTorchLogTimes.itemPackFiltered || debugNow - global._debugTorchLogTimes.itemPackFiltered > 2000) {
+      global._debugTorchLogTimes.itemPackFiltered = debugNow;
+      // #region agent log
+      // #endregion
+    }
+    if (!global._debugTorchLogTimes.lightPackFiltered || debugNow - global._debugTorchLogTimes.lightPackFiltered > 2000) {
+      global._debugTorchLogTimes.lightPackFiltered = debugNow;
+      // #region agent log
+      // #endregion
+    }
     
     // Track timing data
     this._perfData.playerTimes.push(playerTime);
@@ -466,18 +578,6 @@ class OptimizedGameLoop {
 
     // Track viewer and filtered entity stats
     const viewerCount = Camera ? Object.keys(Camera.list).length : 0;
-    const filteredEntityCounts = {
-      players: compressedPlayerPack ? compressedPlayerPack.length : 0,
-      arrows: filteredArrowPack ? filteredArrowPack.length : 0,
-      items: filteredItemPack ? filteredItemPack.length : 0,
-      lights: filteredLightPack ? filteredLightPack.length : 0,
-      buildings: filteredBuildingPack ? filteredBuildingPack.length : 0,
-      weather: filteredWeatherPack ? filteredWeatherPack.length : 0,
-      total: 0
-    };
-    filteredEntityCounts.total = filteredEntityCounts.players + filteredEntityCounts.arrows +
-                                 filteredEntityCounts.items + filteredEntityCounts.lights +
-                                 filteredEntityCounts.buildings + filteredEntityCounts.weather;
 
     this._viewerStats.viewerCounts.push(viewerCount);
     this._viewerStats.filteredEntityCounts.push(filteredEntityCounts);
@@ -489,40 +589,22 @@ class OptimizedGameLoop {
       this._viewerStats.filteredEntityCounts.shift();
     }
     
-    // Check packet size and split if needed
-    let finalPack = pack;
-    const packetString = this.safeCall('packet.stringify', () => JSON.stringify({ msg: 'update', pack }), '');
-    let packetSize = packetString ? Buffer.byteLength(packetString, 'utf8') : 0;
-    metrics.setGauge('gameLoop.lastPacketBytes', packetSize);
-    
-    // If packet is too large, split it across frames
-    if(packetSize > this.maxPacketSize && pack.player && Array.isArray(pack.player)) {
-      // Split player entities into chunks
-      const chunkSize = Math.ceil(pack.player.length / Math.ceil(packetSize / this.maxPacketSize));
-      const chunks = [];
-      for(let i = 0; i < pack.player.length; i += chunkSize) {
-        chunks.push(pack.player.slice(i, i + chunkSize));
-      }
-      
-      // Send first chunk now, queue rest
-      if(chunks.length > 0) {
-        finalPack = {
-          ...pack,
-          player: chunks[0],
-          _split: chunks.length > 1 ? { total: chunks.length, current: 1 } : undefined
-        };
-        this.packetSplitQueue = chunks.slice(1).map((chunk, idx) => ({
-          ...pack,
-          player: chunk,
-          _split: { total: chunks.length, current: idx + 2 }
-        }));
-        packetSize = Buffer.byteLength(JSON.stringify({ msg: 'update', pack: finalPack }), 'utf8');
-      }
+    // Update packet stats for this frame
+    if (contextSplitQueue.length > 0) {
+      this.packetSplitQueue.push(...contextSplitQueue);
     }
     
-    this.packetSizeHistory.push(packetSize);
-    this.totalBytesSent += packetSize;
-    this.packetCount++;
+    let totalPacketBytes = 0;
+    let packetCountThisFrame = 0;
+    for (const packetSize of contextPacketSizes.values()) {
+      totalPacketBytes += packetSize;
+      packetCountThisFrame++;
+    }
+    metrics.setGauge('gameLoop.lastPacketBytes', totalPacketBytes);
+    
+    this.packetSizeHistory.push(totalPacketBytes);
+    this.totalBytesSent += totalPacketBytes;
+    this.packetCount += packetCountThisFrame;
     
     // Keep last N packet sizes
     if(this.packetSizeHistory.length > this.maxPacketHistorySize) {
@@ -531,7 +613,8 @@ class OptimizedGameLoop {
     
     // Get current time once for all periodic checks
     const now = Date.now();
-    this.lastUpdatePack = finalPack;
+    this.lastUpdatePackByContext = new Map(contextPacks);
+    this.lastUpdatePack = contextPacks.get('main') || null;
     this.lastUpdatePackTime = now;
     
     // Packet analysis logging now happens once per tempus hour (see lambic.js dayNight function)
@@ -563,36 +646,31 @@ class OptimizedGameLoop {
     // CRITICAL: Validate context isolation before sending packets
     // Check each player's context and validate their update pack
     const validationConfig = global.contextValidationConfig || { enabled: true, enforce: false };
+    const contextValidationCache = new Map();
     if (mapContextHelpers && validationConfig.enabled) {
-      for(const id in Player.list) {
-        const player = Player.list[id];
-        if(player && player.type === 'player') {
-          const playerMatchId = player.battlegroundMatchId || null;
-          const validation = mapContextHelpers.validateContextIsolation(finalPack, playerMatchId);
-          if(!validation.valid && validation.issues.length > 0) {
-            // Log context isolation violations
-            console.warn(`[OptimizedGameLoop] Context isolation violation`, {
-              playerId: id,
-              matchId: playerMatchId,
-              issueCount: validation.issues.length,
-              issues: validation.issues
-            });
-
-            if (validationConfig.enforce) {
-              const socket = global.SOCKET_LIST ? global.SOCKET_LIST[id] : null;
-              if (socket && typeof socket.write === 'function') {
-                socket.write(JSON.stringify({
-                  msg: 'addToChat',
-                  message: '<i>Context isolation violation detected. Disconnecting.</i>'
-                }));
-              }
-              if (socket && typeof socket.close === 'function') {
-                try { socket.close(); } catch (e) {}
-              } else if (socket && typeof socket.end === 'function') {
-                try { socket.end(); } catch (e) {}
-              }
+      for (const [contextKey, pack] of contextPacks) {
+        const matchId = contextKey === 'main' ? null : contextKey;
+        const validation = mapContextHelpers.validateContextIsolation(pack, matchId);
+        contextValidationCache.set(contextKey, validation);
+        if (!validation.valid && validation.issues.length > 0) {
+          const typeCounts = {};
+          for (const issue of validation.issues) {
+            const type = typeof issue === 'string' ? issue.split(' ')[0] : 'Unknown';
+            typeCounts[type] = (typeCounts[type] || 0) + 1;
+            if (metrics && typeof metrics.increment === 'function') {
+              const typeKey = String(type).toLowerCase();
+              metrics.increment(`contextIsolation.violation.${typeKey}`);
             }
           }
+          if (metrics && typeof metrics.increment === 'function') {
+            metrics.increment('contextIsolation.violation.total');
+          }
+            console.warn(`[OptimizedGameLoop] Context isolation violation`, {
+            matchId,
+              issueCount: validation.issues.length,
+            issues: validation.issues,
+            typeCounts
+          });
         }
       }
     }
@@ -671,13 +749,62 @@ class OptimizedGameLoop {
       }
     }
 
-    // Send main packet
-    this.emit({ msg: 'update', pack: finalPack });
+    // Send per-context packets to connected sockets
+    
+    const sendPayloadToSockets = (sockets, payload) => {
+      if (!sockets || sockets.length === 0 || !payload) return;
+      for (const socket of sockets) {
+        try {
+          socket.write(payload);
+        } catch (error) {
+          // Ignore send errors; cleanup handled elsewhere
+        }
+      }
+    };
+    
+    for (const [contextKey, sockets] of socketsByContext) {
+      const pack = contextPacks.get(contextKey) || contextPacks.get('main');
+      if (!pack) continue;
+      const validationKey = contextPacks.has(contextKey) ? contextKey : 'main';
+      const validation = contextValidationCache.get(validationKey);
+      if (validationConfig.enforce && validation && !validation.valid && validation.issues.length > 0) {
+        for (const socket of sockets) {
+          try {
+            socket.write(JSON.stringify({
+              msg: 'addToChat',
+              message: '<i>Context isolation violation detected. Disconnecting.</i>'
+            }));
+          } catch (error) {
+          }
+          if (socket && typeof socket.close === 'function') {
+            try { socket.close(); } catch (e) {}
+          } else if (socket && typeof socket.end === 'function') {
+            try { socket.end(); } catch (e) {}
+          }
+        }
+        continue;
+      }
+      
+      let payload = contextPacketStrings.get(contextKey);
+      if (!payload && validationKey !== contextKey) {
+        payload = contextPacketStrings.get(validationKey);
+      }
+      if (!payload) {
+        payload = this.safeCall('packet.stringify', () => JSON.stringify({ msg: 'update', pack }), '');
+      }
+      sendPayloadToSockets(sockets, payload);
+    }
     
     // Send queued split packets if any (one per frame to avoid overwhelming)
     if(this.packetSplitQueue.length > 0) {
       const nextChunk = this.packetSplitQueue.shift();
-      this.emit({ msg: 'update', pack: nextChunk });
+      if (nextChunk && nextChunk.pack) {
+        const sockets = socketsByContext.get(nextChunk.contextKey) || socketsByContext.get('main');
+        if (sockets && sockets.length > 0) {
+          const payload = this.safeCall('packet.stringify', () => JSON.stringify({ msg: 'update', pack: nextChunk.pack }), '');
+          sendPayloadToSockets(sockets, payload);
+        }
+      }
     }
   }
   
@@ -712,10 +839,14 @@ class OptimizedGameLoop {
   }
 
   getContextIsolationReport(matchId = null) {
-    if (!this.lastUpdatePack || !mapContextHelpers) {
-      return { valid: true, issues: [], hasPack: !!this.lastUpdatePack };
+    const contextKey = matchId ? String(matchId) : 'main';
+    const pack = this.lastUpdatePackByContext && this.lastUpdatePackByContext.get
+      ? this.lastUpdatePackByContext.get(contextKey)
+      : this.lastUpdatePack;
+    if (!pack || !mapContextHelpers) {
+      return { valid: true, issues: [], hasPack: !!pack };
     }
-    return mapContextHelpers.validateContextIsolation(this.lastUpdatePack, matchId);
+    return mapContextHelpers.validateContextIsolation(pack, matchId);
   }
   
   // Get performance statistics
@@ -807,7 +938,7 @@ class OptimizedGameLoop {
   }
   
   // Compress entity pack by only including changed properties
-  compressEntityPack(entityPack, entityType) {
+  compressEntityPack(entityPack, entityType, options = {}) {
     if(!Array.isArray(entityPack)) return entityPack;
     
     const compressed = [];
@@ -921,23 +1052,113 @@ class OptimizedGameLoop {
       }
     }
     
+    if (!options.skipCleanup) {
     // Clean up states for entities that no longer exist
     const currentEntityIds = new Set(entityPack.map(e => e && e.id).filter(Boolean));
     for(const [entityId] of this.previousEntityStates) {
       if(!currentEntityIds.has(entityId)) {
         this.previousEntityStates.delete(entityId);
+        }
       }
     }
     
     return compressed;
   }
   
+  cleanupCompressionState(entityPack) {
+    if(!Array.isArray(entityPack)) return;
+    const currentEntityIds = new Set(entityPack.map(e => e && e.id).filter(Boolean));
+    for (const [entityId] of this.previousEntityStates) {
+      if (!currentEntityIds.has(entityId)) {
+        this.previousEntityStates.delete(entityId);
+      }
+    }
+  }
+  
+  buildContextKey(context) {
+    if (context && context.inBattleground && context.battlegroundMatchId) {
+      return String(context.battlegroundMatchId);
+    }
+    return 'main';
+  }
+  
+  groupViewerAnchorsByContext(viewerAnchors) {
+    const groups = new Map();
+    if (!Array.isArray(viewerAnchors) || viewerAnchors.length === 0) {
+      return groups;
+    }
+    for (const viewer of viewerAnchors) {
+      let contextMatchId = viewer && viewer.context ? viewer.context.battlegroundMatchId : null;
+      let contextInBG = viewer && viewer.context ? !!viewer.context.inBattleground : false;
+      
+      if (viewer && viewer.ownerPlayerId && global.Player && global.Player.list) {
+        const owner = global.Player.list[viewer.ownerPlayerId];
+        if (owner) {
+          const ownerInBG = !!(owner.inBattleground && owner.battlegroundMatchId);
+          contextInBG = ownerInBG;
+          contextMatchId = ownerInBG ? owner.battlegroundMatchId : null;
+        }
+      }
+      
+      const normalizedViewer = viewer || {};
+      normalizedViewer.inBattleground = contextInBG;
+      normalizedViewer.battlegroundMatchId = contextMatchId;
+      if (!normalizedViewer.context) {
+        normalizedViewer.context = contextInBG
+          ? { inBattleground: true, battlegroundMatchId: contextMatchId }
+          : null;
+      }
+      
+      const key = contextInBG && contextMatchId ? String(contextMatchId) : 'main';
+      if (!groups.has(key)) {
+        groups.set(key, {
+          key,
+          inBattleground: key !== 'main',
+          matchId: key !== 'main' ? key : null,
+          viewers: []
+        });
+      }
+      groups.get(key).viewers.push(normalizedViewer);
+    }
+    return groups;
+  }
+  
+  filterCameraPackByContext(cameraPack, contextInfo) {
+    if (!Array.isArray(cameraPack) || !contextInfo) return cameraPack;
+    const wantBattleground = !!contextInfo.inBattleground;
+    const matchId = contextInfo.matchId || null;
+    return cameraPack.filter((camera) => {
+      const cameraContext = camera && camera.context ? camera.context : null;
+      const cameraInBG = !!(cameraContext && cameraContext.inBattleground && cameraContext.battlegroundMatchId);
+      const cameraMatchId = cameraContext ? (cameraContext.battlegroundMatchId || null) : null;
+      if (wantBattleground) {
+        return cameraInBG && cameraMatchId === matchId;
+      }
+      return !cameraInBG;
+    });
+  }
+
+  filterPlayerPackByContext(playerPack, contextInfo) {
+    if (!Array.isArray(playerPack) || !contextInfo) return playerPack;
+    const matchId = contextInfo.matchId || null;
+    return playerPack.filter((entity) => {
+      if (!entity || entity.id === undefined) return false;
+      const playerEntity = Player.list ? Player.list[entity.id] : null;
+      if (!playerEntity) return false;
+      const isBG = !!(playerEntity.inBattleground && playerEntity.battlegroundMatchId);
+      if (contextInfo.inBattleground) {
+        return isBG && playerEntity.battlegroundMatchId === matchId;
+      }
+      return !isBG;
+    });
+  }
+  
   // Filter entities based on distance from any viewer/camera
-  spatialFilterEntities(entityPack) {
+  spatialFilterEntities(entityPack, viewerAnchorsOverride) {
     if(!Array.isArray(entityPack) || entityPack.length === 0) return entityPack;
 
     // Get all viewer anchors from the camera registry
-    const viewerAnchors = Camera.getViewerAnchors();
+    const viewerAnchors = viewerAnchorsOverride || Camera.getViewerAnchors();
 
     // If no viewers, send all entities (for initial connection)
     if(viewerAnchors.length === 0) return entityPack;
@@ -1162,19 +1383,34 @@ class OptimizedGameLoop {
    * Filter buildings by map context (prevent main world buildings from appearing in battlegrounds)
    * Buildings from main world should not be sent to battleground clients
    */
-  spatialFilterBuildings(buildingPack) {
+  spatialFilterBuildings(buildingPack, viewerAnchorsOverride, contextInfo) {
     if(!Array.isArray(buildingPack) || buildingPack.length === 0) return buildingPack;
 
     // Get all viewer anchors from the camera registry
-    const viewerAnchors = Camera.getViewerAnchors();
+    const viewerAnchors = viewerAnchorsOverride || Camera.getViewerAnchors();
 
     // If no viewers, send all buildings (for initial connection)
     if(viewerAnchors.length === 0) return buildingPack;
     
+    let packToFilter = buildingPack;
+    if (contextInfo && mapContextHelpers) {
+      const mockContext = {
+        inBattleground: !!contextInfo.inBattleground,
+        battlegroundMatchId: contextInfo.matchId || null
+      };
+      packToFilter = buildingPack.filter((building) => {
+        if (!building || building.id === undefined) return false;
+        const buildingEntity = global.Building && global.Building.list ? global.Building.list[building.id] : null;
+        if (!buildingEntity) return false;
+        return mapContextHelpers.areInSameContext(buildingEntity, mockContext);
+      });
+      if (packToFilter.length === 0) return packToFilter;
+    }
+    
     const filtered = [];
     const radiusSquared = this.spatialFilterRadius * this.spatialFilterRadius;
     const partitionSize = this.spatialPartitionSize || 512;
-    const { buckets, unpositioned } = this.buildSpatialBuckets(buildingPack, partitionSize);
+    const { buckets, unpositioned } = this.buildSpatialBuckets(packToFilter, partitionSize);
     const includedIds = new Set();
 
     filtered.push(...unpositioned);
@@ -1231,11 +1467,11 @@ class OptimizedGameLoop {
    * Filter items by map context (prevent main world items from appearing in battlegrounds)
    * Items with innaWoods=true from main world should not be sent to battleground clients
    */
-  spatialFilterItems(itemPack) {
+  spatialFilterItems(itemPack, viewerAnchorsOverride, contextInfo) {
     if(!Array.isArray(itemPack) || itemPack.length === 0) return itemPack;
 
     // Get all viewer anchors from the camera registry
-    const viewerAnchors = Camera.getViewerAnchors();
+    const viewerAnchors = viewerAnchorsOverride || Camera.getViewerAnchors();
 
     // If no viewers, send all items (for initial connection)
     if(viewerAnchors.length === 0) return itemPack;
@@ -1260,10 +1496,25 @@ class OptimizedGameLoop {
       }
     }
     
+    let packToFilter = itemPack;
+    if (contextInfo && mapContextHelpers) {
+      const mockContext = {
+        inBattleground: !!contextInfo.inBattleground,
+        battlegroundMatchId: contextInfo.matchId || null
+      };
+      packToFilter = itemPack.filter((item) => {
+        if (!item || item.id === undefined) return false;
+        const itemEntity = global.Item && global.Item.list ? global.Item.list[item.id] : null;
+        if (!itemEntity) return false;
+        return mapContextHelpers.areInSameContext(itemEntity, mockContext);
+      });
+      if (packToFilter.length === 0) return packToFilter;
+    }
+    
     const filtered = [];
     const radiusSquared = this.spatialFilterRadius * this.spatialFilterRadius;
     const partitionSize = this.spatialPartitionSize || 512;
-    const { buckets, unpositioned } = this.buildSpatialBuckets(itemPack, partitionSize);
+    const { buckets, unpositioned } = this.buildSpatialBuckets(packToFilter, partitionSize);
     const includedIds = new Set();
 
     filtered.push(...unpositioned);
@@ -1374,19 +1625,39 @@ class OptimizedGameLoop {
    * Filter arrows by map context (prevent main world arrows from appearing in battlegrounds)
    * Arrows inherit context from their parent entity
    */
-  spatialFilterArrows(arrowPack) {
+  spatialFilterArrows(arrowPack, viewerAnchorsOverride, contextInfo) {
     if(!Array.isArray(arrowPack) || arrowPack.length === 0) return arrowPack;
 
     // Get all viewer anchors from the camera registry
-    const viewerAnchors = Camera.getViewerAnchors();
+    const viewerAnchors = viewerAnchorsOverride || Camera.getViewerAnchors();
 
     // If no viewers, send all arrows (for initial connection)
     if(viewerAnchors.length === 0) return arrowPack;
     
+    let packToFilter = arrowPack;
+    if (contextInfo && mapContextHelpers) {
+      const mockContext = {
+        inBattleground: !!contextInfo.inBattleground,
+        battlegroundMatchId: contextInfo.matchId || null
+      };
+      packToFilter = arrowPack.filter((arrow) => {
+        if (!arrow || arrow.id === undefined) return false;
+        let arrowEntity = null;
+        if (global.Arrow && global.Arrow.list && global.Arrow.list[arrow.id]) {
+          arrowEntity = global.Arrow.list[arrow.id];
+        } else if (arrow.parent && global.Player && global.Player.list) {
+          arrowEntity = global.Player.list[arrow.parent];
+        }
+        if (!arrowEntity) return false;
+        return mapContextHelpers.areInSameContext(arrowEntity, mockContext);
+      });
+      if (packToFilter.length === 0) return packToFilter;
+    }
+    
     const filtered = [];
     const radiusSquared = this.spatialFilterRadius * this.spatialFilterRadius;
     const partitionSize = this.spatialPartitionSize || 512;
-    const { buckets, unpositioned } = this.buildSpatialBuckets(arrowPack, partitionSize);
+    const { buckets, unpositioned } = this.buildSpatialBuckets(packToFilter, partitionSize);
     const includedIds = new Set();
 
     filtered.push(...unpositioned);
@@ -1445,7 +1716,7 @@ class OptimizedGameLoop {
   /**
    * Filter lights by map context (prevent main world lights from appearing in battlegrounds)
    */
-  spatialFilterLights(lightPack) {
+  spatialFilterLights(lightPack, viewerAnchorsOverride, contextInfo) {
     if(!Array.isArray(lightPack) || lightPack.length === 0) return lightPack;
     const now = Date.now();
     if (!global._debugTorchLogTimes) global._debugTorchLogTimes = {};
@@ -1456,15 +1727,30 @@ class OptimizedGameLoop {
     }
     
     // Get all viewer anchors from the camera registry
-    const viewerAnchors = Camera.getViewerAnchors();
+    const viewerAnchors = viewerAnchorsOverride || Camera.getViewerAnchors();
 
     // If no viewers, send all lights (for initial connection)
     if(viewerAnchors.length === 0) return lightPack;
     
+    let packToFilter = lightPack;
+    if (contextInfo && mapContextHelpers) {
+      const mockContext = {
+        inBattleground: !!contextInfo.inBattleground,
+        battlegroundMatchId: contextInfo.matchId || null
+      };
+      packToFilter = lightPack.filter((light) => {
+        if (!light || light.id === undefined) return false;
+        const lightEntity = global.Light && global.Light.list ? global.Light.list[light.id] : null;
+        if (!lightEntity) return false;
+        return mapContextHelpers.areInSameContext(lightEntity, mockContext);
+      });
+      if (packToFilter.length === 0) return packToFilter;
+    }
+    
     const filtered = [];
     const radiusSquared = this.spatialFilterRadius * this.spatialFilterRadius;
     const partitionSize = this.spatialPartitionSize || 512;
-    const { buckets, unpositioned } = this.buildSpatialBuckets(lightPack, partitionSize);
+    const { buckets, unpositioned } = this.buildSpatialBuckets(packToFilter, partitionSize);
     const includedIds = new Set();
 
     filtered.push(...unpositioned);
@@ -1524,12 +1810,12 @@ class OptimizedGameLoop {
    * Filter weather by map context (weather is typically global, but filter if per-match)
    * For now, weather is usually global, so we just return it as-is unless it has match-specific data
    */
-  spatialFilterWeather(weatherPack) {
+  spatialFilterWeather(weatherPack, viewerAnchorsOverride) {
     if (!Array.isArray(weatherPack) || weatherPack.length === 0) return weatherPack;
     if (!mapContextHelpers || !global.Weather || !global.Weather.list) return weatherPack;
 
     // Get all viewer anchors from the camera registry
-    const viewerAnchors = Camera.getViewerAnchors();
+    const viewerAnchors = viewerAnchorsOverride || Camera.getViewerAnchors();
     if (viewerAnchors.length === 0) return weatherPack;
 
     const filtered = [];

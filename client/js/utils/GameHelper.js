@@ -35,12 +35,19 @@ class GameHelper {
    */
   hasFire(z, x, y, LightList, tileSize, getBuilding) {
     if (!LightList) return false;
+    const contextHelper = (typeof window !== 'undefined' && window.contextHelper) ? window.contextHelper : null;
+    const context = contextHelper
+      ? contextHelper.getCurrentContext({ selfId: window.selfId, PlayerList: window.Player ? window.Player.list : Player.list })
+      : null;
 
     let count = 0;
     for (let i in LightList) {
       if (!LightList[i]) continue;
       
       const light = LightList[i];
+      if (contextHelper && !contextHelper.isEntityInContext(light, context)) {
+        continue;
+      }
       if (light.z === z && (getBuilding(light.x, light.y) === getBuilding(x, y) || 
                             getBuilding(light.x, light.y + tileSize) === getBuilding(x, y))) {
         if (light.radius > 1) {
