@@ -943,11 +943,27 @@ class OptimizedGameLoop {
     if(viewerAnchors.length === 0) return entityPack;
     
     const filtered = [];
+    const includedIds = new Set();
     const radiusSquared = this.spatialFilterRadius * this.spatialFilterRadius;
     const partitionSize = this.spatialPartitionSize || 512;
     const buckets = new Map();
     const unpositioned = [];
+
+    // Always include the viewer's own player entity, regardless of camera z.
+    // This prevents camera z from getting "stuck" and blocking the player's z updates.
+    const ownerIds = new Set();
+    for (const viewer of viewerAnchors) {
+      if (viewer && viewer.ownerPlayerId) {
+        ownerIds.add(viewer.ownerPlayerId);
+      }
+    }
+
     for (const entity of entityPack) {
+      if (entity && entity.id !== undefined && ownerIds.has(entity.id)) {
+        includedIds.add(entity.id);
+        filtered.push(entity);
+        continue;
+      }
       if (!entity || typeof entity.x !== 'number' || typeof entity.y !== 'number') {
         unpositioned.push(entity);
         continue;
@@ -959,7 +975,6 @@ class OptimizedGameLoop {
       buckets.get(key).push(entity);
     }
 
-    const includedIds = new Set();
     filtered.push(...unpositioned);
 
     for (const viewer of viewerAnchors) {

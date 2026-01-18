@@ -3386,7 +3386,12 @@ const Player = function(param) {
           const tile = getTile(0, c, r, self.id);
           const doorLocked = tile === TERRAIN.DOOR_LOCKED && !keyCheck(self.x + offsets[dir][0], self.y + offsets[dir][1], self.id);
           // Allow stepping onto cave entrance tile (6) to trigger descent
-          const isBlocked = (!isWalkable(0, c, r, self.id) && tile !== TERRAIN.WATER && tile !== 6);
+          const isBlocked = (!isWalkable(0, c, r, self.id) &&
+            tile !== TERRAIN.WATER &&
+            tile !== 6 &&
+            tile !== TERRAIN.DOOR_OPEN &&
+            tile !== TERRAIN.DOOR_OPEN_ALT &&
+            tile !== TERRAIN.DOOR_LOCKED);
           const gateBlocked = getTile(5, c, r) === 'gatec' && !gateCheck(self.x + offsets[dir][0], self.y + offsets[dir][1], self.house, self.kingdom);
           const outOfBounds = (dir === 'right' && self.x + 10 > mapPx - tileSize) ||
                              (dir === 'left' && self.x - 10 < 0) ||
