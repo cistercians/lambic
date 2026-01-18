@@ -100,38 +100,47 @@ class PathfindingDiagnostics {
     if (!this.enabled) return;
     
     const stats = this.collectStats();
-    
-    
+
+    console.log('[PathfindingDiagnostics] score=%s warnings=%s', stats.performance.score, stats.performance.warnings.length);
     if (stats.performance.warnings.length > 0) {
       stats.performance.warnings.forEach(warning => {
+        console.warn('[PathfindingDiagnostics]', warning);
       });
     }
     
     // Pathfinding stats
     if (stats.pathfinding) {
-      
+      console.log('[PathfindingDiagnostics] requests=%s cacheHitRate=%s avgMs=%s maxMs=%s',
+        stats.pathfinding.requests.thisSecond,
+        stats.pathfinding.cache.hitRate,
+        stats.pathfinding.timing.pathfinding.avg,
+        stats.pathfinding.timing.pathfinding.max
+      );
       if (stats.pathfinding.hotspots && stats.pathfinding.hotspots.length > 0) {
         stats.pathfinding.hotspots.slice(0, 3).forEach((h, i) => {
+          console.log('[PathfindingDiagnostics] hotspot #%s %s (%s)', i + 1, h.location, h.count);
         });
       }
     }
     
     // Stuck entity stats
     if (stats.stuckEntities) {
-      
+      console.log('[PathfindingDiagnostics] stuckTotal=%s', stats.stuckEntities.totalEvents || 0);
       if (stats.stuckEntities.topStuckWaypoints && stats.stuckEntities.topStuckWaypoints.length > 0) {
         stats.stuckEntities.topStuckWaypoints.slice(0, 5).forEach((w, i) => {
+          console.log('[PathfindingDiagnostics] stuck #%s %s (%s)', i + 1, w.waypoint, w.count);
         });
       }
       
       if (stats.stuckEntities.layerDistribution && stats.stuckEntities.layerDistribution.length > 0) {
         stats.stuckEntities.layerDistribution.forEach(l => {
+          console.log('[PathfindingDiagnostics] stuckLayer %s=%s', l.layer, l.count);
         });
       }
     }
     
     // Memory
-    
+    console.log('[PathfindingDiagnostics] memory heap=%s rss=%s', stats.memory.heapUsed, stats.memory.rss);
     
     this.lastLog = Date.now();
   }

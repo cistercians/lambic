@@ -1,0 +1,27 @@
+SockJS v0.3.24 bound to "/io"
+[2J[0f╔════════════════════════════════════════╗
+║     WORLD GENERATION - SETUP MODE      ║
+╚════════════════════════════════════════╝
+
+Choose setup mode:
+  1. Use defaults (Continental, Small 192×192)
+  2. Customize settings
+  3. Test Map (Continental, 64×64, no preview)
+
+Enter your choice (1-3): 
+Generating world...
+World generated in 0.61 seconds
+
+[2J[0f╔════════════════╗
+Error displaying preview: Invalid count value: -3
+Accept this map? (y/n): [OptimizedGameLoop] Context stats {
+  playersMain: 0,
+  playersBattleground: 0,
+  itemsMain: 0,
+  itemsBattleground: 0,
+  buildingsMain: 0,
+  buildingsBattleground: 0
+}
+[P2P] Server listening on port 6001
+GET /io/info?t=1768706082957 3ms 200
+GET /io/279/qns3of0q/websocket 2ms (unfinished)

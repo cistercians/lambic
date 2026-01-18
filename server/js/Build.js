@@ -36,6 +36,9 @@ Build = function(id){
       Player.list[id].working = false;
       Player.list[id].building = false;
       var count = 0;
+      if(!b || !Building.list[b]){
+        return;
+      }
       var plot = Building.list[b].plot;
       var walls = Building.list[b].walls;
       var top = Building.list[b].topPlot;

@@ -534,6 +534,8 @@ Building = function(param){
 
 Farm = function(param){
   var self = Building(param);
+  self.resources = [];
+  self.serfs = {};
   self.mill = null;
   self.findMill = function(){
     for(var i in Building.list){
@@ -554,6 +556,9 @@ Farm = function(param){
     }
   }
   self.findMill();
+  if (typeof self.updateFarmResources === 'function') {
+    self.updateFarmResources();
+  }
 }
 
 Mill = function(param){
@@ -1152,6 +1157,7 @@ Tavern = function(param){
       // Tavern owner no longer exists, skip serf creation
       return;
     }
+    var serfLogger = global.serfLogger;
     
     var building = Building.list[b];
     var loc = getLoc(self.x,self.y);
@@ -1237,6 +1243,27 @@ Tavern = function(param){
         req:5,
         hp:150
       })
+      var logTavernSpawn = function(serf, role){
+        if(!serfLogger || typeof serfLogger.info !== 'function' || !serf) return;
+        var night = null;
+        if(global.gameState && typeof global.gameState.nightfall === 'boolean'){
+          night = global.gameState.nightfall;
+        } else if(typeof global.nightfall === 'boolean'){
+          night = global.nightfall;
+        }
+        var serfLoc = getLoc(serf.x, serf.y);
+        serfLogger.info('Tavern serf spawned', serf, {
+          tavernId: self.id,
+          workHq: b,
+          hutId: id,
+          role: role || 'unknown',
+          z: serf.z,
+          loc: serfLoc,
+          nightfall: night,
+          mode: serf.mode || null,
+          action: serf.action || null
+        });
+      };
       var s1 = Math.random();
       var sp1 = self.plot[13]
       var c1 = getCenter(sp1[0],sp1[1]);
@@ -1248,7 +1275,7 @@ Tavern = function(param){
       // For lumbermill/mine/dock, first serf MUST be male; for mill, can be either
       if(building.type == 'lumbermill' || building.type == 'mine' || building.type == 'dock'){
         // First serf must be male
-        SerfM({
+        var serf1 = SerfM({
           id:s1,
           name:randomName('m'),
           x:c1[0],
@@ -1261,10 +1288,11 @@ Tavern = function(param){
           hut:id,
           tavern:self.id
         });
+        logTavernSpawn(serf1, 'primary');
       } else {
         // Mill - either gender (60% male)
       if(s1 > 0.4){
-        SerfM({
+        var serf1 = SerfM({
           id:s1,
           name:randomName('m'),
           x:c1[0],
@@ -1277,8 +1305,9 @@ Tavern = function(param){
           hut:id,
           tavern:self.id
         });
+        logTavernSpawn(serf1, 'primary');
       } else {
-        SerfF({
+        var serf1 = SerfF({
           id:s1,
           name:randomName('f'),
           x:c1[0],
@@ -1290,12 +1319,13 @@ Tavern = function(param){
           hut:id,
           tavern:self.id
         });
+        logTavernSpawn(serf1, 'primary');
       }
       }
       
       // Second serf - either gender (40% male for variety)
       if(s2 > 0.6){
-        SerfM({
+        var serf2 = SerfM({
           id:s2,
           name:randomName('m'),
           x:c2[0],
@@ -1308,8 +1338,9 @@ Tavern = function(param){
           hut:id,
           tavern:self.id
         });
+        logTavernSpawn(serf2, 'secondary');
       } else {
-        SerfF({
+        var serf2 = SerfF({
           id:s2,
           name:randomName('f'),
           x:c2[0],
@@ -1321,6 +1352,7 @@ Tavern = function(param){
           hut:id,
           tavern:self.id
         });
+        logTavernSpawn(serf2, 'secondary');
       }
       if(Player.list[s1].sex == 'm'){
         Building.list[b].serfs[s1] = s1;
@@ -5593,14 +5625,6 @@ Character = function(param){
       }
     }
     
-    // Try to get cached path first
-    var cachedPath = getCachedPath(start, [c,r], z, self);
-    if(cachedPath){
-      self.path = cachedPath;
-      self.pathCount = 0; // Initialize path counter
-      return;
-    }
-    
     if(z == self.z){
       if(self.z == 0){
         var isOnWater = getLocTile(0, self.x, self.y, self) == 0;
@@ -5637,10 +5661,17 @@ Character = function(param){
         // Ghosts on water use overworld pathfinding (layer 0) with ghost options
         // Non-ghosts on water use underwater pathfinding (layer 3)
         var pathLayer = (self.ghost && isOnWater) ? 0 : (isOnWater ? 3 : 0);
+        var cacheOptions = Object.assign({ layer: pathLayer }, options);
+        var cachedPath = getCachedPath(start, [c,r], z, self, cacheOptions);
+        if(cachedPath){
+          self.path = cachedPath;
+          self.pathCount = 0; // Initialize path counter
+          return;
+        }
         var path = findPathContextAware(start, [c,r], pathLayer, options, self);
         if(path && path.length > 0){
           path = smoothPath(path, z);
-          cachePath(start, [c,r], z, path, self);
+          cachePath(start, [c,r], z, path, self, cacheOptions);
         }
         self.path = path;
         self.pathCount = 0; // Initialize path counter
@@ -5678,19 +5709,33 @@ Character = function(param){
         }
         
         // Use layer 1 for cave (worldMaps[1] = Underworld)
+        var cacheOptions = Object.assign({ layer: 1 }, options);
+        var cachedPath = getCachedPath(start, [c,r], z, self, cacheOptions);
+        if(cachedPath){
+          self.path = cachedPath;
+          self.pathCount = 0; // Initialize path counter
+          return;
+        }
         var path = findPathContextAware(start, [c,r], 1, options, self);
         if(path && path.length > 0){
           // DON'T smooth cave paths - caves have narrow tunnels and smoothing causes wall-walking
-          cachePath(start, [c,r], z, path, self);
+          cachePath(start, [c,r], z, path, self, cacheOptions);
         }
         self.path = path;
         self.pathCount = 0; // Initialize path counter
       } else if(self.z == -2){
         if(b == db){
-          var path = findPathContextAware(start, [c,r], -2, {}, self);
+          var cacheOptions = { layer: 8 };
+          var cachedPath = getCachedPath(start, [c,r], z, self, cacheOptions);
+          if(cachedPath){
+            self.path = cachedPath;
+            self.pathCount = 0; // Initialize path counter
+            return;
+          }
+          var path = findPathContextAware(start, [c,r], 8, {}, self);
           if(path && path.length > 0){
             path = smoothPath(path, z);
-            cachePath(start, [c,r], z, path, self);
+            cachePath(start, [c,r], z, path, self, cacheOptions);
           }
           self.path = path;
           self.pathCount = 0; // Initialize path counter
@@ -5718,10 +5763,17 @@ Character = function(param){
             options.targetStairs = [c, r];
             options.avoidStairs = true;
           }
+          var cacheOptions = Object.assign({ layer: 3 }, options);
+          var cachedPath = getCachedPath(start, [c,r], z, self, cacheOptions);
+          if(cachedPath){
+            self.path = cachedPath;
+            self.pathCount = 0; // Initialize path counter
+            return;
+          }
           var path = findPathContextAware(start, [c,r], 3, options, self);
           if(path && path.length > 0){
             path = smoothPath(path, z);
-            cachePath(start, [c,r], z, path, self);
+            cachePath(start, [c,r], z, path, self, cacheOptions);
           }
           self.path = path;
           self.pathCount = 0; // Initialize path counter
@@ -5735,10 +5787,17 @@ Character = function(param){
           }
           var exit = Building.list[b].entrance;
           // Use tilemap system for pathfinding on building floor 1 (layer 3)
+          var cacheOptions = { layer: 3 };
+          var cachedPath = getCachedPath(start, [exit[0],exit[1]+1], z, self, cacheOptions);
+          if(cachedPath){
+            self.path = cachedPath;
+            self.pathCount = 0; // Initialize path counter
+            return;
+          }
           var path = findPathContextAware(start, [exit[0],exit[1]+1], 3, {}, self);
           if(path && path.length > 0){
             path = smoothPath(path, z);
-            cachePath(start, [exit[0],exit[1]+1], z, path, self);
+            cachePath(start, [exit[0],exit[1]+1], z, path, self, cacheOptions);
           }
           self.path = path;
           self.pathCount = 0; // Initialize path counter
@@ -5754,10 +5813,17 @@ Character = function(param){
             options.targetStairs = [c, r];
             options.avoidStairs = true;
           }
+          var cacheOptions = Object.assign({ layer: 5 }, options);
+          var cachedPath = getCachedPath(start, [c,r], z, self, cacheOptions);
+          if(cachedPath){
+            self.path = cachedPath;
+            self.pathCount = 0; // Initialize path counter
+            return;
+          }
           var path = findPathContextAware(start, [c,r], 5, options, self);
           if(path && path.length > 0){
             path = smoothPath(path, z);
-            cachePath(start, [c,r], z, path, self);
+            cachePath(start, [c,r], z, path, self, cacheOptions);
           }
           self.path = path;
           self.pathCount = 0; // Initialize path counter
@@ -5776,10 +5842,17 @@ Character = function(param){
             targetStairs: stairs,
             avoidStairs: true
           };
+          var cacheOptions = Object.assign({ layer: 5 }, options);
+          var cachedPath = getCachedPath(start, stairs, z, self, cacheOptions);
+          if(cachedPath){
+            self.path = cachedPath;
+            self.pathCount = 0; // Initialize path counter
+            return;
+          }
           var path = findPathContextAware(start, stairs, 5, options, self);
           if(path && path.length > 0){
             path = smoothPath(path, z);
-            cachePath(start, stairs, z, path, self);
+            cachePath(start, stairs, z, path, self, cacheOptions);
           }
           self.path = path;
           self.pathCount = 0; // Initialize path counter
@@ -5800,8 +5873,17 @@ Character = function(param){
               targetCaveEntrance: [cave[0], cave[1]],
               avoidCaveEntrances: true
             };
-            var path = findPathContextAware(start, [cave[0], cave[1]], 0, options, self);
-            self.path = path;
+            var cacheOptions = Object.assign({ layer: 0 }, options);
+            var cachedPath = getCachedPath(start, [cave[0], cave[1]], z, self, cacheOptions);
+            if(cachedPath){
+              self.path = cachedPath;
+            } else {
+              var path = findPathContextAware(start, [cave[0], cave[1]], 0, options, self);
+              if(path && path.length > 0){
+                cachePath(start, [cave[0], cave[1]], z, path, self, cacheOptions);
+              }
+              self.path = path;
+            }
           }
         } else { // to building
           var ent = Building.list[db].entrance;
@@ -5810,8 +5892,17 @@ Character = function(param){
             allowSpecificDoor: true,
             targetDoor: [ent[0], ent[1]]
           };
-          var path = findPathContextAware(start, [ent[0], ent[1]], 0, options, self);
-          self.path = path;
+          var cacheOptions = Object.assign({ layer: 0 }, options);
+          var cachedPath = getCachedPath(start, [ent[0], ent[1]], z, self, cacheOptions);
+          if(cachedPath){
+            self.path = cachedPath;
+          } else {
+            var path = findPathContextAware(start, [ent[0], ent[1]], 0, options, self);
+            if(path && path.length > 0){
+              cachePath(start, [ent[0], ent[1]], z, path, self, cacheOptions);
+            }
+            self.path = path;
+          }
         }
       } else if(self.z == -1){ // cave
         // Use stored caveEntrance (set when entering) - exit is one tile south
@@ -5842,8 +5933,17 @@ Character = function(param){
             targetDoor: [cave[0], cave[1] + 1]
           };
           // Use layer 1 for cave (worldMaps[1] = Underworld)
-          var path = findPathContextAware(start, [cave[0], cave[1] + 1], 1, options, self);
-          self.path = path;
+          var cacheOptions = Object.assign({ layer: 1 }, options);
+          var cachedPath = getCachedPath(start, [cave[0], cave[1] + 1], z, self, cacheOptions);
+          if(cachedPath){
+            self.path = cachedPath;
+          } else {
+            var path = findPathContextAware(start, [cave[0], cave[1] + 1], 1, options, self);
+            if(path && path.length > 0){
+              cachePath(start, [cave[0], cave[1] + 1], z, path, self, cacheOptions);
+            }
+            self.path = path;
+          }
         }
       } else if(self.z == 1){ // indoors
         //var gridB1b = cloneGrid(1);
@@ -6370,6 +6470,15 @@ Character = function(param){
             if(global.stuckEntityAnalytics){
               global.stuckEntityAnalytics.recordStuckEvent(self, next, 'oscillating', self.pathRecalcAttempts || 0, self.z);
             }
+            // Serf observability (throttled)
+            if(self.type === 'npc' && (self.class === 'Serf' || self.class === 'SerfM' || self.class === 'SerfF')){
+              var serfLogger = global.serfLogger;
+              var now = Date.now();
+              if(serfLogger && (!self._serfStuckLogAt || (now - self._serfStuckLogAt > 5000))){
+                serfLogger.warn('Path oscillation detected', self, { next, z: self.z, pathLen: self.path?.length || 0 });
+                self._serfStuckLogAt = now;
+              }
+            }
             
             // Don't try to skip waypoints - the whole path is bad
             // Immediately clear and let pathfinding find a different route
@@ -6405,6 +6514,16 @@ Character = function(param){
           // Try to recalculate based on distance
           if(self.pathRecalcAttempts < maxRetries && self.pathEnd){
             var reason = isNextBlocked ? 'blocked' : 'stuck';
+            
+            // Serf observability (throttled)
+            if(self.type === 'npc' && (self.class === 'Serf' || self.class === 'SerfM' || self.class === 'SerfF')){
+              var serfLogger = global.serfLogger;
+              var now = Date.now();
+              if(serfLogger && (!self._serfStuckLogAt || (now - self._serfStuckLogAt > 5000))){
+                serfLogger.warn('Pathfinding stuck', self, { reason, next, z: self.z, attempts: self.pathRecalcAttempts });
+                self._serfStuckLogAt = now;
+              }
+            }
             
             // THROTTLING: Check if entity has actually moved
             if(!self.lastRecalcPosition){
@@ -8895,6 +9014,10 @@ Serf = function(param){
   self.assignWorkHQ = function(){
     if(!self.house) return;
     
+    var serfLogger = global.serfLogger;
+    var now = Date.now();
+    var shouldLog = !self._lastWorkAssignLogAt || (now - self._lastWorkAssignLogAt) > 5000;
+    var candidateCount = 0;
     var bestHQ = null;
     var bestDistance = Infinity;
     
@@ -8912,6 +9035,7 @@ Serf = function(param){
     for(var i in Building.list){
       var b = Building.list[i];
       if(b.house == self.house && validBuildingTypes.indexOf(b.type) !== -1){
+        candidateCount++;
         var dist = getDistance({x:self.x,y:self.y},{x:b.x,y:b.y});
         if(dist < bestDistance){
           bestDistance = dist;
@@ -8941,6 +9065,17 @@ Serf = function(param){
     if(bestHQ){
       self.work.hq = bestHQ;
       var buildingType = Building.list[bestHQ].type;
+      if(serfLogger && typeof serfLogger.info === 'function' && shouldLog){
+        serfLogger.info('Serf work assignment', self, {
+          result: 'assigned',
+          workHq: bestHQ,
+          buildingType: buildingType,
+          distance: bestDistance,
+          candidateCount: candidateCount
+        });
+        self._lastWorkAssignLogAt = now;
+        self._lastWorkAssignHq = bestHQ;
+      }
       
       // Only miners need torches for caves
       if(buildingType === 'mine' && Building.list[bestHQ].cave){
@@ -8953,6 +9088,15 @@ Serf = function(param){
       }
     } else {
       self.work.hq = null;
+      if(serfLogger && typeof serfLogger.warn === 'function' && shouldLog){
+        serfLogger.warn('Serf work assignment failed', self, {
+          result: 'noCandidate',
+          candidateCount: candidateCount,
+          validBuildingTypes: validBuildingTypes
+        });
+        self._lastWorkAssignLogAt = now;
+        self._lastWorkAssignHq = null;
+      }
     }
   };
 
@@ -9107,18 +9251,30 @@ Serf = function(param){
     // Z-level transitions and day/night logic - always run (both old and new systems)
     if(self.z == 0){
       if(getTile(0,loc[0],loc[1]) == 6){
-        // Cave entrance - enter only if no active path AND cooldown expired
-        if((!self.path || self.path.length === 0) && self.mineExitCooldown === 0){
-          self.caveEntrance = loc;
-          self.z = -1;
-          self.path = null;
-          self.pathCount = 0;
-        } else if(self.mineExitCooldown > 0){
-          // Waiting for cooldown to expire
-          if(!self._cooldownLogTimer) self._cooldownLogTimer = 0;
-          self._cooldownLogTimer++;
-          if(self._cooldownLogTimer >= 60){ // Log once per second
-            self._cooldownLogTimer = 0;
+        // Cave entrance - only enter when intent is set (prevents accidental transitions)
+        self.transitionState = 'at_entrance';
+        if(self.transitionIntent === 'enter_cave'){
+          if(self.mineExitCooldown === 0){
+            const canTransition = (!self.path || self.path.length === 0 || self.isAtPathDestination());
+            if(canTransition){
+              // Preserve target for continuation after entry
+              const previousTargetZ = self.targetZLevel;
+              const previousTargetLoc = self.targetLoc;
+              self.enterCave(loc);
+              if(previousTargetZ === -1 && previousTargetLoc && Array.isArray(previousTargetLoc) && previousTargetLoc.length >= 2){
+                // Continue pathfinding inside the cave
+                self.targetZLevel = null;
+                self.moveTo(-1, previousTargetLoc[0], previousTargetLoc[1]);
+                self.targetLoc = null;
+              }
+            }
+          } else {
+            // Waiting for cooldown to expire
+            if(!self._cooldownLogTimer) self._cooldownLogTimer = 0;
+            self._cooldownLogTimer++;
+            if(self._cooldownLogTimer >= 60){ // Log once per second
+              self._cooldownLogTimer = 0;
+            }
           }
         }
       } else if(getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 2){
@@ -9152,28 +9308,19 @@ Serf = function(param){
         self.onMtn = false;
         self.maxSpd = (self.baseSpd * 1.1) * self.drag;
       } else if(getTile(0,loc[0],loc[1]) == 14 || getTile(0,loc[0],loc[1]) == 16 || getTile(0,loc[0],loc[1]) == 19){
-        var b = getBuilding(self.x,self.y);
-        if(Building.list[b]){
-        Building.list[b].occ++;
-        self.z = 1;
-        // DON'T clear path - preserve for navigation through buildings
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = self.baseSpd * self.drag;
+        // Only enter buildings when transition intent is set
+        if(self.transitionIntent === 'enter_building'){
+          var b = getBuilding(self.x,self.y);
+          if(Building.list[b]){
+            self.enterBuilding(b);
+          }
+        } else {
+          self.innaWoods = false;
+          self.onMtn = false;
+          self.maxSpd = self.baseSpd * self.drag;
         }
       } else if(getTile(0,loc[0],loc[1]) == 0 && !self.isBoarded){
-        self.z = -3;
-        // DON'T clear path - preserve for underwater navigation
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = (self.baseSpd * 0.2)  * self.drag;
-        // Clear movement to prevent loops (except for ghosts)
-        if(!self.ghost){
-          self.pressingRight = false;
-          self.pressingLeft = false;
-          self.pressingDown = false;
-          self.pressingUp = false;
-        }
+        self.enterWater();
       } else {
         self.innaWoods = false;
         self.onMtn = false;
@@ -9259,18 +9406,10 @@ Serf = function(param){
       }
     } else if(self.z == 1){
       if(getTile(0,loc[0],loc[1] - 1) == 14 || getTile(0,loc[0],loc[1] - 1) == 16  || getTile(0,loc[0],loc[1] - 1) == 19){
-        var exit = getBuilding(self.x,self.y-tileSize);
-        if(Building.list[exit]){
-        Building.list[exit].occ--;
-        }
-        self.z = 0;
-        // DON'T clear path - preserve for navigation after exiting building
-        // Clear movement to prevent loops (except for ghosts)
-        if(!self.ghost){
-          self.pressingRight = false;
-          self.pressingLeft = false;
-          self.pressingDown = false;
-          self.pressingUp = false;
+        const canTransition = (!self.path || self.path.length === 0 || self.isAtPathDestination());
+        if(canTransition){
+          var exit = getBuilding(self.x,self.y-tileSize);
+          self.exitBuilding(exit);
         }
       } else if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4 || getTile(4,loc[0],loc[1]) == 7){
         self.z = 2;

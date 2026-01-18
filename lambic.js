@@ -1385,7 +1385,56 @@ function canMoveDirectly(start, end, z = 0, entityId) {
   return true;
 }
 
-function getPathCacheKey(start, end, z, entityId) {
+function getPathOptionsKey(options = {}) {
+  if (!options || Object.keys(options).length === 0) {
+    return '';
+  }
+
+  const parts = [];
+  if (options.allowSpecificDoor) parts.push('allowDoor');
+  if (options.waterOnly) parts.push('waterOnly');
+  if (options.avoidDoors) parts.push('avoidDoors');
+  if (options.avoidWater) parts.push('avoidWater');
+  if (options.avoidCaveEntrances) parts.push('avoidCaveEntrances');
+  if (options.avoidCaveExits) parts.push('avoidCaveExits');
+  if (options.avoidStairs) parts.push('avoidStairs');
+  if (options.ghost) parts.push('ghost');
+  if (options.allowStartTile) {
+    parts.push(`start=${Math.floor(options.allowStartTile[0])},${Math.floor(options.allowStartTile[1])}`);
+  }
+  if (options.targetDoor) {
+    parts.push(`door=${Math.floor(options.targetDoor[0])},${Math.floor(options.targetDoor[1])}`);
+  }
+  if (options.targetStairs) {
+    parts.push(`stairs=${Math.floor(options.targetStairs[0])},${Math.floor(options.targetStairs[1])}`);
+  }
+  if (options.targetCaveEntrance) {
+    parts.push(`cave=${Math.floor(options.targetCaveEntrance[0])},${Math.floor(options.targetCaveEntrance[1])}`);
+  }
+  if (options.targetWaterTile) {
+    parts.push(`water=${Math.floor(options.targetWaterTile[0])},${Math.floor(options.targetWaterTile[1])}`);
+  }
+
+  const knownKeys = new Set([
+    'allowSpecificDoor', 'waterOnly', 'avoidDoors', 'avoidWater', 'avoidCaveEntrances',
+    'avoidCaveExits', 'avoidStairs', 'ghost', 'allowStartTile', 'targetDoor',
+    'targetStairs', 'targetCaveEntrance', 'targetWaterTile'
+  ]);
+  const extraKeys = Object.keys(options).filter(k => !knownKeys.has(k)).sort();
+  for (const key of extraKeys) {
+    let value;
+    try {
+      value = JSON.stringify(options[key]);
+    } catch (err) {
+      value = String(options[key]);
+    }
+    parts.push(`${key}=${value}`);
+  }
+
+  return parts.length ? `|opt=${parts.join('|')}` : '';
+}
+
+function getPathCacheKey(start, end, z, entityId, options = {}) {
   let contextKey = 'main';
   if (entityId && global.mapContextManager) {
     const context = global.mapContextManager.getMapContext(entityId);
@@ -1393,18 +1442,19 @@ function getPathCacheKey(start, end, z, entityId) {
       contextKey = `bg:${context.matchId}`;
     }
   }
-  return `${contextKey}|${start[0]},${start[1]},${end[0]},${end[1]},${z}`;
+  const optionsKey = getPathOptionsKey(options);
+  return `${contextKey}|${start[0]},${start[1]},${end[0]},${end[1]},${z}${optionsKey}`;
 }
 
 // Get cached path or compute new one
-function getCachedPath(start, end, z, entityId) {
-  const key = getPathCacheKey(start, end, z, entityId);
+function getCachedPath(start, end, z, entityId, options = {}) {
+  const key = getPathCacheKey(start, end, z, entityId, options);
   return pathCache.get(key);
 }
 
 // Cache a computed path
-function cachePath(start, end, z, path, entityId) {
-  const key = getPathCacheKey(start, end, z, entityId);
+function cachePath(start, end, z, path, entityId, options = {}) {
+  const key = getPathCacheKey(start, end, z, entityId, options);
   pathCache.set(key, path);
 }
 

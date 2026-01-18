@@ -88,7 +88,7 @@ class PathfindingSystem {
     };
   }
 
-  // Generate cache key (optimized - avoid JSON.stringify)
+  // Generate cache key (stable and options-aware)
   // CRITICAL FIX: Normalize coordinates to integers to ensure cache hits
   generateCacheKey(start, end, layer, options = {}) {
     // Normalize coordinates to integers (tile coordinates)
@@ -98,28 +98,49 @@ class PathfindingSystem {
     const endX = Math.floor(end[0]);
     const endY = Math.floor(end[1]);
     
-    // Use string concatenation instead of JSON.stringify for common options
-    let optionsKey = '';
-    if (options.allowSpecificDoor) {
-      const doorX = options.targetDoor ? Math.floor(options.targetDoor[0]) : 0;
-      const doorY = options.targetDoor ? Math.floor(options.targetDoor[1]) : 0;
-      optionsKey = options.targetDoor ? `_door_${doorX},${doorY}` : '_door';
-    } else if (options.waterOnly) {
-      optionsKey = '_water';
-    } else if (options.avoidDoors) {
-      optionsKey = '_nodoors';
-    } else if (options.avoidWater) {
-      optionsKey = '_nowater';
-    } else if (options.avoidCaveEntrances) {
-      optionsKey = '_nocaves';
-    } else if (options.ghost) {
-      optionsKey = '_ghost';
+    const parts = [];
+    if (options.allowSpecificDoor) parts.push('allowDoor');
+    if (options.waterOnly) parts.push('waterOnly');
+    if (options.avoidDoors) parts.push('avoidDoors');
+    if (options.avoidWater) parts.push('avoidWater');
+    if (options.avoidCaveEntrances) parts.push('avoidCaveEntrances');
+    if (options.avoidCaveExits) parts.push('avoidCaveExits');
+    if (options.avoidStairs) parts.push('avoidStairs');
+    if (options.ghost) parts.push('ghost');
+    if (options.allowStartTile) {
+      parts.push(`start=${Math.floor(options.allowStartTile[0])},${Math.floor(options.allowStartTile[1])}`);
     }
-    // For complex options, fall back to JSON.stringify but cache it
-    if (Object.keys(options).length > 2 && !optionsKey) {
-      optionsKey = `_${JSON.stringify(options)}`;
+    if (options.targetDoor) {
+      parts.push(`door=${Math.floor(options.targetDoor[0])},${Math.floor(options.targetDoor[1])}`);
     }
-    
+    if (options.targetStairs) {
+      parts.push(`stairs=${Math.floor(options.targetStairs[0])},${Math.floor(options.targetStairs[1])}`);
+    }
+    if (options.targetCaveEntrance) {
+      parts.push(`cave=${Math.floor(options.targetCaveEntrance[0])},${Math.floor(options.targetCaveEntrance[1])}`);
+    }
+    if (options.targetWaterTile) {
+      parts.push(`water=${Math.floor(options.targetWaterTile[0])},${Math.floor(options.targetWaterTile[1])}`);
+    }
+
+    // Include any additional options deterministically to avoid cache collisions.
+    const knownKeys = new Set([
+      'allowSpecificDoor', 'waterOnly', 'avoidDoors', 'avoidWater', 'avoidCaveEntrances',
+      'avoidCaveExits', 'avoidStairs', 'ghost', 'allowStartTile', 'targetDoor',
+      'targetStairs', 'targetCaveEntrance', 'targetWaterTile'
+    ]);
+    const extraKeys = Object.keys(options).filter(k => !knownKeys.has(k)).sort();
+    for (const key of extraKeys) {
+      let value;
+      try {
+        value = JSON.stringify(options[key]);
+      } catch (err) {
+        value = String(options[key]);
+      }
+      parts.push(`${key}=${value}`);
+    }
+
+    const optionsKey = parts.length ? `_${parts.join('|')}` : '';
     return `${startX},${startY}_${endX},${endY}_${layer}${optionsKey}`;
   }
   
@@ -727,14 +748,22 @@ class PathfindingSystem {
     const now = Date.now();
     if (now - this.profiling.lastLog >= this.profiling.logInterval) {
       const stats = this.getProfilingStats();
-      
+      console.log('[PathfindingSystem] req=%s cache=%s gridCache=%s queued=%s timingAvgMs=%s',
+        stats.requests.thisSecond,
+        stats.cache.hitRate,
+        stats.gridCache.hitRate,
+        stats.queue.pending,
+        stats.timing.pathfinding.avg
+      );
       if (stats.hotspots.length > 0) {
         stats.hotspots.forEach((h, i) => {
+          console.log('[PathfindingSystem] hotspot #%s %s (%s)', i + 1, h.location, h.count);
         });
       }
       
       if (stats.layerUsage.length > 0) {
         stats.layerUsage.forEach(l => {
+          console.log('[PathfindingSystem] layer=%s count=%s', l.layer, l.count);
         });
       }
       

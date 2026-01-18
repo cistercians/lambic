@@ -110,6 +110,30 @@ class SimpleSerfBehavior {
     return workTile;
   }
 
+  resolveWalkableTarget(serf, z, target) {
+    if (!serf || !target || !Array.isArray(target) || target.length !== 2) return target;
+    if (global.isWalkable && global.isWalkable(z, target[0], target[1], serf)) {
+      return target;
+    }
+    if (typeof serf.findNearestWalkableTile === 'function') {
+      const fallback = serf.findNearestWalkableTile(target[0], target[1], z, 3);
+      if (fallback && Array.isArray(fallback) && fallback.length === 2) {
+        return fallback;
+      }
+    }
+    return target;
+  }
+
+  isNightTime() {
+    if (global.gameState && typeof global.gameState.nightfall === 'boolean') {
+      return global.gameState.nightfall;
+    }
+    if (typeof global.nightfall === 'boolean') {
+      return global.nightfall;
+    }
+    return false;
+  }
+
   tryReassignWork(serf) {
     if (!serf || typeof serf.assignWorkHQ !== 'function') return false;
     const now = Date.now();
@@ -177,6 +201,8 @@ class SimpleSerfBehavior {
         serf.stores = {};
       }
 
+      this.trackMovementStall(serf);
+
       if (serf._pendingFleeRecovery && serf.action !== 'flee') {
         this.recoverFromFlee(serf);
       }
@@ -190,6 +216,8 @@ class SimpleSerfBehavior {
         this.handleBuild(serf);
       } else if (serf.action === 'clockout') {
         this.handleClockout(serf);
+      } else if (serf.action === 'task') {
+        this.handleTask(serf);
       } else if (serf.action === 'flee') {
         // Use SimpleFlee system for fleeing
         this.enterFleeState(serf);
@@ -198,6 +226,8 @@ class SimpleSerfBehavior {
         }
       } else if (serf.mode !== 'work') {
         this.handleWandering(serf);
+      } else {
+        this.handleUnknownAction(serf);
       }
     } catch (error) {
       // Simple error handling - reset to safe state
@@ -210,11 +240,102 @@ class SimpleSerfBehavior {
   }
 
   /**
+   * Detect and recover from prolonged movement stalls
+   */
+  trackMovementStall(serf) {
+    if (!serf) return;
+    const isMovingState = (
+      serf.action === 'deposit' ||
+      serf.action === 'build' ||
+      serf.action === 'clockout' ||
+      serf.action === 'task' ||
+      (!serf.action && serf.mode === 'work')
+    );
+
+    if (!isMovingState || serf.working || serf.farming || serf.chopping || serf.mining) {
+      serf.stuckCounter = 0;
+      serf.lastPos = { x: serf.x, y: serf.y };
+      return;
+    }
+
+    if (!serf.lastPos) {
+      serf.lastPos = { x: serf.x, y: serf.y };
+      serf.stuckCounter = 0;
+      return;
+    }
+
+    const dx = Math.abs(serf.x - serf.lastPos.x);
+    const dy = Math.abs(serf.y - serf.lastPos.y);
+    const moved = dx > 1 || dy > 1;
+
+    if (moved) {
+      serf.lastPos = { x: serf.x, y: serf.y };
+      serf.stuckCounter = 0;
+      return;
+    }
+
+    serf.stuckCounter = (serf.stuckCounter || 0) + 1;
+    const now = Date.now();
+    if (serf.stuckCounter > 120 && (!serf._nextStuckRecovery || now >= serf._nextStuckRecovery)) {
+      serf._nextStuckRecovery = now + 3000;
+      this.recoverFromStuck(serf);
+      serf.stuckCounter = 0;
+    }
+  }
+
+  /**
+   * Recover serf from a stuck movement state
+   */
+  recoverFromStuck(serf) {
+    if (!serf) return;
+    const logger = this.getSerfLogger();
+    if (logger && typeof logger.warn === 'function') {
+      logger.warn('Recovering serf from stalled movement', serf, { action: serf.action, mode: serf.mode });
+    }
+
+    serf.path = null;
+    serf.pathCount = 0;
+    serf.pathEnd = null;
+
+    if (serf.action === 'deposit' || serf.action === 'clockout') {
+      serf.action = null;
+      return;
+    }
+
+    if (serf.action === 'build') {
+      if (serf.work) {
+        serf.work.spot = null;
+      }
+      serf.action = null;
+      return;
+    }
+
+    if (!serf.action && serf.mode === 'work' && serf.work) {
+      serf.work.spot = null;
+      serf.work.assignedSpot = null;
+      serf.work.workTile = null;
+      serf.work.workTileFor = null;
+    }
+  }
+
+  /**
    * Handle default work behavior (action === null)
    * Work building is pre-assigned at spawn
    */
   handleDefaultWork(serf) {
     if (serf.mode !== 'work') {
+      const needsHutBuild = !!(serf.hut && global.Building && global.Building.list && global.Building.list[serf.hut] && !global.Building.list[serf.hut].built);
+      if (needsHutBuild && serf.work && serf.work.hq) {
+        serf.mode = 'work';
+      } else if (!this.isNightTime()) {
+        if (!serf.work || !serf.work.hq) {
+          this.tryReassignWork(serf);
+        }
+        if (serf.work && serf.work.hq) {
+          serf.mode = 'work';
+        }
+      }
+      if (serf.mode !== 'work') {
       // Log when serfs are not in work mode (for cave mine debugging, throttled)
       if (serf.work && serf.work.hq && global.Building && global.Building.list) {
         const building = global.Building.list[serf.work.hq];
@@ -235,6 +356,7 @@ class SimpleSerfBehavior {
       this.setSerfState(serf, 'idle', 'notInWorkMode');
       this.handleWandering(serf);
       return;
+      }
     }
 
     this.setSerfState(serf, 'working', 'defaultWork');
@@ -263,7 +385,9 @@ class SimpleSerfBehavior {
       const reassigned = this.tryReassignWork(serf);
       if (!reassigned) {
         serf.mode = 'idle';
-        serf.work.hq = null;
+        if (!buildingExists) {
+          serf.work.hq = null;
+        }
         serf.work.spot = null;
         serf.work.assignedSpot = null;
         serf.work.workTile = null;
@@ -352,7 +476,7 @@ class SimpleSerfBehavior {
     const resourceTypes = Object.keys(serf.inventory || {}).filter(r => (serf.inventory[r] || 0) > 0);
     const hasStoneOrIronore = resourceTypes.some(r => r === 'stone' || r === 'ironore');
 
-    const dropoff = this.getDropoffLocation(building);
+    const dropoff = this.getDropoffLocationForSerf(serf, building);
     if (!dropoff) {
       // Log dropoff location failure (not throttled - this is an error)
       console.log(`[SERF DEPOSIT] ${houseName}: Failed to get dropoff location for ${building.type} at [${building.x}, ${building.y}], z=${building.z}`);
@@ -433,7 +557,8 @@ class SimpleSerfBehavior {
           }
         }
         
-        serf.moveTo(dropoffZ, dropoff[0], dropoff[1]);
+        const target = this.resolveWalkableTarget(serf, dropoffZ, dropoff);
+        serf.moveTo(dropoffZ, target[0], target[1]);
       }
     }
   }
@@ -509,10 +634,38 @@ class SimpleSerfBehavior {
         // Tile already built, find new one
         serf.work.spot = null;
       }
+    } else if (loc && Array.isArray(loc) && loc.length === 2) {
+      const dist = Math.abs(loc[0] - serf.work.spot[0]) + Math.abs(loc[1] - serf.work.spot[1]);
+      if (dist === 1) {
+        const gt = this.getTile(serf, 0, serf.work.spot[0], serf.work.spot[1]);
+        if (gt === 11) {
+          if (!serf.building && typeof global.Build === 'function') {
+            global.Build(serf.id);
+          }
+          return;
+        }
+      }
     } else if (!serf.path || serf.path.length === 0) {
-      // Path to building spot
+      // Path to building spot (use walkable adjacent tile, not the foundation tile itself)
       if (typeof serf.moveTo === 'function') {
-        serf.moveTo(0, serf.work.spot[0], serf.work.spot[1]);
+        const buildLoc = this.getWorkTileForSpot(serf, serf.work.spot, 0);
+        if (!buildLoc) {
+          serf.work.spot = null;
+          return;
+        }
+        const logger = this.getSerfLogger();
+        const now = Date.now();
+        const throttleKey = `pathStart-build-${serf.id}`;
+        const lastLog = this.logThrottle[throttleKey];
+        if (logger && typeof logger.debug === 'function' && (!lastLog || (now - lastLog) > this.LOG_THROTTLE_MS)) {
+          logger.debug('Serf starting path to build spot', serf, {
+            target: buildLoc,
+            spot: serf.work.spot,
+            serfZ: serf.z
+          });
+          this.logThrottle[throttleKey] = now;
+        }
+        serf.moveTo(0, buildLoc[0], buildLoc[1]);
       }
     }
   }
@@ -526,7 +679,7 @@ class SimpleSerfBehavior {
     if (this.hasResourcesToDeposit(serf)) {
       const building = this.getWorkBuilding(serf);
       if (building && building.built) {
-        const dropoff = this.getDropoffLocation(building);
+        const dropoff = this.getDropoffLocationForSerf(serf, building);
         if (dropoff) {
           const loc = this.getLoc(serf);
 
@@ -538,7 +691,8 @@ class SimpleSerfBehavior {
             if (typeof serf.moveTo === 'function') {
               // Use building's z-level if available, otherwise default to 0 (overworld)
               const dropoffZ = (building && typeof building.z === 'number') ? building.z : 0;
-              serf.moveTo(dropoffZ, dropoff[0], dropoff[1]);
+              const target = this.resolveWalkableTarget(serf, dropoffZ, dropoff);
+              serf.moveTo(dropoffZ, target[0], target[1]);
             }
             return; // Wait for pathfinding
           } else {
@@ -556,11 +710,12 @@ class SimpleSerfBehavior {
       ];
 
       if (loc && Array.isArray(loc) && loc.length === 2) {
-        if (serf.z !== serf.home.z || loc.toString() !== serf.home.loc.toString()) {
+        const homeTarget = this.resolveWalkableTarget(serf, serf.home.z, serf.home.loc);
+        if (serf.z !== serf.home.z || loc.toString() !== homeTarget.toString()) {
           if (!serf.path || serf.path.length === 0) {
             if (typeof serf.moveTo === 'function') {
               // Use serf.home.z to support multi-z pathfinding (e.g., z=1 for building homes)
-              serf.moveTo(serf.home.z, serf.home.loc[0], serf.home.loc[1]);
+              serf.moveTo(serf.home.z, homeTarget[0], homeTarget[1]);
             }
           }
         } else {
@@ -576,6 +731,49 @@ class SimpleSerfBehavior {
       serf.mode = 'idle';
       this.setSerfState(serf, 'idle', 'clockoutNoHome');
     }
+  }
+
+  /**
+   * Handle task action (outpost workers or legacy tasks)
+   */
+  handleTask(serf) {
+    this.setSerfState(serf, 'tasking', 'handleTask');
+    if (!serf || !serf.work || !Array.isArray(serf.work.spot)) {
+      serf.action = null;
+      return;
+    }
+
+    const target = serf.work.spot;
+    const loc = this.getLoc(serf);
+    const atTarget = loc && Array.isArray(loc) && loc.toString() === target.toString() && serf.z === 0;
+
+    if (atTarget) {
+      // Task completed or no specific work logic for outposts
+      serf.action = null;
+      if (serf.mode !== 'work') {
+        serf.mode = 'idle';
+      }
+      return;
+    }
+
+    if (!serf.path || serf.path.length === 0) {
+      if (typeof serf.moveTo === 'function') {
+        const dest = this.resolveWalkableTarget(serf, 0, target);
+        serf.moveTo(0, dest[0], dest[1]);
+      }
+    }
+  }
+
+  /**
+   * Handle unknown actions in work mode to avoid deadlocks
+   */
+  handleUnknownAction(serf) {
+    if (!serf) return;
+    const logger = this.getSerfLogger();
+    if (logger && typeof logger.warn === 'function') {
+      logger.warn('Unknown serf action in work mode - clearing action', serf, { action: serf.action });
+    }
+    serf.action = null;
   }
 
   /**
@@ -970,6 +1168,19 @@ class SimpleSerfBehavior {
           }
         }
         if (typeof serf.moveTo === 'function') {
+        const logger = this.getSerfLogger();
+        const now = Date.now();
+        const throttleKey = `pathStart-work-${serf.id}`;
+        const lastLog = this.logThrottle[throttleKey];
+        if (logger && typeof logger.debug === 'function' && (!lastLog || (now - lastLog) > this.LOG_THROTTLE_MS)) {
+          logger.debug('Serf starting path to work spot', serf, {
+            expectedZ,
+            workLoc,
+            spot,
+            serfZ: serf.z
+          });
+          this.logThrottle[throttleKey] = now;
+        }
           serf.moveTo(expectedZ, workLoc[0], workLoc[1]);
         }
       }
@@ -1676,7 +1887,7 @@ class SimpleSerfBehavior {
     try {
       if (!serf || !building) return false;
 
-      const dropoff = this.getDropoffLocation(building);
+      const dropoff = this.getDropoffLocationForSerf(serf, building);
       if (!dropoff || !Array.isArray(dropoff) || dropoff.length !== 2) {
         return false;
       }
@@ -1731,6 +1942,15 @@ class SimpleSerfBehavior {
     } catch (error) {
       return false;
     }
+  }
+
+  getDropoffLocationForSerf(serf, building) {
+    const dropoff = this.getDropoffLocation(building);
+    if (!dropoff || !Array.isArray(dropoff) || dropoff.length !== 2) {
+      return dropoff;
+    }
+    const dropoffZ = (building && typeof building.z === 'number') ? building.z : 0;
+    return this.resolveWalkableTarget(serf, dropoffZ, dropoff);
   }
 }
 
