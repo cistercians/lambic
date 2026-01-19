@@ -73,6 +73,15 @@ class BattlegroundsMatchManager {
     }
 
     const { players, gameMode, originalPlayerPositions } = matchConfig;
+    let resolvedGameMode = gameMode;
+    const humanPlayerCount = players.filter(p => !p.isNPC).length;
+    if (humanPlayerCount === 1 && resolvedGameMode !== 'deathmatch') {
+      console.log(`Single human player detected, forcing Deathmatch (was ${resolvedGameMode})`);
+      resolvedGameMode = 'deathmatch';
+      players.forEach(player => {
+        player.team = null;
+      });
+    }
     
     // Determine map size based on participant count
     const participantCount = players.length;
@@ -87,7 +96,7 @@ class BattlegroundsMatchManager {
 
     // For Skirmish, ensure minimum 2 players (spawn NPCs if needed)
     let finalPlayers = [...players];
-    if (gameMode === 'skirmish') {
+    if (resolvedGameMode === 'skirmish') {
       const team1Count = players.filter(p => p.team === 'team1').length;
       const team2Count = players.filter(p => p.team === 'team2').length;
       
@@ -107,7 +116,7 @@ class BattlegroundsMatchManager {
     // Initialize match state with player class/sex for portraits
     this.currentMatch = {
       matchId: 'match_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
-      gameMode: gameMode,
+      gameMode: resolvedGameMode,
       mapType: null, // Will be set after map generation
       mapSize: mapSize,
       participants: finalPlayers.map(p => {
@@ -121,7 +130,7 @@ class BattlegroundsMatchManager {
           sex: player ? (player.sex || 'm') : 'm'
         };
       }),
-      teams: this.getTeamAssignments(finalPlayers, gameMode),
+      teams: this.getTeamAssignments(finalPlayers, resolvedGameMode),
       startTime: null,
       endTime: null,
       status: 'generating', // 'generating' | 'map_preview' | 'starting' | 'in_progress' | 'ending' | 'finished'
@@ -164,7 +173,7 @@ class BattlegroundsMatchManager {
 
     // Generate map
     try {
-      const mapData = await this.generateMap(gameMode, mapSize);
+      const mapData = await this.generateMap(resolvedGameMode, mapSize);
       this.currentMatch.mapData = mapData;
       this.currentMatch.mapType = mapData.mapType;
       
@@ -177,7 +186,7 @@ class BattlegroundsMatchManager {
       // Always post-process to calculate spawn points, even for classic maps
       // (spawn points need to be recalculated based on current participant count)
       if (this.mapPostProcessor && mapData.worldData) {
-        const processedMapData = this.mapPostProcessor.postProcessMap(mapData, gameMode, this.currentMatch);
+        const processedMapData = this.mapPostProcessor.postProcessMap(mapData, resolvedGameMode, this.currentMatch);
         // Update match with processed map data (includes spawn points)
         this.currentMatch.mapData = processedMapData;
         // Update registered map in context manager with processed data
@@ -193,7 +202,7 @@ class BattlegroundsMatchManager {
 
       // Validate post-processed map before continuing
       if (this.mapGenerator && this.mapGenerator.validator && this.currentMatch.mapData) {
-        const validation = this.mapGenerator.validator.validateMap(this.currentMatch.mapData, gameMode);
+        const validation = this.mapGenerator.validator.validateMap(this.currentMatch.mapData, resolvedGameMode);
         if (!validation.valid) {
           throw new Error(`post_process_map_invalid:${validation.reason}`);
         }
@@ -214,7 +223,7 @@ class BattlegroundsMatchManager {
       this.spawnBattlegroundFactions();
       
       // Initialize game mode (after map data is set)
-      this.initGameMode(gameMode);
+      this.initGameMode(resolvedGameMode);
       
       // Store original player positions and House assignments
       // Use positions passed from lobby manager (stored when player joined lobby)
@@ -227,7 +236,7 @@ class BattlegroundsMatchManager {
       
       // Spawn elite NPCs using pre-planned NPCs (they're already in participants list)
       if (this.eliteNPCManager && this.currentMatch.plannedNPCs) {
-        const eliteNPCs = this.eliteNPCManager.spawnEliteNPCs(this.currentMatch, this.currentMatch.plannedNPCs);
+      const eliteNPCs = this.eliteNPCManager.spawnEliteNPCs(this.currentMatch, this.currentMatch.plannedNPCs);
         this.currentMatch.eliteNPCs = eliteNPCs;
         
         // Update participant entries with actual NPC entity data (class/sex from spawned entity)
@@ -266,6 +275,12 @@ class BattlegroundsMatchManager {
       this.startMapPreview();
     } catch (error) {
       console.error('Error generating map:', error);
+      if (global.battlegroundsLobbyManager) {
+        global.battlegroundsLobbyManager.broadcastLobbyChat(
+          'Match cancelled: map generation failed',
+          'system'
+        );
+      }
       this.endMatch({ reason: 'map_generation_failed' });
     }
   }
@@ -587,10 +602,21 @@ class BattlegroundsMatchManager {
     });
     
     // Get spawn points based on game mode
-    const spawnPoints = this.calculateSpawnPoints(gameMode, mapData);
+    let spawnPoints = this.calculateSpawnPoints(gameMode, mapData);
     
     if (!spawnPoints || Object.keys(spawnPoints).length === 0) {
-      console.error('[BattlegroundsMatchManager] No spawn points calculated for match');
+      console.warn('[BattlegroundsMatchManager] No spawn points calculated, using emergency fallback');
+      spawnPoints = this.getEmergencySpawnPoints(participants, mapData);
+    }
+    
+    if (!spawnPoints || Object.keys(spawnPoints).length === 0) {
+      console.error('[BattlegroundsMatchManager] No spawn points available after fallback, ending match');
+      this.endMatch({
+        reason: 'spawn_points_missing',
+        winner: null,
+        winnerType: null,
+        message: 'Match cancelled: No spawn points available'
+      });
       return;
     }
     
@@ -610,6 +636,13 @@ class BattlegroundsMatchManager {
       if (!player) {
         console.warn(`[BattlegroundsMatchManager] Player ${participant.id} not found in Player.list`);
         continue;
+      }
+
+      // Reset battleground death state and restore health before spawning
+      player.inBattlegroundDead = false;
+      player.alive = true;
+      if (player.hp !== null && player.hp !== undefined) {
+        player.hp = player.hpMax || 100;
       }
       
       const spawnPoint = spawnPoints[participant.id];
@@ -954,6 +987,36 @@ class BattlegroundsMatchManager {
   }
 
   /**
+   * Emergency fallback spawn points for human participants
+   */
+  getEmergencySpawnPoints(participants, mapData) {
+    if (!this.currentMatch || !mapData) return {};
+    const spawnPoints = {};
+    const humanParticipants = (participants || []).filter(p => !p.isNPC);
+    if (humanParticipants.length === 0) return {};
+
+    const mapSize = this.currentMatch.mapSize;
+    const tileSize = global.tileSize || 64;
+    const mapBounds = mapSize * tileSize;
+    const centerX = mapBounds / 2;
+    const centerY = mapBounds / 2;
+    const count = humanParticipants.length;
+    const angleStep = (2 * Math.PI) / Math.max(1, count);
+    const radius = mapBounds * 0.2;
+
+    humanParticipants.forEach((participant, index) => {
+      const angle = index * angleStep;
+      spawnPoints[participant.id] = {
+        x: centerX + Math.cos(angle) * radius,
+        y: centerY + Math.sin(angle) * radius,
+        z: mapData.startingZ || 0
+      };
+    });
+
+    return spawnPoints;
+  }
+
+  /**
    * Begin the match
    */
   beginMatch() {
@@ -1107,6 +1170,13 @@ class BattlegroundsMatchManager {
             if (originalState.inventory) {
               player.inventory = JSON.parse(JSON.stringify(originalState.inventory));
               console.log(`Restored inventory for player ${playerId} on exit`);
+            }
+
+            // Reset battleground death state for returning player
+            player.inBattlegroundDead = false;
+            player.alive = true;
+            if (player.hp !== null && player.hp !== undefined && player.hp <= 0) {
+              player.hp = player.hpMax || 100;
             }
         
         // Send position update to client
@@ -1485,6 +1555,13 @@ class BattlegroundsMatchManager {
       if (originalState.inventory) {
         player.inventory = JSON.parse(JSON.stringify(originalState.inventory));
         console.log(`Restored inventory for player ${playerId}`);
+      }
+
+      // Reset battleground death state when restoring to main world
+      player.inBattlegroundDead = false;
+      player.alive = true;
+      if (player.hp !== null && player.hp !== undefined && player.hp <= 0) {
+        player.hp = player.hpMax || 100;
       }
       
       // Send position update to client so they're teleported back correctly

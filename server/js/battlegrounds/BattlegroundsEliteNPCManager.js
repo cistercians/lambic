@@ -315,17 +315,42 @@ class BattlegroundsEliteNPCManager {
       global.mapContextManager.battlegroundMaps[match.matchId];
     
     if (bgMapRegistered) {
-      // Use mapContextManager to get tile from battleground map
+      // Prefer match.mapData.worldData for battleground walkability
+      const TERRAIN = global.TERRAIN || {};
+      const getWorldTile = (z, col, row) => {
+        if (!match.mapData || !match.mapData.worldData) return null;
+        const mapType = match.mapData.mapType;
+        let layerIndex = 0;
+        if (mapType === 'dungeons' && z === -2) {
+          layerIndex = 9;
+        } else if (z === -1) {
+          layerIndex = 1;
+        } else if (z === -3) {
+          layerIndex = 2;
+        } else {
+          layerIndex = 0;
+        }
+        const layer = match.mapData.worldData[layerIndex];
+        if (!layer || !layer[row]) return null;
+        return layer[row][col];
+      };
       const getTile = global.getTile || (() => null);
       
       // Helper function to check if tile is walkable in battleground context
       const isWalkableInBG = (z, col, row) => {
-        // Use matchId as entity context (mapContextManager will use it to get the right map)
-        const tile = getTile(0, col, row, tempEntityId, match.matchId);
+        // Use battleground worldData when available, otherwise fall back to global getTile
+        let tile = getWorldTile(z, col, row);
+        if (tile === null || tile === undefined) {
+          tile = getTile(z, col, row, tempEntityId, match.matchId);
+        }
         if (tile === null || tile === undefined) return false;
-        
-        // Check if tile is water (0) - water is not walkable
-        if (tile === 0) return false; // TERRAIN.WATER
+
+        if (z === 0) {
+          if (tile === TERRAIN.WATER || tile === TERRAIN.MOUNTAIN) return false;
+          if (typeof tile === 'number' && tile >= 6) return false;
+        } else if (z === -1 || z === -2) {
+          if (tile !== 0 && tile !== 2) return false;
+        }
         
         // For z=0, check if we can get pathfinding matrix from battleground
         // If pathfinding grid exists, use it to check walkability
@@ -523,7 +548,7 @@ class BattlegroundsEliteNPCManager {
     // These would need to match actual NPC class definitions
     const typeToClassMap = {
       'OATHKEEPER': 'Oathkeeper',
-      'HIGHPRIESTESS': 'Highpriestess',
+      'HIGHPRIESTESS': 'HighPriestess',
       'CATAPHRACT': 'Cataphract',
       'SEIDR': 'Seidr',
       'HUSKARL': 'Huskarl',

@@ -247,6 +247,16 @@ class BattlegroundsLobbyManager {
       return;
     }
 
+    const humanPlayerCount = this.lobbyState.players.filter(p => !p.isNPC).length;
+    if (humanPlayerCount === 1 && this.lobbyState.gameMode !== 'deathmatch') {
+      console.log(`Single human player detected, forcing Deathmatch (was ${this.lobbyState.gameMode})`);
+      this.lobbyState.gameMode = 'deathmatch';
+      this.lobbyState.players.forEach(player => {
+        player.team = null;
+      });
+      this.broadcastLobbyChat('Single player lobby: forcing Deathmatch for a valid match', 'system');
+    }
+
     // Lock teams
     if (this.lobbyState.gameMode === 'skirmish' || this.lobbyState.gameMode === 'assault') {
       // Ensure all players have teams

@@ -1600,9 +1600,9 @@ class SimpleCombat {
       }
     }
     
-    // Skip peaceful units
+    // Skip peaceful units (NPCs only). Players should never auto-flee.
     const peaceful = ['Serf', 'SerfM', 'SerfF', 'Deer', 'Sheep'];
-    if (peaceful.includes(entity.class)) {
+    if (entity.type === 'npc' && peaceful.includes(entity.class)) {
       // Serfs should not flee from prey animals (deer)
       if (target.isPrey && entity.class === 'Serf') {
         return; // Don't start combat or flee

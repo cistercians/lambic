@@ -3120,6 +3120,12 @@ Mercenaries = function(param){
         grid.push(t);
       }
     }
+    if (grid.length === 0) {
+      if (!contextEntity || !contextEntity.battlegroundMatchId) {
+        console.warn(`[Mercenaries] No walkable tiles near HQ ${self.hq} for init, skipping pawn/object spawns`);
+      }
+      return;
+    }
     // fire
     var fireId = Math.random();
     var coords = getCoords(self.hq[0],self.hq[1]);
@@ -3134,7 +3140,8 @@ Mercenaries = function(param){
     });
     self.scene.fire = fireId;
     // pawns
-    for(var i = 0; i < 3; i++){
+    const spawnCount = Math.min(3, grid.length);
+    for(var i = 0; i < spawnCount; i++){
       var rand = Math.floor(Math.random() * grid.length);
       var select = grid[rand];
       grid.splice(rand,1);
