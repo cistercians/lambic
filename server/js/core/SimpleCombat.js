@@ -21,6 +21,34 @@ class SimpleCombat {
   // HELPER METHODS - Target Validation & State
   // ============================================================================
 
+  // Get combat target ID with backward compatibility
+  getCombatTargetId(entity) {
+    if (!entity) return null;
+    if (entity.combatState && entity.combatState.target) return entity.combatState.target;
+    if (entity.combat && entity.combat.target) return entity.combat.target;
+    return null;
+  }
+
+  // Set combat target on both combatState and legacy combat object
+  setCombatTargetId(entity, targetId) {
+    if (!entity) return;
+    const state = this.ensureCombatState(entity);
+    state.target = targetId || null;
+    if (!entity.combat) entity.combat = {};
+    entity.combat.target = targetId || null;
+  }
+
+  // Clear combat target on both combatState and legacy combat object
+  clearCombatTarget(entity) {
+    if (!entity) return;
+    if (entity.combatState) {
+      entity.combatState.target = null;
+    }
+    if (entity.combat) {
+      entity.combat.target = null;
+    }
+  }
+
   /**
    * Get entity by ID from Player.list or Character.list
    * This centralizes the lookup pattern used throughout the combat system
@@ -330,6 +358,37 @@ class SimpleCombat {
     if (entity.combat) {
       entity.combat.target = null;
     }
+  }
+
+  // Determine if entity should flee based on low HP
+  shouldFleeOnLowHp(entity) {
+    if (!entity || entity.type !== 'npc') return false;
+    if (entity.action === 'flee' || entity.action === 'retreat') return false;
+    if (entity.noFlee === true || entity.neverFlee === true) return false;
+    if (entity.hp === null || entity.hp === undefined) return false;
+    if (!entity.hpMax) return false;
+
+    const customThreshold = typeof entity.fleeAtHpPercent === 'number'
+      ? entity.fleeAtHpPercent
+      : null;
+    const defaultThreshold = entity.military ? 0.2 : 0.3;
+    const threshold = customThreshold !== null ? customThreshold : defaultThreshold;
+
+    return entity.hp <= entity.hpMax * threshold;
+  }
+
+  // Trigger low-HP flee behavior
+  triggerLowHpFlee(entity, target) {
+    if (!entity) return;
+    if (this.shouldFleeOnLowHp(entity)) {
+      // Keep combat target for flee logic
+      if (target && target.id) {
+        this.setCombatTargetId(entity, target.id);
+      }
+      entity.action = 'flee';
+      return true;
+    }
+    return false;
   }
 
   // Initialize combat state for entity
@@ -765,6 +824,11 @@ class SimpleCombat {
       // Validate target early
       if (!this.isTargetValid(target, entity)) {
         this.endCombat(entity, target);
+        return;
+      }
+
+      // Low HP escape logic (NPCs only)
+      if (this.triggerLowHpFlee(entity, target)) {
         return;
       }
 
@@ -1382,6 +1446,16 @@ class SimpleCombat {
 
   // Check for enemies to aggro
   checkAggro(entity) {
+    const now = Date.now();
+    if (entity._nextAggroCheckAt && now < entity._nextAggroCheckAt) {
+      return;
+    }
+    if (!entity._aggroCheckIntervalMs) {
+      // Stagger checks across NPCs to reduce spikes
+      entity._aggroCheckIntervalMs = 120 + Math.floor(Math.random() * 80);
+    }
+    entity._nextAggroCheckAt = now + entity._aggroCheckIntervalMs;
+
     // Early exit checks
     if (this.shouldSkipAggroCheck(entity)) return;
     

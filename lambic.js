@@ -2189,12 +2189,20 @@ function isAlly(entity1Id, entity2Id) {
   const entity2 = Player.list[entity2Id];
   if (!entity1 || !entity2) return false;
 
-  // Check if either entity is in a battleground match
-  const entity1InBG = entity1.inBattleground && entity1.battlegroundMatchId;
-  const entity2InBG = entity2.inBattleground && entity2.battlegroundMatchId;
+  // Check if either entity is in a battleground match (context-aware)
+  const entity1InBG = global.mapContextHelpers
+    ? global.mapContextHelpers.isInBattleground(entity1)
+    : (entity1.inBattleground && entity1.battlegroundMatchId);
+  const entity2InBG = global.mapContextHelpers
+    ? global.mapContextHelpers.isInBattleground(entity2)
+    : (entity2.inBattleground && entity2.battlegroundMatchId);
   
   // If both are in the same battleground match, use battleground house rules
-  if (entity1InBG && entity2InBG && entity1.battlegroundMatchId === entity2.battlegroundMatchId) {
+  if (entity1InBG && entity2InBG && (
+      global.mapContextHelpers
+        ? global.mapContextHelpers.areInSameMatch(entity1, entity2)
+        : entity1.battlegroundMatchId === entity2.battlegroundMatchId
+    )) {
     // Use battleground house manager to check alliance
     if (global.battlegroundsHouseManager) {
       const house1 = entity1.house;
@@ -2230,12 +2238,15 @@ function isAlly(entity1Id, entity2Id) {
   
   // CRITICAL: If one is in battleground and other isn't, they're in different map contexts
   // They should not be able to interact at all (not just "not allies" - completely isolated)
-  if (entity1InBG !== entity2InBG) {
+  if (global.mapContextHelpers && !global.mapContextHelpers.areInSameContext(entity1, entity2)) {
+    return false; // Different map contexts
+  }
+  if (!global.mapContextHelpers && entity1InBG !== entity2InBG) {
     return false; // Not allies, and combat/interaction systems should check this
   }
   
   // Additional safety: If both are in battlegrounds but different matches, they're in different contexts
-  if (entity1InBG && entity2InBG && entity1.battlegroundMatchId !== entity2.battlegroundMatchId) {
+  if (!global.mapContextHelpers && entity1InBG && entity2InBG && entity1.battlegroundMatchId !== entity2.battlegroundMatchId) {
     return false; // Different battleground matches = different map contexts
   }
 
@@ -2330,12 +2341,20 @@ function allyCheck(playerId, otherId) {
   const other = Player.list[otherId];
   if (!player || !other) return 0;
   
-  // Check if either is in battleground
-  const playerInBG = player.inBattleground && player.battlegroundMatchId;
-  const otherInBG = other.inBattleground && other.battlegroundMatchId;
+  // Check if either is in battleground (context-aware)
+  const playerInBG = global.mapContextHelpers
+    ? global.mapContextHelpers.isInBattleground(player)
+    : (player.inBattleground && player.battlegroundMatchId);
+  const otherInBG = global.mapContextHelpers
+    ? global.mapContextHelpers.isInBattleground(other)
+    : (other.inBattleground && other.battlegroundMatchId);
   
   // If both are in the same battleground match, use battleground rules
-  if (playerInBG && otherInBG && player.battlegroundMatchId === other.battlegroundMatchId) {
+  if (playerInBG && otherInBG && (
+      global.mapContextHelpers
+        ? global.mapContextHelpers.areInSameMatch(player, other)
+        : player.battlegroundMatchId === other.battlegroundMatchId
+    )) {
     const isAllyResult = isAlly(playerId, otherId);
     if (isAllyResult) {
       // Same temporary house = same faction
@@ -2348,7 +2367,10 @@ function allyCheck(playerId, otherId) {
   }
   
   // If one is in battleground and other isn't, they're neutral
-  if (playerInBG !== otherInBG) {
+  if (global.mapContextHelpers && !global.mapContextHelpers.areInSameContext(player, other)) {
+    return 0; // Neutral (different contexts)
+  }
+  if (!global.mapContextHelpers && playerInBG !== otherInBG) {
     return 0; // Neutral (different contexts)
   }
   

@@ -2,6 +2,16 @@
  * BattlegroundsEliteNPCBehavior - Handles AI behavior for elite NPCs in battlegrounds
  */
 
+function getCombatTargetId(entity) {
+  if (!entity) return null;
+  if (global.simpleCombat && typeof global.simpleCombat.getCombatTargetId === 'function') {
+    return global.simpleCombat.getCombatTargetId(entity);
+  }
+  return (entity.combatState && entity.combatState.target) ||
+    (entity.combat && entity.combat.target) ||
+    null;
+}
+
 class BattlegroundsEliteNPCBehavior {
   constructor() {
     this.updateInterval = null;
@@ -77,7 +87,7 @@ class BattlegroundsEliteNPCBehavior {
       }
       
       // If NPC has a combat target, set action to 'combat' so normal system handles it
-      if (npc.combat && npc.combat.target) {
+      if (getCombatTargetId(npc)) {
         npc.action = 'combat';
       } else if (!npc.action || npc.action === 'idle') {
         // No combat target - clear action so normal system can set it

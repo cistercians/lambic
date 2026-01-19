@@ -6,6 +6,29 @@
 module.exports = function(Character, globals) {
   const { zones, getTile, getLoc, getCenter, isWalkable, mapSize } = globals;
   // Note: Player.list is accessed as a global at runtime
+
+  function getCombatTargetId(entity) {
+    if (!entity) return null;
+    if (global.simpleCombat && typeof global.simpleCombat.getCombatTargetId === 'function') {
+      return global.simpleCombat.getCombatTargetId(entity);
+    }
+    return (entity.combatState && entity.combatState.target) ||
+      (entity.combat && entity.combat.target) ||
+      null;
+  }
+
+  function setCombatTargetId(entity, targetId) {
+    if (!entity) return;
+    if (global.simpleCombat && typeof global.simpleCombat.setCombatTargetId === 'function') {
+      global.simpleCombat.setCombatTargetId(entity, targetId);
+      return;
+    }
+    if (!entity.combat) entity.combat = {};
+    entity.combat.target = targetId || null;
+    if (entity.combatState) {
+      entity.combatState.target = targetId || null;
+    }
+  }
   
   const Wolf = function(param){
     var self = Character(param);
@@ -48,14 +71,14 @@ module.exports = function(Character, globals) {
                 if(p.class != 'Wolf'){
                   self.stealthCheck(p);
                   if(!Player.list[p.id].stealthed || Player.list[p.id].revealed){ // is not stealthed or is revealed
-                    self.combat.target = p.id;
+                    setCombatTargetId(self, p.id);
                     if(self.hp < (self.hpMax * 0.1)){
                       self.action = 'flee';
                     } else {
                       self.action = 'combat';
                     }
                     if(p.type == 'npc' && pDist <= p.aggroRange && p.action != 'combat'){
-                      Player.list[p.id].combat.target = self.id;
+                      setCombatTargetId(Player.list[p.id], self.id);
                       Player.list[p.id].action = 'combat';
                       }
                     }
@@ -218,13 +241,13 @@ module.exports = function(Character, globals) {
           } else {
             self.baseSpd = 6; // Day speed
           }
-        var target = Player.list[self.combat.target];
+        var target = Player.list[getCombatTargetId(self)];
         if(target){
           if(target.hasTorch || getTile(target.z == 1)){
-            self.combat.target = null;
+            setCombatTargetId(self, null);
             self.action = null;
-            if(target.combat.target == self.id){
-              Player.list[target.id].combat.target = null;
+            if(getCombatTargetId(target) === self.id){
+              setCombatTargetId(Player.list[target.id], null);
               Player.list[target.id].action = null;
             }
           } else {
@@ -235,11 +258,11 @@ module.exports = function(Character, globals) {
             
             if(homeDist > leashRange){
               // Too far from home - disengage and return
-              self.combat.target = null;
+              setCombatTargetId(self, null);
               self.action = 'returning'; // Set returning state to prevent re-aggro
               self.baseSpd = 3;
-              if(target.combat.target == self.id){
-                Player.list[target.id].combat.target = null;
+              if(getCombatTargetId(target) === self.id){
+                setCombatTargetId(Player.list[target.id], null);
                 Player.list[target.id].action = null;
               }
               self.return(); // Go back home
@@ -250,18 +273,18 @@ module.exports = function(Character, globals) {
               y:target.y
             });
             if(tDist > self.aggroRange * 1.5){
-              self.combat.target = null;
+              setCombatTargetId(self, null);
               self.action = null;
               self.baseSpd = 3;
-              if(target.combat.target == self.id){
-                Player.list[target.id].combat.target = null;
+              if(getCombatTargetId(target) === self.id){
+                setCombatTargetId(Player.list[target.id], null);
                 Player.list[target.id].action = null;
                 }
               }
             }
           }
         } else {
-          self.combat.target = null;
+          setCombatTargetId(self, null);
           self.action = null;
           }
         }
@@ -272,14 +295,15 @@ module.exports = function(Character, globals) {
         } else {
           // Fallback to old reposition logic
           if(!self.path){
-            if(self.combat.target){
-              var target = Player.list[self.combat.target];
+            const fleeTargetId = getCombatTargetId(self);
+            if(fleeTargetId){
+              var target = Player.list[fleeTargetId];
               if(target){
                 self.baseSpd = 6;
                 var tLoc = getLoc(target.x,target.y);
                 self.reposition(loc,tLoc);
               } else {
-                self.combat.target = null;
+                setCombatTargetId(self, null);
                 self.action = null;
               }
             } else {

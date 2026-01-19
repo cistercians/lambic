@@ -23,6 +23,7 @@ class BattlegroundsMapGenerator {
     const availableTypes = this.getAvailableMapTypes(gameMode);
     
     // Try to generate a valid map (up to maxGenerationAttempts)
+    let lastValidationReason = null;
     for (let attempt = 0; attempt < this.maxGenerationAttempts; attempt++) {
       const mapType = availableTypes[Math.floor(Math.random() * availableTypes.length)];
       
@@ -76,40 +77,14 @@ class BattlegroundsMapGenerator {
         console.log(`Generated valid battleground map (attempt ${attempt + 1}): ${mapType} for ${gameMode}`);
         return mapData;
       } else {
+        lastValidationReason = validation.reason;
         console.warn(`Generated invalid map (attempt ${attempt + 1}): ${validation.reason}`);
       }
     }
-    
-    // If we've exhausted all attempts, generate one anyway (better than failing completely)
-    // In practice, most maps should be valid, so this is a fallback
-    console.warn(`Failed to generate valid map after ${this.maxGenerationAttempts} attempts, using last generated map`);
-    const mapType = availableTypes[Math.floor(Math.random() * availableTypes.length)];
-    const config = this.getMapConfig(mapType, mapSize);
-    const result = genesis.generate(config);
-    const worldData = result.worldMaps || result;
-    const entrances = result.entrances || [];
-    
-    // For dungeon maps, initialize z=-2 (cellar layer) as all walls
-    if (mapType === 'dungeons') {
-      const cellarLayer = this.initializeDungeonCellarLayer(mapSize);
-      worldData[9] = cellarLayer;
-    }
-    
-    let startingZ = 0;
-    if (mapType === 'caves') {
-      startingZ = -1; // Start in caves/underworld
-    } else if (mapType === 'dungeons') {
-      startingZ = -2; // Start in dungeons/cellar
-    }
-    
-    return {
-      mapType: mapType,
-      mapSize: mapSize,
-      worldData: worldData,
-      entrances: entrances,
-      startingZ: startingZ,
-      raw: true
-    };
+
+    // If we've exhausted all attempts, fail fast so the match can abort cleanly
+    const reason = lastValidationReason || 'unknown_validation_failure';
+    throw new Error(`map_generation_failed:${reason}`);
   }
 
   /**

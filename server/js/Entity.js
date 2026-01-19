@@ -30,6 +30,43 @@ function getSocialSystem() {
   }
 }
 
+function getCombatTargetId(entity) {
+  if (!entity) return null;
+  if (global.simpleCombat && typeof global.simpleCombat.getCombatTargetId === 'function') {
+    return global.simpleCombat.getCombatTargetId(entity);
+  }
+  return (entity.combatState && entity.combatState.target) ||
+    (entity.combat && entity.combat.target) ||
+    null;
+}
+
+function setCombatTargetId(entity, targetId) {
+  if (!entity) return;
+  if (global.simpleCombat && typeof global.simpleCombat.setCombatTargetId === 'function') {
+    global.simpleCombat.setCombatTargetId(entity, targetId);
+    return;
+  }
+  if (!entity.combat) entity.combat = {};
+  entity.combat.target = targetId || null;
+  if (entity.combatState) {
+    entity.combatState.target = targetId || null;
+  }
+}
+
+function clearCombatTarget(entity) {
+  if (!entity) return;
+  if (global.simpleCombat && typeof global.simpleCombat.clearCombatTarget === 'function') {
+    global.simpleCombat.clearCombatTarget(entity);
+    return;
+  }
+  if (entity.combatState) {
+    entity.combatState.target = null;
+  }
+  if (entity.combat) {
+    entity.combat.target = null;
+  }
+}
+
 // Stub for stuck entity analytics - disabled by default to save memory
 // Enable with: global.stuckEntityAnalytics.enabled = true
 if (!global.stuckEntityAnalytics) {
@@ -2704,14 +2741,15 @@ Character = function(param){
     }
     
     // Clear combat state
-    if(self.combat && self.combat.target){
-      const target = Player.list[self.combat.target];
-      if(target && target.combat && target.combat.target === self.id){
-        target.combat.target = null;
+    const combatTargetId = getCombatTargetId(self);
+    if (combatTargetId) {
+      const target = Player.list[combatTargetId];
+      if (target && getCombatTargetId(target) === self.id) {
+        clearCombatTarget(target);
         target.action = null;
       }
     }
-    self.combat.target = null;
+    clearCombatTarget(self);
     self.action = null;
   };
 
@@ -2842,15 +2880,15 @@ Character = function(param){
                   Player.list[p.id].farming = false;
                   Player.list[p.id].building = false;
                   Player.list[p.id].fishing = false;
-                  if(!p.combat.target){
-                    Player.list[p.id].combat.target = self.id;
+                  if(!getCombatTargetId(p)){
+                    setCombatTargetId(Player.list[p.id], self.id);
                   }
                   Player.list[p.id].action = 'combat';
                   Player.list[p.id].stealthed = false;
                   Player.list[p.id].revealed = false;
                   self.stealthed = false;
                   self.revealed = false;
-                  self.combat.target = p.id;
+                  setCombatTargetId(self, p.id);
                   self.action = 'combat';
                 }
                 // player death & respawn (only if entity has HP - exclude invulnerable entities like falcons)
@@ -2884,15 +2922,15 @@ Character = function(param){
                   Player.list[p.id].farming = false;
                   Player.list[p.id].building = false;
                   Player.list[p.id].fishing = false;
-                  if(!p.combat.target){
-                    Player.list[p.id].combat.target = self.id;
+                  if(!getCombatTargetId(p)){
+                    setCombatTargetId(Player.list[p.id], self.id);
                   }
                   Player.list[p.id].action = 'combat';
                   Player.list[p.id].stealthed = false;
                   Player.list[p.id].revealed = false;
                   self.stealthed = false;
                   self.revealed = false;
-                  self.combat.target = p.id;
+                  setCombatTargetId(self, p.id);
                   self.action = 'combat';
                 }
                 // player death & respawn (only if entity has HP - exclude invulnerable entities like falcons)
@@ -2926,15 +2964,15 @@ Character = function(param){
                   Player.list[p.id].farming = false;
                   Player.list[p.id].building = false;
                   Player.list[p.id].fishing = false;
-                  if(!p.combat.target){
-                    Player.list[p.id].combat.target = self.id;
+                  if(!getCombatTargetId(p)){
+                    setCombatTargetId(Player.list[p.id], self.id);
                   }
                   Player.list[p.id].action = 'combat';
                   Player.list[p.id].stealthed = false;
                   Player.list[p.id].revealed = false;
                   self.stealthed = false;
                   self.revealed = false;
-                  self.combat.target = p.id;
+                  setCombatTargetId(self, p.id);
                   self.action = 'combat';
                 }
                 // player death & respawn (only if entity has HP - exclude invulnerable entities like falcons)
@@ -2968,15 +3006,15 @@ Character = function(param){
                   Player.list[p.id].farming = false;
                   Player.list[p.id].building = false;
                   Player.list[p.id].fishing = false;
-                  if(!p.combat.target){
-                    Player.list[p.id].combat.target = self.id;
+                  if(!getCombatTargetId(p)){
+                    setCombatTargetId(Player.list[p.id], self.id);
                   }
                   Player.list[p.id].action = 'combat';
                   Player.list[p.id].stealthed = false;
                   Player.list[p.id].revealed = false;
                   self.stealthed = false;
                   self.revealed = false;
-                  self.combat.target = p.id;
+                  setCombatTargetId(self, p.id);
                   self.action = 'combat';
                 }
                 // player death & respawn (only if entity has HP - exclude invulnerable entities like falcons)
@@ -5066,22 +5104,24 @@ Character = function(param){
           global.simpleCombat.update(self);
         } else {
           // Fallback: clear invalid combat
-          if(!self.combat.target || !Player.list[self.combat.target]){
+          const fallbackTargetId = getCombatTargetId(self);
+          if(!fallbackTargetId || !Player.list[fallbackTargetId]){
             self.action = null;
-            self.combat.target = null;
+            clearCombatTarget(self);
             self.path = null;
             self.pathCount = 0;
           }
         }
       } else if(self.action == 'flee'){
         if(!self.path){
-          if(self.combat.target){
-            var target = Player.list[self.combat.target];
+          const fleeTargetId = getCombatTargetId(self);
+          if(fleeTargetId){
+            var target = Player.list[fleeTargetId];
             if(target){
               var tLoc = getLoc(target.x,target.y);
               self.reposition(loc,tLoc);
             } else {
-              self.combat.target = null;
+              clearCombatTarget(self);
               self.action = null;
             }
           } else {
@@ -5103,9 +5143,7 @@ Character = function(param){
             self.action = null;
             self.retreatTarget = null;
             // Clear combat targets
-            if(self.combat){
-              self.combat.target = null;
-            }
+            clearCombatTarget(self);
             return;
           }
           
@@ -5115,9 +5153,9 @@ Character = function(param){
           }
           
           // If attacked while retreating, don't fight back - keep fleeing
-          if(self.combat && self.combat.target){
+          if(getCombatTargetId(self)){
             // Clear combat target to prevent fighting back
-            self.combat.target = null;
+            clearCombatTarget(self);
           }
         } else {
           // No retreat target, clear action
@@ -5328,10 +5366,11 @@ Character = function(param){
             global.simpleCombat.update(self);
           } else {
             // Fallback combat logic
-          var target = Player.list[self.combat.target];
+          var fallbackTargetId = getCombatTargetId(self);
+          var target = Player.list[fallbackTargetId];
             if(!target){
               // Target gone, resume patrol from saved point
-            self.combat.target = null;
+            clearCombatTarget(self);
             self.action = null;
               
               // Clear resume point after combat
@@ -5397,7 +5436,7 @@ Character = function(param){
           }
         }
       } else if(self.action == 'combat'){
-        var cTarget = self.combat.target;
+        var cTarget = getCombatTargetId(self);
         if(cTarget){
           if(tDist > (self.aggroRange*1.5)){
             self.action = null;
@@ -5460,7 +5499,7 @@ Character = function(param){
             parent:self.id
           });
         }
-        self.combat.target = null;
+        clearCombatTarget(self);
         self.action = 'flee';
       } else if(self.action == 'flee'){
         if(!self.path){
@@ -5488,7 +5527,8 @@ Character = function(param){
           }
         }
       } else if(self.action == 'combat'){
-        var target = Player.list[self.combat.target];
+        var guardTargetId = getCombatTargetId(self);
+        var target = Player.list[guardTargetId];
         if(!target || pDist > (self.aggroRange*1.5)){
           self.return({z:point.z,loc:point.loc});
         }
@@ -5551,11 +5591,12 @@ Character = function(param){
           }
         }
       } else if(self.action == 'combat'){
-        var target = Player.list[self.combat.target];
+        var raidTargetId = getCombatTargetId(self);
+        var target = Player.list[raidTargetId];
         var lCoords = getCenter(lastLoc.loc[0],lastLoc.loc[1]);
         var lDist = self.getDistance(lCoords[0],lCoords[1]);
         if(!target || (lDist > self.aggroRange*4)){
-          self.combat.target = null;
+          clearCombatTarget(self);
           self.action = null;
         }
         if(self.ranged){
@@ -7617,9 +7658,10 @@ FishingShip = function(param){
         global.simpleCombat.update(self);
       } else {
         // Fallback: clear invalid combat
-        if(!self.combat || !self.combat.target || !Player.list[self.combat.target]){
+        const shipTargetId = getCombatTargetId(self);
+        if(!shipTargetId || !Player.list[shipTargetId]){
           self.action = null;
-          if(self.combat) self.combat.target = null;
+          clearCombatTarget(self);
         }
       }
     }
@@ -8797,9 +8839,10 @@ CargoShip = function(param){
         global.simpleCombat.update(self);
       } else {
         // Fallback: clear invalid combat
-        if(!self.combat || !self.combat.target || !Player.list[self.combat.target]){
+        const cargoTargetId = getCombatTargetId(self);
+        if(!cargoTargetId || !Player.list[cargoTargetId]){
           self.action = null;
-          if(self.combat) self.combat.target = null;
+          clearCombatTarget(self);
         }
       }
     }
@@ -10360,13 +10403,14 @@ Blacksmith = function(param){
         } else if(self.action == 'combat'){
           self.action = 'flee';
         } else if(self.action == 'flee'){
-          if(self.combat.target){
-            var target = Player.list[self.combat.target];
+          const fleeTargetId = getCombatTargetId(self);
+          if(fleeTargetId){
+            var target = Player.list[fleeTargetId];
             if(target){
               var tLoc = getLoc(target.x,target.y);
               self.reposition(loc,tLoc);
             } else {
-              self.combat.target = null;
+              clearCombatTarget(self);
               self.action = null;
             }
           } else {
@@ -10411,7 +10455,7 @@ Blacksmith = function(param){
           } else {
           // Fallback: clear flee if no system available
             self.action = null;
-          self.combat.target = null;
+          clearCombatTarget(self);
           // Restore original speed when fleeing ends
           if (self._originalBaseSpd !== undefined) {
             self.baseSpd = self._originalBaseSpd;
@@ -11314,8 +11358,7 @@ Arrow = function(param){
                 p.revealed = false;
                 
                 if(attacker && p.hp !== null && p.hp > 0){
-                  if(!p.combat) p.combat = {};
-                  p.combat.target = self.parent;
+                  setCombatTargetId(p, self.parent);
                   p.action = 'combat';
                 }
                 

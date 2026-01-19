@@ -190,6 +190,14 @@ class BattlegroundsMatchManager {
           global.mapContextManager.registerBattlegroundMap(this.currentMatch.matchId, mapData.worldData, mapSize);
         }
       }
+
+      // Validate post-processed map before continuing
+      if (this.mapGenerator && this.mapGenerator.validator && this.currentMatch.mapData) {
+        const validation = this.mapGenerator.validator.validateMap(this.currentMatch.mapData, gameMode);
+        if (!validation.valid) {
+          throw new Error(`post_process_map_invalid:${validation.reason}`);
+        }
+      }
       
       // Generate pathfinding grids for the battleground map (after post-processing)
       if (this.pathfindingManager && this.currentMatch.mapData.worldData) {
