@@ -114,6 +114,7 @@ class TilemapSystem {
     
     // Add options in deterministic order
     if (options.waterOnly) key += '_water';
+    if (options.avoidWater) key += '_nowater';
     if (options.avoidDoors) key += '_nodoors';
     if (options.avoidCaveExits) key += '_noexits';
     if (options.avoidCaveEntrances) key += '_nocaves';

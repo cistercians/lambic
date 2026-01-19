@@ -721,11 +721,12 @@ All server-initiated messages are documented below, organized by category.
       item: array,         // Item entity updates
       light: array,        // Light entity updates
       building: array,     // Building entity updates
-      weather: array       // Weather entity updates
+      weather: array,      // Weather entity updates
+      camera: array        // Camera/viewer updates
     }
   }
   ```
-- **Frequency**: 60 FPS for critical entities, 30 FPS for idle NPCs
+- **Frequency**: In-view entities are sent every frame; out-of-view entities can be sent less frequently
 - **Optimization**: Spatial filtering, delta compression, frequency optimization
 
 **`remove`**
@@ -1202,9 +1203,8 @@ The following entity types are synchronized:
 **Implementation**: [`server/js/core/OptimizedGameLoop.js`](server/js/core/OptimizedGameLoop.js) line 214
 - Filter radius: 1500 pixels (viewport is ~1000 pixels)
 - Entities outside radius excluded from update packs
-- Always includes player's own entity
-- Always includes entities in combat
-- Always includes entities with active paths
+- Always includes viewer's own entity
+- Always includes falcons (for smooth flight)
 
 **Code Location**: `spatialFilterEntities()` method in `OptimizedGameLoop`
 

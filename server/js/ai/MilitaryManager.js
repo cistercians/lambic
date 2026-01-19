@@ -33,15 +33,17 @@ class MilitaryManager {
     
     // Determine unit selection reasoning
     const militaryUnits = this.getMilitaryUnits();
-    const mountedUnits = militaryUnits.filter(unit => 
-      unit.name && (
-        unit.name.includes('cavalier') || 
-        unit.name.includes('cavalry') || 
-        unit.name.includes('horseman') ||
-        unit.name.includes('knight') ||
-        unit.name.includes('mounted')
-      )
-    );
+    const mountedUnits = militaryUnits.filter(unit => {
+      if (!unit.name) return false;
+      const name = unit.name.toLowerCase();
+      return (
+        name.includes('cavalier') ||
+        name.includes('cavalry') ||
+        name.includes('horseman') ||
+        name.includes('knight') ||
+        name.includes('mounted')
+      );
+    });
     const reasoning = mountedUnits.length > 0 ? 'Selected mounted leader (preferred)' : 'No mounted units available, selected any military unit';
     
     // Remove any existing flags before adding new one (prevent stacking)
@@ -102,15 +104,17 @@ class MilitaryManager {
     const militaryUnits = this.getMilitaryUnits();
     
     // Prefer mounted units
-    const mountedUnits = militaryUnits.filter(unit => 
-      unit.name && (
-        unit.name.includes('cavalier') || 
-        unit.name.includes('cavalry') || 
-        unit.name.includes('horseman') ||
-        unit.name.includes('knight') ||
-        unit.name.includes('mounted')
-      )
-    );
+    const mountedUnits = militaryUnits.filter(unit => {
+      if (!unit.name) return false;
+      const name = unit.name.toLowerCase();
+      return (
+        name.includes('cavalier') ||
+        name.includes('cavalry') ||
+        name.includes('horseman') ||
+        name.includes('knight') ||
+        name.includes('mounted')
+      );
+    });
     
     if (mountedUnits.length > 0) {
       return mountedUnits[0];
@@ -233,7 +237,20 @@ class MilitaryManager {
     
     // Set all units to move to target zone
     force.units.forEach(unit => {
-      unit.moveTo(targetZone.center[0], targetZone.center[1]);
+      if (!unit || typeof unit.moveTo !== 'function') {
+        return;
+      }
+      const targetCenter = targetZone.center || [0, 0];
+      const tileSize = global.tileSize || 64;
+      const targetCol = targetCenter[0] < 1000
+        ? targetCenter[0]
+        : Math.floor(targetCenter[0] / tileSize);
+      const targetRow = targetCenter[1] < 1000
+        ? targetCenter[1]
+        : Math.floor(targetCenter[1] / tileSize);
+      const targetZ = unit.z || 0;
+
+      unit.moveTo(targetZ, targetCol, targetRow);
       unit.action = 'combat'; // Ready for combat
     });
     

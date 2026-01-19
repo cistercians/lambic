@@ -9146,15 +9146,8 @@ Serf = function(param){
       }
     } else {
       self.work.hq = null;
-      if(serfLogger && typeof serfLogger.warn === 'function' && shouldLog){
-        serfLogger.warn('Serf work assignment failed', self, {
-          result: 'noCandidate',
-          candidateCount: candidateCount,
-          validBuildingTypes: validBuildingTypes
-        });
-        self._lastWorkAssignLogAt = now;
-        self._lastWorkAssignHq = null;
-      }
+      self._lastWorkAssignLogAt = now;
+      self._lastWorkAssignHq = null;
     }
   };
 
@@ -14569,7 +14562,6 @@ global.initModularEntities = function() {
     global.Wolf = entities.Wolf;
     global.Falcon = entities.Falcon;
     
-    console.log('✓ Modular fauna entities loaded successfully');
   } catch(err) {
     console.error('CRITICAL: Error loading modular entities:', err.message, err.stack);
     console.error('Providing minimal fallback fauna definitions...');

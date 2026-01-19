@@ -58,7 +58,6 @@ class BattlegroundsMapLibrary {
         }
       });
 
-      console.log(`Loaded ${loadedCount} classic maps from disk`);
     } catch (error) {
       console.error('Error loading classic maps:', error);
     }

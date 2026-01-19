@@ -30,8 +30,6 @@ class P2PNetwork {
       console.error('[P2P] Server error:', error.message);
     });
     
-    console.log(`[P2P] Server listening on port ${this.port}`);
-    
     // Connect to bootstrap peers
     this.connectToBootstrapPeers();
   }

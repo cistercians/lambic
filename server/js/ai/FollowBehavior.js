@@ -82,7 +82,7 @@ class FollowBehavior {
     const dy = leaderPos[1] - followerPos[1];
     const distance = Math.sqrt(dx * dx + dy * dy);
 
-    if (distance > 0) {
+    if (distance > 0 && typeof this.follower.moveTo === 'function') {
       // Normalize direction
       const dirX = dx / distance;
       const dirY = dy / distance;
@@ -91,7 +91,12 @@ class FollowBehavior {
       const targetX = leaderPos[0] - (dirX * this.followDistance);
       const targetY = leaderPos[1] - (dirY * this.followDistance);
 
-      this.follower.moveTo(targetX, targetY);
+      const tileSize = global.tileSize || 64;
+      const targetCol = Math.floor(targetX / tileSize);
+      const targetRow = Math.floor(targetY / tileSize);
+      const targetZ = this.leader.z || this.follower.z || 0;
+
+      this.follower.moveTo(targetZ, targetCol, targetRow);
     }
   }
 

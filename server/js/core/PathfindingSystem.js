@@ -373,10 +373,18 @@ class PathfindingSystem {
       if (callback) {
         return null;
       }
-      
-      // If no callback, process immediately (fallback for synchronous callers)
-      // This is not ideal but maintains backward compatibility
-      return this._findPathImmediate(start, end, layer, options);
+
+      if (global.debugPathfinding) {
+        console.log('[PathfindingSystem] Throttled sync request queued; returning null', {
+          start,
+          end,
+          layer,
+          queueLength: this.pathfindingQueue.length
+        });
+      }
+
+      // Queue-only throttling for sync callers to prevent spikes
+      return null;
     }
     
     // We have capacity this frame, pathfind immediately
@@ -747,26 +755,6 @@ class PathfindingSystem {
     
     const now = Date.now();
     if (now - this.profiling.lastLog >= this.profiling.logInterval) {
-      const stats = this.getProfilingStats();
-      console.log('[PathfindingSystem] req=%s cache=%s gridCache=%s queued=%s timingAvgMs=%s',
-        stats.requests.thisSecond,
-        stats.cache.hitRate,
-        stats.gridCache.hitRate,
-        stats.queue.pending,
-        stats.timing.pathfinding.avg
-      );
-      if (stats.hotspots.length > 0) {
-        stats.hotspots.forEach((h, i) => {
-          console.log('[PathfindingSystem] hotspot #%s %s (%s)', i + 1, h.location, h.count);
-        });
-      }
-      
-      if (stats.layerUsage.length > 0) {
-        stats.layerUsage.forEach(l => {
-          console.log('[PathfindingSystem] layer=%s count=%s', l.layer, l.count);
-        });
-      }
-      
       // MEMORY LEAK DETECTION: Check cache sizes
       this.auditMemoryUsage();
       

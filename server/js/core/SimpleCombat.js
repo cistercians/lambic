@@ -908,6 +908,17 @@ class SimpleCombat {
     } catch (error) {
       // Error handling - ensure state cleanup
       // Clear combat state on error to prevent stuck state
+      if (entity) {
+        const now = Date.now();
+        if (!entity._lastCombatErrorLogAt || now - entity._lastCombatErrorLogAt > 5000) {
+          console.error('[SimpleCombat] update error', {
+            entityId: entity.id,
+            entityName: entity.name || entity.class,
+            error: error && error.message
+          });
+          entity._lastCombatErrorLogAt = now;
+        }
+      }
       this.clearCombatState(entity);
       entity.action = null;
     }

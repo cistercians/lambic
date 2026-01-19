@@ -118,7 +118,7 @@ class MovementSystem {
         console.log('[MovementSystem] findPath (TilemapSystem fallback) start=%j dest=%j layer=%s', start, destination, layer);
       }
       try {
-        const fallbackPath = global.tilemapSystem.findPath(start, destination, layer);
+        const fallbackPath = global.tilemapSystem.findPath(start, destination, layer, options);
         if (global.debugPathfinding) {
           console.log('[MovementSystem] fallback returned pathLength=%s', fallbackPath ? fallbackPath.length : 'null');
         }

@@ -38,6 +38,9 @@ class GodModeCameraSystem {
     this.pressingDown = false;
     this.pressingLeft = false;
     this.pressingRight = false;
+
+    // Sync camera position immediately so server-side filtering is correct
+    this.sendCameraUpdate();
   }
 
   /**
@@ -129,6 +132,9 @@ class GodModeCameraSystem {
     const b = (this.cameraZ === 1 || this.cameraZ === 2 || this.cameraZ === -2) ? 
               getBuilding(this.cameraX, this.cameraY, true) : null;
     getBgm(this.cameraX, this.cameraY, this.cameraZ, b);
+
+    // Notify server of z change even if camera didn't move
+    this.sendCameraUpdate();
   }
 
   /**
@@ -181,6 +187,9 @@ class GodModeCameraSystem {
     if (addChatMessage) {
       addChatMessage('📍 Viewing: ' + faction.name + ' HQ');
     }
+
+    // Sync camera position after jump
+    this.sendCameraUpdate();
   }
 
   /**

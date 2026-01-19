@@ -239,6 +239,11 @@ House = function(param){
     return area;
   }
   self.update = function(){
+    // Reset military unit counts before tallying
+    if (self.military && self.military.units) {
+      self.military.units.i = 0;
+      self.military.units.ii = 0;
+    }
     // tally military units
     for(var i in Player.list){
       var unit = Player.list[i];

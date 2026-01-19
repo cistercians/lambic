@@ -9,6 +9,7 @@ class GameLoopManager {
     this.lastFrameTime = performance.now();
     this.renderStats = null;
     this.initRenderStats();
+    this._cameraHelper = null;
   }
 
   /**
@@ -510,34 +511,26 @@ class GameLoopManager {
    * @param {string} selfId - Player ID
    */
   sendPlayerCameraUpdate(player, selfId) {
-    // Throttle camera updates to avoid spam (every 2 seconds)
-    const now = Date.now();
-    if (!this._lastCameraUpdate) {
-      this._lastCameraUpdate = 0;
-    }
-
-    if (now - this._lastCameraUpdate >= 2000) { // 2 second interval
-      this._lastCameraUpdate = now;
-
-      if (typeof window !== 'undefined' && window.CameraHelper) {
-        const cameraHelper = new window.CameraHelper();
-        const cameraContext = cameraHelper.getCameraContext({ selfId, PlayerList: Player.list });
-
-        cameraHelper.sendCameraUpdate({
-          cameraData: {
-            cameraId: selfId, // Use player ID as camera ID
-            x: player.x,
-            y: player.y,
-            z: player.z || 0,
-            mode: 'player',
-            locked: false, // Player camera follows player naturally
-            lockedToEntityId: selfId, // Locked to self
-            ownerPlayerId: selfId,
-            context: cameraContext
-          },
-          selfId
-        });
+    if (typeof window !== 'undefined' && window.CameraHelper) {
+      if (!this._cameraHelper) {
+        this._cameraHelper = new window.CameraHelper();
       }
+      const cameraContext = this._cameraHelper.getCameraContext({ selfId, PlayerList: Player.list });
+
+      this._cameraHelper.sendCameraUpdate({
+        cameraData: {
+          cameraId: selfId, // Use player ID as camera ID
+          x: player.x,
+          y: player.y,
+          z: player.z || 0,
+          mode: 'player',
+          locked: false, // Player camera follows player naturally
+          lockedToEntityId: selfId, // Locked to self
+          ownerPlayerId: selfId,
+          context: cameraContext
+        },
+        selfId
+      });
     }
   }
 }

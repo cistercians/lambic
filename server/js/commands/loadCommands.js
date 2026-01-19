@@ -74,9 +74,6 @@ function loadCommands() {
     }
   }
 
-  if (process.env.DEBUG || loadedCount > 0) {
-    console.log(`[loadCommands] Loaded ${loadedCount} commands, ${errorCount} errors`);
-  }
 }
 
 /**

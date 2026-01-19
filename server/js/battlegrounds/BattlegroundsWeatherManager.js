@@ -86,7 +86,6 @@ class BattlegroundsWeatherManager {
       this.updateWeather();
     }, this.weatherUpdateIntervalMs);
 
-    console.log('Started battlegrounds weather update monitoring');
   }
 
   /**

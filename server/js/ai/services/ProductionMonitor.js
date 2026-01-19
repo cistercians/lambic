@@ -87,10 +87,11 @@ class ProductionMonitor {
   }
   
   // Check if production issue exists
-  isProductionIssue(productionRate, currentLevel) {
+  isProductionIssue(productionRate, currentLevel, resource, currentDay) {
     if (productionRate <= 0 && currentLevel < RESOURCE_THRESHOLDS.PRODUCTION_ISSUE_CHECK) {
-      const currentDay = global.day || 1;
-      const avgRate = this.productionRates[productionRate] / (currentDay - (this.lastResourceLevels._day || currentDay - 1));
+      const day = currentDay || global.day || 1;
+      const daySpan = day - (this.lastResourceLevels._day || day - 1) || 1;
+      const avgRate = (this.productionRates[resource] || 0) / daySpan;
       return avgRate <= 0;
     }
     return false;

@@ -317,20 +317,19 @@ if(this.spatialFilteringEnabled && playerPack) {
 **Spatial Filtering Logic** (`spatialFilterEntities()`, lines 827-937):
 - Calculates distance from each entity to all viewer/camera positions
 - Includes entity if within `spatialFilterRadius` (1500px) on same Z-level
-- Always includes: player's own entity, entities on different Z-levels, falcons
+- Always includes: viewer's own entity, falcons (for smooth flight)
 - Viewer positions come from Camera entities representing different viewing modes (player, godmode, spectate, login)
 
 #### Step 3: Update Frequency Optimization
 
-Separates entities into critical and non-critical:
+Separates in-view vs out-of-view entities for send-side frequency optimization:
 
 ```javascript
-// Critical: players, entities in combat, entities with paths, falcons
-if(isPlayer || isInCombat || hasPath || isFalcon) {
-  criticalPlayerPack.push(entity);
-} else if(shouldSendNonCritical) {
-  // Non-critical: idle NPCs (sent every 2nd frame = 30 FPS)
-  nonCriticalPlayerPack.push(entity);
+// In-view entities are always sent every frame
+criticalPlayerPack = inViewPlayerPack;
+// Out-of-view entities are sent less frequently
+if (shouldSendNonCritical) {
+  nonCriticalPlayerPack = outOfViewPlayerPack;
 }
 ```
 
@@ -880,6 +879,7 @@ flowchart TD
 - **NPCs in Combat**: Entities with `player.action === 'combat'` need real-time combat updates
 - **Entities with Paths**: Entities with `player.path && player.path.length > 0` need smooth movement
 - **Falcons**: `player.class === 'Falcon'` always update for smooth flight animation
+- **Battleground NPCs**: `player.inBattleground && player.battlegroundMatchId` are always updated
 
 #### Update Every 2nd Frame (30 FPS):
 - **Idle Fauna**: Deer, Boar, Wolf when not moving/fleeing/combat
@@ -1498,7 +1498,8 @@ sequenceDiagram
     item: [ /* array of item update objects */ ],
     light: [ /* array of light update objects */ ],
     building: [ /* array of building update objects */ ],
-    weather: [ /* array of weather update objects */ ]
+    weather: [ /* array of weather update objects */ ],
+    camera: [ /* array of camera/viewer update objects */ ]
   }
 }
 ```

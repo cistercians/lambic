@@ -356,43 +356,37 @@ class OptimizedGameLoop {
     for (const [contextKey, group] of viewerGroups) {
       const viewers = group.viewers;
       const hasViewers = viewers && viewers.length > 0;
-    // Apply spatial filtering: only send entities near players
-    let filteredPlayerPack = playerPack;
-      if(this.spatialFilteringEnabled && playerPack && hasViewers) {
-        filteredPlayerPack = this.spatialFilterEntities(playerPack, viewers);
-      } else if (playerPack) {
-        filteredPlayerPack = this.filterPlayerPackByContext(playerPack, group);
+    // Build context-filtered pack first
+    let overallPlayerPack = playerPack;
+    if (playerPack) {
+      overallPlayerPack = this.filterPlayerPackByContext(playerPack, group);
     }
-    
-    // Separate critical and non-critical updates for frequency optimization
+
+    // Determine in-view vs out-of-view for send-side throttling
+    let inViewPlayerPack = overallPlayerPack || [];
+    if (this.spatialFilteringEnabled && overallPlayerPack && hasViewers) {
+      inViewPlayerPack = this.spatialFilterEntities(overallPlayerPack, viewers);
+    }
+
+    let outOfViewPlayerPack = [];
+    if (overallPlayerPack && inViewPlayerPack) {
+      const inViewIds = new Set(inViewPlayerPack.map(entity => entity && entity.id).filter(Boolean));
+      outOfViewPlayerPack = overallPlayerPack.filter(entity => entity && !inViewIds.has(entity.id));
+    }
+
+    // Separate critical (in-view) and non-critical (out-of-view) updates
     let criticalPlayerPack = [];
     let nonCriticalPlayerPack = [];
-    
-    if(this.updateFrequencyOptimization && filteredPlayerPack) {
+
+    if (this.updateFrequencyOptimization && overallPlayerPack) {
       const shouldSendNonCritical = (this.criticalUpdateFrame % this.nonCriticalUpdateInterval === 0);
-      
-      for(const entity of filteredPlayerPack) {
-        if(!entity || !entity.id) continue;
-        
-        const player = Player.list[entity.id];
-        const isPlayer = player && player.type === 'player';
-        const isNPC = player && player.type === 'npc';
-        const isInCombat = player && player.action === 'combat';
-        const hasPath = player && player.path && player.path.length > 0;
-        const isFalcon = player && player.class === 'Falcon';
-        const isBattlegroundNPC = isNPC && player && player.inBattleground && player.battlegroundMatchId;
-        
-        // Critical: players, entities in combat, entities with paths, falcons, and battleground NPCs (always moving/fighting)
-        if(isPlayer || isInCombat || hasPath || isFalcon || isBattlegroundNPC) {
-          criticalPlayerPack.push(entity);
-        } else if(shouldSendNonCritical) {
-          // Non-critical: idle NPCs in main world (sent less frequently)
-          nonCriticalPlayerPack.push(entity);
-        }
+      criticalPlayerPack = inViewPlayerPack || [];
+      if (shouldSendNonCritical && outOfViewPlayerPack.length > 0) {
+        nonCriticalPlayerPack = outOfViewPlayerPack;
       }
     } else {
-      // No frequency optimization - send all entities
-      criticalPlayerPack = filteredPlayerPack || [];
+      // No frequency optimization - send all context-matched entities
+      criticalPlayerPack = overallPlayerPack || [];
     }
     
     // Combine critical and non-critical (non-critical may be empty if not time to send)
@@ -726,27 +720,6 @@ class OptimizedGameLoop {
         }
       }
 
-      console.info('[OptimizedGameLoop] Context stats', stats);
-    }
-
-    // Log viewer/filter stats at low frequency when debugging is enabled
-    if (now - this._viewerStats.lastLog >= this._viewerStats.logInterval) {
-      this._viewerStats.lastLog = now;
-
-      // Only log if we have viewer data
-      if (this._viewerStats.viewerCounts.length > 0) {
-        const avgViewers = this._viewerStats.viewerCounts.reduce((sum, count) => sum + count, 0) / this._viewerStats.viewerCounts.length;
-        const latestFiltered = this._viewerStats.filteredEntityCounts[this._viewerStats.filteredEntityCounts.length - 1];
-
-        console.info('[OptimizedGameLoop] Viewer/Filter Stats:', {
-          activeViewers: Math.round(avgViewers),
-          filteredEntities: latestFiltered,
-          viewerModes: Camera ? Object.values(Camera.list).reduce((modes, camera) => {
-            modes[camera.mode] = (modes[camera.mode] || 0) + 1;
-            return modes;
-          }, {}) : {}
-        });
-      }
     }
 
     // Send per-context packets to connected sockets

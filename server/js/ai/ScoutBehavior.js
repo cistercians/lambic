@@ -159,8 +159,11 @@ class ScoutBehavior {
     
     this.returningToBase = true;
     
-    // TODO: Set unit's path back to HQ
-    // For now, we'll check distance in isAtBase()
+    if (!this.unit || typeof this.unit.moveTo !== 'function') return;
+    const hqLoc = this.house?.hq;
+    if (!hqLoc || hqLoc.length < 2) return;
+    const targetZ = this.unit.z || 0;
+    this.unit.moveTo(targetZ, hqLoc[0], hqLoc[1]);
   }
   
   // Check if scout is at base

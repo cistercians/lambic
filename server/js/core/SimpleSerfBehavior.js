@@ -21,7 +21,6 @@ class SimpleSerfBehavior {
     const prevState = serf.serfState || null;
     if (prevState === nextState) return;
     serf.serfState = nextState;
-    const logger = this.getSerfLogger();
     if (logger && typeof logger.stateTransition === 'function') {
       logger.stateTransition(serf, prevState || 'none', nextState, reason);
     }
@@ -289,9 +288,6 @@ class SimpleSerfBehavior {
   recoverFromStuck(serf) {
     if (!serf) return;
     const logger = this.getSerfLogger();
-    if (logger && typeof logger.warn === 'function') {
-      logger.warn('Recovering serf from stalled movement', serf, { action: serf.action, mode: serf.mode });
-    }
 
     serf.path = null;
     serf.pathCount = 0;
