@@ -1657,7 +1657,7 @@ class SimpleCombat {
         target.combatState.pendingTarget = null;
         target.combatState.pendingStartTime = null;
       }
-    } else if (target.type === 'player') {
+      } else if (target.type === 'player') {
       // Use initCombatState to properly initialize player combat state
       // This validates target and clears autoAttackPaused
       if (this.initCombatState(target, entity.id)) {
@@ -1668,10 +1668,16 @@ class SimpleCombat {
           target.combatState.pendingTarget = null;
           target.combatState.pendingStartTime = null;
         }
-        // Send chat message to player
+        // Send chat message to player (rate-limited per attacker)
         const attackerName = entity.name || entity.class;
         const socket = global.SOCKET_LIST[target.id];
-        if (socket) {
+        const now = Date.now();
+        if (!target._underAttackBy) {
+          target._underAttackBy = {};
+        }
+        const lastAttackNotice = target._underAttackBy[entity.id] || 0;
+        if (socket && now - lastAttackNotice > 3000) {
+          target._underAttackBy[entity.id] = now;
           socket.write(JSON.stringify({ 
             msg: 'addToChat', 
             message: `<span style="color:red;">⚔️ You are under attack by ${attackerName}!</span>` 

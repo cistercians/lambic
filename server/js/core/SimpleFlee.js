@@ -225,7 +225,9 @@ class SimpleFlee {
         }
         
         // Path is empty - re-pathfind to same destination if still valid
-        if (entity._fleeTarget.type === 'ally' && entity._fleeTarget.allyId && global.Player.list[entity._fleeTarget.allyId]) {
+        if (!entity._fleeTarget) {
+          // Target cleared above (e.g., already close to ally); fall through to re-evaluate.
+        } else if (entity._fleeTarget.type === 'ally' && entity._fleeTarget.allyId && global.Player.list[entity._fleeTarget.allyId]) {
           const ally = global.Player.list[entity._fleeTarget.allyId];
           if (ally && ally.z === entity.z) {
             // Check proximity - if within 3 tiles, switch to random flee

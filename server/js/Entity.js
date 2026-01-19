@@ -3604,6 +3604,13 @@ Character = function(param){
     if(loc.toString() != tLoc.toString()){
       if(tz == self.z){
         if(self.z == 0){
+          // In battlegrounds, always use pathfinding on overworld to avoid getting stuck
+          if (self.inBattleground && self.battlegroundMatchId && self.shouldRequestPath(self.z, tLoc[0], tLoc[1])) {
+            self.getPath(self.z, tLoc[0], tLoc[1]);
+            if (self.path) {
+              return;
+            }
+          }
           var isSerfClass = (self.class === 'Serf' || self.class === 'SerfM' || self.class === 'SerfF');
           var isDepositMove = (self.action === 'deposit' || self.action === 'clockout');
           if(isSerfClass && isDepositMove){
