@@ -402,8 +402,13 @@ class BattlegroundsEliteNPCManager {
         houseId = match.teams[team].houseId;
       }
     } else if (match.gameMode === 'deathmatch') {
-      // Deathmatch: each NPC gets its own hostile house (handled by house manager)
-      houseId = null;
+      // Deathmatch: each participant (including NPCs) should have a temporary house
+      const npcTeamEntry = (match.teams && plannedNPC && match.teams[plannedNPC.id])
+        ? match.teams[plannedNPC.id]
+        : null;
+      if (npcTeamEntry && npcTeamEntry.houseId !== undefined) {
+        houseId = npcTeamEntry.houseId;
+      }
     }
     
     // Use planned NPC ID if available, otherwise generate new one
@@ -452,6 +457,13 @@ class BattlegroundsEliteNPCManager {
           // Fallback if helpers not available
           npc.inBattleground = true;
           npc.battlegroundMatchId = match.matchId;
+        }
+
+        // Set initial mode based on match rules in case behavior updates haven't started yet
+        if (match.gameMode === 'assault' && team === 'team2') {
+          npc.mode = 'guard';
+        } else {
+          npc.mode = 'raid';
         }
         
         // CRITICAL: Ensure NPC is marked for updates (needed for movement/combat)

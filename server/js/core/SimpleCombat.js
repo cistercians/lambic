@@ -11,6 +11,7 @@ class SimpleCombat {
     this.RANGED_KITE_DISTANCE = 96; // Too close - back away
     this.BOAR_ATTACK_RANGE = 64; // Boars have standard melee range (1 tile)
     this.DETECTION_RANGE = 128; // 2 tiles for stealth detection
+    this.DEFENSE_AGGRO_RANGE = 1000; // 10 tiles - military units respond to fleeing serfs
     this.MELEE_COOLDOWN = 1000; // 1 second
     this.RANGED_COOLDOWN = 1500; // 1.5 seconds
     this.KITE_CHECK_INTERVAL = 2000; // 2 seconds
@@ -124,6 +125,18 @@ class SimpleCombat {
     }
     
     return true;
+  }
+
+  isBattlegroundCombatAllowed(entity, target = null) {
+    const entityInBG = entity && entity.inBattleground && entity.battlegroundMatchId;
+    const targetInBG = target && target.inBattleground && target.battlegroundMatchId;
+    if (!entityInBG && !targetInBG) return true;
+    if (!global.battlegroundsMatchManager || !global.battlegroundsMatchManager.currentMatch) return false;
+    const match = global.battlegroundsMatchManager.currentMatch;
+    const matchId = match.matchId;
+    if (entityInBG && entity.battlegroundMatchId !== matchId) return false;
+    if (targetInBG && target.battlegroundMatchId !== matchId) return false;
+    return match.status === 'in_progress';
   }
 
   // Get attack range for an entity
@@ -453,6 +466,9 @@ class SimpleCombat {
    */
   setAttackIntent(entity, targetId) {
     try {
+    if (entity && entity.inBattleground && !this.isBattlegroundCombatAllowed(entity)) {
+      return false;
+    }
     // Validate target exists
     const target = this.getEntityById(targetId);
     if (!target || !this.isTargetValid(target, entity)) {
@@ -1310,6 +1326,9 @@ class SimpleCombat {
    * @returns {boolean} True if aggro check should be skipped
    */
   shouldSkipAggroCheck(entity) {
+    if (entity && entity.inBattleground && !this.isBattlegroundCombatAllowed(entity)) {
+      return true;
+    }
     // Skip players - they don't use aggro system (they choose targets explicitly)
     if (entity.type === 'player') return true;
     
@@ -1343,7 +1362,7 @@ class SimpleCombat {
   checkDefensiveAggro(entity) {
     if (!entity.military || !entity.house) return false;
     
-    const defenseRange = 1000; // 10 tiles - military units respond to fleeing serfs
+    const defenseRange = this.DEFENSE_AGGRO_RANGE;
       const serfClasses = ['Serf', 'SerfM', 'SerfF'];
       
       // Use context-aware entity filtering to only check entities in same context
@@ -1504,7 +1523,7 @@ class SimpleCombat {
       return; // Still handling stealth approach
     }
 
-    const aggroRange = entity.aggroRange || 512;
+    const aggroRange = entity._raidAggroRange || entity.aggroRange || 512;
     const peaceful = ['Serf', 'SerfM', 'SerfF', 'Deer', 'Sheep'];
     const isPeaceful = peaceful.includes(entity.class);
     
@@ -1560,6 +1579,27 @@ class SimpleCombat {
    */
   startCombat(entity, target) {
     try {
+      if (!this.isBattlegroundCombatAllowed(entity, target)) {
+        return;
+      }
+      const shouldLogBG = entity && entity.type === 'npc' && entity.inBattleground && entity.battlegroundMatchId;
+      if (shouldLogBG) {
+        if (!entity._bgCombatLog) entity._bgCombatLog = {};
+        const now = Date.now();
+        const last = entity._bgCombatLog.startCombat || 0;
+        if (now - last > 2000) {
+          entity._bgCombatLog.startCombat = now;
+          console.log('[BG][Combat] startCombat', {
+            npcId: entity.id,
+            npcName: entity.name || entity.class,
+            targetId: target && target.id,
+            targetName: target && (target.name || target.class),
+            mode: entity.mode,
+            action: entity.action,
+            matchId: entity.battlegroundMatchId
+          });
+        }
+      }
       // CRITICAL: Check if entities are allies - never start combat between allies
       if (global.isAlly && global.isAlly(entity.id, target.id)) {
         return; // Don't start combat - they are allies
@@ -1703,6 +1743,25 @@ class SimpleCombat {
   endCombat(entity, target) {
     try {
       if (!entity) return;
+
+      const shouldLogBG = entity.type === 'npc' && entity.inBattleground && entity.battlegroundMatchId;
+      if (shouldLogBG) {
+        if (!entity._bgCombatLog) entity._bgCombatLog = {};
+        const now = Date.now();
+        const last = entity._bgCombatLog.endCombat || 0;
+        if (now - last > 2000) {
+          entity._bgCombatLog.endCombat = now;
+          console.log('[BG][Combat] endCombat', {
+            npcId: entity.id,
+            npcName: entity.name || entity.class,
+            targetId: target && target.id,
+            targetName: target && (target.name || target.class),
+            mode: entity.mode,
+            action: entity.action,
+            matchId: entity.battlegroundMatchId
+          });
+        }
+      }
 
     // If target not provided, look it up from combat state
     if (!target && entity.combatState && entity.combatState.target) {

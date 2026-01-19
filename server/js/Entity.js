@@ -5008,6 +5008,17 @@ Character = function(param){
     
     // Track if z-level changed (used later for movement processing)
     var zLevelChanged = (self.z !== previousZ);
+
+    // ===== RAID MODE AGGRO OVERRIDE =====
+    // Raid mode should use an expanded aggro range (match military defensive response)
+    if (self.mode === 'raid') {
+      const defenseAggroRange = (global.simpleCombat && global.simpleCombat.DEFENSE_AGGRO_RANGE)
+        ? global.simpleCombat.DEFENSE_AGGRO_RANGE
+        : 1000;
+      self._raidAggroRange = defenseAggroRange;
+    } else if (self._raidAggroRange) {
+      delete self._raidAggroRange;
+    }
     
     // ===== NPC AI MODES (lines 3990-4350) =====
     // Complex behavioral state machine for NPCs
@@ -5620,11 +5631,18 @@ Character = function(param){
       }
       
       var dest = self.raid.target;
-      var dCoords = getCoords(dest[0],dest[1]);
-      var dDist = self.getDistance(dCoords[0],dCoords[1]);
+      var dCoords = getCenter(dest[0], dest[1]);
+      var dDist = self.getDistance({ x: dCoords[0], y: dCoords[1] });
+      var raidAggroRange = self._raidAggroRange || self.aggroRange;
+      var raidLeashRange = raidAggroRange * 4;
+      var raidMapSize = (global.mapContextManager && typeof global.mapContextManager.getMapSize === 'function')
+        ? global.mapContextManager.getMapSize(self)
+        : mapSize;
+      var combatEnded = false;
       if(!self.action){
         if(!self.path){
-          if(dDist > self.aggroRange){
+          // Keep advancing toward raid target unless we're very close
+          if(dDist > (tileSize * 2)){
             var c = dest[0];
             var r = dest[1];
             var select = [];
@@ -5637,47 +5655,79 @@ Character = function(param){
             [c-2,r+3],[c-1,r+3],[c,r+3],[c+1,r+3],[c+2,r+3]];
             for(var i in grid){
               var tile = grid[i];
-              if(tile[0] > -1 && tile[0] < mapSize && tile[1] > -1 && tile[1] < mapSize){
-                if(isWalkable(0,tile[0],tile[1])){
+              if(tile[0] > -1 && tile[0] < raidMapSize && tile[1] > -1 && tile[1] < raidMapSize){
+                if(isWalkable(self.z, tile[0], tile[1])){
                   select.push(tile);
                 }
               }
             }
             var rand = Math.floor(Math.random() * select.length);
             var dest = select[rand];
-            self.moveTo(0,dest[0],dest[1]);
+            self.moveTo(self.z, dest[0], dest[1]);
           }
         }
       } else if(self.action == 'combat'){
         var raidTargetId = getCombatTargetId(self);
         var target = Player.list[raidTargetId];
-        var lCoords = getCenter(lastLoc.loc[0],lastLoc.loc[1]);
-        var lDist = self.getDistance(lCoords[0],lCoords[1]);
-        if(!target || (lDist > self.aggroRange*4)){
-          clearCombatTarget(self);
-          self.action = null;
-        }
-        if(self.ranged){
-          var tLoc = getLoc(target.x,target.y);
-          var dist = self.getDistance({
-            x:target.x,
-            y:target.y
-          })
-          if(self.attackCooldown > 0){
-            if(dist < 256){
-              self.reposition(loc,tLoc);
-            }
-          } else {
-            if(dist > 256){
-              var angle = self.getAngle(target.x,target.y);
-              self.shootArrow(angle);
-              self.attackCooldown += self.attackRate/self.dexterity;
-            } else {
-              self.reposition(loc,tLoc);
+        if(!target || (dDist > raidLeashRange)){
+          if (self.inBattleground && self.battlegroundMatchId) {
+            if (!self._bgRaidLog) self._bgRaidLog = {};
+            const now = Date.now();
+            const last = self._bgRaidLog.combatDrop || 0;
+            if (now - last > 2000) {
+              self._bgRaidLog.combatDrop = now;
+              console.log('[BG][Raid] combatDrop', {
+                npcId: self.id,
+                npcName: self.name || self.class,
+                reason: !target ? 'missing_target' : 'leash',
+                distToRaid: Math.round(dDist),
+                leash: Math.round(raidLeashRange),
+                targetId: target && target.id,
+                mode: self.mode,
+                action: self.action,
+                matchId: self.battlegroundMatchId
+              });
             }
           }
-        } else {
-          self.follow(target,true);
+          if(global.simpleCombat){
+            global.simpleCombat.endCombat(self, target);
+          } else {
+            clearCombatTarget(self);
+            self.action = null;
+          }
+          combatEnded = true;
+        }
+        if(!combatEnded && global.simpleCombat){
+          // Use SimpleCombat for chase/pathing while in raid combat
+          global.simpleCombat.update(self);
+        } else if(!combatEnded && target){
+          // Legacy fallback if SimpleCombat not available
+          if(self.ranged){
+            var tLoc = getLoc(target.x,target.y);
+            var dist = self.getDistance({
+              x:target.x,
+              y:target.y
+            })
+            if(self.attackCooldown > 0){
+              if(dist < 256){
+                self.reposition(loc,tLoc);
+              }
+            } else {
+              if(dist > 256){
+                var angle = self.getAngle(target.x,target.y);
+                self.shootArrow(angle);
+                self.attackCooldown += self.attackRate/self.dexterity;
+              } else {
+                self.reposition(loc,tLoc);
+              }
+            }
+          } else {
+            self.follow(target,true);
+          }
+        }
+        // Resume movement toward raid target after combat ends
+        if(combatEnded){
+          self.path = null;
         }
       } else if(self.action == 'flee'){
         if(!self.path){

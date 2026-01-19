@@ -75,15 +75,23 @@ class BattlegroundsEliteNPCBehavior {
       const previousMode = npc.mode;
       const previousAction = npc.action;
       
-      if (!npc.mode || npc.mode === 'idle') {
-        // Set mode based on game mode - this tells Character.update() what to do
-        npc.mode = 'raid'; // Use 'raid' mode for battlegrounds - NPCs will attack enemies
-        
+      const desiredMode = (gameMode === 'assault' && participant.team === 'team2') ? 'guard' : 'raid';
+      if (!npc.mode || npc.mode === 'idle' || npc.mode !== desiredMode) {
+        npc.mode = desiredMode;
+      }
+      
+      if (npc.mode === 'raid') {
         // For 'raid' mode, the normal system expects self.raid.target to be set
-        // This should be a tile location [col, row] that the NPC will move towards
         // We'll set this in the game-mode-specific behavior methods
         if (!npc.raid) {
           npc.raid = {};
+        }
+      } else if (npc.mode === 'guard') {
+        if (!npc.guard) {
+          npc.guard = {};
+        }
+        if (npc.raid && npc.raid.target) {
+          delete npc.raid.target;
         }
       }
       
@@ -115,49 +123,19 @@ class BattlegroundsEliteNPCBehavior {
    */
   updateDeathmatchBehavior(npc, match) {
     if (!npc.attackMoveTarget || this.shouldRecalculateTarget(npc)) {
-      // Pick a random point on the opposite half of the map from current position
-      const mapSize = match.mapSize;
       const tileSize = global.tileSize || 64;
+      const mapSize = match.mapSize || 0;
       const mapBounds = mapSize * tileSize;
-      const centerX = mapBounds / 2;
-
-      // If NPC is on left half, move to right half, and vice versa
-      let targetX;
-      if (npc.x < centerX) {
-        targetX = centerX + Math.random() * (mapBounds / 2);
-      } else {
-        targetX = Math.random() * (mapBounds / 2);
-      }
-
-      const targetY = Math.random() * mapBounds;
-
-      // Store attack-move target
-      npc.attackMoveTarget = {
-        x: targetX,
-        y: targetY,
-        z: npc.z || match.mapData.startingZ || 0,
-        timestamp: Date.now()
+      const startingZ = npc.z || match.mapData.startingZ || 0;
+      const centerPoint = {
+        x: mapBounds / 2,
+        y: mapBounds / 2,
+        z: startingZ
       };
-
-      // Set raid target for normal system (tile coordinates [col, row])
-      // CRITICAL: raid.target must be set for Character.update() raid mode to work
-      const getLoc = global.getLoc || ((x, y) => {
-        const tileSize = global.tileSize || 64;
-        return [Math.floor(x / tileSize), Math.floor(y / tileSize)];
-      });
-      const targetLoc = getLoc(targetX, targetY);
-      if (targetLoc && targetLoc.length >= 2) {
-        // Ensure raid object exists
-        if (!npc.raid) {
-          npc.raid = {};
-        }
-        npc.raid.target = targetLoc; // Normal system expects this for 'raid' mode
+      const selected = this.selectRaidTargetWithPath(npc, match, centerPoint);
+      if (selected) {
+        this.applyRaidTarget(npc, selected);
       }
-
-      // Issue attack-move command (move to target, attacking enemies along the way)
-      // The normal system will handle movement via mode='raid' and raid.target
-      // But we can also call moveTo() directly as a fallback
-      this.issueAttackMoveCommand(npc, targetX, targetY, npc.z || match.mapData.startingZ || 0);
     }
   }
 
@@ -167,38 +145,13 @@ class BattlegroundsEliteNPCBehavior {
    */
   updateSkirmishBehavior(npc, participant, match) {
     if (!participant.team) return;
-
-    // Determine opposing team's starting area
-    const mapSize = match.mapSize;
-    const tileSize = global.tileSize || 64;
-    const mapBounds = mapSize * tileSize;
-    const opposingTeamArea = participant.team === 'team1' 
-      ? { x: mapBounds * 0.75, y: mapBounds / 2 } // Team 2 area
-      : { x: mapBounds * 0.25, y: mapBounds / 2 }; // Team 1 area
-
     if (!npc.attackMoveTarget || this.shouldRecalculateTarget(npc)) {
-      // Add some randomness to the target
-      const targetX = opposingTeamArea.x + (Math.random() - 0.5) * (mapBounds * 0.2);
-      const targetY = opposingTeamArea.y + (Math.random() - 0.5) * (mapBounds * 0.2);
-
-      npc.attackMoveTarget = {
-        x: targetX,
-        y: targetY,
-        z: npc.z || match.mapData.startingZ || 0,
-        timestamp: Date.now()
-      };
-
-      // Set raid target for normal system (tile coordinates [col, row])
-      const getLoc = global.getLoc || ((x, y) => {
-        const tileSize = global.tileSize || 64;
-        return [Math.floor(x / tileSize), Math.floor(y / tileSize)];
-      });
-      const targetLoc = getLoc(targetX, targetY);
-      if (targetLoc && targetLoc.length >= 2) {
-        npc.raid.target = targetLoc; // Normal system expects this for 'raid' mode
+      const opposingTeam = participant.team === 'team1' ? 'team2' : 'team1';
+      const targetPoint = this.getTeamSpawnCenter(match, opposingTeam);
+      const selected = this.selectRaidTargetWithPath(npc, match, targetPoint);
+      if (selected) {
+        this.applyRaidTarget(npc, selected);
       }
-
-      this.issueAttackMoveCommand(npc, targetX, targetY, npc.z || match.mapData.startingZ || 0);
     }
   }
 
@@ -214,41 +167,143 @@ class BattlegroundsEliteNPCBehavior {
     const isDefender = participant.team === 'team2';
 
     if (isAttacker) {
-      // Attackers attack-move towards capture point
-      const capturePoint = this.getCapturePoint(match);
-      if (!capturePoint) return;
-
+      // Attackers raid toward defender spawn area
       if (!npc.attackMoveTarget || this.shouldRecalculateTarget(npc)) {
-        // Move towards capture point with some randomness
-        const targetX = capturePoint.x + (Math.random() - 0.5) * (global.tileSize * 5);
-        const targetY = capturePoint.y + (Math.random() - 0.5) * (global.tileSize * 5);
-
-        npc.attackMoveTarget = {
-          x: targetX,
-          y: targetY,
-          z: capturePoint.z,
-          timestamp: Date.now()
-        };
-
-        this.issueAttackMoveCommand(npc, targetX, targetY, capturePoint.z);
+        const targetPoint = this.getTeamSpawnCenter(match, 'team2');
+        const selected = this.selectRaidTargetWithPath(npc, match, targetPoint);
+        if (selected) {
+          this.applyRaidTarget(npc, selected);
+        }
       }
     } else if (isDefender) {
-      // Defenders guard the defensive area
-      const defensiveArea = this.getDefensiveArea(match);
-      if (!defensiveArea) return;
-
-      if (!npc.guardTarget || this.shouldRecalculateTarget(npc)) {
-        npc.guardTarget = {
-          x: defensiveArea.x + (Math.random() - 0.5) * (global.tileSize * 3),
-          y: defensiveArea.y + (Math.random() - 0.5) * (global.tileSize * 3),
-          z: defensiveArea.z,
-          radius: defensiveArea.radius || (global.tileSize * 5),
-          timestamp: Date.now()
-        };
-
-        this.issueGuardCommand(npc, npc.guardTarget);
+      // Defenders guard their spawn area (not raid)
+      const defensivePoint = this.getTeamSpawnCenter(match, 'team2');
+      if (!defensivePoint) return;
+      const guardLoc = this.toTargetLoc(defensivePoint, npc);
+      if (guardLoc && guardLoc.length >= 2) {
+        const guardPoint = [guardLoc[0], guardLoc[1]];
+        guardPoint.loc = [guardLoc[0], guardLoc[1]];
+        guardPoint.z = defensivePoint.z !== undefined ? defensivePoint.z : (npc.z || match.mapData.startingZ || 0);
+        npc.guard.point = guardPoint;
       }
     }
+  }
+
+  getTeamSpawnCenter(match, team) {
+    if (!match || !match.mapData) return null;
+    const spawnAreas = match.mapData.spawnPoints || [];
+    if (!spawnAreas.length) return null;
+    const area = spawnAreas.find(sp => sp.team === team && (team !== 'team2' || !sp.stronghold || sp.stronghold === true));
+    if (area && area.center) {
+      return { ...area.center };
+    }
+    if (area && area.points && area.points.length > 0) {
+      return { ...area.points[0] };
+    }
+    return null;
+  }
+
+  selectRaidTargetWithPath(npc, match, preferredPoint) {
+    if (!npc || !match) return null;
+    const tileSize = global.tileSize || 64;
+    const mapSize = match.mapSize || (global.mapContextManager ? global.mapContextManager.getMapSize(npc) : 0);
+    const startingZ = npc.z || match.mapData.startingZ || 0;
+    const attempts = 50;
+    let targetPoint = preferredPoint;
+
+    for (let i = 0; i < attempts; i++) {
+      if (!targetPoint) {
+        targetPoint = {
+          x: Math.random() * mapSize * tileSize,
+          y: Math.random() * mapSize * tileSize,
+          z: startingZ
+        };
+      }
+
+      const targetLoc = this.toTargetLoc(targetPoint, npc);
+      if (targetLoc && this.canPathToTarget(npc, targetLoc)) {
+        return {
+          point: targetPoint,
+          loc: targetLoc,
+          z: targetPoint.z !== undefined ? targetPoint.z : startingZ
+        };
+      }
+
+      // Preferred failed, pick random next
+      targetPoint = null;
+    }
+
+    if (npc.inBattleground && npc.battlegroundMatchId) {
+      if (!npc._bgRaidLog) npc._bgRaidLog = {};
+      const now = Date.now();
+      const last = npc._bgRaidLog.noRaidTarget || 0;
+      if (now - last > 5000) {
+        npc._bgRaidLog.noRaidTarget = now;
+        console.log('[BG][Raid] noRaidTarget', {
+          npcId: npc.id,
+          npcName: npc.name || npc.class,
+          mode: npc.mode,
+          matchId: npc.battlegroundMatchId
+        });
+      }
+    }
+    return null;
+  }
+
+  toTargetLoc(point, npc) {
+    if (!point || point.x === undefined || point.y === undefined) return null;
+    const getLoc = global.getLoc || ((x, y) => {
+      const tileSize = global.tileSize || 64;
+      return [Math.floor(x / tileSize), Math.floor(y / tileSize)];
+    });
+    return getLoc(point.x, point.y, npc);
+  }
+
+  canPathToTarget(npc, targetLoc) {
+    if (!targetLoc || targetLoc.length < 2) return false;
+    const startLoc = (global.getLoc ? global.getLoc(npc.x, npc.y, npc) : [Math.floor(npc.x / 64), Math.floor(npc.y / 64)]);
+    const zLayer = npc.z !== undefined ? npc.z : 0;
+    if (global.isWalkable && !global.isWalkable(zLayer, targetLoc[0], targetLoc[1], npc)) {
+      return false;
+    }
+    if (global.findPathContextAware) {
+      const path = global.findPathContextAware(startLoc, [targetLoc[0], targetLoc[1]], zLayer, {}, npc);
+      const ok = Array.isArray(path) && path.length > 0;
+      if (!ok && npc.inBattleground && npc.battlegroundMatchId) {
+        if (!npc._bgRaidLog) npc._bgRaidLog = {};
+        const now = Date.now();
+        const last = npc._bgRaidLog.noRaidPath || 0;
+        if (now - last > 5000) {
+          npc._bgRaidLog.noRaidPath = now;
+          console.log('[BG][Raid] noRaidPath', {
+            npcId: npc.id,
+            npcName: npc.name || npc.class,
+            start: startLoc,
+            target: [targetLoc[0], targetLoc[1]],
+            z: zLayer,
+            matchId: npc.battlegroundMatchId
+          });
+        }
+      }
+      return ok;
+    }
+    return true;
+  }
+
+  applyRaidTarget(npc, selected) {
+    if (!npc || !selected) return;
+    const targetPoint = selected.point || {};
+    const targetLoc = selected.loc;
+    npc.attackMoveTarget = {
+      x: targetPoint.x,
+      y: targetPoint.y,
+      z: selected.z,
+      timestamp: Date.now()
+    };
+    if (!npc.raid) {
+      npc.raid = {};
+    }
+    npc.raid.target = targetLoc;
   }
 
   /**
