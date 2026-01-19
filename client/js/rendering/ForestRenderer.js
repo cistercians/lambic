@@ -25,6 +25,13 @@ class ForestRenderer {
       }
     ];
     
+    // Distance-based forest image map
+    this.distanceImages = {
+      40: 'hforest40',
+      60: 'hforest60',
+      80: 'hforest80',
+      default: 'hforest'
+    };
   }
 
   /**
@@ -51,15 +58,16 @@ class ForestRenderer {
   }
 
   /**
-   * Convert distance to alpha value for forest transparency
+   * Get forest image based on distance
    * @param {number|null} distance - Distance value or null
-   * @returns {number} Alpha value (0.4, 0.6, 0.8, or 1.0)
+   * @param {object} Img - Image assets
+   * @returns {Image} Forest image
    */
-  getForestAlpha(distance) {
-    if (distance === 40) return 0.4;
-    if (distance === 60) return 0.6;
-    if (distance === 80) return 0.8;
-    return 1.0; // Default: fully opaque for null (beyond ring 3) or any other value
+  getForestImage(distance, Img) {
+    if (distance && this.distanceImages[distance]) {
+      return Img[this.distanceImages[distance]];
+    }
+    return Img[this.distanceImages.default];
   }
 
   /**
@@ -90,8 +98,8 @@ class ForestRenderer {
     // Calculate distance
     const distance = this.calculateDistance(c, r, pc, pr);
     
-    // Calculate alpha based on distance
-    const alpha = this.getForestAlpha(distance);
+    // Get forest image
+    const forestImg = this.getForestImage(distance, Img);
     
     // Calculate offsets
     const x = xOffset + (config.offsets.x * tileSize);
@@ -99,10 +107,8 @@ class ForestRenderer {
     const width = tileSize;
     const height = tileSize * config.height;
     
-    // Draw forest overlay with runtime alpha
-    ctx.globalAlpha = alpha;
-    ctx.drawImage(Img.hforest, x, y, width, height);
-    ctx.globalAlpha = 1.0; // Reset alpha
+    // Draw forest overlay
+    ctx.drawImage(forestImg, x, y, width, height);
   }
 
   /**
