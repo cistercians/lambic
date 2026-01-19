@@ -19,16 +19,42 @@ class LambicBlockchain {
     return this.chain[this.chain.length - 1];
   }
   
-  minePendingTransactions(miningRewardAddress, serverId) {
-    // Create reward transaction
-    const rewardTx = new Transaction(
-      null, 
-      miningRewardAddress, 
-      this.miningReward,
-      'reward',
-      { serverId: serverId }
-    );
-    this.pendingTransactions.push(rewardTx);
+  minePendingTransactions(miningRewardAddress, serverId, rewardConfig = null) {
+    // Create reward transaction(s)
+    if (rewardConfig && rewardConfig.serverAddress && rewardConfig.gameAddress) {
+      const totalReward = this.miningReward;
+      const serverAmount = Math.floor(totalReward * (rewardConfig.serverShare || 0.75));
+      const gameAmount = totalReward - serverAmount;
+
+      const serverRewardTx = new Transaction(
+        null,
+        rewardConfig.serverAddress,
+        serverAmount,
+        'reward',
+        { serverId: serverId, rewardSplit: 'server' }
+      );
+      this.pendingTransactions.push(serverRewardTx);
+
+      if (gameAmount > 0) {
+        const gameRewardTx = new Transaction(
+          null,
+          rewardConfig.gameAddress,
+          gameAmount,
+          'reward',
+          { serverId: serverId, rewardSplit: 'game' }
+        );
+        this.pendingTransactions.push(gameRewardTx);
+      }
+    } else {
+      const rewardTx = new Transaction(
+        null, 
+        miningRewardAddress, 
+        this.miningReward,
+        'reward',
+        { serverId: serverId }
+      );
+      this.pendingTransactions.push(rewardTx);
+    }
     
     // Create new block
     const block = new Block(

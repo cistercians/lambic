@@ -1499,13 +1499,18 @@ class SimpleSerfBehavior {
 
           // Mine ore - random chance
           const roll = Math.random();
-          if (roll < 0.001) {
+          const diamondChance = 0.001;
+          const goldChance = global.gameWalletLedger && global.gameWalletLedger.canMint(1) ? 0.01 : 0;
+          const silverChance = 0.09;
+          const ironChance = 0.4;
+
+          if (roll < diamondChance) {
             serf.inventory.diamond = (serf.inventory.diamond || 0) + 1;
-          } else if (roll < 0.01) {
+          } else if (roll < diamondChance + goldChance) {
             serf.inventory.goldore = (serf.inventory.goldore || 0) + 1;
-          } else if (roll < 0.1) {
+          } else if (roll < diamondChance + goldChance + silverChance) {
             serf.inventory.silverore = (serf.inventory.silverore || 0) + 1;
-          } else if (roll < 0.5) {
+          } else if (roll < diamondChance + goldChance + silverChance + ironChance) {
             serf.inventory.ironore = (serf.inventory.ironore || 0) + 1;
           }
 

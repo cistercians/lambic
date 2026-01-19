@@ -256,6 +256,12 @@ class DropCommand {
       if (player.inventory[itemType] <= 0) {
         player.inventory[itemType] = 0;
       }
+      if (itemType === 'gold' && global.gameWalletLedger) {
+        try {
+          global.gameWalletLedger.transferPlayerToWorld(player, quantity, 'drop');
+        } catch (err) {
+        }
+      }
       return true;
     } else if (itemFactory && typeof itemFactory.createItem === 'function') {
       // Use itemFactory as fallback
@@ -269,6 +275,12 @@ class DropCommand {
       player.inventory[itemType] -= quantity;
       if (player.inventory[itemType] <= 0) {
         player.inventory[itemType] = 0;
+      }
+      if (itemType === 'gold' && global.gameWalletLedger) {
+        try {
+          global.gameWalletLedger.transferPlayerToWorld(player, quantity, 'drop');
+        } catch (err) {
+        }
       }
       return true;
     }

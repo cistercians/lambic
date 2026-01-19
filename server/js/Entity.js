@@ -7604,6 +7604,9 @@ FishingShip = function(param){
   
   // State tracking
   self.mode = param.owner ? 'docked' : 'fishing'; // Player ships start docked
+  if(self.mode === 'docked' || self.mode === 'anchored'){
+    self.name = 'Fishing Ship ⚓';
+  }
   self.workTimer = false; // Fishing timer
   self.fishingCooldown = 0; // Cooldown between catches
   
@@ -11895,6 +11898,12 @@ Gold = function(param){
     var player = Player.list[id];
     var socket = SOCKET_LIST[id];
     Player.list[id].inventory.gold += self.qty;
+    if (global.gameWalletLedger) {
+      try {
+        global.gameWalletLedger.transferWorldToPlayer(player, self.qty, 'pickup');
+      } catch (err) {
+      }
+    }
     socket.write(JSON.stringify({msg:'addToChat',message:'<i>You picked up</i> ' + self.qty + ' <b>Gold</b>.'}));
     self.toRemove = true;
   }

@@ -11,6 +11,8 @@ const BattlegroundsEliteNPCBehavior = require('./BattlegroundsEliteNPCBehavior')
 const BattlegroundsLeashManager = require('./BattlegroundsLeashManager');
 const BattlegroundsSpectatorSystem = require('./BattlegroundsSpectatorSystem');
 const BattlegroundsMapVotingSystem = require('./BattlegroundsMapVotingSystem');
+const MapAnalyzer = require('../ai/MapAnalyzer');
+const { FACTION_IDS } = require('../bootstrap/constants');
 
 class BattlegroundsMatchManager {
   constructor() {
@@ -199,6 +201,9 @@ class BattlegroundsMatchManager {
           console.warn('Failed to generate pathfinding grids for battleground map');
         }
       }
+
+      // Spawn battleground factions (Outlaws/Mercenaries) using main-world init flow
+      this.spawnBattlegroundFactions();
       
       // Initialize game mode (after map data is set)
       this.initGameMode(gameMode);
@@ -254,6 +259,71 @@ class BattlegroundsMatchManager {
     } catch (error) {
       console.error('Error generating map:', error);
       this.endMatch({ reason: 'map_generation_failed' });
+    }
+  }
+
+  spawnBattlegroundFactions() {
+    const match = this.currentMatch;
+    if (!match || !match.mapData || !match.mapData.worldData) return;
+
+    const mapData = match.mapData;
+    const mapSize = match.mapSize || mapData.mapSize || 0;
+    if (!mapSize) return;
+
+    const tileGetter = (layer, c, r) => {
+      if (!mapData.worldData[layer] || !mapData.worldData[layer][r]) return 0;
+      const value = mapData.worldData[layer][r][c];
+      return typeof value === 'undefined' ? 0 : value;
+    };
+    const mapAnalyzer = new MapAnalyzer({ mapSize, tileGetter });
+    const contextEntity = { inBattleground: true, battlegroundMatchId: match.matchId };
+
+    const excludedHQs = [];
+
+    let outlawCount = 0;
+    let maxOutlawAttempts = 50;
+    let consecutiveFailures = 0;
+    while (consecutiveFailures < 3 && outlawCount < maxOutlawAttempts) {
+      const outlawsHQ = mapAnalyzer.findFactionHQ('Outlaws', excludedHQs);
+      if (outlawsHQ) {
+        excludedHQs.push(outlawsHQ.tile);
+        outlawCount++;
+        consecutiveFailures = 0;
+        Outlaws({
+          id: FACTION_IDS.OUTLAWS + outlawCount - 1,
+          type: 'npc',
+          name: `Outlaws ${outlawCount}`,
+          flag: '',
+          hq: outlawsHQ.tile,
+          hostile: true,
+          contextEntity
+        });
+      } else {
+        consecutiveFailures++;
+      }
+    }
+
+    let mercenariesCount = 0;
+    let maxMercenariesAttempts = 50;
+    let mercenariesConsecutiveFailures = 0;
+    while (mercenariesConsecutiveFailures < 3 && mercenariesCount < maxMercenariesAttempts) {
+      const mercenariesHQ = mapAnalyzer.findFactionHQ('Mercenaries', excludedHQs);
+      if (mercenariesHQ) {
+        excludedHQs.push(mercenariesHQ.tile);
+        mercenariesCount++;
+        mercenariesConsecutiveFailures = 0;
+        Mercenaries({
+          id: FACTION_IDS.MERCENARIES + mercenariesCount - 1,
+          type: 'npc',
+          name: `Mercenaries ${mercenariesCount}`,
+          flag: '',
+          hq: mercenariesHQ.tile,
+          hostile: true,
+          contextEntity
+        });
+      } else {
+        mercenariesConsecutiveFailures++;
+      }
     }
   }
 

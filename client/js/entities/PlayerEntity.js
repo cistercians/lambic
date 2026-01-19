@@ -17,6 +17,9 @@ function PlayerEntity(initPack) {
   self.y = initPack.y;
   self.z = initPack.z;
   self.class = initPack.class;
+  self.shipType = initPack.shipType || null;
+  self.isPlayerControlled = initPack.isPlayerControlled || false;
+  self.owner = initPack.owner;
   self.inBattleground = initPack.inBattleground;
   self.battlegroundMatchId = initPack.battlegroundMatchId || null;
   

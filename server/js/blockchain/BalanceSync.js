@@ -8,29 +8,20 @@ class BalanceSync {
     
     for (const playerId in global.Player.list) {
       const player = global.Player.list[playerId];
-      
-      if (player.type === 'player' && player.wallet && player.wallet.address) {
-        // Get balance from blockchain
-        const blockchainBalance = global.blockchain.getBalanceOfAddress(
-          player.wallet.address
-        );
-        
-        // Initialize inventory.gold if it doesn't exist
-        if (!player.inventory) {
-          player.inventory = {};
-        }
-        
-        // Update in-game inventory
-        const oldBalance = player.inventory.gold || 0;
-        player.inventory.gold = blockchainBalance;
-        
-        if (oldBalance !== blockchainBalance) {
+      if (!player || player.type !== 'player') continue;
+
+      // Reconcile inventory vs game wallet ledger (do not overwrite)
+      if (global.gameWalletLedger) {
+        const ledgerBalance = global.gameWalletLedger.getPlayerBalance(player.id);
+        const inventoryBalance = (player.inventory && player.inventory.gold) || 0;
+        if (ledgerBalance !== inventoryBalance) {
           syncedCount++;
         }
       }
     }
     
     if (syncedCount > 0) {
+      console.warn(`[BalanceSync] Detected ${syncedCount} gold balance mismatches`);
     }
   }
   

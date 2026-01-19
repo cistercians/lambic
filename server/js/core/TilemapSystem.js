@@ -650,7 +650,7 @@ class TilemapSystem {
   }
 
   // Find valid building spot
-  findBuildingSpot(buildingType, centerTile, searchRadius, customRequirements = {}) {
+  findBuildingSpot(buildingType, centerTile, searchRadius, customRequirements = {}, contextEntity = null) {
     const requirements = this.getBuildingRequirements();
     const baseReqs = requirements[buildingType];
     
@@ -667,7 +667,7 @@ class TilemapSystem {
     
     // For each potential spot in search area
     for (const tile of searchArea) {
-      if (this.canPlaceBuilding(tile, reqs, buildingType)) {
+      if (this.canPlaceBuilding(tile, reqs, buildingType, contextEntity)) {
         const plot = this.generatePlot(tile, reqs.plotSize);
         const walls = reqs.wallTiles > 0 ? this.generateWalls(plot, reqs.wallTiles) : [];
         const topPlot = reqs.hasUpperFloor && walls.length > 0 ? this.generateTopPlot(plot, walls) : [];
@@ -677,7 +677,7 @@ class TilemapSystem {
           plot: plot,
           walls: walls,
           topPlot: topPlot,
-          score: this.scoreBuildingSpot(tile, reqs, buildingType)
+          score: this.scoreBuildingSpot(tile, reqs, buildingType, contextEntity)
         });
       }
     }
@@ -689,7 +689,7 @@ class TilemapSystem {
   }
 
   // Find multiple building spots (e.g., multiple farms around a mill)
-  findMultipleBuildingSpots(buildingType, centerTile, searchRadius, count, customRequirements = {}) {
+  findMultipleBuildingSpots(buildingType, centerTile, searchRadius, count, customRequirements = {}, contextEntity = null) {
     const requirements = this.getBuildingRequirements();
     const baseReqs = requirements[buildingType];
     
@@ -707,7 +707,7 @@ class TilemapSystem {
       const tileKey = `${tile[0]},${tile[1]}`;
       if (occupiedTiles.has(tileKey)) continue;
       
-      if (this.canPlaceBuilding(tile, { ...reqs, excludeTiles: Array.from(occupiedTiles) }, buildingType)) {
+      if (this.canPlaceBuilding(tile, { ...reqs, excludeTiles: Array.from(occupiedTiles) }, buildingType, contextEntity)) {
         const plot = this.generatePlot(tile, reqs.plotSize);
         const walls = reqs.wallTiles > 0 ? this.generateWalls(plot, reqs.wallTiles) : [];
         
@@ -715,7 +715,7 @@ class TilemapSystem {
           tile: tile,
           plot: plot,
           walls: walls,
-          score: this.scoreBuildingSpot(tile, reqs, buildingType)
+          score: this.scoreBuildingSpot(tile, reqs, buildingType, contextEntity)
         });
         
         // Mark this plot as occupied for subsequent searches
@@ -730,29 +730,38 @@ class TilemapSystem {
   }
 
   // Check if building can be placed at location
-  canPlaceBuilding(tile, requirements, buildingType) {
+  canPlaceBuilding(tile, requirements, buildingType, contextEntity = null) {
     const plot = this.generatePlot(tile, requirements.plotSize);
     const perimeter = requirements.clearanceRadius > 0 ? 
       this.generatePerimeter(plot, requirements.clearanceRadius) : [];
+    const contextMapSize = contextEntity && global.mapContextManager
+      ? global.mapContextManager.getMapSize(contextEntity)
+      : this.mapSize;
+    const getTile = (layer, x, y) => {
+      if (contextEntity && global.mapContextManager) {
+        return global.mapContextManager.getTile(layer, x, y, contextEntity);
+      }
+      return this.getTile(layer, x, y);
+    };
     
     // Check if plot is within map bounds
     for (const plotTile of plot) {
-      if (plotTile[0] < 0 || plotTile[0] >= this.mapSize ||
-          plotTile[1] < 0 || plotTile[1] >= this.mapSize) {
+      if (plotTile[0] < 0 || plotTile[0] >= contextMapSize ||
+          plotTile[1] < 0 || plotTile[1] >= contextMapSize) {
         return false;
       }
     }
     
     // Check plot tiles are valid terrain AND walkable
     for (const plotTile of plot) {
-      const terrain = this.getTile(0, plotTile[0], plotTile[1]);
+      const terrain = getTile(0, plotTile[0], plotTile[1]);
       const terrainFloor = Math.floor(terrain);
       if (!requirements.validTerrain.includes(terrainFloor)) {
         return false;
       }
       
       // Check if tile is walkable (catches firepits, buildings, blocking objects)
-      if (!global.isWalkable(0, plotTile[0], plotTile[1])) {
+      if (!global.isWalkable(0, plotTile[0], plotTile[1], contextEntity || undefined)) {
         return false;
       }
     }
@@ -761,8 +770,8 @@ class TilemapSystem {
     if (requirements.excludeBuildings) {
       for (const checkTile of [...plot, ...perimeter]) {
         // Check layer 3 (building ground markers) and layer 5 (upper floors)
-        const layer3 = this.getTile(3, checkTile[0], checkTile[1]);
-        const layer5 = this.getTile(5, checkTile[0], checkTile[1]);
+        const layer3 = getTile(3, checkTile[0], checkTile[1]);
+        const layer5 = getTile(5, checkTile[0], checkTile[1]);
         
         if (layer3 !== 0 || layer5 !== 0) {
           return false;
@@ -782,6 +791,9 @@ class TilemapSystem {
         for (const itemId in global.Item.list) {
           const item = global.Item.list[itemId];
           if (item && item.z === 0) { // Only check ground level items
+            if (contextEntity && !(item.inBattleground && item.battlegroundMatchId === contextEntity.battlegroundMatchId)) {
+              continue;
+            }
             const dist = Math.sqrt(
               Math.pow(item.x - tileCenter[0], 2) + 
               Math.pow(item.y - tileCenter[1], 2)
@@ -955,14 +967,20 @@ class TilemapSystem {
   }
 
   // Score building spot (higher is better)
-  scoreBuildingSpot(tile, requirements, buildingType) {
+  scoreBuildingSpot(tile, requirements, buildingType, contextEntity = null) {
     let score = 100; // Base score
     
     const tileCenter = global.getCenter(tile[0], tile[1]);
+    const getTile = (layer, x, y) => {
+      if (contextEntity && global.mapContextManager) {
+        return global.mapContextManager.getTile(layer, x, y, contextEntity);
+      }
+      return this.getTile(layer, x, y);
+    };
     
     // Terrain preference for huts (prefer grass/light forest over brush)
     if (buildingType && (buildingType.includes('hut') || buildingType === 'cottage')) {
-      const plotTerrain = this.getTile(0, tile[0], tile[1]);
+      const plotTerrain = getTile(0, tile[0], tile[1]);
       if (plotTerrain === 7) { // GRASS
         score += 20;
       } else if (plotTerrain === 2) { // LIGHT_FOREST
@@ -977,7 +995,7 @@ class TilemapSystem {
       let grassCount = 0;
       const searchArea = global.getArea(tile, tile, 5); // Check 5-tile radius for open space
       for (const t of searchArea) {
-        const terrain = this.getTile(0, t[0], t[1]);
+        const terrain = getTile(0, t[0], t[1]);
         if (terrain === 7) { // GRASS
           grassCount++;
         }
@@ -991,7 +1009,7 @@ class TilemapSystem {
       let forestCount = 0;
       const searchArea = global.getArea(tile, tile, 2);
       for (const t of searchArea) {
-        const terrain = this.getTile(0, t[0], t[1]);
+        const terrain = getTile(0, t[0], t[1]);
         if (terrain === 1 || terrain === 2) { // HEAVY_FOREST or LIGHT_FOREST
           forestCount++;
         }
@@ -1001,7 +1019,7 @@ class TilemapSystem {
     
     // Mine-specific scoring: prefer visual rocks with adjacent large rocks
     if (buildingType === 'mine') {
-      const plotTerrain = this.getTile(0, tile[0], tile[1]);
+      const plotTerrain = getTile(0, tile[0], tile[1]);
       const TERRAIN = global.TERRAIN;
       
       // Bonus for placing on visual rock tile (exact match, not Math.floor)
@@ -1013,7 +1031,7 @@ class TilemapSystem {
       let largeRockCount = 0;
       const searchArea = global.getArea(tile, tile, 1); // 1-tile radius
       for (const t of searchArea) {
-        const terrain = this.getTile(0, t[0], t[1]);
+        const terrain = getTile(0, t[0], t[1]);
         if (global.isLargeRock && global.isLargeRock(terrain)) {
           largeRockCount++;
         }

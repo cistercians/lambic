@@ -211,8 +211,9 @@ class InputHandler {
       let isShipNavigator = false;
       if (selfId && Player.list[selfId]) {
         const currentEntity = Player.list[selfId];
-        // Navigator: selfId points to ship entity with shipType and isPlayerControlled
-        if (currentEntity.shipType === 'fishingship' && currentEntity.isPlayerControlled) {
+        // Navigator: selfId points to ship entity; allow control even before isPlayerControlled syncs
+        if (currentEntity.shipType === 'fishingship' &&
+            (currentEntity.isPlayerControlled || currentEntity.type === 'ship')) {
           isShipNavigator = true;
         }
       }
@@ -1453,12 +1454,26 @@ class InputHandler {
     }
     
     // Handle right-click navigation/combat/interaction
-    if (!selfId || !Player.list[selfId]) {
-      console.log('Right-click blocked - no selfId or player', { selfId, hasPlayer: !!(selfId && Player.list[selfId]) });
+    // Resolve a valid player id even if local selfId is stale
+    let resolvedSelfId = selfId;
+    if (typeof window !== 'undefined' && window.selfId !== undefined && window.selfId !== null) {
+      resolvedSelfId = window.selfId;
+    }
+    if (!resolvedSelfId || !Player.list[resolvedSelfId]) {
+      for (const pid in Player.list) {
+        const p = Player.list[pid];
+        if (p && !p.toRemove && p.class && !p.shipType && p.class !== 'FishingShip' && p.class !== 'CargoShip') {
+          resolvedSelfId = pid;
+          break;
+        }
+      }
+    }
+    if (!resolvedSelfId || !Player.list[resolvedSelfId]) {
+      console.warn('Right-click blocked - no valid player id resolved', { selfId, resolvedSelfId });
       return;
     }
     
-    const player = Player.list[selfId];
+    const player = Player.list[resolvedSelfId];
     const canvas = document.getElementById('ctx');
     if (!canvas) return;
     

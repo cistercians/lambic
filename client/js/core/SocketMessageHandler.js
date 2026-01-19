@@ -877,13 +877,16 @@ var SocketMessageHandler = {
     // Player is boarding a ship as navigator or passenger
     if(data.isNavigator){
       // Store original player data before switching control to ship
-      if(typeof selfId !== 'undefined') {
-        var player = Player.list[selfId];
+      const originalPlayerId = (typeof selfId !== 'undefined' && selfId !== null)
+        ? selfId
+        : (typeof window !== 'undefined' ? window.selfId : null);
+      if(originalPlayerId) {
+        var player = Player.list[originalPlayerId];
         if(player){
           if(typeof window !== 'undefined') {
-            window.originalPlayerId = selfId; // Keep reference to player character for UI
+            window.originalPlayerId = originalPlayerId; // Keep reference to player character for UI
             window.originalPlayerData = {
-              id: selfId,
+              id: originalPlayerId,
               name: player.name,
               class: player.class
             };
@@ -893,23 +896,22 @@ var SocketMessageHandler = {
           player.isBoarded = true;
           player.boardedShip = data.shipId;
         }
-        
-        // Switch selfId to ship for control
-        // Update selfId in both global and local scope
-        if (typeof window !== 'undefined') {
-          window.selfId = data.shipId;
-        }
-        if (typeof selfId !== 'undefined') {
-          selfId = data.shipId;
-        }
-        
-        // Switch BGM to ship playlist and add sea ambience
-        if(typeof bgmPlayer !== 'undefined' && typeof ship_bgm !== 'undefined'){
-          bgmPlayer(ship_bgm);
-        }
-        if(typeof ambPlayer !== 'undefined'){
-          ambPlayer('/client/audio/amb/sea.mp3');
-        }
+      }
+      
+      // Switch selfId to ship for control (always, even if original id wasn't resolved)
+      if (typeof window !== 'undefined') {
+        window.selfId = data.shipId;
+      }
+      if (typeof selfId !== 'undefined') {
+        selfId = data.shipId;
+      }
+      
+      // Switch BGM to ship playlist and add sea ambience
+      if(typeof bgmPlayer !== 'undefined' && typeof ship_bgm !== 'undefined'){
+        bgmPlayer(ship_bgm);
+      }
+      if(typeof ambPlayer !== 'undefined'){
+        ambPlayer('/client/audio/amb/sea.mp3');
       }
     } else {
       // Just a passenger - mark as boarded but don't switch control

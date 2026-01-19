@@ -51,6 +51,7 @@ const WalletManager = require('./server/js/blockchain/WalletManager');
 const BalanceSync = require('./server/js/blockchain/BalanceSync');
 const BlockchainStorage = require('./server/js/blockchain/BlockchainStorage');
 const GoldTradeManager = require('./server/js/blockchain/GoldTradeManager');
+const GameWalletLedger = require('./server/js/blockchain/GameWalletLedger');
 const NetworkConfig = require('./server/js/blockchain/NetworkConfig');
 
 // Modular entity loading happens later after all globals are defined
@@ -6848,9 +6849,22 @@ global.p2pNetwork = new P2PNetwork(
 const serverWallet = WalletManager.createWallet('server_' + serverName);
 global.serverWallet = serverWallet;
 
+// Create game wallet for in-game gold circulation
+const gameWallet = WalletManager.createWallet('game_' + serverName);
+global.gameWallet = gameWallet;
+
+// Initialize game wallet ledger
+global.gameWalletLedger = new GameWalletLedger();
+systemRegistry.register('gameWalletLedger', global.gameWalletLedger, { priority: 19 });
+
 
 // Initialize mining manager
-global.miningManager = new MiningManager(serverName, serverWallet.address);
+global.miningManager = new MiningManager(
+  serverName,
+  serverWallet.address,
+  gameWallet.address,
+  { server: 0.75, game: 0.25 }
+);
 
 // Start P2P server (after main game server starts)
 setTimeout(() => {
@@ -7970,6 +7984,33 @@ io.on('connection', function(socket) {
                     player.pendingInteraction = null;
                   }
                 } else {
+                  // No adjacent walkable tile found - allow close-range ship boarding fallback
+                  if(data.entityType === 'ship' && entity && entity.shipType){
+                    var shipLoc = getLoc(entity.x, entity.y, player.id);
+                    var playerLocNow = getLoc(player.x, player.y, player.id);
+                    var distX = Math.abs(playerLocNow[0] - shipLoc[0]);
+                    var distY = Math.abs(playerLocNow[1] - shipLoc[1]);
+                    var withinRange = Math.max(distX, distY) <= 2;
+                    var isDockedOrAnchored = (entity.mode === 'docked' || entity.mode === 'anchored');
+                    if(withinRange && isDockedOrAnchored){
+                      if(entity.shipType !== 'cargoship'){
+                        var atDock = entity.mode === 'docked';
+                        if(atDock && (!entity.owner || entity.owner !== socket.id)){
+                          socket.write(JSON.stringify({
+                            msg: 'addToChat',
+                            message: '<i>This is not your ship.</i>'
+                          }));
+                          player.pendingInteraction = null;
+                          return;
+                        }
+                      }
+                      if(typeof entity.boardPassenger === 'function'){
+                        entity.boardPassenger(socket.id);
+                      }
+                      player.pendingInteraction = null;
+                      return;
+                    }
+                  }
                   // No adjacent walkable tile found - clear pending interaction
                   player.pendingInteraction = null;
                 }

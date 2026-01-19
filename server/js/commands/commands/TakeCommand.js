@@ -202,12 +202,12 @@ class TakeCommand {
     const currentAmount = player.inventory[itemType] || 0;
     player.inventory[itemType] = currentAmount + quantity;
 
-    // Special handling for gold (blockchain)
-    if (itemType === 'gold' && player.wallet && global.GoldTradeManager) {
+    // Special handling for gold (game wallet ledger)
+    if (itemType === 'gold' && global.gameWalletLedger) {
       try {
-        global.GoldTradeManager.createMiningTransaction(player, quantity);
+        global.gameWalletLedger.transferWorldToPlayer(player, quantity, 'take');
       } catch (err) {
-        // Ignore blockchain errors
+        // Ignore ledger errors
       }
     }
 

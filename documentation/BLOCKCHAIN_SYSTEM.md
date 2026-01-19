@@ -2,7 +2,7 @@
 
 ## Overview
 
-Lambic now features a custom proof-of-work blockchain where the in-game currency "Gold" is a real cryptocurrency with actual monetary value. Each game server acts as a node in a distributed peer-to-peer network, mining blocks, validating transactions, and maintaining consensus.
+Lambic features a custom proof-of-work blockchain where the in-game currency "Gold" is a real cryptocurrency with monetary value. Each game server acts as a node in a distributed peer-to-peer network, mining blocks, validating transactions, and maintaining consensus. In-game gold circulation is governed by a Game Wallet ledger, while on-chain activity is limited to rewards distribution and withdrawals.
 
 ## Architecture
 
@@ -32,7 +32,7 @@ Lambic now features a custom proof-of-work blockchain where the in-game currency
 5. **Mining Manager** (`server/js/blockchain/MiningManager.js`)
    - Mines new blocks using proof-of-work
    - Adjusts difficulty based on block time
-   - Distributes mining rewards to server
+   - Distributes mining rewards to Server Wallet and Game Wallet (75/25 split)
 
 6. **Wallet Manager** (`server/js/blockchain/WalletManager.js`)
    - Creates wallets for players (custodial)
@@ -40,9 +40,14 @@ Lambic now features a custom proof-of-work blockchain where the in-game currency
    - Encrypts private keys for storage
    - Signs transactions
 
-7. **Balance Sync** (`server/js/blockchain/BalanceSync.js`)
-   - Synchronizes player in-game gold with blockchain balances
-   - Runs periodically and after each mined block
+7. **Game Wallet Ledger** (`server/js/blockchain/GameWalletLedger.js`)
+   - Tracks in-game gold circulation (player subwallets + world items)
+   - Enforces 1:1 backing by Game Wallet on-chain balance
+   - Provides ledger transfers for pickup, drop, and trades
+
+8. **Balance Sync** (`server/js/blockchain/BalanceSync.js`)
+   - Reconciles inventory against Game Wallet ledger
+   - Logs mismatches instead of overwriting inventory
 
 8. **Blockchain Storage** (`server/js/blockchain/BlockchainStorage.js`)
    - Saves blockchain to disk (`data/blockchain.json`)
@@ -59,27 +64,32 @@ When a player logs in, a blockchain wallet is automatically created:
 
 Players can view their wallet with `/wallet` or `/blockchain` command.
 
-### Gold Mining (New Gold Creation)
+### Gold Mining (In-Game Gold Availability)
 
-When a player picks up a "gold" item in the game:
-1. A "mining" transaction is created (from null → player's wallet)
-2. Transaction is added to pending transactions pool
-3. Transaction is broadcast to all peer nodes
-4. When a block is mined, the transaction is confirmed
+Gold items are introduced into the game world only when Game Wallet on-chain balance exceeds current in-game circulation:
+1. The server mines blocks and receives mining rewards
+2. Rewards are split 75% to Server Wallet and 25% to Game Wallet
+3. Mining logic allows gold ore drops only while `GameWallet balance > in-game circulation`
+4. In-game pickups are ledger transfers, not on-chain minting
 
 ### Player-to-Player Trading
 
-1. Transaction is created and signed with sender's private key
-2. Blockchain validates sender has sufficient balance
-3. Transaction is added to pending pool and broadcast
-4. Both players see immediate inventory update
-5. Transaction is confirmed when mined into a block
+1. Trade is executed as a Game Wallet ledger transfer
+2. Both players see immediate inventory update
+3. No on-chain transaction is created
+
+### Withdrawals (On-Chain Transfers)
+
+1. Player requests withdrawal to an external address
+2. Game Wallet ledger debits player subwallet
+3. Game Wallet signs an on-chain transaction to the destination
+4. Transaction is broadcast and confirmed on-chain
 
 ### Block Mining
 
 Every ~30 seconds (configurable):
 1. Server collects pending transactions
-2. Creates a new block with transactions + mining reward
+2. Creates a new block with transactions + mining reward split
 3. Performs proof-of-work (finds hash with N leading zeros)
 4. Broadcasts new block to peer nodes
 5. All nodes validate and add block to their chain
@@ -151,10 +161,18 @@ global.blockchain.getAllTransactionsForWallet('<wallet-address>');
 ```
 
 ### Server Wallet
-Each server has its own wallet that receives mining rewards:
+Each server has its own wallet that receives 75% of mining rewards:
 ```javascript
 console.log(global.serverWallet.address);
 console.log(global.blockchain.getBalanceOfAddress(global.serverWallet.address));
+```
+
+### Game Wallet
+Each server has a game wallet that receives 25% of mining rewards and backs in-game gold circulation:
+```javascript
+console.log(global.gameWallet.address);
+console.log(global.blockchain.getBalanceOfAddress(global.gameWallet.address));
+console.log(global.gameWalletLedger.getCirculationTotal()); // In-game gold in circulation
 ```
 
 ## Deployment
@@ -274,8 +292,8 @@ The server logs important blockchain events:
 
 ### Balance Mismatch
 - Balance sync runs every minute
-- May take a few minutes after transaction
-- Can force sync: `global.BalanceSync.syncPlayerBalances()`
+- Logs mismatches between ledger and inventory
+- Can force check: `global.BalanceSync.syncPlayerBalances()`
 
 ### High Memory Usage
 - Blockchain grows over time

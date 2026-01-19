@@ -4,60 +4,26 @@ const WalletManager = require('./WalletManager');
 class GoldTradeManager {
   static async executeTrade(fromPlayer, toPlayer, amount) {
     try {
-      if (!fromPlayer.wallet || !toPlayer.wallet) {
-        throw new Error('Both players must have wallets');
+      if (!global.gameWalletLedger) {
+        throw new Error('Game wallet ledger is not available');
       }
-      
       // Validate amount
       if (amount <= 0) {
         throw new Error('Trade amount must be positive');
       }
-      
-      // Validate balance
-      const balance = WalletManager.getBalance(fromPlayer.wallet.address);
-      if (balance < amount) {
+
+      const success = global.gameWalletLedger.transferPlayers(
+        fromPlayer,
+        toPlayer,
+        amount,
+        'trade'
+      );
+
+      if (!success) {
         throw new Error('Insufficient Gold balance');
       }
-      
-      // Decrypt private key to sign transaction
-      const privateKey = WalletManager.decryptPrivateKey(
-        fromPlayer.wallet.encryptedPrivateKey,
-        process.env.WALLET_ENCRYPTION_KEY || 'default-master-key-change-in-production'
-      );
-      
-      // Create transaction
-      const transaction = new Transaction(
-        fromPlayer.wallet.address,
-        toPlayer.wallet.address,
-        amount,
-        'transfer',
-        {
-          fromPlayer: fromPlayer.name,
-          toPlayer: toPlayer.name,
-          timestamp: Date.now()
-        }
-      );
-      
-      // Sign transaction
-      WalletManager.signTransaction(privateKey, transaction);
-      
-      // Add to blockchain
-      global.blockchain.addTransaction(transaction);
-      
-      // Broadcast to network
-      if (global.p2pNetwork) {
-        global.p2pNetwork.broadcast({
-          type: 'NEW_TRANSACTION',
-          data: transaction
-        });
-      }
-      
-      // Update in-game inventories (will sync with blockchain)
-      fromPlayer.inventory.gold = (fromPlayer.inventory.gold || 0) - amount;
-      toPlayer.inventory.gold = (toPlayer.inventory.gold || 0) + amount;
-      
-      
-      return transaction;
+
+      return { type: 'ledger-transfer', amount };
     } catch (err) {
       throw err;
     }
@@ -65,38 +31,62 @@ class GoldTradeManager {
   
   static async createMiningTransaction(player, amount) {
     try {
-      if (!player.wallet) {
-        throw new Error('Player must have a wallet');
+      if (!global.gameWalletLedger) {
+        throw new Error('Game wallet ledger is not available');
       }
-      
-      // Create mining transaction (no sender = newly mined)
+      const success = global.gameWalletLedger.creditPlayer(player, amount, 'mining');
+      if (!success) {
+        throw new Error('Game wallet has insufficient headroom');
+      }
+      return { type: 'ledger-credit', amount };
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  static async executeWithdrawal(player, toAddress, amount) {
+    try {
+      if (!global.gameWalletLedger || !global.gameWallet) {
+        throw new Error('Game wallet ledger is not available');
+      }
+      if (!toAddress) {
+        throw new Error('Withdrawal address is required');
+      }
+      if (amount <= 0) {
+        throw new Error('Withdrawal amount must be positive');
+      }
+
+      const debited = global.gameWalletLedger.debitPlayer(player, amount, 'withdraw');
+      if (!debited) {
+        throw new Error('Insufficient Gold balance');
+      }
+
+      const privateKey = WalletManager.decryptPrivateKey(
+        global.gameWallet.encryptedPrivateKey,
+        process.env.WALLET_ENCRYPTION_KEY || 'default-master-key-change-in-production'
+      );
+
       const transaction = new Transaction(
-        null, // No sender (new Gold)
-        player.wallet.address, // Player's wallet
+        global.gameWallet.address,
+        toAddress,
         amount,
-        'mining',
+        'withdrawal',
         {
           playerName: player.name,
-          location: player.x && player.y ? [Math.floor(player.x), Math.floor(player.y)] : null,
           timestamp: Date.now()
         }
       );
-      
-      // Add to blockchain pending transactions
+
+      WalletManager.signTransaction(privateKey, transaction);
       global.blockchain.addTransaction(transaction);
-      
-      // Broadcast to network
+
       if (global.p2pNetwork) {
         global.p2pNetwork.broadcast({
           type: 'NEW_TRANSACTION',
           data: transaction
         });
       }
-      
-      // Update in-game inventory (will sync with blockchain)
-      player.inventory.gold = (player.inventory.gold || 0) + amount;
-      
-      
+
       return transaction;
     } catch (err) {
       throw err;

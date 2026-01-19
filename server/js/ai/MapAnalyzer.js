@@ -5,8 +5,9 @@ const TerrainSegmentation = require('../core/TerrainSegmentation');
 const NameGenerator = require('../core/NameGenerator');
 
 class MapAnalyzer {
-  constructor() {
-    this.mapSize = global.mapSize || 100;
+  constructor(options = {}) {
+    this.mapSize = options.mapSize || global.mapSize || 100;
+    this.tileGetter = typeof options.tileGetter === 'function' ? options.tileGetter : null;
     this.analysisCache = null;
     this.factionRequirements = this.getFactionRequirements();
     this.nameGenerator = new NameGenerator();
@@ -774,6 +775,9 @@ class MapAnalyzer {
   
   // Helper: get terrain at tile (supports layers)
   getTerrain(c, r, layer = 0) {
+    if (this.tileGetter) {
+      return this.tileGetter(layer, c, r);
+    }
     if (global.getTile) {
       return global.getTile(layer, c, r);
     }

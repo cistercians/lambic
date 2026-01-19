@@ -264,9 +264,9 @@ House = function(param){
 House.list = {};
 
 // Helper: Find safe location for firepit (avoids blocking important tiles like cave entrances)
-function findSafeFirepitLocation(hq, z, grid) {
+function findSafeFirepitLocation(hq, z, grid, contextEntity = null) {
   // Check if HQ tile is a cave entrance (terrain 6) - if so, use adjacent tile
-  if(z === 0 && global.getTile && global.getTile(0, hq[0], hq[1]) === 6){
+  if(z === 0 && global.getTile && global.getTile(0, hq[0], hq[1], contextEntity || undefined) === 6){
     // Use first available tile from grid (already validated as walkable)
     if(grid && grid.length > 0){
       return grid[0]; // Return tile coords, not pixel coords
@@ -2826,6 +2826,28 @@ Teutons = function(param){
 // OUTLAWS
 Outlaws = function(param){
   var self = House(param);
+  const contextEntity = param && param.contextEntity ? param.contextEntity : null;
+  const contextSpawn = contextEntity && contextEntity.battlegroundMatchId
+    ? { inBattleground: true, battlegroundMatchId: contextEntity.battlegroundMatchId }
+    : {};
+  const getTile = (layer, c, r) => global.getTile ? global.getTile(layer, c, r, contextEntity || undefined) : 0;
+  const isWalkableCtx = (z, c, r) => global.isWalkable ? global.isWalkable(z, c, r, contextEntity || undefined) : false;
+  const tileChangeCtx = (l, c, r, n, incr = false) => {
+    if (typeof global.tileChange === 'function') {
+      global.tileChange(l, c, r, n, incr, contextEntity || undefined);
+    }
+  };
+  const matrixChangeCtx = (l, c, r, n) => {
+    if (typeof global.matrixChange === 'function') {
+      global.matrixChange(l, c, r, n, contextEntity || undefined);
+    }
+  };
+  const findBuildingSpot = (type, center, radius, opts) => {
+    if (global.tilemapSystem && typeof global.tilemapSystem.findBuildingSpot === 'function') {
+      return global.tilemapSystem.findBuildingSpot(type, center, radius, opts, contextEntity || undefined);
+    }
+    return null;
+  };
   self.scene = {
     // objects
     fire:null
@@ -2852,7 +2874,8 @@ Outlaws = function(param){
         home:{
           z:spawn.z,
           loc:[spawn.loc[0],spawn.loc[1]]
-        }
+        },
+        ...contextSpawn
       })
     } else if(cl == 'Outlaw'){
       Outlaw({
@@ -2863,7 +2886,8 @@ Outlaws = function(param){
         home:{
           z:spawn.z,
           loc:[spawn.loc[0],spawn.loc[1]]
-        }
+        },
+        ...contextSpawn
       })
     }
   }
@@ -2872,13 +2896,13 @@ Outlaws = function(param){
     var area = getArea(self.hq,self.hq,5);
     for(var i in area){
       var t = area[i];
-      if(isWalkable(0,t[0],t[1]) && t.toString() != self.hq.toString()){
+      if(isWalkableCtx(0,t[0],t[1]) && t.toString() != self.hq.toString()){
         grid.push(t);
       }
     }
     // fire (avoid blocking cave entrances)
     var fireId = Math.random();
-    var firepitLoc = findSafeFirepitLocation(self.hq, 0, grid);
+    var firepitLoc = findSafeFirepitLocation(self.hq, 0, grid, contextEntity);
     var coords = getCoords(firepitLoc[0], firepitLoc[1]);
     InfiniteFire({
       id:fireId,
@@ -2886,7 +2910,8 @@ Outlaws = function(param){
       x:coords[0],
       y:coords[1],
       z:0,
-      qty:1
+      qty:1,
+      ...contextSpawn
     });
     self.scene.fire = fireId;
     
@@ -2896,7 +2921,7 @@ Outlaws = function(param){
     
     for(var i = 0; i < numHuts; i++){
       // Use tilemap system to find a valid hut location near the firepit
-      var hutSpot = global.tilemapSystem.findBuildingSpot('outhut', firepitLoc, 5, {
+      var hutSpot = findBuildingSpot('outhut', firepitLoc, 5, {
         excludeTiles: excludedTiles
       });
       
@@ -2913,22 +2938,22 @@ Outlaws = function(param){
         
         // Update terrain tiles exactly like Build.js does for completed huts
         for(var j = 0; j < plot.length; j++){
-          matrixChange(0, plot[j][0], plot[j][1], 1);
-          matrixChange(1, plot[j][0], plot[j][1], 0);
-          tileChange(0, plot[j][0], plot[j][1], 13);
-          tileChange(3, plot[j][0], plot[j][1], String('outhut' + j));
+          matrixChangeCtx(0, plot[j][0], plot[j][1], 1);
+          matrixChangeCtx(1, plot[j][0], plot[j][1], 0);
+          tileChangeCtx(0, plot[j][0], plot[j][1], 13);
+          tileChangeCtx(3, plot[j][0], plot[j][1], String('outhut' + j));
           // Set entrance tile (outhut1 is the entrance)
           if(getTile(3, plot[j][0], plot[j][1]) == 'outhut1'){
-            tileChange(0, plot[j][0], plot[j][1], 14);
-            matrixChange(0, plot[j][0], plot[j][1], 0);
-            matrixChange(1, plot[j][0], plot[j][1]+1, 0);
+            tileChangeCtx(0, plot[j][0], plot[j][1], 14);
+            matrixChangeCtx(0, plot[j][0], plot[j][1], 0);
+            matrixChangeCtx(1, plot[j][0], plot[j][1]+1, 0);
           }
         }
         
         // Add walls
         for(var j in walls){
           var n = walls[j];
-          tileChange(4, n[0], n[1], 1);
+          tileChangeCtx(4, n[0], n[1], 1);
         }
         
         // Create the hut building (pre-built for Outlaws)
@@ -2948,7 +2973,8 @@ Outlaws = function(param){
           baseTerrain: baseTerrain,
           mats: { wood: 30, stone: 0 },
           req: 5,
-          hp: 150
+          hp: 150,
+          ...contextSpawn
         });
         
         // Add plot to excluded tiles so next hut doesn't overlap
@@ -2978,7 +3004,8 @@ Outlaws = function(param){
           home:{
             z:0,
             loc:select
-          }
+          },
+          ...contextSpawn
         })
       } else {
         Outlaw({
@@ -2989,7 +3016,8 @@ Outlaws = function(param){
           home:{
             z:0,
             loc:select
-          }
+          },
+          ...contextSpawn
         })
       }
     }
@@ -3014,6 +3042,11 @@ Outlaws = function(param){
 // MERCENARIES
 Mercenaries = function(param){
   var self = House(param);
+  const contextEntity = param && param.contextEntity ? param.contextEntity : null;
+  const contextSpawn = contextEntity && contextEntity.battlegroundMatchId
+    ? { inBattleground: true, battlegroundMatchId: contextEntity.battlegroundMatchId }
+    : {};
+  const isWalkableCtx = (z, c, r) => global.isWalkable ? global.isWalkable(z, c, r, contextEntity || undefined) : false;
   self.scene = {
     // objects
     fire:null,
@@ -3044,7 +3077,8 @@ Mercenaries = function(param){
         home:{
           z:spawn.z,
           loc:[spawn.loc[0],spawn.loc[1]]
-        }
+        },
+        ...contextSpawn
       })
     } else if(cl == 'Strongman'){
       Strongman({
@@ -3055,7 +3089,8 @@ Mercenaries = function(param){
         home:{
           z:spawn.z,
           loc:[spawn.loc[0],spawn.loc[1]]
-        }
+        },
+        ...contextSpawn
       })
     } else if(cl == 'Marauder'){
       Marauder({
@@ -3066,7 +3101,8 @@ Mercenaries = function(param){
         home:{
           z:spawn.z,
           loc:[spawn.loc[0],spawn.loc[1]]
-        }
+        },
+        ...contextSpawn
       })
     }
   }
@@ -3075,7 +3111,7 @@ Mercenaries = function(param){
     var area = getArea(self.hq,self.hq,4);
     for(var i in area){
       var t = area[i];
-      if(isWalkable(-1,t[0],t[1]) && t.toString() != self.hq.toString()){
+      if(isWalkableCtx(-1,t[0],t[1]) && t.toString() != self.hq.toString()){
         grid.push(t);
       }
     }
@@ -3088,7 +3124,8 @@ Mercenaries = function(param){
       x:coords[0],
       y:coords[1],
       z:-1,
-      qty:1
+      qty:1,
+      ...contextSpawn
     });
     self.scene.fire = fireId;
     // pawns
@@ -3107,7 +3144,8 @@ Mercenaries = function(param){
           home:{
             z:-1,
             loc:select
-          }
+          },
+          ...contextSpawn
         })
       } else {
         Strongman({
@@ -3118,7 +3156,8 @@ Mercenaries = function(param){
           home:{
             z:-1,
             loc:select
-          }
+          },
+          ...contextSpawn
         })
       }
     }
@@ -3142,7 +3181,8 @@ Mercenaries = function(param){
           x: coords[0],
           y: coords[1],
           z: -1,
-          qty: 1
+          qty: 1,
+          ...contextSpawn
         });
       } else if(roll < 0.66){
         Crates({
@@ -3150,7 +3190,8 @@ Mercenaries = function(param){
           x: coords[0],
           y: coords[1],
           z: -1,
-          qty: 1
+          qty: 1,
+          ...contextSpawn
         });
       } else {
         Stash2({
@@ -3158,7 +3199,8 @@ Mercenaries = function(param){
           x: coords[0],
           y: coords[1],
           z: -1,
-          qty: 1
+          qty: 1,
+          ...contextSpawn
         });
       }
     }
@@ -3167,7 +3209,7 @@ Mercenaries = function(param){
     const chestDistance = (Math.random() > 0.5) ? 1 : 2;
     const chestArea = getArea(self.hq, self.hq, chestDistance);
     const validChestSpots = chestArea.filter(t => 
-      isWalkable(-1, t[0], t[1]) && t.toString() != self.hq.toString()
+      isWalkableCtx(-1, t[0], t[1]) && t.toString() != self.hq.toString()
     );
     
     if(validChestSpots.length > 0){
@@ -3179,7 +3221,8 @@ Mercenaries = function(param){
         x: chestCoords[0],
         y: chestCoords[1],
         z: -1,
-        qty: 1
+        qty: 1,
+        ...contextSpawn
       });
     }
     

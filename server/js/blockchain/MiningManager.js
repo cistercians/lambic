@@ -1,9 +1,11 @@
 const NetworkConfig = require('./NetworkConfig');
 
 class MiningManager {
-  constructor(serverId, rewardAddress) {
+  constructor(serverId, rewardAddress, gameRewardAddress = null, rewardSplit = { server: 0.75, game: 0.25 }) {
     this.serverId = serverId;
     this.rewardAddress = rewardAddress; // Server's wallet for mining rewards
+    this.gameRewardAddress = gameRewardAddress;
+    this.rewardSplit = rewardSplit;
     this.isMining = false;
     this.miningInterval = null;
     this.miningTimeout = null;
@@ -49,9 +51,19 @@ class MiningManager {
     
     try {
       // Mine the block (proof of work)
+      const rewardConfig = this.gameRewardAddress
+        ? {
+            serverAddress: this.rewardAddress,
+            gameAddress: this.gameRewardAddress,
+            serverShare: this.rewardSplit.server,
+            gameShare: this.rewardSplit.game
+          }
+        : null;
+
       const newBlock = global.blockchain.minePendingTransactions(
         this.rewardAddress,
-        this.serverId
+        this.serverId,
+        rewardConfig
       );
       
       const miningTime = Date.now() - startTime;

@@ -92,10 +92,10 @@ class BaseItem {
     // Update player inventory
     player.inventory[this.type] = currentAmount + canTake;
     
-    // Blockchain integration for Gold
-    if (this.type === 'gold' && player.wallet && global.GoldTradeManager) {
+    // Game wallet integration for Gold (in-game ledger transfer)
+    if (this.type === 'gold' && global.gameWalletLedger) {
       try {
-        global.GoldTradeManager.createMiningTransaction(player, canTake);
+        global.gameWalletLedger.transferWorldToPlayer(player, canTake, 'pickup');
       } catch (err) {
       }
     }

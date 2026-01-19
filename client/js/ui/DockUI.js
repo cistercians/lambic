@@ -100,13 +100,15 @@ class DockUI {
       cargoDiv.onclick = (() => {
         const cargoId = cargo.id;
         return () => {
-          if (typeof socket !== 'undefined' && typeof selfId !== 'undefined' && typeof world !== 'undefined') {
-            socket.send(JSON.stringify({
-              msg: 'evalCmd',
-              id: selfId,
-              cmd: `boardship ${cargoId}`,
-              world: world
-            }));
+          const resolvedSelfId = (typeof window !== 'undefined' && window.selfId !== undefined && window.selfId !== null)
+            ? window.selfId
+            : (typeof selfId !== 'undefined' ? selfId : null);
+          if (typeof socket !== 'undefined') {
+            const payload = { msg: 'evalCmd', cmd: `boardship ${cargoId}` };
+            if (resolvedSelfId) payload.id = resolvedSelfId;
+            socket.send(JSON.stringify(payload));
+          } else {
+            console.warn('[DockUI] Cannot board cargo ship - socket not available');
           }
           const dockPopup = document.getElementById('dock-popup');
           if (dockPopup) {
@@ -222,13 +224,15 @@ class DockUI {
       shipDiv.onclick = (() => {
         const shipId = ship.id;
         return () => {
-          if (typeof socket !== 'undefined' && typeof selfId !== 'undefined' && typeof world !== 'undefined') {
-            socket.send(JSON.stringify({
-              msg: 'evalCmd',
-              id: selfId,
-              cmd: `boardship ${shipId}`,
-              world: world
-            }));
+          const resolvedSelfId = (typeof window !== 'undefined' && window.selfId !== undefined && window.selfId !== null)
+            ? window.selfId
+            : (typeof selfId !== 'undefined' ? selfId : null);
+          if (typeof socket !== 'undefined') {
+            const payload = { msg: 'evalCmd', cmd: `boardship ${shipId}` };
+            if (resolvedSelfId) payload.id = resolvedSelfId;
+            socket.send(JSON.stringify(payload));
+          } else {
+            console.warn('[DockUI] Cannot board ship - socket not available');
           }
           const dockPopup = document.getElementById('dock-popup');
           if (dockPopup) {
