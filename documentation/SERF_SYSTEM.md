@@ -1357,6 +1357,40 @@ serfLogger.warn('Serf stuck', serf, { stuckTime: 60 });
 serfLogger.error('Work assignment failed', error, serf);
 ```
 
+**Per-Serf Debug Snapshot** (runtime-only):
+- `serf._serfDebug` tracks the last state transition and failure reason
+- Useful when a serf appears idle or stuck
+
+**Example:**
+```javascript
+serf._serfDebug = {
+  lastState: 'working',
+  lastStateFrom: 'idle',
+  lastStateReason: 'defaultWork',
+  lastFailure: 'no_available_spots',
+  lastError: '...',
+  at: 1730000000000
+};
+```
+
+**Debugging Checklist:**
+- Confirm `serf.work.hq` points to a valid, built building
+- Check `building.resources` is populated and `building.updateResources()` works
+- Look for `serf._serfDebug.lastFailure` to see why work stalled
+- Raise `global.SERF_DEBUG_LEVEL = 'DEBUG'` to see transitions and assignments
+
+---
+
+## PROMISE Audit Notes
+
+- **Purpose**: `SimpleSerfBehavior` owns the serf work loop; other behavior systems should not compete with it.
+- **Reliable**: State transitions now log and fail safely; invalid work spots are cleared and re-assigned.
+- **Observable**: `SerfLogger` plus `serf._serfDebug` capture failures and last transitions.
+- **Modular**: Work assignment, execution, and deposit logic are isolated in `SimpleSerfBehavior`.
+- **Integrated**: Serf creation assigns `work.hq`; behavior loop runs via `Entity.update()`.
+- **Standardized**: House ownership uses a single resolution path (`building.house` or `building.owner`).
+- **Efficient**: Work timers are throttled and spot assignment avoids full rescans when possible.
+
 ---
 
 ## Summary

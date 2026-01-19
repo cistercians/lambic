@@ -16,13 +16,33 @@ class SimpleSerfBehavior {
     return global.serfLogger || null;
   }
 
+  setSerfDebug(serf, data) {
+    if (!serf || !data || typeof data !== 'object') return;
+    if (!serf._serfDebug) {
+      serf._serfDebug = {};
+    }
+    Object.assign(serf._serfDebug, data, { at: Date.now() });
+  }
+
   setSerfState(serf, nextState, reason = '') {
     if (!serf) return;
     const prevState = serf.serfState || null;
     if (prevState === nextState) return;
     serf.serfState = nextState;
+    this.setSerfDebug(serf, {
+      lastState: nextState,
+      lastStateFrom: prevState || 'none',
+      lastStateReason: reason || null,
+      lastAction: serf.action || null,
+      lastMode: serf.mode || null
+    });
+    const logger = this.getSerfLogger();
     if (logger && typeof logger.stateTransition === 'function') {
-      logger.stateTransition(serf, prevState || 'none', nextState, reason);
+      try {
+        logger.stateTransition(serf, prevState || 'none', nextState, reason);
+      } catch (error) {
+        // Ignore logging failures
+      }
     }
   }
 
@@ -231,6 +251,22 @@ class SimpleSerfBehavior {
     } catch (error) {
       // Simple error handling - reset to safe state
       if (serf) {
+        const now = Date.now();
+        const throttleKey = `updateError-${serf.id}`;
+        const lastLog = this.logThrottle[throttleKey];
+        if (!lastLog || (now - lastLog) > this.LOG_THROTTLE_MS) {
+          const logger = this.getSerfLogger();
+          if (logger && typeof logger.error === 'function') {
+            logger.error('Serf update error', error, serf);
+          } else {
+            console.error('[SERF] Update error:', error);
+          }
+          this.logThrottle[throttleKey] = now;
+        }
+        this.setSerfDebug(serf, {
+          lastError: error ? error.message : 'unknown',
+          lastErrorStack: error ? error.stack : null
+        });
         serf.path = null;
         serf.pathCount = 0;
         serf.action = null;
@@ -295,6 +331,7 @@ class SimpleSerfBehavior {
 
     if (serf.action === 'deposit' || serf.action === 'clockout') {
       serf.action = null;
+      this.setSerfDebug(serf, { lastFailure: 'stuck_recovery_deposit' });
       return;
     }
 
@@ -303,6 +340,7 @@ class SimpleSerfBehavior {
         serf.work.spot = null;
       }
       serf.action = null;
+      this.setSerfDebug(serf, { lastFailure: 'stuck_recovery_build' });
       return;
     }
 
@@ -311,6 +349,7 @@ class SimpleSerfBehavior {
       serf.work.assignedSpot = null;
       serf.work.workTile = null;
       serf.work.workTileFor = null;
+      this.setSerfDebug(serf, { lastFailure: 'stuck_recovery_work' });
     }
   }
 
@@ -350,6 +389,7 @@ class SimpleSerfBehavior {
         }
       }
       this.setSerfState(serf, 'idle', 'notInWorkMode');
+      this.setSerfDebug(serf, { lastFailure: 'not_in_work_mode' });
       this.handleWandering(serf);
       return;
       }
@@ -378,6 +418,20 @@ class SimpleSerfBehavior {
       const buildingExists = hasWorkHq && global.Building && global.Building.list && global.Building.list[buildingId];
       const buildingBuilt = buildingExists ? global.Building.list[buildingId].built : false;
       console.warn(`[SERF WORK] ${factionName}: Work building invalid for serf - work.hq: ${buildingId}, building exists: ${buildingExists}, built: ${buildingBuilt}, serf.mode: ${serf.mode}, serf.hut: ${serf.hut || 'none'}`);
+      const logger = this.getSerfLogger();
+      if (logger && typeof logger.warn === 'function') {
+        logger.warn('Work building invalid for serf', serf, {
+          workHq: buildingId,
+          buildingExists,
+          buildingBuilt
+        });
+      }
+      this.setSerfDebug(serf, {
+        lastFailure: 'work_building_invalid',
+        buildingId,
+        buildingExists,
+        buildingBuilt
+      });
       const reassigned = this.tryReassignWork(serf);
       if (!reassigned) {
         serf.mode = 'idle';
@@ -407,14 +461,21 @@ class SimpleSerfBehavior {
         const throttleKey = `noWorkSpot-${building.id}`;
         const lastLog = this.logThrottle[throttleKey];
         if (!lastLog || (now - lastLog) > this.LOG_THROTTLE_MS * 2) {
-          const factionName = building.owner && global.House && global.House.list 
-            ? (global.House.list[building.owner]?.name || 'Unknown')
-            : 'Unknown';
+          const house = this.getBuildingHouse(building);
+          const factionName = house ? house.name : 'Unknown';
           const hasResources = building.resources && Array.isArray(building.resources);
           const resourceCount = hasResources ? building.resources.length : 0;
           console.warn(`[SERF WORK] ${factionName}: No work spot assigned for serf at ${building.type} - building.resources exists: ${hasResources}, count: ${resourceCount}, building.updateResources: ${typeof building.updateResources === 'function'}`);
+          const logger = this.getSerfLogger();
+          if (logger && typeof logger.warn === 'function') {
+            logger.warn('No work spot assigned for serf', serf, {
+              buildingType: building.type,
+              resourceCount
+            });
+          }
           this.logThrottle[throttleKey] = now;
         }
+        this.setSerfDebug(serf, { lastFailure: 'no_work_spot' });
         // No spots available - wait
         return;
       }
@@ -441,6 +502,7 @@ class SimpleSerfBehavior {
         const spot = this.assignWorkSpot(serf, building);
         if (!spot) {
           // No spots available - wait
+          this.setSerfDebug(serf, { lastFailure: 'invalid_work_spot' });
           return;
         }
       }
@@ -467,7 +529,7 @@ class SimpleSerfBehavior {
       return;
     }
 
-    const house = building.owner ? (global.House && global.House.list ? global.House.list[building.owner] : null) : null;
+    const house = this.getBuildingHouse(building);
     const houseName = house ? house.name : 'Unknown';
     const resourceTypes = Object.keys(serf.inventory || {}).filter(r => (serf.inventory[r] || 0) > 0);
     const hasStoneOrIronore = resourceTypes.some(r => r === 'stone' || r === 'ironore');
@@ -476,6 +538,7 @@ class SimpleSerfBehavior {
     if (!dropoff) {
       // Log dropoff location failure (not throttled - this is an error)
       console.log(`[SERF DEPOSIT] ${houseName}: Failed to get dropoff location for ${building.type} at [${building.x}, ${building.y}], z=${building.z}`);
+      this.setSerfDebug(serf, { lastFailure: 'dropoff_missing' });
       serf.action = null;
       return;
     }
@@ -523,6 +586,7 @@ class SimpleSerfBehavior {
           console.log(`[SERF DEPOSIT] ${houseName}: Failed to deposit resources (${resourceTypes.join(', ')}) to ${building.type} at [${building.x}, ${building.y}], z=${building.z}, serf z=${serf.z}`);
           this.logThrottle[throttleKeyFailure] = now;
         }
+        this.setSerfDebug(serf, { lastFailure: 'deposit_failed' });
       } else if (hasStoneOrIronore) {
         // Log successful deposit - THROTTLED (frequent successes don't need constant logging)
         const throttleKeySuccess = `depositSuccessDebug-${serf.id}-${building.id}`;
@@ -777,6 +841,7 @@ class SimpleSerfBehavior {
     if (logger && typeof logger.warn === 'function') {
       logger.warn('Unknown serf action in work mode - clearing action', serf, { action: serf.action });
     }
+    this.setSerfDebug(serf, { lastFailure: 'unknown_action', lastAction: serf.action });
     serf.action = null;
   }
 
@@ -874,27 +939,28 @@ class SimpleSerfBehavior {
               const throttleKey = `mineNoResources-${building.id}`;
               const lastLog = this.logThrottle[throttleKey];
               if (!lastLog || (now - lastLog) > this.LOG_THROTTLE_MS * 3) {
-                const factionName = building.owner && global.House && global.House.list 
-                  ? (global.House.list[building.owner]?.name || 'Unknown')
-                  : 'Unknown';
+          const house = this.getBuildingHouse(building);
+          const factionName = house ? house.name : 'Unknown';
                 console.warn(`[SERF WORK] ${factionName}: Mine at [${building.x}, ${building.y}] has no resources after getRes() - cave: ${building.cave ? 'yes' : 'no'}`);
                 this.logThrottle[throttleKey] = now;
               }
+              this.setSerfDebug(serf, { lastFailure: 'no_building_resources' });
               return null;
             }
           } catch (error) {
             console.error(`[SERF WORK] Error calling getRes() for mine:`, error);
+            this.setSerfDebug(serf, { lastFailure: 'getRes_error' });
             return null;
           }
         } else {
+          this.setSerfDebug(serf, { lastFailure: 'no_building_resources' });
           return null;
         }
       }
 
       const availableSpots = [];
-      const factionName = building.owner && global.House && global.House.list 
-        ? (global.House.list[building.owner]?.name || 'Unknown')
-        : 'Unknown';
+      const house = this.getBuildingHouse(building);
+      const factionName = house ? house.name : 'Unknown';
       
       // Removed routine "Processing cave mine resources" log to reduce spam
       // Only log when there are issues (no resources, etc.) - handled below
@@ -927,7 +993,7 @@ class SimpleSerfBehavior {
                 const lastLog = this.logThrottle[throttleKey];
                 if (!lastLog || (now - lastLog) > this.LOG_THROTTLE_MS * 3) {
                   // Log filtered spot with context
-                  const house = building.owner && global.House && global.House.list ? global.House.list[building.owner] : null;
+                  const house = this.getBuildingHouse(building);
                   const houseName = house ? house.name : 'Unknown';
                   console.log(`[SERF WORK] ${houseName}: ${building.type} spot [${res[0]}, ${res[1]}] filtered out by isSpotAvailable`);
                   
@@ -984,9 +1050,8 @@ class SimpleSerfBehavior {
 
       if (availableSpots.length === 0) {
         // Log why no spots available (throttled)
-        const factionName = building.owner && global.House && global.House.list 
-          ? (global.House.list[building.owner]?.name || 'Unknown')
-          : 'Unknown';
+        const house = this.getBuildingHouse(building);
+        const factionName = house ? house.name : 'Unknown';
         const now = Date.now();
         const throttleKey = `noAvailableSpots-${building.id}`;
         const lastLog = this.logThrottle[throttleKey];
@@ -1012,13 +1077,14 @@ class SimpleSerfBehavior {
           console.warn(diagnosticMsg);
           
           // Also log to FactionAI logger if available
-          const house = building.owner && global.House && global.House.list ? global.House.list[building.owner] : null;
+          const house = this.getBuildingHouse(building);
           if (house && house.ai && house.ai.logger) {
             house.ai.logger.collectInfo(`Work spot assignment failed for ${building.type} at [${building.x}, ${building.y}]: ${totalResources} resources, ${availableSpots.length} available after filtering`);
           }
           
           this.logThrottle[throttleKey] = now;
         }
+        this.setSerfDebug(serf, { lastFailure: 'no_available_spots' });
         return null;
       }
 
@@ -1101,6 +1167,19 @@ class SimpleSerfBehavior {
     }
   }
 
+  getBuildingHouseId(building) {
+    if (!building || typeof building !== 'object') return null;
+    return (building.house !== undefined && building.house !== null)
+      ? building.house
+      : (building.owner !== undefined && building.owner !== null ? building.owner : null);
+  }
+
+  getBuildingHouse(building) {
+    const houseId = this.getBuildingHouseId(building);
+    if (!houseId || !global.House || !global.House.list) return null;
+    return global.House.list[houseId] || null;
+  }
+
   // ============================================================================
   // WORK EXECUTION (from SerfWorkExecutor)
   // ============================================================================
@@ -1129,6 +1208,7 @@ class SimpleSerfBehavior {
         if (logger && typeof logger.warn === 'function') {
           logger.warn('No walkable tile available for work spot', serf, { spot, z: expectedZ });
         }
+        this.setSerfDebug(serf, { lastFailure: 'no_walkable_work_tile' });
         serf.work.spot = null;
         serf.work.assignedSpot = null;
         serf.work.workTile = null;
@@ -1164,9 +1244,8 @@ class SimpleSerfBehavior {
           const throttleKey = `wrongZLevel-${serf.id}`;
           const lastLog = this.logThrottle[throttleKey];
           if (!lastLog || (now - lastLog) > this.LOG_THROTTLE_MS * 5) {
-            const factionName = building.owner && global.House && global.House.list 
-              ? (global.House.list[building.owner]?.name || 'Unknown')
-              : 'Unknown';
+            const house = this.getBuildingHouse(building);
+            const factionName = house ? house.name : 'Unknown';
             console.log(`[SERF WORK] ${factionName}: Serf at work spot x,y but wrong z-level (serf.z=${serf.z}, expected=${expectedZ}) - pathfinding to correct z-level`);
             this.logThrottle[throttleKey] = now;
           }
@@ -1763,7 +1842,7 @@ class SimpleSerfBehavior {
 
       // Enhanced logging for stone/ironore deposits (throttled)
       const isStoneOrIronore = resourceType === 'stone' || resourceType === 'ironore';
-      const house = building.house && global.House && global.House.list ? global.House.list[building.house] : null;
+      const house = this.getBuildingHouse(building);
       const houseName = house ? house.name : 'Unknown';
       
       // Diagnostic logging for stone deposits at cave-classified mines
@@ -1790,8 +1869,9 @@ class SimpleSerfBehavior {
 
       // Deposit to building's house
       let deposited = false;
-      if (building.house && global.House && global.House.list && global.House.list[building.house]) {
-        const house = global.House.list[building.house];
+      const houseId = this.getBuildingHouseId(building);
+      if (houseId && global.House && global.House.list && global.House.list[houseId]) {
+        const house = global.House.list[houseId];
         if (house && house.stores) {
           const beforeAmount = house.stores[resourceType] || 0;
           house.stores[resourceType] = beforeAmount + buildingShare;
@@ -1815,7 +1895,7 @@ class SimpleSerfBehavior {
                 subject: serf.id,
                 subjectName: serf.name || serf.class,
                 action: `deposited ${resourceType}`,
-                target: building.house,
+                target: houseId,
                 targetName: house.name,
                 quantity: buildingShare,
                 communication: global.eventManager.commModes?.NONE,
@@ -1918,8 +1998,7 @@ class SimpleSerfBehavior {
       
       // Enhanced logging for cave mines when not at dropoff
       if (building.type === 'mine' && building.cave && !atCorrectZ) {
-        const house = building.owner && global.House && global.House.list 
-          ? global.House.list[building.owner] : null;
+        const house = this.getBuildingHouse(building);
         const houseName = house ? house.name : 'Unknown';
         const now = Date.now();
         const throttleKey = `isAtDropoffZ-${serf.id}`;
@@ -1932,8 +2011,7 @@ class SimpleSerfBehavior {
       // Diagnostic logging for stone deposits at cave-classified mines
       // This helps detect if stone deposits are failing due to misclassification
       if (building.type === 'mine' && building.cave && atCorrectZ && atCorrectXY) {
-        const house = building.owner && global.House && global.House.list 
-          ? global.House.list[building.owner] : null;
+        const house = this.getBuildingHouse(building);
         const houseName = house ? house.name : 'Unknown';
         const serfHasStone = serf.inventory && serf.inventory.stone && serf.inventory.stone > 0;
         if (serfHasStone) {

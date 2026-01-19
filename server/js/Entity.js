@@ -3602,6 +3602,19 @@ Character = function(param){
     
     if(loc.toString() != tLoc.toString()){
       if(tz == self.z){
+        if(self.z == 0){
+          var isSerfClass = (self.class === 'Serf' || self.class === 'SerfM' || self.class === 'SerfF');
+          var isDepositMove = (self.action === 'deposit' || self.action === 'clockout');
+          if(isSerfClass && isDepositMove){
+            var shouldPath = self.shouldRequestPath(self.z, tLoc[0], tLoc[1]);
+            if(shouldPath){
+              self.getPath(self.z, tLoc[0], tLoc[1]);
+              if(self.path){
+                return;
+              }
+            }
+          }
+        }
         if(self.z == -1){
           // Use pathfinding for cave navigation
           if(self.shouldRequestPath(tz, tLoc[0], tLoc[1])){
@@ -3684,6 +3697,13 @@ Character = function(param){
             self.transitionIntent = 'enter_cave';
             self.targetZLevel = -1;
             // #region agent log
+            (function(){
+              const now = Date.now();
+              if(!self._dbgNextMoveToCaveEnter || now >= self._dbgNextMoveToCaveEnter){
+                self._dbgNextMoveToCaveEnter = now + 1000;
+                fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Entity.js:3684',message:'moveTo.caveEnter',data:{serfId:self.id,serfClass:self.class,fromZ:self.z,targetZ:tz,targetLoc:[tc,tr],transitionIntent:self.transitionIntent,justExitedCave,serfState:self.serfState},timestamp:Date.now(),sessionId:'debug-session',runId:'serf-debug-1',hypothesisId:'H2'})}).catch(()=>{});
+              }
+            })();
             // #endregion
             
             // Store final destination for continuation after cave entry
@@ -3714,6 +3734,15 @@ Character = function(param){
               // Use pathfinding to reach the entrance instead of greedy movement
               if (self.shouldRequestPath(self.z, tLoc[0], tLoc[1])) {
                 self.getPath(self.z, tLoc[0], tLoc[1]);
+                // #region agent log
+                (function(){
+                  const now = Date.now();
+                  if(!self._dbgNextCavePath || now >= self._dbgNextCavePath){
+                    self._dbgNextCavePath = now + 1000;
+                    fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Entity.js:3715',message:'moveTo.cavePath',data:{serfId:self.id,serfClass:self.class,entrance:tLoc,shouldRequestPath:true,pathLen:self.path?self.path.length:0},timestamp:Date.now(),sessionId:'debug-session',runId:'serf-debug-1',hypothesisId:'H1'})}).catch(()=>{});
+                  }
+                })();
+                // #endregion
                 if (self.path) {
                   return;
                 }
@@ -3730,11 +3759,22 @@ Character = function(param){
           // Multi-z pathfinding will handle: exit cave -> path to final destination
           var shouldUseMultiZ = Math.abs(tz - self.z) >= 1;
           if(shouldUseMultiZ){
+            self.transitionIntent = 'exit_cave';
+            self.targetZLevel = 0;
             // Use multi-z pathfinding - call getPath directly with target z-level
             // This will trigger multi-z pathfinding which handles: exit cave -> path to final destination
             if(self.shouldRequestPath(tz, tLoc[0], tLoc[1])){
               self.getPath(tz, tLoc[0], tLoc[1]);
             }
+            // #region agent log
+            (function(){
+              const now = Date.now();
+              if(!self._dbgNextCaveExitMove || now >= self._dbgNextCaveExitMove){
+                self._dbgNextCaveExitMove = now + 1000;
+                fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Entity.js:3733',message:'moveTo.caveExitMultiZ',data:{serfId:self.id,serfClass:self.class,fromZ:self.z,targetZ:tz,targetLoc:[tc,tr],shouldUseMultiZ,transitionIntent:self.transitionIntent,pathLen:self.path?self.path.length:0},timestamp:Date.now(),sessionId:'debug-session',runId:'serf-debug-1',hypothesisId:'H3'})}).catch(()=>{});
+              }
+            })();
+            // #endregion
             return;
           } else {
             // Legacy single-step exit: Set intent and pathfind to exit tile, let transition detection handle actual transition
@@ -4721,6 +4761,16 @@ Character = function(param){
           canTransition = self.isAtPathDestination();
         }
         
+        // #region agent log
+        (function(){
+          const now = Date.now();
+          if(!self._dbgNextCaveExitCheck || now >= self._dbgNextCaveExitCheck){
+            self._dbgNextCaveExitCheck = now + 1000;
+            fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Entity.js:9419',message:'serf.caveExitCheck',data:{serfId:self.id,serfClass:self.class,loc,transitionIntent:self.transitionIntent,mode:self.mode,action:self.action,atExitTile,canTransition,pathMatches,pathLen:self.path?self.path.length:0},timestamp:Date.now(),sessionId:'debug-session',runId:'serf-debug-1',hypothesisId:'H3'})}).catch(()=>{});
+          }
+        })();
+        // #endregion
+        
         if(self.transitionIntent === 'exit_cave' && canTransition){
           self.exitCave();
         }
@@ -5648,7 +5698,8 @@ Character = function(param){
     // Also allow bypass when processing multi-z waypoints (recursive calls for waypoint navigation)
     const isMultiZTransition = z != self.z && Math.abs(z - self.z) >= 1;
     const isProcessingWaypoint = self.multiZWaypoints && self.multiZWaypoints.length > 0;
-    if(self.pathCooldown && self.pathCooldown > 0 && !isMultiZTransition && !isProcessingWaypoint){
+    const isDepositMove = (self.action === 'deposit' || self.action === 'clockout');
+    if(self.pathCooldown && self.pathCooldown > 0 && !isMultiZTransition && !isProcessingWaypoint && !isDepositMove){
       return; // Skip pathfinding while on cooldown
     }
     
@@ -6514,7 +6565,7 @@ Character = function(param){
         // 3. Oscillating back and forth
         var isTrulyStuck = (isNextBlocked && isNotAtNext && self.waypointStuckCounter > 30) || 
                            self.waypointStuckCounter > 60 || 
-                           isOscillating;
+                           (isOscillating && self.waypointStuckCounter > 30);
         
         if(isTrulyStuck){
           // OSCILLATION DETECTED - Immediately recalculate to get a different path
@@ -9304,6 +9355,15 @@ Serf = function(param){
       if(getTile(0,loc[0],loc[1]) == 6){
         // Cave entrance - only enter when intent is set (prevents accidental transitions)
         self.transitionState = 'at_entrance';
+        // #region agent log
+        (function(){
+          const now = Date.now();
+          if(!self._dbgNextCaveEnter || now >= self._dbgNextCaveEnter){
+            self._dbgNextCaveEnter = now + 1000;
+            fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Entity.js:9307',message:'serf.caveEntrance',data:{serfId:self.id,serfClass:self.class,loc,transitionIntent:self.transitionIntent,mode:self.mode,action:self.action,pathLen:self.path?self.path.length:0,targetZ:self.targetZLevel},timestamp:Date.now(),sessionId:'debug-session',runId:'serf-debug-1',hypothesisId:'H2'})}).catch(()=>{});
+          }
+        })();
+        // #endregion
         if(self.transitionIntent === 'enter_cave'){
           if(self.mineExitCooldown === 0){
             const canTransition = (!self.path || self.path.length === 0 || self.isAtPathDestination());
@@ -9360,6 +9420,15 @@ Serf = function(param){
         self.maxSpd = (self.baseSpd * 1.1) * self.drag;
       } else if(getTile(0,loc[0],loc[1]) == 14 || getTile(0,loc[0],loc[1]) == 16 || getTile(0,loc[0],loc[1]) == 19){
         // Only enter buildings when transition intent is set
+        // #region agent log
+        (function(){
+          const now = Date.now();
+          if(!self._dbgNextBuildingEnter || now >= self._dbgNextBuildingEnter){
+            self._dbgNextBuildingEnter = now + 1000;
+            fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Entity.js:9363',message:'serf.buildingEntrance',data:{serfId:self.id,serfClass:self.class,loc,transitionIntent:self.transitionIntent,mode:self.mode,action:self.action,pathLen:self.path?self.path.length:0},timestamp:Date.now(),sessionId:'debug-session',runId:'serf-debug-1',hypothesisId:'H4'})}).catch(()=>{});
+          }
+        })();
+        // #endregion
         if(self.transitionIntent === 'enter_building'){
           var b = getBuilding(self.x,self.y);
           if(Building.list[b]){
@@ -9382,6 +9451,16 @@ Serf = function(param){
       if(tileValue == 2){
         // At cave exit - set state
         self.transitionState = 'at_entrance';
+        
+        // #region agent log
+        (function(){
+          const now = Date.now();
+          if(!self._dbgNextCaveExit || now >= self._dbgNextCaveExit){
+            self._dbgNextCaveExit = now + 1000;
+            fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Entity.js:9388',message:'serf.caveExit',data:{serfId:self.id,serfClass:self.class,loc,transitionIntent:self.transitionIntent,mode:self.mode,action:self.action,pathLen:self.path?self.path.length:0},timestamp:Date.now(),sessionId:'debug-session',runId:'serf-debug-1',hypothesisId:'H3'})}).catch(()=>{});
+          }
+        })();
+        // #endregion
         
         // For serfs in work mode, ensure intent is set if not already set
         if(self.mode === 'work' && !self.transitionIntent){
@@ -9458,6 +9537,15 @@ Serf = function(param){
     } else if(self.z == 1){
       if(getTile(0,loc[0],loc[1] - 1) == 14 || getTile(0,loc[0],loc[1] - 1) == 16  || getTile(0,loc[0],loc[1] - 1) == 19){
         const canTransition = (!self.path || self.path.length === 0 || self.isAtPathDestination());
+        // #region agent log
+        (function(){
+          const now = Date.now();
+          if(!self._dbgNextBuildingExit || now >= self._dbgNextBuildingExit){
+            self._dbgNextBuildingExit = now + 1000;
+            fetch('http://127.0.0.1:7242/ingest/034ac346-9df5-4826-808c-9170d31a6b3f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Entity.js:9461',message:'serf.buildingExit',data:{serfId:self.id,serfClass:self.class,loc,canTransition,mode:self.mode,action:self.action,pathLen:self.path?self.path.length:0},timestamp:Date.now(),sessionId:'debug-session',runId:'serf-debug-1',hypothesisId:'H4'})}).catch(()=>{});
+          }
+        })();
+        // #endregion
         if(canTransition){
           var exit = getBuilding(self.x,self.y-tileSize);
           self.exitBuilding(exit);
