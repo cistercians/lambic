@@ -11,6 +11,12 @@ class SpectateCameraSystem {
     this.cameraX = 0;
     this.cameraY = 0;
     this.cameraZ = 0;
+    this.directorTarget = null;
+    this.directorTargetHandler = null;
+    this.directorTargetListenerAttached = false;
+    this.staticTargetActive = false;
+    this.staticTargetStartTime = 0;
+    this.staticTargetMaxDuration = 10000;
     this.lockDuration = 8000; // 8 seconds minimum lock time
     this.maxLockDuration = 15000; // 15 seconds maximum lock time
     this.lastPriorityLevel = 'other';
@@ -133,35 +139,96 @@ class SpectateCameraSystem {
   }
 
   /**
-   * Update camera position
-   * @param {object} PlayerList - Player list
+   * Set Director target (entity id or static position).
+   * @param {string|null} targetId - Target ID
+   * @param {object|null} position - Target position {x, y, z}
+   * @param {string|null} reason - Reason for target change
    */
-  updateCamera(PlayerList) {
-    if (!this.currentTargetId || !PlayerList[this.currentTargetId]) {
+  setDirectorTarget(targetId, position, reason) {
+    if (!targetId && !position) {
+      this.directorTarget = null;
       return;
     }
 
-    const target = PlayerList[this.currentTargetId];
+    this.directorTarget = {
+      id: targetId || null,
+      position: position || null,
+      reason: reason || 'unknown',
+      updatedAt: Date.now()
+    };
 
-    // Calculate distance to target
-    const dx = target.x - this.cameraX;
-    const dy = target.y - this.cameraY;
+    if (!targetId && position) {
+      this.setStaticTargetPosition(position);
+    }
+  }
+
+  /**
+   * Set a static target position (non-entity).
+   * @param {object} position - Target position {x, y, z}
+   */
+  setStaticTargetPosition(position) {
+    if (!position || position.x === undefined || position.y === undefined) {
+      return;
+    }
+
+    const dx = position.x - this.cameraX;
+    const dy = position.y - this.cameraY;
+    this.initialDistance = Math.sqrt(dx * dx + dy * dy);
+
+    if (this.initialDistance < 800) {
+      this.baseSpeed = 30 + (this.initialDistance / 800) * 20; // 30-50
+    } else if (this.initialDistance < 2000) {
+      this.baseSpeed = 50 + ((this.initialDistance - 800) / 1200) * 40; // 50-90
+    } else {
+      this.baseSpeed = 90 + ((this.initialDistance - 2000) / 3000) * 110; // 90-200
+      this.baseSpeed = Math.min(this.baseSpeed, 200); // Max speed 200
+    }
+
+    this.targetX = position.x;
+    this.targetY = position.y;
+    this.targetZ = position.z || 0;
+    this.staticTargetActive = true;
+    this.staticTargetStartTime = Date.now();
+    this.currentTargetId = null;
+    this.isTransitioning = true;
+    this.transitionStartTime = Date.now();
+    this.lockStartTime = Date.now();
+  }
+
+  /**
+   * Handle Director target command event.
+   * @param {CustomEvent} event - Custom event with target details
+   */
+  handleDirectorTargetEvent(event) {
+    const detail = (event && event.detail) || {};
+    this.setDirectorTarget(detail.targetId, detail.position, detail.reason);
+  }
+
+  /**
+   * Move camera toward a target position.
+   * @param {number} targetX - Target x
+   * @param {number} targetY - Target y
+   * @param {number} targetZ - Target z
+   */
+  moveCameraToward(targetX, targetY, targetZ) {
+    const dx = targetX - this.cameraX;
+    const dy = targetY - this.cameraY;
     const dist = Math.sqrt(dx * dx + dy * dy);
 
-    // Use dead zone to lock on target
     if (dist < 15) {
       this.isPanning = false;
       this.isTransitioning = false;
+      if (targetZ !== undefined) {
+        this.cameraZ = targetZ;
+      }
       return;
     }
 
     if (dist < 0.1) return;
 
-    // Calculate direction
     const dirX = dx / dist;
     const dirY = dy / dist;
 
-    // Determine speed
     let currentSpeed;
     if (this.isTransitioning) {
       if (dist > 300) {
@@ -183,11 +250,36 @@ class SpectateCameraSystem {
       }
     }
 
-    // Update camera position
     this.cameraX += dirX * currentSpeed;
     this.cameraY += dirY * currentSpeed;
-    this.cameraZ = target.z;
+    if (targetZ !== undefined) {
+      this.cameraZ = targetZ;
+    }
     this.isPanning = true;
+  }
+
+  /**
+   * Update camera position
+   * @param {object} PlayerList - Player list
+   */
+  updateCamera(PlayerList) {
+    if (!this.currentTargetId || !PlayerList[this.currentTargetId]) {
+      return;
+    }
+
+    const target = PlayerList[this.currentTargetId];
+    this.moveCameraToward(target.x, target.y, target.z);
+  }
+
+  /**
+   * Update camera position toward static target.
+   */
+  updateStaticCamera() {
+    if (!this.staticTargetActive) {
+      return;
+    }
+
+    this.moveCameraToward(this.targetX, this.targetY, this.targetZ);
   }
 
   /**
@@ -199,50 +291,79 @@ class SpectateCameraSystem {
 
     const now = Date.now();
 
-    // Check for new targets periodically
-    if (now - this.lastTargetCheckTime >= this.targetCheckInterval) {
-      this.lastTargetCheckTime = now;
+    if (this.directorTarget) {
+      const directorId = this.directorTarget.id;
+      const directorPosition = this.directorTarget.position;
 
-      const bestTarget = this.selectBestTarget(PlayerList);
-      
-      // Switch to new target if better priority or current target is gone
-      if (!this.currentTargetId || !PlayerList[this.currentTargetId]) {
-        if (bestTarget.id) {
-          this.setNewTarget(bestTarget.id, PlayerList);
+      if (directorId && PlayerList[directorId]) {
+        if (this.currentTargetId !== directorId || this.staticTargetActive) {
+          this.setNewTarget(directorId, PlayerList);
+        }
+        this.updateCamera(PlayerList);
+      } else if (directorPosition) {
+        if (!this.staticTargetActive ||
+            this.targetX !== directorPosition.x ||
+            this.targetY !== directorPosition.y ||
+            this.targetZ !== (directorPosition.z || 0)) {
+          this.setStaticTargetPosition(directorPosition);
+        }
+        this.updateStaticCamera();
+
+        if (now - this.staticTargetStartTime >= this.staticTargetMaxDuration) {
+          this.staticTargetActive = false;
+          this.directorTarget = null;
         }
       } else {
-        // Check if maximum lock duration has expired - force switch to prevent getting stuck
-        const timeLocked = now - this.lockStartTime;
-        if (timeLocked >= this.maxLockDuration) {
-          // Force switch to a different target if available
-          if (bestTarget.id && bestTarget.id !== this.currentTargetId) {
+        this.directorTarget = null;
+      }
+    }
+
+    if (!this.directorTarget) {
+      // Check for new targets periodically
+      if (now - this.lastTargetCheckTime >= this.targetCheckInterval) {
+        this.lastTargetCheckTime = now;
+
+        const bestTarget = this.selectBestTarget(PlayerList);
+        
+        // Switch to new target if better priority or current target is gone
+        if (!this.currentTargetId || !PlayerList[this.currentTargetId]) {
+          if (bestTarget.id) {
             this.setNewTarget(bestTarget.id, PlayerList);
-          } else {
-            // No different target available, but we've been locked too long
-            // Reset lock time to allow another maxLockDuration period
-            this.lockStartTime = now;
           }
         } else {
-          // Check if we should switch to a better target
-          const currentPriority = this.evaluateCharacterPriority(PlayerList[this.currentTargetId]);
-          const bestPriority = bestTarget.priority;
-
-          // Priority order: combat > economic > other
-          if (bestPriority === 'combat' && currentPriority !== 'combat') {
-            // Always switch to combat targets
-            this.setNewTarget(bestTarget.id, PlayerList);
-          } else if (bestPriority === 'economic' && currentPriority === 'other') {
-            // Switch from other to economic if transition is allowed
-            if (now - this.transitionStartTime >= this.minTransitionDuration) {
+          // Check if maximum lock duration has expired - force switch to prevent getting stuck
+          const timeLocked = now - this.lockStartTime;
+          if (timeLocked >= this.maxLockDuration) {
+            // Force switch to a different target if available
+            if (bestTarget.id && bestTarget.id !== this.currentTargetId) {
               this.setNewTarget(bestTarget.id, PlayerList);
+            } else {
+              // No different target available, but we've been locked too long
+              // Reset lock time to allow another maxLockDuration period
+              this.lockStartTime = now;
+            }
+          } else {
+            // Check if we should switch to a better target
+            const currentPriority = this.evaluateCharacterPriority(PlayerList[this.currentTargetId]);
+            const bestPriority = bestTarget.priority;
+
+            // Priority order: combat > economic > other
+            if (bestPriority === 'combat' && currentPriority !== 'combat') {
+              // Always switch to combat targets
+              this.setNewTarget(bestTarget.id, PlayerList);
+            } else if (bestPriority === 'economic' && currentPriority === 'other') {
+              // Switch from other to economic if transition is allowed
+              if (now - this.transitionStartTime >= this.minTransitionDuration) {
+                this.setNewTarget(bestTarget.id, PlayerList);
+              }
             }
           }
         }
       }
-    }
 
-    // Update camera position
-    this.updateCamera(PlayerList);
+      // Update camera position
+      this.updateCamera(PlayerList);
+    }
 
     // Send camera update to server
     this.sendCameraUpdate();
@@ -288,6 +409,15 @@ class SpectateCameraSystem {
    */
   start() {
     this.isActive = true;
+    if (typeof window !== 'undefined' && window.addEventListener) {
+      if (!this.directorTargetHandler) {
+        this.directorTargetHandler = this.handleDirectorTargetEvent.bind(this);
+      }
+      if (!this.directorTargetListenerAttached) {
+        window.addEventListener('spectatorCameraTarget', this.directorTargetHandler);
+        this.directorTargetListenerAttached = true;
+      }
+    }
   }
 
   /**
@@ -296,7 +426,14 @@ class SpectateCameraSystem {
   stop() {
     this.isActive = false;
     this.currentTargetId = null;
+    this.directorTarget = null;
+    this.staticTargetActive = false;
+    this.staticTargetStartTime = 0;
     this.lockStartTime = 0;
+    if (typeof window !== 'undefined' && window.removeEventListener && this.directorTargetListenerAttached) {
+      window.removeEventListener('spectatorCameraTarget', this.directorTargetHandler);
+      this.directorTargetListenerAttached = false;
+    }
   }
 }
 

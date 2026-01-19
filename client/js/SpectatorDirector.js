@@ -26,6 +26,17 @@ class SpectatorDirector {
       ECONOMIC_MILESTONE: 5,
       ENVIRONMENT: 1
     };
+
+    this.combatSpamConfig = {
+      zeroDamageStreakThreshold: 5,
+      zeroDamageWindowMs: 10000,
+      staleNoDamageMs: 15000,
+      staleNoMovementMs: 15000,
+      minMovementDistance: 24,
+      stalePenalty: 30,
+      movementPenalty: 15,
+      spamPenalty: 20
+    };
     
     // Camera transition settings
     this.transitionDuration = 2000; // 2 seconds smooth transition
@@ -34,6 +45,14 @@ class SpectatorDirector {
     // Event history for pattern recognition
     this.recentEvents = [];
     this.maxRecentEvents = 50;
+
+    // Target switching behavior when activity is low
+    this.relaxAfterMs = 8000;
+    this.relaxedSwitchMultiplier = 1.1;
+    this.relaxedMinScoreDelta = 5;
+    this.maxLowInterestLockMs = 6000;
+
+    this.lastEventTime = 0;
   }
   
   // ============================================================================
@@ -58,6 +77,8 @@ class SpectatorDirector {
   // Called when spectator receives an event from server
   processEvent(event) {
     if (!this.isActive) return;
+
+    this.lastEventTime = Date.now();
     
     // Add to recent events
     this.addRecentEvent(event);
@@ -95,6 +116,7 @@ class SpectatorDirector {
   processCombatEvent(event) {
     if (!event.subject || !event.position) return;
     
+    const now = Date.now();
     const participantId = event.subject;
     const damage = event.quantity || 0;
     
@@ -103,15 +125,46 @@ class SpectatorDirector {
       this.combatParticipants.set(participantId, {
         damage: 0,
         attacks: 0,
-        lastActivity: Date.now(),
+        lastActivity: now,
+        lastDamageTime: 0,
+        zeroDamageStreak: 0,
+        lastZeroDamageTime: 0,
+        lastMoveTime: now,
+        lastPosition: event.position,
         position: event.position
       });
     }
     
     const participant = this.combatParticipants.get(participantId);
-    participant.damage += damage;
-    participant.attacks++;
-    participant.lastActivity = Date.now();
+    const lastPos = participant.lastPosition;
+    if (lastPos) {
+      const dx = event.position.x - lastPos.x;
+      const dy = event.position.y - lastPos.y;
+      const dz = (event.position.z || 0) - (lastPos.z || 0);
+      const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (dist >= this.combatSpamConfig.minMovementDistance) {
+        participant.lastMoveTime = now;
+      }
+    }
+    participant.lastPosition = event.position;
+
+    if (damage > 0) {
+      participant.damage += damage;
+      participant.attacks++;
+      participant.lastDamageTime = now;
+      participant.zeroDamageStreak = 0;
+      participant.lastZeroDamageTime = 0;
+    } else {
+      if (!participant.lastZeroDamageTime ||
+          now - participant.lastZeroDamageTime > this.combatSpamConfig.zeroDamageWindowMs) {
+        participant.zeroDamageStreak = 1;
+      } else {
+        participant.zeroDamageStreak += 1;
+      }
+      participant.lastZeroDamageTime = now;
+    }
+
+    participant.lastActivity = now;
     participant.position = event.position;
     
     // High combat activity = high priority
@@ -226,11 +279,14 @@ class SpectatorDirector {
     }
     
     // Calculate target score
+    const relaxMode = this.shouldRelaxTargeting();
+    const thresholdMultiplier = relaxMode ? this.relaxedSwitchMultiplier : 1.5;
     const score = this.calculateTargetScore(targetId, priority);
     const currentScore = this.currentTarget ? this.calculateTargetScore(this.currentTarget.id, 0) : 0;
     
     // Switch if new target is significantly more interesting
-    if (score > currentScore * 1.5) {
+    if (score > currentScore * thresholdMultiplier ||
+        (relaxMode && score >= currentScore + this.relaxedMinScoreDelta)) {
       this.switchToTarget(targetId, position, 'higher_priority');
     }
   }
@@ -256,6 +312,19 @@ class SpectatorDirector {
       if (timeSinceActivity < 10000) { // Last 10 seconds
         score += 20;
       }
+
+      const timeSinceDamage = combat.lastDamageTime ? (now - combat.lastDamageTime) : Infinity;
+      const timeSinceMove = combat.lastMoveTime ? (now - combat.lastMoveTime) : Infinity;
+      if (timeSinceDamage > this.combatSpamConfig.staleNoDamageMs) {
+        score -= this.combatSpamConfig.stalePenalty;
+      }
+      if (timeSinceMove > this.combatSpamConfig.staleNoMovementMs) {
+        score -= this.combatSpamConfig.movementPenalty;
+      }
+      if (combat.zeroDamageStreak >= this.combatSpamConfig.zeroDamageStreakThreshold) {
+        score -= this.combatSpamConfig.spamPenalty;
+      }
+      score = Math.max(0, score);
     }
     
     if (this.buildingActivity.has(targetId)) {
@@ -320,19 +389,28 @@ class SpectatorDirector {
     
     // If no current target, find the most active one
     if (!this.currentTarget) {
-      this.findMostActiveTarget();
+      this.findMostActiveTarget(true);
       return;
     }
     
     // Check if current target is still active
     const currentActivity = this.getTargetActivity(this.currentTarget.id);
+    const now = Date.now();
+    const timeSinceEvent = this.lastEventTime ? (now - this.lastEventTime) : Infinity;
+    const relaxMode = this.shouldRelaxTargeting();
+
     if (currentActivity === 0) {
       // Current target is inactive, find a new one
-      this.findMostActiveTarget();
+      this.findMostActiveTarget(true);
+      return;
+    }
+
+    if (relaxMode && (now - this.targetLockTime) >= this.maxLowInterestLockMs) {
+      this.findMostActiveTarget(true);
     }
   }
   
-  findMostActiveTarget() {
+  findMostActiveTarget(allowLowInterest) {
     let bestTarget = null;
     let bestScore = 0;
     
@@ -372,13 +450,36 @@ class SpectatorDirector {
       }
     }
     
-    if (bestTarget) {
+    if (bestTarget && (allowLowInterest || bestScore > 0)) {
       this.switchToTarget(bestTarget.id, bestTarget.position, 'most_active');
     }
+  }
+
+  shouldRelaxTargeting() {
+    if (!this.currentTarget) return false;
+    const now = Date.now();
+    const timeSinceEvent = this.lastEventTime ? (now - this.lastEventTime) : Infinity;
+    const currentActivity = this.getTargetActivity(this.currentTarget.id);
+    return currentActivity === 0 || timeSinceEvent > this.relaxAfterMs;
   }
   
   getTargetActivity(targetId) {
     const now = Date.now();
+
+    if (this.combatParticipants.has(targetId)) {
+      const combat = this.combatParticipants.get(targetId);
+      const timeSinceDamage = combat.lastDamageTime ? (now - combat.lastDamageTime) : Infinity;
+      const timeSinceMove = combat.lastMoveTime ? (now - combat.lastMoveTime) : Infinity;
+      if (timeSinceDamage > this.combatSpamConfig.staleNoDamageMs &&
+          timeSinceMove > this.combatSpamConfig.staleNoMovementMs) {
+        return 0;
+      }
+      if (combat.zeroDamageStreak >= this.combatSpamConfig.zeroDamageStreakThreshold &&
+          timeSinceDamage > this.combatSpamConfig.zeroDamageWindowMs) {
+        return 0;
+      }
+    }
+
     const recentEvents = this.recentEvents.filter(e => 
       e.subject === targetId && (now - e.timestamp) < 30000
     );
