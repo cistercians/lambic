@@ -3,6 +3,7 @@
 // Work buildings are pre-assigned at spawn - no reassignment needed
 
 const timerManager = global.timerManager || null;
+const movementSystem = require('./MovementSystem');
 
 class SimpleSerfBehavior {
   constructor() {
@@ -618,7 +619,12 @@ class SimpleSerfBehavior {
         }
         
         const target = this.resolveWalkableTarget(serf, dropoffZ, dropoff);
-        serf.moveTo(dropoffZ, target[0], target[1]);
+        movementSystem.applyMoveIntent(serf, {
+          z: dropoffZ,
+          target,
+          reason: 'deposit',
+          sourceAction: serf.action || 'deposit'
+        });
       }
     }
   }
@@ -733,7 +739,12 @@ class SimpleSerfBehavior {
           });
           this.logThrottle[throttleKey] = now;
         }
-        serf.moveTo(0, buildLoc[0], buildLoc[1]);
+        movementSystem.applyMoveIntent(serf, {
+          z: 0,
+          target: buildLoc,
+          reason: 'build',
+          sourceAction: serf.action || 'build'
+        });
       }
     }
   }
@@ -760,7 +771,12 @@ class SimpleSerfBehavior {
               // Use building's z-level if available, otherwise default to 0 (overworld)
               const dropoffZ = (building && typeof building.z === 'number') ? building.z : 0;
               const target = this.resolveWalkableTarget(serf, dropoffZ, dropoff);
-              serf.moveTo(dropoffZ, target[0], target[1]);
+              movementSystem.applyMoveIntent(serf, {
+                z: dropoffZ,
+                target,
+                reason: 'deposit',
+                sourceAction: serf.action || 'clockout'
+              });
             }
             return; // Wait for pathfinding
           } else {
@@ -783,7 +799,12 @@ class SimpleSerfBehavior {
           if (!serf.path || serf.path.length === 0) {
             if (typeof serf.moveTo === 'function') {
               // Use serf.home.z to support multi-z pathfinding (e.g., z=1 for building homes)
-              serf.moveTo(serf.home.z, homeTarget[0], homeTarget[1]);
+              movementSystem.applyMoveIntent(serf, {
+                z: serf.home.z,
+                target: homeTarget,
+                reason: 'home',
+                sourceAction: serf.action || 'clockout'
+              });
             }
           }
         } else {
@@ -827,7 +848,12 @@ class SimpleSerfBehavior {
     if (!serf.path || serf.path.length === 0) {
       if (typeof serf.moveTo === 'function') {
         const dest = this.resolveWalkableTarget(serf, 0, target);
-        serf.moveTo(0, dest[0], dest[1]);
+        movementSystem.applyMoveIntent(serf, {
+          z: 0,
+          target: dest,
+          reason: 'task',
+          sourceAction: serf.action || 'task'
+        });
       }
     }
   }
@@ -1264,7 +1290,12 @@ class SimpleSerfBehavior {
           });
           this.logThrottle[throttleKey] = now;
         }
-          serf.moveTo(expectedZ, workLoc[0], workLoc[1]);
+          movementSystem.applyMoveIntent(serf, {
+            z: expectedZ,
+            target: workLoc,
+            reason: 'work',
+            sourceAction: serf.action || 'work'
+          });
         }
       }
     } catch (error) {

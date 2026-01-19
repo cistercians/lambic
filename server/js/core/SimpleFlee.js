@@ -1,5 +1,6 @@
 // SimpleFlee.js - Ultra-minimal flee system
 // No complex pathfinding, just run away in a reasonable direction
+const movementSystem = require('./MovementSystem');
 
 class SimpleFlee {
   constructor() {
@@ -165,7 +166,12 @@ class SimpleFlee {
       if (entity.class === 'Deer' && entity.findNearestForest) {
         var forestLoc = entity.findNearestForest();
         if (forestLoc) {
-          entity.moveTo(entity.z, forestLoc[0], forestLoc[1]);
+          movementSystem.applyMoveIntent(entity, {
+            z: entity.z,
+            target: [forestLoc[0], forestLoc[1]],
+            reason: 'flee',
+            sourceAction: entity.action || 'flee'
+          });
         }
       }
       return;
@@ -232,7 +238,12 @@ class SimpleFlee {
               // Re-pathfind to ally (no cooldown - destination hasn't changed)
               const allyLoc = global.getLoc(ally.x, ally.y);
               if (entity.moveTo) {
-                entity.moveTo(ally.z, allyLoc[0], allyLoc[1]);
+                movementSystem.applyMoveIntent(entity, {
+                  z: ally.z,
+                  target: [allyLoc[0], allyLoc[1]],
+                  reason: 'flee',
+                  sourceAction: entity.action || 'flee'
+                });
               }
               return;
             }
@@ -243,7 +254,12 @@ class SimpleFlee {
           // Re-pathfind to home (no cooldown - destination hasn't changed)
           const homeZ = entity.home.z !== undefined ? entity.home.z : entity.z;
           if (entity.moveTo) {
-            entity.moveTo(homeZ, entity.home.loc[0], entity.home.loc[1]);
+            movementSystem.applyMoveIntent(entity, {
+              z: homeZ,
+              target: [entity.home.loc[0], entity.home.loc[1]],
+              reason: 'flee',
+              sourceAction: entity.action || 'flee'
+            });
           }
           return;
         }
@@ -285,7 +301,12 @@ class SimpleFlee {
             
             // Pathfind if destination changed or path is empty
             if (destinationChanged || !entity.path || entity.path.length === 0) {
-              entity.moveTo(nearestAlly.z, allyLoc[0], allyLoc[1]);
+              movementSystem.applyMoveIntent(entity, {
+                z: nearestAlly.z,
+                target: [allyLoc[0], allyLoc[1]],
+                reason: 'flee',
+                sourceAction: entity.action || 'flee'
+              });
               entity._fleeTarget = { 
                 type: 'ally', 
                 allyId: nearestAlly.unit.id,
@@ -326,7 +347,12 @@ class SimpleFlee {
             }
             
             if (destinationChanged || !entity.path || entity.path.length === 0) {
-              entity.moveTo(homeZ, entity.home.loc[0], entity.home.loc[1]);
+              movementSystem.applyMoveIntent(entity, {
+                z: homeZ,
+                target: [entity.home.loc[0], entity.home.loc[1]],
+                reason: 'flee',
+                sourceAction: entity.action || 'flee'
+              });
               entity._fleeTarget = { 
                 type: 'home',
                 destKey: newDestKey,

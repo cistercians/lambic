@@ -1,5 +1,6 @@
 // Scouting Party System
 // Manages groups of units exploring zones for resources with day-based scouting
+const movementSystem = require('../core/MovementSystem');
 
 class ScoutingParty {
   constructor(leader, backupUnits, targetZone, purpose) {
@@ -132,10 +133,12 @@ class ScoutingParty {
       this.leader.mode = 'scout';
     }
     
-    // Give leader movement order to target location (moveTo takes z, tileX, tileY)
-    if (this.leader.moveTo && typeof this.leader.moveTo === 'function') {
-      this.leader.moveTo(this.leader.z || 0, targetTileX, targetTileY);
-    }
+    movementSystem.applyMoveIntent(this.leader, {
+      z: this.leader.z || 0,
+      target: [targetTileX, targetTileY],
+      reason: 'scout',
+      sourceAction: this.leader.action || 'scout'
+    });
     
     // Update status to traveling
     this.status = 'traveling';
@@ -345,11 +348,14 @@ class ScoutingParty {
       
       // If too far from campfire, move back
       if (distance > guardDistance) {
-        if (this.leader.moveTo && typeof this.leader.moveTo === 'function') {
-          const tileX = Math.floor(campfirePos[0] / 64);
-          const tileY = Math.floor(campfirePos[1] / 64);
-          this.leader.moveTo(this.leader.z || 0, tileX, tileY);
-        }
+        const tileX = Math.floor(campfirePos[0] / 64);
+        const tileY = Math.floor(campfirePos[1] / 64);
+        movementSystem.applyMoveIntent(this.leader, {
+          z: this.leader.z || 0,
+          target: [tileX, tileY],
+          reason: 'scout',
+          sourceAction: this.leader.action || 'scout'
+        });
       } else {
         // Close enough - ensure leader is idle/guarding
         if (this.leader.mode !== undefined) {
@@ -381,7 +387,12 @@ class ScoutingParty {
       // Start leader moving back to HQ
       const hq = this.leader.house ? this.leader.house.hq : null;
       if (hq && this.leader.moveTo && typeof this.leader.moveTo === 'function') {
-        this.leader.moveTo(this.leader.z || 0, hq[0], hq[1]);
+        movementSystem.applyMoveIntent(this.leader, {
+          z: this.leader.z || 0,
+          target: [hq[0], hq[1]],
+          reason: 'scout',
+          sourceAction: this.leader.action || 'scout'
+        });
         
         // Leader is already in scout mode, just ensure it's set
         if (this.leader.mode !== undefined) {
@@ -470,7 +481,12 @@ class ScoutingParty {
       // Ensure leader is moving toward HQ
       if (!this.leader.action || this.leader.action === 'idle') {
         if (this.leader.moveTo && typeof this.leader.moveTo === 'function') {
-          this.leader.moveTo(this.leader.z || 0, hq[0], hq[1]);
+          movementSystem.applyMoveIntent(this.leader, {
+            z: this.leader.z || 0,
+            target: [hq[0], hq[1]],
+            reason: 'scout',
+            sourceAction: this.leader.action || 'scout'
+          });
           if (this.leader.mode !== undefined) {
             this.leader.mode = 'scout';
           }
@@ -739,7 +755,12 @@ class ScoutingParty {
     if (this.leader && !this.leader.toRemove && this.leader.hp > 0) {
       const hq = this.leader.house ? this.leader.house.hq : null;
       if (hq && this.leader.moveTo && typeof this.leader.moveTo === 'function') {
-        this.leader.moveTo(this.leader.z || 0, hq[0], hq[1]);
+        movementSystem.applyMoveIntent(this.leader, {
+          z: this.leader.z || 0,
+          target: [hq[0], hq[1]],
+          reason: 'scout',
+          sourceAction: this.leader.action || 'scout'
+        });
         if (this.leader.mode !== undefined) {
           this.leader.mode = 'scout';
         }
@@ -756,7 +777,12 @@ class ScoutingParty {
       if (unit && !unit.toRemove && unit.hp > 0) {
         const hq = unit.house ? unit.house.hq : null;
         if (hq && unit.moveTo && typeof unit.moveTo === 'function') {
-          unit.moveTo(unit.z || 0, hq[0], hq[1]);
+          movementSystem.applyMoveIntent(unit, {
+            z: unit.z || 0,
+            target: [hq[0], hq[1]],
+            reason: 'scout',
+            sourceAction: unit.action || 'scout'
+          });
           if (unit.mode !== undefined) {
             unit.mode = 'scout';
           }

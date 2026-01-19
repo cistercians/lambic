@@ -1,5 +1,6 @@
 // Scout Behavior System
 // Scouts physically explore the map and report discoveries back to base
+const movementSystem = require('../core/MovementSystem');
 
 class ScoutBehavior {
   constructor(unit, house) {
@@ -163,7 +164,12 @@ class ScoutBehavior {
     const hqLoc = this.house?.hq;
     if (!hqLoc || hqLoc.length < 2) return;
     const targetZ = this.unit.z || 0;
-    this.unit.moveTo(targetZ, hqLoc[0], hqLoc[1]);
+    movementSystem.applyMoveIntent(this.unit, {
+      z: targetZ,
+      target: [hqLoc[0], hqLoc[1]],
+      reason: 'scout',
+      sourceAction: this.unit.action || 'scout'
+    });
   }
   
   // Check if scout is at base

@@ -1,5 +1,6 @@
 // SimpleCombat.js - Standardized combat system
 // All combat logic centralized here for easy debugging and maintenance
+const movementSystem = require('./MovementSystem');
 
 class SimpleCombat {
   constructor() {
@@ -651,7 +652,6 @@ class SimpleCombat {
 
   // Move away from target (for ranged unit kiting)
   moveAwayFromTarget(entity, target) {
-    if (!entity.moveTo) return;
     
     const entityLoc = global.getLoc(entity.x, entity.y);
     const targetLoc = global.getLoc(target.x, target.y);
@@ -672,7 +672,12 @@ class SimpleCombat {
       ];
       for (const dir of directions) {
         if (global.isWalkable && global.isWalkable(entity.z, dir[0], dir[1])) {
-          entity.moveTo(entity.z, dir[0], dir[1]);
+          movementSystem.applyMoveIntent(entity, {
+            z: entity.z,
+            target: [dir[0], dir[1]],
+            reason: 'combat',
+            sourceAction: entity.action || 'combat'
+          });
           return;
         }
       }
@@ -693,7 +698,12 @@ class SimpleCombat {
     const clampedY = Math.max(0, Math.min(mapSize - 1, newY));
     
     if (global.isWalkable && global.isWalkable(entity.z, clampedX, clampedY)) {
-      entity.moveTo(entity.z, clampedX, clampedY);
+      movementSystem.applyMoveIntent(entity, {
+        z: entity.z,
+        target: [clampedX, clampedY],
+        reason: 'combat',
+        sourceAction: entity.action || 'combat'
+      });
     } else {
       // Try adjacent tiles if direct retreat is blocked
       const adjacentTiles = [
@@ -708,7 +718,12 @@ class SimpleCombat {
         const tx = Math.max(0, Math.min(mapSize - 1, tile[0]));
         const ty = Math.max(0, Math.min(mapSize - 1, tile[1]));
         if (global.isWalkable && global.isWalkable(entity.z, tx, ty)) {
-          entity.moveTo(entity.z, tx, ty);
+          movementSystem.applyMoveIntent(entity, {
+            z: entity.z,
+            target: [tx, ty],
+            reason: 'combat',
+            sourceAction: entity.action || 'combat'
+          });
           break;
         }
       }
@@ -735,9 +750,14 @@ class SimpleCombat {
       
       // Entity has priority - attempt repositioning
       const adjacentTile = this.findAdjacentTile(entity, target);
-      if (adjacentTile && entity.moveTo) {
+      if (adjacentTile) {
         // Simple repositioning - no complex state tracking
-        entity.moveTo(entity.z, adjacentTile[0], adjacentTile[1]);
+        movementSystem.applyMoveIntent(entity, {
+          z: entity.z,
+          target: [adjacentTile[0], adjacentTile[1]],
+          reason: 'combat',
+          sourceAction: entity.action || 'combat'
+        });
         return true; // Repositioning
       }
       
@@ -1014,9 +1034,13 @@ class SimpleCombat {
     // For players, use tilemapSystem pathfinding (same as clickNavigate and attackMove)
     if (entity.type === 'player') {
       this.createPlayerPath(entity, targetLoc, pendingTarget.z);
-    } else if (entity.moveTo) {
-      // For NPCs, use moveTo method
-      entity.moveTo(pendingTarget.z, targetLoc[0], targetLoc[1]);
+    } else {
+      movementSystem.applyMoveIntent(entity, {
+        z: pendingTarget.z,
+        target: [targetLoc[0], targetLoc[1]],
+        reason: 'combat',
+        sourceAction: entity.action || 'combat'
+      });
     }
   }
 
@@ -1210,7 +1234,7 @@ class SimpleCombat {
 
   // Handle chase logic
   handleChase(entity, target) {
-    if (!entity.path && entity.moveTo) {
+    if (!entity.path) {
       // Initialize combat state and pathfinding failure counter if needed
       const state = this.ensureCombatState(entity);
       if (!state.pathfindingFailures) {
@@ -1242,7 +1266,12 @@ class SimpleCombat {
       const oldX = entity.x;
       const oldY = entity.y;
       
-      entity.moveTo(target.z, targetLoc[0], targetLoc[1]);
+      movementSystem.applyMoveIntent(entity, {
+        z: target.z,
+        target: [targetLoc[0], targetLoc[1]],
+        reason: 'combat',
+        sourceAction: entity.action || 'combat'
+      });
       
       // Check if pathfinding failed
       if (entity._pathfindTimeout) {
@@ -1715,9 +1744,13 @@ class SimpleCombat {
         // Use pathfinding system for players
         const targetLoc = [attackTarget.col, attackTarget.row];
         this.createPlayerPath(entity, targetLoc, attackTarget.z);
-      } else if (entity.moveTo) {
-        // Fallback for NPCs
-        entity.moveTo(attackTarget.z, attackTarget.col, attackTarget.row);
+      } else {
+        movementSystem.applyMoveIntent(entity, {
+          z: attackTarget.z,
+          target: [attackTarget.col, attackTarget.row],
+          reason: 'combat',
+          sourceAction: entity.action || 'combat'
+        });
       }
     }
 

@@ -734,6 +734,27 @@ self.update = function() {
 }
 ```
 
+### Movement + Pathfinding Integration (Universal)
+
+**Files:** `server/js/core/MovementSystem.js`, `server/js/core/PathfindingSystem.js`, `server/js/Entity.js`
+
+All behavior systems (serfs, combat, scout, flee, battleground NPCs, fauna) issue movement via a shared **MoveIntent** contract:
+
+```javascript
+movementSystem.applyMoveIntent(entity, {
+  z: targetZ,
+  target: [col, row],
+  reason: 'work', // or deposit/build/combat/scout/flee
+  sourceAction: entity.action || 'work'
+});
+```
+
+**Key behavior guarantees:**
+- `MovementSystem` stores `entity.moveIntent` + `entity.lastPathResult` for observability.
+- Path invalidation and oscillation detection are centralized in `MovementSystem.handlePathFollowing()`.
+- `Entity.update()` delegates path following to `MovementSystem`, ensuring universal thresholds and reason codes.
+- `PathfindingSystem.findPathWithResult()` provides non‑breaking status metadata (`success|no_path|throttled|cached`).
+
 ### Global Initialization
 
 **File:** `lambic.js` lines 8802-8803
@@ -1079,6 +1100,22 @@ else if (self.z == -1) {
     self.mineExitCooldown = 120; // ~2 seconds at 60 FPS
   }
 }
+```
+
+### Pathing Diagnostics & Simulation
+
+**File:** `server/js/core/PathingSim.js`
+
+**Purpose:** Lightweight, manual verification of movement edge cases without running a full game session.
+
+**Runs:**
+1. Short‑path oscillation tolerance (deposit/work)
+2. Multi‑Z intent dispatch
+3. Direct movement intent behavior
+
+**Usage:**
+```bash
+node server/js/core/PathingSim.js
 ```
 
 ### Gender Restrictions

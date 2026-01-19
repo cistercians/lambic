@@ -43,6 +43,13 @@ class PathfindingSystem {
       gridCacheMisses: 0,
       queuedCount: 0,
       throttledCount: 0,
+      resultCounts: {
+        success: 0,
+        no_path: 0,
+        throttled: 0,
+        cached: 0,
+        queued: 0
+      },
       pathfindingTimes: [], // Last 100 pathfinding times
       gridGenerationTimes: [],
       smoothingTimes: [],
@@ -397,6 +404,55 @@ class PathfindingSystem {
     }
     
     return path;
+  }
+
+  recordResult(status) {
+    if (!this.profiling.enabled || !this.profiling.resultCounts) return;
+    if (!this.profiling.resultCounts[status]) {
+      this.profiling.resultCounts[status] = 0;
+    }
+    this.profiling.resultCounts[status]++;
+  }
+
+  // Public API: Find path with result metadata (non-breaking)
+  findPathWithResult(start, end, layer, options = {}, callback = null) {
+    const cachedPath = this.getCachedPath(start, end, layer, options);
+    if (cachedPath) {
+      this.recordResult('cached');
+      return { status: 'cached', path: cachedPath, pathLen: cachedPath.length };
+    }
+
+    if (!this.canPathfindThisFrame()) {
+      if (callback) {
+        this.pathfindingQueue.push({
+          start,
+          end,
+          layer,
+          options,
+          callback,
+          timestamp: Date.now()
+        });
+        this.queuedRequests++;
+        if (this.profiling.enabled) {
+          this.profiling.queuedCount++;
+          this.profiling.throttledCount++;
+        }
+        this.recordResult('queued');
+        return { status: 'queued', path: null, pathLen: 0 };
+      }
+
+      if (this.profiling.enabled) {
+        this.profiling.throttledCount++;
+      }
+      this.recordResult('throttled');
+      return { status: 'throttled', path: null, pathLen: 0 };
+    }
+
+    this.currentFramePathfindingCount++;
+    const path = this._findPathImmediate(start, end, layer, options);
+    const status = path && path.length > 0 ? 'success' : 'no_path';
+    this.recordResult(status);
+    return { status, path, pathLen: path ? path.length : 0 };
   }
   
   // Internal: Immediate pathfinding (no throttling)

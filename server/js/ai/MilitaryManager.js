@@ -3,6 +3,7 @@
 
 const ScoutingParty = require('./ScoutingParty');
 const FollowBehavior = require('./FollowBehavior');
+const movementSystem = require('../core/MovementSystem');
 
 class MilitaryManager {
   constructor(house, factionAI) {
@@ -237,7 +238,7 @@ class MilitaryManager {
     
     // Set all units to move to target zone
     force.units.forEach(unit => {
-      if (!unit || typeof unit.moveTo !== 'function') {
+      if (!unit) {
         return;
       }
       const targetCenter = targetZone.center || [0, 0];
@@ -250,7 +251,12 @@ class MilitaryManager {
         : Math.floor(targetCenter[1] / tileSize);
       const targetZ = unit.z || 0;
 
-      unit.moveTo(targetZ, targetCol, targetRow);
+      movementSystem.applyMoveIntent(unit, {
+        z: targetZ,
+        target: [targetCol, targetRow],
+        reason: 'combat',
+        sourceAction: unit.action || 'combat'
+      });
       unit.action = 'combat'; // Ready for combat
     });
     

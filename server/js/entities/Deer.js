@@ -5,6 +5,7 @@
 
 module.exports = function(Character, globals) {
   const { zones, getTile, getLoc, isWalkable, mapSize } = globals;
+  const movementSystem = require('../core/MovementSystem');
   // Note: Player.list is accessed as a global at runtime
   
   const Deer = function(param){
@@ -107,7 +108,12 @@ module.exports = function(Character, globals) {
           // Find nearest forest instead of returning to home
           var forestLoc = self.findNearestForest();
           if(forestLoc){
-            self.moveTo(self.z, forestLoc[0], forestLoc[1]);
+            movementSystem.applyMoveIntent(self, {
+              z: self.z,
+              target: [forestLoc[0], forestLoc[1]],
+              reason: 'idle',
+              sourceAction: self.action || 'idle'
+            });
           } else {
             // No forest found, just idle where we are
             self.action = null;

@@ -1,6 +1,7 @@
 /**
  * BattlegroundsEliteNPCBehavior - Handles AI behavior for elite NPCs in battlegrounds
  */
+const movementSystem = require('../core/MovementSystem');
 
 function getCombatTargetId(entity) {
   if (!entity) return null;
@@ -315,58 +316,24 @@ class BattlegroundsEliteNPCBehavior {
       // Hypothesis E: Check if moveTo() exists and is being called
       const hasMoveTo = typeof npc.moveTo === 'function';
       // #endregion
-      if (typeof npc.moveTo === 'function') {
-        // moveTo expects (z, col, row) - convert pixel coordinates to tile coordinates
-        const getLoc = global.getLoc || ((x, y) => {
-          const tileSize = global.tileSize || 64;
-          return [Math.floor(x / tileSize), Math.floor(y / tileSize)];
+      // moveTo expects (z, col, row) - convert pixel coordinates to tile coordinates
+      const getLoc = global.getLoc || ((x, y) => {
+        const tileSize = global.tileSize || 64;
+        return [Math.floor(x / tileSize), Math.floor(y / tileSize)];
+      });
+      const targetLoc = getLoc(targetX, targetY);
+      if (targetLoc && targetLoc.length >= 2) {
+        movementSystem.applyMoveIntent(npc, {
+          z: targetZ,
+          target: [targetLoc[0], targetLoc[1]],
+          reason: 'combat',
+          sourceAction: npc.action || 'combat'
         });
-        const targetLoc = getLoc(targetX, targetY);
-        if (targetLoc && targetLoc.length >= 2) {
-          npc.moveTo(targetZ, targetLoc[0], targetLoc[1]);
-          // #region agent log
-          // #endregion
-        } else {
-          // #region agent log
-          // #endregion
-        }
+        // #region agent log
+        // #endregion
       } else {
-        // Fallback: use pathfinding directly to create a path
-        const getLoc = global.getLoc || ((x, y) => {
-          const tileSize = global.tileSize || 64;
-          return [Math.floor(x / tileSize), Math.floor(y / tileSize)];
-        });
-        const findPathContextAware = global.findPathContextAware || global.findPath;
-        
-        if (findPathContextAware) {
-          const startLoc = getLoc(npc.x, npc.y);
-          const targetLoc = getLoc(targetX, targetY);
-          const layer = targetZ === 0 ? 0 : (targetZ === -1 ? 1 : (targetZ === -2 ? 8 : (targetZ === 1 ? 3 : 5)));
-          const options = {
-            avoidDoors: true,
-            avoidCaveExits: false
-          };
-          
-          const path = findPathContextAware(startLoc, targetLoc, layer, options, npc.id);
-          if (path && path.length > 0) {
-            npc.path = path;
-            npc.pathCount = 0;
-            // #region agent log
-            // #endregion
-          } else {
-            // #region agent log
-            // #endregion
-          }
-        } else {
-          // Last resort: set targetLoc
-        const targetLoc = getLoc(targetX, targetY);
-        if (targetLoc) {
-          npc.path = null; // Clear existing path
-          npc.targetLoc = { loc: targetLoc, z: targetZ };
-            // #region agent log
-            // #endregion
-          }
-        }
+        // #region agent log
+        // #endregion
       }
     }
   }
@@ -399,20 +366,12 @@ class BattlegroundsEliteNPCBehavior {
       }
     } else if (distance > guardRadius) {
       // Too far from guard position, move back
-      if (typeof npc.moveTo === 'function') {
-        npc.moveTo(guardTarget.z, guardTarget.x, guardTarget.y);
-      } else {
-        const getLoc = global.getLoc || ((x, y) => {
-          const tileSize = global.tileSize || 64;
-          return [Math.floor(x / tileSize), Math.floor(y / tileSize)];
-        });
-
-        const targetLoc = getLoc(guardTarget.x, guardTarget.y);
-        if (targetLoc) {
-          npc.path = null;
-          npc.targetLoc = { loc: targetLoc, z: guardTarget.z };
-        }
-      }
+      movementSystem.applyMoveIntent(npc, {
+        z: guardTarget.z,
+        target: [guardTarget.x, guardTarget.y],
+        reason: 'guard',
+        sourceAction: npc.action || 'guard'
+      });
     } else if (Math.random() < 0.1) {
       // Occasionally patrol within guard radius
       const angle = Math.random() * Math.PI * 2;
@@ -420,9 +379,12 @@ class BattlegroundsEliteNPCBehavior {
       const patrolX = guardTarget.x + Math.cos(angle) * patrolRadius;
       const patrolY = guardTarget.y + Math.sin(angle) * patrolRadius;
 
-      if (typeof npc.moveTo === 'function') {
-        npc.moveTo(guardTarget.z, patrolX, patrolY);
-      }
+      movementSystem.applyMoveIntent(npc, {
+        z: guardTarget.z,
+        target: [patrolX, patrolY],
+        reason: 'guard',
+        sourceAction: npc.action || 'guard'
+      });
     }
   }
 

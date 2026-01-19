@@ -1,5 +1,6 @@
 // Follow Behavior System
 // Makes backup units follow and mirror the leader's actions
+const movementSystem = require('../core/MovementSystem');
 
 function getCombatTargetId(entity) {
   if (!entity) return null;
@@ -82,7 +83,7 @@ class FollowBehavior {
     const dy = leaderPos[1] - followerPos[1];
     const distance = Math.sqrt(dx * dx + dy * dy);
 
-    if (distance > 0 && typeof this.follower.moveTo === 'function') {
+    if (distance > 0) {
       // Normalize direction
       const dirX = dx / distance;
       const dirY = dy / distance;
@@ -96,7 +97,12 @@ class FollowBehavior {
       const targetRow = Math.floor(targetY / tileSize);
       const targetZ = this.leader.z || this.follower.z || 0;
 
-      this.follower.moveTo(targetZ, targetCol, targetRow);
+      movementSystem.applyMoveIntent(this.follower, {
+        z: targetZ,
+        target: [targetCol, targetRow],
+        reason: 'follow',
+        sourceAction: this.follower.action || 'follow'
+      });
     }
   }
 
