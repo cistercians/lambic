@@ -122,7 +122,10 @@ class SimpleSerfBehavior {
         return workTile;
       }
     }
-    const workTile = this.findAdjacentWalkableTile(z, spot, serf);
+    let workTile = this.findAdjacentWalkableTile(z, spot, serf);
+    if (!workTile && typeof serf.findNearestWalkableTile === 'function') {
+      workTile = serf.findNearestWalkableTile(spot[0], spot[1], z, 2);
+    }
     if (serf.work) {
       serf.work.workTile = workTile;
       serf.work.workTileFor = workTile ? spotKey : null;
@@ -171,6 +174,187 @@ class SimpleSerfBehavior {
       // Ignore assignment errors
     }
     return false;
+  }
+
+  getValidWorkBuildingTypes(serf) {
+    if (!serf) return [];
+    if (serf.sex === 'f') {
+      return ['mill', 'farm'];
+    }
+    return ['mill', 'farm', 'lumbermill', 'mine', 'dock'];
+  }
+
+  isHutBuilding(building) {
+    if (!building || !building.type) return false;
+    return String(building.type).toLowerCase().includes('hut');
+  }
+
+  getHouseSerfs(houseId) {
+    if (!houseId || !global.Player || !global.Player.list) return [];
+    return Object.values(global.Player.list).filter(entity => {
+      if (!entity) return false;
+      const isSerf = entity.class === 'Serf' || entity.class === 'SerfM' || entity.class === 'SerfF';
+      return isSerf && entity.house === houseId;
+    });
+  }
+
+  findBuildableTile(building) {
+    if (!building || !building.plot || !Array.isArray(building.plot)) return null;
+    for (const tile of building.plot) {
+      if (Array.isArray(tile) && tile.length === 2) {
+        const gt = global.getTile ? global.getTile(0, tile[0], tile[1]) : null;
+        if (gt === 11) {
+          return tile;
+        }
+      }
+    }
+    return null;
+  }
+
+  getBuildAssistTarget(serf) {
+    if (!serf || !serf.house || !global.Building || !global.Building.list) return null;
+    if (serf.hut && global.Building.list[serf.hut] && !global.Building.list[serf.hut].built) {
+      return null;
+    }
+
+    const allSerfs = this.getHouseSerfs(serf.house);
+    const eligibleSerfs = allSerfs.filter(entity => {
+      if (!entity) return false;
+      if (entity.action === 'build') return false;
+      if (entity.hut && global.Building.list[entity.hut] && !global.Building.list[entity.hut].built) {
+        return false;
+      }
+      return true;
+    });
+
+    if (!eligibleSerfs.length) return null;
+    const builderCount = Math.max(1, Math.floor(eligibleSerfs.length * 0.25));
+    const selectedSerfs = eligibleSerfs
+      .slice()
+      .sort((a, b) => String(a.id).localeCompare(String(b.id)))
+      .slice(0, builderCount);
+
+    const isSelected = selectedSerfs.some(entity => entity.id === serf.id);
+    if (!isSelected) return null;
+
+    const buildings = Object.values(global.Building.list).filter(b => {
+      if (!b || b.house !== serf.house || b.built) return false;
+      if (this.isHutBuilding(b)) return false;
+      return !!this.findBuildableTile(b);
+    });
+
+    if (!buildings.length) return null;
+
+    let best = null;
+    let bestDistance = Infinity;
+    for (const b of buildings) {
+      const dist = global.getDistance
+        ? global.getDistance({ x: serf.x, y: serf.y }, { x: b.x, y: b.y })
+        : Math.hypot((serf.x || 0) - (b.x || 0), (serf.y || 0) - (b.y || 0));
+      if (dist < bestDistance) {
+        bestDistance = dist;
+        best = b;
+      }
+    }
+
+    return best;
+  }
+
+  assignBuildAssist(serf, building) {
+    if (!serf || !building) return false;
+    serf._buildAssistBuilding = building.id;
+    serf.work.spot = null;
+    serf.work.assignedSpot = null;
+    serf.action = 'build';
+    return true;
+  }
+
+  logWorkHqNull(serf, reason, extra = {}) {
+    if (!serf) return;
+    const logger = this.getSerfLogger();
+    if (!logger || typeof logger.warn !== 'function') return;
+    const now = Date.now();
+    const throttleKey = `workHqNull-${serf.id}`;
+    const lastLog = this.logThrottle[throttleKey];
+    if (lastLog && (now - lastLog) < this.LOG_THROTTLE_MS * 2) return;
+    logger.warn('Work HQ set to null', serf, Object.assign({
+      reason: reason || 'unknown',
+      mode: serf.mode || null,
+      action: serf.action || null
+    }, extra || {}));
+    this.logThrottle[throttleKey] = now;
+  }
+
+  tryReassignWorkToAlternative(serf, excludeBuildingId) {
+    if (!serf || !global.Building || !global.Building.list) return false;
+    const validTypes = this.getValidWorkBuildingTypes(serf);
+    const candidates = Object.values(global.Building.list).filter(b => {
+      if (!b || b.id === excludeBuildingId) return false;
+      if (b.house !== serf.house) return false;
+      if (!b.built) return false;
+      if (!validTypes.includes(b.type)) return false;
+      if (Array.isArray(b.resources) && b.resources.length === 0) return false;
+      return true;
+    });
+
+    if (!candidates.length) return false;
+    let best = null;
+    let bestDistance = Infinity;
+    for (const b of candidates) {
+      const dist = global.getDistance
+        ? global.getDistance({ x: serf.x, y: serf.y }, { x: b.x, y: b.y })
+        : Math.hypot((serf.x || 0) - (b.x || 0), (serf.y || 0) - (b.y || 0));
+      if (dist < bestDistance) {
+        bestDistance = dist;
+        best = b;
+      }
+    }
+
+    if (!best) return false;
+    serf.work.hq = best.id;
+    serf.work.spot = null;
+    serf.work.assignedSpot = null;
+    serf.work.workTile = null;
+    serf.work.workTileFor = null;
+    serf.mode = 'work';
+    return true;
+  }
+
+  evaluateBuildingDepletion(building) {
+    if (!building) return { depleted: false, resourceCount: 0 };
+    let resourceCount = Array.isArray(building.resources) ? building.resources.length : 0;
+
+    if (building.updateResources && typeof building.updateResources === 'function') {
+      try {
+        building.updateResources();
+        resourceCount = Array.isArray(building.resources) ? building.resources.length : 0;
+      } catch (error) {
+        // Ignore update errors
+      }
+    }
+
+    if (resourceCount === 0 && building.type === 'mine' && typeof building.getRes === 'function') {
+      try {
+        building.getRes();
+        resourceCount = Array.isArray(building.resources) ? building.resources.length : 0;
+      } catch (error) {
+        // Ignore getRes errors
+      }
+    }
+
+    return { depleted: resourceCount === 0, resourceCount };
+  }
+
+  notifyDepletedBuilding(serf, building, reason) {
+    const house = this.getBuildingHouse(building);
+    if (!house || !house.ai || !house.ai.productionMonitor) return;
+    if (house.ai.isNonEconomicFaction && house.ai.isNonEconomicFaction()) return;
+    if (typeof house.ai.productionMonitor.requestRebuildForBuilding === 'function') {
+      house.ai.productionMonitor.requestRebuildForBuilding(building, {
+        serfId: serf ? serf.id : null,
+        reason: reason || 'depleted_resources'
+      });
+    }
   }
 
   getWorkZ(building) {
@@ -396,6 +580,19 @@ class SimpleSerfBehavior {
       }
     }
 
+    if (serf._workHqInvalid || serf._workHqDepleted) {
+      const reassigned = this.tryReassignWorkToAlternative(serf, serf.work && serf.work.hq);
+      if (reassigned) {
+        serf._workHqInvalid = false;
+        serf._workHqDepleted = false;
+      } else {
+        this.setSerfState(serf, 'idle', 'workHqUnavailable');
+        this.setSerfDebug(serf, { lastFailure: 'work_hq_unavailable' });
+        this.handleWandering(serf);
+        return;
+      }
+    }
+
     this.setSerfState(serf, 'working', 'defaultWork');
 
     // PRIORITY: Check if hut needs building first
@@ -405,6 +602,13 @@ class SimpleSerfBehavior {
         serf.action = 'build';
         return; // Let handleBuild() take over
       }
+    }
+
+    // Limited build assistance for non-hut buildings
+    const assistTarget = this.getBuildAssistTarget(serf);
+    if (assistTarget) {
+      this.assignBuildAssist(serf, assistTarget);
+      return;
     }
 
     // Check if work building is valid
@@ -418,6 +622,14 @@ class SimpleSerfBehavior {
       const buildingId = hasWorkHq ? serf.work.hq : 'none';
       const buildingExists = hasWorkHq && global.Building && global.Building.list && global.Building.list[buildingId];
       const buildingBuilt = buildingExists ? global.Building.list[buildingId].built : false;
+
+      if (buildingExists && !buildingBuilt) {
+        const assistTargetForInvalid = this.getBuildAssistTarget(serf);
+        if (assistTargetForInvalid && assistTargetForInvalid.id === buildingExists.id) {
+          this.assignBuildAssist(serf, buildingExists);
+          return;
+        }
+      }
       console.warn(`[SERF WORK] ${factionName}: Work building invalid for serf - work.hq: ${buildingId}, building exists: ${buildingExists}, built: ${buildingBuilt}, serf.mode: ${serf.mode}, serf.hut: ${serf.hut || 'none'}`);
       const logger = this.getSerfLogger();
       if (logger && typeof logger.warn === 'function') {
@@ -433,11 +645,19 @@ class SimpleSerfBehavior {
         buildingExists,
         buildingBuilt
       });
+      if (buildingExists && serf.work && serf.work.assignedSpot && buildingExists.releaseSpot && typeof buildingExists.releaseSpot === 'function') {
+        try {
+          buildingExists.releaseSpot(serf.id);
+        } catch (error) {
+          // Ignore release errors
+        }
+      }
       const reassigned = this.tryReassignWork(serf);
       if (!reassigned) {
         serf.mode = 'idle';
         if (!buildingExists) {
-          serf.work.hq = null;
+          serf._workHqInvalid = true;
+          this.logWorkHqNull(serf, 'work_building_missing', { buildingId });
         }
         serf.work.spot = null;
         serf.work.assignedSpot = null;
@@ -476,7 +696,30 @@ class SimpleSerfBehavior {
           }
           this.logThrottle[throttleKey] = now;
         }
-        this.setSerfDebug(serf, { lastFailure: 'no_work_spot' });
+        const depletionInfo = this.evaluateBuildingDepletion(building);
+        this.setSerfDebug(serf, {
+          lastFailure: 'no_work_spot',
+          resourceCount: depletionInfo.resourceCount,
+          depleted: depletionInfo.depleted
+        });
+        const reassigned = this.tryReassignWorkToAlternative(serf, building.id);
+        if (reassigned) {
+          return;
+        }
+        if (depletionInfo.depleted) {
+          this.notifyDepletedBuilding(serf, building, 'no_available_spots');
+          if (serf.work) {
+            serf._workHqDepleted = true;
+            this.logWorkHqNull(serf, 'work_hq_depleted', {
+              buildingId: building.id,
+              buildingType: building.type
+            });
+            serf.work.spot = null;
+            serf.work.assignedSpot = null;
+            serf.work.workTile = null;
+            serf.work.workTileFor = null;
+          }
+        }
         // No spots available - wait
         return;
       }
@@ -494,6 +737,13 @@ class SimpleSerfBehavior {
       }
       if (!spotValid) {
         // Work spot is invalid (e.g., was set to hut plot tile) - clear it and reassign
+        if (serf.work.assignedSpot && building.releaseSpot && typeof building.releaseSpot === 'function') {
+          try {
+            building.releaseSpot(serf.id);
+          } catch (error) {
+            // Ignore release errors
+          }
+        }
         serf.work.spot = null;
         serf.work.assignedSpot = null;
         serf.work.workTile = null;
@@ -634,7 +884,7 @@ class SimpleSerfBehavior {
    */
   handleBuild(serf) {
     this.setSerfState(serf, 'building', 'handleBuild');
-    if (!serf.hut || !global.Building || !global.Building.list) {
+    if (!global.Building || !global.Building.list) {
       serf.action = null;
       if (serf.work && serf.work.hq) {
         serf.mode = 'work';
@@ -644,9 +894,25 @@ class SimpleSerfBehavior {
       return;
     }
 
-    const hut = global.Building.list[serf.hut];
-    if (!hut || hut.built) {
+    const buildTargetId = serf._buildAssistBuilding || serf.hut;
+    if (!buildTargetId) {
       serf.action = null;
+      serf._buildAssistBuilding = null;
+      if (serf.work && serf.work.hq) {
+        serf.mode = 'work';
+      } else {
+        serf.mode = 'idle';
+      }
+      return;
+    }
+
+    const targetBuilding = global.Building.list[buildTargetId];
+    const isAssistBuild = !!serf._buildAssistBuilding;
+    if (!targetBuilding || targetBuilding.built) {
+      serf.action = null;
+      if (isAssistBuild) {
+        serf._buildAssistBuilding = null;
+      }
       // CRITICAL FIX: Clear work.spot when hut is built - it was set to hut plot tile during building
       // and is no longer valid as a work spot for the actual work building
       serf.work.spot = null;
@@ -666,9 +932,9 @@ class SimpleSerfBehavior {
     // Find foundation tile if no spot
     if (!serf.work.spot) {
       const buildableTiles = [];
-      if (hut.plot && Array.isArray(hut.plot)) {
-        for (const i in hut.plot) {
-          const p = hut.plot[i];
+      if (targetBuilding.plot && Array.isArray(targetBuilding.plot)) {
+        for (const i in targetBuilding.plot) {
+          const p = targetBuilding.plot[i];
           if (Array.isArray(p) && p.length === 2) {
             const t = this.getTile(serf, 0, p[0], p[1]);
             if (t === 11) { // Foundation tile
@@ -682,6 +948,9 @@ class SimpleSerfBehavior {
         serf.work.spot = buildableTiles[Math.floor(Math.random() * buildableTiles.length)];
       } else {
         serf.action = null;
+        if (isAssistBuild) {
+          serf._buildAssistBuilding = null;
+        }
         serf.mode = 'idle';
         return;
       }

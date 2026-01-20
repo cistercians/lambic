@@ -8,7 +8,9 @@
     "start": "node lambic.js",
     "dev": "NODE_ENV=development node lambic.js",
     "test": "node tests/run.js",
-    "lint": "eslint \"server/js/bootstrap/**/*.js\" \"server/js/entities/**/*.js\" \"tests/**/*.js\""
+    "lint": "eslint \"server/js/bootstrap/**/*.js\" \"server/js/entities/**/*.js\" \"tests/**/*.js\"",
+    "log-parser": "node tools/logParser/index.js",
+    "log-parser:gui": "node tools/logParser/gui/server.js"
   },
   "description": "",
   "devDependencies": {

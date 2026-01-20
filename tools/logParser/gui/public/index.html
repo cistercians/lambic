@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lambic Log Parser</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <h1>Lambic Log Parser</h1>
+      <section class="panel">
+        <h2>Parse Log</h2>
+        <label>
+          Log file path
+          <input id="inputPath" type="text" placeholder="/path/to/log.txt" />
+        </label>
+        <label>
+          Config path (optional)
+          <input id="configPath" type="text" placeholder="/path/to/config.json" />
+        </label>
+        <button id="runParse">Run Parse</button>
+        <pre id="parseOutput" class="output"></pre>
+      </section>
+
+      <section class="panel">
+        <h2>Meta Report</h2>
+        <label>
+          From (YYYY-MM-DD)
+          <input id="fromDate" type="text" placeholder="2026-01-19" />
+        </label>
+        <label>
+          To (YYYY-MM-DD)
+          <input id="toDate" type="text" placeholder="2026-01-20" />
+        </label>
+        <button id="runMeta">Generate Meta Report</button>
+        <pre id="metaOutput" class="output"></pre>
+      </section>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>

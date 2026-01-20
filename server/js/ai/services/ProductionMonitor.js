@@ -16,6 +16,7 @@ class ProductionMonitor {
     this.lastResourceLevels = null;
     this.productionRates = {};
     this.productionIssueDays = {};
+    this.rebuildRequests = {};
   }
   
   // Monitor resource production for the current day
@@ -313,6 +314,44 @@ class ProductionMonitor {
       }
       this.factionAI._pendingRecoveryGoals.push(recoveryGoal);
     }
+  }
+
+  requestRebuildForBuilding(building, context = {}) {
+    if (!building || !building.type) return;
+    if (this.factionAI.isNonEconomicFaction()) return;
+
+    const currentDay = global.day || 1;
+    if (this.rebuildRequests[building.id] === currentDay) {
+      return;
+    }
+    this.rebuildRequests[building.id] = currentDay;
+
+    const buildingType = building.type;
+    const rebuildGoal = createBuildingGoal(buildingType);
+    if (!rebuildGoal) return;
+
+    if (buildingType === 'mine' && rebuildGoal.constructor.name === 'BuildMineGoal') {
+      rebuildGoal.mineType = building.cave ? 'cave' : 'stone';
+    }
+
+    const { UTILITY_THRESHOLDS } = require('../AIConstants');
+    rebuildGoal.utility = Math.max(rebuildGoal.utility || UTILITY_THRESHOLDS.HIGH, UTILITY_THRESHOLDS.RECOVERY);
+    rebuildGoal.isRebuildGoal = true;
+    rebuildGoal.rebuildSourceId = building.id;
+    rebuildGoal.rebuildReason = context.reason || 'depleted_resources';
+
+    const factionName = this.house.name || 'Unknown';
+    const message = `Triggering rebuild for ${buildingType} (source=${building.id}) due to ${rebuildGoal.rebuildReason}`;
+    if (this.logger) {
+      this.logger.collectInfo(message);
+    } else {
+      console.warn(`[PRODUCTION] ${factionName}: ${message}`);
+    }
+
+    if (!this.factionAI._pendingRecoveryGoals) {
+      this.factionAI._pendingRecoveryGoals = [];
+    }
+    this.factionAI._pendingRecoveryGoals.push(rebuildGoal);
   }
   
   // Get production issue days for a resource (for external access)

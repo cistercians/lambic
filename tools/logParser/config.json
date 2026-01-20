@@ -1,0 +1,35 @@
+{
+  "parserVersion": "1.0.0",
+  "extractors": {
+    "combat": {
+      "enabled": true,
+      "maxEntries": 1000
+    },
+    "economy": {
+      "enabled": true,
+      "maxEntries": 1000
+    },
+    "errors": {
+      "enabled": true,
+      "maxEntries": 1000
+    },
+    "performance": {
+      "enabled": true,
+      "maxEntries": 500
+    },
+    "serf": {
+      "enabled": true,
+      "maxEntries": 1000
+    },
+    "factionAI": {
+      "enabled": true,
+      "maxEntries": 1000
+    }
+  },
+  "customPatterns": [],
+  "reportSettings": {
+    "includeTimeline": true,
+    "includeRawErrors": true,
+    "maxEventsPerCategory": 1000
+  }
+}

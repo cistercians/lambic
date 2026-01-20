@@ -352,12 +352,13 @@ class BattlegroundsEliteNPCManager {
           if (tile !== 0 && tile !== 2) return false;
         }
         
-        // For z=0, check if we can get pathfinding matrix from battleground
-        // If pathfinding grid exists, use it to check walkability
-        if (global.battlegroundsPathfindingManager && z === startingZ) {
-          const pathfindingGrid = global.battlegroundsPathfindingManager.getGrid(match.matchId, z);
-          if (pathfindingGrid && pathfindingGrid.grid && pathfindingGrid.grid.length > row && pathfindingGrid.grid[row].length > col) {
-            return pathfindingGrid.grid[row][col] !== 0; // 0 = not walkable in pathfinding grid
+        // Use battleground pathfinding matrices when available to mirror MapContextManager behavior
+        if (match.pathfinding && match.pathfinding.matrices && z === startingZ) {
+          const matrix = match.pathfinding.matrices[z];
+          if (matrix && matrix[row] && matrix[row].length > col) {
+            const matrixValue = matrix[row][col];
+            // Matrices: 0=walkable, 1=blocked, 2=transition (walkable)
+            return matrixValue === 0 || matrixValue === 2;
           }
         }
         
@@ -459,12 +460,8 @@ class BattlegroundsEliteNPCManager {
           npc.battlegroundMatchId = match.matchId;
         }
 
-        // Set initial mode based on match rules in case behavior updates haven't started yet
-        if (match.gameMode === 'assault' && team === 'team2') {
-          npc.mode = 'guard';
-        } else {
-          npc.mode = 'raid';
-        }
+      // Initialize mode and target immediately so NPCs can start moving
+      this.applyInitialBehavior(npc, match, team);
         
         // CRITICAL: Ensure NPC is marked for updates (needed for movement/combat)
         // Battleground NPCs should always update every frame
@@ -532,6 +529,7 @@ class BattlegroundsEliteNPCManager {
         npcFromList.class = npcClass;
         npcFromList.sex = sex;
         npcFromList.name = displayName;
+        this.applyInitialBehavior(npcFromList, match, team);
       }
       
       // #endregion
@@ -580,6 +578,114 @@ class BattlegroundsEliteNPCManager {
     };
     
     return typeToClassMap[npcType] || npcType;
+  }
+
+  applyInitialBehavior(npc, match, team) {
+    if (!npc || !match) return;
+    const isAssaultDefender = match.gameMode === 'assault' && team === 'team2';
+    npc.mode = isAssaultDefender ? 'guard' : 'raid';
+
+    if (npc.mode === 'raid') {
+      const target = this.selectRaidTargetForMatch(npc, match, team);
+      if (target && target.loc) {
+        npc.raid = npc.raid || {};
+        npc.raid.target = target.loc;
+      }
+    } else if (npc.mode === 'guard') {
+      const guardPoint = this.getTeamSpawnCenter(match, 'team2');
+      if (guardPoint) {
+        const guardLoc = this.toTargetLoc(guardPoint, npc);
+        if (guardLoc && guardLoc.length >= 2) {
+          const point = [guardLoc[0], guardLoc[1]];
+          point.loc = [guardLoc[0], guardLoc[1]];
+          point.z = guardPoint.z !== undefined ? guardPoint.z : (npc.z || match.mapData.startingZ || 0);
+          npc.guard = npc.guard || {};
+          npc.guard.point = point;
+        }
+      }
+    }
+  }
+
+  getTeamSpawnCenter(match, team) {
+    if (!match || !match.mapData) return null;
+    const spawnAreas = match.mapData.spawnPoints || [];
+    if (!spawnAreas.length) return null;
+    const area = spawnAreas.find(sp => sp.team === team && (team !== 'team2' || !sp.stronghold || sp.stronghold === true));
+    if (area && area.center) {
+      return { ...area.center };
+    }
+    if (area && area.points && area.points.length > 0) {
+      return { ...area.points[0] };
+    }
+    return null;
+  }
+
+  toTargetLoc(point, npc) {
+    if (!point || point.x === undefined || point.y === undefined) return null;
+    const getLoc = global.getLoc || ((x, y) => {
+      const tileSize = global.tileSize || 64;
+      return [Math.floor(x / tileSize), Math.floor(y / tileSize)];
+    });
+    return getLoc(point.x, point.y, npc);
+  }
+
+  canPathToTarget(npc, targetLoc) {
+    if (!targetLoc || targetLoc.length < 2) return false;
+    const startLoc = (global.getLoc ? global.getLoc(npc.x, npc.y, npc) : [Math.floor(npc.x / 64), Math.floor(npc.y / 64)]);
+    const zLayer = npc.z !== undefined ? npc.z : 0;
+    if (global.isWalkable && !global.isWalkable(zLayer, targetLoc[0], targetLoc[1], npc)) {
+      return false;
+    }
+    if (global.findPathContextAware) {
+      const path = global.findPathContextAware(startLoc, [targetLoc[0], targetLoc[1]], zLayer, {}, npc);
+      return Array.isArray(path) && path.length > 0;
+    }
+    return true;
+  }
+
+  selectRaidTargetForMatch(npc, match, team) {
+    if (!npc || !match || !match.mapData) return null;
+    const tileSize = global.tileSize || 64;
+    const mapSize = match.mapSize || (global.mapContextManager ? global.mapContextManager.getMapSize(npc) : 0);
+    const mapBounds = mapSize * tileSize;
+    const startingZ = npc.z || match.mapData.startingZ || 0;
+    let preferredPoint = null;
+
+    if (match.gameMode === 'deathmatch') {
+      preferredPoint = { x: mapBounds / 2, y: mapBounds / 2, z: startingZ };
+    } else if (match.gameMode === 'skirmish') {
+      const opposingTeam = team === 'team1' ? 'team2' : 'team1';
+      preferredPoint = this.getTeamSpawnCenter(match, opposingTeam);
+    } else if (match.gameMode === 'assault') {
+      if (team === 'team1') {
+        preferredPoint = this.getTeamSpawnCenter(match, 'team2');
+      }
+    }
+
+    const attempts = 50;
+    let targetPoint = preferredPoint;
+    for (let i = 0; i < attempts; i++) {
+      if (!targetPoint) {
+        targetPoint = {
+          x: Math.random() * mapBounds,
+          y: Math.random() * mapBounds,
+          z: startingZ
+        };
+      }
+
+      const targetLoc = this.toTargetLoc(targetPoint, npc);
+      if (targetLoc && this.canPathToTarget(npc, targetLoc)) {
+        return {
+          point: targetPoint,
+          loc: targetLoc,
+          z: targetPoint.z !== undefined ? targetPoint.z : startingZ
+        };
+      }
+
+      targetPoint = null;
+    }
+
+    return null;
   }
 
   /**

@@ -46,13 +46,15 @@ class BuildingConstructor {
     }
     
     const TERRAIN = global.TERRAIN || {};
+    const FOREST_MIN = TERRAIN.HEAVY_FOREST || 1;
+    const FOREST_MAX = TERRAIN.BRUSH || 3;
     
     // Check all tiles in the plot
     for (const tile of spot.plot) {
       if (!Array.isArray(tile) || tile.length < 2) continue;
       const terrain = this.getTile(0, tile[0], tile[1]);
       // Check if terrain is HEAVY_FOREST (1) or LIGHT_FOREST (2)
-      if (terrain !== TERRAIN.HEAVY_FOREST && terrain !== TERRAIN.LIGHT_FOREST) {
+      if (terrain < FOREST_MIN || terrain >= FOREST_MAX) {
         return false; // At least one tile is not forest
       }
     }
@@ -64,6 +66,8 @@ class BuildingConstructor {
   // Searches for spots where all plot tiles are on HEAVY_FOREST or LIGHT_FOREST
   findBuildingSpotOnForest(buildingType, searchCenter, maxRadius, options = {}) {
     const TERRAIN = global.TERRAIN || {};
+    const FOREST_MIN = TERRAIN.HEAVY_FOREST || 1;
+    const FOREST_MAX = TERRAIN.BRUSH || 3;
     const getBuilding = global.getBuilding || (() => null);
     const excludeTilesArray = options.excludeTiles || [];
     const contextEntity = this.getContextEntity();
@@ -165,7 +169,7 @@ class BuildingConstructor {
         
         // Check if center tile is on forest
         const centerTerrain = this.getTile(0, centerCol, centerRow);
-        if (centerTerrain !== TERRAIN.HEAVY_FOREST && centerTerrain !== TERRAIN.LIGHT_FOREST) {
+        if (centerTerrain < FOREST_MIN || centerTerrain >= FOREST_MAX) {
           rejectedNotForest++;
           continue; // Center not on forest, skip
         }
@@ -193,7 +197,7 @@ class BuildingConstructor {
           
           // Check if tile is on forest
           const terrain = this.getTile(0, absCol, absRow);
-          if (terrain !== TERRAIN.HEAVY_FOREST && terrain !== TERRAIN.LIGHT_FOREST) {
+          if (terrain < FOREST_MIN || terrain >= FOREST_MAX) {
             allOnForest = false;
             rejectedNotForest++;
             break;
@@ -695,7 +699,7 @@ class BuildingConstructor {
         });
         if (spot && spot.plot && spot.plot[0]) {
           const nearCave = this.isNearCaveEntrance(spot.plot[0]);
-          if (!nearCave) {
+          if (!nearCave && this.hasStoneResourcesNearby(spot.plot[0])) {
             return true; // Found valid stone mine location (not near cave)
           }
           // Near cave, reject this spot and try next radius
@@ -713,7 +717,13 @@ class BuildingConstructor {
           spot = global.tilemapSystem.findBuildingSpot('mine', caveLoc, caveSearchRadius, {
             excludeTiles: this.getOccupiedTiles()
           });
-          if (spot) break;
+          if (spot && spot.plot && spot.plot[0]) {
+            const resolvedCaveLoc = this.isNearCaveEntrance(spot.plot[0]) || caveLoc;
+            if (this.hasCaveResourcesNearby(resolvedCaveLoc)) {
+              break;
+            }
+            spot = null;
+          }
         }
       }
       if (!spot) {
@@ -722,7 +732,13 @@ class BuildingConstructor {
           spot = global.tilemapSystem.findBuildingSpot('mine', searchCenter, radius, {
             excludeTiles: this.getOccupiedTiles()
           });
-          if (spot) break;
+          if (spot && spot.plot && spot.plot[0]) {
+            const caveLoc = this.isNearCaveEntrance(spot.plot[0]);
+            if (this.hasCaveResourcesNearby(caveLoc || spot.plot[0])) {
+              break;
+            }
+            spot = null;
+          }
         }
       }
     } else {
@@ -731,7 +747,16 @@ class BuildingConstructor {
         spot = global.tilemapSystem.findBuildingSpot('mine', searchCenter, radius, {
           excludeTiles: this.getOccupiedTiles()
         });
-        if (spot) break;
+        if (spot && spot.plot && spot.plot[0]) {
+          const caveLoc = this.isNearCaveEntrance(spot.plot[0]);
+          if (caveLoc && this.hasCaveResourcesNearby(caveLoc)) {
+            break;
+          }
+          if (!caveLoc && this.hasStoneResourcesNearby(spot.plot[0])) {
+            break;
+          }
+          spot = null;
+        }
       }
     }
     
@@ -806,19 +831,40 @@ class BuildingConstructor {
     console.log(`[GARRISON PLACEMENT] ${factionName}: Checking garrison placement at [${searchCenter[0]}, ${searchCenter[1]}]`);
     
     // Try multiple radii if initial search fails (location blocking fallback)
-    const radii = location ? [3, 6, 10, 15] : [10, 15, 20, 25];
+    const radii = location ? [3, 6, 10, 15, 20] : [10, 15, 20, 25, 30];
     const occupiedTiles = this.getOccupiedTiles();
     
     console.log(`[GARRISON PLACEMENT] ${factionName}: Checking ${radii.length} radii, ${occupiedTiles.length} occupied tiles to exclude`);
     
-    for (const radius of radii) {
-      const spot = global.tilemapSystem.findBuildingSpot('garrison', searchCenter, radius, {
-        excludeTiles: occupiedTiles
-      });
-      
-      if (spot && spot.plot && spot.plot[0]) {
-        console.log(`[GARRISON PLACEMENT] ${factionName}: Found valid garrison location at radius ${radius}`);
-        return true; // Found valid location
+    const tryFindGarrisonSpot = (center) => {
+      for (const radius of radii) {
+        const spot = global.tilemapSystem.findBuildingSpot('garrison', center, radius, {
+          excludeTiles: occupiedTiles
+        });
+        if (spot && spot.plot && spot.plot[0]) {
+          console.log(`[GARRISON PLACEMENT] ${factionName}: Found valid garrison location at radius ${radius}`);
+          return true;
+        }
+      }
+      return false;
+    };
+    
+    if (tryFindGarrisonSpot(searchCenter)) {
+      return true;
+    }
+    
+    // Fallback: try near outposts if HQ is blocked
+    if (global.Building && global.Building.list) {
+      for (const id in global.Building.list) {
+        const b = global.Building.list[id];
+        if (!b || b.type !== 'outpost' || b.house !== this.house.id || !b.built) continue;
+        if (global.mapContextHelpers && !global.mapContextHelpers.areInSameContext(this.getContextEntity(), b)) {
+          continue;
+        }
+        const outpostLoc = Array.isArray(b.plot) && b.plot[0] ? b.plot[0] : global.getLoc(b.x, b.y, b);
+        if (outpostLoc && tryFindGarrisonSpot(outpostLoc)) {
+          return true;
+        }
       }
     }
     
@@ -907,6 +953,51 @@ class BuildingConstructor {
     
     return null; // No cave entrance nearby
   }
+
+  // Check for stone resources near a location (stone mines)
+  hasStoneResourcesNearby(location, radius = 6) {
+    if (!location || !Array.isArray(location) || location.length < 2) return false;
+    const mapSize = global.mapContextManager
+      ? global.mapContextManager.getMapSize(this.getContextEntity())
+      : (global.mapSize || 192);
+    for (let dy = -radius; dy <= radius; dy++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        const col = location[0] + dx;
+        const row = location[1] + dy;
+        if (col < 0 || row < 0 || col >= mapSize || row >= mapSize) continue;
+        const terrain = this.getTile(0, col, row);
+        const layer6Res = this.getTile(6, col, row);
+        const isStoneResource = (terrain === 4) ||
+          (terrain > 4 && terrain < 5) ||
+          (terrain >= 5 && terrain < 6);
+        const isLargeRock = (global.isLargeRock && global.isLargeRock(terrain)) || (!global.isLargeRock && isStoneResource);
+        if (isLargeRock && layer6Res > 0) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  // Check for cave ore resources near a cave entrance (ore mines)
+  hasCaveResourcesNearby(location, radius = 10) {
+    if (!location || !Array.isArray(location) || location.length < 2) return false;
+    const mapSize = global.mapContextManager
+      ? global.mapContextManager.getMapSize(this.getContextEntity())
+      : (global.mapSize || 192);
+    for (let dy = -radius; dy <= radius; dy++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        const col = location[0] + dx;
+        const row = location[1] + dy;
+        if (col < 0 || row < 0 || col >= mapSize || row >= mapSize) continue;
+        const tile = this.getTile(1, col, row);
+        if (tile >= 3 && tile <= 5) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
   
   // Construct a mine
   buildMine(location = null, mineType = 'any') {
@@ -929,7 +1020,7 @@ class BuildingConstructor {
         // Verify it's not near a cave
         if (spot && spot.plot && spot.plot[0]) {
           const nearCave = this.isNearCaveEntrance(spot.plot[0]);
-          if (!nearCave) {
+          if (!nearCave && this.hasStoneResourcesNearby(spot.plot[0])) {
             break; // Found valid stone mine location (not near cave)
             // Note: Mines are exempt from forest tile requirement for Celts (they need to be near cave entrances)
           }
@@ -950,7 +1041,13 @@ class BuildingConstructor {
             excludeTiles: this.getOccupiedTiles()
           });
           
-          if (spot) break;
+          if (spot && spot.plot && spot.plot[0]) {
+            const resolvedCaveLoc = this.isNearCaveEntrance(spot.plot[0]) || caveLoc;
+            if (this.hasCaveResourcesNearby(resolvedCaveLoc)) {
+              break;
+            }
+            spot = null;
+          }
           // Note: Mines are exempt from forest tile requirement for Celts (they need to be near cave entrances)
         }
       }
@@ -961,7 +1058,13 @@ class BuildingConstructor {
           spot = global.tilemapSystem.findBuildingSpot('mine', searchCenter, radius, {
             excludeTiles: this.getOccupiedTiles()
           });
-          if (spot) break;
+          if (spot && spot.plot && spot.plot[0]) {
+            const caveLoc = this.isNearCaveEntrance(spot.plot[0]);
+            if (this.hasCaveResourcesNearby(caveLoc || spot.plot[0])) {
+              break;
+            }
+            spot = null;
+          }
           // Note: Mines are exempt from forest tile requirement for Celts (they need to be near cave entrances)
         }
       }
@@ -971,7 +1074,16 @@ class BuildingConstructor {
         spot = global.tilemapSystem.findBuildingSpot('mine', searchCenter, radius, {
           excludeTiles: this.getOccupiedTiles()
         });
-        if (spot) break;
+        if (spot && spot.plot && spot.plot[0]) {
+          const caveLoc = this.isNearCaveEntrance(spot.plot[0]);
+          if (caveLoc && this.hasCaveResourcesNearby(caveLoc)) {
+            break;
+          }
+          if (!caveLoc && this.hasStoneResourcesNearby(spot.plot[0])) {
+            break;
+          }
+          spot = null;
+        }
         // Note: Mines are exempt from forest tile requirement for Celts (they need to be near cave entrances)
       }
     }
@@ -988,7 +1100,16 @@ class BuildingConstructor {
             spot = global.tilemapSystem.findBuildingSpot('mine', mineLoc, radius, {
               excludeTiles: this.getOccupiedTiles()
             });
-            if (spot) break;
+            if (spot && spot.plot && spot.plot[0]) {
+              const caveLoc = this.isNearCaveEntrance(spot.plot[0]);
+              if (caveLoc && this.hasCaveResourcesNearby(caveLoc)) {
+                break;
+              }
+              if (!caveLoc && this.hasStoneResourcesNearby(spot.plot[0])) {
+                break;
+              }
+              spot = null;
+            }
             // Note: Mines are exempt from forest tile requirement for Celts (they need to be near cave entrances)
           }
           if (spot) break;
@@ -1006,7 +1127,16 @@ class BuildingConstructor {
               spot = global.tilemapSystem.findBuildingSpot('mine', outpostLoc, radius, {
                 excludeTiles: this.getOccupiedTiles()
               });
-              if (spot) break;
+              if (spot && spot.plot && spot.plot[0]) {
+                const caveLoc = this.isNearCaveEntrance(spot.plot[0]);
+                if (caveLoc && this.hasCaveResourcesNearby(caveLoc)) {
+                  break;
+                }
+                if (!caveLoc && this.hasStoneResourcesNearby(spot.plot[0])) {
+                  break;
+                }
+                spot = null;
+              }
               // Note: Mines are exempt from forest tile requirement for Celts (they need to be near cave entrances)
             }
             if (spot) break;
@@ -1269,15 +1399,35 @@ class BuildingConstructor {
     const searchCenter = location || hq;
     
     // Try multiple radii if initial search fails (location blocking fallback)
-    const radii = location ? [3, 6, 10] : [10, 15, 20];
+    const radii = location ? [3, 6, 10, 15] : [10, 15, 20, 25];
     let spot = null;
+    const occupiedTiles = this.getOccupiedTiles();
     
-    for (const radius of radii) {
-      spot = global.tilemapSystem.findBuildingSpot('garrison', searchCenter, radius, {
-      excludeTiles: this.getOccupiedTiles()
-    });
-      if (spot) {
-        break; // Found a spot, use it
+    const tryFindGarrisonSpot = (center) => {
+      for (const radius of radii) {
+        spot = global.tilemapSystem.findBuildingSpot('garrison', center, radius, {
+          excludeTiles: occupiedTiles
+        });
+        if (spot) {
+          return true;
+        }
+      }
+      return false;
+    };
+    
+    if (!tryFindGarrisonSpot(searchCenter)) {
+      if (global.Building && global.Building.list) {
+        for (const id in global.Building.list) {
+          const b = global.Building.list[id];
+          if (!b || b.type !== 'outpost' || b.house !== this.house.id || !b.built) continue;
+          if (global.mapContextHelpers && !global.mapContextHelpers.areInSameContext(this.getContextEntity(), b)) {
+            continue;
+          }
+          const outpostLoc = Array.isArray(b.plot) && b.plot[0] ? b.plot[0] : global.getLoc(b.x, b.y, b);
+          if (outpostLoc && tryFindGarrisonSpot(outpostLoc)) {
+            break;
+          }
+        }
       }
     }
     

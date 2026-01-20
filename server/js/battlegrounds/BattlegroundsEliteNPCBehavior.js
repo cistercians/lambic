@@ -76,6 +76,25 @@ class BattlegroundsEliteNPCBehavior {
       const previousAction = npc.action;
       
       const desiredMode = (gameMode === 'assault' && participant.team === 'team2') ? 'guard' : 'raid';
+      if (npc.inBattleground && npc.battlegroundMatchId) {
+        if (!npc._bgEliteLog) npc._bgEliteLog = {};
+        const now = Date.now();
+        const last = npc._bgEliteLog.behavior || 0;
+        if (now - last > 5000) {
+          npc._bgEliteLog.behavior = now;
+          console.log('[BG][Elite] behaviorTick', {
+            npcId: npc.id,
+            npcName: npc.name || npc.class,
+            desiredMode,
+            mode: npc.mode,
+            action: npc.action,
+            team: participant.team,
+            raidTarget: npc.raid && npc.raid.target,
+            guardPoint: npc.guard && npc.guard.point,
+            matchId: npc.battlegroundMatchId
+          });
+        }
+      }
       if (!npc.mode || npc.mode === 'idle' || npc.mode !== desiredMode) {
         npc.mode = desiredMode;
       }

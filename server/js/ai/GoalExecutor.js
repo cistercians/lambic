@@ -113,10 +113,18 @@ class GoalExecutor {
     
     // Track building count before execution (for verification)
     let beforeCount = 0;
+    let countType = null;
     if (goal.type.startsWith('BUILD_')) {
       const buildingType = goal.type.replace('BUILD_', '').toLowerCase();
+      countType = buildingType;
+      if (buildingType === 'guardtower' && this.house.buildingConstructor) {
+        const towerType = this.house.buildingConstructor.getFactionTowerType();
+        if (towerType) {
+          countType = towerType;
+        }
+      }
       if (this.house.ai && this.house.ai.buildingService) {
-        beforeCount = this.house.ai.buildingService.getBuildingCount(buildingType);
+        beforeCount = this.house.ai.buildingService.getBuildingCount(countType);
       }
     }
     
@@ -152,11 +160,15 @@ class GoalExecutor {
         
         // Verify building count increased (additional check)
         if (this.house.ai && this.house.ai.buildingService) {
-          const afterCount = this.house.ai.buildingService.getBuildingCount(buildingType);
+          const countKey = countType || buildingType;
+          const afterCount = this.house.ai.buildingService.getBuildingCount(countKey);
           if (afterCount <= beforeCount && buildingType !== 'farm') {
             // Building count didn't increase (farms are handled differently)
             goal.status = 'FAILED';
-            const error = new Error(`Building count for ${buildingType} did not increase (before: ${beforeCount}, after: ${afterCount})`);
+            const typeLabel = countKey && countKey !== buildingType
+              ? `${buildingType} (${countKey})`
+              : buildingType;
+            const error = new Error(`Building count for ${typeLabel} did not increase (before: ${beforeCount}, after: ${afterCount})`);
             
             if (logger) {
               logger.logError(`Building count verification failed: ${goal.type}`, error);

@@ -557,38 +557,23 @@ Goths = function(param){
         Building.list[b].serfs[s2] = s2;
         Player.list[s2].work = {hq:b,spot:null};
       } else {
-        // Lumbermill or mine - second serf can be either, but only males get work assigned
-        if(s2 > 0.5){
-          SerfM({
-            id:s2,
-            name:'Serf',
-            x:c2[0],
-            y:c2[1],
-            z:0,
-            house:self.id,
-            home:{z:0,loc:sp2},
-            hut:id
-          });
-        } else {
-          SerfF({
-            id:s2,
-            name:'Serf',
-            x:c2[0],
-            y:c2[1],
-            z:0,
-            house:self.id,
-            home:{z:0,loc:sp2},
-            hut:id
-          });
-        }
+        // Lumbermill or mine - second serf must be male to ensure valid work HQ
+        SerfM({
+          id:s2,
+          name:'Serf',
+          x:c2[0],
+          y:c2[1],
+          z:0,
+          house:self.id,
+          home:{z:0,loc:sp2},
+          hut:id
+        });
         // First serf is always male, so always assign
         Building.list[b].serfs[s1] = s1;
         Player.list[s1].work = {hq:b,spot:null};
-        // Second serf only gets work if male
-        if(Player.list[s2].sex == 'm'){
-          Building.list[b].serfs[s2] = s2;
-          Player.list[s2].work = {hq:b,spot:null};
-        }
+        // Second serf is male, assign work
+        Building.list[b].serfs[s2] = s2;
+        Player.list[s2].work = {hq:b,spot:null};
       }
     } else {
     }
@@ -1304,38 +1289,23 @@ Franks = function(param){
         Building.list[b].serfs[s2] = s2;
         Player.list[s2].work = {hq:b,spot:null};
       } else {
-        // Lumbermill or mine - second serf can be either, but only males get work assigned
-        if(s2 > 0.5){
-          SerfM({
-            id:s2,
-            name:'Serf',
-            x:c2[0],
-            y:c2[1],
-            z:0,
-            house:self.id,
-            home:{z:0,loc:sp2},
-            hut:id
-          });
-        } else {
-          SerfF({
-            id:s2,
-            name:'Serf',
-            x:c2[0],
-            y:c2[1],
-            z:0,
-            house:self.id,
-            home:{z:0,loc:sp2},
-            hut:id
-          });
-        }
+        // Lumbermill or mine - second serf must be male to ensure valid work HQ
+        SerfM({
+          id:s2,
+          name:'Serf',
+          x:c2[0],
+          y:c2[1],
+          z:0,
+          house:self.id,
+          home:{z:0,loc:sp2},
+          hut:id
+        });
         // First serf is always male, so always assign
         Building.list[b].serfs[s1] = s1;
         Player.list[s1].work = {hq:b,spot:null};
-        // Second serf only gets work if male
-        if(Player.list[s2].sex == 'm'){
-          Building.list[b].serfs[s2] = s2;
-          Player.list[s2].work = {hq:b,spot:null};
-        }
+        // Second serf is male, assign work
+        Building.list[b].serfs[s2] = s2;
+        Player.list[s2].work = {hq:b,spot:null};
       }
     } else {
     }
@@ -1989,38 +1959,23 @@ Celts = function(param){
         Building.list[b].serfs[s2] = s2;
         Player.list[s2].work = {hq:b,spot:null};
       } else {
-        // Lumbermill or mine - second serf can be either, but only males get work assigned
-        if(s2 > 0.5){
-          SerfM({
-            id:s2,
-            name:'Serf',
-            x:c2[0],
-            y:c2[1],
-            z:0,
-            house:self.id,
-            home:{z:0,loc:sp2},
-            hut:id
-          });
-        } else {
-          SerfF({
-            id:s2,
-            name:'Serf',
-            x:c2[0],
-            y:c2[1],
-            z:0,
-            house:self.id,
-            home:{z:0,loc:sp2},
-            hut:id
-          });
-        }
+        // Lumbermill or mine - second serf must be male to ensure valid work HQ
+        SerfM({
+          id:s2,
+          name:'Serf',
+          x:c2[0],
+          y:c2[1],
+          z:0,
+          house:self.id,
+          home:{z:0,loc:sp2},
+          hut:id
+        });
         // First serf is always male, so always assign
         Building.list[b].serfs[s1] = s1;
         Player.list[s1].work = {hq:b,spot:null};
-        // Second serf only gets work if male
-        if(Player.list[s2].sex == 'm'){
-          Building.list[b].serfs[s2] = s2;
-          Player.list[s2].work = {hq:b,spot:null};
-        }
+        // Second serf is male, assign work
+        Building.list[b].serfs[s2] = s2;
+        Player.list[s2].work = {hq:b,spot:null};
       }
     } else {
     }
@@ -2464,38 +2419,23 @@ Teutons = function(param){
         Building.list[b].serfs[s2] = s2;
         Player.list[s2].work = {hq:b,spot:null};
       } else {
-        // Lumbermill or mine - second serf can be either, but only males get work assigned
-        if(s2 > 0.5){
-          SerfM({
-            id:s2,
-            name:'Serf',
-            x:c2[0],
-            y:c2[1],
-            z:0,
-            house:self.id,
-            home:{z:0,loc:sp2},
-            hut:id
-          });
-        } else {
-          SerfF({
-            id:s2,
-            name:'Serf',
-            x:c2[0],
-            y:c2[1],
-            z:0,
-            house:self.id,
-            home:{z:0,loc:sp2},
-            hut:id
-          });
-        }
+        // Lumbermill or mine - second serf must be male to ensure valid work HQ
+        SerfM({
+          id:s2,
+          name:'Serf',
+          x:c2[0],
+          y:c2[1],
+          z:0,
+          house:self.id,
+          home:{z:0,loc:sp2},
+          hut:id
+        });
         // First serf is always male, so always assign
         Building.list[b].serfs[s1] = s1;
         Player.list[s1].work = {hq:b,spot:null};
-        // Second serf only gets work if male
-        if(Player.list[s2].sex == 'm'){
-          Building.list[b].serfs[s2] = s2;
-          Player.list[s2].work = {hq:b,spot:null};
-        }
+        // Second serf is male, assign work
+        Building.list[b].serfs[s2] = s2;
+        Player.list[s2].work = {hq:b,spot:null};
       }
     } else {
     }

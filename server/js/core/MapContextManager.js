@@ -444,6 +444,29 @@ class MapContextManager {
             return null;
           }
 
+          const rows = Array.isArray(matrix) ? matrix.length : 0;
+          const cols = rows > 0 && Array.isArray(matrix[0]) ? matrix[0].length : 0;
+          if (!rows || !cols) {
+            console.warn(`[MapContextManager] Battleground pathfinding matrix missing rows/cols (match=${match.matchId}, z=${z})`);
+            return null;
+          }
+          if (!Array.isArray(startLoc) || !Array.isArray(endLoc)) {
+            console.warn(`[MapContextManager] Invalid pathfinding locations (match=${match.matchId}, z=${z})`, {
+              startLoc,
+              endLoc
+            });
+            return null;
+          }
+          const startInBounds = startLoc[0] >= 0 && startLoc[0] < cols && startLoc[1] >= 0 && startLoc[1] < rows;
+          const endInBounds = endLoc[0] >= 0 && endLoc[0] < cols && endLoc[1] >= 0 && endLoc[1] < rows;
+          if (!startInBounds || !endInBounds) {
+            console.warn(`[MapContextManager] Out-of-bounds battleground path request (match=${match.matchId}, z=${z}, rows=${rows}, cols=${cols})`, {
+              startLoc,
+              endLoc
+            });
+            return null;
+          }
+
           // Convert battleground matrix format to PF.Grid format
           // Battleground matrices: 0=walkable, 1=blocked, 2=transition (walkable)
           // PF.Grid expects: 0=walkable, 1=blocked

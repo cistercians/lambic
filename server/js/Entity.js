@@ -353,6 +353,15 @@ Building = function(param){
   self.isSpotAvailable = function(spot){
     for(var id in self.assignedSpots){
       var assigned = self.assignedSpots[id];
+      if(!assigned || !Array.isArray(assigned) || assigned.length < 2){
+        delete self.assignedSpots[id];
+        continue;
+      }
+      var serf = Player.list ? Player.list[id] : null;
+      if(!serf || !serf.work || serf.work.hq !== self.id){
+        delete self.assignedSpots[id];
+        continue;
+      }
       if(assigned[0] === spot[0] && assigned[1] === spot[1]){
         return false;
       }
@@ -363,13 +372,27 @@ Building = function(param){
   // Method to update resources list (call after resource depletion)
   self.updateResources = function(){
     if(!self.resources) return;
+
+    const pruneAssignedSpots = () => {
+      if (!self.assignedSpots || typeof self.assignedSpots !== 'object') return;
+      const resourceKeys = new Set(self.resources.map(r => `${r[0]},${r[1]}`));
+      for (const serfId in self.assignedSpots) {
+        const spot = self.assignedSpots[serfId];
+        const spotKey = Array.isArray(spot) ? `${spot[0]},${spot[1]}` : null;
+        const serfExists = global.Player && global.Player.list && global.Player.list[serfId];
+        if (!spotKey || !resourceKeys.has(spotKey) || !serfExists) {
+          delete self.assignedSpots[serfId];
+        }
+      }
+    };
     
     // Filter out depleted resources based on building type
     if(self.type === 'lumbermill'){
       self.resources = self.resources.filter(r => {
         var tile = getTile(0, r[0], r[1]);
-        return tile >= 1 && tile < 2; // Has trees
+        return tile >= 1 && tile < 3; // Has trees (heavy or light forest)
       });
+      pruneAssignedSpots();
     } else if(self.type === 'mine'){
       self.resources = self.resources.filter(r => {
         if(self.cave){
@@ -384,6 +407,7 @@ Building = function(param){
           return (global.isLargeRock && global.isLargeRock(terrain)) && layer6Res > 0;
         }
       });
+      pruneAssignedSpots();
     } else if(self.type === 'mill' || self.type === 'farm'){
       // Farms are handled specially (see below)
       self.updateFarmResources();
@@ -982,6 +1006,7 @@ Mine = function(param){
         var dist = self.getDistance({x:c[0],y:c[1]});
         if(dist <= 384){
           var gt = getTile(0,r[0],r[1]);
+          var layer6Res = getTile(6,r[0],r[1]);
           // Check for all stone types:
           // - Regular stone: exactly 4 (TERRAIN.ROCKS)
           // - Large stone: > 4 && < 5 (decimal rocks)
@@ -989,7 +1014,8 @@ Mine = function(param){
           var isStoneResource = (gt === 4) || 
                                 (gt > 4 && gt < 5) || 
                                 (gt >= 5 && gt < 6);
-          if(isStoneResource){
+          var isLargeRock = (global.isLargeRock && global.isLargeRock(gt)) || (!global.isLargeRock && isStoneResource);
+          if(isLargeRock && layer6Res > 0){
             self.resources.push(r);
           }
         }
@@ -1196,6 +1222,19 @@ Tavern = function(param){
       return;
     }
     var serfLogger = global.serfLogger;
+    self.logWorkHqNull = function(reason, extra) {
+      if (!serfLogger || typeof serfLogger.warn !== 'function') return;
+      const now = Date.now();
+      const throttleKey = `workHqNull-${self.id}`;
+      if (self._workHqNullLogAt && (now - self._workHqNullLogAt) < 10000) return;
+      serfLogger.warn('Work HQ set to null', self, Object.assign({
+        reason: reason || 'unknown',
+        workHq: self.work ? self.work.hq : null,
+        mode: self.mode || null,
+        action: self.action || null
+      }, extra || {}));
+      self._workHqNullLogAt = now;
+    };
     
     var building = Building.list[b];
     var loc = getLoc(self.x,self.y);
@@ -8866,7 +8905,10 @@ Serf = function(param){
     // Look for work buildings in the same house
     for(var i in Building.list){
       var b = Building.list[i];
-      if(b.house == self.house && validBuildingTypes.indexOf(b.type) !== -1){
+      if(global.mapContextHelpers && !global.mapContextHelpers.areInSameContext(self, b)) {
+        continue;
+      }
+      if(b.house == self.house && b.built && validBuildingTypes.indexOf(b.type) !== -1){
         candidateCount++;
         var dist = getDistance({x:self.x,y:self.y},{x:b.x,y:b.y});
         if(dist < bestDistance){
@@ -8882,8 +8924,11 @@ Serf = function(param){
       if(myHouse && myHouse.allies){
         for(var i in Building.list){
           var b = Building.list[i];
+          if(global.mapContextHelpers && !global.mapContextHelpers.areInSameContext(self, b)) {
+            continue;
+          }
           // Check if building is mill/farm and house is allied
-          if((b.type === 'mill' || b.type === 'farm') && b.house && myHouse.allies.indexOf(b.house) !== -1){
+          if((b.type === 'mill' || b.type === 'farm') && b.built && b.house && myHouse.allies.indexOf(b.house) !== -1){
             var dist = getDistance({x:self.x,y:self.y},{x:b.x,y:b.y});
             if(dist < bestDistance && dist <= 2000){ // Within reasonable distance
               bestDistance = dist;
@@ -8922,6 +8967,7 @@ Serf = function(param){
       self.work.hq = null;
       self._lastWorkAssignLogAt = now;
       self._lastWorkAssignHq = null;
+      self.logWorkHqNull('assignWorkHQ_no_candidate', { candidateCount });
     }
   };
 
@@ -8934,6 +8980,10 @@ Serf = function(param){
       // Fallback to old initialization
       if(!self.work.hq){
         self.assignWorkHQ();
+        if (!self.work.hq) {
+          self._workHqMissing = true;
+          self.logWorkHqNull('initializeSerf_no_hq');
+        }
       } else {
         // Work HQ was provided by tavern spawn, set torchBearer appropriately (for miners)
           var buildingType = Building.list[self.work.hq].type;
@@ -9438,7 +9488,10 @@ Innkeeper = function(param){
     // Look for work buildings in the same house (females can only work mills/farms)
     for(var i in Building.list){
       var b = Building.list[i];
-      if(b.house == self.house && (b.type == 'mill' || b.type == 'farm')){
+      if(global.mapContextHelpers && !global.mapContextHelpers.areInSameContext(self, b)) {
+        continue;
+      }
+      if(b.house == self.house && b.built && (b.type == 'mill' || b.type == 'farm')){
         var dist = getDistance({x:self.x,y:self.y},{x:b.x,y:b.y});
         if(dist < bestDistance){
           bestDistance = dist;
@@ -9453,8 +9506,11 @@ Innkeeper = function(param){
       if(myHouse && myHouse.allies){
         for(var i in Building.list){
           var b = Building.list[i];
+          if(global.mapContextHelpers && !global.mapContextHelpers.areInSameContext(self, b)) {
+            continue;
+          }
           // Check if building is mill/farm and house is allied
-          if((b.type == 'mill' || b.type == 'farm') && b.house && myHouse.allies.indexOf(b.house) !== -1){
+          if((b.type == 'mill' || b.type == 'farm') && b.built && b.house && myHouse.allies.indexOf(b.house) !== -1){
             var dist = getDistance({x:self.x,y:self.y},{x:b.x,y:b.y});
             if(dist < bestDistance && dist <= 2000){ // Within reasonable distance
               bestDistance = dist;
@@ -9470,6 +9526,14 @@ Innkeeper = function(param){
     } else {
       // No work available - serf will idle at home
       self.work.hq = null;
+      var serfLogger = global.serfLogger;
+      if (serfLogger && typeof serfLogger.warn === 'function') {
+        serfLogger.warn('Work HQ set to null', self, {
+          reason: 'assignWorkHQ_no_candidate',
+          mode: self.mode || null,
+          action: self.action || null
+        });
+      }
     }
   };
 
@@ -9482,6 +9546,13 @@ Innkeeper = function(param){
       // Fallback to old initialization
       if(!self.work.hq){
         self.assignWorkHQ();
+        if (!self.work.hq) {
+          self._workHqMissing = true;
+          var serfLogger = global.serfLogger;
+          if (serfLogger && typeof serfLogger.warn === 'function') {
+            serfLogger.warn('Work HQ set to null', self, { reason: 'initializeSerf_no_hq' });
+          }
+        }
       } else {
         // Work HQ was provided by tavern spawn, set torchBearer appropriately (for miners)
           var buildingType = Building.list[self.work.hq].type;

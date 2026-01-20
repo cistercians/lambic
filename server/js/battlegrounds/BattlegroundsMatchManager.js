@@ -74,14 +74,6 @@ class BattlegroundsMatchManager {
 
     const { players, gameMode, originalPlayerPositions } = matchConfig;
     let resolvedGameMode = gameMode;
-    const humanPlayerCount = players.filter(p => !p.isNPC).length;
-    if (humanPlayerCount === 1 && resolvedGameMode !== 'deathmatch') {
-      console.log(`Single human player detected, forcing Deathmatch (was ${resolvedGameMode})`);
-      resolvedGameMode = 'deathmatch';
-      players.forEach(player => {
-        player.team = null;
-      });
-    }
     
     // Determine map size based on participant count
     const participantCount = players.length;
@@ -1036,6 +1028,10 @@ class BattlegroundsMatchManager {
     
     // Start elite NPC behavior updates
     if (this.eliteNPCBehavior) {
+      console.log('[BG][Elite] beginMatch', {
+        matchId: this.currentMatch.matchId,
+        eliteNPCCount: Array.isArray(this.currentMatch.eliteNPCs) ? this.currentMatch.eliteNPCs.length : 0
+      });
       this.eliteNPCBehavior.startBehaviorUpdates(this.currentMatch);
     }
     
