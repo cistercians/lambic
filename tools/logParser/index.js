@@ -11,6 +11,16 @@ const ErrorExtractor = require('./extractors/ErrorExtractor');
 const PerformanceExtractor = require('./extractors/PerformanceExtractor');
 const SerfExtractor = require('./extractors/SerfExtractor');
 const FactionAIExtractor = require('./extractors/FactionAIExtractor');
+const FactionAIReportExtractor = require('./extractors/FactionAIReportExtractor');
+const EventManagerExtractor = require('./extractors/EventManagerExtractor');
+const BuildingExtractor = require('./extractors/BuildingExtractor');
+const NetworkExtractor = require('./extractors/NetworkExtractor');
+const TempusExtractor = require('./extractors/TempusExtractor');
+const SummaryExtractor = require('./extractors/SummaryExtractor');
+const StrategyExtractor = require('./extractors/StrategyExtractor');
+const MiscGameplayExtractor = require('./extractors/MiscGameplayExtractor');
+const EnvironmentExtractor = require('./extractors/EnvironmentExtractor');
+const UnrecognizedExtractor = require('./extractors/UnrecognizedExtractor');
 
 function parseArgs(argv) {
   const args = {};
@@ -39,8 +49,22 @@ function buildExtractors(config) {
     new ErrorExtractor(cfg.errors || {}),
     new PerformanceExtractor(cfg.performance || {}),
     new SerfExtractor(cfg.serf || {}),
-    new FactionAIExtractor(cfg.factionAI || {})
+    new FactionAIExtractor(cfg.factionAI || {}),
+    new FactionAIReportExtractor(cfg.factionAIReport || {}),
+    new EventManagerExtractor(cfg.eventManager || {}),
+    new BuildingExtractor(cfg.building || {}),
+    new NetworkExtractor(cfg.network || {}),
+    new TempusExtractor(cfg.tempus || {}),
+    new SummaryExtractor(cfg.summary || {}),
+    new StrategyExtractor(cfg.strategy || {}),
+    new MiscGameplayExtractor(cfg.miscGameplay || {}),
+    new EnvironmentExtractor(cfg.environment || {})
   ];
+}
+
+function buildUnrecognizedExtractor(config) {
+  const cfg = config.extractors || {};
+  return new UnrecognizedExtractor(cfg.unrecognized || {});
 }
 
 function printUsage() {
@@ -84,7 +108,12 @@ async function main() {
 
   const inputPath = path.resolve(args.input);
   const extractors = buildExtractors(config);
-  const parser = new LogParser({ extractors, parserVersion: config.parserVersion || '1.0.0' });
+  const unrecognizedExtractor = buildUnrecognizedExtractor(config);
+  const parser = new LogParser({
+    extractors,
+    unrecognizedExtractor,
+    parserVersion: config.parserVersion || '1.0.0'
+  });
   const reportData = await parser.parseFile(inputPath);
 
   const generator = new ReportGenerator({ reportsDir });

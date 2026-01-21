@@ -793,6 +793,10 @@ class SimpleCombat {
   // Main combat update - called every frame for entities with action='combat' or attack intent (pendingTarget)
   update(entity) {
     try {
+      // Prevent ghosts from attacking
+      if (entity.ghost) {
+        return;
+      }
       
       // Handle attack intent (works for all entities - players and NPCs, stealth and regular)
       if (this.handlePendingStealthAttack(entity)) {
@@ -1142,6 +1146,11 @@ class SimpleCombat {
   // Handle attack logic
   handleAttack(entity, target) {
     try {
+      // Prevent ghosts from attacking
+      if (entity.ghost) {
+        return;
+      }
+      
       // Prevent attacks if player is in battleground match that hasn't started yet
       if (entity.inBattleground && entity.battlegroundMatchId) {
         const matchManager = global.battlegroundsMatchManager;
@@ -1640,9 +1649,9 @@ class SimpleCombat {
       }
     }
     
-    // Skip peaceful units (NPCs only). Players should never auto-flee.
+    // Skip peaceful units (NPCs and fauna). Players should never auto-flee.
     const peaceful = ['Serf', 'SerfM', 'SerfF', 'Deer', 'Sheep'];
-    if (entity.type === 'npc' && peaceful.includes(entity.class)) {
+    if ((entity.type === 'npc' || entity.type === 'fauna') && peaceful.includes(entity.class)) {
       // Serfs should not flee from prey animals (deer)
       if (target.isPrey && entity.class === 'Serf') {
         return; // Don't start combat or flee

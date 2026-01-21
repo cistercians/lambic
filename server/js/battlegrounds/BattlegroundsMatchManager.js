@@ -405,6 +405,11 @@ class BattlegroundsMatchManager {
     if (!this.mapGenerator) {
       throw new Error('Map generator not initialized');
     }
+    if (global.eventManager && typeof global.eventManager.battlegroundEvent === 'function') {
+      global.eventManager.battlegroundEvent('map generation started', {
+        metadata: { gameMode, mapSize }
+      });
+    }
     
     // Step 1: Check if there are Classic Maps available for this game mode and map size
     let matchingClassicMaps = [];
@@ -426,6 +431,16 @@ class BattlegroundsMatchManager {
       }
       
       console.log(`Using Classic Map: ${classicMap.mapId} for ${gameMode} (${mapSize}x${mapSize}) from ${matchingClassicMaps.length} available maps`);
+      if (global.eventManager && typeof global.eventManager.battlegroundEvent === 'function') {
+        global.eventManager.battlegroundEvent('map generation classic', {
+          metadata: {
+            gameMode,
+            mapSize,
+            classicMapId: classicMap.mapId,
+            availableClassicMaps: matchingClassicMaps.length
+          }
+        });
+      }
       
       // Increment play count
       this.mapLibrary.incrementPlayCount(classicMap.mapId);
@@ -446,6 +461,15 @@ class BattlegroundsMatchManager {
     
     // Step 4: No Classic Map selected (either none available or 85% chance to generate new) - create a new map
     console.log(`Generating new map for ${gameMode} (${mapSize}x${mapSize})${matchingClassicMaps.length > 0 ? ' (Classic Map available but not selected)' : ''}`);
+    if (global.eventManager && typeof global.eventManager.battlegroundEvent === 'function') {
+      global.eventManager.battlegroundEvent('map generation new', {
+        metadata: {
+          gameMode,
+          mapSize,
+          classicMapsAvailable: matchingClassicMaps.length
+        }
+      });
+    }
     return await this.mapGenerator.generateBattlegroundMap(gameMode, mapSize);
   }
 
@@ -598,11 +622,31 @@ class BattlegroundsMatchManager {
     
     if (!spawnPoints || Object.keys(spawnPoints).length === 0) {
       console.warn('[BattlegroundsMatchManager] No spawn points calculated, using emergency fallback');
+      if (global.eventManager && typeof global.eventManager.battlegroundEvent === 'function') {
+        global.eventManager.battlegroundEvent('spawn points missing', {
+          metadata: {
+            matchId: this.currentMatch.matchId,
+            gameMode,
+            mapType: this.currentMatch.mapType,
+            mapSize: this.currentMatch.mapSize
+          }
+        });
+      }
       spawnPoints = this.getEmergencySpawnPoints(participants, mapData);
     }
     
     if (!spawnPoints || Object.keys(spawnPoints).length === 0) {
       console.error('[BattlegroundsMatchManager] No spawn points available after fallback, ending match');
+      if (global.eventManager && typeof global.eventManager.battlegroundEvent === 'function') {
+        global.eventManager.battlegroundEvent('spawn points failure', {
+          metadata: {
+            matchId: this.currentMatch.matchId,
+            gameMode,
+            mapType: this.currentMatch.mapType,
+            mapSize: this.currentMatch.mapSize
+          }
+        });
+      }
       this.endMatch({
         reason: 'spawn_points_missing',
         winner: null,
@@ -613,6 +657,15 @@ class BattlegroundsMatchManager {
     }
     
     console.log(`[BattlegroundsMatchManager] Got ${Object.keys(spawnPoints).length} spawn points from game mode`);
+    if (global.eventManager && typeof global.eventManager.battlegroundEvent === 'function') {
+      global.eventManager.battlegroundEvent('spawn points ready', {
+        metadata: {
+          matchId: this.currentMatch.matchId,
+          spawnPoints: Object.keys(spawnPoints).length,
+          participants: participants.length
+        }
+      });
+    }
     
     // Store player IDs for position verification
     const spawnedPlayerIds = [];
@@ -1018,6 +1071,18 @@ class BattlegroundsMatchManager {
     this.currentMatch.startTime = Date.now();
     this.broadcastMatchUpdate();
     
+    if (global.eventManager && typeof global.eventManager.battlegroundEvent === 'function') {
+      global.eventManager.battlegroundEvent('match started', {
+        metadata: {
+          matchId: this.currentMatch.matchId,
+          gameMode: this.currentMatch.gameMode,
+          mapType: this.currentMatch.mapType,
+          mapSize: this.currentMatch.mapSize,
+          participants: this.currentMatch.participants?.length || 0
+        }
+      });
+    }
+    
     // Start match timer
     this.matchTimer = setTimeout(() => {
       this.endMatch({ reason: 'timeout' });
@@ -1320,6 +1385,16 @@ class BattlegroundsMatchManager {
     this.currentMatch.endTime = Date.now();
     this.currentMatch.endReason = endReason.reason || endReason;
     this.currentMatch.winner = endReason.winner || null;
+    
+    if (global.eventManager && typeof global.eventManager.battlegroundEvent === 'function') {
+      global.eventManager.battlegroundEvent('match ended', {
+        metadata: {
+          matchId: this.currentMatch.matchId,
+          reason: this.currentMatch.endReason,
+          winner: this.currentMatch.winner || null
+        }
+      });
+    }
     
     // Calculate final scores
     if (this.scoreManager) {

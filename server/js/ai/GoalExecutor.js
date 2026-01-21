@@ -320,6 +320,35 @@ class GoalExecutor {
       logger.collectError(`Goal blocked: ${goal.type}`, null, {
         reasoning: blockingSummary
       });
+
+      logger.collectGoalFailureContext({
+        goal: goal.type,
+        step,
+        reason: blockingSummary,
+        resourceBlocks: resourceBlocks.map(b => `${b.resource} (have ${b.have}, need ${b.need})`),
+        buildingBlocks: buildingBlocks.map(b => b.value),
+        unitBlocks: unitBlocks.map(b => `${b.need} units (have ${b.have})`),
+        resourceGapBlocks: resourceGapBlocks.map(b => b.value),
+        locationBlocks: locationBlocks.map(b => b.value)
+      });
+    }
+
+    if (global.eventManager && typeof global.eventManager.aiEvent === 'function') {
+      global.eventManager.aiEvent('goal blocked', {
+        subject: this.house?.id || null,
+        subjectName: this.house?.name || null,
+        house: this.house?.id || null,
+        houseName: this.house?.name || null,
+        metadata: {
+          goal: goal.type,
+          step,
+          resourceBlocks: resourceBlocks.map(b => ({ resource: b.resource, have: b.have, need: b.need })),
+          buildingBlocks: buildingBlocks.map(b => b.value),
+          unitBlocks: unitBlocks.map(b => ({ need: b.need, have: b.have })),
+          resourceGapBlocks: resourceGapBlocks.map(b => b.value),
+          locationBlocks: locationBlocks.map(b => b.value)
+        }
+      });
     }
     
     // Log location blocking specifically for debugging

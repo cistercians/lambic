@@ -16,16 +16,19 @@ class PerformanceExtractor extends BaseExtractor {
   }
 
   extract(line, context) {
+    let matched = false;
     const fpsMatch = line.match(/fps[:=]\s*([\d.]+)/i);
     if (fpsMatch) {
       this.stats.fps.push(Number(fpsMatch[1]));
       this.addSample({ type: 'fps', value: Number(fpsMatch[1]), lineNumber: context.lineNumber });
+      matched = true;
     }
 
     const frameMatch = line.match(/frame(?:\s*time)?[:=]\s*([\d.]+)\s*ms/i);
     if (frameMatch) {
       this.stats.frameMs.push(Number(frameMatch[1]));
       this.addSample({ type: 'frame_ms', value: Number(frameMatch[1]), lineNumber: context.lineNumber });
+      matched = true;
     }
 
     const packetMatch = line.match(/packet(?:\s*size)?[:=]\s*([\d.]+)\s*(kb|mb|bytes)?/i);
@@ -33,6 +36,7 @@ class PerformanceExtractor extends BaseExtractor {
       const value = this._toBytes(Number(packetMatch[1]), packetMatch[2]);
       this.stats.packetBytes.push(value);
       this.addSample({ type: 'packet_bytes', value, lineNumber: context.lineNumber });
+      matched = true;
     }
 
     const memoryMatch = line.match(/memory[:=]\s*([\d.]+)\s*(kb|mb|gb)?/i);
@@ -40,7 +44,9 @@ class PerformanceExtractor extends BaseExtractor {
       const value = this._toMb(Number(memoryMatch[1]), memoryMatch[2]);
       this.stats.memoryMb.push(value);
       this.addSample({ type: 'memory_mb', value, lineNumber: context.lineNumber });
+      matched = true;
     }
+    return matched;
   }
 
   getResults() {

@@ -21,11 +21,13 @@ The serf system is a complex economic unit management system that handles worker
 
 ### Key Characteristics
 
-- **Action-based behavior**: Serfs operate on discrete actions (`null`, `'deposit'`, `'build'`, `'clockout'`, `'flee'`)
-- **Pre-assigned work**: Work buildings are assigned at spawn time, no dynamic reassignment
+- **Action-based behavior**: Serfs operate on discrete actions (`null`, `'deposit'`, `'build'`, `'clockout'`, `'task'`, `'flee'`)
+- **Pre-assigned work**: Work buildings are assigned at spawn time; reassignment can occur if a building becomes invalid or depleted
 - **Gender-based restrictions**: Female serfs can only work mills/farms; males can work all economic building types (building construction is not sex-restricted)
 - **Wage system**: Serfs keep 15% of common resources as personal wage
 - **Spot management**: Buildings track which serfs are assigned to which work spots to prevent conflicts
+- **Daily schedule**: Serfs start work at dawn and clock out at dusk with staggered transitions
+- **Off-work behavior**: Serfs choose between market, tavern, or home based on inventory, availability, and gender-specific probabilities
 
 ---
 
@@ -49,7 +51,7 @@ Serf = function(param) {
 - `self.inventory = {}` - Resources being carried
 - `self.stores = {}` - Personal wage storage
 - `self.mode = 'idle'` or `'work'` - Current behavior mode
-- `self.action = null` - Current action (`'deposit'`, `'build'`, `'clockout'`, `'flee'`, or `null`)
+- `self.action = null` - Current action (`'deposit'`, `'build'`, `'clockout'`, `'task'`, `'flee'`, or `null`)
 - `self.hut` - Reference to hut building (if assigned)
 - `self.home = {z, loc}` - Home location [col, row]
 - `self.torchBearer = false` - For miners in caves
@@ -81,6 +83,7 @@ SerfF = function(param) {
 - Can search allied houses if no work in own house
 - Sets `torchBearer = true` for miners in caves
 - Sets `preferredCaveEntrance` when assigned to a cave mine
+- If no valid building exists for female serfs, they remain idle with no HQ
 
 **`assignDailyWorkSpot()`** (legacy helper in `Entity.js`)
 - Assigns a specific work spot from building's resource list
@@ -121,6 +124,8 @@ update(serf) {
     this.handleBuild(serf);
   } else if (serf.action === 'clockout') {
     this.handleClockout(serf);
+  } else if (serf.action === 'task') {
+    this.handleTask(serf);
   } else if (serf.action === 'flee') {
     if (global.simpleFlee) {
       global.simpleFlee.update(serf);
@@ -138,6 +143,18 @@ if (global.simpleSerfBehavior) {
   global.simpleSerfBehavior.update(self);
 }
 ```
+
+### Day/Night Behavior
+
+- Serfs switch to `work` at dawn and `clockout` at dusk.
+- Transitions are staggered with a randomized 10-second window to avoid herd behavior.
+- Off‑work decisions are scheduled after clockout (market, tavern, or home).
+
+### Market Behavior
+
+- Serfs target a market if one exists in their area.
+- If a market exists and the serf has items (inventory or personal stores), they will go to sell.
+- Serfs may occasionally visit the market even without items (idle/social behavior).
 
 #### Configuration
 
@@ -188,7 +205,8 @@ self.isSpotAvailable = function(spot) {
    - If `work.hq` not provided, calls `assignWorkHQ()` to find nearest valid building
    - Sets `torchBearer = true` for miners in caves
    - Sets initial `mode = 'idle'` or `'work'`
-3. Work building is pre-assigned at spawn - no dynamic reassignment needed
+3. Work building is pre-assigned at spawn
+4. If a work building becomes invalid or depleted, reassignment may occur at runtime
 
 **Serf Spawning Example** (`Houses.js` lines 356-531):
 ```javascript
@@ -623,7 +641,7 @@ handleBuild(serf) {
 1. First deposits any remaining resources
 2. Then pathfinds to `serf.home` location
 3. When at home, sets `serf.action = null` and `serf.mode = 'idle'`
-4. Serf enters idle/wandering state
+4. Off‑work decision is scheduled (market, tavern, or home)
 
 **Code:**
 ```javascript
@@ -658,18 +676,19 @@ handleClockout(serf) {
 }
 ```
 
-### Phase 8: Wandering/Idle
+### Phase 8: Off‑Work Decisions and Wandering
 
 **Location:** `SimpleSerfBehavior.js` lines 269-311
 
 #### Process
 
 When `serf.mode !== 'work'`:
-1. `handleWandering()` picks random adjacent tile
-2. Checks if walkable (not water, not transition tiles)
-3. Moves to tile using `serf.move(target)`
-4. Sets `serf.idleTime` to random value (30-1000 frames)
-5. Waits before next wander
+1. Off‑work decision tree selects a target:
+   - If a market exists and the serf has items, go to market
+   - If a market exists, serfs may still occasionally visit without items
+   - Otherwise, pick tavern vs home (male 50/50, female 70/30)
+2. Transition is staggered with a short randomized delay (10 seconds window)
+3. `handleWandering()` remains the fallback when no target exists
 
 **Code:**
 ```javascript
@@ -789,7 +808,7 @@ Creates singleton instance available globally.
    ```
 
 **Gender Assignment Rules:**
-- **Lumbermill/mine**: First serf always male, second can be either (but only males get work assigned)
+- **Lumbermill/mine**: First serf always male; second serf is forced male to ensure a valid work HQ
 - **Mill/farm**: Can be either gender, both can work
 
 **Example:**
@@ -813,11 +832,8 @@ self.newSerfs = function(b, hq) {
     } else {
       // Lumbermill or mine - first serf must be male
       var s1 = SerfM(...);
-      // Second serf can be either, but only males get work
-      var s2 = Math.random() < 0.5 ? SerfM(...) : SerfF(...);
-      if (s2.sex === 'f') {
-        // Female doesn't get work assignment
-      }
+      // Second serf is forced male to keep work HQ valid
+      var s2 = SerfM(...);
     }
   }
 }
@@ -1292,6 +1308,7 @@ if (resourceType === 'grain' && building.type === 'mill' && serf.inventory) {
 | `handleDeposit()` | `server/js/core/SimpleSerfBehavior.js` | 104-139 |
 | `handleBuild()` | `server/js/core/SimpleSerfBehavior.js` | 144-206 |
 | `handleClockout()` | `server/js/core/SimpleSerfBehavior.js` | 211-264 |
+| `handleTask()` | `server/js/core/SimpleSerfBehavior.js` | 265-311 |
 | `handleWandering()` | `server/js/core/SimpleSerfBehavior.js` | 269-311 |
 | `assignWorkSpot()` | `server/js/core/SimpleSerfBehavior.js` | 320-387 |
 | `executeWork()` | `server/js/core/SimpleSerfBehavior.js` | 444-484 |

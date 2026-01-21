@@ -11,17 +11,86 @@ class FactionAIExtractor extends BaseExtractor {
       totalEvents: 0,
       byComponent: {},
       chainErrors: 0,
-      decisions: 0
+      decisions: 0,
+      goalChainEvents: 0,
+      scoutGoalEvents: 0
     };
   }
 
   extract(line, context) {
+    // Check for GoalChain logs
+    const goalChainMatch = line.match(/^\[GoalChain\]\s+(.+)$/);
+    if (goalChainMatch) {
+      this.stats.totalEvents += 1;
+      this.stats.goalChainEvents += 1;
+      this._increment(this.stats.byComponent, 'GoalChain');
+
+      const message = goalChainMatch[1];
+      let faction = null;
+      let goal = null;
+      let depth = null;
+      let reason = null;
+
+      // Extract faction if present
+      const factionMatch = message.match(/faction:\s+(\w+)/i);
+      if (factionMatch) faction = factionMatch[1];
+
+      // Extract goal if present
+      const goalMatch = message.match(/([A-Z_]+)\s*\(/);
+      if (goalMatch) goal = goalMatch[1];
+
+      // Extract depth if present
+      const depthMatch = message.match(/depth:\s+(\d+)/i);
+      if (depthMatch) depth = Number(depthMatch[1]);
+
+      // Extract reason if present
+      const reasonMatch = message.match(/reason:\s+([^,)]+)/i);
+      if (reasonMatch) reason = reasonMatch[1].trim();
+
+      this.addEvent({
+        type: 'goal_chain',
+        component: 'GoalChain',
+        message,
+        faction,
+        goal,
+        depth,
+        reason,
+        day: context.currentDay || null,
+        hour: context.currentHour || null,
+        lineNumber: context.lineNumber
+      });
+      return true;
+    }
+
+    // Check for SCOUT GOAL logs
+    const scoutGoalMatch = line.match(/^\[SCOUT GOAL\]\s+(\w+):\s+(.+)$/);
+    if (scoutGoalMatch) {
+      this.stats.totalEvents += 1;
+      this.stats.scoutGoalEvents += 1;
+      this._increment(this.stats.byComponent, 'SCOUT GOAL');
+
+      const faction = scoutGoalMatch[1];
+      const message = scoutGoalMatch[2];
+
+      this.addEvent({
+        type: 'scout_goal',
+        component: 'SCOUT GOAL',
+        message,
+        faction,
+        day: context.currentDay || null,
+        hour: context.currentHour || null,
+        lineNumber: context.lineNumber
+      });
+      return true;
+    }
+
+    // Original patterns
     if (!line.includes('[FactionAI]') &&
         !line.includes('[GoalExecutor]') &&
         !line.includes('[COMBAT RECORDER]') &&
         !line.includes('Goal chain') &&
         !line.includes('Chain creation errors')) {
-      return;
+      return false;
     }
 
     this.stats.totalEvents += 1;
@@ -46,6 +115,7 @@ class FactionAIExtractor extends BaseExtractor {
       hour: context.currentHour || null,
       lineNumber: context.lineNumber
     });
+    return true;
   }
 
   _increment(map, key, amount = 1) {

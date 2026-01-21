@@ -474,6 +474,13 @@ class CommandHandler {
     if (!cmd || typeof cmd !== 'string' || cmd.length > 256) {
       metrics.increment('commands.invalidInput');
       this.sendError(socket, 'Invalid command');
+      if (global.eventManager && typeof global.eventManager.validationEvent === 'function') {
+        global.eventManager.validationEvent('invalid command', {
+          subject: player?.id || null,
+          subjectName: player?.name || player?.class || null,
+          metadata: { reason: 'invalid_input', length: cmd ? cmd.length : 0 }
+        });
+      }
       return;
     }
     const [commandName, ...args] = cmd.split(' ');
@@ -482,6 +489,13 @@ class CommandHandler {
     if (!command) {
       metrics.increment('commands.unknown');
       this.sendError(socket, `Unknown command: ${commandName}`);
+      if (global.eventManager && typeof global.eventManager.validationEvent === 'function') {
+        global.eventManager.validationEvent('unknown command', {
+          subject: player?.id || null,
+          subjectName: player?.name || player?.class || null,
+          metadata: { commandName }
+        });
+      }
       return;
     }
     
@@ -490,6 +504,13 @@ class CommandHandler {
     } catch (error) {
       metrics.increment('commands.errors');
       this.sendError(socket, 'Command execution failed');
+      if (global.eventManager && typeof global.eventManager.validationEvent === 'function') {
+        global.eventManager.validationEvent('command execution failed', {
+          subject: player?.id || null,
+          subjectName: player?.name || player?.class || null,
+          metadata: { commandName, error: error.message || String(error) }
+        });
+      }
     }
   }
   

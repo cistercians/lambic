@@ -11,6 +11,8 @@ class SimpleSerfBehavior {
     this.SERF_WAGE = 0.15; // 15% wage for serf
     this.logThrottle = {}; // Throttle frequent logs: {serfId: {lastLogTime: timestamp, lastState: state}}
     this.LOG_THROTTLE_MS = 5000; // Only log same message every 5 seconds per serf
+    this.TRANSITION_WINDOW_MS = 10000; // 10s stagger window
+    this.OFFWORK_MARKET_IDLE_CHANCE = 0.1;
   }
 
   getSerfLogger() {
@@ -374,6 +376,203 @@ class SimpleSerfBehavior {
     return global.getTile ? global.getTile(layer, c, r, entity) : 0;
   }
 
+  getBuildingTargetTile(building) {
+    if (!building) return null;
+    if (Array.isArray(building.entrance) && building.entrance.length === 2) {
+      return building.entrance;
+    }
+    if (Array.isArray(building.plot) && building.plot.length > 0) {
+      const tile = building.plot[0];
+      if (Array.isArray(tile) && tile.length === 2) {
+        return tile;
+      }
+    }
+    if (typeof building.x === 'number' && typeof building.y === 'number') {
+      return global.getLoc ? global.getLoc(building.x, building.y, building) : [
+        Math.floor(building.x / 64),
+        Math.floor(building.y / 64)
+      ];
+    }
+    return null;
+  }
+
+  isMarketBuilding(building) {
+    if (!building || !building.type) return false;
+    return String(building.type).toLowerCase().includes('market');
+  }
+
+  getMarketForSerf(serf) {
+    if (!serf || !global.Building || !global.Building.list) return null;
+    if (serf.tavern && global.Building.list[serf.tavern]) {
+      const tavern = global.Building.list[serf.tavern];
+      if (tavern.market && global.Building.list[tavern.market]) {
+        const market = global.Building.list[tavern.market];
+        if (market.built) return market;
+      }
+    }
+    const candidates = Object.values(global.Building.list).filter(b => {
+      if (!b || !b.built || b.house !== serf.house) return false;
+      if (!this.isMarketBuilding(b)) return false;
+      if (global.mapContextHelpers && !global.mapContextHelpers.areInSameContext(serf, b)) {
+        return false;
+      }
+      return true;
+    });
+    if (!candidates.length) return null;
+    let best = null;
+    let bestDistance = Infinity;
+    for (const b of candidates) {
+      const dist = global.getDistance
+        ? global.getDistance({ x: serf.x, y: serf.y }, { x: b.x, y: b.y })
+        : Math.hypot((serf.x || 0) - (b.x || 0), (serf.y || 0) - (b.y || 0));
+      if (dist < bestDistance) {
+        bestDistance = dist;
+        best = b;
+      }
+    }
+    return best;
+  }
+
+  getTavernForSerf(serf) {
+    if (!serf || !global.Building || !global.Building.list) return null;
+    if (serf.tavern && global.Building.list[serf.tavern]) {
+      const tavern = global.Building.list[serf.tavern];
+      if (tavern.built) return tavern;
+    }
+    if (serf.work && serf.work.hq && global.Building.list[serf.work.hq]) {
+      const hq = global.Building.list[serf.work.hq];
+      if (hq.tavern && global.Building.list[hq.tavern]) {
+        const tavern = global.Building.list[hq.tavern];
+        if (tavern.built) return tavern;
+      }
+    }
+    return null;
+  }
+
+  hasMarketItems(serf) {
+    if (!serf) return false;
+    const inventoryItems = Object.entries(serf.inventory || {})
+      .filter(([key, value]) => key !== 'torch' && value > 0);
+    const storeItems = Object.entries(serf.stores || {})
+      .filter(([key, value]) => value > 0);
+    return inventoryItems.length > 0 || storeItems.length > 0;
+  }
+
+  scheduleTransition(serf, type, delayMs) {
+    if (!serf) return;
+    const now = Date.now();
+    const delay = typeof delayMs === 'number'
+      ? delayMs
+      : Math.floor(Math.random() * this.TRANSITION_WINDOW_MS);
+    const at = now + Math.max(0, delay);
+    if (serf._pendingTransition && serf._pendingTransition.type === type) {
+      if (serf._pendingTransition.at <= at) return;
+    }
+    serf._pendingTransition = { type, at };
+  }
+
+  processTransition(serf) {
+    if (!serf || !serf._pendingTransition) return;
+    const now = Date.now();
+    if (now < serf._pendingTransition.at) return;
+    const type = serf._pendingTransition.type;
+    serf._pendingTransition = null;
+    if (type === 'startWork') {
+      serf.mode = 'work';
+      if (serf.action === 'clockout') {
+        serf.action = null;
+      }
+      serf._offWorkTargetType = null;
+      serf._savedWorkSpot = null;
+      if (serf.work) {
+        serf.work.spot = null;
+        serf.work.assignedSpot = null;
+        serf.work.workTile = null;
+        serf.work.workTileFor = null;
+      }
+      return;
+    }
+    if (type === 'clockout') {
+      if (serf.action !== 'build' && serf.action !== 'deposit') {
+        serf.action = 'clockout';
+      }
+      serf.mode = 'idle';
+      return;
+    }
+    if (type === 'offworkDecision') {
+      this.decideOffWorkAction(serf);
+    }
+  }
+
+  handleDailySchedule(serf) {
+    if (!serf) return;
+    const isNight = this.isNightTime();
+    if (serf._lastNightfall === undefined) {
+      serf._lastNightfall = isNight;
+    }
+    if (isNight !== serf._lastNightfall) {
+      if (isNight) {
+        this.scheduleTransition(serf, 'clockout');
+      } else {
+        if (serf.work && serf.work.hq) {
+          this.scheduleTransition(serf, 'startWork');
+        }
+      }
+      serf._lastNightfall = isNight;
+    }
+
+    this.processTransition(serf);
+
+    if (isNight && !serf.action && serf.mode !== 'work') {
+      if (!serf._pendingTransition) {
+        this.scheduleTransition(serf, 'offworkDecision');
+      }
+    }
+  }
+
+  decideOffWorkAction(serf) {
+    if (!serf || serf.action) return;
+    const market = this.getMarketForSerf(serf);
+    const hasItems = this.hasMarketItems(serf);
+    const wantsMarket = market && (hasItems || Math.random() < this.OFFWORK_MARKET_IDLE_CHANCE);
+    if (wantsMarket) {
+      const target = this.getBuildingTargetTile(market);
+      if (target && serf.work) {
+        serf._savedWorkSpot = serf.work.spot;
+        serf.work.spot = target;
+        serf.action = 'task';
+        serf.mode = 'idle';
+        serf._offWorkTargetType = 'market';
+        return;
+      }
+    }
+
+    const tavern = this.getTavernForSerf(serf);
+    const tavernChance = serf.sex === 'f' ? 0.3 : 0.5;
+    if (tavern && Math.random() < tavernChance) {
+      const target = this.getBuildingTargetTile(tavern);
+      if (target && serf.work) {
+        serf._savedWorkSpot = serf.work.spot;
+        serf.work.spot = target;
+        serf.action = 'task';
+        serf.mode = 'idle';
+        serf._offWorkTargetType = 'tavern';
+        return;
+      }
+    }
+
+    if (serf.home) {
+      serf.action = 'clockout';
+      serf.mode = 'idle';
+      serf._offWorkTargetType = 'home';
+      return;
+    }
+
+    serf.mode = 'idle';
+    serf.action = null;
+    serf._offWorkTargetType = 'idle';
+  }
+
   tileChange(entity, layer, c, r, value, incr = false) {
     if (typeof global.tileChange === 'function') {
       global.tileChange(layer, c, r, value, incr, entity);
@@ -410,6 +609,8 @@ class SimpleSerfBehavior {
       if (serf._pendingFleeRecovery && serf.action !== 'flee') {
         this.recoverFromFlee(serf);
       }
+
+      this.handleDailySchedule(serf);
 
       // Handle actions (like military units)
       if (!serf.action) {
@@ -545,16 +746,44 @@ class SimpleSerfBehavior {
   handleDefaultWork(serf) {
     if (serf.mode !== 'work') {
       const needsHutBuild = !!(serf.hut && global.Building && global.Building.list && global.Building.list[serf.hut] && !global.Building.list[serf.hut].built);
-      if (needsHutBuild && serf.work && serf.work.hq) {
-        serf.mode = 'work';
-      } else if (!this.isNightTime()) {
-        if (!serf.work || !serf.work.hq) {
-          this.tryReassignWork(serf);
+      const isNight = this.isNightTime();
+      const hasPendingClockout = serf._pendingTransition && serf._pendingTransition.type === 'clockout';
+      
+      // Respect the day/night cycle: The schedule system (handleDailySchedule + processTransition) controls mode transitions
+      // processTransition() sets mode to 'work' when executing startWork transition at dawn
+      // Only set work mode here as a fallback if:
+      // 1. It's day time (not night) - serfs should work during day
+      // 2. There's no pending clockout transition - don't force work mode if serf is clocking out
+      // This ensures we don't force work mode at night or after clockout, letting the schedule system handle transitions
+      if (!isNight && !hasPendingClockout) {
+        // If serf has valid work.hq and building exists, set work mode (only during day after dawn transition)
+        if (serf.work && serf.work.hq && global.Building && global.Building.list) {
+          const building = global.Building.list[serf.work.hq];
+          if (building && building.built) {
+            serf.mode = 'work';
+          }
         }
-        if (serf.work && serf.work.hq) {
-          serf.mode = 'work';
+        
+        // If still not in work mode, try to reassign work
+        if (serf.mode !== 'work') {
+          if (!serf.work || !serf.work.hq) {
+            this.tryReassignWork(serf);
+          }
+          // After reassignment attempt, set work mode if we have a valid work.hq
+          if (serf.work && serf.work.hq && global.Building && global.Building.list) {
+            const building = global.Building.list[serf.work.hq];
+            if (building && building.built) {
+              serf.mode = 'work';
+            }
+          }
         }
       }
+      
+      // Hut building is urgent and can happen even at night (but still respect clockout transitions)
+      if (needsHutBuild && !hasPendingClockout) {
+        serf.mode = 'work';
+      }
+      
       if (serf.mode !== 'work') {
       // Log when serfs are not in work mode (for cave mine debugging, throttled)
       if (serf.work && serf.work.hq && global.Building && global.Building.list) {
@@ -631,6 +860,19 @@ class SimpleSerfBehavior {
         }
       }
       console.warn(`[SERF WORK] ${factionName}: Work building invalid for serf - work.hq: ${buildingId}, building exists: ${buildingExists}, built: ${buildingBuilt}, serf.mode: ${serf.mode}, serf.hut: ${serf.hut || 'none'}`);
+      if (global.eventManager && typeof global.eventManager.aiEvent === 'function') {
+        global.eventManager.aiEvent('serf work building invalid', {
+          subject: serf.id,
+          subjectName: serf.name || serf.class,
+          house: serf.house || null,
+          houseName: factionName,
+          metadata: {
+            workHq: buildingId,
+            buildingExists: !!buildingExists,
+            buildingBuilt
+          }
+        });
+      }
       const logger = this.getSerfLogger();
       if (logger && typeof logger.warn === 'function') {
         logger.warn('Work building invalid for serf', serf, {
@@ -687,6 +929,19 @@ class SimpleSerfBehavior {
           const hasResources = building.resources && Array.isArray(building.resources);
           const resourceCount = hasResources ? building.resources.length : 0;
           console.warn(`[SERF WORK] ${factionName}: No work spot assigned for serf at ${building.type} - building.resources exists: ${hasResources}, count: ${resourceCount}, building.updateResources: ${typeof building.updateResources === 'function'}`);
+          if (global.eventManager && typeof global.eventManager.aiEvent === 'function') {
+            global.eventManager.aiEvent('serf work spot missing', {
+              subject: serf.id,
+              subjectName: serf.name || serf.class,
+              house: serf.house || null,
+              houseName: factionName,
+              metadata: {
+                buildingId: building.id,
+                buildingType: building.type,
+                resourceCount
+              }
+            });
+          }
           const logger = this.getSerfLogger();
           if (logger && typeof logger.warn === 'function') {
             logger.warn('No work spot assigned for serf', serf, {
@@ -1081,6 +1336,9 @@ class SimpleSerfBehavior {
           serf.action = null;
           serf.mode = 'idle';
           this.setSerfState(serf, 'idle', 'clockoutComplete');
+          if (this.isNightTime()) {
+            this.scheduleTransition(serf, 'offworkDecision');
+          }
         }
       }
     } else {
@@ -1088,6 +1346,9 @@ class SimpleSerfBehavior {
       serf.action = null;
       serf.mode = 'idle';
       this.setSerfState(serf, 'idle', 'clockoutNoHome');
+      if (this.isNightTime()) {
+        this.scheduleTransition(serf, 'offworkDecision');
+      }
     }
   }
 
@@ -1110,6 +1371,15 @@ class SimpleSerfBehavior {
       serf.action = null;
       if (serf.mode !== 'work') {
         serf.mode = 'idle';
+      }
+      if (serf._offWorkTargetType) {
+        serf._offWorkTargetType = null;
+        if (serf.work) {
+          serf.work.spot = null;
+        }
+        if (this.isNightTime()) {
+          this.scheduleTransition(serf, 'offworkDecision');
+        }
       }
       return;
     }
@@ -1712,6 +1982,9 @@ class SimpleSerfBehavior {
             // Ready tile - harvest grain
             this.tileChange(serf, 6, spot[0], spot[1], -1, true);
             serf.inventory.grain = (serf.inventory.grain || 0) + 10;
+            if (global.eventManager) {
+              global.eventManager.resourceGathered(serf, 'grain', 10, { x: serf.x, y: serf.y, z: serf.z || 0 });
+            }
 
             if (this.getTile(serf, 6, spot[0], spot[1]) === 0) {
               this.tileChange(serf, 0, spot[0], spot[1], 8);
@@ -1805,6 +2078,9 @@ class SimpleSerfBehavior {
           // Chop wood
           this.tileChange(serf, 6, spot[0], spot[1], -1, true);
           serf.inventory.wood = (serf.inventory.wood || 0) + 10;
+          if (global.eventManager) {
+            global.eventManager.resourceGathered(serf, 'wood', 10, { x: serf.x, y: serf.y, z: serf.z || 0 });
+          }
 
           const res = this.getTile(serf, 6, spot[0], spot[1]);
           if (res <= 0) {
@@ -1881,12 +2157,24 @@ class SimpleSerfBehavior {
 
           if (roll < diamondChance) {
             serf.inventory.diamond = (serf.inventory.diamond || 0) + 1;
+            if (global.eventManager) {
+              global.eventManager.resourceGathered(serf, 'diamond', 1, { x: serf.x, y: serf.y, z: serf.z || 0 });
+            }
           } else if (roll < diamondChance + goldChance) {
             serf.inventory.goldore = (serf.inventory.goldore || 0) + 1;
+            if (global.eventManager) {
+              global.eventManager.resourceGathered(serf, 'goldore', 1, { x: serf.x, y: serf.y, z: serf.z || 0 });
+            }
           } else if (roll < diamondChance + goldChance + silverChance) {
             serf.inventory.silverore = (serf.inventory.silverore || 0) + 1;
+            if (global.eventManager) {
+              global.eventManager.resourceGathered(serf, 'silverore', 1, { x: serf.x, y: serf.y, z: serf.z || 0 });
+            }
           } else if (roll < diamondChance + goldChance + silverChance + ironChance) {
             serf.inventory.ironore = (serf.inventory.ironore || 0) + 1;
+            if (global.eventManager) {
+              global.eventManager.resourceGathered(serf, 'ironore', 1, { x: serf.x, y: serf.y, z: serf.z || 0 });
+            }
           }
 
           // Deplete resource
@@ -1959,6 +2247,9 @@ class SimpleSerfBehavior {
           // Mine stone
           this.tileChange(serf, 6, spot[0], spot[1], -1, true);
           serf.inventory.stone = (serf.inventory.stone || 0) + 10;
+          if (global.eventManager) {
+            global.eventManager.resourceGathered(serf, 'stone', 10, { x: serf.x, y: serf.y, z: serf.z || 0 });
+          }
 
           const res = this.getTile(serf, 6, spot[0], spot[1]);
           if (res <= 0) {

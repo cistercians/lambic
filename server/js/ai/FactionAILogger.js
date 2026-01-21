@@ -94,14 +94,44 @@ class FactionAILogger {
     };
   }
   
-  // Get current context (resources, buildings, territory, military)
+  // Get current context (resources, buildings, territory, military, serfs)
   getContext() {
+    const SerfCountUtils = require('../core/SerfCountUtils');
+    const serfCountUtils = new SerfCountUtils();
+    
+    const serfs = {
+      total: serfCountUtils.countSerfsByHouse(this.house.id),
+      byBuildingType: {},
+      byBuilding: {}
+    };
+    
+    // Count by building type
+    const buildingTypes = ['mill', 'farm', 'mine', 'lumbermill', 'dock'];
+    for (const type of buildingTypes) {
+      const count = serfCountUtils.countSerfsByBuildingType(this.house.id, type);
+      if (count > 0) {
+        serfs.byBuildingType[type] = count;
+      }
+    }
+    
+    // Count by building (if buildingService available)
+    if (this.house.ai && this.house.ai.buildingService) {
+      const buildings = this.house.ai.buildingService.getBuildings();
+      for (const buildingId of buildings) {
+        const count = serfCountUtils.countSerfsByBuilding(buildingId);
+        if (count > 0) {
+          serfs.byBuilding[buildingId] = count;
+        }
+      }
+    }
+    
     return {
       day: this.getDay(),
       resources: { ...this.house.stores },
       buildings: this.getBuildingSummary(),
       territory: this.getTerritorySummary(),
-      military: this.getMilitarySummary()
+      military: this.getMilitarySummary(),
+      serfs: serfs
     };
   }
   
@@ -258,8 +288,9 @@ class FactionAILogger {
   // Start report collection for a new evaluation cycle
   startReport() {
     if (!this.enabled) return;
-    
+    const reportId = `${this.getFactionName()}-day${this.getDay()}-${Date.now()}`;
     this.reportData = {
+      reportId,
       day: this.getDay(),
       faction: this.getFactionName(),
       timestamp: new Date().toISOString(),
@@ -268,6 +299,7 @@ class FactionAILogger {
       decisions: [],
       actions: [],
       errors: [],
+      goalFailureContexts: [],
       info: [],
       scoutingStats: {
         deployments: 0,
@@ -374,12 +406,38 @@ class FactionAILogger {
     
     this.reportData.errors.push(errorData);
   }
+
+  // Collect structured goal failure context for causal tracing
+  collectGoalFailureContext(data = {}) {
+    if (!this.enabled || !this.reportStarted || !this.reportData) return;
+
+    const entry = {
+      goal: data.goal || null,
+      step: data.step !== undefined ? data.step : null,
+      chainId: this.reportData.goalChain?.chainId || null,
+      reason: data.reason || null,
+      resourceBlocks: data.resourceBlocks || [],
+      buildingBlocks: data.buildingBlocks || [],
+      unitBlocks: data.unitBlocks || [],
+      resourceGapBlocks: data.resourceGapBlocks || [],
+      locationBlocks: data.locationBlocks || [],
+      diagnostics: data.diagnostics || null
+    };
+
+    this.reportData.goalFailureContexts.push(entry);
+  }
   
   // Update goal chain information
   updateGoalChain(goalChain) {
     if (!this.enabled || !this.reportStarted || !goalChain) return;
     
+    if (!this.reportData.goalChain?.chainId) {
+      const mainGoal = goalChain.mainGoal?.type || 'unknown';
+      this._currentChainId = this._currentChainId || `${this.reportData.reportId}:${mainGoal}`;
+    }
+
     this.reportData.goalChain = {
+      chainId: this._currentChainId || null,
       mainGoal: goalChain.mainGoal?.type || 'unknown',
       steps: goalChain.steps.map(s => s.type),
       currentStep: goalChain.currentStep,
@@ -406,6 +464,8 @@ class FactionAILogger {
     lines.push(`FACTION AI REPORT - ${data.faction} - Day ${data.day}`);
     lines.push('='.repeat(80));
     lines.push('');
+    lines.push(`REPORT ID: ${data.reportId || 'unknown'}`);
+    lines.push('');
     
     // Current State
     lines.push('CURRENT STATE:');
@@ -429,6 +489,33 @@ class FactionAILogger {
     const military = data.currentState.military || {};
     lines.push(`  Military: units: ${military.unitCount || 0}, scouting: ${military.scoutingParties || 0}, attacks: ${military.attackForces || 0}`);
     lines.push('');
+    
+    // Serf Population
+    const serfs = data.currentState.serfs || {};
+    if (serfs.total !== undefined) {
+      lines.push('SERF POPULATION:');
+      lines.push(`  Total Serfs: ${serfs.total || 0}`);
+      if (serfs.byBuildingType && Object.keys(serfs.byBuildingType).length > 0) {
+        const byType = Object.entries(serfs.byBuildingType)
+          .map(([type, count]) => `${type}: ${count}`)
+          .join(', ');
+        lines.push(`  By Building Type: ${byType}`);
+      }
+      
+      // Recent spawns today
+      if (global.eventManager) {
+        const SerfCountUtils = require('../core/SerfCountUtils');
+        const serfCountUtils = new SerfCountUtils();
+        const spawnStats = serfCountUtils.getSerfSpawnStatistics(24 * 60 * 60 * 1000); // Last 24 hours
+        if (spawnStats && spawnStats.spawnsSuccessful > 0) {
+          const houseSpawns = spawnStats.byHouse[data.faction] || 0;
+          if (houseSpawns > 0) {
+            lines.push(`  Recent Spawns Today: ${houseSpawns} serf(s) spawned`);
+          }
+        }
+      }
+      lines.push('');
+    }
     
     // Scouting Activity
     const scouting = data.scoutingStats || {};
@@ -475,6 +562,9 @@ class FactionAILogger {
     // Goal Chain
     if (data.goalChain) {
       lines.push('GOAL CHAIN:');
+      if (data.goalChain.chainId) {
+        lines.push(`  Chain ID: ${data.goalChain.chainId}`);
+      }
       lines.push(`  Main Goal: ${data.goalChain.mainGoal}`);
       lines.push(`  Status: ${data.goalChain.status} (step ${data.goalChain.currentStep + 1} of ${data.goalChain.totalSteps})`);
       if (data.goalChain.steps.length > 0) {
@@ -517,6 +607,55 @@ class FactionAILogger {
         }
         if (action.status) {
           lines.push(`     Status: ${action.status}`);
+        }
+      });
+      lines.push('');
+    }
+
+    // Info with context (diagnostics, structured notes)
+    if (data.info && data.info.length > 0) {
+      const infoWithContext = data.info.filter(entry => entry.context && Object.keys(entry.context).length > 0);
+      if (infoWithContext.length > 0) {
+        lines.push('INFO:');
+        infoWithContext.forEach((entry, index) => {
+          lines.push(`  ${index + 1}. ${entry.message}`);
+          lines.push(`     Context: ${JSON.stringify(entry.context)}`);
+        });
+        lines.push('');
+      }
+    }
+
+    // Goal Failure Context
+    if (data.goalFailureContexts && data.goalFailureContexts.length > 0) {
+      lines.push('GOAL FAILURE CONTEXT:');
+      data.goalFailureContexts.forEach((entry, index) => {
+        lines.push(`  ${index + 1}. Goal: ${entry.goal || 'unknown'}`);
+        if (entry.chainId) {
+          lines.push(`     Chain ID: ${entry.chainId}`);
+        }
+        if (entry.step !== null && entry.step !== undefined) {
+          lines.push(`     Step: ${entry.step}`);
+        }
+        if (entry.reason) {
+          lines.push(`     Reason: ${entry.reason}`);
+        }
+        if (entry.resourceBlocks.length > 0) {
+          lines.push(`     Resource Blocks: ${entry.resourceBlocks.join(', ')}`);
+        }
+        if (entry.buildingBlocks.length > 0) {
+          lines.push(`     Building Blocks: ${entry.buildingBlocks.join(', ')}`);
+        }
+        if (entry.unitBlocks.length > 0) {
+          lines.push(`     Unit Blocks: ${entry.unitBlocks.join(', ')}`);
+        }
+        if (entry.resourceGapBlocks.length > 0) {
+          lines.push(`     Resource Gap Blocks: ${entry.resourceGapBlocks.join(', ')}`);
+        }
+        if (entry.locationBlocks.length > 0) {
+          lines.push(`     Location Blocks: ${entry.locationBlocks.join(', ')}`);
+        }
+        if (entry.diagnostics) {
+          lines.push(`     Diagnostics: ${JSON.stringify(entry.diagnostics)}`);
         }
       });
       lines.push('');
@@ -565,6 +704,7 @@ class FactionAILogger {
   clearReport() {
     this.reportData = null;
     this.reportStarted = false;
+    this._currentChainId = null;
   }
   
   // ============================================================================

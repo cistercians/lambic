@@ -86,6 +86,10 @@ class EventManager {
     this.addToHistory(event);
     
     // Handle logging (batched)
+    const structuredLog = this._formatEventLog(event);
+    if (structuredLog) {
+      this.logBuffer.push(structuredLog);
+    }
     if (event.log) {
       this.logBuffer.push(event.log);
     }
@@ -97,6 +101,40 @@ class EventManager {
     this.notifySubscribers(event);
     
     return event;
+  }
+
+  _formatEventLog(event) {
+    if (!event) return null;
+    const payload = {
+      id: event.id,
+      ts: event.timestamp,
+      category: event.category,
+      action: event.action,
+      subject: event.subject,
+      subjectName: event.subjectName,
+      target: event.target,
+      targetName: event.targetName,
+      quantity: event.quantity,
+      house: event.house,
+      houseName: event.houseName,
+      position: event.position,
+      metadata: this._safeSerialize(event.metadata)
+    };
+    try {
+      return `[EVENT] ${JSON.stringify(payload)}`;
+    } catch (error) {
+      return `[EVENT] ${String(payload.action || 'event')}`;
+    }
+  }
+
+  _safeSerialize(value) {
+    if (value === null || value === undefined) return value;
+    try {
+      JSON.stringify(value);
+      return value;
+    } catch (error) {
+      return String(value);
+    }
   }
   
   // ============================================================================
@@ -543,6 +581,104 @@ class EventManager {
     });
   }
   
+  // Serf spawning events
+  serfSpawnTallyStart(building, currentSerfs, availableSpots) {
+    const house = building.house ? (global.House && global.House.list && global.House.list[building.house]) : null;
+    return this.createEvent({
+      category: this.categories.ECONOMIC,
+      subject: building.id,
+      subjectName: building.type,
+      action: 'serf spawn tally started',
+      house: building.house,
+      houseName: house ? house.name : null,
+      communication: this.commModes.NONE,
+      log: `[ECONOMIC] ${building.type}#${building.id} tally: ${currentSerfs} serfs, ${availableSpots} work spots`,
+      position: { x: building.x, y: building.y, z: building.z || 0 },
+      metadata: {
+        currentSerfs,
+        availableWorkSpots: availableSpots,
+        buildingType: building.type
+      }
+    });
+  }
+
+  serfSpawnDecision(building, decision, reason, metadata = {}) {
+    const house = building.house ? (global.House && global.House.list && global.House.list[building.house]) : null;
+    return this.createEvent({
+      category: this.categories.ECONOMIC,
+      subject: building.id,
+      subjectName: building.type,
+      action: 'serf spawn decision',
+      house: building.house,
+      houseName: house ? house.name : null,
+      communication: this.commModes.NONE,
+      log: `[ECONOMIC] ${building.type}#${building.id} decision: ${decision}${reason ? ` (${reason})` : ''}`,
+      position: { x: building.x, y: building.y, z: building.z || 0 },
+      metadata: Object.assign({
+        decision,
+        reason
+      }, metadata)
+    });
+  }
+
+  serfSpawnAttempt(building, spawnCount, method, metadata = {}) {
+    const house = building.house ? (global.House && global.House.list && global.House.list[building.house]) : null;
+    return this.createEvent({
+      category: this.categories.ECONOMIC,
+      subject: building.id,
+      subjectName: building.type,
+      action: 'serf spawn attempt',
+      house: building.house,
+      houseName: house ? house.name : null,
+      quantity: spawnCount,
+      communication: this.commModes.NONE,
+      log: `[ECONOMIC] ${building.type}#${building.id} attempting to spawn ${spawnCount} serf(s) via ${method}`,
+      position: { x: building.x, y: building.y, z: building.z || 0 },
+      metadata: Object.assign({
+        spawnCount,
+        spawnMethod: method
+      }, metadata)
+    });
+  }
+
+  serfSpawned(building, serfIds, spawnCount, metadata = {}) {
+    const house = building.house ? (global.House && global.House.list && global.House.list[building.house]) : null;
+    return this.createEvent({
+      category: this.categories.ECONOMIC,
+      subject: building.id,
+      subjectName: building.type,
+      action: 'serfs spawned',
+      house: building.house,
+      houseName: house ? house.name : null,
+      quantity: spawnCount,
+      communication: this.commModes.NONE,
+      log: `[ECONOMIC] ${building.type}#${building.id} spawned ${spawnCount} serf(s)`,
+      position: { x: building.x, y: building.y, z: building.z || 0 },
+      metadata: Object.assign({
+        serfIds: Array.isArray(serfIds) ? serfIds : [serfIds],
+        spawnCount
+      }, metadata)
+    });
+  }
+
+  serfSpawnFailed(building, reason, metadata = {}) {
+    const house = building.house ? (global.House && global.House.list && global.House.list[building.house]) : null;
+    return this.createEvent({
+      category: this.categories.ECONOMIC,
+      subject: building.id,
+      subjectName: building.type,
+      action: 'serf spawn failed',
+      house: building.house,
+      houseName: house ? house.name : null,
+      communication: this.commModes.NONE,
+      log: `[ECONOMIC] ${building.type}#${building.id} spawn failed: ${reason}`,
+      position: { x: building.x, y: building.y, z: building.z || 0 },
+      metadata: Object.assign({
+        reason
+      }, metadata)
+    });
+  }
+  
   // Building events
   buildingCompleted(building, owner, position) {
     return this.createEvent({
@@ -557,6 +693,30 @@ class EventManager {
       message: owner ? `<span style="color:#66ff66;">ℹ️ Your ${building.type} is complete!</span>` : `<span style="color:#66ff66;">🏗️ ${building.type} completed!</span>`,
       log: `[BUILDING] ${building.type}${owner ? ` owned by ${owner.name || owner.class}` : ''} completed at [${Math.floor(position.x)},${Math.floor(position.y)}]`,
       position
+    });
+  }
+
+  buildingStarted(builder, buildingType, position, metadata = {}) {
+    return this.createEvent({
+      category: this.categories.BUILDING,
+      subject: builder ? builder.id : null,
+      subjectName: builder ? (builder.name || builder.class) : null,
+      action: `started ${buildingType}`,
+      communication: this.commModes.NONE,
+      position,
+      metadata
+    });
+  }
+
+  buildingFailed(builder, buildingType, reason, position, metadata = {}) {
+    return this.createEvent({
+      category: this.categories.BUILDING,
+      subject: builder ? builder.id : null,
+      subjectName: builder ? (builder.name || builder.class) : null,
+      action: `failed ${buildingType}`,
+      communication: this.commModes.NONE,
+      position,
+      metadata: Object.assign({ reason }, metadata)
     });
   }
   
@@ -667,6 +827,30 @@ class EventManager {
         changes
       }
     });
+  }
+
+  aiEvent(action, data = {}) {
+    return this.createEvent(Object.assign({
+      category: this.categories.AI,
+      action,
+      communication: this.commModes.NONE
+    }, data));
+  }
+
+  battlegroundEvent(action, data = {}) {
+    return this.createEvent(Object.assign({
+      category: this.categories.ENVIRONMENT,
+      action,
+      communication: this.commModes.NONE
+    }, data));
+  }
+
+  pathfindingEvent(action, data = {}) {
+    return this.aiEvent(action, data);
+  }
+
+  validationEvent(action, data = {}) {
+    return this.aiEvent(action, data);
   }
 }
 

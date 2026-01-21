@@ -60,6 +60,9 @@ class BuildingCommand {
     // Must be on ground level for most buildings
     if (z !== 0) {
       this.sendError(socket, 'You can only build on the ground level.');
+      if (global.eventManager && typeof global.eventManager.buildingFailed === 'function') {
+        global.eventManager.buildingFailed(player, buildingType, 'invalid_z', { x: player.x, y: player.y, z }, { z });
+      }
       return true; // Command was handled, just failed validation
     }
 
@@ -67,6 +70,9 @@ class BuildingCommand {
     const buildingPreview = systemRegistry.get('buildingPreview') || global.buildingPreview;
     if (!buildingPreview) {
       this.sendError(socket, 'Building system not available.');
+      if (global.eventManager && typeof global.eventManager.buildingFailed === 'function') {
+        global.eventManager.buildingFailed(player, buildingType, 'building_system_missing', { x: player.x, y: player.y, z });
+      }
       return true; // Command was handled, just failed validation
     }
 
@@ -76,11 +82,17 @@ class BuildingCommand {
       buildingDef = buildingPreview.getBuildingDefinition(buildingType);
     } catch (error) {
       this.sendError(socket, `Error: Unable to get building definition for ${buildingType}`);
+      if (global.eventManager && typeof global.eventManager.buildingFailed === 'function') {
+        global.eventManager.buildingFailed(player, buildingType, 'definition_error', { x: player.x, y: player.y, z }, { error: error.message || String(error) });
+      }
       return true; // Command was handled, just failed validation
     }
     
     if (!buildingDef) {
       this.sendError(socket, `Unknown building type: ${buildingType}`);
+      if (global.eventManager && typeof global.eventManager.buildingFailed === 'function') {
+        global.eventManager.buildingFailed(player, buildingType, 'unknown_building', { x: player.x, y: player.y, z });
+      }
       return true; // Command was handled, just failed validation
     }
 
@@ -97,6 +109,9 @@ class BuildingCommand {
       validation = buildingPreview.validateBuildingPlacement(buildingType, c, r, z, facing, true); // isPlayer = true
     } catch (error) {
       this.sendError(socket, 'Error: Unable to validate building placement');
+      if (global.eventManager && typeof global.eventManager.buildingFailed === 'function') {
+        global.eventManager.buildingFailed(player, buildingType, 'validation_error', { x: player.x, y: player.y, z }, { error: error.message || String(error) });
+      }
       return true; // Command was handled, just failed validation
     }
     
@@ -104,6 +119,9 @@ class BuildingCommand {
       // Provide specific error message if available (e.g., Dock 50% water requirement)
       const errorMsg = validation.reason || 'You cannot build that there.';
       this.sendError(socket, errorMsg);
+      if (global.eventManager && typeof global.eventManager.buildingFailed === 'function') {
+        global.eventManager.buildingFailed(player, buildingType, 'invalid_location', { x: player.x, y: player.y, z }, { reason: errorMsg });
+      }
       return true; // Command was handled, just failed validation
     }
 
@@ -113,6 +131,9 @@ class BuildingCommand {
       materialCheck = buildingPreview.checkMaterials(player, buildingType);
     } catch (error) {
       this.sendError(socket, 'Error: Unable to check materials');
+      if (global.eventManager && typeof global.eventManager.buildingFailed === 'function') {
+        global.eventManager.buildingFailed(player, buildingType, 'material_check_error', { x: player.x, y: player.y, z }, { error: error.message || String(error) });
+      }
       return true; // Command was handled, just failed validation
     }
     
@@ -121,6 +142,9 @@ class BuildingCommand {
       // Convert missing object to array of strings (e.g., {wood: 10, stone: 5} -> ["wood: 10", "stone: 5"])
       const missingList = Object.entries(missing).map(([material, amount]) => `${material}: ${amount}`);
       this.sendError(socket, `Missing materials: ${missingList.join(', ')}`);
+      if (global.eventManager && typeof global.eventManager.buildingFailed === 'function') {
+        global.eventManager.buildingFailed(player, buildingType, 'missing_materials', { x: player.x, y: player.y, z }, { missing });
+      }
       return true; // Command was handled, just failed validation
     }
 
@@ -193,7 +217,18 @@ class BuildingCommand {
     // Lay foundation tiles immediately (tile 11 = BUILD_MARKER) for ALL tiles in the plot
     if (!plot || plot.length === 0) {
       this.sendError(socket, 'Error: Invalid building plot');
+      if (global.eventManager && typeof global.eventManager.buildingFailed === 'function') {
+        const center = global.getCenter ? global.getCenter(c, r) : { x: player.x, y: player.y };
+        global.eventManager.buildingFailed(player, buildingType, 'invalid_plot', { x: center[0] || center.x, y: center[1] || center.y, z });
+      }
       return false;
+    }
+    
+    if (global.eventManager && typeof global.eventManager.buildingStarted === 'function') {
+      const center = global.getCenter ? global.getCenter(c, r) : { x: player.x, y: player.y };
+      global.eventManager.buildingStarted(player, buildingType, { x: center[0] || center.x, y: center[1] || center.y, z }, {
+        plotSize: plot.length
+      });
     }
     
     // Store original terrain before changing tiles
@@ -230,6 +265,13 @@ class BuildingCommand {
     // Farm is built instantly
     player.working = true;
     
+    if (global.eventManager && typeof global.eventManager.buildingStarted === 'function') {
+      const centerLoc = global.getCenter ? global.getCenter(plot[4][0], plot[4][1]) : { x: player.x, y: player.y };
+      global.eventManager.buildingStarted(player, 'farm', { x: centerLoc[0] || centerLoc.x, y: centerLoc[1] || centerLoc.y, z: 0 }, {
+        plotSize: plot.length
+      });
+    }
+    
     const buildTime = Math.max(1000, 10000 / (player.strength || 1));
     
     setTimeout(() => {
@@ -260,6 +302,14 @@ class BuildingCommand {
             built: true,
             plot: plot
           });
+        }
+        
+        if (global.eventManager && typeof global.eventManager.buildingCompleted === 'function') {
+          const building = global.getBuilding ? global.getBuilding(center[0], center[1]) : null;
+          const buildingEntity = global.Building && global.Building.list ? global.Building.list[building] : null;
+          if (buildingEntity) {
+            global.eventManager.buildingCompleted(buildingEntity, player, { x: center[0], y: center[1], z: 0 });
+          }
         }
         
         // Update map

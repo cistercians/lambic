@@ -39,7 +39,7 @@ class SerfExtractor extends BaseExtractor {
           lineNumber: context.lineNumber
         });
       }
-      return;
+      return true;
     }
 
     if (line.includes('[SerfLogger:WARN]')) {
@@ -54,7 +54,9 @@ class SerfExtractor extends BaseExtractor {
         day: context.currentDay || null,
         hour: context.currentHour || null
       });
+      return true;
     }
+    return false;
   }
 
   _extractBuildingType(message) {

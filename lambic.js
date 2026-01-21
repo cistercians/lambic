@@ -2855,6 +2855,50 @@ function dailyTally() {
       Building.list[i].tally();
     }
   }
+  
+  // Generate daily serf spawning summary
+  if (global.eventManager && global.serfCountUtils) {
+    generateDailySerfSummary();
+  }
+}
+
+function generateDailySerfSummary() {
+  if (!global.eventManager || !global.serfCountUtils) return;
+  
+  const day = global.day || 1;
+  const timeWindow = 24 * 60 * 60 * 1000; // 24 hours
+  const spawnStats = global.serfCountUtils.getSerfSpawnStatistics(timeWindow);
+  
+  if (!spawnStats || (spawnStats.spawnsSuccessful === 0 && spawnStats.spawnsFailed === 0 && spawnStats.tallyStarts === 0)) {
+    return; // No activity to report
+  }
+  
+  console.log(`[SERF SPAWNING SUMMARY] Day ${day}:`);
+  console.log(`  Tally starts: ${spawnStats.tallyStarts || 0}`);
+  console.log(`  Spawn attempts: ${spawnStats.spawnAttempts || 0}`);
+  console.log(`  Successful spawns: ${spawnStats.spawnsSuccessful || 0} (${spawnStats.totalSerfsSpawned || 0} serfs)`);
+  console.log(`  Failed spawns: ${spawnStats.spawnsFailed || 0}`);
+  
+  if (Object.keys(spawnStats.byHouse || {}).length > 0) {
+    const houseSummary = Object.entries(spawnStats.byHouse)
+      .map(([house, count]) => `${house}: ${count}`)
+      .join(', ');
+    console.log(`  By house: ${houseSummary}`);
+  }
+  
+  if (Object.keys(spawnStats.byBuildingType || {}).length > 0) {
+    const buildingSummary = Object.entries(spawnStats.byBuildingType)
+      .map(([type, count]) => `${type}: ${count}`)
+      .join(', ');
+    console.log(`  By building type: ${buildingSummary}`);
+  }
+  
+  if (Object.keys(spawnStats.failedReasons || {}).length > 0) {
+    const failureSummary = Object.entries(spawnStats.failedReasons)
+      .map(([reason, count]) => `${reason}: ${count}`)
+      .join(', ');
+    console.log(`  Failure reasons: ${failureSummary}`);
+  }
 }
 
 // Load modular entity definitions NOW (after all globals including zones are available)
@@ -3193,6 +3237,11 @@ const Player = function(param) {
       self.action = null;
       self.path = null;
       self.pathCount = 0;
+      
+      // Clear SimpleCombat state if it exists
+      if (global.simpleCombat && self.combatState) {
+        global.simpleCombat.clearCombatState(self);
+      }
       
       // Send death message with ghost instructions
       var socket = SOCKET_LIST[self.id];
@@ -9164,7 +9213,25 @@ io.on('connection', function(socket) {
           }
           
           // Validate player is still in range of building
-          var buildingDistance = Math.sqrt(Math.pow(player.x - building.x, 2) + Math.pow(player.y - building.y, 2));
+          // Calculate distance to nearest plot tile (not building center)
+          var buildingDistance = Infinity;
+          if(building.plot && Array.isArray(building.plot) && building.plot.length > 0){
+            // For docks: only check plot[4] (the interactable tile)
+            var plotTiles = (building.type === 'dock' && building.plot[4]) ? [building.plot[4]] : building.plot;
+            
+            for(var i = 0; i < plotTiles.length; i++){
+              var plotTile = plotTiles[i];
+              var plotCenter = getCenter(plotTile[0], plotTile[1]);
+              var dist = getDistance({x: player.x, y: player.y}, {x: plotCenter[0], y: plotCenter[1]});
+              if(dist < buildingDistance){
+                buildingDistance = dist;
+              }
+            }
+          } else {
+            // Fallback: use building center if plot not available
+            buildingDistance = getDistance({x: player.x, y: player.y}, {x: building.x, y: building.y});
+          }
+          
           if(buildingDistance > 128){ // ~2 tiles
             socket.write(JSON.stringify({msg:'addToChat', message: '<i>You are too far from the building.</i>'}));
             return;
@@ -9516,6 +9583,22 @@ io.on('connection', function(socket) {
           
           player.house = houseId;
           
+          // Create faction creation event
+          if(global.eventManager){
+            global.eventManager.createEvent({
+              category: global.eventManager.categories.FACTION,
+              subject: player.id,
+              subjectName: player.name || player.class,
+              action: 'created faction',
+              house: houseId,
+              houseName: houseName,
+              communication: global.eventManager.commModes.HOUSE,
+              message: '<span style="color:#66ff66;">🏰 ' + (player.name || player.class) + ' has created the faction "' + houseName + '"!</span>',
+              log: '[FACTION] ' + (player.name || player.class) + ' created faction "' + houseName + '" (ID: ' + houseId + ') at [' + Math.floor(player.x) + ',' + Math.floor(player.y) + '] z=' + (player.z || 0),
+              position: { x: player.x, y: player.y, z: player.z || 0 }
+            });
+          }
+          
           // Convert house (if function exists)
           if(typeof convertHouse === 'function'){
             convertHouse(player.id);
@@ -9714,6 +9797,9 @@ const serfLogger = require('./server/js/core/SerfLogger.js');
 global.serfLogger = serfLogger;
 const SimpleSerfBehavior = require('./server/js/core/SimpleSerfBehavior.js');
 global.simpleSerfBehavior = new SimpleSerfBehavior();
+
+const SerfCountUtils = require('./server/js/core/SerfCountUtils.js');
+global.serfCountUtils = new SerfCountUtils();
 
 // Initialize optimized game loop
 optimizedGameLoop.initialize(gameState, emit);

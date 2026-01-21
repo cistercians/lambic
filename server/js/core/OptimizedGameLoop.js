@@ -665,6 +665,16 @@ class OptimizedGameLoop {
             issues: validation.issues,
             typeCounts
           });
+          if (global.eventManager && typeof global.eventManager.validationEvent === 'function') {
+            global.eventManager.validationEvent('context isolation violation', {
+              metadata: {
+                matchId,
+                issueCount: validation.issues.length,
+                issues: validation.issues,
+                typeCounts
+              }
+            });
+          }
         }
       }
     }

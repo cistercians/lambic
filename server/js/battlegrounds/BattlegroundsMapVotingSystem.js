@@ -42,6 +42,17 @@ class BattlegroundsMapVotingSystem {
       match: match, // Store match reference for saving new maps
       startTime: Date.now()
     };
+    
+    if (global.eventManager && typeof global.eventManager.battlegroundEvent === 'function') {
+      global.eventManager.battlegroundEvent('map voting started', {
+        metadata: {
+          matchId,
+          mapId,
+          isClassicMap,
+          participants: humanPlayers.length
+        }
+      });
+    }
 
     // Broadcast voting start to all participants
     this.broadcastVotingStart(matchId);
@@ -85,6 +96,11 @@ class BattlegroundsMapVotingSystem {
     this.broadcastVoteUpdate(matchId);
 
     console.log(`Player ${playerId} voted ${vote} for map in match ${matchId}`);
+    if (global.eventManager && typeof global.eventManager.battlegroundEvent === 'function') {
+      global.eventManager.battlegroundEvent('map vote recorded', {
+        metadata: { matchId, playerId, vote }
+      });
+    }
     return true;
   }
 
@@ -135,6 +151,21 @@ class BattlegroundsMapVotingSystem {
       saved: !isClassicMap && majorityYes,
       positiveVotesIncremented: isClassicMap && yesVotes === totalHumanPlayers && totalVotes === totalHumanPlayers
     });
+    
+    if (global.eventManager && typeof global.eventManager.battlegroundEvent === 'function') {
+      global.eventManager.battlegroundEvent('map voting results', {
+        metadata: {
+          matchId,
+          yesVotes,
+          noVotes,
+          totalVotes,
+          totalHumanPlayers,
+          majorityYes,
+          saved: !isClassicMap && majorityYes,
+          positiveVotesIncremented: isClassicMap && yesVotes === totalHumanPlayers && totalVotes === totalHumanPlayers
+        }
+      });
+    }
 
     // Clean up
     delete this.activeVotes[matchId];
@@ -178,6 +209,11 @@ class BattlegroundsMapVotingSystem {
 
     if (success) {
       console.log(`Saved new Classic Map: ${mapId} for ${gameMode} (${mapData.mapSize}x${mapData.mapSize})`);
+      if (global.eventManager && typeof global.eventManager.battlegroundEvent === 'function') {
+        global.eventManager.battlegroundEvent('classic map saved', {
+          metadata: { mapId, gameMode, mapSize: mapData.mapSize }
+        });
+      }
       
       // Broadcast to all participants
       match.participants.forEach(participant => {
@@ -191,6 +227,11 @@ class BattlegroundsMapVotingSystem {
       });
     } else {
       console.error(`Failed to save Classic Map: ${mapId}`);
+      if (global.eventManager && typeof global.eventManager.battlegroundEvent === 'function') {
+        global.eventManager.battlegroundEvent('classic map save failed', {
+          metadata: { mapId, gameMode, mapSize: mapData.mapSize }
+        });
+      }
     }
   }
 

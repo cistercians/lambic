@@ -172,6 +172,23 @@ class HouseCommand {
 
       player.house = houseId;
 
+      // Create faction creation event
+      if (global.eventManager) {
+        const houseObj = global.House && global.House.list && global.House.list[houseId];
+        global.eventManager.createEvent({
+          category: global.eventManager.categories.FACTION,
+          subject: player.id,
+          subjectName: player.name || player.class,
+          action: 'created faction',
+          house: houseId,
+          houseName: houseName,
+          communication: global.eventManager.commModes.HOUSE,
+          message: `<span style="color:#66ff66;">🏰 ${player.name || player.class} has created the faction "${houseName}"!</span>`,
+          log: `[FACTION] ${player.name || player.class} created faction "${houseName}" (ID: ${houseId}) at [${Math.floor(player.x)},${Math.floor(player.y)}] z=${player.z || 0}`,
+          position: { x: player.x, y: player.y, z: player.z || 0 }
+        });
+      }
+
       // Convert house (if function exists)
       if (typeof global.convertHouse === 'function') {
         global.convertHouse(player.id);

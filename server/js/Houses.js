@@ -419,10 +419,14 @@ Goths = function(param){
     fire:null
   }
   
-  self.newSerfs = function(b,hq){
+  self.newSerfs = function(b,hq,spawnCount,stores,isBootstrapSpawn){
     var building = Building.list[b];
     var loc = getLoc(building.x,building.y);
     
+    // Default spawnCount to 2 if not provided (backward compatibility)
+    if(typeof spawnCount === 'undefined'){
+      spawnCount = 2;
+    }
     
     // Calculate territory if not yet done
     if (!self.baseRadius) {
@@ -489,6 +493,9 @@ Goths = function(param){
       var sp2 = grid[rand];
       var c2 = getCenter(sp2[0],sp2[1]);
       var work = {hq:b,spot:null};
+      var genderBreakdown = {male: 0, female: 0};
+      var serfIds = [];
+      
       // For lumbermill/mine, first serf MUST be male; for mill/farm, can be either
       if(building.type == 'mill' || building.type == 'farm'){
         if(s1 > 0.4){
@@ -502,6 +509,7 @@ Goths = function(param){
             home:{z:0,loc:sp1},
             hut:id
           });
+          genderBreakdown.male++;
         } else {
           SerfF({
             id:s1,
@@ -513,7 +521,9 @@ Goths = function(param){
             home:{z:0,loc:sp1},
             hut:id
           });
+          genderBreakdown.female++;
         }
+        serfIds.push(s1);
       } else {
         // Lumbermill or mine - first serf must be male
         SerfM({
@@ -526,6 +536,8 @@ Goths = function(param){
           home:{z:0,loc:sp1},
           hut:id
         });
+        genderBreakdown.male++;
+        serfIds.push(s1);
       }
       if(building.type == 'mill' || building.type == 'farm'){
         // Mills and farms can have either gender
@@ -540,6 +552,7 @@ Goths = function(param){
             home:{z:0,loc:sp2},
             hut:id
           });
+          genderBreakdown.male++;
         } else {
           SerfF({
             id:s2,
@@ -551,7 +564,9 @@ Goths = function(param){
             home:{z:0,loc:sp2},
             hut:id
           });
+          genderBreakdown.female++;
         }
+        serfIds.push(s2);
         Building.list[b].serfs[s1] = s1;
         Player.list[s1].work = {hq:b,spot:null};
         Building.list[b].serfs[s2] = s2;
@@ -568,6 +583,8 @@ Goths = function(param){
           home:{z:0,loc:sp2},
           hut:id
         });
+        genderBreakdown.male++;
+        serfIds.push(s2);
         // First serf is always male, so always assign
         Building.list[b].serfs[s1] = s1;
         Player.list[s1].work = {hq:b,spot:null};
@@ -575,7 +592,36 @@ Goths = function(param){
         Building.list[b].serfs[s2] = s2;
         Player.list[s2].work = {hq:b,spot:null};
       }
+      
+      // Log successful spawn
+      if(global.eventManager && serfIds.length > 0){
+        global.eventManager.serfSpawned(building, serfIds, serfIds.length, {
+          genderBreakdown: genderBreakdown,
+          workHQ: b,
+          hutId: id,
+          spawnMethod: 'hq'
+        });
+      }
+      
+      // Deduct resources only after successful hut placement
+      if(stores && !isBootstrapSpawn && serfIds.length > 0){
+        if(typeof deductFoodForSerfs === 'function'){
+          deductFoodForSerfs(stores, serfIds.length);
+        }
+        if(serfIds.length === 2 && typeof deductWoodForHut === 'function'){
+          deductWoodForHut(stores);
+        }
+      }
+      
+      return true; // Success
     } else {
+      // Log failed spawn - no hut spot found
+      if(global.eventManager){
+        global.eventManager.serfSpawnFailed(building, 'no_hut_spot_found', {
+          searchRadius: searchRadius
+        });
+      }
+      return false; // Failure
     }
   }
   self.spawn = function(cl,spawn){
@@ -1151,10 +1197,14 @@ Franks = function(param){
     // objects
     fire:null
   }
-  self.newSerfs = function(b,hq){
+  self.newSerfs = function(b,hq,spawnCount,stores,isBootstrapSpawn){
     var building = Building.list[b];
     var loc = getLoc(building.x,building.y);
     
+    // Default spawnCount to 2 if not provided (backward compatibility)
+    if(typeof spawnCount === 'undefined'){
+      spawnCount = 2;
+    }
     
     // Calculate territory if not yet done
     if (!self.baseRadius) {
@@ -1221,6 +1271,9 @@ Franks = function(param){
       var sp2 = grid[rand];
       var c2 = getCenter(sp2[0],sp2[1]);
       var work = {hq:b,spot:null};
+      var genderBreakdown = {male: 0, female: 0};
+      var serfIds = [];
+      
       // For lumbermill/mine, first serf MUST be male; for mill/farm, can be either
       if(building.type == 'mill' || building.type == 'farm'){
         if(s1 > 0.4){
@@ -1234,6 +1287,7 @@ Franks = function(param){
             home:{z:0,loc:sp1},
             hut:id
           });
+          genderBreakdown.male++;
         } else {
           SerfF({
             id:s1,
@@ -1245,7 +1299,9 @@ Franks = function(param){
             home:{z:0,loc:sp1},
             hut:id
           });
+          genderBreakdown.female++;
         }
+        serfIds.push(s1);
       } else {
         // Lumbermill or mine - first serf must be male
         SerfM({
@@ -1258,6 +1314,8 @@ Franks = function(param){
           home:{z:0,loc:sp1},
           hut:id
         });
+        genderBreakdown.male++;
+        serfIds.push(s1);
       }
       if(building.type == 'mill' || building.type == 'farm'){
         // Mills and farms can have either gender
@@ -1272,6 +1330,7 @@ Franks = function(param){
             home:{z:0,loc:sp2},
             hut:id
           });
+          genderBreakdown.male++;
         } else {
           SerfF({
             id:s2,
@@ -1283,7 +1342,9 @@ Franks = function(param){
             home:{z:0,loc:sp2},
             hut:id
           });
+          genderBreakdown.female++;
         }
+        serfIds.push(s2);
         Building.list[b].serfs[s1] = s1;
         Player.list[s1].work = {hq:b,spot:null};
         Building.list[b].serfs[s2] = s2;
@@ -1300,6 +1361,8 @@ Franks = function(param){
           home:{z:0,loc:sp2},
           hut:id
         });
+        genderBreakdown.male++;
+        serfIds.push(s2);
         // First serf is always male, so always assign
         Building.list[b].serfs[s1] = s1;
         Player.list[s1].work = {hq:b,spot:null};
@@ -1307,7 +1370,36 @@ Franks = function(param){
         Building.list[b].serfs[s2] = s2;
         Player.list[s2].work = {hq:b,spot:null};
       }
+      
+      // Log successful spawn
+      if(global.eventManager && serfIds.length > 0){
+        global.eventManager.serfSpawned(building, serfIds, serfIds.length, {
+          genderBreakdown: genderBreakdown,
+          workHQ: b,
+          hutId: id,
+          spawnMethod: 'hq'
+        });
+      }
+      
+      // Deduct resources only after successful hut placement
+      if(stores && !isBootstrapSpawn && serfIds.length > 0){
+        if(typeof deductFoodForSerfs === 'function'){
+          deductFoodForSerfs(stores, serfIds.length);
+        }
+        if(serfIds.length === 2 && typeof deductWoodForHut === 'function'){
+          deductWoodForHut(stores);
+        }
+      }
+      
+      return true; // Success
     } else {
+      // Log failed spawn - no hut spot found
+      if(global.eventManager){
+        global.eventManager.serfSpawnFailed(building, 'no_hut_spot_found', {
+          searchRadius: searchRadius
+        });
+      }
+      return false; // Failure
     }
   }
   self.spawn = function(cl,spawn){
@@ -1821,10 +1913,14 @@ Celts = function(param){
     // objects
     fire:null
   }
-  self.newSerfs = function(b,hq){
+  self.newSerfs = function(b,hq,spawnCount,stores,isBootstrapSpawn){
     var building = Building.list[b];
     var loc = getLoc(building.x,building.y);
     
+    // Default spawnCount to 2 if not provided (backward compatibility)
+    if(typeof spawnCount === 'undefined'){
+      spawnCount = 2;
+    }
     
     // Calculate territory if not yet done
     if (!self.baseRadius) {
@@ -1891,6 +1987,9 @@ Celts = function(param){
       var sp2 = grid[rand];
       var c2 = getCenter(sp2[0],sp2[1]);
       var work = {hq:b,spot:null};
+      var genderBreakdown = {male: 0, female: 0};
+      var serfIds = [];
+      
       // For lumbermill/mine, first serf MUST be male; for mill/farm, can be either
       if(building.type == 'mill' || building.type == 'farm'){
         if(s1 > 0.4){
@@ -1904,6 +2003,7 @@ Celts = function(param){
             home:{z:0,loc:sp1},
             hut:id
           });
+          genderBreakdown.male++;
         } else {
           SerfF({
             id:s1,
@@ -1915,7 +2015,9 @@ Celts = function(param){
             home:{z:0,loc:sp1},
             hut:id
           });
+          genderBreakdown.female++;
         }
+        serfIds.push(s1);
       } else {
         // Lumbermill or mine - first serf must be male
         SerfM({
@@ -1928,6 +2030,8 @@ Celts = function(param){
           home:{z:0,loc:sp1},
           hut:id
         });
+        genderBreakdown.male++;
+        serfIds.push(s1);
       }
       if(building.type == 'mill' || building.type == 'farm'){
         // Mills and farms can have either gender
@@ -1942,6 +2046,7 @@ Celts = function(param){
             home:{z:0,loc:sp2},
             hut:id
           });
+          genderBreakdown.male++;
         } else {
           SerfF({
             id:s2,
@@ -1953,7 +2058,9 @@ Celts = function(param){
             home:{z:0,loc:sp2},
             hut:id
           });
+          genderBreakdown.female++;
         }
+        serfIds.push(s2);
         Building.list[b].serfs[s1] = s1;
         Player.list[s1].work = {hq:b,spot:null};
         Building.list[b].serfs[s2] = s2;
@@ -1970,6 +2077,8 @@ Celts = function(param){
           home:{z:0,loc:sp2},
           hut:id
         });
+        genderBreakdown.male++;
+        serfIds.push(s2);
         // First serf is always male, so always assign
         Building.list[b].serfs[s1] = s1;
         Player.list[s1].work = {hq:b,spot:null};
@@ -1977,7 +2086,36 @@ Celts = function(param){
         Building.list[b].serfs[s2] = s2;
         Player.list[s2].work = {hq:b,spot:null};
       }
+      
+      // Log successful spawn
+      if(global.eventManager && serfIds.length > 0){
+        global.eventManager.serfSpawned(building, serfIds, serfIds.length, {
+          genderBreakdown: genderBreakdown,
+          workHQ: b,
+          hutId: id,
+          spawnMethod: 'hq'
+        });
+      }
+      
+      // Deduct resources only after successful hut placement
+      if(stores && !isBootstrapSpawn && serfIds.length > 0){
+        if(typeof deductFoodForSerfs === 'function'){
+          deductFoodForSerfs(stores, serfIds.length);
+        }
+        if(serfIds.length === 2 && typeof deductWoodForHut === 'function'){
+          deductWoodForHut(stores);
+        }
+      }
+      
+      return true; // Success
     } else {
+      // Log failed spawn - no hut spot found
+      if(global.eventManager){
+        global.eventManager.serfSpawnFailed(building, 'no_hut_spot_found', {
+          searchRadius: searchRadius
+        });
+      }
+      return false; // Failure
     }
   }
   self.spawn = function(cl,spawn){
@@ -2281,10 +2419,14 @@ Teutons = function(param){
     // objects
     fire:null
   }
-  self.newSerfs = function(b,hq){
+  self.newSerfs = function(b,hq,spawnCount,stores,isBootstrapSpawn){
     var building = Building.list[b];
     var loc = getLoc(building.x,building.y);
     
+    // Default spawnCount to 2 if not provided (backward compatibility)
+    if(typeof spawnCount === 'undefined'){
+      spawnCount = 2;
+    }
     
     // Calculate territory if not yet done
     if (!self.baseRadius) {
@@ -2351,6 +2493,9 @@ Teutons = function(param){
       var sp2 = grid[rand];
       var c2 = getCenter(sp2[0],sp2[1]);
       var work = {hq:b,spot:null};
+      var genderBreakdown = {male: 0, female: 0};
+      var serfIds = [];
+      
       // For lumbermill/mine, first serf MUST be male; for mill/farm, can be either
       if(building.type == 'mill' || building.type == 'farm'){
         if(s1 > 0.4){
@@ -2364,6 +2509,7 @@ Teutons = function(param){
             home:{z:0,loc:sp1},
             hut:id
           });
+          genderBreakdown.male++;
         } else {
           SerfF({
             id:s1,
@@ -2375,7 +2521,9 @@ Teutons = function(param){
             home:{z:0,loc:sp1},
             hut:id
           });
+          genderBreakdown.female++;
         }
+        serfIds.push(s1);
       } else {
         // Lumbermill or mine - first serf must be male
         SerfM({
@@ -2388,6 +2536,8 @@ Teutons = function(param){
           home:{z:0,loc:sp1},
           hut:id
         });
+        genderBreakdown.male++;
+        serfIds.push(s1);
       }
       if(building.type == 'mill' || building.type == 'farm'){
         // Mills and farms can have either gender
@@ -2402,6 +2552,7 @@ Teutons = function(param){
             home:{z:0,loc:sp2},
             hut:id
           });
+          genderBreakdown.male++;
         } else {
           SerfF({
             id:s2,
@@ -2413,7 +2564,9 @@ Teutons = function(param){
             home:{z:0,loc:sp2},
             hut:id
           });
+          genderBreakdown.female++;
         }
+        serfIds.push(s2);
         Building.list[b].serfs[s1] = s1;
         Player.list[s1].work = {hq:b,spot:null};
         Building.list[b].serfs[s2] = s2;
@@ -2430,6 +2583,8 @@ Teutons = function(param){
           home:{z:0,loc:sp2},
           hut:id
         });
+        genderBreakdown.male++;
+        serfIds.push(s2);
         // First serf is always male, so always assign
         Building.list[b].serfs[s1] = s1;
         Player.list[s1].work = {hq:b,spot:null};
@@ -2437,7 +2592,36 @@ Teutons = function(param){
         Building.list[b].serfs[s2] = s2;
         Player.list[s2].work = {hq:b,spot:null};
       }
+      
+      // Log successful spawn
+      if(global.eventManager && serfIds.length > 0){
+        global.eventManager.serfSpawned(building, serfIds, serfIds.length, {
+          genderBreakdown: genderBreakdown,
+          workHQ: b,
+          hutId: id,
+          spawnMethod: 'hq'
+        });
+      }
+      
+      // Deduct resources only after successful hut placement
+      if(stores && !isBootstrapSpawn && serfIds.length > 0){
+        if(typeof deductFoodForSerfs === 'function'){
+          deductFoodForSerfs(stores, serfIds.length);
+        }
+        if(serfIds.length === 2 && typeof deductWoodForHut === 'function'){
+          deductWoodForHut(stores);
+        }
+      }
+      
+      return true; // Success
     } else {
+      // Log failed spawn - no hut spot found
+      if(global.eventManager){
+        global.eventManager.serfSpawnFailed(building, 'no_hut_spot_found', {
+          searchRadius: searchRadius
+        });
+      }
+      return false; // Failure
     }
   }
   self.spawn = function(cl,spawn){
@@ -3345,50 +3529,306 @@ getAvailableFlagsForUI = function(){
 convertHouse = function(id){
   var player = Player.list[id];
   var house = player.house;
-   var grain = player.stores.grain;
-   House.list[house].stores.grain += grain;
-   Player.list[id].stores.grain = 0;
-   var wood = player.stores.wood;
-   House.list[house].stores.wood += wood;
-   Player.list[id].stores.wood = 0;
-   var stone = player.stores.stone;
-   House.list[house].stores.stone += stone;
-   Player.list[id].stores.stone = 0;
-   var ironore = player.stores.ironore;
-   House.list[house].stores.ironore += ironore;
-   Player.list[id].stores.ironore = 0;
-   var iron = player.stores.iron;
-   House.list[house].stores.iron += iron;
-   Player.list[id].stores.ironore = 0;
-   var silverore = player.stores.silverore;
-   House.list[house].stores.silverore += silverore;
-   Player.list[id].stores.silver = 0;
-   var silver = player.stores.silver;
-   House.list[house].stores.silver += silver;
-   Player.list[id].stores.silver = 0;
-   var goldore = player.stores.goldore;
-   House.list[house].stores.goldore += goldore;
-   Player.list[id].stores.goldore = 0;
-   var gold = player.stores.gold;
-   House.list[house].stores.gold += gold;
-   Player.list[id].stores.gold = 0;
-   var diamond = player.stores.diamond;
-   House.list[house].stores.diamond += diamond;
-   Player.list[id].stores.diamond = 0;
+  var houseObj = House.list[house];
+  var houseName = houseObj ? houseObj.name : null;
+  
+  // Track resource transfers for events
+  var grain = player.stores.grain;
+  House.list[house].stores.grain += grain;
+  Player.list[id].stores.grain = 0;
+  if(global.eventManager && grain > 0){
+    global.eventManager.createEvent({
+      category: global.eventManager.categories.ECONOMIC,
+      subject: id,
+      subjectName: player.name || player.class,
+      action: 'transferred grain to faction',
+      quantity: grain,
+      house: house,
+      houseName: houseName,
+      communication: global.eventManager.commModes.NONE,
+      log: `[ECONOMIC] ${player.name || player.class} transferred ${grain} grain to faction "${houseName}"`,
+      position: { x: player.x, y: player.y, z: player.z || 0 }
+    });
+  }
+  
+  var wood = player.stores.wood;
+  House.list[house].stores.wood += wood;
+  Player.list[id].stores.wood = 0;
+  if(global.eventManager && wood > 0){
+    global.eventManager.createEvent({
+      category: global.eventManager.categories.ECONOMIC,
+      subject: id,
+      subjectName: player.name || player.class,
+      action: 'transferred wood to faction',
+      quantity: wood,
+      house: house,
+      houseName: houseName,
+      communication: global.eventManager.commModes.NONE,
+      log: `[ECONOMIC] ${player.name || player.class} transferred ${wood} wood to faction "${houseName}"`,
+      position: { x: player.x, y: player.y, z: player.z || 0 }
+    });
+  }
+  
+  var stone = player.stores.stone;
+  House.list[house].stores.stone += stone;
+  Player.list[id].stores.stone = 0;
+  if(global.eventManager && stone > 0){
+    global.eventManager.createEvent({
+      category: global.eventManager.categories.ECONOMIC,
+      subject: id,
+      subjectName: player.name || player.class,
+      action: 'transferred stone to faction',
+      quantity: stone,
+      house: house,
+      houseName: houseName,
+      communication: global.eventManager.commModes.NONE,
+      log: `[ECONOMIC] ${player.name || player.class} transferred ${stone} stone to faction "${houseName}"`,
+      position: { x: player.x, y: player.y, z: player.z || 0 }
+    });
+  }
+  
+  var ironore = player.stores.ironore;
+  House.list[house].stores.ironore += ironore;
+  Player.list[id].stores.ironore = 0;
+  if(global.eventManager && ironore > 0){
+    global.eventManager.createEvent({
+      category: global.eventManager.categories.ECONOMIC,
+      subject: id,
+      subjectName: player.name || player.class,
+      action: 'transferred ironore to faction',
+      quantity: ironore,
+      house: house,
+      houseName: houseName,
+      communication: global.eventManager.commModes.NONE,
+      log: `[ECONOMIC] ${player.name || player.class} transferred ${ironore} ironore to faction "${houseName}"`,
+      position: { x: player.x, y: player.y, z: player.z || 0 }
+    });
+  }
+  
+  var iron = player.stores.iron;
+  House.list[house].stores.iron += iron;
+  Player.list[id].stores.iron = 0;
+  if(global.eventManager && iron > 0){
+    global.eventManager.createEvent({
+      category: global.eventManager.categories.ECONOMIC,
+      subject: id,
+      subjectName: player.name || player.class,
+      action: 'transferred iron to faction',
+      quantity: iron,
+      house: house,
+      houseName: houseName,
+      communication: global.eventManager.commModes.NONE,
+      log: `[ECONOMIC] ${player.name || player.class} transferred ${iron} iron to faction "${houseName}"`,
+      position: { x: player.x, y: player.y, z: player.z || 0 }
+    });
+  }
+  
+  var silverore = player.stores.silverore;
+  House.list[house].stores.silverore += silverore;
+  Player.list[id].stores.silverore = 0;
+  if(global.eventManager && silverore > 0){
+    global.eventManager.createEvent({
+      category: global.eventManager.categories.ECONOMIC,
+      subject: id,
+      subjectName: player.name || player.class,
+      action: 'transferred silverore to faction',
+      quantity: silverore,
+      house: house,
+      houseName: houseName,
+      communication: global.eventManager.commModes.NONE,
+      log: `[ECONOMIC] ${player.name || player.class} transferred ${silverore} silverore to faction "${houseName}"`,
+      position: { x: player.x, y: player.y, z: player.z || 0 }
+    });
+  }
+  
+  var silver = player.stores.silver;
+  House.list[house].stores.silver += silver;
+  Player.list[id].stores.silver = 0;
+  if(global.eventManager && silver > 0){
+    global.eventManager.createEvent({
+      category: global.eventManager.categories.ECONOMIC,
+      subject: id,
+      subjectName: player.name || player.class,
+      action: 'transferred silver to faction',
+      quantity: silver,
+      house: house,
+      houseName: houseName,
+      communication: global.eventManager.commModes.NONE,
+      log: `[ECONOMIC] ${player.name || player.class} transferred ${silver} silver to faction "${houseName}"`,
+      position: { x: player.x, y: player.y, z: player.z || 0 }
+    });
+  }
+  
+  var goldore = player.stores.goldore;
+  House.list[house].stores.goldore += goldore;
+  Player.list[id].stores.goldore = 0;
+  if(global.eventManager && goldore > 0){
+    global.eventManager.createEvent({
+      category: global.eventManager.categories.ECONOMIC,
+      subject: id,
+      subjectName: player.name || player.class,
+      action: 'transferred goldore to faction',
+      quantity: goldore,
+      house: house,
+      houseName: houseName,
+      communication: global.eventManager.commModes.NONE,
+      log: `[ECONOMIC] ${player.name || player.class} transferred ${goldore} goldore to faction "${houseName}"`,
+      position: { x: player.x, y: player.y, z: player.z || 0 }
+    });
+  }
+  
+  var gold = player.stores.gold;
+  House.list[house].stores.gold += gold;
+  Player.list[id].stores.gold = 0;
+  if(global.eventManager && gold > 0){
+    global.eventManager.createEvent({
+      category: global.eventManager.categories.ECONOMIC,
+      subject: id,
+      subjectName: player.name || player.class,
+      action: 'transferred gold to faction',
+      quantity: gold,
+      house: house,
+      houseName: houseName,
+      communication: global.eventManager.commModes.NONE,
+      log: `[ECONOMIC] ${player.name || player.class} transferred ${gold} gold to faction "${houseName}"`,
+      position: { x: player.x, y: player.y, z: player.z || 0 }
+    });
+  }
+  
+  var diamond = player.stores.diamond;
+  House.list[house].stores.diamond += diamond;
+  Player.list[id].stores.diamond = 0;
+  if(global.eventManager && diamond > 0){
+    global.eventManager.createEvent({
+      category: global.eventManager.categories.ECONOMIC,
+      subject: id,
+      subjectName: player.name || player.class,
+      action: 'transferred diamond to faction',
+      quantity: diamond,
+      house: house,
+      houseName: houseName,
+      communication: global.eventManager.commModes.NONE,
+      log: `[ECONOMIC] ${player.name || player.class} transferred ${diamond} diamond to faction "${houseName}"`,
+      position: { x: player.x, y: player.y, z: player.z || 0 }
+    });
+  }
+  
+  // Track building conversions
+  var convertedBuildings = [];
+  var convertedSerfIds = [];
+  
+  // First pass: Convert buildings
   for(var i in Building.list){
     var b = Building.list[i];
     if(b.owner == id){
+      convertedBuildings.push({ id: b.id, type: b.type });
       Building.list[i].house = house;
       if(b.patrol && b.built){
         House.list[house].military.patrol.push(b.id);
       }
+      
+      // Convert serfs directly tracked in building.serfs
       if(b.serfs){
         for(var s in b.serfs){
           var serf = b.serfs[s];
-          Player.list[serf].house = house;
+          if(Player.list[serf]){
+            Player.list[serf].house = house;
+            if(convertedSerfIds.indexOf(serf) === -1){
+              convertedSerfIds.push(serf);
+            }
+          }
+        }
+      }
+      
+      // Transfer resources from building.dailyStores to faction stores
+      if(b.dailyStores){
+        var resourceTypes = ['grain', 'wood', 'stone', 'ironore', 'iron', 'silverore', 'silver', 'goldore', 'gold', 'diamond', 'fish'];
+        for(var r = 0; r < resourceTypes.length; r++){
+          var resourceType = resourceTypes[r];
+          if(b.dailyStores[resourceType] && b.dailyStores[resourceType] > 0){
+            var amount = b.dailyStores[resourceType];
+            if(!House.list[house].stores[resourceType]){
+              House.list[house].stores[resourceType] = 0;
+            }
+            House.list[house].stores[resourceType] += amount;
+            b.dailyStores[resourceType] = 0;
+          }
         }
       }
     }
+  }
+  
+  // Second pass: Find all serfs linked to player buildings via hut or work.hq
+  // This catches serfs that were spawned before faction creation with house: undefined
+  for(var serfId in Player.list){
+    var serf = Player.list[serfId];
+    if(!serf || serf.type === 'player') continue; // Skip players
+    
+    // Check if serf is a serf (SerfM or SerfF)
+    var serfClass = serf.class || '';
+    var isSerf = serfClass === 'SerfM' || serfClass === 'SerfF' || serfClass === 'Serf';
+    
+    if(!isSerf) continue;
+    
+    var shouldConvert = false;
+    
+    // Check if serf has hut pointing to player building
+    if(serf.hut){
+      var hutBuilding = Building.list[serf.hut];
+      if(hutBuilding && hutBuilding.owner === id){
+        shouldConvert = true;
+      }
+    }
+    
+    // Check if serf has work.hq pointing to player building
+    if(serf.work && serf.work.hq){
+      var workBuilding = Building.list[serf.work.hq];
+      if(workBuilding && workBuilding.owner === id){
+        shouldConvert = true;
+      }
+    }
+    
+    // Convert if linked to player building and either has no house or different house
+    if(shouldConvert && (serf.house === undefined || serf.house === null || serf.house !== house)){
+      serf.house = house;
+      if(convertedSerfIds.indexOf(serfId) === -1){
+        convertedSerfIds.push(serfId);
+      }
+    }
+  }
+  
+  // Create building conversion event
+  if(global.eventManager && convertedBuildings.length > 0){
+    global.eventManager.createEvent({
+      category: global.eventManager.categories.BUILDING,
+      subject: id,
+      subjectName: player.name || player.class,
+      action: 'converted buildings to faction',
+      quantity: convertedBuildings.length,
+      house: house,
+      houseName: houseName,
+      communication: global.eventManager.commModes.NONE,
+      log: `[BUILDING] ${player.name || player.class} converted ${convertedBuildings.length} building(s) to faction "${houseName}"`,
+      position: { x: player.x, y: player.y, z: player.z || 0 },
+      metadata: { buildings: convertedBuildings }
+    });
+  }
+  
+  // Create unit/serf conversion event
+  if(global.eventManager && convertedSerfIds.length > 0){
+    global.eventManager.createEvent({
+      category: global.eventManager.categories.FACTION,
+      subject: id,
+      subjectName: player.name || player.class,
+      action: 'converted units to faction',
+      quantity: convertedSerfIds.length,
+      house: house,
+      houseName: houseName,
+      communication: global.eventManager.commModes.NONE,
+      log: `[FACTION] ${player.name || player.class} converted ${convertedSerfIds.length} unit(s) to faction "${houseName}"`,
+      position: { x: player.x, y: player.y, z: player.z || 0 },
+      metadata: { serfIds: convertedSerfIds }
+    });
   }
 }
 

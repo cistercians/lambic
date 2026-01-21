@@ -587,6 +587,20 @@ class FactionAI {
       }
     }
     
+    if (global.eventManager && typeof global.eventManager.aiEvent === 'function') {
+      global.eventManager.aiEvent('goal selected', {
+        subject: this.house?.id || null,
+        subjectName: this.house?.name || null,
+        house: this.house?.id || null,
+        houseName: this.house?.name || null,
+        metadata: {
+          goal: topGoal.type,
+          utility: topGoal.utility,
+          originalUtility: topGoalOriginalUtility || null
+        }
+      });
+    }
+    
     const shouldForceChain = (topGoal.type === 'BUILD_GARRISON' || topGoal.type === 'BUILD_FORGE' || topGoal.type === 'ESTABLISH_OUTPOST') && !topGoal.canExecute(this.house);
     if (shouldForceChain) {
       this.logger.collectInfo(`Forcing dependency chain creation for blocked high-value goal: ${topGoal.type} (utility: ${topGoalOriginalUtility})`);
@@ -606,6 +620,22 @@ class FactionAI {
       this.logger.collectError(`Chain creation errors for ${topGoal.type}`, null, {
         reasoning: this.currentGoalChain.errors.join('; ')
       });
+      this.logger.collectGoalFailureContext({
+        goal: topGoal.type,
+        reason: this.currentGoalChain.errors.join('; ')
+      });
+      if (global.eventManager && typeof global.eventManager.aiEvent === 'function') {
+        global.eventManager.aiEvent('chain creation errors', {
+          subject: this.house?.id || null,
+          subjectName: this.house?.name || null,
+          house: this.house?.id || null,
+          houseName: this.house?.name || null,
+          metadata: {
+            goal: topGoal.type,
+            errors: this.currentGoalChain.errors
+          }
+        });
+      }
     }
     
     if (this.currentGoalChain.steps.length > 0) {

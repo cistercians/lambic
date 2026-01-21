@@ -18,7 +18,7 @@ class CombatExtractor extends BaseExtractor {
 
   extract(line, context) {
     if (!line.includes('[COMBAT]') && !line.includes('[DEATH]') && !line.includes('[COMBAT RECORDER]')) {
-      return;
+      return false;
     }
 
     const attackMatch = line.match(/^\[COMBAT\]\s+(.+?) attacked (.+?) for ([\d.]+) damage at \[(\d+),(\d+)\] z=([-\d]+)/);
@@ -44,9 +44,10 @@ class CombatExtractor extends BaseExtractor {
         hour: context.currentHour || null,
         lineNumber: context.lineNumber
       });
-      return;
+      return true;
     }
 
+    // Death with killer: [DEATH] victim killed by killer at [x,y] z=z
     const deathMatch = line.match(/^\[DEATH\]\s+(.+?) killed by (.+?) at \[(\d+),(\d+)\] z=([-\d]+)/);
     if (deathMatch) {
       const victim = deathMatch[1];
@@ -67,7 +68,30 @@ class CombatExtractor extends BaseExtractor {
         hour: context.currentHour || null,
         lineNumber: context.lineNumber
       });
-      return;
+      return true;
+    }
+
+    // Death without killer: [DEATH] victim died at [x,y] z=z
+    const deathWithoutKillerMatch = line.match(/^\[DEATH\]\s+(.+?)\s+died\s+at\s+\[(\d+),(\d+)\]\s+z=([-\d]+)/);
+    if (deathWithoutKillerMatch) {
+      const victim = deathWithoutKillerMatch[1];
+      const x = Number(deathWithoutKillerMatch[2]);
+      const y = Number(deathWithoutKillerMatch[3]);
+      const z = Number(deathWithoutKillerMatch[4]);
+
+      this.stats.totalDeaths += 1;
+      this._increment(this.stats.deathsByKiller, 'unknown');
+
+      this.addEvent({
+        type: 'death',
+        victim,
+        killer: null,
+        position: { x, y, z },
+        day: context.currentDay || null,
+        hour: context.currentHour || null,
+        lineNumber: context.lineNumber
+      });
+      return true;
     }
 
     const recorderMatch = line.match(/^\[COMBAT RECORDER\]\s+([^:]+):\s+(.*)$/);
@@ -82,7 +106,9 @@ class CombatExtractor extends BaseExtractor {
         hour: context.currentHour || null,
         lineNumber: context.lineNumber
       });
+      return true;
     }
+    return false;
   }
 
   _increment(map, key, amount = 1) {

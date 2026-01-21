@@ -79,6 +79,84 @@ if (!global.stuckEntityAnalytics) {
   };
 }
 
+const SERF_FOOD_COST = 25;
+const SERF_HUT_WOOD_COST = 30;
+const SERF_DAILY_SPAWN_CAP = 2;
+
+function ensureSerfSpawnCounters(building) {
+  if (!building) return;
+  const day = (typeof global.day === 'number') ? global.day : 0;
+  if (building.lastSerfSpawnDay !== day) {
+    building.lastSerfSpawnDay = day;
+    building.serfsSpawnedToday = 0;
+  }
+}
+
+function getRemainingSerfSpawns(building) {
+  ensureSerfSpawnCounters(building);
+  const used = building && typeof building.serfsSpawnedToday === 'number'
+    ? building.serfsSpawnedToday
+    : 0;
+  return Math.max(0, SERF_DAILY_SPAWN_CAP - used);
+}
+
+function recordSerfSpawn(building, count) {
+  if (!building || !count) return;
+  ensureSerfSpawnCounters(building);
+  building.serfsSpawnedToday = (building.serfsSpawnedToday || 0) + count;
+}
+
+function isFactionBuilding(building) {
+  if (!building) return false;
+  return typeof building.house !== 'undefined' && building.house !== null;
+}
+
+function resolveHouseStores(building) {
+  if (!building || !global.House || !global.House.list) return null;
+  const houseId = building.house;
+  if (houseId === null || typeof houseId === 'undefined') return null;
+  return global.House.list[houseId] ? global.House.list[houseId].stores : null;
+}
+
+function resolveOwnerStores(building) {
+  if (!building || !global.Player || !global.Player.list) return null;
+  const owner = building.owner ? global.Player.list[building.owner] : null;
+  return owner && owner.stores ? owner.stores : null;
+}
+
+function getIdealSerfCount(availableWorkSpots, isFaction) {
+  if (!availableWorkSpots || availableWorkSpots <= 0) return 0;
+  const divisor = isFaction ? 3 : 4;
+  return Math.ceil(availableWorkSpots / divisor);
+}
+
+function hasFoodForSerfs(stores, count) {
+  if (!stores || !count) return false;
+  const totalFood = (stores.fish || 0) + (stores.grain || 0);
+  return totalFood >= (SERF_FOOD_COST * count);
+}
+
+function deductFoodForSerfs(stores, count) {
+  if (!stores || !count) return;
+  let remaining = SERF_FOOD_COST * count;
+  const fishAvailable = stores.fish || 0;
+  const fishUsed = Math.min(fishAvailable, remaining);
+  stores.fish = fishAvailable - fishUsed;
+  remaining -= fishUsed;
+  if (remaining > 0) {
+    stores.grain = (stores.grain || 0) - remaining;
+  }
+}
+
+function hasWoodForHut(stores) {
+  return stores && (stores.wood || 0) >= SERF_HUT_WOOD_COST;
+}
+
+function deductWoodForHut(stores) {
+  if (!stores) return;
+  stores.wood = (stores.wood || 0) - SERF_HUT_WOOD_COST;
+}
+
 // ENTITY
 Entity = function(param){
   var self = {
@@ -351,6 +429,31 @@ Building = function(param){
 
   // Method to check if spot is available
   self.isSpotAvailable = function(spot){
+    // Periodic cleanup of stale assignments (every 10th call to reduce overhead)
+    if (!self._spotCleanupCounter) self._spotCleanupCounter = 0;
+    self._spotCleanupCounter++;
+    if (self._spotCleanupCounter >= 10) {
+      self._spotCleanupCounter = 0;
+      // Clean up stale assignments
+      for(var id in self.assignedSpots){
+        var serf = Player.list ? Player.list[id] : null;
+        if(!serf || !serf.work || serf.work.hq !== self.id){
+          delete self.assignedSpots[id];
+          continue;
+        }
+        // Check if serf is idle for extended period (possible stuck/abandoned assignment)
+        if(serf.mode === 'idle' && serf.action === null) {
+          // Check how long serf has been idle (if tracking available)
+          const idleTime = serf._lastWorkAttemptAt ? (Date.now() - serf._lastWorkAttemptAt) : 0;
+          // If idle for more than 30 seconds, release the spot
+          if(idleTime > 30000) {
+            delete self.assignedSpots[id];
+            continue;
+          }
+        }
+      }
+    }
+    
     for(var id in self.assignedSpots){
       var assigned = self.assignedSpots[id];
       if(!assigned || !Array.isArray(assigned) || assigned.length < 2){
@@ -656,34 +759,149 @@ Mill = function(param){
       s++;
     }
     
-    // New logic: spawn serfs based on available work spots
-    // Target = half the number of available work spots (rounded up)
     var availableWorkSpots = self.resources.length;
-    var idealSerfCount = Math.ceil(availableWorkSpots / 2);
     
-    if(s < idealSerfCount){
-      var grain = 0;
-      if(self.tavern){
-        // Check if owner still exists
-        if(!Player.list[self.owner]){
-          // Mill owner no longer exists, skip serf creation
-        } else if(Player.list[self.owner].house){
-          var h = Player.list[self.owner].house;
-          grain = House.list[h].stores.grain;
-          if(grain >= s){
-            Building.list[self.tavern].newSerfs(self.id);
+    // Log tally start
+    if(global.eventManager){
+      global.eventManager.serfSpawnTallyStart(self, s, availableWorkSpots);
+    }
+    
+    var factionBuilding = isFactionBuilding(self);
+    var idealSerfCount = getIdealSerfCount(availableWorkSpots, factionBuilding);
+    var needed = idealSerfCount - s;
+    
+    // Log ideal count calculation
+    if(global.eventManager){
+      global.eventManager.serfSpawnDecision(self, 'ideal_count_calculated', null, {
+        availableWorkSpots: availableWorkSpots,
+        idealSerfCount: idealSerfCount,
+        currentSerfs: s,
+        needed: needed,
+        factionBuilding: factionBuilding
+      });
+    }
+    
+    if(needed <= 0) {
+      if(global.eventManager){
+        global.eventManager.serfSpawnDecision(self, 'early_return', 'at_ideal_count', { needed: needed });
+      }
+      return;
+    }
+    
+    var remainingSpawns = getRemainingSerfSpawns(self);
+    if(remainingSpawns <= 0) {
+      if(global.eventManager){
+        global.eventManager.serfSpawnDecision(self, 'early_return', 'spawn_cap_reached', { remainingSpawns: remainingSpawns });
+      }
+      return;
+    }
+    
+    var usingTavern = !!self.tavern;
+    var spawnCount = 0;
+    if(usingTavern){
+      if(needed >= 2){
+        spawnCount = Math.min(2, remainingSpawns);
+      } else if(needed === 1){
+        spawnCount = 1;
+      }
+    } else if(self.house >= 2 && self.house < 7){
+      if(needed >= 2 && remainingSpawns >= 2){
+        spawnCount = 2;
+      }
+    }
+    
+    if(spawnCount <= 0) {
+      if(global.eventManager){
+        global.eventManager.serfSpawnDecision(self, 'early_return', 'no_spawn_method', { 
+          usingTavern: usingTavern,
+          house: self.house,
+          spawnCount: spawnCount
+        });
+      }
+      return;
+    }
+    
+    // Bootstrap rule: Free spawning when building has zero serfs
+    var isBootstrapSpawn = (s === 0);
+    
+    if(!isBootstrapSpawn){
+      if(!factionBuilding){
+        var neutralStores = resolveOwnerStores(self);
+        var neutralResource = neutralStores ? (neutralStores.grain || 0) : 0;
+        if(neutralResource <= 0) {
+          if(global.eventManager){
+            global.eventManager.serfSpawnDecision(self, 'resource_check', 'insufficient_neutral_resource', {
+              isBootstrapSpawn: isBootstrapSpawn,
+              resourceType: 'grain',
+              resourceAmount: neutralResource
+            });
           }
-        } else {
-          grain = Player.list[self.owner].stores.grain;
-        if(grain >= s){
-          Building.list[self.tavern].newSerfs(self.id);
-          }
+          return;
         }
-      } else if(self.house >= 2 && self.house < 7){
-        var hq = House.list[self.house].hq;
-        grain = House.list[self.house].stores.grain;
-        if(grain >= s && House.list[self.house].newSerfs){
-          House.list[self.house].newSerfs(self.id,hq);
+      } else {
+        var stores = resolveHouseStores(self) || resolveOwnerStores(self);
+        if(!stores) {
+          if(global.eventManager){
+            global.eventManager.serfSpawnDecision(self, 'resource_check', 'no_stores', {
+              isBootstrapSpawn: isBootstrapSpawn
+            });
+          }
+          return;
+        }
+        var foodAvailable = (stores.fish || 0) + (stores.grain || 0);
+        var woodAvailable = stores.wood || 0;
+        if(!hasFoodForSerfs(stores, spawnCount)) {
+          if(global.eventManager){
+            global.eventManager.serfSpawnDecision(self, 'resource_check', 'insufficient_food', {
+              isBootstrapSpawn: isBootstrapSpawn,
+              foodAvailable: foodAvailable,
+              foodRequired: SERF_FOOD_COST * spawnCount
+            });
+          }
+          return;
+        }
+        if(spawnCount === 2 && !hasWoodForHut(stores)) {
+          if(global.eventManager){
+            global.eventManager.serfSpawnDecision(self, 'resource_check', 'insufficient_wood', {
+              isBootstrapSpawn: isBootstrapSpawn,
+              woodAvailable: woodAvailable,
+              woodRequired: SERF_HUT_WOOD_COST
+            });
+          }
+          return;
+        }
+        // Don't deduct resources yet - wait for successful hut placement
+      }
+    }
+    
+    // Log spawn attempt
+    var spawnMethod = usingTavern ? 'tavern' : 'hq';
+    if(global.eventManager){
+      global.eventManager.serfSpawnAttempt(self, spawnCount, spawnMethod, {
+        isBootstrapSpawn: isBootstrapSpawn
+      });
+    }
+    
+    if(usingTavern && Building.list[self.tavern] && typeof Building.list[self.tavern].newSerfs === 'function'){
+      Building.list[self.tavern].newSerfs(self.id, spawnCount);
+      recordSerfSpawn(self, spawnCount);
+    } else if(spawnCount === 2 && self.house >= 2 && self.house < 7){
+      var hq = House.list[self.house] ? House.list[self.house].hq : null;
+      if(hq && House.list[self.house] && House.list[self.house].newSerfs){
+        var storesForSpawn = null;
+        if(!isBootstrapSpawn && factionBuilding){
+          storesForSpawn = resolveHouseStores(self) || resolveOwnerStores(self);
+        }
+        var success = House.list[self.house].newSerfs(self.id, hq, spawnCount, storesForSpawn, isBootstrapSpawn);
+        if(success){
+          recordSerfSpawn(self, 2);
+          // Deduct resources only after successful hut placement
+          if(storesForSpawn){
+            deductFoodForSerfs(storesForSpawn, spawnCount);
+            if(spawnCount === 2){
+              deductWoodForHut(storesForSpawn);
+            }
+          }
         }
       }
     }
@@ -761,38 +979,164 @@ Lumbermill = function(param){
       s++;
     }
     
-    // New logic: spawn serfs based on available work spots
-    // Target = half the number of available work spots (rounded up)
     var availableWorkSpots = self.resources.length;
-    var idealSerfCount = Math.ceil(availableWorkSpots / 2);
     
-    if(s < idealSerfCount){
-      var wood = 0;
-      if(self.tavern){
-        // Check if owner still exists
-        if(!Player.list[self.owner]){
-          // Lumbermill owner no longer exists, skip serf creation
-        } else if(Player.list[self.owner].house){
-          var h = Player.list[self.owner].house;
-          wood = House.list[h].stores.wood;
-          if(wood >= s){
-            Building.list[self.tavern].newSerfs(self.id);
+    // Log tally start
+    if(global.eventManager){
+      global.eventManager.serfSpawnTallyStart(self, s, availableWorkSpots);
+    }
+    
+    var factionBuilding = isFactionBuilding(self);
+    var idealSerfCount = getIdealSerfCount(availableWorkSpots, factionBuilding);
+    var needed = idealSerfCount - s;
+    var refreshResources = function(){
+      if(typeof self.getRes === 'function'){
+        self.getRes();
+      }
+    };
+    
+    // Log ideal count calculation
+    if(global.eventManager){
+      global.eventManager.serfSpawnDecision(self, 'ideal_count_calculated', null, {
+        availableWorkSpots: availableWorkSpots,
+        idealSerfCount: idealSerfCount,
+        currentSerfs: s,
+        needed: needed,
+        factionBuilding: factionBuilding
+      });
+    }
+    
+    if(needed <= 0){
+      if(global.eventManager){
+        global.eventManager.serfSpawnDecision(self, 'early_return', 'at_ideal_count', { needed: needed });
+      }
+      return;
+    }
+    
+    var remainingSpawns = getRemainingSerfSpawns(self);
+    if(remainingSpawns <= 0){
+      if(global.eventManager){
+        global.eventManager.serfSpawnDecision(self, 'early_return', 'spawn_cap_reached', { remainingSpawns: remainingSpawns });
+      }
+      refreshResources();
+      return;
+    }
+    
+    var usingTavern = !!self.tavern;
+    var spawnCount = 0;
+    if(usingTavern){
+      if(needed >= 2){
+        spawnCount = Math.min(2, remainingSpawns);
+      } else if(needed === 1){
+        spawnCount = 1;
+      }
+    } else if(self.house >= 2 && self.house < 7){
+      if(needed >= 2 && remainingSpawns >= 2){
+        spawnCount = 2;
+      }
+    }
+    
+    if(spawnCount <= 0){
+      if(global.eventManager){
+        global.eventManager.serfSpawnDecision(self, 'early_return', 'no_spawn_method', { 
+          usingTavern: usingTavern,
+          house: self.house,
+          spawnCount: spawnCount
+        });
+      }
+      refreshResources();
+      return;
+    }
+    
+    // Bootstrap rule: Free spawning when building has zero serfs
+    var isBootstrapSpawn = (s === 0);
+    
+    if(!isBootstrapSpawn){
+      if(!factionBuilding){
+        var neutralStores = resolveOwnerStores(self);
+        var neutralResource = neutralStores ? (neutralStores.wood || 0) : 0;
+        if(neutralResource <= 0){
+          if(global.eventManager){
+            global.eventManager.serfSpawnDecision(self, 'resource_check', 'insufficient_neutral_resource', {
+              isBootstrapSpawn: isBootstrapSpawn,
+              resourceType: 'wood',
+              resourceAmount: neutralResource
+            });
           }
-        } else {
-          wood = Player.list[self.owner].stores.wood;
-        if(wood >= s){
-          Building.list[self.tavern].newSerfs(self.id);
-          }
+          refreshResources();
+          return;
         }
-      } else if(self.house >= 2 && self.house < 7){
-        var hq = House.list[self.house].hq;
-        wood = House.list[self.house].stores.wood;
-        if(wood >= s && House.list[self.house].newSerfs){
-          House.list[self.house].newSerfs(self.id,hq);
+      } else {
+        var stores = resolveHouseStores(self) || resolveOwnerStores(self);
+        if(!stores){
+          if(global.eventManager){
+            global.eventManager.serfSpawnDecision(self, 'resource_check', 'no_stores', {
+              isBootstrapSpawn: isBootstrapSpawn
+            });
+          }
+          refreshResources();
+          return;
+        }
+        var foodAvailable = (stores.fish || 0) + (stores.grain || 0);
+        var woodAvailable = stores.wood || 0;
+        if(!hasFoodForSerfs(stores, spawnCount)){
+          if(global.eventManager){
+            global.eventManager.serfSpawnDecision(self, 'resource_check', 'insufficient_food', {
+              isBootstrapSpawn: isBootstrapSpawn,
+              foodAvailable: foodAvailable,
+              foodRequired: SERF_FOOD_COST * spawnCount
+            });
+          }
+          refreshResources();
+          return;
+        }
+        if(spawnCount === 2 && !hasWoodForHut(stores)){
+          if(global.eventManager){
+            global.eventManager.serfSpawnDecision(self, 'resource_check', 'insufficient_wood', {
+              isBootstrapSpawn: isBootstrapSpawn,
+              woodAvailable: woodAvailable,
+              woodRequired: SERF_HUT_WOOD_COST
+            });
+          }
+          refreshResources();
+          return;
+        }
+        // Don't deduct resources yet - wait for successful hut placement
+      }
+    }
+    
+    // Log spawn attempt
+    var spawnMethod = usingTavern ? 'tavern' : 'hq';
+    if(global.eventManager){
+      global.eventManager.serfSpawnAttempt(self, spawnCount, spawnMethod, {
+        isBootstrapSpawn: isBootstrapSpawn
+      });
+    }
+    
+    if(usingTavern && Building.list[self.tavern] && typeof Building.list[self.tavern].newSerfs === 'function'){
+      Building.list[self.tavern].newSerfs(self.id, spawnCount);
+      recordSerfSpawn(self, spawnCount);
+    } else if(spawnCount === 2 && self.house >= 2 && self.house < 7){
+      var hq = House.list[self.house] ? House.list[self.house].hq : null;
+      if(hq && House.list[self.house] && House.list[self.house].newSerfs){
+        var storesForSpawn = null;
+        if(!isBootstrapSpawn && factionBuilding){
+          storesForSpawn = resolveHouseStores(self) || resolveOwnerStores(self);
+        }
+        var success = House.list[self.house].newSerfs(self.id, hq, spawnCount, storesForSpawn, isBootstrapSpawn);
+        if(success){
+          recordSerfSpawn(self, 2);
+          // Deduct resources only after successful hut placement
+          if(storesForSpawn){
+            deductFoodForSerfs(storesForSpawn, spawnCount);
+            if(spawnCount === 2){
+              deductWoodForHut(storesForSpawn);
+            }
+          }
         }
       }
-      self.getRes();
     }
+    refreshResources();
   }
   self.findTavern = function(){
     for(var i in Building.list){
@@ -862,60 +1206,149 @@ Mine = function(param){
       s++;
     }
     
-    // New logic: spawn serfs based on available work spots
-    // Target = half the number of available work spots (rounded up)
     var availableWorkSpots = self.resources.length;
-    var idealSerfCount = Math.ceil(availableWorkSpots / 2);
     
-    if(s < idealSerfCount){
-      if(self.cave){
-        var ore = 0;
-        if(self.tavern){
-          // Check if owner still exists
-          if(!Player.list[self.owner]){
-            // Mine owner no longer exists, skip serf creation
-          } else if(Player.list[self.owner].house){
-            var h = Player.list[self.owner].house;
-            ore = House.list[h].stores.ironore;
-            if(ore >= s){
-              Building.list[self.tavern].newSerfs(self.id);
-            }
-          } else {
-            ore = Player.list[self.owner].stores.ironore;
-          if(ore >= s){
-            Building.list[self.tavern].newSerfs(self.id);
-            }
+    // Log tally start
+    if(global.eventManager){
+      global.eventManager.serfSpawnTallyStart(self, s, availableWorkSpots);
+    }
+    
+    var factionBuilding = isFactionBuilding(self);
+    var idealSerfCount = getIdealSerfCount(availableWorkSpots, factionBuilding);
+    var needed = idealSerfCount - s;
+    
+    // Log ideal count calculation
+    if(global.eventManager){
+      global.eventManager.serfSpawnDecision(self, 'ideal_count_calculated', null, {
+        availableWorkSpots: availableWorkSpots,
+        idealSerfCount: idealSerfCount,
+        currentSerfs: s,
+        needed: needed,
+        factionBuilding: factionBuilding
+      });
+    }
+    
+    if(needed <= 0) {
+      if(global.eventManager){
+        global.eventManager.serfSpawnDecision(self, 'early_return', 'at_ideal_count', { needed: needed });
+      }
+      return;
+    }
+    
+    var remainingSpawns = getRemainingSerfSpawns(self);
+    if(remainingSpawns <= 0) {
+      if(global.eventManager){
+        global.eventManager.serfSpawnDecision(self, 'early_return', 'spawn_cap_reached', { remainingSpawns: remainingSpawns });
+      }
+      return;
+    }
+    
+    var usingTavern = !!self.tavern;
+    var spawnCount = 0;
+    if(usingTavern){
+      if(needed >= 2){
+        spawnCount = Math.min(2, remainingSpawns);
+      } else if(needed === 1){
+        spawnCount = 1;
+      }
+    } else if(self.house >= 2 && self.house < 7){
+      if(needed >= 2 && remainingSpawns >= 2){
+        spawnCount = 2;
+      }
+    }
+    
+    if(spawnCount <= 0) {
+      if(global.eventManager){
+        global.eventManager.serfSpawnDecision(self, 'early_return', 'no_spawn_method', { 
+          usingTavern: usingTavern,
+          house: self.house,
+          spawnCount: spawnCount
+        });
+      }
+      return;
+    }
+    
+    // Bootstrap rule: Free spawning when building has zero serfs
+    var isBootstrapSpawn = (s === 0);
+    
+    if(!isBootstrapSpawn){
+      if(!factionBuilding){
+        var neutralStores = resolveOwnerStores(self);
+        var resourceType = self.cave ? 'ironore' : 'stone';
+        var neutralResource = neutralStores ? (neutralStores[resourceType] || 0) : 0;
+        if(neutralResource <= 0) {
+          if(global.eventManager){
+            global.eventManager.serfSpawnDecision(self, 'resource_check', 'insufficient_neutral_resource', {
+              isBootstrapSpawn: isBootstrapSpawn,
+              resourceType: resourceType,
+              resourceAmount: neutralResource
+            });
           }
-        } else if(self.house >= 2 && self.house < 7){
-          var hq = House.list[self.house].hq;
-          ore = House.list[self.house].stores.ironore;
-          if(ore >= s && House.list[self.house].newSerfs){
-            House.list[self.house].newSerfs(self.id,hq);
-          }
+          return;
         }
       } else {
-        var stone = 0;
-        if(self.tavern){
-          // Check if owner still exists
-          if(!Player.list[self.owner]){
-            // Mine owner no longer exists, skip serf creation
-          } else if(Player.list[self.owner].house){
-            var h = Player.list[self.owner].house;
-            stone = House.list[h].stores.stone;
-            if(stone >= s){
-              Building.list[self.tavern].newSerfs(self.id);
-            }
-          } else {
-            stone = Player.list[self.owner].stores.stone;
-          if(stone >= s){
-            Building.list[self.tavern].newSerfs(self.id);
-            }
+        var stores = resolveHouseStores(self) || resolveOwnerStores(self);
+        if(!stores) {
+          if(global.eventManager){
+            global.eventManager.serfSpawnDecision(self, 'resource_check', 'no_stores', {
+              isBootstrapSpawn: isBootstrapSpawn
+            });
           }
-        } else if(self.house >= 2 && self.house < 7){
-          var hq = House.list[self.house].hq;
-          stone = House.list[self.house].stores.stone;
-          if(stone >= s && House.list[self.house].newSerfs){
-            House.list[self.house].newSerfs(self.id,hq);
+          return;
+        }
+        var foodAvailable = (stores.fish || 0) + (stores.grain || 0);
+        var woodAvailable = stores.wood || 0;
+        if(!hasFoodForSerfs(stores, spawnCount)) {
+          if(global.eventManager){
+            global.eventManager.serfSpawnDecision(self, 'resource_check', 'insufficient_food', {
+              isBootstrapSpawn: isBootstrapSpawn,
+              foodAvailable: foodAvailable,
+              foodRequired: SERF_FOOD_COST * spawnCount
+            });
+          }
+          return;
+        }
+        if(spawnCount === 2 && !hasWoodForHut(stores)) {
+          if(global.eventManager){
+            global.eventManager.serfSpawnDecision(self, 'resource_check', 'insufficient_wood', {
+              isBootstrapSpawn: isBootstrapSpawn,
+              woodAvailable: woodAvailable,
+              woodRequired: SERF_HUT_WOOD_COST
+            });
+          }
+          return;
+        }
+        // Don't deduct resources yet - wait for successful hut placement
+      }
+    }
+    
+    // Log spawn attempt
+    var spawnMethod = usingTavern ? 'tavern' : 'hq';
+    if(global.eventManager){
+      global.eventManager.serfSpawnAttempt(self, spawnCount, spawnMethod, {
+        isBootstrapSpawn: isBootstrapSpawn
+      });
+    }
+    
+    if(usingTavern && Building.list[self.tavern] && typeof Building.list[self.tavern].newSerfs === 'function'){
+      Building.list[self.tavern].newSerfs(self.id, spawnCount);
+      recordSerfSpawn(self, spawnCount);
+    } else if(spawnCount === 2 && self.house >= 2 && self.house < 7){
+      var hq = House.list[self.house] ? House.list[self.house].hq : null;
+      if(hq && House.list[self.house] && House.list[self.house].newSerfs){
+        var storesForSpawn = null;
+        if(!isBootstrapSpawn && factionBuilding){
+          storesForSpawn = resolveHouseStores(self) || resolveOwnerStores(self);
+        }
+        var success = House.list[self.house].newSerfs(self.id, hq, spawnCount, storesForSpawn, isBootstrapSpawn);
+        if(success){
+          recordSerfSpawn(self, 2);
+          // Deduct resources only after successful hut placement
+          if(storesForSpawn){
+            deductFoodForSerfs(storesForSpawn, spawnCount);
+            if(spawnCount === 2){
+              deductWoodForHut(storesForSpawn);
+            }
           }
         }
       }
@@ -1215,28 +1648,20 @@ Tavern = function(param){
       }
     }
   }
-  self.newSerfs = function(b){
-    // Safety check: ensure owner still exists
-    if(!Player.list[self.owner]){
-      // Tavern owner no longer exists, skip serf creation
-      return;
-    }
-    var serfLogger = global.serfLogger;
-    self.logWorkHqNull = function(reason, extra) {
-      if (!serfLogger || typeof serfLogger.warn !== 'function') return;
-      const now = Date.now();
-      const throttleKey = `workHqNull-${self.id}`;
-      if (self._workHqNullLogAt && (now - self._workHqNullLogAt) < 10000) return;
-      serfLogger.warn('Work HQ set to null', self, Object.assign({
-        reason: reason || 'unknown',
-        workHq: self.work ? self.work.hq : null,
-        mode: self.mode || null,
-        action: self.action || null
-      }, extra || {}));
-      self._workHqNullLogAt = now;
-    };
+  self.newSerfs = function(b, count){
+    var spawnCount = (count === 1) ? 1 : 2;
     
     var building = Building.list[b];
+    if (!building) {
+      return;
+    }
+    var ownerEntry = (Player.list && self.owner) ? Player.list[self.owner] : null;
+    var resolvedHouse = (typeof building.house !== 'undefined' && building.house !== null)
+      ? building.house
+      : (typeof self.house !== 'undefined' && self.house !== null ? self.house : (ownerEntry ? ownerEntry.house : undefined));
+    var resolvedKingdom = (resolvedHouse && House.list && House.list[resolvedHouse])
+      ? House.list[resolvedHouse].kingdom
+      : (ownerEntry ? ownerEntry.kingdom : undefined);
     var loc = getLoc(self.x,self.y);
     var mLoc = getLoc(building.x,building.y);
     var area = getArea(loc,mLoc,5);
@@ -1285,6 +1710,97 @@ Tavern = function(param){
       }
     }
     if(select.length > 0){
+      var logTavernSpawn = function(serf, role, hutId){
+        if(!serfLogger || typeof serfLogger.info !== 'function' || !serf) return;
+        var night = null;
+        if(global.gameState && typeof global.gameState.nightfall === 'boolean'){
+          night = global.gameState.nightfall;
+        } else if(typeof global.nightfall === 'boolean'){
+          night = global.nightfall;
+        }
+        var serfLoc = getLoc(serf.x, serf.y);
+        serfLogger.info('Tavern serf spawned', serf, {
+          tavernId: self.id,
+          workHq: b,
+          hutId: hutId || null,
+          role: role || 'unknown',
+          z: serf.z,
+          loc: serfLoc,
+          nightfall: night,
+          mode: serf.mode || null,
+          action: serf.action || null
+        });
+      };
+
+      if(spawnCount === 1){
+        var s1 = Math.random();
+        var sp1 = self.plot[13] || getLoc(self.x, self.y);
+        var c1 = getCenter(sp1[0],sp1[1]);
+        var serf1 = null;
+        if(building.type == 'lumbermill' || building.type == 'mine' || building.type == 'dock'){
+          serf1 = SerfM({
+            id:s1,
+            name:randomName('m'),
+            x:c1[0],
+            y:c1[1],
+            z:2,
+            house:resolvedHouse,
+            kingdom:resolvedKingdom,
+            home:{z:2,loc:sp1},
+            work:{hq:b,spot:null},
+            tavern:self.id,
+            mode:'idle',
+            action:null
+          });
+        } else {
+          if(s1 > 0.4){
+            serf1 = SerfM({
+              id:s1,
+              name:randomName('m'),
+              x:c1[0],
+              y:c1[1],
+              z:2,
+              house:resolvedHouse,
+              kingdom:resolvedKingdom,
+              home:{z:2,loc:sp1},
+              work:{hq:b,spot:null},
+              tavern:self.id,
+              mode:'idle',
+              action:null
+            });
+          } else {
+            serf1 = SerfF({
+              id:s1,
+              name:randomName('f'),
+              x:c1[0],
+              y:c1[1],
+              z:2,
+              house:resolvedHouse,
+              kingdom:resolvedKingdom,
+              home:{z:2,loc:sp1},
+              tavern:self.id,
+              mode:'idle',
+              action:null
+            });
+          }
+        }
+
+        if(serf1){
+          logTavernSpawn(serf1, 'single', null);
+          if(Player.list[s1] && Player.list[s1].sex == 'm'){
+            Building.list[b].serfs[s1] = s1;
+            Player.list[s1].work = {hq:b,spot:null};
+          } else {
+            if(building.type == 'mill' || building.type == 'dock'){
+              Building.list[b].serfs[s1] = s1;
+              Player.list[s1].work = {hq:b,spot:null};
+            }
+          }
+          self.occ += 1;
+        }
+        return;
+      }
+
       var rand = Math.floor(Math.random() * select.length);
       var plot = select[rand];
       var walls = wselect[rand];
@@ -1304,8 +1820,8 @@ Tavern = function(param){
       Building({
         id:id,
         owner:building.owner,
-        house:Player.list[building.owner].house,
-        kingdom:Player.list[building.owner].kingdom,
+        house:resolvedHouse,
+        kingdom:resolvedKingdom,
         x:center[0],
         y:center[1],
         z:0,
@@ -1322,27 +1838,6 @@ Tavern = function(param){
         req:5,
         hp:150
       })
-      var logTavernSpawn = function(serf, role){
-        if(!serfLogger || typeof serfLogger.info !== 'function' || !serf) return;
-        var night = null;
-        if(global.gameState && typeof global.gameState.nightfall === 'boolean'){
-          night = global.gameState.nightfall;
-        } else if(typeof global.nightfall === 'boolean'){
-          night = global.nightfall;
-        }
-        var serfLoc = getLoc(serf.x, serf.y);
-        serfLogger.info('Tavern serf spawned', serf, {
-          tavernId: self.id,
-          workHq: b,
-          hutId: id,
-          role: role || 'unknown',
-          z: serf.z,
-          loc: serfLoc,
-          nightfall: night,
-          mode: serf.mode || null,
-          action: serf.action || null
-        });
-      };
       var s1 = Math.random();
       var sp1 = self.plot[13]
       var c1 = getCenter(sp1[0],sp1[1]);
@@ -1360,8 +1855,8 @@ Tavern = function(param){
           x:c1[0],
           y:c1[1],
           z:2,
-          house:Player.list[self.owner].house,
-          kingdom:Player.list[self.owner].kingdom,
+          house:resolvedHouse,
+          kingdom:resolvedKingdom,
           home:{z:2,loc:sp1},
           work:{hq:b,spot:null},
           hut:id,
@@ -1369,7 +1864,7 @@ Tavern = function(param){
           mode:'idle',
           action:null
         });
-        logTavernSpawn(serf1, 'primary');
+        logTavernSpawn(serf1, 'primary', id);
       } else {
         // Mill - either gender (60% male)
       if(s1 > 0.4){
@@ -1379,8 +1874,8 @@ Tavern = function(param){
           x:c1[0],
           y:c1[1],
           z:2,
-          house:Player.list[self.owner].house,
-          kingdom:Player.list[self.owner].kingdom,
+          house:resolvedHouse,
+          kingdom:resolvedKingdom,
           home:{z:2,loc:sp1},
           work:{hq:b,spot:null},
           hut:id,
@@ -1388,7 +1883,7 @@ Tavern = function(param){
           mode:'idle',
           action:null
         });
-        logTavernSpawn(serf1, 'primary');
+        logTavernSpawn(serf1, 'primary', id);
       } else {
         var serf1 = SerfF({
           id:s1,
@@ -1396,15 +1891,15 @@ Tavern = function(param){
           x:c1[0],
           y:c1[1],
           z:2,
-          house:Player.list[self.owner].house,
-          kingdom:Player.list[self.owner].kingdom,
+          house:resolvedHouse,
+          kingdom:resolvedKingdom,
           home:{z:2,loc:sp1},
           hut:id,
           tavern:self.id,
           mode:'idle',
           action:null
         });
-        logTavernSpawn(serf1, 'primary');
+        logTavernSpawn(serf1, 'primary', id);
       }
       }
       
@@ -1416,8 +1911,8 @@ Tavern = function(param){
           x:c2[0],
           y:c2[1],
           z:2,
-          house:Player.list[self.owner].house,
-          kingdom:Player.list[self.owner].kingdom,
+          house:resolvedHouse,
+          kingdom:resolvedKingdom,
           home:{z:2,loc:sp2},
           work:{hq:b,spot:null},
           hut:id,
@@ -1425,7 +1920,7 @@ Tavern = function(param){
           mode:'idle',
           action:null
         });
-        logTavernSpawn(serf2, 'secondary');
+        logTavernSpawn(serf2, 'secondary', id);
       } else {
         var serf2 = SerfF({
           id:s2,
@@ -1433,17 +1928,17 @@ Tavern = function(param){
           x:c2[0],
           y:c2[1],
           z:2,
-          house:Player.list[self.owner].house,
-          kingdom:Player.list[self.owner].kingdom,
+          house:Player.list[self.owner] ? Player.list[self.owner].house : undefined,
+          kingdom:Player.list[self.owner] ? Player.list[self.owner].kingdom : undefined,
           home:{z:2,loc:sp2},
           hut:id,
           tavern:self.id,
           mode:'idle',
           action:null
         });
-        logTavernSpawn(serf2, 'secondary');
+        logTavernSpawn(serf2, 'secondary', id);
       }
-      if(Player.list[s1].sex == 'm'){
+      if(Player.list[s1] && Player.list[s1].sex == 'm'){
         Building.list[b].serfs[s1] = s1;
         Player.list[s1].work = {hq:b,spot:null};
       } else {
@@ -1452,7 +1947,7 @@ Tavern = function(param){
           Player.list[s1].work = {hq:b,spot:null};
         }
       }
-      if(Player.list[s2].sex == 'm'){
+      if(Player.list[s2] && Player.list[s2].sex == 'm'){
         Building.list[b].serfs[s2] = s2;
         Player.list[s2].work = {hq:b,spot:null};
       } else {
@@ -1662,36 +2157,150 @@ Dock = function(param){
       s++;
     }
     
-    // Ship-based work spot system
-    // Max 4 fishing ships per dock
     var shipCount = Math.min(self.ships.length, 4);
-    var idealSerfCount = shipCount; // 1:1 ratio with ships
+    if(shipCount <= 0) return;
     
-    // Spawn serfs based on available ships (1 serf per ship)
-    // Extra serfs without boats will fish from shore
-    if(s < idealSerfCount){
-      var fish = 0;
-      if(self.tavern){
-        // Check if owner still exists
-        if(!Player.list[self.owner]){
-          // Dock owner no longer exists, skip serf creation
-        } else if(Player.list[self.owner].house){
-          var h = Player.list[self.owner].house;
-          fish = House.list[h].stores.fish || 0;
-          if(fish >= s){
-            Building.list[self.tavern].newSerfs(self.id);
+    // Log tally start (using shipCount as available work spots for docks)
+    if(global.eventManager){
+      global.eventManager.serfSpawnTallyStart(self, s, shipCount);
+    }
+    
+    var factionBuilding = isFactionBuilding(self);
+    var idealSerfCount = getIdealSerfCount(shipCount, factionBuilding);
+    var needed = idealSerfCount - s;
+    
+    // Log ideal count calculation
+    if(global.eventManager){
+      global.eventManager.serfSpawnDecision(self, 'ideal_count_calculated', null, {
+        availableWorkSpots: shipCount,
+        idealSerfCount: idealSerfCount,
+        currentSerfs: s,
+        needed: needed,
+        factionBuilding: factionBuilding
+      });
+    }
+    
+    if(needed <= 0) {
+      if(global.eventManager){
+        global.eventManager.serfSpawnDecision(self, 'early_return', 'at_ideal_count', { needed: needed });
+      }
+      return;
+    }
+    
+    var remainingSpawns = getRemainingSerfSpawns(self);
+    if(remainingSpawns <= 0) {
+      if(global.eventManager){
+        global.eventManager.serfSpawnDecision(self, 'early_return', 'spawn_cap_reached', { remainingSpawns: remainingSpawns });
+      }
+      return;
+    }
+    
+    var usingTavern = !!self.tavern;
+    var spawnCount = 0;
+    if(usingTavern){
+      if(needed >= 2){
+        spawnCount = Math.min(2, remainingSpawns);
+      } else if(needed === 1){
+        spawnCount = 1;
+      }
+    } else if(self.house >= 2 && self.house < 7){
+      if(needed >= 2 && remainingSpawns >= 2){
+        spawnCount = 2;
+      }
+    }
+    
+    if(spawnCount <= 0) {
+      if(global.eventManager){
+        global.eventManager.serfSpawnDecision(self, 'early_return', 'no_spawn_method', { 
+          usingTavern: usingTavern,
+          house: self.house,
+          spawnCount: spawnCount
+        });
+      }
+      return;
+    }
+    
+    // Bootstrap rule: Free spawning when building has zero serfs
+    var isBootstrapSpawn = (s === 0);
+    
+    if(!isBootstrapSpawn){
+      if(!factionBuilding){
+        var neutralStores = resolveOwnerStores(self);
+        var neutralResource = neutralStores ? (neutralStores.fish || 0) : 0;
+        if(neutralResource <= 0) {
+          if(global.eventManager){
+            global.eventManager.serfSpawnDecision(self, 'resource_check', 'insufficient_neutral_resource', {
+              isBootstrapSpawn: isBootstrapSpawn,
+              resourceType: 'fish',
+              resourceAmount: neutralResource
+            });
           }
-        } else {
-          fish = Player.list[self.owner].stores.fish || 0;
-          if(fish >= s){
-            Building.list[self.tavern].newSerfs(self.id);
-          }
+          return;
         }
-      } else if(self.house >= 2 && self.house < 7){
-        var hq = House.list[self.house].hq;
-        fish = House.list[self.house].stores.fish || 0;
-        if(fish >= s && House.list[self.house].newSerfs){
-          House.list[self.house].newSerfs(self.id,hq);
+      } else {
+        var stores = resolveHouseStores(self) || resolveOwnerStores(self);
+        if(!stores) {
+          if(global.eventManager){
+            global.eventManager.serfSpawnDecision(self, 'resource_check', 'no_stores', {
+              isBootstrapSpawn: isBootstrapSpawn
+            });
+          }
+          return;
+        }
+        var foodAvailable = (stores.fish || 0) + (stores.grain || 0);
+        var woodAvailable = stores.wood || 0;
+        if(!hasFoodForSerfs(stores, spawnCount)) {
+          if(global.eventManager){
+            global.eventManager.serfSpawnDecision(self, 'resource_check', 'insufficient_food', {
+              isBootstrapSpawn: isBootstrapSpawn,
+              foodAvailable: foodAvailable,
+              foodRequired: SERF_FOOD_COST * spawnCount
+            });
+          }
+          return;
+        }
+        if(spawnCount === 2 && !hasWoodForHut(stores)) {
+          if(global.eventManager){
+            global.eventManager.serfSpawnDecision(self, 'resource_check', 'insufficient_wood', {
+              isBootstrapSpawn: isBootstrapSpawn,
+              woodAvailable: woodAvailable,
+              woodRequired: SERF_HUT_WOOD_COST
+            });
+          }
+          return;
+        }
+        // Don't deduct resources yet - wait for successful hut placement
+      }
+    }
+    
+    // Log spawn attempt
+    var spawnMethod = usingTavern ? 'tavern' : 'hq';
+    if(global.eventManager){
+      global.eventManager.serfSpawnAttempt(self, spawnCount, spawnMethod, {
+        isBootstrapSpawn: isBootstrapSpawn
+      });
+    }
+    
+    if(usingTavern && Building.list[self.tavern] && typeof Building.list[self.tavern].newSerfs === 'function'){
+      Building.list[self.tavern].newSerfs(self.id, spawnCount);
+      recordSerfSpawn(self, spawnCount);
+    } else if(spawnCount === 2 && self.house >= 2 && self.house < 7){
+      var hq = House.list[self.house] ? House.list[self.house].hq : null;
+      if(hq && House.list[self.house] && House.list[self.house].newSerfs){
+        var storesForSpawn = null;
+        if(!isBootstrapSpawn && factionBuilding){
+          storesForSpawn = resolveHouseStores(self) || resolveOwnerStores(self);
+        }
+        var success = House.list[self.house].newSerfs(self.id, hq, spawnCount, storesForSpawn, isBootstrapSpawn);
+        if(success){
+          recordSerfSpawn(self, 2);
+          // Deduct resources only after successful hut placement
+          if(storesForSpawn){
+            deductFoodForSerfs(storesForSpawn, spawnCount);
+            if(spawnCount === 2){
+              deductWoodForHut(storesForSpawn);
+            }
+          }
         }
       }
     }
@@ -2887,6 +3496,11 @@ Character = function(param){
   self.stuck = 0;
 
   self.attack = function(dir){
+    // Prevent ghosts from attacking
+    if(self.ghost) {
+      return;
+    }
+    
     self.pressingAttack = true;
     self.working = false;
     self.chopping = false;
@@ -3074,6 +3688,11 @@ Character = function(param){
   }
 
   self.shootArrow = function(targetIdOrAngle){
+    // Prevent ghosts from attacking
+    if(self.ghost) {
+      return;
+    }
+    
     self.pressingAttack = true;
     self.working = false;
     self.chopping = false;
@@ -3666,6 +4285,9 @@ Character = function(param){
           // Use pathfinding for cave navigation
           if(self.shouldRequestPath(tz, tLoc[0], tLoc[1])){
             self.getPath(-1, tLoc[0], tLoc[1]);
+            if(self.path){
+              return;  // Return early to prevent greedy movement fallthrough
+            }
           }
         } else if(self.z == -2){
           var b = getBuilding(cen[0],cen[1]);
@@ -8882,6 +9504,21 @@ Serf = function(param){
   self.mineExitCooldown = 0; // Prevent immediate re-entry after exiting cave (~2 seconds)
 
   // Assign Serf to appropriate work building
+  self.logWorkHqNull = function(reason, extra) {
+    var serfLogger = global.serfLogger;
+    if (!serfLogger || typeof serfLogger.warn !== 'function') return;
+    const now = Date.now();
+    const throttleKey = `workHqNull-${self.id}`;
+    if (self._workHqNullLogAt && (now - self._workHqNullLogAt) < 10000) return;
+    serfLogger.warn('Work HQ set to null', self, Object.assign({
+      reason: reason || 'unknown',
+      workHq: self.work ? self.work.hq : null,
+      mode: self.mode || null,
+      action: self.action || null
+    }, extra || {}));
+    self._workHqNullLogAt = now;
+  };
+  
   self.assignWorkHQ = function(){
     if(!self.house) return;
     
@@ -8982,7 +9619,7 @@ Serf = function(param){
         self.assignWorkHQ();
         if (!self.work.hq) {
           self._workHqMissing = true;
-          self.logWorkHqNull('initializeSerf_no_hq');
+          // assignWorkHQ already logs if it fails, no need to log again here
         }
       } else {
         // Work HQ was provided by tavern spawn, set torchBearer appropriately (for miners)
@@ -9370,76 +10007,78 @@ Serf = function(param){
       }
     }
 
-    // Day/night transition logic - works with both old and new systems
-    if(tempus == 'VI.a' && self.mode != 'work' && !self.dayTimer){
-      self.dayTimer = true;
-      // PERFORMANCE FIX: Spread work assignments over 15 seconds instead of ~10 seconds
-      // This prevents thundering herd when all serfs wake up at dawn
-      var rand = Math.floor(Math.random() * 15000); // 0-15 seconds
-      
-      // DIAGNOSTIC LOGGING: Track dawn transition for mining serfs
-      var isMineSerf = false;
-      var buildingType = 'unknown';
-      if(self.work && self.work.hq && global.Building && global.Building.list){
-        var building = global.Building.list[self.work.hq];
-        if(building){
-          buildingType = building.type || 'unknown';
-          isMineSerf = (building.type === 'mine');
-        }
-      }
-      var factionName = self.house && global.House && global.House.list 
-        ? (global.House.list[self.house]?.name || 'Unknown')
-        : 'Unknown';
-      
-      if(isMineSerf){
-      }
-      
-      if(!global.SERF_DEBUG_MODE) {
-        // Only log occasionally to reduce console spam
-        if(Math.random() < 0.1) {
-        }
-      } else {
-      }
-      setTimeout(function(){
-        if(self.mode != 'work'){ // Double-check mode hasn't changed
-          // DIAGNOSTIC LOGGING: Verify transition completed
-          if(isMineSerf){
-          }
-        self.mode = 'work';
-        self.action = null;
-          self.work.spot = null; // Clear previous work spot
-        // Serf work mode switch logged via event system
-        }
-        self.dayTimer = false;
-      },rand);
-    } else if(tempus == 'VI.p' && 
-         (((self.class === 'Serf' || self.class === 'SerfM' || self.class === 'SerfF') && self.mode == 'work') ||
-          (self.action == 'task' || self.action == 'build')) && 
-         !self.dayTimer){
-      self.dayTimer = true;
-      var rand = Math.floor(Math.random() * (3600000/(period*6)));
-      setTimeout(function(){
-        // Check if serf in work mode OR has task/build action
-        var isSerfInWorkMode = (self.class === 'Serf' || self.class === 'SerfM' || self.class === 'SerfF') && self.mode == 'work';
-        var hasTaskOrBuildAction = (self.action == 'task' || self.action == 'build');
+    // Day/night transition logic - handled by SimpleSerfBehavior when available
+    if(!global.simpleSerfBehavior){
+      if(tempus == 'VI.a' && self.mode != 'work' && !self.dayTimer){
+        self.dayTimer = true;
+        // PERFORMANCE FIX: Spread work assignments over 15 seconds instead of ~10 seconds
+        // This prevents thundering herd when all serfs wake up at dawn
+        var rand = Math.floor(Math.random() * 15000); // 0-15 seconds
         
-        if(isSerfInWorkMode || hasTaskOrBuildAction){
-          self.action = 'clockout';
-          self.work.spot = null;
+        // DIAGNOSTIC LOGGING: Track dawn transition for mining serfs
+        var isMineSerf = false;
+        var buildingType = 'unknown';
+        if(self.work && self.work.hq && global.Building && global.Building.list){
+          var building = global.Building.list[self.work.hq];
+          if(building){
+            buildingType = building.type || 'unknown';
+            isMineSerf = (building.type === 'mine');
+          }
         }
-        self.dayTimer = false;
-      },rand);
-    } else if(tempus == 'XI.p' && (self.action == 'tavern' || self.action == 'clockout') && !self.dayTimer){
-      self.dayTimer = true;
-      var rand = Math.floor(Math.random() * (3600000/(period/2)));
-      setTimeout(function(){
-        if(self.action == 'tavern' || self.action == 'clockout'){
-        self.tether = null;
-          self.action = 'home';
-          self.mode = 'idle';
+        var factionName = self.house && global.House && global.House.list 
+          ? (global.House.list[self.house]?.name || 'Unknown')
+          : 'Unknown';
+        
+        if(isMineSerf){
         }
-        self.dayTimer = false;
-      },rand);
+        
+        if(!global.SERF_DEBUG_MODE) {
+          // Only log occasionally to reduce console spam
+          if(Math.random() < 0.1) {
+          }
+        } else {
+        }
+        setTimeout(function(){
+          if(self.mode != 'work'){ // Double-check mode hasn't changed
+            // DIAGNOSTIC LOGGING: Verify transition completed
+            if(isMineSerf){
+            }
+          self.mode = 'work';
+          self.action = null;
+            self.work.spot = null; // Clear previous work spot
+          // Serf work mode switch logged via event system
+          }
+          self.dayTimer = false;
+        },rand);
+      } else if(tempus == 'VI.p' && 
+           (((self.class === 'Serf' || self.class === 'SerfM' || self.class === 'SerfF') && self.mode == 'work') ||
+            (self.action == 'task' || self.action == 'build')) && 
+           !self.dayTimer){
+        self.dayTimer = true;
+        var rand = Math.floor(Math.random() * (3600000/(period*6)));
+        setTimeout(function(){
+          // Check if serf in work mode OR has task/build action
+          var isSerfInWorkMode = (self.class === 'Serf' || self.class === 'SerfM' || self.class === 'SerfF') && self.mode == 'work';
+          var hasTaskOrBuildAction = (self.action == 'task' || self.action == 'build');
+          
+          if(isSerfInWorkMode || hasTaskOrBuildAction){
+            self.action = 'clockout';
+            self.work.spot = null;
+          }
+          self.dayTimer = false;
+        },rand);
+      } else if(tempus == 'XI.p' && (self.action == 'tavern' || self.action == 'clockout') && !self.dayTimer){
+        self.dayTimer = true;
+        var rand = Math.floor(Math.random() * (3600000/(period/2)));
+        setTimeout(function(){
+          if(self.action == 'tavern' || self.action == 'clockout'){
+          self.tether = null;
+            self.action = 'home';
+            self.mode = 'idle';
+          }
+          self.dayTimer = false;
+        },rand);
+      }
     }
 
     // Idle time decrement (used by state machine)
@@ -9460,482 +10099,6 @@ SerfF = function(param){
   param.sex = 'f';
   return Serf(param);
 };
-
-Innkeeper = function(param){
-  var self = Character(param);
-  self.name = param.name;
-  self.class = 'SerfF';
-  self.sex = 'f';
-  self.spriteSize = tileSize*1.5;
-  self.unarmed = true;
-  self.tether = null; // {z,loc}
-  self.tavern = param.tavern;
-  self.hut = param.hut;
-  self.work = param.work || {hq:null,spot:null}; // Preserve work HQ from tavern spawn
-  self.dayTimer = false;
-  self.workTimer = false;
-  self.idleCounter = 0; // Track how long serf has been without action
-  self.lastPos = {x: param.x, y: param.y}; // Track position for stuck detection
-  self.stuckCounter = 0; // Count frames stuck in same position
-
-  // Assign Serf to appropriate work building (Female serfs can only work mills/farms)
-  self.assignWorkHQ = function(){
-    if(!self.house) return;
-    
-    var bestHQ = null;
-    var bestDistance = Infinity;
-    
-    // Look for work buildings in the same house (females can only work mills/farms)
-    for(var i in Building.list){
-      var b = Building.list[i];
-      if(global.mapContextHelpers && !global.mapContextHelpers.areInSameContext(self, b)) {
-        continue;
-      }
-      if(b.house == self.house && b.built && (b.type == 'mill' || b.type == 'farm')){
-        var dist = getDistance({x:self.x,y:self.y},{x:b.x,y:b.y});
-        if(dist < bestDistance){
-          bestDistance = dist;
-          bestHQ = i;
-        }
-      }
-    }
-    
-    // If no work found in own house, try to find allied house work
-    if(!bestHQ && self.house){
-      var myHouse = House.list[self.house];
-      if(myHouse && myHouse.allies){
-        for(var i in Building.list){
-          var b = Building.list[i];
-          if(global.mapContextHelpers && !global.mapContextHelpers.areInSameContext(self, b)) {
-            continue;
-          }
-          // Check if building is mill/farm and house is allied
-          if((b.type == 'mill' || b.type == 'farm') && b.built && b.house && myHouse.allies.indexOf(b.house) !== -1){
-            var dist = getDistance({x:self.x,y:self.y},{x:b.x,y:b.y});
-            if(dist < bestDistance && dist <= 2000){ // Within reasonable distance
-              bestDistance = dist;
-              bestHQ = i;
-            }
-          }
-        }
-      }
-    }
-    
-    if(bestHQ){
-      self.work.hq = bestHQ;
-    } else {
-      // No work available - serf will idle at home
-      self.work.hq = null;
-      var serfLogger = global.serfLogger;
-      if (serfLogger && typeof serfLogger.warn === 'function') {
-        serfLogger.warn('Work HQ set to null', self, {
-          reason: 'assignWorkHQ_no_candidate',
-          mode: self.mode || null,
-          action: self.action || null
-        });
-      }
-    }
-  };
-
-  // Initialize Serf properly
-  self.initializeSerf = function(){
-    // Use new behavior system for initialization
-    if (global.serfBehaviorSystem) {
-      global.serfBehaviorSystem.initializeSerf(self);
-    } else {
-      // Fallback to old initialization
-      if(!self.work.hq){
-        self.assignWorkHQ();
-        if (!self.work.hq) {
-          self._workHqMissing = true;
-          var serfLogger = global.serfLogger;
-          if (serfLogger && typeof serfLogger.warn === 'function') {
-            serfLogger.warn('Work HQ set to null', self, { reason: 'initializeSerf_no_hq' });
-          }
-        }
-      } else {
-        // Work HQ was provided by tavern spawn, set torchBearer appropriately (for miners)
-          var buildingType = Building.list[self.work.hq].type;
-          if(buildingType === 'mine' && Building.list[self.work.hq].cave){
-            self.torchBearer = true;
-            self.inventory.torch = 3; // Torchbearers get 3 torches (free light, don't consume)
-            self.preferredCaveEntrance = Building.list[self.work.hq].cave;
-          } else {
-            self.torchBearer = false;
-            self.preferredCaveEntrance = null;
-        }
-      }
-      
-      if(!self.tavern){
-        self.findTavern();
-      }
-      
-      if(!self.mode){
-        self.mode = 'idle';
-      }
-    }
-  };
-
-  // Find nearest tavern
-  self.findTavern = function(){
-    if(!self.house) return;
-    
-    var bestTavern = null;
-    var bestDistance = Infinity;
-    
-    for(var i in Building.list){
-      var b = Building.list[i];
-      if(b.type == 'tavern' && b.house == self.house){
-        var dist = getDistance({x:self.x,y:self.y},{x:b.x,y:b.y});
-        if(dist < bestDistance && dist <= 1280){ // Within reasonable distance
-          bestDistance = dist;
-          bestTavern = i;
-        }
-      }
-    }
-    
-    if(bestTavern){
-      self.tavern = bestTavern;
-    } else {
-    }
-  };
-
-  // Unified work assignment (Daily Spot System)
-  self.assignDailyWorkSpot = function(){
-    if(!self.work.hq || !Building.list[self.work.hq]) return false;
-    
-    var hq = Building.list[self.work.hq];
-    
-    // If serf already has assigned spot for today, reuse it
-    if(self.work.assignedSpot && hq.assignedSpots[self.id]){
-      var spot = self.work.assignedSpot;
-      
-      // Verify spot still valid (has resources)
-      var stillValid = false;
-      if(hq.resources){
-        for(var i in hq.resources){
-          var r = hq.resources[i];
-          if(r[0] === spot[0] && r[1] === spot[1]){
-            stillValid = true;
-            break;
-          }
-        }
-      }
-      
-      if(stillValid){
-        self.work.spot = spot;
-        return true;
-      } else {
-        // Spot depleted, release it and get new one
-        hq.releaseSpot(self.id);
-        self.work.assignedSpot = null;
-      }
-    }
-    
-    // Update building resources before assigning
-    if(hq.updateResources){
-      hq.updateResources();
-    }
-    
-    // Find available unassigned spots
-    if(!hq.resources || hq.resources.length === 0) return false;
-    
-    var availableSpots = [];
-    for(var i in hq.resources){
-      var res = hq.resources[i];
-      if(hq.isSpotAvailable(res)){
-        availableSpots.push(res);
-      }
-    }
-    
-    if(availableSpots.length === 0) return false;
-    
-    // Assign random available spot
-    var selected = availableSpots[Math.floor(Math.random() * availableSpots.length)];
-    self.work.assignedSpot = selected;
-    self.work.spot = selected;
-    hq.assignSpot(self.id, selected);
-    
-    return true;
-  };
-
-  // Initialize the Serf
-  self.initializeSerf();
-
-  self.update = function(){
-    var loc = getLoc(self.x,self.y);
-    var b = getBuilding(self.x,self.y);
-    self.zoneCheck();
-
-    // Prevent serfs from entering combat mode (they should only flee)
-    if (self.action === 'combat') {
-      self.action = null;
-      return;
-    }
-
-    // Use simple behavior system for serf behavior
-    if (global.simpleSerfBehavior) {
-      global.simpleSerfBehavior.update(self);
-    }
-
-    if(self.z == 0){
-      if(getTile(0,loc[0],loc[1]) == 6){
-        self.caveEntrance = loc;
-        self.z = -1;
-        // DON'T clear path - it needs to persist through z-transition
-        // self.path and self.pathCount should remain intact
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = self.baseSpd * self.drag;
-      } else if(getTile(0,loc[0],loc[1]) >= 1 && getTile(0,loc[0],loc[1]) < 2){
-        self.innaWoods = true;
-        self.onMtn = false;
-        self.maxSpd = (self.baseSpd * 0.3) * self.drag;
-      } else if(getTile(0,loc[0],loc[1]) >= 2 && getTile(0,loc[0],loc[1]) < 4){
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = (self.baseSpd * 0.5) * self.drag;
-      } else if(getTile(0,loc[0],loc[1]) >= 4 && getTile(0,loc[0],loc[1]) < 5){
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = (self.baseSpd * 0.6) * self.drag;
-      } else if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6 && !self.onMtn){
-        self.innaWoods = false;
-        self.maxSpd = (self.baseSpd * 0.2) * self.drag;
-        setTimeout(function(){
-          // Check CURRENT location, not stale loc from 2 seconds ago
-          var currentLoc = getLoc(self.x, self.y, self);
-          if(getTile(0,currentLoc[0],currentLoc[1]) >= 5 && getTile(0,currentLoc[0],currentLoc[1]) < 6){
-            self.onMtn = true;
-          }
-        },2000);
-      } else if(getTile(0,loc[0],loc[1]) >= 5 && getTile(0,loc[0],loc[1]) < 6 && self.onMtn){
-        self.maxSpd = (self.baseSpd * 0.5) * self.drag;
-      } else if(getTile(0,loc[0],loc[1]) == 18){
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = (self.baseSpd * 1.1) * self.drag;
-      } else if(getTile(0,loc[0],loc[1]) == 14 || getTile(0,loc[0],loc[1]) == 16 || getTile(0,loc[0],loc[1]) == 19){
-        Building.list[b].occ++;
-        self.z = 1;
-        // DON'T clear path - preserve for building navigation
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = self.baseSpd * self.drag;
-        // Clear movement to prevent loops (except for ghosts)
-        if(!self.ghost){
-          self.pressingRight = false;
-          self.pressingLeft = false;
-          self.pressingDown = false;
-          self.pressingUp = false;
-        }
-      } else if(getTile(0,loc[0],loc[1]) == 0 && !self.isBoarded){
-        self.z = -3;
-        // DON'T clear path - preserve for underwater navigation
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = (self.baseSpd * 0.2)  * self.drag;
-        // Clear movement to prevent loops (except for ghosts)
-        if(!self.ghost){
-          self.pressingRight = false;
-          self.pressingLeft = false;
-          self.pressingDown = false;
-          self.pressingUp = false;
-        }
-      } else {
-        self.innaWoods = false;
-        self.onMtn = false;
-        self.maxSpd = self.baseSpd  * self.drag;
-      }
-    } else if(self.z == -1){
-      var tileValue = getTile(1,loc[0],loc[1]);
-      if(tileValue == 2){
-        // At cave exit - set state
-        self.transitionState = 'at_entrance';
-        
-        // For serfs in work mode, ensure intent is set if not already set
-        if(self.mode === 'work' && !self.transitionIntent){
-          // Serf in work mode at exit - should have intent from moveTo(), but set it if missing
-          self.transitionIntent = 'exit_cave';
-        }
-        
-        // Check intent to exit cave
-        // For serfs, allow transition when at exit tile, even if path doesn't match exactly
-        // This handles cases where path was cleared or pathfinding completed but destination doesn't match
-        var canTransition = false;
-        if(self.type === 'npc'){
-          // Check if we're at the exit tile (tile value 2 on layer 1)
-          var atExitTile = (getTile(1, loc[0], loc[1]) == 2);
-          // Also check if path destination matches (for cases where path is still valid)
-          var pathMatches = self.isAtPathDestination();
-          // For serfs with exit intent, prioritize atExitTile check - if at exit tile, transition immediately
-          if((self.class === 'Serf' || self.class === 'SerfM' || self.class === 'SerfF') && self.transitionIntent === 'exit_cave'){
-            // Serfs: if at exit tile with exit intent, transition immediately (don't wait for path match)
-            canTransition = atExitTile || pathMatches;
-            
-            // Log transition check for serfs
-            var serfLogger = global.serfLogger;
-            if(serfLogger){
-              serfLogger.debug(`[TRANSITION_CHECK] serf=${self.id} z=${self.z} loc=[${loc[0]},${loc[1]}] intent=${self.transitionIntent} atExitTile=${atExitTile} pathMatches=${pathMatches} canTransition=${canTransition} path=${self.path?.length || 0}`, self);
-            }
-          } else {
-            // Other NPCs: use same logic
-            canTransition = atExitTile || pathMatches;
-          }
-        } else {
-          canTransition = self.isAtPathDestination();
-        }
-        
-        if(self.transitionIntent === 'exit_cave' && canTransition){
-          self.exitCave();
-        }
-      }
-    } else if(self.z == -2){
-      if(getTile(8,loc[0],loc[1]) == 5){
-        self.z = 1;
-        // For players, clear all movement to prevent infinite loops
-        if(self.type === 'player'){
-          self.clearAllMovement();
-        } else {
-          // For NPCs, preserve path for cross-floor navigation
-          // Clear movement to prevent infinite stair loops (except for ghosts)
-          if(!self.ghost){
-            self.pressingRight = false;
-            self.pressingLeft = false;
-            self.pressingDown = false;
-            self.pressingUp = false;
-          }
-        }
-        self.y += (tileSize/2);
-        self.facing = 'down';
-      }
-    } else if(self.z == -3){
-      if(self.breath > 0){
-        self.breath -= 0.25;
-      } else {
-        self.hp -= 0.5;
-      }
-      if(self.hp !== null && self.hp <= 0){
-        self.die({cause:'drowned'});
-      }
-      if(getTile(0,loc[0],loc[1]) != 0){
-        self.z = 0;
-        // DON'T clear path - preserve for navigation after surfacing
-        self.breath = self.breathMax;
-        // Clear movement to prevent loops (except for ghosts)
-        if(!self.ghost){
-          self.pressingRight = false;
-          self.pressingLeft = false;
-          self.pressingDown = false;
-          self.pressingUp = false;
-        }
-      }
-    } else if(self.z == 1){
-      if(getTile(0,loc[0],loc[1] - 1) == 14 || getTile(0,loc[0],loc[1] - 1) == 16  || getTile(0,loc[0],loc[1] - 1) == 19){
-        var exit = getBuilding(self.x,self.y-tileSize);
-        if(Building.list[exit]){
-        Building.list[exit].occ--;
-        }
-        self.z = 0;
-        // DON'T clear path - preserve for navigation after exiting building
-        // Clear movement to prevent loops (except for ghosts)
-        if(!self.ghost){
-          self.pressingRight = false;
-          self.pressingLeft = false;
-          self.pressingDown = false;
-          self.pressingUp = false;
-        }
-      } else if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4 || getTile(4,loc[0],loc[1]) == 7){
-        self.z = 2;
-        // For players, clear all movement to prevent infinite loops
-        if(self.type === 'player'){
-          self.clearAllMovement();
-        } else {
-          // For NPCs, preserve path for multi-floor navigation
-          // Clear movement to prevent infinite stair loops (except for ghosts)
-          if(!self.ghost){
-            self.pressingRight = false;
-            self.pressingLeft = false;
-            self.pressingDown = false;
-            self.pressingUp = false;
-          }
-        }
-        self.y += (tileSize/2);
-        self.facing = 'down';
-      } else if(getTile(4,loc[0],loc[1]) == 5 || getTile(4,loc[0],loc[1]) == 6){
-        self.z = -2;
-        // For players, clear all movement to prevent infinite loops
-        if(self.type === 'player'){
-          self.clearAllMovement();
-        } else {
-          // For NPCs, preserve path for cellar navigation
-          // Clear movement to prevent infinite stair loops (except for ghosts)
-          if(!self.ghost){
-            self.pressingRight = false;
-            self.pressingLeft = false;
-            self.pressingDown = false;
-            self.pressingUp = false;
-          }
-        }
-        self.y += (tileSize/2);
-        self.facing = 'down';
-      }
-    } else if(self.z == 2){
-      if(getTile(4,loc[0],loc[1]) == 3 || getTile(4,loc[0],loc[1]) == 4){
-        self.z = 1;
-        // For players, clear all movement to prevent infinite loops
-        if(self.type === 'player'){
-          self.clearAllMovement();
-        } else {
-          // For NPCs, preserve path for multi-floor navigation
-          // Clear movement to prevent infinite stair loops (except for ghosts)
-          if(!self.ghost){
-            self.pressingRight = false;
-            self.pressingLeft = false;
-            self.pressingDown = false;
-            self.pressingUp = false;
-          }
-        }
-        self.y += (tileSize/2);
-        self.facing = 'down';
-      }
-    }
-
-    if(tempus == 'VI.a' && self.mode !== 'work' && !self.dayTimer){
-      self.dayTimer = true;
-      // PERFORMANCE FIX: Spread work assignments over 15 seconds to avoid lag spikes
-      var rand = Math.floor(Math.random() * 15000); // 0-15 seconds
-      setTimeout(function(){
-        self.mode = 'work';
-        self.action = null;
-        self.dayTimer = false;
-        if(!global.SERF_DEBUG_MODE && Math.random() < 0.1) {
-        }
-      },rand);
-    } else if(tempus == 'VI.p' && self.action == 'task' && !self.dayTimer){
-      self.dayTimer = true;
-      var rand = Math.floor(Math.random() * (3600000/(period*6)));
-      setTimeout(function(){
-        self.action = 'clockout';
-        self.dayTimer = false;
-      },rand);
-    } else if(tempus == 'XI.p' && self.action == 'tavern' && !self.dayTimer){
-      self.dayTimer = true;
-      var rand = Math.floor(Math.random() * (3600000/(period/2)));
-      setTimeout(function(){
-        self.tether = null;
-        self.action = 'home';
-        self.dayTimer = false;
-      },rand);
-    }
-
-    if(self.idleTime > 0){
-      self.idleTime--;
-    }
-    
-    self.updatePosition();
-  }
-}
 
 Innkeeper = function(param){
   var self = Character(param);

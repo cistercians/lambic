@@ -93,6 +93,8 @@ class PathfindingSystem {
         }
       }
     };
+    
+    this._pathfindingEventThrottle = {};
   }
 
   // Generate cache key (stable and options-aware)
@@ -391,6 +393,7 @@ class PathfindingSystem {
       }
 
       // Queue-only throttling for sync callers to prevent spikes
+      this._emitPathfindingEvent('throttled', { start, end, layer, options });
       return null;
     }
     
@@ -509,10 +512,12 @@ class PathfindingSystem {
       // Validate start and end positions
       if (start[0] < 0 || start[0] >= grid[0].length || start[1] < 0 || start[1] >= grid.length) {
         if (this.profiling.enabled) this.profiling.failedPaths++;
+        this._emitPathfindingEvent('invalid_start', { start, end, layer, options });
         return null;
       }
       if (end[0] < 0 || end[0] >= grid[0].length || end[1] < 0 || end[1] >= grid.length) {
         if (this.profiling.enabled) this.profiling.failedPaths++;
+        this._emitPathfindingEvent('invalid_end', { start, end, layer, options });
         return null;
       }
       
@@ -523,13 +528,36 @@ class PathfindingSystem {
         options.allowStartTile[1] === start[1];
       
       if (!isStartAllowed && grid[start[1]][start[0]] === 1) {
-        const startTile = this.tilemapSystem.getTile(layer, start[0], start[1]);
-        if (this.profiling.enabled) this.profiling.failedPaths++;
-        return null;
+        // Try to find a nearby walkable tile as fallback (within 2 tiles)
+        let foundAlternateStart = false;
+        const searchRadius = 2;
+        for (let dy = -searchRadius; dy <= searchRadius && !foundAlternateStart; dy++) {
+          for (let dx = -searchRadius; dx <= searchRadius && !foundAlternateStart; dx++) {
+            if (dx === 0 && dy === 0) continue; // Skip original position
+            const altX = start[0] + dx;
+            const altY = start[1] + dy;
+            if (altX >= 0 && altX < grid[0].length && altY >= 0 && altY < grid.length) {
+              if (grid[altY][altX] === 0) {
+                // Found walkable tile nearby, use it as alternate start
+                start = [altX, altY];
+                foundAlternateStart = true;
+                break;
+              }
+            }
+          }
+        }
+        // If still blocked after trying alternate start, fail
+        if (!foundAlternateStart && grid[start[1]][start[0]] === 1) {
+          const startTile = this.tilemapSystem.getTile(layer, start[0], start[1]);
+          if (this.profiling.enabled) this.profiling.failedPaths++;
+          this._emitPathfindingEvent('blocked_start', { start, end, layer, options, startTile });
+          return null;
+        }
       }
       if (grid[end[1]][end[0]] === 1) {
         const endTile = this.tilemapSystem.getTile(layer, end[0], end[1]);
         if (this.profiling.enabled) this.profiling.failedPaths++;
+        this._emitPathfindingEvent('blocked_end', { start, end, layer, options, endTile });
         return null;
       }
       
@@ -547,6 +575,7 @@ class PathfindingSystem {
       }
       
       if (pathfindingTime > maxPathfindingTime) {
+        this._emitPathfindingEvent('slow_path', { start, end, layer, options, durationMs: pathfindingTime, gridTime });
       }
       
       if (path && path.length > 0) {
@@ -573,15 +602,35 @@ class PathfindingSystem {
         return smoothedPath;
       } else {
         if (this.profiling.enabled) this.profiling.failedPaths++;
+        this._emitPathfindingEvent('no_path', { start, end, layer, options });
       }
     } catch (error) {
       if (this.profiling.enabled) this.profiling.failedPaths++;
+      this._emitPathfindingEvent('exception', { start, end, layer, options, error: error.message || String(error) });
     }
     
     // PROFILING: Log if needed
     this.maybeLogStats();
     
     return null;
+  }
+
+  _emitPathfindingEvent(reason, data) {
+    if (!global.eventManager || typeof global.eventManager.pathfindingEvent !== 'function') return;
+    if (!this._shouldLogPathfindingEvent(reason)) return;
+    global.eventManager.pathfindingEvent('pathfinding', {
+      metadata: Object.assign({ reason }, data || {})
+    });
+  }
+
+  _shouldLogPathfindingEvent(reason) {
+    const now = Date.now();
+    const throttleKey = reason || 'pathfinding';
+    const last = this._pathfindingEventThrottle[throttleKey] || 0;
+    const throttleMs = reason === 'slow_path' ? 5000 : 10000;
+    if (now - last < throttleMs) return false;
+    this._pathfindingEventThrottle[throttleKey] = now;
+    return true;
   }
 
   // Smooth path to reduce zigzag movement (OPTIMIZED to reduce allocations)

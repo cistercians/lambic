@@ -24,6 +24,42 @@
     "factionAI": {
       "enabled": true,
       "maxEntries": 1000
+    },
+    "eventManager": {
+      "enabled": true,
+      "maxEntries": 1000
+    },
+    "building": {
+      "enabled": true,
+      "maxEntries": 1000
+    },
+    "network": {
+      "enabled": true,
+      "maxEntries": 500
+    },
+    "tempus": {
+      "enabled": true,
+      "maxEntries": 100
+    },
+    "summary": {
+      "enabled": true,
+      "maxEntries": 100
+    },
+    "strategy": {
+      "enabled": true,
+      "maxEntries": 500
+    },
+    "miscGameplay": {
+      "enabled": true,
+      "maxEntries": 500
+    },
+    "environment": {
+      "enabled": true,
+      "maxEntries": 200
+    },
+    "unrecognized": {
+      "enabled": true,
+      "maxEntries": 500
     }
   },
   "customPatterns": [],

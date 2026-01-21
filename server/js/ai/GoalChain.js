@@ -671,7 +671,27 @@ class GoalChain {
           logger.collectError(`Chain validation failed: ${firstStep.type} blocked by location`, null, {
             reason: locationReasons
           });
+          logger.collectGoalFailureContext({
+            goal: firstStep.type,
+            step: 0,
+            reason: locationReasons,
+            locationBlocks: locationBlocks.map(b => b.value || 'no valid location')
+          });
           console.warn(`[GoalChain] Chain validation: ${errorMsg}`);
+        }
+        
+        if (global.eventManager && typeof global.eventManager.aiEvent === 'function') {
+          global.eventManager.aiEvent('chain validation failed', {
+            subject: house?.id || null,
+            subjectName: house?.name || null,
+            house: house?.id || null,
+            houseName: house?.name || null,
+            metadata: {
+              goal: firstStep.type,
+              reason: locationReasons,
+              locationBlocks: locationBlocks.map(b => b.value || 'no valid location')
+            }
+          });
         }
         
         // Clear steps to prevent execution of invalid chain
@@ -740,9 +760,20 @@ class GoalChain {
       const goalType = step.type;
       const history = house.ai.goalFailureHistory?.get(goalType);
       const locationBlockCount = history?.locationBlockCount || 0;
+      const lastLocationBlockDay = history?.lastLocationBlockDay || 0;
       
-      // If location blocked 8+ times, consider it permanent (increased from 5 to 8)
-      if (locationBlockCount >= 8) {
+      // Time-based reset: clear location block count if last block was more than 5 days ago
+      let adjustedBlockCount = locationBlockCount;
+      if (lastLocationBlockDay > 0) {
+        const currentDay = global.day || 1;
+        const daysSinceLastBlock = currentDay - lastLocationBlockDay;
+        if (daysSinceLastBlock > 5) {
+          adjustedBlockCount = 0; // Reset count if enough time has passed
+        }
+      }
+      
+      // If location blocked 5+ times (reduced from 8 to 5 for more responsive behavior), consider it permanent
+      if (adjustedBlockCount >= 5) {
         // For BUILD_FORGE, we handle it with territory expansion (already added if needed)
         // For BUILD_GARRISON and other buildings, permanent location blocking means the chain is invalid
         if (goalType !== 'BUILD_FORGE') {
@@ -753,6 +784,23 @@ class GoalChain {
           if (logger) {
             logger.collectError(`Chain validation failed for ${goalType}`, null, {
               reason: errorMsg
+            });
+            logger.collectGoalFailureContext({
+              goal: goalType,
+              reason: errorMsg
+            });
+          }
+          
+          if (global.eventManager && typeof global.eventManager.aiEvent === 'function') {
+            global.eventManager.aiEvent('chain validation failed', {
+              subject: house?.id || null,
+              subjectName: house?.name || null,
+              house: house?.id || null,
+              houseName: house?.name || null,
+              metadata: {
+                goal: goalType,
+                reason: errorMsg
+              }
             });
           }
           
