@@ -749,34 +749,15 @@ class SimpleSerfBehavior {
       const isNight = this.isNightTime();
       const hasPendingClockout = serf._pendingTransition && serf._pendingTransition.type === 'clockout';
       
-      // Respect the day/night cycle: The schedule system (handleDailySchedule + processTransition) controls mode transitions
-      // processTransition() sets mode to 'work' when executing startWork transition at dawn
-      // Only set work mode here as a fallback if:
-      // 1. It's day time (not night) - serfs should work during day
-      // 2. There's no pending clockout transition - don't force work mode if serf is clocking out
-      // This ensures we don't force work mode at night or after clockout, letting the schedule system handle transitions
-      if (!isNight && !hasPendingClockout) {
-        // If serf has valid work.hq and building exists, set work mode (only during day after dawn transition)
-        if (serf.work && serf.work.hq && global.Building && global.Building.list) {
-          const building = global.Building.list[serf.work.hq];
-          if (building && building.built) {
-            serf.mode = 'work';
-          }
-        }
-        
-        // If still not in work mode, try to reassign work
-        if (serf.mode !== 'work') {
-          if (!serf.work || !serf.work.hq) {
-            this.tryReassignWork(serf);
-          }
-          // After reassignment attempt, set work mode if we have a valid work.hq
-          if (serf.work && serf.work.hq && global.Building && global.Building.list) {
-            const building = global.Building.list[serf.work.hq];
-            if (building && building.built) {
-              serf.mode = 'work';
-            }
-          }
-        }
+      // CRITICAL: Don't force work mode here - let the schedule system handle transitions
+      // The schedule system (handleDailySchedule + processTransition) controls all mode transitions:
+      // - Serfs spawn in idle mode
+      // - At dawn, processTransition() executes 'startWork' transition and sets mode to 'work'
+      // - At dusk, processTransition() executes 'clockout' transition
+      // - After clockout completes (deposit + go home), serf transitions to idle
+      // Only try to reassign work if needed, but don't force work mode
+      if (!serf.work || !serf.work.hq) {
+        this.tryReassignWork(serf);
       }
       
       // Hut building is urgent and can happen even at night (but still respect clockout transitions)
@@ -1014,6 +995,12 @@ class SimpleSerfBehavior {
       }
     }
 
+    // Special handling for docks - serfs must board ships to work
+    if (building.type === 'dock') {
+      this.handleDockWork(serf, building);
+      return;
+    }
+
     // Execute work based on building type
     this.executeWork(serf, building, serf.work.spot);
   }
@@ -1110,18 +1097,9 @@ class SimpleSerfBehavior {
       // Path to dropoff
       if (typeof serf.moveTo === 'function') {
         // Use building's z-level if available, otherwise default to 0 (overworld)
-        // CRITICAL: For cave mines, building is at z=0, so serfs at z=-1 must pathfind to z=0
+        // For stone mines: serfs work at z=0, building at z=0
+        // For cave mines: serfs work at z=-1, must exit to z=0 to deposit at building (z=0)
         const dropoffZ = (building && typeof building.z === 'number') ? building.z : 0;
-        
-        // Enhanced logging for cave mine deposits when pathfinding
-        if (building.type === 'mine' && building.cave && serf.z !== dropoffZ) {
-          const now = Date.now();
-          const throttleKey = `caveMinePathfind-${serf.id}`;
-          const lastLog = this.logThrottle[throttleKey];
-          if (!lastLog || (now - lastLog) > this.LOG_THROTTLE_MS * 2) {
-            this.logThrottle[throttleKey] = now;
-          }
-        }
         
         const target = this.resolveWalkableTarget(serf, dropoffZ, dropoff);
         movementSystem.applyMoveIntent(serf, {
@@ -1213,34 +1191,46 @@ class SimpleSerfBehavior {
 
     const loc = this.getLoc(serf);
 
+    // CRITICAL: Serf must be ON the plot tile to build, not adjacent
+    // Building from adjacent tiles causes serfs to build off-plot while plot tiles still get constructed
     if (loc && Array.isArray(loc) && loc.length === 2 && loc.toString() === serf.work.spot.toString()) {
-      // At building spot
+      // At building spot - verify we're on a plot tile
       const gt = this.getTile(serf, 0, serf.work.spot[0], serf.work.spot[1]);
       if (gt === 11) {
-        if (!serf.building && typeof global.Build === 'function') {
+        // Verify this spot is actually in the building's plot
+        const isInPlot = targetBuilding.plot && targetBuilding.plot.some(p => 
+          Array.isArray(p) && p.length === 2 && p[0] === serf.work.spot[0] && p[1] === serf.work.spot[1]
+        );
+        
+        if (isInPlot && !serf.building && typeof global.Build === 'function') {
+          const logger = this.getSerfLogger();
+          if (logger && typeof logger.debug === 'function') {
+            logger.debug('Serf building hut tile', serf, {
+              spot: serf.work.spot,
+              buildingId: buildTargetId,
+              buildingType: targetBuilding.type
+            });
+          }
           global.Build(serf.id);
+        } else if (!isInPlot) {
+          // Spot is not in plot - clear it and find a valid one
+          const logger = this.getSerfLogger();
+          if (logger && typeof logger.warn === 'function') {
+            logger.warn('Serf tried to build on non-plot tile', serf, {
+              spot: serf.work.spot,
+              buildingId: buildTargetId,
+              plot: targetBuilding.plot
+            });
+          }
+          serf.work.spot = null;
         }
       } else {
         // Tile already built, find new one
         serf.work.spot = null;
       }
-    } else if (loc && Array.isArray(loc) && loc.length === 2) {
-      const dist = Math.abs(loc[0] - serf.work.spot[0]) + Math.abs(loc[1] - serf.work.spot[1]);
-      if (dist === 1) {
-        const gt = this.getTile(serf, 0, serf.work.spot[0], serf.work.spot[1]);
-        if (gt === 11) {
-          if (!serf.building && typeof global.Build === 'function') {
-            global.Build(serf.id, serf.work.spot);
-          }
-          return;
-        }
-        if (gt === 11) {
-          if (!serf.building && typeof global.Build === 'function') {
-            global.Build(serf.id, serf.work.spot);
-          }
-          return;
-        }
-      }
+    } else {
+      // Not at building spot - pathfind to it (don't allow building from adjacent tiles)
+      // The old code allowed building from distance 1, which caused the off-plot building bug
     }
 
     if (!serf.path || serf.path.length === 0) {
@@ -1464,11 +1454,106 @@ class SimpleSerfBehavior {
   // ============================================================================
 
   /**
+   * Assign a work spot for dock buildings (ships are the work spots)
+   * Serfs path to dock tiles, then board ships when they arrive
+   */
+  assignDockWorkSpot(serf, dock) {
+    try {
+      if (!serf || !dock || dock.type !== 'dock') return null;
+
+      // Check if dock has ships (active or stored)
+      const hasActiveShips = dock.ships && Array.isArray(dock.ships) && dock.ships.length > 0;
+      const hasStoredShips = dock.storedShips && Array.isArray(dock.storedShips) && dock.storedShips.length > 0;
+      
+      if (!hasActiveShips && !hasStoredShips) {
+        // No ships available - this is why "No work spot assigned" warning appears
+        return null;
+      }
+
+      // Find available ship (one with space for more serfs, max 2 per ship)
+      // Check active ships first, then stored ships
+      const PlayerList = global.Player && global.Player.list ? global.Player.list : {};
+      let availableShip = null;
+      let availableShipId = null;
+      let isStoredShip = false;
+
+      // Check active ships
+      if (hasActiveShips) {
+        for (const shipId of dock.ships) {
+          const ship = PlayerList[shipId];
+          if (!ship || ship.toRemove) continue;
+          if (ship.mode !== 'docked' && ship.mode !== 'anchored') continue; // Only docked/anchored ships
+
+          // Check how many serfs are already on this ship
+          const embarkedCount = ship.embarkedSerfs ? ship.embarkedSerfs.length : 0;
+          if (embarkedCount < 2) {
+            // Ship has space
+            // Check if this serf is already assigned to this ship
+            const alreadyAssigned = dock.assignedSpots && dock.assignedSpots[serf.id] === shipId;
+            if (!alreadyAssigned) {
+              availableShip = ship;
+              availableShipId = shipId;
+              break;
+            }
+          }
+        }
+      }
+
+      // If no active ship available, check stored ships
+      if (!availableShip && hasStoredShips) {
+        for (let i = 0; i < dock.storedShips.length; i++) {
+          const storedShip = dock.storedShips[i];
+          // Stored ships need to be retrieved - we'll handle that when serf arrives at dock
+          // For now, just mark that we have a stored ship available
+          // We'll retrieve it when the serf reaches the dock
+          availableShipId = storedShip.shipId;
+          isStoredShip = true;
+          break; // Use first available stored ship
+        }
+      }
+
+      if (!availableShipId) {
+        // All ships are full or no ships available
+        return null;
+      }
+
+      // Assign serf to ship via dock's assignedSpots
+      if (!dock.assignedSpots) {
+        dock.assignedSpots = {};
+      }
+      dock.assignedSpots[serf.id] = availableShipId;
+
+      // Set work spot to dock location (serf will path to dock tiles, then board ship)
+      // Use first dock plot tile as the work spot
+      const dockLoc = dock.plot && Array.isArray(dock.plot) && dock.plot.length > 0
+        ? dock.plot[0]
+        : (global.getLoc ? global.getLoc(dock.x, dock.y) : [Math.floor(dock.x / 64), Math.floor(dock.y / 64)]);
+
+      serf.work.assignedSpot = dockLoc;
+      serf.work.spot = dockLoc;
+      serf.work.workTile = null;
+      serf.work.workTileFor = null;
+      serf.work.shipId = availableShipId; // Store ship ID for boarding
+      serf.work.isStoredShip = isStoredShip; // Mark if ship needs to be retrieved
+
+      return dockLoc;
+    } catch (error) {
+      console.error('[SERF WORK] Error assigning dock work spot:', error);
+      return null;
+    }
+  }
+
+  /**
    * Assign a work spot from building resources
    */
   assignWorkSpot(serf, building) {
     try {
       if (!serf || !building) return null;
+
+      // Special handling for docks - ships are the "work spots"
+      if (building.type === 'dock') {
+        return this.assignDockWorkSpot(serf, building);
+      }
 
       // Release any previously assigned spot
       if (serf.work.assignedSpot && building.releaseSpot && typeof building.releaseSpot === 'function') {
@@ -1748,6 +1833,209 @@ class SimpleSerfBehavior {
   // ============================================================================
   // WORK EXECUTION (from SerfWorkExecutor)
   // ============================================================================
+
+  /**
+   * Handle dock work - serfs must board ships to fish
+   * Serfs path to dock tiles, then board ships when they arrive
+   */
+  handleDockWork(serf, dock) {
+    try {
+      if (!serf || !dock || dock.type !== 'dock') return;
+
+      const PlayerList = global.Player && global.Player.list ? global.Player.list : {};
+      const shipId = serf.work.shipId || (dock.assignedSpots && dock.assignedSpots[serf.id]);
+      const isStoredShip = serf.work.isStoredShip || false;
+
+      // If no ship assigned, try to assign one
+      if (!shipId) {
+        const spot = this.assignWorkSpot(serf, dock);
+        if (!spot) {
+          // No ships available
+          return;
+        }
+        // Spot assigned, will have shipId now
+        const newShipId = serf.work.shipId || (dock.assignedSpots && dock.assignedSpots[serf.id]);
+        if (!newShipId) {
+          return;
+        }
+        // Continue with new ship assignment
+        const newIsStoredShip = serf.work.isStoredShip || false;
+        if (newIsStoredShip) {
+          // Ship is stored - serf should path to dock, we'll retrieve ship when they arrive
+          const dockLoc = dock.plot && Array.isArray(dock.plot) && dock.plot.length > 0
+            ? dock.plot[0]
+            : (global.getLoc ? global.getLoc(dock.x, dock.y) : [Math.floor(dock.x / 64), Math.floor(dock.y / 64)]);
+          const serfLoc = global.getLoc ? global.getLoc(serf.x, serf.y) : [
+            Math.floor(serf.x / 64),
+            Math.floor(serf.y / 64)
+          ];
+          if (dockLoc && serfLoc && dockLoc.toString() !== serfLoc.toString()) {
+            // Not at dock - path to dock tiles
+            if (typeof serf.moveTo === 'function') {
+              const movementSystem = require('../core/MovementSystem');
+              if (movementSystem && movementSystem.applyMoveIntent) {
+                movementSystem.applyMoveIntent(serf, {
+                  z: dock.z || 0,
+                  target: dockLoc,
+                  reason: 'dock_work',
+                  sourceAction: serf.action || 'work'
+                });
+              } else {
+                serf.moveTo(dock.z || 0, dockLoc[0], dockLoc[1]);
+              }
+            }
+          }
+          return;
+        } else {
+          // Active ship - check if it exists
+          const ship = PlayerList[newShipId];
+          if (!ship || ship.toRemove) {
+            // Ship no longer exists, clear assignment
+            if (dock.assignedSpots) {
+              delete dock.assignedSpots[serf.id];
+            }
+            serf.work.shipId = null;
+            serf.work.spot = null;
+            serf.work.assignedSpot = null;
+            return;
+          }
+        }
+      }
+
+      // Check if serf is at dock location (not ship location - ships may be stored)
+      const dockLoc = dock.plot && Array.isArray(dock.plot) && dock.plot.length > 0
+        ? dock.plot[0]
+        : (global.getLoc ? global.getLoc(dock.x, dock.y) : [Math.floor(dock.x / 64), Math.floor(dock.y / 64)]);
+      const serfLoc = global.getLoc ? global.getLoc(serf.x, serf.y) : [
+        Math.floor(serf.x / 64),
+        Math.floor(serf.y / 64)
+      ];
+
+      const atDock = dockLoc && serfLoc && dockLoc.toString() === serfLoc.toString();
+
+      if (!atDock) {
+        // Not at dock - path to dock tiles
+        if (typeof serf.moveTo === 'function') {
+          const movementSystem = require('../core/MovementSystem');
+          if (movementSystem && movementSystem.applyMoveIntent) {
+            movementSystem.applyMoveIntent(serf, {
+              z: dock.z || 0,
+              target: dockLoc,
+              reason: 'dock_work',
+              sourceAction: serf.action || 'work'
+            });
+          } else {
+            serf.moveTo(dock.z || 0, dockLoc[0], dockLoc[1]);
+          }
+        }
+        return;
+      }
+
+      // Serf is at dock - now handle ship boarding
+      let ship = shipId ? PlayerList[shipId] : null;
+
+      // If ship is stored, retrieve it first
+      if (isStoredShip || (!ship && dock.storedShips)) {
+        // Find stored ship and retrieve it
+        let storedShipIndex = -1;
+        for (let i = 0; i < dock.storedShips.length; i++) {
+          if (dock.storedShips[i].shipId == shipId) {
+            storedShipIndex = i;
+            break;
+          }
+        }
+
+        if (storedShipIndex >= 0) {
+          // Retrieve ship from storage (spawns it at dock)
+          // Use Building.prototype.retrieveShip since it may not be directly on the dock object
+          const Building = global.Building;
+          if (Building && Building.prototype && typeof Building.prototype.retrieveShip === 'function') {
+            const house = this.getBuildingHouse(dock);
+            const ownerId = house ? house.id : (dock.owner || dock.house);
+            const retrievedShipId = Building.prototype.retrieveShip.call(dock, ownerId, storedShipIndex);
+            if (retrievedShipId) {
+              ship = PlayerList[retrievedShipId];
+              if (ship) {
+                // Update assignment to new ship ID
+                if (dock.assignedSpots) {
+                  dock.assignedSpots[serf.id] = retrievedShipId;
+                }
+                serf.work.shipId = retrievedShipId;
+                serf.work.isStoredShip = false;
+                // Add ship to dock.ships array if not already there
+                if (dock.ships && dock.ships.indexOf(retrievedShipId) === -1) {
+                  dock.ships.push(retrievedShipId);
+                }
+              }
+          }
+        }
+      }
+      }
+
+      if (!ship || ship.toRemove) {
+        // Ship not available - clear assignment and try to reassign
+        if (dock.assignedSpots) {
+          delete dock.assignedSpots[serf.id];
+        }
+        serf.work.shipId = null;
+        serf.work.spot = null;
+        serf.work.assignedSpot = null;
+        serf.work.isStoredShip = false;
+        return;
+      }
+
+      // Check if serf is already on the ship
+      const isBoarded = ship.embarkedSerfs && ship.embarkedSerfs.indexOf(serf.id) !== -1;
+      if (isBoarded) {
+        // Serf is already on ship - ship handles fishing, serf just waits
+        // The ship's update() method will handle fishing when on water tiles
+        return;
+      }
+
+      // Check if ship is at dock (should be if we just retrieved it, or if it's docked/anchored)
+      const shipLoc = global.getLoc ? global.getLoc(ship.x, ship.y) : [
+        Math.floor(ship.x / 64),
+        Math.floor(ship.y / 64)
+      ];
+      const shipAtDock = shipLoc && dockLoc && (
+        shipLoc.toString() === dockLoc.toString() ||
+        (ship.mode === 'docked' || ship.mode === 'anchored')
+      );
+
+      if (shipAtDock) {
+        // Ship is at dock - board it
+        if (ship.boardPassenger && typeof ship.boardPassenger === 'function') {
+          const boarded = ship.boardPassenger(serf.id);
+          if (boarded) {
+            // Successfully boarded - add serf to embarkedSerfs array for fishing logic
+            if (!ship.embarkedSerfs) {
+              ship.embarkedSerfs = [];
+            }
+            if (ship.embarkedSerfs.indexOf(serf.id) === -1) {
+              ship.embarkedSerfs.push(serf.id);
+            }
+            // Mark serf as boarded
+            serf.isBoarded = true;
+            serf.boardedShip = ship.id;
+            // Ship will handle fishing when it sails to water tiles
+            // For AI ships, they should start fishing when serfs board
+            if (ship.mode === 'docked' || ship.mode === 'anchored') {
+              ship.mode = 'fishing';
+            }
+          }
+        }
+      } else {
+        // Ship not at dock yet - wait for it to arrive or retrieve it
+        // (This shouldn't happen often, but handle it gracefully)
+        if (ship.mode === 'returning') {
+          // Ship is returning to dock - wait
+          return;
+        }
+      }
+    } catch (error) {
+      console.error('[SERF WORK] Error handling dock work:', error);
+    }
+  }
 
   /**
    * Execute work based on building type
@@ -2345,10 +2633,12 @@ class SimpleSerfBehavior {
     try {
       if (!serf || !serf.inventory) return false;
 
-      return ((serf.inventory.wood || 0) >= 10) ||
-             ((serf.inventory.stone || 0) >= 10) ||
-             ((serf.inventory.ironore || 0) >= 10) ||
-             ((serf.inventory.grain || 0) >= 10) ||
+      // Lower thresholds slightly to improve deposit efficiency (8 instead of 10 for common resources)
+      // This encourages more frequent deposits and reduces resource loss from pathfinding issues
+      return ((serf.inventory.wood || 0) >= 8) ||
+             ((serf.inventory.stone || 0) >= 8) ||
+             ((serf.inventory.ironore || 0) >= 8) ||
+             ((serf.inventory.grain || 0) >= 8) ||
              ((serf.inventory.silverore || 0) >= 1) ||
              ((serf.inventory.goldore || 0) >= 1) ||
              ((serf.inventory.diamond || 0) >= 1);
@@ -2435,17 +2725,6 @@ class SimpleSerfBehavior {
       const isStoneOrIronore = resourceType === 'stone' || resourceType === 'ironore';
       const house = this.getBuildingHouse(building);
       const houseName = house ? house.name : 'Unknown';
-      
-      // Diagnostic logging for stone deposits at cave-classified mines
-      if (resourceType === 'stone' && building.type === 'mine' && building.cave) {
-        const now = Date.now();
-        const throttleKey = `stoneDepositCaveMine-${building.id}`;
-        const lastLog = this.logThrottle[throttleKey];
-        if (!lastLog || (now - lastLog) > this.LOG_THROTTLE_MS * 5) {
-          console.log(`[MINE DEPOSIT DIAGNOSTIC] ${houseName}: Attempting stone deposit at cave-classified mine [${Math.floor(building.x)}, ${Math.floor(building.y)}] - amount: ${amount}, building.cave: yes`);
-          this.logThrottle[throttleKey] = now;
-        }
-      }
       
       // Only log depositResource calls occasionally (throttled)
       if (isStoneOrIronore) {
@@ -2581,41 +2860,14 @@ class SimpleSerfBehavior {
         return false;
       }
 
-      // Check if serf is at the building's z-level (not hardcoded to 0)
-      // This fixes stone mine deposits - serfs must be at building.z, not necessarily z=0
+      // Check if serf is at the building's z-level and position
+      // For stone mines: serfs work at z=0, building at z=0, both must match
+      // For cave mines: serfs work at z=-1, but must exit to z=0 to deposit at building (z=0)
       const buildingZ = (building && typeof building.z === 'number') ? building.z : 0;
       const atCorrectZ = serf.z === buildingZ;
       const atCorrectXY = loc.toString() === dropoff.toString();
       
-      // Enhanced logging for cave mines when not at dropoff
-      if (building.type === 'mine' && building.cave && !atCorrectZ) {
-        const house = this.getBuildingHouse(building);
-        const houseName = house ? house.name : 'Unknown';
-        const now = Date.now();
-        const throttleKey = `isAtDropoffZ-${serf.id}`;
-        const lastLog = this.logThrottle[throttleKey];
-        if (!lastLog || (now - lastLog) > this.LOG_THROTTLE_MS * 2) {
-          this.logThrottle[throttleKey] = now;
-        }
-      }
-      
-      // Diagnostic logging for stone deposits at cave-classified mines
-      // This helps detect if stone deposits are failing due to misclassification
-      if (building.type === 'mine' && building.cave && atCorrectZ && atCorrectXY) {
-        const house = this.getBuildingHouse(building);
-        const houseName = house ? house.name : 'Unknown';
-        const serfHasStone = serf.inventory && serf.inventory.stone && serf.inventory.stone > 0;
-        if (serfHasStone) {
-          const now = Date.now();
-          const throttleKey = `stoneDepositAtCaveMine-${building.id}`;
-          const lastLog = this.logThrottle[throttleKey];
-          if (!lastLog || (now - lastLog) > this.LOG_THROTTLE_MS * 5) {
-            console.log(`[MINE DEPOSIT DIAGNOSTIC] ${houseName}: Stone deposit attempt at cave-classified mine [${Math.floor(building.x)}, ${Math.floor(building.y)}] - serf has stone: ${serf.inventory.stone}, building.cave: ${building.cave ? 'yes' : 'no'}`);
-            this.logThrottle[throttleKey] = now;
-          }
-        }
-      }
-      
+      // Both z-level and position must match for all mines
       return atCorrectZ && atCorrectXY;
     } catch (error) {
       return false;

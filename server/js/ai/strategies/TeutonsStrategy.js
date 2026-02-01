@@ -14,18 +14,16 @@ const {
 class TeutonsStrategy extends FactionStrategy {
   evaluateEconomicGoals() {
     const goals = [];
+    const logger = this.getLogger();
     
-    // Teutons prioritize garrisons and military infrastructure
-    const garrisons = this.countBuildingType('garrison');
-    if (garrisons === 0) {
-      const garrisonGoal = new BuildGarrisonGoal();
-      goals.push(this.modifyGoalUtility(garrisonGoal)); // Gets 1.3x utility
-    }
+    // Teutons prioritize resource gathering buildings FIRST to improve deposit efficiency
+    // Then military infrastructure (garrisons require resources to train units)
     
-    // Heavy focus on mines and lumbermills
+    // Heavy focus on mines and lumbermills (resource gathering)
     const mines = this.countBuildingType('mine');
     const lumbermills = this.countBuildingType('lumbermill');
     
+    // Prioritize resource gathering buildings before military
     if (mines < 2) {
       const mineGoal = new BuildMineGoal();
       goals.push(this.modifyGoalUtility(mineGoal)); // Gets 1.2x utility
@@ -41,12 +39,24 @@ class TeutonsStrategy extends FactionStrategy {
       goals.push(this.modifyGoalUtility(lumbermillGoal)); // Gets 1.2x utility
     }
     
-    // Basic farming (not a priority)
+    // Basic farming (ensure food production for military)
     const mills = this.countBuildingType('mill');
     const maxMills = this.profile.buildingPreferences.mill.maxCount || 2;
     
     if (mills < maxMills && this.shouldBuildBuilding('mill')) {
       goals.push(this.modifyGoalUtility(new BuildMillGoal()));
+    }
+    
+    // Teutons prioritize garrisons and military infrastructure (after resource buildings)
+    const garrisons = this.countBuildingType('garrison');
+    // Only build garrison if we have resource gathering capacity
+    if (garrisons === 0 && (mines > 0 || lumbermills > 0)) {
+      const garrisonGoal = new BuildGarrisonGoal();
+      goals.push(this.modifyGoalUtility(garrisonGoal)); // Gets 1.3x utility
+    }
+    
+    if (logger && garrisons === 0 && mines === 0 && lumbermills === 0) {
+      logger.collectInfo('Teutons: Delaying garrison until resource gathering buildings are established');
     }
     
     return goals;

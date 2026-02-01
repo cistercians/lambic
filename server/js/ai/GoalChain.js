@@ -491,14 +491,14 @@ class GoalChain {
             logger.collectInfo(`  -> ${g.type} blocked by location: ${block.value || 'no valid location found'}`);
           }
           
-          // For BUILD_FORGE: if location blocking has occurred multiple times, try territory expansion
-          if (g.type === 'BUILD_FORGE' && house.ai) {
+          // For any BUILD_* goal: if location blocking has occurred multiple times, try territory expansion
+          if (g.type.startsWith('BUILD_') && house.ai) {
             const goalType = g.type;
             const history = house.ai.goalFailureHistory?.get(goalType);
             const locationBlockCount = history?.locationBlockCount || 0;
             
-            // If location blocked 3+ times, suggest territory expansion via ESTABLISH_OUTPOST
-            if (locationBlockCount >= 3) {
+            // If location blocked 2+ times (lowered from 3 for faster response), suggest territory expansion via ESTABLISH_OUTPOST
+            if (locationBlockCount >= 2) {
               // Check if scouting is feasible (units available)
               let canScout = false;
               if (house.ai.getMilitaryUnits) {
@@ -516,7 +516,7 @@ class GoalChain {
                 // This will scout for a suitable zone and establish an outpost, expanding territory
                 const { EstablishOutpostGoal } = require('./Goals');
                 
-                // For forge placement, we don't need a specific resource - just territory expansion
+                // For building placement, we don't need a specific resource - just territory expansion
                 // Pass null for both resourceType and targetZone - EstablishOutpostGoal will find a suitable zone
                 const outpostGoal = new EstablishOutpostGoal(null, null);
                 
@@ -527,18 +527,18 @@ class GoalChain {
                     goal: outpostGoal,
                     parent: g,
                     depth: depth + 1,
-                    reason: `needs location: forge placement blocked (territory expansion needed)`
+                    reason: `needs location: ${g.type} placement blocked (territory expansion needed)`
                   });
                   dependenciesAdded = true;
                   
                   if (logger) {
-                    logger.collectInfo(`  -> Need ESTABLISH_OUTPOST for territory expansion (forge location blocked ${locationBlockCount} times)`);
+                    logger.collectInfo(`  -> Need ESTABLISH_OUTPOST for territory expansion (${g.type} location blocked ${locationBlockCount} times)`);
                   }
                   
-                  continue; // Continue processing - will add forge goal after outpost
+                  continue; // Continue processing - will add building goal after outpost
                 } else {
                   if (logger) {
-                    logger.collectInfo(`  -> Skipping ESTABLISH_OUTPOST (cycle detected) - forge may be unachievable`);
+                    logger.collectInfo(`  -> Skipping ESTABLISH_OUTPOST (cycle detected) - ${g.type} may be unachievable`);
                   }
                 }
               } else {
@@ -548,14 +548,16 @@ class GoalChain {
               }
             } else {
               if (logger) {
-                logger.collectInfo(`  -> Location blocking may be temporary - will retry (blocked ${locationBlockCount} times, threshold: 3)`);
+                logger.collectInfo(`  -> Location blocking may be temporary - will retry (blocked ${locationBlockCount} times, threshold: 2)`);
               }
             }
           }
           
           // Location blocking doesn't create dependencies by default
-          // (territory expansion is only for BUILD_FORGE with multiple location blocks)
-          dependenciesAdded = false;
+          // (territory expansion is only for BUILD_* goals with multiple location blocks)
+          if (!dependenciesAdded) {
+            dependenciesAdded = false;
+          }
         } else if (block.type === 'UNITS') {
           // Unit blocking - need military units
           // This is typically handled by the goal itself (e.g., ESTABLISH_OUTPOST waits for units)
@@ -660,44 +662,54 @@ class GoalChain {
       const locationBlocks = firstStepBlocking.filter(b => b.type === 'LOCATION');
       
       if (locationBlocks.length > 0 && firstStepBlocking.length === locationBlocks.length) {
-        // First step is blocked only by location - this is a problem
-        // Location blocking can't be resolved by dependencies, so reject the chain
-        const locationReasons = locationBlocks.map(b => b.value || 'no valid location').join(', ');
-        const errorMsg = `First step ${firstStep.type} blocked by location: ${locationReasons} - rejecting chain`;
-        chain.errors = chain.errors || [];
-        chain.errors.push(errorMsg);
+        // First step is blocked only by location
+        // Check if expansion (ESTABLISH_OUTPOST) is in the chain to handle location blocking
+        const hasExpansionInChain = chain.steps.some(step => step.type === 'ESTABLISH_OUTPOST');
         
-        if (logger) {
-          logger.collectError(`Chain validation failed: ${firstStep.type} blocked by location`, null, {
-            reason: locationReasons
-          });
-          logger.collectGoalFailureContext({
-            goal: firstStep.type,
-            step: 0,
-            reason: locationReasons,
-            locationBlocks: locationBlocks.map(b => b.value || 'no valid location')
-          });
-          console.warn(`[GoalChain] Chain validation: ${errorMsg}`);
-        }
-        
-        if (global.eventManager && typeof global.eventManager.aiEvent === 'function') {
-          global.eventManager.aiEvent('chain validation failed', {
-            subject: house?.id || null,
-            subjectName: house?.name || null,
-            house: house?.id || null,
-            houseName: house?.name || null,
-            metadata: {
+        if (!hasExpansionInChain) {
+          // No expansion in chain - location blocking can't be resolved, so reject the chain
+          const locationReasons = locationBlocks.map(b => b.value || 'no valid location').join(', ');
+          const errorMsg = `First step ${firstStep.type} blocked by location: ${locationReasons} - rejecting chain`;
+          chain.errors = chain.errors || [];
+          chain.errors.push(errorMsg);
+          
+          if (logger) {
+            logger.collectError(`Chain validation failed: ${firstStep.type} blocked by location`, null, {
+              reason: locationReasons
+            });
+            logger.collectGoalFailureContext({
               goal: firstStep.type,
+              step: 0,
               reason: locationReasons,
               locationBlocks: locationBlocks.map(b => b.value || 'no valid location')
-            }
-          });
+            });
+            console.warn(`[GoalChain] Chain validation: ${errorMsg}`);
+          }
+          
+          if (global.eventManager && typeof global.eventManager.aiEvent === 'function') {
+            global.eventManager.aiEvent('chain validation failed', {
+              subject: house?.id || null,
+              subjectName: house?.name || null,
+              house: house?.id || null,
+              houseName: house?.name || null,
+              metadata: {
+                goal: firstStep.type,
+                reason: locationReasons,
+                locationBlocks: locationBlocks.map(b => b.value || 'no valid location')
+              }
+            });
+          }
+          
+          // Clear steps to prevent execution of invalid chain
+          chain.steps = [];
+          chain.currentStep = 0;
+          return chain; // Return chain with no steps (will be rejected)
+        } else {
+          // Expansion is in chain - allow it to proceed (expansion will handle location blocking)
+          if (logger) {
+            logger.collectInfo(`First step ${firstStep.type} blocked by location, but expansion (ESTABLISH_OUTPOST) is in chain - allowing chain`);
+          }
         }
-        
-        // Clear steps to prevent execution of invalid chain
-        chain.steps = [];
-        chain.currentStep = 0;
-        return chain; // Return chain with no steps (will be rejected)
       } else if (firstStepBlocking.length > 0) {
         // First step has other blocking factors (should have been resolved)
         // These might be temporary (resources that will be gathered), so warn but allow chain
@@ -774,9 +786,12 @@ class GoalChain {
       
       // If location blocked 5+ times (reduced from 8 to 5 for more responsive behavior), consider it permanent
       if (adjustedBlockCount >= 5) {
-        // For BUILD_FORGE, we handle it with territory expansion (already added if needed)
-        // For BUILD_GARRISON and other buildings, permanent location blocking means the chain is invalid
-        if (goalType !== 'BUILD_FORGE') {
+        // Check if expansion (ESTABLISH_OUTPOST) is already in the chain to handle permanent blocking
+        const hasExpansionInChain = chain.steps.some(step => step.type === 'ESTABLISH_OUTPOST');
+        
+        // If expansion is already triggered, allow the chain (expansion will handle the location issue)
+        // Otherwise, reject the chain as permanently blocked
+        if (!hasExpansionInChain) {
           const errorMsg = `Permanent location blocking detected for ${goalType} (blocked ${locationBlockCount} times) - rejecting chain`;
           chain.errors = chain.errors || [];
           chain.errors.push(errorMsg);
@@ -807,6 +822,11 @@ class GoalChain {
           // Clear steps to prevent execution
           chain.steps = [];
           return; // Stop validation, chain is invalid
+        } else {
+          // Expansion is in chain, allow it to proceed (expansion will handle location blocking)
+          if (logger) {
+            logger.collectInfo(`Permanent location blocking detected for ${goalType}, but expansion (ESTABLISH_OUTPOST) is in chain - allowing chain`);
+          }
         }
       }
     }

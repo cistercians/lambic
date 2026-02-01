@@ -2374,6 +2374,14 @@ function allyCheck(playerId, otherId) {
     return 0; // Neutral (different contexts)
   }
   
+  // CRITICAL: Wild animals (Wolves and Boars) are ALWAYS hostile to all entities
+  // This check must happen BEFORE any house relationship checks
+  // to ensure wolves/boars are never treated as friendly, even if a player creates a faction
+  const wildAnimals = ['Wolf', 'Boar'];
+  if (wildAnimals.includes(player.class) || wildAnimals.includes(other.class)) {
+    return -1; // Always hostile
+  }
+  
   // If both have no house property (are neutral), return neutral
   if (!player.house && !other.house) {
     return 0; // Neutral
@@ -2412,12 +2420,6 @@ function allyCheck(playerId, otherId) {
     return -1;
   }
   if (oHouse && oHouse.hostile && pHouse && player.house !== other.house) {
-    return -1;
-  }
-  
-  // Wild animals are hostile
-  const wildAnimals = ['Wolf', 'Boar'];
-  if (wildAnimals.includes(player.class) || wildAnimals.includes(other.class)) {
     return -1;
   }
   

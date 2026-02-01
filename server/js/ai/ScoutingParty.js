@@ -217,10 +217,15 @@ class ScoutingParty {
     const currentTempus = global.tempus || (global.gameState ? global.gameState.tempus : null);
     const isDawn = currentTempus === 'VI.a';
     
-    if (isDawn) {
-      // Dawn detected - start traveling to target
+    // CRITICAL: Also check if it's already day (not night) - if party was created during day, start immediately
+    // This ensures parties don't wait indefinitely if created after dawn
+    const isNight = global.gameState ? (global.gameState.nightfall || false) : false;
+    const isDay = !isNight;
+    
+    if (isDawn || (isDay && this.status === 'on_hold')) {
+      // Dawn detected or already day - start traveling to target
       const factionName = this.leader.house ? this.leader.house.name : 'Unknown';
-      console.log(`[SCOUT] ${factionName}: Dawn detected (VI.a) - party starting journey to target`);
+      console.log(`[SCOUT] ${factionName}: Starting journey to target (dawn=${isDawn}, day=${isDay})`);
       this.startTravelingToTarget();
     }
     

@@ -1116,6 +1116,20 @@ class FactionAI {
     return this.militaryManager.deployScoutingParty(targetZone, resourceType);
   }
 
+  // Handle scouting party completion (delegates to MilitaryManager)
+  onScoutingComplete(targetZone, purpose, enemiesFound) {
+    if (this.militaryManager) {
+      return this.militaryManager.onScoutingComplete(targetZone, purpose, enemiesFound);
+    }
+  }
+
+  // Handle scouting party failure (delegates to MilitaryManager)
+  onScoutingFailed(targetZone, purpose) {
+    if (this.militaryManager) {
+      return this.militaryManager.onScoutingFailed(targetZone, purpose);
+    }
+  }
+
   // Get all military units belonging to this faction (cached per day)
   getMilitaryUnits() {
     const day = global.day || 1;

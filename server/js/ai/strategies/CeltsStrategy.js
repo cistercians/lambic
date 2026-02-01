@@ -7,17 +7,40 @@ const {
   BuildFarmGoal,
   BuildMineGoal,
   DeployScoutGoal,
-  TrainMilitaryGoal
+  TrainMilitaryGoal,
+  EstablishOutpostGoal
 } = require('../Goals');
 
 class CeltsStrategy extends FactionStrategy {
   evaluateEconomicGoals() {
     const goals = [];
+    const logger = this.getLogger();
     
     // Celts prioritize mines near caves (faction-specific behavior)
+    // But adapt to location blocking by prioritizing scouting/expansion
     const knownCaves = this.house.ai && this.house.ai.knowledge
       ? this.house.ai.knowledge.getBestResourceLocation('cave')
       : null;
+    
+    // Check for recent goal failures - if location blocking is common, prioritize expansion
+    const recentFailures = this.house.ai && this.house.ai.goalFailureHistory
+      ? Array.from(this.house.ai.goalFailureHistory.entries())
+          .filter(([goalType, history]) => {
+            const locationBlocks = history.locationBlockCount || 0;
+            return locationBlocks >= 2; // Has location blocking issues
+          })
+      : [];
+    
+    if (recentFailures.length > 0 && this.house.ai) {
+      // Location blocking detected - prioritize expansion/scouting
+      const expansionGoal = new EstablishOutpostGoal(null, null);
+      expansionGoal.utility = 50; // High priority when location blocked
+      goals.push(this.modifyGoalUtility(expansionGoal));
+      
+      if (logger) {
+        logger.collectInfo(`Celts: Prioritizing expansion due to ${recentFailures.length} goals with location blocking`);
+      }
+    }
     
     if (knownCaves) {
       const mineCount = this.countBuildingType('mine');

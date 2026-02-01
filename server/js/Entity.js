@@ -136,6 +136,88 @@ function hasFoodForSerfs(stores, count) {
   return totalFood >= (SERF_FOOD_COST * count);
 }
 
+/**
+ * Check if a building has initial resources available for serf spawning
+ * For neutral players (no faction), serfs should only spawn when building has some initial resources
+ * @param {Object} building - The building to check
+ * @returns {boolean} True if building has initial resources available
+ */
+function hasInitialResources(building) {
+  if (!building) return false;
+  
+  // Check building's daily stores first (resources collected at the building)
+  if (building.dailyStores) {
+    if (building.type === 'mill' && (building.dailyStores.grain || 0) > 0) {
+      return true;
+    }
+    if (building.type === 'lumbermill' && (building.dailyStores.wood || 0) > 0) {
+      return true;
+    }
+    if (building.type === 'mine') {
+      const resourceType = building.cave ? 'ironore' : 'stone';
+      if ((building.dailyStores[resourceType] || 0) > 0) {
+        return true;
+      }
+    }
+    if (building.type === 'dock' && (building.dailyStores.fish || 0) > 0) {
+      return true;
+    }
+  }
+  
+  // Check building's workable resources (tiles that can be worked)
+  if (building.resources && Array.isArray(building.resources) && building.resources.length > 0) {
+    if (building.type === 'mill' || building.type === 'farm') {
+      // For mills/farms, check if there are ready grain tiles (tile type 10 = ready to harvest)
+      // Update resources first to get current state
+      if (typeof building.updateFarmResources === 'function') {
+        building.updateFarmResources();
+      }
+      // Check if any resources are ready grain tiles (tile type 10)
+      for (var i = 0; i < building.resources.length; i++) {
+        var spot = building.resources[i];
+        if (Array.isArray(spot) && spot.length >= 2) {
+          var tile0 = getTile(0, spot[0], spot[1]);
+          if (tile0 === 10) {
+            // Found ready grain tile
+            return true;
+          }
+        }
+      }
+    }
+    if (building.type === 'lumbermill') {
+      // For lumbermills, check if there are trees in resources
+      // Update resources first to get current state
+      if (typeof building.updateResources === 'function') {
+        building.updateResources();
+      }
+      // Check if any resources are trees (tile >= 1 && tile < 3)
+      for (var i = 0; i < building.resources.length; i++) {
+        var spot = building.resources[i];
+        if (Array.isArray(spot) && spot.length >= 2) {
+          var tile0 = getTile(0, spot[0], spot[1]);
+          if (tile0 >= 1 && tile0 < 3) {
+            // Found tree
+            return true;
+          }
+        }
+      }
+    }
+    if (building.type === 'mine') {
+      // For mines, check if there are mineable resources
+      // Update resources first to get current state
+      if (typeof building.updateResources === 'function') {
+        building.updateResources();
+      }
+      // If resources array has items, there are mineable resources
+      if (building.resources.length > 0) {
+        return true;
+      }
+    }
+  }
+  
+  return false;
+}
+
 function deductFoodForSerfs(stores, count) {
   if (!stores || !count) return;
   let remaining = SERF_FOOD_COST * count;
@@ -503,11 +585,18 @@ Building = function(param){
           var tile = getTile(1, r[0], r[1]);
           return tile >= 2 && tile < 5; // Has ore
         } else {
-          // Stone mine - check layer 6 for stone resources and verify it's a large rock
+          // Stone mine - check layer 6 for stone resources and verify terrain type
+          // Must match what the scan actually finds: large rocks (4.01-4.99) OR mountains (5.0-5.9)
+          // Regular rocks (4) are visual only and have NO resources - exclude them
           var layer6Res = getTile(6, r[0], r[1]);
           var terrain = getTile(0, r[0], r[1]);
-          // Only keep large rocks (resource-carrying) with resources on layer 6
-          return (global.isLargeRock && global.isLargeRock(terrain)) && layer6Res > 0;
+          // Check for resource-carrying stone types:
+          // - Large rocks: > 4 && < 5 (decimal rocks, isLargeRock) - have resources on layer 6
+          // - Mountains: >= 5 && < 6 (TERRAIN.MOUNTAIN with possible decimals) - can have resources on layer 6
+          var isLargeRock = global.isLargeRock && global.isLargeRock(terrain);
+          var isMountain = terrain >= 5 && terrain < 6;
+          // Must have resources on layer 6
+          return (isLargeRock || isMountain) && layer6Res > 0;
         }
       });
       pruneAssignedSpots();
@@ -826,14 +915,17 @@ Mill = function(param){
     
     if(!isBootstrapSpawn){
       if(!factionBuilding){
-        var neutralStores = resolveOwnerStores(self);
-        var neutralResource = neutralStores ? (neutralStores.grain || 0) : 0;
-        if(neutralResource <= 0) {
+        // For neutral players, check if building has initial resources available
+        // Mills need grain in dailyStores OR ready grain tiles (tile type 10) in resources
+        if(!hasInitialResources(self)) {
           if(global.eventManager){
             global.eventManager.serfSpawnDecision(self, 'resource_check', 'insufficient_neutral_resource', {
               isBootstrapSpawn: isBootstrapSpawn,
               resourceType: 'grain',
-              resourceAmount: neutralResource
+              resourceAmount: 0,
+              buildingType: self.type,
+              hasDailyStores: !!(self.dailyStores && self.dailyStores.grain > 0),
+              hasResources: !!(self.resources && self.resources.length > 0)
             });
           }
           return;
@@ -1053,14 +1145,17 @@ Lumbermill = function(param){
     
     if(!isBootstrapSpawn){
       if(!factionBuilding){
-        var neutralStores = resolveOwnerStores(self);
-        var neutralResource = neutralStores ? (neutralStores.wood || 0) : 0;
-        if(neutralResource <= 0){
+        // For neutral players, check if building has initial resources available
+        // Lumbermills need wood in dailyStores OR trees in resources
+        if(!hasInitialResources(self)) {
           if(global.eventManager){
             global.eventManager.serfSpawnDecision(self, 'resource_check', 'insufficient_neutral_resource', {
               isBootstrapSpawn: isBootstrapSpawn,
               resourceType: 'wood',
-              resourceAmount: neutralResource
+              resourceAmount: 0,
+              buildingType: self.type,
+              hasDailyStores: !!(self.dailyStores && self.dailyStores.wood > 0),
+              hasResources: !!(self.resources && self.resources.length > 0)
             });
           }
           refreshResources();
@@ -1430,8 +1525,7 @@ Mine = function(param){
     } else {
       // Stone mine - scan z=0 for stone patches
       var loc = getLoc(self.x,self.y);
-      var loc1 = [loc[0]+1,loc[1]-1];
-      var area = getArea(loc,loc1,6);
+      var area = getArea(loc, loc, 6);
       var resourcesBefore = self.resources.length;
       for(var i in area){
         var r = area[i];
@@ -1440,15 +1534,13 @@ Mine = function(param){
         if(dist <= 384){
           var gt = getTile(0,r[0],r[1]);
           var layer6Res = getTile(6,r[0],r[1]);
-          // Check for all stone types:
-          // - Regular stone: exactly 4 (TERRAIN.ROCKS)
-          // - Large stone: > 4 && < 5 (decimal rocks)
-          // - Mountain: >= 5 && < 6 (TERRAIN.MOUNTAIN with possible decimals)
-          var isStoneResource = (gt === 4) || 
-                                (gt > 4 && gt < 5) || 
-                                (gt >= 5 && gt < 6);
-          var isLargeRock = (global.isLargeRock && global.isLargeRock(gt)) || (!global.isLargeRock && isStoneResource);
-          if(isLargeRock && layer6Res > 0){
+          // Check for resource-carrying stone types:
+          // - Large rocks: > 4 && < 5 (decimal rocks, 4.01-4.99) - have resources on layer 6
+          // - Mountains: >= 5 && < 6 (TERRAIN.MOUNTAIN with possible decimals) - can have resources on layer 6
+          // - Regular rocks (exactly 4) are visual only and have NO resources - exclude them
+          var isLargeRock = global.isLargeRock && global.isLargeRock(gt);
+          var isMountain = gt >= 5 && gt < 6;
+          if((isLargeRock || isMountain) && layer6Res > 0){
             self.resources.push(r);
           }
         }
@@ -2225,14 +2317,16 @@ Dock = function(param){
     
     if(!isBootstrapSpawn){
       if(!factionBuilding){
-        var neutralStores = resolveOwnerStores(self);
-        var neutralResource = neutralStores ? (neutralStores.fish || 0) : 0;
-        if(neutralResource <= 0) {
+        // For neutral players, check if building has initial resources available
+        // Docks need fish in dailyStores
+        if(!hasInitialResources(self)) {
           if(global.eventManager){
             global.eventManager.serfSpawnDecision(self, 'resource_check', 'insufficient_neutral_resource', {
               isBootstrapSpawn: isBootstrapSpawn,
               resourceType: 'fish',
-              resourceAmount: neutralResource
+              resourceAmount: 0,
+              buildingType: self.type,
+              hasDailyStores: !!(self.dailyStores && self.dailyStores.fish > 0)
             });
           }
           return;
@@ -2611,8 +2705,44 @@ Garrison = function(param){
       
       // Spawn location
       var sp = self.plot[7] || self.plot[0];
+      if(!sp || !Array.isArray(sp) || sp.length < 2){
+        if(global.console && global.console.log){
+          console.log('[Garrison] Production failed: Invalid spawn location', {
+            garrisonId: self.id,
+            plot: self.plot
+          });
+        }
+        return;
+      }
+      
       var spCoords = getCenter(sp[0], sp[1]);
       
+      // CRITICAL: Validate spawn location is walkable
+      if(!isWalkable(self.z || 0, sp[0], sp[1])){
+        // Try alternate spawn locations
+        var alternateSpots = [self.plot[6], self.plot[5], self.plot[4], self.plot[3], self.plot[2], self.plot[1], self.plot[0]];
+        var foundWalkable = false;
+        for(var i = 0; i < alternateSpots.length; i++){
+          var altSpot = alternateSpots[i];
+          if(altSpot && Array.isArray(altSpot) && altSpot.length >= 2){
+            if(isWalkable(self.z || 0, altSpot[0], altSpot[1])){
+              sp = altSpot;
+              spCoords = getCenter(sp[0], sp[1]);
+              foundWalkable = true;
+              break;
+            }
+          }
+        }
+        if(!foundWalkable){
+          if(global.console && global.console.log){
+            console.log('[Garrison] Production failed: No walkable spawn location found', {
+              garrisonId: self.id,
+              z: self.z || 0
+            });
+          }
+          return;
+        }
+      }
       
       if(unitClass){
         
@@ -2629,7 +2759,8 @@ Garrison = function(param){
               home:{z:self.z || 0, loc:sp}
             });
             
-            if(newUnit){
+            // CRITICAL: Verify unit was actually created and added to Player.list
+            if(newUnit && newUnit.id && Player.list && Player.list[newUnit.id]){
               // Initialize patrol mode (uses faction's universal patrol list)
               newUnit.mode = 'patrol';
               newUnit.patrol = {
@@ -2653,14 +2784,18 @@ Garrison = function(param){
                 console.log('[Garrison] Unit produced successfully', {
                   house: house.name,
                   unitClass: unitClass,
-                  location: { x: newUnit.x, y: newUnit.y, z: newUnit.z }
+                  unitId: newUnit.id,
+                  location: { x: newUnit.x, y: newUnit.y, z: newUnit.z },
+                  spawnTile: sp
                 });
               }
             } else {
               if(global.console && global.console.log){
-                console.log('[Garrison] Production failed: Unit constructor returned null', {
+                console.log('[Garrison] Production failed: Unit not found in Player.list after creation', {
                   house: house.name,
-                  unitClass: unitClass
+                  unitClass: unitClass,
+                  unitId: newUnit ? newUnit.id : 'null',
+                  hasPlayerList: !!Player.list
                 });
               }
             }
@@ -4283,12 +4418,20 @@ Character = function(param){
         }
         if(self.z == -1){
           // Use pathfinding for cave navigation
+          // CRITICAL: In caves, always use proper pathfinding - never fall through to greedy movement
+          // Greedy movement causes serfs to move in straight lines through buildings
           if(self.shouldRequestPath(tz, tLoc[0], tLoc[1])){
             self.getPath(-1, tLoc[0], tLoc[1]);
-            if(self.path){
+            if(self.path && self.path.length > 0){
               return;  // Return early to prevent greedy movement fallthrough
             }
+            // Pathfinding failed - don't fall through to greedy movement in caves
+            // This prevents straight-line movement through buildings
+            // The serf will retry pathfinding on next update
+            return;
           }
+          // Should not request path - don't move (wait for next update)
+          return;
         } else if(self.z == -2){
           var b = getBuilding(cen[0],cen[1]);
           var tcen = getCenter(tLoc[0],tLoc[1]);
@@ -6518,13 +6661,17 @@ Character = function(param){
         
         var options = {};
         if(isTargetCaveExit){
-          // Allow pathfinding to the specific cave exit
+          // Allow pathfinding to the specific cave exit (only when explicitly exiting)
           options.allowSpecificDoor = true;
           options.targetDoor = [c, r];
+        } else {
+          // When pathfinding to work spots or other destinations (not explicitly exiting),
+          // avoid cave exits to prevent accidental routing through them
+          // This prevents serfs from pathfinding through exit tiles when trying to reach work spots
+          if(self.transitionIntent !== 'exit_cave'){
+            options.avoidCaveExits = true;
+          }
         }
-        // Note: We don't avoid cave exits in pathfinding anymore
-        // The intent system prevents NPCs from accidentally exiting caves
-        // Cave exits must remain walkable for pathfinding in caves
         
         // If starting from a cave exit, pass it as an allowed exception
         if(isStartCaveExit){
@@ -9638,9 +9785,10 @@ Serf = function(param){
         self.findTavern();
       }
       
-      if(!self.mode){
-        self.mode = 'idle';
-      }
+      // CRITICAL: Serfs must spawn in idle mode and wait for dawn transition
+      // The schedule system (handleDailySchedule + processTransition) will transition to work at dawn
+      // Don't set work mode here - let the schedule system handle the transition
+      self.mode = 'idle';
     }
   };
 
@@ -12935,12 +13083,14 @@ LitTorch = function(param){
   self.update = function(){
     if(Player.list[self.parent]){
       const parentPlayer = Player.list[self.parent];
+      // CRITICAL: Update position even when player is in ghost mode
+      // This ensures torch light cutout holes don't freeze when player dies
       self.x = parentPlayer.x - (tileSize * 0.75);
       self.y = parentPlayer.y - (tileSize * 0.75);
       self.z = parentPlayer.z;
       self.innaWoods = parentPlayer.innaWoods;
       
-      // CRITICAL: Inherit map context from parent player
+      // CRITICAL: Inherit map context from parent player (even in ghost mode)
       if(global.mapContextHelpers) {
         global.mapContextHelpers.setEntityContext(self, parentPlayer.battlegroundMatchId || null);
       } else {
@@ -14129,11 +14279,13 @@ Light = function(param){
     self.update = function(){
       if(Item.list[self.parent]){
         const torchItem = Item.list[self.parent];
+        // CRITICAL: Always update light position from torch item, even if parent player is in ghost mode
+        // This prevents light cutout holes from freezing when player dies
         self.x = torchItem.x + (tileSize * 0.25);
         self.y = torchItem.y;
         self.z = torchItem.z;
         
-        // CRITICAL: Inherit map context from torch's parent player
+        // CRITICAL: Inherit map context from torch's parent player (even in ghost mode)
         if(torchItem.parent && Player.list[torchItem.parent]){
           const torchParent = Player.list[torchItem.parent];
           if(global.mapContextHelpers) {
