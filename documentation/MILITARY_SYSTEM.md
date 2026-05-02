@@ -659,10 +659,16 @@ The AI system coordinates military operations:
 
 **Military Goals:**
 
-1. **TrainMilitaryGoal** - Trains units (requires garrison, costs grain)
+1. **TrainMilitaryGoal** - Trains units (requires garrison; basic units cost 20 total food from grain + fish)
 2. **DeployScoutGoal** - Deploys scout to destination
 3. **DefendTerritoryGoal** - Rallies units to defensive positions
 4. **AttackEnemyGoal** - Coordinates attack on enemy (requires garrison)
+
+**Garrison Recruitment Economy:**
+
+- Passive Garrison production checks food support capacity every 18,000 building updates. Existing military units reserve 10 food each, and the next passive unit requires 10 surplus food. The passive spawn itself does not consume stores.
+- `TrainMilitaryGoal` is an active paid training action. It uses the same faction unit progression, costs 20 food for basic units, adds 10 iron for elite units, and costs 40 food plus 20 iron for mounted units.
+- Both paths count fish and grain as food, so fishing economies can support military training without first converting that food into grain.
 5. **EstablishOutpostGoal** - Complex goal involving scouting → planning → construction
 
 ## 4. Combat Mechanics Details

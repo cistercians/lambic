@@ -13,6 +13,8 @@ class SimpleSerfBehavior {
     this.LOG_THROTTLE_MS = 5000; // Only log same message every 5 seconds per serf
     this.TRANSITION_WINDOW_MS = 10000; // 10s stagger window
     this.OFFWORK_MARKET_IDLE_CHANCE = 0.1;
+    this.WORK_SPOT_RETRY_MS = 15000;
+    this.PATH_RECOVERY_THROTTLE_MS = 4000;
   }
 
   getSerfLogger() {
@@ -47,6 +49,432 @@ class SimpleSerfBehavior {
         // Ignore logging failures
       }
     }
+  }
+
+  recordSerfRuntimeEvent(serf, action, metadata = {}) {
+    if (!serf || !global.eventManager || typeof global.eventManager.aiEvent !== 'function') return;
+    const houseName = serf.house && global.House && global.House.list
+      ? (global.House.list[serf.house]?.name || null)
+      : null;
+    global.eventManager.aiEvent(action, {
+      subject: serf.id,
+      subjectName: serf.name || serf.class || 'Serf',
+      house: serf.house || null,
+      houseName,
+      metadata: Object.assign({
+        mode: serf.mode || null,
+        action: serf.action || null,
+        z: typeof serf.z === 'number' ? serf.z : null,
+        workHq: serf.work?.hq || null,
+        spot: Array.isArray(serf.work?.spot) ? serf.work.spot : null
+      }, metadata || {})
+    });
+  }
+
+  clearMoveState(serf, options = {}) {
+    if (!serf) return;
+    serf.path = null;
+    serf.pathCount = 0;
+    serf.pathEnd = null;
+    serf.moveIntent = null;
+    if (options.resetCooldown) {
+      serf.pathCooldown = 0;
+    }
+  }
+
+  clearInteriorResumeState(serf) {
+    if (!serf) return;
+    serf._interiorResume = null;
+  }
+
+  markInteriorResumePending(serf, building, expectedZ, target, result) {
+    if (!serf) return;
+    serf._interiorResume = {
+      buildingId: building?.id || null,
+      expectedZ,
+      requestedAt: Date.now(),
+      target: Array.isArray(target) ? target.slice() : null,
+      status: result?.status || 'unknown'
+    };
+  }
+
+  shouldResumeWorkFromInterior(serf, building) {
+    if (!serf || !building) return false;
+    const expectedZ = this.getWorkZ(building);
+    return serf.z === 1 && expectedZ <= 0;
+  }
+
+  getCurrentInteriorBuildingId(serf) {
+    if (!serf || serf.z !== 1 || typeof global.getBuilding !== 'function') return null;
+    if (typeof serf.x !== 'number' || typeof serf.y !== 'number') return null;
+    try {
+      return global.getBuilding(serf.x, serf.y) || null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  forceExitInteriorForWork(serf, building, reason = 'resume_from_interior_failed') {
+    if (!this.shouldResumeWorkFromInterior(serf, building)) return false;
+    const interiorBuildingId = this.getCurrentInteriorBuildingId(serf);
+    if (!interiorBuildingId || typeof serf.exitBuilding !== 'function') return false;
+    const interiorBuilding = global.Building?.list?.[interiorBuildingId];
+    if (!interiorBuilding || !Array.isArray(interiorBuilding.entrance)) return false;
+
+    this.clearMoveState(serf, { resetCooldown: true });
+
+    try {
+      serf.exitBuilding(interiorBuildingId);
+    } catch (error) {
+      return false;
+    }
+
+    this.clearInteriorResumeState(serf);
+    serf._lastRecoveryAt = Date.now();
+    serf._lastPathInvalidation = null;
+    this.setSerfDebug(serf, {
+      lastRecovery: 'resume_from_interior_forced_exit',
+      expectedZ: this.getWorkZ(building),
+      currentZ: serf.z,
+      interiorBuildingId
+    });
+    this.recordSerfRuntimeEvent(serf, 'serf recovery transition', {
+      recovery: 'resume_from_interior_forced_exit',
+      reason,
+      interiorBuildingId,
+      workBuildingId: building?.id || null,
+      expectedZ: this.getWorkZ(building)
+    });
+    return true;
+  }
+
+  noteWorkAttempt(serf, reason = null) {
+    if (!serf) return;
+    serf._lastWorkAttemptAt = Date.now();
+    if (reason) {
+      this.setSerfDebug(serf, { lastWorkAttemptReason: reason });
+    }
+  }
+
+  ensurePersonalHutTracking(serf) {
+    if (!serf) return null;
+    if (serf.hut && !serf._personalHutId) {
+      serf._personalHutId = serf.hut;
+    }
+    if (!serf.hut && serf._personalHutId) {
+      serf.hut = serf._personalHutId;
+    }
+    return serf._personalHutId || serf.hut || null;
+  }
+
+  getPersonalHutStatus(serf) {
+    const hutId = this.ensurePersonalHutTracking(serf);
+    const hut = hutId && global.Building?.list ? global.Building.list[hutId] : null;
+    return {
+      hutId,
+      hut,
+      exists: !!hut,
+      built: !!hut?.built,
+      missing: !!hutId && !hut,
+      pending: !!hutId && (!hut || !hut.built)
+    };
+  }
+
+  recordHutPriorityEvent(serf, action, metadata = {}, options = {}) {
+    if (!serf) return;
+    const throttleMs = typeof options.throttleMs === 'number' ? options.throttleMs : this.LOG_THROTTLE_MS;
+    const throttleKey = options.throttleKey || `hutPriority-${action}-${serf.id}`;
+    if (throttleMs > 0) {
+      const now = Date.now();
+      const lastLog = this.logThrottle[throttleKey];
+      if (lastLog && (now - lastLog) < throttleMs) {
+        return;
+      }
+      this.logThrottle[throttleKey] = now;
+    }
+    const hutStatus = this.getPersonalHutStatus(serf);
+    this.recordSerfRuntimeEvent(serf, action, Object.assign({
+      hutId: hutStatus.hutId,
+      hutExists: hutStatus.exists,
+      hutBuilt: hutStatus.built,
+      hutPending: hutStatus.pending,
+      buildAssistBuilding: serf._buildAssistBuilding || null
+    }, metadata || {}));
+  }
+
+  getSpotKey(spot) {
+    return Array.isArray(spot) && spot.length === 2 ? `${spot[0]},${spot[1]}` : null;
+  }
+
+  rememberRejectedWorkSpot(serf, building, spot, reason = 'rejected') {
+    if (!serf || !building || !Array.isArray(spot) || spot.length !== 2) return;
+    const buildingKey = building.id || building.type || 'unknown';
+    const spotKey = this.getSpotKey(spot);
+    if (!spotKey) return;
+    if (!serf._workSpotBlacklist || typeof serf._workSpotBlacklist !== 'object') {
+      serf._workSpotBlacklist = {};
+    }
+    if (!serf._workSpotBlacklist[buildingKey]) {
+      serf._workSpotBlacklist[buildingKey] = {};
+    }
+    serf._workSpotBlacklist[buildingKey][spotKey] = {
+      reason,
+      until: Date.now() + this.WORK_SPOT_RETRY_MS
+    };
+  }
+
+  isSpotTemporarilyRejected(serf, building, spot) {
+    if (!serf || !building || !serf._workSpotBlacklist) return false;
+    const buildingKey = building.id || building.type || 'unknown';
+    const spotKey = this.getSpotKey(spot);
+    if (!spotKey) return false;
+    const blacklist = serf._workSpotBlacklist[buildingKey];
+    if (!blacklist || !blacklist[spotKey]) return false;
+    if (blacklist[spotKey].until <= Date.now()) {
+      delete blacklist[spotKey];
+      return false;
+    }
+    return true;
+  }
+
+  resetWorkSpotAssignment(serf, reason = 'reset_work_spot', options = {}) {
+    if (!serf || !serf.work) return;
+    const building = options.building || this.getWorkBuilding(serf);
+    const currentSpot = Array.isArray(serf.work.assignedSpot) ? serf.work.assignedSpot : serf.work.spot;
+
+    if (options.blacklistSpot !== false && building && currentSpot) {
+      this.rememberRejectedWorkSpot(serf, building, currentSpot, reason);
+    }
+
+    if (building && building.releaseSpot && typeof building.releaseSpot === 'function') {
+      try {
+        building.releaseSpot(serf.id);
+      } catch (error) {
+        // Ignore release errors during recovery.
+      }
+    }
+
+    serf.work.assignedSpot = null;
+    serf.work.spot = null;
+    serf.work.workTile = null;
+    serf.work.workTileFor = null;
+    serf.work.shipId = null;
+    serf.work.isStoredShip = false;
+    serf._lastWorkSpotFailure = {
+      reason,
+      buildingType: building?.type || null
+    };
+    this.setSerfDebug(serf, { lastFailure: reason });
+  }
+
+  isSerfIntentionallyOffWork(serf) {
+    if (!serf) return false;
+    if (serf.action === 'clockout' || serf.action === 'deposit' || serf.action === 'build' || serf.action === 'returning') {
+      return true;
+    }
+    if (this.isNightTime() && serf.action === 'task' && serf._offWorkTargetType) {
+      return true;
+    }
+    const pendingType = serf._pendingTransition?.type;
+    return this.isNightTime() && (pendingType === 'clockout' || pendingType === 'offworkDecision');
+  }
+
+  clearStaleOffWorkStateForWorkday(serf) {
+    if (!serf || this.isNightTime()) return;
+    const stalePending = serf._pendingTransition &&
+      (serf._pendingTransition.type === 'clockout' || serf._pendingTransition.type === 'offworkDecision');
+    if (stalePending) {
+      serf._pendingTransition = null;
+    }
+
+    if (serf.action === 'task' && serf._offWorkTargetType) {
+      if (serf.work) {
+        serf.work.spot = Array.isArray(serf._savedWorkSpot) ? serf._savedWorkSpot : null;
+      }
+      serf.action = null;
+    }
+
+    if (serf.action === 'clockout' && !this.hasResourcesToDeposit(serf)) {
+      serf.action = null;
+    }
+
+    if (serf._offWorkTargetType || serf._savedWorkSpot) {
+      serf._offWorkTargetType = null;
+      serf._savedWorkSpot = null;
+    }
+  }
+
+  shouldBeWorkingNow(serf) {
+    if (!serf || !serf.work || !serf.work.hq) return false;
+    const hasUrgentHutBuild = this.getPersonalHutStatus(serf).pending;
+    if (hasUrgentHutBuild) return true;
+    if (this.isNightTime()) return false;
+    return !this.isSerfIntentionallyOffWork(serf);
+  }
+
+  normalizeAssignedWorkSpot(serf, building) {
+    if (!serf || !serf.work || !building) return;
+    const assignedSpot = serf.work.assignedSpot;
+    if (!Array.isArray(assignedSpot) || assignedSpot.length !== 2) return;
+
+    if (building.type === 'dock') {
+      const assignedShipId = building.assignedSpots?.[serf.id];
+      if (!assignedShipId) {
+        this.resetWorkSpotAssignment(serf, 'stale_reservation', { building, blacklistSpot: false });
+      }
+      return;
+    }
+
+    if (!Array.isArray(building.resources) || !building.resources.some(res => Array.isArray(res) && res[0] === assignedSpot[0] && res[1] === assignedSpot[1])) {
+      this.resetWorkSpotAssignment(serf, 'stale_reservation', { building, blacklistSpot: false });
+      return;
+    }
+
+    const workTile = this.getWorkTileForSpot(serf, assignedSpot, this.getWorkZ(building));
+    if (!workTile) {
+      this.resetWorkSpotAssignment(serf, 'unreachable_work_tile', { building });
+      return;
+    }
+
+    if (!building.assignedSpots || typeof building.assignedSpots !== 'object') {
+      building.assignedSpots = {};
+    }
+    const ownedBy = building.assignedSpots[serf.id];
+    if (!ownedBy) {
+      if (building.isSpotAvailable && !building.isSpotAvailable(assignedSpot)) {
+        this.resetWorkSpotAssignment(serf, 'stale_reservation', { building, blacklistSpot: false });
+        return;
+      }
+      if (building.assignSpot && typeof building.assignSpot === 'function') {
+        building.assignSpot(serf.id, assignedSpot);
+      }
+    }
+
+    serf.work.spot = assignedSpot;
+  }
+
+  normalizeSerfState(serf) {
+    if (!serf || serf.action === 'flee') return;
+
+    if (serf.z !== 1 && serf._interiorResume) {
+      this.clearInteriorResumeState(serf);
+    }
+
+    if (!serf.work || typeof serf.work !== 'object') {
+      serf.work = { hq: null, spot: null, assignedSpot: null, workTile: null, workTileFor: null };
+    }
+
+    const building = this.getWorkBuilding(serf);
+    if (building) {
+      this.normalizeAssignedWorkSpot(serf, building);
+    } else if (serf.work.hq && (serf.work.spot || serf.work.assignedSpot)) {
+      this.resetWorkSpotAssignment(serf, 'work_hq_missing', { blacklistSpot: false });
+    }
+
+    this.clearStaleOffWorkStateForWorkday(serf);
+
+    if (this.shouldBeWorkingNow(serf) && serf.mode !== 'work') {
+      serf.mode = 'work';
+      if (serf._offWorkTargetType) {
+        serf._offWorkTargetType = null;
+      }
+      if (serf.action === 'task' && serf._savedWorkSpot) {
+        serf.work.spot = serf._savedWorkSpot;
+        serf._savedWorkSpot = null;
+        serf.action = null;
+      }
+      this.setSerfState(serf, 'working', 'normalizeWorkMode');
+      this.setSerfDebug(serf, { lastRecovery: 'normalize_work_mode' });
+      this.recordSerfRuntimeEvent(serf, 'serf state normalized', {
+        recovery: 'normalize_work_mode'
+      });
+    }
+  }
+
+  recoverFromPathFailure(serf) {
+    if (!serf || !serf.work || !serf.work.hq) return;
+    const retryableAction = serf.action === 'deposit' || serf.action === 'clockout' || serf.action === 'returning';
+    const relevantAction = !serf.action || serf.action === 'task' || serf.action === 'build' || retryableAction;
+    if (!relevantAction && serf.mode !== 'work') return;
+    const building = this.getWorkBuilding(serf);
+
+    const lastInvalidation = serf._lastPathInvalidation;
+    const lastResult = serf.lastPathResult;
+    const now = Date.now();
+    let reason = null;
+
+    if (lastInvalidation && (now - lastInvalidation.at) <= this.PATH_RECOVERY_THROTTLE_MS) {
+      reason = lastInvalidation.reason || 'path_invalidated';
+    } else if (lastResult && lastResult.status === 'no_path' && (now - lastResult.timestamp) <= this.PATH_RECOVERY_THROTTLE_MS) {
+      reason = lastResult.reason || 'no_path';
+    }
+
+    if (!reason) return;
+    if (serf._lastRecoveryAt && (now - serf._lastRecoveryAt) < this.PATH_RECOVERY_THROTTLE_MS) return;
+
+    if (this.forceExitInteriorForWork(serf, building, reason)) {
+      return;
+    }
+
+    if (retryableAction) {
+      this.clearMoveState(serf, { resetCooldown: true });
+      serf._lastRecoveryAt = now;
+      serf._lastPathInvalidation = null;
+      this.setSerfDebug(serf, { lastRecovery: reason, retryAction: serf.action });
+      this.recordSerfRuntimeEvent(serf, 'serf recovery transition', {
+        recovery: 'path_failure_retry',
+        reason,
+        retryAction: serf.action
+      });
+      return;
+    }
+
+    const loc = this.getLoc(serf);
+    const safeTile = typeof serf.findNearestWalkableTile === 'function'
+      ? serf.findNearestWalkableTile(loc[0], loc[1], serf.z, 2)
+      : null;
+
+    this.clearMoveState(serf, { resetCooldown: true });
+
+    if (safeTile && safeTile.toString() !== loc.toString() && typeof serf.move === 'function') {
+      serf.move(safeTile);
+    }
+
+    this.resetWorkSpotAssignment(serf, reason, { building });
+    serf.action = null;
+    serf.mode = this.shouldBeWorkingNow(serf) ? 'work' : serf.mode;
+    serf._lastRecoveryAt = now;
+    serf._lastPathInvalidation = null;
+    this.setSerfDebug(serf, { lastRecovery: reason });
+    this.recordSerfRuntimeEvent(serf, 'serf recovery transition', {
+      recovery: 'path_failure_reset',
+      reason,
+      safeTile: safeTile || null
+    });
+  }
+
+  isIdleTransitionTile(serf, target) {
+    if (!serf || !target) return false;
+    if (serf.z === 0) {
+      const tile = this.getTile(serf, 0, target[0], target[1]);
+      return tile === 6 || tile === 14 || tile === 16 || tile === 19;
+    }
+    if (serf.z === -1) {
+      return this.getTile(serf, 1, target[0], target[1]) === 2;
+    }
+    if (serf.z === 1) {
+      const exitTile = this.getTile(serf, 0, target[0], target[1] - 1);
+      const stairsTile = this.getTile(serf, 4, target[0], target[1]);
+      return exitTile === 14 || exitTile === 16 || exitTile === 19 || stairsTile === 3 || stairsTile === 4 || stairsTile === 5 || stairsTile === 6 || stairsTile === 7;
+    }
+    if (serf.z === 2) {
+      const stairsTile = this.getTile(serf, 4, target[0], target[1]);
+      return stairsTile === 3 || stairsTile === 4;
+    }
+    if (serf.z === -2) {
+      return this.getTile(serf, 8, target[0], target[1]) === 5;
+    }
+    return false;
   }
 
   enterFleeState(serf) {
@@ -135,6 +563,50 @@ class SimpleSerfBehavior {
     return workTile;
   }
 
+  getBuildableFoundationTiles(serf, building, z = 0) {
+    if (!serf || !building || !Array.isArray(building.plot)) return [];
+    const tiles = [];
+    for (const tile of building.plot) {
+      if (!Array.isArray(tile) || tile.length !== 2) continue;
+      const terrain = this.getTile(serf, z, tile[0], tile[1]);
+      if (terrain === 11) {
+        tiles.push(tile);
+      }
+    }
+    return tiles;
+  }
+
+  selectBuildFoundationTarget(serf, building, z = 0) {
+    const buildableTiles = this.getBuildableFoundationTiles(serf, building, z);
+    const loc = this.getLoc(serf);
+    const distanceFor = tile => {
+      if (!loc || !Array.isArray(loc) || loc.length !== 2) return Infinity;
+      return Math.abs(tile[0] - loc[0]) + Math.abs(tile[1] - loc[1]);
+    };
+
+    const directTiles = buildableTiles
+      .filter(tile => global.isWalkable && global.isWalkable(z, tile[0], tile[1], serf))
+      .sort((a, b) => distanceFor(a) - distanceFor(b));
+
+    const approachTiles = buildableTiles
+      .map(tile => ({
+        spot: tile,
+        approach: this.findAdjacentWalkableTile(z, tile, serf) ||
+          (typeof serf.findNearestWalkableTile === 'function'
+            ? serf.findNearestWalkableTile(tile[0], tile[1], z, 3)
+            : null)
+      }))
+      .filter(entry => Array.isArray(entry.approach));
+
+    return {
+      buildableTiles,
+      directTiles,
+      approachTiles,
+      spot: directTiles.length > 0 ? directTiles[0] : null,
+      target: directTiles.length > 0 ? directTiles[0] : null
+    };
+  }
+
   resolveWalkableTarget(serf, z, target) {
     if (!serf || !target || !Array.isArray(target) || target.length !== 2) return target;
     if (global.isWalkable && global.isWalkable(z, target[0], target[1], serf)) {
@@ -215,7 +687,11 @@ class SimpleSerfBehavior {
 
   getBuildAssistTarget(serf) {
     if (!serf || !serf.house || !global.Building || !global.Building.list) return null;
-    if (serf.hut && global.Building.list[serf.hut] && !global.Building.list[serf.hut].built) {
+    const hutStatus = this.getPersonalHutStatus(serf);
+    if (hutStatus.pending) {
+      this.recordHutPriorityEvent(serf, 'serf build assist skipped', {
+        reason: hutStatus.missing ? 'personal_hut_missing' : 'personal_hut_pending'
+      });
       return null;
     }
 
@@ -223,7 +699,8 @@ class SimpleSerfBehavior {
     const eligibleSerfs = allSerfs.filter(entity => {
       if (!entity) return false;
       if (entity.action === 'build') return false;
-      if (entity.hut && global.Building.list[entity.hut] && !global.Building.list[entity.hut].built) {
+      const entityHutStatus = this.getPersonalHutStatus(entity);
+      if (entityHutStatus.pending) {
         return false;
       }
       return true;
@@ -259,15 +736,35 @@ class SimpleSerfBehavior {
       }
     }
 
+    if (best) {
+      this.recordHutPriorityEvent(serf, 'serf build assist eligible', {
+        assistBuildingId: best.id,
+        assistBuildingType: best.type
+      });
+    }
+
     return best;
   }
 
   assignBuildAssist(serf, building) {
     if (!serf || !building) return false;
+    const hutStatus = this.getPersonalHutStatus(serf);
+    if (hutStatus.pending) {
+      this.recordHutPriorityEvent(serf, 'serf build assist blocked', {
+        reason: hutStatus.missing ? 'personal_hut_missing' : 'personal_hut_pending',
+        assistBuildingId: building.id,
+        assistBuildingType: building.type
+      }, { throttleMs: 0 });
+      return false;
+    }
     serf._buildAssistBuilding = building.id;
     serf.work.spot = null;
     serf.work.assignedSpot = null;
     serf.action = 'build';
+    this.recordHutPriorityEvent(serf, 'serf build assist assigned', {
+      assistBuildingId: building.id,
+      assistBuildingType: building.type
+    }, { throttleMs: 0 });
     return true;
   }
 
@@ -394,6 +891,176 @@ class SimpleSerfBehavior {
       ];
     }
     return null;
+  }
+
+  isCaveMineBuilding(building) {
+    return !!(building && building.type === 'mine' && Array.isArray(building.cave) && building.cave.length === 2);
+  }
+
+  getCaveEntranceForBuilding(building) {
+    return this.isCaveMineBuilding(building) ? building.cave.slice() : null;
+  }
+
+  primeCaveWorkNavigation(serf, building, workLoc = null, spot = null) {
+    if (!serf || !this.isCaveMineBuilding(building)) return null;
+    const entrance = this.getCaveEntranceForBuilding(building);
+    serf.preferredCaveEntrance = entrance ? entrance.slice() : null;
+
+    const targetKey = JSON.stringify({
+      buildingId: building.id || null,
+      entrance,
+      workLoc,
+      spot
+    });
+    if (serf._lastCaveTargetKey !== targetKey) {
+      serf._lastCaveTargetKey = targetKey;
+      this.recordSerfRuntimeEvent(serf, 'serf cave work target selected', {
+        recovery: 'cave_work_target_selected',
+        buildingId: building.id || null,
+        buildingType: building.type || null,
+        entrance,
+        workLoc: Array.isArray(workLoc) ? workLoc : null,
+        targetSpot: Array.isArray(spot) ? spot : null
+      });
+    }
+
+    this.setSerfDebug(serf, {
+      caveEntrance: entrance,
+      caveWorkLoc: Array.isArray(workLoc) ? workLoc : null
+    });
+    return entrance;
+  }
+
+  maybeRecoverSurfaceCaveApproach(serf, building, workLoc) {
+    if (!serf || !this.isCaveMineBuilding(building) || serf.z !== 0 || !Array.isArray(workLoc)) {
+      return false;
+    }
+
+    const entrance = this.primeCaveWorkNavigation(serf, building, workLoc, serf.work?.spot || null);
+    if (!entrance) return false;
+
+    const now = Date.now();
+    const lastInvalidation = serf._lastPathInvalidation;
+    const lastResult = serf.lastPathResult;
+    const hasRecentFailure = (
+      (lastInvalidation && (now - lastInvalidation.at) <= this.PATH_RECOVERY_THROTTLE_MS) ||
+      (lastResult && lastResult.status === 'no_path' && (now - lastResult.timestamp) <= this.PATH_RECOVERY_THROTTLE_MS)
+    );
+    const waitingForEntry = serf.transitionIntent === 'enter_cave' && serf.targetZLevel === -1;
+    const stalledOnSurface = !waitingForEntry &&
+      !!serf._lastCaveApproachAt &&
+      (now - serf._lastCaveApproachAt) > (this.PATH_RECOVERY_THROTTLE_MS * 2);
+
+    if (!hasRecentFailure && !stalledOnSurface) {
+      if (!waitingForEntry) {
+        serf._lastCaveApproachAt = now;
+      }
+      return false;
+    }
+    if (serf._lastCaveRecoveryAt && (now - serf._lastCaveRecoveryAt) < this.PATH_RECOVERY_THROTTLE_MS) {
+      return false;
+    }
+
+    this.clearMoveState(serf, { resetCooldown: true });
+    const result = movementSystem.applyMoveIntent(serf, {
+      z: -1,
+      target: workLoc,
+      reason: 'recover_cave_entry',
+      sourceAction: serf.action || 'work'
+    });
+    if (serf.z === 0 && this.isWaitingForCaveEntry(serf) && (!serf.path || serf.path.length === 0)) {
+      this.markCaveEntryPathBlocked(serf, result?.reason || 'no_surface_path_to_cave');
+    }
+
+    serf._lastCaveApproachAt = now;
+    serf._lastCaveRecoveryAt = now;
+    this.setSerfDebug(serf, {
+      lastRecovery: 'recover_cave_entry',
+      caveEntrance: entrance,
+      caveRecoveryStatus: result?.status || 'unknown'
+    });
+    this.recordSerfRuntimeEvent(serf, 'serf recovery transition', {
+      recovery: 'recover_cave_entry',
+      reason: hasRecentFailure ? 'surface_path_failure' : 'surface_cave_stall',
+      entrance,
+      workLoc,
+      status: result?.status || 'unknown'
+    });
+    return true;
+  }
+
+  isWaitingForCaveEntry(serf) {
+    return !!(serf && serf.transitionIntent === 'enter_cave' && serf.targetZLevel === -1);
+  }
+
+  shouldDelayCaveEntryRetry(serf) {
+    if (!this.isWaitingForCaveEntry(serf)) return false;
+    if (serf.path && serf.path.length > 0) return false;
+    return !!(serf._lastCaveEntryPathBlockedAt &&
+      (Date.now() - serf._lastCaveEntryPathBlockedAt) < this.PATH_RECOVERY_THROTTLE_MS);
+  }
+
+  markCaveEntryPathBlocked(serf, reason = 'no_surface_path_to_cave') {
+    if (!serf || !this.isWaitingForCaveEntry(serf)) return;
+    if (serf.path && serf.path.length > 0) return;
+    const now = Date.now();
+    serf._lastCaveEntryPathBlockedAt = now;
+    serf._lastPathInvalidation = {
+      reason,
+      at: now,
+      data: {
+        target: Array.isArray(serf.targetLoc) ? serf.targetLoc : null,
+        entrance: Array.isArray(serf.caveEntrance) ? serf.caveEntrance : null,
+        z: serf.z
+      }
+    };
+    this.setSerfDebug(serf, { lastFailure: reason });
+  }
+
+  resumeWorkFromInterior(serf, building) {
+    if (!serf || !building) return false;
+    const expectedZ = this.getWorkZ(building);
+    if (serf.z === expectedZ) return false;
+
+    // Workers waking up inside huts/buildings need an explicit move intent
+    // so they exit the interior before the normal work-spot loop runs.
+    if (serf.z === 1 && expectedZ <= 0) {
+      if (this.forceExitInteriorForWork(serf, building, 'resume_from_interior')) {
+        return true;
+      }
+      if (this.isCaveMineBuilding(building)) {
+        this.primeCaveWorkNavigation(serf, building, null, serf.work?.spot || null);
+      }
+      const target = this.resolveWalkableTarget(serf, expectedZ, this.getBuildingTargetTile(building));
+      const result = movementSystem.applyMoveIntent(serf, {
+        z: expectedZ,
+        target,
+        reason: 'resume_work',
+        sourceAction: serf.action || 'work'
+      });
+      this.markInteriorResumePending(serf, building, expectedZ, target, result);
+
+      if (!serf._lastInteriorResumeAt || (Date.now() - serf._lastInteriorResumeAt) > this.LOG_THROTTLE_MS) {
+        serf._lastInteriorResumeAt = Date.now();
+        this.recordSerfRuntimeEvent(serf, 'serf recovery transition', {
+          recovery: 'resume_from_interior',
+          reason: 'resume_from_interior',
+          fromZ: serf.z,
+          toZ: expectedZ,
+          status: 'requested',
+          pathStatus: result?.status || 'unknown'
+        });
+      }
+      this.setSerfDebug(serf, {
+        lastRecovery: 'resume_from_interior_requested',
+        expectedZ,
+        currentZ: serf.z,
+        interiorResumeStatus: result?.status || 'unknown'
+      });
+      return true;
+    }
+
+    return false;
   }
 
   isMarketBuilding(building) {
@@ -604,6 +1271,7 @@ class SimpleSerfBehavior {
         serf.stores = {};
       }
 
+      this.normalizeSerfState(serf);
       this.trackMovementStall(serf);
 
       if (serf._pendingFleeRecovery && serf.action !== 'flee') {
@@ -611,6 +1279,8 @@ class SimpleSerfBehavior {
       }
 
       this.handleDailySchedule(serf);
+      this.normalizeSerfState(serf);
+      this.recoverFromPathFailure(serf);
 
       // Handle actions (like military units)
       if (!serf.action) {
@@ -629,6 +1299,8 @@ class SimpleSerfBehavior {
         if (global.simpleFlee) {
           global.simpleFlee.update(serf);
         }
+      } else if (serf.action === 'returning') {
+        this.handleReturning(serf);
       } else if (serf.mode !== 'work') {
         this.handleWandering(serf);
       } else {
@@ -669,6 +1341,7 @@ class SimpleSerfBehavior {
       serf.action === 'deposit' ||
       serf.action === 'build' ||
       serf.action === 'clockout' ||
+      serf.action === 'returning' ||
       serf.action === 'task' ||
       (!serf.action && serf.mode === 'work')
     );
@@ -716,8 +1389,7 @@ class SimpleSerfBehavior {
     serf.pathEnd = null;
 
     if (serf.action === 'deposit' || serf.action === 'clockout') {
-      serf.action = null;
-      this.setSerfDebug(serf, { lastFailure: 'stuck_recovery_deposit' });
+      this.setSerfDebug(serf, { lastFailure: 'stuck_recovery_retry', retryAction: serf.action });
       return;
     }
 
@@ -727,6 +1399,16 @@ class SimpleSerfBehavior {
       }
       serf.action = null;
       this.setSerfDebug(serf, { lastFailure: 'stuck_recovery_build' });
+      return;
+    }
+
+    if (serf.action === 'returning') {
+      if (typeof serf.return === 'function') {
+        serf.return();
+      } else {
+        serf.action = null;
+      }
+      this.setSerfDebug(serf, { lastFailure: 'stuck_recovery_returning' });
       return;
     }
 
@@ -745,29 +1427,21 @@ class SimpleSerfBehavior {
    */
   handleDefaultWork(serf) {
     if (serf.mode !== 'work') {
-      const needsHutBuild = !!(serf.hut && global.Building && global.Building.list && global.Building.list[serf.hut] && !global.Building.list[serf.hut].built);
-      const isNight = this.isNightTime();
-      const hasPendingClockout = serf._pendingTransition && serf._pendingTransition.type === 'clockout';
-      
       // CRITICAL: Don't force work mode here - let the schedule system handle transitions
       // The schedule system (handleDailySchedule + processTransition) controls all mode transitions:
       // - Serfs spawn in idle mode
       // - At dawn, processTransition() executes 'startWork' transition and sets mode to 'work'
       // - At dusk, processTransition() executes 'clockout' transition
       // - After clockout completes (deposit + go home), serf transitions to idle
-      // Only try to reassign work if needed, but don't force work mode
+      // A pending hut should change what work they do once scheduled on-shift, but must not
+      // bypass the dawn/dusk transition and start work immediately after spawn.
       if (!serf.work || !serf.work.hq) {
         this.tryReassignWork(serf);
       }
-      
-      // Hut building is urgent and can happen even at night (but still respect clockout transitions)
-      if (needsHutBuild && !hasPendingClockout) {
-        serf.mode = 'work';
-      }
-      
+
       if (serf.mode !== 'work') {
       // Log when serfs are not in work mode (for cave mine debugging, throttled)
-      if (serf.work && serf.work.hq && global.Building && global.Building.list) {
+      if (!this.isNightTime() && this.shouldBeWorkingNow(serf) && serf.work && serf.work.hq && global.Building && global.Building.list) {
         const building = global.Building.list[serf.work.hq];
         if (building && building.type === 'mine' && building.cave) {
           const now = Date.now();
@@ -804,14 +1478,24 @@ class SimpleSerfBehavior {
     }
 
     this.setSerfState(serf, 'working', 'defaultWork');
+    this.noteWorkAttempt(serf, 'default_work');
 
     // PRIORITY: Check if hut needs building first
-    if (serf.hut && global.Building && global.Building.list) {
-      const hut = global.Building.list[serf.hut];
-      if (hut && !hut.built) {
-        serf.action = 'build';
-        return; // Let handleBuild() take over
+    const hutStatus = this.getPersonalHutStatus(serf);
+    if (hutStatus.pending) {
+      if (serf._buildAssistBuilding) {
+        this.recordHutPriorityEvent(serf, 'serf hut priority restored', {
+          previousAssistBuilding: serf._buildAssistBuilding,
+          reason: hutStatus.missing ? 'personal_hut_missing' : 'personal_hut_pending'
+        }, { throttleMs: 0 });
+        serf._buildAssistBuilding = null;
+      } else {
+        this.recordHutPriorityEvent(serf, 'serf hut priority check', {
+          reason: hutStatus.missing ? 'personal_hut_missing' : 'personal_hut_pending'
+        });
       }
+      serf.action = 'build';
+      return; // Let handleBuild() take over
     }
 
     // Limited build assistance for non-hut buildings
@@ -890,6 +1574,10 @@ class SimpleSerfBehavior {
       return;
     }
 
+    if (this.resumeWorkFromInterior(serf, building)) {
+      return;
+    }
+
     // Check if has resources to deposit
     if (this.hasResourcesToDeposit(serf)) {
       serf.action = 'deposit';
@@ -900,6 +1588,7 @@ class SimpleSerfBehavior {
     if (!serf.work.spot) {
       const spot = this.assignWorkSpot(serf, building);
       if (!spot) {
+        const failureInfo = serf._lastWorkSpotFailure || {};
         // No spots available - log why (throttled)
         const now = Date.now();
         const throttleKey = `noWorkSpot-${building.id}`;
@@ -919,7 +1608,8 @@ class SimpleSerfBehavior {
               metadata: {
                 buildingId: building.id,
                 buildingType: building.type,
-                resourceCount
+                resourceCount,
+                reason: failureInfo.reason || 'unknown'
               }
             });
           }
@@ -927,7 +1617,8 @@ class SimpleSerfBehavior {
           if (logger && typeof logger.warn === 'function') {
             logger.warn('No work spot assigned for serf', serf, {
               buildingType: building.type,
-              resourceCount
+              resourceCount,
+              reason: failureInfo.reason || 'unknown'
             });
           }
           this.logThrottle[throttleKey] = now;
@@ -1117,74 +1808,149 @@ class SimpleSerfBehavior {
    */
   handleBuild(serf) {
     this.setSerfState(serf, 'building', 'handleBuild');
-    if (!global.Building || !global.Building.list) {
-      serf.action = null;
-      if (serf.work && serf.work.hq) {
-        serf.mode = 'work';
-      } else {
-        serf.mode = 'idle';
+    const hutStatus = this.getPersonalHutStatus(serf);
+
+    const resetBuildSpot = () => {
+      if (!serf.work) return;
+      serf.work.spot = null;
+      serf.work.assignedSpot = null;
+      serf.work.workTile = null;
+      serf.work.workTileFor = null;
+    };
+
+    const finishBuild = (reason, options = {}) => {
+      const preserveBuildAction = !!options.preserveBuildAction;
+      const clearAssist = !!options.clearAssist;
+      const clearSpot = options.clearSpot !== false;
+      const nextMode = options.nextMode || (serf.work && serf.work.hq ? 'work' : 'idle');
+      const metadata = options.metadata || {};
+
+      this.recordHutPriorityEvent(serf, 'serf build exit', Object.assign({
+        reason,
+        nextMode,
+        preserveBuildAction
+      }, metadata), { throttleMs: 0 });
+      this.setSerfDebug(serf, { lastFailure: reason });
+
+      if (clearAssist) {
+        serf._buildAssistBuilding = null;
       }
+      if (clearSpot) {
+        resetBuildSpot();
+      }
+      this.clearMoveState(serf);
+
+      if (preserveBuildAction) {
+        serf.action = 'build';
+        serf.mode = nextMode;
+        return;
+      }
+
+      serf.action = null;
+      serf.mode = nextMode;
+      if (nextMode === 'work') {
+        this.setSerfState(serf, 'working', reason);
+      } else {
+        this.setSerfState(serf, 'idle', reason);
+      }
+    };
+
+    if (!global.Building || !global.Building.list) {
+      finishBuild('building_registry_unavailable', {
+        clearAssist: true,
+        preserveBuildAction: hutStatus.pending,
+        metadata: { buildTargetId: serf._buildAssistBuilding || hutStatus.hutId || null }
+      });
       return;
     }
 
-    const buildTargetId = serf._buildAssistBuilding || serf.hut;
-    if (!buildTargetId) {
-      serf.action = null;
+    if (hutStatus.pending && serf._buildAssistBuilding) {
+      this.recordHutPriorityEvent(serf, 'serf hut priority restored', {
+        previousAssistBuilding: serf._buildAssistBuilding,
+        reason: hutStatus.missing ? 'personal_hut_missing' : 'personal_hut_pending'
+      }, { throttleMs: 0 });
       serf._buildAssistBuilding = null;
-      if (serf.work && serf.work.hq) {
-        serf.mode = 'work';
-      } else {
-        serf.mode = 'idle';
-      }
+    }
+
+    const buildTargetId = hutStatus.pending ? hutStatus.hutId : (serf._buildAssistBuilding || hutStatus.hutId);
+    const isPersonalHutBuild = !!(hutStatus.hutId && buildTargetId === hutStatus.hutId);
+    const isAssistBuild = !!(serf._buildAssistBuilding && !isPersonalHutBuild);
+
+    if (!buildTargetId) {
+      finishBuild('no_build_target', {
+        clearAssist: true,
+        metadata: { buildTargetId: null }
+      });
       return;
     }
 
     const targetBuilding = global.Building.list[buildTargetId];
-    const isAssistBuild = !!serf._buildAssistBuilding;
     if (!targetBuilding || targetBuilding.built) {
-      serf.action = null;
-      if (isAssistBuild) {
-        serf._buildAssistBuilding = null;
-      }
-      // CRITICAL FIX: Clear work.spot when hut is built - it was set to hut plot tile during building
-      // and is no longer valid as a work spot for the actual work building
-      serf.work.spot = null;
-      serf.work.assignedSpot = null;
-      // Clear path to prevent oscillation
-      serf.path = null;
-      serf.pathCount = 0;
-      if (!serf.work.hq) {
-        serf.mode = 'idle';
-      }
-      if (serf.mode === 'work') {
-        this.setSerfState(serf, 'working', 'buildComplete');
-      }
+      const reason = !targetBuilding
+        ? (isPersonalHutBuild ? 'personal_hut_missing' : 'assist_target_missing')
+        : (isPersonalHutBuild ? 'personal_hut_complete' : 'assist_build_complete');
+      finishBuild(reason, {
+        clearAssist: isAssistBuild,
+        preserveBuildAction: isPersonalHutBuild && !targetBuilding,
+        metadata: {
+          buildTargetId,
+          buildTargetType: targetBuilding?.type || null,
+          isAssistBuild,
+          isPersonalHutBuild
+        }
+      });
       return;
     }
 
-    // Find foundation tile if no spot
-    if (!serf.work.spot) {
-      const buildableTiles = [];
-      if (targetBuilding.plot && Array.isArray(targetBuilding.plot)) {
-        for (const i in targetBuilding.plot) {
-          const p = targetBuilding.plot[i];
-          if (Array.isArray(p) && p.length === 2) {
-            const t = this.getTile(serf, 0, p[0], p[1]);
-            if (t === 11) { // Foundation tile
-              buildableTiles.push(p);
-            }
-          }
+    const buildTarget = this.selectBuildFoundationTarget(serf, targetBuilding, 0);
+    if (!buildTarget.buildableTiles.length) {
+      finishBuild(isPersonalHutBuild ? 'personal_hut_no_buildable_tiles' : 'assist_build_no_buildable_tiles', {
+        clearAssist: isAssistBuild,
+        preserveBuildAction: isPersonalHutBuild,
+        metadata: {
+          buildTargetId,
+          buildTargetType: targetBuilding.type,
+          isAssistBuild,
+          isPersonalHutBuild
         }
-      }
+      });
+      return;
+    }
 
-      if (buildableTiles.length > 0) {
-        serf.work.spot = buildableTiles[Math.floor(Math.random() * buildableTiles.length)];
-      } else {
-        serf.action = null;
-        if (isAssistBuild) {
-          serf._buildAssistBuilding = null;
+    const currentSpotKey = Array.isArray(serf.work.spot) ? `${serf.work.spot[0]},${serf.work.spot[1]}` : null;
+    const currentSpotStillBuildable = currentSpotKey && buildTarget.buildableTiles.some(tile => `${tile[0]},${tile[1]}` === currentSpotKey);
+    const currentSpotWalkable = currentSpotStillBuildable && global.isWalkable && global.isWalkable(0, serf.work.spot[0], serf.work.spot[1], serf);
+
+    if (!currentSpotWalkable) {
+      if (buildTarget.spot) {
+        const nextSpotKey = `${buildTarget.spot[0]},${buildTarget.spot[1]}`;
+        if (currentSpotKey !== nextSpotKey) {
+          this.recordHutPriorityEvent(serf, 'serf build target selected', {
+            buildTargetId,
+            buildTargetType: targetBuilding.type,
+            selectedSpot: buildTarget.spot,
+            directAccessibleTiles: buildTarget.directTiles.length,
+            approachTiles: buildTarget.approachTiles.length
+          }, { throttleMs: 0 });
         }
-        serf.mode = 'idle';
+        serf.work.spot = buildTarget.spot;
+        serf.work.workTile = buildTarget.spot;
+        serf.work.workTileFor = `0:${buildTarget.spot.toString()}`;
+        this.clearMoveState(serf);
+      } else {
+        finishBuild(isPersonalHutBuild ? 'personal_hut_no_work_tile' : 'assist_build_no_work_tile', {
+          clearAssist: isAssistBuild,
+          preserveBuildAction: isPersonalHutBuild,
+          metadata: {
+            buildTargetId,
+            buildTargetType: targetBuilding.type,
+            isAssistBuild,
+            isPersonalHutBuild,
+            buildableTiles: buildTarget.buildableTiles.length,
+            directAccessibleTiles: buildTarget.directTiles.length,
+            approachTiles: buildTarget.approachTiles.length
+          }
+        });
         return;
       }
     }
@@ -1234,11 +2000,29 @@ class SimpleSerfBehavior {
     }
 
     if (!serf.path || serf.path.length === 0) {
-      // Path to building spot (use walkable adjacent tile, not the foundation tile itself)
+      // Path directly onto the walkable foundation tile; building only succeeds on-plot.
       if (typeof serf.moveTo === 'function') {
-        const buildLoc = this.getWorkTileForSpot(serf, serf.work.spot, 0);
+        const buildLoc = Array.isArray(serf.work.spot) && global.isWalkable && global.isWalkable(0, serf.work.spot[0], serf.work.spot[1], serf)
+          ? serf.work.spot
+          : null;
         if (!buildLoc) {
-          serf.work.spot = null;
+          resetBuildSpot();
+          this.recordHutPriorityEvent(serf, 'serf build exit', {
+            reason: isPersonalHutBuild ? 'personal_hut_no_work_tile' : 'assist_build_no_work_tile',
+            nextMode: serf.mode || null,
+            preserveBuildAction: isPersonalHutBuild,
+            buildTargetId,
+            buildTargetType: targetBuilding.type,
+            isAssistBuild,
+            isPersonalHutBuild,
+            buildableTiles: buildTarget.buildableTiles.length,
+            directAccessibleTiles: buildTarget.directTiles.length,
+            approachTiles: buildTarget.approachTiles.length
+          }, { throttleMs: 0 });
+          if (!isPersonalHutBuild && isAssistBuild) {
+            serf._buildAssistBuilding = null;
+            serf.action = null;
+          }
           return;
         }
         const logger = this.getSerfLogger();
@@ -1271,31 +2055,51 @@ class SimpleSerfBehavior {
     // First deposit resources if any
     if (this.hasResourcesToDeposit(serf)) {
       const building = this.getWorkBuilding(serf);
+      if (!building || !building.built) {
+        this.setSerfDebug(serf, {
+          lastFailure: 'clockout_deposit_building_unavailable',
+          workHq: serf.work?.hq || null
+        });
+        this.recordSerfRuntimeEvent(serf, 'serf clockout deposit blocked', {
+          reason: 'building_unavailable',
+          workHq: serf.work?.hq || null
+        });
+        return;
+      }
       if (building && building.built) {
         const dropoff = this.getDropoffLocationForSerf(serf, building);
-        if (dropoff) {
-          const loc = this.getLoc(serf);
-
-          if (this.isAtDropoff(serf, building)) {
-            serf.facing = 'up';
-            this.depositAllResources(serf, building);
-            // Continue to go home logic below
-          } else if (!serf.path || serf.path.length === 0) {
-            if (typeof serf.moveTo === 'function') {
-              // Use building's z-level if available, otherwise default to 0 (overworld)
-              const dropoffZ = (building && typeof building.z === 'number') ? building.z : 0;
-              const target = this.resolveWalkableTarget(serf, dropoffZ, dropoff);
-              movementSystem.applyMoveIntent(serf, {
-                z: dropoffZ,
-                target,
-                reason: 'deposit',
-                sourceAction: serf.action || 'clockout'
-              });
-            }
-            return; // Wait for pathfinding
-          } else {
-            return; // Still pathfinding
+        if (!dropoff) {
+          this.setSerfDebug(serf, {
+            lastFailure: 'clockout_dropoff_missing',
+            buildingId: building.id || null,
+            buildingType: building.type || null
+          });
+          this.recordSerfRuntimeEvent(serf, 'serf clockout deposit blocked', {
+            reason: 'dropoff_missing',
+            buildingId: building.id || null,
+            buildingType: building.type || null
+          });
+          return;
+        }
+        if (this.isAtDropoff(serf, building)) {
+          serf.facing = 'up';
+          this.depositAllResources(serf, building);
+          // Continue to go home logic below
+        } else if (!serf.path || serf.path.length === 0) {
+          if (typeof serf.moveTo === 'function') {
+            // Use building's z-level if available, otherwise default to 0 (overworld)
+            const dropoffZ = (building && typeof building.z === 'number') ? building.z : 0;
+            const target = this.resolveWalkableTarget(serf, dropoffZ, dropoff);
+            movementSystem.applyMoveIntent(serf, {
+              z: dropoffZ,
+              target,
+              reason: 'deposit',
+              sourceAction: serf.action || 'clockout'
+            });
           }
+          return; // Wait for pathfinding
+        } else {
+          return; // Still pathfinding
         }
       }
     }
@@ -1354,7 +2158,8 @@ class SimpleSerfBehavior {
 
     const target = serf.work.spot;
     const loc = this.getLoc(serf);
-    const atTarget = loc && Array.isArray(loc) && loc.toString() === target.toString() && serf.z === 0;
+    const targetZ = this.getTaskTargetZ(serf);
+    const atTarget = loc && Array.isArray(loc) && loc.toString() === target.toString() && serf.z === targetZ;
 
     if (atTarget) {
       // Task completed or no specific work logic for outposts
@@ -1376,9 +2181,9 @@ class SimpleSerfBehavior {
 
     if (!serf.path || serf.path.length === 0) {
       if (typeof serf.moveTo === 'function') {
-        const dest = this.resolveWalkableTarget(serf, 0, target);
+        const dest = this.resolveWalkableTarget(serf, targetZ, target);
         movementSystem.applyMoveIntent(serf, {
-          z: 0,
+          z: targetZ,
           target: dest,
           reason: 'task',
           sourceAction: serf.action || 'task'
@@ -1397,6 +2202,40 @@ class SimpleSerfBehavior {
       logger.warn('Unknown serf action in work mode - clearing action', serf, { action: serf.action });
     }
     this.setSerfDebug(serf, { lastFailure: 'unknown_action', lastAction: serf.action });
+    this.recordSerfRuntimeEvent(serf, 'serf state normalized', {
+      recovery: 'unknown_action_cleared',
+      invalidAction: serf.action
+    });
+    serf.action = null;
+  }
+
+  getTaskTargetZ(serf) {
+    if (!serf || !serf.work) return 0;
+    if (typeof serf.work.targetZ === 'number') {
+      return serf.work.targetZ;
+    }
+    const buildingId = serf.work.hq;
+    const building = global.Building?.list?.[buildingId];
+    if (building) {
+      return this.getWorkZ(building);
+    }
+    return 0;
+  }
+
+  handleReturning(serf) {
+    if (!serf) return;
+    this.setSerfState(serf, 'returning', 'handleReturning');
+
+    if (this.hasResourcesToDeposit(serf)) {
+      serf.action = 'deposit';
+      return;
+    }
+
+    if (typeof serf.return === 'function') {
+      serf.return();
+      return;
+    }
+
     serf.action = null;
   }
 
@@ -1404,7 +2243,6 @@ class SimpleSerfBehavior {
    * Handle wandering when idle
    */
   handleWandering(serf) {
-    if (serf.z !== 0) return;
     if (serf.path || serf.idleTime > 0) return;
 
     const loc = global.getLoc ? global.getLoc(serf.x, serf.y) : [
@@ -1431,15 +2269,25 @@ class SimpleSerfBehavior {
 
     if (target[0] >= 0 && target[0] < mapSize &&
         target[1] >= 0 && target[1] < mapSize) {
-      const isWalkable = global.isWalkable ? global.isWalkable(0, target[0], target[1], serf) : true;
-      const targetTile = this.getTile(serf, 0, target[0], target[1]);
-      const isWater = (targetTile === 0);
-      const isTransitionTile = (targetTile === 6 || targetTile === 14 || targetTile === 16 || targetTile === 19);
+      const isWalkable = global.isWalkable ? global.isWalkable(serf.z, target[0], target[1], serf) : true;
+      const targetTile = this.getTile(serf, serf.z === -1 ? 1 : 0, target[0], target[1]);
+      const isWater = (serf.z === 0 && targetTile === 0);
+      const isTransitionTile = this.isIdleTransitionTile(serf, target);
 
       if (isWalkable && !isWater && !isTransitionTile) {
         if (typeof serf.move === 'function') {
           serf.move(target);
           serf.idleTime = Math.floor(Math.random() * (serf.idleRange || 1000));
+          if (serf.z !== 0) {
+            const now = Date.now();
+            if (!serf._lastIdleWanderEventAt || (now - serf._lastIdleWanderEventAt) > 10000) {
+              serf._lastIdleWanderEventAt = now;
+              this.recordSerfRuntimeEvent(serf, 'serf idle wander', {
+                target,
+                z: serf.z
+              });
+            }
+          }
         }
       } else {
         serf.idleTime = Math.floor(Math.random() * 60) + 30;
@@ -1467,6 +2315,7 @@ class SimpleSerfBehavior {
       
       if (!hasActiveShips && !hasStoredShips) {
         // No ships available - this is why "No work spot assigned" warning appears
+        serf._lastWorkSpotFailure = { reason: 'no_ships_available', buildingType: dock.type };
         return null;
       }
 
@@ -1514,6 +2363,7 @@ class SimpleSerfBehavior {
 
       if (!availableShipId) {
         // All ships are full or no ships available
+        serf._lastWorkSpotFailure = { reason: 'dock_capacity_full', buildingType: dock.type };
         return null;
       }
 
@@ -1549,21 +2399,20 @@ class SimpleSerfBehavior {
   assignWorkSpot(serf, building) {
     try {
       if (!serf || !building) return null;
+      serf._lastWorkSpotFailure = null;
+      this.noteWorkAttempt(serf, 'assign_work_spot');
 
       // Special handling for docks - ships are the "work spots"
       if (building.type === 'dock') {
         return this.assignDockWorkSpot(serf, building);
       }
 
-      // Release any previously assigned spot
-      if (serf.work.assignedSpot && building.releaseSpot && typeof building.releaseSpot === 'function') {
-        try {
-          building.releaseSpot(serf.id);
-        } catch (error) {
-          // Release failed, continue
+      if (Array.isArray(serf.work.assignedSpot)) {
+        this.normalizeAssignedWorkSpot(serf, building);
+        if (Array.isArray(serf.work.assignedSpot)) {
+          return serf.work.assignedSpot;
         }
       }
-      serf.work.assignedSpot = null;
 
       // Update building resources
       if (building.updateResources && typeof building.updateResources === 'function') {
@@ -1595,20 +2444,29 @@ class SimpleSerfBehavior {
                 this.logThrottle[throttleKey] = now;
               }
               this.setSerfDebug(serf, { lastFailure: 'no_building_resources' });
+              serf._lastWorkSpotFailure = { reason: 'no_building_resources', buildingType: building.type };
               return null;
             }
           } catch (error) {
             console.error(`[SERF WORK] Error calling getRes() for mine:`, error);
             this.setSerfDebug(serf, { lastFailure: 'getRes_error' });
+            serf._lastWorkSpotFailure = { reason: 'getRes_error', buildingType: building.type };
             return null;
           }
         } else {
           this.setSerfDebug(serf, { lastFailure: 'no_building_resources' });
+          serf._lastWorkSpotFailure = { reason: 'no_building_resources', buildingType: building.type };
           return null;
         }
       }
 
       const availableSpots = [];
+      const rejectionCounts = {
+        reserved: 0,
+        blacklisted: 0,
+        unreachable: 0,
+        invalid: 0
+      };
       const house = this.getBuildingHouse(building);
       const factionName = house ? house.name : 'Unknown';
       
@@ -1620,13 +2478,20 @@ class SimpleSerfBehavior {
         try {
           const res = building.resources[i];
           if (Array.isArray(res) && res.length === 2) {
+            if (this.isSpotTemporarilyRejected(serf, building, res)) {
+              rejectionCounts.blacklisted++;
+              continue;
+            }
             if (building.isSpotAvailable && typeof building.isSpotAvailable === 'function') {
               const isAvailable = building.isSpotAvailable(res);
               if (isAvailable) {
                 if (this.getWorkTileForSpot(serf, res, targetZ)) {
                   availableSpots.push(res);
+                } else {
+                  rejectionCounts.unreachable++;
                 }
               } else {
+                rejectionCounts.reserved++;
                 // Log when spot is filtered out by isSpotAvailable (throttled, building-specific)
                 const now = Date.now();
                 let throttleKey;
@@ -1658,9 +2523,14 @@ class SimpleSerfBehavior {
                 }
               }
             } else {
-              availableSpots.push(res);
+              if (this.getWorkTileForSpot(serf, res, targetZ)) {
+                availableSpots.push(res);
+              } else {
+                rejectionCounts.unreachable++;
+              }
             }
           } else {
+            rejectionCounts.invalid++;
             // Log invalid resource format (throttled)
             const now = Date.now();
             const throttleKey = `invalidResourceFormat-${building.id}`;
@@ -1735,6 +2605,23 @@ class SimpleSerfBehavior {
           this.logThrottle[throttleKey] = now;
         }
         this.setSerfDebug(serf, { lastFailure: 'no_available_spots' });
+        let failureReason = 'no_available_spots';
+        const totalResources = building.resources ? building.resources.length : 0;
+        if (rejectionCounts.reserved >= totalResources && totalResources > 0) {
+          failureReason = 'all_spots_reserved';
+        } else if (rejectionCounts.unreachable > 0 && (rejectionCounts.unreachable + rejectionCounts.blacklisted) >= totalResources) {
+          failureReason = 'unreachable_work_tile';
+        } else if (rejectionCounts.invalid >= totalResources && totalResources > 0) {
+          failureReason = 'invalid_spot_geometry';
+        }
+        serf._lastWorkSpotFailure = {
+          reason: failureReason,
+          buildingType: building.type,
+          resourceCount: building.resources ? building.resources.length : 0,
+          reservedCount: rejectionCounts.reserved,
+          blacklistedCount: rejectionCounts.blacklisted,
+          unreachableCount: rejectionCounts.unreachable
+        };
         return null;
       }
 
@@ -1747,9 +2634,12 @@ class SimpleSerfBehavior {
         serf.work.workTileFor = null;
         const workTile = this.getWorkTileForSpot(serf, selected, targetZ);
         if (!workTile) {
-          serf.work.assignedSpot = null;
-          serf.work.spot = null;
+          this.resetWorkSpotAssignment(serf, 'no_walkable_work_tile', { building });
           return null;
+        }
+
+        if (this.isCaveMineBuilding(building)) {
+          this.primeCaveWorkNavigation(serf, building, workTile, selected);
         }
 
         if (building.assignSpot && typeof building.assignSpot === 'function') {
@@ -1761,6 +2651,9 @@ class SimpleSerfBehavior {
 
       return null;
     } catch (error) {
+      if (serf) {
+        serf._lastWorkSpotFailure = { reason: 'work_spot_exception', buildingType: building?.type || 'unknown' };
+      }
       return null;
     }
   }
@@ -1790,12 +2683,16 @@ class SimpleSerfBehavior {
       serf.work.spot = null;
       serf.work.workTile = null;
       serf.work.workTileFor = null;
+      serf.work.shipId = null;
+      serf.work.isStoredShip = false;
     } catch (error) {
       if (serf && serf.work) {
         serf.work.assignedSpot = null;
         serf.work.spot = null;
         serf.work.workTile = null;
         serf.work.workTileFor = null;
+        serf.work.shipId = null;
+        serf.work.isStoredShip = false;
       }
     }
   }
@@ -2056,10 +2953,21 @@ class SimpleSerfBehavior {
       const atCorrectZ = serf.z === expectedZ;
       let workLoc = spot;
       workLoc = this.getWorkTileForSpot(serf, spot, expectedZ);
+      if (this.isCaveMineBuilding(building)) {
+        this.primeCaveWorkNavigation(serf, building, workLoc, spot);
+      }
       if (!workLoc) {
         const logger = this.getSerfLogger();
         if (logger && typeof logger.warn === 'function') {
           logger.warn('No walkable tile available for work spot', serf, { spot, z: expectedZ });
+        }
+        if (this.isCaveMineBuilding(building)) {
+          this.recordSerfRuntimeEvent(serf, 'serf cave underground path failed', {
+            recovery: 'cave_work_tile_missing',
+            reason: 'no_walkable_work_tile',
+            targetSpot: Array.isArray(spot) ? spot : null,
+            expectedZ
+          });
         }
         this.setSerfDebug(serf, { lastFailure: 'no_walkable_work_tile' });
         serf.work.spot = null;
@@ -2089,8 +2997,22 @@ class SimpleSerfBehavior {
             }
             break;
         }
-      } else if (!serf.path || serf.path.length === 0) {
+      } else if (!serf.path || serf.path.length === 0 || (atCorrectXY && !atCorrectZ)) {
         // Not at spot or wrong z-level - path to work spot
+        this.noteWorkAttempt(serf, 'execute_work_move');
+        if (this.isCaveMineBuilding(building) && serf.z === 0) {
+          if (this.shouldDelayCaveEntryRetry(serf)) {
+            this.setSerfDebug(serf, {
+              lastFailure: 'cave_entry_waiting_for_retry',
+              retryAfter: serf._lastCaveEntryPathBlockedAt + this.PATH_RECOVERY_THROTTLE_MS
+            });
+            return;
+          }
+          if (this.maybeRecoverSurfaceCaveApproach(serf, building, workLoc)) {
+            return;
+          }
+          serf._lastCaveApproachAt = Date.now();
+        }
         if (atCorrectXY && !atCorrectZ) {
           // At correct x,y but wrong z-level - log for debugging (heavily throttled)
           const now = Date.now();
@@ -2102,6 +3024,26 @@ class SimpleSerfBehavior {
             console.log(`[SERF WORK] ${factionName}: Serf at work spot x,y but wrong z-level (serf.z=${serf.z}, expected=${expectedZ}) - pathfinding to correct z-level`);
             this.logThrottle[throttleKey] = now;
           }
+        }
+        if (
+          this.isCaveMineBuilding(building) &&
+          serf.z === 0 &&
+          serf.transitionIntent === 'enter_cave' &&
+          serf.targetZLevel === -1 &&
+          serf.mineExitCooldown > 0
+        ) {
+          this.setSerfDebug(serf, {
+            lastFailure: 'cave_entry_waiting_for_cooldown',
+            mineExitCooldown: serf.mineExitCooldown
+          });
+          return;
+        }
+        if (this.isCaveMineBuilding(building) && serf.z === 0 && this.shouldDelayCaveEntryRetry(serf)) {
+          this.setSerfDebug(serf, {
+            lastFailure: 'cave_entry_waiting_for_retry',
+            retryAfter: serf._lastCaveEntryPathBlockedAt + this.PATH_RECOVERY_THROTTLE_MS
+          });
+          return;
         }
         if (typeof serf.moveTo === 'function') {
         const logger = this.getSerfLogger();
@@ -2117,12 +3059,33 @@ class SimpleSerfBehavior {
           });
           this.logThrottle[throttleKey] = now;
         }
-          movementSystem.applyMoveIntent(serf, {
+          const result = movementSystem.applyMoveIntent(serf, {
             z: expectedZ,
             target: workLoc,
             reason: 'work',
             sourceAction: serf.action || 'work'
           });
+          if (this.isCaveMineBuilding(building)) {
+            if (serf.z === 0 && this.isWaitingForCaveEntry(serf) && (!serf.path || serf.path.length === 0)) {
+              this.markCaveEntryPathBlocked(serf, result?.reason || 'no_surface_path_to_cave');
+            }
+            this.recordSerfRuntimeEvent(serf, 'serf cave approach requested', {
+              recovery: 'cave_approach_requested',
+              entrance: this.getCaveEntranceForBuilding(building),
+              workLoc,
+              status: result?.status || 'unknown',
+              expectedZ
+            });
+            if (result && result.status === 'no_path') {
+              this.recordSerfRuntimeEvent(serf, 'serf cave underground path failed', {
+                recovery: 'cave_path_request_failed',
+                reason: result.reason || 'no_path',
+                entrance: this.getCaveEntranceForBuilding(building),
+                workLoc,
+                expectedZ
+              });
+            }
+          }
         }
       }
     } catch (error) {

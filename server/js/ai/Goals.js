@@ -1,5 +1,11 @@
 // Goal System with Dependencies
 // Defines various goal types with resource requirements and building prerequisites
+const {
+  chooseUnitClass,
+  deductFood,
+  getTrainingCost,
+  getTotalFood
+} = require('./MilitaryRecruitmentRules');
 
 // Helper to get or create BuildingConstructor (always non-enumerable)
 function getBuildingConstructor(house) {
@@ -24,6 +30,18 @@ class Goal {
     this.status = 'PENDING'; // PENDING, IN_PROGRESS, BLOCKED, COMPLETED, FAILED
     this.blockedBy = []; // What's preventing execution
     this.location = null; // Where to execute this goal
+  }
+
+  getChainIdentity() {
+    const location = Array.isArray(this.targetLocation) ? this.targetLocation : this.location;
+    if (Array.isArray(location) && location.length === 2) {
+      return `${this.type}|loc=${location[0]},${location[1]}`;
+    }
+    return this.type;
+  }
+
+  getFailureHistoryKey() {
+    return this.getChainIdentity();
   }
   
   // Check if house/faction is Celts
@@ -261,6 +279,13 @@ class BuildMineGoal extends Goal {
     this.buildingRequirements = [];
     this.location = location;
     this.mineType = mineType; // 'stone', 'cave', or 'any'
+  }
+
+  getChainIdentity() {
+    const location = Array.isArray(this.location) && this.location.length === 2
+      ? `${this.location[0]},${this.location[1]}`
+      : 'auto';
+    return `${this.type}|mineType=${this.mineType || 'any'}|loc=${location}`;
   }
   
   // Check if mine can be placed at a valid location
@@ -523,6 +548,13 @@ class BuildGuardtowerGoal extends Goal {
     this.buildingRequirements = []; // No building requirements
     this.targetLocation = targetLocation; // [col, row] tile coordinates for outpost location
   }
+
+  getChainIdentity() {
+    const location = Array.isArray(this.targetLocation) && this.targetLocation.length === 2
+      ? `${this.targetLocation[0]},${this.targetLocation[1]}`
+      : 'unknown';
+    return `${this.type}|target=${location}`;
+  }
   
   // Check if guardtower can be placed at target location
   canPlace(house) {
@@ -776,83 +808,90 @@ class TrainMilitaryGoal extends Goal {
     this.buildingRequirements = ['garrison'];
     this.unitCount = unitCount;
   }
-  
-  execute(house) {
-    // Determine unit type and costs before validation
-    var progression = global.FACTION_UNIT_PROGRESSION ? global.FACTION_UNIT_PROGRESSION[house.name] : null;
-    var unitClass;
-    var isMounted = false;
-    var isElite = false;
-    
-    if (progression) {
-      // Check if stronghold exists (produces elite units)
-      if (house.hasStronghold && progression.elite) {
-        unitClass = progression.elite;
-        isElite = true;
-        // Check if elite unit is mounted
-        if (unitClass && typeof unitClass === 'string') {
-          var nameLower = unitClass.toLowerCase();
-          isMounted = nameLower.includes('cavalier') || nameLower.includes('cavalry') || 
-                      nameLower.includes('horseman') || nameLower.includes('knight') || 
-                      nameLower.includes('mounted');
-        }
-      } else {
-        // Basic units
-        var basicUnits = progression.basic;
-        if (basicUnits && basicUnits.length > 0) {
-          unitClass = basicUnits[Math.floor(Math.random() * basicUnits.length)];
-          // Check if basic unit is mounted
-          if (unitClass && typeof unitClass === 'string') {
-            var nameLower = unitClass.toLowerCase();
-            isMounted = nameLower.includes('cavalier') || nameLower.includes('cavalry') || 
-                        nameLower.includes('horseman') || nameLower.includes('knight') || 
-                        nameLower.includes('mounted');
-          }
-        }
+
+  getRecruitmentPlan(house) {
+    const selection = chooseUnitClass(house, {
+      progressionTable: global.FACTION_UNIT_PROGRESSION,
+      basicUnitTable: global.FACTION_BASIC_UNITS
+    });
+
+    if (!selection.unitClass) {
+      return {
+        ...selection,
+        requiredFood: 0,
+        requiredIron: 0,
+        isMounted: false,
+        isElite: false
+      };
+    }
+
+    return {
+      ...selection,
+      ...getTrainingCost(selection.unitClass, selection.tier, this.unitCount)
+    };
+  }
+
+  canExecute(house) {
+    this.blockedBy = [];
+
+    for (const buildingType of this.buildingRequirements) {
+      if (!this.hasBuildingType(house, buildingType)) {
+        this.blockedBy.push({ type: 'BUILDING', value: buildingType });
       }
     }
-    
-    // Calculate resource costs based on unit type (manual training has costs)
-    var grain = house.stores.grain || 0;
-    var fish = house.stores.fish || 0;
-    var iron = house.stores.iron || 0;
-    
-    // Basic units: 20 food (fish + grain)
-    var requiredFood = 20;
-    var requiredIron = 0;
-    
-    if (isMounted) {
-      // Mounted units: double food + double iron (40 food + 2×iron)
-      requiredFood = 40;
-      requiredIron = 20; // Assuming 10 iron per unit, double = 20
-    } else if (isElite) {
-      // Elite units: food + iron (20 food + iron)
-      requiredFood = 20;
-      requiredIron = 10;
+
+    const plan = this.getRecruitmentPlan(house);
+    if (!plan.unitClass) {
+      this.blockedBy.push({
+        type: 'UNIT',
+        value: plan.failureReason || 'no_unit_class'
+      });
+      return false;
     }
-    // else: Basic units use default (20 food, 0 iron)
-    
+
+    const stores = house.stores || {};
+    const totalFood = getTotalFood(stores);
+    if (totalFood < plan.requiredFood) {
+      // GoalChain maps RESOURCE:grain to farm/mill recovery, while fish can still satisfy the total.
+      this.blockedBy.push({
+        type: 'RESOURCE',
+        resource: 'grain',
+        have: totalFood,
+        need: plan.requiredFood
+      });
+    }
+
+    if (plan.requiredIron > 0 && (stores.iron || 0) < plan.requiredIron) {
+      this.blockedBy.push({
+        type: 'RESOURCE',
+        resource: 'iron',
+        have: stores.iron || 0,
+        need: plan.requiredIron
+      });
+    }
+
+    return this.blockedBy.length === 0;
+  }
+  
+  execute(house) {
+    const plan = this.getRecruitmentPlan(house);
+    if (!plan.unitClass) {
+      throw new Error(`Cannot train military: no unit class available for ${house.name || 'unknown faction'}`);
+    }
+
     // Validate resources before deducting
-    var totalFood = grain + fish;
-    if (totalFood < requiredFood) {
-      throw new Error(`Insufficient food: need ${requiredFood} (grain + fish), have ${totalFood}`);
+    var totalFood = getTotalFood(house.stores || {});
+    if (totalFood < plan.requiredFood) {
+      throw new Error(`Insufficient food: need ${plan.requiredFood} (grain + fish), have ${totalFood}`);
     }
-    if (requiredIron > 0 && iron < requiredIron) {
-      throw new Error(`Insufficient iron: need ${requiredIron}, have ${iron || 0}`);
+    if (plan.requiredIron > 0 && (house.stores.iron || 0) < plan.requiredIron) {
+      throw new Error(`Insufficient iron: need ${plan.requiredIron}, have ${house.stores.iron || 0}`);
     }
     
     // Deduct resources (manual training costs resources)
-    if (fish >= requiredFood) {
-      house.stores.fish -= requiredFood;
-    } else {
-      // Use fish first, then remainder from grain
-      var fishUsed = fish;
-      var grainNeeded = requiredFood - fishUsed;
-      house.stores.fish = 0;
-      house.stores.grain -= grainNeeded;
-    }
-    if (requiredIron > 0) {
-      house.stores.iron -= requiredIron;
+    deductFood(house.stores, plan.requiredFood);
+    if (plan.requiredIron > 0) {
+      house.stores.iron -= plan.requiredIron;
     }
     
     // Find a garrison building for this faction
@@ -874,42 +913,21 @@ class TrainMilitaryGoal extends Goal {
     
     // Spawn units at the garrison
     for (var i = 0; i < this.unitCount; i++) {
-      this.spawnUnitAtGarrison(house, garrison);
+      this.spawnUnitAtGarrison(house, garrison, plan.unitClass);
     }
     
     this.status = 'COMPLETED';
   }
   
   // Spawn a unit at the garrison (reuses garrison spawning logic)
-  spawnUnitAtGarrison(house, garrison) {
+  spawnUnitAtGarrison(house, garrison, plannedUnitClass = null) {
     // Spawn location
     var sp = garrison.plot[7] || garrison.plot[0];
     var spCoords = global.getCenter(sp[0], sp[1]);
     
-    // Determine unit type based on faction progression
-    var progression = global.FACTION_UNIT_PROGRESSION ? global.FACTION_UNIT_PROGRESSION[house.name] : null;
-    var unitClass;
-    
-    if (progression) {
-      // Check if stronghold exists (produces elite units)
-      if (house.hasStronghold && progression.elite) {
-        unitClass = progression.elite;
-      } else {
-        // No stronghold, produce basic units
-        var basicUnits = progression.basic;
-        if (basicUnits && basicUnits.length > 0) {
-          unitClass = basicUnits[Math.floor(Math.random() * basicUnits.length)];
-        }
-      }
-    }
-    
-    // Fallback for factions without progression defined
+    var unitClass = plannedUnitClass;
     if (!unitClass) {
-      var factionUnits = global.FACTION_BASIC_UNITS ? global.FACTION_BASIC_UNITS[house.name] : null;
-      if (factionUnits && factionUnits.length > 0) {
-        var randomIndex = Math.floor(Math.random() * factionUnits.length);
-        unitClass = factionUnits[randomIndex];
-      }
+      unitClass = this.getRecruitmentPlan(house).unitClass;
     }
     
     if (!unitClass) {
@@ -935,7 +953,10 @@ class TrainMilitaryGoal extends Goal {
         enabled: true,
         targetTiles: {},
         idleTimer: 0,
-        resumePoint: null
+        resumePoint: null,
+        currentBuildingId: null,
+        currentTargetTile: null,
+        progress: null
       };
       
       // Create military recruitment event
@@ -958,6 +979,34 @@ class DeployScoutGoal extends Goal {
     this.buildingRequirements = [];
     this.destination = destination;
   }
+
+  canExecute(house) {
+    if (!super.canExecute(house)) {
+      return false;
+    }
+
+    const manager = house.ai?.militaryManager;
+    const availableUnits = manager && typeof manager.getAvailableScoutingUnits === 'function'
+      ? manager.getAvailableScoutingUnits()
+      : (house.ai?.getMilitaryUnits ? house.ai.getMilitaryUnits().filter(unit => unit && !unit.toRemove && !unit.scoutingParty) : []);
+    const maxParties = manager && typeof manager.getMaxScoutingParties === 'function'
+      ? manager.getMaxScoutingParties()
+      : Math.max(1, Math.floor((availableUnits.length || 0) / 3));
+    const activeParties = manager?.scoutingParties?.length || 0;
+
+    if (availableUnits.length < 1 || activeParties >= maxParties) {
+      this.blockedBy.push({
+        type: 'UNITS',
+        need: 1,
+        have: availableUnits.length,
+        activeParties,
+        maxParties
+      });
+      return false;
+    }
+
+    return true;
+  }
   
   execute(house) {
     const factionName = house?.name || 'Unknown';
@@ -970,8 +1019,11 @@ class DeployScoutGoal extends Goal {
       return;
     }
     
-    // Check if we have military units available
-    const militaryUnits = house.ai.getMilitaryUnits ? house.ai.getMilitaryUnits() : [];
+    // Check if we have unassigned military units available
+    const manager = house.ai.militaryManager;
+    const militaryUnits = manager && typeof manager.getAvailableScoutingUnits === 'function'
+      ? manager.getAvailableScoutingUnits()
+      : (house.ai.getMilitaryUnits ? house.ai.getMilitaryUnits().filter(unit => unit && !unit.toRemove && !unit.scoutingParty) : []);
     if (militaryUnits.length === 0) {
       console.log(`[SCOUT GOAL] ${factionName}: Failed - No military units available`);
       this.status = 'FAILED';
@@ -1037,6 +1089,10 @@ class ScoutForResourceGoal extends Goal {
     this.buildingRequirements = [];
     this.resourceType = resourceType; // 'stone', 'wood', 'grain', etc.
   }
+
+  getChainIdentity() {
+    return `${this.type}|resource=${this.resourceType || 'unknown'}`;
+  }
   
   canExecute(house) {
     // Check if resource gap still exists
@@ -1062,9 +1118,23 @@ class ScoutForResourceGoal extends Goal {
       return false;
     }
     
-    const militaryUnits = house.ai.getMilitaryUnits();
-    if (militaryUnits.length === 0) {
-      this.blockedBy = [{ type: 'UNITS', need: 1, have: 0 }];
+    const manager = house.ai.militaryManager;
+    const militaryUnits = manager && typeof manager.getAvailableScoutingUnits === 'function'
+      ? manager.getAvailableScoutingUnits()
+      : house.ai.getMilitaryUnits().filter(unit => unit && !unit.toRemove && !unit.scoutingParty);
+    const maxParties = manager && typeof manager.getMaxScoutingParties === 'function'
+      ? manager.getMaxScoutingParties()
+      : Math.max(1, Math.floor((house.ai.getMilitaryUnits().length || 0) / 3));
+    const activeParties = manager?.scoutingParties?.length || 0;
+
+    if (militaryUnits.length === 0 || activeParties >= maxParties) {
+      this.blockedBy = [{
+        type: 'UNITS',
+        need: 1,
+        have: militaryUnits.length,
+        activeParties,
+        maxParties
+      }];
       return false;
     }
     
@@ -1188,6 +1258,12 @@ class EstablishOutpostGoal extends Goal {
     this.outpostPlan = null;
     this.status = 'PENDING';
   }
+
+  getChainIdentity() {
+    const resourceType = this.resourceType || 'any';
+    const zoneId = this.targetZone?.id || 'auto';
+    return `${this.type}|resource=${resourceType}|zone=${zoneId}`;
+  }
   
   canExecute(house) {
     this.blockedBy = [];
@@ -1300,12 +1376,17 @@ class EstablishOutpostGoal extends Goal {
     const zoneCenter = this.targetZone.center;
     const searchRadius = 5; // tiles
     
+    // AI-built guardtowers use faction-specific types (gothtower, franktower, celttower, teutower), not 'guardtower'
+    const towerType = house.buildingConstructor?.getFactionTowerType?.();
+    const knownTowerTypes = ['gothtower', 'franktower', 'celttower', 'teutower'];
+    const isGuardtower = (type) => towerType ? type === towerType : knownTowerTypes.includes(type);
+    
     // Get all guardtowers owned by this house
     if (!house.ai || !house.ai.buildingService) return false;
     const buildings = house.ai.buildingService.getBuildings();
     
     for (const building of buildings) {
-      if (!building || !building.built || building.type !== 'guardtower') continue;
+      if (!building || !building.built || !isGuardtower(building.type)) continue;
       if (building.owner !== house.id) continue;
       
       // Check if building is near zone center

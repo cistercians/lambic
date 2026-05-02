@@ -79,6 +79,8 @@ const systemRegistry = require('./server/js/core/SystemRegistry.js');
 const dependencyInjector = require('./server/js/core/DependencyInjector.js');
 const entityRegistry = require('./server/js/core/EntityRegistry.js');
 
+global.debugPatrol = process.env.DEBUG_PATROL === 'true';
+
 // Import CLI for map generation
 const MapGenerationCLI = require('./server/js/core/MapGenerationCLI');
 const genesis = require('./server/js/genesis');
@@ -1612,18 +1614,24 @@ function findZTransition(fromZ, toZ, fromLoc, targetLoc, entity) {
   }
   
   if (fromZ === 0 && toZ === -1) {
-    // Overworld to cave: find nearest cave entrance to target
+    // Overworld to cave: prefer the entity-selected entrance so multi-z
+    // routing matches the same mine entrance used by Entity.moveTo().
     let bestEntrance = null;
-    let bestDistance = Infinity;
-    
-    for (const entrance of global.caveEntrances || []) {
-      const distance = getDistance(
-        {x: targetLoc[0], y: targetLoc[1]}, 
-        {x: entrance[0], y: entrance[1]}
-      );
-      if (distance < bestDistance) {
-        bestDistance = distance;
-        bestEntrance = entrance;
+    if (entity && typeof global.selectCaveEntrance === 'function') {
+      bestEntrance = global.selectCaveEntrance(entity, toZ, targetLoc, entity.preferredCaveEntrance || null);
+    }
+
+    if (!bestEntrance) {
+      let bestDistance = Infinity;
+      for (const entrance of global.caveEntrances || []) {
+        const distance = getDistance(
+          {x: targetLoc[0], y: targetLoc[1]},
+          {x: entrance[0], y: entrance[1]}
+        );
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          bestEntrance = entrance;
+        }
       }
     }
     
@@ -6658,6 +6666,23 @@ function resetDailyResourceTracking() {
 // Simple hour counter - increments each time the function is called (every 10 seconds)
 let hourTick = 0; // Tracks which hour we're in (0-23, where 0 = XII.a)
 
+function updateFactionMilitaryOperations() {
+  if (typeof House === 'undefined' || !House.list) {
+    return;
+  }
+
+  for (var houseId in House.list) {
+    var house = House.list[houseId];
+    if (house.ai && typeof house.ai.updateOngoingOperations === 'function') {
+      try {
+        house.ai.updateOngoingOperations();
+      } catch (error) {
+        console.warn(`[FactionAI] ${house.name || houseId}: ongoing military update failed`, error);
+      }
+    }
+  }
+}
+
 function dayNight() {
   // Increment hour counter (0-23, cycles through all 24 hours)
   hourTick = (hourTick + 1) % 24;
@@ -6685,6 +6710,8 @@ function dayNight() {
   if (global.eventManager) {
     global.eventManager.hourChange(newTempus, gameState.day);
   }
+
+  updateFactionMilitaryOperations();
   
   // Check if we just transitioned TO XII.a (midnight)
   if (hourTick === 0) {

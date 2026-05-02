@@ -17,6 +17,8 @@ class SimpleCombat {
     this.KITE_CHECK_INTERVAL = 2000; // 2 seconds
     this.PENDING_COMBAT_TIMEOUT = 5000; // 5 seconds
     this.AUTO_ATTACK_RESUME_TIMEOUT = 3000; // 3 seconds - auto-resume after navigation
+    this.COMBAT_CHASE_HISTORY_LIMIT = 6;
+    this.COMBAT_CHASE_BIAS_USES = 2;
   }
 
   // ============================================================================
@@ -239,10 +241,102 @@ class SimpleCombat {
     return false;
   }
 
+  getDominantSeparationAxis(entityLoc, targetLoc) {
+    const dx = Math.abs(targetLoc[0] - entityLoc[0]);
+    const dy = Math.abs(targetLoc[1] - entityLoc[1]);
+    if (dx === 0 && dy === 0) return null;
+    if (dy > dx) return 'vertical';
+    if (dx > dy) return 'horizontal';
+    return null;
+  }
+
+  getPrimaryMovementAxis(fromLoc, toLoc) {
+    const dx = Math.abs(toLoc[0] - fromLoc[0]);
+    const dy = Math.abs(toLoc[1] - fromLoc[1]);
+    if (dx === 0 && dy === 0) return null;
+    if (dy > dx) return 'vertical';
+    if (dx > dy) return 'horizontal';
+    // Entity.calcDir resolves diagonal ties horizontally when there is column delta.
+    return dx > 0 ? 'horizontal' : 'vertical';
+  }
+
+  getCombatChaseTracker(state, targetId) {
+    if (!state) return null;
+    if (!state._combatChase || state._combatChase.targetId !== targetId) {
+      state._combatChase = {
+        targetId,
+        history: [],
+        axisBias: null,
+        biasUses: 0
+      };
+    }
+    return state._combatChase;
+  }
+
+  isCombatChaseOscillating(history) {
+    if (!history || history.length < 4) return false;
+    const recent = history.slice(-4);
+    return recent[0] === recent[2] &&
+      recent[1] === recent[3] &&
+      recent[0] !== recent[1];
+  }
+
+  getLastMovementAxis(history) {
+    if (!history || history.length < 2) return null;
+    const from = history[history.length - 2].split(',').map(Number);
+    const to = history[history.length - 1].split(',').map(Number);
+    return this.getPrimaryMovementAxis(from, to);
+  }
+
+  updateCombatChaseOscillation(entity, target, state) {
+    if (!entity || !target || !state || entity.ranged) {
+      return { axisBias: null, oscillating: false };
+    }
+
+    const tracker = this.getCombatChaseTracker(state, target.id);
+    if (!tracker) {
+      return { axisBias: null, oscillating: false };
+    }
+
+    const loc = global.getLoc(entity.x, entity.y, entity);
+    const key = `${loc[0]},${loc[1]}`;
+    if (tracker.history[tracker.history.length - 1] !== key) {
+      tracker.history.push(key);
+      if (tracker.history.length > this.COMBAT_CHASE_HISTORY_LIMIT) {
+        tracker.history.shift();
+      }
+    }
+
+    if (this.isCombatChaseOscillating(tracker.history)) {
+      const lastAxis = this.getLastMovementAxis(tracker.history);
+      tracker.axisBias = lastAxis === 'vertical' ? 'horizontal' : 'vertical';
+      tracker.biasUses = this.COMBAT_CHASE_BIAS_USES;
+      entity.path = null;
+      entity.moveIntent = null;
+      return { axisBias: tracker.axisBias, oscillating: true };
+    }
+
+    if (tracker.axisBias && tracker.biasUses > 0) {
+      return { axisBias: tracker.axisBias, oscillating: false };
+    }
+
+    return { axisBias: null, oscillating: false };
+  }
+
+  consumeCombatChaseAxisBias(state) {
+    if (!state || !state._combatChase || !state._combatChase.axisBias) return;
+    state._combatChase.biasUses--;
+    if (state._combatChase.biasUses <= 0) {
+      state._combatChase.axisBias = null;
+      state._combatChase.biasUses = 0;
+    }
+  }
+
   // Find best adjacent tile to target (for melee positioning)
-  findAdjacentTile(entity, target) {
+  findAdjacentTile(entity, target, options = {}) {
     const targetLoc = global.getLoc(target.x, target.y, target);
     const entityLoc = global.getLoc(entity.x, entity.y, entity);
+    const dominantAxis = this.getDominantSeparationAxis(entityLoc, targetLoc);
     
     const adjacentTiles = [
       [targetLoc[0] + 1, targetLoc[1]], // Right
@@ -251,23 +345,33 @@ class SimpleCombat {
       [targetLoc[0], targetLoc[1] - 1]  // Up
     ];
     
-    let bestTile = null;
-    let bestDist = Infinity;
+    let bestCandidate = null;
     
     for (const tile of adjacentTiles) {
       if (global.isWalkable && global.isWalkable(entity.z, tile[0], tile[1], entity)) {
-        const dist = Math.sqrt(
-          Math.pow(tile[0] - entityLoc[0], 2) + 
-          Math.pow(tile[1] - entityLoc[1], 2)
-        );
-        if (dist < bestDist) {
-          bestDist = dist;
-          bestTile = tile;
+        const distSq = Math.pow(tile[0] - entityLoc[0], 2) + 
+          Math.pow(tile[1] - entityLoc[1], 2);
+        const movementAxis = this.getPrimaryMovementAxis(entityLoc, tile);
+        let score = distSq;
+
+        if (options.axisBias) {
+          score += movementAxis === options.axisBias ? -6 : 6;
+        } else if (dominantAxis) {
+          score += movementAxis === dominantAxis ? -2 : 2;
+        }
+
+        if (!bestCandidate || score < bestCandidate.score ||
+            (score === bestCandidate.score && distSq < bestCandidate.distSq)) {
+          bestCandidate = {
+            tile,
+            distSq,
+            score
+          };
         }
       }
     }
     
-    return bestTile;
+    return bestCandidate ? bestCandidate.tile : null;
   }
 
   // Determine which unit has priority for positioning
@@ -1265,6 +1369,7 @@ class SimpleCombat {
       if (!state.pathfindingFailures) {
         state.pathfindingFailures = 0;
       }
+      const chaseRecovery = this.updateCombatChaseOscillation(entity, target, state);
       
       // NPCs run when chasing in combat
       if (entity.type === 'npc' && !entity.running) {
@@ -1279,7 +1384,9 @@ class SimpleCombat {
       // For melee units, pathfind to adjacent tile
       let targetLoc = global.getLoc(target.x, target.y);
       if (!entity.ranged) {
-        const adjacentTile = this.findAdjacentTile(entity, target);
+        const adjacentTile = this.findAdjacentTile(entity, target, {
+          axisBias: chaseRecovery.axisBias
+        });
         if (adjacentTile) {
           targetLoc = adjacentTile;
         }
@@ -1297,6 +1404,9 @@ class SimpleCombat {
         reason: 'combat',
         sourceAction: entity.action || 'combat'
       });
+      if (chaseRecovery.axisBias) {
+        this.consumeCombatChaseAxisBias(state);
+      }
       
       // Check if pathfinding failed
       if (entity._pathfindTimeout) {
@@ -1340,6 +1450,7 @@ class SimpleCombat {
     }
     // Skip players - they don't use aggro system (they choose targets explicitly)
     if (entity.type === 'player') return true;
+    if (entity.isNonCombatant) return true;
     
     // Skip peaceful/non-combat classes
     const nonCombatClasses = ['Falcon', 'FishingShip'];
@@ -1423,6 +1534,7 @@ class SimpleCombat {
     // Basic validation
     if (target.id === entity.id) return false;
     if (target.z !== entity.z) return false;
+    if (entity.isNonCombatant) return false;
     
     // CRITICAL: Check map context - entities from different map contexts cannot aggro each other
     if (global.mapContextHelpers && !global.mapContextHelpers.areInSameContext(entity, target)) {

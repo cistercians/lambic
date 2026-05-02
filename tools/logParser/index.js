@@ -20,6 +20,7 @@ const SummaryExtractor = require('./extractors/SummaryExtractor');
 const StrategyExtractor = require('./extractors/StrategyExtractor');
 const MiscGameplayExtractor = require('./extractors/MiscGameplayExtractor');
 const EnvironmentExtractor = require('./extractors/EnvironmentExtractor');
+const GarrisonExtractor = require('./extractors/GarrisonExtractor');
 const UnrecognizedExtractor = require('./extractors/UnrecognizedExtractor');
 
 function parseArgs(argv) {
@@ -58,7 +59,8 @@ function buildExtractors(config) {
     new SummaryExtractor(cfg.summary || {}),
     new StrategyExtractor(cfg.strategy || {}),
     new MiscGameplayExtractor(cfg.miscGameplay || {}),
-    new EnvironmentExtractor(cfg.environment || {})
+    new EnvironmentExtractor(cfg.environment || {}),
+    new GarrisonExtractor(cfg.garrison || {})
   ];
 }
 

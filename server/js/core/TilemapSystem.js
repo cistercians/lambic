@@ -672,12 +672,14 @@ class TilemapSystem {
         const plot = this.generatePlot(tile, reqs.plotSize);
         const walls = reqs.wallTiles > 0 ? this.generateWalls(plot, reqs.wallTiles) : [];
         const topPlot = reqs.hasUpperFloor && walls.length > 0 ? this.generateTopPlot(plot, walls) : [];
+        const builderAccess = this.getConstructionAccessInfo(plot, 0, contextEntity);
         
         validSpots.push({
           tile: tile,
           plot: plot,
           walls: walls,
           topPlot: topPlot,
+          builderAccess,
           score: this.scoreBuildingSpot(tile, reqs, buildingType, contextEntity)
         });
       }
@@ -730,8 +732,50 @@ class TilemapSystem {
     return validSpots.slice(0, count);
   }
 
-  // Check if building can be placed at location
-  canPlaceBuilding(tile, requirements, buildingType, contextEntity = null) {
+  getConstructionAccessInfo(plot, z = 0, contextEntity = null) {
+    if (!Array.isArray(plot) || plot.length === 0 || !global.isWalkable) {
+      return {
+        accessiblePlotTiles: [],
+        approachTiles: [],
+        hasAccess: false
+      };
+    }
+
+    const plotSet = new Set(plot.map(tile => `${tile[0]},${tile[1]}`));
+    const accessiblePlotTiles = [];
+    const approachMap = new Map();
+
+    for (const tile of plot) {
+      if (!Array.isArray(tile) || tile.length !== 2) continue;
+      if (global.isWalkable(z, tile[0], tile[1], contextEntity || undefined)) {
+        accessiblePlotTiles.push(tile);
+      }
+
+      const candidates = [
+        [tile[0] + 1, tile[1]],
+        [tile[0] - 1, tile[1]],
+        [tile[0], tile[1] + 1],
+        [tile[0], tile[1] - 1]
+      ];
+
+      for (const candidate of candidates) {
+        const key = `${candidate[0]},${candidate[1]}`;
+        if (plotSet.has(key)) continue;
+        if (global.isWalkable(z, candidate[0], candidate[1], contextEntity || undefined)) {
+          approachMap.set(key, candidate);
+        }
+      }
+    }
+
+    const approachTiles = Array.from(approachMap.values());
+    return {
+      accessiblePlotTiles,
+      approachTiles,
+      hasAccess: accessiblePlotTiles.length > 0 && approachTiles.length > 0
+    };
+  }
+
+  getBuildingPlacementFailure(tile, requirements, buildingType, contextEntity = null) {
     const plot = this.generatePlot(tile, requirements.plotSize);
     const perimeter = requirements.clearanceRadius > 0 ? 
       this.generatePerimeter(plot, requirements.clearanceRadius) : [];
@@ -749,7 +793,7 @@ class TilemapSystem {
     for (const plotTile of plot) {
       if (plotTile[0] < 0 || plotTile[0] >= contextMapSize ||
           plotTile[1] < 0 || plotTile[1] >= contextMapSize) {
-        return false;
+        return 'out_of_bounds';
       }
     }
     
@@ -758,12 +802,12 @@ class TilemapSystem {
       const terrain = getTile(0, plotTile[0], plotTile[1]);
       const terrainFloor = Math.floor(terrain);
       if (!requirements.validTerrain.includes(terrainFloor)) {
-        return false;
+        return 'invalid_terrain';
       }
       
       // Check if tile is walkable (catches firepits, buildings, blocking objects)
       if (!global.isWalkable(0, plotTile[0], plotTile[1], contextEntity || undefined)) {
-        return false;
+        return 'not_walkable';
       }
     }
     
@@ -775,7 +819,7 @@ class TilemapSystem {
         const layer5 = getTile(5, checkTile[0], checkTile[1]);
         
         if (layer3 !== 0 || layer5 !== 0) {
-          return false;
+          return 'building_overlap';
         }
         
         // Check if tile is in excludeTiles list
@@ -783,7 +827,7 @@ class TilemapSystem {
           const tileKey = `${checkTile[0]},${checkTile[1]}`;
           if (requirements.excludeTiles.includes(tileKey) || 
               requirements.excludeTiles.some(t => t[0] === checkTile[0] && t[1] === checkTile[1])) {
-            return false;
+            return 'excluded_tile';
           }
         }
         
@@ -801,7 +845,7 @@ class TilemapSystem {
             );
             // If item is within half a tile of this location, block placement
             if (dist < global.tileSize / 2) {
-              return false;
+              return 'blocking_item';
             }
           }
         }
@@ -809,10 +853,10 @@ class TilemapSystem {
       
       // Check clearance area for building tiles
       for (const perimTile of perimeter) {
-        const terrain = this.getTile(0, perimTile[0], perimTile[1]);
+        const terrain = getTile(0, perimTile[0], perimTile[1]);
         // Perimeter cannot have building tiles (11-20.5)
         if (terrain >= 11 && terrain <= 20.5) {
-          return false;
+          return 'clearance_blocked';
         }
       }
     }
@@ -839,10 +883,74 @@ class TilemapSystem {
         }
       }
       
-      if (!foundNearby) return false;
+      if (!foundNearby) return 'missing_required_nearby';
+    }
+
+    const isHutPlacement = typeof buildingType === 'string' && buildingType.toLowerCase().includes('hut');
+    if (isHutPlacement) {
+      const builderAccess = this.getConstructionAccessInfo(plot, 0, contextEntity);
+      if (!builderAccess.hasAccess) {
+        return 'no_builder_access';
+      }
     }
     
-    return true;
+    return null;
+  }
+
+  // Check if building can be placed at location
+  canPlaceBuilding(tile, requirements, buildingType, contextEntity = null) {
+    return this.getBuildingPlacementFailure(tile, requirements, buildingType, contextEntity) === null;
+  }
+
+  diagnoseBuildingPlacement(buildingType, centerTile, searchRadius, customRequirements = {}, contextEntity = null) {
+    const requirements = this.getBuildingRequirements();
+    const baseReqs = requirements[buildingType];
+    if (!baseReqs) {
+      return null;
+    }
+
+    const reqs = { ...baseReqs, ...customRequirements };
+    const searchArea = global.getArea(centerTile, centerTile, searchRadius);
+    const failureCounts = {};
+    let validSpots = 0;
+    let builderAccess = null;
+
+    for (const tile of searchArea) {
+      const failureReason = this.getBuildingPlacementFailure(tile, reqs, buildingType, contextEntity);
+      if (!failureReason) {
+        validSpots++;
+        if (!builderAccess && typeof buildingType === 'string' && buildingType.toLowerCase().includes('hut')) {
+          builderAccess = this.getConstructionAccessInfo(this.generatePlot(tile, reqs.plotSize), 0, contextEntity);
+        }
+        continue;
+      }
+      failureCounts[failureReason] = (failureCounts[failureReason] || 0) + 1;
+    }
+
+    const topFailures = Object.entries(failureCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([reason, count]) => ({ reason, count }));
+
+    const dominantFailure = topFailures.length > 0 ? topFailures[0].reason : null;
+    const isSaturated = validSpots === 0 && (
+      dominantFailure === 'building_overlap' ||
+      dominantFailure === 'clearance_blocked' ||
+      dominantFailure === 'blocking_item' ||
+      dominantFailure === 'excluded_tile'
+    );
+
+    return {
+      buildingType,
+      searchRadius,
+      candidateTiles: searchArea.length,
+      validSpots,
+      dominantFailure,
+      isSaturated,
+      failureCounts,
+      topFailures,
+      builderAccess
+    };
   }
 
   // Generate plot tiles for building

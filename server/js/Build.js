@@ -1,3 +1,39 @@
+function tilesMatch(a, b) {
+  return Array.isArray(a) && Array.isArray(b) && a[0] === b[0] && a[1] === b[1];
+}
+
+function selectResidentialHomeTiles(building, requestedCount = 2) {
+  if (!building || !Array.isArray(building.plot) || building.plot.length === 0) {
+    return [];
+  }
+
+  const uniquePlotTiles = [];
+  for (const tile of building.plot) {
+    if (!Array.isArray(tile) || tile.length < 2) continue;
+    if (!uniquePlotTiles.some(existing => tilesMatch(existing, tile))) {
+      uniquePlotTiles.push([tile[0], tile[1]]);
+    }
+  }
+
+  const entrance = Array.isArray(building.entrance) ? building.entrance : null;
+  const exitTile = entrance ? [entrance[0], entrance[1] + 1] : null;
+
+  const preferredTiles = uniquePlotTiles.filter(tile => {
+    return !tilesMatch(tile, entrance) && !tilesMatch(tile, exitTile);
+  });
+
+  if (preferredTiles.length >= requestedCount) {
+    return preferredTiles.slice(0, requestedCount);
+  }
+
+  const fallbackTiles = uniquePlotTiles.filter(tile => {
+    return !preferredTiles.some(existing => tilesMatch(existing, tile)) &&
+      !tilesMatch(tile, entrance);
+  });
+
+  return preferredTiles.concat(fallbackTiles).slice(0, requestedCount);
+}
+
 Build = function(id, targetLoc){
   var p = Player.list[id];
   let contextEntity = p;
@@ -166,9 +202,10 @@ Build = function(id, targetLoc){
             });
           }
           var serf1 = null;
-          var spot1 = Building.list[b].plot[2];
           var serf2 = null;
-          var spot2 = Building.list[b].plot[3];
+          var homeTiles = selectResidentialHomeTiles(Building.list[b], 2);
+          var spot1 = homeTiles[0] || Building.list[b].plot[2];
+          var spot2 = homeTiles[1] || homeTiles[0] || Building.list[b].plot[3] || spot1;
           for(var i in Player.list){
             if(Player.list[i].hut && Player.list[i].hut == b){
               if(!serf1){
@@ -569,13 +606,17 @@ Build = function(id, targetLoc){
             qty:1,
             parent:b
           });
+          var innkeeperId = Math.random();
+          Building.list[b].innkeeper = innkeeperId;
           Innkeeper({
+            id:innkeeperId,
             x:sp1[0],
             y:sp1[1],
             z:1,
             name:randomName('m'),
             house:Building.list[b].house || null,
             kingdom:Building.list[b].kingdom || null,
+            tavern:b,
             home:{
               z:1,
               loc:[plot[16][0],plot[16][1]]
@@ -1518,3 +1559,8 @@ Build = function(id, targetLoc){
     }
   },10000/p.strength);
 }
+
+module.exports = {
+  Build,
+  selectResidentialHomeTiles
+};

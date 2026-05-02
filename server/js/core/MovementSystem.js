@@ -247,6 +247,19 @@ class MovementSystem {
     entity.lastMoveIntent = normalized;
     const result = this.requestPathForIntent(entity, normalized);
     entity.lastPathResult = result;
+    if (result && (result.status === 'success' || result.status === 'direct' || result.status === 'noop')) {
+      entity._lastPathInvalidation = null;
+    } else if (result && result.status === 'no_path') {
+      entity._lastPathInvalidation = {
+        reason: result.reason || 'no_path',
+        at: Date.now(),
+        data: {
+          target: normalized.target,
+          z: normalized.z,
+          sourceAction: normalized.sourceAction || null
+        }
+      };
+    }
     return result;
   }
 
@@ -580,6 +593,11 @@ class MovementSystem {
     metrics.invalidations++;
     metrics.lastReason = reason;
     metrics.lastAt = Date.now();
+    entity._lastPathInvalidation = {
+      reason,
+      at: metrics.lastAt,
+      data
+    };
     if (reason === this.PATH_INVALIDATION_REASONS.OSCILLATING) metrics.oscillations++;
     if (reason === this.PATH_INVALIDATION_REASONS.BLOCKED) metrics.blocked++;
     if (reason === this.PATH_INVALIDATION_REASONS.STUCK) metrics.stuck++;

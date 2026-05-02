@@ -1319,7 +1319,7 @@ class Goal {
 
 | Goal | Utility | Cost | Requirements | Notes |
 |------|---------|------|--------------|-------|
-| **TrainMilitaryGoal** | 50 | {grain: 10/unit} | Garrison | Trains units at garrison |
+| **TrainMilitaryGoal** | 50 | 20 food/unit for basic units; elite/mounted units also require iron | Garrison | Trains units at garrison; fish + grain both count as food |
 | **DeployScoutGoal** | 25 | None | None | Sends scout to explore |
 | **DefendTerritoryGoal** | 80 | None | None | Triggered when under attack |
 
@@ -1403,8 +1403,10 @@ Blocked by: Need garrison
 Chain: [BuildGarrison, GatherGrain, TrainMilitary]
 
 BuildGarrison blocked by resources:
-Chain: [GatherWood(50), GatherStone(30), BuildGarrison, GatherGrain(10), TrainMilitary]
+Chain: [GatherWood(50), GatherStone(30), BuildGarrison, GatherGrain(20), TrainMilitary]
 ```
+
+`TrainMilitaryGoal` uses the same faction unit progression as passive Garrison production, but it is an active paid action. Basic units require 20 total food (`grain + fish`), elite units require 20 food plus 10 iron, and mounted units require 40 food plus 20 iron. If total food is too low, the goal exposes a grain resource blocker so `GoalChain` can build or use farm production before retrying training.
 
 ### Chain Creation Process (Iterative Queue-Based)
 

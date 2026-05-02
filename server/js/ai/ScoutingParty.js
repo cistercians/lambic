@@ -6,6 +6,7 @@ class ScoutingParty {
   constructor(leader, backupUnits, targetZone, purpose) {
     this.leader = leader; // Military unit (prefer mounted)
     this.backupUnits = backupUnits || []; // Array of 0-2 backup units (flexible party size)
+    this.house = this.resolveHouse();
     this.targetZone = targetZone;
     this.purpose = purpose; // 'resource_scout', resource type ('stone', 'wood', etc.), or 'establish_outpost'
     this.status = 'on_hold'; // on_hold, traveling, camping, returning, failed
@@ -14,6 +15,8 @@ class ScoutingParty {
     this.lastDay = global.day || 1; // Last day tracked for day change detection
     this.campfire = null; // ID of InfiniteFire item for campfire
     this.contestedBannerPlaced = false; // Flag to ensure only one contested banner per mission
+    this.completionNotified = false;
+    this.failureNotified = false;
     this.startTime = Date.now();
     this.enemiesEncountered = [];
     this.unitHP = new Map(); // Track unit HP for damage detection
@@ -29,7 +32,7 @@ class ScoutingParty {
     });
     
     // Log party deployment
-    const factionName = this.leader ? (this.leader.house ? this.leader.house.name : 'Unknown') : 'Unknown';
+    const factionName = this.getFactionName();
     const leaderName = this.leader ? this.leader.name : 'Unknown';
     const targetCoords = targetZone && targetZone.center ? targetZone.center : [0, 0];
     const totalUnits = 1 + (this.backupUnits ? this.backupUnits.length : 0);
@@ -37,7 +40,7 @@ class ScoutingParty {
     console.log(logMessage);
     
     // Create Event Manager event for scouting party departure
-    if (global.eventManager && this.leader && this.leader.house) {
+    if (global.eventManager && this.leader && this.getHouse()) {
       global.eventManager.createEvent({
         category: global.eventManager.categories.FACTION,
         subject: this.leader.id,
@@ -45,7 +48,7 @@ class ScoutingParty {
         action: 'departed on scouting mission',
         target: targetZone ? (targetZone.id || null) : null,
         targetName: targetZone ? (targetZone.name || `Zone at [${targetCoords[0]}, ${targetCoords[1]}]`) : null,
-        house: this.leader.house.id,
+        house: this.getHouseId(),
         houseName: factionName,
         quantity: totalUnits,
         communication: global.eventManager.commModes.NONE,
@@ -56,9 +59,64 @@ class ScoutingParty {
     }
     
     // Record deployment in logger for daily report
-    if (this.leader && this.leader.house && this.leader.house.ai && this.leader.house.ai.logger) {
-      this.leader.house.ai.logger.recordScoutingDeployment();
+    const house = this.getHouse();
+    if (house && house.ai && house.ai.logger && typeof house.ai.logger.recordScoutingDeployment === 'function') {
+      house.ai.logger.recordScoutingDeployment();
     }
+  }
+
+  resolveHouse() {
+    if (!this.leader) {
+      return null;
+    }
+
+    if (this.leader.house && typeof this.leader.house === 'object') {
+      return this.leader.house;
+    }
+
+    if (this.leader.houseObject && typeof this.leader.houseObject === 'object') {
+      return this.leader.houseObject;
+    }
+
+    const houseId = this.leader.house;
+    if (houseId !== undefined && houseId !== null && global.House && global.House.list) {
+      return global.House.list[houseId] || null;
+    }
+
+    return null;
+  }
+
+  getHouse() {
+    if (!this.house) {
+      this.house = this.resolveHouse();
+    }
+    return this.house;
+  }
+
+  getHouseId() {
+    const house = this.getHouse();
+    if (house && house.id !== undefined) {
+      return house.id;
+    }
+    return this.leader ? (this.leader.house ?? null) : null;
+  }
+
+  getFactionName() {
+    const house = this.getHouse();
+    return house && house.name ? house.name : 'Unknown';
+  }
+
+  isPathingTo(targetZ, targetTileX, targetTileY) {
+    if (!this.leader) {
+      return false;
+    }
+
+    const pathEnd = this.leader.pathEnd;
+    if (!pathEnd || pathEnd.z !== targetZ || !pathEnd.loc) {
+      return false;
+    }
+
+    return pathEnd.loc[0] === targetTileX && pathEnd.loc[1] === targetTileY;
   }
   
   // Assign mission orders to units (called after party creation)
@@ -99,7 +157,7 @@ class ScoutingParty {
     
     this.missionOrdersAssigned = true;
     
-    const factionName = this.leader.house ? this.leader.house.name : 'Unknown';
+    const factionName = this.getFactionName();
     console.log(`[SCOUT] ${factionName}: Mission orders assigned - party on hold until dawn`);
   }
   
@@ -132,19 +190,31 @@ class ScoutingParty {
     if (this.leader.mode !== undefined) {
       this.leader.mode = 'scout';
     }
+    if (!this.leader.action && this.leader.action !== undefined) {
+      this.leader.action = 'idle';
+    }
+    this.leader.scoutingMoveTarget = {
+      status: 'traveling',
+      z: this.leader.z || 0,
+      target: [targetTileX, targetTileY],
+      purpose: this.purpose
+    };
     
-    movementSystem.applyMoveIntent(this.leader, {
+    const moveResult = movementSystem.applyMoveIntent(this.leader, {
       z: this.leader.z || 0,
       target: [targetTileX, targetTileY],
       reason: 'scout',
-      sourceAction: this.leader.action || 'scout'
+      sourceAction: 'scout'
     });
     
     // Update status to traveling
     this.status = 'traveling';
     
-    const factionName = this.leader.house ? this.leader.house.name : 'Unknown';
+    const factionName = this.getFactionName();
     console.log(`[SCOUT] ${factionName}: Party leader starting journey to target [${targetTileX}, ${targetTileY}]`);
+    if (moveResult && moveResult.status && !['success', 'direct', 'noop'].includes(moveResult.status)) {
+      console.warn(`[SCOUT] ${factionName}: Movement request to target [${targetTileX}, ${targetTileY}] returned ${moveResult.status}`);
+    }
   }
 
   // Update scouting party state
@@ -155,7 +225,7 @@ class ScoutingParty {
     if (currentDay !== this.lastDay) {
       this.lastDay = currentDay;
       if (this.status === 'camping') {
-        const factionName = this.leader ? (this.leader.house ? this.leader.house.name : 'Unknown') : 'Unknown';
+        const factionName = this.getFactionName();
         console.log(`[SCOUT] ${factionName}: Day changed during camping - Day ${currentDay} (arrived Day ${this.arrivalDay})`);
       }
     }
@@ -164,7 +234,7 @@ class ScoutingParty {
     if (!this.leader || this.leader.toRemove || (this.leader.hp !== undefined && this.leader.hp <= 0)) {
       if (this.status !== 'failed') {
         this.status = 'failed';
-        const factionName = this.leader && this.leader.house ? this.leader.house.name : 'Unknown';
+        const factionName = this.getFactionName();
         console.log(`[SCOUT] ${factionName}: Mission failed - party leader died`);
         this.cleanupCampfire();
         this.triggerRetreat();
@@ -224,7 +294,7 @@ class ScoutingParty {
     
     if (isDawn || (isDay && this.status === 'on_hold')) {
       // Dawn detected or already day - start traveling to target
-      const factionName = this.leader.house ? this.leader.house.name : 'Unknown';
+      const factionName = this.getFactionName();
       console.log(`[SCOUT] ${factionName}: Starting journey to target (dawn=${isDawn}, day=${isDay})`);
       this.startTravelingToTarget();
     }
@@ -240,11 +310,6 @@ class ScoutingParty {
       return;
     }
     
-    // Ensure leader is moving - if not, initiate movement
-    if (!this.leader.action || (this.leader.action === 'idle' && this.targetZone && this.targetZone.center)) {
-      this.startTravelingToTarget();
-    }
-
     const leaderPos = [this.leader.x, this.leader.y];
     const zoneCenter = this.targetZone.center;
     
@@ -288,14 +353,14 @@ class ScoutingParty {
       }
       
       // Log reaching destination
-      const factionName = this.leader.house ? this.leader.house.name : 'Unknown';
+      const factionName = this.getFactionName();
       const leaderName = this.leader.name || 'Unknown';
       const tileCoords = [Math.floor(targetX / 64), Math.floor(targetY / 64)];
       const logMessage = `[SCOUT] ${factionName}: Party reached destination at [${tileCoords[0]}, ${tileCoords[1]}] (Day ${this.arrivalDay})`;
       console.log(logMessage);
       
       // Create Event Manager event for reaching destination
-      if (global.eventManager && this.leader && this.leader.house) {
+      if (global.eventManager && this.leader && this.getHouse()) {
         global.eventManager.createEvent({
           category: global.eventManager.categories.FACTION,
           subject: this.leader.id,
@@ -303,7 +368,7 @@ class ScoutingParty {
           action: 'reached scouting destination',
           target: this.targetZone ? (this.targetZone.id || null) : null,
           targetName: this.targetZone ? (this.targetZone.name || `Zone at [${tileCoords[0]}, ${tileCoords[1]}]`) : `Zone at [${tileCoords[0]}, ${tileCoords[1]}]`,
-          house: this.leader.house.id,
+          house: this.getHouseId(),
           houseName: factionName,
           communication: global.eventManager.commModes.NONE,
           position: { x: this.leader.x, y: this.leader.y, z: this.leader.z || 0 },
@@ -313,8 +378,12 @@ class ScoutingParty {
       }
     } else {
       // Not at target yet - ensure movement continues
-      // Re-issue movement order if leader is idle
-      if (this.leader.action === 'idle' || !this.leader.action) {
+      const targetTileX = Math.floor(targetX / 64);
+      const targetTileY = Math.floor(targetY / 64);
+      const pathResult = this.leader.lastPathResult;
+      const needsPath = !this.isPathingTo(this.leader.z || 0, targetTileX, targetTileY) ||
+        (pathResult && ['invalid', 'halted', 'no_path'].includes(pathResult.status));
+      if (needsPath || this.leader.action === 'idle' || !this.leader.action) {
         this.startTravelingToTarget();
       }
     }
@@ -390,13 +459,20 @@ class ScoutingParty {
       this.cleanupCampfire();
       
       // Start leader moving back to HQ
-      const hq = this.leader.house ? this.leader.house.hq : null;
+      const house = this.getHouse();
+      const hq = house ? house.hq : null;
       if (hq && this.leader.moveTo && typeof this.leader.moveTo === 'function') {
+        this.leader.scoutingMoveTarget = {
+          status: 'returning',
+          z: this.leader.z || 0,
+          target: [hq[0], hq[1]],
+          purpose: this.purpose
+        };
         movementSystem.applyMoveIntent(this.leader, {
           z: this.leader.z || 0,
           target: [hq[0], hq[1]],
           reason: 'scout',
-          sourceAction: this.leader.action || 'scout'
+          sourceAction: 'scout'
         });
         
         // Leader is already in scout mode, just ensure it's set
@@ -408,7 +484,7 @@ class ScoutingParty {
       // Followers will automatically follow because followBehavior is already active
       
       // Log zone cleared and return
-      const factionName = this.leader.house ? this.leader.house.name : 'Unknown';
+      const factionName = this.getFactionName();
       const leaderName = this.leader.name || 'Unknown';
       const zoneCoords = this.targetZone.center || [0, 0];
       const tileCoords = zoneCoords.length >= 2 && zoneCoords[0] < 1000 ? zoneCoords : [Math.floor(zoneCoords[0] / 64), Math.floor(zoneCoords[1] / 64)];
@@ -418,13 +494,13 @@ class ScoutingParty {
       console.log(returnLog);
       
       // Create Event Manager event for zone cleared
-      if (global.eventManager && this.leader && this.leader.house) {
+      if (global.eventManager && this.leader && this.getHouse()) {
         global.eventManager.createEvent({
           category: global.eventManager.categories.FACTION,
           subject: this.leader.id,
           subjectName: leaderName,
           action: 'zone cleared for expansion',
-          house: this.leader.house.id,
+          house: this.getHouseId(),
           houseName: factionName,
           communication: global.eventManager.commModes.NONE,
           position: { x: this.leader.x, y: this.leader.y, z: this.leader.z || 0 },
@@ -434,18 +510,19 @@ class ScoutingParty {
       }
       
       // Record zone cleared in logger for daily report
-      if (this.leader && this.leader.house && this.leader.house.ai && this.leader.house.ai.logger) {
-        this.leader.house.ai.logger.recordZoneCleared();
+      const scoutHouse = this.getHouse();
+      if (scoutHouse && scoutHouse.ai && scoutHouse.ai.logger && typeof scoutHouse.ai.logger.recordZoneCleared === 'function') {
+        scoutHouse.ai.logger.recordZoneCleared();
       }
       
       // Create Event Manager event for returning home
-      if (global.eventManager && this.leader && this.leader.house) {
+      if (global.eventManager && this.leader && this.getHouse()) {
         global.eventManager.createEvent({
           category: global.eventManager.categories.FACTION,
           subject: this.leader.id,
           subjectName: leaderName,
           action: 'returning from scouting mission',
-          house: this.leader.house.id,
+          house: this.getHouseId(),
           houseName: factionName,
           communication: global.eventManager.commModes.NONE,
           position: { x: this.leader.x, y: this.leader.y, z: this.leader.z || 0 },
@@ -468,7 +545,8 @@ class ScoutingParty {
 
     // Check if leader reached HQ
     const leaderPos = [this.leader.x, this.leader.y];
-    const hq = this.leader.house ? this.leader.house.hq : null;
+    const house = this.getHouse();
+    const hq = house ? house.hq : null;
     if (!hq) {
       this.checkReturnComplete();
       return;
@@ -484,13 +562,19 @@ class ScoutingParty {
       this.checkReturnComplete();
     } else {
       // Ensure leader is moving toward HQ
-      if (!this.leader.action || this.leader.action === 'idle') {
+      if (!this.isPathingTo(this.leader.z || 0, hq[0], hq[1]) || !this.leader.action || this.leader.action === 'idle') {
         if (this.leader.moveTo && typeof this.leader.moveTo === 'function') {
+          this.leader.scoutingMoveTarget = {
+            status: 'returning',
+            z: this.leader.z || 0,
+            target: [hq[0], hq[1]],
+            purpose: this.purpose
+          };
           movementSystem.applyMoveIntent(this.leader, {
             z: this.leader.z || 0,
             target: [hq[0], hq[1]],
             reason: 'scout',
-            sourceAction: this.leader.action || 'scout'
+            sourceAction: 'scout'
           });
           if (this.leader.mode !== undefined) {
             this.leader.mode = 'scout';
@@ -524,20 +608,20 @@ class ScoutingParty {
       this.campfire = fireId;
       
       // Log campfire creation
-      const factionName = this.leader.house ? this.leader.house.name : 'Unknown';
+      const factionName = this.getFactionName();
       const currentDay = global.day || 1;
       const tileCoords = [Math.floor(leaderPos[0] / 64), Math.floor(leaderPos[1] / 64)];
       const logMessage = `[SCOUT] ${factionName}: Campfire set up at [${tileCoords[0]}, ${tileCoords[1]}] (Day ${currentDay})`;
       console.log(logMessage);
       
       // Create Event Manager event for campfire setup (optional - not in requirements but useful)
-      if (global.eventManager && this.leader && this.leader.house) {
+      if (global.eventManager && this.leader && this.getHouse()) {
         global.eventManager.createEvent({
           category: global.eventManager.categories.FACTION,
           subject: this.leader.id,
           subjectName: this.leader.name || 'Unknown',
           action: 'set up campfire',
-          house: this.leader.house.id,
+          house: this.getHouseId(),
           houseName: factionName,
           communication: global.eventManager.commModes.NONE,
           position: { x: leaderPos[0], y: leaderPos[1], z: leaderPos[2] },
@@ -556,7 +640,7 @@ class ScoutingParty {
         fireItem.toRemove = true;
         
         // Log campfire cleanup
-        const factionName = this.leader ? (this.leader.house ? this.leader.house.name : 'Unknown') : 'Unknown';
+        const factionName = this.getFactionName();
         console.log(`[SCOUT] ${factionName}: Campfire removed`);
       }
       this.campfire = null;
@@ -597,7 +681,8 @@ class ScoutingParty {
   // Scan for enemy faction units (not fauna)
   scanForEnemyFactions() {
     const enemies = [];
-    if (!this.leader || this.leader.toRemove || !this.leader.house) {
+    const scoutHouseId = this.getHouseId();
+    if (!this.leader || this.leader.toRemove || scoutHouseId === null || scoutHouseId === undefined) {
       return enemies;
     }
     
@@ -609,8 +694,8 @@ class ScoutingParty {
       for (const [id, player] of Object.entries(Player.list)) {
         if (player.toRemove || !player.house) continue;
         
-        // Skip if same faction
-        if (player.house.id === this.leader.house.id) continue;
+        const playerHouseId = player.house && typeof player.house === 'object' ? player.house.id : player.house;
+        if (playerHouseId === scoutHouseId) continue;
         
         // Skip fauna/neutral enemies (check if it's a player-controlled unit with a house)
         // Fauna typically don't have house.id matching a faction
@@ -623,8 +708,8 @@ class ScoutingParty {
           enemies.push({
             id: player.id,
             name: player.name,
-            house: player.house.name,
-            houseId: player.house.id,
+            house: player.house && typeof player.house === 'object' ? player.house.name : 'Unknown',
+            houseId: playerHouseId,
             position: playerPos,
             distance: distance
           });
@@ -653,13 +738,14 @@ class ScoutingParty {
     this.placeContestedBanner();
     
     // Record conflict zone in knowledge base
-    if (this.leader && this.leader.house && this.leader.house.ai && this.leader.house.ai.knowledge) {
+    const house = this.getHouse();
+    if (house && house.ai && house.ai.knowledge) {
       const leaderPos = [this.leader.x, this.leader.y];
-      this.leader.house.ai.knowledge.reportConflictZone(leaderPos, enemy.houseId, enemy.house);
+      house.ai.knowledge.reportConflictZone(leaderPos, enemy.houseId, enemy.house);
     }
     
     // Log combat and mission failure
-    const factionName = this.leader.house ? this.leader.house.name : 'Unknown';
+    const factionName = this.getFactionName();
     const leaderName = this.leader ? (this.leader.name || 'Unknown') : 'Unknown';
     const leaderPos = [this.leader.x, this.leader.y];
     const tileCoords = [Math.floor(leaderPos[0] / 64), Math.floor(leaderPos[1] / 64)];
@@ -669,7 +755,7 @@ class ScoutingParty {
     console.log(failureLog);
     
     // Create Event Manager event for combat encounter
-    if (global.eventManager && this.leader && this.leader.house) {
+    if (global.eventManager && this.leader && this.getHouse()) {
       global.eventManager.createEvent({
         category: global.eventManager.categories.FACTION,
         subject: this.leader.id,
@@ -677,7 +763,7 @@ class ScoutingParty {
         target: enemy.houseId || null,
         targetName: enemy.house,
         action: 'engaged in combat with enemy faction',
-        house: this.leader.house.id,
+        house: this.getHouseId(),
         houseName: factionName,
         communication: global.eventManager.commModes.AREA,
         position: { x: leaderPos[0], y: leaderPos[1], z: this.leader.z || 0 },
@@ -687,7 +773,7 @@ class ScoutingParty {
     }
     
     // Create Event Manager event for mission failure
-    if (global.eventManager && this.leader && this.leader.house) {
+    if (global.eventManager && this.leader && this.getHouse()) {
       global.eventManager.createEvent({
         category: global.eventManager.categories.FACTION,
         subject: this.leader.id,
@@ -695,7 +781,7 @@ class ScoutingParty {
         target: enemy.houseId || null,
         targetName: enemy.house,
         action: 'scouting mission failed',
-        house: this.leader.house.id,
+        house: this.getHouseId(),
         houseName: factionName,
         communication: global.eventManager.commModes.NONE,
         position: { x: leaderPos[0], y: leaderPos[1], z: this.leader.z || 0 },
@@ -705,9 +791,13 @@ class ScoutingParty {
     }
     
     // Record failure and conflict zone in logger for daily report
-    if (this.leader && this.leader.house && this.leader.house.ai && this.leader.house.ai.logger) {
-      this.leader.house.ai.logger.recordScoutingFailure();
-      this.leader.house.ai.logger.recordConflictZone();
+    if (house && house.ai && house.ai.logger) {
+      if (typeof house.ai.logger.recordScoutingFailure === 'function') {
+        house.ai.logger.recordScoutingFailure();
+      }
+      if (typeof house.ai.logger.recordConflictZone === 'function') {
+        house.ai.logger.recordConflictZone();
+      }
     }
     
     // Clean up campfire
@@ -742,7 +832,7 @@ class ScoutingParty {
           this.contestedBannerPlaced = true;
           
           // Log banner placement
-          const factionName = this.leader.house ? this.leader.house.name : 'Unknown';
+          const factionName = this.getFactionName();
           const tileCoords = [Math.floor(leaderPos[0] / 64), Math.floor(leaderPos[1] / 64)];
           console.log(`[SCOUT] ${factionName}: Contested banner placed at [${tileCoords[0]}, ${tileCoords[1]}]`);
         }
@@ -758,13 +848,20 @@ class ScoutingParty {
     
     // Set leader to retreat (if alive)
     if (this.leader && !this.leader.toRemove && this.leader.hp > 0) {
-      const hq = this.leader.house ? this.leader.house.hq : null;
+      const house = this.getHouse();
+      const hq = house ? house.hq : null;
       if (hq && this.leader.moveTo && typeof this.leader.moveTo === 'function') {
+        this.leader.scoutingMoveTarget = {
+          status: 'returning',
+          z: this.leader.z || 0,
+          target: [hq[0], hq[1]],
+          purpose: this.purpose
+        };
         movementSystem.applyMoveIntent(this.leader, {
           z: this.leader.z || 0,
           target: [hq[0], hq[1]],
           reason: 'scout',
-          sourceAction: this.leader.action || 'scout'
+          sourceAction: 'scout'
         });
         if (this.leader.mode !== undefined) {
           this.leader.mode = 'scout';
@@ -773,20 +870,27 @@ class ScoutingParty {
     } else {
       // Leader is dead - mission failed, all units flee
       this.status = 'failed';
-      const factionName = this.leader && this.leader.house ? this.leader.house.name : 'Unknown';
+      const factionName = this.getFactionName();
       console.log(`[SCOUT] ${factionName}: Mission failed - party leader died`);
     }
 
     // Set backup units to retreat (flee home)
     this.backupUnits.forEach(unit => {
       if (unit && !unit.toRemove && unit.hp > 0) {
-        const hq = unit.house ? unit.house.hq : null;
+        const house = this.getHouse();
+        const hq = house ? house.hq : null;
         if (hq && unit.moveTo && typeof unit.moveTo === 'function') {
+          unit.scoutingMoveTarget = {
+            status: 'returning',
+            z: unit.z || 0,
+            target: [hq[0], hq[1]],
+            purpose: this.purpose
+          };
           movementSystem.applyMoveIntent(unit, {
             z: unit.z || 0,
             target: [hq[0], hq[1]],
             reason: 'scout',
-            sourceAction: unit.action || 'scout'
+            sourceAction: 'scout'
           });
           if (unit.mode !== undefined) {
             unit.mode = 'scout';
@@ -803,12 +907,13 @@ class ScoutingParty {
   // Check if return was successful
   checkReturnComplete() {
     let survivors = 0;
-    if (!this.leader || !this.leader.house) {
+    const house = this.getHouse();
+    if (!this.leader || !house) {
       this.cleanup();
       return;
     }
     
-    const hq = this.leader.house.hq;
+    const hq = house.hq;
     if (!hq) {
       this.cleanup();
       return;
@@ -838,21 +943,21 @@ class ScoutingParty {
 
     if (survivors > 0) {
       // Log return complete
-      const factionName = this.leader.house ? this.leader.house.name : 'Unknown';
+      const factionName = this.getFactionName();
       const leaderName = this.leader.name || 'Unknown';
       const logMessage = `[SCOUT] ${factionName}: Party successfully returned to HQ (${survivors} survivors)`;
       console.log(logMessage);
       
       // Create Event Manager event for return complete
-      if (global.eventManager && this.leader && this.leader.house) {
-        const hq = this.leader.house.hq;
+      if (global.eventManager && this.leader && this.getHouse()) {
+        const hq = house.hq;
         const hqCoords = hq ? (global.getCenter ? global.getCenter(hq[0], hq[1]) : [hq[0] * 64, hq[1] * 64]) : { x: 0, y: 0, z: 0 };
         global.eventManager.createEvent({
           category: global.eventManager.categories.FACTION,
           subject: this.leader.id,
           subjectName: leaderName,
           action: 'returned from scouting mission',
-          house: this.leader.house.id,
+          house: this.getHouseId(),
           houseName: factionName,
           quantity: survivors,
           communication: this.status !== 'failed' ? global.eventManager.commModes.NONE : global.eventManager.commModes.NONE,
@@ -863,8 +968,8 @@ class ScoutingParty {
       }
       
       // Record completion in logger for daily report
-      if (this.status !== 'failed' && this.leader && this.leader.house && this.leader.house.ai && this.leader.house.ai.logger) {
-        this.leader.house.ai.logger.recordScoutingCompletion();
+      if (this.status !== 'failed' && house.ai && house.ai.logger && typeof house.ai.logger.recordScoutingCompletion === 'function') {
+        house.ai.logger.recordScoutingCompletion();
       }
       
       if (this.status !== 'failed') {
@@ -872,18 +977,18 @@ class ScoutingParty {
       }
     } else {
       // All units lost
-      const factionName = this.leader ? (this.leader.house ? this.leader.house.name : 'Unknown') : 'Unknown';
+      const factionName = this.getFactionName();
       const logMessage = `[SCOUT] ${factionName}: Party failed to return - all units lost`;
       console.log(logMessage);
       
       // Create Event Manager event for complete failure (all units lost)
-      if (global.eventManager && this.leader && this.leader.house) {
+      if (global.eventManager && this.leader && this.getHouse()) {
         global.eventManager.createEvent({
           category: global.eventManager.categories.FACTION,
           subject: this.leader.id,
           subjectName: this.leader.name || 'Unknown',
           action: 'scouting mission failed',
-          house: this.leader.house.id,
+          house: this.getHouseId(),
           houseName: factionName,
           communication: global.eventManager.commModes.NONE,
           position: { x: this.leader.x || 0, y: this.leader.y || 0, z: this.leader.z || 0 },
@@ -899,22 +1004,33 @@ class ScoutingParty {
 
   // Notify that zone is clear for outpost construction
   notifyZoneClear() {
-    if (this.leader && this.leader.house && this.leader.house.ai) {
-      this.leader.house.ai.onScoutingComplete(this.targetZone, this.purpose, false);
+    const house = this.getHouse();
+    if (house && house.ai && house.ai.knowledge && this.targetZone) {
+      house.ai.knowledge.markZoneAsKnown(this.targetZone);
     }
   }
 
   // Notify successful return
   notifyReturnSuccess() {
-    if (this.leader && this.leader.house && this.leader.house.ai) {
-      this.leader.house.ai.onScoutingComplete(this.targetZone, this.purpose, false);
+    if (this.completionNotified) {
+      return;
+    }
+    this.completionNotified = true;
+    const house = this.getHouse();
+    if (house && house.ai) {
+      house.ai.onScoutingComplete(this.targetZone, this.purpose, false);
     }
   }
 
   // Notify mission failed
   notifyMissionFailed() {
-    if (this.leader && this.leader.house && this.leader.house.ai) {
-      this.leader.house.ai.onScoutingFailed(this.targetZone, this.purpose);
+    if (this.failureNotified) {
+      return;
+    }
+    this.failureNotified = true;
+    const house = this.getHouse();
+    if (house && house.ai) {
+      house.ai.onScoutingFailed(this.targetZone, this.purpose);
     }
   }
 
@@ -931,11 +1047,13 @@ class ScoutingParty {
     // Clear scouting party references
     if (this.leader) {
       this.leader.scoutingParty = null;
+      this.leader.scoutingMoveTarget = null;
     }
     
     this.backupUnits.forEach(unit => {
       if (unit) {
         unit.scoutingParty = null;
+        unit.scoutingMoveTarget = null;
         if (unit.followBehavior) {
           unit.followBehavior = null;
         }
@@ -943,10 +1061,11 @@ class ScoutingParty {
     });
 
     // Remove from faction's active parties
-    if (this.leader && this.leader.house && this.leader.house.ai && this.leader.house.ai.militaryManager) {
-      const index = this.leader.house.ai.militaryManager.scoutingParties.indexOf(this);
+    const house = this.getHouse();
+    if (house && house.ai && house.ai.militaryManager) {
+      const index = house.ai.militaryManager.scoutingParties.indexOf(this);
       if (index > -1) {
-        this.leader.house.ai.militaryManager.scoutingParties.splice(index, 1);
+        house.ai.militaryManager.scoutingParties.splice(index, 1);
       }
     }
   }

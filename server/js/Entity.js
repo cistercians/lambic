@@ -22,6 +22,16 @@
 
 const dependencyInjector = require('./core/DependencyInjector');
 const movementSystem = require('./core/MovementSystem');
+const {
+  clearPatrolAssignment,
+  getActivePatrolBuilding,
+  updatePatrolProgress
+} = require('./ai/PatrolUtils');
+const {
+  calculateFoodSupport,
+  chooseUnitClass,
+  countMilitaryUnits
+} = require('./ai/MilitaryRecruitmentRules');
 
 function getSocialSystem() {
   try {
@@ -523,10 +533,17 @@ Building = function(param){
           delete self.assignedSpots[id];
           continue;
         }
+        const assignedSpot = self.assignedSpots[id];
+        const serfAssignedSpot = serf.work && serf.work.assignedSpot;
+        if(Array.isArray(assignedSpot) && Array.isArray(serfAssignedSpot) &&
+           (assignedSpot[0] !== serfAssignedSpot[0] || assignedSpot[1] !== serfAssignedSpot[1])) {
+          delete self.assignedSpots[id];
+          continue;
+        }
         // Check if serf is idle for extended period (possible stuck/abandoned assignment)
         if(serf.mode === 'idle' && serf.action === null) {
           // Check how long serf has been idle (if tracking available)
-          const idleTime = serf._lastWorkAttemptAt ? (Date.now() - serf._lastWorkAttemptAt) : 0;
+          const idleTime = serf._lastWorkAttemptAt ? (Date.now() - serf._lastWorkAttemptAt) : Infinity;
           // If idle for more than 30 seconds, release the spot
           if(idleTime > 30000) {
             delete self.assignedSpots[id];
@@ -544,6 +561,11 @@ Building = function(param){
       }
       var serf = Player.list ? Player.list[id] : null;
       if(!serf || !serf.work || serf.work.hq !== self.id){
+        delete self.assignedSpots[id];
+        continue;
+      }
+      if(Array.isArray(serf.work.assignedSpot) &&
+         (serf.work.assignedSpot[0] !== assigned[0] || serf.work.assignedSpot[1] !== assigned[1])){
         delete self.assignedSpots[id];
         continue;
       }
@@ -2588,83 +2610,59 @@ Garrison = function(param){
         return;
       }
       
-      // Determine unit type based on faction progression and buildings (check early)
-      var progression = FACTION_UNIT_PROGRESSION[house.name];
-      // Fallback to Player progression for unknown faction names (player-created houses)
-      if(!progression && FACTION_UNIT_PROGRESSION['Player']){
-        progression = FACTION_UNIT_PROGRESSION['Player'];
-        if(global.console && global.console.log){
-          console.log('[Garrison] Using Player progression as fallback for faction', house.name);
-        }
-      }
-      var unitClass;
-      var grain = house.stores.grain || 0;
-      var fish = house.stores.fish || 0;
-      var wood = house.stores.wood || 0;
-      
-      // Count current military units for this house
-      var militaryCount = 0;
-      for(var id in Player.list){
-        var unit = Player.list[id];
-        if(unit && unit.military && unit.house === house.id){
-          militaryCount++;
-        }
-      }
-      
+      var stores = house.stores || {};
+      var grain = stores.grain || 0;
+      var militaryCount = countMilitaryUnits(house.id, Player.list);
+      var support = calculateFoodSupport(stores, militaryCount);
+
       // Surplus resource validation for automatic training (units are FREE, but need surplus food)
       // Each unit requires 10 food in stores to be supported
-      var requiredReserve = militaryCount * 10; // Food needed to support existing units
-      var totalFood = grain + fish; // Total available food
-      var surplusFood = totalFood - requiredReserve; // Food available after reserving for existing units
-      
       // Check if we have surplus to support a new unit
-      if(surplusFood < 10){
+      if(!support.canSupport){
         if(global.console && global.console.log){
           console.log('[Garrison] Production failed: Insufficient surplus food', {
             house: house.name,
             militaryCount: militaryCount,
-            totalFood: totalFood,
-            requiredReserve: requiredReserve,
-            surplusFood: surplusFood,
-            required: 10
+            totalFood: support.totalFood,
+            requiredReserve: support.requiredReserve,
+            surplusFood: support.surplusFood,
+            required: support.requiredSurplus
           });
         }
         return; // Can't train - not enough surplus
       }
-      
+
       // If surplusFood < 0, faction is over-extended (more units than food supports)
-      if(surplusFood < 0){
+      if(support.surplusFood < 0){
         if(global.console && global.console.log){
           console.log('[Garrison] Production failed: Over-extended (more units than food supports)', {
             house: house.name,
             militaryCount: militaryCount,
-            totalFood: totalFood,
-            requiredReserve: requiredReserve,
-            surplusFood: surplusFood
+            totalFood: support.totalFood,
+            requiredReserve: support.requiredReserve,
+            surplusFood: support.surplusFood
           });
         }
         return; // Can't train - over-extended
       }
-      
-      if(progression){
-        // Check if stronghold exists (produces elite units)
-        if(house.hasStronghold && progression.elite){
-          unitClass = progression.elite;
-        } else {
-          // No stronghold, produce basic units
-          var basicUnits = progression.basic;
-          if(!basicUnits || basicUnits.length === 0){
-            if(global.console && global.console.log){
-              console.log('[Garrison] Production failed: No basic units defined for progression', house.name);
-            }
-            return;
+
+      var unitSelection = chooseUnitClass(house, {
+        progressionTable: FACTION_UNIT_PROGRESSION,
+        basicUnitTable: FACTION_BASIC_UNITS
+      });
+      var unitClass = unitSelection.unitClass;
+
+      if(unitSelection.usedPlayerFallback && global.console && global.console.log){
+        console.log('[Garrison] Using Player unit progression as fallback for faction', house.name);
+      }
+
+      if(unitSelection.source === 'progression'){
+        if(!unitClass){
+          if(global.console && global.console.log){
+            console.log('[Garrison] Production failed: No basic units defined for progression', house.name);
           }
-          unitClass = basicUnits[Math.floor(Math.random() * basicUnits.length)];
+          return;
         }
-        
-        // Automatic training is FREE - no resource consumption
-        // Units are included in garrison building cost
-        // Only surplus food check is required (already validated above)
       } else {
         // Fallback for factions without progression defined (use old system)
         // Requires 10 grain
@@ -2678,30 +2676,17 @@ Garrison = function(param){
           }
           return;
         }
-        
-        var factionUnits = FACTION_BASIC_UNITS[house.name];
-        // Fallback to Player progression basic units for unknown faction names
-        if(!factionUnits || factionUnits.length === 0){
-          if(FACTION_UNIT_PROGRESSION['Player'] && FACTION_UNIT_PROGRESSION['Player'].basic){
-            factionUnits = FACTION_UNIT_PROGRESSION['Player'].basic;
-            if(global.console && global.console.log){
-              console.log('[Garrison] Using Player basic units as fallback for faction', house.name);
-            }
-          } else {
-            if(global.console && global.console.log){
-              console.log('[Garrison] Production failed: No faction units defined', house.name);
-            }
-            return;
+
+        if(!unitClass){
+          if(global.console && global.console.log){
+            console.log('[Garrison] Production failed: No faction units defined', house.name);
           }
+          return;
         }
-        
-        var randomIndex = Math.floor(Math.random() * factionUnits.length);
-        unitClass = factionUnits[randomIndex];
-        
-        // Automatic training is FREE - no resource consumption
-        // Units are included in garrison building cost
-        // Only surplus food check is required (already validated above)
       }
+
+      // Automatic training is FREE - no resource consumption.
+      // Units are included in garrison building cost; food acts as support capacity.
       
       // Spawn location
       var sp = self.plot[7] || self.plot[0];
@@ -2767,7 +2752,10 @@ Garrison = function(param){
                 enabled: true,
                 targetTiles: {}, // Cache of chosen patrol points per building
                 idleTimer: 0,
-                resumePoint: null
+                resumePoint: null,
+                currentBuildingId: null,
+                currentTargetTile: null,
+                progress: null
               };
               
               // Create military recruitment event
@@ -4273,6 +4261,19 @@ Character = function(param){
 
   self.shouldRequestPath = function(tz, tc, tr){
     if(!self.path || !self.pathEnd){
+      if(self.type === 'npc' && !self.action && (self.mode === 'idle' || self.mode === 'patrol') && self._lastPathRequest){
+        var recentRequest = self._lastPathRequest;
+        if(recentRequest.z === tz &&
+           recentRequest.loc &&
+           recentRequest.loc[0] === tc &&
+           recentRequest.loc[1] === tr){
+          var requestAge = Date.now() - recentRequest.at;
+          var requestDistance = Math.sqrt(Math.pow(self.x - recentRequest.x, 2) + Math.pow(self.y - recentRequest.y, 2));
+          if(requestAge < 250 && requestDistance < 8){
+            return false;
+          }
+        }
+      }
       return true;
     }
     if(self.pathEnd.z !== tz){
@@ -4371,6 +4372,45 @@ Character = function(param){
     
     return null;
   }
+
+  function isSerfWorker(entity) {
+    return !!(entity && entity.type === 'npc' && (entity.class === 'Serf' || entity.class === 'SerfM' || entity.class === 'SerfF'));
+  }
+
+  function recordSerfAiEvent(entity, action, metadata, throttleMs) {
+    if (!isSerfWorker(entity) || !global.eventManager || typeof global.eventManager.aiEvent !== 'function') return;
+    if (throttleMs && throttleMs > 0) {
+      var reasonKey = metadata && (metadata.reason || metadata.recovery || metadata.status || 'default');
+      var throttleKey = action + ':' + reasonKey;
+      if (!entity._serfAiEventThrottle) {
+        entity._serfAiEventThrottle = {};
+      }
+      var now = Date.now();
+      if (entity._serfAiEventThrottle[throttleKey] && (now - entity._serfAiEventThrottle[throttleKey]) < throttleMs) {
+        return;
+      }
+      entity._serfAiEventThrottle[throttleKey] = now;
+    }
+    var houseName = entity.house && global.House && global.House.list && global.House.list[entity.house]
+      ? (global.House.list[entity.house].name || null)
+      : null;
+    global.eventManager.aiEvent(action, {
+      subject: entity.id,
+      subjectName: entity.name || entity.class || 'Serf',
+      house: entity.house || null,
+      houseName: houseName,
+      metadata: Object.assign({
+        mode: entity.mode || null,
+        action: entity.action || null,
+        z: typeof entity.z === 'number' ? entity.z : null,
+        transitionIntent: entity.transitionIntent || null,
+        targetZ: entity.targetZLevel || null,
+        workHq: entity.work && entity.work.hq ? entity.work.hq : null
+      }, metadata || {})
+    });
+  }
+
+  global.selectCaveEntrance = selectCaveEntrance;
 
   self.moveTo = function(tz,tc,tr){
     var loc = getLoc(self.x,self.y);
@@ -4503,6 +4543,11 @@ Character = function(param){
               if(serfLogger){
                 serfLogger.debug(`[moveTo] Blocking cave re-entry: serf=${self.id} justExited=${justExitedCave} state=${self.serfState}`, self);
               }
+              recordSerfAiEvent(self, 'serf cave transition blocked', {
+                reason: 'recent_cave_exit',
+                justExitedCave: !!justExitedCave,
+                serfState: self.serfState || null
+              }, 2000);
               return; // Don't enter cave - caller should retry with z=0
             }
             
@@ -4531,6 +4576,12 @@ Character = function(param){
             if (caveEntrance && Array.isArray(caveEntrance) && caveEntrance.length >= 2) {
               // Store for later use (exit pathfinding)
               self.caveEntrance = caveEntrance;
+              recordSerfAiEvent(self, 'serf cave entrance selected', {
+                recovery: 'cave_entrance_selected',
+                entrance: caveEntrance,
+                preferredEntrance: preferredEntrance && Array.isArray(preferredEntrance) ? preferredEntrance : null,
+                finalTarget: self.targetLoc && Array.isArray(self.targetLoc) ? self.targetLoc : null
+              }, 1000);
               // Redirect target to cave entrance
               tLoc = caveEntrance;
               
@@ -4540,12 +4591,22 @@ Character = function(param){
                 // Path will be requested again after cooldown expires
                 // Don't clear intent, just delay pathfinding
                 // Note: targetLoc is preserved for retry after cooldown
+                recordSerfAiEvent(self, 'serf cave transition blocked', {
+                  reason: 'mine_exit_cooldown',
+                  entrance: caveEntrance,
+                  cooldown: self.mineExitCooldown
+                }, 2000);
                 return;
               }
 
               // Use pathfinding to reach the entrance instead of greedy movement
               if (self.shouldRequestPath(self.z, tLoc[0], tLoc[1])) {
                 self.getPath(self.z, tLoc[0], tLoc[1]);
+                recordSerfAiEvent(self, 'serf cave approach path requested', {
+                  recovery: 'cave_approach_path_requested',
+                  entrance: caveEntrance,
+                  pathLen: self.path ? self.path.length : 0
+                }, 1000);
                 // #region agent log
                 (function(){
                   const now = Date.now();
@@ -4558,9 +4619,19 @@ Character = function(param){
                 if (self.path) {
                   return;
                 }
+                recordSerfAiEvent(self, 'serf cave transition blocked', {
+                  reason: 'no_surface_path_to_cave',
+                  entrance: caveEntrance,
+                  finalTarget: self.targetLoc && Array.isArray(self.targetLoc) ? self.targetLoc : null
+                }, 2000);
               }
             } else {
               // No cave entrance found - cannot path to cave
+              recordSerfAiEvent(self, 'serf cave transition blocked', {
+                reason: 'missing_cave_entrance',
+                preferredEntrance: preferredEntrance && Array.isArray(preferredEntrance) ? preferredEntrance : null,
+                finalTarget: self.targetLoc && Array.isArray(self.targetLoc) ? self.targetLoc : null
+              }, 2000);
               self.targetLoc = null;
               return;
             }
@@ -5401,6 +5472,9 @@ Character = function(param){
             self.transitionIntent = 'enter_cave';
           }
         }
+        else if(isSerfWorker(self) && self.mode === 'work' && !self.transitionIntent){
+          self.transitionIntent = 'enter_cave';
+        }
         
         // Check intent to enter cave (cooldown check moved to moveTo())
         // For idle NPCs, allow transition even if not at path destination
@@ -5409,8 +5483,28 @@ Character = function(param){
           canTransition = !self.zTransitionHalt && self.isAtPathDestination();
         } else if(self.type === 'npc' && self.mode === 'idle'){
           canTransition = true; // Idle NPCs can transition when on cave entrance
+        } else if(isSerfWorker(self) && self.transitionIntent === 'enter_cave'){
+          var atEntranceTile = (getTile(0, loc[0], loc[1]) == 6);
+          var pathMatchesEntrance = self.isAtPathDestination();
+          canTransition = atEntranceTile || pathMatchesEntrance;
+          if(atEntranceTile && !pathMatchesEntrance){
+            recordSerfAiEvent(self, 'serf cave entrance reached', {
+              recovery: 'cave_entrance_reached',
+              entrance: [loc[0], loc[1]],
+              pathMatches: pathMatchesEntrance,
+              status: 'transition_without_path_match'
+            }, 2000);
+          }
         } else {
           canTransition = self.isAtPathDestination();
+        }
+
+        if(isSerfWorker(self) && self.transitionIntent === 'enter_cave' && !canTransition){
+          recordSerfAiEvent(self, 'serf cave transition blocked', {
+            reason: 'entrance_waiting_for_path',
+            entrance: [loc[0], loc[1]],
+            pathLen: self.path ? self.path.length : 0
+          }, 2000);
         }
         
         if(self.transitionIntent === 'enter_cave' && canTransition){
@@ -5419,6 +5513,11 @@ Character = function(param){
           var previousTargetLoc = self.targetLoc;
           
           self.enterCave(loc);
+          recordSerfAiEvent(self, 'serf cave entered', {
+            recovery: 'cave_entered',
+            entrance: [loc[0], loc[1]],
+            continuedTarget: previousTargetLoc && Array.isArray(previousTargetLoc) ? previousTargetLoc : null
+          }, 1000);
           
           // If we were pathfinding to a location in the cave, continue pathfinding
           if(previousTargetZ === -1 && previousTargetLoc && Array.isArray(previousTargetLoc) && previousTargetLoc.length >= 2){
@@ -5427,6 +5526,11 @@ Character = function(param){
             self.targetZLevel = null;
             // Continue pathfinding to final destination in cave
             self.moveTo(-1, previousTargetLoc[0], previousTargetLoc[1]);
+            recordSerfAiEvent(self, 'serf cave path continued', {
+              recovery: 'cave_path_continued',
+              continuedTarget: previousTargetLoc,
+              pathLen: self.path ? self.path.length : 0
+            }, 1000);
             // Clear stored target after use
             self.targetLoc = null;
           }
@@ -5684,6 +5788,12 @@ Character = function(param){
             self.transitionIntent = 'exit_building';
           }
         }
+        // For serfs in work mode, ensure intent is set if missing.
+        // This mirrors the cave-exit recovery path and lets workers resume
+        // surface jobs after waking up inside huts/buildings.
+        else if(self.type === 'npc' && (self.class === 'Serf' || self.class === 'SerfM' || self.class === 'SerfF') && self.mode === 'work' && !self.transitionIntent){
+          self.transitionIntent = 'exit_building';
+        }
         
         // Check intent to exit building
         // Also verify zTransitionHalt is not active (second layer of protection)
@@ -5693,6 +5803,8 @@ Character = function(param){
           canTransition = !self.zTransitionHalt && self.isAtPathDestination();
         } else if(self.type === 'npc' && self.mode === 'idle'){
           canTransition = true; // Idle NPCs can transition when on building exit
+        } else if(self.type === 'npc' && (self.class === 'Serf' || self.class === 'SerfM' || self.class === 'SerfF') && self.transitionIntent === 'exit_building'){
+          canTransition = self.isAtPathDestination() || (getTile(0,loc[0],loc[1] - 1) == 14 || getTile(0,loc[0],loc[1] - 1) == 16  || getTile(0,loc[0],loc[1] - 1) == 19);
         } else {
           canTransition = self.isAtPathDestination();
         }
@@ -6064,13 +6176,17 @@ Character = function(param){
             currentIndex: 0,
             idleTimer: 0,
             idleDuration: Math.floor(Math.random() * 600) + 300,
-            resumePoint: null
+            resumePoint: null,
+            currentBuildingId: null,
+            currentTargetTile: null,
+            progress: null
           };
         }
         
         if(!self.action){
           // Safety check: ensure house exists
           if(!self.house || !House.list[self.house]){
+            clearPatrolAssignment(self.patrol, { keepCachedTile: true });
             self.mode = 'idle';
             self.action = null;
             return;
@@ -6081,6 +6197,7 @@ Character = function(param){
           if(!house || !house.patrolBuildings || house.patrolBuildings.length === 0){
             // No strategic buildings to patrol
             if(self.mode !== 'idle'){
+              clearPatrolAssignment(self.patrol, { keepCachedTile: true });
               self.mode = 'idle';
             }
             return;
@@ -6123,18 +6240,16 @@ Character = function(param){
             if(buildingsInTerritory.length === 0){
               // No buildings within territory, switch to idle
               if(self.mode !== 'idle'){
+                clearPatrolAssignment(self.patrol, { keepCachedTile: true });
                 self.mode = 'idle';
               }
               return;
             }
             
-            // Pick a RANDOM building from those in territory (not nearest - avoids loops)
-            var randomIndex = Math.floor(Math.random() * buildingsInTerritory.length);
-            var targetBuilding = buildingsInTerritory[randomIndex];
-            
-            // Initialize stuck detection tracking
-            if(!self.patrol.lastTarget){
-              self.patrol.lastTarget = {building: null, tile: null, attempts: 0};
+            var targetBuilding = getActivePatrolBuilding(self.patrol, buildingsInTerritory);
+            if(!targetBuilding){
+              clearPatrolAssignment(self.patrol, { keepCachedTile: true });
+              return;
             }
             
             // Pick a walkable tile near the building
@@ -6143,7 +6258,11 @@ Character = function(param){
             }
             
             var buildingLoc;
-            if(!self.patrol.targetTiles[targetBuilding.id]){
+            if(self.patrol.currentBuildingId === targetBuilding.id &&
+               Array.isArray(self.patrol.currentTargetTile) &&
+               self.patrol.currentTargetTile.length === 2){
+              buildingLoc = self.patrol.currentTargetTile;
+            } else if(!self.patrol.targetTiles[targetBuilding.id]){
               // First visit - pick a random walkable tile near building
               var baseTile = targetBuilding.plot[0];
               var patrolRange = 3;
@@ -6173,34 +6292,39 @@ Character = function(param){
             } else {
               buildingLoc = self.patrol.targetTiles[targetBuilding.id];
             }
-            
-            // Stuck detection: If same target for too long, try different building
-            if(self.patrol.lastTarget.building === targetBuilding.id && 
-               self.patrol.lastTarget.tile && 
-               self.patrol.lastTarget.tile.toString() === buildingLoc.toString()){
-              self.patrol.lastTarget.attempts++;
-              if(self.patrol.lastTarget.attempts > 60){ // 1 second at 60fps
-                // Try different building - clear this target and reset
-                delete self.patrol.targetTiles[targetBuilding.id];
-                self.patrol.lastTarget = {building: null, tile: null, attempts: 0};
-                return; // Skip this frame, try again next frame
-              }
-            } else {
-              // New target, reset counter
-              self.patrol.lastTarget = {building: targetBuilding.id, tile: buildingLoc, attempts: 0};
-            }
+            self.patrol.currentBuildingId = targetBuilding.id;
+            self.patrol.currentTargetTile = buildingLoc;
             
             // Check distance to chosen patrol tile instead of building center
             var patrolTileCenter = getCenter(buildingLoc[0], buildingLoc[1]);
             var patrolDist = self.getDistance({x: patrolTileCenter[0], y: patrolTileCenter[1]});
+            var patrolProgress = updatePatrolProgress(self.patrol, {
+              buildingId: targetBuilding.id,
+              tile: buildingLoc,
+              distance: patrolDist,
+              position: { x: self.x, y: self.y },
+              hasPath: !!(self.path && self.path.length > 0)
+            });
+            if(patrolProgress.stalled){
+              if(global.debugPatrol && self.military){
+                console.log(`[PATROL] ${self.class || self.name || self.id} clearing stalled patrol target building=${targetBuilding.id} tile=[${buildingLoc[0]},${buildingLoc[1]}] frames=${patrolProgress.framesWithoutProgress}`);
+              }
+              clearPatrolAssignment(self.patrol);
+              self.path = null;
+              self.pathCount = 0;
+              self.pathEnd = null;
+              return;
+            }
             
             // Check if arrived at patrol tile (within 2 tiles)
             if(patrolDist <= tileSize * 2){
               // Arrived - start idle timer
               self.patrol.idleTimer = Math.floor(Math.random() * 600) + 300; // 5-15 seconds
               
-              // Clear target so next patrol picks a new random building
-              delete self.patrol.targetTiles[targetBuilding.id];
+              if(global.debugPatrol && self.military){
+                console.log(`[PATROL] ${self.class || self.name || self.id} reached patrol target building=${targetBuilding.id} tile=[${buildingLoc[0]},${buildingLoc[1]}]`);
+              }
+              clearPatrolAssignment(self.patrol);
             } else {
               // Path to building - buildings are always on z=0 (overworld)
               var targetZ = 0;
@@ -6218,6 +6342,9 @@ Character = function(param){
                      self.pathEnd.loc[0] !== buildingLoc[0] || 
                      self.pathEnd.loc[1] !== buildingLoc[1] ||
                      self.pathEnd.z !== targetZ){
+                    if(global.debugPatrol && self.military){
+                      console.log(`[PATROL] ${self.class || self.name || self.id} assigning patrol target building=${targetBuilding.id} tile=[${buildingLoc[0]},${buildingLoc[1]}] path=${self.path ? self.path.length : 0}`);
+                    }
                     self.moveTo(targetZ, buildingLoc[0], buildingLoc[1]);
                   }
                 }
@@ -6564,6 +6691,13 @@ Character = function(param){
     if(self.pathCooldown && self.pathCooldown > 0 && !isMultiZTransition && !isProcessingWaypoint && !isDepositMove){
       return; // Skip pathfinding while on cooldown
     }
+    self._lastPathRequest = {
+      z: z,
+      loc: [c, r],
+      x: self.x,
+      y: self.y,
+      at: Date.now()
+    };
     
     self.pathEnd = {z:z,loc:[c,r]};
     self.pathLocked = false; // Clear path lock when starting new pathfinding
@@ -6573,6 +6707,26 @@ Character = function(param){
     var b = getBuilding(cst[0],cst[1]);
     var cd = getCenter(c,r);
     var db = getBuilding(cd[0],cd[1]);
+    var requestTransitionPath = function(layer, destination, options, shouldSmooth){
+      var pathOptions = options || {};
+      var cacheOptions = Object.assign({ layer: layer }, pathOptions);
+      var cachedPath = getCachedPath(start, destination, z, self, cacheOptions);
+      if(cachedPath){
+        self.path = cachedPath;
+        self.pathCount = 0;
+        return true;
+      }
+      var path = findPathContextAware(start, destination, layer, pathOptions, self);
+      if(path && path.length > 0){
+        if(shouldSmooth !== false){
+          path = smoothPath(path, z);
+        }
+        cachePath(start, destination, z, path, self, cacheOptions);
+      }
+      self.path = path;
+      self.pathCount = 0;
+      return !!(path && path.length > 0);
+    };
     
     // Use multi-z pathfinding for complex journeys (including single-level transitions)
     var zDiff = Math.abs(z - self.z);
@@ -6916,7 +7070,6 @@ Character = function(param){
           }
         }
       } else if(self.z == 1){ // indoors
-        //var gridB1b = cloneGrid(1);
         // Safety check: ensure building exists
         if(!b || !Building.list[b]){
           self.path = null;
@@ -6932,9 +7085,10 @@ Character = function(param){
               return;
             }
             var stairs = Building.list[b].ustairs;
-            //var path = finder.findPath(start[0], start[1], stairs[0], stairs[1], gridB1b);
-            //self.path = path;
-            self.moveTo(stairs);
+            requestTransitionPath(3, stairs, {
+              targetStairs: stairs,
+              avoidStairs: true
+            });
           } else if(z == -2){ // to cellar/dungeon
             // Safety check: ensure building has dstairs
             if(!Building.list[b].dstairs){
@@ -6943,9 +7097,10 @@ Character = function(param){
               return;
             }
             var stairs = Building.list[b].dstairs;
-            //var path = finder.findPath(start[0], start[1], stairs[0], stairs[1], gridB1b);
-            //self.path = path;
-            self.moveTo(stairs);
+            requestTransitionPath(3, stairs, {
+              targetStairs: stairs,
+              avoidStairs: true
+            });
           } else { // outdoors
             // Safety check: ensure building has entrance
             if(!Building.list[b].entrance){
@@ -6954,9 +7109,11 @@ Character = function(param){
               return;
             }
             var exit = Building.list[b].entrance;
-            //var path = finder.findPath(start[0], start[1], exit[0], exit[1]+1, gridB1b);
-            //self.path = path;
-            self.moveTo([exit[0],exit[1]+1]);
+            var exitTarget = [exit[0],exit[1]+1];
+            requestTransitionPath(3, exitTarget, {
+              allowSpecificDoor: true,
+              targetDoor: exitTarget
+            });
           }
         } else {
           // Safety check: ensure building has entrance
@@ -6966,9 +7123,11 @@ Character = function(param){
             return;
           }
           var exit = Building.list[b].entrance;
-          //var path = finder.findPath(start[0], start[1], exit[0], exit[1]+1, gridB1b);
-          //self.path = path;
-          self.moveTo([exit[0],exit[1]+1]);
+          var exitTarget = [exit[0],exit[1]+1];
+          requestTransitionPath(3, exitTarget, {
+            allowSpecificDoor: true,
+            targetDoor: exitTarget
+          });
         }
       } else if(self.z == 2){ // upstairs
         // Safety check: ensure building exists and has ustairs
@@ -6977,11 +7136,11 @@ Character = function(param){
           self.pathCount = 0;
           return;
         }
-        //var gridB2b = cloneGrid(2);
         var stairs = Building.list[b].ustairs;
-        //var path = finder.findPath(start[0], start[1], stairs[0], stairs[1], gridB2b);
-        //self.path = path;
-        self.moveTo(stairs);
+        requestTransitionPath(5, stairs, {
+          targetStairs: stairs,
+          avoidStairs: true
+        });
       } else if(self.z == -2){ // cellar/dungeon
         // Safety check: ensure building exists and has dstairs
         if(!b || !Building.list[b] || !Building.list[b].dstairs){
@@ -6989,11 +7148,11 @@ Character = function(param){
           self.pathCount = 0;
           return;
         }
-        //var gridB3b = cloneGrid(-2);
         var stairs = Building.list[b].dstairs;
-        //var path = finder.findPath(start[0], start[1], stairs[0], stairs[1], gridB3b);
-        //self.path = path;
-        self.moveTo(stairs);
+        requestTransitionPath(8, stairs, {
+          targetStairs: stairs,
+          avoidStairs: true
+        });
       } else if(self.z == -3){ // underwater
         // Use proper pathfinding for underwater (layer 2)
         var path = findPathContextAware(start, [c,r], 2, {}, self);
@@ -9633,6 +9792,7 @@ Serf = function(param){
   self.tether = null; // {z,loc}
   self.tavern = param.tavern;
   self.hut = param.hut;
+  self._personalHutId = param.hut || null;
   self.work = param.work || {hq:null, spot:null, assignedSpot:null, workTile:null, workTileFor:null};
   if (!self.work.workTile) {
     self.work.workTile = null;
@@ -10253,6 +10413,7 @@ Innkeeper = function(param){
   self.name = param.name;
   self.class = 'Innkeeper';
   self.sex = 'm';
+  self.tavern = param.tavern || null;
   self.spriteSize = tileSize*1.5;
   self.baseSpd = 3;
   self.runSpd = 5; // Innkeeper run speed
@@ -10261,6 +10422,10 @@ Innkeeper = function(param){
   self.unarmed = true;
   self.isNonCombatant = true; // Civilian NPC
   self.leashCheckTimer = 0; // Check leash every 5 seconds (300 frames)
+
+  if(self.tavern && Building.list[self.tavern]){
+    Building.list[self.tavern].innkeeper = self.id;
+  }
   
   var super_update = self.update;
   self.update = function(){
@@ -10290,7 +10455,9 @@ Innkeeper = function(param){
     
     // Call parent update
     super_update();
-  }
+  };
+
+  return self;
 }
 
 Blacksmith = function(param){

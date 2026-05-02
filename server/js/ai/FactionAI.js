@@ -12,7 +12,7 @@ const FactionAILogger = require('./FactionAILogger');
 const ProductionMonitor = require('./services/ProductionMonitor');
 const ResourceBalanceAnalyzer = require('./services/ResourceBalanceAnalyzer');
 const CombatRecorder = require('./services/CombatRecorder');
-const { ScoutForResourceGoal, GatherResourceGoal, createBuildingGoal, BuildMillGoal, BuildMineGoal, BuildFarmGoal } = require('./Goals');
+const { ScoutForResourceGoal, GatherResourceGoal, createBuildingGoal, BuildMillGoal, BuildMineGoal, BuildFarmGoal, BuildLumbermillGoal, BuildGuardtowerGoal } = require('./Goals');
 const OutpostPlanner = require('./OutpostPlanner');
 const {
   UTILITY_THRESHOLDS,
@@ -62,6 +62,8 @@ class FactionAI {
     
     // Fallback goal suggestions (from location blocking)
     this.suggestedFallbackGoals = new Set(); // Set of goal suggestions like "SCOUT_FOR_RESOURCE:stone"
+    this._pendingOutpostGoals = [];
+    this._outpostPlanKeys = new Set();
     
     // Load faction profile and strategy (use house.name for faction type)
     this.profile = FactionProfiles[house.name] || FactionProfiles.Goths;
@@ -131,6 +133,16 @@ class FactionAI {
     const baseName = factionName.replace(/\s+\d+$/, '').trim(); // Remove trailing numbers
     return excludedFactions.includes(baseName);
   }
+
+  // Ongoing operations need a higher cadence than daily goal selection.
+  updateOngoingOperations() {
+    if (!this.militaryManager) {
+      return;
+    }
+
+    this.militaryManager.updateScoutingParties();
+    this.militaryManager.updateAttackForces();
+  }
   
   // Called once per in-game day
   evaluateAndAct() {
@@ -144,6 +156,7 @@ class FactionAI {
       } else {
         console.log(`[FactionAI] ${factionName}: evaluateAndAct() called but already evaluated today (Day ${day})`);
       }
+      this.updateOngoingOperations();
       return;
     }
     this.lastEvaluatedDay = day;
@@ -204,6 +217,7 @@ class FactionAI {
       this.logger.collectInfo(`Continuing goal chain: ${this.currentGoalChain.getCurrentGoal()?.type || 'none'}`);
       this.executeCurrentGoal();
       this.logger.updateGoalChain(this.currentGoalChain);
+      this.updateOngoingOperations();
       this.logger.generateReport();
       this.logger.clearReport();
       return;
@@ -226,6 +240,7 @@ class FactionAI {
           this.currentGoalChain = GoalChain.create(this.house, recoveryGoal, this.logger);
           this.executeCurrentGoal();
           this.logger.updateGoalChain(this.currentGoalChain);
+          this.updateOngoingOperations();
           this.logger.generateReport();
           this.logger.clearReport();
           return;
@@ -246,8 +261,7 @@ class FactionAI {
     }
     
     // Update active scouting parties and attack forces
-    this.militaryManager.updateScoutingParties();
-    this.militaryManager.updateAttackForces();
+    this.updateOngoingOperations();
     
     // Update goal chain info and generate report
     if (this.currentGoalChain) {
@@ -326,6 +340,7 @@ class FactionAI {
     // Include pending recovery goals from production monitoring (only for economic factions)
     const recoveryGoals = isNonEconomic ? [] : (this._pendingRecoveryGoals || []);
     this._pendingRecoveryGoals = [];
+    const outpostGoals = isNonEconomic ? [] : (this._pendingOutpostGoals.length > 0 ? [this._pendingOutpostGoals.shift()] : []);
     
     // Check for suggested fallback goals (from location blocking) - skip for non-economic factions
     const fallbackScoutGoals = [];
@@ -348,6 +363,7 @@ class FactionAI {
       ...expansionGoals,
       ...resourceScoutingGoals,
       ...defenseGoals,
+      ...outpostGoals,
       ...recoveryGoals,
       ...fallbackScoutGoals
     ];
@@ -418,8 +434,8 @@ class FactionAI {
         return false;
       }
       
-      if (this.shouldAvoidGoal(g.type)) {
-        const history = this.goalFailureHistory.get(g.type);
+      if (this.shouldAvoidGoal(g)) {
+        const history = this.getGoalHistory(g);
         const isAbandoned = history && history.abandoned;
         const reason = isAbandoned 
           ? 'abandoned due to excessive failures' 
@@ -447,7 +463,7 @@ class FactionAI {
       
       if (g.canPlace && typeof g.canPlace === 'function') {
         if (!g.canPlace(this.house)) {
-          this.recordLocationBlocking(g.type);
+          this.recordLocationBlocking(g);
           
           if (isHighValueGoal || isHighUtility || isForced) {
             const hasLocationBlock = g.blockedBy.some(b => b.type === 'LOCATION');
@@ -481,6 +497,30 @@ class FactionAI {
         console.log(`[FactionAI] ${factionName}: Top goals: ${topGoals}`);
       }
     }
+  }
+
+  getGoalHistoryKey(goalOrType) {
+    if (!goalOrType) {
+      return 'unknown';
+    }
+    if (typeof goalOrType === 'string') {
+      return goalOrType;
+    }
+    if (typeof goalOrType.getFailureHistoryKey === 'function') {
+      return goalOrType.getFailureHistoryKey();
+    }
+    return goalOrType.type || 'unknown';
+  }
+
+  getGoalHistory(goalOrType) {
+    const historyKey = this.getGoalHistoryKey(goalOrType);
+    if (this.goalFailureHistory.has(historyKey)) {
+      return this.goalFailureHistory.get(historyKey);
+    }
+    if (typeof goalOrType !== 'string' && goalOrType?.type) {
+      return this.goalFailureHistory.get(goalOrType.type);
+    }
+    return undefined;
   }
   
   // Adjust utilities with failure penalties and sort
@@ -697,9 +737,10 @@ class FactionAI {
   }
   
   // Record goal failure for adaptive learning
-  recordGoalFailure(goalType) {
+  recordGoalFailure(goalOrType) {
     const day = global.day || 1;
-    const history = this.goalFailureHistory.get(goalType) || {
+    const historyKey = this.getGoalHistoryKey(goalOrType);
+    const history = this.getGoalHistory(goalOrType) || {
       failureCount: 0,
       lastFailureDay: 0,
       consecutiveFailures: 0,
@@ -740,17 +781,18 @@ class FactionAI {
     history.failureCount++;
     history.lastFailureDay = day;
     
-    this.goalFailureHistory.set(goalType, history);
+    this.goalFailureHistory.set(historyKey, history);
     
     if (this.logger) {
-      this.logger.collectInfo(`Goal failure recorded: ${goalType} (failures: ${history.failureCount}, consecutive: ${history.consecutiveFailures})`);
+      this.logger.collectInfo(`Goal failure recorded: ${historyKey} (failures: ${history.failureCount}, consecutive: ${history.consecutiveFailures})`);
     }
   }
   
   // Record location blocking for a goal (separate from general failures)
-  recordLocationBlocking(goalType) {
+  recordLocationBlocking(goalOrType) {
     const day = global.day || 1;
-    const history = this.goalFailureHistory.get(goalType) || {
+    const historyKey = this.getGoalHistoryKey(goalOrType);
+    const history = this.getGoalHistory(goalOrType) || {
       failureCount: 0,
       lastFailureDay: 0,
       consecutiveFailures: 0,
@@ -767,10 +809,10 @@ class FactionAI {
     history.locationBlockCount++;
     history.lastLocationBlockDay = day;
     
-    this.goalFailureHistory.set(goalType, history);
+    this.goalFailureHistory.set(historyKey, history);
     
     if (this.logger) {
-      this.logger.collectInfo(`Location blocking recorded: ${goalType} (location blocks: ${history.locationBlockCount})`);
+      this.logger.collectInfo(`Location blocking recorded: ${historyKey} (location blocks: ${history.locationBlockCount})`);
     }
   }
   
@@ -812,10 +854,9 @@ class FactionAI {
   // Get adjusted utility based on failure history
   getAdjustedUtility(goal) {
     const baseUtility = goal.utility;
-    const goalType = goal.type;
     const day = global.day || 1;
     
-    const history = this.goalFailureHistory.get(goalType);
+    const history = this.getGoalHistory(goal);
     if (!history) {
       return baseUtility; // No failure history, use base utility
     }
@@ -850,9 +891,10 @@ class FactionAI {
   }
   
   // Check if goal should be abandoned due to repeated failures
-  shouldAbandonGoal(goalType) {
+  shouldAbandonGoal(goalOrType) {
     const day = global.day || 1;
-    const history = this.goalFailureHistory.get(goalType);
+    const historyKey = this.getGoalHistoryKey(goalOrType);
+    const history = this.getGoalHistory(goalOrType);
     
     if (!history) {
       return false;
@@ -867,9 +909,9 @@ class FactionAI {
         history.abandoned = false;
         history.abandonedDay = 0;
         history.consecutiveFailures = 0; // Reset consecutive failures
-        this.goalFailureHistory.set(goalType, history);
+        this.goalFailureHistory.set(historyKey, history);
         if (this.logger) {
-          this.logger.collectInfo(`Goal ${goalType} abandonment reset after cooldown period`);
+          this.logger.collectInfo(`Goal ${historyKey} abandonment reset after cooldown period`);
         }
         return false;
       }
@@ -885,13 +927,13 @@ class FactionAI {
       // Mark as abandoned
       history.abandoned = true;
       history.abandonedDay = day;
-      this.goalFailureHistory.set(goalType, history);
+      this.goalFailureHistory.set(historyKey, history);
       
       if (this.logger) {
         const reason = consecutiveFailures >= FAILURE_THRESHOLDS.GOAL_ABANDONMENT_FAILURES
           ? `${consecutiveFailures} consecutive failures`
           : `${totalFailureDays} total failure days`;
-        this.logger.collectInfo(`Goal ${goalType} abandoned: ${reason}`);
+        this.logger.collectInfo(`Goal ${historyKey} abandoned: ${reason}`);
       }
       
       return true;
@@ -901,16 +943,16 @@ class FactionAI {
   }
   
   // Check if goal should be avoided due to recent failures
-  shouldAvoidGoal(goalType) {
+  shouldAvoidGoal(goalOrType) {
     const day = global.day || 1;
-    const history = this.goalFailureHistory.get(goalType);
+    const history = this.getGoalHistory(goalOrType);
     
     if (!history) {
       return false;
     }
     
     // First check if goal should be abandoned
-    if (this.shouldAbandonGoal(goalType)) {
+    if (this.shouldAbandonGoal(goalOrType)) {
       return true;
     }
     
@@ -1166,11 +1208,97 @@ class FactionAI {
     return this.buildingService.getBuildingCount(buildingType);
   }
 
-  // Plan outpost construction (delegates to OutpostPlanner)
+  getScoutResourceBuildingGoals(resourceType, location) {
+    const resource = resourceType || 'resource_scout';
+    switch (resource) {
+      case 'wood':
+        return [new BuildLumbermillGoal(location)];
+      case 'stone':
+        return [new BuildMineGoal(location, 'stone')];
+      case 'iron':
+      case 'ironore':
+      case 'silver':
+      case 'silverore':
+      case 'gold':
+      case 'goldore':
+        return [new BuildMineGoal(location, 'cave')];
+      case 'grain': {
+        const millGoal = new BuildMillGoal();
+        millGoal.location = location;
+        const farmGoal = new BuildFarmGoal();
+        farmGoal.location = location;
+        return [millGoal, farmGoal];
+      }
+      default:
+        return [];
+    }
+  }
+
+  getScoutGatherGoal(resourceType) {
+    const gatherResource = {
+      wood: 'wood',
+      stone: 'stone',
+      grain: 'grain',
+      iron: 'iron',
+      ironore: 'iron',
+      silver: 'silverore',
+      silverore: 'silverore',
+      gold: 'goldore',
+      goldore: 'goldore'
+    }[resourceType];
+
+    if (!gatherResource) {
+      return null;
+    }
+
+    const goal = new GatherResourceGoal(gatherResource, 50);
+    goal.utility = 85;
+    return goal;
+  }
+
+  enqueueOutpostFollowup(targetZone, resourceType) {
+    if (!targetZone || !targetZone.center) {
+      return false;
+    }
+
+    const zoneId = targetZone.id || `${targetZone.center[0]},${targetZone.center[1]}`;
+    const resource = resourceType || 'resource_scout';
+    const key = `${zoneId}:${resource}`;
+    if (this._outpostPlanKeys.has(key)) {
+      this.logger?.collectInfo(`Outpost follow-up already queued for ${key}`);
+      return false;
+    }
+
+    const location = targetZone.center;
+    const guardtowerGoal = new BuildGuardtowerGoal(location);
+    guardtowerGoal.utility = 95;
+    guardtowerGoal.outpostFollowup = { zoneId, resourceType: resource };
+
+    const resourceGoals = this.getScoutResourceBuildingGoals(resource, location).map(goal => {
+      goal.utility = Math.max(goal.utility || 0, 90);
+      goal.outpostFollowup = { zoneId, resourceType: resource };
+      return goal;
+    });
+
+    const gatherGoal = this.getScoutGatherGoal(resource);
+    const goals = [guardtowerGoal, ...resourceGoals, ...(gatherGoal ? [gatherGoal] : [])];
+    this._pendingOutpostGoals.push(...goals);
+    this._outpostPlanKeys.add(key);
+
+    this.logger?.collectAction('Queued scout outpost follow-up', {
+      reasoning: `${goals.map(goal => goal.type).join(' -> ')} for ${resource} at ${zoneId}`
+    });
+    console.log(`[OUTPOST FOLLOWUP] ${this.house.name}: queued ${goals.map(goal => goal.type).join(' -> ')} for ${resource} at ${zoneId}`);
+    return true;
+  }
+
+  // Plan outpost construction and enqueue actionable follow-up goals
   planOutpost(targetZone, resourceType) {
     try {
       const planner = new OutpostPlanner();
-      return planner.planOutpost(targetZone, resourceType, this.house);
+      const plan = planner.planOutpost(targetZone, resourceType, this.house);
+      this.enqueueOutpostFollowup(targetZone, resourceType);
+      return plan;
     } catch (error) {
       const timestamp = new Date().toISOString();
       console.error(`[FactionAI] [${timestamp}] [${this.house.name}] Error planning outpost:`, error);

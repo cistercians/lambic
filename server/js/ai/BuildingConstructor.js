@@ -38,6 +38,16 @@ class BuildingConstructor {
     const baseName = factionName.replace(/\s+\d+$/, '').trim().toLowerCase();
     return baseName === 'celts';
   }
+
+  getCeltDefensiveTerrain() {
+    const TERRAIN = global.TERRAIN || {
+      HEAVY_FOREST: 1,
+      LIGHT_FOREST: 2,
+      BRUSH: 3,
+      GRASS: 7
+    };
+    return [TERRAIN.HEAVY_FOREST, TERRAIN.LIGHT_FOREST, TERRAIN.BRUSH, TERRAIN.GRASS];
+  }
   
   // Check if a building spot is on forest tiles (HEAVY_FOREST or LIGHT_FOREST)
   isSpotOnForest(spot) {
@@ -901,9 +911,11 @@ class BuildingConstructor {
     
     const tryFindGarrisonSpot = (center) => {
       for (const radius of radii) {
-        const spot = global.tilemapSystem.findBuildingSpot('garrison', center, radius, {
-          excludeTiles: occupiedTiles
-        });
+        const placementOptions = { excludeTiles: occupiedTiles };
+        if (this.isCelts()) {
+          placementOptions.validTerrain = this.getCeltDefensiveTerrain();
+        }
+        const spot = global.tilemapSystem.findBuildingSpot('garrison', center, radius, placementOptions);
         if (spot && spot.plot && spot.plot[0]) {
           console.log(`[GARRISON PLACEMENT] ${factionName}: Found valid garrison location at radius ${radius}`);
           return true;
@@ -957,9 +969,18 @@ class BuildingConstructor {
     
     console.log(`[GUARDTOWER PLACEMENT] ${factionName}: Checking guardtower placement at [${searchCenter[0]}, ${searchCenter[1]}] with tower type ${towerType}, radius ${radius}`);
     
-    const spot = global.tilemapSystem.findBuildingSpot(towerType, searchCenter, radius, {
-      excludeTiles: occupiedTiles
-    });
+    let spot = null;
+    if (this.isCelts()) {
+      spot = this.findBuildingSpotOnForest(towerType, searchCenter, radius + 5, {
+        excludeTiles: occupiedTiles
+      });
+    }
+
+    if (!spot) {
+      spot = global.tilemapSystem.findBuildingSpot(towerType, searchCenter, radius, {
+        excludeTiles: occupiedTiles
+      });
+    }
     
     if (spot !== null && spot.plot && spot.plot[0]) {
       console.log(`[GUARDTOWER PLACEMENT] ${factionName}: Found valid guardtower location`);
@@ -1521,9 +1542,11 @@ class BuildingConstructor {
     
     const tryFindGarrisonSpot = (center) => {
       for (const radius of radii) {
-        spot = global.tilemapSystem.findBuildingSpot('garrison', center, radius, {
-          excludeTiles: occupiedTiles
-        });
+        const placementOptions = { excludeTiles: occupiedTiles };
+        if (this.isCelts()) {
+          placementOptions.validTerrain = this.getCeltDefensiveTerrain();
+        }
+        spot = global.tilemapSystem.findBuildingSpot('garrison', center, radius, placementOptions);
         if (spot) {
           return true;
         }
@@ -1620,9 +1643,18 @@ class BuildingConstructor {
     let spot = null;
     
     for (const radius of radii) {
-      spot = global.tilemapSystem.findBuildingSpot(towerType, searchCenter, radius, {
-        excludeTiles: this.getOccupiedTiles()
-      });
+      const occupiedTiles = this.getOccupiedTiles();
+      if (this.isCelts()) {
+        spot = this.findBuildingSpotOnForest(towerType, searchCenter, radius + 5, {
+          excludeTiles: occupiedTiles
+        });
+      }
+
+      if (!spot) {
+        spot = global.tilemapSystem.findBuildingSpot(towerType, searchCenter, radius, {
+          excludeTiles: occupiedTiles
+        });
+      }
       if (spot) {
         break; // Found a spot, use it
       }

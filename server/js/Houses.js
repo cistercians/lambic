@@ -69,6 +69,62 @@ House = function(param){
   self.baseCenterCoords = getCenter(param.hq[0], param.hq[1]);
   self.baseRadius = 10 * tileSize; // Initial radius, recalculated daily
   self.colonies = []; // Array of colony objects {center, buildings: []}
+
+  self.findHouseBuildingSpot = function(type, center, radius, opts = {}) {
+    if (global.tilemapSystem && typeof global.tilemapSystem.findBuildingSpot === 'function') {
+      return global.tilemapSystem.findBuildingSpot(type, center, radius, opts, self);
+    }
+    return null;
+  };
+
+  self.getHousePlacementDiagnostics = function(type, center, radius, opts = {}) {
+    if (!global.tilemapSystem || typeof global.tilemapSystem.diagnoseBuildingPlacement !== 'function') {
+      return null;
+    }
+
+    const diagnostics = global.tilemapSystem.diagnoseBuildingPlacement(type, center, radius, opts, self);
+    if (!diagnostics) {
+      return null;
+    }
+
+    return {
+      candidateTiles: diagnostics.candidateTiles,
+      validSpots: diagnostics.validSpots,
+      dominantFailure: diagnostics.dominantFailure,
+      isSaturated: diagnostics.isSaturated,
+      topFailures: diagnostics.topFailures
+    };
+  };
+
+  self.bindSpawnedSerfToHut = function(serfId, hutId, workHq) {
+    if (!global.Player || !global.Player.list) return null;
+    const serf = global.Player.list[serfId];
+    if (!serf) return null;
+    serf.hut = hutId;
+    serf._personalHutId = hutId;
+    serf.work = Object.assign({}, serf.work || {}, {
+      hq: workHq || serf.work?.hq || null,
+      spot: null,
+      assignedSpot: null,
+      workTile: null,
+      workTileFor: null
+    });
+    return serf;
+  };
+
+  self.applyWalkableFoundation = function(plot) {
+    const baseTerrain = [];
+    if (!Array.isArray(plot)) return baseTerrain;
+    for (const tile of plot) {
+      if (!Array.isArray(tile) || tile.length !== 2) continue;
+      baseTerrain.push(getTile(0, tile[0], tile[1]));
+      tileChange(0, tile[0], tile[1], 11);
+      // Foundations must remain walkable so builders can stand on-plot while constructing.
+      matrixChange(0, tile[0], tile[1], 0);
+      tileChange(6, tile[0], tile[1], 0);
+    }
+    return baseTerrain;
+  };
   
   // Building tracking for unit production
   self.hasStable = false;
@@ -160,7 +216,10 @@ House = function(param){
               enabled: true,
               targetTiles: {},
               idleTimer: 0,
-              resumePoint: null
+              resumePoint: null,
+              currentBuildingId: null,
+              currentTargetTile: null,
+              progress: null
             };
           }
         }
@@ -438,21 +497,12 @@ Goths = function(param){
     
     
     // Use new building placement system
-    var hutSpot = global.tilemapSystem.findBuildingSpot('gothhut', loc, searchRadius);
+    var hutSpot = self.findHouseBuildingSpot('gothhut', loc, searchRadius);
     
     if(hutSpot){
       var plot = hutSpot.plot;
       var walls = hutSpot.walls;
-      // Store original terrain before changing tiles
-      var baseTerrain = [];
-      for(var i in plot){
-        var p = plot[i];
-        baseTerrain.push(getTile(0, p[0], p[1]));
-        tileChange(0,p[0],p[1],11);
-        // Foundation tiles must remain walkable during construction
-        matrixChange(0,p[0],p[1],0);
-        tileChange(6,p[0],p[1],0);
-      }
+      var baseTerrain = self.applyWalkableFoundation(plot);
       mapEdit();
       var center = getCoords(plot[3][0],plot[3][1]);
       var id = Math.random();
@@ -568,9 +618,9 @@ Goths = function(param){
         }
         serfIds.push(s2);
         Building.list[b].serfs[s1] = s1;
-        Player.list[s1].work = {hq:b,spot:null};
+        self.bindSpawnedSerfToHut(s1, id, b);
         Building.list[b].serfs[s2] = s2;
-        Player.list[s2].work = {hq:b,spot:null};
+        self.bindSpawnedSerfToHut(s2, id, b);
       } else {
         // Lumbermill or mine - second serf must be male to ensure valid work HQ
         SerfM({
@@ -587,10 +637,10 @@ Goths = function(param){
         serfIds.push(s2);
         // First serf is always male, so always assign
         Building.list[b].serfs[s1] = s1;
-        Player.list[s1].work = {hq:b,spot:null};
+        self.bindSpawnedSerfToHut(s1, id, b);
         // Second serf is male, assign work
         Building.list[b].serfs[s2] = s2;
-        Player.list[s2].work = {hq:b,spot:null};
+        self.bindSpawnedSerfToHut(s2, id, b);
       }
       
       // Log successful spawn
@@ -599,6 +649,7 @@ Goths = function(param){
           genderBreakdown: genderBreakdown,
           workHQ: b,
           hutId: id,
+          builderAccess: hutSpot.builderAccess || null,
           spawnMethod: 'hq'
         });
       }
@@ -618,7 +669,8 @@ Goths = function(param){
       // Log failed spawn - no hut spot found
       if(global.eventManager){
         global.eventManager.serfSpawnFailed(building, 'no_hut_spot_found', {
-          searchRadius: searchRadius
+          searchRadius: searchRadius,
+          placement: self.getHousePlacementDiagnostics('gothhut', loc, searchRadius)
         });
       }
       return false; // Failure
@@ -1216,21 +1268,12 @@ Franks = function(param){
     
     
     // Use new building placement system
-    var hutSpot = global.tilemapSystem.findBuildingSpot('frankhut', loc, searchRadius);
+    var hutSpot = self.findHouseBuildingSpot('frankhut', loc, searchRadius);
     
     if(hutSpot){
       var plot = hutSpot.plot;
       var walls = hutSpot.walls;
-      // Store original terrain before changing tiles
-      var baseTerrain = [];
-      for(var i in plot){
-        var p = plot[i];
-        baseTerrain.push(getTile(0, p[0], p[1]));
-        tileChange(0,p[0],p[1],11);
-        // Foundation tiles must remain walkable during construction
-        matrixChange(0,p[0],p[1],0);
-        tileChange(6,p[0],p[1],0);
-      }
+      var baseTerrain = self.applyWalkableFoundation(plot);
       mapEdit();
       var center = getCoords(plot[3][0],plot[3][1]);
       var id = Math.random();
@@ -1346,9 +1389,9 @@ Franks = function(param){
         }
         serfIds.push(s2);
         Building.list[b].serfs[s1] = s1;
-        Player.list[s1].work = {hq:b,spot:null};
+        self.bindSpawnedSerfToHut(s1, id, b);
         Building.list[b].serfs[s2] = s2;
-        Player.list[s2].work = {hq:b,spot:null};
+        self.bindSpawnedSerfToHut(s2, id, b);
       } else {
         // Lumbermill or mine - second serf must be male to ensure valid work HQ
         SerfM({
@@ -1365,10 +1408,10 @@ Franks = function(param){
         serfIds.push(s2);
         // First serf is always male, so always assign
         Building.list[b].serfs[s1] = s1;
-        Player.list[s1].work = {hq:b,spot:null};
+        self.bindSpawnedSerfToHut(s1, id, b);
         // Second serf is male, assign work
         Building.list[b].serfs[s2] = s2;
-        Player.list[s2].work = {hq:b,spot:null};
+        self.bindSpawnedSerfToHut(s2, id, b);
       }
       
       // Log successful spawn
@@ -1377,6 +1420,7 @@ Franks = function(param){
           genderBreakdown: genderBreakdown,
           workHQ: b,
           hutId: id,
+          builderAccess: hutSpot.builderAccess || null,
           spawnMethod: 'hq'
         });
       }
@@ -1396,7 +1440,8 @@ Franks = function(param){
       // Log failed spawn - no hut spot found
       if(global.eventManager){
         global.eventManager.serfSpawnFailed(building, 'no_hut_spot_found', {
-          searchRadius: searchRadius
+          searchRadius: searchRadius,
+          placement: self.getHousePlacementDiagnostics('frankhut', loc, searchRadius)
         });
       }
       return false; // Failure
@@ -1932,21 +1977,12 @@ Celts = function(param){
     
     
     // Use new building placement system
-    var hutSpot = global.tilemapSystem.findBuildingSpot('celthut', loc, searchRadius);
+    var hutSpot = self.findHouseBuildingSpot('celthut', loc, searchRadius);
     
     if(hutSpot){
       var plot = hutSpot.plot;
       var walls = hutSpot.walls;
-      // Store original terrain before changing tiles
-      var baseTerrain = [];
-      for(var i in plot){
-        var p = plot[i];
-        baseTerrain.push(getTile(0, p[0], p[1]));
-        tileChange(0,p[0],p[1],11);
-        // Foundation tiles must remain walkable during construction
-        matrixChange(0,p[0],p[1],0);
-        tileChange(6,p[0],p[1],0);
-      }
+      var baseTerrain = self.applyWalkableFoundation(plot);
       mapEdit();
       var center = getCoords(plot[3][0],plot[3][1]);
       var id = Math.random();
@@ -2062,9 +2098,9 @@ Celts = function(param){
         }
         serfIds.push(s2);
         Building.list[b].serfs[s1] = s1;
-        Player.list[s1].work = {hq:b,spot:null};
+        self.bindSpawnedSerfToHut(s1, id, b);
         Building.list[b].serfs[s2] = s2;
-        Player.list[s2].work = {hq:b,spot:null};
+        self.bindSpawnedSerfToHut(s2, id, b);
       } else {
         // Lumbermill or mine - second serf must be male to ensure valid work HQ
         SerfM({
@@ -2081,10 +2117,10 @@ Celts = function(param){
         serfIds.push(s2);
         // First serf is always male, so always assign
         Building.list[b].serfs[s1] = s1;
-        Player.list[s1].work = {hq:b,spot:null};
+        self.bindSpawnedSerfToHut(s1, id, b);
         // Second serf is male, assign work
         Building.list[b].serfs[s2] = s2;
-        Player.list[s2].work = {hq:b,spot:null};
+        self.bindSpawnedSerfToHut(s2, id, b);
       }
       
       // Log successful spawn
@@ -2093,6 +2129,7 @@ Celts = function(param){
           genderBreakdown: genderBreakdown,
           workHQ: b,
           hutId: id,
+          builderAccess: hutSpot.builderAccess || null,
           spawnMethod: 'hq'
         });
       }
@@ -2112,7 +2149,8 @@ Celts = function(param){
       // Log failed spawn - no hut spot found
       if(global.eventManager){
         global.eventManager.serfSpawnFailed(building, 'no_hut_spot_found', {
-          searchRadius: searchRadius
+          searchRadius: searchRadius,
+          placement: self.getHousePlacementDiagnostics('celthut', loc, searchRadius)
         });
       }
       return false; // Failure
@@ -2438,21 +2476,12 @@ Teutons = function(param){
     
     
     // Use new building placement system
-    var hutSpot = global.tilemapSystem.findBuildingSpot('teuthut', loc, searchRadius);
+    var hutSpot = self.findHouseBuildingSpot('teuthut', loc, searchRadius);
     
     if(hutSpot){
       var plot = hutSpot.plot;
       var walls = hutSpot.walls;
-      // Store original terrain before changing tiles
-      var baseTerrain = [];
-      for(var i in plot){
-        var p = plot[i];
-        baseTerrain.push(getTile(0, p[0], p[1]));
-        tileChange(0,p[0],p[1],11);
-        // Foundation tiles must remain walkable during construction
-        matrixChange(0,p[0],p[1],0);
-        tileChange(6,p[0],p[1],0);
-      }
+      var baseTerrain = self.applyWalkableFoundation(plot);
       mapEdit();
       var center = getCoords(plot[3][0],plot[3][1]);
       var id = Math.random();
@@ -2568,9 +2597,9 @@ Teutons = function(param){
         }
         serfIds.push(s2);
         Building.list[b].serfs[s1] = s1;
-        Player.list[s1].work = {hq:b,spot:null};
+        self.bindSpawnedSerfToHut(s1, id, b);
         Building.list[b].serfs[s2] = s2;
-        Player.list[s2].work = {hq:b,spot:null};
+        self.bindSpawnedSerfToHut(s2, id, b);
       } else {
         // Lumbermill or mine - second serf must be male to ensure valid work HQ
         SerfM({
@@ -2587,10 +2616,10 @@ Teutons = function(param){
         serfIds.push(s2);
         // First serf is always male, so always assign
         Building.list[b].serfs[s1] = s1;
-        Player.list[s1].work = {hq:b,spot:null};
+        self.bindSpawnedSerfToHut(s1, id, b);
         // Second serf is male, assign work
         Building.list[b].serfs[s2] = s2;
-        Player.list[s2].work = {hq:b,spot:null};
+        self.bindSpawnedSerfToHut(s2, id, b);
       }
       
       // Log successful spawn
@@ -2599,6 +2628,7 @@ Teutons = function(param){
           genderBreakdown: genderBreakdown,
           workHQ: b,
           hutId: id,
+          builderAccess: hutSpot.builderAccess || null,
           spawnMethod: 'hq'
         });
       }
@@ -2618,7 +2648,8 @@ Teutons = function(param){
       // Log failed spawn - no hut spot found
       if(global.eventManager){
         global.eventManager.serfSpawnFailed(building, 'no_hut_spot_found', {
-          searchRadius: searchRadius
+          searchRadius: searchRadius,
+          placement: self.getHousePlacementDiagnostics('teuthut', loc, searchRadius)
         });
       }
       return false; // Failure
@@ -3715,29 +3746,55 @@ convertHouse = function(id){
   
   // Track building conversions
   var convertedBuildings = [];
-  var convertedSerfIds = [];
+  var convertedUnitIds = [];
+  var ownedBuildingIds = {};
+  var ownedBuildingHomeTiles = {};
+  
+  var markUnitConverted = function(unitId){
+    if(convertedUnitIds.indexOf(unitId) === -1){
+      convertedUnitIds.push(unitId);
+    }
+  };
+  
+  var markBuildingHomeTiles = function(building){
+    if(!building || !building.plot){
+      return;
+    }
+    for(var p in building.plot){
+      var plotTile = building.plot[p];
+      if(plotTile && plotTile.length >= 2){
+        ownedBuildingHomeTiles[plotTile[0] + ',' + plotTile[1]] = true;
+      }
+    }
+  };
   
   // First pass: Convert buildings
   for(var i in Building.list){
     var b = Building.list[i];
     if(b.owner == id){
       convertedBuildings.push({ id: b.id, type: b.type });
+      ownedBuildingIds[b.id] = true;
+      markBuildingHomeTiles(b);
       Building.list[i].house = house;
       if(b.patrol && b.built){
         House.list[house].military.patrol.push(b.id);
       }
       
-      // Convert serfs directly tracked in building.serfs
+      // Convert units directly tracked in building.serfs
       if(b.serfs){
         for(var s in b.serfs){
-          var serf = b.serfs[s];
-          if(Player.list[serf]){
-            Player.list[serf].house = house;
-            if(convertedSerfIds.indexOf(serf) === -1){
-              convertedSerfIds.push(serf);
-            }
+          var unitId = b.serfs[s];
+          if(Player.list[unitId]){
+            Player.list[unitId].house = house;
+            markUnitConverted(unitId);
           }
         }
+      }
+      
+      // Convert tavern civilians that are linked directly off the building.
+      if(b.innkeeper && Player.list[b.innkeeper]){
+        Player.list[b.innkeeper].house = house;
+        markUnitConverted(b.innkeeper);
       }
       
       // Transfer resources from building.dailyStores to faction stores
@@ -3758,42 +3815,48 @@ convertHouse = function(id){
     }
   }
   
-  // Second pass: Find all serfs linked to player buildings via hut or work.hq
-  // This catches serfs that were spawned before faction creation with house: undefined
-  for(var serfId in Player.list){
-    var serf = Player.list[serfId];
-    if(!serf || serf.type === 'player') continue; // Skip players
+  // Second pass: Find all units linked to player buildings via hut/work/tavern/home.
+  // This catches tavern civilians and units that were spawned before faction creation.
+  for(var unitId in Player.list){
+    var unit = Player.list[unitId];
+    if(!unit || unit.type === 'player') continue; // Skip players
     
-    // Check if serf is a serf (SerfM or SerfF)
-    var serfClass = serf.class || '';
-    var isSerf = serfClass === 'SerfM' || serfClass === 'SerfF' || serfClass === 'Serf';
-    
-    if(!isSerf) continue;
+    var unitClass = unit.class || '';
+    var isSerf = unitClass === 'SerfM' || unitClass === 'SerfF' || unitClass === 'Serf';
+    var isLinkedCivilian = !!unit.isNonCombatant;
+    if(!isSerf && !isLinkedCivilian) continue;
     
     var shouldConvert = false;
     
-    // Check if serf has hut pointing to player building
-    if(serf.hut){
-      var hutBuilding = Building.list[serf.hut];
+    if(unit.hut){
+      var hutBuilding = Building.list[unit.hut];
       if(hutBuilding && hutBuilding.owner === id){
         shouldConvert = true;
       }
     }
     
-    // Check if serf has work.hq pointing to player building
-    if(serf.work && serf.work.hq){
-      var workBuilding = Building.list[serf.work.hq];
+    if(!shouldConvert && unit.work && unit.work.hq){
+      var workBuilding = Building.list[unit.work.hq];
       if(workBuilding && workBuilding.owner === id){
         shouldConvert = true;
       }
     }
     
-    // Convert if linked to player building and either has no house or different house
-    if(shouldConvert && (serf.house === undefined || serf.house === null || serf.house !== house)){
-      serf.house = house;
-      if(convertedSerfIds.indexOf(serfId) === -1){
-        convertedSerfIds.push(serfId);
+    if(!shouldConvert && unit.tavern && ownedBuildingIds[unit.tavern]){
+      shouldConvert = true;
+    }
+    
+    if(!shouldConvert && unit.home && unit.home.loc){
+      var homeKey = unit.home.loc[0] + ',' + unit.home.loc[1];
+      if(ownedBuildingHomeTiles[homeKey]){
+        shouldConvert = true;
       }
+    }
+    
+    // Convert if linked to player building and either has no house or different house
+    if(shouldConvert && (unit.house === undefined || unit.house === null || unit.house !== house)){
+      unit.house = house;
+      markUnitConverted(unitId);
     }
   }
   
@@ -3815,19 +3878,19 @@ convertHouse = function(id){
   }
   
   // Create unit/serf conversion event
-  if(global.eventManager && convertedSerfIds.length > 0){
+  if(global.eventManager && convertedUnitIds.length > 0){
     global.eventManager.createEvent({
       category: global.eventManager.categories.FACTION,
       subject: id,
       subjectName: player.name || player.class,
       action: 'converted units to faction',
-      quantity: convertedSerfIds.length,
+      quantity: convertedUnitIds.length,
       house: house,
       houseName: houseName,
       communication: global.eventManager.commModes.NONE,
-      log: `[FACTION] ${player.name || player.class} converted ${convertedSerfIds.length} unit(s) to faction "${houseName}"`,
+      log: `[FACTION] ${player.name || player.class} converted ${convertedUnitIds.length} unit(s) to faction "${houseName}"`,
       position: { x: player.x, y: player.y, z: player.z || 0 },
-      metadata: { serfIds: convertedSerfIds }
+      metadata: { unitIds: convertedUnitIds }
     });
   }
 }

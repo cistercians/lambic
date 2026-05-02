@@ -12,6 +12,36 @@ class GoalChain {
     this.failureReason = null; // Track why chain failed
     this.blockingFactors = []; // Track blocking factors at failure
   }
+
+  static getGoalIdentity(goal) {
+    if (!goal) return 'unknown';
+    if (typeof goal.getChainIdentity === 'function') {
+      return goal.getChainIdentity();
+    }
+    return goal.type || 'unknown';
+  }
+
+  static getGoalHistory(house, goal) {
+    const historyMap = house?.ai?.goalFailureHistory;
+    if (!historyMap || !goal) {
+      return null;
+    }
+
+    const exactKey = typeof goal.getFailureHistoryKey === 'function'
+      ? goal.getFailureHistoryKey()
+      : GoalChain.getGoalIdentity(goal);
+
+    return historyMap.get(exactKey) || historyMap.get(goal.type) || null;
+  }
+
+  static hasAvailableScoutingUnits(house) {
+    if (!house?.ai?.getMilitaryUnits) {
+      return false;
+    }
+
+    const militaryUnits = house.ai.getMilitaryUnits();
+    return militaryUnits.some(unit => unit && !unit.toRemove && !unit.scoutingParty);
+  }
   
   // Convert a blocked goal into a chain of achievable subgoals
   // Iterative queue-based approach for better traceability and debugging
@@ -36,10 +66,10 @@ class GoalChain {
     // Track dependency path to detect cycles (e.g., SCOUT_FOR_RESOURCE -> BUILD_LUMBERMILL -> SCOUT_FOR_RESOURCE)
     // For each goal in queue, track its ancestor chain
     const getAncestorChain = (goal, parent, ancestorMap) => {
-      const chain = [goal.type];
+      const chain = [GoalChain.getGoalIdentity(goal)];
       let current = parent;
       while (current) {
-        chain.unshift(current.type);
+        chain.unshift(GoalChain.getGoalIdentity(current));
         current = ancestorMap.get(current);
       }
       return chain;
@@ -93,7 +123,9 @@ class GoalChain {
       }
       
       // Create context key for cycle detection (goal type + what it's blocking)
-      const contextKey = parent ? `${g.type}:for-${parent.type}` : g.type;
+      const goalIdentity = GoalChain.getGoalIdentity(g);
+      const parentIdentity = parent ? GoalChain.getGoalIdentity(parent) : null;
+      const contextKey = parentIdentity ? `${goalIdentity}:for-${parentIdentity}` : goalIdentity;
       
       // Prevent cycles - check if we've seen this goal in this context
       if (visited.has(contextKey)) {
@@ -114,7 +146,7 @@ class GoalChain {
       
       // Check if goal can execute (cache blocking factors to avoid redundant calls)
       let blocking;
-      const cacheKey = `${g.type}:${house.id}`;
+      const cacheKey = `${house.id}:${goalIdentity}`;
       if (blockingCache.has(cacheKey)) {
         blocking = blockingCache.get(cacheKey);
       } else {
@@ -242,17 +274,7 @@ class GoalChain {
             if (!hasBuilding && hasResourceGap) {
               // Check if scouting is feasible (units available) before adding scout goal
               // This prevents cycles when scouting is blocked by UNITS
-              let canScout = false;
-              if (house.ai && house.ai.getMilitaryUnits) {
-                const militaryUnits = house.ai.getMilitaryUnits();
-                // Filter out units already in scouting parties
-                const availableUnits = militaryUnits.filter(unit => {
-                  if (!unit || unit.toRemove) return false;
-                  if (unit.scoutingParty) return false;
-                  return true;
-                });
-                canScout = availableUnits.length >= 1;
-              }
+              const canScout = GoalChain.hasAvailableScoutingUnits(house);
               
               // Also check if zone is known (no scouting needed)
               let zoneKnown = false;
@@ -267,14 +289,17 @@ class GoalChain {
                 const { ScoutForResourceGoal } = require('./Goals');
                 const scoutGoal = new ScoutForResourceGoal(block.resource);
                 
-                // Check for cycle before adding: if ancestor chain already contains SCOUT_FOR_RESOURCE, skip
-                const hasScoutInChain = ancestorChain.includes('SCOUT_FOR_RESOURCE');
+                const scoutIdentity = GoalChain.getGoalIdentity(scoutGoal);
+                // Check for cycle before adding: if ancestor chain already contains this scout goal, reuse it
+                const hasScoutInChain = ancestorChain.includes(scoutIdentity);
                 if (hasScoutInChain) {
-                  // Cycle detected - skip scouting and build building directly
+                  // Reuse the earlier scout step instead of creating another dependency edge.
+                  dependenciesAdded = true;
                   if (logger) {
-                    logger.collectInfo(`  -> Skipping SCOUT_FOR_RESOURCE (cycle detected in chain: ${ancestorChain.join(' -> ')}) - building ${buildingType} directly`);
-                    console.warn(`[GoalChain] Cycle prevention: Skipping SCOUT_FOR_RESOURCE for ${block.resource} (already in chain) - building ${buildingType} directly`);
+                    logger.collectInfo(`  -> Reusing existing SCOUT_FOR_RESOURCE for ${block.resource} (already in chain: ${ancestorChain.join(' -> ')})`);
+                    console.warn(`[GoalChain] Cycle prevention: Reusing SCOUT_FOR_RESOURCE for ${block.resource} (already in chain)`);
                   }
+                  continue;
                 } else {
                   queue.push({
                     goal: scoutGoal,
@@ -334,30 +359,36 @@ class GoalChain {
               }
               
               if (buildGoal) {
-                // Check for cycle: if this building goal type is already in ancestor chain with SCOUT_FOR_RESOURCE, skip to prevent cycle
-                // Example: BUILD_LUMBERMILL -> SCOUT_FOR_RESOURCE -> BUILD_LUMBERMILL (cycle)
-                const hasBuildingInChain = ancestorChain.includes(buildGoal.type);
-                if (hasBuildingInChain && ancestorChain.includes('SCOUT_FOR_RESOURCE')) {
-                  // Cycle detected: SCOUT_FOR_RESOURCE -> BUILD_LUMBERMILL -> SCOUT_FOR_RESOURCE
-                  // Skip adding building goal to break cycle
+                const buildIdentity = GoalChain.getGoalIdentity(buildGoal);
+                const hasBuildingInChain = ancestorChain.includes(buildIdentity);
+                const hasScoutInChain = ancestorChain.some(identity => identity.startsWith('SCOUT_FOR_RESOURCE|'));
+                const isSelfDependency = buildGoal.type === g.type && buildIdentity === goalIdentity;
+
+                if (isSelfDependency) {
+                  errors.push(`Self dependency detected: ${goalIdentity} requires itself for ${block.resource}`);
                   if (logger) {
-                    logger.collectInfo(`  -> Skipping ${buildGoal.type} (cycle detected: ${ancestorChain.join(' -> ')} -> ${buildGoal.type}) - breaking cycle`);
-                    console.warn(`[GoalChain] Cycle prevention: Skipping ${buildGoal.type} (already in chain with SCOUT_FOR_RESOURCE) - breaking cycle`);
+                    logger.collectInfo(`  -> Skipping ${buildGoal.type} because ${g.type} would depend on itself for ${block.resource}`);
+                    console.warn(`[GoalChain] Self dependency detected: ${goalIdentity} requires itself for ${block.resource}`);
                   }
-                  errors.push(`Cycle detected: ${ancestorChain.join(' -> ')} -> ${buildGoal.type} - breaking cycle by skipping ${buildGoal.type}`);
-                  continue; // Skip adding this goal to break the cycle
-                }
-                
-                queue.push({
-                  goal: buildGoal,
-                  parent: g,
-                  depth: depth + 1,
-                  reason: `needs resource: ${block.resource} (requires ${buildingType}${mineType !== 'any' ? ` - ${mineType} type` : ''})`
-                });
-                dependenciesAdded = true;
-                
-                if (logger) {
-                  logger.collectInfo(`  -> Need ${buildGoal.type} to gather ${block.resource} (for ${g.type})${mineType !== 'any' ? ` - ${mineType} mine` : ''}`);
+                } else if (hasBuildingInChain && hasScoutInChain) {
+                  dependenciesAdded = true;
+                  if (logger) {
+                    logger.collectInfo(`  -> Reusing existing dependency path for ${buildGoal.type} (already in chain: ${ancestorChain.join(' -> ')})`);
+                    console.warn(`[GoalChain] Cycle prevention: Reusing existing dependency path for ${buildGoal.type}`);
+                  }
+                  continue;
+                } else {
+                  queue.push({
+                    goal: buildGoal,
+                    parent: g,
+                    depth: depth + 1,
+                    reason: `needs resource: ${block.resource} (requires ${buildingType}${mineType !== 'any' ? ` - ${mineType} type` : ''})`
+                  });
+                  dependenciesAdded = true;
+                  
+                  if (logger) {
+                    logger.collectInfo(`  -> Need ${buildGoal.type} to gather ${block.resource} (for ${g.type})${mineType !== 'any' ? ` - ${mineType} mine` : ''}`);
+                  }
                 }
               } else {
                 errors.push(`Cannot create build goal for ${buildingType} (needed for ${block.resource}) - check building definitions`);
@@ -380,7 +411,7 @@ class GoalChain {
                   additionalBuildGoal.mineType = mineType;
                 }
                 
-                if (additionalBuildGoal) {
+                if (additionalBuildGoal && GoalChain.getGoalIdentity(additionalBuildGoal) !== goalIdentity) {
                   queue.push({
                     goal: additionalBuildGoal,
                     parent: g,
@@ -421,7 +452,7 @@ class GoalChain {
                   additionalBuildGoal.mineType = mineType;
                 }
                 
-                if (additionalBuildGoal) {
+                if (additionalBuildGoal && GoalChain.getGoalIdentity(additionalBuildGoal) !== goalIdentity) {
                   queue.push({
                     goal: additionalBuildGoal,
                     parent: g,
@@ -494,22 +525,13 @@ class GoalChain {
           // For any BUILD_* goal: if location blocking has occurred multiple times, try territory expansion
           if (g.type.startsWith('BUILD_') && house.ai) {
             const goalType = g.type;
-            const history = house.ai.goalFailureHistory?.get(goalType);
+            const history = GoalChain.getGoalHistory(house, g);
             const locationBlockCount = history?.locationBlockCount || 0;
             
             // If location blocked 2+ times (lowered from 3 for faster response), suggest territory expansion via ESTABLISH_OUTPOST
             if (locationBlockCount >= 2) {
               // Check if scouting is feasible (units available)
-              let canScout = false;
-              if (house.ai.getMilitaryUnits) {
-                const militaryUnits = house.ai.getMilitaryUnits();
-                const availableUnits = militaryUnits.filter(unit => {
-                  if (!unit || unit.toRemove) return false;
-                  if (unit.scoutingParty) return false;
-                  return true;
-                });
-                canScout = availableUnits.length >= 1;
-              }
+              const canScout = GoalChain.hasAvailableScoutingUnits(house);
               
               if (canScout) {
                 // Add ESTABLISH_OUTPOST goal to expand territory
@@ -770,7 +792,7 @@ class GoalChain {
       
       // Check if this goal has persistent location blocking
       const goalType = step.type;
-      const history = house.ai.goalFailureHistory?.get(goalType);
+      const history = GoalChain.getGoalHistory(house, step);
       const locationBlockCount = history?.locationBlockCount || 0;
       const lastLocationBlockDay = history?.lastLocationBlockDay || 0;
       
@@ -797,7 +819,7 @@ class GoalChain {
           chain.errors.push(errorMsg);
           
           if (logger) {
-            logger.collectError(`Chain validation failed for ${goalType}`, null, {
+            logger.collectInfo(`Chain validation warning for ${goalType}`, {
               reason: errorMsg
             });
             logger.collectGoalFailureContext({
@@ -805,23 +827,10 @@ class GoalChain {
               reason: errorMsg
             });
           }
-          
-          if (global.eventManager && typeof global.eventManager.aiEvent === 'function') {
-            global.eventManager.aiEvent('chain validation failed', {
-              subject: house?.id || null,
-              subjectName: house?.name || null,
-              house: house?.id || null,
-              houseName: house?.name || null,
-              metadata: {
-                goal: goalType,
-                reason: errorMsg
-              }
-            });
-          }
-          
-          // Clear steps to prevent execution
-          chain.steps = [];
-          return; // Stop validation, chain is invalid
+
+          // Keep the chain intact so prerequisite work and alternate recovery paths can
+          // still execute on later evaluations instead of hard-resetting immediately.
+          continue;
         } else {
           // Expansion is in chain, allow it to proceed (expansion will handle location blocking)
           if (logger) {
@@ -839,11 +848,11 @@ class GoalChain {
     // Track the last index where each goal type appears
     const lastIndex = new Map();
     for (let i = 0; i < steps.length; i++) {
-      lastIndex.set(steps[i].type, i);
+      lastIndex.set(GoalChain.getGoalIdentity(steps[i]), i);
     }
     
     // Keep only steps that appear at their last index
-    return steps.filter((step, index) => lastIndex.get(step.type) === index);
+    return steps.filter((step, index) => lastIndex.get(GoalChain.getGoalIdentity(step)) === index);
   }
   
   // Get current goal to execute

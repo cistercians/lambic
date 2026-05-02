@@ -6,7 +6,6 @@ class LogParser {
     this.extractors = extractors;
     this.unrecognizedExtractor = unrecognizedExtractor;
     this.parserVersion = parserVersion;
-    this.eventLineCount = 0; // Track number of [EVENT] lines seen for debug logging
   }
 
   async parseFile(filePath) {
@@ -34,7 +33,6 @@ class LogParser {
   }
 
   _resetExtractors() {
-    this.eventLineCount = 0; // Reset event line counter
     for (const extractor of this.extractors) {
       if (extractor && typeof extractor.reset === 'function') {
         extractor.reset();
@@ -47,42 +45,14 @@ class LogParser {
 
   _runExtractors(line, context) {
     let handled = false;
-    const isEventLine = line.trim().startsWith('[EVENT]');
-    let shouldLog = false;
-    
-    if (isEventLine) {
-      this.eventLineCount += 1;
-      shouldLog = this.eventLineCount <= 5; // Log first 5 [EVENT] lines encountered
-    }
-    
-    if (shouldLog) {
-      console.log(`[DEBUG] Processing [EVENT] line ${context.lineNumber} (event #${this.eventLineCount}): ${line.substring(0, 80)}...`);
-    }
-    
+
     for (const extractor of this.extractors) {
       if (!extractor || extractor.enabled === false) continue;
-      
-      if (shouldLog) {
-        console.log(`[DEBUG]   Trying extractor: ${extractor.name}`);
-      }
-      
       const result = extractor.extract(line, context);
-      
-      if (shouldLog) {
-        console.log(`[DEBUG]     ${extractor.name}.extract() returned: ${result}`);
-      }
-      
       if (result) handled = true;
     }
-    
-    if (shouldLog) {
-      console.log(`[DEBUG]   Line handled: ${handled}`);
-    }
-    
+
     if (!handled && this.unrecognizedExtractor && this.unrecognizedExtractor.enabled !== false) {
-      if (shouldLog) {
-        console.log(`[DEBUG]   Sending to UnrecognizedExtractor`);
-      }
       this.unrecognizedExtractor.extract(line, context);
     }
   }

@@ -8,7 +8,6 @@ class ErrorExtractor extends BaseExtractor {
     this.inErrorsSection = false;
     this.currentError = null;
     this.lastFaction = null;
-    this.eventLineCount = 0; // Track number of [EVENT] lines seen for debug logging
   }
 
   initializeStats() {
@@ -25,22 +24,10 @@ class ErrorExtractor extends BaseExtractor {
     this.inErrorsSection = false;
     this.currentError = null;
     this.lastFaction = null;
-    this.eventLineCount = 0; // Reset event line counter
   }
 
   extract(line, context) {
     const trimmed = line.trim();
-    const isEventLine = trimmed.startsWith('[EVENT]');
-    let shouldLog = false;
-    
-    if (isEventLine) {
-      this.eventLineCount += 1;
-      shouldLog = this.eventLineCount <= 5; // Log first 5 [EVENT] lines encountered
-    }
-    
-    if (shouldLog) {
-      console.log(`[DEBUG] ErrorExtractor.extract() called for [EVENT] line ${context.lineNumber} (event #${this.eventLineCount})`);
-    }
     
     // Detect "ERRORS:" section header
     if (trimmed === 'ERRORS:') {
@@ -100,16 +87,9 @@ class ErrorExtractor extends BaseExtractor {
     }
 
     // Standard error detection
-    const severity = this._detectSeverity(line, shouldLog);
+    const severity = this._detectSeverity(line);
     if (!severity) {
-      if (shouldLog) {
-        console.log(`[DEBUG]   ErrorExtractor returning false (no severity detected)`);
-      }
       return false;
-    }
-    
-    if (shouldLog) {
-      console.log(`[DEBUG]   ErrorExtractor detected severity: ${severity} - returning true`);
     }
 
     const { category, message } = this._parseCategoryAndMessage(line, context);
@@ -173,65 +153,48 @@ class ErrorExtractor extends BaseExtractor {
     this.currentError = null;
   }
 
-  _detectSeverity(line, shouldLog = false) {
+  _detectSeverity(line) {
     const upperLine = line.toUpperCase();
-    const isEventLine = line.trim().startsWith('[EVENT]');
-    
-    if (shouldLog) {
-      console.log(`[DEBUG] ErrorExtractor._detectSeverity() called for [EVENT] line`);
-    }
     
     // Standard severity markers
     if (line.includes('[SerfLogger:WARN]') || line.includes('[WARN]')) {
-      if (shouldLog) console.log(`[DEBUG]   Matched: [WARN] marker`);
       return 'WARN';
     }
     
     // Check for [ERROR] explicitly first
     if (line.includes('[ERROR]')) {
-      if (shouldLog) console.log(`[DEBUG]   Matched: [ERROR] marker`);
       return 'ERROR';
     }
     
     // Don't match [EVENT] lines - check for ERROR but exclude EVENT
     if (upperLine.includes('ERROR') && !upperLine.includes('[EVENT]')) {
-      if (shouldLog) console.log(`[DEBUG]   Matched: ERROR in upperLine but excluded [EVENT]`);
       return 'ERROR';
     }
     
     if (line.includes('Exception') || line.includes('exception')) {
-      if (shouldLog) console.log(`[DEBUG]   Matched: Exception`);
       return 'ERROR';
     }
     
     if (line.includes('Error') && line.includes(']')) {
-      if (shouldLog) console.log(`[DEBUG]   Matched: Error with ]`);
       return 'ERROR';
     }
     
     // Detect "Error:" pattern (with colon) even without brackets
     if (/Error:\s*/.test(line)) {
-      if (shouldLog) console.log(`[DEBUG]   Matched: Error: pattern`);
       return 'ERROR';
     }
     
     // Detect numbered error lines (pattern: " 1. Error...")
     if (/^\s*\d+\.\s+.*[Ee]rror/.test(line)) {
-      if (shouldLog) console.log(`[DEBUG]   Matched: numbered error line`);
       return 'ERROR';
     }
     
     // Case-insensitive error detection for lines containing error keywords
     // But exclude [EVENT] lines
     if (upperLine.includes('ERROR') && !upperLine.includes('NO ERROR') && !upperLine.includes('[EVENT]')) {
-      if (shouldLog) console.log(`[DEBUG]   Matched: ERROR keyword (excluded [EVENT])`);
       return 'ERROR';
     }
-    
-    if (shouldLog) {
-      console.log(`[DEBUG]   No match - returning null`);
-    }
-    
+
     return null;
   }
 

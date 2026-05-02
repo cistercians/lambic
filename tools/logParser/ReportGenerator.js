@@ -28,11 +28,11 @@ class ReportGenerator {
 
   _buildAiReport(reportData) {
     const errors = reportData.stats.errors || {};
-    const factionAiErrors = reportData.stats.factionAIReport?.errorCount || 0;
-    const totalErrors = (errors.totalErrors || 0) + factionAiErrors;
+    const totalErrors = errors.totalErrors || 0;
     const totalWarnings = errors.totalWarnings || 0;
     const failureSummaries = this._buildFailureSummaries(reportData);
     const eventSummaries = this._buildEventSummaries(reportData);
+    const garrisonSummary = this._buildGarrisonSummary(reportData);
     const actionableInsights = this._buildActionableInsights(reportData);
     const visualizationData = this._buildVisualizationData(reportData);
     const troubleshootingGuide = this._buildTroubleshootingGuide(reportData);
@@ -53,7 +53,8 @@ class ReportGenerator {
       evidence: reportData.evidence,
       summaries: {
         failureSummaries,
-        eventSummaries
+        eventSummaries,
+        garrisonSummary
       },
       actionableInsights,
       visualizationData,
@@ -79,14 +80,19 @@ class ReportGenerator {
     lines.push('SUMMARY');
     lines.push('-------');
     const errors = stats.errors || {};
-    const factionAiErrors = stats.factionAIReport?.errorCount || 0;
-    lines.push(`Errors: ${(errors.totalErrors || 0) + factionAiErrors}`);
+    lines.push(`Errors: ${errors.totalErrors || 0}`);
     lines.push(`Warnings: ${errors.totalWarnings || 0}`);
     lines.push(`Combat events: ${(stats.combat && stats.combat.totalAttacks) || 0} attacks, ${(stats.combat && stats.combat.totalDeaths) || 0} deaths`);
     lines.push(`Economic deposits: ${(stats.economy && stats.economy.totalDeposits) || 0}`);
     const serfSpawning = stats.eventManager && stats.eventManager.serfSpawning;
     if (serfSpawning) {
       lines.push(`Serf spawning: ${serfSpawning.spawnsSuccessful || 0} successful (${serfSpawning.totalSerfsSpawned || 0} serfs), ${serfSpawning.spawnsFailed || 0} failed, ${serfSpawning.tallyStarts || 0} tallies`);
+    }
+    const garrisonStats = stats.garrison;
+    if (garrisonStats) {
+      const passive = garrisonStats.passive || {};
+      const training = garrisonStats.trainMilitary || {};
+      lines.push(`Garrison recruitment: ${passive.successes || 0}/${passive.attempts || 0} passive successes, ${training.successes || 0} training successes, ${training.failures || 0} training failures`);
     }
     lines.push(`Unrecognized lines: ${(stats.unrecognized && stats.unrecognized.totalUnrecognized) || 0}`);
     lines.push('');
@@ -163,8 +169,66 @@ class ReportGenerator {
             .join(', ');
           lines.push(`Top failure reasons: ${topReasons}`);
         }
+        if (serfSpawning.failedPlacementReasons && Object.keys(serfSpawning.failedPlacementReasons).length > 0) {
+          const topPlacementReasons = Object.entries(serfSpawning.failedPlacementReasons)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 3)
+            .map(([reason, count]) => `${reason} (${count})`)
+            .join(', ');
+          lines.push(`Top placement blockers: ${topPlacementReasons}`);
+        }
+        if (serfSpawning.saturatedFailures) {
+          lines.push(`Saturation-like failures: ${serfSpawning.saturatedFailures}`);
+        }
         lines.push('');
       }
+
+      const serfRuntime = eventSummaries.eventManager.ai?.serfRuntime;
+      if (serfRuntime && (serfRuntime.normalizedStates || serfRuntime.recoveries || serfRuntime.idleWanders)) {
+        lines.push('SERF RUNTIME SUMMARY');
+        lines.push('--------------------');
+        lines.push(`State normalizations: ${serfRuntime.normalizedStates || 0}`);
+        lines.push(`Recovery transitions: ${serfRuntime.recoveries || 0}`);
+        lines.push(`Idle wander events: ${serfRuntime.idleWanders || 0}`);
+        if (serfRuntime.recoveryReasons && Object.keys(serfRuntime.recoveryReasons).length > 0) {
+          const topRecoveryReasons = Object.entries(serfRuntime.recoveryReasons)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 3)
+            .map(([reason, count]) => `${reason} (${count})`)
+            .join(', ');
+          lines.push(`Top recovery reasons: ${topRecoveryReasons}`);
+        }
+        if (serfRuntime.normalizedRecoveryTypes && Object.keys(serfRuntime.normalizedRecoveryTypes).length > 0) {
+          const topNormalizationTypes = Object.entries(serfRuntime.normalizedRecoveryTypes)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 3)
+            .map(([reason, count]) => `${reason} (${count})`)
+            .join(', ');
+          lines.push(`Top normalization types: ${topNormalizationTypes}`);
+        }
+        lines.push('');
+      }
+    }
+
+    const garrisonSummary = this._buildGarrisonSummary(reportData);
+    if (garrisonSummary) {
+      lines.push('GARRISON RECRUITMENT SUMMARY');
+      lines.push('----------------------------');
+      lines.push(`Passive attempts: ${garrisonSummary.passive.attempts}`);
+      lines.push(`Passive successes: ${garrisonSummary.passive.successes}`);
+      lines.push(`Passive failures: ${garrisonSummary.passive.failures}`);
+      if (garrisonSummary.passive.topFactions.length) {
+        lines.push(`Top factions: ${garrisonSummary.passive.topFactions.map(item => `${item.key} (${item.value})`).join(', ')}`);
+      }
+      if (garrisonSummary.passive.topFailureReasons.length) {
+        lines.push(`Top passive failure reasons: ${garrisonSummary.passive.topFailureReasons.map(item => `${item.key} (${item.value})`).join(', ')}`);
+      }
+      lines.push(`TrainMilitary successes: ${garrisonSummary.trainMilitary.successes}`);
+      lines.push(`TrainMilitary failures: ${garrisonSummary.trainMilitary.failures}`);
+      if (garrisonSummary.trainMilitary.topFailureReasons.length) {
+        lines.push(`Top training failure reasons: ${garrisonSummary.trainMilitary.topFailureReasons.map(item => `${item.key} (${item.value})`).join(', ')}`);
+      }
+      lines.push('');
     }
 
     lines.push('DETAILS');
@@ -176,6 +240,7 @@ class ReportGenerator {
     lines.push(this._formatSection('Serf', stats.serf));
     lines.push(this._formatSection('Faction AI', stats.factionAI));
     lines.push(this._formatSection('Event Manager', stats.eventManager));
+    lines.push(this._formatSection('Garrison', stats.garrison));
     lines.push(this._formatSection('Unrecognized', stats.unrecognized));
 
     if (anomalies.length) {
@@ -277,6 +342,32 @@ class ReportGenerator {
           byBuildingType: serfSpawning.byBuildingType || {},
           failedReasons: serfSpawning.failedReasons || {}
         }
+      }
+    };
+  }
+
+  _buildGarrisonSummary(reportData) {
+    const garrisonStats = reportData.stats.garrison;
+    if (!garrisonStats) return null;
+
+    const passive = garrisonStats.passive || {};
+    const trainMilitary = garrisonStats.trainMilitary || {};
+
+    return {
+      passive: {
+        attempts: passive.attempts || 0,
+        successes: passive.successes || 0,
+        failures: passive.failures || 0,
+        topFactions: summarizeCounts(passive.byFaction, 5),
+        topGarrisons: summarizeCounts(passive.byGarrison, 5),
+        topFailureReasons: summarizeCounts(passive.failuresByReason, 5)
+      },
+      trainMilitary: {
+        successes: trainMilitary.successes || 0,
+        failures: trainMilitary.failures || 0,
+        topSuccessFactions: summarizeCounts(trainMilitary.successesByFaction, 5),
+        topFailureFactions: summarizeCounts(trainMilitary.failuresByFaction, 5),
+        topFailureReasons: summarizeCounts(trainMilitary.failuresByReason, 5)
       }
     };
   }

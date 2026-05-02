@@ -13,6 +13,8 @@ class FactionKnowledge {
     this.lastUpdated = new Map(); // When we last saw each location
     this.knownZones = new Set(); // Zone IDs that intersect HQ/base radius (don't require scouting)
     this.zoneResourceInfo = new Map(); // Zone ID -> resource information from getZoneResourceTypes()
+    this.scoutedZones = new Map(); // Durable scout discoveries: zone ID -> { zone, resources, scoutedAt, scoutedDay }
+    this.clearedZones = new Set(); // Zone IDs successfully cleared by scouting parties
     
     // Perform initial territory scan on construction
     this.performInitialTerritoryScan();
@@ -447,30 +449,36 @@ class FactionKnowledge {
   
   // Check if a zone is known (intersects base radius, no scouting needed)
   isZoneKnown(zoneId) {
-    return this.knownZones.has(zoneId);
+    return this.knownZones.has(zoneId) || this.scoutedZones.has(zoneId);
   }
   
   // Get resource information for a known zone
   getZoneResources(zoneId) {
-    return this.zoneResourceInfo.get(zoneId) || null;
+    const scoutedInfo = this.scoutedZones.get(zoneId);
+    return this.zoneResourceInfo.get(zoneId) || (scoutedInfo ? scoutedInfo.resources : null) || null;
   }
   
   // Get all known zones that contain a specific resource type
   getKnownZoneResources(resourceType) {
     const zonesWithResource = [];
     
-    for (const zoneId of this.knownZones) {
-      const resources = this.zoneResourceInfo.get(zoneId);
+    const knownZoneIds = new Set([
+      ...this.knownZones,
+      ...this.scoutedZones.keys()
+    ]);
+
+    for (const zoneId of knownZoneIds) {
+      const resources = this.getZoneResources(zoneId);
       if (resources && this.hasResourceType(resources, resourceType)) {
         // Get zone object
-        let zone = null;
+        let zone = this.scoutedZones.get(zoneId)?.zone || null;
         if (global.zoneManager) {
           if (global.zoneManager.zones && global.zoneManager.zones.get) {
-            zone = global.zoneManager.zones.get(zoneId);
+            zone = zone || global.zoneManager.zones.get(zoneId);
           } else if (global.zoneManager.zones && global.zoneManager.zones[zoneId]) {
-            zone = global.zoneManager.zones[zoneId];
+            zone = zone || global.zoneManager.zones[zoneId];
           } else if (global.zoneManager.getZoneById) {
-            zone = global.zoneManager.getZoneById(zoneId);
+            zone = zone || global.zoneManager.getZoneById(zoneId);
           }
         }
         
@@ -487,25 +495,40 @@ class FactionKnowledge {
   markZoneAsKnown(zone) {
     if (!zone || !zone.id) return;
     
-    // Don't add zones that are already known
-    if (this.knownZones.has(zone.id)) return;
-    
-    // Mark zone as known
+    const existing = this.scoutedZones.get(zone.id);
+    const resources = global.zoneManager && global.zoneManager.getZoneResourceTypes
+      ? global.zoneManager.getZoneResourceTypes(zone)
+      : (existing ? existing.resources : null);
+
     this.knownZones.add(zone.id);
-    
-    // Store zone resource information
-    if (global.zoneManager && global.zoneManager.getZoneResourceTypes) {
-      const resources = global.zoneManager.getZoneResourceTypes(zone);
+    this.clearedZones.add(zone.id);
+    this.scoutedZones.set(zone.id, {
+      zone,
+      resources,
+      scoutedAt: existing ? existing.scoutedAt : Date.now(),
+      clearedAt: Date.now(),
+      scoutedDay: existing ? existing.scoutedDay : (global.day || 1),
+      clearedDay: global.day || 1
+    });
+
+    if (resources) {
       this.zoneResourceInfo.set(zone.id, resources);
     }
   }
   
   // Update known zones (call when territory expands)
   updateKnownZones() {
-    // Clear and rescan
+    // Clear territory-derived knowledge and rescan. Durable scout discoveries stay in scoutedZones.
     this.knownZones.clear();
     this.zoneResourceInfo.clear();
     this.scanKnownZones();
+
+    for (const [zoneId, info] of this.scoutedZones.entries()) {
+      this.knownZones.add(zoneId);
+      if (info.resources) {
+        this.zoneResourceInfo.set(zoneId, info.resources);
+      }
+    }
   }
 }
 

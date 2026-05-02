@@ -356,12 +356,27 @@ class GoalExecutor {
       const locationReason = locationBlocks.map(b => b.value).join(', ');
       console.warn(`[GoalExecutor] [${errorObj.timestamp}] [${errorObj.faction}] [${goal.type}] Location blocking detected: ${locationReason}`);
       
-      // Suggest fallback: if BUILD_MINE or BUILD_MILL fails due to location, suggest SCOUT_FOR_RESOURCE
-      if (goal.type === 'BUILD_MINE' || goal.type === 'BUILD_MILL') {
-        const house = this.house;
-        if (house && house.ai) {
-          // Track that we should suggest scouting for this resource
-          const resourceType = goal.type === 'BUILD_MINE' ? 'stone' : 'grain';
+      const house = this.house;
+      if (house && house.ai) {
+        // Record execution-time location blocking so locationBlockCount increments (triggers ESTABLISH_OUTPOST)
+        house.ai.recordLocationBlocking(goal);
+        
+        // Map location-blocked building goals to resource for SCOUT_FOR_RESOURCE
+        const goalToResource = {
+          BUILD_MILL: 'grain',
+          BUILD_FARM: 'grain',
+          BUILD_LUMBERMILL: 'wood',
+          BUILD_FORGE: 'ironore',
+          BUILD_GARRISON: 'stone',
+          BUILD_GUARDTOWER: 'stone'
+        };
+        let resourceType = goalToResource[goal.type];
+        if (goal.type === 'BUILD_MINE') {
+          const mineType = goal.mineType || 'any';
+          resourceType = mineType === 'stone' ? 'stone' : (mineType === 'cave' ? 'ironore' : 'stone');
+        }
+        
+        if (resourceType) {
           if (!house.ai.suggestedFallbackGoals) {
             house.ai.suggestedFallbackGoals = new Set();
           }

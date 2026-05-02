@@ -4,7 +4,6 @@ class EventManagerExtractor extends BaseExtractor {
   constructor(config = {}) {
     super('eventManager', config);
     this.stats = this.initializeStats();
-    this.eventLineCount = 0; // Track number of [EVENT] lines seen for debug logging
   }
 
   initializeStats() {
@@ -119,7 +118,14 @@ class EventManagerExtractor extends BaseExtractor {
       ai: {
         totalEvents: 0,
         eventsByType: {},
-        decisionPatterns: {}
+        decisionPatterns: {},
+        serfRuntime: {
+          normalizedStates: 0,
+          recoveries: 0,
+          idleWanders: 0,
+          recoveryReasons: {},
+          normalizedRecoveryTypes: {}
+        }
       },
       // Serf spawning specific stats
       serfSpawning: {
@@ -133,7 +139,9 @@ class EventManagerExtractor extends BaseExtractor {
         byBuildingType: {},
         bySpawnMethod: {},
         decisionReasons: {},
-        failedReasons: {}
+        failedReasons: {},
+        failedPlacementReasons: {},
+        saturatedFailures: 0
       },
       // Faction creation specific stats
       factionCreation: {
@@ -152,7 +160,6 @@ class EventManagerExtractor extends BaseExtractor {
 
   reset() {
     super.reset();
-    this.eventLineCount = 0; // Reset event line counter
     // Initialize anomaly detection tracking
     this._anomalyTracking = {
       eventRatesByWindow: [],
@@ -168,50 +175,19 @@ class EventManagerExtractor extends BaseExtractor {
   }
 
   extract(line, context) {
-    const isEventLine = line.trim().startsWith('[EVENT]');
-    let shouldLog = false;
-    
-    if (isEventLine) {
-      this.eventLineCount += 1;
-      shouldLog = this.eventLineCount <= 5; // Log first 5 [EVENT] lines encountered
-    }
-    
-    if (shouldLog) {
-      console.log(`[DEBUG] EventManagerExtractor.extract() called for line ${context.lineNumber} (event #${this.eventLineCount})`);
-      console.log(`[DEBUG]   line.startsWith('[EVENT]'): ${line.startsWith('[EVENT]')}`);
-      console.log(`[DEBUG]   line length: ${line.length}, first 50 chars: ${line.substring(0, 50)}`);
-    }
-    
     if (!line.startsWith('[EVENT]')) {
-      if (shouldLog) {
-        console.log(`[DEBUG]   EventManagerExtractor returning false (doesn't start with [EVENT])`);
-      }
       return false;
     }
-    
-    if (shouldLog) {
-      console.log(`[DEBUG]   EventManagerExtractor matched [EVENT] line`);
-    }
-    
+
     const payloadRaw = line.slice('[EVENT]'.length).trim();
     if (!payloadRaw) {
-      if (shouldLog) {
-        console.log(`[DEBUG]   EventManagerExtractor returning true (empty payload)`);
-      }
       return true;
     }
 
     let payload;
     try {
       payload = JSON.parse(payloadRaw);
-      if (shouldLog) {
-        console.log(`[DEBUG]   EventManagerExtractor parsed JSON successfully`);
-        console.log(`[DEBUG]   Category: ${payload.category}, Action: ${payload.action}`);
-      }
     } catch (error) {
-      if (shouldLog) {
-        console.log(`[DEBUG]   EventManagerExtractor JSON parse failed: ${error.message}`);
-      }
       this.addError({
         severity: 'WARN',
         category: 'event_manager',
@@ -301,10 +277,6 @@ class EventManagerExtractor extends BaseExtractor {
       timestamp: payload.ts || null,
       lineNumber: context.lineNumber
     });
-
-    if (shouldLog) {
-      console.log(`[DEBUG]   EventManagerExtractor returning true (processed successfully)`);
-    }
     
     return true;
   }
@@ -806,6 +778,17 @@ class EventManagerExtractor extends BaseExtractor {
       const pattern = metadata.decision || metadata.pattern || 'unknown';
       this._increment(aiStats.decisionPatterns, pattern);
     }
+
+    const serfRuntime = aiStats.serfRuntime;
+    if (action === 'serf state normalized') {
+      serfRuntime.normalizedStates += 1;
+      this._increment(serfRuntime.normalizedRecoveryTypes, metadata.recovery || 'unknown');
+    } else if (action === 'serf recovery transition') {
+      serfRuntime.recoveries += 1;
+      this._increment(serfRuntime.recoveryReasons, metadata.reason || metadata.recovery || 'unknown');
+    } else if (action === 'serf idle wander') {
+      serfRuntime.idleWanders += 1;
+    }
   }
 
   _trackSerfSpawning(payload, context) {
@@ -893,6 +876,14 @@ class EventManagerExtractor extends BaseExtractor {
       serfStats.spawnsFailed += 1;
       const reason = metadata.reason || 'unknown';
       this._increment(serfStats.failedReasons, reason);
+
+       const placement = metadata.placement || {};
+       if (placement.dominantFailure) {
+        this._increment(serfStats.failedPlacementReasons, placement.dominantFailure);
+      }
+      if (placement.isSaturated) {
+        serfStats.saturatedFailures += 1;
+      }
 
       if (payload.subjectName) {
         this._increment(serfStats.byBuildingType, payload.subjectName);
